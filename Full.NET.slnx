@@ -12,6 +12,7 @@
     <Project Path="src/BuildingBlocks/Full.NET.Migrations.DbUp/Full.NET.Migrations.DbUp.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Serialization.MessagePack/Full.NET.Serialization.MessagePack.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Validation.FluentValidation/Full.NET.Validation.FluentValidation.csproj" />
   </Folder>
   <Folder Name="/src/Compatibility/">
     <Project Path="src/Compatibility/Full.NET.Compatibility.AdminNet/Full.NET.Compatibility.AdminNet.csproj" />
