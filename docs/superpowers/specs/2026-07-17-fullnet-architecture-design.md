@@ -1,6 +1,6 @@
 # Full.NET 总体架构设计规格
 
-- 状态：已完成方案确认，等待正式规格复核
+- 状态：已根据规格评审更新，等待最终批准
 - 日期：2026-07-17
 - 项目目录：`G:\wwwroot\github_fork\Full.NET`
 - 产品名称：Full.NET
@@ -33,6 +33,12 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - 最终公开仓库使用 MIT License，并维护第三方许可清单。
 - 管理端继续采用 Vue 3 技术路线，但与后端通过 OpenAPI 和 TypeScript 客户端解耦。
 
+### 2.3 长期功能基线
+
+`G:\wwwroot\github_fork\Admin.NET.Pro` 的 v2.1 分支是 Full.NET 的长期功能对标基线。Admin.NET.Pro 中具备实际使用价值的功能，原则上都必须在 Full.NET 的 Core、Official Module、Provider、Sample 或 Client 中找到对应实现。
+
+“全量对标”指业务能力、使用流程和交付价值对等，不要求复制原表结构、API、依赖方式或源码。Full.NET 可以为了安全性、模块边界、性能和可维护性采用不同实现。详细范围和状态维护在 `docs/roadmap/adminnet-feature-parity.md`。
+
 ## 3. 架构目标与非目标
 
 ### 3.1 目标
@@ -47,18 +53,18 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 
 ### 3.2 非目标
 
-首版不实现：
+以下能力不进入首版核心，但仍可进入 Admin.NET 全量对标路线中的官方扩展、Provider 或 Sample：
 
 - 微服务拆分和服务网格；
 - 分布式事务；
 - 自研 ORM 或表达式树转 SQL；
 - 通用万能 Repository；
-- 工作流、支付、电商、微信、OCR、MQTT、IoT 等具体业务系统；
+- 工作流、支付、微信、OCR、MQTT、IoT 等扩展能力；
 - 同时完整支持所有关系型数据库；
 - 用缓存代替数据库一致性；
 - 直接把 Admin.NET.Core 的大合集结构复制到新框架。
 
-上述能力以后只能以独立模块、Provider、模板或示例项目加入，不得污染核心 BuildingBlocks。
+上述能力以后只能以独立模块、Provider、模板或示例项目加入，不得污染核心 BuildingBlocks。电商不属于 Admin.NET 功能对标基线，只作为 Full.NET 架构示例或独立产品场景。
 
 ## 4. 总体架构
 
@@ -115,6 +121,8 @@ Full.NET/
 │   │   ├── Full.NET.Modules.Notifications
 │   │   ├── Full.NET.Modules.Jobs
 │   │   └── Full.NET.Modules.CodeGeneration
+│   ├── Compatibility/
+│   │   └── Full.NET.Compatibility.AdminNet
 │   └── Hosts/
 │       ├── Full.NET.Host.Api
 │       ├── Full.NET.Host.Worker
@@ -129,8 +137,10 @@ Full.NET/
 │   ├── Full.NET.ArchitectureTests
 │   ├── Full.NET.IntegrationTests
 │   ├── Full.NET.GeneratorTests
+│   ├── Full.NET.CompatibilityTests
 │   └── Full.NET.E2E
 └── docs/
+    └── roadmap/adminnet-feature-parity.md
 ```
 
 BuildingBlocks 必须保持小而稳定，不允许依赖业务模块。每个业务模块首版保持单程序集，避免为每个模块拆出 Domain/Application/Infrastructure/API 四个项目造成项目数量膨胀。
@@ -464,6 +474,8 @@ Outbox 保证失败后重试，Backplane 负责多节点本地缓存同步，两
 
 API 使用 `/api/v1` 版本前缀和 OpenAPI。成功响应直接返回强类型数据，不包装成永远 HTTP 200 的 `{code,msg,data}`。分页统一返回 `items`、`page`、`pageSize` 和 `total`。
 
+“统一 API”统一的是 HTTP 语义、错误码、ProblemDetails、分页、验证和客户端处理规则，不要求文件、流、SignalR、健康检查及普通 JSON API 使用同一个外层 JSON 结构。应用层统一返回 `Result<T>`、`ResultError` 或 `PagedResult<T>`，Endpoint 负责将其转换为标准 HTTP 响应。
+
 错误响应使用 ProblemDetails，并增加稳定的 `code`、`traceId` 和可选字段错误集合。状态码规则：
 
 | 场景 | HTTP 状态码 |
@@ -478,6 +490,8 @@ API 使用 `/api/v1` 版本前缀和 OpenAPI。成功响应直接返回强类型
 | 未处理异常 | 500 |
 
 前端根据稳定错误码处理逻辑，不匹配中文消息。生产环境不得返回堆栈、SQL、连接字符串和内部类型名。
+
+`Full.NET.Compatibility.AdminNet` 提供可选的 Admin.NET 响应适配器，用于旧前端或迁移项目。适配器可以把普通 JSON API 转换为统一外壳，但必须保留真实 HTTP 状态码；不得把未认证、禁止、验证失败、冲突和服务器异常全部伪装成 HTTP 200。文件下载、SSE、SignalR、Webhook、健康检查和 `204 No Content` 不进入响应外壳。默认 Full.NET Host 不启用该适配器。
 
 ## 15. 安全设计
 
@@ -546,6 +560,7 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 ### 18.4 API、生成器和 E2E
 
 - API 契约测试验证 OpenAPI、状态码、ProblemDetails、权限和兼容性；
+- 兼容性测试验证 Admin.NET 响应适配、真实 HTTP 状态码及文件、流、SignalR、健康检查等排除规则；
 - 生成器使用 Golden File 测试，并编译生成结果、执行集成测试；
 - Playwright 覆盖登录、Token 刷新、权限、多租户、代码生成、文件和通知关键流程。
 
@@ -581,7 +596,28 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 
 Docker 镜像采用多阶段构建、非 root 用户、最小端口、健康检查，并支持只读文件系统；生产密钥不进入镜像。
 
-## 20. 从参考项目演进
+## 20. 参考项目映射与演进
+
+### 20.1 eShop 架构映射
+
+Full.NET 引入 eShop 的工程和可靠性模式，但不照搬其服务数量：
+
+| eShop 设计 | Full.NET 落地 |
+|---|---|
+| `eShop.AppHost` | `Full.NET.AppHost`，编排 API、Worker、数据库和 Redis |
+| `eShop.ServiceDefaults` | `Full.NET.Hosting` 与 `Full.NET.Observability`，统一日志、OpenTelemetry、健康检查和弹性配置 |
+| 服务独立边界 | 模块边界与公开 `Contracts` |
+| 服务拥有自己的数据 | 模块拥有自己的表，禁止跨模块直接访问 |
+| Integration Event 与 EventBus | 模块 Integration Event 与可替换 EventBus Provider |
+| IntegrationEventLogEF | Dapper Outbox；保留可靠发布思想，不引入 EF 实现 |
+| Order/Payment Processor | `Full.NET.Host.Worker` 后台处理模型 |
+| Aspire 资源引用与启动顺序 | AppHost 本地资源编排及依赖等待 |
+| OpenTelemetry 与健康端点 | Full.NET 统一可观测性和 `/health/*` 端点 |
+| 容器和自动化测试 | Docker、模块集成测试、E2E 和部署门禁 |
+
+Full.NET 不默认引入 eShop 的每模块微服务、每服务独立数据库、RabbitMQ 强依赖、EF Integration Event Log 或 API Gateway/BFF。需要拆分时，现有 Contracts、Integration Events、Outbox 和 Worker 提供演进基础。
+
+### 20.2 Admin.NET 功能演进
 
 采用旁路重建和逐步替换：
 
@@ -590,10 +626,11 @@ Docker 镜像采用多阶段构建、非 root 用户、最小端口、健康检�
 3. 按 Tenancy、Identity、Organization、Permissions 顺序形成第一条完整垂直链路；
 4. 管理端逐页面接入新 API；
 5. Settings、Auditing、Files、Notifications、Jobs 和 CodeGeneration 后续迁移；
-6. 支付、微信、MQTT、OCR 等只作为可选扩展，不迁入核心；
-7. 新框架达到验收基线后再冻结旧系统。
+6. 按 `docs/roadmap/adminnet-feature-parity.md` 继续实现支付、微信、MQTT、OCR、工作流、文档、AI 等官方扩展；
+7. 每项对标功能必须记录归属、状态、测试、差异和来源；
+8. 新框架达到对应阶段验收基线后再冻结旧系统中的同类功能。
 
-eShop 主要用于参考宿主拆分、Aspire、本地编排、容器化和测试组织，不复制其微服务数量。
+对标验收以能力和关键用户流程为准，不以复制 Admin.NET.Pro 的源码、表结构或 Furion/SqlSugar 实现为准。安全性不合理或模块边界混乱的旧行为不做原样兼容。
 
 ## 21. 授权与来源治理
 
@@ -630,6 +667,10 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 
 双数据库测试矩阵、E2E、性能基线、Docker 部署、升级文档、安全审查和 MIT 发布检查。
 
+### M5+：Admin.NET 全量功能对标
+
+按功能矩阵持续交付官方扩展、Provider、Sample 和 Client，包括在线构建、导入导出、报表、微信、支付、OAuth、APIJSON、数据库视图、ES 日志、MQTT、AI、审批、钉钉、文档、GoView、K3Cloud、OCR、ReZero、工作流和企业微信等。每个子模块独立完成设计、计划、实现和验收，不阻塞核心 1.0 发布。
+
 每个里程碑都必须保持可构建、可测试、可演示，不允许长期维护一个无法运行的大分支。
 
 ## 23. 1.0 验收标准
@@ -647,6 +688,8 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - 架构、集成、生成器和 E2E 测试通过；
 - 仓库满足 MIT 和第三方许可证发布要求。
 
+1.0 验收不等于 Admin.NET 全量功能对标完成。长期对标完成标准是功能矩阵中所有适用项达到 `Verified`，或者经过设计评审明确记录为 `Not Applicable` 并给出替代方案。
+
 ## 24. 实施原则
 
 后续实施计划必须遵守：
@@ -658,6 +701,8 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 5. 新依赖必须说明用途、许可证和替代方案；
 6. 不以“以后可能微服务化”为理由引入当前不需要的网络边界；
 7. 不以快速开发为理由绕过模块、租户、权限、审计和测试规范。
+8. Admin.NET 兼容适配器只能放在 Compatibility 层，不能反向影响默认 API 契约。
+9. Admin.NET 对标按能力和流程验收，不按源文件数量或代码相似度验收。
 
 ## 25. 参考资料
 
