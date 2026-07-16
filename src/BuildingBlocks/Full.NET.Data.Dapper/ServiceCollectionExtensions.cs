@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper.Outbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -37,6 +38,7 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DapperSqlExecutor>());
         services.AddScoped<ICommandExecutor>(provider =>
             provider.GetRequiredService<DapperSqlExecutor>());
+        services.AddScoped<IOutboxWriter, DapperOutboxWriter>();
         services.AddScoped<ICommandTransaction, DapperCommandTransaction>();
         return services;
     }

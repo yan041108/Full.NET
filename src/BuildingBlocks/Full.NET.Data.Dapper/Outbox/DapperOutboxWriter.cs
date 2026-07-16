@@ -1,0 +1,61 @@
+using System.Diagnostics;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
+
+namespace Full.NET.Data.Dapper.Outbox;
+
+internal sealed class DapperOutboxWriter(
+    ICommandExecutor commandExecutor,
+    IIntegrationEventSerializer serializer,
+    IIdGenerator idGenerator,
+    ICurrentTenant currentTenant,
+    IClock clock) : IOutboxWriter
+{
+    private static readonly SqlStatement InsertStatement = new(
+        "outbox.insert",
+        """
+        INSERT INTO fn_outbox_message
+            (Id, Type, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAt, Attempts)
+        VALUES
+            (@Id, @Type, @SchemaVersion, @ContentType, @TenantId, @TraceId, @Payload, @OccurredAt, 0)
+        """,
+        SqlDataScope.Global);
+
+    public async Task AddAsync<TEvent>(
+        string eventType,
+        int schemaVersion,
+        TEvent payload,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
+        ArgumentNullException.ThrowIfNull(payload);
+        if (schemaVersion < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(schemaVersion),
+                schemaVersion,
+                "The schema version must be at least 1.");
+        }
+
+        var message = new OutboxMessage(
+            idGenerator.NewId(),
+            eventType,
+            schemaVersion,
+            serializer.ContentType,
+            currentTenant.Id,
+            Activity.Current?.TraceId.ToString(),
+            serializer.Serialize(payload),
+            clock.UtcNow);
+
+        var affectedRows = await commandExecutor
+            .ExecuteAsync(InsertStatement, message, cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            throw new InvalidOperationException(
+                $"Outbox insert affected {affectedRows} rows instead of one.");
+        }
+    }
+}

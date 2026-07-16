@@ -1,0 +1,266 @@
+using System.Data.Common;
+using Dapper;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
+using Full.NET.Migrations.DbUp;
+using Full.NET.Modularity.Messaging;
+using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Serialization.MessagePack;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using MySqlConnector;
+using Testcontainers.MsSql;
+using Testcontainers.MySql;
+
+namespace Full.NET.IntegrationTests.Tenancy;
+
+[TestClass]
+public sealed class TenantProvisioningTests
+{
+    [TestMethod]
+    public async Task SqlServer_provisioning_is_atomic_and_writes_binary_outbox()
+    {
+        await using var container = new MsSqlBuilder(
+                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
+            .WithPassword("FullNet_Test!123")
+            .Build();
+        await container.StartAsync();
+
+        await VerifyProviderAsync(
+            DatabaseProvider.SqlServer,
+            container.GetConnectionString());
+    }
+
+    [TestMethod]
+    public async Task MySql_provisioning_is_atomic_and_writes_binary_outbox()
+    {
+        await using var container = new MySqlBuilder("mysql:8.0")
+            .WithDatabase("fullnet")
+            .WithUsername("fullnet")
+            .WithPassword("FullNet_Test!123")
+            .Build();
+        await container.StartAsync();
+
+        await VerifyProviderAsync(
+            DatabaseProvider.MySql,
+            container.GetConnectionString());
+    }
+
+    private static async Task VerifyProviderAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        var options = new DatabaseOptions
+        {
+            Provider = databaseProvider,
+            ConnectionString = connectionString,
+        };
+        var migrationRunner = new DbUpMigrationRunner(
+            Options.Create(options),
+            NullLoggerFactory.Instance);
+        await migrationRunner.MigrateAsync();
+
+        var configuration = CreateConfiguration(options);
+        await using (var services = BuildServices(configuration, throwOnOutbox: false))
+        {
+            await using var scope = services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var provisioning = scope.ServiceProvider
+                .GetRequiredService<ITenantProvisioningService>();
+
+            var invalid = await provisioning.ProvisionAsync(
+                new ProvisionTenantRequest(null!, null!, null!));
+            Assert.IsFalse(invalid.IsSuccess);
+            Assert.IsNotNull(invalid.Error);
+            Assert.AreEqual("tenancy.validation", invalid.Error.Code);
+            Assert.IsNotNull(invalid.Error.ValidationErrors);
+            Assert.AreEqual(3, invalid.Error.ValidationErrors.Count);
+
+            var result = await provisioning.ProvisionAsync(
+                new ProvisionTenantRequest(
+                    " ACME ",
+                    " Acme Corporation ",
+                    " ACME.LOCALHOST "));
+
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsNotNull(result.Value);
+            Assert.AreEqual("acme", result.Value.Identifier);
+            Assert.AreEqual("Acme Corporation", result.Value.Name);
+            Assert.AreEqual("acme.localhost", result.Value.Domain);
+
+            var duplicate = await provisioning.ProvisionAsync(
+                new ProvisionTenantRequest(
+                    "acme",
+                    "Another Acme",
+                    "other.localhost"));
+
+            Assert.IsFalse(duplicate.IsSuccess);
+            Assert.IsNotNull(duplicate.Error);
+            Assert.AreEqual("tenancy.identifier-exists", duplicate.Error.Code);
+
+            var outbox = await ReadOutboxAsync(databaseProvider, connectionString);
+            Assert.AreEqual("fullnet.tenancy.tenant-provisioned", outbox.Type);
+            Assert.AreEqual(1, outbox.SchemaVersion);
+            Assert.AreEqual("application/x-msgpack", outbox.ContentType);
+            Assert.IsTrue(outbox.Payload.Length > 0);
+
+            var serializer = scope.ServiceProvider
+                .GetRequiredService<IIntegrationEventSerializer>();
+            var integrationEvent = serializer
+                .Deserialize<TenantProvisionedIntegrationEvent>(outbox.Payload);
+            Assert.AreEqual(result.Value.Id, integrationEvent.TenantId);
+            Assert.AreEqual("acme", integrationEvent.Identifier);
+            Assert.AreEqual("acme.localhost", integrationEvent.Domain);
+        }
+
+        Assert.AreEqual(
+            1L,
+            await CountAsync(databaseProvider, connectionString, "fn_tenant_tenant"));
+        Assert.AreEqual(
+            1L,
+            await CountAsync(databaseProvider, connectionString, "fn_outbox_message"));
+
+        await using (var services = BuildServices(configuration, throwOnOutbox: true))
+        {
+            await using var scope = services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var provisioning = scope.ServiceProvider
+                .GetRequiredService<ITenantProvisioningService>();
+
+            var exceptionObserved = false;
+            try
+            {
+                await provisioning.ProvisionAsync(
+                    new ProvisionTenantRequest(
+                        "rollback",
+                        "Rollback Tenant",
+                        "rollback.localhost"));
+            }
+            catch (InvalidOperationException exception)
+                when (exception.Message == ThrowingOutboxWriter.ExceptionMessage)
+            {
+                exceptionObserved = true;
+            }
+
+            Assert.IsTrue(exceptionObserved);
+        }
+
+        Assert.AreEqual(
+            0L,
+            await CountAsync(
+                databaseProvider,
+                connectionString,
+                "fn_tenant_tenant",
+                "Identifier = 'rollback'"));
+        Assert.AreEqual(
+            1L,
+            await CountAsync(databaseProvider, connectionString, "fn_outbox_message"));
+    }
+
+    private static IConfiguration CreateConfiguration(DatabaseOptions options) =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{DatabaseOptions.SectionName}:Provider"] = options.Provider.ToString(),
+                [$"{DatabaseOptions.SectionName}:ConnectionString"] = options.ConnectionString,
+                [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
+            })
+            .Build();
+
+    private static ServiceProvider BuildServices(
+        IConfiguration configuration,
+        bool throwOnOutbox)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenant>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.AddFullNetModularity();
+        services.AddFullNetDapper(configuration);
+        services.AddFullNetMessagePack();
+        services.AddFullNetModule<TenancyModule>(configuration);
+
+        if (throwOnOutbox)
+        {
+            services.AddScoped<IOutboxWriter, ThrowingOutboxWriter>();
+        }
+
+        return services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true,
+        });
+    }
+
+    private static async Task<OutboxRow> ReadOutboxAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        await using var connection = CreateConnection(databaseProvider, connectionString);
+        return await connection.QuerySingleAsync<OutboxRow>(
+            """
+            SELECT Type, SchemaVersion, ContentType, Payload
+            FROM fn_outbox_message
+            WHERE ProcessedAt IS NULL
+            """);
+    }
+
+    private static async Task<long> CountAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString,
+        string table,
+        string? predicate = null)
+    {
+        await using var connection = CreateConnection(databaseProvider, connectionString);
+        var sql = $"SELECT COUNT(*) FROM {table}";
+        if (!string.IsNullOrWhiteSpace(predicate))
+        {
+            sql += $" WHERE {predicate}";
+        }
+
+        return await connection.QuerySingleAsync<long>(sql);
+    }
+
+    private static DbConnection CreateConnection(
+        DatabaseProvider databaseProvider,
+        string connectionString) => databaseProvider switch
+        {
+            DatabaseProvider.SqlServer => new SqlConnection(connectionString),
+            DatabaseProvider.MySql => new MySqlConnection(connectionString),
+            _ => throw new ArgumentOutOfRangeException(nameof(databaseProvider)),
+        };
+
+    private sealed class OutboxRow
+    {
+        public string Type { get; set; } = string.Empty;
+
+        public int SchemaVersion { get; set; }
+
+        public string ContentType { get; set; } = string.Empty;
+
+        public byte[] Payload { get; set; } = [];
+    }
+
+    private sealed class ThrowingOutboxWriter : IOutboxWriter
+    {
+        public const string ExceptionMessage = "Test Outbox failure.";
+
+        public Task AddAsync<TEvent>(
+            string eventType,
+            int schemaVersion,
+            TEvent payload,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(ExceptionMessage);
+    }
+}

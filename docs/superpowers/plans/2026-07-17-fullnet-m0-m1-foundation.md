@@ -1184,7 +1184,7 @@ private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
 
 Each test starts its container, runs the migration twice, then uses Dapper to assert `fn_tenant_tenant`, `fn_outbox_message`, and the DbUp journal table exist. Query provider metadata and assert the Outbox table contains `SchemaVersion`, `ContentType`, `TenantId`, and `TraceId`; assert `Payload` is `varbinary(max)` on SQL Server and `longblob` on MySQL, never a text/JSON column. The second run must report zero newly executed scripts. Mark both classes `[TestClass]` and implement `[TestInitialize]`/`[TestCleanup]` to start and dispose containers.
 
-Run `dotnet test tests/Full.NET.IntegrationTests --filter FullyQualifiedName~MigrationTests`. Expected: compile failure because the migration runner and scripts do not exist. If Docker is unavailable, stop and report that prerequisite rather than skipping the tests.
+Build the integration-test project, then run `dotnet test --test-modules "Full.NET.IntegrationTests.dll" --root-directory "tests/Full.NET.IntegrationTests/bin/Debug/net10.0" --filter "FullyQualifiedName~MigrationTests"`. Expected: compile failure because the migration runner and scripts do not exist. If Docker is unavailable, stop and report that prerequisite rather than skipping the tests.
 
 - [ ] **Step 2: Create the SQL Server migration**
 
@@ -1499,7 +1499,8 @@ Add a test-only `IOutboxWriter` that throws. Replace the real writer, call `ITen
 
 ```powershell
 dotnet test tests/Full.NET.UnitTests --filter FullyQualifiedName~MessagePackIntegrationEventSerializerTests
-dotnet test tests/Full.NET.IntegrationTests --filter FullyQualifiedName~TenantProvisioningTests
+dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj
+dotnet test --test-modules "Full.NET.IntegrationTests.dll" --root-directory "tests/Full.NET.IntegrationTests/bin/Debug/net10.0" --filter "FullyQualifiedName~TenantProvisioningTests"
 dotnet build Full.NET.slnx
 git add src/BuildingBlocks/Full.NET.Data.Abstractions src/BuildingBlocks/Full.NET.Data.Dapper/Outbox src/BuildingBlocks/Full.NET.Serialization.MessagePack src/Modules/Full.NET.Modules.Tenancy tests/Full.NET.UnitTests/Serialization tests/Full.NET.IntegrationTests/Tenancy
 git commit -m "feat: add transactional MessagePack outbox"
