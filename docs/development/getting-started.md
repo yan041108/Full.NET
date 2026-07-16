@@ -16,7 +16,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 37
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 48
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 4
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 6 --timeout 10m
@@ -89,13 +89,21 @@ builder.Services.AddAdminNetCompatibility();
 
 该适配器只替换 `IApiResultMapper`，仍保留 400/404/409/500 等真实状态码，也不会包裹文件、流、SSE、SignalR、健康检查或 `204` 响应。
 
-## 7. 内部消息与 Outbox
+## 7. 验证管道约定
+
+模块通过 `AddFullNetFluentValidation()` 启用适配层，并显式注册每个 `IValidator<TCommand>`。禁止程序集扫描；显式注册让模块依赖、启动成本和 Native AOT/裁剪行为保持可预测。
+
+Validator 只放输入结构规则，例如必填、格式、范围和长度。数据库唯一性、权限、当前状态和其他依赖外部状态的业务规则仍由 Handler/Domain 负责。HTTP Request DTO 与内部 Command 保持分离；不要在 Endpoint 再复制一套只对 HTTP 生效的同类校验。
+
+验证失败统一返回 `ErrorType.Validation` 和稳定错误码 `validation.failed`，由现有 API 映射器输出 HTTP 400 ProblemDetails。调度管道在事务终端委托之外执行，因此无效的事务命令不会打开 Dapper 事务，也不会调用 Handler。
+
+## 8. 内部消息与 Outbox
 
 当前进程内调用使用强类型 Contracts。事务性集成事件写入 `fn_outbox_message`，payload 固定为 `application/x-msgpack`，并同时保存事件 `Type`、`SchemaVersion`、租户、trace 和发生时间。
 
 Worker 以租约方式批量获取消息，按 `(EventType, SchemaVersion)` 精确匹配唯一处理器。成功后才标记完成；失败会释放租约并指数退避。处理器必须幂等，因为至少一次投递允许重复执行。禁止为 Outbox 增加 JSON fallback、typeless 或 contractless MessagePack resolver；合约成员必须使用稳定、唯一的整数 key。
 
-## 8. 日志与可观测性
+## 9. 日志与可观测性
 
 应用代码使用 `ILogger<T>`，高频路径使用 `LoggerMessage` 源生成。Serilog Console Sink 位于有界异步队列后，默认队列满时丢弃而不阻塞请求；可通过以下设置调整：
 
@@ -112,7 +120,7 @@ Worker 以租约方式批量获取消息，按 `(EventType, SchemaVersion)` 精�
 
 应监控 `fullnet.logging.queue.depth`、`fullnet.logging.queue.capacity` 和 `fullnet.logging.events.dropped`。普通异步日志不承担审计账本职责；安全/业务审计后续使用独立可靠存储。日志不得记录请求体、Cookie、Authorization、连接串或消息 payload。
 
-## 9. 通信技术矩阵
+## 10. 通信技术矩阵
 
 | 场景 | 当前选择 | 引入时机 |
 |---|---|---|

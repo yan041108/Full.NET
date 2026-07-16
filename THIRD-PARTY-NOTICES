@@ -12,6 +12,8 @@ the complete license texts.
   https://github.com/DapperLib/Dapper
 - DbUp — MIT
   https://github.com/DbUp/DbUp
+- FluentValidation — Apache-2.0
+  https://github.com/FluentValidation/FluentValidation
 - FusionCache — MIT
   https://github.com/ZiggyCreatures/FusionCache
 - MessagePack for C# — MIT
