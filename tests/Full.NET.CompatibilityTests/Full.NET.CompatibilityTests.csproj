@@ -1,0 +1,11 @@
+<Project Sdk="MSTest.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
+    <ProjectReference Include="..\..\src\Compatibility\Full.NET.Compatibility.AdminNet\Full.NET.Compatibility.AdminNet.csproj" />
+  </ItemGroup>
+</Project>

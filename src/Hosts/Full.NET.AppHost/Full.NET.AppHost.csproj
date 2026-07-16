@@ -1,0 +1,16 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.MySql" />
+    <PackageReference Include="Aspire.Hosting.Redis" />
+    <PackageReference Include="Aspire.Hosting.SqlServer" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Full.NET.Host.Api\Full.NET.Host.Api.csproj" />
+    <ProjectReference Include="..\Full.NET.Host.Migrator\Full.NET.Host.Migrator.csproj" />
+    <ProjectReference Include="..\Full.NET.Host.Worker\Full.NET.Host.Worker.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,16 @@
+Full.NET Third-Party Notices
+
+Dapper — Apache-2.0 — https://github.com/DapperLib/Dapper
+DbUp — MIT — https://github.com/DbUp/DbUp
+FusionCache — MIT — https://github.com/ZiggyCreatures/FusionCache
+MessagePack-CSharp — MIT — https://github.com/MessagePack-CSharp/MessagePack-CSharp
+Serilog and Serilog.Sinks.Async — Apache-2.0 — https://github.com/serilog
+.NET / ASP.NET Core / Aspire — MIT — https://github.com/dotnet
+OpenTelemetry .NET — Apache-2.0 — https://github.com/open-telemetry/opentelemetry-dotnet
+Microsoft.Data.SqlClient — MIT — https://github.com/dotnet/SqlClient
+MySqlConnector — MIT — https://github.com/mysql-net/MySqlConnector
+Testcontainers for .NET — MIT — https://github.com/testcontainers/testcontainers-dotnet
+MSTest — MIT — https://github.com/microsoft/testfx
+NetArchTest — MIT — https://github.com/BenMorris/NetArchTest
+Scalar — MIT — https://github.com/scalar/scalar
+BenchmarkDotNet — MIT — https://github.com/dotnet/BenchmarkDotNet

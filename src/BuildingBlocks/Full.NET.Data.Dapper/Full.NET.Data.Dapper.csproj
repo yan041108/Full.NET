@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="..\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="MySqlConnector" />
+  </ItemGroup>
+
+</Project>

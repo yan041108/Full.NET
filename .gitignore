@@ -1,0 +1,14 @@
+.vs/
+.idea/
+.vscode/
+**/bin/
+**/obj/
+TestResults/
+coverage/
+BenchmarkDotNet.Artifacts/
+*.user
+*.suo
+*.nupkg
+*.snupkg
+*.log
+.aspire/

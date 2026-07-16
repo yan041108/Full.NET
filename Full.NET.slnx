@@ -1,0 +1,34 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Full.NET.Abstractions/Full.NET.Abstractions.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Caching.Fusion/Full.NET.Caching.Fusion.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Migrations.DbUp/Full.NET.Migrations.DbUp.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Serialization.MessagePack/Full.NET.Serialization.MessagePack.csproj" />
+  </Folder>
+  <Folder Name="/src/Compatibility/">
+    <Project Path="src/Compatibility/Full.NET.Compatibility.AdminNet/Full.NET.Compatibility.AdminNet.csproj" />
+  </Folder>
+  <Folder Name="/src/Hosts/">
+    <Project Path="src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj" />
+    <Project Path="src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj" />
+    <Project Path="src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj" />
+    <Project Path="src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj" />
+    <Project Path="tests/Full.NET.CompatibilityTests/Full.NET.CompatibilityTests.csproj" />
+    <Project Path="tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj" />
+    <Project Path="tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj" />
+  </Folder>
+</Solution>

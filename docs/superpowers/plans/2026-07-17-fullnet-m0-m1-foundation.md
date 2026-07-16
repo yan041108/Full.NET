@@ -213,10 +213,13 @@ Create `Directory.Packages.props`:
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <PackageVersion Include="MessagePack" Version="3.1.8" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.10.0" />
     <PackageVersion Include="MySqlConnector" Version="2.6.1" />
     <PackageVersion Include="MSTest" Version="4.3.2" />
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
     <PackageVersion Include="NSubstitute" Version="6.0.0" />
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Api.ProviderBuilderExtensions" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
@@ -252,7 +255,7 @@ trim_trailing_whitespace = true
 [*.cs]
 indent_style = space
 indent_size = 4
-dotnet_diagnostic.IDE0005.severity = warning
+dotnet_diagnostic.IDE0005.severity = suggestion
 csharp_style_namespace_declarations = file_scoped:warning
 csharp_style_prefer_primary_constructors = true:suggestion
 
@@ -394,13 +397,13 @@ Add all projects to `Full.NET.slnx` with explicit `dotnet sln Full.NET.slnx add 
 | Project | Project references | Framework/package references |
 |---|---|---|
 | Abstractions | none | none |
-| Modularity | Abstractions | `Microsoft.AspNetCore.App`, DI Abstractions |
+| Modularity | Abstractions | `Microsoft.AspNetCore.App` |
 | Data.Abstractions | Abstractions | none |
 | Data.Dapper | Abstractions, Data.Abstractions | Dapper, SqlClient, MySqlConnector, Options.ConfigurationExtensions |
 | Serialization.MessagePack | Data.Abstractions | MessagePack |
 | Migrations.DbUp | Data.Abstractions | dbup-core, dbup-sqlserver, dbup-mysql |
 | Caching.Fusion | Abstractions | FusionCache core/serializer/backplane/OTel, HybridCache, StackExchangeRedis cache |
-| Hosting | Abstractions | `Microsoft.AspNetCore.App`, configuration binder, HTTP resilience, service discovery, OpenTelemetry, Serilog.AspNetCore, Compact formatter, Async/Console sinks |
+| Hosting | Abstractions | `Microsoft.AspNetCore.App`, HTTP resilience, service discovery, OpenTelemetry, Serilog.AspNetCore, Compact formatter, Async/Console sinks |
 | Modules.Tenancy | Abstractions, Modularity, Data.Abstractions, Caching.Fusion | `Microsoft.AspNetCore.App`, HybridCache, MessagePack attributes |
 | Compatibility.AdminNet | Abstractions, Hosting | `Microsoft.AspNetCore.App` |
 | Host.Api | Hosting, Modularity, Data.Dapper, Serialization.MessagePack, Migrations.DbUp, Caching.Fusion, Modules.Tenancy | OpenAPI, Scalar |

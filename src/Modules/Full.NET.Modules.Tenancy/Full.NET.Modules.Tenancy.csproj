@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Caching.Fusion\Full.NET.Caching.Fusion.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+  </ItemGroup>
+
+</Project>
