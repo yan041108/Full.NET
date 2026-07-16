@@ -1,0 +1,78 @@
+using Full.NET.Caching.Fusion;
+using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Tenancy.Contracts;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Hosting;
+
+namespace Full.NET.Modules.Tenancy.Persistence;
+
+internal sealed class TenantResolver(
+    IQueryExecutor queryExecutor,
+    HybridCache cache,
+    IHostEnvironment environment) : ITenantResolver
+{
+    internal static readonly TimeSpan ActiveTenantDuration = TimeSpan.FromMinutes(5);
+    internal static readonly TimeSpan MissingTenantDuration = TimeSpan.FromMinutes(1);
+
+    public async Task<TenantSummary?> ResolveByDomainAsync(
+        string domain,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedDomain = NormalizeDomain(domain);
+        var cacheKey = CacheKeyBuilder.ForGlobal(
+            environment.EnvironmentName,
+            "tenancy",
+            "domain",
+            normalizedDomain,
+            "v1");
+        var domainTag = CacheKeyBuilder.DomainTag(normalizedDomain);
+        var loaded = false;
+
+        var entry = await cache.GetOrCreateAsync(
+                cacheKey,
+                async token =>
+                {
+                    loaded = true;
+                    var tenant = await queryExecutor
+                        .QuerySingleOrDefaultAsync<TenantSummary>(
+                            TenantSql.FindByDomain,
+                            new { Domain = normalizedDomain },
+                            token)
+                        .ConfigureAwait(false);
+                    return new CachedTenantResolution(tenant);
+                },
+                new HybridCacheEntryOptions
+                {
+                    Expiration = MissingTenantDuration,
+                    LocalCacheExpiration = MissingTenantDuration
+                },
+                [domainTag],
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (loaded && entry.Tenant is { IsActive: true } activeTenant)
+        {
+            await cache.SetAsync(
+                    cacheKey,
+                    entry,
+                    new HybridCacheEntryOptions
+                    {
+                        Expiration = ActiveTenantDuration,
+                        LocalCacheExpiration = ActiveTenantDuration
+                    },
+                    [domainTag, CacheKeyBuilder.TenantTag(activeTenant.Id)],
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return entry.Tenant;
+    }
+
+    private static string NormalizeDomain(string domain)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(domain);
+        return domain.Trim().TrimEnd('.').ToLowerInvariant();
+    }
+
+    private sealed record CachedTenantResolution(TenantSummary? Tenant);
+}

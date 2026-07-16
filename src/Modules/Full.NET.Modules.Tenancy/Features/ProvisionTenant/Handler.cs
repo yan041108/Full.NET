@@ -53,7 +53,7 @@ internal sealed partial class Handler(
 
         var domainMatchCount = await queryExecutor
             .QuerySingleOrDefaultAsync<long>(
-                TenantSql.FindByDomain,
+                TenantSql.CountByDomain,
                 new { Domain = domain },
                 cancellationToken)
             .ConfigureAwait(false);

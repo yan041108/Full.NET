@@ -405,7 +405,7 @@ Add all projects to `Full.NET.slnx` with explicit `dotnet sln Full.NET.slnx add 
 | Migrations.DbUp | Data.Abstractions | dbup-core, dbup-sqlserver, dbup-mysql |
 | Caching.Fusion | Abstractions | FusionCache core/serializer/backplane/OTel, HybridCache, StackExchangeRedis cache |
 | Hosting | Abstractions | `Microsoft.AspNetCore.App`, HTTP resilience, service discovery, OpenTelemetry, Serilog.AspNetCore, Compact formatter, Async/Console sinks |
-| Modules.Tenancy | Abstractions, Modularity, Data.Abstractions, Caching.Fusion | `Microsoft.AspNetCore.App`, HybridCache, MessagePack attributes |
+| Modules.Tenancy | Abstractions, Modularity, Data.Abstractions, Caching.Fusion, Hosting | `Microsoft.AspNetCore.App`, HybridCache, MessagePack attributes |
 | Compatibility.AdminNet | Abstractions, Hosting | `Microsoft.AspNetCore.App` |
 | Host.Api | Hosting, Modularity, Data.Dapper, Serialization.MessagePack, Migrations.DbUp, Caching.Fusion, Modules.Tenancy | OpenAPI, Scalar |
 | Host.Worker | Hosting, Modularity, Data.Dapper, Serialization.MessagePack, Caching.Fusion, Modules.Tenancy | `Microsoft.AspNetCore.App` |

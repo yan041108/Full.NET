@@ -13,10 +13,19 @@ internal static class TenantSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement CountByDomain = new(
+        "tenancy.count-by-domain",
+        """
+        SELECT COUNT(*)
+        FROM fn_tenant_tenant
+        WHERE Domain = @Domain
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement FindByDomain = new(
         "tenancy.find-by-domain",
         """
-        SELECT COUNT(*)
+        SELECT Id, Identifier, Name, Domain, IsActive, Version
         FROM fn_tenant_tenant
         WHERE Domain = @Domain
         """,

@@ -1,10 +1,19 @@
+using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Tenancy.Features.GetCurrentTenant;
 using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
+using Full.NET.Modules.Tenancy.Persistence;
+using Full.NET.Modules.Tenancy.Serialization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modules.Tenancy;
 
@@ -18,13 +27,29 @@ public sealed class TenancyModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.TryAddScoped<CurrentTenantAccessor>();
+        services.TryAddScoped<ICurrentTenant>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+
         services.AddScoped<
             ICommandHandler<ProvisionTenantCommand, TenantSummary>,
-            Handler>();
+            Features.ProvisionTenant.Handler>();
+        services.AddScoped<
+            IQueryHandler<GetCurrentTenantQuery, TenantSummary>,
+            Features.GetCurrentTenant.Handler>();
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
+        services.AddScoped<ITenantResolver, TenantResolver>();
+        services.ConfigureHttpJsonOptions(options =>
+            options.SerializerOptions.TypeInfoResolverChain.Insert(
+                0,
+                TenancyJsonSerializerContext.Default));
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        var group = endpoints.MapGroup("/api/v1/tenancy").WithTags("Tenancy");
+        Features.GetCurrentTenant.Endpoint.Map(group);
     }
 }
