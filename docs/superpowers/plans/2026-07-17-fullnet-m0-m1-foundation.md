@@ -210,6 +210,7 @@ Create `Directory.Packages.props`:
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <PackageVersion Include="MessagePack" Version="3.1.8" />
@@ -399,7 +400,7 @@ Add all projects to `Full.NET.slnx` with explicit `dotnet sln Full.NET.slnx add 
 | Abstractions | none | none |
 | Modularity | Abstractions | `Microsoft.AspNetCore.App` |
 | Data.Abstractions | Abstractions | none |
-| Data.Dapper | Abstractions, Data.Abstractions | Dapper, SqlClient, MySqlConnector, Options.ConfigurationExtensions |
+| Data.Dapper | Abstractions, Data.Abstractions | Dapper, SqlClient, MySqlConnector, Logging.Abstractions, Options.ConfigurationExtensions |
 | Serialization.MessagePack | Data.Abstractions | MessagePack |
 | Migrations.DbUp | Data.Abstractions | dbup-core, dbup-sqlserver, dbup-mysql |
 | Caching.Fusion | Abstractions | FusionCache core/serializer/backplane/OTel, HybridCache, StackExchangeRedis cache |
@@ -988,7 +989,7 @@ var tenantStatement = new SqlStatement(
     "select * from fn_example where TenantId = @TenantId",
     SqlDataScope.TenantRequired);
 
-Assert.ThrowsException<TenantContextMissingException>(() =>
+Assert.Throws<TenantContextMissingException>(() =>
     SqlScopeGuard.Validate(tenantStatement, new CurrentTenantAccessor()));
 
 var accessor = new CurrentTenantAccessor();
@@ -996,11 +997,11 @@ accessor.SetTenant(new TenantContext(Guid.CreateVersion7(), "acme", "Acme"));
 SqlScopeGuard.Validate(tenantStatement, accessor);
 
 var missingPredicate = tenantStatement with { Text = "select * from fn_example" };
-Assert.ThrowsException<TenantScopeViolationException>(() =>
+Assert.Throws<TenantScopeViolationException>(() =>
     SqlScopeGuard.Validate(missingPredicate, accessor));
 
 var hostStatement = new SqlStatement("host.read", "select 1", SqlDataScope.HostOnly);
-Assert.ThrowsException<HostContextRequiredException>(() =>
+Assert.Throws<HostContextRequiredException>(() =>
     SqlScopeGuard.Validate(hostStatement, accessor));
 ```
 
