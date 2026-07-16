@@ -75,6 +75,81 @@ public sealed class DispatcherTests
             firstScope.ServiceProvider.GetRequiredService<IQueryDispatcher>());
     }
 
+    [TestMethod]
+    public async Task Command_behaviors_wrap_handler_in_registration_order()
+    {
+        var calls = new List<string>();
+        await using var provider = new ServiceCollection()
+            .AddSingleton<ICommandHandler<OrderedCommand, string>>(
+                new OrderedCommandHandler(calls))
+            .AddSingleton<IDispatchBehavior<OrderedCommand, string>>(
+                new RecordingBehavior<OrderedCommand, string>("first", calls))
+            .AddSingleton<IDispatchBehavior<OrderedCommand, string>>(
+                new RecordingBehavior<OrderedCommand, string>("second", calls))
+            .AddScoped<ICommandDispatcher, CommandDispatcher>()
+            .BuildServiceProvider();
+
+        var result = await provider.GetRequiredService<ICommandDispatcher>()
+            .SendAsync<OrderedCommand, string>(new OrderedCommand());
+
+        Assert.IsTrue(result.IsSuccess);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "first:before",
+                "second:before",
+                "handler",
+                "second:after",
+                "first:after"
+            },
+            calls.ToArray());
+    }
+
+    [TestMethod]
+    public async Task Query_behavior_wraps_handler()
+    {
+        var calls = new List<string>();
+        await using var provider = new ServiceCollection()
+            .AddSingleton<IQueryHandler<OrderedQuery, string>>(
+                new OrderedQueryHandler(calls))
+            .AddSingleton<IDispatchBehavior<OrderedQuery, string>>(
+                new RecordingBehavior<OrderedQuery, string>("query", calls))
+            .AddScoped<IQueryDispatcher, QueryDispatcher>()
+            .BuildServiceProvider();
+
+        var result = await provider.GetRequiredService<IQueryDispatcher>()
+            .SendAsync<OrderedQuery, string>(new OrderedQuery());
+
+        Assert.IsTrue(result.IsSuccess);
+        CollectionAssert.AreEqual(
+            new[] { "query:before", "query-handler", "query:after" },
+            calls.ToArray());
+    }
+
+    [TestMethod]
+    public async Task Rejecting_behavior_prevents_transaction_and_handler()
+    {
+        var transaction = new RecordingTransaction();
+        var handler = new RejectableCommandHandler();
+        await using var provider = new ServiceCollection()
+            .AddSingleton<ICommandHandler<RejectableCommand, string>>(handler)
+            .AddSingleton<ICommandTransaction>(transaction)
+            .AddSingleton<IDispatchBehavior<RejectableCommand, string>>(
+                new RejectingBehavior<RejectableCommand, string>())
+            .AddScoped<ICommandDispatcher, CommandDispatcher>()
+            .BuildServiceProvider();
+
+        var result = await provider.GetRequiredService<ICommandDispatcher>()
+            .SendAsync<RejectableCommand, string>(new RejectableCommand());
+
+        Assert.IsFalse(result.IsSuccess);
+        var error = result.Error;
+        Assert.IsNotNull(error);
+        Assert.AreEqual("rejected", error.Code);
+        Assert.IsFalse(transaction.Executed);
+        Assert.IsFalse(handler.Executed);
+    }
+
     private sealed record EchoCommand(string Value) : ITransactionalCommand<string>;
 
     private sealed class EchoHandler : ICommandHandler<EchoCommand, string>
@@ -103,6 +178,79 @@ public sealed class DispatcherTests
             EchoQuery query,
             CancellationToken cancellationToken) =>
             Task.FromResult(Result<string>.Success(query.Value));
+    }
+
+    private sealed record OrderedCommand : ICommand<string>;
+
+    private sealed class OrderedCommandHandler(IList<string> calls)
+        : ICommandHandler<OrderedCommand, string>
+    {
+        public Task<Result<string>> HandleAsync(
+            OrderedCommand command,
+            CancellationToken cancellationToken)
+        {
+            calls.Add("handler");
+            return Task.FromResult(Result<string>.Success("ordered"));
+        }
+    }
+
+    private sealed record OrderedQuery : IQuery<string>;
+
+    private sealed class OrderedQueryHandler(IList<string> calls)
+        : IQueryHandler<OrderedQuery, string>
+    {
+        public Task<Result<string>> HandleAsync(
+            OrderedQuery query,
+            CancellationToken cancellationToken)
+        {
+            calls.Add("query-handler");
+            return Task.FromResult(Result<string>.Success("ordered"));
+        }
+    }
+
+    private sealed record RejectableCommand : ITransactionalCommand<string>;
+
+    private sealed class RejectableCommandHandler
+        : ICommandHandler<RejectableCommand, string>
+    {
+        public bool Executed { get; private set; }
+
+        public Task<Result<string>> HandleAsync(
+            RejectableCommand command,
+            CancellationToken cancellationToken)
+        {
+            Executed = true;
+            return Task.FromResult(Result<string>.Success("unexpected"));
+        }
+    }
+
+    private sealed class RecordingBehavior<TMessage, TResult>(
+        string name,
+        IList<string> calls) : IDispatchBehavior<TMessage, TResult>
+    {
+        public async Task<Result<TResult>> HandleAsync(
+            TMessage message,
+            DispatchHandlerDelegate<TResult> next,
+            CancellationToken cancellationToken)
+        {
+            calls.Add($"{name}:before");
+            var result = await next(cancellationToken);
+            calls.Add($"{name}:after");
+            return result;
+        }
+    }
+
+    private sealed class RejectingBehavior<TMessage, TResult>
+        : IDispatchBehavior<TMessage, TResult>
+    {
+        public Task<Result<TResult>> HandleAsync(
+            TMessage message,
+            DispatchHandlerDelegate<TResult> next,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(Result<TResult>.Failure(new Error(
+                "rejected",
+                "Rejected before the handler.",
+                ErrorType.Validation)));
     }
 
     private sealed class RecordingTransaction : ICommandTransaction
