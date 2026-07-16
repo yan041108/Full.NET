@@ -1,6 +1,6 @@
 # Full.NET 总体架构设计规格
 
-- 状态：已根据规格评审更新，等待最终批准
+- 状态：已批准；后续在既定目标和授权范围内默认采用本文推荐方案推进
 - 日期：2026-07-17
 - 项目目录：`G:\wwwroot\github_fork\Full.NET`
 - 产品名称：Full.NET
@@ -21,6 +21,12 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - [Dapper](https://github.com/DapperLib/Dapper)：默认数据映射器。
 - [DbUp](https://github.com/DbUp/DbUp)：数据库迁移引擎。
 - [FusionCache](https://github.com/ZiggyCreatures/FusionCache)：唯一缓存实现。
+- [System.Text.Json](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/source-generation)：外部 HTTP JSON 的唯一默认实现。
+- [gRPC for .NET](https://learn.microsoft.com/aspnet/core/grpc/)：出现跨进程同步调用时的默认 RPC 技术。
+- [MessagePack-CSharp](https://github.com/MessagePack-CSharp/MessagePack-CSharp)：内部可靠异步事件和高性能二进制传输的默认序列化实现。
+- [Serilog](https://github.com/serilog/serilog)：`ILogger<T>` 后面的默认结构化日志实现。
+- [ASP.NET Core SignalR](https://learn.microsoft.com/aspnet/core/signalr/)：浏览器和应用客户端实时通信实现。
+- [Microsoft.Extensions.AI](https://learn.microsoft.com/dotnet/ai/microsoft-extensions-ai)、[Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/overview/) 和 [MCP C# SDK](https://csharp.sdk.modelcontextprotocol.io/)：AI、Agent 与 Agentic Web 的基础抽象和协议适配参考。
 
 ### 2.2 已确认约束
 
@@ -32,6 +38,11 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - 数据迁移采用 DbUp 和可审查的 SQL 脚本。
 - 最终公开仓库使用 MIT License，并维护第三方许可清单。
 - 管理端继续采用 Vue 3 技术路线，但与后端通过 OpenAPI 和 TypeScript 客户端解耦。
+- 外部 REST JSON 统一使用 System.Text.Json 源代码生成；Newtonsoft.Json 只允许作为可选兼容 Provider。
+- 同进程模块调用不序列化；跨进程同步调用使用 gRPC + Protobuf；可靠异步事件默认使用 MessagePack，不使用 JSON 载荷。
+- 业务代码只依赖 `ILogger<T>`；高频日志使用 `LoggerMessage` 源生成，Serilog 负责异步有界结构化输出。
+- SignalR 通过实时通信抽象接入；官方客户端优先 MessagePack Hub Protocol，同时保留 JSON 客户端兼容。
+- AI 核心保持模型供应商中立；Agent、MCP、AG-UI 等能力必须位于独立模块或协议适配层。
 
 ### 2.3 长期功能基线
 
@@ -107,10 +118,11 @@ Full.NET/
 │   │   ├── Full.NET.Modularity
 │   │   ├── Full.NET.Data.Abstractions
 │   │   ├── Full.NET.Data.Dapper
+│   │   ├── Full.NET.Serialization.MessagePack
 │   │   ├── Full.NET.Migrations.DbUp
 │   │   ├── Full.NET.Caching.Fusion
-│   │   ├── Full.NET.Data.CodeGeneration
-│   │   └── Full.NET.Observability
+│   │   ├── Full.NET.Realtime.Abstractions
+│   │   └── Full.NET.Data.CodeGeneration
 │   ├── Modules/
 │   │   ├── Full.NET.Modules.Identity
 │   │   ├── Full.NET.Modules.Organization
@@ -134,11 +146,13 @@ Full.NET/
 │   └── fullnet-module
 ├── samples/Full.NET.Sample.Crm
 ├── tests/
+│   ├── Full.NET.UnitTests
 │   ├── Full.NET.ArchitectureTests
 │   ├── Full.NET.IntegrationTests
 │   ├── Full.NET.GeneratorTests
 │   ├── Full.NET.CompatibilityTests
 │   └── Full.NET.E2E
+├── benchmarks/Full.NET.Benchmarks
 └── docs/
     └── roadmap/adminnet-feature-parity.md
 ```
@@ -206,6 +220,27 @@ builder.Services
 - 通过反射绕过模块可见性。
 
 需要立即一致结果时使用 Contract Service；允许最终一致时使用 Integration Event。外部或可靠异步事件经 Outbox 发布，消费端必须幂等，不采用分布式事务。
+
+### 5.4 通信与序列化矩阵
+
+| 场景 | 传输/调用 | 序列化 | 约束 |
+|---|---|---|---|
+| 对外 REST API | ASP.NET Core HTTP | System.Text.Json 源生成 | 标准 HTTP、ProblemDetails、OpenAPI |
+| Admin.NET 兼容 API | HTTP 适配器 | System.Text.Json | 只改变响应形状，不伪造 HTTP 200 |
+| 同进程模块 | Contract Service、Command/Query | 无 | 不制造网络边界和序列化开销 |
+| 跨进程同步服务 | gRPC | Protobuf | 复用 Channel，统一 Deadline、取消、认证和追踪 |
+| 内部可靠异步事件 | Outbox + EventBus Provider | MessagePack；跨语言时可选 Protobuf | 二进制原样存储，消费者幂等，契约显式版本化 |
+| 浏览器实时通信 | SignalR | MessagePack 优先，JSON 兼容 | 不是内部 EventBus，不承载业务事务 |
+| 文件和超大二进制 | HTTP 流或对象存储引用 | 原始二进制 | 不放入单个 gRPC/SignalR/Outbox 大消息 |
+| MCP、AG-UI 等开放 AI 协议 | 协议规定的 HTTP、SSE、JSON-RPC | 按协议标准 | 这是互操作边界，不受“内部业务消息不用 JSON”限制 |
+
+gRPC 是 RPC 框架，MessagePack 是序列化格式，二者不作为同层替代项。Full.NET 不在 gRPC 中嵌套 MessagePack，也不为了未来可能拆分服务而让当前模块化单体内部走 gRPC。
+
+### 5.5 二进制契约演进与安全
+
+MessagePack 集成事件使用显式 `[MessagePackObject]` 和整数 `[Key(n)]`。字段只能在尾部追加；已发布 Key 不得重排、复用或改变语义，删除字段后保留其编号。禁止 Typeless 和 Contractless Resolver，所有网络、数据库及消息来源均按不可信数据处理，启用 `MessagePackSecurity.UntrustedData` 并使用最新无已知高危漏洞的受支持版本。
+
+每个可靠事件保存 `MessageId`、`MessageType`、`SchemaVersion`、`ContentType`、`TenantId`、`TraceId` 和 `OccurredAt` 等可查询元数据。载荷以 SQL Server `varbinary(max)` 或 MySQL `longblob` 保存，不做 Base64，不依赖人工直接阅读二进制正文。压缩只在基准证明载荷大小收益超过 CPU 成本时按阈值启用。
 
 ## 6. 首版业务模块
 
@@ -333,6 +368,8 @@ WHERE TenantId = @TenantId
 ```
 
 Query 默认不启动显式事务。Outbox 记录与业务数据在同一事务提交，由 Worker 按至少一次语义发布。处理器使用事件 ID 或业务幂等键防止重复副作用。
+
+Outbox 默认用 MessagePack 保存二进制载荷，并将消息类型、模式版本和内容类型保存为独立列。Worker 根据 `MessageType + SchemaVersion` 选择唯一处理器；处理器通过统一 `IIntegrationEventSerializer` 反序列化强类型事件。Outbox 处理路径不解析 JSON，也不启用 Typeless 反序列化。
 
 跨模块立即一致操作通过 Contract Service 完成；最终一致操作通过 Integration Event 完成。不使用分布式事务。
 
@@ -493,6 +530,8 @@ API 使用 `/api/v1` 版本前缀和 OpenAPI。成功响应直接返回强类型
 
 `Full.NET.Compatibility.AdminNet` 提供可选的 Admin.NET 响应适配器，用于旧前端或迁移项目。适配器可以把普通 JSON API 转换为统一外壳，但必须保留真实 HTTP 状态码；不得把未认证、禁止、验证失败、冲突和服务器异常全部伪装成 HTTP 200。文件下载、SSE、SignalR、Webhook、健康检查和 `204 No Content` 不进入响应外壳。默认 Full.NET Host 不启用该适配器。
 
+JSON 统一使用 System.Text.Json 的 Web 默认语义和 UTF-8 输出。每个模块维护自己的 `JsonSerializerContext`，由模块注册入口把生成的 `JsonTypeInfoResolver` 加入 Host；公开热路径 DTO 必须进入源生成上下文。运行时反射只允许用于动态插件或兼容层，不能成为核心 API 的默认路径。`JsonSerializerOptions` 由 Host 单例配置并复用，不得在每次请求中创建。大列表优先采用分页、异步流或 `Utf8JsonWriter`，避免构造巨大中间字符串。
+
 ## 15. 安全设计
 
 ### 15.1 Token 与会话
@@ -514,9 +553,13 @@ API 使用 `/api/v1` 版本前缀和 OpenAPI。成功响应直接返回强类型
 
 默认启用 HTTPS、CORS 白名单、限流、安全响应头、输入长度限制、文件校验、SQL 参数化、日志脱敏和敏感操作审计。真实密钥和连接字符串不得进入仓库，由环境变量、Secret Store 或 Vault Provider 提供。
 
-## 16. 可观测性
+## 16. 可观测性与高并发日志
 
-Full.NET 使用 OpenTelemetry 标准输出日志、Trace 和 Metrics，不绑定单一监控平台。
+Full.NET 使用 OpenTelemetry 标准关联日志、Trace 和 Metrics，不绑定单一监控平台。业务代码只调用 `ILogger<T>`，高频路径和固定模板使用 `[LoggerMessage]` 源生成；禁止业务模块直接调用 Serilog 静态 API。
+
+默认日志管道为 `ILogger<T> -> Serilog -> 异步有界 Sink -> JSON Console/集中式平台`。文件和网络 Sink 不在请求线程同步写入；队列必须有容量上限、使用率指标和丢弃计数，Debug/Information 在过载时允许按策略丢弃以保护业务吞吐。Warning/Error 使用独立路由或可靠降级策略。登录、授权、资金、租户、配置和 Agent 工具调用等审计记录不属于普通运行日志，必须通过数据库事务或 Outbox 可靠保存，不能因日志队列满而丢失。
+
+每个 HTTP 请求默认只产生一条汇总访问日志；生产环境不默认记录完整请求体、响应体或高基数对象。日志输出在应用结束时有界刷新，不能无限等待慢 Sink。
 
 结构化日志包含 `TraceId`、`SpanId`、`TenantId`、`UserId`、`Module`、`RequestPath`、`ElapsedMs` 和 `ResultCode`，但不得记录密码、Token、Cookie、完整证件号或银行卡信息。
 
@@ -527,7 +570,7 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
      -> Outbox -> Worker -> 外部 HTTP 服务
 ```
 
-指标至少覆盖请求量、耗时、错误率、登录失败、SQL 耗时、慢 SQL、缓存命中率、任务积压、Outbox 积压、通知成功率和文件上传失败率。
+指标至少覆盖请求量、耗时、错误率、登录失败、SQL 耗时、慢 SQL、缓存命中率、日志队列深度/容量/丢弃数、任务积压、Outbox 积压、通知成功率和文件上传失败率。
 
 健康端点：
 
@@ -535,7 +578,33 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 - `/health/ready`：数据库、缓存和必要依赖就绪；
 - `/health/startup`：迁移和初始化完成。
 
-## 17. 管理端
+## 17. 实时通信
+
+实时能力分为 `Full.NET.Realtime.Abstractions` 与 `Full.NET.Realtime.SignalR`。业务模块依赖 `IRealtimePublisher`，不得直接依赖 `IHubContext`；Hub 只负责连接、鉴权、分组和传输，不实现业务规则。所有业务通知在数据库事务提交后由 Outbox/Worker 触发，不能在事务提交前直接推送。
+
+服务端使用强类型 `Hub<TClient>`。租户、用户、角色和业务对象采用有命名空间的组名，所有加入组操作重新验证租户和权限。官方 .NET/Vue 客户端优先使用 MessagePack Hub Protocol，普通浏览器和兼容客户端可继续选择 JSON。服务端限制消息大小、连接数、调用速率和流持续时间，并支持取消和断线重连。
+
+单实例使用本机 SignalR；自建多实例使用同机房 Redis Backplane，开发环境可以与 FusionCache 共用 Redis，生产环境至少隔离前缀和连接配置，高负载时使用独立实例。在线状态使用 Redis TTL 或可替换 Presence Store，不保存在某一台 API 的进程内存。
+
+## 18. AI 与 Agentic Web
+
+AI 分层如下：
+
+```text
+Full.NET.AI.Abstractions        Microsoft.Extensions.AI、模型/配额/工具策略
+Full.NET.AI.Providers.*         OpenAI、Azure OpenAI、Ollama 等供应商适配
+Full.NET.Agents                Microsoft Agent Framework 适配与持久化运行时
+Full.NET.AgenticWeb.Mcp        MCP Client/Server
+Full.NET.AgenticWeb.AgUi       AG-UI Web 协议适配
+```
+
+核心 AI 抽象使用 `IChatClient`、`IEmbeddingGenerator` 等供应商中立接口。供应商 SDK、模型密钥和特殊能力只存在于 Provider。Agent Framework 用于单/多 Agent、显式工作流、会话、检查点、长任务和人工审批，但不进入普通业务模块核心依赖。AG-UI Hosting 若仍为预览包，必须封装在可替换适配器中，不作为 Full.NET 1.0 核心稳定 API。
+
+Full.NET 同时支持作为 MCP Server 暴露经过授权的工具、资源和提示，以及作为 MCP Client 消费外部能力。任何 Controller、Service、SQL 或插件都不得因为公开方法存在而自动成为 Agent Tool；工具必须显式注册，逐次执行租户、用户、权限和数据范围校验。写入、删除、付款、发送外部消息等副作用默认要求人工确认或明确的策略豁免。
+
+Agent 运行保存会话、步骤、工具参数摘要、模型、Token、费用、Trace 和审批结果；设置执行时长、工具次数、Token 和费用预算，支持取消、幂等、重试与断点恢复。工具输出视为不可信输入，提示注入不能绕过服务端授权。标准 AG-UI 使用 HTTP + SSE；Full.NET 原生管理端可以另外使用 SignalR 适配，但不能破坏 AG-UI/MCP 标准互操作。
+
+## 19. 管理端
 
 管理端放在 `ui/admin`，采用 Vue 3、TypeScript、Vite 和 Element Plus。前后端通过 OpenAPI 和生成的 TypeScript 客户端解耦。
 
@@ -543,32 +612,32 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 
 管理端详细设计系统、组件规范和页面信息架构另立 UI 规格，不在本总体架构文档中展开。
 
-## 18. 测试策略
+## 20. 测试策略
 
-### 18.1 单元测试
+### 20.1 单元测试
 
 覆盖纯业务规则，如账号规则、权限合并、数据范围、租户状态、Token 轮换和并发处理；不为简单属性追求形式覆盖率。
 
-### 18.2 模块集成测试
+### 20.2 模块集成测试
 
 使用 Testcontainers 对 SQL Server 和 MySQL 运行真实数据库测试，验证 SQL、租户条件、Dapper 映射、事务回滚、迁移和 Outbox 原子性。
 
-### 18.3 架构测试
+### 20.3 架构测试
 
 自动禁止模块循环依赖、跨模块内部引用、裸连接、业务层直接调用 Dapper、Endpoint 包含业务逻辑、租户查询绕过执行器、Service Locator，以及 BuildingBlocks 反向依赖业务模块。
 
-### 18.4 API、生成器和 E2E
+### 20.4 API、生成器和 E2E
 
 - API 契约测试验证 OpenAPI、状态码、ProblemDetails、权限和兼容性；
 - 兼容性测试验证 Admin.NET 响应适配、真实 HTTP 状态码及文件、流、SignalR、健康检查等排除规则；
 - 生成器使用 Golden File 测试，并编译生成结果、执行集成测试；
 - Playwright 覆盖登录、Token 刷新、权限、多租户、代码生成、文件和通知关键流程。
 
-### 18.5 性能基线
+### 20.5 性能基线
 
-建立单行查询、分页、批量写入、权限检查、租户解析、Token、序列化和 Outbox 的可重复 Benchmark。发布门禁比较相对退化，不承诺脱离环境的固定 QPS。
+建立单行查询、分页、批量写入、权限检查、租户解析、Token、System.Text.Json 源生成、MessagePack、gRPC 契约、日志热路径和 Outbox 的可重复 Benchmark。发布门禁比较相对退化，不承诺脱离环境的固定 QPS。序列化基准必须使用 Full.NET 的真实分页、树形权限、租户和事件 DTO，不能只引用第三方项目的微基准结论。
 
-## 19. 运行与部署
+## 21. 运行与部署
 
 四个宿主职责：
 
@@ -596,16 +665,16 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 
 Docker 镜像采用多阶段构建、非 root 用户、最小端口、健康检查，并支持只读文件系统；生产密钥不进入镜像。
 
-## 20. 参考项目映射与演进
+## 22. 参考项目映射与演进
 
-### 20.1 eShop 架构映射
+### 22.1 eShop 架构映射
 
 Full.NET 引入 eShop 的工程和可靠性模式，但不照搬其服务数量：
 
 | eShop 设计 | Full.NET 落地 |
 |---|---|
 | `eShop.AppHost` | `Full.NET.AppHost`，编排 API、Worker、数据库和 Redis |
-| `eShop.ServiceDefaults` | `Full.NET.Hosting` 与 `Full.NET.Observability`，统一日志、OpenTelemetry、健康检查和弹性配置 |
+| `eShop.ServiceDefaults` | `Full.NET.Hosting/Observability`，统一日志、OpenTelemetry、健康检查和弹性配置；管理型可观测能力后续作为独立模块 |
 | 服务独立边界 | 模块边界与公开 `Contracts` |
 | 服务拥有自己的数据 | 模块拥有自己的表，禁止跨模块直接访问 |
 | Integration Event 与 EventBus | 模块 Integration Event 与可替换 EventBus Provider |
@@ -617,7 +686,7 @@ Full.NET 引入 eShop 的工程和可靠性模式，但不照搬其服务数量�
 
 Full.NET 不默认引入 eShop 的每模块微服务、每服务独立数据库、RabbitMQ 强依赖、EF Integration Event Log 或 API Gateway/BFF。需要拆分时，现有 Contracts、Integration Events、Outbox 和 Worker 提供演进基础。
 
-### 20.2 Admin.NET 功能演进
+### 22.2 Admin.NET 功能演进
 
 采用旁路重建和逐步替换：
 
@@ -632,7 +701,7 @@ Full.NET 不默认引入 eShop 的每模块微服务、每服务独立数据库�
 
 对标验收以能力和关键用户流程为准，不以复制 Admin.NET.Pro 的源码、表结构或 Furion/SqlSugar 实现为准。安全性不合理或模块边界混乱的旧行为不做原样兼容。
 
-## 21. 授权与来源治理
+## 23. 授权与来源治理
 
 Full.NET 根仓库最终使用 MIT License，并维护 `THIRD-PARTY-NOTICES`、依赖许可证清单、来源记录和自动许可证扫描。
 
@@ -645,19 +714,19 @@ Full.NET 根仓库最终使用 MIT License，并维护 `THIRD-PARTY-NOTICES`、�
 
 MIT 项目可以在遵守原版权和许可证声明的前提下复用。依赖版本由 `Directory.Packages.props` 集中锁定；升级前检查许可证、破坏性变化和安全公告。
 
-## 22. 交付里程碑
+## 24. 交付里程碑
 
 ### M0：工程基础
 
-独立仓库、解决方案、中央包管理、许可证、CI、代码规范、Host 骨架和架构测试。
+独立仓库、解决方案、中央包管理、许可证、CI、代码规范、Host 骨架、System.Text.Json 源生成规范、Serilog 高并发日志和架构测试。
 
 ### M1：可运行垂直底座
 
-Dapper、DbUp、SQL Server/MySQL、租户上下文、事务、Outbox、ProblemDetails、OpenTelemetry、FusionCache 和最小 API 链路。
+Dapper、DbUp、SQL Server/MySQL、租户上下文、事务、MessagePack Outbox、ProblemDetails、OpenTelemetry、FusionCache 和最小 API 链路。记录 gRPC 和实时通信边界，但不为未出现的跨进程调用提前引入运行时依赖。
 
 ### M2：核心后台能力
 
-Tenancy、Identity、Organization、RBAC、数据范围、菜单和 Vue 管理端核心流程。
+Tenancy、Identity、Organization、RBAC、数据范围、菜单、Realtime 抽象、SignalR/MessagePack、Redis Backplane 和 Vue 管理端核心流程。
 
 ### M3：快速交付能力
 
@@ -669,11 +738,11 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 
 ### M5+：Admin.NET 全量功能对标
 
-按功能矩阵持续交付官方扩展、Provider、Sample 和 Client，包括在线构建、导入导出、报表、微信、支付、OAuth、APIJSON、数据库视图、ES 日志、MQTT、AI、审批、钉钉、文档、GoView、K3Cloud、OCR、ReZero、工作流和企业微信等。每个子模块独立完成设计、计划、实现和验收，不阻塞核心 1.0 发布。
+按功能矩阵持续交付官方扩展、Provider、Sample 和 Client，包括在线构建、导入导出、报表、微信、支付、OAuth、APIJSON、数据库视图、ES 日志、MQTT、AI、Agent、MCP、Agentic Web、审批、钉钉、文档、GoView、K3Cloud、OCR、ReZero、工作流和企业微信等。每个子模块独立完成设计、计划、实现和验收，不阻塞核心 1.0 发布。
 
 每个里程碑都必须保持可构建、可测试、可演示，不允许长期维护一个无法运行的大分支。
 
-## 23. 1.0 验收标准
+## 25. 1.0 验收标准
 
 - 可以创建、迁移和初始化 SQL Server、MySQL 数据库；
 - 可以登录、刷新 Token、退出和撤销会话；
@@ -685,12 +754,14 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - Vue 管理端可以完成核心管理流程；
 - Docker 可以启动完整开发环境；
 - 日志、Trace、Metrics 和健康检查可用；
+- 对外 JSON 热路径使用 System.Text.Json 源生成，Outbox 使用带版本元数据的 MessagePack 二进制载荷；
+- SignalR 实时通道具备租户隔离、MessagePack 客户端和 Redis 多实例验证；
 - 架构、集成、生成器和 E2E 测试通过；
 - 仓库满足 MIT 和第三方许可证发布要求。
 
 1.0 验收不等于 Admin.NET 全量功能对标完成。长期对标完成标准是功能矩阵中所有适用项达到 `Verified`，或者经过设计评审明确记录为 `Not Applicable` 并给出替代方案。
 
-## 24. 实施原则
+## 26. 实施原则
 
 后续实施计划必须遵守：
 
@@ -703,8 +774,10 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 7. 不以快速开发为理由绕过模块、租户、权限、审计和测试规范。
 8. Admin.NET 兼容适配器只能放在 Compatibility 层，不能反向影响默认 API 契约。
 9. Admin.NET 对标按能力和流程验收，不按源文件数量或代码相似度验收。
+10. 核心不因未来可能需要 gRPC、SignalR 或 AI 而创建未被真实模块消费的抽象；首次真实使用时建立独立计划和验收。
+11. 开放协议的标准格式优先于内部偏好；MCP、AG-UI 等要求 JSON/SSE 时必须保持协议兼容。
 
-## 25. 参考资料
+## 27. 参考资料
 
 - [ASP.NET Core HybridCache](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid?view=aspnetcore-10.0)
 - [FusionCache Microsoft HybridCache Support](https://github.com/ZiggyCreatures/FusionCache/blob/main/docs/MicrosoftHybridCache.md)
@@ -712,3 +785,13 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - [DbUp](https://github.com/DbUp/DbUp)
 - [dotnet/eShop](https://github.com/dotnet/eShop)
 - [EF Core Performance](https://learn.microsoft.com/ef/core/performance/)
+- [System.Text.Json Source Generation](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/source-generation)
+- [gRPC Performance Best Practices](https://learn.microsoft.com/aspnet/core/grpc/performance?view=aspnetcore-10.0)
+- [MessagePack-CSharp](https://github.com/MessagePack-CSharp/MessagePack-CSharp)
+- [High-performance logging in .NET](https://learn.microsoft.com/dotnet/core/extensions/logging/high-performance-logging)
+- [Serilog.Sinks.Async](https://github.com/serilog/serilog-sinks-async)
+- [SignalR MessagePack Hub Protocol](https://learn.microsoft.com/aspnet/core/signalr/messagepackhubprotocol?view=aspnetcore-10.0)
+- [Microsoft.Extensions.AI](https://learn.microsoft.com/dotnet/ai/microsoft-extensions-ai)
+- [Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/overview/)
+- [MCP C# SDK](https://csharp.sdk.modelcontextprotocol.io/)
+- [Agent Framework AG-UI Integration](https://learn.microsoft.com/agent-framework/integrations/ag-ui/)
