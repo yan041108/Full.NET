@@ -1166,7 +1166,8 @@ git commit -m "feat: add scoped Dapper data access"
 For SQL Server, use:
 
 ```csharp
-private readonly MsSqlContainer _container = new MsSqlBuilder()
+private readonly MsSqlContainer _container = new MsSqlBuilder(
+        "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
     .WithPassword("FullNet_Test!123")
     .Build();
 ```
@@ -1174,7 +1175,7 @@ private readonly MsSqlContainer _container = new MsSqlBuilder()
 For MySQL, use:
 
 ```csharp
-private readonly MySqlContainer _container = new MySqlBuilder()
+private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
     .WithDatabase("fullnet")
     .WithUsername("fullnet")
     .WithPassword("FullNet_Test!123")
@@ -1303,12 +1304,10 @@ public Task<MigrationResult> MigrateAsync(CancellationToken cancellationToken = 
     UpgradeEngineBuilder builder;
     if (options.Provider == DatabaseProvider.SqlServer)
     {
-        EnsureDatabase.For.SqlDatabase(options.ConnectionString);
         builder = DeployChanges.To.SqlDatabase(options.ConnectionString);
     }
     else
     {
-        EnsureDatabase.For.MySqlDatabase(options.ConnectionString);
         builder = DeployChanges.To.MySqlDatabase(options.ConnectionString);
     }
 
@@ -1329,12 +1328,13 @@ public Task<MigrationResult> MigrateAsync(CancellationToken cancellationToken = 
 }
 ```
 
-`MigrationAssembly.Value` is `typeof(MigrationAssembly).Assembly`. `AddFullNetMigrations()` registers the runner as a singleton and consumes the same validated `DatabaseOptions`. Return `ExecutedScriptCount` so the idempotence test can assert the second count is zero.
+`MigrationAssembly.Value` is `typeof(MigrationAssembly).Assembly`. `AddFullNetMigrations()` registers the runner as a singleton and consumes the same validated `DatabaseOptions`. The configured database must already exist: migration does not grant the application account server-level database-creation privileges. Return `ExecutedScriptCount` so the idempotence test can assert the second count is zero.
 
 - [ ] **Step 5: Run provider tests and commit**
 
 ```powershell
-dotnet test tests/Full.NET.IntegrationTests --filter "FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~MySqlMigrationTests"
+dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj
+dotnet test --test-modules "Full.NET.IntegrationTests.dll" --root-directory "tests/Full.NET.IntegrationTests/bin/Debug/net10.0" --filter "FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~MySqlMigrationTests"
 dotnet build Full.NET.slnx
 git add src/BuildingBlocks/Full.NET.Migrations.DbUp tests/Full.NET.IntegrationTests/Migrations
 git commit -m "feat: add SQL Server and MySQL migrations"

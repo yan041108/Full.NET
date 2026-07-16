@@ -7,6 +7,12 @@
     <PackageReference Include="dbup-core" />
     <PackageReference Include="dbup-mysql" />
     <PackageReference Include="dbup-sqlserver" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\**\*.sql" />
   </ItemGroup>
 
 </Project>
