@@ -83,7 +83,7 @@ public sealed class TenantProvisioningTests
                 new ProvisionTenantRequest(null!, null!, null!));
             Assert.IsFalse(invalid.IsSuccess);
             Assert.IsNotNull(invalid.Error);
-            Assert.AreEqual("tenancy.validation", invalid.Error.Code);
+            Assert.AreEqual("validation.failed", invalid.Error.Code);
             Assert.IsNotNull(invalid.Error.ValidationErrors);
             Assert.AreEqual(3, invalid.Error.ValidationErrors.Count);
 

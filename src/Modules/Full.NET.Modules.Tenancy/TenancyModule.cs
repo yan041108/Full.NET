@@ -1,3 +1,4 @@
+using FluentValidation;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
@@ -8,6 +9,7 @@ using Full.NET.Modules.Tenancy.Features.GetCurrentTenant;
 using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 using Full.NET.Modules.Tenancy.Persistence;
 using Full.NET.Modules.Tenancy.Serialization;
+using Full.NET.Validation.FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -27,6 +29,10 @@ public sealed class TenancyModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddFullNetFluentValidation();
+        services.TryAddScoped<
+            IValidator<ProvisionTenantCommand>,
+            ProvisionTenantCommandValidator>();
         services.TryAddScoped<CurrentTenantAccessor>();
         services.TryAddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());

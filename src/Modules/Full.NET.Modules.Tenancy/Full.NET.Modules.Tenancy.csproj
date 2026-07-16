@@ -7,6 +7,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Validation.FluentValidation\Full.NET.Validation.FluentValidation.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MessagePack" />
