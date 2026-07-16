@@ -3,6 +3,7 @@ using Dapper;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
+using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Migrations.DbUp;
@@ -14,6 +15,8 @@ using Full.NET.Serialization.MessagePack;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
@@ -119,6 +122,37 @@ public sealed class TenantProvisioningTests
             Assert.AreEqual(result.Value.Id, integrationEvent.TenantId);
             Assert.AreEqual("acme", integrationEvent.Identifier);
             Assert.AreEqual("acme.localhost", integrationEvent.Domain);
+
+            var outboxStore = scope.ServiceProvider.GetRequiredService<IOutboxStore>();
+            var leasedMessages = await outboxStore.AcquireAsync(
+                20,
+                TimeSpan.FromSeconds(30),
+                CancellationToken.None);
+            Assert.HasCount(1, leasedMessages);
+            var leasedMessage = leasedMessages[0];
+            Assert.AreNotEqual(Guid.Empty, leasedMessage.LockId);
+            Assert.AreEqual(1, leasedMessage.Attempts);
+            Assert.AreEqual(outbox.Type, leasedMessage.Type);
+            CollectionAssert.AreEqual(outbox.Payload, leasedMessage.Payload);
+            await outboxStore.MarkProcessedAsync(
+                leasedMessage.Id,
+                leasedMessage.LockId,
+                CancellationToken.None);
+
+            var concurrencyDetected = false;
+            try
+            {
+                await outboxStore.MarkProcessedAsync(
+                    leasedMessage.Id,
+                    leasedMessage.LockId,
+                    CancellationToken.None);
+            }
+            catch (OutboxConcurrencyException)
+            {
+                concurrencyDetected = true;
+            }
+
+            Assert.IsTrue(concurrencyDetected);
         }
 
         Assert.AreEqual(
@@ -181,6 +215,7 @@ public sealed class TenantProvisioningTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IHostEnvironment, TestHostEnvironment>();
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
@@ -189,6 +224,7 @@ public sealed class TenantProvisioningTests
         services.AddFullNetModularity();
         services.AddFullNetDapper(configuration);
         services.AddFullNetMessagePack();
+        services.AddFullNetCaching(configuration, "Test");
         services.AddFullNetModule<TenancyModule>(configuration);
 
         if (throwOnOutbox)
@@ -262,5 +298,17 @@ public sealed class TenantProvisioningTests
             TEvent payload,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(ExceptionMessage);
+    }
+
+    private sealed class TestHostEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Test";
+
+        public string ApplicationName { get; set; } = "Full.NET.IntegrationTests";
+
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+
+        public IFileProvider ContentRootFileProvider { get; set; } =
+            new NullFileProvider();
     }
 }

@@ -41,6 +41,9 @@ public sealed class TenancyModule : IFullNetModule
             Features.GetCurrentTenant.Handler>();
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
         services.AddScoped<ITenantResolver, TenantResolver>();
+        services.AddScoped<
+            IIntegrationEventHandler,
+            TenantProvisionedCacheInvalidationHandler>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

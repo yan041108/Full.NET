@@ -39,6 +39,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICommandExecutor>(provider =>
             provider.GetRequiredService<DapperSqlExecutor>());
         services.AddScoped<IOutboxWriter, DapperOutboxWriter>();
+        services.AddScoped<IOutboxStore, DapperOutboxStore>();
         services.AddScoped<ICommandTransaction, DapperCommandTransaction>();
         return services;
     }

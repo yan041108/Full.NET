@@ -44,7 +44,7 @@ internal static class TenantSql
     public static readonly SqlStatement GetCurrent = new(
         "tenancy.get-current",
         """
-        SELECT Id, Identifier, Name, Domain, IsActive, CreatedAt, Version
+        SELECT Id, Identifier, Name, Domain, IsActive, Version
         FROM fn_tenant_tenant
         WHERE Id = @TenantId AND IsActive = 1
         """,
