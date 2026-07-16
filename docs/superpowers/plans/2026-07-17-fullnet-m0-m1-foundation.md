@@ -829,8 +829,12 @@ services.AddOpenTelemetry()
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation());
-services.AddHttpClient().AddStandardResilienceHandler();
 services.AddServiceDiscovery();
+services.ConfigureHttpClientDefaults(httpClient =>
+{
+    httpClient.AddStandardResilienceHandler();
+    httpClient.AddServiceDiscovery();
+});
 services.AddSingleton<IApiResultMapper, StandardApiResultMapper>();
 ```
 
