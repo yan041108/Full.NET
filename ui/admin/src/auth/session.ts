@@ -27,6 +27,7 @@ export const useSessionStore = defineStore('identity-session', () => {
   const availableTenants = ref<TenantContextSummary[]>([]);
   const switching = ref(false);
   let token: TokenResponse | undefined;
+  let sessionGeneration = 0;
 
   configureAuthentication({
     getAccessToken: () => token?.accessToken,
@@ -54,6 +55,7 @@ export const useSessionStore = defineStore('identity-session', () => {
   }
 
   async function login(username: string, password: string): Promise<void> {
+    const operationGeneration = ++sessionGeneration;
     const value = await request<unknown>('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -63,37 +65,59 @@ export const useSessionStore = defineStore('identity-session', () => {
       throw new TypeError('登录响应不符合 TokenResponse 契约。');
     }
 
+    if (operationGeneration !== sessionGeneration) {
+      return;
+    }
+
     acceptToken(value);
     try {
-      await loadAuthenticatedSnapshot();
+      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
+        return;
+      }
+
       state.value = 'authenticated';
     } catch (error: unknown) {
+      if (operationGeneration !== sessionGeneration) {
+        return;
+      }
+
       clear();
       throw error;
     }
   }
 
   async function restore(): Promise<void> {
+    const operationGeneration = sessionGeneration;
     state.value = 'initializing';
-    if (!await refreshAccessToken()) {
-      clear();
+    if (!await refreshAccessToken(operationGeneration)) {
       return;
     }
 
     try {
-      await loadAuthenticatedSnapshot();
+      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
+        return;
+      }
+
       state.value = 'authenticated';
     } catch {
-      clear();
+      if (operationGeneration === sessionGeneration) {
+        clear();
+      }
     }
   }
 
-  async function refreshAccessToken(): Promise<boolean> {
+  async function refreshAccessToken(
+    operationGeneration = sessionGeneration
+  ): Promise<boolean> {
     try {
       const value = await request<unknown>('/api/v1/auth/refresh', {
         method: 'POST',
         headers: csrfHeaders()
       }, undefined, { retryUnauthorized: false });
+      if (operationGeneration !== sessionGeneration) {
+        return false;
+      }
+
       if (!isTokenResponse(value)) {
         clear();
         return false;
@@ -102,7 +126,10 @@ export const useSessionStore = defineStore('identity-session', () => {
       acceptToken(value);
       return true;
     } catch {
-      clear();
+      if (operationGeneration === sessionGeneration) {
+        clear();
+      }
+
       return false;
     }
   }
@@ -112,21 +139,30 @@ export const useSessionStore = defineStore('identity-session', () => {
       return;
     }
 
+    const operationGeneration = sessionGeneration;
     switching.value = true;
     try {
       try {
-        await changeTenantContext(tenantId);
+        await changeTenantContext(tenantId, operationGeneration);
       } catch (error: unknown) {
+        if (operationGeneration !== sessionGeneration) {
+          return;
+        }
+
         if (!isFullNetProblemDetails(error)
           || error.code !== contextConflictCode
-          || !await refreshAccessToken()) {
+          || !await refreshAccessToken(operationGeneration)) {
           throw error;
         }
 
         // 并发冲突只允许在刷新最新会话后重试一次，防止循环覆盖较新的上下文。
         try {
-          await changeTenantContext(tenantId);
+          await changeTenantContext(tenantId, operationGeneration);
         } catch (retryError: unknown) {
+          if (operationGeneration !== sessionGeneration) {
+            return;
+          }
+
           // Refresh 已替换 Token；重试失败时必须清空旧快照，避免授权范围错配。
           clear();
           throw retryError;
@@ -137,7 +173,10 @@ export const useSessionStore = defineStore('identity-session', () => {
     }
   }
 
-  async function changeTenantContext(tenantId: string | null): Promise<void> {
+  async function changeTenantContext(
+    tenantId: string | null,
+    operationGeneration: number
+  ): Promise<void> {
     const value = await request<unknown>('/api/v1/tenancy/context', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -147,11 +186,22 @@ export const useSessionStore = defineStore('identity-session', () => {
       throw new TypeError('租户上下文响应不符合契约。');
     }
 
+    if (operationGeneration !== sessionGeneration) {
+      return;
+    }
+
     acceptToken(value);
     try {
-      await loadAuthenticatedSnapshot();
+      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
+        return;
+      }
+
       state.value = 'authenticated';
     } catch (error: unknown) {
+      if (operationGeneration !== sessionGeneration) {
+        return;
+      }
+
       // 服务端已完成切换时不能退回旧 Token；清空状态可阻止旧导航继续发起请求。
       clear();
       throw error;
@@ -159,19 +209,22 @@ export const useSessionStore = defineStore('identity-session', () => {
   }
 
   async function logout(): Promise<void> {
+    const headers = csrfHeaders();
+    // 先推进代际并清空内存状态，所有较晚返回的旧异步操作都会失效。
+    clear();
     try {
       await request<void>('/api/v1/auth/logout', {
         method: 'POST',
-        headers: csrfHeaders()
+        headers
       }, undefined, { retryUnauthorized: false });
     } catch {
       // 本地状态清理不能依赖网络成功，服务端会话仍由过期和重用检测兜底。
-    } finally {
-      clear();
     }
   }
 
-  async function loadAuthenticatedSnapshot(): Promise<void> {
+  async function loadAuthenticatedSnapshot(
+    operationGeneration: number
+  ): Promise<boolean> {
     const userValue = await request<unknown>('/api/v1/me');
     if (!isCurrentUserResponse(userValue)) {
       throw new TypeError('当前用户响应不符合契约。');
@@ -193,13 +246,19 @@ export const useSessionStore = defineStore('identity-session', () => {
       tenantValues = tenantValue;
     }
 
+    if (operationGeneration !== sessionGeneration) {
+      return false;
+    }
+
     // 三类响应全部通过守卫后再原子替换，避免 UI 混用新旧授权快照。
     currentUser.value = userValue;
     navigation.value = navigationValue;
     availableTenants.value = tenantValues;
+    return true;
   }
 
   function clear(): void {
+    sessionGeneration++;
     token = undefined;
     currentUser.value = undefined;
     navigation.value = [];

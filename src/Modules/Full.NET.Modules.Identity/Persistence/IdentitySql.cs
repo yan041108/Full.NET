@@ -301,15 +301,6 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement RevokeRefreshSession = new(
-        "identity.revoke-refresh-session",
-        """
-        UPDATE fn_identity_refresh_session
-        SET RevokedAtUtc = @RevokedAtUtc,
-            Version = Version + 1
-        WHERE Id = @Id AND RevokedAtUtc IS NULL
-        """,
-        SqlDataScope.HostOnly);
 }
 
 internal sealed record ConsumeRefreshSessionUpdate(

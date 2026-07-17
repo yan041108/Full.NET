@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createIdentitySession } from '../js/core/session.js';
-import { configureAuthentication } from '../js/core/http.js';
+import { configureAuthentication, request } from '../js/core/http.js';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
@@ -183,6 +183,73 @@ describe('Layui 管理端会话', () => {
       navigation: [],
       availableTenants: []
     });
+    session.dispose();
+  });
+
+  it('退出后拒绝较晚返回的在途刷新结果', async () => {
+    let resolveRefresh;
+    const refreshResponse = new Promise(resolve => {
+      resolveRefresh = resolve;
+    });
+    const fetchMock = createLoginFetch();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        status: 401,
+        code: 'identity.session_expired',
+        title: '访问令牌已过期'
+      }, 401, 'application/problem+json'))
+      .mockReturnValueOnce(refreshResponse)
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = createIdentitySession();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    const protectedOutcome = request('/api/v1/protected')
+      .then(() => undefined, error => error);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+    await session.logout();
+    resolveRefresh(jsonResponse(tokenResponse('stale-refreshed-token')));
+
+    await expect(protectedOutcome).resolves.toMatchObject({
+      code: 'identity.session_expired'
+    });
+    await request('/api/v1/probe', {}, undefined, {
+      retryUnauthorized: false
+    });
+    const probeCall = fetchMock.mock.calls.find(
+      call => call[0] === '/api/v1/probe'
+    );
+    expect(probeCall).toBeDefined();
+    expect(new Headers(probeCall?.[1]?.headers).has('authorization')).toBe(false);
+    session.dispose();
+  });
+
+  it('退出后忽略较晚返回的租户切换结果', async () => {
+    let resolveContext;
+    const contextResponse = new Promise(resolve => {
+      resolveContext = resolve;
+    });
+    const fetchMock = createLoginFetch();
+    fetchMock
+      .mockReturnValueOnce(contextResponse)
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(currentUser(tenantId)))
+      .mockResolvedValueOnce(jsonResponse(navigation()))
+      .mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = createIdentitySession();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    const switchPromise = session.switchTenant(tenantId);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    await session.logout();
+    resolveContext(jsonResponse(contextToken('stale-tenant-token')));
+    await switchPromise;
+
+    expect(session.snapshot().state).toBe('anonymous');
+    expect(fetchMock.mock.calls.filter(
+      call => call[0] === '/api/v1/me'
+    )).toHaveLength(1);
     session.dispose();
   });
 });

@@ -29,20 +29,11 @@ internal sealed class Handler(
             return Result<LogoutResult>.Success(new LogoutResult());
         }
 
-        if (record.ConsumedAtUtc.HasValue)
-        {
-            await commandExecutor.ExecuteAsync(
-                IdentitySql.RevokeRefreshFamily,
-                new { record.FamilyId, RevokedAtUtc = clock.UtcNow },
-                cancellationToken).ConfigureAwait(false);
-        }
-        else if (!record.RevokedAtUtc.HasValue)
-        {
-            await commandExecutor.ExecuteAsync(
-                IdentitySql.RevokeRefreshSession,
-                new { Id = record.SessionId, RevokedAtUtc = clock.UtcNow },
-                cancellationToken).ConfigureAwait(false);
-        }
+        // Logout 必须撤销整个轮换 family；只撤销当前行会在 Refresh 并发获胜时遗留替代会话。
+        await commandExecutor.ExecuteAsync(
+            IdentitySql.RevokeRefreshFamily,
+            new { record.FamilyId, RevokedAtUtc = clock.UtcNow },
+            cancellationToken).ConfigureAwait(false);
 
         var audit = new AuthAuditEvent(
             idGenerator.NewId(),

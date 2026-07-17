@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { configureAuthentication } from '../api/http';
+import { configureAuthentication, request } from '../api/http';
 import { useSessionStore } from './session';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
@@ -207,6 +207,75 @@ describe('Vue 管理端会话', () => {
     expect(session.currentUser).toBeUndefined();
     expect(session.navigation).toEqual([]);
     expect(session.availableTenants).toEqual([]);
+  });
+
+  it('退出后拒绝较晚返回的在途刷新结果', async () => {
+    let resolveRefresh!: (response: Response) => void;
+    const refreshResponse = new Promise<Response>(resolve => {
+      resolveRefresh = resolve;
+    });
+    const fetchMock = createLoginFetch();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        status: 401,
+        code: 'identity.session_expired',
+        title: '访问令牌已过期'
+      }, 401, 'application/problem+json'))
+      .mockReturnValueOnce(refreshResponse)
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    const protectedOutcome = request<void>('/api/v1/protected')
+      .then(() => undefined, error => error);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+    await session.logout();
+    resolveRefresh(jsonResponse(tokenResponse('stale-refreshed-token')));
+
+    await expect(protectedOutcome).resolves.toMatchObject({
+      code: 'identity.session_expired'
+    });
+    await request<void>('/api/v1/probe', {}, undefined, {
+      retryUnauthorized: false
+    });
+    const probeCall = fetchMock.mock.calls.find(call => call[0] === '/api/v1/probe');
+    expect(probeCall).toBeDefined();
+    expect(new Headers(probeCall?.[1]?.headers).has('authorization')).toBe(false);
+  });
+
+  it('退出后忽略较晚返回的租户切换结果', async () => {
+    let resolveContext!: (response: Response) => void;
+    const contextResponse = new Promise<Response>(resolve => {
+      resolveContext = resolve;
+    });
+    const fetchMock = createLoginFetch();
+    fetchMock
+      .mockReturnValueOnce(contextResponse)
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(currentUser(tenantId)))
+      .mockResolvedValueOnce(jsonResponse(navigation()))
+      .mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    const switchPromise = session.switchTenant(tenantId);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    await session.logout();
+    resolveContext(jsonResponse({
+      ...tokenResponse('stale-tenant-token'),
+      context: {
+        tenantId,
+        identifier: 'acme',
+        name: 'Acme Corporation',
+        scope: `tenant:${tenantId.replaceAll('-', '')}`
+      }
+    }));
+    await switchPromise;
+
+    expect(session.state).toBe('anonymous');
+    expect(fetchMock.mock.calls.filter(call => call[0] === '/api/v1/me')).toHaveLength(1);
   });
 });
 
