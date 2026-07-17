@@ -11,14 +11,21 @@ const dcloudPackages = [
   '@dcloudio/vite-plugin-uni'
 ];
 
+type PackageDefinition = {
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+  scripts: Record<string, string>;
+};
+
+async function readPackageDefinition(): Promise<PackageDefinition> {
+  return JSON.parse(
+    await readFile(new URL('../package.json', import.meta.url), 'utf8')
+  ) as PackageDefinition;
+}
+
 describe('uni-app workspace contract', () => {
   it('pins all DCloud packages to one exact version', async () => {
-    const packageDefinition = JSON.parse(
-      await readFile(new URL('../package.json', import.meta.url), 'utf8')
-    ) as {
-      dependencies: Record<string, string>;
-      devDependencies: Record<string, string>;
-    };
+    const packageDefinition = await readPackageDefinition();
 
     const packageVersions = dcloudPackages.map(packageName =>
       packageDefinition.dependencies[packageName] ?? packageDefinition.devDependencies[packageName]
@@ -30,10 +37,21 @@ describe('uni-app workspace contract', () => {
     expect(packageVersions.every(version => !/[~^*]|latest/.test(version))).toBe(true);
   });
 
+  it('pins every direct dependency without a range or latest tag', async () => {
+    const packageDefinition = await readPackageDefinition();
+    const directDependencies = {
+      ...packageDefinition.dependencies,
+      ...packageDefinition.devDependencies
+    };
+
+    expect(Object.keys(directDependencies)).not.toHaveLength(0);
+    expect(
+      Object.values(directDependencies).every(version => !/[~^*]|latest/i.test(version))
+    ).toBe(true);
+  });
+
   it('exposes every supported target build script', async () => {
-    const packageDefinition = JSON.parse(
-      await readFile(new URL('../package.json', import.meta.url), 'utf8')
-    ) as { scripts: Record<string, string> };
+    const packageDefinition = await readPackageDefinition();
 
     expect(packageDefinition.scripts['build:h5']).toBe('uni build -p h5');
     expect(packageDefinition.scripts['build:mp-weixin']).toBe('uni build -p mp-weixin');
@@ -44,7 +62,7 @@ describe('uni-app workspace contract', () => {
     const viteConfig = await readFile(new URL('../vite.config.ts', import.meta.url), 'utf8');
 
     expect(viteConfig).toMatch(/@dcloudio\/vite-plugin-uni/);
-    expect(viteConfig).toMatch(/\[uni\(\)\]/);
+    expect(viteConfig).toMatch(/plugins:\s*mode === 'test' \? \[\] : \[uni\(\)\]/);
   });
 
   it('records the required runtime licenses', async () => {
@@ -55,5 +73,18 @@ describe('uni-app workspace contract', () => {
 
     expect(notices).toMatch(/uni-app\/DCloud[^\n]*Apache-2\.0/i);
     expect(notices).toMatch(/Vue I18n[^\n]*MIT/i);
+  });
+
+  it('pins a Vue 3.4-compatible VueUse resolution and records its license', async () => {
+    const [packageDefinition, resolvedVueUse, notices] = await Promise.all([
+      readPackageDefinition(),
+      readFile(new URL('../node_modules/@vueuse/core/package.json', import.meta.url), 'utf8'),
+      readFile(new URL('../../../THIRD-PARTY-NOTICES', import.meta.url), 'utf8')
+    ]);
+
+    expect(packageDefinition.devDependencies['@vueuse/core']).toBe('11.3.0');
+    expect(JSON.parse(resolvedVueUse).version).toBe('11.3.0');
+    expect(JSON.parse(resolvedVueUse).version).not.toBe('14.3.0');
+    expect(notices).toMatch(/VueUse[^\n]*MIT/i);
   });
 });
