@@ -271,8 +271,8 @@ git commit -m "feat: validate seed profiles and contributors"
 - Create: `src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedExecutionStore.cs`
 - Create: `src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedOrchestrator.cs`
 - Modify: `src/BuildingBlocks/Full.NET.Seeding.Dapper/ServiceCollectionExtensions.cs`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/004_Seeding.sql`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/004_Seeding.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/005_Seeding.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/005_Seeding.sql`
 - Modify: `tests/Full.NET.IntegrationTests/Migrations/SqlServerMigrationTests.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Migrations/MySqlMigrationTests.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj`
@@ -294,7 +294,7 @@ git commit -m "feat: validate seed profiles and contributors"
 - 成功结果聚合 Created/Updated/Skipped；
 - 审计只接收 ErrorCode，不接收异常 Message 或 Seed 输入。
 
-同时先创建 `SeedInfrastructureTests`，让 SQL Server/MySQL 分别断言 `004_Seeding.sql` 后存在 run/item 两表、同一资源的第二个 lease 在短超时内失败、释放后可再次获取，以及参数化 run/item 审计可以读取。此时测试必须因迁移、Lease 和 Store 不存在而失败。
+同时先创建 `SeedInfrastructureTests`，让 SQL Server/MySQL 分别断言 `005_Seeding.sql` 后存在 run/item 两表、同一资源的第二个 lease 在短超时内失败、释放后可再次获取，以及参数化 run/item 审计可以读取。此时测试必须因迁移、Lease 和 Store 不存在而失败。
 
 - [ ] **Step 2: 运行 Unit RED**
 
@@ -304,7 +304,7 @@ Expected: FAIL，Orchestrator、Store 与 Lease 类型不存在。
 
 - [ ] **Step 3: 编写双库迁移**
 
-两份 `004_Seeding.sql` 创建 `fn_seed_run` 和 `fn_seed_run_item`。SQL Server 使用 `uniqueidentifier/datetimeoffset/nvarchar`，MySQL 使用 `char(36)/datetime(6)/varchar`；都包含：
+两份 `005_Seeding.sql` 创建 `fn_seed_run` 和 `fn_seed_run_item`。`004_LocalizationPreferences.sql` 由先行的多语言偏好切片占用；SQL Server 使用 `uniqueidentifier/datetimeoffset/nvarchar`，MySQL 使用 `char(36)/datetime(6)/varchar`；都包含：
 
 ```text
 fn_seed_run: Id PK, Profile, EnvironmentName, Status, ApplicationVersion,

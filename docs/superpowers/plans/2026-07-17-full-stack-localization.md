@@ -176,6 +176,7 @@ git commit -m "feat: add localization governance contract"
 - Create: src/BuildingBlocks/Full.NET.Localization/ILocaleContext.cs
 - Create: src/BuildingBlocks/Full.NET.Localization/LocaleContext.cs
 - Create: src/BuildingBlocks/Full.NET.Localization/CultureScope.cs
+- Create: src/BuildingBlocks/Full.NET.Localization/LocalizationHttpHeaders.cs
 - Create: src/BuildingBlocks/Full.NET.Localization/LocalizationServiceCollectionExtensions.cs
 - Create: src/BuildingBlocks/Full.NET.Localization/LocalizationApplicationBuilderExtensions.cs
 - Modify: Full.NET.slnx
@@ -184,6 +185,7 @@ git commit -m "feat: add localization governance contract"
 - Modify: src/Hosts/Full.NET.Host.Api/Program.cs
 - Create: tests/Full.NET.UnitTests/Localization/LocaleNormalizerTests.cs
 - Create: tests/Full.NET.UnitTests/Localization/CultureScopeTests.cs
+- Create: tests/Full.NET.UnitTests/Localization/LocalizationHttpHeadersTests.cs
 
 **Interfaces:**
 - Produces: ILocaleContext.CurrentLocale、ILocaleNormalizer.Normalize、AddFullNetLocalization、UseFullNetLocalization、CultureScope.Push。
@@ -223,7 +225,7 @@ AddFullNetLocalization 注册 AddLocalization、Options validator、LocaleNormal
 
 Full.NET.Localization 与 Hosting 的项目文件将 NeutralLanguage 固定为 zh-CN，保证中性 .resx 是可预测的中文回退，而不是依赖构建机器文化。
 
-UseFullNetLocalization 调用 UseRequestLocalization，并在响应开始前只对本地化 ProblemDetails/显式本地化 Endpoint 设置 Content-Language；公共缓存响应追加 Vary: Accept-Language。
+UseFullNetLocalization 只负责在管道早期调用 UseRequestLocalization。`LocalizationHttpHeaders.Apply(HttpResponse, locale, varyByAcceptLanguage)` 为确定产生本地化文本的边界设置 Content-Language，并在 `varyByAcceptLanguage=true` 时无重复追加 Vary: Accept-Language；Task 3 的 ProblemDetails Mapper 使用该帮助器。语言中立成功 DTO 不添加 Vary，避免破坏公共缓存命中率。
 
 - [ ] **Step 5: 调整中间件顺序**
 
@@ -256,27 +258,37 @@ git commit -m "feat: add fullnet request localization"
 
 **Files:**
 - Modify: src/BuildingBlocks/Full.NET.Abstractions/Results/Error.cs
+- Create: src/BuildingBlocks/Full.NET.Abstractions/Results/CommonErrorCodes.cs
+- Create: src/BuildingBlocks/Full.NET.Abstractions/Results/ValidationErrorCodes.cs
 - Create: src/BuildingBlocks/Full.NET.Abstractions/Results/ValidationViolation.cs
 - Create: src/BuildingBlocks/Full.NET.Hosting/Api/IErrorMessageLocalizer.cs
+- Create: src/BuildingBlocks/Full.NET.Hosting/Api/IErrorResourceSource.cs
+- Create: src/BuildingBlocks/Full.NET.Hosting/Api/ResourceManagerErrorResourceSource.cs
+- Create: src/BuildingBlocks/Full.NET.Hosting/Api/NamedMessageFormatter.cs
 - Create: src/BuildingBlocks/Full.NET.Hosting/Api/ResourceErrorMessageLocalizer.cs
 - Create: src/BuildingBlocks/Full.NET.Hosting/Resources/CommonErrors.resx
 - Create: src/BuildingBlocks/Full.NET.Hosting/Resources/CommonErrors.en-US.resx
+- Create: src/BuildingBlocks/Full.NET.Hosting/Serialization/HostingJsonSerializerContext.cs
 - Modify: src/BuildingBlocks/Full.NET.Hosting/Api/StandardApiResultMapper.cs
+- Modify: src/Compatibility/Full.NET.Compatibility.AdminNet/AdminNetApiResultMapper.cs
 - Modify: src/BuildingBlocks/Full.NET.Validation.FluentValidation/FluentValidationBehavior.cs
 - Create: src/Modules/Full.NET.Modules.Identity/Resources/IdentityErrors.resx
 - Create: src/Modules/Full.NET.Modules.Identity/Resources/IdentityErrors.en-US.resx
+- Create: src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs
 - Modify: src/Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj
 - Create: src/Modules/Full.NET.Modules.Tenancy/Resources/TenancyErrors.resx
 - Create: src/Modules/Full.NET.Modules.Tenancy/Resources/TenancyErrors.en-US.resx
+- Create: src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs
 - Modify: src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj
 - Modify: tests/Full.NET.UnitTests/Hosting/StandardApiResultMapperTests.cs
 - Create: tests/Full.NET.UnitTests/Localization/ErrorResourceCompletenessTests.cs
 - Create: tests/Full.NET.IntegrationTests/Api/LocalizedProblemDetailsTests.cs
+- Modify: tests/Full.NET.CompatibilityTests/AdminNetApiResultMapperTests.cs
 - Modify: src/BuildingBlocks/Full.NET.Hosting/Serialization/FullNetJsonOptionsExtensions.cs
 
 **Interfaces:**
-- Produces: ProblemDetails extensions violations，元素为 field、code、arguments；title/detail/errors 为本地化展示字段。
-- Consumes: Error.Code、Error.Type、Error.Arguments、Error.ValidationViolations 与请求 CurrentUICulture。
+- Produces: `IErrorResourceSource(Prefix, TryGetTemplate)`、`IErrorMessageLocalizer.Localize(Error, CultureInfo)`；ProblemDetails extensions violations 的元素为 field、code、arguments；title/detail/errors 为本地化展示字段。
+- Consumes: Error.Code、Error.Type、Error.Arguments、Error.ValidationViolations、Task 2 的 LocalizationHttpHeaders 与请求 CurrentUICulture。
 
 - [ ] **Step 1: 写失败的双语言 API 测试**
 
@@ -284,7 +296,7 @@ git commit -m "feat: add fullnet request localization"
 
 - [ ] **Step 2: 写失败的资源完整性测试**
 
-扫描生产程序集中的 Error code 与 FluentValidation error code，要求 common、validation、identity、tenancy 前缀在默认资源和 en-US 资源均有条目。
+从 Common、Validation、Identity、Tenancy 的稳定 ErrorCodes 常量目录枚举 code，要求对应 `IErrorResourceSource` 的默认资源和 en-US 资源均有条目。实现时把现有 Error 构造中的字符串 code 收敛到所属目录，禁止通过扫描 IL 或正则猜测运行时错误码。
 
 - [ ] **Step 3: 扩展错误模型**
 
@@ -307,11 +319,11 @@ DefaultMessage 只作为安全回退。迁移全部命名参数调用，禁止�
 
 - [ ] **Step 4: 实现资源聚合与映射**
 
-ResourceErrorMessageLocalizer 按 code 前缀选择模块资源，按 CurrentUICulture 格式化命名参数。缺失资源时返回 DefaultMessage，并使用低基数指标记录 code/locale；不得记录用户参数。
+ResourceErrorMessageLocalizer 按最长 code 前缀选择模块注册的 `IErrorResourceSource`，按 CurrentUICulture 使用 `NamedMessageFormatter` 格式化命名参数。格式器只替换资源中与 Arguments 精确匹配的 `{Name}`，不解释 HTML、表达式或任意格式代码。缺失资源或参数时返回 DefaultMessage，并使用低基数指标记录 code/locale；不得记录用户参数。
 
-StandardApiResultMapper 保留 code、traceId、status、type 和兼容 errors，同时增加 violations；响应序列化必须进入 FullNetJsonContext。
+StandardApiResultMapper 保留 code、traceId、status、type 和兼容 errors，同时增加 violations，并通过 Task 2 帮助器设置 Content-Language 与 Vary。AdminNetApiResultMapper 注入同一个 IErrorMessageLocalizer，只改变外层包络而不建立第二份资源。为新增 DTO 建立 Hosting JsonSerializerContext 并插入 TypeInfoResolverChain。
 
-Identity 与 Tenancy 项目文件将 NeutralLanguage 固定为 zh-CN，并以模块 Marker 类型注册自己的资源前缀；Hosting 不直接引用模块内部类型。
+Identity 与 Tenancy 项目文件将 NeutralLanguage 固定为 zh-CN，并以 `TryAddEnumerable` 注册模块自己的 `IErrorResourceSource`；source 在模块内通过 ResourceManager 基名读取资源。Hosting 只依赖来源接口，不引用模块类型或程序集。
 
 - [ ] **Step 5: 让 FluentValidation 产生稳定 code**
 
