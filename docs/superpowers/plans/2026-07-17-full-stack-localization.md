@@ -509,6 +509,8 @@ git commit -m "feat: complete dual admin localization"
 
 ### Task 6: 建立 uni-app 三目标多语言基础
 
+详细实施与验收边界见 [`2026-07-18-uniapp-localization-foundation.md`](2026-07-18-uniapp-localization-foundation.md)。该子计划固定当前官方稳定依赖、登录用户原子切换语义、三目标构建门禁与“缺少平台开发者工具时不得标记真机已验证”的状态规则。
+
 **Files:**
 - Create: clients/uniapp/package.json
 - Create: clients/uniapp/tsconfig.json
@@ -536,7 +538,7 @@ git commit -m "feat: complete dual admin localization"
 
 - [ ] **Step 1: 固定工具链版本**
 
-从 uni-app 官方 CLI/Vite Vue 3 TypeScript 模板创建工程；把解析到的 @dcloudio 包、Vue I18n 和 TypeScript 精确版本写入 package.json 与 pnpm-lock.yaml，禁止 latest、星号或未锁定插件市场依赖。记录 Node 24/pnpm 10.26.0 兼容验证。
+从 uni-app 官方 CLI/Vite Vue 3 TypeScript 模板创建工程；@dcloudio 运行时与构建包统一固定为 `3.0.0-5010520260709002`，Vue/Vue compiler 固定为 `3.4.21`，Vite 固定为 `5.2.8`，`@dcloudio/types` 固定为 `3.4.31`，Vue I18n 按 uni-app 官方文档固定为 `9.1.9`。TypeScript、vue-tsc 与 Vitest 同样使用精确版本，禁止 latest、星号或未锁定插件市场依赖。记录 Node 24/pnpm 10.26.0 的实际兼容验证。
 
 - [ ] **Step 2: 写 RED 适配测试**
 
@@ -559,7 +561,7 @@ locale/ 文件覆盖 app.name、导航标题和启动说明；manifest 默认 zh
 
 - [ ] **Step 5: 接入账号偏好与错误**
 
-匿名选择本地持久化；登录后 PreferredLocale 决定活动语言；切换调用 PUT /api/v1/me/locale。ProblemDetails 优先用 violations.code/arguments 本地化，未知 code 使用服务端 title 并展示 traceId。
+匿名选择立即本地持久化；登录后只有通过守卫的 `/api/v1/me` PreferredLocale 决定活动语言；已认证切换携带 ProfileVersion 调用 PUT `/api/v1/me/locale`，只有服务端响应通过守卫后才提交本地语言和版本，失败保留原语言、版本、会话与租户。ProblemDetails 优先用 violations.code/arguments 本地化，未知 code 使用服务端 title 并展示 traceId。
 
 - [ ] **Step 6: 三目标验证**
 
