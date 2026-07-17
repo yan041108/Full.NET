@@ -9,6 +9,7 @@ export interface CurrentUserResponse {
   username: string;
   displayName: string;
   tenantId: string | null;
+  actorScope: string;
   scope: string;
   permissions: string[];
   sessionId: string;
@@ -37,6 +38,8 @@ export function isCurrentUserResponse(value: unknown): value is CurrentUserRespo
     && typeof value.username === 'string'
     && typeof value.displayName === 'string'
     && (typeof value.tenantId === 'string' || value.tenantId === null)
+    && typeof value.actorScope === 'string'
+    && value.actorScope.length > 0
     && typeof value.scope === 'string'
     && Array.isArray(value.permissions)
     && value.permissions.every(permission => typeof permission === 'string')

@@ -20,10 +20,20 @@ describe('身份会话契约', () => {
       username: 'admin',
       displayName: '系统管理员',
       tenantId: null,
+      actorScope: 'host',
       scope: 'host',
       permissions: [],
       sessionId: 'session-id'
     })).toBe(true);
+    expect(isCurrentUserResponse({
+      id: 'user-id',
+      username: 'admin',
+      displayName: '系统管理员',
+      tenantId: null,
+      scope: 'host',
+      permissions: [],
+      sessionId: 'session-id'
+    })).toBe(false);
     expect(isCurrentUserResponse({ id: 'user-id', permissions: 'all' })).toBe(false);
   });
 });
