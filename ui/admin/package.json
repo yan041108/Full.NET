@@ -10,10 +10,11 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@fullnet/admin-i18n": "workspace:*",
     "@element-plus/icons-vue": "2.3.2",
+    "@fullnet/admin-i18n": "workspace:*",
     "@fullnet/client-contracts": "workspace:*",
     "@fullnet/design-tokens": "workspace:*",
+    "dayjs": "1.11.21",
     "element-plus": "2.14.3",
     "pinia": "4.0.2",
     "vue": "3.5.40",

@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { configureAuthentication, request } from './http';
+import {
+  configureAuthentication,
+  configureRequestLocale,
+  request
+} from './http';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   configureAuthentication();
+  configureRequestLocale();
 });
 
 describe('Vue HTTP 适配器', () => {
@@ -71,6 +76,26 @@ describe('Vue HTTP 适配器', () => {
 
     const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(requestInit.signal).toBe(abortController.signal);
+  });
+
+  it('每次发送前读取活动语言并覆盖调用者伪造的语言头', async () => {
+    let locale: 'zh-CN' | 'en-US' = 'zh-CN';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    configureRequestLocale(() => locale);
+
+    await request<void>('/first', {
+      headers: { 'Accept-Language': 'fr-FR', 'x-client': 'vue-admin' }
+    });
+    locale = 'en-US';
+    await request<void>('/second');
+
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get('accept-language'))
+      .toBe('zh-CN');
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get('x-client'))
+      .toBe('vue-admin');
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get('accept-language'))
+      .toBe('en-US');
   });
 
   it('并发 401 只刷新一次并各自重放一次', async () => {

@@ -230,7 +230,7 @@ Realtime 模块落地前，不要求每个客户端预装实时通信依赖。�
 
 多语言采用“统一治理、平台原生实现”：仓库共享 BCP 47 语言清单、回退、术语、错误码和完整性检查，但 ASP.NET Core、Vue/Layui、uni-app、Flutter 与按需 MAUI 分别使用适合自身构建和运行时的资源机制。
 
-当前 Vue/Layui 的 `@fullnet/admin-i18n` 只代表管理壳层自有文案已支持 `zh-CN/en-US`。后续必须补齐 Element Plus/Day.js 与 Layui 组件语言、HTTP `Accept-Language/Content-Language`、本地化 ProblemDetails、账号/租户偏好、uni-app 的 Vue I18n 和平台资源、Flutter 的 `gen_l10n/ARB`，以及通知、报表、Realtime 与 AI 的显式语言边界。完整决策与实施顺序见[全栈多语言与本地化设计](2026-07-17-full-stack-localization-design.md)。
+当前 Vue/Layui 已在 `@fullnet/admin-i18n` 自有文案之上完成 Element Plus/Day.js、Layui 公开组件语言、逐请求 `Accept-Language` 和账号偏好原子同步；ASP.NET Core 已完成 `Content-Language`、本地化 ProblemDetails 与账号/租户偏好基础。后续仍必须分别交付 uni-app 的 Vue I18n 和平台资源、Flutter 的 `gen_l10n/ARB`，以及业务翻译表、通知、报表、Realtime 与 AI 的显式语言边界。完整决策与实施顺序见[全栈多语言与本地化设计](2026-07-17-full-stack-localization-design.md)。
 
 ## 8. 设计系统与代码生成
 

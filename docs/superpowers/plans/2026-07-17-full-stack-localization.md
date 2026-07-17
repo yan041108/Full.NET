@@ -455,16 +455,16 @@ git commit -m "feat: persist locale preferences"
 - Produces: 所有 HTTP 请求的 Accept-Language、Element Plus/Day.js locale、Layui 公开 i18n 配置、账号偏好同步。
 - Consumes: Task 1 语言清单、Task 4 PreferredLocale/PUT Endpoint。
 
-- [ ] **Step 1: 写两端失败测试**
+- [x] **Step 1: 写两端失败测试**
 
 客户端契约先断言 `/api/v1/me` 必须包含规范 `preferredLocale` 与正整数 `profileVersion`，并为 `PUT /api/v1/me/locale` 响应提供独立守卫。Vue 断言 ElConfigProvider locale 与 adminI18n.locale 同步；Layui 断言公开 `i18n.set` 在 table/laypage/laydate 第一次渲染前执行；两端 HTTP 测试断言 Accept-Language。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Run: pnpm test:clients
 Expected: FAIL，组件库 locale 与 Header 尚未接入。
 
-- [ ] **Step 3: 实现 Vue 组件语言**
+- [x] **Step 3: 实现 Vue 组件语言**
 
 elementLocale.ts 精确映射：
 
@@ -477,19 +477,19 @@ export const elementLocaleLoaders = {
 
 App.vue 以 ElConfigProvider 包裹应用；切换时同步 Day.js zh-cn/en。加载失败回退 zh-CN 并保留稳定页面。
 
-- [ ] **Step 4: 实现 Layui 组件语言**
+- [x] **Step 4: 实现 Layui 组件语言**
 
 layui-locale.js 只调用公开 layui.i18n.set，传入 zh-CN/en 组件消息；初始化发生在任何 table、laydate、layer、form、upload 渲染前。禁止调用 i18n.$t 私有方法。
 
-- [ ] **Step 5: 同步 HTTP 与账号偏好**
+- [x] **Step 5: 同步 HTTP 与账号偏好**
 
 两端 request 在每次发送前读取当前活动语言并设置 Accept-Language。Access Token 与登录/刷新 TokenResponse 不携带语言偏好；登录、刷新、恢复和租户切换后的 `/api/v1/me` 是已保存 `PreferredLocale/ProfileVersion` 的唯一来源，并在完整快照通过守卫后同步 i18n。匿名切换只更新本地偏好；已认证切换使用当前 ProfileVersion 调用 PUT `/api/v1/me/locale`，只在响应通过守卫后提交本地语言与版本。保存失败显示本地化提示，且不得清除会话、改变租户或乐观覆盖原语言。
 
-- [ ] **Step 6: 扩展双端 E2E**
+- [x] **Step 6: 扩展双端 E2E**
 
 同场景断言：Element Plus/Layui 分页与日期组件切换；请求 Header 为 en-US；刷新恢复英文；保存失败不会退出或改变租户；切换语言后 403/ProblemDetails 的 status/code 不变。
 
-- [ ] **Step 7: 运行 GREEN**
+- [x] **Step 7: 运行 GREEN**
 
 Run: pnpm test:workspace
 
@@ -500,10 +500,10 @@ Run: pnpm build:clients
 Run: pnpm test:e2e
 Expected: 工作区、全部客户端单元、两套生产构建与双端 E2E 全部通过。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ~~~powershell
-git add packages/admin-i18n ui/admin ui/admin-layui tests/e2e/admin-parity
+git add packages/client-contracts packages/admin-i18n ui/admin ui/admin-layui tests/e2e/admin-parity
 git commit -m "feat: complete dual admin localization"
 ~~~
 

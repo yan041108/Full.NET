@@ -54,6 +54,9 @@ importers:
       '@fullnet/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      dayjs:
+        specifier: 1.11.21
+        version: 1.11.21
       element-plus:
         specifier: 2.14.3
         version: 2.14.3(vue@3.5.40(typescript@6.0.3))

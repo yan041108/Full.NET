@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { configureAuthentication, request } from '../js/core/http.js';
+import {
+  configureAuthentication,
+  configureRequestLocale,
+  request
+} from '../js/core/http.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   configureAuthentication();
+  configureRequestLocale();
 });
 
 describe('Layui HTTP 适配器', () => {
@@ -69,6 +74,26 @@ describe('Layui HTTP 适配器', () => {
 
     const [, requestInit] = fetchMock.mock.calls[0];
     expect(requestInit.signal).toBe(abortController.signal);
+  });
+
+  it('每次请求使用切换后的规范语言且保留其他请求头', async () => {
+    let locale = 'zh-CN';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    configureRequestLocale(() => locale);
+
+    await request('/first', {
+      headers: { 'Accept-Language': 'fr-FR', 'x-client': 'layui-admin' }
+    });
+    locale = 'en-US';
+    await request('/second');
+
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get('accept-language'))
+      .toBe('zh-CN');
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get('x-client'))
+      .toBe('layui-admin');
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get('accept-language'))
+      .toBe('en-US');
   });
 
   it('损坏错误响应降级为统一错误而不泄露解析异常', async () => {

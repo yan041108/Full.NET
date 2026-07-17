@@ -27,16 +27,16 @@ Full.NET 采用“统一治理、平台原生实现”的多语言架构：
 
 | 范围 | 当前事实 | 缺口 |
 |---|---|---|
-| Vue 管理端 | 已通过 @fullnet/admin-i18n 支持 zh-CN/en-US、持久化、html lang、标题和双端 E2E | Element Plus/Day.js 组件语言未接入；请求未发送 Accept-Language；没有用户跨设备偏好 |
-| Layui 管理端 | 已复用同一消息键并以纯文本 DOM 绑定切换语言 | Layui 2.13.8 自带 i18n 尚未配置；表格、分页、日期、上传等组件语言未纳入验收 |
-| ASP.NET Core | ProblemDetails 已有稳定 code 与 traceId | 未注册请求本地化；Error.Message 和 FluentValidation 文本主要为英文；无 Content-Language、资源目录或后台任务语言边界 |
+| Vue 管理端 | 已支持 zh-CN/en-US 自有文案、Element Plus/Day.js 组件语言、逐请求 Accept-Language、账号偏好原子同步和双端 E2E | 真实辅助技术人工验收与后续业务模块资源仍需逐切片完成 |
+| Layui 管理端 | 已复用同一消息键，以纯文本 DOM 绑定切换语言，并通过公开 i18n.set 配置表格、分页、日期、表单和上传等组件消息 | 真实辅助技术人工验收与后续业务模块资源仍需逐切片完成 |
+| ASP.NET Core | 已实现请求本地化、规范别名、Content-Language、本地化 ProblemDetails/violations、资源完整性、账号偏好与租户默认语言双库持久化 | 后台任务、通知及业务内容翻译需随真实消费者实现 |
 | uni-app | 技术路线和工作区入口已规划 | clients/uniapp 尚未创建；应用、pages/manifest、小程序原生组件和 API 请求语言均未设计落地 |
 | Flutter | 技术路线已确定 | clients/flutter 尚未创建；ARB、生成类、平台包名称、布局方向和请求语言均未落地 |
 | .NET MAUI | 仅有决策门禁 | 命中门禁后才采用 .resx 与平台资源；当前不创建第二套 App |
 | 业务内容 | 菜单、字典、通知、模板、报表仍在后续模块 | 尚未区分系统资源、用户输入和需要多版本翻译的业务内容 |
 | 异步/Realtime/AI | 只有总体技术规划 | 没有接收者语言快照、模板版本、连接语言或 AI 输出语言契约 |
 
-因此，现有 C1 只能表述为“管理壳层自有文案支持两种语言”，不能表述为“Full.NET 全栈多语言已完成”。
+因此，现有 L0-L2 可表述为“服务端基础与双管理端支持两种语言”，但在 uni-app、Flutter、业务内容和异步输出完成前，仍不能表述为“Full.NET 全栈多语言已完成”。
 
 ## 3. 方案比较
 

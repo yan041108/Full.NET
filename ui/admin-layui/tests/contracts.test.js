@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isCurrentUserResponse,
+  isLocalePreferenceResponse,
   isNavigationTree,
   isTenantContextSummaryArray,
   isTenantContextTokenResponse
@@ -13,6 +14,19 @@ describe('Layui 不可信响应契约', () => {
     const user = currentUser();
     expect(isCurrentUserResponse(user)).toBe(true);
     expect(isCurrentUserResponse({ ...user, actorScope: undefined })).toBe(false);
+    expect(isCurrentUserResponse({ ...user, preferredLocale: 'fr-FR' })).toBe(false);
+  });
+
+  it('语言偏好响应只接受规范语言与正整数版本', () => {
+    expect(isLocalePreferenceResponse({
+      preferredLocale: 'en-US', profileVersion: 2
+    })).toBe(true);
+    expect(isLocalePreferenceResponse({
+      preferredLocale: 'en-GB', profileVersion: 2
+    })).toBe(false);
+    expect(isLocalePreferenceResponse({
+      preferredLocale: 'en-US', profileVersion: 0
+    })).toBe(false);
   });
 
   it('拒绝重复、父子不一致和不安全组件键的导航', () => {
@@ -73,7 +87,8 @@ function currentUser() {
   return {
     id: 'user-id', username: 'admin', displayName: '系统管理员',
     tenantId: null, actorScope: 'host', scope: 'host',
-    permissions: [], sessionId: 'session-id'
+    permissions: [], sessionId: 'session-id',
+    preferredLocale: 'zh-CN', profileVersion: 1
   };
 }
 

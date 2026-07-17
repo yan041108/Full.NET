@@ -39,7 +39,7 @@ pnpm build:clients
 pnpm test:e2e
 ```
 
-`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue 和 Layui 单元测试；`pnpm test:e2e` 启动两个本地服务，并用同一组 Playwright 场景验证动态导航、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 切换与刷新持久化、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
+`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue 和 Layui 单元测试，当前门槛为 117 项；`pnpm test:e2e` 启动两个本地服务，并用同一组 28 项 Playwright 场景验证动态导航、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 组件语言、逐请求 `Accept-Language`、刷新恢复、偏好保存失败回滚、稳定错误码、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
 
 排查单个客户端层时可以直接运行：
 
@@ -68,7 +68,7 @@ pnpm --filter @fullnet/admin-layui dev
 
 ### 2.2 多语言当前边界与后续契约
 
-当前已实现 Vue/Layui 管理壳层的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题和双端 E2E；服务端已建立仅接受 `Accept-Language` 的 `RequestLocalization`、规范别名映射、异步 CultureScope、本地化 ProblemDetails、模块错误资源与响应头能力。账号语言偏好与租户默认语言已通过双库 `004_LocalizationPreferences.sql` 持久化；`/api/v1/me` 从数据库读取偏好，`PUT /api/v1/me/locale` 规范化别名并使用独立 `ProfileVersion` 并发控制，偏好不会写入 JWT Claim。标准错误的 `status/code/traceId/violations` 不随语言变化，`title` 与兼容适配器的 `message` 在响应边界按协商语言解析；翻译缺失时回退到 `zh-CN` 并记录低基数指标。Element Plus/Day.js、Layui 组件内置文案、客户端接入账号偏好、uni-app 与 Flutter 仍属于后续开发计划，不得在交付说明中提前标记为已支持。
+当前已实现 Vue/Layui 管理端的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题、Element Plus/Day.js、Layui 公开 `i18n.set` 组件语言和双端 E2E；所有管理端 HTTP 请求在发送前读取当前活动语言并覆盖为规范 `Accept-Language`，认证刷新重试保持相同语义。账号语言偏好与租户默认语言已通过双库 `004_LocalizationPreferences.sql` 持久化；客户端只在完整 `/api/v1/me` 快照通过守卫后同步偏好，认证切换通过 `PUT /api/v1/me/locale` 使用独立 `ProfileVersion`，只有响应通过守卫才提交本地语言和版本。保存失败保留会话、租户、旧语言和旧版本，TokenResponse/JWT 不携带偏好。服务端已建立规范别名映射、异步 CultureScope、本地化 ProblemDetails、模块错误资源与响应头能力；标准错误的 `status/code/traceId/violations` 不随语言变化，`title` 与兼容适配器的 `message` 在响应边界按协商语言解析。uni-app、Flutter、业务翻译表、通知/报表、Realtime 与 AI 输出仍属于后续阶段，不得据此宣称 Full.NET 全栈多语言已经完成。
 
 全栈方案统一使用 BCP 47 的 `zh-CN` 和 `en-US`；uni-app 内部的 `zh-Hans` 与 Flutter ARB 的 `zh_CN` 只在各自适配层出现。HTTP 业务逻辑始终依赖稳定 `status/code/traceId`，不比较本地化 `title/detail`。日期按 UTC/ISO 传输，语言和时区分别处理；通知、报表、Realtime 服务端文本与 AI 输出必须显式指定接收者语言。
 

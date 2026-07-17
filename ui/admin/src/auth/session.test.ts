@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
+import { localeStorageKey } from '@fullnet/admin-i18n';
 import { configureAuthentication, request } from '../api/http';
+import { useAdminI18n } from '../i18n/adminI18n';
 import { useSessionStore } from './session';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
 beforeEach(() => {
   setActivePinia(createPinia());
+  useAdminI18n().setLocale('zh-CN');
 });
 
 afterEach(() => {
@@ -38,7 +41,8 @@ describe('Vue 管理端会话', () => {
       '/api/v1/navigation',
       '/api/v1/tenancy/available'
     ]);
-    expect(localStorageSet).not.toHaveBeenCalled();
+    expect(localStorageSet).toHaveBeenCalledWith(localeStorageKey, 'zh-CN');
+    expect(localStorageSet.mock.calls.flat().join('|')).not.toContain('access-token');
     const [, meInit] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(new Headers(meInit.headers).get('authorization')).toBe(
       'Bearer access-token'
@@ -53,6 +57,105 @@ describe('Vue 管理端会话', () => {
     expect(session.can('tenancy.tenants.switch')).toBe(true);
     expect(session.can('Tenancy.Tenants.Switch')).toBe(false);
     expect(session.can('tenancy.tenants')).toBe(false);
+  });
+
+  it('完整认证快照通过守卫后才同步账号保存语言', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(tokenResponse('access-token')))
+      .mockResolvedValueOnce(jsonResponse(currentUser(null, 'en-US', 7)))
+      .mockResolvedValueOnce(jsonResponse(navigation()))
+      .mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+
+    await session.login('admin', 'FullNet!2026Secure');
+
+    expect(session.currentUser).toMatchObject({
+      preferredLocale: 'en-US',
+      profileVersion: 7
+    });
+    expect(useAdminI18n().locale.value).toBe('en-US');
+  });
+
+  it('认证用户仅在语言偏好响应通过守卫后提交语言与资料版本', async () => {
+    const fetchMock = createLoginFetch();
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      preferredLocale: 'en-US',
+      profileVersion: 2
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    await session.changeLocale('en-US');
+
+    expect(session.currentUser).toMatchObject({
+      tenantId: null,
+      preferredLocale: 'en-US',
+      profileVersion: 2
+    });
+    expect(useAdminI18n().locale.value).toBe('en-US');
+    const [path, init] = fetchMock.mock.calls[4] as [string, RequestInit];
+    expect(path).toBe('/api/v1/me/locale');
+    expect(JSON.parse(String(init.body))).toEqual({
+      locale: 'en-US',
+      profileVersion: 1
+    });
+  });
+
+  it('语言偏好保存失败时保留会话、租户、资料版本与原语言', async () => {
+    const fetchMock = createLoginFetch();
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      status: 409,
+      code: 'identity.profile_version_conflict',
+      title: '资料版本冲突'
+    }, 409, 'application/problem+json'));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    await expect(session.changeLocale('en-US')).rejects.toMatchObject({
+      code: 'identity.profile_version_conflict'
+    });
+
+    expect(session.state).toBe('authenticated');
+    expect(session.currentUser).toMatchObject({
+      tenantId: null,
+      preferredLocale: 'zh-CN',
+      profileVersion: 1
+    });
+    expect(useAdminI18n().locale.value).toBe('zh-CN');
+  });
+
+  it('损坏语言偏好响应按契约错误处理且不覆盖旧快照', async () => {
+    const fetchMock = createLoginFetch();
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      preferredLocale: 'en-US',
+      profileVersion: 0
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    await expect(session.changeLocale('en-US')).rejects.toThrow(
+      '语言偏好响应不符合契约'
+    );
+    expect(session.currentUser).toMatchObject({
+      preferredLocale: 'zh-CN', profileVersion: 1
+    });
+    expect(useAdminI18n().locale.value).toBe('zh-CN');
+  });
+
+  it('匿名选择只更新本地语言而不调用偏好接口', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    session.$patch({ state: 'anonymous' });
+
+    await session.changeLocale('en-US');
+
+    expect(useAdminI18n().locale.value).toBe('en-US');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('未知本地组件键使整个授权快照失败并清空令牌', async () => {
@@ -295,7 +398,11 @@ function tokenResponse(accessToken: string) {
   };
 }
 
-function currentUser(activeTenantId: string | null = null) {
+function currentUser(
+  activeTenantId: string | null = null,
+  preferredLocale: 'zh-CN' | 'en-US' = 'zh-CN',
+  profileVersion = 1
+) {
   return {
     id: 'user-id',
     username: 'admin',
@@ -311,7 +418,9 @@ function currentUser(activeTenantId: string | null = null) {
       'tenancy.tenants.read',
       'tenancy.tenants.switch'
     ],
-    sessionId: 'session-id'
+    sessionId: 'session-id',
+    preferredLocale,
+    profileVersion
   };
 }
 

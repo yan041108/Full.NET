@@ -1,5 +1,6 @@
 import { request } from './core/http.js';
 import { adminI18n } from './core/i18n.js';
+import { applyLayuiLocale } from './core/layui-locale.js';
 import { identitySession } from './core/session.js';
 import {
   applyPermissionVisibility,
@@ -55,6 +56,7 @@ export function initializeAdminApp(root = document, options = {}) {
   let isProbing = false;
   let isLoggingIn = false;
   let isSwitchingContext = false;
+  let componentLocaleGeneration = 0;
 
   const onRouteChange = () => renderRoute(
     root,
@@ -170,8 +172,29 @@ export function initializeAdminApp(root = document, options = {}) {
     renderContextSelector(contextSelector, latestSnapshot);
     void switchContext(requestedValue);
   };
-  const onLocaleChange = (event) => {
-    i18n.setLocale(event.currentTarget.value);
+  const onLocaleChange = async (event) => {
+    const requestedLocale = event.currentTarget.value;
+    localeSelectors.forEach(selector => {
+      selector.value = translation.locale;
+      selector.disabled = true;
+      selector.setAttribute('aria-busy', 'true');
+    });
+    hideLocaleProblem(root);
+    try {
+      await session.changeLocale(requestedLocale);
+    } catch {
+      showLocaleProblem(root, translation);
+      globalThis.layui?.layer?.msg?.(
+        translation.t('locale.saveFailed'),
+        { icon: 2 }
+      );
+    } finally {
+      localeSelectors.forEach(selector => {
+        selector.value = translation.locale;
+        selector.disabled = latestSnapshot.savingLocale === true;
+        selector.removeAttribute('aria-busy');
+      });
+    }
   };
   const onTenantAction = (event) => {
     const target = event.target instanceof Element
@@ -189,6 +212,14 @@ export function initializeAdminApp(root = document, options = {}) {
   });
   const unsubscribeI18n = i18n.subscribe((snapshot) => {
     translation = snapshot;
+    // 组件消息必须先更新，随后业务绑定和组件 render 才能读取同一语言。
+    applyLayuiLocale(globalThis.layui, translation.locale);
+    const componentLocaleOperation = ++componentLocaleGeneration;
+    renderComponentLocaleFixture(
+      root,
+      translation.locale,
+      () => componentLocaleOperation === componentLocaleGeneration
+    );
     i18n.applyBindings(root);
     if (isLoggingIn) {
       setText(
@@ -457,6 +488,7 @@ function normalizeSnapshot(snapshot) {
     navigation: snapshot.navigation ?? [],
     availableTenants: snapshot.availableTenants ?? [],
     switching: snapshot.switching === true,
+    savingLocale: snapshot.savingLocale === true,
     currentContextName: snapshot.currentContextName ?? 'Full.NET Host'
   };
 }
@@ -505,6 +537,64 @@ function showLoginProblem(root, problem, translation) {
 function hideLoginProblem(root) {
   const panel = root.querySelector('[data-login-problem]');
   if (panel) panel.hidden = true;
+}
+
+function showLocaleProblem(root, translation) {
+  const panel = root.querySelector('[data-locale-problem]');
+  if (!panel) {
+    return;
+  }
+
+  panel.hidden = false;
+  panel.textContent = translation.t('locale.saveFailed');
+}
+
+function hideLocaleProblem(root) {
+  const panel = root.querySelector('[data-locale-problem]');
+  if (panel) panel.hidden = true;
+}
+
+/**
+ * 仅在明确的 E2E 查询参数下渲染真实 Layui 组件，验证公开 i18n 配置被组件实际消费。
+ */
+function renderComponentLocaleFixture(root, locale, isCurrent) {
+  const fixture = root.querySelector('[data-component-locale-fixture]');
+  const enabled = import.meta.env.DEV
+    && new URLSearchParams(globalThis.location?.search ?? '')
+    .has('component-locale-fixture');
+  if (!fixture || !enabled) {
+    return;
+  }
+
+  fixture.hidden = false;
+  const layui = globalThis.layui;
+  if (typeof layui?.use !== 'function') {
+    return;
+  }
+
+  layui.use(['laypage', 'laydate'], (laypage, laydate) => {
+    if (!isCurrent()) {
+      return;
+    }
+
+    const previousDateInput = fixture.querySelector('[data-component-locale-date]');
+    const dateInput = previousDateInput.cloneNode();
+    // cloneNode 会保留 Laydate 实例键，必须移除才会按新语言创建实例。
+    dateInput.removeAttribute('lay-laydate-id');
+    previousDateInput.replaceWith(dateInput);
+    laypage.render({
+      elem: fixture.querySelector('[data-component-locale-pagination]'),
+      count: 30,
+      limit: 10,
+      layout: ['prev', 'page', 'next']
+    });
+    laydate.render({
+      elem: dateInput,
+      type: 'date',
+      // Laydate 保留独立 lang 选项；显式传入后才会从已设置的公开 i18n 消息中取对应语言。
+      lang: locale === 'en-US' ? 'en' : 'cn'
+    });
+  });
 }
 
 function setText(root, selector, value) {

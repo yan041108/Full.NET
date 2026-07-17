@@ -39,6 +39,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fn-locale { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--fullnet-color-ink-muted); font-size: 10px; font-weight: 700; letter-spacing: normal; }
 .fn-login__panel header .fn-locale { display: flex; margin: 0; color: var(--fullnet-color-ink-muted); }
 .fn-locale select { height: 34px; padding: 0 24px 0 8px; border: 1px solid var(--fullnet-color-line); border-radius: var(--fullnet-radius-sm); background: var(--fullnet-color-panel); color: var(--fullnet-color-ink); font: 500 10px/1 var(--fullnet-font-sans); }
+.fn-component-locale-fixture { position: fixed; right: 16px; bottom: 16px; z-index: 1000; width: min(360px, calc(100vw - 32px)); padding: 14px; border: 1px solid var(--fullnet-color-line); border-radius: var(--fullnet-radius-md); background: var(--fullnet-color-panel); box-shadow: 0 16px 40px rgb(14 22 19 / 16%); }
+.fn-component-locale-fixture input { box-sizing: border-box; width: 100%; height: 38px; margin-bottom: 10px; padding: 0 10px; border: 1px solid var(--fullnet-color-line); border-radius: var(--fullnet-radius-sm); }
 .fn-login__panel h2 { margin: 30px 0 9px; font: 520 38px/1.1 var(--fullnet-font-display); letter-spacing: -.045em; }
 .fn-login__panel form > p { margin: 0 0 38px; color: var(--fullnet-color-ink-muted); font-size: 12px; }
 .fn-login__panel .layui-form-item { margin-bottom: 22px; }

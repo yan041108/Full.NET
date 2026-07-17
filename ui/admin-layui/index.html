@@ -10,6 +10,7 @@
   </head>
   <body>
     <a class="fn-skip-link" href="#main-content" data-skip-link data-i18n="a11y.skipToMain"></a>
+    <div class="fn-context-problem" data-locale-problem role="alert" aria-live="assertive" hidden></div>
     <div id="main-content" tabindex="-1">
     <section class="fn-session-boot" data-session-boot aria-live="polite">
       <span>F</span>
@@ -211,6 +212,15 @@
         </div>
       </section>
     </div>
+    <section
+      class="fn-component-locale-fixture"
+      data-component-locale-fixture
+      aria-label="Component locale verification"
+      hidden
+    >
+      <input type="text" data-component-locale-date />
+      <div data-component-locale-pagination></div>
+    </section>
     </div>
     <script type="module" src="/js/main.js"></script>
   </body>

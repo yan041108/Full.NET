@@ -47,9 +47,9 @@ test('认证壳层、租户和状态页通过 WCAG 2.2 A/AA 自动检查', async
   }
 });
 
-test('英文选择同步文档语义并在刷新后保持', async ({ page }) => {
-  await mockAuthenticatedSession(page);
-  await page.goto('/');
+test('英文选择同步文档语义并在刷新后保持', async ({ page }, testInfo) => {
+  const server = await mockAuthenticatedSession(page);
+  await page.goto('/?component-locale-fixture=1');
   const locale = page.locator('select[name="locale"]:visible');
 
   await locale.selectOption('en-US');
@@ -61,6 +61,23 @@ test('英文选择同步文档语义并在刷新后保持', async ({ page }) => 
   await expect(page.getByRole('heading', {
     name: 'Good morning, administrator'
   })).toBeVisible();
+  if (testInfo.project.name === 'vue-admin') {
+    await expect(page.locator('.admin-shell'))
+      .toHaveAttribute('data-component-locale', 'en');
+    await expect(page.locator('[data-component-locale-fixture]'))
+      .toBeVisible();
+    await expect(page.locator('[data-component-locale-fixture] .btn-next'))
+      .toHaveAttribute('aria-label', 'Go to next page');
+    await page.locator('[data-component-locale-fixture] input').click();
+    await expect(page.getByRole('button', { name: 'Previous Month' }))
+      .toBeVisible();
+  } else {
+    const fixture = page.locator('[data-component-locale-fixture]');
+    await expect(fixture).toBeVisible();
+    await expect(fixture.locator('.layui-laypage-next')).toHaveText('Next');
+    await fixture.locator('input').click();
+    await expect(page.locator('.laydate-btns-confirm:visible')).toHaveText('Confirm');
+  }
 
   await page.reload();
 
@@ -68,6 +85,52 @@ test('英文选择同步文档语义并在刷新后保持', async ({ page }) => 
   await expect(page).toHaveTitle('Overview · Full.NET');
   await expect(page.locator('select[name="locale"]:visible'))
     .toHaveValue('en-US');
+  expect(server.requests.some(request =>
+    request.method === 'GET' && request.locale === 'en-US'
+  )).toBe(true);
+  expect(server.requests.find(request => request.method === 'PUT')?.locale)
+    .toBe('zh-CN');
+});
+
+test('语言偏好保存失败时保留登录、租户和原语言', async ({ page }) => {
+  await mockAuthenticatedSession(page, { failLocaleSave: true });
+  await page.goto('/');
+  const selector = page.locator('select[name="locale"]:visible');
+
+  await selector.selectOption('en-US');
+
+  await expect(selector).toHaveValue('zh-CN');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+  await expect(page.locator('[data-session-shell], .admin-shell')).toBeVisible();
+  await expect(page.getByText('Full.NET Host').first()).toBeVisible();
+  const alert = page.getByRole('alert').filter({
+    hasText: '语言偏好保存失败，已保留原语言'
+  });
+  await expect(alert).toBeVisible();
+  const alertBox = await alert.boundingBox();
+  expect(alertBox?.width).toBeGreaterThan(100);
+  expect(alertBox?.height).toBeGreaterThan(16);
+});
+
+test('切换语言不改变服务端 403 状态和稳定错误码', async ({ page }) => {
+  const server = await mockAuthenticatedSession(page);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: '早上好，系统管理员' }))
+    .toBeVisible();
+
+  server.failNextMe = true;
+  await page.getByTestId('load-current-user').click();
+  await expect(page.getByTestId('error-code')).toHaveText('authorization.denied');
+
+  await page.locator('select[name="locale"]:visible').selectOption('en-US');
+  server.failNextMe = true;
+  await page.getByTestId('load-current-user').click();
+  await expect(page.getByTestId('error-code')).toHaveText('authorization.denied');
+
+  expect(server.problemResponses).toEqual([
+    { status: 403, code: 'authorization.denied', locale: 'zh-CN' },
+    { status: 403, code: 'authorization.denied', locale: 'en-US' }
+  ]);
 });
 
 test('跳转链接和路由切换保持可见焦点', async ({ page }) => {
@@ -158,17 +221,81 @@ async function mockAnonymousSession(page) {
   }));
 }
 
-async function mockAuthenticatedSession(page) {
+async function mockAuthenticatedSession(page, options = {}) {
+  const server = {
+    preferredLocale: options.preferredLocale ?? 'zh-CN',
+    profileVersion: 1,
+    failLocaleSave: options.failLocaleSave === true,
+    failNextMe: false,
+    requests: [],
+    problemResponses: []
+  };
   await page.route('**/api/v1/auth/refresh', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify(tokenResponse())
   }));
-  await page.route('**/api/v1/me', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(currentUserResponse())
-  }));
+  await page.route('**/api/v1/me/locale', async route => {
+    const locale = route.request().headers()['accept-language'];
+    server.requests.push({ method: 'PUT', locale });
+    if (server.failLocaleSave) {
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({
+          status: 409,
+          code: 'identity.profile_version_conflict',
+          title: locale === 'en-US' ? 'Profile version conflict' : '资料版本冲突'
+        })
+      });
+      return;
+    }
+
+    const body = route.request().postDataJSON();
+    server.preferredLocale = body.locale;
+    server.profileVersion++;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        preferredLocale: server.preferredLocale,
+        profileVersion: server.profileVersion
+      })
+    });
+  });
+  await page.route('**/api/v1/me', async route => {
+    const locale = route.request().headers()['accept-language'];
+    server.requests.push({ method: 'GET', locale });
+    if (server.failNextMe) {
+      server.failNextMe = false;
+      const problem = {
+        status: 403,
+        code: 'authorization.denied',
+        locale
+      };
+      server.problemResponses.push(problem);
+      await route.fulfill({
+        status: problem.status,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({
+          status: problem.status,
+          code: problem.code,
+          title: locale === 'en-US' ? 'Access denied' : '没有访问权限',
+          traceId: `trace-${server.problemResponses.length}`
+        })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(currentUserResponse(
+        server.preferredLocale,
+        server.profileVersion
+      ))
+    });
+  });
   await page.route('**/api/v1/navigation', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -179,6 +306,7 @@ async function mockAuthenticatedSession(page) {
     contentType: 'application/json',
     body: JSON.stringify(availableTenants())
   }));
+  return server;
 }
 
 function tokenResponse() {
@@ -189,7 +317,7 @@ function tokenResponse() {
   };
 }
 
-function currentUserResponse() {
+function currentUserResponse(preferredLocale = 'zh-CN', profileVersion = 1) {
   return {
     id: 'e2e-user-id',
     username: 'admin',
@@ -203,7 +331,9 @@ function currentUserResponse() {
       'tenancy.tenants.read',
       'tenancy.tenants.switch'
     ],
-    sessionId: 'e2e-session-id'
+    sessionId: 'e2e-session-id',
+    preferredLocale,
+    profileVersion
   };
 }
 

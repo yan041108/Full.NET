@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import {
   isCurrentUserResponse,
   isFullNetProblemDetails,
+  isLocalePreferenceResponse,
   isNavigationTree,
   isTenantContextSummaryArray,
   isTenantContextTokenResponse,
@@ -12,7 +13,13 @@ import {
   type TenantContextSummary,
   type TokenResponse
 } from '@fullnet/client-contracts';
-import { configureAuthentication, request } from '../api/http';
+import type { SupportedLocale } from '@fullnet/admin-i18n';
+import {
+  configureAuthentication,
+  configureRequestLocale,
+  request
+} from '../api/http';
+import { useAdminI18n } from '../i18n/adminI18n';
 import { isSupportedNavigationTree } from '../navigation/catalog';
 
 export type SessionState = 'initializing' | 'authenticated' | 'anonymous';
@@ -26,6 +33,8 @@ export const useSessionStore = defineStore('identity-session', () => {
   const navigation = ref<NavigationNode[]>([]);
   const availableTenants = ref<TenantContextSummary[]>([]);
   const switching = ref(false);
+  const savingLocale = ref(false);
+  const adminI18n = useAdminI18n();
   let token: TokenResponse | undefined;
   let sessionGeneration = 0;
 
@@ -33,6 +42,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     getAccessToken: () => token?.accessToken,
     refresh: refreshAccessToken
   });
+  configureRequestLocale(() => adminI18n.locale.value);
 
   const isAuthenticated = computed(() => state.value === 'authenticated');
   const currentContextName = computed(() => {
@@ -173,6 +183,46 @@ export const useSessionStore = defineStore('identity-session', () => {
     }
   }
 
+  async function changeLocale(locale: SupportedLocale): Promise<void> {
+    if (!isAuthenticated.value || currentUser.value === undefined) {
+      adminI18n.setLocale(locale);
+      return;
+    }
+
+    if (savingLocale.value) {
+      return;
+    }
+
+    const operationGeneration = sessionGeneration;
+    const profileVersion = currentUser.value.profileVersion;
+    savingLocale.value = true;
+    try {
+      const value = await request<unknown>('/api/v1/me/locale', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ locale, profileVersion })
+      });
+      if (!isLocalePreferenceResponse(value)) {
+        throw new TypeError('语言偏好响应不符合契约。');
+      }
+
+      if (operationGeneration !== sessionGeneration
+        || currentUser.value === undefined) {
+        return;
+      }
+
+      // 使用当前快照保留可能并发完成的租户上下文，只替换资料偏好字段。
+      currentUser.value = {
+        ...currentUser.value,
+        preferredLocale: value.preferredLocale,
+        profileVersion: value.profileVersion
+      };
+      adminI18n.setLocale(value.preferredLocale);
+    } finally {
+      savingLocale.value = false;
+    }
+  }
+
   async function changeTenantContext(
     tenantId: string | null,
     operationGeneration: number
@@ -254,6 +304,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     currentUser.value = userValue;
     navigation.value = navigationValue;
     availableTenants.value = tenantValues;
+    adminI18n.setLocale(userValue.preferredLocale);
     return true;
   }
 
@@ -272,12 +323,14 @@ export const useSessionStore = defineStore('identity-session', () => {
     navigation,
     availableTenants,
     switching,
+    savingLocale,
     isAuthenticated,
     currentContextName,
     can,
     login,
     restore,
     switchTenant,
+    changeLocale,
     logout
   };
 });

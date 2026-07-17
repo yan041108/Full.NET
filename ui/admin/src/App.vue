@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch, type Component } from 'vue';
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onMounted,
+  ref,
+  watch,
+  type Component
+} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElOption, ElSelect } from 'element-plus';
+import { ElConfigProvider, ElOption, ElSelect } from 'element-plus';
 import {
   Bell,
   Grid,
@@ -18,6 +26,7 @@ import LoginView from './views/LoginView.vue';
 import { useSessionStore } from './auth/session';
 import LocaleSelector from './i18n/LocaleSelector.vue';
 import { useAdminI18n } from './i18n/adminI18n';
+import { createElementLocaleController } from './i18n/elementLocale';
 import {
   flattenNavigation,
   localNavigationFor
@@ -26,7 +35,18 @@ import {
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
-const { locale, setPageTitle, t } = useAdminI18n();
+const { locale, setLocale, setPageTitle, t } = useAdminI18n();
+const elementLocaleController = createElementLocaleController({
+  onFallback: setLocale
+});
+const elementLocale = elementLocaleController.locale;
+const showComponentLocaleFixture = import.meta.env.DEV && new URLSearchParams(
+  globalThis.location.search
+).has('component-locale-fixture');
+// 真实组件验收面只在开发/E2E 模式加载，不得增加生产主包体积。
+const ComponentLocaleFixture = import.meta.env.DEV
+  ? defineAsyncComponent(() => import('./i18n/ComponentLocaleFixture.vue'))
+  : undefined;
 const contextProblem = ref<FullNetProblemDetails>();
 const hostContextValue = '__fullnet_host__';
 const statusPaths = new Set(['/403', '/404', '/500']);
@@ -99,6 +119,14 @@ async function switchFromSelector(value: string): Promise<void> {
 }
 
 watch(
+  () => locale.value,
+  value => {
+    void elementLocaleController.setLocale(value);
+  },
+  { immediate: true }
+);
+
+watch(
   () => [session.state, session.navigation, route.path] as const,
   () => {
     if (!session.isAuthenticated || statusPaths.has(route.path)) {
@@ -131,11 +159,17 @@ watch(
 </script>
 
 <template>
+  <el-config-provider :locale="elementLocale">
   <div v-if="session.state === 'initializing'" class="session-boot" aria-live="polite">
     <span>F</span><strong>{{ t('session.restoring') }}</strong><i />
   </div>
   <LoginView v-else-if="session.state === 'anonymous'" />
-  <div v-else class="admin-shell" data-client-kind="vue">
+  <div
+    v-else
+    class="admin-shell"
+    data-client-kind="vue"
+    :data-component-locale="elementLocale?.name"
+  >
     <a class="skip-link" href="#main-content">{{ t('a11y.skipToMain') }}</a>
     <aside class="sidebar">
       <router-link class="brand" to="/" :aria-label="t('shell.brandAria')">
@@ -211,7 +245,12 @@ watch(
         <router-view />
       </main>
     </section>
+    <component
+      v-if="showComponentLocaleFixture"
+      :is="ComponentLocaleFixture"
+    />
   </div>
+  </el-config-provider>
 </template>
 
 <style scoped>

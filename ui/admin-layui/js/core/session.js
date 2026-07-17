@@ -1,12 +1,18 @@
-import { configureAuthentication, request } from './http.js';
+import {
+  configureAuthentication,
+  configureRequestLocale,
+  request
+} from './http.js';
 import {
   isCurrentUserResponse,
   isFullNetProblemDetails,
+  isLocalePreferenceResponse,
   isNavigationTree,
   isTenantContextSummaryArray,
   isTenantContextTokenResponse,
   isTokenResponse
 } from './contracts.js';
+import { adminI18n } from './i18n.js';
 import { isSupportedNavigationTree } from './navigation.js';
 
 const readTenantsPermission = 'tenancy.tenants.read';
@@ -15,12 +21,14 @@ const contextConflictCode = 'identity.session_context_conflict';
 /**
  * 创建独立管理端会话状态机；Access Token 只保存在闭包内，不写入浏览器持久化存储。
  */
-export function createIdentitySession() {
+export function createIdentitySession(options = {}) {
+  const i18n = options.i18n ?? adminI18n;
   let state = 'initializing';
   let currentUser;
   let navigation = [];
   let availableTenants = [];
   let switching = false;
+  let savingLocale = false;
   let token;
   let sessionGeneration = 0;
   const listeners = new Set();
@@ -29,6 +37,7 @@ export function createIdentitySession() {
     getAccessToken: () => token?.accessToken,
     refresh: refreshAccessToken
   });
+  configureRequestLocale(() => i18n.snapshot().locale);
 
   async function login(username, password) {
     const operationGeneration = ++sessionGeneration;
@@ -155,6 +164,47 @@ export function createIdentitySession() {
     }
   }
 
+  async function changeLocale(locale) {
+    if (state !== 'authenticated' || !currentUser) {
+      i18n.setLocale(locale);
+      return;
+    }
+
+    if (savingLocale) {
+      return;
+    }
+
+    const operationGeneration = sessionGeneration;
+    const profileVersion = currentUser.profileVersion;
+    savingLocale = true;
+    notify();
+    try {
+      const value = await request('/api/v1/me/locale', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ locale, profileVersion })
+      });
+      if (!isLocalePreferenceResponse(value)) {
+        throw new TypeError('语言偏好响应不符合契约。');
+      }
+
+      if (operationGeneration !== sessionGeneration || !currentUser) {
+        return;
+      }
+
+      // 保留可能并发更新的租户上下文，只提交服务端确认的资料偏好字段。
+      currentUser = {
+        ...currentUser,
+        preferredLocale: value.preferredLocale,
+        profileVersion: value.profileVersion
+      };
+      i18n.setLocale(value.preferredLocale);
+    } finally {
+      savingLocale = false;
+      notify();
+    }
+  }
+
   async function changeTenantContext(tenantId, operationGeneration) {
     const value = await request('/api/v1/tenancy/context', {
       method: 'PUT',
@@ -232,6 +282,7 @@ export function createIdentitySession() {
     currentUser = userValue;
     navigation = navigationValue;
     availableTenants = tenantValues;
+    i18n.setLocale(userValue.preferredLocale);
     return true;
   }
 
@@ -259,6 +310,7 @@ export function createIdentitySession() {
       navigation,
       availableTenants,
       switching,
+      savingLocale,
       currentContextName: activeTenant?.name ?? (
         currentUser?.tenantId ? currentUser.scope : 'Full.NET Host'
       )
@@ -281,12 +333,14 @@ export function createIdentitySession() {
     listeners.clear();
     token = undefined;
     configureAuthentication();
+    configureRequestLocale();
   }
 
   return {
     login,
     restore,
     switchTenant,
+    changeLocale,
     logout,
     can,
     snapshot,

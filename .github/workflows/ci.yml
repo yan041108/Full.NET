@@ -34,6 +34,7 @@ jobs:
       - name: Test client workspace and packages
         run: |
           pnpm test:workspace
+          pnpm test:localization
           pnpm test:clients
 
       - name: Build client packages

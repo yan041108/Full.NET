@@ -220,7 +220,9 @@ function currentUserResponse(activeTenantId = null) {
       'tenancy.tenants.read',
       'tenancy.tenants.switch'
     ],
-    sessionId: 'e2e-session-id'
+    sessionId: 'e2e-session-id',
+    preferredLocale: 'zh-CN',
+    profileVersion: 1
   };
 }
 

@@ -3,11 +3,17 @@ const apiBaseUrl = globalThis.FULLNET_CONFIG?.apiBaseUrl
   ?? '';
 let authentication;
 let refreshInFlight;
+let requestLocale;
 
 /** 注入内存令牌和刷新行为；无参数调用用于测试或退出时重置。 */
 export function configureAuthentication(bridge) {
   authentication = bridge;
   refreshInFlight = undefined;
+}
+
+/** 注入每次发送前读取的活动语言；无参数调用用于测试隔离。 */
+export function configureRequestLocale(provider) {
+  requestLocale = provider;
 }
 
 /** 解析不可信错误响应，并把代理页面或损坏 JSON 降级为稳定错误。 */
@@ -63,6 +69,7 @@ async function send(path, init, signal) {
   if (!headers.has('accept')) {
     headers.set('accept', 'application/json');
   }
+  headers.set('accept-language', requestLocale?.() ?? 'zh-CN');
 
   const accessToken = authentication?.getAccessToken();
   if (accessToken && !headers.has('authorization')) {

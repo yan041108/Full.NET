@@ -27,6 +27,33 @@ function renderFixture() {
 }
 
 describe('Layui 管理端应用', () => {
+  it('在任何组件首次 use 和 render 前应用公开组件语言', () => {
+    renderDynamicFixture();
+    const calls = [];
+    vi.stubGlobal('layui', {
+      i18n: { set: ({ locale }) => calls.push(`locale:${locale}`) },
+      use: (_modules, callback) => {
+        calls.push('use');
+        callback();
+      },
+      element: { render: () => calls.push('element.render') },
+      form: { render: () => calls.push('form.render') }
+    });
+
+    const app = initializeAdminApp(document, {
+      session: createSessionStub(authorizedSnapshot()),
+      autoRestore: false
+    });
+
+    expect(calls).toEqual([
+      'locale:zh-CN',
+      'use',
+      'element.render',
+      'form.render'
+    ]);
+    app.dispose();
+  });
+
   it('通过安全 DOM API 呈现动态导航和租户上下文', () => {
     renderDynamicFixture();
     const snapshot = authorizedSnapshot();
@@ -68,6 +95,57 @@ describe('Layui 管理端应用', () => {
     expect(selector.value).toBe('__fullnet_host__');
     expect(session.switchTenant).toHaveBeenCalledWith(tenantId);
     app.dispose();
+  });
+
+  it('语言保存失败保留旧语言与会话并显示本地化提示', async () => {
+    renderDynamicFixture();
+    document.querySelector('[data-session-shell]').insertAdjacentHTML(
+      'afterbegin',
+      `<label><select data-locale-select>
+        <option value="zh-CN">中文</option><option value="en-US">English</option>
+      </select></label><div data-locale-problem role="alert" hidden></div>`
+    );
+    const snapshot = authorizedSnapshot();
+    const session = createSessionStub(snapshot);
+    session.changeLocale.mockRejectedValue({
+      status: 409,
+      code: 'identity.profile_version_conflict'
+    });
+    const layerMessage = vi.fn();
+    vi.stubGlobal('layui', {
+      i18n: { set: vi.fn() },
+      layer: { msg: layerMessage },
+      use: (_modules, callback) => callback(),
+      element: { render: vi.fn() },
+      form: { render: vi.fn() }
+    });
+    const i18n = createAdminI18n({
+      document,
+      storage: createMemoryStorage(),
+      preferredLocales: ['zh-CN']
+    });
+    const app = initializeAdminApp(document, {
+      session,
+      i18n,
+      autoRestore: false
+    });
+    const selector = document.querySelector('[data-locale-select]');
+
+    selector.value = 'en-US';
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
+
+    await vi.waitFor(() => expect(session.changeLocale).toHaveBeenCalledWith('en-US'));
+    expect(i18n.snapshot().locale).toBe('zh-CN');
+    expect(selector.value).toBe('zh-CN');
+    expect(document.querySelector('[data-locale-problem]').textContent)
+      .toContain('已保留原语言');
+    expect(layerMessage).toHaveBeenCalledWith(
+      '语言偏好保存失败，已保留原语言',
+      { icon: 2 }
+    );
+    expect(snapshot.currentUser.tenantId).toBeNull();
+    app.dispose();
+    i18n.dispose();
   });
 
   it('无切换权限时隐藏声明式操作且不创建租户按钮', () => {
@@ -261,7 +339,7 @@ describe('Layui 管理端应用', () => {
     app.dispose();
   });
 
-  it('切换语言时保持当前会话和 Hash 路由', () => {
+  it('切换语言时保持当前会话和 Hash 路由', async () => {
     renderDynamicFixture();
     document.body.insertAdjacentHTML('afterbegin', `
       <label for="admin-locale" data-i18n="locale.label"></label>
@@ -275,6 +353,9 @@ describe('Layui 管理端应用', () => {
       storage: createMemoryStorage(),
       preferredLocales: ['zh-CN']
     });
+    session.changeLocale.mockImplementation(async locale => {
+      i18n.setLocale(locale);
+    });
     window.location.hash = '#/';
     const app = initializeAdminApp(document, {
       session,
@@ -285,6 +366,8 @@ describe('Layui 管理端应用', () => {
     const selector = document.querySelector('[data-locale-select]');
     selector.value = 'en-US';
     selector.dispatchEvent(new Event('change', { bubbles: true }));
+
+    await vi.waitFor(() => expect(i18n.snapshot().locale).toBe('en-US'));
 
     expect(document.querySelector('[data-navigation]').textContent)
       .toContain('Overview');
@@ -348,6 +431,7 @@ function renderDynamicFixture() {
         <strong data-context-error-code></strong>
         <span data-context-error-title></span>
       </div>
+      <div data-locale-problem role="alert" hidden></div>
       <div data-tenant-directory></div>
       <button data-session-logout></button>
       <main data-route-view="overview">工作台</main>
@@ -371,7 +455,7 @@ function authorizedSnapshot() {
         'tenancy.tenants.read',
         'tenancy.tenants.switch'
       ],
-      sessionId: 'session-id'
+      sessionId: 'session-id', preferredLocale: 'zh-CN', profileVersion: 1
     },
     navigation: [
       navigationNode('overview'),
@@ -410,6 +494,7 @@ function createSessionStub(snapshot) {
     login: vi.fn(),
     restore: vi.fn(),
     switchTenant: vi.fn(),
+    changeLocale: vi.fn(),
     logout: vi.fn()
   };
 }

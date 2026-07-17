@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createMemoryHistory } from 'vue-router';
 import { createPinia, setActivePinia } from 'pinia';
-import { ElOption } from 'element-plus';
+import { ElConfigProvider, ElOption } from 'element-plus';
 import App from './App.vue';
 import { createAppRouter } from './router';
 import { useSessionStore } from './auth/session';
@@ -20,7 +20,7 @@ function createAuthenticatedPinia() {
       id: 'user-id', username: 'admin', displayName: '系统管理员',
       tenantId: null, actorScope: 'host', scope: 'host',
       permissions: ['platform.dashboard.read', 'tenancy.tenants.read'],
-      sessionId: 'session-id'
+      sessionId: 'session-id', preferredLocale: 'zh-CN', profileVersion: 1
     },
     navigation: [{
       id: 'overview', parentId: null, routeName: 'overview', path: '/',
@@ -61,6 +61,7 @@ describe('Vue 管理端壳层', () => {
       global: { plugins: [pinia, router] }
     });
 
+    expect(wrapper.findComponent(ElConfigProvider).exists()).toBe(true);
     expect(wrapper.text()).toContain('Full.NET');
     expect(wrapper.text()).toContain('Full.NET Host');
     expect(wrapper.findAllComponents(ElOption).some(option =>
@@ -87,6 +88,10 @@ describe('Vue 管理端壳层', () => {
 
   it('切换语言后更新可信导航、文档语义和页面标题', async () => {
     const pinia = createAuthenticatedPinia();
+    const session = useSessionStore();
+    session.changeLocale = async locale => {
+      useAdminI18n().setLocale(locale);
+    };
     const router = createAppRouter(createMemoryHistory(), pinia);
     await router.push('/');
     await router.isReady();
@@ -101,6 +106,7 @@ describe('Vue 管理端壳层', () => {
     expect(wrapper.get('[data-route-heading]').attributes('tabindex')).toBe('-1');
 
     await wrapper.get('select[name="locale"]').setValue('en-US');
+    await vi.waitFor(() => expect(useAdminI18n().locale.value).toBe('en-US'));
 
     expect(wrapper.text()).toContain('Overview');
     expect(wrapper.text()).toContain('Tenant context');

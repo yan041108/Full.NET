@@ -7,11 +7,14 @@ export type { FullNetProblemDetails } from './problem-details.js';
 
 export {
   isCurrentUserResponse,
+  isLocalePreferenceResponse,
   isTokenResponse
 } from './identity.js';
 
 export type {
   CurrentUserResponse,
+  LocalePreferenceResponse,
+  SupportedLocale,
   TokenResponse
 } from './identity.js';
 

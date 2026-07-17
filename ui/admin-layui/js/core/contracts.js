@@ -19,7 +19,9 @@ export function isTokenResponse(value) {
     && value.accessToken.length > 0
     && value.tokenType === 'Bearer'
     && typeof value.expiresAtUtc === 'string'
-    && value.expiresAtUtc.length > 0;
+    && value.expiresAtUtc.length > 0
+    && !('preferredLocale' in value)
+    && !('profileVersion' in value);
 }
 
 /** 校验当前用户与授权摘要。 */
@@ -34,7 +36,16 @@ export function isCurrentUserResponse(value) {
     && typeof value.scope === 'string'
     && Array.isArray(value.permissions)
     && value.permissions.every(permission => typeof permission === 'string')
-    && typeof value.sessionId === 'string';
+    && typeof value.sessionId === 'string'
+    && isSupportedLocale(value.preferredLocale)
+    && isPositiveInteger(value.profileVersion);
+}
+
+/** 校验语言偏好响应，损坏响应不得触发客户端乐观切换。 */
+export function isLocalePreferenceResponse(value) {
+  return isRecord(value)
+    && isSupportedLocale(value.preferredLocale)
+    && isPositiveInteger(value.profileVersion);
 }
 
 /** 校验完整导航树，不修补或修改任何不可信输入。 */
@@ -134,6 +145,14 @@ function isGuid(value) {
 
 function isDisplayText(value) {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isSupportedLocale(value) {
+  return value === 'zh-CN' || value === 'en-US';
+}
+
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
 }
 
 function isRecord(value) {

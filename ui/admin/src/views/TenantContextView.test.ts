@@ -17,7 +17,7 @@ describe('Vue 租户上下文页面', () => {
         id: 'user-id', username: 'admin', displayName: '系统管理员',
         tenantId: null, actorScope: 'host', scope: 'host',
         permissions: ['tenancy.tenants.read', 'tenancy.tenants.switch'],
-        sessionId: 'session-id'
+        sessionId: 'session-id', preferredLocale: 'zh-CN', profileVersion: 1
       },
       availableTenants: [{
         id: tenantId, identifier: 'acme', name: 'Acme Corporation',
@@ -46,7 +46,8 @@ describe('Vue 租户上下文页面', () => {
       currentUser: {
         id: 'user-id', username: 'viewer', displayName: '只读管理员',
         tenantId: null, actorScope: 'host', scope: 'host',
-        permissions: ['tenancy.tenants.read'], sessionId: 'session-id'
+        permissions: ['tenancy.tenants.read'], sessionId: 'session-id',
+        preferredLocale: 'zh-CN', profileVersion: 1
       },
       availableTenants: [{
         id: tenantId, identifier: 'acme', name: 'Acme Corporation',
