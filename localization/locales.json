@@ -1,0 +1,29 @@
+{
+  "$schema": "./schemas/locale-catalog.schema.json",
+  "schemaVersion": 1,
+  "defaultLocale": "zh-CN",
+  "supportedLocales": [
+    {
+      "tag": "zh-CN",
+      "fallbacks": ["zh", "zh-Hans", "zh-SG"],
+      "direction": "ltr",
+      "platformMappings": {
+        "dotnet": "zh-CN",
+        "web": "zh-CN",
+        "uniapp": "zh-Hans",
+        "flutter": "zh_CN"
+      }
+    },
+    {
+      "tag": "en-US",
+      "fallbacks": ["en", "en-GB"],
+      "direction": "ltr",
+      "platformMappings": {
+        "dotnet": "en-US",
+        "web": "en-US",
+        "uniapp": "en",
+        "flutter": "en_US"
+      }
+    }
+  ]
+}

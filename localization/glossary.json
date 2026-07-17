@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "terms": [
+    {
+      "term": "Full.NET",
+      "display": {
+        "zh-CN": "Full.NET",
+        "en-US": "Full.NET"
+      },
+      "translate": false
+    },
+    {
+      "term": "Host",
+      "display": {
+        "zh-CN": "主机",
+        "en-US": "Host"
+      },
+      "translate": false
+    },
+    {
+      "term": "Tenant",
+      "display": {
+        "zh-CN": "租户",
+        "en-US": "Tenant"
+      },
+      "translate": false
+    },
+    {
+      "term": "TraceId",
+      "display": {
+        "zh-CN": "TraceId",
+        "en-US": "TraceId"
+      },
+      "translate": false
+    },
+    {
+      "term": "Access Token",
+      "display": {
+        "zh-CN": "访问令牌",
+        "en-US": "Access Token"
+      },
+      "translate": false
+    },
+    {
+      "term": "Refresh Token",
+      "display": {
+        "zh-CN": "刷新令牌",
+        "en-US": "Refresh Token"
+      },
+      "translate": false
+    },
+    {
+      "term": "ProblemDetails",
+      "display": {
+        "zh-CN": "ProblemDetails",
+        "en-US": "ProblemDetails"
+      },
+      "translate": false
+    },
+    {
+      "term": "SignalR",
+      "display": {
+        "zh-CN": "SignalR",
+        "en-US": "SignalR"
+      },
+      "translate": false
+    },
+    {
+      "term": "Agent",
+      "display": {
+        "zh-CN": "Agent",
+        "en-US": "Agent"
+      },
+      "translate": false
+    },
+    {
+      "term": "Tool",
+      "display": {
+        "zh-CN": "工具",
+        "en-US": "Tool"
+      },
+      "translate": false
+    },
+    {
+      "term": "MCP",
+      "display": {
+        "zh-CN": "MCP",
+        "en-US": "MCP"
+      },
+      "translate": false
+    }
+  ]
+}

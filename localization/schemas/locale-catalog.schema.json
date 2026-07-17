@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Full.NET Locale Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "defaultLocale", "supportedLocales"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "defaultLocale": {
+      "$ref": "#/$defs/bcp47Tag"
+    },
+    "supportedLocales": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/locale"
+      }
+    }
+  },
+  "$defs": {
+    "bcp47Tag": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+    },
+    "locale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tag", "fallbacks", "direction", "platformMappings"],
+      "properties": {
+        "tag": {
+          "$ref": "#/$defs/bcp47Tag"
+        },
+        "fallbacks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/bcp47Tag"
+          }
+        },
+        "direction": {
+          "enum": ["ltr", "rtl"]
+        },
+        "platformMappings": {
+          "$ref": "#/$defs/platformMappings"
+        }
+      }
+    },
+    "platformMappings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dotnet", "web", "uniapp", "flutter"],
+      "properties": {
+        "dotnet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "web": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uniapp": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flutter": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
