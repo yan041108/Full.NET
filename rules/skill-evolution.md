@@ -90,7 +90,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | --- | --- | --- | --- |
 | `fullnet-dual-database-change` | 观察 / 3 | 基础迁移、Tenancy SQL/API 与 Identity 授权上下文均已覆盖 SQL Server/MySQL | 下一个独立模块出现提供程序差异时，评估从模块交付 Skill 拆分 |
 | `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 事件使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
-| `fullnet-api-compatibility` | 候选 / 1 | 标准 ProblemDetails 与 Admin.NET Mapper 已存在 | 新增分页、文件或另一类兼容端点时升级 |
+| `fullnet-api-compatibility` | 候选 / 2 | 标准 ProblemDetails 与 Admin.NET Mapper 已存在；Task 3 复核恢复了 Error 旧构造、Message/init、Deconstruct 与 JSON shape，并增加聚焦兼容测试 | 新增分页、文件或另一类兼容端点时评估升级 |
 | `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名与按 ID 的租户解析缓存及 tag 失效处理已存在 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |
 | `fullnet-release-verification` | 自动化优先 / 7 | Release 构建、四套 MTP 测试、客户端单元/构建/E2E、许可证和漏洞审计再次用于双管理端国际化与可访问性交付；本机 Docker 管道差异被如实记录 | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
 | `fullnet-realtime-feature` | 等待真实实现 / 0 | 只有 SignalR、MessagePack Hub、Redis Backplane 设计 | 首个 `IRealtimePublisher` 消费者验收后评估 |

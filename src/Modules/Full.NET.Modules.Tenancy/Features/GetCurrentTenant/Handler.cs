@@ -22,7 +22,7 @@ internal sealed class Handler(IQueryExecutor queryExecutor)
         return tenant is null
             ? Result<TenantSummary>.Failure(new Error(
                 Code: TenancyErrorCodes.NotFound,
-                DefaultMessage: "The current tenant was not found.",
+                Message: "The current tenant was not found.",
                 Type: ErrorType.NotFound))
             : Result<TenantSummary>.Success(tenant);
     }

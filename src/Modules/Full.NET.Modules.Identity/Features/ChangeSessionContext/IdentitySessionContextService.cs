@@ -204,7 +204,7 @@ internal sealed class IdentitySessionContextService(
         ErrorType type) =>
         Result<TenantContextTokenResponse>.Failure(new Error(
             Code: code,
-            DefaultMessage: message,
+            Message: message,
             Type: type));
 }
 

@@ -92,6 +92,6 @@ internal sealed class Handler(
     private static Result<TenantSummary> Conflict(string code, string message) =>
         Result<TenantSummary>.Failure(new Error(
             Code: code,
-            DefaultMessage: message,
+            Message: message,
             Type: ErrorType.Conflict));
 }

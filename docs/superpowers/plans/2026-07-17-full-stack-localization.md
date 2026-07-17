@@ -244,7 +244,7 @@ app.UseCors(IdentityModule.BrowserCorsPolicy);
 
 Run: dotnet build Full.NET.slnx --configuration Release --no-restore
 
-Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 144 --timeout 5m
+Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 161 --timeout 5m
 Expected: 构建 0 错误，本任务新增测试与原 116 项共 144 项全部通过。
 
 - [ ] **Step 7: 提交**
@@ -306,20 +306,34 @@ public sealed record ValidationViolation(
     string Code,
     IReadOnlyDictionary<string, object?> Arguments);
 
-public sealed record Error(
-    string Code,
-    string DefaultMessage,
-    ErrorType Type,
-    IReadOnlyDictionary<string, object?>? Arguments = null,
-    IReadOnlyDictionary<string, string[]>? ValidationErrors = null,
-    IReadOnlyList<ValidationViolation>? ValidationViolations = null);
+public sealed record Error
+{
+    public Error(
+        string Code,
+        string Message,
+        ErrorType Type,
+        IReadOnlyDictionary<string, string[]>? ValidationErrors = null);
+
+    public Error(
+        string Code,
+        string Message,
+        ErrorType Type,
+        IReadOnlyDictionary<string, string[]>? ValidationErrors,
+        IReadOnlyDictionary<string, object?>? Arguments,
+        IReadOnlyList<ValidationViolation>? ValidationViolations);
+
+    public string Message { get; init; }
+
+    [JsonIgnore]
+    public string DefaultMessage => Message;
+}
 ~~~
 
-DefaultMessage 只作为安全回退。迁移全部命名参数调用，禁止让新增参数错位。
+必须保留旧四参数构造、`Message` init 属性与四元 `Deconstruct`；扩展构造把新参数置于旧四参数之后，禁止让三参数或第四参数 `null` 的调用产生歧义。`DefaultMessage` 只作为不参与 JSON 的安全语义别名；序列化必须继续输出 `message`，新增 `arguments/validationViolations` 只能是 additive。
 
 - [ ] **Step 4: 实现资源聚合与映射**
 
-ResourceErrorMessageLocalizer 按最长 code 前缀选择模块注册的 `IErrorResourceSource`，按 CurrentUICulture 使用 `NamedMessageFormatter` 格式化命名参数。格式器只替换资源中与 Arguments 精确匹配的 `{Name}`，不解释 HTML、表达式或任意格式代码。缺失资源或参数时返回 DefaultMessage，并使用低基数指标记录 code/locale；不得记录用户参数。
+ResourceErrorMessageLocalizer 按最长 code 前缀选择模块注册的 `IErrorResourceSource`，资源前缀必须以 `.` 结束，按 CurrentUICulture 使用 `NamedMessageFormatter` 格式化命名参数。格式器只替换资源中与 Arguments 精确匹配的 `{Name}`，不解释 HTML、表达式或任意格式代码。缺失资源或参数时返回 DefaultMessage，并使用低基数指标记录 code/locale；不得记录用户参数。稳定 Meter 名称必须由常量统一提供，并通过 ServiceDefaults `.AddMeter(...)` 接入 OpenTelemetry。
 
 StandardApiResultMapper 保留 code、traceId、status、type 和兼容 errors，同时增加 violations，并通过 Task 2 帮助器设置 Content-Language 与 Vary。AdminNetApiResultMapper 注入同一个 IErrorMessageLocalizer，只改变外层包络而不建立第二份资源。为新增 DTO 建立 Hosting JsonSerializerContext 并插入 TypeInfoResolverChain。
 
@@ -327,13 +341,13 @@ Identity 与 Tenancy 项目文件将 NeutralLanguage 固定为 zh-CN，并以 `T
 
 - [ ] **Step 5: 让 FluentValidation 产生稳定 code**
 
-每条规则设置 ErrorCode，ValidationFailure.PropertyName 作为 Field，PlaceholderValues 中受允许的长度/范围参数写入 Arguments。ValidationErrors 继续生成本地化文本以兼容已有客户端，客户端逻辑改用 violations。
+每条规则设置 ErrorCode，ValidationFailure.PropertyName 作为 Field，PlaceholderValues 中受允许的长度/范围参数写入 Arguments。Identity 密码策略的长度、大写、小写、数字和非字母数字要求也必须分别产生稳定 code，且最小长度只公开 `MinLength`。ValidationErrors 继续生成同序文本以兼容已有客户端，必须与 violations 一一对应；映射器面对旧生产者数量失配时保留未配对消息，禁止静默截断或记录可能含用户输入的文本。
 
 - [ ] **Step 6: 运行验证**
 
 Run: dotnet build Full.NET.slnx --configuration Release --no-restore
 
-Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 144 --timeout 5m
+Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 161 --timeout 5m
 
 Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 8 --timeout 10m
 Expected: 单元和 SQL Server/MySQL 集成全部通过；两种语言仅展示文本不同。

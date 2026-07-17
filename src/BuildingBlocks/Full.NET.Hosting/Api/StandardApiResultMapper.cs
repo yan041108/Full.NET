@@ -69,34 +69,60 @@ public sealed class StandardApiResultMapper(
         IReadOnlyList<ValidationViolation> violations,
         CultureInfo culture)
     {
-        var messageIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
-        return violations
+        var violationsByField = violations
             .GroupBy(violation => violation.Field, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
-                group => group.Select(violation =>
-                {
-                    var index = messageIndexes.GetValueOrDefault(group.Key);
-                    messageIndexes[group.Key] = index + 1;
-                    var defaultMessage = error.ValidationErrors is not null
-                        && error.ValidationErrors.TryGetValue(group.Key, out var messages)
-                        && index < messages.Length
-                            ? messages[index]
-                            : error.DefaultMessage;
-                    return localizer.Localize(
-                        new Error(
-                            Code: violation.Code,
-                            DefaultMessage: defaultMessage,
-                            Type: ErrorType.Validation,
-                            Arguments: violation.Arguments),
-                        culture);
-                }).ToArray(),
+                group => group.ToArray(),
                 StringComparer.Ordinal);
+        var fields = (error.ValidationErrors?.Keys ?? [])
+            .Concat(violations.Select(violation => violation.Field))
+            .Distinct(StringComparer.Ordinal);
+        var localizedErrors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        foreach (var field in fields)
+        {
+            var legacyMessages = error.ValidationErrors is not null
+                && error.ValidationErrors.TryGetValue(field, out var messages)
+                    ? messages
+                    : [];
+            var fieldViolations = violationsByField.GetValueOrDefault(field) ?? [];
+            var localizedMessages = new List<string>(Math.Max(
+                legacyMessages.Length,
+                fieldViolations.Length));
+            for (var index = 0; index < fieldViolations.Length; index++)
+            {
+                var defaultMessage = index < legacyMessages.Length
+                    ? legacyMessages[index]
+                    : error.DefaultMessage;
+                var violation = fieldViolations[index];
+                localizedMessages.Add(localizer.Localize(
+                    new Error(
+                        Code: violation.Code,
+                        Message: defaultMessage,
+                        Type: ErrorType.Validation,
+                        ValidationErrors: null,
+                        Arguments: violation.Arguments,
+                        ValidationViolations: null),
+                    culture));
+            }
+
+            // 旧生产者可能尚未为每条兼容消息提供结构化违反项；原文必须原序保留，
+            // 禁止静默截断，也禁止为了诊断而记录可能包含用户输入的消息内容。
+            if (legacyMessages.Length > fieldViolations.Length)
+            {
+                localizedMessages.AddRange(legacyMessages[fieldViolations.Length..]);
+            }
+
+            localizedErrors[field] = localizedMessages.ToArray();
+        }
+
+        return localizedErrors;
     }
 
     private static Error UnexpectedError() => new(
         Code: CommonErrorCodes.Unexpected,
-        DefaultMessage: "An unexpected error occurred.",
+        Message: "An unexpected error occurred.",
         Type: ErrorType.Unexpected);
 
     /// <summary>

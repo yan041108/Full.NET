@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Serialization;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,7 @@ public sealed class FullNetJsonOptionsTests
         Assert.IsTrue(options.PropertyNameCaseInsensitive);
         Assert.IsTrue(options.TypeInfoResolverChain.Contains(
             HostingJsonSerializerContext.Default));
+        Assert.IsNotNull(HostingJsonSerializerContext.Default.GetTypeInfo(typeof(Error)));
         Assert.AreEqual("{\"value\":\"ok\"}", json);
     }
 }

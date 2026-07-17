@@ -30,7 +30,7 @@ internal static class Endpoint
                 return mapper.Map(
                     Result<TokenResponse>.Failure(new Error(
                         Code: IdentityErrorCodes.OriginNotAllowed,
-                        DefaultMessage: "The request origin is not allowed.",
+                        Message: "The request origin is not allowed.",
                         Type: ErrorType.Forbidden)),
                     httpContext);
             }

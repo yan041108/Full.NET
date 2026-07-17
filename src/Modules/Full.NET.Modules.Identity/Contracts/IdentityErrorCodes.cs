@@ -31,6 +31,24 @@ public static class IdentityErrorCodes
     /// <summary>浏览器请求来源不在允许列表中。</summary>
     public const string OriginNotAllowed = "identity.origin_not_allowed";
 
+    /// <summary>密码长度小于最低安全要求。</summary>
+    public const string PasswordMinimumLength = "identity.password.minimum_length";
+
+    /// <summary>密码缺少大写字母。</summary>
+    public const string PasswordUppercaseRequired =
+        "identity.password.uppercase_required";
+
+    /// <summary>密码缺少小写字母。</summary>
+    public const string PasswordLowercaseRequired =
+        "identity.password.lowercase_required";
+
+    /// <summary>密码缺少数字。</summary>
+    public const string PasswordDigitRequired = "identity.password.digit_required";
+
+    /// <summary>密码缺少非字母数字字符。</summary>
+    public const string PasswordNonAlphanumericRequired =
+        "identity.password.non_alphanumeric_required";
+
     /// <summary>检测到刷新令牌重复使用并撤销会话族。</summary>
     public const string RefreshTokenReuseDetected = "identity.refresh_token_reuse_detected";
 
@@ -52,6 +70,11 @@ public static class IdentityErrorCodes
         InvalidCredentials,
         InvalidRefreshToken,
         OriginNotAllowed,
+        PasswordMinimumLength,
+        PasswordUppercaseRequired,
+        PasswordLowercaseRequired,
+        PasswordDigitRequired,
+        PasswordNonAlphanumericRequired,
         RefreshTokenReuseDetected,
         SessionContextConflict,
         SessionNotActive,

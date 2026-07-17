@@ -68,6 +68,7 @@ public static class ServiceDefaultsExtensions
         var openTelemetry = builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
                 .AddMeter("Full.NET.Logging")
+                .AddMeter(ResourceErrorMessageLocalizer.MeterName)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation())

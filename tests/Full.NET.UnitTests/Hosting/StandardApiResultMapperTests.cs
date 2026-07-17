@@ -29,7 +29,7 @@ public sealed class StandardApiResultMapperTests
         var mapped = mapper.Map(
             Result<string>.Failure(new Error(
                 Code: "test.error",
-                DefaultMessage: "Test error.",
+                Message: "Test error.",
                 Type: errorType)),
             context);
 
@@ -79,12 +79,13 @@ public sealed class StandardApiResultMapperTests
         var mapped = CreateMapper().Map(
             Result<string>.Failure(new Error(
                 Code: ValidationErrorCodes.Failed,
-                DefaultMessage: "One or more validation errors occurred.",
+                Message: "One or more validation errors occurred.",
                 Type: ErrorType.Validation,
                 ValidationErrors: new Dictionary<string, string[]>
                 {
                     ["Username"] = ["Username is required."],
                 },
+                Arguments: null,
                 ValidationViolations:
                 [
                     new ValidationViolation(
@@ -104,6 +105,41 @@ public sealed class StandardApiResultMapperTests
             context.Response.Headers.Vary.ToString(),
             "Accept-Language",
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    [TestMethod]
+    public void Validation_error_messages_are_not_dropped_when_producer_counts_mismatch()
+    {
+        var context = new DefaultHttpContext();
+        var mapped = CreateMapper().Map(
+            Result<string>.Failure(new Error(
+                Code: ValidationErrorCodes.Failed,
+                Message: "One or more validation errors occurred.",
+                Type: ErrorType.Validation,
+                ValidationErrors: new Dictionary<string, string[]>
+                {
+                    ["Password"] =
+                    [
+                        "Password is required.",
+                        "Unpaired legacy policy message.",
+                    ],
+                },
+                Arguments: null,
+                ValidationViolations:
+                [
+                    new ValidationViolation(
+                        "Password",
+                        ValidationErrorCodes.Required,
+                        new Dictionary<string, object?>()),
+                ])),
+            context);
+
+        var problem = (ProblemDetails?)((IValueHttpResult)mapped).Value;
+        Assert.IsNotNull(problem);
+        var errors = (IReadOnlyDictionary<string, string[]>)problem.Extensions["errors"]!;
+        CollectionAssert.AreEqual(
+            new[] { "该字段为必填项。", "Unpaired legacy policy message." },
+            errors["Password"]);
     }
 
     private static StandardApiResultMapper CreateMapper(string locale = "zh-CN")

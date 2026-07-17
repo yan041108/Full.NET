@@ -1,12 +1,72 @@
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Modules.Identity;
 
 namespace Full.NET.UnitTests.Localization;
 
 [TestClass]
 public sealed class ResourceErrorMessageLocalizerTests
 {
+    [TestMethod]
+    public void Fallback_counter_contains_only_stable_code_and_locale_tags()
+    {
+        var measurements = new List<FallbackMeasurement>();
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == ResourceErrorMessageLocalizer.MeterName)
+                {
+                    meterListener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
+            measurements.Add(new FallbackMeasurement(
+                instrument.Name,
+                value,
+                tags.ToArray())));
+        listener.Start();
+        var localizer = new ResourceErrorMessageLocalizer(
+            [],
+            new NamedMessageFormatter());
+
+        var message = localizer.Localize(
+            new Error(
+                Code: "identity.missing",
+                Message: "Safe fallback.",
+                Type: ErrorType.Unexpected),
+            CultureInfo.GetCultureInfo("en-US"));
+
+        Assert.AreEqual("Safe fallback.", message);
+        Assert.HasCount(1, measurements);
+        var measurement = measurements[0];
+        Assert.AreEqual("fullnet.localization.error.fallbacks", measurement.Name);
+        Assert.AreEqual(1L, measurement.Value);
+        CollectionAssert.AreEquivalent(
+            new[] { "code", "locale" },
+            measurement.Tags.Select(tag => tag.Key).ToArray());
+        Assert.AreEqual(
+            "identity.missing",
+            measurement.Tags.Single(tag => tag.Key == "code").Value);
+        Assert.AreEqual(
+            "en-US",
+            measurement.Tags.Single(tag => tag.Key == "locale").Value);
+    }
+
+    [TestMethod]
+    public void Resource_prefix_must_end_with_segment_separator()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new ResourceManagerErrorResourceSource(
+                "identity",
+                new System.Resources.ResourceManager(
+                    "Full.NET.Modules.Identity.Resources.IdentityErrors",
+                    typeof(IdentityModule).Assembly)));
+    }
+
     [TestMethod]
     public void Longest_matching_prefix_supplies_and_formats_template()
     {
@@ -31,9 +91,11 @@ public sealed class ResourceErrorMessageLocalizerTests
             new NamedMessageFormatter());
         var error = new Error(
             Code: "identity.password.maximum_length",
-            DefaultMessage: "Safe fallback.",
+            Message: "Safe fallback.",
             Type: ErrorType.Validation,
-            Arguments: new Dictionary<string, object?> { ["MaxLength"] = 128 });
+            ValidationErrors: null,
+            Arguments: new Dictionary<string, object?> { ["MaxLength"] = 128 },
+            ValidationViolations: null);
 
         var message = localizer.Localize(
             error,
@@ -59,11 +121,11 @@ public sealed class ResourceErrorMessageLocalizerTests
 
         var missingArgument = new Error(
             Code: "validation.maximum_length",
-            DefaultMessage: "Safe fallback.",
+            Message: "Safe fallback.",
             Type: ErrorType.Validation);
         var missingResource = new Error(
             Code: "validation.unknown",
-            DefaultMessage: "Unknown fallback.",
+            Message: "Unknown fallback.",
             Type: ErrorType.Validation);
 
         Assert.AreEqual(
@@ -85,4 +147,9 @@ public sealed class ResourceErrorMessageLocalizerTests
             CultureInfo culture,
             out string template) => resources.TryGetValue(code, out template!);
     }
+
+    private sealed record FallbackMeasurement(
+        string Name,
+        long Value,
+        KeyValuePair<string, object?>[] Tags);
 }

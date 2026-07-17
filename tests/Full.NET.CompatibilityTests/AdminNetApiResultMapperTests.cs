@@ -40,7 +40,7 @@ public sealed class AdminNetApiResultMapperTests
         var mapped = CreateMapper("en-US").Map(
             Result<string>.Failure(new Error(
                 Code: "tenancy.identifier-exists",
-                DefaultMessage: "Identifier exists.",
+                Message: "Identifier exists.",
                 Type: ErrorType.Conflict)),
             context);
 
@@ -61,7 +61,7 @@ public sealed class AdminNetApiResultMapperTests
     {
         var error = new Error(
             Code: "tenancy.identifier-exists",
-            DefaultMessage: "A tenant with this identifier already exists.",
+            Message: "A tenant with this identifier already exists.",
             Type: ErrorType.Conflict);
         var chineseContext = new DefaultHttpContext();
         var englishContext = new DefaultHttpContext();

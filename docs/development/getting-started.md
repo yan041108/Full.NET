@@ -16,7 +16,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 153
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 161
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 9
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 8 --timeout 10m
@@ -175,6 +175,8 @@ FusionCache 是唯一缓存实现，业务代码可以依赖 `IFusionCache`，�
 
 每个模块应为自己的 HTTP DTO 提供 System.Text.Json `JsonSerializerContext`，并把生成的 context 插入 `TypeInfoResolverChain`。不要在请求热路径创建新的 `JsonSerializerOptions`，也不要引入 Newtonsoft.Json。
 
+`Error` 保留既有四参数构造、可初始化的 `Message` 和四元解构契约；结构化 `Arguments/ValidationViolations` 只通过无歧义的扩展构造增量提供。JSON 继续输出 `message`，`DefaultMessage` 只是标记为 `JsonIgnore` 的安全语义别名，不得同时输出 `message/defaultMessage`。生产者应让每条兼容 `ValidationErrors` 与同序 `ValidationViolation` 一一对应；映射器会安全保留尚未配对的旧消息，但不会记录可能包含用户输入的消息内容。
+
 需要兼容现有 Admin.NET 前端时，在自定义 Host 中于服务默认值之后显式启用：
 
 ```csharp
@@ -213,7 +215,7 @@ Worker 以租约方式批量获取消息，按 `(EventType, SchemaVersion)` 精�
 }
 ```
 
-应监控 `fullnet.logging.queue.depth`、`fullnet.logging.queue.capacity` 和 `fullnet.logging.events.dropped`。普通异步日志不承担审计账本职责；安全/业务审计后续使用独立可靠存储。日志不得记录请求体、Cookie、Authorization、连接串或消息 payload。
+应监控 `fullnet.logging.queue.depth`、`fullnet.logging.queue.capacity`、`fullnet.logging.events.dropped` 和 `fullnet.localization.error.fallbacks`。本地化回退指标只包含稳定 `code/locale` 标签，禁止附加格式化参数、密码或用户输入。普通异步日志不承担审计账本职责；安全/业务审计后续使用独立可靠存储。日志不得记录请求体、Cookie、Authorization、连接串或消息 payload。
 
 ## 10. 通信技术矩阵
 

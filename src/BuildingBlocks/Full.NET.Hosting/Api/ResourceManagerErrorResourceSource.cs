@@ -21,6 +21,13 @@ public class ResourceManagerErrorResourceSource : IErrorResourceSource
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
         ArgumentNullException.ThrowIfNull(resourceManager);
+        if (!prefix.EndsWith(".", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "错误资源前缀必须以点号结束，确保按完整代码段匹配。",
+                nameof(prefix));
+        }
+
         Prefix = prefix;
         _resourceManager = resourceManager;
     }

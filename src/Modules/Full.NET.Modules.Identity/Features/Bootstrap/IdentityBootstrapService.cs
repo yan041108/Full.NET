@@ -35,19 +35,22 @@ internal sealed class IdentityBootstrapService(
         {
             return Task.FromResult(Result<BootstrapHostAdminResult>.Failure(new Error(
                 Code: IdentityErrorCodes.BootstrapInvalidPassword,
-                DefaultMessage: "The bootstrap password does not satisfy the password policy.",
+                Message: "The bootstrap password does not satisfy the password policy.",
                 Type: ErrorType.Validation,
                 ValidationErrors: new Dictionary<string, string[]>
                 {
-                    [nameof(request.Password)] = passwordViolations.ToArray(),
+                    [nameof(request.Password)] = passwordViolations
+                        .Select(violation => violation.DefaultMessage)
+                        .ToArray(),
                 },
+                Arguments: null,
                 ValidationViolations:
-                [
-                    new ValidationViolation(
-                        nameof(request.Password),
-                        IdentityErrorCodes.BootstrapInvalidPassword,
-                        new Dictionary<string, object?>()),
-                ])));
+                    passwordViolations
+                        .Select(violation => new ValidationViolation(
+                            nameof(request.Password),
+                            violation.Code,
+                            violation.Arguments))
+                        .ToArray())));
         }
 
         var username = request.Username?.Trim() ?? string.Empty;
@@ -56,7 +59,7 @@ internal sealed class IdentityBootstrapService(
         {
             return Task.FromResult(Result<BootstrapHostAdminResult>.Failure(new Error(
                 Code: IdentityErrorCodes.BootstrapInvalidProfile,
-                DefaultMessage: "Bootstrap username or display name is invalid.",
+                Message: "Bootstrap username or display name is invalid.",
                 Type: ErrorType.Validation)));
         }
 

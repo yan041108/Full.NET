@@ -60,6 +60,6 @@ public sealed class AdminNetApiResultMapper(
 
     private static Error UnexpectedError() => new(
         Code: CommonErrorCodes.Unexpected,
-        DefaultMessage: "An unexpected error occurred.",
+        Message: "An unexpected error occurred.",
         Type: ErrorType.Unexpected);
 }

@@ -396,7 +396,7 @@ internal sealed class Handler(
     private static Result<LoginSessionResult> InvalidCredentials() =>
         Result<LoginSessionResult>.Failure(new Error(
             Code: IdentityErrorCodes.InvalidCredentials,
-            DefaultMessage: "The username or password is invalid.",
+            Message: "The username or password is invalid.",
             Type: ErrorType.Unauthorized));
 
     private static (IdentityUser User, string PasswordHash)

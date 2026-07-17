@@ -62,9 +62,10 @@ internal sealed class FluentValidationBehavior<TMessage, TResult>(
 
         return Result<TResult>.Failure(new Error(
             Code: ValidationErrorCodes.Failed,
-            DefaultMessage: "One or more validation errors occurred.",
+            Message: "One or more validation errors occurred.",
             Type: ErrorType.Validation,
             ValidationErrors: errors,
+            Arguments: null,
             ValidationViolations: violations));
     }
 

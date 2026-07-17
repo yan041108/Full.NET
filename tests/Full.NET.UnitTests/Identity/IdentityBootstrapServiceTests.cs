@@ -6,6 +6,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
@@ -37,6 +38,50 @@ public sealed class IdentityBootstrapServiceTests
         Assert.AreEqual("identity.bootstrap.invalid-password", result.Error?.Code);
         await fixture.QueryExecutor.DidNotReceiveWithAnyArgs()
             .QuerySingleOrDefaultAsync<IdentityUserRecord>(default!, default, default);
+    }
+
+    [TestMethod]
+    public async Task Empty_password_returns_five_ordered_policy_violations()
+    {
+        var fixture = new Fixture();
+
+        var result = await fixture.Service.BootstrapHostAdminAsync(
+            new BootstrapHostAdminRequest("admin", string.Empty, "系统管理员"));
+
+        Assert.IsFalse(result.IsSuccess);
+        var error = result.Error!;
+        var messages = error.ValidationErrors!["Password"];
+        var violations = error.ValidationViolations!;
+        var policyViolations = IdentityPasswordPolicy.Validate(string.Empty);
+        Assert.HasCount(5, messages);
+        Assert.HasCount(5, violations);
+        CollectionAssert.AreEqual(
+            policyViolations.Select(violation => violation.DefaultMessage).ToArray(),
+            messages);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                IdentityErrorCodes.PasswordMinimumLength,
+                IdentityErrorCodes.PasswordUppercaseRequired,
+                IdentityErrorCodes.PasswordLowercaseRequired,
+                IdentityErrorCodes.PasswordDigitRequired,
+                IdentityErrorCodes.PasswordNonAlphanumericRequired,
+            },
+            violations.Select(violation => violation.Code).ToArray());
+        Assert.IsTrue(violations.All(violation => violation.Field == "Password"));
+        CollectionAssert.AreEqual(
+            new[] { "MinLength" },
+            violations[0].Arguments.Keys.ToArray());
+        Assert.AreEqual(IdentityPasswordPolicy.MinimumLength,
+            violations[0].Arguments["MinLength"]);
+        Assert.IsTrue(violations.Skip(1).All(violation => violation.Arguments.Count == 0));
+        for (var index = 0; index < violations.Count; index++)
+        {
+            Assert.AreEqual(policyViolations[index].Code, violations[index].Code);
+            CollectionAssert.AreEquivalent(
+                policyViolations[index].Arguments.ToArray(),
+                violations[index].Arguments.ToArray());
+        }
     }
 
     [TestMethod]

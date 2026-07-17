@@ -25,7 +25,7 @@ internal sealed class FullNetAuthorizationResultHandler(IApiResultMapper resultM
         return resultMapper.Map(
                 Result<object?>.Failure(new Error(
                     Code: CommonErrorCodes.PermissionDenied,
-                    DefaultMessage:
+                    Message:
                         "The current identity does not have the required permission.",
                     Type: ErrorType.Forbidden)),
                 context)

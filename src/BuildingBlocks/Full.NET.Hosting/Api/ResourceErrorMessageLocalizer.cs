@@ -9,8 +9,13 @@ namespace Full.NET.Hosting.Api;
 /// </summary>
 public sealed class ResourceErrorMessageLocalizer : IErrorMessageLocalizer
 {
+    /// <summary>
+    /// OpenTelemetry 注册与监听必须共同使用的稳定 Meter 名称。
+    /// </summary>
+    public const string MeterName = "Full.NET.Hosting.Localization";
+
     private static readonly Meter LocalizationMeter =
-        new("Full.NET.Hosting.Localization");
+        new(MeterName);
     private static readonly Counter<long> FallbackCounter =
         LocalizationMeter.CreateCounter<long>("fullnet.localization.error.fallbacks");
 
@@ -29,6 +34,7 @@ public sealed class ResourceErrorMessageLocalizer : IErrorMessageLocalizer
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(formatter);
         _sources = sources
+            .Select(source => ValidateSource(source))
             .OrderByDescending(source => source.Prefix.Length)
             .ThenBy(source => source.Prefix, StringComparer.Ordinal)
             .ToArray();
@@ -63,4 +69,18 @@ public sealed class ResourceErrorMessageLocalizer : IErrorMessageLocalizer
             1,
             new KeyValuePair<string, object?>("code", code),
             new KeyValuePair<string, object?>("locale", locale));
+
+    private static IErrorResourceSource ValidateSource(IErrorResourceSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (string.IsNullOrWhiteSpace(source.Prefix)
+            || !source.Prefix.EndsWith(".", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "错误资源前缀必须以点号结束，确保按完整代码段匹配。",
+                nameof(source));
+        }
+
+        return source;
+    }
 }

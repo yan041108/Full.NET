@@ -168,7 +168,7 @@ internal sealed class Handler(
             cancellationToken).ConfigureAwait(false);
         return Result<RefreshSessionResult>.Failure(new Error(
             Code: IdentityErrorCodes.RefreshTokenReuseDetected,
-            DefaultMessage: "Refresh token reuse was detected and the session was revoked.",
+            Message: "Refresh token reuse was detected and the session was revoked.",
             Type: ErrorType.Unauthorized));
     }
 
@@ -283,6 +283,6 @@ internal sealed class Handler(
     private static Result<RefreshSessionResult> InvalidRefreshToken() =>
         Result<RefreshSessionResult>.Failure(new Error(
             Code: IdentityErrorCodes.InvalidRefreshToken,
-            DefaultMessage: "The refresh token is invalid or expired.",
+            Message: "The refresh token is invalid or expired.",
             Type: ErrorType.Unauthorized));
 }

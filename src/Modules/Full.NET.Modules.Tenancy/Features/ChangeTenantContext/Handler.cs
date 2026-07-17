@@ -26,7 +26,7 @@ internal sealed class Handler(
             {
                 return Result<TenantContextTokenResponse>.Failure(new Error(
                     Code: TenancyErrorCodes.ContextNotFound,
-                    DefaultMessage: "The requested tenant context was not found.",
+                    Message: "The requested tenant context was not found.",
                     Type: ErrorType.NotFound));
             }
 

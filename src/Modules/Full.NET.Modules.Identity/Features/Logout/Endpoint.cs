@@ -28,7 +28,7 @@ internal static class Endpoint
                 return mapper.Map(
                     Result<LogoutResult>.Failure(new Error(
                         Code: IdentityErrorCodes.CsrfValidationFailed,
-                        DefaultMessage: "CSRF validation failed.",
+                        Message: "CSRF validation failed.",
                         Type: ErrorType.Forbidden)),
                     httpContext);
             }

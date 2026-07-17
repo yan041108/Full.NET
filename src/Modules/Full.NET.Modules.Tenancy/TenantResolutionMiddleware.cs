@@ -204,7 +204,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
             .Map(
                 Result<object?>.Failure(new Error(
                     Code: code,
-                    DefaultMessage: message,
+                    Message: message,
                     Type: errorType)),
                 httpContext)
             .ExecuteAsync(httpContext);

@@ -56,10 +56,19 @@ public sealed class ErrorResourceCompletenessTests
     {
         foreach (var culture in RequiredCultures)
         {
+            var resourceSet = manager.GetResourceSet(
+                culture,
+                createIfNotExists: true,
+                tryParents: false);
+            Assert.IsNotNull(
+                resourceSet,
+                $"资源 {manager.BaseName} 缺少精确文化 {culture.Name} 的 ResourceSet。");
+
             foreach (var code in codes)
             {
                 Assert.IsFalse(
-                    string.IsNullOrWhiteSpace(manager.GetString(code, culture)),
+                    string.IsNullOrWhiteSpace(
+                        resourceSet.GetString(code, ignoreCase: false)),
                     $"资源 {manager.BaseName} 缺少 {culture.Name}/{code}。");
             }
         }
