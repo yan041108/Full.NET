@@ -32,7 +32,7 @@ export async function request(path, init = {}, signal) {
     ...init,
     credentials: 'include',
     headers,
-    signal
+    signal: signal ?? init.signal
   });
   if (!response.ok) {
     throw await readProblemDetails(response);

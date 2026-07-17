@@ -17,7 +17,7 @@ export async function request<T>(
     ...init,
     credentials: 'include',
     headers,
-    signal
+    signal: signal ?? init.signal
   });
 
   if (!response.ok) {

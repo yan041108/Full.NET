@@ -36,4 +36,23 @@ describe('Vue 管理端概览页', () => {
     expect(wrapper.get('[data-testid="trace-id"]').text())
       .toBe('trace-parity');
   });
+
+  it('会话检查进行中时拒绝重复提交', async () => {
+    let resolveRequest!: (response: Response) => void;
+    const pendingResponse = new Promise<Response>((resolve) => {
+      resolveRequest = resolve;
+    });
+    const fetchMock = vi.fn().mockReturnValue(pendingResponse);
+    vi.stubGlobal('fetch', fetchMock);
+    const wrapper = mount(OverviewView);
+    const button = wrapper.get('[data-testid="load-current-user"]');
+
+    const firstClick = button.trigger('click');
+    const secondClick = button.trigger('click');
+    await Promise.all([firstClick, secondClick]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    resolveRequest(new Response(null, { status: 204 }));
+    await flushPromises();
+  });
 });

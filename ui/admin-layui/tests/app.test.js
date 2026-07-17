@@ -59,4 +59,25 @@ describe('Layui 管理端应用', () => {
     expect(document.querySelector('[data-status-title]').textContent).toBe('没有访问权限');
     app.dispose();
   });
+
+  it('会话检查进行中时拒绝重复提交', async () => {
+    renderFixture();
+    let resolveRequest;
+    const pendingResponse = new Promise((resolve) => {
+      resolveRequest = resolve;
+    });
+    const fetchMock = vi.fn().mockReturnValue(pendingResponse);
+    vi.stubGlobal('fetch', fetchMock);
+    const app = initializeAdminApp(document);
+    const button = document.querySelector('[data-testid="load-current-user"]');
+
+    button.click();
+    button.click();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(button.disabled).toBe(true);
+    resolveRequest(new Response(null, { status: 204 }));
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    app.dispose();
+  });
 });

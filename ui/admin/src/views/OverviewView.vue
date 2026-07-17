@@ -35,6 +35,10 @@ const userStatus = computed(() => currentUser.value
   : '验证当前会话与权限契约');
 
 async function loadCurrentUser(): Promise<void> {
+  if (loading.value) {
+    return;
+  }
+
   loading.value = true;
   problem.value = undefined;
   try {

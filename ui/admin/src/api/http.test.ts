@@ -60,4 +60,15 @@ describe('Vue HTTP 适配器', () => {
     expect(headers.get('accept')).toBe('application/json');
     expect(headers.get('x-client')).toBe('vue-admin');
   });
+
+  it('未传独立参数时保留 RequestInit 中的取消信号', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const abortController = new AbortController();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await request<void>('/api/v1/me', { signal: abortController.signal });
+
+    const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(requestInit.signal).toBe(abortController.signal);
+  });
 });

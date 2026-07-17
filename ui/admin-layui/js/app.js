@@ -83,9 +83,16 @@ function showContractResult(root, problem) {
  */
 export function initializeAdminApp(root = document) {
   const probeButton = root.querySelector('[data-testid="load-current-user"]');
+  let isProbing = false;
 
   const onRouteChange = () => renderRoute(root);
   const onProbe = async () => {
+    if (isProbing) {
+      return;
+    }
+
+    isProbing = true;
+    if (probeButton) probeButton.disabled = true;
     probeButton?.setAttribute('aria-busy', 'true');
     probeButton?.classList.add('layui-btn-disabled');
     try {
@@ -103,6 +110,8 @@ export function initializeAdminApp(root = document) {
       showContractResult(root, problem);
       globalThis.layui?.layer?.msg?.('会话检查失败，请查看错误信息', { icon: 2 });
     } finally {
+      isProbing = false;
+      if (probeButton) probeButton.disabled = false;
       probeButton?.removeAttribute('aria-busy');
       probeButton?.classList.remove('layui-btn-disabled');
     }

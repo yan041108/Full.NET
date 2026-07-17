@@ -59,6 +59,17 @@ describe('Layui HTTP 适配器', () => {
     expect(headers.get('x-client')).toBe('layui-admin');
   });
 
+  it('未传独立参数时保留 RequestInit 中的取消信号', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const abortController = new AbortController();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await request('/api/v1/me', { signal: abortController.signal });
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    expect(requestInit.signal).toBe(abortController.signal);
+  });
+
   it('损坏错误响应降级为统一错误而不泄露解析异常', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{broken', {
       status: 502,
