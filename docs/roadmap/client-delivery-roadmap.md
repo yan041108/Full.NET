@@ -1,7 +1,7 @@
 # Full.NET 客户端交付路线图
 
 - 建立日期：2026-07-17
-- 状态：Designing
+- 状态：Implementing
 - 详细设计：[`../superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md`](../superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)
 - 总功能矩阵：[`adminnet-feature-parity.md`](adminnet-feature-parity.md)
 
@@ -18,6 +18,17 @@ Full.NET 同时维护两套功能范围一致的后台管理端，并按平台�
 | E | `clients/maui-template` | C#/Windows 企业项目按需模板 | 决策门禁 |
 
 P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担完整后台功能，只实现面向终端用户和现场业务的流程。
+
+### 当前实现快照
+
+| 范围 | 当前状态 | 已完成 | 尚未完成 |
+|---|---|---|---|
+| C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
+| C1 双管理端壳层 | Implementing | Vue/Element Plus、clean-room Layui、本地资源、Hash 状态页、错误码/TraceId、双端 E2E | 正式登录/刷新/退出、租户切换、CSRF、国际化与完整权限导航 |
+| C2 业务模块 | Mapped | 功能波次和双端同步门禁 | 首个 Identity/Tenancy/Organization 纵向切片 |
+| C3/C4 业务客户端 | Designing | 技术路线和平台边界 | uni-app、Flutter 工程与平台构建验证 |
+
+“C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足；C1 也必须补齐真实认证和租户流程后才能进入 `Verified`。
 
 ## 2. 完成状态
 

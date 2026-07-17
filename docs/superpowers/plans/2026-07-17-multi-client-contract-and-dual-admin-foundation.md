@@ -4,9 +4,11 @@
 
 **Goal:** 建立多客户端公共契约底座，以及 Vue/Layui 两套功能对等管理端的可运行壳层和双端验收门禁。
 
+**Execution Status:** 2026-07-17 已完成本计划限定的 C0 浏览器契约与 C1 双管理端壳层。客户端单元测试 25 项、双端 Playwright 6 项、三套生产构建以及既有 .NET 65 项测试均通过。完整认证、租户切换和 C2 业务模块不在本计划实现范围内。
+
 **Architecture:** 后端 OpenAPI 是 API 单一事实来源；共享包只包含协议解析、稳定错误码和设计令牌，不包含 UI 组件。Vue 与 Layui 分别实现会话、租户、权限和导航适配，使用同一组 Playwright 业务场景验证功能对等。
 
-**Tech Stack:** Node.js 24、pnpm 10、TypeScript 7、Vue 3、Vite 8、Element Plus 2、Layui 2.13.8、Vitest、Playwright、ASP.NET Core OpenAPI。
+**Tech Stack:** Node.js 24、pnpm 10.26.0、共享契约 TypeScript 7、Vue 端 TypeScript 6.0.3、Vue 3、Vite 8、Element Plus 2、Layui 2.13.8、Vitest、Playwright、ASP.NET Core OpenAPI。Vue 端暂留 TypeScript 6，是因为当前 vue-tsc 3.3.7 尚不能加载 TypeScript 7 的非公开 `tsc` 导出；共享契约继续使用 TypeScript 7。
 
 ## Global Constraints
 
@@ -56,7 +58,7 @@
 - Consumes: 仓库现有 .NET 根目录和 MIT 发布边界。
 - Produces: `pnpm install` 可还原的工作区，以及后续任务使用的 `@fullnet/client-contracts`、`@fullnet/design-tokens` 包名。
 
-- [ ] **Step 1: Write the workspace contract check**
+- [x] **Step 1: Write the workspace contract check**
 
 Create `tests/client-workspace.test.mjs`:
 
@@ -74,13 +76,13 @@ assert.match(notices, /Layui/i);
 assert.match(notices, /MIT/i);
 ```
 
-- [ ] **Step 2: Run the check and verify it fails**
+- [x] **Step 2: Run the check and verify it fails**
 
 Run: `node tests/client-workspace.test.mjs`
 
 Expected: FAIL because `pnpm-workspace.yaml` and the Layui notice do not exist.
 
-- [ ] **Step 3: Create the minimal workspace**
+- [x] **Step 3: Create the minimal workspace**
 
 Create `.nvmrc` containing `24`, and create `pnpm-workspace.yaml`:
 
@@ -112,7 +114,7 @@ Create root `package.json`:
 
 Create the two package manifests with `private: true`, ESM module type and no runtime dependencies. Append `node_modules/`, `dist/` and Playwright output to `.gitignore`. Add Layui 2.13.8, MIT, official project URL and redistributed asset path to `THIRD-PARTY-NOTICES`.
 
-- [ ] **Step 4: Install and verify the workspace**
+- [x] **Step 4: Install and verify the workspace**
 
 Run: `corepack enable`
 
@@ -122,7 +124,7 @@ Run: `pnpm test:workspace`
 
 Expected: PASS and a committed `pnpm-lock.yaml` is produced.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .nvmrc package.json pnpm-workspace.yaml pnpm-lock.yaml packages tests/client-workspace.test.mjs .gitignore THIRD-PARTY-NOTICES
@@ -141,7 +143,7 @@ git commit -m "build: add client workspace baseline"
 - Consumes: RFC 9457 ProblemDetails plus Full.NET extensions `code`, `traceId`, `errors`.
 - Produces: `FullNetProblemDetails`, `isFullNetProblemDetails(value)` and `readProblemDetails(response)` for both browser clients.
 
-- [ ] **Step 1: Write failing parsing tests**
+- [x] **Step 1: Write failing parsing tests**
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -172,13 +174,13 @@ describe('FullNet ProblemDetails', () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify they fail**
+- [x] **Step 2: Run the tests and verify they fail**
 
 Run: `pnpm --filter @fullnet/client-contracts test`
 
 Expected: FAIL because the exported contract does not exist.
 
-- [ ] **Step 3: Implement the contract parser**
+- [x] **Step 3: Implement the contract parser**
 
 ```typescript
 export interface FullNetProblemDetails {
@@ -217,7 +219,7 @@ export async function readProblemDetails(response: Response): Promise<FullNetPro
 
 Export the three symbols from `src/index.ts`. Configure the package to run Vitest and emit ESM declarations.
 
-- [ ] **Step 4: Verify tests and type output**
+- [x] **Step 4: Verify tests and type output**
 
 Run: `pnpm --filter @fullnet/client-contracts test`
 
@@ -225,7 +227,7 @@ Run: `pnpm --filter @fullnet/client-contracts build`
 
 Expected: all tests PASS and `dist/index.d.ts` exists.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/client-contracts pnpm-lock.yaml
@@ -247,7 +249,7 @@ git commit -m "feat: add shared client error contract"
 - Consumes: `readProblemDetails(response)` from `@fullnet/client-contracts`.
 - Produces: `request<T>(path, init, signal)` and routes `/`, `/403`, `/404`, `/500`.
 
-- [ ] **Step 1: Write the failing HTTP adapter test**
+- [x] **Step 1: Write the failing HTTP adapter test**
 
 ```typescript
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -271,13 +273,13 @@ describe('Vue HTTP adapter', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `pnpm --filter @fullnet/admin test -- http.test.ts`
 
 Expected: FAIL because `request` is not implemented.
 
-- [ ] **Step 3: Implement the minimal typed adapter**
+- [x] **Step 3: Implement the minimal typed adapter**
 
 ```typescript
 import { readProblemDetails } from '@fullnet/client-contracts';
@@ -305,7 +307,7 @@ export async function request<T>(
 
 Create a minimal Element Plus layout with shell navigation items and the four required error routes. Do not add business modules in this task.
 
-- [ ] **Step 4: Verify unit test, type check and production build**
+- [x] **Step 4: Verify unit test, type check and production build**
 
 Run: `pnpm --filter @fullnet/admin test`
 
@@ -315,7 +317,7 @@ Run: `pnpm --filter @fullnet/admin build`
 
 Expected: PASS, and `ui/admin/dist/index.html` exists.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ui/admin pnpm-lock.yaml
@@ -328,18 +330,16 @@ git commit -m "feat: add Vue admin shell"
 - Create: `ui/admin-layui/package.json`
 - Create: `ui/admin-layui/index.html`
 - Create: `ui/admin-layui/css/app.css`
-- Create: `ui/admin-layui/css/tokens.css`
 - Create: `ui/admin-layui/js/core/http.js`
-- Create: `ui/admin-layui/js/core/router.js`
 - Create: `ui/admin-layui/js/app.js`
-- Create: `ui/admin-layui/scripts/copy-layui.mjs`
+- Create: `ui/admin-layui/js/main.js`
 - Test: `ui/admin-layui/tests/http.test.js`
 
 **Interfaces:**
 - Consumes: the same ProblemDetails shape used by Vue.
 - Produces: `request(path, init, signal)`, hash routes, Layui shell and static `dist/` output with local Layui assets.
 
-- [ ] **Step 1: Write the failing Layui adapter test**
+- [x] **Step 1: Write the failing Layui adapter test**
 
 ```javascript
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -363,13 +363,13 @@ describe('Layui HTTP adapter', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `pnpm --filter @fullnet/admin-layui test`
 
 Expected: FAIL because the adapter does not exist.
 
-- [ ] **Step 3: Implement the native JavaScript adapter and shell**
+- [x] **Step 3: Implement the native JavaScript adapter and shell**
 
 ```javascript
 const apiBaseUrl = globalThis.FULLNET_CONFIG?.apiBaseUrl ?? '';
@@ -398,9 +398,9 @@ export async function request(path, init = {}, signal) {
 }
 ```
 
-Use Layui layout/menu modules in `app.js`, keep business code out of `index.html`, and implement hash routes for `/`, `/403`, `/404`, `/500`. Define original `--fullnet-*` color, spacing, typography and layout variables in `tokens.css`; do not paste declarations from layuiAdmin. `copy-layui.mjs` copies only `layui.css`, `layui.js`, fonts and required images from the pinned MIT Layui npm package into `dist/vendor/layui/`.
+Use Layui layout/menu modules in `main.js`, keep business code out of `index.html`, and implement hash routes for `/`, `/403`, `/404`, `/500`. Reuse `packages/design-tokens` 中原创的 `--fullnet-*` 语义令牌，不粘贴 layuiAdmin 声明。Vite 从锁定的 MIT Layui npm 包直接打包 CSS、JavaScript 与字体资源，生产产物保持本地化且不需要易漂移的手写复制脚本。
 
-- [ ] **Step 4: Verify tests, static build and runtime dependency boundary**
+- [x] **Step 4: Verify tests, static build and runtime dependency boundary**
 
 Run: `pnpm --filter @fullnet/admin-layui test`
 
@@ -410,7 +410,7 @@ Run: `rg -n "vue|react" ui/admin-layui/package.json ui/admin-layui/js`
 
 Expected: tests PASS, `dist/index.html` and local Layui assets exist, and `rg` returns no SPA runtime dependency.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ui/admin-layui pnpm-lock.yaml THIRD-PARTY-NOTICES
@@ -421,15 +421,14 @@ git commit -m "feat: add Layui admin shell"
 
 **Files:**
 - Create: `tests/e2e/admin-parity/package.json`
-- Create: `tests/e2e/admin-parity/playwright.config.ts`
-- Create: `tests/e2e/admin-parity/fixtures/admin-target.ts`
-- Test: `tests/e2e/admin-parity/specs/shell-parity.spec.ts`
+- Create: `tests/e2e/admin-parity/playwright.config.mjs`
+- Test: `tests/e2e/admin-parity/tests/shell-parity.spec.mjs`
 
 **Interfaces:**
 - Consumes: Vue dev server on port 5173 and Layui dev server on port 5174.
 - Produces: one scenario suite executed once per `vue` and `layui` project.
 
-- [ ] **Step 1: Write the failing parity scenario**
+- [x] **Step 1: Write the failing parity scenario**
 
 ```typescript
 import { expect, test } from '@playwright/test';
@@ -452,23 +451,23 @@ test('shell exposes trace id for a standard authorization error', async ({ page 
 });
 ```
 
-- [ ] **Step 2: Run both projects and verify the scenario fails**
+- [x] **Step 2: Run both projects and verify the scenario fails**
 
 Run: `pnpm --filter @fullnet/admin-parity-e2e test`
 
 Expected: FAIL for both `vue` and `layui` because the stable test hooks are missing.
 
-- [ ] **Step 3: Add the minimal testable shell behavior**
+- [x] **Step 3: Add the minimal testable shell behavior**
 
 Add the same semantic `data-testid` hooks to both shells. Do not share Vue/Layui component code; share only the scenario name, API response and assertions. Configure Playwright projects with base URLs `http://127.0.0.1:5173` and `http://127.0.0.1:5174`.
 
-- [ ] **Step 4: Run parity and accessibility smoke tests**
+- [x] **Step 4: Run parity and accessibility smoke tests**
 
 Run: `pnpm --filter @fullnet/admin-parity-e2e test`
 
 Expected: the scenario PASSes once for Vue and once for Layui.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/e2e/admin-parity ui/admin ui/admin-layui pnpm-lock.yaml
@@ -487,21 +486,21 @@ git commit -m "test: add dual admin parity gate"
 - Consumes: root `pnpm` scripts and dual-admin Playwright project.
 - Produces: pull-request client quality gate and reproducible local commands.
 
-- [ ] **Step 1: Add a temporary CI assertion and verify the workflow lacks client commands**
+- [x] **Step 1: Add a temporary CI assertion and verify the workflow lacks client commands**
 
 Run: `rg -n "pnpm install|test:clients|build:clients|admin-parity" .github/workflows/ci.yml`
 
 Expected: no matches.
 
-- [ ] **Step 2: Add the client CI job**
+- [x] **Step 2: Add the client CI job**
 
 Add a separate `client-build-test` job using `actions/setup-node`, Corepack, `pnpm install --frozen-lockfile`, workspace tests, production builds, Playwright browser installation and dual-admin E2E. Set a 20-minute timeout and upload Playwright reports on failure.
 
-- [ ] **Step 3: Document exact local commands and update status**
+- [x] **Step 3: Document exact local commands and update status**
 
 Document Node 24/Corepack setup, `pnpm install --frozen-lockfile`, both dev server commands, unit/build commands and parity E2E. Only after fresh command output succeeds, change the C0 browser-contract item, C1, and the Vue/Layui shell rows to their actual verified state.
 
-- [ ] **Step 4: Run the full foundation verification**
+- [x] **Step 4: Run the full foundation verification**
 
 Run: `pnpm install --frozen-lockfile`
 
@@ -517,7 +516,7 @@ Run: `git diff --check`
 
 Expected: all commands exit 0; Vue and Layui production outputs exist; no .NET regression is introduced.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .github/workflows/ci.yml README.md docs/development/getting-started.md docs/roadmap/client-delivery-roadmap.md

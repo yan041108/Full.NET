@@ -6,6 +6,57 @@ on:
   pull_request:
 
 jobs:
+  client-build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install client dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit client dependencies
+        run: |
+          pnpm audit --audit-level high
+          pnpm licenses list --prod --json > client-production-licenses.json
+          pnpm licenses list --json > client-development-licenses.json
+
+      - name: Test client workspace and packages
+        run: |
+          pnpm test:workspace
+          pnpm test:clients
+
+      - name: Build client packages
+        run: pnpm build:clients
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @fullnet/admin-parity-e2e exec playwright install --with-deps chromium
+
+      - name: Verify Vue and Layui parity
+        run: pnpm test:e2e
+
+      - name: Upload client quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-client-quality-reports
+          path: |
+            client-production-licenses.json
+            client-development-licenses.json
+            tests/e2e/admin-parity/playwright-report/**
+            tests/e2e/admin-parity/test-results/**
+          if-no-files-found: warn
+
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30

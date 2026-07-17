@@ -19,6 +19,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ## 环境要求
 
 - .NET 10 SDK
+- Node.js 24 与 pnpm 10.26.0（建议通过 Corepack 管理）
 - Docker Desktop（Windows 使用 Linux containers/WSL 2）或兼容 Docker Engine
 - Git
 
@@ -38,6 +39,17 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。Migrator �
 
 更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 
+客户端基础验证：
+
+```powershell
+corepack enable
+pnpm install --frozen-lockfile
+pnpm test:workspace
+pnpm test:clients
+pnpm build:clients
+pnpm test:e2e
+```
+
 ## 客户端规划
 
 - `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus 主管理端；
@@ -46,7 +58,7 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。Migrator �
 - `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端；
 - .NET MAUI：仅在真实 C#/Windows 企业需求命中决策门禁后提供可选模板。
 
-详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)，分阶段状态和依赖见[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。这些客户端目前处于设计/规划阶段，不能从本文推断为已经实现。
+Vue/Layui 的浏览器契约、原创管理壳、标准错误展示与双端 E2E 门禁已经实现；完整登录、租户切换和后台业务模块仍按 C1/C2 路线交付。uni-app、Flutter 与可选 MAUI 目前仅处于规划阶段。详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)，分阶段状态和依赖见[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
 
 ## 当前边界
 

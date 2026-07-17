@@ -26,6 +26,30 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 
 测试项目使用 Microsoft.Testing.Platform 的可执行测试宿主。先完成 Release 构建，再直接运行生成的测试 DLL；`--minimum-expected-tests` 可以防止测试发现异常被误判为成功。
 
+### 2.1 客户端工作区与双管理端
+
+客户端要求 Node.js 24 和 pnpm 10.26.0。首次进入仓库先启用 Corepack，再使用锁文件还原：
+
+```powershell
+corepack enable
+pnpm install --frozen-lockfile
+pnpm test:workspace
+pnpm test:clients
+pnpm build:clients
+pnpm test:e2e
+```
+
+`pnpm test:clients` 运行共享契约、Vue 和 Layui 单元测试；`pnpm test:e2e` 启动两个本地服务，并用同一组 Playwright 场景验证壳层、403 和 ProblemDetails/TraceId。生产构建会把 Layui 2.13.8 从锁定的 MIT npm 包打入本地产物，不依赖公共 CDN，也不包含 layuiAdmin 产品主题源码或资产。
+
+分别在两个终端启动开发服务：
+
+```powershell
+pnpm --filter @fullnet/admin dev
+pnpm --filter @fullnet/admin-layui dev
+```
+
+Vue 默认访问 `http://127.0.0.1:5173`，Layui 默认访问 `http://127.0.0.1:5174`。两端使用同一个 `/api/v1` 契约和标准 ProblemDetails；目前壳层只提供会话契约探针，完整登录、刷新、退出与租户切换属于后续 C1 纵向切片。
+
 ## 3. 使用 Aspire 启动完整环境
 
 ```powershell

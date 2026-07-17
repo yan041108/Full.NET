@@ -8,7 +8,13 @@
   },
   "scripts": {
     "test:workspace": "node tests/client-workspace.test.mjs",
-    "test:clients": "pnpm --recursive --if-present test",
-    "build:clients": "pnpm --recursive --if-present build"
+    "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --if-present test",
+    "build:clients": "pnpm --recursive --if-present build",
+    "test:e2e": "pnpm --filter @fullnet/admin-parity-e2e test"
+  },
+  "pnpm": {
+    "overrides": {
+      "glob": "10.5.0"
+    }
   }
 }
