@@ -127,6 +127,51 @@ internal static class IdentityApiAssertions
             },
             currentUser.Permissions.ToArray());
 
+        using (var anonymousNavigation = await client.GetAsync(
+            "/api/v1/navigation",
+            cancellationToken))
+        {
+            Assert.AreEqual(
+                HttpStatusCode.Unauthorized,
+                anonymousNavigation.StatusCode);
+        }
+        using (var forbiddenRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/navigation"))
+        {
+            forbiddenRequest.Headers.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                factory.CreateHostAccessToken(["platform.dashboard.read"]));
+            using var forbiddenResponse = await client.SendAsync(
+                forbiddenRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
+            using var forbiddenProblem = JsonDocument.Parse(
+                await forbiddenResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                "authorization.permission_denied",
+                forbiddenProblem.RootElement.GetProperty("code").GetString());
+        }
+        using var navigationRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/navigation");
+        navigationRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            token.AccessToken);
+        using var navigationResponse = await client.SendAsync(
+            navigationRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, navigationResponse.StatusCode);
+        var navigation = await navigationResponse.Content
+            .ReadFromJsonAsync<NavigationNodeResponse[]>(cancellationToken);
+        Assert.IsNotNull(navigation);
+        CollectionAssert.AreEqual(
+            new[] { "overview", "tenant-context" },
+            navigation.Select(item => item.Id).ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "overview", "tenant-context" },
+            navigation.Select(item => item.ComponentKey).ToArray());
+
         var refreshCookie = ExtractCookie(cookies, "__Host-fullnet-refresh");
         var csrfCookie = ExtractCookie(cookies, "fullnet-csrf");
         using (var invalidCsrfRequest = CreateSessionRequest(

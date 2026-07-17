@@ -3,6 +3,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Domain;
+using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -113,6 +115,30 @@ internal sealed class FullNetApiFactory(
         });
         client.DefaultRequestHeaders.Host = host;
         return client;
+    }
+
+    public string CreateHostAccessToken(
+        IReadOnlyCollection<string> permissions)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var user = new IdentityUser(
+            Guid.NewGuid(),
+            null,
+            "host",
+            "limited-admin",
+            "LIMITED-ADMIN",
+            "受限管理员",
+            "unused",
+            true,
+            0,
+            null,
+            Guid.NewGuid().ToString("N"),
+            now,
+            null,
+            1);
+        return Services.GetRequiredService<IAccessTokenIssuer>()
+            .Issue(user, Guid.NewGuid(), null, permissions)
+            .AccessToken;
     }
 
     public async Task<long> GetAuthenticationAuditCountAsync(

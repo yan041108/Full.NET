@@ -7,12 +7,15 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.Login;
+using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Serialization;
 using Full.NET.Validation.FluentValidation;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -51,6 +54,10 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddSingleton(provider => AuthorizationCatalog.Create(
             provider.GetServices<IAuthorizationCatalogContributor>()));
         services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
+        services.TryAddSingleton<NavigationProjector>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IAuthorizationHandler,
+            FullNetPermissionHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IHostedService,
             AuthorizationCatalogValidator>());
@@ -110,6 +117,12 @@ public sealed class IdentityModule : IFullNetModule
                     };
                 });
         services.AddAuthorization();
+        services.Replace(ServiceDescriptor.Singleton<
+            IAuthorizationPolicyProvider,
+            FullNetPermissionPolicyProvider>());
+        services.Replace(ServiceDescriptor.Singleton<
+            IAuthorizationMiddlewareResultHandler,
+            FullNetAuthorizationResultHandler>());
         services.AddCors();
         services.AddOptions<CorsOptions>()
             .Configure<IOptions<IdentityOptions>>((cors, identityOptions) =>
@@ -152,5 +165,6 @@ public sealed class IdentityModule : IFullNetModule
         Features.RefreshSession.Endpoint.Map(group);
         Features.Logout.Endpoint.Map(group);
         Features.GetCurrentUser.Endpoint.Map(endpoints);
+        Features.GetNavigation.Endpoint.Map(endpoints);
     }
 }
