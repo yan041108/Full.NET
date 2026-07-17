@@ -1,0 +1,55 @@
+{
+  "skill": "fullnet-module-delivery",
+  "max_lines": 500,
+  "required_terms": [
+    "AGENTS.md",
+    "Dapper",
+    "SQL Server",
+    "MySQL",
+    "ProblemDetails",
+    "Admin.NET",
+    "FusionCache",
+    "MessagePack",
+    "Outbox",
+    "中文"
+  ],
+  "scenarios": [
+    {
+      "name": "完整业务模块",
+      "prompt": "新增 Organization 模块 CRUD，并对标 Admin.NET 的机构管理。",
+      "required_terms": [
+        "Core",
+        "Contracts",
+        "Domain",
+        "Features",
+        "Persistence",
+        "租户",
+        "授权",
+        "迁移",
+        "集成测试"
+      ]
+    },
+    {
+      "name": "事件与缓存",
+      "prompt": "命令提交后发布事件并让多实例缓存失效。",
+      "required_terms": [
+        "事务",
+        "Outbox",
+        "MessagePack",
+        "FusionCache",
+        "提交后",
+        "租户"
+      ]
+    },
+    {
+      "name": "只读端点",
+      "prompt": "新增无需数据库结构变化的只读查询端点。",
+      "required_terms": [
+        "按需",
+        "不要创建",
+        "ProblemDetails",
+        "测试数量"
+      ]
+    }
+  ]
+}
