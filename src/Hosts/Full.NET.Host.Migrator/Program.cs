@@ -5,6 +5,7 @@ using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
@@ -56,6 +57,41 @@ try
             result.IsSuccess
                 ? "Local tenant seed completed"
                 : "Local tenant already exists; seed skipped");
+
+        var bootstrapUsername = builder.Configuration["Identity:Bootstrap:Username"];
+        var bootstrapPassword = builder.Configuration["Identity:Bootstrap:Password"];
+        if (string.IsNullOrWhiteSpace(bootstrapUsername)
+            && string.IsNullOrWhiteSpace(bootstrapPassword))
+        {
+            logger.LogWarning(
+                "Host administrator was not created. Configure Identity bootstrap secrets and rerun --seed-local");
+        }
+        else if (string.IsNullOrWhiteSpace(bootstrapUsername)
+            || string.IsNullOrWhiteSpace(bootstrapPassword))
+        {
+            throw new InvalidOperationException(
+                "Identity bootstrap username and password must be configured together.");
+        }
+        else
+        {
+            var displayName = builder.Configuration["Identity:Bootstrap:DisplayName"];
+            var bootstrap = await scope.ServiceProvider
+                .GetRequiredService<IIdentityBootstrapService>()
+                .BootstrapHostAdminAsync(new BootstrapHostAdminRequest(
+                    bootstrapUsername,
+                    bootstrapPassword,
+                    string.IsNullOrWhiteSpace(displayName) ? "系统管理员" : displayName));
+            if (!bootstrap.IsSuccess)
+            {
+                throw new InvalidOperationException(
+                    $"Host administrator bootstrap failed: {bootstrap.Error?.Code}");
+            }
+
+            logger.LogInformation(
+                bootstrap.Value!.Created
+                    ? "Host administrator bootstrap completed"
+                    : "Host administrator already exists; bootstrap skipped");
+        }
     }
 
     await host.StopAsync();

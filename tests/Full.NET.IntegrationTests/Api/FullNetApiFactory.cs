@@ -30,6 +30,7 @@ internal sealed class FullNetApiFactory(
                 [$"{DatabaseOptions.SectionName}:Provider"] = provider.ToString(),
                 [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
                 [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
+                ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
             }));
     }
 
