@@ -41,6 +41,26 @@ function assertNoFallbackCycles(supportedLocales) {
   }
 }
 
+function assertGlossaryMatchesLocales(glossary, supportedLocales) {
+  const expectedLocaleTags = supportedLocales.map(locale => locale.tag).sort();
+  const termsByName = new Map();
+
+  for (const entry of glossary.terms) {
+    assert.ok(
+      !termsByName.has(entry.term),
+      `术语表存在重复 term：${entry.term}`
+    );
+    assert.deepEqual(
+      Object.keys(entry.display).sort(),
+      expectedLocaleTags,
+      `${entry.term} 的显示语言必须与规范语言完全一致`
+    );
+    termsByName.set(entry.term, entry);
+  }
+
+  return termsByName;
+}
+
 test('语言清单定义首期规范语言和完整平台映射', async () => {
   const catalog = await readJson(localeCatalogUrl);
 
@@ -114,7 +134,10 @@ test('语言清单 Schema 固定治理契约的必填字段', async () => {
 });
 
 test('术语表固定不可翻译术语的中英文显示', async () => {
-  const glossary = await readJson(glossaryUrl);
+  const [catalog, glossary] = await Promise.all([
+    readJson(localeCatalogUrl),
+    readJson(glossaryUrl)
+  ]);
   const requiredTerms = [
     'Full.NET',
     'Host',
@@ -128,7 +151,10 @@ test('术语表固定不可翻译术语的中英文显示', async () => {
     'Tool',
     'MCP'
   ];
-  const termsByName = new Map(glossary.terms.map(item => [item.term, item]));
+  const termsByName = assertGlossaryMatchesLocales(
+    glossary,
+    catalog.supportedLocales
+  );
 
   assert.equal(glossary.schemaVersion, 1);
   for (const term of requiredTerms) {
@@ -138,4 +164,72 @@ test('术语表固定不可翻译术语的中英文显示', async () => {
     assert.ok(entry.display['zh-CN']);
     assert.ok(entry.display['en-US']);
   }
+});
+
+test('术语表拒绝缺少规范语言的显示值', () => {
+  const glossary = {
+    terms: [
+      {
+        term: 'Tenant',
+        display: { 'zh-CN': '租户' }
+      }
+    ]
+  };
+
+  assert.throws(
+    () =>
+      assertGlossaryMatchesLocales(glossary, [
+        { tag: 'zh-CN' },
+        { tag: 'en-US' }
+      ]),
+    /Tenant 的显示语言必须与规范语言完全一致/
+  );
+});
+
+test('术语表拒绝规范清单以外的显示语言', () => {
+  const glossary = {
+    terms: [
+      {
+        term: 'Tenant',
+        display: {
+          'zh-CN': '租户',
+          'en-US': 'Tenant',
+          'fr-FR': 'Locataire'
+        }
+      }
+    ]
+  };
+
+  assert.throws(
+    () =>
+      assertGlossaryMatchesLocales(glossary, [
+        { tag: 'zh-CN' },
+        { tag: 'en-US' }
+      ]),
+    /Tenant 的显示语言必须与规范语言完全一致/
+  );
+});
+
+test('术语表拒绝重复术语', () => {
+  const glossary = {
+    terms: [
+      {
+        term: 'Tenant',
+        display: { 'zh-CN': '租户', 'en-US': 'Tenant' }
+      },
+      {
+        term: 'Tenant',
+        display: { 'zh-CN': '租户', 'en-US': 'Tenant' }
+      }
+    ]
+  };
+
+  assert.throws(
+    () =>
+      assertGlossaryMatchesLocales(glossary, [
+        { tag: 'zh-CN' },
+        { tag: 'en-US' }
+      ]),
+    /术语表存在重复 term：Tenant/
+  );
 });
