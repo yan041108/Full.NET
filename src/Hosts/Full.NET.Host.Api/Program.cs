@@ -4,6 +4,7 @@ using Full.NET.Hosting.Observability;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Serialization.MessagePack;
 using Scalar.AspNetCore;
@@ -18,12 +19,16 @@ builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetMigrations();
+builder.Services.AddFullNetModule<IdentityModule>(builder.Configuration);
 builder.Services.AddFullNetModule<TenancyModule>(builder.Configuration);
 
 var app = builder.Build();
 app.UseFullNetRequestLogging();
 app.UseExceptionHandler();
 app.UseFullNetTenancy();
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapOpenApi();
 app.MapScalarApiReference();
 app.MapFullNetHealthEndpoints();

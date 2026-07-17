@@ -4,6 +4,7 @@ using Full.NET.Hosting.Observability;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
@@ -17,6 +18,7 @@ builder.Services.AddFullNetModularity();
 builder.Services.AddFullNetDapper(builder.Configuration);
 builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetMigrations();
+builder.Services.AddFullNetModule<IdentityModule>(builder.Configuration);
 builder.Services.AddFullNetModule<TenancyModule>(builder.Configuration);
 
 using var host = builder.Build();

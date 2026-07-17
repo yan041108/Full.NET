@@ -1,4 +1,5 @@
 using System.Reflection;
+using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
 using NetArchTest.Rules;
 
@@ -45,6 +46,23 @@ public sealed class DependencyRulesTests
             .ToArray();
 
         Assert.HasCount(0, unexpectedPublicTypes);
+    }
+
+    [TestMethod]
+    public void Identity_DoesNotDependOnTenancyOrHosts()
+    {
+        var result = Types.InAssembly(typeof(IdentityModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                "Full.NET.Modules.Tenancy",
+                "Full.NET.Host.Api",
+                "Full.NET.Host.Migrator",
+                "Full.NET.Host.Worker")
+            .GetResult();
+
+        Assert.IsTrue(
+            result.IsSuccessful,
+            $"Identity dependency violations: {string.Join(", ", result.FailingTypeNames ?? [])}");
     }
 
     [TestMethod]
@@ -109,6 +127,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Serialization.MessagePack.MessagePackIntegrationEventSerializer).Assembly,
         typeof(Full.NET.Validation.FluentValidation.ServiceCollectionExtensions).Assembly,
         typeof(Full.NET.Compatibility.AdminNet.AdminNetApiResultMapper).Assembly,
+        typeof(IdentityModule).Assembly,
         typeof(TenancyModule).Assembly,
         Assembly.Load("Full.NET.Host.Api"),
         Assembly.Load("Full.NET.Host.Migrator"),

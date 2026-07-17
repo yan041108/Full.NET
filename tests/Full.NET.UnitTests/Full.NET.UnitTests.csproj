@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Validation.FluentValidation\Full.NET.Validation.FluentValidation.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Worker\Full.NET.Host.Worker.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
