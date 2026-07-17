@@ -90,6 +90,21 @@ internal static class TenancyApiAssertions
         var acme = available.Single(tenant => tenant.Identifier == "acme");
         Assert.AreEqual("Acme Corporation", acme.Name);
 
+        using (var hostTokenOnTenantClient = factory.CreateClientForHost(
+            "acme.localhost"))
+        using (var hostTokenOnTenantRequest = CreateBearerRequest(
+            HttpMethod.Get,
+            "/api/v1/tenancy/available",
+            loginToken.AccessToken))
+        using (var hostTokenOnTenantResponse = await hostTokenOnTenantClient.SendAsync(
+            hostTokenOnTenantRequest,
+            cancellationToken))
+        {
+            await AssertContextMismatchAsync(
+                hostTokenOnTenantResponse,
+                cancellationToken);
+        }
+
         using (var missingRequest = CreateContextRequest(
             Guid.NewGuid(),
             loginToken.AccessToken))
@@ -117,6 +132,34 @@ internal static class TenancyApiAssertions
         Assert.IsNotNull(entered);
         Assert.AreEqual(acme.Id, entered.Context.TenantId);
         Assert.AreEqual($"tenant:{acme.Id:N}", entered.Context.Scope);
+
+        using (var matchingTenantClient = factory.CreateClientForHost(
+            "acme.localhost"))
+        using (var matchingTenantRequest = CreateBearerRequest(
+            HttpMethod.Get,
+            "/api/v1/tenancy/current",
+            entered.AccessToken))
+        using (var matchingTenantResponse = await matchingTenantClient.SendAsync(
+            matchingTenantRequest,
+            cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, matchingTenantResponse.StatusCode);
+        }
+
+        using (var mismatchedTenantClient = factory.CreateClientForHost(
+            "missing.localhost"))
+        using (var mismatchedTenantRequest = CreateBearerRequest(
+            HttpMethod.Get,
+            "/api/v1/tenancy/current",
+            entered.AccessToken))
+        using (var mismatchedTenantResponse = await mismatchedTenantClient.SendAsync(
+            mismatchedTenantRequest,
+            cancellationToken))
+        {
+            await AssertContextMismatchAsync(
+                mismatchedTenantResponse,
+                cancellationToken);
+        }
 
         using var refreshRequest = new HttpRequestMessage(
             HttpMethod.Post,
@@ -184,6 +227,18 @@ internal static class TenancyApiAssertions
             $"{name}=",
             StringComparison.Ordinal));
         return cookie.Split(';', 2)[0][(name.Length + 1)..];
+    }
+
+    private static async Task AssertContextMismatchAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "tenancy.context_mismatch",
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private static string DecodeJwtPayload(string accessToken)
