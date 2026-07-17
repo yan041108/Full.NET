@@ -1,0 +1,76 @@
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Domain;
+using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Security;
+
+namespace Full.NET.Modules.Identity.Features.Logout;
+
+internal sealed class Handler(
+    IQueryExecutor queryExecutor,
+    ICommandExecutor commandExecutor,
+    IClock clock,
+    IIdGenerator idGenerator) : ICommandHandler<Command, LogoutResult>
+{
+    public async Task<Result<LogoutResult>> HandleAsync(
+        Command command,
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
+                IdentitySql.FindRefreshSessionByHash,
+                new { TokenHash = TokenHash.Compute(command.RefreshToken) },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null)
+        {
+            return Result<LogoutResult>.Success(new LogoutResult());
+        }
+
+        if (record.ConsumedAtUtc.HasValue)
+        {
+            await commandExecutor.ExecuteAsync(
+                IdentitySql.RevokeRefreshFamily,
+                new { record.FamilyId, RevokedAtUtc = clock.UtcNow },
+                cancellationToken).ConfigureAwait(false);
+        }
+        else if (!record.RevokedAtUtc.HasValue)
+        {
+            await commandExecutor.ExecuteAsync(
+                IdentitySql.RevokeRefreshSession,
+                new { Id = record.SessionId, RevokedAtUtc = clock.UtcNow },
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        var audit = new AuthAuditEvent(
+            idGenerator.NewId(),
+            record.UserId,
+            record.SessionId,
+            TokenHash.Compute(record.NormalizedUsername),
+            "logout",
+            "identity.logout-succeeded",
+            true,
+            Truncate(command.Client.IpAddress, 64),
+            Truncate(command.Client.UserAgent, 512),
+            clock.UtcNow);
+        var rows = await commandExecutor.ExecuteAsync(
+                IdentitySql.InsertAuthAudit,
+                audit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (rows != 1)
+        {
+            throw new InvalidOperationException(
+                $"Identity logout audit insert affected {rows} rows instead of one.");
+        }
+
+        return Result<LogoutResult>.Success(new LogoutResult());
+    }
+
+    private static string? Truncate(string? value, int maxLength) =>
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim()[..Math.Min(value.Trim().Length, maxLength)];
+}

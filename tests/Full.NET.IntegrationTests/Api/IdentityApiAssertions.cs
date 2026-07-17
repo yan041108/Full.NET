@@ -62,8 +62,95 @@ internal static class IdentityApiAssertions
         Assert.AreEqual("host", currentUser.Scope);
         Assert.IsNull(currentUser.TenantId);
 
+        var refreshCookie = ExtractCookie(cookies, "__Host-fullnet-refresh");
+        var csrfCookie = ExtractCookie(cookies, "fullnet-csrf");
+        using (var invalidCsrfRequest = CreateSessionRequest(
+            "/api/v1/auth/refresh",
+            refreshCookie,
+            csrfCookie,
+            "tampered-csrf"))
+        using (var invalidCsrfResponse = await client.SendAsync(
+            invalidCsrfRequest,
+            cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, invalidCsrfResponse.StatusCode);
+        }
+
+        var firstRefreshTask = SendRefreshAsync(
+            client,
+            refreshCookie,
+            csrfCookie,
+            cancellationToken);
+        var secondRefreshTask = SendRefreshAsync(
+            client,
+            refreshCookie,
+            csrfCookie,
+            cancellationToken);
+        var concurrentResponses = await Task.WhenAll(firstRefreshTask, secondRefreshTask);
+        try
+        {
+            CollectionAssert.AreEquivalent(
+                new[] { HttpStatusCode.OK, HttpStatusCode.Unauthorized },
+                concurrentResponses.Select(response => response.StatusCode).ToArray());
+            var successfulRefresh = concurrentResponses.Single(response => response.IsSuccessStatusCode);
+            var rejectedRefresh = concurrentResponses.Single(response => !response.IsSuccessStatusCode);
+            using (var reuseProblem = JsonDocument.Parse(
+                await rejectedRefresh.Content.ReadAsStringAsync(cancellationToken)))
+            {
+                Assert.AreEqual(
+                    "identity.refresh_token_reuse_detected",
+                    reuseProblem.RootElement.GetProperty("code").GetString());
+            }
+
+            var rotatedCookies = successfulRefresh.Headers.GetValues("Set-Cookie").ToArray();
+            var rotatedRefresh = ExtractCookie(rotatedCookies, "__Host-fullnet-refresh");
+            var rotatedCsrf = ExtractCookie(rotatedCookies, "fullnet-csrf");
+            using var revokedFamilyRequest = CreateSessionRequest(
+                "/api/v1/auth/refresh",
+                rotatedRefresh,
+                rotatedCsrf,
+                rotatedCsrf);
+            using var revokedFamilyResponse = await client.SendAsync(
+                revokedFamilyRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Unauthorized, revokedFamilyResponse.StatusCode);
+        }
+        finally
+        {
+            foreach (var response in concurrentResponses)
+            {
+                response.Dispose();
+            }
+        }
+
+        using var secondLoginRequest = CreateLoginRequest(FullNetApiFactory.TestPassword);
+        using var secondLoginResponse = await client.SendAsync(
+            secondLoginRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondLoginResponse.StatusCode);
+        var secondLoginCookies = secondLoginResponse.Headers.GetValues("Set-Cookie").ToArray();
+        var logoutRefresh = ExtractCookie(secondLoginCookies, "__Host-fullnet-refresh");
+        var logoutCsrf = ExtractCookie(secondLoginCookies, "fullnet-csrf");
+        using var logoutRequest = CreateSessionRequest(
+            "/api/v1/auth/logout",
+            logoutRefresh,
+            logoutCsrf,
+            logoutCsrf);
+        using var logoutResponse = await client.SendAsync(logoutRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+
+        using var afterLogoutRequest = CreateSessionRequest(
+            "/api/v1/auth/refresh",
+            logoutRefresh,
+            logoutCsrf,
+            logoutCsrf);
+        using var afterLogoutResponse = await client.SendAsync(
+            afterLogoutRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, afterLogoutResponse.StatusCode);
+
         Assert.IsGreaterThanOrEqualTo(
-            2L,
+            6L,
             await factory.GetAuthenticationAuditCountAsync(cancellationToken));
     }
 
@@ -95,5 +182,41 @@ internal static class IdentityApiAssertions
         Assert.AreEqual(
             httpOnly,
             cookie.Contains("httponly", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task<HttpResponseMessage> SendRefreshAsync(
+        HttpClient client,
+        string refreshCookie,
+        string csrfCookie,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateSessionRequest(
+            "/api/v1/auth/refresh",
+            refreshCookie,
+            csrfCookie,
+            csrfCookie);
+        return await client.SendAsync(request, cancellationToken);
+    }
+
+    private static HttpRequestMessage CreateSessionRequest(
+        string path,
+        string refreshCookie,
+        string csrfCookie,
+        string csrfHeader)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path);
+        request.Headers.Add(
+            "Cookie",
+            $"__Host-fullnet-refresh={refreshCookie}; fullnet-csrf={csrfCookie}");
+        request.Headers.Add("X-CSRF-Token", csrfHeader);
+        return request;
+    }
+
+    private static string ExtractCookie(IEnumerable<string> cookies, string name)
+    {
+        var cookie = cookies.Single(value => value.StartsWith(
+            $"{name}=",
+            StringComparison.Ordinal));
+        return cookie.Split(';', 2)[0][(name.Length + 1)..];
     }
 }

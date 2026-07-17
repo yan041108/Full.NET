@@ -116,7 +116,7 @@ internal sealed class Handler(
         var familyId = idGenerator.NewId();
         var refreshToken = randomTokenGenerator.Generate(32);
         var csrfToken = randomTokenGenerator.Generate(32);
-        var session = new RefreshSession(
+        var session = new Full.NET.Modules.Identity.Domain.RefreshSession(
             sessionId,
             user.Id,
             familyId,

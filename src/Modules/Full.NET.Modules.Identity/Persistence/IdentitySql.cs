@@ -82,7 +82,80 @@ internal static class IdentitySql
         "identity.count-authentication-audits",
         "SELECT COUNT(*) FROM fn_identity_auth_audit",
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindRefreshSessionByHash = new(
+        "identity.find-refresh-session-by-hash",
+        """
+        SELECT session.Id AS SessionId,
+               session.UserId,
+               session.FamilyId,
+               session.ClientId,
+               session.TokenHash,
+               session.ExpiresAtUtc,
+               session.ConsumedAtUtc,
+               session.RevokedAtUtc,
+               session.ReplacedById,
+               session.CreatedAtUtc,
+               session.Version AS SessionVersion,
+               identityUser.TenantId,
+               identityUser.ScopeKey,
+               identityUser.Username,
+               identityUser.NormalizedUsername,
+               identityUser.DisplayName,
+               identityUser.PasswordHash,
+               identityUser.IsActive,
+               identityUser.FailedLoginCount,
+               identityUser.LockoutEndUtc,
+               identityUser.SecurityStamp,
+               identityUser.CreatedAtUtc AS UserCreatedAtUtc,
+               identityUser.UpdatedAtUtc AS UserUpdatedAtUtc,
+               identityUser.Version AS UserVersion
+        FROM fn_identity_refresh_session AS session
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
+        WHERE session.TokenHash = @TokenHash
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ConsumeRefreshSession = new(
+        "identity.consume-refresh-session",
+        """
+        UPDATE fn_identity_refresh_session
+        SET ConsumedAtUtc = @ConsumedAtUtc,
+            ReplacedById = @ReplacedById,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND Version = @Version
+          AND ConsumedAtUtc IS NULL
+          AND RevokedAtUtc IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RevokeRefreshFamily = new(
+        "identity.revoke-refresh-family",
+        """
+        UPDATE fn_identity_refresh_session
+        SET RevokedAtUtc = @RevokedAtUtc,
+            Version = Version + 1
+        WHERE FamilyId = @FamilyId AND RevokedAtUtc IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RevokeRefreshSession = new(
+        "identity.revoke-refresh-session",
+        """
+        UPDATE fn_identity_refresh_session
+        SET RevokedAtUtc = @RevokedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id AND RevokedAtUtc IS NULL
+        """,
+        SqlDataScope.HostOnly);
 }
+
+internal sealed record ConsumeRefreshSessionUpdate(
+    Guid Id,
+    DateTimeOffset ConsumedAtUtc,
+    Guid ReplacedById,
+    int Version);
 
 internal sealed record LoginFailureUpdate(
     Guid Id,

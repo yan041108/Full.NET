@@ -55,6 +55,16 @@ public sealed class IdentityModule : IFullNetModule
             Full.NET.Abstractions.Messaging.ICommandHandler<Command, LoginSessionResult>,
             Handler>();
         services.TryAddScoped<IdentityCookieWriter>();
+        services.TryAddScoped<
+            Full.NET.Abstractions.Messaging.ICommandHandler<
+                Features.RefreshSession.Command,
+                Features.RefreshSession.RefreshSessionResult>,
+            Features.RefreshSession.Handler>();
+        services.TryAddScoped<
+            Full.NET.Abstractions.Messaging.ICommandHandler<
+                Features.Logout.Command,
+                Features.Logout.LogoutResult>,
+            Features.Logout.Handler>();
         services.TryAddSingleton<RsaSigningKeyRing>();
         services.TryAddSingleton<IRandomTokenGenerator, CryptographicTokenGenerator>();
         services.TryAddSingleton<AllowedOriginValidator>();
@@ -104,6 +114,8 @@ public sealed class IdentityModule : IFullNetModule
     {
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("Identity");
         Features.Login.Endpoint.Map(group);
+        Features.RefreshSession.Endpoint.Map(group);
+        Features.Logout.Endpoint.Map(group);
         Features.GetCurrentUser.Endpoint.Map(endpoints);
     }
 }
