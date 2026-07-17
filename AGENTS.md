@@ -42,6 +42,9 @@
 - JSON 使用 System.Text.Json；内部高性能序列化按既定边界使用 MessagePack，服务契约可使用 gRPC。
 - 缓存以 FusionCache 为唯一实现，并通过 `.AsHybridCache()` 同时暴露 HybridCache 抽象。
 - 后续功能以 Admin.NET 为功能参考目标，但实现必须遵守 Full.NET 的架构、安全和发布许可边界。
+- 后台管理功能必须在 Vue 主管理端与 Layui JS/HTML 管理端按同一模块同步开发；只有两端的权限、租户、错误处理、关键流程和 E2E 都通过后，客户端功能才可标记为 `Verified`。
+- Layui 管理端只依赖 MIT 的 Layui 核心库并独立实现；layuiAdmin 仅可作为公开页面的功能/交互参考，未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制或提交其源码及产品资产。
+- H5、微信小程序和支付宝小程序统一采用 uni-app；原生 Android/iOS 与 Windows/macOS/Linux 桌面端默认采用 Flutter；.NET MAUI 只在真实 C#/Windows 企业需求命中决策门禁后作为可选模板引入。
 
 ## 详细规则索引
 

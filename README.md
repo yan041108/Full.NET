@@ -38,6 +38,16 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。Migrator �
 
 更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 
+## 客户端规划
+
+- `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus 主管理端；
+- `ui/admin-layui`：基于 MIT Layui 2 独立实现的 HTML/CSS/原生 JavaScript 管理端，与 Vue 覆盖相同后台功能并同步验收；layuiAdmin 仅作交互参考，不复制其非 MIT 主题资产；
+- `clients/uniapp`：一套代码覆盖 H5、微信小程序和支付宝小程序；
+- `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端；
+- .NET MAUI：仅在真实 C#/Windows 企业需求命中决策门禁后提供可选模板。
+
+详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)，分阶段状态和依赖见[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。这些客户端目前处于设计/规划阶段，不能从本文推断为已经实现。
+
 ## 当前边界
 
 M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已先落地跨传输验证管道。SignalR/Realtime 在 M2 后续迭代中引入；真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。

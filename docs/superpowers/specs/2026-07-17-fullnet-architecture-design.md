@@ -37,7 +37,8 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - 数据访问采用 Dapper-first，不以 EF Core 作为默认运行时依赖。
 - 数据迁移采用 DbUp 和可审查的 SQL 脚本。
 - 最终公开仓库使用 MIT License，并维护第三方许可清单。
-- 管理端继续采用 Vue 3 技术路线，但与后端通过 OpenAPI 和 TypeScript 客户端解耦。
+- 管理端同时建设 Vue 3 主管理端与 Layui 2 原生 JS/HTML 管理端，两端覆盖相同后台功能并同步验收；所有客户端通过 OpenAPI 与后端解耦。
+- H5、微信小程序和支付宝小程序采用 uni-app Vue 3；原生移动端和 Windows/macOS/Linux 桌面端默认采用 Flutter，.NET MAUI 仅作为命中决策门禁后的可选模板。
 - 外部 REST JSON 统一使用 System.Text.Json 源代码生成；Newtonsoft.Json 只允许作为可选兼容 Provider。
 - 同进程模块调用不序列化；跨进程同步调用使用 gRPC + Protobuf；可靠异步事件默认使用 MessagePack，不使用 JSON 载荷。
 - 业务代码只依赖 `ILogger<T>`；高频日志使用 `LoggerMessage` 源生成，Serilog 负责异步有界结构化输出。
@@ -140,7 +141,12 @@ Full.NET/
 │       ├── Full.NET.Host.Worker
 │       ├── Full.NET.Host.Migrator
 │       └── Full.NET.AppHost
-├── ui/admin
+├── ui/
+│   ├── admin
+│   └── admin-layui
+├── clients/
+│   ├── uniapp
+│   └── flutter
 ├── templates/
 │   ├── fullnet-app
 │   └── fullnet-module
@@ -284,7 +290,7 @@ MessagePack 集成事件使用显式 `[MessagePackObject]` 和整数 `[Key(n)]`�
 
 ### 6.9 CodeGeneration
 
-提供数据库元数据读取、模型定义、后端、SQL、Vue 页面、TypeScript 客户端和测试生成，是快速交付的核心能力。`Full.NET.Data.CodeGeneration` 是不依赖 Web 的生成引擎和 CLI 基础；`Full.NET.Modules.CodeGeneration` 负责权限、任务记录、模板管理和后台页面 API，不重复实现模板引擎。
+提供数据库元数据读取、模型定义、后端、SQL、Vue/Layui 双管理端页面、多平台 API 客户端和测试生成，是快速交付的核心能力。`Full.NET.Data.CodeGeneration` 是不依赖 Web 的生成引擎和 CLI 基础；`Full.NET.Modules.CodeGeneration` 负责权限、任务记录、模板管理和后台页面 API，不重复实现模板引擎。
 
 ## 7. Dapper-first 数据层
 
@@ -448,12 +454,12 @@ Version
 
 ### 12.2 生成内容
 
-生成器可以创建实体、DTO、Command、Query、Handler、Validator、Endpoint、权限、参数化 SQL、分页 SQL、Vue 页面、TypeScript API 客户端和基础测试。生成的 SQL 自动包含租户、软删除、审计和并发字段规则。
+生成器可以创建实体、DTO、Command、Query、Handler、Validator、Endpoint、权限、参数化 SQL、分页 SQL、Vue/Layui 页面、TypeScript/JavaScript API 客户端和基础测试，并分阶段扩展 uni-app 与 Dart 客户端。生成的 SQL 自动包含租户、软删除、审计和并发字段规则。
 
 ### 12.3 防覆盖策略
 
 - `Scaffold`：首次创建，目标文件已存在时拒绝覆盖；
-- `RefreshGenerated`：只更新 `.g.cs` 或 `.generated.ts` 文件。
+- `RefreshGenerated`：只更新 `.g.cs`、`.generated.ts`、`.generated.js` 或其他明确登记的生成文件。
 
 业务扩展放在普通文件或 partial 类型中。生成器不做模糊文本合并，也不使用保护区注释修改人工代码。
 
@@ -604,13 +610,15 @@ Full.NET 同时支持作为 MCP Server 暴露经过授权的工具、资源和�
 
 Agent 运行保存会话、步骤、工具参数摘要、模型、Token、费用、Trace 和审批结果；设置执行时长、工具次数、Token 和费用预算，支持取消、幂等、重试与断点恢复。工具输出视为不可信输入，提示注入不能绕过服务端授权。标准 AG-UI 使用 HTTP + SSE；Full.NET 原生管理端可以另外使用 SignalR 适配，但不能破坏 AG-UI/MCP 标准互操作。
 
-## 19. 管理端
+## 19. 客户端
 
-管理端放在 `ui/admin`，采用 Vue 3、TypeScript、Vite 和 Element Plus。前后端通过 OpenAPI 和生成的 TypeScript 客户端解耦。
+Vue 主管理端放在 `ui/admin`，采用 Vue 3、TypeScript、Vite 和 Element Plus；JS/HTML 管理端放在 `ui/admin-layui`，采用 Layui 2、HTML、CSS 和原生 JavaScript。两套管理端覆盖相同后台功能并按同一后端模块同步开发，不要求像素一致，也不得共享框架相关 UI 组件源码。layuiAdmin 可以作为公开页面的布局和交互参考，但其静态主题并非 MIT 资产，未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制其源码和产品资产。
 
-首版页面覆盖登录、用户、角色、权限、菜单、组织、租户、配置、字典、审计、文件、通知、任务和代码生成。Admin.NET.Pro 的页面可作为交互验收基准，但视觉设计、状态模型和 API 接入应围绕 Full.NET 模块边界重新整理。
+双管理端首版页面覆盖登录、用户、角色、权限、菜单、组织、租户、配置、字典、审计、文件、通知、任务和代码生成。每个后台功能必须分别记录 Vue 与 Layui 的实现状态，只有两端的权限、流程、错误处理和关键 E2E 都通过后，客户端功能才可标记为 `Verified`。Admin.NET.Pro 的页面可作为交互验收基准，但视觉设计、状态模型和 API 接入应围绕 Full.NET 模块边界重新整理。
 
-管理端详细设计系统、组件规范和页面信息架构另立 UI 规格，不在本总体架构文档中展开。
+H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 uni-app Vue 3；原生 Android/iOS 和 Windows/macOS/Linux 桌面端放在 `clients/flutter`。Flutter 不再重复承担 H5，uni-app 默认不再重复输出原生 App。.NET MAUI 只在 C#/Windows 企业项目的真实需求命中决策门禁时建立模板，不与 Flutter 长期维护全功能对等实现。
+
+所有客户端通过同一 OpenAPI 契约、标准 HTTP 状态码和 ProblemDetails 与后端解耦，共享权限标识、租户语义和设计令牌，不共享具体 UI 实现。详细技术边界、平台安全策略、测试矩阵和客户端阶段见 [`2026-07-17-multi-client-frontend-strategy-design.md`](2026-07-17-multi-client-frontend-strategy-design.md)。
 
 ## 20. 测试策略
 
@@ -726,19 +734,19 @@ Dapper、DbUp、SQL Server/MySQL、租户上下文、事务、MessagePack Outbox
 
 ### M2：核心后台能力
 
-Tenancy、Identity、Organization、RBAC、数据范围、菜单、Realtime 抽象、SignalR/MessagePack、Redis Backplane 和 Vue 管理端核心流程。
+Tenancy、Identity、Organization、RBAC、数据范围、菜单、Realtime 抽象、SignalR/MessagePack、Redis Backplane，以及 Vue/Layui 双管理端核心流程。
 
 ### M3：快速交付能力
 
-Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板和 CRM 示例。
+Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板、CRM 示例、Vue/Layui 双管理端对应页面，以及 uni-app H5/微信/支付宝基础客户端。
 
 ### M4：1.0 加固
 
-双数据库测试矩阵、E2E、性能基线、Docker 部署、升级文档、安全审查和 MIT 发布检查。
+双数据库测试矩阵、Vue/Layui 双管理端 E2E、uni-app 三目标构建、性能基线、Docker 部署、升级文档、安全审查和 MIT 发布检查。
 
 ### M5+：Admin.NET 全量功能对标
 
-按功能矩阵持续交付官方扩展、Provider、Sample 和 Client，包括在线构建、导入导出、报表、微信、支付、OAuth、APIJSON、数据库视图、ES 日志、MQTT、AI、Agent、MCP、Agentic Web、审批、钉钉、文档、GoView、K3Cloud、OCR、ReZero、工作流和企业微信等。每个子模块独立完成设计、计划、实现和验收，不阻塞核心 1.0 发布。
+按功能矩阵持续交付官方扩展、Provider、Sample 和 Client，包括 Flutter 原生移动/桌面客户端、按需 MAUI 模板、在线构建、导入导出、报表、微信、支付、OAuth、APIJSON、数据库视图、ES 日志、MQTT、AI、Agent、MCP、Agentic Web、审批、钉钉、文档、GoView、K3Cloud、OCR、ReZero、工作流和企业微信等。每个子模块独立完成设计、计划、实现和验收，不阻塞核心 1.0 发布。
 
 每个里程碑都必须保持可构建、可测试、可演示，不允许长期维护一个无法运行的大分支。
 
@@ -751,7 +759,8 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - Dapper 事务、并发控制和 Outbox 可靠；
 - FusionCache 单机和 Redis 多实例模式可用；
 - 代码生成能生成可编译、可运行的 CRUD 前后端；
-- Vue 管理端可以完成核心管理流程；
+- Vue 与 Layui 两套管理端都可以完成核心管理流程，并分别通过权限和 E2E 验收；
+- uni-app 可以分别构建 H5、微信小程序和支付宝小程序基础客户端；
 - Docker 可以启动完整开发环境；
 - 日志、Trace、Metrics 和健康检查可用；
 - 对外 JSON 热路径使用 System.Text.Json 源生成，Outbox 使用带版本元数据的 MessagePack 二进制载荷；

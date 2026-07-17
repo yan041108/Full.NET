@@ -33,7 +33,7 @@
 
 | Admin.NET.Pro 功能 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| 主控面板、工作台、分析和统计 | `ui/admin` + Dashboard Contracts | Client | M3 | Mapped |
+| 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | Mapped |
 | 用户管理 | Identity | Core | M2 | Mapped |
 | 机构管理 | Organization | Core | M2 | Mapped |
 | 职位管理 | Organization | Core | M2 | Mapped |
@@ -115,15 +115,20 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 
 ## 5. 客户端与交付形态
 
-| Admin.NET.Pro 资产 | Full.NET 对标 | 形态 | 计划 | 状态 |
+| Admin.NET.Pro 资产/交付需求 | Full.NET 对标 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| `Web` Vue3 管理端 | `ui/admin` | Client | M2-M4 | Mapped |
-| `App` 移动端 | Full.NET Mobile Client | Client | M5+ | Mapped |
-| `Web_Desktop` | 桌面布局与打包能力 | Client | M5+ | Mapped |
-| `Web_Artd` | 替代主题/组件适配能力 | Client | M5+ | Mapped |
+| `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus | Client | M2-M4 | Designing |
+| JS/HTML 完整管理端 | `ui/admin-layui`：Layui 2 + HTML/CSS/原生 JavaScript | Client | M2-M4，与 Vue 同步 | Designing |
+| `App` H5/小程序资产 | `clients/uniapp`：H5、微信小程序、支付宝小程序 | Client | M3-M4 | Designing |
+| 原生移动端 | `clients/flutter`：Android、iOS | Client | M5+ | Designing |
+| `Web_Desktop`/PC 桌面需求 | `clients/flutter`：Windows、macOS、Linux | Client | M5+ | Designing |
+| .NET MAUI 交付 | `clients/maui-template`：命中 C#/Windows 企业项目门禁后按需建立 | Provider/Template | M5+ 按需 | Mapped |
+| `Web_Artd` | Vue/Layui 设计令牌与可替换主题能力，不再维护第三套完整管理端 | Client | M4/M5+ | Mapped |
 | `GoView` | 可视化大屏客户端 | Client | M5+ | Mapped |
 
-客户端对标重点是功能入口、权限、租户、状态反馈和关键流程。视觉样式可以重新设计，不要求像素级复制。
+Vue 与 Layui 覆盖相同的后台管理功能，采用同一模块的双端纵向切片同步开发。客户端功能只有在两端的入口、权限、租户、状态反馈、错误处理、关键流程和 E2E 都通过后才能标记为 `Verified`。视觉样式可以重新设计，不要求像素级复制；差异必须有显式记录和等价交互。
+
+uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信/支付宝业务客户端，Flutter 负责原生移动和 PC 桌面。详细阶段、依赖和双端状态矩阵见 [`client-delivery-roadmap.md`](client-delivery-roadmap.md)。
 
 ## 6. 验收规则
 
@@ -134,7 +139,7 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 3. 关键业务流程与 Admin.NET.Pro 基线逐项比较；
 4. 差异是有意设计并记录，不是遗漏；
 5. SQL Server 和 MySQL 的适用测试通过；
-6. API 契约、前端交互和错误处理通过测试；
+6. API 契约、前端交互和错误处理通过测试；后台管理功能还必须分别通过 Vue 与 Layui 验收；
 7. 来源、许可证和直接复用情况已经登记；
 8. 文档和升级说明已经完成。
 
