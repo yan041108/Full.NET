@@ -167,6 +167,33 @@ describe('Vue 管理端会话', () => {
     );
   });
 
+  it('并发刷新后的唯一重试失败时清空不一致授权快照', async () => {
+    const fetchMock = createLoginFetch();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        status: 409,
+        code: 'identity.session_context_conflict',
+        title: '上下文切换冲突'
+      }, 409, 'application/problem+json'))
+      .mockResolvedValueOnce(jsonResponse(tokenResponse('refreshed-token')))
+      .mockResolvedValueOnce(jsonResponse({
+        status: 404,
+        code: 'tenancy.context_not_found',
+        title: '租户上下文不存在'
+      }, 404, 'application/problem+json'));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    await expect(session.switchTenant(tenantId)).rejects.toMatchObject({
+      code: 'tenancy.context_not_found'
+    });
+
+    expect(session.state).toBe('anonymous');
+    expect(session.currentUser).toBeUndefined();
+    expect(session.navigation).toEqual([]);
+  });
+
   it('退出无论服务端结果如何都清理内存授权状态', async () => {
     const fetchMock = createLoginFetch();
     fetchMock.mockRejectedValueOnce(new TypeError('offline'));

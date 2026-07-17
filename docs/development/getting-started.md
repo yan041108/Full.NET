@@ -16,9 +16,9 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 82
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 115
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 4
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 8
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 9
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 8 --timeout 10m
 ```
 
@@ -39,7 +39,7 @@ pnpm build:clients
 pnpm test:e2e
 ```
 
-`pnpm test:clients` 运行共享契约、Vue 和 Layui 单元测试；`pnpm test:e2e` 启动两个本地服务，并用同一组 Playwright 场景验证启动恢复、登录、退出、壳层、403 和 ProblemDetails/TraceId。生产构建会把 Layui 2.13.8 从锁定的 MIT npm 包打入本地产物，不依赖公共 CDN，也不包含 layuiAdmin 产品主题源码或资产。
+`pnpm test:clients` 运行共享契约、Vue 和 Layui 单元测试；`pnpm test:e2e` 启动两个本地服务，并用同一组 Playwright 场景验证动态导航、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。生产构建会把 Layui 2.13.8 从锁定的 MIT npm 包打入本地产物，不依赖公共 CDN，也不包含 layuiAdmin 产品主题源码或资产。
 
 直接运行 API 时默认地址为 `http://localhost:5149`。分别在两个终端设置同一个 API 地址并启动开发服务：
 
@@ -51,7 +51,9 @@ $env:VITE_API_BASE_URL = "http://localhost:5149"
 pnpm --filter @fullnet/admin-layui dev
 ```
 
-开发服务监听 `127.0.0.1:5173/5174`；涉及真实 Cookie 会话时，请在浏览器使用 `http://localhost:5173` 和 `http://localhost:5174`，与 `http://localhost:5149` API 保持同站，避免 `SameSite=Strict` Cookie 被跨站规则阻断。两端使用同一个 `/api/v1` 契约和标准 ProblemDetails，并已实现内存 Access Token、启动刷新、并发 401 单次刷新和退出。生产环境可在构建时提供 `VITE_API_BASE_URL`；Layui 也支持在入口模块加载前设置 `globalThis.FULLNET_CONFIG.apiBaseUrl`。租户切换和动态权限导航属于后续 C1 切片。
+开发服务监听 `127.0.0.1:5173/5174`；涉及真实 Cookie 会话时，请在浏览器使用 `http://localhost:5173` 和 `http://localhost:5174`，与 `http://localhost:5149` API 保持同站，避免 `SameSite=Strict` Cookie 被跨站规则阻断。两端使用同一个 `/api/v1` 契约和标准 ProblemDetails，并已实现内存 Access Token、启动刷新、并发 401 单次刷新、退出、租户切换和动态权限导航。生产环境可在构建时提供 `VITE_API_BASE_URL`；Layui 也支持在入口模块加载前设置 `globalThis.FULLNET_CONFIG.apiBaseUrl`。
+
+服务端返回的导航元数据不是可执行配置。Vue 与 Layui 都必须先执行共享契约校验，再把语义组件、路由和路径映射到各自源码内的精确白名单；未知标识会被拒绝，禁止动态导入任意路径、执行字符串代码或插入任意 HTML。按钮隐藏只改善交互，API 仍执行服务端权限策略。Access Token、有效租户和权限快照只保存在内存，页面刷新通过 Refresh Cookie 恢复，不得写入 `localStorage` 或 `sessionStorage`。
 
 ## 3. 使用 Aspire 启动完整环境
 
@@ -94,9 +96,23 @@ AppHost 给 Migrator 传入 `--seed-local` 以及两个 Bootstrap Parameter。�
 | `POST` | `/api/v1/auth/login` | 校验精确 Origin、限流和账号锁定，返回短期 Access Token |
 | `POST` | `/api/v1/auth/refresh` | 校验 Refresh Cookie 与 `X-CSRF-Token`，原子轮换会话 |
 | `POST` | `/api/v1/auth/logout` | 撤销会话并清除 Cookie |
-| `GET` | `/api/v1/me` | 使用 Bearer Token 返回当前用户摘要 |
+| `GET` | `/api/v1/me` | 返回当前用户、Actor/有效作用域和租户摘要 |
+| `GET` | `/api/v1/navigation` | 返回当前有效作用域的权限导航树 |
+| `GET` | `/api/v1/tenancy/available` | 返回当前 Actor 可进入的活动租户列表 |
+| `PUT` | `/api/v1/tenancy/context` | 以乐观并发方式进入租户或返回 Host，并签发新 Access Token |
 
-Refresh Token 只存在于 `Secure`、`HttpOnly`、`SameSite=Strict` 的 `__Host-fullnet-refresh` Cookie，数据库只保存 SHA-256 哈希；前端可读的 `fullnet-csrf` Cookie 只用于双提交 CSRF 校验。Access Token 默认 10 分钟，只保存在管理端内存，页面刷新后必须通过 Refresh Cookie 恢复。
+Refresh Token 只存在于 `Secure`、`HttpOnly`、`SameSite=Strict` 的 `__Host-fullnet-refresh` Cookie，数据库只保存 SHA-256 哈希；前端可读的 `fullnet-csrf` Cookie 只用于双提交 CSRF 校验。Access Token 默认 10 分钟，只保存在管理端内存，页面刷新后必须通过 Refresh Cookie 恢复。Refresh 会话保存 `ActiveTenantId`，因此刷新和令牌轮换不会退回错误租户；切换冲突返回 HTTP 409，客户端只自动刷新一次上下文后要求用户重试。
+
+Access Token 使用以下 Full.NET 私有 Claim；自定义 Host 或网关不得重命名、信任客户端伪造值或把它们降级为普通请求 Header：
+
+| Claim | 语义 |
+|---|---|
+| `fullnet_actor_scope` | 账号原始作用域，例如 `host` 或未来的 `tenant:{TenantId:N}` |
+| `fullnet_scope` | 当前有效作用域；取值为 `host` 或 `tenant:{TenantId:N}` |
+| `fullnet_tenant_id` | 当前有效租户标识；Host 上下文中不存在 |
+| `fullnet_permission` | 可重复出现的当前有效权限码 |
+
+当前授权上下文由双库迁移 `003_AuthorizationContext.sql` 建立。它只提供最小 RBAC、默认宿主管理权限和上下文切换基础，不代表用户、角色、菜单、组织或租户账号 CRUD 已经完成。租户中间件只信任签名令牌中的有效租户；请求体、查询字符串和自定义租户 Header 都不能改变授权上下文，域名与令牌租户不一致时返回 HTTP 403 `tenancy.context_mismatch`。
 
 Development 配置允许临时 RSA 签名密钥，并仅允许列出的本地管理端 Origin。Production 必须从 Secret 管理器提供以下配置，否则 API 启动校验失败：
 
@@ -112,7 +128,7 @@ Tenancy__HostDomains__0=api.example.com
 
 ## 4. 部署和迁移顺序
 
-生产部署必须先运行 `Full.NET.Host.Migrator`，确认成功后再发布或启动 API/Worker。API 永远不在启动时执行生产迁移，Worker 也不会修改数据库结构。这样可以让迁移权限、运行时权限和回滚决策保持独立。
+生产部署必须先运行 `Full.NET.Host.Migrator` 并确认 `003_AuthorizationContext.sql` 等迁移成功，再发布或启动 API/Worker，最后发布 Vue/Layui 客户端。API 永远不在启动时执行生产迁移，Worker 也不会修改数据库结构。这样可以让数据库契约先于 API 和客户端生效，并让迁移权限、运行时权限和回滚决策保持独立。
 
 必要配置项：
 

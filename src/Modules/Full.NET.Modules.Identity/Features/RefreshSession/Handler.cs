@@ -188,6 +188,16 @@ internal sealed class Handler(
             && current.SessionId == previous.SessionId
             && current.UserId == previous.UserId
             && current.FamilyId == previous.FamilyId
+            && current.IsActive
+            && current.TenantId == previous.TenantId
+            && string.Equals(
+                current.ScopeKey,
+                previous.ScopeKey,
+                StringComparison.Ordinal)
+            && string.Equals(
+                current.SecurityStamp,
+                previous.SecurityStamp,
+                StringComparison.Ordinal)
             && string.Equals(
                 current.TokenHash,
                 previous.TokenHash,

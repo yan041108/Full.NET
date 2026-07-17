@@ -105,7 +105,13 @@ export function createIdentitySession() {
         }
 
         // 并发冲突只使用最新刷新会话重试一次，防止循环覆盖服务端较新的上下文。
-        await changeTenantContext(tenantId);
+        try {
+          await changeTenantContext(tenantId);
+        } catch (retryError) {
+          // Refresh 已替换 Token；重试失败时必须清空旧快照，避免授权范围错配。
+          clear();
+          throw retryError;
+        }
       }
     } finally {
       switching = false;

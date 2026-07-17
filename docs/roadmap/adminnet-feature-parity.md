@@ -33,12 +33,13 @@
 
 | Admin.NET.Pro 功能 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| 管理端登录、刷新会话、退出与当前用户 | Identity + `ui/admin` + `ui/admin-layui` | Core + Client | M2 | Implemented |
+| 管理端登录、刷新会话、退出与当前用户 | Identity + `ui/admin` + `ui/admin-layui` | Core + Client | M2 | Verified |
+| 最小 RBAC、可信租户上下文与动态权限导航 | Identity + Tenancy + 双管理端 | Core + Client | M2 | Verified |
 | 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | Mapped |
 | 用户管理 | Identity | Core | M2 | Mapped |
 | 机构管理 | Organization | Core | M2 | Mapped |
 | 职位管理 | Organization | Core | M2 | Mapped |
-| 菜单与按钮权限 | Identity | Core | M2 | Mapped |
+| 菜单与按钮权限管理 | Identity | Core | M2 | Mapped |
 | 角色与数据授权 | Identity + Organization | Core | M2 | Mapped |
 | 字典管理 | Settings | Core | M3 | Mapped |
 | 访问日志 | Auditing | Core | M3 | Mapped |

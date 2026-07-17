@@ -137,6 +137,36 @@ describe('Layui 管理端会话', () => {
     session.dispose();
   });
 
+  it('并发刷新后的唯一重试失败时清空不一致授权快照', async () => {
+    const fetchMock = createLoginFetch();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        status: 409,
+        code: 'identity.session_context_conflict',
+        title: '上下文冲突'
+      }, 409, 'application/problem+json'))
+      .mockResolvedValueOnce(jsonResponse(tokenResponse('refreshed-token')))
+      .mockResolvedValueOnce(jsonResponse({
+        status: 404,
+        code: 'tenancy.context_not_found',
+        title: '租户不存在'
+      }, 404, 'application/problem+json'));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = createIdentitySession();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    await expect(session.switchTenant(tenantId)).rejects.toMatchObject({
+      code: 'tenancy.context_not_found'
+    });
+
+    expect(session.snapshot()).toMatchObject({
+      state: 'anonymous',
+      currentUser: undefined,
+      navigation: []
+    });
+    session.dispose();
+  });
+
   it('恢复失败时进入匿名状态并清空授权快照', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
       status: 401,

@@ -40,9 +40,7 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddScoped<
             IValidator<ProvisionTenantCommand>,
             ProvisionTenantCommandValidator>();
-        services.TryAddScoped<CurrentTenantAccessor>();
-        services.TryAddScoped<ICurrentTenant>(provider =>
-            provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddFullNetTenancyWorkerServices();
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
 
@@ -64,9 +62,6 @@ public sealed class TenancyModule : IFullNetModule
                 Features.ChangeTenantContext.Command,
                 Full.NET.Modules.Identity.Contracts.TenantContextTokenResponse>,
             Features.ChangeTenantContext.Handler>();
-        services.AddScoped<
-            IIntegrationEventHandler,
-            TenantProvisionedCacheInvalidationHandler>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
