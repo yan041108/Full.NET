@@ -62,19 +62,11 @@
 
         <div class="fn-tenant">
           <span class="fn-tenant__label">当前租户</span>
-          <strong>星云科技</strong>
-          <span class="fn-tenant__meta"><i></i>生产环境 · CN-01</span>
+          <strong data-current-context></strong>
+          <span class="fn-tenant__meta"><i></i><span data-current-context-scope></span></span>
         </div>
 
-        <nav class="fn-nav" aria-label="主导航">
-          <span class="fn-nav__group">运行中心</span>
-          <a data-route="/" class="is-active" href="#/"><i class="layui-icon layui-icon-console"></i><span>工作台</span><em>01</em></a>
-          <a data-route="/identity" href="#/identity"><i class="layui-icon layui-icon-user"></i><span>身份权限</span><em>02</em></a>
-          <a data-route="/organization" href="#/organization"><i class="layui-icon layui-icon-group"></i><span>组织租户</span><em>03</em></a>
-          <span class="fn-nav__group">系统治理</span>
-          <a data-route="/settings" href="#/settings"><i class="layui-icon layui-icon-set"></i><span>系统设置</span><em>04</em></a>
-          <a data-route="/500" href="#/500"><i class="layui-icon layui-icon-log"></i><span>运行日志</span><em>05</em></a>
-        </nav>
+        <nav class="fn-nav" data-navigation aria-label="主导航"></nav>
 
         <div class="fn-sidebar__footer">
           <span class="fn-avatar">管</span>
@@ -85,13 +77,26 @@
 
       <section class="fn-stage">
         <header class="fn-topbar">
-          <div class="fn-topbar__context"><span>控制台</span><i>/</i><strong>工作台</strong></div>
+          <div class="fn-topbar__context"><span>控制台</span><i>/</i><strong data-route-title>工作台</strong></div>
           <div class="fn-topbar__actions">
+            <label
+              class="fn-context-selector"
+              data-context-selector
+              data-permission="tenancy.tenants.switch"
+            >
+              <span>有效范围</span>
+              <select data-context-select aria-label="切换租户上下文"></select>
+            </label>
             <button type="button" aria-label="搜索"><i class="layui-icon layui-icon-search"></i></button>
             <button type="button" aria-label="通知" class="has-signal"><i class="layui-icon layui-icon-notice"></i></button>
             <span class="fn-clock"><small>系统时间</small><strong>UTC +08:00</strong></span>
           </div>
         </header>
+
+        <div class="fn-context-problem" data-context-problem role="alert" hidden>
+          <strong data-context-error-code></strong>
+          <span data-context-error-title></span>
+        </div>
 
         <div class="fn-content">
           <main data-route-view="overview" class="fn-overview">
@@ -162,6 +167,31 @@
                 <header><div><b>04</b><h2>待办事项</h2></div><span>4 项</span></header>
                 <div><button type="button"><span>权限变更复核</span><strong>08</strong></button><button type="button"><span>租户开通审批</span><strong>03</strong></button><button type="button"><span>异常告警确认</span><strong>01</strong></button></div>
               </article>
+            </section>
+          </main>
+
+          <main data-route-view="tenant-context" class="fn-tenant-view" hidden>
+            <section class="fn-tenant-heading">
+              <div>
+                <p>TRUSTED TENANT CONTEXT</p>
+                <h1>租户上下文</h1>
+                <span>当前范围来自已签名 Token；浏览器输入不能直接改变数据边界。</span>
+              </div>
+              <em>SESSION BOUND</em>
+            </section>
+
+            <section class="fn-current-context" aria-label="当前租户上下文">
+              <div><i></i><span>当前有效范围</span></div>
+              <strong data-current-context></strong>
+              <code data-current-context-scope></code>
+            </section>
+
+            <section class="fn-tenant-directory" aria-labelledby="tenant-directory-title">
+              <header>
+                <div><b>01</b><h2 id="tenant-directory-title">可用租户</h2></div>
+                <span>Host 与活动租户</span>
+              </header>
+              <div class="fn-tenant-grid" data-tenant-directory></div>
             </section>
           </main>
 

@@ -1,20 +1,33 @@
 import { configureAuthentication, request } from './http.js';
+import {
+  isCurrentUserResponse,
+  isFullNetProblemDetails,
+  isNavigationTree,
+  isTenantContextSummaryArray,
+  isTenantContextTokenResponse,
+  isTokenResponse
+} from './contracts.js';
+import { isSupportedNavigationTree } from './navigation.js';
+
+const readTenantsPermission = 'tenancy.tenants.read';
+const contextConflictCode = 'identity.session_context_conflict';
 
 /**
- * 创建独立的管理端会话状态机。
- * Access Token 仅保存在函数闭包中，不写入 Web Storage 或可读 Cookie。
+ * 创建独立管理端会话状态机；Access Token 只保存在闭包内，不写入浏览器持久化存储。
  */
 export function createIdentitySession() {
   let state = 'initializing';
   let currentUser;
+  let navigation = [];
+  let availableTenants = [];
+  let switching = false;
   let token;
   const listeners = new Set();
-  const bridge = {
+
+  configureAuthentication({
     getAccessToken: () => token?.accessToken,
     refresh: refreshAccessToken
-  };
-
-  configureAuthentication(bridge);
+  });
 
   async function login(username, password) {
     const value = await request('/api/v1/auth/login', {
@@ -28,7 +41,7 @@ export function createIdentitySession() {
 
     token = value;
     try {
-      await loadCurrentUser();
+      await loadAuthenticatedSnapshot();
       state = 'authenticated';
       notify();
     } catch (error) {
@@ -45,7 +58,7 @@ export function createIdentitySession() {
     }
 
     try {
-      await loadCurrentUser();
+      await loadAuthenticatedSnapshot();
       state = 'authenticated';
       notify();
       return true;
@@ -74,6 +87,54 @@ export function createIdentitySession() {
     }
   }
 
+  async function switchTenant(tenantId) {
+    if (switching) {
+      return;
+    }
+
+    switching = true;
+    notify();
+    try {
+      try {
+        await changeTenantContext(tenantId);
+      } catch (error) {
+        if (!isFullNetProblemDetails(error)
+          || error.code !== contextConflictCode
+          || !await refreshAccessToken()) {
+          throw error;
+        }
+
+        // 并发冲突只使用最新刷新会话重试一次，防止循环覆盖服务端较新的上下文。
+        await changeTenantContext(tenantId);
+      }
+    } finally {
+      switching = false;
+      notify();
+    }
+  }
+
+  async function changeTenantContext(tenantId) {
+    const value = await request('/api/v1/tenancy/context', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tenantId })
+    });
+    if (!isTenantContextTokenResponse(value)) {
+      throw new TypeError('租户上下文响应不符合契约。');
+    }
+
+    token = value;
+    try {
+      await loadAuthenticatedSnapshot();
+      state = 'authenticated';
+      notify();
+    } catch (error) {
+      // 服务端已切换时不得继续使用旧授权快照；清空状态可阻断错误范围的后续请求。
+      clear();
+      throw error;
+    }
+  }
+
   async function logout() {
     try {
       await request('/api/v1/auth/logout', {
@@ -81,30 +142,67 @@ export function createIdentitySession() {
         headers: csrfHeaders()
       }, undefined, { retryUnauthorized: false });
     } catch {
-      // 本地状态清理不能依赖网络成功，服务端会话仍由过期和重用检测兜底。
+      // 本地清理不依赖网络成功，服务端仍由会话过期与重用检测兜底。
     } finally {
       clear();
     }
   }
 
-  async function loadCurrentUser() {
-    const value = await request('/api/v1/me');
-    if (!isCurrentUserResponse(value)) {
+  async function loadAuthenticatedSnapshot() {
+    const userValue = await request('/api/v1/me');
+    if (!isCurrentUserResponse(userValue)) {
       throw new TypeError('当前用户响应不符合契约。');
     }
 
-    currentUser = value;
+    const navigationValue = await request('/api/v1/navigation');
+    if (!isNavigationTree(navigationValue)
+      || !isSupportedNavigationTree(navigationValue)) {
+      throw new TypeError('导航响应不符合本地组件白名单。');
+    }
+
+    let tenantValues = [];
+    if (userValue.permissions.includes(readTenantsPermission)) {
+      const tenantValue = await request('/api/v1/tenancy/available');
+      if (!isTenantContextSummaryArray(tenantValue)) {
+        throw new TypeError('可用租户响应不符合契约。');
+      }
+
+      tenantValues = tenantValue;
+    }
+
+    // 所有不可信响应都通过守卫后再原子替换，避免新旧授权数据混杂。
+    currentUser = userValue;
+    navigation = navigationValue;
+    availableTenants = tenantValues;
+  }
+
+  function can(permission) {
+    return currentUser?.permissions.includes(permission) === true;
   }
 
   function clear() {
     token = undefined;
     currentUser = undefined;
+    navigation = [];
+    availableTenants = [];
     state = 'anonymous';
     notify();
   }
 
   function snapshot() {
-    return { state, currentUser };
+    const activeTenant = availableTenants.find(
+      tenant => tenant.id === currentUser?.tenantId
+    );
+    return {
+      state,
+      currentUser,
+      navigation,
+      availableTenants,
+      switching,
+      currentContextName: activeTenant?.name ?? (
+        currentUser?.tenantId ? currentUser.scope : 'Full.NET Host'
+      )
+    };
   }
 
   function subscribe(listener) {
@@ -124,7 +222,16 @@ export function createIdentitySession() {
     configureAuthentication();
   }
 
-  return { login, restore, logout, snapshot, subscribe, dispose };
+  return {
+    login,
+    restore,
+    switchTenant,
+    logout,
+    can,
+    snapshot,
+    subscribe,
+    dispose
+  };
 }
 
 export const identitySession = createIdentitySession();
@@ -144,29 +251,4 @@ function csrfHeaders() {
   } catch {
     return {};
   }
-}
-
-function isTokenResponse(value) {
-  return isRecord(value)
-    && typeof value.accessToken === 'string'
-    && value.accessToken.length > 0
-    && value.tokenType === 'Bearer'
-    && typeof value.expiresAtUtc === 'string'
-    && value.expiresAtUtc.length > 0;
-}
-
-function isCurrentUserResponse(value) {
-  return isRecord(value)
-    && typeof value.id === 'string'
-    && typeof value.username === 'string'
-    && typeof value.displayName === 'string'
-    && (typeof value.tenantId === 'string' || value.tenantId === null)
-    && typeof value.scope === 'string'
-    && Array.isArray(value.permissions)
-    && value.permissions.every(permission => typeof permission === 'string')
-    && typeof value.sessionId === 'string';
-}
-
-function isRecord(value) {
-  return typeof value === 'object' && value !== null;
 }

@@ -34,6 +34,9 @@ describe('Vue 本地导航目录', () => {
     expect(isSupportedNavigationTree([
       createNode('remote-script')
     ])).toBe(false);
+    expect(isSupportedNavigationTree([
+      createNode('overview', { path: '/remote' })
+    ])).toBe(false);
   });
 
   it('按树顺序扁平化导航且不修改源数据', () => {

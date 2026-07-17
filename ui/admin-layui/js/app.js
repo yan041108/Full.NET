@@ -1,7 +1,15 @@
 import { request } from './core/http.js';
 import { identitySession } from './core/session.js';
+import {
+  applyPermissionVisibility,
+  findNavigationByPath,
+  localViewFor,
+  renderNavigation
+} from './core/navigation.js';
 
-const STATUS_ROUTES = {
+const hostContextValue = '__fullnet_host__';
+const knownLocalPaths = new Set(['/', '/tenant-context']);
+const statusRoutes = {
   '/403': {
     code: '403',
     title: '没有访问权限',
@@ -16,71 +24,11 @@ const STATUS_ROUTES = {
     code: '500',
     title: '服务暂时不可用',
     description: '系统已记录本次异常，请稍后重试并向运维人员提供 TraceId。'
-  },
-  '/identity': {
-    code: 'ID',
-    title: '身份与权限',
-    description: '身份、角色、权限策略与数据范围功能将在业务模块阶段持续交付。'
-  },
-  '/organization': {
-    code: 'ORG',
-    title: '组织与租户',
-    description: '组织架构、租户生命周期与跨租户隔离能力将在后续模块中实现。'
-  },
-  '/settings': {
-    code: 'CFG',
-    title: '系统设置',
-    description: '配置中心、字典、参数与审计能力将在后续模块中实现。'
   }
 };
 
-function currentRoute() {
-  const route = window.location.hash.replace(/^#/, '') || '/';
-  return route.startsWith('/') ? route : `/${route}`;
-}
-
-function renderRoute(root) {
-  const route = currentRoute();
-  const overview = root.querySelector('[data-route-view="overview"]');
-  const status = root.querySelector('[data-route-view="status"]');
-  const definition = STATUS_ROUTES[route] ?? (route === '/' ? undefined : STATUS_ROUTES['/404']);
-
-  if (overview) {
-    overview.hidden = Boolean(definition);
-  }
-  if (status) {
-    status.hidden = !definition;
-  }
-
-  if (definition) {
-    const code = root.querySelector('[data-status-code]');
-    const title = root.querySelector('[data-status-title]');
-    const description = root.querySelector('[data-status-description]');
-    if (code) code.textContent = definition.code;
-    if (title) title.textContent = definition.title;
-    if (description) description.textContent = definition.description;
-  }
-
-  root.querySelectorAll('[data-route]').forEach((link) => {
-    link.classList.toggle('is-active', link.getAttribute('data-route') === route);
-  });
-}
-
-function showContractResult(root, problem) {
-  const panel = root.querySelector('[data-contract-result]');
-  const code = root.querySelector('[data-testid="error-code"]');
-  const traceId = root.querySelector('[data-testid="trace-id"]');
-  if (panel) {
-    panel.hidden = false;
-    panel.classList.add('is-error');
-  }
-  if (code) code.textContent = problem?.code ?? 'client.unexpected_error';
-  if (traceId) traceId.textContent = problem?.traceId ?? '无 TraceId';
-}
-
 /**
- * 初始化 Layui 管理端的交互行为。
- * 返回显式清理函数，确保自动化测试和微前端卸载时不会遗留全局事件。
+ * 初始化原生 Layui 管理端；返回清理函数，供自动化测试和微前端卸载移除全部监听器。
  */
 export function initializeAdminApp(root = document, options = {}) {
   const session = options.session ?? identitySession;
@@ -88,10 +36,21 @@ export function initializeAdminApp(root = document, options = {}) {
   const probeButton = root.querySelector('[data-testid="load-current-user"]');
   const loginForm = root.querySelector('[data-login-form]');
   const logoutButton = root.querySelector('[data-session-logout]');
+  const contextSelector = root.querySelector('[data-context-select]');
+  const tenantDirectory = root.querySelector('[data-tenant-directory]');
+  let latestSnapshot = {
+    state: 'initializing',
+    currentUser: undefined,
+    navigation: [],
+    availableTenants: [],
+    switching: false,
+    currentContextName: 'Full.NET Host'
+  };
   let isProbing = false;
   let isLoggingIn = false;
+  let isSwitchingContext = false;
 
-  const onRouteChange = () => renderRoute(root);
+  const onRouteChange = () => renderRoute(root, latestSnapshot);
   const onProbe = async () => {
     if (isProbing) {
       return;
@@ -122,7 +81,6 @@ export function initializeAdminApp(root = document, options = {}) {
       probeButton?.classList.remove('layui-btn-disabled');
     }
   };
-
   const onLogin = async (event) => {
     event.preventDefault();
     if (isLoggingIn || !loginForm) {
@@ -150,23 +108,62 @@ export function initializeAdminApp(root = document, options = {}) {
   const onLogout = () => {
     void session.logout();
   };
+  const switchContext = async (value) => {
+    if (isSwitchingContext || latestSnapshot.switching) {
+      renderContextSelector(contextSelector, latestSnapshot);
+      return;
+    }
+
+    isSwitchingContext = true;
+    hideContextProblem(root);
+    renderContextSelector(contextSelector, latestSnapshot);
+    if (contextSelector) contextSelector.disabled = true;
+    try {
+      await session.switchTenant(value === hostContextValue ? null : value);
+    } catch (problem) {
+      showContextProblem(root, problem);
+    } finally {
+      isSwitchingContext = false;
+      renderContextSelector(contextSelector, latestSnapshot);
+    }
+  };
+  const onContextChange = (event) => {
+    const requestedValue = event.currentTarget.value;
+    // 原生 select 会先改变选中项，因此立即恢复服务端确认的旧值，禁止乐观展示。
+    renderContextSelector(contextSelector, latestSnapshot);
+    void switchContext(requestedValue);
+  };
+  const onTenantAction = (event) => {
+    const target = event.target instanceof Element
+      ? event.target.closest('[data-context-target]')
+      : null;
+    if (!target || !tenantDirectory?.contains(target)) {
+      return;
+    }
+
+    void switchContext(target.dataset.contextTarget);
+  };
   const unsubscribeSession = session.subscribe((snapshot) => {
-    renderSession(root, snapshot);
+    latestSnapshot = normalizeSnapshot(snapshot);
+    renderSession(root, latestSnapshot);
   });
 
   window.addEventListener('hashchange', onRouteChange);
   probeButton?.addEventListener('click', onProbe);
   loginForm?.addEventListener('submit', onLogin);
   logoutButton?.addEventListener('click', onLogout);
-  renderRoute(root);
+  contextSelector?.addEventListener('change', onContextChange);
+  tenantDirectory?.addEventListener('click', onTenantAction);
+  renderRoute(root, latestSnapshot);
 
   const ready = autoRestore
     ? Promise.resolve(session.restore())
     : Promise.resolve();
 
-  // Layui 是渐进增强层；核心路由和错误展示不依赖其全局对象，便于测试与降级。
-  globalThis.layui?.use?.(['element', 'layer'], () => {
+  // Layui 只负责渐进增强；核心路由、权限与错误反馈在其全局对象缺失时仍可工作。
+  globalThis.layui?.use?.(['element', 'form', 'layer'], () => {
     globalThis.layui.element?.render?.();
+    globalThis.layui.form?.render?.();
   });
 
   return {
@@ -176,6 +173,8 @@ export function initializeAdminApp(root = document, options = {}) {
       probeButton?.removeEventListener('click', onProbe);
       loginForm?.removeEventListener('submit', onLogin);
       logoutButton?.removeEventListener('click', onLogout);
+      contextSelector?.removeEventListener('change', onContextChange);
+      tenantDirectory?.removeEventListener('click', onTenantAction);
       unsubscribeSession();
     }
   };
@@ -197,18 +196,195 @@ function renderSession(root, snapshot) {
       ? 'Host Admin'
       : snapshot.currentUser?.username ?? '';
   }
+  root.querySelectorAll('[data-current-context]').forEach((element) => {
+    element.textContent = snapshot.currentContextName;
+  });
+  root.querySelectorAll('[data-current-context-scope]').forEach((element) => {
+    element.textContent = snapshot.currentUser?.scope ?? '';
+  });
+
+  const navigationContainer = root.querySelector('[data-navigation]');
+  if (navigationContainer) {
+    renderNavigation(
+      navigationContainer,
+      snapshot.navigation,
+      currentRoute()
+    );
+  }
+
+  renderContextSelector(root.querySelector('[data-context-select]'), snapshot);
+  renderTenantDirectory(root.querySelector('[data-tenant-directory]'), snapshot);
+  applyPermissionVisibility(root, snapshot.currentUser?.permissions ?? []);
+  renderRoute(root, snapshot);
+}
+
+function renderRoute(root, snapshot) {
+  const route = currentRoute();
+  const navigation = findNavigationByPath(snapshot.navigation, route);
+  const status = statusRoutes[route]
+    ?? (!navigation
+      ? statusRoutes[knownLocalPaths.has(route) ? '/403' : '/404']
+      : undefined);
+  const activeView = navigation
+    ? localViewFor(navigation.componentKey)
+    : undefined;
+
+  root.querySelectorAll('[data-route-view]').forEach((view) => {
+    const viewKey = view.dataset.routeView;
+    view.hidden = status ? viewKey !== 'status' : viewKey !== activeView;
+  });
+
+  if (status) {
+    setText(root, '[data-status-code]', status.code);
+    setText(root, '[data-status-title]', status.title);
+    setText(root, '[data-status-description]', status.description);
+  }
+
+  const navigationContainer = root.querySelector('[data-navigation]');
+  if (navigationContainer) {
+    renderNavigation(navigationContainer, snapshot.navigation, route);
+  } else {
+    root.querySelectorAll('[data-route]').forEach((link) => {
+      link.classList.toggle('is-active', link.dataset.route === route);
+    });
+  }
+
+  setText(
+    root,
+    '[data-route-title]',
+    navigation?.title ?? (status?.title ?? '状态页')
+  );
+}
+
+function renderContextSelector(selector, snapshot) {
+  if (!selector) {
+    return;
+  }
+
+  const ownerDocument = selector.ownerDocument;
+  const fragment = ownerDocument.createDocumentFragment();
+  fragment.append(createOption(ownerDocument, hostContextValue, 'Full.NET Host'));
+  snapshot.availableTenants.forEach((tenant) => {
+    fragment.append(createOption(ownerDocument, tenant.id, tenant.name));
+  });
+  selector.replaceChildren(fragment);
+  selector.value = snapshot.currentUser?.tenantId ?? hostContextValue;
+  selector.disabled = snapshot.switching
+    || !snapshot.currentUser?.permissions.includes('tenancy.tenants.switch');
+}
+
+function renderTenantDirectory(container, snapshot) {
+  if (!container) {
+    return;
+  }
+
+  const ownerDocument = container.ownerDocument;
+  const fragment = ownerDocument.createDocumentFragment();
+  fragment.append(createTenantCard(ownerDocument, {
+    id: null,
+    identifier: 'host',
+    name: 'Full.NET Host',
+    domain: '宿主控制面'
+  }, snapshot));
+  snapshot.availableTenants.forEach((tenant) => {
+    fragment.append(createTenantCard(ownerDocument, tenant, snapshot));
+  });
+  container.replaceChildren(fragment);
+}
+
+function createTenantCard(ownerDocument, tenant, snapshot) {
+  const article = ownerDocument.createElement('article');
+  const isCurrent = snapshot.currentUser?.tenantId === tenant.id;
+  article.classList.toggle('is-active', isCurrent);
+  if (tenant.id) article.dataset.tenantId = tenant.id;
+
+  const code = ownerDocument.createElement('span');
+  code.className = 'fn-tenant-card__code';
+  code.textContent = tenant.identifier;
+  const title = ownerDocument.createElement('h3');
+  title.textContent = tenant.name;
+  const domain = ownerDocument.createElement('p');
+  domain.textContent = tenant.domain;
+  const footer = ownerDocument.createElement('div');
+  const state = ownerDocument.createElement('small');
+  state.textContent = isCurrent ? '当前上下文' : '可进入';
+  footer.append(state);
+
+  const canSwitch = snapshot.currentUser?.permissions.includes(
+    'tenancy.tenants.switch'
+  ) === true;
+  if (canSwitch && !isCurrent) {
+    const button = ownerDocument.createElement('button');
+    button.type = 'button';
+    button.className = 'layui-btn layui-btn-sm';
+    button.dataset.contextTarget = tenant.id ?? hostContextValue;
+    button.disabled = snapshot.switching;
+    button.textContent = tenant.id ? '进入租户' : '返回 Host';
+    footer.append(button);
+  }
+
+  article.append(code, title, domain, footer);
+  return article;
+}
+
+function createOption(ownerDocument, value, label) {
+  const option = ownerDocument.createElement('option');
+  option.value = value;
+  option.textContent = label;
+  return option;
+}
+
+function currentRoute() {
+  const route = window.location.hash.replace(/^#/, '') || '/';
+  return route.startsWith('/') ? route : `/${route}`;
+}
+
+function normalizeSnapshot(snapshot) {
+  return {
+    state: snapshot.state ?? 'anonymous',
+    currentUser: snapshot.currentUser,
+    navigation: snapshot.navigation ?? [],
+    availableTenants: snapshot.availableTenants ?? [],
+    switching: snapshot.switching === true,
+    currentContextName: snapshot.currentContextName ?? 'Full.NET Host'
+  };
+}
+
+function showContractResult(root, problem) {
+  const panel = root.querySelector('[data-contract-result]');
+  if (panel) {
+    panel.hidden = false;
+    panel.classList.add('is-error');
+  }
+  setText(root, '[data-testid="error-code"]', problem?.code ?? 'client.unexpected_error');
+  setText(root, '[data-testid="trace-id"]', problem?.traceId ?? '无 TraceId');
+}
+
+function showContextProblem(root, problem) {
+  const panel = root.querySelector('[data-context-problem]');
+  if (panel) panel.hidden = false;
+  setText(root, '[data-context-error-code]', problem?.code ?? 'client.context_switch_failed');
+  setText(root, '[data-context-error-title]', problem?.title ?? '上下文切换未完成');
+}
+
+function hideContextProblem(root) {
+  const panel = root.querySelector('[data-context-problem]');
+  if (panel) panel.hidden = true;
 }
 
 function showLoginProblem(root, problem) {
   const panel = root.querySelector('[data-login-problem]');
-  const code = root.querySelector('[data-login-error-code]');
-  const title = root.querySelector('[data-login-error-title]');
   if (panel) panel.hidden = false;
-  if (code) code.textContent = problem?.code ?? 'client.login_failed';
-  if (title) title.textContent = problem?.title ?? '登录请求未完成';
+  setText(root, '[data-login-error-code]', problem?.code ?? 'client.login_failed');
+  setText(root, '[data-login-error-title]', problem?.title ?? '登录请求未完成');
 }
 
 function hideLoginProblem(root) {
   const panel = root.querySelector('[data-login-problem]');
   if (panel) panel.hidden = true;
+}
+
+function setText(root, selector, value) {
+  const element = root.querySelector(selector);
+  if (element) element.textContent = value;
 }
