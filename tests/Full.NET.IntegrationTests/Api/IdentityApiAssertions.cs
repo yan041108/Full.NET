@@ -15,6 +15,40 @@ internal static class IdentityApiAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
 
+        using (var preflightRequest = new HttpRequestMessage(
+            HttpMethod.Options,
+            "/api/v1/auth/login"))
+        {
+            preflightRequest.Headers.Add("Origin", "http://localhost");
+            preflightRequest.Headers.Add("Access-Control-Request-Method", "POST");
+            preflightRequest.Headers.Add(
+                "Access-Control-Request-Headers",
+                "content-type,x-csrf-token");
+            using var preflightResponse = await client.SendAsync(
+                preflightRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.NoContent, preflightResponse.StatusCode);
+            Assert.AreEqual(
+                "http://localhost",
+                preflightResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+            Assert.AreEqual(
+                "true",
+                preflightResponse.Headers.GetValues("Access-Control-Allow-Credentials").Single());
+        }
+        using (var rejectedPreflight = new HttpRequestMessage(
+            HttpMethod.Options,
+            "/api/v1/auth/login"))
+        {
+            rejectedPreflight.Headers.Add("Origin", "https://untrusted.example");
+            rejectedPreflight.Headers.Add("Access-Control-Request-Method", "POST");
+            using var rejectedResponse = await client.SendAsync(
+                rejectedPreflight,
+                cancellationToken);
+            Assert.IsFalse(rejectedResponse.Headers.TryGetValues(
+                "Access-Control-Allow-Origin",
+                out _));
+        }
+
         using var invalidRequest = CreateLoginRequest("wrong-password");
         using var invalidResponse = await client.SendAsync(
             invalidRequest,
@@ -123,31 +157,68 @@ internal static class IdentityApiAssertions
             }
         }
 
-        using var secondLoginRequest = CreateLoginRequest(FullNetApiFactory.TestPassword);
-        using var secondLoginResponse = await client.SendAsync(
-            secondLoginRequest,
-            cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, secondLoginResponse.StatusCode);
-        var secondLoginCookies = secondLoginResponse.Headers.GetValues("Set-Cookie").ToArray();
-        var logoutRefresh = ExtractCookie(secondLoginCookies, "__Host-fullnet-refresh");
-        var logoutCsrf = ExtractCookie(secondLoginCookies, "fullnet-csrf");
-        using var logoutRequest = CreateSessionRequest(
-            "/api/v1/auth/logout",
-            logoutRefresh,
-            logoutCsrf,
-            logoutCsrf);
-        using var logoutResponse = await client.SendAsync(logoutRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+        var concurrentLoginResponses = await Task.WhenAll(
+            SendLoginAsync(client, FullNetApiFactory.TestPassword, cancellationToken),
+            SendLoginAsync(client, FullNetApiFactory.TestPassword, cancellationToken));
+        try
+        {
+            Assert.IsTrue(concurrentLoginResponses.All(
+                response => response.StatusCode == HttpStatusCode.OK));
+            var secondLoginCookies = concurrentLoginResponses[0]
+                .Headers.GetValues("Set-Cookie")
+                .ToArray();
+            var logoutRefresh = ExtractCookie(secondLoginCookies, "__Host-fullnet-refresh");
+            var logoutCsrf = ExtractCookie(secondLoginCookies, "fullnet-csrf");
+            using var logoutRequest = CreateSessionRequest(
+                "/api/v1/auth/logout",
+                logoutRefresh,
+                logoutCsrf,
+                logoutCsrf);
+            using var logoutResponse = await client.SendAsync(
+                logoutRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
 
-        using var afterLogoutRequest = CreateSessionRequest(
-            "/api/v1/auth/refresh",
-            logoutRefresh,
-            logoutCsrf,
-            logoutCsrf);
-        using var afterLogoutResponse = await client.SendAsync(
-            afterLogoutRequest,
+            using var afterLogoutRequest = CreateSessionRequest(
+                "/api/v1/auth/refresh",
+                logoutRefresh,
+                logoutCsrf,
+                logoutCsrf);
+            using var afterLogoutResponse = await client.SendAsync(
+                afterLogoutRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Unauthorized, afterLogoutResponse.StatusCode);
+        }
+        finally
+        {
+            foreach (var response in concurrentLoginResponses)
+            {
+                response.Dispose();
+            }
+        }
+
+        var failedLoginTasks = Enumerable.Range(0, 5)
+            .Select(_ => SendLoginAsync(client, "Wrong!2026Password", cancellationToken))
+            .ToArray();
+        var failedLoginResponses = await Task.WhenAll(failedLoginTasks);
+        try
+        {
+            Assert.IsTrue(failedLoginResponses.All(
+                response => response.StatusCode == HttpStatusCode.Unauthorized));
+        }
+        finally
+        {
+            foreach (var response in failedLoginResponses)
+            {
+                response.Dispose();
+            }
+        }
+
+        using var lockedLoginRequest = CreateLoginRequest(FullNetApiFactory.TestPassword);
+        using var lockedLoginResponse = await client.SendAsync(
+            lockedLoginRequest,
             cancellationToken);
-        Assert.AreEqual(HttpStatusCode.Unauthorized, afterLogoutResponse.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, lockedLoginResponse.StatusCode);
 
         Assert.IsGreaterThanOrEqualTo(
             6L,
@@ -195,6 +266,15 @@ internal static class IdentityApiAssertions
             refreshCookie,
             csrfCookie,
             csrfCookie);
+        return await client.SendAsync(request, cancellationToken);
+    }
+
+    private static async Task<HttpResponseMessage> SendLoginAsync(
+        HttpClient client,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateLoginRequest(password);
         return await client.SendAsync(request, cancellationToken);
     }
 

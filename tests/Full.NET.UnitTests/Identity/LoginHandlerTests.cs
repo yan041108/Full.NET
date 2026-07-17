@@ -31,7 +31,8 @@ public sealed class LoginHandlerTests
     [TestMethod]
     public async Task Unknown_user_returns_same_public_error_and_writes_audit()
     {
-        var fixture = new Fixture();
+        var passwordHasher = new CountingPasswordHasher();
+        var fixture = new Fixture(passwordHasher);
         fixture.QueryExecutor
             .QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 Arg.Any<SqlStatement>(),
@@ -43,6 +44,7 @@ public sealed class LoginHandlerTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual("identity.invalid_credentials", result.Error?.Code);
+        Assert.AreEqual(1, passwordHasher.VerificationCount);
         await fixture.CommandExecutor.Received(1).ExecuteAsync(
             IdentitySql.InsertAuthAudit,
             Arg.Is<AuthAuditEvent>(audit =>
@@ -105,7 +107,9 @@ public sealed class LoginHandlerTests
         private readonly Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>
             _passwordHasher = new();
 
-        public Fixture()
+        public Fixture(
+            Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>?
+                passwordHasher = null)
         {
             QueryExecutor = Substitute.For<IQueryExecutor>();
             CommandExecutor = Substitute.For<ICommandExecutor>();
@@ -117,7 +121,7 @@ public sealed class LoginHandlerTests
             Handler = new Handler(
                 QueryExecutor,
                 CommandExecutor,
-                _passwordHasher,
+                passwordHasher ?? _passwordHasher,
                 new FixedClock(),
                 new QueueIdGenerator(SessionId, FamilyId, AuditId),
                 new StubAccessTokenIssuer(),
@@ -198,5 +202,27 @@ public sealed class LoginHandlerTests
         private readonly Queue<string> _tokens = new(tokens);
 
         public string Generate(int byteCount) => _tokens.Dequeue();
+    }
+
+    private sealed class CountingPasswordHasher
+        : Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>
+    {
+        private readonly Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>
+            _inner = new();
+
+        public int VerificationCount { get; private set; }
+
+        public string HashPassword(IdentityUser user, string password) =>
+            _inner.HashPassword(user, password);
+
+        public Microsoft.AspNetCore.Identity.PasswordVerificationResult
+            VerifyHashedPassword(
+                IdentityUser user,
+                string hashedPassword,
+                string providedPassword)
+        {
+            VerificationCount++;
+            return _inner.VerifyHashedPassword(user, hashedPassword, providedPassword);
+        }
     }
 }

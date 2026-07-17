@@ -13,6 +13,7 @@ using Full.NET.Validation.FluentValidation;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Http;
@@ -29,6 +30,11 @@ namespace Full.NET.Modules.Identity;
 
 public sealed class IdentityModule : IFullNetModule
 {
+    /// <summary>
+    /// 浏览器管理端使用的精确来源 CORS 策略名称。
+    /// </summary>
+    public const string BrowserCorsPolicy = "FullNET.Identity.BrowserClients";
+
     public string Name => "Identity";
 
     public IReadOnlyCollection<Type> Dependencies => [];
@@ -93,6 +99,24 @@ public sealed class IdentityModule : IFullNetModule
                     };
                 });
         services.AddAuthorization();
+        services.AddCors();
+        services.AddOptions<CorsOptions>()
+            .Configure<IOptions<IdentityOptions>>((cors, identityOptions) =>
+            {
+                var allowedOrigins = identityOptions.Value.AllowedOrigins
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .ToArray();
+                var policy = new CorsPolicyBuilder();
+                if (allowedOrigins.Length > 0)
+                {
+                    policy.WithOrigins(allowedOrigins)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials();
+                }
+
+                cors.AddPolicy(BrowserCorsPolicy, policy.Build());
+            });
         services.AddRateLimiter(rateLimiter =>
             rateLimiter.AddPolicy("identity-login", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(

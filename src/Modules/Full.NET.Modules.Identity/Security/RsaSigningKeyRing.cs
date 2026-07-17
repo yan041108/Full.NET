@@ -41,33 +41,47 @@ internal sealed class RsaSigningKeyRing : IDisposable
 
         var validationKeys = new List<SecurityKey>();
         SigningCredentials? signingCredentials = null;
-        foreach (var pair in settings.SigningKeys)
+        try
         {
-            var rsa = RSA.Create();
-            _ownedKeys.Add(rsa);
-            if (string.Equals(
-                pair.Key,
-                settings.ActiveKeyId,
-                StringComparison.Ordinal))
+            foreach (var pair in settings.SigningKeys)
             {
-                rsa.ImportFromPem(NormalizePem(pair.Value.PrivateKeyPem));
-            }
-            else
-            {
-                rsa.ImportFromPem(NormalizePem(pair.Value.PublicKeyPem));
-            }
+                var rsa = RSA.Create();
+                _ownedKeys.Add(rsa);
+                if (string.Equals(
+                    pair.Key,
+                    settings.ActiveKeyId,
+                    StringComparison.Ordinal))
+                {
+                    rsa.ImportFromPem(NormalizePem(pair.Value.PrivateKeyPem));
+                }
+                else
+                {
+                    rsa.ImportFromPem(NormalizePem(pair.Value.PublicKeyPem));
+                }
 
-            var securityKey = new RsaSecurityKey(rsa) { KeyId = pair.Key };
-            validationKeys.Add(securityKey);
-            if (string.Equals(
-                pair.Key,
-                settings.ActiveKeyId,
-                StringComparison.Ordinal))
-            {
-                signingCredentials = new SigningCredentials(
-                    securityKey,
-                    SecurityAlgorithms.RsaSha256);
+                if (rsa.KeySize < 2048)
+                {
+                    throw new InvalidOperationException(
+                        $"Identity signing key '{pair.Key}' must be at least 2048 bits.");
+                }
+
+                var securityKey = new RsaSecurityKey(rsa) { KeyId = pair.Key };
+                validationKeys.Add(securityKey);
+                if (string.Equals(
+                    pair.Key,
+                    settings.ActiveKeyId,
+                    StringComparison.Ordinal))
+                {
+                    signingCredentials = new SigningCredentials(
+                        securityKey,
+                        SecurityAlgorithms.RsaSha256);
+                }
             }
+        }
+        catch
+        {
+            Dispose();
+            throw;
         }
 
         SigningCredentials = signingCredentials ?? throw new InvalidOperationException(

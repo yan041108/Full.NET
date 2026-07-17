@@ -1,4 +1,6 @@
-const apiBaseUrl = globalThis.FULLNET_CONFIG?.apiBaseUrl ?? '';
+const apiBaseUrl = globalThis.FULLNET_CONFIG?.apiBaseUrl
+  ?? import.meta.env.VITE_API_BASE_URL
+  ?? '';
 let authentication;
 let refreshInFlight;
 

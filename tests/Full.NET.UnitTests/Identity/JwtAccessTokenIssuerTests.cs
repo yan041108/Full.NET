@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
+using System.Security.Cryptography;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Security;
@@ -83,6 +84,29 @@ public sealed class JwtAccessTokenIssuerTests
                 ValidateLifetime = false,
             });
         Assert.IsTrue(validation.IsValid, validation.Exception?.Message);
+    }
+
+    [TestMethod]
+    public void Configured_rsa_key_shorter_than_2048_bits_is_rejected()
+    {
+        using var rsa = RSA.Create(1024);
+        var options = new IdentityOptions
+        {
+            ActiveKeyId = "weak-key",
+            SigningKeys = new Dictionary<string, IdentitySigningKeyOptions>
+            {
+                ["weak-key"] = new()
+                {
+                    PublicKeyPem = rsa.ExportRSAPublicKeyPem(),
+                    PrivateKeyPem = rsa.ExportPkcs8PrivateKeyPem(),
+                },
+            },
+        };
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            new RsaSigningKeyRing(
+                Options.Create(options),
+                NullLogger<RsaSigningKeyRing>.Instance));
     }
 
     private sealed class FixedClock : IClock

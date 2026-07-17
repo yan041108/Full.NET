@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity.Features.Login;
@@ -25,6 +26,9 @@ internal sealed class Handler(
     : ICommandHandler<Command, LoginSessionResult>
 {
     private const string HostScope = "host";
+    private const int MaxLoginUpdateAttempts = 32;
+    private static readonly (IdentityUser User, string PasswordHash)
+        TimingDefenseCredential = CreateTimingDefenseCredential();
     private readonly IdentityOptions _options = options.Value;
 
     public async Task<Result<LoginSessionResult>> HandleAsync(
@@ -39,6 +43,11 @@ internal sealed class Handler(
             .ConfigureAwait(false);
         if (record is null)
         {
+            // 未知账号仍执行一次真实 PBKDF2 校验，缩小用户名枚举的响应时间差。
+            _ = passwordHasher.VerifyHashedPassword(
+                TimingDefenseCredential.User,
+                TimingDefenseCredential.PasswordHash,
+                command.Password);
             await WriteAuditAsync(
                 null,
                 null,
@@ -90,28 +99,26 @@ internal sealed class Handler(
             return InvalidCredentials();
         }
 
-        var passwordHash = verification
-            == Microsoft.AspNetCore.Identity.PasswordVerificationResult.SuccessRehashNeeded
-            ? passwordHasher.HashPassword(user, command.Password)
-            : user.PasswordHash;
-        await EnsureSingleRowAsync(
-            IdentitySql.UpdateLoginSuccess,
-            new LoginSuccessUpdate(
-                user.Id,
-                passwordHash,
-                clock.UtcNow,
-                user.Version),
-            "login success update",
+        var successfulUser = await RecordSuccessAsync(
+            user,
+            command.Password,
+            verification,
             cancellationToken).ConfigureAwait(false);
-
-        user = user with
+        if (successfulUser is null)
         {
-            PasswordHash = passwordHash,
-            FailedLoginCount = 0,
-            LockoutEndUtc = null,
-            UpdatedAtUtc = clock.UtcNow,
-            Version = user.Version + 1,
-        };
+            await WriteAuditAsync(
+                user.Id,
+                null,
+                normalizedUsername,
+                "login",
+                "identity.login-state-changed",
+                false,
+                command,
+                cancellationToken).ConfigureAwait(false);
+            return InvalidCredentials();
+        }
+
+        user = successfulUser;
         var sessionId = idGenerator.NewId();
         var familyId = idGenerator.NewId();
         var refreshToken = randomTokenGenerator.Generate(32);
@@ -158,31 +165,151 @@ internal sealed class Handler(
         Command command,
         CancellationToken cancellationToken)
     {
-        var failedLoginCount = user.FailedLoginCount + 1;
-        var lockoutEnd = failedLoginCount >= _options.LockoutThreshold
-            ? clock.UtcNow.AddMinutes(_options.LockoutMinutes)
-            : (DateTimeOffset?)null;
-        await EnsureSingleRowAsync(
-            IdentitySql.UpdateLoginFailure,
-            new LoginFailureUpdate(
-                user.Id,
-                failedLoginCount,
-                lockoutEnd,
-                clock.UtcNow,
-                user.Version),
-            "login failure update",
-            cancellationToken).ConfigureAwait(false);
-        await WriteAuditAsync(
-            user.Id,
-            null,
-            user.NormalizedUsername,
-            "login",
-            lockoutEnd.HasValue
-                ? "identity.account-locked"
-                : "identity.password-mismatch",
-            false,
-            command,
-            cancellationToken).ConfigureAwait(false);
+        var current = user;
+        for (var attempt = 0; attempt < MaxLoginUpdateAttempts; attempt++)
+        {
+            if (current.LockoutEndUtc > clock.UtcNow)
+            {
+                await WriteAuditAsync(
+                    current.Id,
+                    null,
+                    current.NormalizedUsername,
+                    "login",
+                    "identity.account-locked",
+                    false,
+                    command,
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var failedLoginCount = current.FailedLoginCount + 1;
+            var lockoutEnd = failedLoginCount >= _options.LockoutThreshold
+                ? clock.UtcNow.AddMinutes(_options.LockoutMinutes)
+                : (DateTimeOffset?)null;
+            var affectedRows = await commandExecutor.ExecuteAsync(
+                    IdentitySql.UpdateLoginFailure,
+                    new LoginFailureUpdate(
+                        current.Id,
+                        failedLoginCount,
+                        lockoutEnd,
+                        clock.UtcNow,
+                        current.Version),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (affectedRows == 1)
+            {
+                await WriteAuditAsync(
+                    current.Id,
+                    null,
+                    current.NormalizedUsername,
+                    "login",
+                    lockoutEnd.HasValue
+                        ? "identity.account-locked"
+                        : "identity.password-mismatch",
+                    false,
+                    command,
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            // 失败计数使用乐观并发；冲突后重读可避免高并发错误登录泄漏为 500。
+            var refreshed = await queryExecutor
+                .QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                    IdentitySql.FindUserByScopeAndUsername,
+                    new
+                    {
+                        ScopeKey = HostScope,
+                        current.NormalizedUsername,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (refreshed is null)
+            {
+                break;
+            }
+
+            current = ToUser(refreshed);
+        }
+
+        throw new InvalidOperationException(
+            "Identity login failure update exceeded the bounded concurrency retry limit.");
+    }
+
+    private async Task<IdentityUser?> RecordSuccessAsync(
+        IdentityUser user,
+        string password,
+        Microsoft.AspNetCore.Identity.PasswordVerificationResult initialVerification,
+        CancellationToken cancellationToken)
+    {
+        var current = user;
+        var verification = initialVerification;
+        for (var attempt = 0; attempt < MaxLoginUpdateAttempts; attempt++)
+        {
+            if (!current.IsActive || current.LockoutEndUtc > clock.UtcNow)
+            {
+                return null;
+            }
+
+            if (attempt > 0)
+            {
+                verification = passwordHasher.VerifyHashedPassword(
+                    current,
+                    current.PasswordHash,
+                    password);
+                if (verification
+                    == Microsoft.AspNetCore.Identity.PasswordVerificationResult.Failed)
+                {
+                    return null;
+                }
+            }
+
+            var passwordHash = verification
+                == Microsoft.AspNetCore.Identity.PasswordVerificationResult.SuccessRehashNeeded
+                ? passwordHasher.HashPassword(current, password)
+                : current.PasswordHash;
+            var updatedAt = clock.UtcNow;
+            var affectedRows = await commandExecutor.ExecuteAsync(
+                    IdentitySql.UpdateLoginSuccess,
+                    new LoginSuccessUpdate(
+                        current.Id,
+                        passwordHash,
+                        updatedAt,
+                        current.Version),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (affectedRows == 1)
+            {
+                return current with
+                {
+                    PasswordHash = passwordHash,
+                    FailedLoginCount = 0,
+                    LockoutEndUtc = null,
+                    UpdatedAtUtc = updatedAt,
+                    Version = current.Version + 1,
+                };
+            }
+
+            // 冲突后重新验证最新密码哈希，避免并发改密或停用被旧快照绕过。
+            var refreshed = await queryExecutor
+                .QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                    IdentitySql.FindUserByScopeAndUsername,
+                    new
+                    {
+                        ScopeKey = HostScope,
+                        current.NormalizedUsername,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (refreshed is null)
+            {
+                return null;
+            }
+
+            current = ToUser(refreshed);
+        }
+
+        throw new InvalidOperationException(
+            "Identity login success update exceeded the bounded concurrency retry limit.");
     }
 
     private async Task WriteAuditAsync(
@@ -257,4 +384,28 @@ internal sealed class Handler(
             "identity.invalid_credentials",
             "The username or password is invalid.",
             ErrorType.Unauthorized));
+
+    private static (IdentityUser User, string PasswordHash)
+        CreateTimingDefenseCredential()
+    {
+        var user = new IdentityUser(
+            Guid.Empty,
+            null,
+            HostScope,
+            "timing-defense",
+            "TIMING-DEFENSE",
+            "Timing Defense",
+            string.Empty,
+            false,
+            0,
+            null,
+            string.Empty,
+            DateTimeOffset.UnixEpoch,
+            null,
+            1);
+        var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        var hash = new Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>()
+            .HashPassword(user, password);
+        return (user, hash);
+    }
 }

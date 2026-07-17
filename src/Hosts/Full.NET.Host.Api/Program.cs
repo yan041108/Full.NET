@@ -26,6 +26,7 @@ var app = builder.Build();
 app.UseFullNetRequestLogging();
 app.UseExceptionHandler();
 app.UseFullNetTenancy();
+app.UseCors(IdentityModule.BrowserCorsPolicy);
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

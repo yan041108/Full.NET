@@ -1,8 +1,10 @@
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.Configuration;
 
-internal sealed class IdentityOptionsValidator : IValidateOptions<IdentityOptions>
+internal sealed class IdentityOptionsValidator(IHostEnvironment environment)
+    : IValidateOptions<IdentityOptions>
 {
     public ValidateOptionsResult Validate(string? name, IdentityOptions options)
     {
@@ -42,8 +44,16 @@ internal sealed class IdentityOptionsValidator : IValidateOptions<IdentityOption
             failures.Add("LockoutMinutes must be between 1 and 1440.");
         }
 
+        var supportsEphemeralSigning = environment.IsDevelopment()
+            || environment.IsEnvironment("Testing");
+        if (options.AllowDevelopmentEphemeralSigningKey && !supportsEphemeralSigning)
+        {
+            failures.Add(
+                "Ephemeral signing keys are allowed only in Development or Testing.");
+        }
+
         if (options.EnableTokenEndpoints
-            && !options.AllowDevelopmentEphemeralSigningKey
+            && !(options.AllowDevelopmentEphemeralSigningKey && supportsEphemeralSigning)
             && !HasConfiguredActiveSigningKey(options))
         {
             failures.Add(
