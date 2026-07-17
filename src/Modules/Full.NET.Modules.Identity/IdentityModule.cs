@@ -50,6 +50,7 @@ public sealed class IdentityModule : IFullNetModule
             IdentityAuthorizationContributor>());
         services.TryAddSingleton(provider => AuthorizationCatalog.Create(
             provider.GetServices<IAuthorizationCatalogContributor>()));
+        services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IHostedService,
             AuthorizationCatalogValidator>());

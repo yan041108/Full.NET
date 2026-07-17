@@ -54,6 +54,7 @@ internal sealed class Handler(
             true,
             Truncate(command.Client.IpAddress, 64),
             Truncate(command.Client.UserAgent, 512),
+            record.ActiveTenantId,
             clock.UtcNow);
         var rows = await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertAuthAudit,

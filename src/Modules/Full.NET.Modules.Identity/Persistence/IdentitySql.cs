@@ -102,6 +102,26 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement GetUserPermissionCodes = new(
+        "identity.get-user-permission-codes",
+        """
+        SELECT rolePermission.PermissionCode
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_role AS roleObject ON roleObject.Id = userRole.RoleId
+        INNER JOIN fn_identity_role_permission AS rolePermission
+            ON rolePermission.RoleId = roleObject.Id
+        WHERE userRole.UserId = @UserId
+          AND roleObject.IsActive = 1
+          AND roleObject.ScopeKey = @ScopeKey
+          AND
+          (
+              (roleObject.TenantId IS NULL AND @TenantId IS NULL)
+              OR roleObject.TenantId = @TenantId
+          )
+        ORDER BY rolePermission.PermissionCode
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement UpdateLoginFailure = new(
         "identity.update-login-failure",
         """
@@ -132,10 +152,12 @@ internal static class IdentitySql
         """
         INSERT INTO fn_identity_refresh_session
             (Id, UserId, FamilyId, ClientId, TokenHash, ExpiresAtUtc,
-             ConsumedAtUtc, RevokedAtUtc, ReplacedById, CreatedAtUtc, Version)
+             ConsumedAtUtc, RevokedAtUtc, ReplacedById, ActiveTenantId,
+             CreatedAtUtc, Version)
         VALUES
             (@Id, @UserId, @FamilyId, @ClientId, @TokenHash, @ExpiresAtUtc,
-             @ConsumedAtUtc, @RevokedAtUtc, @ReplacedById, @CreatedAtUtc, @Version)
+             @ConsumedAtUtc, @RevokedAtUtc, @ReplacedById, @ActiveTenantId,
+             @CreatedAtUtc, @Version)
         """,
         SqlDataScope.HostOnly);
 
@@ -144,10 +166,12 @@ internal static class IdentitySql
         """
         INSERT INTO fn_identity_auth_audit
             (Id, UserId, SessionId, UsernameFingerprint, EventType,
-             ResultCode, Succeeded, IpAddress, UserAgent, OccurredAtUtc)
+             ResultCode, Succeeded, IpAddress, UserAgent, ContextTenantId,
+             OccurredAtUtc)
         VALUES
             (@Id, @UserId, @SessionId, @UsernameFingerprint, @EventType,
-             @ResultCode, @Succeeded, @IpAddress, @UserAgent, @OccurredAtUtc)
+             @ResultCode, @Succeeded, @IpAddress, @UserAgent, @ContextTenantId,
+             @OccurredAtUtc)
         """,
         SqlDataScope.HostOnly);
 
@@ -168,6 +192,7 @@ internal static class IdentitySql
                session.ConsumedAtUtc,
                session.RevokedAtUtc,
                session.ReplacedById,
+               session.ActiveTenantId,
                session.CreatedAtUtc,
                session.Version AS SessionVersion,
                identityUser.TenantId,

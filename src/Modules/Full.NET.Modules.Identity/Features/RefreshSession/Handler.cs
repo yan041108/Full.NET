@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.Extensions.Options;
+using Full.NET.Modules.Identity.Authorization;
 
 namespace Full.NET.Modules.Identity.Features.RefreshSession;
 
@@ -17,6 +18,7 @@ internal sealed class Handler(
     ICommandExecutor commandExecutor,
     IClock clock,
     IIdGenerator idGenerator,
+    IPermissionSnapshotReader permissionSnapshotReader,
     IAccessTokenIssuer accessTokenIssuer,
     IRandomTokenGenerator randomTokenGenerator,
     IOptions<IdentityOptions> options)
@@ -63,6 +65,13 @@ internal sealed class Handler(
             return InvalidRefreshToken();
         }
 
+        var permissions = await permissionSnapshotReader.ReadAsync(
+                record.UserId,
+                record.ScopeKey,
+                record.TenantId,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         var replacementId = idGenerator.NewId();
         var replacementToken = randomTokenGenerator.Generate(32);
         var csrfToken = randomTokenGenerator.Generate(32);
@@ -98,6 +107,7 @@ internal sealed class Handler(
             null,
             null,
             null,
+            record.ActiveTenantId,
             clock.UtcNow,
             1);
         await EnsureSingleRowAsync(
@@ -112,7 +122,11 @@ internal sealed class Handler(
             command,
             cancellationToken).ConfigureAwait(false);
 
-        var accessToken = accessTokenIssuer.Issue(ToUser(record), replacementId);
+        var accessToken = accessTokenIssuer.Issue(
+            ToUser(record),
+            replacementId,
+            record.ActiveTenantId,
+            permissions);
         return Result<RefreshSessionResult>.Success(new RefreshSessionResult(
             new TokenResponse(
                 accessToken.AccessToken,
@@ -173,6 +187,7 @@ internal sealed class Handler(
             succeeded,
             Truncate(command.Client.IpAddress, 64),
             Truncate(command.Client.UserAgent, 512),
+            record.ActiveTenantId,
             clock.UtcNow);
         await EnsureSingleRowAsync(
             IdentitySql.InsertAuthAudit,

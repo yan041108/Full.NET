@@ -23,6 +23,8 @@ public sealed class JwtAccessTokenIssuerTests
         Guid.Parse("01981a3f-00c0-7000-8000-000000000002");
     private static readonly Guid TokenId =
         Guid.Parse("01981a3f-00c0-7000-8000-000000000003");
+    private static readonly Guid TenantId =
+        Guid.Parse("01981a3f-00c0-7000-8000-000000000004");
 
     [TestMethod]
     public async Task Issued_token_has_kid_required_claims_and_valid_signature()
@@ -57,7 +59,11 @@ public sealed class JwtAccessTokenIssuerTests
             null,
             1);
 
-        var issued = issuer.Issue(user, SessionId);
+        var issued = issuer.Issue(
+            user,
+            SessionId,
+            TenantId,
+            ["z.permission", "a.permission", "z.permission"]);
         var token = new JsonWebToken(issued.AccessToken);
 
         Assert.IsFalse(string.IsNullOrWhiteSpace(token.Kid));
@@ -67,7 +73,19 @@ public sealed class JwtAccessTokenIssuerTests
         Assert.AreEqual(TokenId.ToString("D"), token.GetClaim(JwtRegisteredClaimNames.Jti).Value);
         Assert.AreEqual(options.ClientId, token.GetClaim("client_id").Value);
         Assert.AreEqual(SessionId.ToString("D"), token.GetClaim(IdentityClaimTypes.SessionId).Value);
-        Assert.AreEqual("host", token.GetClaim(IdentityClaimTypes.Scope).Value);
+        Assert.AreEqual("host", token.GetClaim(IdentityClaimTypes.ActorScope).Value);
+        Assert.AreEqual(
+            $"tenant:{TenantId:N}",
+            token.GetClaim(IdentityClaimTypes.Scope).Value);
+        Assert.AreEqual(
+            TenantId.ToString("D"),
+            token.GetClaim(IdentityClaimTypes.TenantId).Value);
+        CollectionAssert.AreEqual(
+            new[] { "a.permission", "z.permission" },
+            token.Claims
+                .Where(claim => claim.Type == IdentityClaimTypes.Permission)
+                .Select(claim => claim.Value)
+                .ToArray());
         Assert.AreEqual("security-stamp", token.GetClaim(IdentityClaimTypes.SecurityStamp).Value);
         Assert.AreEqual(Now.AddMinutes(10), issued.ExpiresAtUtc);
 

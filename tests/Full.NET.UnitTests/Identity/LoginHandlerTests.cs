@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Authorization;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -87,12 +88,16 @@ public sealed class LoginHandlerTests
         Assert.AreEqual("access-token", result.Value!.Token.AccessToken);
         Assert.AreEqual("refresh-token", result.Value.RefreshToken);
         Assert.AreEqual("csrf-token", result.Value.CsrfToken);
+        CollectionAssert.AreEqual(
+            new[] { "platform.dashboard.read", "tenancy.tenants.read" },
+            fixture.AccessTokenIssuer.Permissions.ToArray());
         await fixture.CommandExecutor.Received(1).ExecuteAsync(
             IdentitySql.InsertRefreshSession,
             Arg.Is<RefreshSession>(session =>
                 session != null
                 && session.Id == SessionId
                 && session.FamilyId == FamilyId
+                && session.ActiveTenantId == null
                 && session.TokenHash == TokenHash.Compute("refresh-token")),
             Arg.Any<CancellationToken>());
     }
@@ -118,13 +123,17 @@ public sealed class LoginHandlerTests
                     Arg.Any<object?>(),
                     Arg.Any<CancellationToken>())
                 .Returns(1);
+            PermissionSnapshotReader = new StubPermissionSnapshotReader(
+                ["platform.dashboard.read", "tenancy.tenants.read"]);
+            AccessTokenIssuer = new StubAccessTokenIssuer();
             Handler = new Handler(
                 QueryExecutor,
                 CommandExecutor,
                 passwordHasher ?? _passwordHasher,
                 new FixedClock(),
                 new QueueIdGenerator(SessionId, FamilyId, AuditId),
-                new StubAccessTokenIssuer(),
+                PermissionSnapshotReader,
+                AccessTokenIssuer,
                 new QueueTokenGenerator("refresh-token", "csrf-token"),
                 Options.Create(new IdentityOptions
                 {
@@ -135,6 +144,10 @@ public sealed class LoginHandlerTests
         public IQueryExecutor QueryExecutor { get; }
 
         public ICommandExecutor CommandExecutor { get; }
+
+        public IPermissionSnapshotReader PermissionSnapshotReader { get; }
+
+        public StubAccessTokenIssuer AccessTokenIssuer { get; }
 
         public Handler Handler { get; }
 
@@ -193,8 +206,30 @@ public sealed class LoginHandlerTests
 
     private sealed class StubAccessTokenIssuer : IAccessTokenIssuer
     {
-        public IssuedAccessToken Issue(IdentityUser user, Guid sessionId) =>
-            new("access-token", Now.AddMinutes(10));
+        public IReadOnlyCollection<string> Permissions { get; private set; } = [];
+
+        public IssuedAccessToken Issue(
+            IdentityUser user,
+            Guid sessionId,
+            Guid? activeTenantId,
+            IReadOnlyCollection<string> permissions)
+        {
+            Permissions = permissions;
+            return new IssuedAccessToken("access-token", Now.AddMinutes(10));
+        }
+    }
+
+    private sealed class StubPermissionSnapshotReader(
+        IReadOnlyList<string> permissions) : IPermissionSnapshotReader
+    {
+        public Task<IReadOnlyList<string>> ReadAsync(
+            Guid userId,
+            string scopeKey,
+            Guid? tenantId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(permissions);
+        }
     }
 
     private sealed class QueueTokenGenerator(params string[] tokens) : IRandomTokenGenerator

@@ -4,6 +4,8 @@ internal static class IdentityClaimTypes
 {
     public const string SessionId = "sid";
 
+    public const string ActorScope = "fullnet_actor_scope";
+
     public const string Scope = "fullnet_scope";
 
     public const string SecurityStamp = "fullnet_security_stamp";

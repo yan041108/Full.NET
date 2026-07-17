@@ -11,6 +11,7 @@ using Full.NET.Modules.Identity.Security;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
+using Full.NET.Modules.Identity.Authorization;
 
 namespace Full.NET.Modules.Identity.Features.Login;
 
@@ -20,6 +21,7 @@ internal sealed class Handler(
     Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> passwordHasher,
     IClock clock,
     IIdGenerator idGenerator,
+    IPermissionSnapshotReader permissionSnapshotReader,
     IAccessTokenIssuer accessTokenIssuer,
     IRandomTokenGenerator randomTokenGenerator,
     IOptions<IdentityOptions> options)
@@ -119,6 +121,12 @@ internal sealed class Handler(
         }
 
         user = successfulUser;
+        var permissions = await permissionSnapshotReader.ReadAsync(
+                user.Id,
+                user.ScopeKey,
+                user.TenantId,
+                cancellationToken)
+            .ConfigureAwait(false);
         var sessionId = idGenerator.NewId();
         var familyId = idGenerator.NewId();
         var refreshToken = randomTokenGenerator.Generate(32);
@@ -130,6 +138,7 @@ internal sealed class Handler(
             _options.ClientId,
             TokenHash.Compute(refreshToken),
             clock.UtcNow.AddDays(_options.RefreshTokenDays),
+            null,
             null,
             null,
             null,
@@ -150,7 +159,11 @@ internal sealed class Handler(
             command,
             cancellationToken).ConfigureAwait(false);
 
-        var accessToken = accessTokenIssuer.Issue(user, sessionId);
+        var accessToken = accessTokenIssuer.Issue(
+            user,
+            sessionId,
+            null,
+            permissions);
         return Result<LoginSessionResult>.Success(new LoginSessionResult(
             new TokenResponse(
                 accessToken.AccessToken,
@@ -332,6 +345,7 @@ internal sealed class Handler(
             succeeded,
             Truncate(command.Client.IpAddress, 64),
             Truncate(command.Client.UserAgent, 512),
+            null,
             clock.UtcNow);
         await EnsureSingleRowAsync(
             IdentitySql.InsertAuthAudit,

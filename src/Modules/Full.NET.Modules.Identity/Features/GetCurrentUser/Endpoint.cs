@@ -34,10 +34,12 @@ internal static class Endpoint
                 principal.FindFirstValue("preferred_username") ?? string.Empty,
                 principal.FindFirstValue(JwtRegisteredClaimNames.Name) ?? string.Empty,
                 tenantId,
+                principal.FindFirstValue(IdentityClaimTypes.ActorScope) ?? string.Empty,
                 principal.FindFirstValue(IdentityClaimTypes.Scope) ?? string.Empty,
                 principal.FindAll(IdentityClaimTypes.Permission)
                     .Select(claim => claim.Value)
                     .Distinct(StringComparer.Ordinal)
+                    .OrderBy(permission => permission, StringComparer.Ordinal)
                     .ToArray(),
                 sessionId);
             return Results.Ok(response);

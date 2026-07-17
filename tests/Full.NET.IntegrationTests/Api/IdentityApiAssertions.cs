@@ -3,6 +3,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Security;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.IntegrationTests.Api;
 
@@ -76,6 +78,21 @@ internal static class IdentityApiAssertions
         Assert.IsNotNull(token);
         Assert.AreEqual("Bearer", token.TokenType);
         Assert.IsFalse(string.IsNullOrWhiteSpace(token.AccessToken));
+        var jwt = new JsonWebToken(token.AccessToken);
+        Assert.AreEqual("host", jwt.GetClaim(IdentityClaimTypes.ActorScope).Value);
+        Assert.AreEqual("host", jwt.GetClaim(IdentityClaimTypes.Scope).Value);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "identity.navigation.read",
+                "platform.dashboard.read",
+                "tenancy.tenants.read",
+                "tenancy.tenants.switch",
+            },
+            jwt.Claims
+                .Where(claim => claim.Type == IdentityClaimTypes.Permission)
+                .Select(claim => claim.Value)
+                .ToArray());
         using (var tokenDocument = JsonDocument.Parse(json))
         {
             Assert.IsFalse(tokenDocument.RootElement.TryGetProperty("refreshToken", out _));
@@ -97,8 +114,18 @@ internal static class IdentityApiAssertions
         Assert.IsNotNull(currentUser);
         Assert.AreEqual("admin", currentUser.Username);
         Assert.AreEqual("系统管理员", currentUser.DisplayName);
+        Assert.AreEqual("host", currentUser.ActorScope);
         Assert.AreEqual("host", currentUser.Scope);
         Assert.IsNull(currentUser.TenantId);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "identity.navigation.read",
+                "platform.dashboard.read",
+                "tenancy.tenants.read",
+                "tenancy.tenants.switch",
+            },
+            currentUser.Permissions.ToArray());
 
         var refreshCookie = ExtractCookie(cookies, "__Host-fullnet-refresh");
         var csrfCookie = ExtractCookie(cookies, "fullnet-csrf");
