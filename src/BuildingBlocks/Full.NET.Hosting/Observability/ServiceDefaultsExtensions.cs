@@ -5,6 +5,7 @@ using Full.NET.Localization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenTelemetry;
@@ -49,6 +50,19 @@ public static class ServiceDefaultsExtensions
         builder.Services.AddExceptionHandler<FullNetExceptionHandler>();
         builder.Services.AddFullNetJson();
         builder.Services.AddFullNetLocalization();
+        builder.Services.TryAddSingleton<NamedMessageFormatter>();
+        builder.Services.TryAddSingleton<
+            IErrorMessageLocalizer,
+            ResourceErrorMessageLocalizer>();
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IErrorResourceSource,
+            CommonErrorResourceSource>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IErrorResourceSource,
+            AuthorizationErrorResourceSource>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IErrorResourceSource,
+            ValidationErrorResourceSource>());
         builder.Services.AddHealthChecks();
 
         var openTelemetry = builder.Services.AddOpenTelemetry()

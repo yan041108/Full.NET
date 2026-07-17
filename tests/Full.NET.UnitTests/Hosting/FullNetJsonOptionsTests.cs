@@ -23,6 +23,8 @@ public sealed class FullNetJsonOptionsTests
 
         Assert.AreEqual(JsonNamingPolicy.CamelCase, options.PropertyNamingPolicy);
         Assert.IsTrue(options.PropertyNameCaseInsensitive);
+        Assert.IsTrue(options.TypeInfoResolverChain.Contains(
+            HostingJsonSerializerContext.Default));
         Assert.AreEqual("{\"value\":\"ok\"}", json);
     }
 }

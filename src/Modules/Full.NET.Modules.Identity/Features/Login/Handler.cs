@@ -395,9 +395,9 @@ internal sealed class Handler(
 
     private static Result<LoginSessionResult> InvalidCredentials() =>
         Result<LoginSessionResult>.Failure(new Error(
-            "identity.invalid_credentials",
-            "The username or password is invalid.",
-            ErrorType.Unauthorized));
+            Code: IdentityErrorCodes.InvalidCredentials,
+            DefaultMessage: "The username or password is invalid.",
+            Type: ErrorType.Unauthorized));
 
     private static (IdentityUser User, string PasswordHash)
         CreateTimingDefenseCredential()

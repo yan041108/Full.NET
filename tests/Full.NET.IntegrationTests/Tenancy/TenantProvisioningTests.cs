@@ -6,6 +6,8 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
+using Full.NET.Hosting.Api;
+using Full.NET.Abstractions.Results;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
@@ -14,6 +16,7 @@ using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -223,6 +226,8 @@ public sealed class TenantProvisioningTests
             provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        // 该夹具只验证非 HTTP 事务切片；显式替身用于满足完整模块的授权结果映射依赖。
+        services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         services.AddFullNetModularity();
         services.AddFullNetDapper(configuration);
         services.AddFullNetMessagePack();
@@ -301,6 +306,15 @@ public sealed class TenantProvisioningTests
             TEvent payload,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(ExceptionMessage);
+    }
+
+    private sealed class NonHttpApiResultMapper : IApiResultMapper
+    {
+        public IResult Map<T>(Result<T> result, HttpContext httpContext) =>
+            throw new NotSupportedException("The non-HTTP integration fixture does not map API results.");
+
+        public IResult MapException(Exception exception, HttpContext httpContext) =>
+            throw new NotSupportedException("The non-HTTP integration fixture does not map API exceptions.");
     }
 
     private sealed class TestHostEnvironment : IHostEnvironment

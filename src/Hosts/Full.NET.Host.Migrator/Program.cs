@@ -46,8 +46,8 @@ try
                 "Full.NET Local",
                 "localhost"));
         if (!result.IsSuccess
-            && result.Error?.Code is not "tenancy.identifier-exists"
-            && result.Error?.Code is not "tenancy.domain-exists")
+            && result.Error?.Code is not TenancyErrorCodes.IdentifierExists
+            && result.Error?.Code is not TenancyErrorCodes.DomainExists)
         {
             throw new InvalidOperationException(
                 $"Local tenant seed failed: {result.Error?.Code} - {result.Error?.Message}");

@@ -55,7 +55,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
                 await WriteFailureAsync(
                         httpContext,
                         resultMapper,
-                        "tenancy.context_mismatch",
+                        TenancyErrorCodes.ContextMismatch,
                         "The authenticated context does not match the request host.",
                         ErrorType.Forbidden)
                     .ConfigureAwait(false);
@@ -84,7 +84,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
             await WriteFailureAsync(
                     httpContext,
                     resultMapper,
-                    "tenancy.host-not-found",
+                    TenancyErrorCodes.HostNotFound,
                     "No active tenant is configured for this host.",
                     ErrorType.NotFound)
                 .ConfigureAwait(false);
@@ -111,7 +111,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
             await WriteFailureAsync(
                     httpContext,
                     resultMapper,
-                    "tenancy.context_mismatch",
+                    TenancyErrorCodes.ContextMismatch,
                     "The authenticated tenant context is invalid.",
                     ErrorType.Forbidden)
                 .ConfigureAwait(false);
@@ -126,7 +126,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
             await WriteFailureAsync(
                     httpContext,
                     resultMapper,
-                    "tenancy.context_mismatch",
+                    TenancyErrorCodes.ContextMismatch,
                     "The authenticated tenant context is unavailable.",
                     ErrorType.Forbidden)
                 .ConfigureAwait(false);
@@ -147,7 +147,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
                 await WriteFailureAsync(
                         httpContext,
                         resultMapper,
-                        "tenancy.context_mismatch",
+                        TenancyErrorCodes.ContextMismatch,
                         "The authenticated context does not match the request host.",
                         ErrorType.Forbidden)
                     .ConfigureAwait(false);
@@ -202,7 +202,10 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
         ErrorType errorType) =>
         resultMapper
             .Map(
-                Result<object?>.Failure(new Error(code, message, errorType)),
+                Result<object?>.Failure(new Error(
+                    Code: code,
+                    DefaultMessage: message,
+                    Type: errorType)),
                 httpContext)
             .ExecuteAsync(httpContext);
 }

@@ -1,12 +1,22 @@
 using System.Diagnostics;
+using System.Globalization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Localization;
 using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.Compatibility.AdminNet;
 
-public sealed class AdminNetApiResultMapper : IApiResultMapper
+/// <summary>
+/// 在保持真实 HTTP 状态码的前提下映射 Admin.NET 兼容包络。
+/// </summary>
+/// <param name="localizer">与标准 API 共用的错误显示文本本地化器。</param>
+/// <param name="localeContext">当前请求已经规范化的语言上下文。</param>
+public sealed class AdminNetApiResultMapper(
+    IErrorMessageLocalizer localizer,
+    ILocaleContext localeContext) : IApiResultMapper
 {
+    /// <inheritdoc />
     public IResult Map<T>(Result<T> result, HttpContext httpContext)
     {
         var traceId = Activity.Current?.TraceId.ToString()
@@ -23,25 +33,33 @@ public sealed class AdminNetApiResultMapper : IApiResultMapper
                 statusCode: StatusCodes.Status200OK);
         }
 
-        var error = result.Error ?? new Error(
-            "common.unexpected",
-            "An unexpected error occurred.",
-            ErrorType.Unexpected);
+        var error = result.Error ?? UnexpectedError();
+        var locale = localeContext.CurrentLocale;
+        var localizedMessage = localizer.Localize(
+            error,
+            CultureInfo.GetCultureInfo(locale));
+        LocalizationHttpHeaders.Apply(
+            httpContext.Response,
+            locale,
+            varyByAcceptLanguage: true);
         return Results.Json(
             new AdminNetEnvelope<T>(
                 false,
                 error.Code,
-                error.Message,
+                localizedMessage,
                 default,
                 traceId),
             statusCode: StandardApiResultMapper.ToStatusCode(error.Type));
     }
 
+    /// <inheritdoc />
     public IResult MapException(Exception exception, HttpContext httpContext) =>
         Map(
-            Result<object?>.Failure(new Error(
-                "common.unexpected",
-                "An unexpected error occurred.",
-                ErrorType.Unexpected)),
+            Result<object?>.Failure(UnexpectedError()),
             httpContext);
+
+    private static Error UnexpectedError() => new(
+        Code: CommonErrorCodes.Unexpected,
+        DefaultMessage: "An unexpected error occurred.",
+        Type: ErrorType.Unexpected);
 }

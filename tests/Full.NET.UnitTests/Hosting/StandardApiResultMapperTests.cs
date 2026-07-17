@@ -1,5 +1,7 @@
+using System.Resources;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Localization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,10 +24,13 @@ public sealed class StandardApiResultMapperTests
         int expectedStatus)
     {
         var context = new DefaultHttpContext();
-        var mapper = new StandardApiResultMapper();
+        var mapper = CreateMapper();
 
         var mapped = mapper.Map(
-            Result<string>.Failure(new Error("test.error", "Test error.", errorType)),
+            Result<string>.Failure(new Error(
+                Code: "test.error",
+                DefaultMessage: "Test error.",
+                Type: errorType)),
             context);
 
         Assert.AreEqual(expectedStatus, ((IStatusCodeHttpResult)mapped).StatusCode);
@@ -38,19 +43,20 @@ public sealed class StandardApiResultMapperTests
     [TestMethod]
     public void Success_maps_to_status_200_and_raw_value()
     {
-        var mapped = new StandardApiResultMapper().Map(
-            Result<string>.Success("ok"),
-            new DefaultHttpContext());
+        var context = new DefaultHttpContext();
+        var mapped = CreateMapper().Map(Result<string>.Success("ok"), context);
 
         Assert.AreEqual(StatusCodes.Status200OK, ((IStatusCodeHttpResult)mapped).StatusCode);
         Assert.AreEqual("ok", ((IValueHttpResult)mapped).Value);
+        Assert.IsFalse(context.Response.Headers.ContainsKey("Content-Language"));
+        Assert.IsFalse(context.Response.Headers.ContainsKey("Vary"));
     }
 
     [TestMethod]
     public void Exception_maps_to_sanitized_500()
     {
         var context = new DefaultHttpContext();
-        var mapped = new StandardApiResultMapper().MapException(
+        var mapped = CreateMapper().MapException(
             new InvalidOperationException("sensitive"),
             context);
 
@@ -59,10 +65,67 @@ public sealed class StandardApiResultMapperTests
             ((IStatusCodeHttpResult)mapped).StatusCode);
         var problem = (ProblemDetails?)((IValueHttpResult)mapped).Value;
         Assert.IsNotNull(problem);
-        Assert.AreEqual("common.unexpected", problem.Extensions["code"]);
+        Assert.AreEqual(CommonErrorCodes.Unexpected, problem.Extensions["code"]);
         Assert.DoesNotContain(
             "sensitive",
             problem.Title ?? string.Empty,
             StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public void Validation_failure_exposes_structured_violations_and_language_headers()
+    {
+        var context = new DefaultHttpContext();
+        var mapped = CreateMapper().Map(
+            Result<string>.Failure(new Error(
+                Code: ValidationErrorCodes.Failed,
+                DefaultMessage: "One or more validation errors occurred.",
+                Type: ErrorType.Validation,
+                ValidationErrors: new Dictionary<string, string[]>
+                {
+                    ["Username"] = ["Username is required."],
+                },
+                ValidationViolations:
+                [
+                    new ValidationViolation(
+                        "Username",
+                        ValidationErrorCodes.Required,
+                        new Dictionary<string, object?>()),
+                ])),
+            context);
+
+        var problem = (ProblemDetails?)((IValueHttpResult)mapped).Value;
+        Assert.IsNotNull(problem);
+        Assert.IsTrue(problem.Extensions.ContainsKey("violations"));
+        var errors = (IReadOnlyDictionary<string, string[]>)problem.Extensions["errors"]!;
+        CollectionAssert.AreEqual(new[] { "该字段为必填项。" }, errors["Username"]);
+        Assert.AreEqual("zh-CN", context.Response.Headers.ContentLanguage.ToString());
+        StringAssert.Contains(
+            context.Response.Headers.Vary.ToString(),
+            "Accept-Language",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static StandardApiResultMapper CreateMapper(string locale = "zh-CN")
+    {
+        var resources = new ResourceManager(
+            "Full.NET.Hosting.Resources.CommonErrors",
+            typeof(StandardApiResultMapper).Assembly);
+        IErrorResourceSource[] sources =
+        [
+            new ResourceManagerErrorResourceSource(CommonErrorCodes.Prefix, resources),
+            new ResourceManagerErrorResourceSource(
+                CommonErrorCodes.AuthorizationPrefix,
+                resources),
+            new ResourceManagerErrorResourceSource(ValidationErrorCodes.Prefix, resources),
+        ];
+        return new StandardApiResultMapper(
+            new ResourceErrorMessageLocalizer(sources, new NamedMessageFormatter()),
+            new StubLocaleContext(locale));
+    }
+
+    private sealed class StubLocaleContext(string locale) : ILocaleContext
+    {
+        public string CurrentLocale => locale;
     }
 }

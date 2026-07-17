@@ -1,0 +1,67 @@
+using System.Globalization;
+using System.Resources;
+using Full.NET.Abstractions.Results;
+using Full.NET.Hosting.Api;
+using Full.NET.Modules.Identity;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.Tenancy.Contracts;
+
+namespace Full.NET.UnitTests.Localization;
+
+[TestClass]
+public sealed class ErrorResourceCompletenessTests
+{
+    private static readonly CultureInfo[] RequiredCultures =
+    [
+        CultureInfo.GetCultureInfo("zh-CN"),
+        CultureInfo.GetCultureInfo("en-US"),
+    ];
+
+    [TestMethod]
+    public void Common_and_validation_error_codes_have_all_required_resources()
+    {
+        var manager = new ResourceManager(
+            "Full.NET.Hosting.Resources.CommonErrors",
+            typeof(StandardApiResultMapper).Assembly);
+
+        AssertResources(
+            manager,
+            CommonErrorCodes.All.Concat(ValidationErrorCodes.All));
+    }
+
+    [TestMethod]
+    public void Identity_error_codes_have_all_required_resources()
+    {
+        var manager = new ResourceManager(
+            "Full.NET.Modules.Identity.Resources.IdentityErrors",
+            typeof(IdentityModule).Assembly);
+
+        AssertResources(manager, IdentityErrorCodes.All);
+    }
+
+    [TestMethod]
+    public void Tenancy_error_codes_have_all_required_resources()
+    {
+        var manager = new ResourceManager(
+            "Full.NET.Modules.Tenancy.Resources.TenancyErrors",
+            typeof(TenancyModule).Assembly);
+
+        AssertResources(manager, TenancyErrorCodes.All);
+    }
+
+    private static void AssertResources(
+        ResourceManager manager,
+        IEnumerable<string> codes)
+    {
+        foreach (var culture in RequiredCultures)
+        {
+            foreach (var code in codes)
+            {
+                Assert.IsFalse(
+                    string.IsNullOrWhiteSpace(manager.GetString(code, culture)),
+                    $"资源 {manager.BaseName} 缺少 {culture.Name}/{code}。");
+            }
+        }
+    }
+}

@@ -36,7 +36,7 @@ internal sealed class Handler(
         if (identifierMatchCount > 0)
         {
             return Conflict(
-                "tenancy.identifier-exists",
+                TenancyErrorCodes.IdentifierExists,
                 "A tenant with this identifier already exists.");
         }
 
@@ -49,7 +49,7 @@ internal sealed class Handler(
         if (domainMatchCount > 0)
         {
             return Conflict(
-                "tenancy.domain-exists",
+                TenancyErrorCodes.DomainExists,
                 "A tenant with this domain already exists.");
         }
 
@@ -91,7 +91,7 @@ internal sealed class Handler(
 
     private static Result<TenantSummary> Conflict(string code, string message) =>
         Result<TenantSummary>.Failure(new Error(
-            code,
-            message,
-            ErrorType.Conflict));
+            Code: code,
+            DefaultMessage: message,
+            Type: ErrorType.Conflict));
 }

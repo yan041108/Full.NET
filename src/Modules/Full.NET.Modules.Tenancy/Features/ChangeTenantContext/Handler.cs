@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
 
 namespace Full.NET.Modules.Tenancy.Features.ChangeTenantContext;
@@ -24,9 +25,9 @@ internal sealed class Handler(
             if (tenant is not { IsActive: true })
             {
                 return Result<TenantContextTokenResponse>.Failure(new Error(
-                    "tenancy.context_not_found",
-                    "The requested tenant context was not found.",
-                    ErrorType.NotFound));
+                    Code: TenancyErrorCodes.ContextNotFound,
+                    DefaultMessage: "The requested tenant context was not found.",
+                    Type: ErrorType.NotFound));
             }
 
             verifiedTenant = new VerifiedTenantContext(

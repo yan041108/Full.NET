@@ -25,12 +25,12 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 
 | 范围 | 当前状态 | 已完成 | 尚未完成 |
 |---|---|---|---|
-| C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单、全仓库语言治理清单 | OpenAPI 漂移、分页/文件契约、服务端资源本地化、uni-app 与 Dart 适配 |
+| C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单、全仓库语言治理清单、服务端资源本地化 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
 | C1 双管理端壳层 | Implemented | Vue/Element Plus、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、管理壳层 `zh-CN/en-US` 自有文案、WCAG 2.2 A/AA、键盘/焦点、320 CSS px 重排、减弱动画与同场景双端 E2E | Element Plus/Day.js 与 Layui 组件语言、Accept-Language、账号偏好、Windows Edge + NVDA、200% 缩放与强制颜色人工验收 |
 | C2 业务模块 | Mapped | 功能波次和双端同步门禁 | 首个 Identity/Tenancy/Organization 纵向切片 |
 | C3/C4 业务客户端 | Designing | 技术路线、平台边界和多语言统一设计 | uni-app、Flutter 工程、原生资源与平台构建验证 |
 
-“C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的真实认证、租户、权限、管理壳层自有文案国际化与自动可访问性流程已经通过双端验证；组件库语言、服务端本地化、真实辅助技术、200% 缩放和强制颜色仍待完成，因此保持 `Implemented`，不提前标记为 `Verified`。
+“C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的真实认证、租户、权限、管理壳层自有文案国际化、服务端错误本地化与自动可访问性流程已经通过验证；组件库语言、真实辅助技术、200% 缩放和强制颜色仍待完成，因此保持 `Implemented`，不提前标记为 `Verified`。
 
 ### 横向多语言状态
 
@@ -39,7 +39,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | 阶段 | 当前状态 | 交付 |
 |---|---|---|
 | L0 统一语言治理 | Implemented | 已实现 BCP 47 清单、平台映射、术语、资源 Schema 与缺键门禁 |
-| L1 ASP.NET Core | Implementing | 已实现 Accept-Language、规范别名、CultureScope 与响应头辅助；待完成 IStringLocalizer/.resx、本地化 ProblemDetails 和结构化 violations |
+| L1 ASP.NET Core | Implemented | 已实现 Accept-Language、规范别名、CultureScope、模块 .resx、响应头、本地化 ProblemDetails、结构化 violations 与 Admin.NET 兼容映射 |
 | L2 双管理端补齐 | Designing | Element Plus/Day.js、Layui i18n、请求 Header、账号/租户偏好 |
 | L3 uni-app | Designing | Vue I18n、zh-CN↔zh-Hans 映射、pages/manifest、H5/微信/支付宝构建 |
 | L4 Flutter | Designing | gen_l10n/ARB、请求语言、平台资源、移动/桌面构建 |

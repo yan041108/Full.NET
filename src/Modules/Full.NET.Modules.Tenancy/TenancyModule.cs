@@ -9,6 +9,8 @@ using Full.NET.Modules.Tenancy.Features.GetCurrentTenant;
 using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 using Full.NET.Modules.Tenancy.Persistence;
 using Full.NET.Modules.Tenancy.Serialization;
+using Full.NET.Modules.Tenancy.Resources;
+using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Validation.FluentValidation;
@@ -34,6 +36,9 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             TenancyAuthorizationContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IErrorResourceSource,
+            TenancyErrorResourceSource>());
         services.AddOptions<TenancyOptions>()
             .Bind(configuration.GetSection(TenancyOptions.SectionName));
         services.AddFullNetFluentValidation();

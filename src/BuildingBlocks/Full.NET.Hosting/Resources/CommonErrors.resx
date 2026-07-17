@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="common.unexpected" xml:space="preserve"><value>发生了未预期的错误。</value></data>
+  <data name="authorization.permission_denied" xml:space="preserve"><value>当前身份没有所需权限。</value></data>
+  <data name="validation.failed" xml:space="preserve"><value>一个或多个字段验证失败。</value></data>
+  <data name="validation.required" xml:space="preserve"><value>该字段为必填项。</value></data>
+  <data name="validation.maximum_length" xml:space="preserve"><value>长度不能超过 {MaxLength} 个字符。</value></data>
+  <data name="validation.invalid_format" xml:space="preserve"><value>字段格式无效。</value></data>
+</root>

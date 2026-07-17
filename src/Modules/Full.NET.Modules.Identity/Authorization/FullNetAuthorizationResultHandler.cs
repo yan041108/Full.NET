@@ -1,10 +1,12 @@
+using Full.NET.Abstractions.Results;
+using Full.NET.Hosting.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.Modules.Identity.Authorization;
 
-internal sealed class FullNetAuthorizationResultHandler
+internal sealed class FullNetAuthorizationResultHandler(IApiResultMapper resultMapper)
     : IAuthorizationMiddlewareResultHandler
 {
     private readonly AuthorizationMiddlewareResultHandler _fallback = new();
@@ -20,15 +22,13 @@ internal sealed class FullNetAuthorizationResultHandler
             return _fallback.HandleAsync(next, context, policy, authorizeResult);
         }
 
-        return Results.Problem(
-                statusCode: StatusCodes.Status403Forbidden,
-                title: "Forbidden",
-                detail: "The current identity does not have the required permission.",
-                extensions: new Dictionary<string, object?>
-                {
-                    ["code"] = "authorization.permission_denied",
-                    ["traceId"] = context.TraceIdentifier,
-                })
+        return resultMapper.Map(
+                Result<object?>.Failure(new Error(
+                    Code: CommonErrorCodes.PermissionDenied,
+                    DefaultMessage:
+                        "The current identity does not have the required permission.",
+                    Type: ErrorType.Forbidden)),
+                context)
             .ExecuteAsync(context);
     }
 }

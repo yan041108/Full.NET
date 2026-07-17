@@ -12,6 +12,9 @@ public static class FullNetJsonOptionsExtensions
             options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
             options.SerializerOptions.PropertyNameCaseInsensitive = true;
+            options.SerializerOptions.TypeInfoResolverChain.Insert(
+                0,
+                HostingJsonSerializerContext.Default);
         });
 
         return services;

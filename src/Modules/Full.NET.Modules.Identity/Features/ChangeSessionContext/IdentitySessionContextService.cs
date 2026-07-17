@@ -37,7 +37,7 @@ internal sealed class IdentitySessionContextService(
                 StringComparison.Ordinal))
         {
             return Failure(
-                "identity.invalid_actor_scope",
+                IdentityErrorCodes.InvalidActorScope,
                 "The current identity cannot switch tenant context.",
                 ErrorType.Forbidden);
         }
@@ -51,7 +51,7 @@ internal sealed class IdentitySessionContextService(
         if (!hasPermission)
         {
             return Failure(
-                "authorization.permission_denied",
+                CommonErrorCodes.PermissionDenied,
                 "The current identity does not have the required permission.",
                 ErrorType.Forbidden);
         }
@@ -82,7 +82,7 @@ internal sealed class IdentitySessionContextService(
             }
 
             return Failure(
-                "identity.session_context_conflict",
+                IdentityErrorCodes.SessionContextConflict,
                 "The session context changed concurrently.",
                 ErrorType.Conflict);
         }
@@ -194,7 +194,7 @@ internal sealed class IdentitySessionContextService(
 
     private static Result<TenantContextTokenResponse> SessionNotActive() =>
         Failure(
-            "identity.session_not_active",
+            IdentityErrorCodes.SessionNotActive,
             "The current session is no longer active.",
             ErrorType.Unauthorized);
 
@@ -202,7 +202,10 @@ internal sealed class IdentitySessionContextService(
         string code,
         string message,
         ErrorType type) =>
-        Result<TenantContextTokenResponse>.Failure(new Error(code, message, type));
+        Result<TenantContextTokenResponse>.Failure(new Error(
+            Code: code,
+            DefaultMessage: message,
+            Type: type));
 }
 
 internal sealed record RefreshSessionContextUpdate(

@@ -71,8 +71,8 @@ internal sealed class FullNetApiFactory(
                             "acme.localhost"),
                         cancellationToken);
                 if (!result.IsSuccess
-                    && result.Error?.Code is not "tenancy.identifier-exists"
-                    && result.Error?.Code is not "tenancy.domain-exists")
+                    && result.Error?.Code is not TenancyErrorCodes.IdentifierExists
+                    && result.Error?.Code is not TenancyErrorCodes.DomainExists)
                 {
                     throw new InvalidOperationException(
                         $"Test tenant provisioning failed: {result.Error?.Code} - "
@@ -115,6 +115,11 @@ internal sealed class FullNetApiFactory(
         });
         client.DefaultRequestHeaders.Host = host;
         return client;
+    }
+
+    public FullNetApiFactory CreateIsolatedFactory()
+    {
+        return new FullNetApiFactory(provider, connectionString);
     }
 
     public string CreateHostAccessToken(

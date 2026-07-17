@@ -16,8 +16,8 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 144
-dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 4
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 153
+dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 9
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 8 --timeout 10m
 ```
@@ -68,7 +68,7 @@ pnpm --filter @fullnet/admin-layui dev
 
 ### 2.2 多语言当前边界与后续契约
 
-当前已实现 Vue/Layui 管理壳层的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题和双端 E2E；服务端已建立仅接受 `Accept-Language` 的 `RequestLocalization`、规范别名映射、异步 CultureScope 与按需响应头辅助能力。Element Plus/Day.js、Layui 组件内置文案、本地化 ProblemDetails、账号/租户语言偏好、uni-app 与 Flutter 仍属于后续开发计划，不得在交付说明中提前标记为已支持。
+当前已实现 Vue/Layui 管理壳层的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题和双端 E2E；服务端已建立仅接受 `Accept-Language` 的 `RequestLocalization`、规范别名映射、异步 CultureScope、本地化 ProblemDetails、模块错误资源与响应头能力。标准错误的 `status/code/traceId/violations` 不随语言变化，`title` 与兼容适配器的 `message` 在响应边界按协商语言解析；翻译缺失时回退到 `zh-CN` 并记录低基数指标。Element Plus/Day.js、Layui 组件内置文案、账号/租户语言偏好、uni-app 与 Flutter 仍属于后续开发计划，不得在交付说明中提前标记为已支持。
 
 全栈方案统一使用 BCP 47 的 `zh-CN` 和 `en-US`；uni-app 内部的 `zh-Hans` 与 Flutter ARB 的 `zh_CN` 只在各自适配层出现。HTTP 业务逻辑始终依赖稳定 `status/code/traceId`，不比较本地化 `title/detail`。日期按 UTC/ISO 传输，语言和时区分别处理；通知、报表、Realtime 服务端文本与 AI 输出必须显式指定接收者语言。
 
@@ -171,7 +171,7 @@ FusionCache 是唯一缓存实现，业务代码可以依赖 `IFusionCache`，�
 
 ## 6. HTTP、JSON 与 Admin.NET 兼容
 
-默认公共 API 使用真实 HTTP 状态码：成功返回直接 DTO；失败返回 RFC ProblemDetails，并在扩展字段中携带稳定错误 `code` 和 `traceId`。默认不会把所有结果包成 `success/data/code`。
+默认公共 API 使用真实 HTTP 状态码：成功返回直接 DTO；失败返回 RFC ProblemDetails，并在扩展字段中携带稳定错误 `code`、`traceId` 与结构化 `violations`。`title` 和兼容 `errors` 在响应边界本地化，调用方必须依据机器字段处理分支；默认不会把所有结果包成 `success/data/code`。
 
 每个模块应为自己的 HTTP DTO 提供 System.Text.Json `JsonSerializerContext`，并把生成的 context 插入 `TypeInfoResolverChain`。不要在请求热路径创建新的 `JsonSerializerOptions`，也不要引入 Newtonsoft.Json。
 

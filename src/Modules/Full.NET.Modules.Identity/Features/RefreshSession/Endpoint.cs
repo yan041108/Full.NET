@@ -28,9 +28,9 @@ internal static class Endpoint
             {
                 return mapper.Map(
                     Result<TokenResponse>.Failure(new Error(
-                        "identity.csrf_validation_failed",
-                        "CSRF validation failed.",
-                        ErrorType.Forbidden)),
+                        Code: IdentityErrorCodes.CsrfValidationFailed,
+                        DefaultMessage: "CSRF validation failed.",
+                        Type: ErrorType.Forbidden)),
                     httpContext);
             }
 
@@ -38,9 +38,9 @@ internal static class Endpoint
             {
                 return mapper.Map(
                     Result<TokenResponse>.Failure(new Error(
-                        "identity.invalid_refresh_token",
-                        "The refresh token is invalid or expired.",
-                        ErrorType.Unauthorized)),
+                        Code: IdentityErrorCodes.InvalidRefreshToken,
+                        DefaultMessage: "The refresh token is invalid or expired.",
+                        Type: ErrorType.Unauthorized)),
                     httpContext);
             }
 

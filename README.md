@@ -6,7 +6,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 
 ## M0–M1 基础与 M2 首批能力已实现
 
-- 标准 HTTP 状态码与 ProblemDetails；Admin.NET 响应信封为显式可选适配器。
+- 标准 HTTP 状态码与 `zh-CN/en-US` 本地化 ProblemDetails，机器字段和结构化校验违规保持稳定；Admin.NET 响应信封为显式可选适配器。
 - 显式模块注册、CQRS 分发、租户上下文和基于域名的租户解析。
 - 传输无关的 Command/Query 行为管道；FluentValidation 显式注册、统一 `validation.failed` 错误，并在事务开启前短路无效命令。
 - Dapper-first 数据访问、SQL 作用域保护和事务边界，不引入 EF Core。
@@ -14,7 +14,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - MessagePack 二进制 Outbox、租约式至少一次消费、schema 版本路由和指数退避。
 - FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`。
 - System.Text.Json 源生成 HTTP 合约、Serilog 有界异步日志、OpenTelemetry 和健康检查。
-- ASP.NET Core `Accept-Language` 请求协商、`zh-CN/en-US` 规范化、异步 CultureScope 与本地化响应头辅助能力。
+- ASP.NET Core `Accept-Language` 请求协商、`zh-CN/en-US` 规范化、异步 CultureScope、模块错误资源和本地化响应头能力。
 - Identity 安全会话与授权上下文底座：强密码引导、RSA JWT、登录锁定、Refresh Token 轮换/重用撤销、CSRF、CORS、审计、最小 RBAC、可信租户切换和权限导航。
 - API、Worker、Migrator 与 .NET Aspire AppHost 的完整本地编排。
 
@@ -30,8 +30,8 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 144
-dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 4
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 153
+dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 9
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 8 --timeout 10m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
@@ -62,7 +62,7 @@ pnpm test:e2e
 - `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端；
 - .NET MAUI：仅在真实 C#/Windows 企业需求命中决策门禁后提供可选模板。
 
-Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新轮换、退出、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、标准错误展示与同场景双端 E2E 已经实现。两端当前共享 `zh-CN/en-US` 管理壳层纯文本国际化契约，并通过无 axe 排除项的 WCAG 2.2 A/AA、键盘焦点、320 CSS px 重排和减弱动画自动验收；这不代表 Element Plus/Layui 组件、ASP.NET Core 错误、uni-app、Flutter、通知或业务内容已经完成全栈多语言。动态导航只能映射到各客户端本地精确白名单；除语言偏好外，令牌和租户授权状态不写入 Web Storage。Windows Edge + NVDA 和强制颜色模式仍待人工验证，因此 C1 保持 `Implemented`；后台业务 CRUD 继续按 C2 路线交付。uni-app、Flutter 与可选 MAUI 目前仅处于规划阶段。详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)、[全栈多语言设计](docs/superpowers/specs/2026-07-17-full-stack-localization-design.md)和[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
+Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新轮换、退出、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、标准错误展示与同场景双端 E2E 已经实现。两端当前共享 `zh-CN/en-US` 管理壳层纯文本国际化契约，服务端 ProblemDetails 与 Admin.NET 兼容适配器也已按协商语言返回本地化错误标题；稳定 `status/code/traceId/violations` 不随语言变化。现有自动验收还覆盖无 axe 排除项的 WCAG 2.2 A/AA、键盘焦点、320 CSS px 重排和减弱动画；这不代表 Element Plus/Layui 组件、uni-app、Flutter、通知或业务内容已经完成全栈多语言。动态导航只能映射到各客户端本地精确白名单；除语言偏好外，令牌和租户授权状态不写入 Web Storage。Windows Edge + NVDA 和强制颜色模式仍待人工验证，因此 C1 保持 `Implemented`；后台业务 CRUD 继续按 C2 路线交付。uni-app、Flutter 与可选 MAUI 目前仅处于规划阶段。详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)、[全栈多语言设计](docs/superpowers/specs/2026-07-17-full-stack-localization-design.md)和[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
 
 ## 当前边界
 

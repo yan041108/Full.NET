@@ -21,6 +21,14 @@ internal static class IdentityApiAssertions
         Assert.AreEqual(1L, authorization.AssignmentCount);
         using var client = factory.CreateClientForHost("localhost");
 
+        using (var localizationFactory = factory.CreateIsolatedFactory())
+        using (var localizationClient = localizationFactory.CreateClientForHost("localhost"))
+        {
+            await LocalizedProblemDetailsTests.VerifyAsync(
+                localizationClient,
+                cancellationToken);
+        }
+
         using (var preflightRequest = new HttpRequestMessage(
             HttpMethod.Options,
             "/api/v1/auth/login"))

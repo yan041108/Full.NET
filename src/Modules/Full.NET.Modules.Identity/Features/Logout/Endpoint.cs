@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Builder;
@@ -26,9 +27,9 @@ internal static class Endpoint
             {
                 return mapper.Map(
                     Result<LogoutResult>.Failure(new Error(
-                        "identity.csrf_validation_failed",
-                        "CSRF validation failed.",
-                        ErrorType.Forbidden)),
+                        Code: IdentityErrorCodes.CsrfValidationFailed,
+                        DefaultMessage: "CSRF validation failed.",
+                        Type: ErrorType.Forbidden)),
                     httpContext);
             }
 

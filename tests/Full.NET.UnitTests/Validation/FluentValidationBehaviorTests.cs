@@ -25,7 +25,7 @@ public sealed class FluentValidationBehaviorTests
     }
 
     [TestMethod]
-    public async Task Validation_failure_returns_error_and_skips_handler()
+    public async Task Validation_failure_returns_structured_error_and_skips_handler()
     {
         var handler = new RecordingHandler();
         await using var provider = CreateServices(handler)
@@ -38,16 +38,43 @@ public sealed class FluentValidationBehaviorTests
         Assert.IsFalse(result.IsSuccess);
         var error = result.Error;
         Assert.IsNotNull(error);
-        Assert.AreEqual("validation.failed", error.Code);
+        Assert.AreEqual(ValidationErrorCodes.Failed, error.Code);
         Assert.AreEqual(
             "One or more validation errors occurred.",
-            error.Message);
+            error.DefaultMessage);
         Assert.AreEqual(ErrorType.Validation, error.Type);
         Assert.IsNotNull(error.ValidationErrors);
         CollectionAssert.AreEqual(
             new[] { "Value is required." },
             error.ValidationErrors[nameof(TestCommand.Value)]);
+        Assert.IsNotNull(error.ValidationViolations);
+        Assert.HasCount(1, error.ValidationViolations);
+        Assert.AreEqual(
+            nameof(TestCommand.Value),
+            error.ValidationViolations[0].Field);
+        Assert.AreEqual(
+            ValidationErrorCodes.Required,
+            error.ValidationViolations[0].Code);
+        Assert.HasCount(0, error.ValidationViolations[0].Arguments);
         Assert.IsFalse(handler.Executed);
+    }
+
+    [TestMethod]
+    public async Task Allowed_length_argument_is_exposed_without_validated_value()
+    {
+        var handler = new RecordingHandler();
+        await using var provider = CreateServices(handler)
+            .AddSingleton<IValidator<TestCommand>>(new MaximumLengthValidator())
+            .BuildServiceProvider();
+
+        var result = await provider.GetRequiredService<ICommandDispatcher>()
+            .SendAsync<TestCommand, string>(new TestCommand("toolong"));
+
+        var violation = result.Error?.ValidationViolations?.Single();
+        Assert.IsNotNull(violation);
+        Assert.AreEqual(ValidationErrorCodes.MaximumLength, violation.Code);
+        Assert.AreEqual(3, violation.Arguments["MaxLength"]);
+        Assert.IsFalse(violation.Arguments.ContainsKey("PropertyValue"));
     }
 
     [TestMethod]
@@ -68,6 +95,9 @@ public sealed class FluentValidationBehaviorTests
         CollectionAssert.AreEqual(
             new[] { "Value is required.", "Value has an invalid format." },
             validationErrors[nameof(TestCommand.Value)]);
+        var violations = result.Error?.ValidationViolations;
+        Assert.IsNotNull(violations);
+        Assert.HasCount(2, violations);
         Assert.IsFalse(handler.Executed);
     }
 
@@ -115,7 +145,19 @@ public sealed class FluentValidationBehaviorTests
         {
             RuleFor(command => command.Value)
                 .NotEmpty()
+                .WithErrorCode(ValidationErrorCodes.Required)
                 .WithMessage("Value is required.");
+        }
+    }
+
+    private sealed class MaximumLengthValidator : AbstractValidator<TestCommand>
+    {
+        public MaximumLengthValidator()
+        {
+            RuleFor(command => command.Value)
+                .MaximumLength(3)
+                .WithErrorCode(ValidationErrorCodes.MaximumLength)
+                .WithMessage("Value must not exceed {MaxLength} characters.");
         }
     }
 
@@ -125,9 +167,11 @@ public sealed class FluentValidationBehaviorTests
         {
             RuleFor(command => command.Value)
                 .NotEmpty()
+                .WithErrorCode(ValidationErrorCodes.Required)
                 .WithMessage("Value is required.");
             RuleFor(command => command.Value)
                 .Must(_ => false)
+                .WithErrorCode(ValidationErrorCodes.InvalidFormat)
                 .WithMessage("Value has an invalid format.");
         }
     }

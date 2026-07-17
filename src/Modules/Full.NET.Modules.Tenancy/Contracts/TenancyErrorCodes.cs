@@ -1,0 +1,43 @@
+namespace Full.NET.Modules.Tenancy.Contracts;
+
+/// <summary>
+/// 定义 Tenancy 模块对外返回的稳定错误码。
+/// </summary>
+public static class TenancyErrorCodes
+{
+    /// <summary>
+    /// Tenancy 错误码前缀。
+    /// </summary>
+    public const string Prefix = "tenancy.";
+
+    /// <summary>已认证租户上下文与请求主机不匹配。</summary>
+    public const string ContextMismatch = "tenancy.context_mismatch";
+
+    /// <summary>请求切换到的租户上下文不存在。</summary>
+    public const string ContextNotFound = "tenancy.context_not_found";
+
+    /// <summary>租户域名已被占用。</summary>
+    public const string DomainExists = "tenancy.domain-exists";
+
+    /// <summary>请求主机没有对应的活动租户。</summary>
+    public const string HostNotFound = "tenancy.host-not-found";
+
+    /// <summary>租户标识已被占用。</summary>
+    public const string IdentifierExists = "tenancy.identifier-exists";
+
+    /// <summary>当前租户不存在。</summary>
+    public const string NotFound = "tenancy.not-found";
+
+    /// <summary>
+    /// 获取当前目录中的全部稳定错误码。
+    /// </summary>
+    public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
+    [
+        ContextMismatch,
+        ContextNotFound,
+        DomainExists,
+        HostNotFound,
+        IdentifierExists,
+        NotFound,
+    ]);
+}

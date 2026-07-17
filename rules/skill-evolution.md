@@ -96,7 +96,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-realtime-feature` | 等待真实实现 / 0 | 只有 SignalR、MessagePack Hub、Redis Backplane 设计 | 首个 `IRealtimePublisher` 消费者验收后评估 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 3 | Identity 会话、租户切换、权限导航以及 `zh-CN/en-US` 国际化与可访问性基线已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |
-| `fullnet-localization-delivery` | 候选 / 1 | L0 语言目录、术语与 Schema 门禁已落地；L1 已实现 ASP.NET Core Accept-Language 别名/q 值协商、CultureScope 和响应头边界，资源与 ProblemDetails 尚待完成 | L1-L2 完成且第二个业务模块交付本地化资源或双库可翻译业务数据后评估 |
+| `fullnet-localization-delivery` | 候选 / 2 | L0 语言目录、术语与 Schema 门禁已落地；L1 已实现 ASP.NET Core Accept-Language 协商、CultureScope、Identity/Tenancy 模块资源、本地化 ProblemDetails、结构化 violations 与兼容适配器 | L2 落地双库可翻译业务数据，或下一个独立业务模块交付本地化资源时评估升级 |
 | `fullnet-seed-data-delivery` | 等待真实实现 / 0 | 已形成生产 Baseline、Development/Demo/Test Overlay、双库锁/审计和场景 Test Factory 分层设计，当前仍是 Migrator 硬编码 `--seed-local` | S0-S2 落地且第二个真实业务模块贡献双库幂等 Seed 后评估 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。

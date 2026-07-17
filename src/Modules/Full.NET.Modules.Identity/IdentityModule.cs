@@ -12,6 +12,8 @@ using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Serialization;
+using Full.NET.Modules.Identity.Resources;
+using Full.NET.Hosting.Api;
 using Full.NET.Validation.FluentValidation;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -52,6 +54,9 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             IdentityAuthorizationContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IErrorResourceSource,
+            IdentityErrorResourceSource>());
         services.TryAddSingleton(provider => AuthorizationCatalog.Create(
             provider.GetServices<IAuthorizationCatalogContributor>()));
         services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();

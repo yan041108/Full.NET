@@ -21,9 +21,9 @@ internal sealed class Handler(IQueryExecutor queryExecutor)
 
         return tenant is null
             ? Result<TenantSummary>.Failure(new Error(
-                "tenancy.not-found",
-                "The current tenant was not found.",
-                ErrorType.NotFound))
+                Code: TenancyErrorCodes.NotFound,
+                DefaultMessage: "The current tenant was not found.",
+                Type: ErrorType.NotFound))
             : Result<TenantSummary>.Success(tenant);
     }
 }

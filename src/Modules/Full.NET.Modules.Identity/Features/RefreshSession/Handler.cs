@@ -167,9 +167,9 @@ internal sealed class Handler(
             command,
             cancellationToken).ConfigureAwait(false);
         return Result<RefreshSessionResult>.Failure(new Error(
-            "identity.refresh_token_reuse_detected",
-            "Refresh token reuse was detected and the session was revoked.",
-            ErrorType.Unauthorized));
+            Code: IdentityErrorCodes.RefreshTokenReuseDetected,
+            DefaultMessage: "Refresh token reuse was detected and the session was revoked.",
+            Type: ErrorType.Unauthorized));
     }
 
     private Task<RefreshSessionRecord?> FindAsync(
@@ -282,7 +282,7 @@ internal sealed class Handler(
 
     private static Result<RefreshSessionResult> InvalidRefreshToken() =>
         Result<RefreshSessionResult>.Failure(new Error(
-            "identity.invalid_refresh_token",
-            "The refresh token is invalid or expired.",
-            ErrorType.Unauthorized));
+            Code: IdentityErrorCodes.InvalidRefreshToken,
+            DefaultMessage: "The refresh token is invalid or expired.",
+            Type: ErrorType.Unauthorized));
 }

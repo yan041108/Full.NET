@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="identity.bootstrap.invalid-password" xml:space="preserve"><value>初始化管理员密码不符合密码策略。</value></data>
+  <data name="identity.bootstrap.invalid-profile" xml:space="preserve"><value>初始化管理员用户名或显示名称无效。</value></data>
+  <data name="identity.csrf_validation_failed" xml:space="preserve"><value>CSRF 校验失败。</value></data>
+  <data name="identity.invalid_actor_scope" xml:space="preserve"><value>当前身份不能切换租户上下文。</value></data>
+  <data name="identity.invalid_credentials" xml:space="preserve"><value>用户名或密码无效。</value></data>
+  <data name="identity.invalid_refresh_token" xml:space="preserve"><value>刷新令牌无效或已过期。</value></data>
+  <data name="identity.origin_not_allowed" xml:space="preserve"><value>不允许当前请求来源。</value></data>
+  <data name="identity.refresh_token_reuse_detected" xml:space="preserve"><value>检测到刷新令牌被重复使用，当前会话已撤销。</value></data>
+  <data name="identity.session_context_conflict" xml:space="preserve"><value>会话上下文已被并发修改。</value></data>
+  <data name="identity.session_not_active" xml:space="preserve"><value>当前会话已失效。</value></data>
+</root>

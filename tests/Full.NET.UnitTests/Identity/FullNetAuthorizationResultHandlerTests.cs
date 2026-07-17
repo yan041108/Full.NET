@@ -1,4 +1,8 @@
 using System.Text.Json;
+using System.Globalization;
+using Full.NET.Abstractions.Results;
+using Full.NET.Hosting.Api;
+using Full.NET.Localization;
 using Full.NET.Modules.Identity.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
@@ -23,7 +27,10 @@ public sealed class FullNetAuthorizationResultHandlerTests
         var policy = new AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
             .Build();
-        var handler = new FullNetAuthorizationResultHandler();
+        var handler = new FullNetAuthorizationResultHandler(
+            new StandardApiResultMapper(
+                new StubErrorMessageLocalizer(),
+                new StubLocaleContext()));
 
         await handler.HandleAsync(
             _ => Task.CompletedTask,
@@ -40,5 +47,21 @@ public sealed class FullNetAuthorizationResultHandlerTests
             document.RootElement.GetProperty("code").GetString());
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             document.RootElement.GetProperty("traceId").GetString()));
+        Assert.AreEqual("当前身份没有所需权限。", document.RootElement
+            .GetProperty("title").GetString());
+        Assert.AreEqual("zh-CN", context.Response.Headers.ContentLanguage.ToString());
+    }
+
+    private sealed class StubErrorMessageLocalizer : IErrorMessageLocalizer
+    {
+        public string Localize(Error error, CultureInfo culture) =>
+            error.Code == CommonErrorCodes.PermissionDenied
+                ? "当前身份没有所需权限。"
+                : error.DefaultMessage;
+    }
+
+    private sealed class StubLocaleContext : ILocaleContext
+    {
+        public string CurrentLocale => "zh-CN";
     }
 }

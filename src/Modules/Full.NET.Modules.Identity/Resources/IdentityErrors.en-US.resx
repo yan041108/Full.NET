@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="identity.bootstrap.invalid-password" xml:space="preserve"><value>The bootstrap password does not satisfy the password policy.</value></data>
+  <data name="identity.bootstrap.invalid-profile" xml:space="preserve"><value>Bootstrap username or display name is invalid.</value></data>
+  <data name="identity.csrf_validation_failed" xml:space="preserve"><value>CSRF validation failed.</value></data>
+  <data name="identity.invalid_actor_scope" xml:space="preserve"><value>The current identity cannot switch tenant context.</value></data>
+  <data name="identity.invalid_credentials" xml:space="preserve"><value>The username or password is invalid.</value></data>
+  <data name="identity.invalid_refresh_token" xml:space="preserve"><value>The refresh token is invalid or expired.</value></data>
+  <data name="identity.origin_not_allowed" xml:space="preserve"><value>The request origin is not allowed.</value></data>
+  <data name="identity.refresh_token_reuse_detected" xml:space="preserve"><value>Refresh token reuse was detected and the session was revoked.</value></data>
+  <data name="identity.session_context_conflict" xml:space="preserve"><value>The session context changed concurrently.</value></data>
+  <data name="identity.session_not_active" xml:space="preserve"><value>The current session is no longer active.</value></data>
+</root>
