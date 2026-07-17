@@ -66,6 +66,18 @@ pnpm --filter @fullnet/admin-layui dev
 
 服务端返回的导航元数据不是可执行配置。Vue 与 Layui 都必须先执行共享契约校验，再把语义组件、路由和路径映射到各自源码内的精确白名单；未知标识会被拒绝，禁止动态导入任意路径、执行字符串代码或插入任意 HTML。按钮隐藏只改善交互，API 仍执行服务端权限策略。Access Token、有效租户和权限快照只保存在内存，页面刷新通过 Refresh Cookie 恢复，不得写入 `localStorage` 或 `sessionStorage`。
 
+### 2.2 多语言当前边界与后续契约
+
+当前已实现范围仅为 Vue/Layui 管理壳层的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题和双端 E2E。Element Plus/Day.js、Layui 组件内置文案、API `Accept-Language`、ASP.NET Core `RequestLocalization`、本地化 ProblemDetails、账号/租户语言偏好、uni-app 与 Flutter 仍属于后续开发计划，不得在交付说明中提前标记为已支持。
+
+全栈方案统一使用 BCP 47 的 `zh-CN` 和 `en-US`；uni-app 内部的 `zh-Hans` 与 Flutter ARB 的 `zh_CN` 只在各自适配层出现。HTTP 业务逻辑始终依赖稳定 `status/code/traceId`，不比较本地化 `title/detail`。日期按 UTC/ISO 传输，语言和时区分别处理；通知、报表、Realtime 服务端文本与 AI 输出必须显式指定接收者语言。
+
+详细设计与实施顺序见：
+
+- [全栈多语言与本地化设计](../superpowers/specs/2026-07-17-full-stack-localization-design.md)；
+- [全栈多语言实施计划](../superpowers/plans/2026-07-17-full-stack-localization.md)；
+- [客户端交付路线图](../roadmap/client-delivery-roadmap.md)。
+
 ## 3. 使用 Aspire 启动完整环境
 
 ```powershell

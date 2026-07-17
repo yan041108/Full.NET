@@ -70,6 +70,7 @@
 | 请求签名认证 | Identity Signature Auth | Official Module | M5+ | Mapped |
 | 缓存管理 | Caching Admin | Official Module | M5+ | Mapped |
 | 列显示个性化 | Settings + Client Preferences | Core | M3 | Mapped |
+| 全栈多语言、时区与用户语言偏好 | Localization + Identity + Tenancy + Clients | Core + Client | M2-M5+ | Designing |
 | 数据库管理 | DatabaseTools | Official Module | M5+ | Mapped |
 | 枚举、常量查询 | Settings Metadata | Core | M3 | Mapped |
 | 消息中心 | Notifications | Core | M3 | Mapped |
@@ -131,6 +132,8 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 Vue 与 Layui 覆盖相同的后台管理功能，采用同一模块的双端纵向切片同步开发。客户端功能只有在两端的入口、权限、租户、状态反馈、错误处理、关键流程和 E2E 都通过后才能标记为 `Verified`。视觉样式可以重新设计，不要求像素级复制；差异必须有显式记录和等价交互。
 
 uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信/支付宝业务客户端，Flutter 负责原生移动和 PC 桌面。详细阶段、依赖和双端状态矩阵见 [`client-delivery-roadmap.md`](client-delivery-roadmap.md)。
+
+多语言不以管理端两套语言选择器作为完成标准。ASP.NET Core、Vue/Layui 组件库、uni-app、Flutter、用户/租户偏好以及服务端通知/报表必须分别达到对应阶段的退出条件；稳定错误码、权限码、审计 code 和 Agent Tool Schema 不本地化。详细边界见[全栈多语言设计](../superpowers/specs/2026-07-17-full-stack-localization-design.md)。
 
 ## 6. 验收规则
 

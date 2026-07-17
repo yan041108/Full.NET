@@ -59,7 +59,7 @@ pnpm test:e2e
 - `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端；
 - .NET MAUI：仅在真实 C#/Windows 企业需求命中决策门禁后提供可选模板。
 
-Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新轮换、退出、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、标准错误展示与同场景双端 E2E 已经实现。两端还共享 `zh-CN/en-US` 纯文本国际化契约，并通过无 axe 排除项的 WCAG 2.2 A/AA、键盘焦点、320 CSS px 重排和减弱动画自动验收。动态导航只能映射到各客户端本地精确白名单；除语言偏好外，令牌和租户授权状态不写入 Web Storage。Windows Edge + NVDA 和强制颜色模式仍待人工验证，因此 C1 保持 `Implemented`；后台业务 CRUD 继续按 C2 路线交付。uni-app、Flutter 与可选 MAUI 目前仅处于规划阶段。详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)，分阶段状态和依赖见[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
+Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新轮换、退出、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、标准错误展示与同场景双端 E2E 已经实现。两端当前共享 `zh-CN/en-US` 管理壳层纯文本国际化契约，并通过无 axe 排除项的 WCAG 2.2 A/AA、键盘焦点、320 CSS px 重排和减弱动画自动验收；这不代表 Element Plus/Layui 组件、ASP.NET Core 错误、uni-app、Flutter、通知或业务内容已经完成全栈多语言。动态导航只能映射到各客户端本地精确白名单；除语言偏好外，令牌和租户授权状态不写入 Web Storage。Windows Edge + NVDA 和强制颜色模式仍待人工验证，因此 C1 保持 `Implemented`；后台业务 CRUD 继续按 C2 路线交付。uni-app、Flutter 与可选 MAUI 目前仅处于规划阶段。详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)、[全栈多语言设计](docs/superpowers/specs/2026-07-17-full-stack-localization-design.md)和[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
 
 ## 当前边界
 

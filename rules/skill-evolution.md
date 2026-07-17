@@ -96,6 +96,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-realtime-feature` | 等待真实实现 / 0 | 只有 SignalR、MessagePack Hub、Redis Backplane 设计 | 首个 `IRealtimePublisher` 消费者验收后评估 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 3 | Identity 会话、租户切换、权限导航以及 `zh-CN/en-US` 国际化与可访问性基线已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |
+| `fullnet-localization-delivery` | 等待真实实现 / 0 | 已形成 ASP.NET Core、Vue、Layui、uni-app 与 Flutter 的统一多语言设计和测试先行实施计划，尚未完成 L0-L2 治理、服务端与双管理端实现 | L0-L2 完成且第二个业务模块交付本地化资源或双库可翻译业务数据后评估 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。
 

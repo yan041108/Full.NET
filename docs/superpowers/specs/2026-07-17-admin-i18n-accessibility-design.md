@@ -145,6 +145,10 @@ Vue 和 Layui 分别覆盖：语言选择、持久化、无需重新认证的实
 
 本阶段退出条件：共享契约、Vue、Layui 的单元测试和生产构建全部通过；同场景双端国际化、键盘、焦点、重排和 axe E2E 通过；文档诚实记录仍需人工辅助技术验证。完成后进入 C2.1 首个 Identity/Tenancy/Organization 双端纵向业务切片。
 
+### 8.1 与全栈多语言的边界
+
+本设计只完成 Vue/Layui 管理壳层的自有文案，不覆盖 Element Plus/Day.js 和 Layui 组件内置文案，也不覆盖 ASP.NET Core 请求文化、ProblemDetails/FluentValidation、账号或租户语言偏好、uni-app、Flutter、通知、报表、Realtime 与 AI 输出。后续工作不得扩张本包为跨 C#/Dart 的万能翻译运行时，而应遵守[全栈多语言与本地化设计](2026-07-17-full-stack-localization-design.md)的统一治理与平台原生实现边界。
+
 ## 9. 参考资料
 
 - [W3C Web Content Accessibility Guidelines 2.2](https://www.w3.org/TR/WCAG22/)

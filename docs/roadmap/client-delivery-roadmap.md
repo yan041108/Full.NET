@@ -3,6 +3,8 @@
 - 建立日期：2026-07-17
 - 状态：Implementing
 - 详细设计：[`../superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md`](../superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)
+- 多语言设计：[`../superpowers/specs/2026-07-17-full-stack-localization-design.md`](../superpowers/specs/2026-07-17-full-stack-localization-design.md)
+- 多语言计划：[`../superpowers/plans/2026-07-17-full-stack-localization.md`](../superpowers/plans/2026-07-17-full-stack-localization.md)
 - 总功能矩阵：[`adminnet-feature-parity.md`](adminnet-feature-parity.md)
 
 ## 1. 交付目标
@@ -23,12 +25,26 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 
 | 范围 | 当前状态 | 已完成 | 尚未完成 |
 |---|---|---|---|
-| C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
-| C1 双管理端壳层 | Implemented | Vue/Element Plus、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、`zh-CN/en-US` 国际化、WCAG 2.2 A/AA、键盘/焦点、320 CSS px 重排、减弱动画与同场景双端 E2E | Windows Edge + NVDA、200% 缩放与强制颜色人工验收 |
+| C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单 | OpenAPI 漂移、分页/文件契约、全仓库语言清单、服务端本地化、uni-app 与 Dart 适配 |
+| C1 双管理端壳层 | Implemented | Vue/Element Plus、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、管理壳层 `zh-CN/en-US` 自有文案、WCAG 2.2 A/AA、键盘/焦点、320 CSS px 重排、减弱动画与同场景双端 E2E | Element Plus/Day.js 与 Layui 组件语言、Accept-Language、账号偏好、Windows Edge + NVDA、200% 缩放与强制颜色人工验收 |
 | C2 业务模块 | Mapped | 功能波次和双端同步门禁 | 首个 Identity/Tenancy/Organization 纵向切片 |
-| C3/C4 业务客户端 | Designing | 技术路线和平台边界 | uni-app、Flutter 工程与平台构建验证 |
+| C3/C4 业务客户端 | Designing | 技术路线、平台边界和多语言统一设计 | uni-app、Flutter 工程、原生资源与平台构建验证 |
 
-“C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的真实认证、租户、权限、国际化与自动可访问性流程已经通过双端验证；真实辅助技术、200% 缩放和强制颜色仍待人工验收，因此保持 `Implemented`，不提前标记为 `Verified`。
+“C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的真实认证、租户、权限、管理壳层自有文案国际化与自动可访问性流程已经通过双端验证；组件库语言、服务端本地化、真实辅助技术、200% 缩放和强制颜色仍待完成，因此保持 `Implemented`，不提前标记为 `Verified`。
+
+### 横向多语言状态
+
+多语言是跨 C0-C5 的横向轨道，不以任意单一客户端完成代替其他端：
+
+| 阶段 | 当前状态 | 交付 |
+|---|---|---|
+| L0 统一语言治理 | Designing | BCP 47 清单、平台映射、术语、资源 Schema、缺键门禁 |
+| L1 ASP.NET Core | Designing | Accept-Language、IStringLocalizer/.resx、本地化 ProblemDetails、结构化 violations |
+| L2 双管理端补齐 | Designing | Element Plus/Day.js、Layui i18n、请求 Header、账号/租户偏好 |
+| L3 uni-app | Designing | Vue I18n、zh-CN↔zh-Hans 映射、pages/manifest、H5/微信/支付宝构建 |
+| L4 Flutter | Designing | gen_l10n/ARB、请求语言、平台资源、移动/桌面构建 |
+| L5 业务内容与异步 | Mapped | 翻译表、通知/报表、Realtime、AI 输出语言 |
+| L6 MAUI | Decision Gate | 命中既有门禁后使用 .resx 和平台资源 |
 
 ## 2. 完成状态
 
@@ -71,9 +87,10 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 - 建立 TypeScript、原生 JavaScript、uni-app 和 Dart 客户端生成/适配入口；
 - 定义浏览器、小程序、原生应用各自的认证和令牌存储策略；
 - 建立共享权限码、菜单元数据、业务术语和设计令牌源；
+- 建立共享 BCP 47 语言清单、回退、平台映射、错误资源完整性和术语源；
 - 建立客户端依赖、图标、字体、SDK 和生成器许可证清单。
 
-**退出条件：** 四种目标客户端都能调用同一个测试 API，并一致解析成功、验证失败、未授权、禁止访问、并发冲突和服务器错误。
+**退出条件：** 四种目标客户端都能调用同一个测试 API，并一致解析成功、验证失败、未授权、禁止访问、并发冲突和服务器错误；相同语言请求返回相同稳定 code，展示文本与 Content-Language 符合语言契约。
 
 ### C1：Vue/Layui 双管理端壳层
 
@@ -87,6 +104,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 - 登录、退出、刷新会话、租户选择、菜单、按钮权限、403/404/500 页面；
 - ProblemDetails 统一处理、请求取消、重复提交保护和 TraceId 展示；
 - 两套管理端的响应式布局、主题令牌、国际化入口和可访问性基线；
+- Element Plus/Day.js 与 Layui 组件语言、Accept-Language 和账号语言偏好同步；
 - Vue/Layui 相同场景的 Playwright E2E。
 
 **退出条件：** 两端都能完成登录、租户切换、权限菜单和退出流程；Layui 生产产物不依赖 Vue/React 等 SPA 运行时。
@@ -119,12 +137,13 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 **交付顺序：**
 
 1. 工程、环境配置、路由、Pinia、`uni.request` 适配和 ProblemDetails；
-2. 启动页、普通登录、租户选择、首页、个人中心、账号安全、错误与离线页；
-3. H5 Cookie/CSRF 流程；
-4. 微信小程序 `code` 登录适配和后端 Provider 对接；
-5. 支付宝小程序授权码登录适配和后端 Provider 对接；
-6. 文件、扫码、分享、订阅消息和支付按独立 Provider 规格增加；
-7. 三目标分别构建、真机/开发者工具冒烟和发布清单。
+2. Vue I18n、`uni.getLocale/setLocale/onLocaleChange`、`zh-CN ↔ zh-Hans` 映射、pages/manifest 资源和请求语言；
+3. 启动页、普通登录、租户选择、首页、个人中心、账号安全、错误与离线页；
+4. H5 Cookie/CSRF 流程；
+5. 微信小程序 `code` 登录适配和后端 Provider 对接；
+6. 支付宝小程序授权码登录适配和后端 Provider 对接；
+7. 文件、扫码、分享、订阅消息和支付按独立 Provider 规格增加；
+8. 三目标分别构建、真机/开发者工具多语言冒烟和发布清单。
 
 **退出条件：** H5、微信小程序、支付宝小程序分别完成构建、登录、租户、核心 API、会话失效和错误展示验证。
 
@@ -135,12 +154,13 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 **交付顺序：**
 
 1. 工程、环境、路由、主题、OpenAPI Dart 客户端、ProblemDetails 和安全存储；
-2. OAuth 2.0/OIDC Authorization Code + PKCE、租户选择、首页、个人中心和错误页；
-3. Android 与 Windows 本地开发和打包基线；
-4. 在 macOS 构建节点验证 iOS、macOS、签名和公证；
-5. 在 Linux 构建节点验证 Linux 桌面包；
-6. 键鼠、可调整窗口、文件、打印、托盘、深链和自动更新按平台适配；
-7. 通知、Realtime、支付和设备能力按独立功能规格增加。
+2. `gen_l10n/ARB`、`flutter_localizations`、请求语言、账号偏好和各平台应用元数据；
+3. OAuth 2.0/OIDC Authorization Code + PKCE、租户选择、首页、个人中心和错误页；
+4. Android 与 Windows 本地开发和打包基线；
+5. 在 macOS 构建节点验证 iOS、macOS、签名和公证；
+6. 在 Linux 构建节点验证 Linux 桌面包；
+7. 键鼠、可调整窗口、文件、打印、托盘、深链和自动更新按平台适配；
+8. 通知、Realtime、支付和设备能力按独立功能规格增加。
 
 **退出条件：** 每个声明支持的平台都有对应构建节点、安装包、签名策略、登录/租户/API 冒烟和升级回滚说明。没有完成构建验证的平台不得在发布说明中宣称支持。
 
@@ -184,6 +204,7 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 | 变更范围 | 必须运行 |
 |---|---|
 | OpenAPI/公共模型 | 全部在维护客户端的生成和契约测试 |
+| 语言清单、错误码或资源 | 资源 Schema/缺键检查、后端双语言 API、全部在维护客户端语言契约 |
 | 后台模块 | Vue + Layui 类型/静态检查、单元测试、生产构建、对应双端 E2E |
 | Vue 独有基础设施 | Vue 检查 + 与共享契约相关的 Layui 冒烟 |
 | Layui 独有基础设施 | Layui 检查 + 与共享契约相关的 Vue 冒烟 |
@@ -201,13 +222,17 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 | 多端认证采用最低共同标准 | 浏览器、小程序、原生应用分别采用适合平台的令牌策略 |
 | uni-app 条件编译散落 | 平台差异集中在 `platform/`，共享页面禁止直接访问平台专属 API |
 | Flutter 插件缺少桌面实现 | 引入前建立平台支持和许可证矩阵，允许平台适配替代 |
+| 各端语言清单、错误文本或术语漂移 | 共享治理清单、稳定 code、平台原生资源和跨资源 CI；禁止业务逻辑比较翻译文本 |
+| Worker/通知并行处理串语言 | 每项后台渲染显式 CultureScope/Locale，离开作用域恢复并执行并发测试 |
 | MAUI 与 Flutter重复建设 | 决策门禁、独立维护责任和范围，不默认创建模板 |
 | Admin.NET 或 layuiAdmin 参考代码污染 MIT 发布 | 采用洁净室独立实现，只参考通用体验；layuiAdmin 默认禁止复制源码/资产，任何直接复用都必须先取得允许公开 MIT 再发布的书面授权 |
 
 ## 8. 下一批可执行计划
 
-1. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
-2. 为 Identity 用户/角色/菜单、Tenancy 租户/套餐 CRUD 和 Organization 建立首批双管理端业务切片计划；当前只把可信租户上下文切换视为已验证基础，不把完整 C2.1 误标为完成；
-3. 后端登录和租户契约稳定后执行 uni-app 基础客户端计划；
-4. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 Flutter 计划；
-5. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列。
+1. 先执行 L0/L1：建立仓库语言治理、ASP.NET Core 请求本地化、本地化 ProblemDetails 与结构化 violations；
+2. 执行 L2：补齐 Element Plus/Day.js、Layui 组件语言、Accept-Language 和账号/租户偏好；
+3. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
+4. 为 Identity 用户/角色/菜单、Tenancy 租户/套餐 CRUD 和 Organization 建立首批双管理端业务切片计划；当前只把可信租户上下文切换视为已验证基础，不把完整 C2.1 误标为完成；
+5. L1 契约稳定后执行 L3 uni-app 三目标计划；
+6. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 L4 Flutter 计划；
+7. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列和 L0-L6 状态。
