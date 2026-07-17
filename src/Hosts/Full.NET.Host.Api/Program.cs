@@ -1,6 +1,7 @@
 using Full.NET.Caching.Fusion;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
+using Full.NET.Localization;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
@@ -23,6 +24,7 @@ builder.Services.AddFullNetModule<IdentityModule>(builder.Configuration);
 builder.Services.AddFullNetModule<TenancyModule>(builder.Configuration);
 
 var app = builder.Build();
+app.UseFullNetLocalization();
 app.UseFullNetRequestLogging();
 app.UseExceptionHandler();
 app.UseCors(IdentityModule.BrowserCorsPolicy);

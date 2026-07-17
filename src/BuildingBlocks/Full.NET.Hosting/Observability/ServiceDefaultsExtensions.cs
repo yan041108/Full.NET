@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Full.NET.Hosting.Api;
 using Full.NET.Hosting.Serialization;
+using Full.NET.Localization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +48,7 @@ public static class ServiceDefaultsExtensions
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<FullNetExceptionHandler>();
         builder.Services.AddFullNetJson();
+        builder.Services.AddFullNetLocalization();
         builder.Services.AddHealthChecks();
 
         var openTelemetry = builder.Services.AddOpenTelemetry()

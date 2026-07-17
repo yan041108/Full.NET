@@ -244,8 +244,8 @@ app.UseCors(IdentityModule.BrowserCorsPolicy);
 
 Run: dotnet build Full.NET.slnx --configuration Release --no-restore
 
-Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 116 --timeout 5m
-Expected: 构建 0 错误，新增语言测试与原 116 项全部通过。
+Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 144 --timeout 5m
+Expected: 构建 0 错误，本任务新增测试与原 116 项共 144 项全部通过。
 
 - [ ] **Step 7: 提交**
 
@@ -333,7 +333,7 @@ Identity 与 Tenancy 项目文件将 NeutralLanguage 固定为 zh-CN，并以 `T
 
 Run: dotnet build Full.NET.slnx --configuration Release --no-restore
 
-Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 116 --timeout 5m
+Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 144 --timeout 5m
 
 Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 8 --timeout 10m
 Expected: 单元和 SQL Server/MySQL 集成全部通过；两种语言仅展示文本不同。
