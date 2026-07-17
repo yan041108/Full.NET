@@ -12,3 +12,4 @@ BenchmarkDotNet.Artifacts/
 *.snupkg
 *.log
 .aspire/
+.worktrees/
