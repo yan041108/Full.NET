@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { configureAuthentication, request } from './http';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  configureAuthentication();
 });
 
 describe('Vue HTTP 适配器', () => {
@@ -70,5 +71,31 @@ describe('Vue HTTP 适配器', () => {
 
     const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(requestInit.signal).toBe(abortController.signal);
+  });
+
+  it('并发 401 只刷新一次并各自重放一次', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockImplementation(() => Promise.resolve(new Response(
+        JSON.stringify({ ok: true }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })));
+    const refresh = vi.fn().mockResolvedValue(true);
+    vi.stubGlobal('fetch', fetchMock);
+    configureAuthentication({
+      getAccessToken: () => 'access-token',
+      refresh
+    });
+
+    await Promise.all([request('/first'), request('/second')]);
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const [, retryInit] = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect(new Headers(retryInit.headers).get('authorization'))
+      .toBe('Bearer access-token');
   });
 });

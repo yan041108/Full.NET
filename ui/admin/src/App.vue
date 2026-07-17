@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   Bell,
@@ -9,8 +9,17 @@ import {
   Setting,
   User
 } from '@element-plus/icons-vue';
+import LoginView from './views/LoginView.vue';
+import { useSessionStore } from './auth/session';
 
 const route = useRoute();
+const session = useSessionStore();
+
+onMounted(() => {
+  if (session.state === 'initializing') {
+    void session.restore();
+  }
+});
 
 const navigation = [
   { label: '工作台', caption: 'Overview', path: '/', icon: Grid },
@@ -23,7 +32,11 @@ const activePath = computed(() => route.path);
 </script>
 
 <template>
-  <div class="admin-shell" data-client-kind="vue">
+  <div v-if="session.state === 'initializing'" class="session-boot" aria-live="polite">
+    <span>F</span><strong>正在恢复安全会话</strong><i />
+  </div>
+  <LoginView v-else-if="session.state === 'anonymous'" />
+  <div v-else class="admin-shell" data-client-kind="vue">
     <aside class="sidebar">
       <router-link class="brand" to="/" aria-label="Full.NET 工作台">
         <span class="brand__mark"><i /><i /><i /></span>
@@ -60,7 +73,8 @@ const activePath = computed(() => route.path);
         </div>
         <div class="topbar__tools">
           <button type="button" aria-label="通知"><Bell /><i /></button>
-          <div class="operator"><span>FN</span><div><strong>系统管理员</strong><small>Host Admin</small></div></div>
+          <div class="operator"><span>FN</span><div><strong>{{ session.currentUser?.displayName }}</strong><small>{{ session.currentUser?.scope === 'host' ? 'Host Admin' : session.currentUser?.username }}</small></div></div>
+          <button type="button" aria-label="退出登录" @click="session.logout">↗</button>
         </div>
       </header>
 
@@ -77,6 +91,12 @@ const activePath = computed(() => route.path);
 </template>
 
 <style scoped>
+.session-boot { display: grid; min-height: 100vh; place-content: center; justify-items: center; gap: 13px; background: #172027; color: #fff; font-family: var(--fullnet-font-display); }
+.session-boot span { display: grid; width: 46px; height: 46px; place-items: center; background: var(--fullnet-color-accent-bright); color: #172027; font-size: 20px; font-weight: 800; }
+.session-boot strong { font-size: 12px; letter-spacing: .1em; }
+.session-boot i { width: 120px; height: 2px; overflow: hidden; background: rgb(255 255 255 / 10%); }
+.session-boot i::after { display: block; width: 40%; height: 100%; animation: boot 1s infinite ease-in-out; background: var(--fullnet-color-accent-bright); content: ""; }
+@keyframes boot { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
 .admin-shell { min-height: 100vh; background: var(--fullnet-color-canvas); color: var(--fullnet-color-ink); }
 .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 20; display: flex; width: var(--fullnet-shell-sidebar-width); flex-direction: column; overflow: hidden; background: var(--fullnet-color-sidebar); color: #fff; }
 .sidebar::after { position: absolute; top: 0; right: 0; width: 1px; height: 100%; background: linear-gradient(180deg, transparent, var(--fullnet-color-accent-bright) 28%, transparent 68%); opacity: .5; content: ""; }

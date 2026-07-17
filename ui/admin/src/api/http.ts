@@ -2,23 +2,44 @@ import { readProblemDetails } from '@fullnet/client-contracts';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
-/** 调用 Full.NET 标准 API，并保留 Cookie 会话、请求取消和稳定错误码。 */
+interface AuthenticationBridge {
+  getAccessToken: () => string | undefined;
+  refresh: () => Promise<boolean>;
+}
+
+interface RequestOptions {
+  retryUnauthorized?: boolean;
+}
+
+let authentication: AuthenticationBridge | undefined;
+let refreshInFlight: Promise<boolean> | undefined;
+
+/** 注入内存令牌和刷新行为；无参数调用用于测试或退出时重置。 */
+export function configureAuthentication(bridge?: AuthenticationBridge): void {
+  authentication = bridge;
+  refreshInFlight = undefined;
+}
+
+/** 调用 Full.NET 标准 API，并在 401 时协调一次去重刷新。 */
 export async function request<T>(
   path: string,
   init: RequestInit = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: RequestOptions = {}
 ): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (!headers.has('accept')) {
-    headers.set('accept', 'application/json');
+  const response = await send(path, init, signal);
+  const authenticationBridge = authentication;
+  const shouldRetry = options.retryUnauthorized !== false
+    && response.status === 401
+    && authenticationBridge !== undefined;
+  if (shouldRetry) {
+    refreshInFlight ??= authenticationBridge.refresh().finally(() => {
+      refreshInFlight = undefined;
+    });
+    if (await refreshInFlight) {
+      return await request<T>(path, init, signal, { retryUnauthorized: false });
+    }
   }
-
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    credentials: 'include',
-    headers,
-    signal: signal ?? init.signal
-  });
 
   if (!response.ok) {
     throw await readProblemDetails(response);
@@ -29,4 +50,27 @@ export async function request<T>(
   }
 
   return await response.json() as T;
+}
+
+async function send(
+  path: string,
+  init: RequestInit,
+  signal?: AbortSignal
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (!headers.has('accept')) {
+    headers.set('accept', 'application/json');
+  }
+
+  const accessToken = authentication?.getAccessToken();
+  if (accessToken && !headers.has('authorization')) {
+    headers.set('authorization', `Bearer ${accessToken}`);
+  }
+
+  return await fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    credentials: 'include',
+    headers,
+    signal: signal ?? init.signal
+  });
 }

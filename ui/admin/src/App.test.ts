@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createMemoryHistory } from 'vue-router';
+import { createPinia, setActivePinia } from 'pinia';
 import App from './App.vue';
 import { createAppRouter } from './router';
+import { useSessionStore } from './auth/session';
+
+function createAuthenticatedPinia() {
+  const pinia = createPinia();
+  setActivePinia(pinia);
+  const session = useSessionStore();
+  session.$patch({
+    state: 'authenticated',
+    currentUser: {
+      id: 'user-id', username: 'admin', displayName: '系统管理员',
+      tenantId: null, scope: 'host', permissions: [], sessionId: 'session-id'
+    }
+  });
+  return pinia;
+}
 
 describe('Vue 管理端壳层', () => {
   it('展示品牌、租户和核心后台导航', async () => {
@@ -11,7 +27,7 @@ describe('Vue 管理端壳层', () => {
     await router.isReady();
 
     const wrapper = mount(App, {
-      global: { plugins: [router] }
+      global: { plugins: [createAuthenticatedPinia(), router] }
     });
 
     expect(wrapper.text()).toContain('Full.NET');
@@ -28,7 +44,7 @@ describe('Vue 管理端壳层', () => {
     await router.isReady();
 
     const wrapper = mount(App, {
-      global: { plugins: [router] }
+      global: { plugins: [createAuthenticatedPinia(), router] }
     });
 
     expect(wrapper.text()).toContain('没有访问权限');
