@@ -1,0 +1,14 @@
+{
+  "name": "fullnet-clients",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.26.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "test:workspace": "node tests/client-workspace.test.mjs",
+    "test:clients": "pnpm --recursive --if-present test",
+    "build:clients": "pnpm --recursive --if-present build"
+  }
+}

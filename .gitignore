@@ -13,3 +13,8 @@ BenchmarkDotNet.Artifacts/
 *.log
 .aspire/
 .worktrees/
+node_modules/
+**/dist/
+playwright-report/
+test-results/
+.playwright-cli/
