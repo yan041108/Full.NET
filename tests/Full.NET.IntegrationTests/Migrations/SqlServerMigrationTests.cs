@@ -51,6 +51,9 @@ public sealed class SqlServerMigrationTests
         AssertContainsIgnoreCase(tables, "fn_identity_user");
         AssertContainsIgnoreCase(tables, "fn_identity_refresh_session");
         AssertContainsIgnoreCase(tables, "fn_identity_auth_audit");
+        AssertContainsIgnoreCase(tables, "fn_identity_role");
+        AssertContainsIgnoreCase(tables, "fn_identity_user_role");
+        AssertContainsIgnoreCase(tables, "fn_identity_role_permission");
         AssertContainsIgnoreCase(tables, "SchemaVersions");
 
         var indexes = (await connection.QueryAsync<string>(
@@ -63,6 +66,30 @@ public sealed class SqlServerMigrationTests
             .ToArray();
 
         AssertRequiredIdentityIndexes(indexes);
+
+        var foreignKeys = (await connection.QueryAsync<string>(
+            "SELECT name FROM sys.foreign_keys WHERE name LIKE 'FK_fn_identity_%'"))
+            .ToArray();
+        AssertRequiredAuthorizationForeignKeys(foreignKeys);
+
+        var identityColumns = (await connection.QueryAsync<IdentityColumnMetadata>(
+            """
+            SELECT TABLE_NAME AS TableName,
+                   COLUMN_NAME AS Name,
+                   IS_NULLABLE AS IsNullable
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo'
+              AND TABLE_NAME IN ('fn_identity_refresh_session', 'fn_identity_auth_audit')
+            """))
+            .ToArray();
+        AssertNullableColumn(
+            identityColumns,
+            "fn_identity_refresh_session",
+            "ActiveTenantId");
+        AssertNullableColumn(
+            identityColumns,
+            "fn_identity_auth_audit",
+            "ContextTenantId");
 
         var columns = (await connection.QueryAsync<ColumnMetadata>(
             """
@@ -99,10 +126,37 @@ public sealed class SqlServerMigrationTests
         AssertContainsIgnoreCase(indexes, "IX_fn_identity_refresh_session_User");
         AssertContainsIgnoreCase(indexes, "IX_fn_identity_auth_audit_OccurredAt");
         AssertContainsIgnoreCase(indexes, "IX_fn_identity_auth_audit_User");
+        AssertContainsIgnoreCase(indexes, "UX_fn_identity_role_Scope_Code");
+        AssertContainsIgnoreCase(indexes, "PK_fn_identity_user_role");
+        AssertContainsIgnoreCase(indexes, "PK_fn_identity_role_permission");
+    }
+
+    private static void AssertRequiredAuthorizationForeignKeys(
+        IEnumerable<string> foreignKeys)
+    {
+        AssertContainsIgnoreCase(foreignKeys, "FK_fn_identity_user_role_User");
+        AssertContainsIgnoreCase(foreignKeys, "FK_fn_identity_user_role_Role");
+        AssertContainsIgnoreCase(foreignKeys, "FK_fn_identity_role_permission_Role");
+    }
+
+    private static void AssertNullableColumn(
+        IEnumerable<IdentityColumnMetadata> columns,
+        string tableName,
+        string columnName)
+    {
+        var column = columns.Single(item =>
+            string.Equals(item.TableName, tableName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(item.Name, columnName, StringComparison.OrdinalIgnoreCase));
+        Assert.AreEqual("YES", column.IsNullable, ignoreCase: true);
     }
 
     private static void AssertContainsIgnoreCase(IEnumerable<string> values, string expected) =>
         Assert.IsTrue(values.Contains(expected, StringComparer.OrdinalIgnoreCase));
 
     private sealed record ColumnMetadata(string Name, string DataType, long? MaximumLength);
+
+    private sealed record IdentityColumnMetadata(
+        string TableName,
+        string Name,
+        string IsNullable);
 }
