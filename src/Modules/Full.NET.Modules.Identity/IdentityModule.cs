@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.Login;
@@ -21,6 +22,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using System.Threading.RateLimiting;
@@ -43,6 +45,14 @@ public sealed class IdentityModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IAuthorizationCatalogContributor,
+            IdentityAuthorizationContributor>());
+        services.TryAddSingleton(provider => AuthorizationCatalog.Create(
+            provider.GetServices<IAuthorizationCatalogContributor>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IHostedService,
+            AuthorizationCatalogValidator>());
         services.AddOptions<IdentityOptions>()
             .Bind(configuration.GetSection(IdentityOptions.SectionName))
             .ValidateOnStart();

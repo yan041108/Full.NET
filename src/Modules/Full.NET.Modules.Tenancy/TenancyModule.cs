@@ -9,6 +9,8 @@ using Full.NET.Modules.Tenancy.Features.GetCurrentTenant;
 using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 using Full.NET.Modules.Tenancy.Persistence;
 using Full.NET.Modules.Tenancy.Serialization;
+using Full.NET.Modules.Identity;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Validation.FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -23,12 +25,15 @@ public sealed class TenancyModule : IFullNetModule
 {
     public string Name => "Tenancy";
 
-    public IReadOnlyCollection<Type> Dependencies => [];
+    public IReadOnlyCollection<Type> Dependencies => [typeof(IdentityModule)];
 
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IAuthorizationCatalogContributor,
+            TenancyAuthorizationContributor>());
         services.AddOptions<TenancyOptions>()
             .Bind(configuration.GetSection(TenancyOptions.SectionName));
         services.AddFullNetFluentValidation();

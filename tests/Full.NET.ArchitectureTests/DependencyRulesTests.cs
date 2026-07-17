@@ -66,6 +66,16 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Tenancy_declares_identity_as_an_explicit_module_dependency()
+    {
+        var module = new TenancyModule();
+
+        CollectionAssert.Contains(
+            module.Dependencies.ToArray(),
+            typeof(IdentityModule));
+    }
+
+    [TestMethod]
     public void ProductionTypes_DoNotExposeServiceLocatorMembers()
     {
         var allowedTypes = new HashSet<Type>
