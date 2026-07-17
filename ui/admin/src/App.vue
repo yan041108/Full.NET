@@ -23,7 +23,7 @@ const activePath = computed(() => route.path);
 </script>
 
 <template>
-  <div class="admin-shell">
+  <div class="admin-shell" data-client-kind="vue">
     <aside class="sidebar">
       <router-link class="brand" to="/" aria-label="Full.NET 工作台">
         <span class="brand__mark"><i /><i /><i /></span>
