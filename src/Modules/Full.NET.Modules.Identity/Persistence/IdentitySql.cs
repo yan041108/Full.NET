@@ -29,6 +29,79 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindRoleByScopeAndCode = new(
+        "identity.find-role-by-scope-and-code",
+        """
+        SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_role
+        WHERE ScopeKey = @ScopeKey AND Code = @Code
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertRole = new(
+        "identity.insert-role",
+        """
+        INSERT INTO fn_identity_role
+            (Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+             CreatedAtUtc, UpdatedAtUtc, Version)
+        VALUES
+            (@Id, @TenantId, @ScopeKey, @Code, @Name, @IsSystem, @IsActive,
+             @CreatedAtUtc, @UpdatedAtUtc, @Version)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateSystemRole = new(
+        "identity.update-system-role",
+        """
+        UPDATE fn_identity_role
+        SET Name = @Name,
+            IsSystem = 1,
+            IsActive = 1,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement GetRolePermissionCodes = new(
+        "identity.get-role-permission-codes",
+        """
+        SELECT PermissionCode
+        FROM fn_identity_role_permission
+        WHERE RoleId = @RoleId
+        ORDER BY PermissionCode
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement EnsureRolePermission = new(
+        "identity.ensure-role-permission",
+        """
+        INSERT INTO fn_identity_role_permission (RoleId, PermissionCode)
+        SELECT @RoleId, @PermissionCode
+        WHERE NOT EXISTS
+        (
+            SELECT 1
+            FROM fn_identity_role_permission
+            WHERE RoleId = @RoleId AND PermissionCode = @PermissionCode
+        )
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement EnsureUserRole = new(
+        "identity.ensure-user-role",
+        """
+        INSERT INTO fn_identity_user_role (UserId, RoleId)
+        SELECT @UserId, @RoleId
+        WHERE NOT EXISTS
+        (
+            SELECT 1
+            FROM fn_identity_user_role
+            WHERE UserId = @UserId AND RoleId = @RoleId
+        )
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement UpdateLoginFailure = new(
         "identity.update-login-failure",
         """

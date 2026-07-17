@@ -134,6 +134,80 @@ internal sealed class FullNetApiFactory(
         }
     }
 
+    public async Task<HostAuthorizationState> GetHostAuthorizationStateAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var bootstrap = await scope.ServiceProvider
+                .GetRequiredService<IIdentityBootstrapService>()
+                .BootstrapHostAdminAsync(
+                    new BootstrapHostAdminRequest(
+                        "admin",
+                        TestPassword,
+                        "系统管理员"),
+                    cancellationToken);
+            Assert.IsTrue(bootstrap.IsSuccess);
+            Assert.IsFalse(bootstrap.Value!.Created);
+            Assert.IsTrue(bootstrap.Value.AuthorizationSynchronized);
+
+            var query = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+            var roleCount = await query.QuerySingleOrDefaultAsync<long>(
+                new SqlStatement(
+                    "test.count-host-administrator-roles",
+                    """
+                    SELECT COUNT(*)
+                    FROM fn_identity_role
+                    WHERE ScopeKey = 'host' AND Code = 'host-administrator'
+                      AND IsSystem = 1 AND IsActive = 1
+                    """,
+                    SqlDataScope.HostOnly),
+                cancellationToken: cancellationToken);
+            var permissionCount = await query.QuerySingleOrDefaultAsync<long>(
+                new SqlStatement(
+                    "test.count-host-administrator-permissions",
+                    """
+                    SELECT COUNT(*)
+                    FROM fn_identity_role_permission AS rolePermission
+                    INNER JOIN fn_identity_role AS roleObject
+                        ON roleObject.Id = rolePermission.RoleId
+                    WHERE roleObject.ScopeKey = 'host'
+                      AND roleObject.Code = 'host-administrator'
+                    """,
+                    SqlDataScope.HostOnly),
+                cancellationToken: cancellationToken);
+            var assignmentCount = await query.QuerySingleOrDefaultAsync<long>(
+                new SqlStatement(
+                    "test.count-host-administrator-assignments",
+                    """
+                    SELECT COUNT(*)
+                    FROM fn_identity_user_role AS userRole
+                    INNER JOIN fn_identity_role AS roleObject
+                        ON roleObject.Id = userRole.RoleId
+                    INNER JOIN fn_identity_user AS identityUser
+                        ON identityUser.Id = userRole.UserId
+                    WHERE roleObject.ScopeKey = 'host'
+                      AND roleObject.Code = 'host-administrator'
+                      AND identityUser.ScopeKey = 'host'
+                      AND identityUser.NormalizedUsername = 'ADMIN'
+                    """,
+                    SqlDataScope.HostOnly),
+                cancellationToken: cancellationToken);
+
+            return new HostAuthorizationState(
+                roleCount,
+                permissionCount,
+                assignmentCount);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -161,3 +235,8 @@ internal sealed class FullNetApiFactory(
             "Could not locate the Full.NET repository root.");
     }
 }
+
+internal sealed record HostAuthorizationState(
+    long RoleCount,
+    long PermissionCount,
+    long AssignmentCount);

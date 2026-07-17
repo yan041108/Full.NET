@@ -13,6 +13,10 @@ internal static class IdentityApiAssertions
         CancellationToken cancellationToken = default)
     {
         await factory.InitializeAsync(cancellationToken);
+        var authorization = await factory.GetHostAuthorizationStateAsync(cancellationToken);
+        Assert.AreEqual(1L, authorization.RoleCount);
+        Assert.AreEqual(4L, authorization.PermissionCount);
+        Assert.AreEqual(1L, authorization.AssignmentCount);
         using var client = factory.CreateClientForHost("localhost");
 
         using (var preflightRequest = new HttpRequestMessage(

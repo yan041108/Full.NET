@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Authorization;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity.Features.Bootstrap;
@@ -17,9 +18,12 @@ internal sealed class IdentityBootstrapService(
     ICommandTransaction transaction,
     Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> passwordHasher,
     IClock clock,
-    IIdGenerator idGenerator) : IIdentityBootstrapService
+    IIdGenerator idGenerator,
+    AuthorizationCatalog authorizationCatalog) : IIdentityBootstrapService
 {
     private const string HostScope = "host";
+    private const string HostAdministratorRoleCode = "host-administrator";
+    private const string HostAdministratorRoleName = "宿主管理员";
 
     public Task<Result<BootstrapHostAdminResult>> BootstrapHostAdminAsync(
         BootstrapHostAdminRequest request,
@@ -70,42 +74,166 @@ internal sealed class IdentityBootstrapService(
                 new { ScopeKey = HostScope, NormalizedUsername = normalizedUsername },
                 cancellationToken)
             .ConfigureAwait(false);
-        if (existing is not null)
+        var now = clock.UtcNow;
+        var created = existing is null;
+        var userId = existing?.Id;
+        if (existing is null)
         {
-            return Result<BootstrapHostAdminResult>.Success(
-                new BootstrapHostAdminResult(existing.Id, false));
+            var user = new IdentityUser(
+                idGenerator.NewId(),
+                null,
+                HostScope,
+                username,
+                normalizedUsername,
+                displayName,
+                string.Empty,
+                true,
+                0,
+                null,
+                idGenerator.NewId().ToString("N"),
+                now,
+                null,
+                1);
+            user = user with { PasswordHash = passwordHasher.HashPassword(user, password) };
+
+            await RequireExactlyOneAsync(
+                    IdentitySql.InsertUser,
+                    user,
+                    "user insert",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            userId = user.Id;
         }
 
-        var now = clock.UtcNow;
-        var user = new IdentityUser(
-            idGenerator.NewId(),
-            null,
-            HostScope,
-            username,
-            normalizedUsername,
-            displayName,
-            string.Empty,
-            true,
-            0,
-            null,
-            idGenerator.NewId().ToString("N"),
-            now,
-            null,
-            1);
-        user = user with { PasswordHash = passwordHasher.HashPassword(user, password) };
+        await SynchronizeAuthorizationAsync(
+                userId!.Value,
+                now,
+                cancellationToken)
+            .ConfigureAwait(false);
 
+        return Result<BootstrapHostAdminResult>.Success(
+            new BootstrapHostAdminResult(userId.Value, created, true));
+    }
+
+    private async Task SynchronizeAuthorizationAsync(
+        Guid userId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var role = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindRoleByScopeAndCode,
+                new { ScopeKey = HostScope, Code = HostAdministratorRoleCode },
+                cancellationToken)
+            .ConfigureAwait(false);
+        Guid roleId;
+        if (role is null)
+        {
+            roleId = idGenerator.NewId();
+            await RequireExactlyOneAsync(
+                    IdentitySql.InsertRole,
+                    new InsertIdentityRole(
+                        roleId,
+                        null,
+                        HostScope,
+                        HostAdministratorRoleCode,
+                        HostAdministratorRoleName,
+                        true,
+                        true,
+                        now,
+                        null,
+                        1),
+                    "role insert",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            roleId = role.Id;
+            if (!role.IsSystem
+                || !role.IsActive
+                || !string.Equals(
+                    role.Name,
+                    HostAdministratorRoleName,
+                    StringComparison.Ordinal))
+            {
+                await RequireExactlyOneAsync(
+                        IdentitySql.UpdateSystemRole,
+                        new UpdateIdentitySystemRole(
+                            role.Id,
+                            HostAdministratorRoleName,
+                            now,
+                            role.Version),
+                        "role update",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        var existingPermissions = (await queryExecutor.QueryAsync<string>(
+                IdentitySql.GetRolePermissionCodes,
+                new { RoleId = roleId },
+                cancellationToken)
+            .ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
+        var hostPermissions = authorizationCatalog.Permissions
+            .Where(permission =>
+                (permission.Scope & AuthorizationScope.Host) != 0)
+            .Select(permission => permission.Code);
+        foreach (var permissionCode in hostPermissions)
+        {
+            if (existingPermissions.Contains(permissionCode))
+            {
+                continue;
+            }
+
+            await RequireZeroOrOneAsync(
+                    IdentitySql.EnsureRolePermission,
+                    new IdentityRolePermission(roleId, permissionCode),
+                    "role permission synchronization",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await RequireZeroOrOneAsync(
+                IdentitySql.EnsureUserRole,
+                new IdentityUserRole(userId, roleId),
+                "user role synchronization",
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task RequireExactlyOneAsync(
+        SqlStatement statement,
+        object parameters,
+        string operation,
+        CancellationToken cancellationToken)
+    {
         var affectedRows = await commandExecutor.ExecuteAsync(
-                IdentitySql.InsertUser,
-                user,
+                statement,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
             throw new InvalidOperationException(
-                $"Identity bootstrap insert affected {affectedRows} rows instead of one.");
+                $"Identity bootstrap {operation} affected {affectedRows} rows instead of one.");
         }
+    }
 
-        return Result<BootstrapHostAdminResult>.Success(
-            new BootstrapHostAdminResult(user.Id, true));
+    private async Task RequireZeroOrOneAsync(
+        SqlStatement statement,
+        object parameters,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                statement,
+                parameters,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows is < 0 or > 1)
+        {
+            throw new InvalidOperationException(
+                $"Identity bootstrap {operation} affected an invalid number of rows: {affectedRows}.");
+        }
     }
 }
