@@ -242,6 +242,25 @@ describe('Layui 管理端应用', () => {
     app.dispose();
   });
 
+  it('跳到主要内容时不污染 Hash 业务路由', () => {
+    renderFixture();
+    document.body.insertAdjacentHTML(
+      'afterbegin',
+      '<a href="#main-content" data-skip-link>跳到主要内容</a>'
+    );
+    const main = document.querySelector('[data-route-view="overview"]');
+    main.id = 'main-content';
+    main.tabIndex = -1;
+    window.location.hash = '#/';
+    const app = initializeAdminApp(document, { autoRestore: false });
+
+    document.querySelector('[data-skip-link]').click();
+
+    expect(document.activeElement).toBe(main);
+    expect(window.location.hash).toBe('#/');
+    app.dispose();
+  });
+
   it('切换语言时保持当前会话和 Hash 路由', () => {
     renderDynamicFixture();
     document.body.insertAdjacentHTML('afterbegin', `

@@ -39,6 +39,7 @@ export function initializeAdminApp(root = document, options = {}) {
   const probeButton = root.querySelector('[data-testid="load-current-user"]');
   const loginForm = root.querySelector('[data-login-form]');
   const logoutButton = root.querySelector('[data-session-logout]');
+  const skipLink = root.querySelector('[data-skip-link]');
   const contextSelector = root.querySelector('[data-context-select]');
   const localeSelectors = root.querySelectorAll('[data-locale-select]');
   const tenantDirectory = root.querySelector('[data-tenant-directory]');
@@ -139,6 +140,11 @@ export function initializeAdminApp(root = document, options = {}) {
   const onLogout = () => {
     void session.logout();
   };
+  const onSkipToMain = (event) => {
+    // Hash 路由会把 #main-content 当作业务路由，因此在原地完成焦点跳转。
+    event.preventDefault();
+    root.querySelector('#main-content')?.focus();
+  };
   const switchContext = async (value) => {
     if (isSwitchingContext || latestSnapshot.switching) {
       renderContextSelector(contextSelector, latestSnapshot, translation);
@@ -198,6 +204,7 @@ export function initializeAdminApp(root = document, options = {}) {
   probeButton?.addEventListener('click', onProbe);
   loginForm?.addEventListener('submit', onLogin);
   logoutButton?.addEventListener('click', onLogout);
+  skipLink?.addEventListener('click', onSkipToMain);
   contextSelector?.addEventListener('change', onContextChange);
   localeSelectors.forEach(selector => {
     selector.addEventListener('change', onLocaleChange);
@@ -223,6 +230,7 @@ export function initializeAdminApp(root = document, options = {}) {
       probeButton?.removeEventListener('click', onProbe);
       loginForm?.removeEventListener('submit', onLogin);
       logoutButton?.removeEventListener('click', onLogout);
+      skipLink?.removeEventListener('click', onSkipToMain);
       contextSelector?.removeEventListener('change', onContextChange);
       localeSelectors.forEach(selector => {
         selector.removeEventListener('change', onLocaleChange);

@@ -1,16 +1,16 @@
 :root {
   --fullnet-color-ink: #17212b;
-  --fullnet-color-ink-muted: #66727d;
+  --fullnet-color-ink-muted: #596670;
   --fullnet-color-sidebar: #172027;
   --fullnet-color-sidebar-raised: #202c34;
   --fullnet-color-canvas: #f3f4ef;
   --fullnet-color-panel: #fffefa;
   --fullnet-color-line: #dfe4df;
-  --fullnet-color-accent: #0b8f87;
+  --fullnet-color-accent: #08736d;
   --fullnet-color-accent-bright: #42b9a6;
-  --fullnet-color-signal: #d99b35;
-  --fullnet-color-danger: #c94a4a;
-  --fullnet-color-success: #27885e;
+  --fullnet-color-signal: #936109;
+  --fullnet-color-danger: #b83e3e;
+  --fullnet-color-success: #20764f;
   --fullnet-font-sans: "MiSans", "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
   --fullnet-font-display: "Bahnschrift", "DIN Alternate", "Microsoft YaHei", sans-serif;
   --fullnet-shell-sidebar-width: 248px;

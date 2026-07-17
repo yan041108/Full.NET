@@ -106,10 +106,10 @@ async function submit(): Promise<void> {
 .login-telemetry span { margin-top: 6px; color: #708085; font-size: 8px; letter-spacing: .14em; }
 .login-panel { display: grid; place-items: center; padding: clamp(28px, 5vw, 80px); }
 form { width: min(100%, 430px); }
-.login-panel__head { display: flex; align-items: center; justify-content: space-between; color: #0b8f87; font-family: var(--fullnet-font-display); font-size: 9px; font-weight: 700; letter-spacing: .18em; }
+.login-panel__head { display: flex; align-items: center; justify-content: space-between; color: var(--fullnet-color-accent); font-family: var(--fullnet-font-display); font-size: 9px; font-weight: 700; letter-spacing: .18em; }
 .login-panel__head i { width: 50px; height: 1px; background: #0b8f87; }
 h2 { margin: 30px 0 9px; font-family: var(--fullnet-font-display); font-size: 38px; font-weight: 520; letter-spacing: -.045em; }
-form > p { margin: 0 0 38px; color: #7c8886; font-size: 12px; }
+form > p { margin: 0 0 38px; color: var(--fullnet-color-ink-muted); font-size: 12px; }
 form > label { display: block; margin: 0 0 9px; color: #53605f; font-size: 11px; font-weight: 700; }
 input { width: 100%; height: 52px; box-sizing: border-box; margin-bottom: 22px; padding: 0 15px; border: 1px solid #d4d9d3; border-radius: 2px; background: #fffef9; color: #172027; font: inherit; transition: border-color .18s, box-shadow .18s; }
 input:focus-visible { border-color: #0b8f87; outline: 3px solid rgb(11 143 135 / 24%); outline-offset: 2px; box-shadow: 0 0 0 3px rgb(11 143 135 / 10%); }
@@ -120,6 +120,6 @@ form > button { display: flex; width: 100%; height: 54px; align-items: center; j
 form > button:hover:not(:disabled) { background: #0b8f87; transform: translateY(-2px); }
 form > button:disabled { cursor: wait; opacity: .65; }
 form > button b { color: #42b9a6; font-size: 20px; }
-.login-footnote { display: block; margin-top: 14px; color: #8a9491; text-align: center; }
+.login-footnote { display: block; margin-top: 14px; color: var(--fullnet-color-ink-muted); text-align: center; }
 @media (max-width: 900px) { .login-gate { grid-template-columns: 1fr; } .login-signal { min-height: 340px; } .login-statement { margin: 70px 0; } .login-statement h1 { font-size: 54px; } .login-telemetry { display: none; } .login-panel { min-height: 620px; } }
 </style>

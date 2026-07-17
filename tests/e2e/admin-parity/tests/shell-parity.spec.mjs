@@ -2,6 +2,12 @@ import { expect, test } from '@playwright/test';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('fullnet.admin.locale', 'zh-CN');
+  });
+});
+
 test('动态导航和可信租户范围在两套管理端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page);

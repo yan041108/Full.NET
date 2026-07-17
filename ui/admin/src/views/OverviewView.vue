@@ -148,16 +148,16 @@ async function loadCurrentUser(): Promise<void> {
             <span class="panel__index">02</span>
             <h2>{{ t('overview.pulseTitle') }}</h2>
           </div>
-          <span class="status-dot" :aria-label="t('overview.serviceHealthy')" />
+          <span class="status-dot" role="img" :aria-label="t('overview.serviceHealthy')" />
         </header>
         <div class="pulse-score">
           <strong>98.6</strong>
           <span>{{ t('overview.healthScore') }}</span>
         </div>
         <div class="pulse-list">
-          <div><span>{{ t('overview.apiAvailability') }}</span><el-progress :percentage="99" :show-text="false" :stroke-width="5" /></div>
-          <div><span>{{ t('overview.cacheHitRate') }}</span><el-progress :percentage="94" :show-text="false" :stroke-width="5" /></div>
-          <div><span>{{ t('overview.jobPunctuality') }}</span><el-progress :percentage="97" :show-text="false" :stroke-width="5" /></div>
+          <div><span>{{ t('overview.apiAvailability') }}</span><el-progress :percentage="99" :show-text="false" :stroke-width="5" :aria-label="t('overview.apiAvailability')" /></div>
+          <div><span>{{ t('overview.cacheHitRate') }}</span><el-progress :percentage="94" :show-text="false" :stroke-width="5" :aria-label="t('overview.cacheHitRate')" /></div>
+          <div><span>{{ t('overview.jobPunctuality') }}</span><el-progress :percentage="97" :show-text="false" :stroke-width="5" :aria-label="t('overview.jobPunctuality')" /></div>
         </div>
       </article>
 
@@ -209,10 +209,10 @@ h1 { margin: 0; color: var(--fullnet-color-ink); font-family: var(--fullnet-font
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .metric-card { position: relative; overflow: hidden; min-height: 128px; padding: 20px; border: 1px solid var(--fullnet-color-line); border-radius: var(--fullnet-radius-md); background: var(--fullnet-color-panel); box-shadow: 0 12px 36px rgb(23 33 43 / 4%); }
 .metric-card::after { position: absolute; right: -18px; bottom: -34px; width: 92px; height: 92px; border: 14px solid color-mix(in srgb, var(--card-color) 13%, transparent); border-radius: 50%; content: ""; }
-.metric-card[data-tone="jade"] { --card-color: #0b8f87; }
-.metric-card[data-tone="cyan"] { --card-color: #287f9f; }
-.metric-card[data-tone="amber"] { --card-color: #d99b35; }
-.metric-card[data-tone="rose"] { --card-color: #c94a4a; }
+.metric-card[data-tone="jade"] { --card-color: var(--fullnet-color-accent); }
+.metric-card[data-tone="cyan"] { --card-color: #23738f; }
+.metric-card[data-tone="amber"] { --card-color: var(--fullnet-color-signal); }
+.metric-card[data-tone="rose"] { --card-color: var(--fullnet-color-danger); }
 .metric-card__label { display: block; color: var(--fullnet-color-ink-muted); font-size: 12px; }
 .metric-card strong { display: block; margin: 13px 0 7px; color: var(--fullnet-color-ink); font-family: var(--fullnet-font-display); font-size: 31px; font-weight: 560; letter-spacing: -.035em; }
 .metric-card__delta { color: var(--card-color); font-family: var(--fullnet-font-display); font-size: 12px; font-weight: 700; }
@@ -234,11 +234,12 @@ h1 { margin: 0; color: var(--fullnet-color-ink); font-family: var(--fullnet-font
 .signal-chart__area { fill: url(#vue-signal-fill); }
 .signal-chart__line { fill: none; stroke: var(--fullnet-color-accent); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .signal-chart circle { fill: var(--fullnet-color-panel); stroke: var(--fullnet-color-accent); stroke-width: 3; }
-.signal-chart__scale { position: absolute; top: 24px; bottom: 42px; left: 16px; display: flex; flex-direction: column; justify-content: space-between; color: #84908e; font-family: var(--fullnet-font-display); font-size: 9px; }
-.signal-chart__axis { display: flex; justify-content: space-between; color: #84908e; font-family: var(--fullnet-font-display); font-size: 9px; }
+.signal-chart__scale { position: absolute; top: 24px; bottom: 42px; left: 16px; display: flex; flex-direction: column; justify-content: space-between; color: var(--fullnet-color-ink-muted); font-family: var(--fullnet-font-display); font-size: 9px; }
+.signal-chart__axis { display: flex; justify-content: space-between; color: var(--fullnet-color-ink-muted); font-family: var(--fullnet-font-display); font-size: 9px; }
 .pulse-panel { background: var(--fullnet-color-sidebar); color: #fff; }
 .pulse-panel .panel__header { border-color: rgb(255 255 255 / 10%); }
 .pulse-panel .panel__header h2 { color: #fff; }
+.pulse-panel .panel__index { color: var(--fullnet-color-accent-bright); }
 .pulse-score { display: flex; align-items: baseline; gap: 10px; padding: 27px 22px 12px; }
 .pulse-score strong { font-family: var(--fullnet-font-display); font-size: 48px; font-weight: 450; letter-spacing: -.06em; }
 .pulse-score span { color: #9eabae; font-size: 11px; }
