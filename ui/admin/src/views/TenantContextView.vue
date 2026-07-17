@@ -6,8 +6,10 @@ import {
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
+import { useAdminI18n } from '../i18n/adminI18n';
 
 const session = useSessionStore();
+const { t } = useAdminI18n();
 const problem = ref<FullNetProblemDetails>();
 const pendingTenantId = ref<string | null>();
 const canSwitch = computed(() => session.can('tenancy.tenants.switch'));
@@ -27,7 +29,7 @@ async function selectContext(tenantId: string | null): Promise<void> {
       : {
           status: 500,
           code: 'client.context_switch_failed',
-          title: '上下文切换未完成'
+          title: t('shell.contextSwitchFailed')
         };
   } finally {
     pendingTenantId.value = undefined;
@@ -36,39 +38,39 @@ async function selectContext(tenantId: string | null): Promise<void> {
 </script>
 
 <template>
-  <main class="tenant-context-view">
+  <section class="tenant-context-view">
     <section class="context-heading">
       <div>
-        <p>TRUSTED TENANT CONTEXT</p>
-        <h1>租户上下文</h1>
-        <span>当前范围来自已签名 Token；浏览器输入不能直接改变数据边界。</span>
+        <p>{{ t('tenant.eyebrow') }}</p>
+        <h1 data-route-heading tabindex="-1">{{ t('tenant.title') }}</h1>
+        <span>{{ t('tenant.description') }}</span>
       </div>
-      <el-tag effect="dark" type="success">SESSION BOUND</el-tag>
+      <el-tag effect="dark" type="success">{{ t('tenant.sessionBound') }}</el-tag>
     </section>
 
-    <section class="current-context" aria-label="当前租户上下文">
-      <div class="current-context__signal"><i /><span>当前有效范围</span></div>
-      <strong>{{ session.currentContextName }}</strong>
-      <code>{{ session.currentUser?.scope }}</code>
+    <section class="current-context" :aria-label="t('tenant.currentAria')">
+      <div class="current-context__signal"><i aria-hidden="true" /><span>{{ t('tenant.currentLabel') }}</span></div>
+      <strong translate="no">{{ session.currentContextName }}</strong>
+      <code translate="no">{{ session.currentUser?.scope }}</code>
       <el-button
         v-if="canSwitch && session.currentUser?.tenantId"
         :loading="session.switching && pendingTenantId === null"
         :disabled="session.switching"
         data-testid="return-host"
         @click="selectContext(null)"
-      >返回 Host</el-button>
+      >{{ t('tenant.returnHost') }}</el-button>
     </section>
 
     <div v-if="problem" class="context-problem" role="alert">
-      <strong>{{ problem.code }}</strong>
+      <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
-      <code v-if="problem.traceId">{{ problem.traceId }}</code>
+      <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
     <section class="tenant-directory" aria-labelledby="tenant-directory-title">
       <header>
-        <div><span>01</span><h2 id="tenant-directory-title">可用租户</h2></div>
-        <small>{{ session.availableTenants.length }} 个活动范围</small>
+        <div><span>01</span><h2 id="tenant-directory-title">{{ t('tenant.availableTitle') }}</h2></div>
+        <small>{{ t('tenant.activeCount', { count: session.availableTenants.length }) }}</small>
       </header>
       <div class="tenant-grid">
         <article
@@ -76,23 +78,24 @@ async function selectContext(tenantId: string | null): Promise<void> {
           :key="tenant.id"
           :class="{ active: session.currentUser?.tenantId === tenant.id }"
         >
-          <span class="tenant-grid__code">{{ tenant.identifier }}</span>
-          <h3>{{ tenant.name }}</h3>
-          <p>{{ tenant.domain }}</p>
+          <span class="tenant-grid__code" translate="no">{{ tenant.identifier }}</span>
+          <h3 translate="no">{{ tenant.name }}</h3>
+          <p translate="no">{{ tenant.domain }}</p>
           <div>
-            <small>{{ session.currentUser?.tenantId === tenant.id ? '当前上下文' : '可进入' }}</small>
+            <small>{{ session.currentUser?.tenantId === tenant.id ? t('tenant.current') : t('tenant.available') }}</small>
             <el-button
               v-if="canSwitch && session.currentUser?.tenantId !== tenant.id"
               :data-tenant-id="tenant.id"
               :loading="session.switching && pendingTenantId === tenant.id"
               :disabled="session.switching"
               @click="selectContext(tenant.id)"
-            >进入租户</el-button>
+            >{{ t('tenant.enter') }}</el-button>
           </div>
         </article>
+        <p v-if="session.availableTenants.length === 0" class="tenant-grid__empty">{{ t('tenant.directoryEmpty') }}</p>
       </div>
     </section>
-  </main>
+  </section>
 </template>
 
 <style scoped>
@@ -124,6 +127,7 @@ async function selectContext(tenantId: string | null): Promise<void> {
 .tenant-grid__code { color: var(--fullnet-color-accent); font-family: var(--fullnet-font-display); font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .tenant-grid h3 { margin: 13px 0 7px; font-family: var(--fullnet-font-display); font-size: 20px; }
 .tenant-grid p { margin: 0; color: var(--fullnet-color-ink-muted); font-size: 11px; }
+.tenant-grid .tenant-grid__empty { grid-column: 1 / -1; padding: 32px; text-align: center; }
 .tenant-grid article > div { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
 .tenant-grid article > div small { color: var(--fullnet-color-success); }
 .tenant-grid :deep(.el-button) { --el-button-bg-color: var(--fullnet-color-ink); --el-button-border-color: var(--fullnet-color-ink); --el-button-text-color: #fff; }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createMemoryHistory } from 'vue-router';
 import { createPinia, setActivePinia } from 'pinia';
@@ -6,6 +6,7 @@ import { ElOption } from 'element-plus';
 import App from './App.vue';
 import { createAppRouter } from './router';
 import { useSessionStore } from './auth/session';
+import { useAdminI18n } from './i18n/adminI18n';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
@@ -23,7 +24,8 @@ function createAuthenticatedPinia() {
     },
     navigation: [{
       id: 'overview', parentId: null, routeName: 'overview', path: '/',
-      componentKey: 'overview', title: '工作台', caption: '平台运行概览',
+      componentKey: 'overview', title: 'SERVER CONTROLLED TITLE',
+      caption: 'SERVER CONTROLLED CAPTION',
       icon: 'dashboard', order: 10,
       requiredPermission: 'platform.dashboard.read', children: []
     }, {
@@ -44,6 +46,11 @@ function createAuthenticatedPinia() {
 }
 
 describe('Vue 管理端壳层', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useAdminI18n().setLocale('zh-CN');
+  });
+
   it('展示服务端导航、Host 上下文和可用租户', async () => {
     const pinia = createAuthenticatedPinia();
     const router = createAppRouter(createMemoryHistory(), pinia);
@@ -76,5 +83,30 @@ describe('Vue 管理端壳层', () => {
 
     expect(wrapper.text()).toContain('没有访问权限');
     expect(wrapper.text()).toContain('403');
+  });
+
+  it('切换语言后更新可信导航、文档语义和页面标题', async () => {
+    const pinia = createAuthenticatedPinia();
+    const router = createAppRouter(createMemoryHistory(), pinia);
+    await router.push('/');
+    await router.isReady();
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia, router] }
+    });
+
+    expect(wrapper.get('.skip-link').attributes('href')).toBe('#main-content');
+    expect(wrapper.get('nav a[href="/"]').attributes('aria-current'))
+      .toBe('page');
+    expect(wrapper.get('[data-route-heading]').attributes('tabindex')).toBe('-1');
+
+    await wrapper.get('select[name="locale"]').setValue('en-US');
+
+    expect(wrapper.text()).toContain('Overview');
+    expect(wrapper.text()).toContain('Tenant context');
+    expect(wrapper.text()).not.toContain('SERVER CONTROLLED TITLE');
+    expect(document.documentElement.lang).toBe('en-US');
+    expect(document.title).toBe('Overview · Full.NET');
+    wrapper.unmount();
   });
 });

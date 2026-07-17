@@ -5,15 +5,18 @@ import {
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
+import LocaleSelector from '../i18n/LocaleSelector.vue';
+import { useAdminI18n } from '../i18n/adminI18n';
 
 const session = useSessionStore();
+const { t } = useAdminI18n();
 const username = ref('');
 const password = ref('');
 const submitting = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const status = computed(() => session.state === 'authenticated'
-  ? '安全会话已建立'
-  : '宿主控制面 · 第一方管理端');
+  ? t('auth.statusAuthenticated')
+  : t('auth.statusAnonymous'));
 
 async function submit(): Promise<void> {
   if (submitting.value) {
@@ -27,7 +30,7 @@ async function submit(): Promise<void> {
   } catch (error: unknown) {
     problem.value = isFullNetProblemDetails(error)
       ? error
-      : { status: 500, code: 'client.login_failed', title: '登录请求未完成' };
+      : { status: 500, code: 'client.login_failed', title: t('auth.loginFailed') };
   } finally {
     submitting.value = false;
   }
@@ -35,49 +38,46 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <main class="login-gate" data-testid="login-view">
-    <section class="login-signal" aria-label="Full.NET 平台说明">
+  <a class="skip-link" href="#main-content">{{ t('a11y.skipToMain') }}</a>
+  <main id="main-content" class="login-gate" data-testid="login-view" tabindex="-1">
+    <section class="login-signal" :aria-label="t('auth.platformDescription')">
       <div class="login-brand"><span>F</span><div><strong>Full.NET</strong><small>CONTROL PLANE</small></div></div>
       <div class="login-statement">
-        <p>IDENTITY / SESSION NODE</p>
-        <h1>进入你的<br><em>交付控制面</em></h1>
-        <span>短期访问令牌只驻留内存；刷新会话由安全 Cookie、CSRF 与重用检测共同保护。</span>
+        <p>{{ t('auth.node') }}</p>
+        <h1 data-route-heading tabindex="-1">{{ t('auth.heroLineOne') }}<br><em>{{ t('auth.heroLineTwo') }}</em></h1>
+        <span>{{ t('auth.heroDescription') }}</span>
       </div>
       <div class="login-telemetry">
-        <div><b>10m</b><span>ACCESS WINDOW</span></div>
-        <div><b>RSA</b><span>SIGNING RING</span></div>
-        <div><b>2×DB</b><span>PROVIDER PARITY</span></div>
+        <div><b translate="no">10m</b><span>{{ t('auth.accessWindow') }}</span></div>
+        <div><b translate="no">RSA</b><span>{{ t('auth.signingRing') }}</span></div>
+        <div><b translate="no">2×DB</b><span>{{ t('auth.providerParity') }}</span></div>
       </div>
     </section>
 
     <section class="login-panel">
-      <form @submit.prevent="submit">
+      <form aria-labelledby="login-form-title" @submit.prevent="submit">
         <div class="login-panel__head">
-          <span>01 / AUTHENTICATE</span>
-          <i aria-hidden="true" />
+          <span>01 / {{ t('auth.authenticate') }}</span>
+          <LocaleSelector id="login-locale" compact />
         </div>
-        <h2>管理员登录</h2>
+        <h2 id="login-form-title">{{ t('auth.title') }}</h2>
         <p>{{ status }}</p>
 
-        <label>
-          <span>账号</span>
-          <input v-model.trim="username" name="username" autocomplete="username" maxlength="128" required placeholder="输入宿主管理员账号">
-        </label>
-        <label>
-          <span>密码</span>
-          <input v-model="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required placeholder="输入安全密码">
-        </label>
+        <label for="login-username">{{ t('auth.username') }}</label>
+        <input id="login-username" v-model.trim="username" name="username" autocomplete="username" spellcheck="false" maxlength="128" required :placeholder="t('auth.usernamePlaceholder')">
+        <label for="login-password">{{ t('auth.password') }}</label>
+        <input id="login-password" v-model="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required :placeholder="t('auth.passwordPlaceholder')">
 
-        <div v-if="problem" class="login-problem" role="alert">
-          <strong>{{ problem.code }}</strong>
+        <div v-if="problem" class="login-problem" role="alert" aria-live="assertive">
+          <strong translate="no">{{ problem.code }}</strong>
           <span>{{ problem.title }}</span>
-          <code v-if="problem.traceId">{{ problem.traceId }}</code>
+          <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
         </div>
 
-        <button type="submit" :disabled="submitting">
-          <span>{{ submitting ? '正在建立会话' : '进入控制台' }}</span><b>→</b>
+        <button type="submit" :disabled="submitting" :aria-busy="submitting">
+          <span>{{ submitting ? t('auth.submitting') : t('auth.submit') }}</span><b aria-hidden="true">→</b>
         </button>
-        <small class="login-footnote">系统不会在浏览器持久化 Access Token</small>
+        <small class="login-footnote">{{ t('auth.tokenNotice') }}</small>
       </form>
     </section>
   </main>
@@ -110,10 +110,9 @@ form { width: min(100%, 430px); }
 .login-panel__head i { width: 50px; height: 1px; background: #0b8f87; }
 h2 { margin: 30px 0 9px; font-family: var(--fullnet-font-display); font-size: 38px; font-weight: 520; letter-spacing: -.045em; }
 form > p { margin: 0 0 38px; color: #7c8886; font-size: 12px; }
-label { display: block; margin: 0 0 22px; }
-label span { display: block; margin-bottom: 9px; color: #53605f; font-size: 11px; font-weight: 700; }
-input { width: 100%; height: 52px; box-sizing: border-box; padding: 0 15px; border: 1px solid #d4d9d3; border-radius: 2px; outline: none; background: #fffef9; color: #172027; font: inherit; transition: border-color .18s, box-shadow .18s; }
-input:focus { border-color: #0b8f87; box-shadow: 0 0 0 3px rgb(11 143 135 / 10%); }
+form > label { display: block; margin: 0 0 9px; color: #53605f; font-size: 11px; font-weight: 700; }
+input { width: 100%; height: 52px; box-sizing: border-box; margin-bottom: 22px; padding: 0 15px; border: 1px solid #d4d9d3; border-radius: 2px; background: #fffef9; color: #172027; font: inherit; transition: border-color .18s, box-shadow .18s; }
+input:focus-visible { border-color: #0b8f87; outline: 3px solid rgb(11 143 135 / 24%); outline-offset: 2px; box-shadow: 0 0 0 3px rgb(11 143 135 / 10%); }
 .login-problem { display: grid; gap: 4px; margin: 4px 0 18px; padding: 12px 14px; border-left: 3px solid #c94a4a; background: rgb(201 74 74 / 7%); font-size: 11px; }
 .login-problem strong { color: #c94a4a; }
 .login-problem code { overflow: hidden; color: #7d8685; text-overflow: ellipsis; }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, type Component } from 'vue';
+import { computed, nextTick, onMounted, ref, watch, type Component } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElOption, ElSelect } from 'element-plus';
 import {
@@ -10,18 +10,31 @@ import {
 } from '@element-plus/icons-vue';
 import {
   isFullNetProblemDetails,
+  type NavigationNode,
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
+import type { MessageKey } from '@fullnet/admin-i18n';
 import LoginView from './views/LoginView.vue';
 import { useSessionStore } from './auth/session';
-import { flattenNavigation } from './navigation/catalog';
+import LocaleSelector from './i18n/LocaleSelector.vue';
+import { useAdminI18n } from './i18n/adminI18n';
+import {
+  flattenNavigation,
+  localNavigationFor
+} from './navigation/catalog';
 
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
+const { locale, setPageTitle, t } = useAdminI18n();
 const contextProblem = ref<FullNetProblemDetails>();
 const hostContextValue = '__fullnet_host__';
 const statusPaths = new Set(['/403', '/404', '/500']);
+const statusTitleKeys = new Map<string, MessageKey>([
+  ['/403', 'status.403.title'],
+  ['/404', 'status.404.title'],
+  ['/500', 'status.500.title']
+]);
 const iconCatalog: Record<string, Component> = {
   dashboard: Grid,
   building: OfficeBuilding
@@ -33,14 +46,38 @@ onMounted(() => {
   }
 });
 
-const navigation = computed(() => flattenNavigation(session.navigation));
+interface LocalizedNavigation extends NavigationNode {
+  title: string;
+  caption: string;
+}
+
+const navigation = computed<LocalizedNavigation[]>(() =>
+  flattenNavigation(session.navigation).flatMap(node => {
+    const local = localNavigationFor(node.componentKey);
+    return local
+      ? [{ ...node, title: t(local.titleKey), caption: t(local.captionKey) }]
+      : [];
+  })
+);
 const activePath = computed(() => route.path);
 const selectedContext = computed(() =>
   session.currentUser?.tenantId ?? hostContextValue
 );
 const activeNavigationTitle = computed(() =>
-  navigation.value.find(item => item.path === activePath.value)?.title ?? '状态页'
+  navigation.value.find(item => item.path === activePath.value)?.title
+    ?? t(statusTitleKeys.get(activePath.value) ?? 'navigation.status.title')
 );
+const activePageTitleKey = computed<MessageKey>(() => {
+  const statusKey = statusTitleKeys.get(activePath.value);
+  if (statusKey) {
+    return statusKey;
+  }
+
+  return localNavigationFor(
+    navigation.value.find(item => item.path === activePath.value)?.componentKey
+      ?? 'overview'
+  )?.titleKey ?? 'navigation.status.title';
+});
 
 function iconFor(icon: string): Component {
   return iconCatalog[icon] ?? Grid;
@@ -56,7 +93,7 @@ async function switchFromSelector(value: string): Promise<void> {
       : {
           status: 500,
           code: 'client.context_switch_failed',
-          title: '上下文切换未完成'
+          title: t('shell.contextSwitchFailed')
         };
   }
 }
@@ -75,55 +112,72 @@ watch(
   },
   { deep: true }
 );
+
+watch(
+  () => [route.path, locale.value, session.state] as const,
+  () => {
+    setPageTitle(activePageTitleKey.value);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => route.path,
+  async () => {
+    await nextTick();
+    document.querySelector<HTMLElement>('[data-route-heading]')?.focus();
+  }
+);
 </script>
 
 <template>
   <div v-if="session.state === 'initializing'" class="session-boot" aria-live="polite">
-    <span>F</span><strong>正在恢复安全会话</strong><i />
+    <span>F</span><strong>{{ t('session.restoring') }}</strong><i />
   </div>
   <LoginView v-else-if="session.state === 'anonymous'" />
   <div v-else class="admin-shell" data-client-kind="vue">
+    <a class="skip-link" href="#main-content">{{ t('a11y.skipToMain') }}</a>
     <aside class="sidebar">
-      <router-link class="brand" to="/" aria-label="Full.NET 工作台">
-        <span class="brand__mark"><i /><i /><i /></span>
+      <router-link class="brand" to="/" :aria-label="t('shell.brandAria')">
+        <span class="brand__mark" aria-hidden="true"><i /><i /><i /></span>
         <span><strong>Full.NET</strong><small>CONTROL PLANE</small></span>
       </router-link>
 
       <div class="tenant-card">
-        <span>当前租户</span>
+        <span>{{ t('shell.currentTenant') }}</span>
         <strong>{{ session.currentContextName }}</strong>
-        <small>{{ session.currentUser?.scope }}</small>
+        <small translate="no">{{ session.currentUser?.scope }}</small>
       </div>
 
-      <nav aria-label="主导航">
-        <p>管理域</p>
-        <router-link v-for="item in navigation" :key="item.path" :to="item.path" :class="{ active: activePath === item.path }">
-          <component :is="iconFor(item.icon)" />
+      <nav :aria-label="t('shell.mainNavigation')">
+        <p>{{ t('shell.managementDomain') }}</p>
+        <router-link v-for="item in navigation" :key="item.path" :to="item.path" :class="{ active: activePath === item.path }" :aria-current="activePath === item.path ? 'page' : undefined">
+          <component :is="iconFor(item.icon)" aria-hidden="true" />
           <span><strong>{{ item.title }}</strong><small>{{ item.caption }}</small></span>
-          <i class="nav-signal" />
+          <i class="nav-signal" aria-hidden="true" />
         </router-link>
       </nav>
 
       <div class="sidebar__footer">
-        <span class="environment-light" />
-        <div><strong>Production</strong><small>API v1 · 正常</small></div>
+        <span class="environment-light" aria-hidden="true" />
+        <div><strong>{{ t('shell.production') }}</strong><small>{{ t('shell.apiHealthy') }}</small></div>
       </div>
     </aside>
 
     <section class="shell-body">
       <header class="topbar">
         <div class="command-box">
-          <Search />
-          <span>搜索菜单、用户或命令</span>
+          <Search aria-hidden="true" />
+          <span>{{ t('shell.searchPlaceholder') }}</span>
           <kbd>⌘ K</kbd>
         </div>
         <div class="topbar__tools">
           <div v-if="session.can('tenancy.tenants.read')" class="context-picker">
-            <span>有效范围</span>
+            <span id="context-selector-label">{{ t('shell.tenantSelector') }}</span>
             <el-select
               :model-value="selectedContext"
               :disabled="session.switching || !session.can('tenancy.tenants.switch')"
-              aria-label="切换租户上下文"
+              :aria-label="t('shell.tenantSelector')"
               @change="switchFromSelector"
             >
               <el-option label="Full.NET Host" :value="hostContextValue" />
@@ -135,26 +189,27 @@ watch(
               />
             </el-select>
           </div>
-          <button type="button" aria-label="通知"><Bell /><i /></button>
-          <div class="operator"><span>FN</span><div><strong>{{ session.currentUser?.displayName }}</strong><small>{{ session.currentUser?.scope === 'host' ? 'Host Admin' : session.currentUser?.username }}</small></div></div>
-          <button type="button" aria-label="退出登录" @click="session.logout">↗</button>
+          <LocaleSelector id="shell-locale" compact />
+          <button type="button" :aria-label="t('shell.notifications')"><Bell aria-hidden="true" /><i aria-hidden="true" /></button>
+          <div class="operator"><span aria-hidden="true">FN</span><div><strong>{{ session.currentUser?.displayName }}</strong><small>{{ session.currentUser?.scope === 'host' ? t('shell.hostAdmin') : session.currentUser?.username }}</small></div></div>
+          <button type="button" :aria-label="t('shell.logout')" @click="session.logout"><span aria-hidden="true">↗</span></button>
         </div>
       </header>
 
       <div class="context-rail">
-        <span>管理控制台</span><i>/</i><strong>{{ activeNavigationTitle }}</strong>
+        <span>{{ t('shell.controlPlane') }}</span><i>/</i><strong>{{ activeNavigationTitle }}</strong>
         <em>TRACE READY</em>
       </div>
 
       <div v-if="contextProblem" class="shell-problem" role="alert">
-        <strong>{{ contextProblem.code }}</strong>
+        <strong translate="no">{{ contextProblem.code }}</strong>
         <span>{{ contextProblem.title }}</span>
-        <code v-if="contextProblem.traceId">{{ contextProblem.traceId }}</code>
+        <code v-if="contextProblem.traceId" translate="no">{{ contextProblem.traceId }}</code>
       </div>
 
-      <div class="page-stage">
+      <main id="main-content" class="page-stage" tabindex="-1">
         <router-view />
-      </div>
+      </main>
     </section>
   </div>
 </template>

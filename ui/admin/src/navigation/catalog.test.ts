@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { NavigationNode } from '@fullnet/client-contracts';
 import {
   flattenNavigation,
-  isSupportedNavigationTree
+  isSupportedNavigationTree,
+  localNavigationFor
 } from './catalog';
 
 function createNode(
@@ -51,5 +52,13 @@ describe('Vue 本地导航目录', () => {
       'tenant-context'
     ]);
     expect(tree).toEqual(before);
+  });
+
+  it('只从本地可信目录返回导航消息键', () => {
+    expect(localNavigationFor('overview')).toMatchObject({
+      titleKey: 'navigation.overview.title',
+      captionKey: 'navigation.overview.caption'
+    });
+    expect(localNavigationFor('remote-script')).toBeUndefined();
   });
 });

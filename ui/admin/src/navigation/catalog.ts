@@ -1,12 +1,34 @@
 import type { NavigationNode } from '@fullnet/client-contracts';
+import type { MessageKey } from '@fullnet/admin-i18n';
 
-const supportedComponents = new Map([
-  ['overview', { routeName: 'overview', path: '/' }],
+export interface LocalNavigationDefinition {
+  routeName: string;
+  path: string;
+  titleKey: MessageKey;
+  captionKey: MessageKey;
+}
+
+const supportedComponents = new Map<string, LocalNavigationDefinition>([
+  ['overview', {
+    routeName: 'overview',
+    path: '/',
+    titleKey: 'navigation.overview.title',
+    captionKey: 'navigation.overview.caption'
+  }],
   ['tenant-context', {
     routeName: 'tenant-context',
-    path: '/tenant-context'
+    path: '/tenant-context',
+    titleKey: 'navigation.tenantContext.title',
+    captionKey: 'navigation.tenantContext.caption'
   }]
 ]);
+
+/** 返回组件键对应的本地可信导航定义，未知键始终拒绝。 */
+export function localNavigationFor(
+  componentKey: string
+): Readonly<LocalNavigationDefinition> | undefined {
+  return supportedComponents.get(componentKey);
+}
 
 /** 判断服务端导航中的每个组件键是否已由当前 Vue 版本显式发布。 */
 export function isSupportedNavigationTree(

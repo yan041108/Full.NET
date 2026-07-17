@@ -6,33 +6,50 @@ import {
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
 import { request } from '../api/http';
+import { useAdminI18n } from '../i18n/adminI18n';
 
 interface CurrentUser {
   id: string;
   displayName: string;
 }
 
-const metrics = [
-  { label: '活跃租户', value: '128', delta: '+12.4%', tone: 'jade' },
-  { label: '在线用户', value: '2,406', delta: '+8.1%', tone: 'cyan' },
-  { label: '今日请求', value: '86.2k', delta: '+18.7%', tone: 'amber' },
-  { label: '异常率', value: '0.08%', delta: '-0.03%', tone: 'rose' }
-] as const;
-
-const activities = [
-  { title: '租户「澄海科技」已完成初始化', meta: 'Tenancy · 2 分钟前', status: '成功' },
-  { title: '权限策略已同步至双管理端', meta: 'Identity · 18 分钟前', status: '已同步' },
-  { title: 'SQL Server 迁移验证完成', meta: 'Migrator · 41 分钟前', status: '通过' },
-  { title: 'MySQL 数据一致性巡检', meta: 'Observability · 1 小时前', status: '运行中' }
-] as const;
-
 const currentUser = ref<CurrentUser>();
 const problem = ref<FullNetProblemDetails>();
 const loading = ref(false);
+const { locale, t } = useAdminI18n();
+
+const metrics = computed(() => [
+  { label: t('overview.metric.activeTenants'), value: formatNumber(128), delta: formatPercent(.124), tone: 'jade' },
+  { label: t('overview.metric.onlineUsers'), value: formatNumber(2406), delta: formatPercent(.081), tone: 'cyan' },
+  { label: t('overview.metric.todayRequests'), value: formatNumber(86200, { notation: 'compact' }), delta: formatPercent(.187), tone: 'amber' },
+  { label: t('overview.metric.errorRate'), value: formatPercent(.0008, false), delta: formatPercent(-.0003), tone: 'rose' }
+]);
+
+const activities = computed(() => [
+  { title: t('overview.activity.tenantInitialized'), meta: t('overview.activity.twoMinutes'), status: t('overview.status.success') },
+  { title: t('overview.activity.policySynced'), meta: t('overview.activity.eighteenMinutes'), status: t('overview.status.synced') },
+  { title: t('overview.activity.sqlServerVerified'), meta: t('overview.activity.fortyOneMinutes'), status: t('overview.status.passed') },
+  { title: t('overview.activity.mysqlInspection'), meta: t('overview.activity.oneHour'), status: t('overview.status.running') }
+]);
 
 const userStatus = computed(() => currentUser.value
-  ? `已连接：${currentUser.value.displayName}`
-  : '验证当前会话与权限契约');
+  ? t('overview.connectedUser', { name: currentUser.value.displayName })
+  : t('overview.verifySession'));
+
+function formatNumber(
+  value: number,
+  options: Intl.NumberFormatOptions = {}
+): string {
+  return new Intl.NumberFormat(locale.value, options).format(value);
+}
+
+function formatPercent(value: number, signed = true): string {
+  return new Intl.NumberFormat(locale.value, {
+    style: 'percent',
+    maximumFractionDigits: 2,
+    signDisplay: signed ? 'exceptZero' : 'auto'
+  }).format(value);
+}
 
 async function loadCurrentUser(): Promise<void> {
   if (loading.value) {
@@ -52,7 +69,7 @@ async function loadCurrentUser(): Promise<void> {
     problem.value = {
       status: 500,
       code: 'client.unexpected_error',
-      title: '客户端处理失败'
+      title: t('overview.clientFailure')
     };
   } finally {
     loading.value = false;
@@ -61,34 +78,34 @@ async function loadCurrentUser(): Promise<void> {
 </script>
 
 <template>
-  <main class="overview">
+  <section class="overview">
     <section class="overview__heading">
       <div>
-        <p class="eyebrow">FULL.NET / OPERATIONS</p>
-        <h1>早上好，系统管理员</h1>
-        <p class="overview__summary">所有核心服务运行稳定，待处理事项集中在权限复核与发布确认。</p>
+        <p class="eyebrow">{{ t('overview.eyebrow') }}</p>
+        <h1 data-route-heading tabindex="-1">{{ t('overview.title') }}</h1>
+        <p class="overview__summary">{{ t('overview.summary') }}</p>
       </div>
       <div class="overview__actions">
-        <span class="live-badge"><i aria-hidden="true" />实时运行中</span>
-        <el-button class="probe-button" :loading="loading" data-testid="load-current-user" @click="loadCurrentUser">
-          检查会话
+        <span class="live-badge"><i aria-hidden="true" />{{ t('overview.live') }}</span>
+        <el-button class="probe-button" :loading="loading" :aria-busy="loading" data-testid="load-current-user" @click="loadCurrentUser">
+          {{ loading ? t('overview.probing') : t('overview.probe') }}
         </el-button>
       </div>
     </section>
 
-    <section class="metric-grid" data-testid="metric-grid" aria-label="核心运营指标">
+    <section class="metric-grid" data-testid="metric-grid" :aria-label="t('overview.metricsLabel')">
       <article v-for="metric in metrics" :key="metric.label" class="metric-card" :data-tone="metric.tone">
         <span class="metric-card__label">{{ metric.label }}</span>
         <strong>{{ metric.value }}</strong>
-        <span class="metric-card__delta">{{ metric.delta }} <small>较昨日</small></span>
+        <span class="metric-card__delta">{{ metric.delta }} <small>{{ t('overview.comparedYesterday') }}</small></span>
       </article>
     </section>
 
     <section v-if="problem || currentUser" class="contract-result" :class="{ 'contract-result--error': problem }">
       <span>{{ userStatus }}</span>
       <template v-if="problem">
-        <strong data-testid="error-code">{{ problem.code }}</strong>
-        <code data-testid="trace-id">{{ problem.traceId ?? '无 TraceId' }}</code>
+        <strong data-testid="error-code" translate="no">{{ problem.code }}</strong>
+        <code data-testid="trace-id" translate="no">{{ problem.traceId ?? t('overview.noTraceId') }}</code>
       </template>
     </section>
 
@@ -97,11 +114,11 @@ async function loadCurrentUser(): Promise<void> {
         <header class="panel__header">
           <div>
             <span class="panel__index">01</span>
-            <h2>运行态势</h2>
+            <h2>{{ t('overview.trafficTitle') }}</h2>
           </div>
-          <span class="panel__meta">最近 12 小时</span>
+          <span class="panel__meta">{{ t('overview.lastTwelveHours') }}</span>
         </header>
-        <div class="signal-chart" role="img" aria-label="最近十二小时请求吞吐与错误率趋势">
+        <div class="signal-chart" role="img" :aria-label="t('overview.chartLabel')">
           <div class="signal-chart__scale"><span>120k</span><span>80k</span><span>40k</span><span>0</span></div>
           <svg viewBox="0 0 760 250" preserveAspectRatio="none" aria-hidden="true">
             <defs>
@@ -129,18 +146,18 @@ async function loadCurrentUser(): Promise<void> {
         <header class="panel__header">
           <div>
             <span class="panel__index">02</span>
-            <h2>系统脉搏</h2>
+            <h2>{{ t('overview.pulseTitle') }}</h2>
           </div>
-          <span class="status-dot" aria-label="服务正常" />
+          <span class="status-dot" :aria-label="t('overview.serviceHealthy')" />
         </header>
         <div class="pulse-score">
           <strong>98.6</strong>
-          <span>健康指数</span>
+          <span>{{ t('overview.healthScore') }}</span>
         </div>
         <div class="pulse-list">
-          <div><span>API 可用性</span><el-progress :percentage="99" :show-text="false" :stroke-width="5" /></div>
-          <div><span>缓存命中率</span><el-progress :percentage="94" :show-text="false" :stroke-width="5" /></div>
-          <div><span>任务准点率</span><el-progress :percentage="97" :show-text="false" :stroke-width="5" /></div>
+          <div><span>{{ t('overview.apiAvailability') }}</span><el-progress :percentage="99" :show-text="false" :stroke-width="5" /></div>
+          <div><span>{{ t('overview.cacheHitRate') }}</span><el-progress :percentage="94" :show-text="false" :stroke-width="5" /></div>
+          <div><span>{{ t('overview.jobPunctuality') }}</span><el-progress :percentage="97" :show-text="false" :stroke-width="5" /></div>
         </div>
       </article>
 
@@ -148,9 +165,9 @@ async function loadCurrentUser(): Promise<void> {
         <header class="panel__header">
           <div>
             <span class="panel__index">03</span>
-            <h2>最近活动</h2>
+            <h2>{{ t('overview.activityTitle') }}</h2>
           </div>
-          <button type="button" class="text-action">查看全部</button>
+          <button type="button" class="text-action">{{ t('overview.viewAll') }}</button>
         </header>
         <ol class="activity-list">
           <li v-for="(activity, index) in activities" :key="activity.title">
@@ -165,18 +182,18 @@ async function loadCurrentUser(): Promise<void> {
         <header class="panel__header">
           <div>
             <span class="panel__index">04</span>
-            <h2>待办事项</h2>
+            <h2>{{ t('overview.todoTitle') }}</h2>
           </div>
-          <span class="panel__meta">4 项</span>
+          <span class="panel__meta">{{ t('overview.todoCount') }}</span>
         </header>
         <div class="todo-stack">
-          <button type="button"><span>权限变更复核</span><strong>08</strong></button>
-          <button type="button"><span>租户开通审批</span><strong>03</strong></button>
-          <button type="button"><span>异常告警确认</span><strong>01</strong></button>
+          <button type="button"><span>{{ t('overview.todo.permissionReview') }}</span><strong>08</strong></button>
+          <button type="button"><span>{{ t('overview.todo.tenantApproval') }}</span><strong>03</strong></button>
+          <button type="button"><span>{{ t('overview.todo.alertAcknowledgement') }}</span><strong>01</strong></button>
         </div>
       </article>
     </section>
-  </main>
+  </section>
 </template>
 
 <style scoped>
