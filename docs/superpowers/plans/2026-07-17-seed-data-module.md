@@ -2,23 +2,24 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立生产安全、模块可扩展、SQL Server/MySQL 双库可验证的种子数据管道，并把现有 `--seed-local` 迁移为显式 `development` profile。
+**Goal:** 建立可执行生产 Baseline、可叠加开发/演示/测试数据、模块可扩展且 SQL Server/MySQL 双库可验证的种子数据管道，并把现有 `--seed-local` 迁移为显式 `development` profile。
 
-**Architecture:** 业务模块只实现 `Full.NET.Seeding.Abstractions` 中的贡献者契约；`Full.NET.Seeding.Dapper` 负责依赖排序、数据库锁、执行审计和失败边界；`Host.Migrator` 在迁移成功后显式运行 profile。System Bootstrap、Development/Demo Seed 与 Test Fixture 保持独立。
+**Architecture:** 业务模块只实现 `Full.NET.Seeding.Abstractions` 中的贡献者契约；`Full.NET.Seeding.Dapper` 负责 Baseline 继承、依赖排序、数据库锁、执行审计和失败边界；`Host.Migrator` 在迁移成功后显式运行 profile。Production 使用 Baseline，Development/Demo/Test 在 Baseline 上叠加；场景 Test Factory 继续提供每个用例的隔离数据。
 
 **Tech Stack:** .NET 10、Dapper、Microsoft.Data.SqlClient、MySqlConnector、DbUp、Microsoft Testing Platform、Testcontainers SQL Server/MySQL
 
 ## Global Constraints
 
-- 默认 Migrator 只迁移；只有显式 `--seed development|demo` 才运行产品 Seed。
-- Production 环境必须在获取锁和写入审计前拒绝 Development/Demo，首版没有绕过开关。
+- 默认 Migrator 只迁移；只有显式 `--seed baseline|development|demo|test` 才运行 Seed。
+- Production 只允许 Baseline，必须在获取锁和写入审计前拒绝 Development/Demo/Test，首版没有绕过开关。
+- Development、Demo 和 Test 必须确定性先执行 Baseline，再执行自己的 Overlay。
 - `--seed-local` 仅保留一个兼容周期并精确映射为 `development`；新旧参数同时出现必须失败。
-- System Bootstrap 使用显式 Secret，不属于 Development/Demo Contributor，禁止内置或记录默认密码。
+- 首个管理员等 System Bootstrap 通过 Baseline Contributor 复用现有安全服务，必须使用显式 Secret，禁止内置或记录默认密码。
 - Contributor 按稳定名称和依赖图执行；审计历史不能作为跳过真实协调的依据。
 - 每个 Contributor 自己保证事务和幂等；跨 Contributor 不建立全局事务，失败后通过重跑恢复。
 - Seed 不删除数据、不重置密码、不覆盖用户修改的显示名称、状态或自定义授权。
 - SQL Server 与 MySQL 必须同时实现迁移、执行锁、审计和真实集成测试。
-- API/Worker 不得引用或执行 Seed Orchestrator；只有 Migrator 装配运行入口。
+- API/Worker 不得引用或执行 Seed Orchestrator；只有 Migrator 装配运行入口；Test 专用 Contributor 不进入正式发布物。
 - 稳定 code/Identifier/Username/PermissionCode 不本地化；默认语言使用规范 `zh-CN`。
 - 所有手写代码和 SQL 注释必须使用清晰中文并说明安全、事务或提供程序差异。
 
@@ -51,9 +52,11 @@
 [TestClass]
 public sealed class SeedProfileTests
 {
+    [DataRow("baseline", SeedProfile.Baseline)]
     [DataRow("development", SeedProfile.Development)]
     [DataRow("DEVELOPMENT", SeedProfile.Development)]
     [DataRow("demo", SeedProfile.Demo)]
+    [DataRow("test", SeedProfile.Test)]
     [TestMethod]
     public void Supported_names_are_parsed_exactly(
         string value,
@@ -93,8 +96,10 @@ namespace Full.NET.Seeding.Abstractions;
 /// </summary>
 public enum SeedProfile
 {
+    Baseline,
     Development,
     Demo,
+    Test,
 }
 
 /// <summary>
@@ -104,6 +109,12 @@ public static class SeedProfileNames
 {
     public static bool TryParse(string? value, out SeedProfile profile)
     {
+        if (string.Equals(value, "baseline", StringComparison.OrdinalIgnoreCase))
+        {
+            profile = SeedProfile.Baseline;
+            return true;
+        }
+
         if (string.Equals(value, "development", StringComparison.OrdinalIgnoreCase))
         {
             profile = SeedProfile.Development;
@@ -116,14 +127,44 @@ public static class SeedProfileNames
             return true;
         }
 
+        if (string.Equals(value, "test", StringComparison.OrdinalIgnoreCase))
+        {
+            profile = SeedProfile.Test;
+            return true;
+        }
+
         profile = default;
         return false;
     }
 
     public static string ToCanonicalName(this SeedProfile profile) => profile switch
     {
+        SeedProfile.Baseline => "baseline",
         SeedProfile.Development => "development",
         SeedProfile.Demo => "demo",
+        SeedProfile.Test => "test",
+        _ => throw new ArgumentOutOfRangeException(nameof(profile)),
+    };
+
+    public static IReadOnlySet<SeedProfile> EffectiveLayers(
+        this SeedProfile profile) => profile switch
+    {
+        SeedProfile.Baseline => new HashSet<SeedProfile> { SeedProfile.Baseline },
+        SeedProfile.Development => new HashSet<SeedProfile>
+        {
+            SeedProfile.Baseline,
+            SeedProfile.Development,
+        },
+        SeedProfile.Demo => new HashSet<SeedProfile>
+        {
+            SeedProfile.Baseline,
+            SeedProfile.Demo,
+        },
+        SeedProfile.Test => new HashSet<SeedProfile>
+        {
+            SeedProfile.Baseline,
+            SeedProfile.Test,
+        },
         _ => throw new ArgumentOutOfRangeException(nameof(profile)),
     };
 }
@@ -217,6 +258,9 @@ git commit -m "feat: add seed data contracts"
 Assert.AreEqual(
     SeedProfile.Development,
     SeedCommandLine.Parse(["--seed", "development"]).Profile);
+Assert.AreEqual(
+    SeedProfile.Baseline,
+    SeedCommandLine.Parse(["--seed", "baseline"]).Profile);
 Assert.IsTrue(SeedCommandLine.Parse(["--seed-local"]).UsesLegacyAlias);
 Assert.ThrowsExactly<SeedConfigurationException>(() =>
     SeedCommandLine.Parse(["--seed-local", "--seed", "development"]));
@@ -224,7 +268,7 @@ Assert.ThrowsExactly<SeedConfigurationException>(() =>
     SeedCommandLine.Parse(["--seed", "production"]));
 ```
 
-依赖图使用测试 Contributor 覆盖：按 Name 确定性排序、依赖优先、重复名称、缺失依赖、循环依赖、Version 小于 1 和当前 profile 不适用的贡献者过滤。
+依赖图使用测试 Contributor 覆盖：按 Name 确定性排序、依赖优先、重复名称、缺失依赖、循环依赖、Version 小于 1 和当前 profile 不适用的贡献者过滤；Development/Demo/Test 各自包含 Baseline Contributor，但不包含其他 Overlay。
 
 - [ ] **Step 2: 运行 RED**
 
@@ -245,9 +289,9 @@ public sealed class SeedOptions
 }
 ```
 
-`SeedCommandLine.Parse` 只接受零个 Seed 参数、`--seed development`、`--seed demo` 或单独 `--seed-local`。重复参数、缺值、新旧参数并存或未知 profile 抛出只包含安全稳定 code 的 `SeedConfigurationException`。
+`SeedCommandLine.Parse` 只接受零个 Seed 参数、四个规范 `--seed` profile 或单独 `--seed-local`。重复参数、缺值、新旧参数并存或未知 profile 抛出只包含安全稳定 code 的 `SeedConfigurationException`。
 
-`SeedContributorGraph.Order` 先验证全部名称和版本，再过滤 profile，检查依赖，使用 Name 作为同层排序键执行 Kahn 拓扑排序。循环返回 `seeding.dependency_cycle`，不得依赖 DI 枚举顺序。
+`SeedContributorGraph.Order` 先验证全部名称和版本，再用 `profile.EffectiveLayers()` 过滤 Baseline 与目标 Overlay，检查依赖，使用 Name 作为同层排序键执行 Kahn 拓扑排序。循环返回 `seeding.dependency_cycle`，不得依赖 DI 枚举顺序。
 
 - [ ] **Step 4: 验证 GREEN**
 
@@ -287,7 +331,7 @@ git commit -m "feat: validate seed profiles and contributors"
 
 使用可记录的 Store/Lease 替身和真实 Contributor 对象断言：
 
-- Production 在 `AcquireAsync` 前返回 `seeding.profile_not_allowed`；
+- Production 运行 Baseline 可以继续；运行 Development/Demo/Test 在 `AcquireAsync` 前返回 `seeding.profile_not_allowed`；
 - 非 Production 获取一次 lease，逐项记录 Running/Succeeded；
 - Contributor 失败后记录 Failed 并停止后续项；
 - 取消返回 `seeding.cancelled`；
@@ -419,44 +463,56 @@ git add src/Modules/Full.NET.Modules.Tenancy tests/Full.NET.UnitTests/Tenancy
 git commit -m "feat: seed local development tenant"
 ```
 
-### Task 5: Migrator composition and Bootstrap separation
+### Task 5: Identity Baseline contributor and Migrator composition
 
 **Files:**
+- Modify: `src/Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj`
+- Create: `src/Modules/Full.NET.Modules.Identity/Seeding/HostAdministratorSeedContributor.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/IdentityModule.cs`
 - Modify: `src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj`
 - Create: `src/Hosts/Full.NET.Host.Migrator/MigratorWorkflow.cs`
 - Modify: `src/Hosts/Full.NET.Host.Migrator/Program.cs`
 - Modify: `src/Hosts/Full.NET.AppHost/Program.cs`
 - Modify: `src/Hosts/Full.NET.Host.Migrator/appsettings.json`
 - Modify: `tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj`
+- Test: `tests/Full.NET.UnitTests/Identity/HostAdministratorSeedContributorTests.cs`
 - Test: `tests/Full.NET.UnitTests/Hosting/MigratorWorkflowTests.cs`
 - Modify: `tests/Full.NET.ArchitectureTests/DependencyRulesTests.cs`
 
 **Interfaces:**
-- Consumes: `AddFullNetSeeding`、`SeedCommandLine.Parse`、`ISeedOrchestrator`、`IIdentityBootstrapService`。
-- Produces: Migrator 的迁移、可选 Seed、显式 Bootstrap 三阶段退出语义。
+- Consumes: `AddFullNetSeeding`、`SeedCommandLine.Parse`、`ISeedOrchestrator`、`IIdentityBootstrapService` 与 `IdentityOptions.Bootstrap`。
+- Produces: `identity.host-administrator` Baseline Contributor，以及 Migrator 的迁移、可选 Seed 两阶段退出语义。
 
-- [ ] **Step 1: 写 Workflow RED 测试**
+- [ ] **Step 1: 写 Identity Baseline Contributor RED 测试**
+
+覆盖：Username/Password 任一缺失都返回 `seeding.bootstrap_secret_missing` 且不调用 Bootstrap；完整 Secret 调用 `BootstrapHostAdminAsync`，新建返回 Created=1、已存在授权同步返回 Updated=1；Bootstrap 失败映射稳定错误码；结果、日志和异常不包含 Password。Contributor 固定 `Name = "identity.host-administrator"`、`Version = 1`、Profiles 只含 Baseline。
+
+- [ ] **Step 2: 写 Workflow RED 测试**
 
 用替身依赖覆盖：
 
-- 无 Seed 参数：运行迁移与已完整配置的 Bootstrap，不运行 Orchestrator；
-- `--seed development`：迁移成功后运行 Development，再运行 Bootstrap；
+- 无 Seed 参数：只运行迁移，不运行 Orchestrator；
+- `--seed baseline`：迁移成功后运行 Baseline；
+- `--seed development`：迁移成功后运行 Development，Orchestrator 负责先执行 Baseline；
 - `--seed-local`：运行 Development 并产生弃用标志；
-- 只有 Username 或 Password：Seed 前后均返回配置失败且不记录 Secret；
-- 迁移失败：不运行 Seed/Bootstrap；Seed 失败：不运行 Bootstrap；Bootstrap 失败：进程失败；
-- 取消传播到三个阶段。
+- 迁移失败：不运行 Seed；Seed 失败：进程失败；
+- 取消传播到两个阶段。
 
-- [ ] **Step 2: 运行 RED**
+- [ ] **Step 3: 运行 RED**
 
 Run: `dotnet build Full.NET.slnx --configuration Release`
 
 Expected: FAIL，`MigratorWorkflow` 不存在。
 
-- [ ] **Step 3: 抽取可测试工作流**
+- [ ] **Step 4: 实现 Baseline Contributor**
 
-`Program.cs` 只负责 Host/DI/日志和退出码；`MigratorWorkflow.RunAsync` 按设计顺序调用三阶段。安全异常对 CLI 只暴露稳定 code；完整异常由结构化日志记录一次。所有新增公开/内部扩展点使用中文 XML 文档说明迁移失败阻断后续写入。
+Identity 模块引用 Seed Abstractions 并以 Scoped `TryAddEnumerable` 注册 Contributor。Contributor 从 `IOptions<IdentityOptions>` 读取 Bootstrap 配置，在任何日志或结果建立前验证 Username/Password 成对存在，再调用现有 `IIdentityBootstrapService`；不得复制密码校验、用户 SQL 或授权同步逻辑。
 
-- [ ] **Step 4: 更新装配和 AppHost**
+- [ ] **Step 5: 抽取可测试工作流**
+
+`Program.cs` 只负责 Host/DI/日志和退出码；`MigratorWorkflow.RunAsync` 按迁移、可选 Seed 两阶段执行。安全异常对 CLI 只暴露稳定 code；完整异常由结构化日志记录一次。所有新增公开/内部扩展点使用中文 XML 文档说明迁移失败阻断后续写入。
+
+- [ ] **Step 6: 更新装配和 AppHost**
 
 Migrator 引用 `Full.NET.Seeding.Dapper`，调用 `AddFullNetSeeding(builder.Configuration)`；AppHost 将 `.WithArgs("--seed-local")` 改为 `.WithArgs("--seed", "development")`。`appsettings.json` 增加：
 
@@ -471,11 +527,11 @@ Migrator 引用 `Full.NET.Seeding.Dapper`，调用 `AddFullNetSeeding(builder.Co
 
 不增加 Enabled、Force 或 Production 绕过配置。
 
-- [ ] **Step 5: 加强架构门禁**
+- [ ] **Step 7: 加强架构门禁**
 
 Architecture Tests 断言 Host.Api 和 Host.Worker 不依赖 `Full.NET.Seeding.Dapper`；Migrator 必须依赖它；Modules 不依赖 `Full.NET.Seeding.Dapper`。
 
-- [ ] **Step 6: 运行 GREEN**
+- [ ] **Step 8: 运行 GREEN**
 
 Run: `dotnet build Full.NET.slnx --configuration Release --no-restore`
 
@@ -483,19 +539,20 @@ Run: `dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
 
 Run: `dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 13 --timeout 5m`
 
-Expected: 工作流顺序、Secret 边界和 Host 依赖门禁通过。
+Expected: Baseline Contributor、工作流顺序、Secret 边界和 Host 依赖门禁通过。
 
-- [ ] **Step 7: 提交**
+- [ ] **Step 9: 提交**
 
 ```powershell
-git add src/Hosts tests/Full.NET.UnitTests/Hosting tests/Full.NET.ArchitectureTests
-git commit -m "feat: orchestrate explicit development seeds"
+git add src/Modules/Full.NET.Modules.Identity src/Hosts tests/Full.NET.UnitTests/Identity tests/Full.NET.UnitTests/Hosting tests/Full.NET.ArchitectureTests
+git commit -m "feat: orchestrate baseline and development seeds"
 ```
 
 ### Task 6: End-to-end dual database seed contract verification
 
 **Files:**
 - Create: `tests/Full.NET.IntegrationTests/Seeding/DevelopmentSeedTests.cs`
+- Create: `tests/Full.NET.IntegrationTests/Seeding/TestOnlySeedContributor.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj`
 - Modify: `tests/Full.NET.IntegrationTests/Tenancy/TenantProvisioningTests.cs`
 
@@ -507,12 +564,13 @@ git commit -m "feat: orchestrate explicit development seeds"
 
 每个 provider 启动全新 Testcontainer，执行迁移并构建与 Migrator 相同的服务集合。测试顺序：
 
-1. `RunAsync(Development)` 首次成功；
-2. 查询 `fn_tenant_tenant`，local 恰好 1 条；
+1. `RunAsync(Development)` 首次成功，并按依赖顺序执行 `identity.host-administrator` 与 `tenancy.local-tenant`；
+2. 查询宿主管理员、系统授权和 `fn_tenant_tenant`，各自只有期望记录，local 恰好 1 条；
 3. 查询未处理的 TenantProvisioned Outbox，恰好 1 条；
-4. 第二次运行成功，租户和创建 Outbox 仍各 1 条，第二个 run item 的 SkippedCount=1；
-5. 手工写入 Identifier=`local`、Domain=`conflict.localhost` 的冲突库重新运行，返回 `seeding.data_conflict` 且不覆盖；
-6. Production 环境运行返回 `seeding.profile_not_allowed`，`fn_seed_run` 没有新增行。
+4. 第二次运行成功，管理员密码不改变，租户和创建 Outbox 仍各 1 条，第二个 run 的 Baseline/Development item 以 Updated/Skipped 报告；
+5. 在另一全新数据库手工写入 Identifier=`local`、Domain=`conflict.localhost` 后运行 Development，返回 `seeding.data_conflict` 且不覆盖；
+6. Production 环境运行 Baseline 成功；运行 Development/Demo/Test 返回 `seeding.profile_not_allowed`，且拒绝的 profile 不新增 `fn_seed_run`；
+7. 非 Production 运行 Test 时执行 Baseline 和测试程序集注册的 `TestOnlySeedContributor`，但不执行 Development/Demo Contributor。
 
 这些场景的单元行为已经在 Tasks 3-5 分别完成 RED/GREEN；本任务把它们组合成真实双库纵向证据，不新增生产行为。
 
@@ -520,7 +578,7 @@ git commit -m "feat: orchestrate explicit development seeds"
 
 Run: `dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 12 --timeout 10m`
 
-Expected: SQL Server/MySQL 的首次、重复、冲突、审计、Outbox 和 Production 门禁全部通过。若任一场景失败，停止任务并使用 `superpowers:systematic-debugging` 先建立最小失败复现，再修改所属实现；禁止放宽门禁、删除断言或绕过真实 Dapper。
+Expected: SQL Server/MySQL 的 Baseline 生产初始化、Development/Test 继承、首次、重复、冲突、审计、Outbox 和 Production 门禁全部通过。若任一场景失败，停止任务并使用 `superpowers:systematic-debugging` 先建立最小失败复现，再修改所属实现；禁止放宽门禁、删除断言或绕过真实 Dapper。
 
 - [ ] **Step 3: 提交**
 
@@ -553,8 +611,8 @@ README/getting-started 明确：
 - Aspire 默认传 `--seed development`；
 - 手工 Migrator 的新命令和 `--seed-local` 弃用期；
 - 管理员凭据必须通过 user-secrets/部署 Secret；
-- 默认 Migrator 和 Production 不执行 Development/Demo；
-- Seed 数据持久存在于开发数据库，IntegrationTests 数据只存在于临时容器；
+- 默认 Migrator 不执行 Seed，生产通过显式 Baseline 初始化，Production 不执行 Development/Demo/Test；
+- Seed 数据持久存在于目标数据库；IntegrationTests 在临时容器中复用 Baseline/Test，并以 Test Factory 隔离场景数据；
 - 重跑只补齐/跳过，不删除或覆盖用户数据；
 - 查看 `fn_seed_run`/`fn_seed_run_item` 时不得把表当业务幂等开关。
 
@@ -564,7 +622,7 @@ README/getting-started 明确：
 
 - [ ] **Step 3: 演进项目规则和 Skill 候选**
 
-新增强制 Seed 边界：Production 禁止 Development/Demo、系统 Bootstrap 不属于演示 Seed、测试工厂不得依赖产品 Seed、Contributor 必须双库幂等。更新 `fullnet-seed-data-delivery` 候选；在第二个真实业务模块贡献 Seed 之前不创建新 Skill。
+新增强制 Seed 边界：Production 只允许 Baseline、Development/Demo/Test 继承 Baseline、首个管理员必须使用 Secret、测试专用 Contributor 不进入发布物、场景 Test Factory 保持隔离、Contributor 必须双库幂等。更新 `fullnet-seed-data-delivery` 候选；在第二个真实业务模块贡献 Seed 之前不创建新 Skill。
 
 - [ ] **Step 4: 执行完整验证**
 
@@ -584,7 +642,7 @@ Run: `python -X utf8 tests/skills/validate_project_skills.py`
 
 Run: `git diff --check`
 
-Expected: 所有维护范围通过；SQL Server/MySQL 没有跳过；文档准确区分 Bootstrap、Development/Demo 和 Test Fixture。
+Expected: 所有维护范围通过；SQL Server/MySQL 没有跳过；文档准确说明 Baseline、Development/Demo/Test 继承和 Scenario Test Fixture。
 
 - [ ] **Step 5: 提交**
 

@@ -7,28 +7,28 @@
 
 ## 1. 结论
 
-Full.NET 增加独立的种子数据基础设施，采用“模块贡献者管道、显式运行 profile、Dapper 双库执行、审计而不代替幂等”的方案。种子数据只由 `Host.Migrator` 在数据库迁移成功后显式执行，API 和 Worker 不得在启动时自动播种。
+Full.NET 增加独立的种子数据基础设施，采用“生产安全基线、环境数据叠加、模块贡献者管道、Dapper 双库执行、审计而不代替幂等”的方案。种子数据既用于生产首次初始化，也可供开发和测试复用；它只由 `Host.Migrator` 在数据库迁移成功后显式执行，API 和 Worker 不得在启动时自动播种。
 
-种子数据分成三个互不混用的边界：
+种子数据分成三个有明确继承关系、但不混淆发布边界的层次：
 
-1. **System Bootstrap**：首个宿主管理员、系统角色和权限等生产安全初始化。它保留在所属业务模块中，必须使用显式密钥或确定性系统目录，不属于演示数据。
-2. **Development/Demo Seed**：本地开发和产品演示所需的租户、组织、角色、用户及示例业务数据，由本设计的贡献者管道执行。
-3. **Test Fixture**：自动化测试在临时 SQL Server/MySQL 中创建的数据，由测试工厂管理，不进入产品 Seed profile，也不依赖开发种子。
+1. **Baseline Seed**：生产安全初始化，包含系统权限、必要字典、首个宿主管理员等生产所需数据；安全敏感项必须使用显式 Secret。
+2. **Development/Demo/Test Overlay**：分别在 Baseline 之上叠加本地开发、产品演示或自动化测试所需数据。
+3. **Scenario Test Fixture**：单个测试场景的订单、冲突、失败等数据仍由测试工厂创建；Test profile 负责共享基线，Test Factory 负责每个用例的隔离状态。
 
-首版提供 `development` 和 `demo` 两个 profile。默认 Migrator 只迁移数据库，不执行任何 Seed；Production 环境无条件拒绝这两个 profile。
+首版提供 `baseline`、`development`、`demo` 和 `test` 四个 profile。默认 Migrator 只迁移数据库，不执行任何 Seed；Production 只允许显式 `baseline`，无条件拒绝其他三个 profile。
 
 ## 2. 现状与问题
 
 当前 `Host.Migrator --seed-local` 在宿主入口中直接完成两项工作：调用 Tenancy 创建 `local` 租户，再调用 Identity Bootstrap 创建首个宿主管理员。现有实现已经具备真实 Dapper 写入、事务 Outbox、幂等账号引导和 SQL Server/MySQL 集成测试，但它存在以下扩展问题：
 
 - Migrator 直接知道每个模块的业务服务，模块增加后入口会持续膨胀；
-- `--seed-local` 同时承担生产安全 Bootstrap 和开发数据，运行语义不够清晰；
+- `--seed-local` 把生产安全基线与开发叠加数据绑定在一个开关中，运行语义不够清晰；
 - 没有贡献者依赖顺序、并发运行锁、执行审计和失败定位；
 - 没有统一的 profile、版本、结果计数和生产环境门禁；
 - 测试数据、开发数据和未来演示数据缺少明确隔离；
 - 多语言设计落地后，演示数据的稳定 code、默认语言和可翻译内容容易混在一起。
 
-本设计不否定现有 Bootstrap。它把宿主硬编码的开发数据迁移到可扩展管道，同时保留安全初始化的独立语义。
+本设计保留现有 `IIdentityBootstrapService` 的安全与幂等实现，但由 Baseline Contributor 调用它，使生产、开发和测试通过同一管道复用真实初始化逻辑。
 
 ## 3. 目标与非目标
 
@@ -39,7 +39,8 @@ Full.NET 增加独立的种子数据基础设施，采用“模块贡献者管�
 - SQL Server 与 MySQL 具有等价的运行锁、执行审计和双库测试；
 - 多实例或重复部署时只有一个 Seed 执行器进入贡献者管道；
 - 失败可定位到具体 run、贡献者和稳定错误码，重新执行能够安全修复缺失数据；
-- 开发者能通过 Aspire 一次启动获得可用的本地租户和显式配置的管理员；
+- 生产部署能显式执行安全 Baseline；开发者能通过 Aspire 一次启动获得相同基线、local 租户和显式配置的管理员；
+- 自动化测试可以运行 Baseline/Test profile，但测试专用 Contributor 不进入生产发布程序集；
 - 后续模块只实现贡献者，无须修改 Migrator 主流程。
 
 ### 3.2 非目标
@@ -48,7 +49,7 @@ Full.NET 增加独立的种子数据基础设施，采用“模块贡献者管�
 - 不把 Seed 当作数据库迁移、备份恢复或生产数据修复工具；
 - 不提供删除、清库、重置密码或覆盖业务数据的默认能力；
 - 不通过 HTTP 暴露 Seed API，也不在管理后台提供一键生产播种；
-- 不把自动化测试依赖到 `development` 或 `demo` profile；
+- 不让自动化测试依赖 `development` 或 `demo`；共享系统数据通过 `baseline/test`，场景业务数据由隔离 Test Factory 创建；
 - 不在首版为尚未实现的 Organization、Notifications 或示例 CRM 创建空贡献者。
 
 ## 4. 方案比较
@@ -99,12 +100,14 @@ Full.NET.Seeding.Dapper -> Seeding.Abstractions + Data.Abstractions/Dapper
 ```csharp
 public enum SeedProfile
 {
+    Baseline,
     Development,
     Demo,
+    Test,
 }
 ```
 
-CLI 使用小写规范值 `development`、`demo`。未知值直接失败，不做模糊匹配。自定义产品若需要 staging 等新语义，必须先扩展枚举、生产门禁和测试，而不是透传任意字符串。
+CLI 使用小写规范值 `baseline`、`development`、`demo`、`test`。未知值直接失败，不做模糊匹配。Profile 采用固定继承：Development、Demo、Test 都先执行 Baseline，再执行自己的 Overlay；自定义产品若需要 staging 等新语义，必须先扩展枚举、门禁、继承关系和测试，而不是透传任意字符串。
 
 ### 6.2 Contributor
 
@@ -138,9 +141,22 @@ public interface IDataSeedContributor
 
 `SeedContributionResult` 的 `CreatedCount`、`UpdatedCount`、`SkippedCount` 用于日志和审计。成功但没有变化是正常结果。失败通过异常边界映射为稳定错误码，原始异常只进入受保护的结构化日志，不写入数据库审计详情。
 
-## 7. Profile 内容与安全边界
+## 7. Profile 内容、继承与安全边界
 
-### 7.1 Development
+### 7.1 Baseline
+
+Baseline 可以在 Production 显式运行，只能包含生产运行所必需或安全的初始化数据：
+
+- 当前代码定义的系统权限、系统角色和角色权限关系；
+- 使用 Secret 创建或协调的首个宿主管理员；
+- 后续模块明确声明为系统目录的字典、配置、菜单或内置任务定义；
+- 生产必须存在且具有稳定 code 的基础数据。
+
+现有 `IIdentityBootstrapService` 由 `identity.host-administrator` Baseline Contributor 调用。Username、Password 和 DisplayName 来自配置/Secret；重复执行继续同步系统授权但不覆盖已有密码。缺少必需 Secret 时 Baseline 失败，不能静默产生一个没有管理员的“成功初始化”。
+
+Baseline 禁止包含示例订单、虚构客户、演示组织、可预测密码、随机大数据或只为 UI 好看的内容。
+
+### 7.2 Development
 
 首个贡献者为 `tenancy.local-tenant`：
 
@@ -149,9 +165,9 @@ public interface IDataSeedContributor
 - Domain：`localhost`；
 - 默认语言：多语言 L0/L1 落地后使用 `zh-CN`。
 
-首个宿主管理员仍由 `IIdentityBootstrapService` 创建，用户名和密码必须来自 Secret。Seeder 不内置默认密码，也不把密码写入日志、审计表或种子清单。
+Development 自动先运行全部 Baseline Contributor，再运行 `tenancy.local-tenant` 等开发 Contributor。Seeder 不内置默认密码，也不把密码写入日志、审计表或种子清单。
 
-### 7.2 Demo
+### 7.3 Demo
 
 首版只预留 profile 和基础约束，不提前创建尚无真实业务消费者的数据。随着模块实现，Demo 可以增加：
 
@@ -160,13 +176,19 @@ public interface IDataSeedContributor
 - 禁用状态的示例账号，或使用显式 `Seeding:DemoUserPassword` Secret 创建可登录账号；
 - Sample CRM 等真实样例模块的数据。
 
-Demo Contributor 必须使用稳定 code/自然键定位数据。没有显式密码 Secret 时，不得创建带可预测密码的活跃账号。
+Demo 自动先运行 Baseline。Demo Contributor 必须使用稳定 code/自然键定位数据。没有显式密码 Secret 时，不得创建带可预测密码的活跃账号。
 
-### 7.3 Production
+### 7.4 Test
 
-当 `IHostEnvironment.IsProduction()` 为 true 时，`development` 和 `demo` 均在数据库锁与任何写入之前失败，错误码为 `seeding.profile_not_allowed`。首版不提供配置开关绕过该门禁。
+Test 自动先运行 Baseline。Test 专用 Contributor 放在 `tests/` 或 Sample 测试项目中，不进入正式 NuGet、Host 或容器发布物，用于建立多个测试共享的系统目录和确定性租户基线。
 
-生产所需的 System Bootstrap 通过独立显式参数和 Secret 执行。迁移、Bootstrap 和 Development/Demo Seed 在日志与退出码中分别报告，不互相掩盖失败。
+具体测试用例的成功、冲突、并发、回滚和权限数据继续由 Test Factory 在每个临时数据库中创建并清理，禁止所有测试依赖同一个共享可变账号或订单。测试可以直接运行 `baseline` 验证生产初始化，也可以运行 `test` 叠加测试专用数据。
+
+### 7.5 Production
+
+当 `IHostEnvironment.IsProduction()` 为 true 时，只允许 `baseline`；`development`、`demo` 和 `test` 均在数据库锁与任何写入之前失败，错误码为 `seeding.profile_not_allowed`。首版不提供配置开关绕过该门禁。
+
+生产部署必须显式传入 `--seed baseline` 才执行初始化。迁移与 Baseline 在日志、审计和退出码中分别报告，不互相掩盖失败。
 
 ## 8. 幂等、更新与删除策略
 
@@ -189,13 +211,13 @@ Host.Migrator 启动
 -> 执行 DbUp 迁移
 -> 解析显式 --seed <profile>
 -> 检查 Environment/Profile 门禁
+-> 展开 Baseline + 目标 Overlay
 -> 验证 Contributor 名称、版本和依赖图
 -> 获取数据库级 Full.NET.Seeding 锁
 -> 写入 fn_seed_run
 -> 按拓扑顺序逐个执行 Contributor
 -> 写入 fn_seed_run_item 计数与状态
 -> 完成 run，释放数据库锁
--> 执行显式 System Bootstrap
 -> 按任一失败返回非零退出码
 ```
 
@@ -220,7 +242,7 @@ Host.Migrator 启动
 | 字段 | 语义 |
 | --- | --- |
 | Id | GuidV7 RunId |
-| Profile | `development` 或 `demo` |
+| Profile | `baseline`、`development`、`demo` 或 `test` |
 | EnvironmentName | 执行环境，不含机器秘密 |
 | Status | Running/Succeeded/Failed/Cancelled |
 | ApplicationVersion | 可用时记录程序集版本 |
@@ -248,11 +270,13 @@ Host.Migrator 启动
 ```powershell
 dotnet run --project src/Hosts/Full.NET.Host.Migrator -- --seed development
 dotnet run --project src/Hosts/Full.NET.Host.Migrator -- --seed demo
+dotnet run --project src/Hosts/Full.NET.Host.Migrator -- --seed baseline
+dotnet run --project src/Hosts/Full.NET.Host.Migrator -- --seed test
 ```
 
-没有 `--seed` 时只执行迁移和显式配置的 System Bootstrap。`--seed-local` 在一个兼容周期内映射为 `--seed development` 并记录弃用警告；同时传入新旧参数属于配置错误。
+没有 `--seed` 时只执行迁移。`--seed-local` 在一个兼容周期内映射为 `--seed development` 并记录弃用警告；同时传入新旧参数属于配置错误。生产发布流水线显式选择 `baseline`，不能依赖环境名称自动播种。
 
-AppHost 改为传入 `--seed development`。部署流水线默认不传 Seed 参数，Production 即使误传也会在写入前失败。
+AppHost 改为传入 `--seed development`。生产部署流水线在需要初始化/协调系统基线时显式传 `--seed baseline`，只迁移时不传 Seed 参数；误传其他 profile 会在任何 Seed 写入前失败。
 
 首版不提供 `--reset`、`--force`、`--delete` 或任意 Seed 文件路径参数。
 
@@ -287,7 +311,7 @@ AppHost 改为传入 `--seed development`。部署流水线默认不传 Seed 参
 
 ### 14.1 Unit
 
-- profile 解析、Production 门禁；
+- profile 解析、Baseline 继承与 Production 门禁；
 - 重复名称、缺失依赖和依赖循环；
 - 确定性拓扑顺序；
 - 失败即停、取消传播和结果计数；
@@ -310,32 +334,33 @@ SQL Server 和 MySQL 必须分别验证：
 - 第二次执行不增加租户和 Outbox 创建消息，SkippedCount 增加；
 - Contributor 失败后 run/item 为 Failed，修复后重跑可成功；
 - 两个并发执行器只有一个持锁，另一个超时或等待后安全执行；
-- Production 门禁发生在任何 Seed 写入之前；
+- Production 允许 Baseline 且拒绝 Development/Demo/Test，拒绝门禁发生在任何 Seed 写入之前；
 - `--seed-local` 与 `--seed development` 在兼容期产生等价数据。
 
-自动化测试仍在临时 Testcontainers 数据库内创建自己的测试数据，不读取开发 Seed 的账号或固定行。
+自动化测试仍在临时 Testcontainers 数据库内运行 Baseline/Test 并创建场景数据，不读取开发 Seed 的账号或固定行；测试专用 Contributor 不进入生产发布物。
 
 ## 15. 交付阶段
 
 | 阶段 | 范围 | 退出条件 |
 | --- | --- | --- |
-| S0 契约 | Abstractions、profile、贡献者图 | Unit/Architecture 通过 |
+| S0 契约 | Abstractions、profile 继承、贡献者图 | Unit/Architecture 通过 |
 | S1 双库执行器 | Dapper 锁、run/item 审计、双库迁移 | SQL Server/MySQL 锁与审计通过 |
-| S2 Development | Tenancy local Contributor、Migrator CLI、AppHost | 首次/重复/失败重跑双库通过 |
+| S2 Baseline/Development | Identity Baseline、Tenancy local、Migrator CLI、AppHost | 生产 Baseline 与开发继承的首次/重复/失败重跑双库通过 |
 | S3 Demo | 随真实模块增加演示 Contributor | 无默认密码，模块验收与多语言资源通过 |
 | S4 运维 | CI、发布说明、审计查询与清理策略 | 默认生产部署不执行 Seed |
 
-当前只批准 S0-S2 进入实施计划。S3 必须随真实业务模块逐项实现，禁止一次性制造与产品功能脱节的大批假数据。
+当前只批准 S0-S2 进入实施计划。Test profile 的执行器契约进入 S0-S2，但测试专用业务数据随测试切片提供；S3 必须随真实业务模块逐项实现，禁止一次性制造与产品功能脱节的大批假数据。
 
 ## 16. 完成定义
 
 种子数据模块只有满足以下条件才可标记为 `Implemented`：
 
-- 默认 Migrator 不执行 Development/Demo Seed；
-- Production 拒绝 Development/Demo 且没有绕过开关；
+- 默认 Migrator 不执行 Seed，生产部署可显式执行 Baseline；
+- Production 拒绝 Development/Demo/Test 且没有绕过开关；
+- Development/Demo/Test 确定性继承 Baseline；
 - SQL Server/MySQL 的迁移、锁、审计、首次与重复执行测试全部通过；
-- local 租户不重复，失败重跑可恢复，System Bootstrap 不覆盖已有密码；
+- Baseline 管理员和系统授权幂等，local 租户不重复，失败重跑可恢复且已有密码不被覆盖；
 - API/Worker 没有启动播种；
-- Test Fixture 与产品 Seed 不互相依赖；
+- Test profile 的共享基线可复用，场景 Fixture 保持隔离，测试专用 Contributor 不进入发布物；
 - 文档、CLI、AppHost、测试数量门槛、规则与 Skill 候选同步更新；
 - 没有默认密码、敏感日志、任意文件执行或删除数据入口。

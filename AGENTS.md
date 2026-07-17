@@ -46,7 +46,7 @@
 - Layui 管理端只依赖 MIT 的 Layui 核心库并独立实现；layuiAdmin 仅可作为公开页面的功能/交互参考，未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制或提交其源码及产品资产。
 - H5、微信小程序和支付宝小程序统一采用 uni-app；原生 Android/iOS 与 Windows/macOS/Linux 桌面端默认采用 Flutter；.NET MAUI 只在真实 C#/Windows 企业需求命中决策门禁后作为可选模板引入。
 - 多语言采用“统一治理、平台原生实现”：全栈使用规范 BCP 47 语言标签和稳定错误/权限/枚举代码，各客户端与服务端分别使用平台原生资源机制；业务逻辑不得依赖翻译文本，完成状态必须按路线图和跨端验证如实标记，不能用管理壳层翻译代替全栈支持。
-- 种子数据必须区分生产安全 System Bootstrap、显式 Development/Demo Seed 和自动化 Test Fixture；默认 Migrator 只迁移，Production 禁止开发/演示 Seed，API/Worker 不得启动播种，Contributor 必须幂等且通过 SQL Server/MySQL 双库验证。
+- 种子数据采用“生产安全 Baseline＋环境 Overlay”：默认 Migrator 只迁移，Production 只允许显式 Baseline，Development/Demo/Test 先执行 Baseline 再叠加各自数据；API/Worker 不得启动播种，测试专用 Contributor 不进入发布物，Contributor 必须幂等且通过 SQL Server/MySQL 双库验证。
 
 ## 详细规则索引
 

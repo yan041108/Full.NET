@@ -38,7 +38,7 @@ dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 
 AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。
 
-当前本地数据仍由 Migrator 的 `--seed-local` 硬编码入口创建。模块化 Development/Demo 种子管道已经完成设计，但尚未实现；它将严格分离生产安全 Bootstrap、持久化开发/演示数据和 Testcontainers 临时测试数据。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
+当前本地数据仍由 Migrator 的 `--seed-local` 硬编码入口创建。模块化种子管道已经完成设计但尚未实现：Production 可显式运行安全 `baseline`，Development/Demo/Test 在 Baseline 上叠加各自数据，Testcontainers 中的场景数据继续由隔离 Test Factory 创建。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
 
 更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 
