@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Tenancy.Persistence;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Tenancy;
 
@@ -12,6 +13,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
         HttpContext httpContext,
         ITenantResolver resolver,
         CurrentTenantAccessor currentTenant,
+        IOptions<TenancyOptions> options,
         IApiResultMapper resultMapper)
     {
         if (!httpContext.Request.Path.StartsWithSegments("/api"))
@@ -21,6 +23,21 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
         }
 
         var host = httpContext.Request.Host.Host;
+        if (options.Value.HostDomains.Contains(host, StringComparer.OrdinalIgnoreCase))
+        {
+            currentTenant.SetHost();
+            try
+            {
+                await next(httpContext).ConfigureAwait(false);
+            }
+            finally
+            {
+                currentTenant.Clear();
+            }
+
+            return;
+        }
+
         var tenant = string.IsNullOrWhiteSpace(host)
             ? null
             : await resolver

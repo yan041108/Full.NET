@@ -1,17 +1,68 @@
 namespace Full.NET.Modules.Identity.Persistence;
 
-internal sealed record IdentityUserRecord(
-    Guid Id,
-    Guid? TenantId,
-    string ScopeKey,
-    string Username,
-    string NormalizedUsername,
-    string DisplayName,
-    string PasswordHash,
-    bool IsActive,
-    int FailedLoginCount,
-    DateTimeOffset? LockoutEndUtc,
-    string SecurityStamp,
-    DateTimeOffset CreatedAtUtc,
-    DateTimeOffset? UpdatedAtUtc,
-    int Version);
+internal sealed class IdentityUserRecord
+{
+    public IdentityUserRecord()
+    {
+    }
+
+    public IdentityUserRecord(
+        Guid id,
+        Guid? tenantId,
+        string scopeKey,
+        string username,
+        string normalizedUsername,
+        string displayName,
+        string passwordHash,
+        bool isActive,
+        int failedLoginCount,
+        DateTimeOffset? lockoutEndUtc,
+        string securityStamp,
+        DateTimeOffset createdAtUtc,
+        DateTimeOffset? updatedAtUtc,
+        int version)
+    {
+        Id = id;
+        TenantId = tenantId;
+        ScopeKey = scopeKey;
+        Username = username;
+        NormalizedUsername = normalizedUsername;
+        DisplayName = displayName;
+        PasswordHash = passwordHash;
+        IsActive = isActive;
+        FailedLoginCount = failedLoginCount;
+        LockoutEndUtc = lockoutEndUtc;
+        SecurityStamp = securityStamp;
+        CreatedAtUtc = createdAtUtc;
+        UpdatedAtUtc = updatedAtUtc;
+        Version = version;
+    }
+
+    public Guid Id { get; set; }
+
+    public Guid? TenantId { get; set; }
+
+    public string ScopeKey { get; set; } = string.Empty;
+
+    public string Username { get; set; } = string.Empty;
+
+    public string NormalizedUsername { get; set; } = string.Empty;
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    public string PasswordHash { get; set; } = string.Empty;
+
+    public bool IsActive { get; set; }
+
+    public int FailedLoginCount { get; set; }
+
+    public DateTimeOffset? LockoutEndUtc { get; set; }
+
+    public string SecurityStamp { get; set; } = string.Empty;
+
+    public DateTimeOffset CreatedAtUtc { get; set; }
+
+    public DateTimeOffset? UpdatedAtUtc { get; set; }
+
+    public int Version { get; set; }
+}

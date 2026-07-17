@@ -29,6 +29,8 @@ public sealed class TenancyModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddOptions<TenancyOptions>()
+            .Bind(configuration.GetSection(TenancyOptions.SectionName));
         services.AddFullNetFluentValidation();
         services.TryAddScoped<
             IValidator<ProvisionTenantCommand>,

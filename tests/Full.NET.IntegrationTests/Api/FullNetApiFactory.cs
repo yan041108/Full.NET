@@ -1,6 +1,8 @@
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Migrations.DbUp;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -13,6 +15,8 @@ internal sealed class FullNetApiFactory(
     DatabaseProvider provider,
     string connectionString) : WebApplicationFactory<Program>
 {
+    public const string TestPassword = "FullNet!2026Integration";
+
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
     private bool _initialized;
 
@@ -31,6 +35,8 @@ internal sealed class FullNetApiFactory(
                 [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
                 [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
                 ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
+                ["Identity:AllowedOrigins:0"] = "http://localhost",
+                ["Tenancy:HostDomains:0"] = "localhost",
             }));
     }
 
@@ -70,6 +76,20 @@ internal sealed class FullNetApiFactory(
                         $"Test tenant provisioning failed: {result.Error?.Code} - "
                         + result.Error?.Message);
                 }
+
+                var bootstrap = await scope.ServiceProvider
+                    .GetRequiredService<IIdentityBootstrapService>()
+                    .BootstrapHostAdminAsync(
+                        new BootstrapHostAdminRequest(
+                            "admin",
+                            TestPassword,
+                            "系统管理员"),
+                        cancellationToken);
+                if (!bootstrap.IsSuccess)
+                {
+                    throw new InvalidOperationException(
+                        $"Test identity bootstrap failed: {bootstrap.Error?.Code}");
+                }
             }
             finally
             {
@@ -93,6 +113,25 @@ internal sealed class FullNetApiFactory(
         });
         client.DefaultRequestHeaders.Host = host;
         return client;
+    }
+
+    public async Task<long> GetAuthenticationAuditCountAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            return await scope.ServiceProvider.GetRequiredService<IQueryExecutor>()
+                .QuerySingleOrDefaultAsync<long>(
+                    IdentitySql.CountAuthenticationAudits,
+                    cancellationToken: cancellationToken);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     protected override void Dispose(bool disposing)

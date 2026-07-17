@@ -4,6 +4,7 @@ using Full.NET.Data.Dapper.Outbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using global::Dapper;
 
 namespace Full.NET.Data.Dapper;
 
@@ -13,6 +14,7 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        SqlMapper.AddTypeHandler(new UtcDateTimeOffsetTypeHandler());
         services.AddOptions<DatabaseOptions>()
             .Bind(configuration.GetSection(DatabaseOptions.SectionName))
             .PostConfigure(options =>
