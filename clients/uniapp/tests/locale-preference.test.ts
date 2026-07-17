@@ -21,6 +21,7 @@ describe('account locale preference port', () => {
     const { http, calls } = createHttpClient({
       id: '6ca85abd-9191-4246-84aa-ec3a0fc603e1',
       username: 'admin',
+      permissions: ['identity.profile.read'],
       preferredLocale: 'en-US',
       profileVersion: 7
     });
@@ -43,7 +44,13 @@ describe('account locale preference port', () => {
 
   it.each([
     ['an access token', { preferredLocale: 'en-US', profileVersion: 7, accessToken: 'secret' }],
+    ['a PascalCase access token', { preferredLocale: 'en-US', profileVersion: 7, AccessToken: 'secret' }],
+    ['a snake-case access token', { preferredLocale: 'en-US', profileVersion: 7, access_token: 'secret' }],
+    ['a hyphenated access token', { preferredLocale: 'en-US', profileVersion: 7, 'access-token': 'secret' }],
     ['a refresh token', { preferredLocale: 'en-US', profileVersion: 7, refreshToken: 'secret' }],
+    ['a PascalCase refresh token', { preferredLocale: 'en-US', profileVersion: 7, RefreshToken: 'secret' }],
+    ['a snake-case refresh token', { preferredLocale: 'en-US', profileVersion: 7, refresh_token: 'secret' }],
+    ['a hyphenated refresh token', { preferredLocale: 'en-US', profileVersion: 7, 'refresh-token': 'secret' }],
     ['an alias locale', { preferredLocale: 'en', profileVersion: 7 }],
     ['a missing locale', { profileVersion: 7 }],
     ['a missing version', { preferredLocale: 'en-US' }],

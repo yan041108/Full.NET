@@ -43,7 +43,7 @@ export class HttpProblem extends Error {
     this.title = title;
     this.detail = nonEmptyString(options.detail);
     this.traceId = nonEmptyString(options.traceId);
-    this.violations = options.violations ?? [];
+    this.violations = toViolations(options.violations);
   }
 }
 
@@ -69,14 +69,19 @@ export function toProblemPresentation(
   problem: HttpProblem,
   translate: ProblemTranslator
 ): ProblemPresentation {
-  const fieldMessages: Record<string, string[]> = {};
+  const fieldMessages = createDictionary<string[]>();
   for (const violation of problem.violations) {
     const message = translate(violation.code, violation.arguments);
     if (!message) {
       continue;
     }
 
-    (fieldMessages[violation.field] ??= []).push(message);
+    const messages = fieldMessages[violation.field];
+    if (messages) {
+      messages.push(message);
+    } else {
+      fieldMessages[violation.field] = [message];
+    }
   }
 
   const message = Object.keys(fieldMessages).length === 0
@@ -106,15 +111,44 @@ function toViolations(value: unknown): readonly ProblemViolation[] {
     return [{
       field,
       code,
-      arguments: asRecord(candidate.arguments) ?? {}
+      arguments: copySafeArguments(candidate.arguments)
     }];
   });
+}
+
+function copySafeArguments(value: unknown): Readonly<Record<string, unknown>> {
+  const candidate = asRecord(value);
+  const copy = createDictionary<JsonPrimitive>();
+  if (!candidate) {
+    return copy;
+  }
+
+  for (const key of Object.keys(candidate)) {
+    const argument = candidate[key];
+    if (isJsonPrimitive(argument)) {
+      copy[key] = argument;
+    }
+  }
+  return copy;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
     : undefined;
+}
+
+function createDictionary<T>(): Record<string, T> {
+  return Object.create(null) as Record<string, T>;
+}
+
+type JsonPrimitive = string | number | boolean | null;
+
+function isJsonPrimitive(value: unknown): value is JsonPrimitive {
+  return value === null
+    || typeof value === 'string'
+    || typeof value === 'boolean'
+    || (typeof value === 'number' && Number.isFinite(value));
 }
 
 function nonEmptyString(value: unknown): string | undefined {

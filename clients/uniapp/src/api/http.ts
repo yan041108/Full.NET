@@ -23,12 +23,36 @@ export function createHttpClient(dependencies: HttpClientDependencies): HttpClie
   return {
     request<T>(options: HttpRequestOptions): Promise<T> {
       return new Promise<T>((resolve, reject) => {
-        const headers = mergeHeaders(
-          options.headers,
-          dependencies.getLocale(),
-          dependencies.getAccessToken?.()
-        );
+        let settled = false;
+        const resolveOnce = (value: T): void => {
+          if (!settled) {
+            settled = true;
+            resolve(value);
+          }
+        };
+        const rejectOnce = (problem: HttpProblem): void => {
+          if (!settled) {
+            settled = true;
+            reject(problem);
+          }
+        };
+        const rejectUnexpectedResponse = (): void => rejectOnce(new HttpProblem({
+          status: 0,
+          code: 'http.unexpected_response',
+          title: 'Request failed.'
+        }));
+        const rejectNetworkFailure = (): void => rejectOnce(new HttpProblem({
+          status: 0,
+          code: 'http.network_error',
+          title: 'Network request failed.'
+        }));
+
         try {
+          const headers = mergeHeaders(
+            options.headers,
+            dependencies.getLocale(),
+            dependencies.getAccessToken?.()
+          );
           dependencies.request({
             url: options.path,
             method: options.method ?? 'GET',
@@ -36,27 +60,28 @@ export function createHttpClient(dependencies: HttpClientDependencies): HttpClie
             header: headers,
             dataType: 'json',
             success(response) {
-              if (response.statusCode >= 200 && response.statusCode <= 299) {
-                resolve(response.data as T);
-                return;
-              }
+              try {
+                if (!isHttpStatus(response?.statusCode)) {
+                  rejectUnexpectedResponse();
+                  return;
+                }
 
-              reject(toHttpProblem(response.statusCode, parseResponseData(response.data)));
+                if (response.statusCode >= 200 && response.statusCode <= 299) {
+                  resolveOnce(response.data as T);
+                  return;
+                }
+
+                rejectOnce(toHttpProblem(response.statusCode, parseResponseData(response.data)));
+              } catch {
+                rejectUnexpectedResponse();
+              }
             },
             fail() {
-              reject(new HttpProblem({
-                status: 0,
-                code: 'http.network_error',
-                title: 'Network request failed.'
-              }));
+              rejectNetworkFailure();
             }
           });
         } catch {
-          reject(new HttpProblem({
-            status: 0,
-            code: 'http.network_error',
-            title: 'Network request failed.'
-          }));
+          rejectNetworkFailure();
         }
       });
     }
@@ -77,10 +102,18 @@ function mergeHeaders(
   }
 
   merged['Accept-Language'] = locale;
-  if (token) {
-    merged.Authorization = `Bearer ${token}`;
+  const trimmedToken = token?.trim();
+  if (trimmedToken) {
+    merged.Authorization = `Bearer ${trimmedToken}`;
   }
   return merged;
+}
+
+function isHttpStatus(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isInteger(value)
+    && value >= 100
+    && value <= 599;
 }
 
 function parseResponseData(value: unknown): unknown {

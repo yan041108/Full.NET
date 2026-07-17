@@ -76,4 +76,53 @@ describe('ProblemDetails presentation', () => {
       message: 'Request could not be completed.'
     });
   });
+
+  it('uses null-prototype dictionaries and forwards only safe argument primitives', () => {
+    const rawArguments = Object.create({ inherited: 'ignored' }) as Record<string, unknown>;
+    rawArguments.locale = 'fr-FR';
+    rawArguments.retries = 3;
+    rawArguments.enabled = true;
+    rawArguments.empty = null;
+    rawArguments.nested = { value: 'dropped' };
+    rawArguments.callback = () => 'dropped';
+    rawArguments.symbol = Symbol('dropped');
+    rawArguments.bigint = 1n;
+    Object.defineProperty(rawArguments, '__proto__', { enumerable: true, value: 'safe-key' });
+
+    const problem = new HttpProblem({
+      status: 400,
+      title: 'Invalid request.',
+      violations: [
+        { field: '__proto__', code: 'validation.invalid', arguments: rawArguments },
+        { field: 'constructor', code: 'validation.invalid', arguments: {} },
+        { field: 'toString', code: 'validation.invalid', arguments: {} }
+      ]
+    });
+    let translatedArguments: Readonly<Record<string, unknown>> | undefined;
+    const presentation = toProblemPresentation(problem, (_code, arguments_) => {
+      translatedArguments ??= arguments_;
+      return 'Invalid value.';
+    });
+
+    expect(Object.getPrototypeOf(presentation.fieldMessages)).toBeNull();
+    expect(presentation.fieldMessages['__proto__']).toEqual(['Invalid value.']);
+    expect(presentation.fieldMessages.constructor).toEqual(['Invalid value.']);
+    expect(presentation.fieldMessages.toString).toEqual(['Invalid value.']);
+    expect(Object.getPrototypeOf(translatedArguments)).toBeNull();
+    expect(translatedArguments).toMatchObject({
+      locale: 'fr-FR',
+      retries: 3,
+      enabled: true,
+      empty: null
+    });
+    expect(translatedArguments?.['__proto__']).toBe('safe-key');
+    expect(Object.keys(translatedArguments ?? {}).sort()).toEqual([
+      '__proto__', 'empty', 'enabled', 'locale', 'retries'
+    ]);
+    expect(translatedArguments).not.toHaveProperty('inherited');
+    expect(translatedArguments).not.toHaveProperty('nested');
+    expect(translatedArguments).not.toHaveProperty('callback');
+    expect(translatedArguments).not.toHaveProperty('symbol');
+    expect(translatedArguments).not.toHaveProperty('bigint');
+  });
 });

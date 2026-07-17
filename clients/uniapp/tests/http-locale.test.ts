@@ -132,4 +132,94 @@ describe('HTTP client locale and ProblemDetails contract', () => {
       detail: undefined
     } satisfies Partial<HttpProblem>);
   });
+
+  it.each([null, undefined, '200', Number.NaN, 200.5])(
+    'rejects a malformed success status code of %s without leaving the request pending',
+    async statusCode => {
+      const request = ((options: UniNamespace.RequestOptions) => {
+        queueMicrotask(() => options.success?.({
+          statusCode,
+          data: { value: 'ignored' },
+          header: {},
+          cookies: []
+        } as unknown as UniNamespace.RequestSuccessCallbackResult));
+        return { abort() {}, onHeadersReceived() {}, offHeadersReceived() {} };
+      }) as Uni['request'];
+      const http = createHttpClient({ request, getLocale: () => 'zh-CN' });
+
+      await expect(http.request({ path: '/api/v1/malformed' })).rejects.toMatchObject({
+        status: 0,
+        code: 'http.unexpected_response',
+        title: 'Request failed.'
+      } satisfies Partial<HttpProblem>);
+    }
+  );
+
+  it.each([
+    ['a null callback response', null],
+    ['a response without statusCode', { data: { value: 'ignored' }, header: {}, cookies: [] }]
+  ])('rejects %s from an asynchronous success callback', async (_description, response) => {
+    const request = ((options: UniNamespace.RequestOptions) => {
+      queueMicrotask(() => options.success?.(response as unknown as UniNamespace.RequestSuccessCallbackResult));
+      return { abort() {}, onHeadersReceived() {}, offHeadersReceived() {} };
+    }) as Uni['request'];
+    const http = createHttpClient({ request, getLocale: () => 'zh-CN' });
+
+    await expect(http.request({ path: '/api/v1/malformed' })).rejects.toMatchObject({
+      status: 0,
+      code: 'http.unexpected_response',
+      title: 'Request failed.'
+    } satisfies Partial<HttpProblem>);
+  });
+
+  it('settles only once when success is followed by fail', async () => {
+    const request = ((options: UniNamespace.RequestOptions) => {
+      options.success?.({ statusCode: 200, data: { value: 'first' }, header: {}, cookies: [] });
+      options.fail?.({ errMsg: 'request:fail after success' });
+      return { abort() {}, onHeadersReceived() {}, offHeadersReceived() {} };
+    }) as Uni['request'];
+    const http = createHttpClient({ request, getLocale: () => 'zh-CN' });
+
+    await expect(http.request({ path: '/api/v1/once' })).resolves.toEqual({ value: 'first' });
+  });
+
+  it('settles only once when fail is followed by success', async () => {
+    const request = ((options: UniNamespace.RequestOptions) => {
+      options.fail?.({ errMsg: 'request:fail first' });
+      options.success?.({ statusCode: 200, data: { value: 'ignored' }, header: {}, cookies: [] });
+      return { abort() {}, onHeadersReceived() {}, offHeadersReceived() {} };
+    }) as Uni['request'];
+    const http = createHttpClient({ request, getLocale: () => 'zh-CN' });
+
+    await expect(http.request({ path: '/api/v1/once' })).rejects.toMatchObject({
+      status: 0,
+      code: 'http.network_error'
+    } satisfies Partial<HttpProblem>);
+  });
+
+  it('omits blank tokens and trims a non-blank token before writing Authorization', async () => {
+    const transport = createRequest([
+      { statusCode: 200, data: {} },
+      { statusCode: 200, data: {} },
+      { statusCode: 200, data: {} }
+    ]);
+    let token: string | undefined;
+    const http = createHttpClient({
+      request: transport.request,
+      getLocale: () => 'zh-CN',
+      getAccessToken: () => token
+    });
+
+    await http.request({ path: '/api/v1/no-token' });
+    token = '   ';
+    await http.request({ path: '/api/v1/blank-token' });
+    token = '  fresh-access-token  ';
+    await http.request({ path: '/api/v1/trimmed-token' });
+
+    expect(transport.calls.map(call => call.header)).toEqual([
+      { 'Accept-Language': 'zh-CN' },
+      { 'Accept-Language': 'zh-CN' },
+      { 'Accept-Language': 'zh-CN', Authorization: 'Bearer fresh-access-token' }
+    ]);
+  });
 });

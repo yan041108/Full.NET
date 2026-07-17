@@ -37,8 +37,7 @@ function guardCurrentProfileLocale(value: unknown): CurrentProfileLocale {
 
   const candidate = value as Record<string, unknown>;
   if (
-    Object.hasOwn(candidate, 'accessToken')
-    || Object.hasOwn(candidate, 'refreshToken')
+    hasSensitiveTokenKey(candidate)
     || !isCanonicalLocale(candidate.preferredLocale)
     || typeof candidate.profileVersion !== 'number'
     || !Number.isSafeInteger(candidate.profileVersion)
@@ -51,4 +50,11 @@ function guardCurrentProfileLocale(value: unknown): CurrentProfileLocale {
     preferredLocale: candidate.preferredLocale,
     profileVersion: candidate.profileVersion
   };
+}
+
+function hasSensitiveTokenKey(candidate: Record<string, unknown>): boolean {
+  return Object.getOwnPropertyNames(candidate).some(key => {
+    const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return normalizedKey === 'accesstoken' || normalizedKey === 'refreshtoken';
+  });
 }
