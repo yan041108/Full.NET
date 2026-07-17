@@ -48,7 +48,21 @@ public sealed class SqlServerMigrationTests
 
         AssertContainsIgnoreCase(tables, "fn_tenant_tenant");
         AssertContainsIgnoreCase(tables, "fn_outbox_message");
+        AssertContainsIgnoreCase(tables, "fn_identity_user");
+        AssertContainsIgnoreCase(tables, "fn_identity_refresh_session");
+        AssertContainsIgnoreCase(tables, "fn_identity_auth_audit");
         AssertContainsIgnoreCase(tables, "SchemaVersions");
+
+        var indexes = (await connection.QueryAsync<string>(
+            """
+            SELECT indexObject.name
+            FROM sys.indexes AS indexObject
+            INNER JOIN sys.tables AS tableObject ON tableObject.object_id = indexObject.object_id
+            WHERE tableObject.name LIKE 'fn_identity_%' AND indexObject.name IS NOT NULL
+            """))
+            .ToArray();
+
+        AssertRequiredIdentityIndexes(indexes);
 
         var columns = (await connection.QueryAsync<ColumnMetadata>(
             """
@@ -75,6 +89,16 @@ public sealed class SqlServerMigrationTests
         AssertContainsIgnoreCase(names, "TenantId");
         AssertContainsIgnoreCase(names, "TraceId");
         AssertContainsIgnoreCase(names, "Payload");
+    }
+
+    private static void AssertRequiredIdentityIndexes(IEnumerable<string> indexes)
+    {
+        AssertContainsIgnoreCase(indexes, "UX_fn_identity_user_Scope_Username");
+        AssertContainsIgnoreCase(indexes, "UX_fn_identity_refresh_session_TokenHash");
+        AssertContainsIgnoreCase(indexes, "IX_fn_identity_refresh_session_Family");
+        AssertContainsIgnoreCase(indexes, "IX_fn_identity_refresh_session_User");
+        AssertContainsIgnoreCase(indexes, "IX_fn_identity_auth_audit_OccurredAt");
+        AssertContainsIgnoreCase(indexes, "IX_fn_identity_auth_audit_User");
     }
 
     private static void AssertContainsIgnoreCase(IEnumerable<string> values, string expected) =>
