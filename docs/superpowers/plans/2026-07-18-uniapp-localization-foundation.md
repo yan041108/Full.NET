@@ -225,7 +225,7 @@ git commit -m "feat: add uniapp locale state"
 
 - [ ] **Step 1: 写 HTTP 与错误 RED 测试**
 
-覆盖：每次请求读取最新规范语言；调用方 Header 被保留但不能覆盖 `Accept-Language`；有 Token 时才写 `Authorization: Bearer`；2xx 返回数据；标准 ProblemDetails 保留 status/code/traceId/violations；非 JSON 失败生成稳定安全回退；已认证偏好 PUT body 只含 `preferredLocale/profileVersion`；`/me` 和 PUT 响应拒绝 Token 字段、缺字段、别名语言和非整数版本。
+覆盖：每次请求读取最新规范语言；调用方 Header 被保留但不能覆盖 `Accept-Language`；有 Token 时才写 `Authorization: Bearer`；2xx 返回数据；标准 ProblemDetails 保留 status/code/traceId/violations；非 JSON 失败生成稳定安全回退；已认证偏好端口接收 `preferredLocale/profileVersion` 快照，但 PUT 在线路上只发送后端既有 `locale/profileVersion` 请求字段；`/me` 和 PUT 响应拒绝 Token 字段、缺字段、别名语言和非整数版本。
 
 - [ ] **Step 2: 确认 RED**
 
@@ -273,7 +273,7 @@ export function saveLocalePreference(
 ): Promise<CurrentProfileLocale>;
 ```
 
-守卫只接收规范语言和非负安全整数版本；返回对象中出现 `accessToken`、`refreshToken` 或语言别名时拒绝整个快照，不能部分提交。
+`saveLocalePreference` 必须把端口的 `preferredLocale` 显式映射成 `PUT /api/v1/me/locale` 的 `{ locale, profileVersion }`，响应仍按 `preferredLocale/profileVersion` 守卫。守卫只接收规范语言和正安全整数版本；返回对象中出现 `accessToken`、`refreshToken` 或语言别名时拒绝整个快照，不能部分提交。
 
 - [ ] **Step 6: 转绿并提交**
 
