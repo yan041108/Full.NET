@@ -366,8 +366,12 @@ git commit -m "feat: localize structured problem details"
 - Create: src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/004_LocalizationPreferences.sql
 - Modify: src/Modules/Full.NET.Modules.Identity/Domain/IdentityUser.cs
 - Modify: src/Modules/Full.NET.Modules.Identity/Persistence/IdentityUserRecord.cs
+- Modify: src/Modules/Full.NET.Modules.Identity/Persistence/RefreshSessionRecord.cs
 - Modify: src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs
 - Modify: src/Modules/Full.NET.Modules.Identity/Contracts/CurrentUserResponse.cs
+- Create: src/Modules/Full.NET.Modules.Identity/Contracts/UpdateLocaleRequest.cs
+- Create: src/Modules/Full.NET.Modules.Identity/Contracts/LocalePreferenceResponse.cs
+- Modify: src/Modules/Full.NET.Modules.Identity/Features/GetCurrentUser/Endpoint.cs
 - Create: src/Modules/Full.NET.Modules.Identity/Features/UpdateLocale/Command.cs
 - Create: src/Modules/Full.NET.Modules.Identity/Features/UpdateLocale/Handler.cs
 - Create: src/Modules/Full.NET.Modules.Identity/Features/UpdateLocale/Endpoint.cs
@@ -385,7 +389,7 @@ git commit -m "feat: localize structured problem details"
 
 - [ ] **Step 1: 使用 fullnet-module-delivery Skill 建立 RED 双库测试**
 
-测试 SQL Server/MySQL：默认 zh-CN；用户更新 en-US 后 /api/v1/me 返回 en-US 与新 ProfileVersion；非法值返回 400/localization.unsupported_locale；旧 ProfileVersion 并发更新返回 409；租户默认语言不能覆盖用户偏好。
+测试 SQL Server/MySQL：默认 zh-CN/ProfileVersion=1；用户更新 en-US 后 /api/v1/me 返回 en-US 与新 ProfileVersion；非法值返回 400/localization.unsupported_locale；旧 ProfileVersion 并发更新返回 409/identity.profile_version_conflict；租户默认语言不能覆盖用户偏好。测试必须从真实登录取得令牌，且请求体不得出现 UserId、TenantId 或 ScopeKey。
 
 - [ ] **Step 2: 运行 RED**
 
@@ -394,15 +398,15 @@ Expected: FAIL，迁移字段和 Endpoint 不存在。
 
 - [ ] **Step 3: 增加双库迁移**
 
-Identity 用户增加 PreferredLocale，Tenancy 增加 DefaultLocale，均为 varchar/nvarchar(35)、NOT NULL、默认 zh-CN；迁移先回填再收紧约束，SQL Server/MySQL 使用各自合法语法。
+Identity 用户增加 PreferredLocale（varchar/nvarchar(35)、NOT NULL、默认 zh-CN）和独立 ProfileVersion（int、NOT NULL、默认 1），Tenancy 增加 DefaultLocale（varchar/nvarchar(35)、NOT NULL、默认 zh-CN）；迁移先回填再收紧约束，SQL Server/MySQL 使用各自合法语法。ProfileVersion 只保护展示资料更新，不得复用或推进参与登录、锁定、SecurityStamp 与 Refresh Session 校验的 IdentityUser.Version。
 
 - [ ] **Step 4: 实现 Dapper 命令**
 
-UpdateLocale Handler 从认证主体取得用户和 scope，以 Version 做乐观并发更新。请求体只含 locale/version；禁止客户端提交 UserId、TenantId 或 ScopeKey。
+UpdateLocale Handler 从认证主体的签名 sub 与 ActorScope 取得用户边界，以 ProfileVersion 做乐观并发更新并只持久化规范语言标签。请求体只含 locale/profileVersion；禁止客户端提交 UserId、TenantId 或 ScopeKey。Validator 负责空值与版本形状；非空但不受支持的语言由 Handler 返回顶层 localization.unsupported_locale，避免被通用 validation.failed 包络掩盖。更新成功返回规范 PreferredLocale 与递增后的 ProfileVersion。
 
 - [ ] **Step 5: 更新会话 DTO**
 
-/api/v1/me 返回 PreferredLocale 与 ProfileVersion；登录、刷新和租户切换后的既有 hydrate 继续读取该 Endpoint。PreferredLocale 不写入 Access Token Claim，避免展示偏好触发令牌轮换或进入授权语义。
+/api/v1/me 必须依据签名 sub 与 ActorScope 查询 Identity 数据库记录，返回当前 PreferredLocale 与 ProfileVersion；不能从 JWT 或请求 Header 推断已保存偏好。登录、刷新和租户切换后的既有 hydrate 继续读取该 Endpoint。PreferredLocale/ProfileVersion 不写入 Access Token Claim，避免展示偏好触发令牌轮换或进入授权语义；读取与更新 SQL 使用 Global scope 仅因为身份边界来自已验证 Claim，并必须同时限定 UserId 与 ActorScope。
 
 - [ ] **Step 6: 运行 GREEN**
 
