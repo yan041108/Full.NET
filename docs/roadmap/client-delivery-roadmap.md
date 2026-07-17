@@ -24,7 +24,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | 范围 | 当前状态 | 已完成 | 尚未完成 |
 |---|---|---|---|
 | C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
-| C1 双管理端壳层 | Implementing | Vue/Element Plus、clean-room Layui、本地资源、Hash 状态页、错误码/TraceId、双端 E2E | 正式登录/刷新/退出、租户切换、CSRF、国际化与完整权限导航 |
+| C1 双管理端壳层 | Implementing | Vue/Element Plus、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、Hash 状态页、错误码/TraceId、双端 E2E | 租户切换、国际化与完整权限导航 |
 | C2 业务模块 | Mapped | 功能波次和双端同步门禁 | 首个 Identity/Tenancy/Organization 纵向切片 |
 | C3/C4 业务客户端 | Designing | 技术路线和平台边界 | uni-app、Flutter 工程与平台构建验证 |
 
@@ -206,8 +206,8 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 
 ## 8. 下一批可执行计划
 
-1. 先执行多客户端公共契约与双管理端壳层计划；
-2. C1 通过后，为 Identity/Tenancy/Organization 建立第一个双管理端业务切片计划；
+1. 继续完成 C1 的租户切换、动态权限导航和国际化入口；
+2. 为 Identity 用户/角色/菜单、Tenancy 和 Organization 建立首批双管理端业务切片计划；
 3. 后端登录和租户契约稳定后执行 uni-app 基础客户端计划；
 4. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 Flutter 计划；
 5. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列。

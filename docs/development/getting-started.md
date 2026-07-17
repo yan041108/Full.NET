@@ -16,10 +16,10 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 48
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 82
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 4
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 7
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 6 --timeout 10m
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 8
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 8 --timeout 10m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。CI 不跳过任何数据库测试。
@@ -39,24 +39,29 @@ pnpm build:clients
 pnpm test:e2e
 ```
 
-`pnpm test:clients` 运行共享契约、Vue 和 Layui 单元测试；`pnpm test:e2e` 启动两个本地服务，并用同一组 Playwright 场景验证壳层、403 和 ProblemDetails/TraceId。生产构建会把 Layui 2.13.8 从锁定的 MIT npm 包打入本地产物，不依赖公共 CDN，也不包含 layuiAdmin 产品主题源码或资产。
+`pnpm test:clients` 运行共享契约、Vue 和 Layui 单元测试；`pnpm test:e2e` 启动两个本地服务，并用同一组 Playwright 场景验证启动恢复、登录、退出、壳层、403 和 ProblemDetails/TraceId。生产构建会把 Layui 2.13.8 从锁定的 MIT npm 包打入本地产物，不依赖公共 CDN，也不包含 layuiAdmin 产品主题源码或资产。
 
-分别在两个终端启动开发服务：
+直接运行 API 时默认地址为 `http://localhost:5149`。分别在两个终端设置同一个 API 地址并启动开发服务：
 
 ```powershell
+$env:VITE_API_BASE_URL = "http://localhost:5149"
 pnpm --filter @fullnet/admin dev
+
+$env:VITE_API_BASE_URL = "http://localhost:5149"
 pnpm --filter @fullnet/admin-layui dev
 ```
 
-Vue 默认访问 `http://127.0.0.1:5173`，Layui 默认访问 `http://127.0.0.1:5174`。两端使用同一个 `/api/v1` 契约和标准 ProblemDetails；目前壳层只提供会话契约探针，完整登录、刷新、退出与租户切换属于后续 C1 纵向切片。
+开发服务监听 `127.0.0.1:5173/5174`；涉及真实 Cookie 会话时，请在浏览器使用 `http://localhost:5173` 和 `http://localhost:5174`，与 `http://localhost:5149` API 保持同站，避免 `SameSite=Strict` Cookie 被跨站规则阻断。两端使用同一个 `/api/v1` 契约和标准 ProblemDetails，并已实现内存 Access Token、启动刷新、并发 401 单次刷新和退出。生产环境可在构建时提供 `VITE_API_BASE_URL`；Layui 也支持在入口模块加载前设置 `globalThis.FULLNET_CONFIG.apiBaseUrl`。租户切换和动态权限导航属于后续 C1 切片。
 
 ## 3. 使用 Aspire 启动完整环境
 
 ```powershell
+dotnet user-secrets set "Parameters:identity-bootstrap-username" "admin" --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
+dotnet user-secrets set "Parameters:identity-bootstrap-password" "<至少12位且含大小写、数字和特殊字符>" --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
-终端会输出带一次性登录令牌的 Aspire Dashboard 地址。Dashboard 中的正常启动顺序是：
+也可以不预先写入 User Secrets，直接在 Aspire Dashboard 的未解析参数提示中输入，并选择保存到 User Secrets。密码由 Secret Parameter 传给 Migrator，不作为普通参数发布。终端会输出带一次性登录令牌的 Dashboard 地址，正常启动顺序是：
 
 1. 数据库和 Redis 就绪；
 2. Migrator 执行 DbUp 迁移并以代码 0 退出；
@@ -78,7 +83,32 @@ $env:UseMySql = "true"
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
-AppHost 给 Migrator 传入 `--seed-local`。它会幂等创建标识为 `local`、域名为 `localhost` 的开发租户；已存在时不会把启动视为失败。
+AppHost 给 Migrator 传入 `--seed-local` 以及两个 Bootstrap Parameter。它会幂等创建标识为 `local`、域名为 `localhost` 的开发租户和首个宿主管理员；账号已存在时不会覆盖密码，也不会把启动视为失败。
+
+### 3.1 Identity 会话与密钥
+
+浏览器会话端点如下：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `POST` | `/api/v1/auth/login` | 校验精确 Origin、限流和账号锁定，返回短期 Access Token |
+| `POST` | `/api/v1/auth/refresh` | 校验 Refresh Cookie 与 `X-CSRF-Token`，原子轮换会话 |
+| `POST` | `/api/v1/auth/logout` | 撤销会话并清除 Cookie |
+| `GET` | `/api/v1/me` | 使用 Bearer Token 返回当前用户摘要 |
+
+Refresh Token 只存在于 `Secure`、`HttpOnly`、`SameSite=Strict` 的 `__Host-fullnet-refresh` Cookie，数据库只保存 SHA-256 哈希；前端可读的 `fullnet-csrf` Cookie 只用于双提交 CSRF 校验。Access Token 默认 10 分钟，只保存在管理端内存，页面刷新后必须通过 Refresh Cookie 恢复。
+
+Development 配置允许临时 RSA 签名密钥，并仅允许列出的本地管理端 Origin。Production 必须从 Secret 管理器提供以下配置，否则 API 启动校验失败：
+
+```text
+Identity__ActiveKeyId=<当前密钥标识>
+Identity__SigningKeys__<当前密钥标识>__PublicKeyPem=<RSA 公钥 PEM>
+Identity__SigningKeys__<当前密钥标识>__PrivateKeyPem=<RSA 私钥 PEM>
+Identity__AllowedOrigins__0=https://admin.example.com
+Tenancy__HostDomains__0=api.example.com
+```
+
+密钥轮换时先同时配置新旧公钥和新私钥，再切换 `ActiveKeyId`；确认旧令牌全部过期后才移除旧公钥。不得在生产启用 `Identity__AllowDevelopmentEphemeralSigningKey`，不得把 PEM、Bootstrap 密码、Cookie 或 Token 写入仓库和日志。
 
 ## 4. 部署和迁移顺序
 

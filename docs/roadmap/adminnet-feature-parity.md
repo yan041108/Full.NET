@@ -33,6 +33,7 @@
 
 | Admin.NET.Pro 功能 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
+| 管理端登录、刷新会话、退出与当前用户 | Identity + `ui/admin` + `ui/admin-layui` | Core + Client | M2 | Implemented |
 | 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | Mapped |
 | 用户管理 | Identity | Core | M2 | Mapped |
 | 机构管理 | Organization | Core | M2 | Mapped |
@@ -117,8 +118,8 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 
 | Admin.NET.Pro 资产/交付需求 | Full.NET 对标 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus | Client | M2-M4 | Designing |
-| JS/HTML 完整管理端 | `ui/admin-layui`：Layui 2 + HTML/CSS/原生 JavaScript | Client | M2-M4，与 Vue 同步 | Designing |
+| `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus | Client | M2-M4 | Implementing |
+| JS/HTML 完整管理端 | `ui/admin-layui`：Layui 2 + HTML/CSS/原生 JavaScript | Client | M2-M4，与 Vue 同步 | Implementing |
 | `App` H5/小程序资产 | `clients/uniapp`：H5、微信小程序、支付宝小程序 | Client | M3-M4 | Designing |
 | 原生移动端 | `clients/flutter`：Android、iOS | Client | M5+ | Designing |
 | `Web_Desktop`/PC 桌面需求 | `clients/flutter`：Windows、macOS、Linux | Client | M5+ | Designing |

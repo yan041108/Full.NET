@@ -92,10 +92,10 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 事件使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
 | `fullnet-api-compatibility` | 候选 / 1 | 标准 ProblemDetails 与 Admin.NET Mapper 已存在 | 新增分页、文件或另一类兼容端点时升级 |
 | `fullnet-cache-feature` | 候选 / 1 | FusionCache 双抽象与租户失效处理已存在 | 第二种缓存模型或 Redis 多实例验证落地时升级 |
-| `fullnet-release-verification` | 自动化优先 / 4 | Release 构建、四套 MTP 测试及客户端单元/构建/E2E 已重复执行并进入 CI | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
+| `fullnet-release-verification` | 自动化优先 / 5 | Release 构建、四套 MTP 测试及客户端单元/构建/E2E 已再次用于 Identity 会话交付并进入 CI | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
 | `fullnet-realtime-feature` | 等待真实实现 / 0 | 只有 SignalR、MessagePack Hub、Redis Backplane 设计 | 首个 `IRealtimePublisher` 消费者验收后评估 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
-| `fullnet-dual-admin-feature` | 等待真实实现 / 0 | 已确定 Vue/Layui 同一后台模块同步开发、双状态和双端 E2E 门禁 | 首个 Identity、Tenancy 或 Organization 双管理端纵向切片达到 `Verified` 后评估 |
+| `fullnet-dual-admin-feature` | 候选 / 1 | Identity 会话已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。
 

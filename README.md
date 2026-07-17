@@ -4,7 +4,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 
 项目最终以 MIT 许可证发布。所使用的第三方组件及其许可证见 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES)。
 
-## M0–M1 基础与 M2 验证管道已实现
+## M0–M1 基础与 M2 首批能力已实现
 
 - 标准 HTTP 状态码与 ProblemDetails；Admin.NET 响应信封为显式可选适配器。
 - 显式模块注册、CQRS 分发、租户上下文和基于域名的租户解析。
@@ -14,6 +14,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - MessagePack 二进制 Outbox、租约式至少一次消费、schema 版本路由和指数退避。
 - FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`。
 - System.Text.Json 源生成 HTTP 合约、Serilog 有界异步日志、OpenTelemetry 和健康检查。
+- Identity 安全会话底座：强密码引导、RSA JWT、登录锁定、Refresh Token 轮换/重用撤销、CSRF、CORS、审计和双管理端登录流程。
 - API、Worker、Migrator 与 .NET Aspire AppHost 的完整本地编排。
 
 ## 环境要求
@@ -28,14 +29,14 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 48
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 82
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 4
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 7
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 6 --timeout 10m
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 8
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 8 --timeout 10m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
-AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。Migrator 成功退出后，API 与 Worker 才会启动；本地 `localhost` 租户会被幂等创建。
+AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。
 
 更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 
@@ -58,8 +59,8 @@ pnpm test:e2e
 - `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端；
 - .NET MAUI：仅在真实 C#/Windows 企业需求命中决策门禁后提供可选模板。
 
-Vue/Layui 的浏览器契约、原创管理壳、标准错误展示与双端 E2E 门禁已经实现；完整登录、租户切换和后台业务模块仍按 C1/C2 路线交付。uni-app、Flutter 与可选 MAUI 目前仅处于规划阶段。详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)，分阶段状态和依赖见[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
+Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新轮换、退出、当前用户、标准错误展示与双端 E2E 门禁已经实现；租户切换、动态权限导航和后台业务模块仍按 C1/C2 路线交付。uni-app、Flutter 与可选 MAUI 目前仅处于规划阶段。详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)，分阶段状态和依赖见[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
 
 ## 当前边界
 
-M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已先落地跨传输验证管道。SignalR/Realtime 在 M2 后续迭代中引入；真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。
+M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道和 Identity 安全会话底座。当前 Identity 不等于完整 RBAC：用户管理、角色/菜单/按钮权限、租户账号和强制下线仍属于后续切片。SignalR/Realtime 在 M2 后续迭代中引入；真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。
