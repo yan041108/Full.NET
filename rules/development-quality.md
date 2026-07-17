@@ -25,6 +25,7 @@
 | 浏览器 E2E 只模拟 API，未验证真实带凭据预检 | 本地/生产登录被拦截或错误放宽跨域权限 | R-20260717-credentialed-cors |
 | 客户端把服务端动态导航当作可执行配置 | 任意组件加载、路由混淆或 XSS | R-20260717-client-navigation-boundary |
 | 只替换管理壳层文案，遗漏组件库、服务端生成文本和其他客户端 | 各端语言状态漂移，错误与后台任务无法按用户语言交付，却被误报为全栈已支持 | R-20260717-full-stack-localization-boundary |
+| 把生产 Bootstrap、开发演示数据和测试夹具混成一个启动 Seed | 默认密码、生产误播种、测试耦合和重复脏数据 | R-20260717-seed-data-boundary |
 
 ## 2. 任务开始与范围控制
 
@@ -94,6 +95,16 @@
 5. Outbox 处理时必须恢复租户上下文并验证事件类型映射。不得把“至少一次发布”描述成“恰好一次”。
 6. 锁、租约、批大小和并行度必须有边界，且在崩溃、超时和时钟偏差下能恢复。
 7. 乐观并发失败后若重读状态并重试，必须重新验证账号活动状态、安全戳、权限、租户边界和业务前置条件中受并发影响的部分；禁止只替换版本号后继续执行高权限操作。
+
+### R-20260717-seed-data-boundary：生产 Bootstrap、开发 Seed 与测试数据必须隔离
+
+- 状态：强制
+- 来源：项目所有者要求增加可持久查看的开发种子数据；审查发现当前 `Host.Migrator --seed-local` 同时编排 local 租户与宿主管理员，未来模块扩展会混淆生产初始化、演示数据和测试夹具
+- 适用范围：Host.Migrator、AppHost、所有业务模块 Seed Contributor、SQL Server/MySQL 迁移与 IntegrationTests
+- 风险：生产环境误写演示数据、内置或泄露默认密码、API 多实例重复播种、测试依赖固定开发数据、重复执行覆盖用户修改或产生重复 Outbox
+- 规则：必须遵循 [`../docs/superpowers/specs/2026-07-17-seed-data-module-design.md`](../docs/superpowers/specs/2026-07-17-seed-data-module-design.md)。System Bootstrap 只创建生产必需系统数据并使用显式 Secret；Development/Demo 只有 Migrator 显式 profile 可运行且 Production 无条件拒绝；Test Fixture 只服务临时隔离数据库。API/Worker 禁止启动播种。Contributor 必须使用稳定自然键、真实领域服务、独立事务和幂等协调，默认不得删除数据、重置密码或覆盖用户修改；数据库审计历史不能代替真实状态检查
+- 验证：SQL Server/MySQL 分别覆盖迁移、运行锁、首次、重复、冲突、失败重跑、Outbox 和 Production 零写入；Architecture Tests 断言 API/Worker 与业务模块不依赖 Seed 执行器；日志和审计检查不得包含 Secret、连接串、Token 或异常堆栈
+- 例外：无。生产所需目录或首个管理员必须进入明确的 System Bootstrap 契约，不能通过改名绕过 Production Seed 门禁
 
 ## 7. API、错误与序列化契约
 
@@ -178,6 +189,7 @@
 - 每项用户需求是否都能指向代码、测试或文档证据？
 - DI 注册、生命周期、启动顺序和健康检查是否真实可运行？
 - 租户、权限、事务、并发、幂等和失败恢复是否覆盖？
+- System Bootstrap、Development/Demo Seed 与 Test Fixture 是否隔离，且没有默认密码、生产误播种或重复覆盖？
 - SQL Server 与 MySQL 是否同步实现并实际验证？
 - 标准 API、Admin.NET 兼容层和序列化契约是否保持边界？
 - 多语言是否覆盖受影响客户端、组件库、HTTP 协商和服务端生成文本，并保持稳定机器契约不被翻译？

@@ -110,6 +110,8 @@ dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 
 AppHost 给 Migrator 传入 `--seed-local` 以及两个 Bootstrap Parameter。它会幂等创建标识为 `local`、域名为 `localhost` 的开发租户和首个宿主管理员；账号已存在时不会覆盖密码，也不会把启动视为失败。
 
+这是当前实现，不是最终种子模块。后续将以显式 `--seed development|demo`、模块 Contributor、双库执行锁和 `fn_seed_run/fn_seed_run_item` 审计替代宿主硬编码；默认 Migrator 只迁移，Production 拒绝 Development/Demo。System Bootstrap 继续要求 Secret，自动化测试继续使用独立临时数据库数据。详细边界见[种子数据模块设计](../superpowers/specs/2026-07-17-seed-data-module-design.md)和[测试先行实施计划](../superpowers/plans/2026-07-17-seed-data-module.md)。
+
 ### 3.1 Identity 会话与密钥
 
 浏览器会话端点如下：
