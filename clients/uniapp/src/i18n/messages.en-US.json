@@ -3,8 +3,34 @@
     "name": "Full.NET"
   },
   "settings": {
-    "title": "Settings",
+    "title": "Language settings",
     "language": "Language",
+    "locale": {
+      "eyebrow": "LOCAL EXPERIENCE",
+      "heading": "Choose your interface language",
+      "description": "The interface, system title, and future requests stay aligned to one canonical language.",
+      "anonymous": "You are browsing anonymously. This choice stays on this device and creates no account or session.",
+      "authenticated": "Your account preference is connected. The language and profile version change only after a successful save.",
+      "current": "Current language",
+      "pending": "Ready to save",
+      "unchanged": "In sync",
+      "profileVersion": "Profile version {version}",
+      "options": {
+        "zh-CN": {
+          "label": "简体中文",
+          "detail": "Chinese interface · Mainland China formats"
+        },
+        "en-US": {
+          "label": "English (US)",
+          "detail": "English interface · United States formats"
+        }
+      },
+      "actions": {
+        "apply": "Apply to this device",
+        "save": "Save account preference"
+      },
+      "hint": "Language and time zone are handled separately. Switching does not alter time or regional data."
+    },
     "save": {
       "saving": "Saving…",
       "success": "Saved successfully",

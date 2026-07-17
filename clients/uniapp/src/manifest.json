@@ -1,0 +1,18 @@
+{
+  "name": "%app.name%",
+  "appid": "__UNI__FULLNET",
+  "description": "Full.NET cross-platform client",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "locale": "zh-Hans",
+  "vueVersion": "3",
+  "app-plus": {},
+  "h5": {},
+  "mp-weixin": {
+    "appid": ""
+  },
+  "mp-alipay": {
+    "appid": ""
+  }
+}

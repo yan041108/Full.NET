@@ -1,0 +1,17 @@
+{
+  "locale": "zh-Hans",
+  "pages": [
+    {
+      "path": "pages/settings/locale",
+      "style": {
+        "navigationBarTitleText": "%settings.title%"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "%settings.title%",
+    "navigationBarBackgroundColor": "#0B1C2D",
+    "backgroundColor": "#071421"
+  }
+}
