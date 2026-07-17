@@ -2,17 +2,30 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import {
   isCurrentUserResponse,
+  isFullNetProblemDetails,
+  isNavigationTree,
+  isTenantContextSummaryArray,
+  isTenantContextTokenResponse,
   isTokenResponse,
   type CurrentUserResponse,
+  type NavigationNode,
+  type TenantContextSummary,
   type TokenResponse
 } from '@fullnet/client-contracts';
 import { configureAuthentication, request } from '../api/http';
+import { isSupportedNavigationTree } from '../navigation/catalog';
 
 export type SessionState = 'initializing' | 'authenticated' | 'anonymous';
+
+const readTenantsPermission = 'tenancy.tenants.read';
+const contextConflictCode = 'identity.session_context_conflict';
 
 export const useSessionStore = defineStore('identity-session', () => {
   const state = ref<SessionState>('initializing');
   const currentUser = ref<CurrentUserResponse>();
+  const navigation = ref<NavigationNode[]>([]);
+  const availableTenants = ref<TenantContextSummary[]>([]);
+  const switching = ref(false);
   let token: TokenResponse | undefined;
 
   configureAuthentication({
@@ -21,9 +34,23 @@ export const useSessionStore = defineStore('identity-session', () => {
   });
 
   const isAuthenticated = computed(() => state.value === 'authenticated');
+  const currentContextName = computed(() => {
+    const tenantId = currentUser.value?.tenantId;
+    if (!tenantId) {
+      return 'Full.NET Host';
+    }
+
+    return availableTenants.value.find(tenant => tenant.id === tenantId)?.name
+      ?? currentUser.value?.scope
+      ?? '未知租户';
+  });
 
   function acceptToken(value: TokenResponse): void {
     token = value;
+  }
+
+  function can(permission: string): boolean {
+    return currentUser.value?.permissions.includes(permission) === true;
   }
 
   async function login(username: string, password: string): Promise<void> {
@@ -38,7 +65,7 @@ export const useSessionStore = defineStore('identity-session', () => {
 
     acceptToken(value);
     try {
-      await loadCurrentUser();
+      await loadAuthenticatedSnapshot();
       state.value = 'authenticated';
     } catch (error: unknown) {
       clear();
@@ -54,7 +81,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     }
 
     try {
-      await loadCurrentUser();
+      await loadAuthenticatedSnapshot();
       state.value = 'authenticated';
     } catch {
       clear();
@@ -80,6 +107,51 @@ export const useSessionStore = defineStore('identity-session', () => {
     }
   }
 
+  async function switchTenant(tenantId: string | null): Promise<void> {
+    if (switching.value) {
+      return;
+    }
+
+    switching.value = true;
+    try {
+      try {
+        await changeTenantContext(tenantId);
+      } catch (error: unknown) {
+        if (!isFullNetProblemDetails(error)
+          || error.code !== contextConflictCode
+          || !await refreshAccessToken()) {
+          throw error;
+        }
+
+        // 并发冲突只允许在刷新最新会话后重试一次，防止循环覆盖较新的上下文。
+        await changeTenantContext(tenantId);
+      }
+    } finally {
+      switching.value = false;
+    }
+  }
+
+  async function changeTenantContext(tenantId: string | null): Promise<void> {
+    const value = await request<unknown>('/api/v1/tenancy/context', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tenantId })
+    });
+    if (!isTenantContextTokenResponse(value)) {
+      throw new TypeError('租户上下文响应不符合契约。');
+    }
+
+    acceptToken(value);
+    try {
+      await loadAuthenticatedSnapshot();
+      state.value = 'authenticated';
+    } catch (error: unknown) {
+      // 服务端已完成切换时不能退回旧 Token；清空状态可阻止旧导航继续发起请求。
+      clear();
+      throw error;
+    }
+  }
+
   async function logout(): Promise<void> {
     try {
       await request<void>('/api/v1/auth/logout', {
@@ -93,27 +165,54 @@ export const useSessionStore = defineStore('identity-session', () => {
     }
   }
 
-  async function loadCurrentUser(): Promise<void> {
-    const value = await request<unknown>('/api/v1/me');
-    if (!isCurrentUserResponse(value)) {
+  async function loadAuthenticatedSnapshot(): Promise<void> {
+    const userValue = await request<unknown>('/api/v1/me');
+    if (!isCurrentUserResponse(userValue)) {
       throw new TypeError('当前用户响应不符合契约。');
     }
 
-    currentUser.value = value;
+    const navigationValue = await request<unknown>('/api/v1/navigation');
+    if (!isNavigationTree(navigationValue)
+      || !isSupportedNavigationTree(navigationValue)) {
+      throw new TypeError('导航响应不符合本地组件白名单。');
+    }
+
+    let tenantValues: TenantContextSummary[] = [];
+    if (userValue.permissions.includes(readTenantsPermission)) {
+      const tenantValue = await request<unknown>('/api/v1/tenancy/available');
+      if (!isTenantContextSummaryArray(tenantValue)) {
+        throw new TypeError('可用租户响应不符合契约。');
+      }
+
+      tenantValues = tenantValue;
+    }
+
+    // 三类响应全部通过守卫后再原子替换，避免 UI 混用新旧授权快照。
+    currentUser.value = userValue;
+    navigation.value = navigationValue;
+    availableTenants.value = tenantValues;
   }
 
   function clear(): void {
     token = undefined;
     currentUser.value = undefined;
+    navigation.value = [];
+    availableTenants.value = [];
     state.value = 'anonymous';
   }
 
   return {
     state,
     currentUser,
+    navigation,
+    availableTenants,
+    switching,
     isAuthenticated,
+    currentContextName,
+    can,
     login,
     restore,
+    switchTenant,
     logout
   };
 });

@@ -1,19 +1,31 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, onMounted, ref, watch, type Component } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { ElOption, ElSelect } from 'element-plus';
 import {
   Bell,
   Grid,
   OfficeBuilding,
-  Search,
-  Setting,
-  User
+  Search
 } from '@element-plus/icons-vue';
+import {
+  isFullNetProblemDetails,
+  type FullNetProblemDetails
+} from '@fullnet/client-contracts';
 import LoginView from './views/LoginView.vue';
 import { useSessionStore } from './auth/session';
+import { flattenNavigation } from './navigation/catalog';
 
 const route = useRoute();
+const router = useRouter();
 const session = useSessionStore();
+const contextProblem = ref<FullNetProblemDetails>();
+const hostContextValue = '__fullnet_host__';
+const statusPaths = new Set(['/403', '/404', '/500']);
+const iconCatalog: Record<string, Component> = {
+  dashboard: Grid,
+  building: OfficeBuilding
+};
 
 onMounted(() => {
   if (session.state === 'initializing') {
@@ -21,14 +33,48 @@ onMounted(() => {
   }
 });
 
-const navigation = [
-  { label: '工作台', caption: 'Overview', path: '/', icon: Grid },
-  { label: '身份权限', caption: 'Identity', path: '/identity', icon: User },
-  { label: '组织架构', caption: 'Organization', path: '/organization', icon: OfficeBuilding },
-  { label: '系统设置', caption: 'Settings', path: '/settings', icon: Setting }
-];
-
+const navigation = computed(() => flattenNavigation(session.navigation));
 const activePath = computed(() => route.path);
+const selectedContext = computed(() =>
+  session.currentUser?.tenantId ?? hostContextValue
+);
+const activeNavigationTitle = computed(() =>
+  navigation.value.find(item => item.path === activePath.value)?.title ?? '状态页'
+);
+
+function iconFor(icon: string): Component {
+  return iconCatalog[icon] ?? Grid;
+}
+
+async function switchFromSelector(value: string): Promise<void> {
+  contextProblem.value = undefined;
+  try {
+    await session.switchTenant(value === hostContextValue ? null : value);
+  } catch (error: unknown) {
+    contextProblem.value = isFullNetProblemDetails(error)
+      ? error
+      : {
+          status: 500,
+          code: 'client.context_switch_failed',
+          title: '上下文切换未完成'
+        };
+  }
+}
+
+watch(
+  () => [session.state, session.navigation, route.path] as const,
+  () => {
+    if (!session.isAuthenticated || statusPaths.has(route.path)) {
+      return;
+    }
+
+    const allowed = navigation.value;
+    if (!allowed.some(item => item.path === route.path)) {
+      void router.replace(allowed[0]?.path ?? '/403');
+    }
+  },
+  { deep: true }
+);
 </script>
 
 <template>
@@ -45,15 +91,15 @@ const activePath = computed(() => route.path);
 
       <div class="tenant-card">
         <span>当前租户</span>
-        <strong>星云科技</strong>
-        <small>CN-SH / Production</small>
+        <strong>{{ session.currentContextName }}</strong>
+        <small>{{ session.currentUser?.scope }}</small>
       </div>
 
       <nav aria-label="主导航">
         <p>管理域</p>
         <router-link v-for="item in navigation" :key="item.path" :to="item.path" :class="{ active: activePath === item.path }">
-          <component :is="item.icon" />
-          <span><strong>{{ item.label }}</strong><small>{{ item.caption }}</small></span>
+          <component :is="iconFor(item.icon)" />
+          <span><strong>{{ item.title }}</strong><small>{{ item.caption }}</small></span>
           <i class="nav-signal" />
         </router-link>
       </nav>
@@ -72,6 +118,23 @@ const activePath = computed(() => route.path);
           <kbd>⌘ K</kbd>
         </div>
         <div class="topbar__tools">
+          <div v-if="session.can('tenancy.tenants.read')" class="context-picker">
+            <span>有效范围</span>
+            <el-select
+              :model-value="selectedContext"
+              :disabled="session.switching || !session.can('tenancy.tenants.switch')"
+              aria-label="切换租户上下文"
+              @change="switchFromSelector"
+            >
+              <el-option label="Full.NET Host" :value="hostContextValue" />
+              <el-option
+                v-for="tenant in session.availableTenants"
+                :key="tenant.id"
+                :label="tenant.name"
+                :value="tenant.id"
+              />
+            </el-select>
+          </div>
           <button type="button" aria-label="通知"><Bell /><i /></button>
           <div class="operator"><span>FN</span><div><strong>{{ session.currentUser?.displayName }}</strong><small>{{ session.currentUser?.scope === 'host' ? 'Host Admin' : session.currentUser?.username }}</small></div></div>
           <button type="button" aria-label="退出登录" @click="session.logout">↗</button>
@@ -79,8 +142,14 @@ const activePath = computed(() => route.path);
       </header>
 
       <div class="context-rail">
-        <span>管理控制台</span><i>/</i><strong>{{ navigation.find(item => item.path === activePath)?.label ?? '状态页' }}</strong>
+        <span>管理控制台</span><i>/</i><strong>{{ activeNavigationTitle }}</strong>
         <em>TRACE READY</em>
+      </div>
+
+      <div v-if="contextProblem" class="shell-problem" role="alert">
+        <strong>{{ contextProblem.code }}</strong>
+        <span>{{ contextProblem.title }}</span>
+        <code v-if="contextProblem.traceId">{{ contextProblem.traceId }}</code>
       </div>
 
       <div class="page-stage">
@@ -136,6 +205,9 @@ nav a.active .nav-signal { background: var(--fullnet-color-signal); box-shadow: 
 .command-box svg { width: 15px; }
 .command-box kbd { margin-left: auto; padding: 4px 7px; border: 1px solid var(--fullnet-color-line); border-radius: 4px; background: #f4f5f1; color: #66727d; font-family: var(--fullnet-font-display); font-size: 9px; }
 .topbar__tools { display: flex; align-items: center; gap: 18px; }
+.context-picker { display: grid; grid-template-columns: auto 190px; align-items: center; gap: 9px; }
+.context-picker > span { color: var(--fullnet-color-ink-muted); font-size: 9px; letter-spacing: .08em; }
+.context-picker :deep(.el-select__wrapper) { min-height: 36px; border-radius: var(--fullnet-radius-sm); background: #f4f5f1; box-shadow: 0 0 0 1px var(--fullnet-color-line) inset; }
 .topbar__tools button { position: relative; display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--fullnet-color-line); border-radius: 50%; background: transparent; color: var(--fullnet-color-ink); cursor: pointer; }
 .topbar__tools button svg { width: 15px; }
 .topbar__tools button i { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border: 2px solid var(--fullnet-color-panel); border-radius: 50%; background: var(--fullnet-color-signal); }
@@ -148,6 +220,10 @@ nav a.active .nav-signal { background: var(--fullnet-color-signal); box-shadow: 
 .context-rail i { font-style: normal; opacity: .5; }
 .context-rail strong { color: var(--fullnet-color-ink); }
 .context-rail em { margin-left: auto; color: var(--fullnet-color-accent); font-family: var(--fullnet-font-display); font-size: 8px; font-style: normal; letter-spacing: .13em; }
+.shell-problem { display: flex; align-items: center; gap: 12px; margin: 14px 28px 0; padding: 11px 14px; border-left: 3px solid var(--fullnet-color-danger); background: rgb(201 74 74 / 8%); font-size: 11px; }
+.shell-problem strong { color: var(--fullnet-color-danger); }
+.shell-problem code { margin-left: auto; color: var(--fullnet-color-ink-muted); }
 .page-stage { padding: clamp(18px, 2.5vw, 32px); }
-@media (max-width: 820px) { .sidebar { position: static; width: 100%; min-height: auto; } .tenant-card, nav, .sidebar__footer { display: none; } .shell-body { margin-left: 0; } .topbar { padding-inline: 16px; } .command-box { min-width: 0; } .command-box span, .command-box kbd, .operator div { display: none; } .context-rail { padding-inline: 18px; } }
+@media (max-width: 1020px) { .context-picker { grid-template-columns: 150px; } .context-picker > span { display: none; } }
+@media (max-width: 820px) { .sidebar { position: static; width: 100%; min-height: auto; } .tenant-card, nav, .sidebar__footer { display: none; } .shell-body { margin-left: 0; } .topbar { padding-inline: 16px; } .command-box { min-width: 0; } .command-box span, .command-box kbd, .operator div, .topbar__tools > button:first-of-type { display: none; } .context-picker { grid-template-columns: minmax(130px, 1fr); } .context-rail { padding-inline: 18px; } }
 </style>
