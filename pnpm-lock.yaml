@@ -88,6 +88,9 @@ importers:
 
   ui/admin-layui:
     dependencies:
+      '@fullnet/admin-i18n':
+        specifier: workspace:*
+        version: link:../../packages/admin-i18n
       '@fullnet/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens

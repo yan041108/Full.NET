@@ -1,8 +1,10 @@
 import { request } from './core/http.js';
+import { adminI18n } from './core/i18n.js';
 import { identitySession } from './core/session.js';
 import {
   applyPermissionVisibility,
   findNavigationByPath,
+  localNavigationFor,
   localViewFor,
   renderNavigation
 } from './core/navigation.js';
@@ -12,18 +14,18 @@ const knownLocalPaths = new Set(['/', '/tenant-context']);
 const statusRoutes = {
   '/403': {
     code: '403',
-    title: '没有访问权限',
-    description: '当前账号缺少访问此功能所需的权限，请联系管理员完成授权。'
+    titleKey: 'status.403.title',
+    descriptionKey: 'status.403.description'
   },
   '/404': {
     code: '404',
-    title: '页面没有找到',
-    description: '目标地址可能已调整，请从左侧导航重新进入功能。'
+    titleKey: 'status.404.title',
+    descriptionKey: 'status.404.description'
   },
   '/500': {
     code: '500',
-    title: '服务暂时不可用',
-    description: '系统已记录本次异常，请稍后重试并向运维人员提供 TraceId。'
+    titleKey: 'status.500.title',
+    descriptionKey: 'status.500.description'
   }
 };
 
@@ -32,12 +34,15 @@ const statusRoutes = {
  */
 export function initializeAdminApp(root = document, options = {}) {
   const session = options.session ?? identitySession;
+  const i18n = options.i18n ?? adminI18n;
   const autoRestore = options.autoRestore !== false;
   const probeButton = root.querySelector('[data-testid="load-current-user"]');
   const loginForm = root.querySelector('[data-login-form]');
   const logoutButton = root.querySelector('[data-session-logout]');
   const contextSelector = root.querySelector('[data-context-select]');
+  const localeSelectors = root.querySelectorAll('[data-locale-select]');
   const tenantDirectory = root.querySelector('[data-tenant-directory]');
+  let translation = i18n.snapshot();
   let latestSnapshot = {
     state: 'initializing',
     currentUser: undefined,
@@ -50,7 +55,12 @@ export function initializeAdminApp(root = document, options = {}) {
   let isLoggingIn = false;
   let isSwitchingContext = false;
 
-  const onRouteChange = () => renderRoute(root, latestSnapshot);
+  const onRouteChange = () => renderRoute(
+    root,
+    latestSnapshot,
+    translation,
+    { focusHeading: true }
+  );
   const onProbe = async () => {
     if (isProbing) {
       return;
@@ -69,11 +79,16 @@ export function initializeAdminApp(root = document, options = {}) {
         panel.hidden = false;
         panel.classList.remove('is-error');
       }
-      if (code) code.textContent = `已连接：${currentUser?.displayName ?? '当前用户'}`;
+      if (code) {
+        code.textContent = translation.t('overview.connectedUser', {
+          name: currentUser?.displayName
+            ?? translation.t('overview.currentUserFallback')
+        });
+      }
       if (traceId) traceId.textContent = currentUser?.id ?? '';
     } catch (problem) {
-      showContractResult(root, problem);
-      globalThis.layui?.layer?.msg?.('会话检查失败，请查看错误信息', { icon: 2 });
+      showContractResult(root, problem, translation);
+      globalThis.layui?.layer?.msg?.(translation.t('overview.clientFailure'), { icon: 2 });
     } finally {
       isProbing = false;
       if (probeButton) probeButton.disabled = false;
@@ -89,7 +104,15 @@ export function initializeAdminApp(root = document, options = {}) {
 
     isLoggingIn = true;
     const submitButton = loginForm.querySelector('[type="submit"]');
-    if (submitButton) submitButton.disabled = true;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.setAttribute('aria-busy', 'true');
+      setText(
+        submitButton,
+        '[data-i18n="auth.submit"]',
+        translation.t('auth.submitting')
+      );
+    }
     hideLoginProblem(root);
     try {
       const formData = new FormData(loginForm);
@@ -98,11 +121,19 @@ export function initializeAdminApp(root = document, options = {}) {
         String(formData.get('password') ?? '')
       );
     } catch (problem) {
-      showLoginProblem(root, problem);
-      globalThis.layui?.layer?.msg?.('登录失败，请核对错误信息', { icon: 2 });
+      showLoginProblem(root, problem, translation);
+      globalThis.layui?.layer?.msg?.(translation.t('auth.loginFailed'), { icon: 2 });
     } finally {
       isLoggingIn = false;
-      if (submitButton) submitButton.disabled = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.removeAttribute('aria-busy');
+        setText(
+          submitButton,
+          '[data-i18n="auth.submit"]',
+          translation.t('auth.submit')
+        );
+      }
     }
   };
   const onLogout = () => {
@@ -110,18 +141,18 @@ export function initializeAdminApp(root = document, options = {}) {
   };
   const switchContext = async (value) => {
     if (isSwitchingContext || latestSnapshot.switching) {
-      renderContextSelector(contextSelector, latestSnapshot);
+      renderContextSelector(contextSelector, latestSnapshot, translation);
       return;
     }
 
     isSwitchingContext = true;
     hideContextProblem(root);
-    renderContextSelector(contextSelector, latestSnapshot);
+    renderContextSelector(contextSelector, latestSnapshot, translation);
     if (contextSelector) contextSelector.disabled = true;
     try {
       await session.switchTenant(value === hostContextValue ? null : value);
     } catch (problem) {
-      showContextProblem(root, problem);
+      showContextProblem(root, problem, translation);
     } finally {
       isSwitchingContext = false;
       renderContextSelector(contextSelector, latestSnapshot);
@@ -132,6 +163,9 @@ export function initializeAdminApp(root = document, options = {}) {
     // 原生 select 会先改变选中项，因此立即恢复服务端确认的旧值，禁止乐观展示。
     renderContextSelector(contextSelector, latestSnapshot);
     void switchContext(requestedValue);
+  };
+  const onLocaleChange = (event) => {
+    i18n.setLocale(event.currentTarget.value);
   };
   const onTenantAction = (event) => {
     const target = event.target instanceof Element
@@ -145,7 +179,19 @@ export function initializeAdminApp(root = document, options = {}) {
   };
   const unsubscribeSession = session.subscribe((snapshot) => {
     latestSnapshot = normalizeSnapshot(snapshot);
-    renderSession(root, latestSnapshot);
+    renderSession(root, latestSnapshot, translation);
+  });
+  const unsubscribeI18n = i18n.subscribe((snapshot) => {
+    translation = snapshot;
+    i18n.applyBindings(root);
+    if (isLoggingIn) {
+      setText(
+        root,
+        '[data-i18n="auth.submit"]',
+        translation.t('auth.submitting')
+      );
+    }
+    renderSession(root, latestSnapshot, translation);
   });
 
   window.addEventListener('hashchange', onRouteChange);
@@ -153,8 +199,12 @@ export function initializeAdminApp(root = document, options = {}) {
   loginForm?.addEventListener('submit', onLogin);
   logoutButton?.addEventListener('click', onLogout);
   contextSelector?.addEventListener('change', onContextChange);
+  localeSelectors.forEach(selector => {
+    selector.addEventListener('change', onLocaleChange);
+  });
   tenantDirectory?.addEventListener('click', onTenantAction);
-  renderRoute(root, latestSnapshot);
+  i18n.applyBindings(root);
+  renderRoute(root, latestSnapshot, translation);
 
   const ready = autoRestore
     ? Promise.resolve(session.restore())
@@ -174,13 +224,17 @@ export function initializeAdminApp(root = document, options = {}) {
       loginForm?.removeEventListener('submit', onLogin);
       logoutButton?.removeEventListener('click', onLogout);
       contextSelector?.removeEventListener('change', onContextChange);
+      localeSelectors.forEach(selector => {
+        selector.removeEventListener('change', onLocaleChange);
+      });
       tenantDirectory?.removeEventListener('click', onTenantAction);
       unsubscribeSession();
+      unsubscribeI18n();
     }
   };
 }
 
-function renderSession(root, snapshot) {
+function renderSession(root, snapshot, translation) {
   const boot = root.querySelector('[data-session-boot]');
   const login = root.querySelector('[data-login-view]');
   const shell = root.querySelector('[data-session-shell]');
@@ -193,7 +247,7 @@ function renderSession(root, snapshot) {
   if (currentUser) currentUser.textContent = snapshot.currentUser?.displayName ?? '';
   if (currentScope) {
     currentScope.textContent = snapshot.currentUser?.scope === 'host'
-      ? 'Host Admin'
+      ? translation.t('shell.hostAdmin')
       : snapshot.currentUser?.username ?? '';
   }
   root.querySelectorAll('[data-current-context]').forEach((element) => {
@@ -208,17 +262,26 @@ function renderSession(root, snapshot) {
     renderNavigation(
       navigationContainer,
       snapshot.navigation,
-      currentRoute()
+      currentRoute(),
+      translation.t
     );
   }
 
-  renderContextSelector(root.querySelector('[data-context-select]'), snapshot);
-  renderTenantDirectory(root.querySelector('[data-tenant-directory]'), snapshot);
+  renderContextSelector(
+    root.querySelector('[data-context-select]'),
+    snapshot,
+    translation
+  );
+  renderTenantDirectory(
+    root.querySelector('[data-tenant-directory]'),
+    snapshot,
+    translation
+  );
   applyPermissionVisibility(root, snapshot.currentUser?.permissions ?? []);
-  renderRoute(root, snapshot);
+  renderRoute(root, snapshot, translation);
 }
 
-function renderRoute(root, snapshot) {
+function renderRoute(root, snapshot, translation, options = {}) {
   const route = currentRoute();
   const navigation = findNavigationByPath(snapshot.navigation, route);
   const status = statusRoutes[route]
@@ -236,27 +299,52 @@ function renderRoute(root, snapshot) {
 
   if (status) {
     setText(root, '[data-status-code]', status.code);
-    setText(root, '[data-status-title]', status.title);
-    setText(root, '[data-status-description]', status.description);
+    setText(root, '[data-status-title]', translation.t(status.titleKey));
+    setText(
+      root,
+      '[data-status-description]',
+      translation.t(status.descriptionKey)
+    );
   }
 
   const navigationContainer = root.querySelector('[data-navigation]');
   if (navigationContainer) {
-    renderNavigation(navigationContainer, snapshot.navigation, route);
+    renderNavigation(
+      navigationContainer,
+      snapshot.navigation,
+      route,
+      translation.t
+    );
   } else {
     root.querySelectorAll('[data-route]').forEach((link) => {
       link.classList.toggle('is-active', link.dataset.route === route);
     });
   }
 
+  const local = navigation
+    ? localNavigationFor(navigation.componentKey)
+    : undefined;
   setText(
     root,
     '[data-route-title]',
-    navigation?.title ?? (status?.title ?? '状态页')
+    local
+      ? translation.t(local.titleKey)
+      : translation.t(status?.titleKey ?? 'navigation.status.title')
   );
+
+  const titleKey = local
+    ? local.titleKey
+    : status?.titleKey ?? 'navigation.status.title';
+  translation.setPageTitle(titleKey);
+
+  if (options.focusHeading) {
+    root.querySelector(
+      '[data-route-view]:not([hidden]) [data-route-heading]'
+    )?.focus();
+  }
 }
 
-function renderContextSelector(selector, snapshot) {
+function renderContextSelector(selector, snapshot, translation) {
   if (!selector) {
     return;
   }
@@ -273,7 +361,7 @@ function renderContextSelector(selector, snapshot) {
     || !snapshot.currentUser?.permissions.includes('tenancy.tenants.switch');
 }
 
-function renderTenantDirectory(container, snapshot) {
+function renderTenantDirectory(container, snapshot, translation) {
   if (!container) {
     return;
   }
@@ -284,15 +372,26 @@ function renderTenantDirectory(container, snapshot) {
     id: null,
     identifier: 'host',
     name: 'Full.NET Host',
-    domain: '宿主控制面'
-  }, snapshot));
+    domain: translation.t('tenant.hostDomain')
+  }, snapshot, translation));
   snapshot.availableTenants.forEach((tenant) => {
-    fragment.append(createTenantCard(ownerDocument, tenant, snapshot));
+    fragment.append(createTenantCard(
+      ownerDocument,
+      tenant,
+      snapshot,
+      translation
+    ));
   });
+  if (snapshot.availableTenants.length === 0) {
+    const empty = ownerDocument.createElement('p');
+    empty.className = 'fn-tenant-grid__empty';
+    empty.textContent = translation.t('tenant.directoryEmpty');
+    fragment.append(empty);
+  }
   container.replaceChildren(fragment);
 }
 
-function createTenantCard(ownerDocument, tenant, snapshot) {
+function createTenantCard(ownerDocument, tenant, snapshot, translation) {
   const article = ownerDocument.createElement('article');
   const isCurrent = snapshot.currentUser?.tenantId === tenant.id;
   article.classList.toggle('is-active', isCurrent);
@@ -307,7 +406,9 @@ function createTenantCard(ownerDocument, tenant, snapshot) {
   domain.textContent = tenant.domain;
   const footer = ownerDocument.createElement('div');
   const state = ownerDocument.createElement('small');
-  state.textContent = isCurrent ? '当前上下文' : '可进入';
+  state.textContent = isCurrent
+    ? translation.t('tenant.current')
+    : translation.t('tenant.available');
   footer.append(state);
 
   const canSwitch = snapshot.currentUser?.permissions.includes(
@@ -319,7 +420,9 @@ function createTenantCard(ownerDocument, tenant, snapshot) {
     button.className = 'layui-btn layui-btn-sm';
     button.dataset.contextTarget = tenant.id ?? hostContextValue;
     button.disabled = snapshot.switching;
-    button.textContent = tenant.id ? '进入租户' : '返回 Host';
+    button.textContent = tenant.id
+      ? translation.t('tenant.enter')
+      : translation.t('tenant.returnHost');
     footer.append(button);
   }
 
@@ -350,21 +453,29 @@ function normalizeSnapshot(snapshot) {
   };
 }
 
-function showContractResult(root, problem) {
+function showContractResult(root, problem, translation) {
   const panel = root.querySelector('[data-contract-result]');
   if (panel) {
     panel.hidden = false;
     panel.classList.add('is-error');
   }
   setText(root, '[data-testid="error-code"]', problem?.code ?? 'client.unexpected_error');
-  setText(root, '[data-testid="trace-id"]', problem?.traceId ?? '无 TraceId');
+  setText(
+    root,
+    '[data-testid="trace-id"]',
+    problem?.traceId ?? translation.t('overview.noTraceId')
+  );
 }
 
-function showContextProblem(root, problem) {
+function showContextProblem(root, problem, translation) {
   const panel = root.querySelector('[data-context-problem]');
   if (panel) panel.hidden = false;
   setText(root, '[data-context-error-code]', problem?.code ?? 'client.context_switch_failed');
-  setText(root, '[data-context-error-title]', problem?.title ?? '上下文切换未完成');
+  setText(
+    root,
+    '[data-context-error-title]',
+    problem?.title ?? translation.t('shell.contextSwitchFailed')
+  );
 }
 
 function hideContextProblem(root) {
@@ -372,11 +483,15 @@ function hideContextProblem(root) {
   if (panel) panel.hidden = true;
 }
 
-function showLoginProblem(root, problem) {
+function showLoginProblem(root, problem, translation) {
   const panel = root.querySelector('[data-login-problem]');
   if (panel) panel.hidden = false;
   setText(root, '[data-login-error-code]', problem?.code ?? 'client.login_failed');
-  setText(root, '[data-login-error-title]', problem?.title ?? '登录请求未完成');
+  setText(
+    root,
+    '[data-login-error-title]',
+    problem?.title ?? translation.t('auth.loginFailed')
+  );
 }
 
 function hideLoginProblem(root) {

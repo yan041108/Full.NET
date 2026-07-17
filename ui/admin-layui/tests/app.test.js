@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { initializeAdminApp } from '../js/app.js';
+import { createAdminI18n } from '../js/core/i18n.js';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
@@ -35,7 +36,9 @@ describe('Layui 管理端应用', () => {
     const app = initializeAdminApp(document, { session, autoRestore: false });
 
     expect(document.querySelector('[data-navigation]').textContent)
-      .toContain('<img src=x onerror=alert(1)>');
+      .toContain('工作台');
+    expect(document.querySelector('[data-navigation]').textContent)
+      .not.toContain('<img src=x onerror=alert(1)>');
     expect(document.querySelector('[data-navigation] img')).toBeNull();
     expect(document.querySelector('[data-current-context]').textContent)
       .toBe('Full.NET Host');
@@ -238,7 +241,49 @@ describe('Layui 管理端应用', () => {
       .toBe('用户名或密码错误');
     app.dispose();
   });
+
+  it('切换语言时保持当前会话和 Hash 路由', () => {
+    renderDynamicFixture();
+    document.body.insertAdjacentHTML('afterbegin', `
+      <label for="admin-locale" data-i18n="locale.label"></label>
+      <select id="admin-locale" name="locale" data-locale-select>
+        <option value="zh-CN" data-i18n="locale.zhCN"></option>
+        <option value="en-US" data-i18n="locale.enUS"></option>
+      </select>`);
+    const session = createSessionStub(authorizedSnapshot());
+    const i18n = createAdminI18n({
+      document,
+      storage: createMemoryStorage(),
+      preferredLocales: ['zh-CN']
+    });
+    window.location.hash = '#/';
+    const app = initializeAdminApp(document, {
+      session,
+      i18n,
+      autoRestore: false
+    });
+
+    const selector = document.querySelector('[data-locale-select]');
+    selector.value = 'en-US';
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(document.querySelector('[data-navigation]').textContent)
+      .toContain('Overview');
+    expect(document.documentElement.lang).toBe('en-US');
+    expect(window.location.hash).toBe('#/');
+    expect(session.restore).not.toHaveBeenCalled();
+    expect(session.login).not.toHaveBeenCalled();
+    app.dispose();
+  });
 });
+
+function createMemoryStorage() {
+  const values = new Map();
+  return {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value)
+  };
+}
 
 function renderSessionFixture() {
   document.body.innerHTML = `

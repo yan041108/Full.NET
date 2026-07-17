@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fullnet/admin-i18n": "workspace:*",
     "@fullnet/design-tokens": "workspace:*",
     "layui": "2.13.8"
   },

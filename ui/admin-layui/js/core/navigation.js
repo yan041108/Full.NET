@@ -3,15 +3,24 @@ const localNavigation = new Map([
     routeName: 'overview',
     path: '/',
     view: 'overview',
-    iconClass: 'layui-icon-console'
+    iconClass: 'layui-icon-console',
+    titleKey: 'navigation.overview.title',
+    captionKey: 'navigation.overview.caption'
   }],
   ['tenant-context', {
     routeName: 'tenant-context',
     path: '/tenant-context',
     view: 'tenant-context',
-    iconClass: 'layui-icon-group'
+    iconClass: 'layui-icon-group',
+    titleKey: 'navigation.tenantContext.title',
+    captionKey: 'navigation.tenantContext.caption'
   }]
 ]);
+
+/** 返回组件键对应的本地可信导航定义，未知键始终拒绝。 */
+export function localNavigationFor(componentKey) {
+  return localNavigation.get(componentKey);
+}
 
 /** 确认服务端导航只引用当前 Layui 版本显式发布的本地视图。 */
 export function isSupportedNavigationTree(navigation) {
@@ -45,10 +54,10 @@ export function localViewFor(componentKey) {
 }
 
 /** 使用安全 DOM API 呈现导航，服务端文本不会进入 HTML 解析器。 */
-export function renderNavigation(container, navigation, activePath) {
+export function renderNavigation(container, navigation, activePath, t) {
   const group = document.createElement('span');
   group.className = 'fn-nav__group';
-  group.textContent = '管理域';
+  group.textContent = t('shell.managementDomain');
   const fragment = document.createDocumentFragment();
   fragment.append(group);
 
@@ -62,12 +71,15 @@ export function renderNavigation(container, navigation, activePath) {
     link.href = `#${node.path}`;
     link.dataset.route = node.path;
     link.classList.toggle('is-active', node.path === activePath);
+    if (node.path === activePath) {
+      link.setAttribute('aria-current', 'page');
+    }
 
     const icon = document.createElement('i');
     icon.className = `layui-icon ${local.iconClass}`;
     icon.setAttribute('aria-hidden', 'true');
     const title = document.createElement('span');
-    title.textContent = node.title;
+    title.textContent = t(local.titleKey);
     const order = document.createElement('em');
     order.textContent = String(index + 1).padStart(2, '0');
     link.append(icon, title, order);

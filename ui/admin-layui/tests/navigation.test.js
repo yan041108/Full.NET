@@ -3,8 +3,10 @@ import {
   applyPermissionVisibility,
   flattenNavigation,
   isSupportedNavigationTree,
+  localNavigationFor,
   renderNavigation
 } from '../js/core/navigation.js';
+import { translate } from '@fullnet/admin-i18n';
 
 describe('Layui 本地导航与 DOM 安全', () => {
   it('只接受本地组件、路由名和路径的精确映射', () => {
@@ -20,7 +22,7 @@ describe('Layui 本地导航与 DOM 安全', () => {
     ])).toBe(false);
   });
 
-  it('使用 createElement 和 textContent 呈现服务端文本', () => {
+  it('使用本地消息键和安全 DOM API 呈现导航', () => {
     const container = document.createElement('nav');
     const createElement = vi.spyOn(document, 'createElement');
     const node = {
@@ -28,12 +30,20 @@ describe('Layui 本地导航与 DOM 安全', () => {
       title: '<img src=x onerror=alert(1)>'
     };
 
-    renderNavigation(container, [node], '/');
+    renderNavigation(
+      container,
+      [node],
+      '/',
+      (key, parameters) => translate('zh-CN', key, parameters)
+    );
 
     expect(createElement).toHaveBeenCalled();
-    expect(container.textContent).toContain('<img src=x onerror=alert(1)>');
+    expect(container.textContent).toContain('工作台');
+    expect(container.textContent).not.toContain('<img src=x onerror=alert(1)>');
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('a')?.getAttribute('data-route')).toBe('/');
+    expect(container.querySelector('a')?.getAttribute('aria-current')).toBe('page');
+    expect(localNavigationFor('remote-script')).toBeUndefined();
   });
 
   it('权限元素只接受完整且区分大小写的权限码', () => {
