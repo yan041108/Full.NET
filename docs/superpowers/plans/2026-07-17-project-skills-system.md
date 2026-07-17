@@ -31,7 +31,7 @@
 - Consumes: `docs/superpowers/specs/2026-07-17-project-skills-system-design.md` 的三个验收场景。
 - Produces: `python tests/skills/validate_project_skills.py`，目标 Skill 不存在或契约缺项时返回非零退出码。
 
-- [ ] **Step 1: 创建契约场景**
+- [x] **Step 1: 创建契约场景**
 
   创建以下 JSON：
 
@@ -71,7 +71,7 @@
   }
   ```
 
-- [ ] **Step 2: 创建跨平台契约验证器**
+- [x] **Step 2: 创建跨平台契约验证器**
 
   创建 `tests/skills/validate_project_skills.py`：
 
@@ -171,7 +171,7 @@
       raise SystemExit(main())
   ```
 
-- [ ] **Step 3: 运行 RED 并确认失败原因**
+- [x] **Step 3: 运行 RED 并确认失败原因**
 
   Run:
 
@@ -181,7 +181,7 @@
 
   Expected: 返回码为 `1`，输出包含 `Missing skill directory: .agents/skills/fullnet-module-delivery`；失败原因只能是 Skill 尚未创建。
 
-- [ ] **Step 4: 提交失败契约**
+- [x] **Step 4: 提交失败契约**
 
   ```powershell
   git add tests/skills/fullnet-module-delivery.contract.json tests/skills/validate_project_skills.py
@@ -199,17 +199,20 @@
 - Consumes: Task 1 的契约词与三个场景。
 - Produces: 可由项目上下文发现、可通过官方和项目校验器验证的 `fullnet-module-delivery` Skill。
 
-- [ ] **Step 1: 使用官方初始化脚本创建 Skill**
+- [x] **Step 1: 使用官方初始化脚本创建 Skill**
 
   Run:
 
   ```powershell
-  python C:/Users/Administrator/.codex/skills/.system/skill-creator/scripts/init_skill.py fullnet-module-delivery --path .agents/skills --resources references --interface "display_name=Full.NET 模块交付" --interface "short_description=按项目架构交付完整模块纵向切片" --interface "default_prompt=Use `$fullnet-module-delivery to implement a production-ready Full.NET module slice from contract through verification."
+  $validatorDeps = Join-Path $env:TEMP 'fullnet-skill-validation'
+  python -m pip install --disable-pip-version-check --upgrade --target $validatorDeps PyYAML==6.0.2
+  $env:PYTHONPATH = $validatorDeps
+  python -X utf8 C:/Users/Administrator/.codex/skills/.system/skill-creator/scripts/init_skill.py fullnet-module-delivery --path .agents/skills --resources references --interface "display_name=Full.NET 模块交付" --interface "short_description=遵循 Full.NET 架构、双数据库与测试约束交付完整模块纵向切片" --interface "default_prompt=Use `$fullnet-module-delivery to implement a production-ready Full.NET module slice from contract through verification."
   ```
 
   Expected: 创建 Skill 目录、`agents/openai.yaml` 和空的 `references/`，命令退出码为 `0`。
 
-- [ ] **Step 2: 编写精简 Skill 正文**
+- [x] **Step 2: 编写精简 Skill 正文**
 
   `SKILL.md` 必须包含：读取规则与路线、功能归属、切片结构、RED-GREEN、Dapper 双数据库、事务/Outbox/缓存、标准 API 与兼容层、注册与序列化、测试/文档/规则复盘、按需决策表和常见错误。Frontmatter 使用：
 
@@ -220,11 +223,11 @@
   ---
   ```
 
-- [ ] **Step 3: 编写按需仓库地图**
+- [x] **Step 3: 编写按需仓库地图**
 
   `references/delivery-map.md` 必须列出当前目录职责、Tenancy 参考切片、不同变更所需文件、四套测试命令和测试数量更新位置。不得复制 `SKILL.md` 的流程说明。
 
-- [ ] **Step 4: 运行 GREEN 契约验证**
+- [x] **Step 4: 运行 GREEN 契约验证**
 
   Run:
 
@@ -234,7 +237,7 @@
 
   Expected: 返回码为 `0`，输出以 `PASS fullnet-module-delivery:` 开头。
 
-- [ ] **Step 5: 运行官方 Skill 校验**
+- [x] **Step 5: 运行官方 Skill 校验**
 
   Run:
 
@@ -242,12 +245,12 @@
   $validatorDeps = Join-Path $env:TEMP 'fullnet-skill-validation'
   python -m pip install --disable-pip-version-check --upgrade --target $validatorDeps PyYAML==6.0.2
   $env:PYTHONPATH = $validatorDeps
-  python C:/Users/Administrator/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/fullnet-module-delivery
+  python -X utf8 C:/Users/Administrator/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/fullnet-module-delivery
   ```
 
   Expected: PyYAML 安装到工作区外的临时目录；校验返回码为 `0`，输出确认 Skill 有效。
 
-- [ ] **Step 6: 提交已验证 Skill**
+- [x] **Step 6: 提交已验证 Skill**
 
   ```powershell
   git add .agents/skills/fullnet-module-delivery
@@ -266,15 +269,15 @@
 - Consumes: 已验证的 `fullnet-module-delivery` 与设计中的候选矩阵。
 - Produces: 每项任务结束时执行 Skill 复盘，并能将重复、稳定、需要判断的工作流升级为独立 Skill。
 
-- [ ] **Step 1: 编写 Skill 演进规则**
+- [x] **Step 1: 编写 Skill 演进规则**
 
   `rules/skill-evolution.md` 必须定义规则与 Skill 的边界、候选登记、升级门槛、先自动化判断、RED-GREEN-REFACTOR、单 Skill 部署门禁、元数据同步、退役和交付披露，并登记设计中的七个后续候选。
 
-- [ ] **Step 2: 接入仓库自动入口**
+- [x] **Step 2: 接入仓库自动入口**
 
   在 `AGENTS.md` 的开始前流程中要求按任务匹配 `.agents/skills/`；在完成前流程中要求规则复盘后执行 Skill 复盘。在 `rules/README.md` 添加治理文件索引，在 `rules/rule-evolution.md` 说明两类复盘顺序。
 
-- [ ] **Step 3: 验证入口、候选和链接**
+- [x] **Step 3: 验证入口、候选和链接**
 
   Run:
 
@@ -287,7 +290,7 @@
 
   Expected: 命令退出码为 `0`，无输出。
 
-- [ ] **Step 4: 提交治理规则**
+- [x] **Step 4: 提交治理规则**
 
   ```powershell
   git add AGENTS.md rules/README.md rules/rule-evolution.md rules/skill-evolution.md
@@ -303,7 +306,7 @@
 - Consumes: Tasks 1-3 的提交。
 - Produces: 完成状态、可复现验证证据和干净 `main`。
 
-- [ ] **Step 1: 复核契约与 Skill 结构**
+- [x] **Step 1: 复核契约与 Skill 结构**
 
   Run:
 
@@ -311,22 +314,13 @@
   python tests/skills/validate_project_skills.py
   $validatorDeps = Join-Path $env:TEMP 'fullnet-skill-validation'
   $env:PYTHONPATH = $validatorDeps
-  python C:/Users/Administrator/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/fullnet-module-delivery
+  python -X utf8 C:/Users/Administrator/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/fullnet-module-delivery
   git diff --check
   ```
 
   Expected: 两个验证器返回 `0`，空白检查无输出。
 
-- [ ] **Step 2: 标记计划完成并提交**
-
-  将本计划所有复选框改为 `[x]` 后执行：
-
-  ```powershell
-  git add docs/superpowers/plans/2026-07-17-project-skills-system.md
-  git commit -m "docs: complete project skills plan"
-  ```
-
-- [ ] **Step 3: 运行仓库验证**
+- [x] **Step 2: 运行仓库验证**
 
   Run:
 
@@ -340,7 +334,16 @@
 
   Expected: Release 构建 `0` warnings、`0` errors；四套测试总计 65、失败 0、跳过 0。
 
-- [ ] **Step 4: 检查最终 Git 与分支状态**
+- [x] **Step 3: 标记计划完成并提交**
+
+  将本计划所有复选框改为 `[x]` 后执行：
+
+  ```powershell
+  git add docs/superpowers/plans/2026-07-17-project-skills-system.md
+  git commit -m "docs: complete project skills plan"
+  ```
+
+- [x] **Step 4: 检查最终 Git 与分支状态**
 
   Run:
 
