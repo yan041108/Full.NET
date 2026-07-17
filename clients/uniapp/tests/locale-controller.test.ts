@@ -324,10 +324,29 @@ describe('locale controller', () => {
       expect(controller.initialize()).toMatchObject({ preferredLocale: 'en-US', saving: false });
       expect(runtime.subscribeCalls).toBe(step === 'runtime.onLocaleChange' ? 2 : 1);
       expect(runtime.setCalls).toBe(
-        step === 'runtime.setLocale' ? 2 : step === 'runtime.onLocaleChange' ? 3 : 1
+        step === 'runtime.setLocale' || step === 'runtime.onLocaleChange' ? 3 : 1
       );
     }
   );
+
+  it('compensates a runtime mutation that throws during initialization and permits a fresh retry', () => {
+    const storage = new MemoryStorage('zh-CN');
+    const runtime = new MutatingFaultRuntime('en');
+    runtime.failNextSet = true;
+    const controller = createLocaleController({ runtime, storage });
+
+    expect(() => controller.initialize()).toThrow('runtime set failed after mutation');
+    expect(runtime.currentLocale).toBe('en');
+    expect(runtime.listenerCount).toBe(0);
+
+    storage.set('en-US');
+    expect(controller.initialize()).toEqual({
+      preferredLocale: 'en-US',
+      profileVersion: 0,
+      authenticated: false,
+      saving: false
+    });
+  });
 
   it('compensates storage mutation failures without changing an anonymous snapshot', () => {
     const { controller, runtime, storage } = createFaultSubject();
@@ -410,5 +429,28 @@ describe('locale controller', () => {
     expect(() => controller.initialize()).toThrow('disposed');
     expect(() => controller.subscribe(() => undefined)).toThrow('disposed');
     expect(() => controller.setAnonymousLocale('en-US')).toThrow('disposed');
+  });
+
+  it('invalidates a pending save when disposed before the persistence response arrives', async () => {
+    const { controller, runtime, storage } = createSubject({ stored: 'zh-CN' });
+    controller.initialize();
+    controller.hydrateAccount({ preferredLocale: 'zh-CN', profileVersion: 5 });
+    let resolvePersist: ((value: { preferredLocale: 'en-US'; profileVersion: number }) => void) | undefined;
+    let persistCalls = 0;
+    const persist = () => {
+      persistCalls += 1;
+      return new Promise<{ preferredLocale: 'en-US'; profileVersion: number }>(resolve => {
+        resolvePersist = resolve;
+      });
+    };
+
+    const save = controller.saveAuthenticatedLocale('en-US', persist);
+    controller.dispose();
+    resolvePersist?.({ preferredLocale: 'en-US', profileVersion: 6 });
+
+    await expect(save).rejects.toThrow('disposed');
+    expect(persistCalls).toBe(1);
+    expect(storage.writes).not.toContain('en-US');
+    expect(runtime.setCalls).not.toContain('en');
   });
 });

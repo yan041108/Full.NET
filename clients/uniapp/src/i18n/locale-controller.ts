@@ -76,6 +76,7 @@ export function createLocaleController(
   const listeners = new Set<(snapshot: LocaleSnapshot) => void>();
   let initialized = false;
   let disposed = false;
+  let operationGeneration = 0;
   let stopRuntimeListener: (() => void) | undefined;
   let snapshot: LocaleSnapshot = {
     preferredLocale: 'zh-CN',
@@ -155,8 +156,8 @@ export function createLocaleController(
       const preferredLocale = isCanonicalLocale(storedLocale)
         ? storedLocale
         : previousRuntimeLocale;
-      setRuntimeLocale(preferredLocale);
       runtimeChanged = true;
+      setRuntimeLocale(preferredLocale);
       const stopListener = dependencies.runtime.onLocaleChange(platformLocale => {
         if (snapshot.authenticated) {
           return;
@@ -256,11 +257,15 @@ export function createLocaleController(
         preferredLocale: locale,
         profileVersion: previousSnapshot.profileVersion
       };
+      const saveGeneration = operationGeneration;
       snapshot = { ...previousSnapshot, saving: true };
       notify();
 
       try {
         const response = await persist(request);
+        if (disposed || operationGeneration !== saveGeneration) {
+          throw new Error('Authenticated locale save was disposed or invalidated before completion.');
+        }
         if (
           !isAccountLocaleSnapshot(response)
           || response.preferredLocale !== request.preferredLocale
@@ -285,6 +290,7 @@ export function createLocaleController(
       }
 
       disposed = true;
+      operationGeneration += 1;
       const stopListener = stopRuntimeListener;
       stopRuntimeListener = undefined;
       listeners.clear();
