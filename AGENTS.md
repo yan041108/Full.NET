@@ -14,8 +14,9 @@
 
 1. 必须读取本文件和 [`rules/README.md`](rules/README.md)。
 2. 必须读取 [`rules/development-quality.md`](rules/development-quality.md)；涉及代码、SQL、配置或脚本时，还必须读取 [`rules/code-comments.md`](rules/code-comments.md)。
-3. 必须检查当前分支、`git status`、相关设计与计划，保留用户已有和无关变更。
-4. 必须确认需求、授权边界和验收条件；能从仓库安全确定的信息不得反复询问。
+3. 必须检查 `.agents/skills/` 是否存在匹配当前任务的项目 Skill；新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时必须使用 [`fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)。
+4. 必须检查当前分支、`git status`、相关设计与计划，保留用户已有和无关变更。
+5. 必须确认需求、授权边界和验收条件；能从仓库安全确定的信息不得反复询问。
 
 ### 开发中
 
@@ -30,7 +31,8 @@
 1. 必须执行与风险相称的构建、测试和静态检查，并依据新鲜输出报告结果。
 2. 必须同步更新受影响的 README、开发文档、路线图、迁移说明和测试数量门槛。
 3. 必须读取并执行 [`rules/rule-evolution.md`](rules/rule-evolution.md) 的遗漏复盘；满足升级门槛时，在同一任务中更新相应规则并在交付说明中披露。
-4. 必须检查 `git diff --check`、`git status` 和分支状态，不得把“测试未执行”表述为“测试通过”。
+4. 规则复盘后必须读取并执行 [`rules/skill-evolution.md`](rules/skill-evolution.md) 的 Skills 复盘；满足门槛时更新候选或按测试先行流程演进一个项目 Skill。
+5. 必须检查 `git diff --check`、`git status` 和分支状态，不得把“测试未执行”表述为“测试通过”。
 
 ## Full.NET 不可隐式改变的基线
 
@@ -47,3 +49,5 @@
 - [`rules/code-comments.md`](rules/code-comments.md)：中文代码注释与文档注释规范。
 - [`rules/development-quality.md`](rules/development-quality.md)：常见遗漏防护和完成定义。
 - [`rules/rule-evolution.md`](rules/rule-evolution.md)：自动复盘、规则升级、冲突与退役机制。
+- [`rules/skill-evolution.md`](rules/skill-evolution.md)：项目 Skills 候选、测试先行、升级与退役机制。
+- [`.agents/skills/fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)：完整业务模块纵向交付流程。

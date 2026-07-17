@@ -9,6 +9,7 @@
 | [`code-comments.md`](code-comments.md) | 新增或修改代码、SQL、脚本、配置 | 规定中文注释的语言、覆盖范围、质量与维护标准 |
 | [`development-quality.md`](development-quality.md) | 所有开发、修复、重构和审查任务 | 防止需求、架构、安全、数据、测试、文档、许可和 Git 遗漏 |
 | [`rule-evolution.md`](rule-evolution.md) | 每项任务完成前 | 将复盘发现按证据门槛升级为项目规则 |
+| [`skill-evolution.md`](skill-evolution.md) | 规则复盘之后、每项任务交付之前 | 将重复且稳定的复杂工作流升级为可验证的项目 Skill |
 
 ## 规范用词
 
@@ -33,3 +34,4 @@
 3. 新规则必须遵循 [`rule-evolution.md`](rule-evolution.md) 的升级门槛，并包含来源、理由和可执行的验证方式。
 4. 已失效的规则必须明确退役或由新规则替换，不能保留相互矛盾的历史要求。
 5. 每个里程碑结束时应审查规则的重复、冲突、过期和可自动化程度。
+6. 规则复盘完成后必须继续执行 Skill 复盘；强制约束保留在规则中，重复执行方法才进入 `.agents/skills/`。
