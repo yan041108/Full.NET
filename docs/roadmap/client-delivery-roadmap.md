@@ -24,11 +24,11 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | 范围 | 当前状态 | 已完成 | 尚未完成 |
 |---|---|---|---|
 | C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
-| C1 双管理端壳层 | Implemented | Vue/Element Plus、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、同场景双端 E2E | 国际化入口与完整可访问性验收 |
+| C1 双管理端壳层 | Implemented | Vue/Element Plus、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、`zh-CN/en-US` 国际化、WCAG 2.2 A/AA、键盘/焦点、320 CSS px 重排、减弱动画与同场景双端 E2E | Windows Edge + NVDA、200% 缩放与强制颜色人工验收 |
 | C2 业务模块 | Mapped | 功能波次和双端同步门禁 | 首个 Identity/Tenancy/Organization 纵向切片 |
 | C3/C4 业务客户端 | Designing | 技术路线和平台边界 | uni-app、Flutter 工程与平台构建验证 |
 
-“C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的真实认证、租户和权限流程已经通过双端验证，但国际化入口与完整可访问性验收尚未完成，因此保持 `Implemented`，不提前标记为 `Verified`。
+“C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的真实认证、租户、权限、国际化与自动可访问性流程已经通过双端验证；真实辅助技术、200% 缩放和强制颜色仍待人工验收，因此保持 `Implemented`，不提前标记为 `Verified`。
 
 ## 2. 完成状态
 
@@ -206,7 +206,7 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 
 ## 8. 下一批可执行计划
 
-1. 完成 C1 的国际化入口和完整可访问性验收；
+1. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
 2. 为 Identity 用户/角色/菜单、Tenancy 租户/套餐 CRUD 和 Organization 建立首批双管理端业务切片计划；当前只把可信租户上下文切换视为已验证基础，不把完整 C2.1 误标为完成；
 3. 后端登录和租户契约稳定后执行 uni-app 基础客户端计划；
 4. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 Flutter 计划；

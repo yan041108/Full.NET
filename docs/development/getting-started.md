@@ -39,7 +39,18 @@ pnpm build:clients
 pnpm test:e2e
 ```
 
-`pnpm test:clients` 运行共享契约、Vue 和 Layui 单元测试；`pnpm test:e2e` 启动两个本地服务，并用同一组 Playwright 场景验证动态导航、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。生产构建会把 Layui 2.13.8 从锁定的 MIT npm 包打入本地产物，不依赖公共 CDN，也不包含 layuiAdmin 产品主题源码或资产。
+`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue 和 Layui 单元测试；`pnpm test:e2e` 启动两个本地服务，并用同一组 Playwright 场景验证动态导航、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 切换与刷新持久化、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
+
+排查单个客户端层时可以直接运行：
+
+```powershell
+pnpm --filter @fullnet/admin-i18n test
+pnpm --filter @fullnet/admin test
+pnpm --filter @fullnet/admin-layui test
+pnpm --filter @fullnet/admin-parity-e2e test
+```
+
+自动检查不能替代真实辅助技术。版本发布前仍须在 Windows Edge + NVDA 下人工冒烟登录、导航、错误反馈和租户切换，并检查浏览器 200% 缩放及强制颜色模式；这些项目完成前不得把 C1 标记为 `Verified`。生产构建会把 Layui 2.13.8 从锁定的 MIT npm 包打入本地产物，不依赖公共 CDN，也不包含 layuiAdmin 产品主题源码或资产。`@axe-core/playwright` 仅为 MPL-2.0 开发测试依赖，不进入最终发布物。
 
 直接运行 API 时默认地址为 `http://localhost:5149`。分别在两个终端设置同一个 API 地址并启动开发服务：
 

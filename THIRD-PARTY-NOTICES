@@ -54,3 +54,5 @@ the complete license texts.
   https://github.com/microsoft/TypeScript
 - Playwright — Apache-2.0
   https://github.com/microsoft/playwright
+- @axe-core/playwright — MPL-2.0 (development and CI testing only; not shipped)
+  https://github.com/dequelabs/axe-core-npm
