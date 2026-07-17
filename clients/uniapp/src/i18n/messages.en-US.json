@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "Full.NET"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "save": {
+      "saving": "Saving…",
+      "success": "Saved successfully",
+      "failure": "Could not save your changes. Please try again."
+    }
+  },
+  "errors": {
+    "localization": {
+      "unsupported_locale": "The selected language is not supported."
+    },
+    "identity": {
+      "profile_version_conflict": "Your profile changed. Refresh and try again."
+    }
+  },
+  "validation": {
+    "required": "This field is required.",
+    "invalid_email": "Enter a valid email address."
+  },
+  "traceId": {
+    "label": "Trace ID"
+  }
+}

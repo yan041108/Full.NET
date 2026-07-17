@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "Full.NET"
+  },
+  "settings": {
+    "title": "设置",
+    "language": "语言",
+    "save": {
+      "saving": "正在保存…",
+      "success": "保存成功",
+      "failure": "保存失败，请稍后重试"
+    }
+  },
+  "errors": {
+    "localization": {
+      "unsupported_locale": "不支持的语言设置"
+    },
+    "identity": {
+      "profile_version_conflict": "资料已更新，请刷新后重试"
+    }
+  },
+  "validation": {
+    "required": "此项为必填项",
+    "invalid_email": "请输入有效的电子邮箱地址"
+  },
+  "traceId": {
+    "label": "跟踪 ID"
+  }
+}
