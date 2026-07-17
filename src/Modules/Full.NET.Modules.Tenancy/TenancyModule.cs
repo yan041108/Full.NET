@@ -55,6 +55,16 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
         services.AddScoped<ITenantResolver, TenantResolver>();
         services.AddScoped<
+            IQueryHandler<
+                Features.GetAvailableTenants.Query,
+                TenantContextSummary[]>,
+            Features.GetAvailableTenants.Handler>();
+        services.AddScoped<
+            ICommandHandler<
+                Features.ChangeTenantContext.Command,
+                Full.NET.Modules.Identity.Contracts.TenantContextTokenResponse>,
+            Features.ChangeTenantContext.Handler>();
+        services.AddScoped<
             IIntegrationEventHandler,
             TenantProvisionedCacheInvalidationHandler>();
         services.ConfigureHttpJsonOptions(options =>
@@ -67,5 +77,7 @@ public sealed class TenancyModule : IFullNetModule
     {
         var group = endpoints.MapGroup("/api/v1/tenancy").WithTags("Tenancy");
         Features.GetCurrentTenant.Endpoint.Map(group);
+        Features.GetAvailableTenants.Endpoint.Map(group);
+        Features.ChangeTenantContext.Endpoint.Map(group);
     }
 }

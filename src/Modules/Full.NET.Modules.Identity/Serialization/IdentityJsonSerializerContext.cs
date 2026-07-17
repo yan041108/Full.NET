@@ -9,4 +9,5 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(TokenResponse))]
 [JsonSerializable(typeof(CurrentUserResponse))]
 [JsonSerializable(typeof(NavigationNodeResponse[]))]
+[JsonSerializable(typeof(TenantContextTokenResponse))]
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

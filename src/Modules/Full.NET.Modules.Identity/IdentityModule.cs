@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Identity.Features.GetNavigation;
+using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Serialization;
@@ -54,6 +55,9 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddSingleton(provider => AuthorizationCatalog.Create(
             provider.GetServices<IAuthorizationCatalogContributor>()));
         services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
+        services.TryAddScoped<
+            IIdentitySessionContextService,
+            IdentitySessionContextService>();
         services.TryAddSingleton<NavigationProjector>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationHandler,

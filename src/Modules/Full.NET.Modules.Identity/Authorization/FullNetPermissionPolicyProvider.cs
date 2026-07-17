@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Authorization;
 
 internal sealed class FullNetPermissionPolicyProvider : IAuthorizationPolicyProvider
 {
-    private const string PolicyPrefix = "FullNET.Permission:";
     private readonly DefaultAuthorizationPolicyProvider _fallback;
     private readonly HashSet<string> _knownPermissions;
 
@@ -27,12 +27,11 @@ internal sealed class FullNetPermissionPolicyProvider : IAuthorizationPolicyProv
 
     public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
     {
-        if (!policyName.StartsWith(PolicyPrefix, StringComparison.Ordinal))
+        if (!FullNetPermissionPolicies.TryRead(policyName, out var permissionCode))
         {
             return _fallback.GetPolicyAsync(policyName);
         }
 
-        var permissionCode = policyName[PolicyPrefix.Length..];
         if (!_knownPermissions.Contains(permissionCode))
         {
             return Task.FromResult<AuthorizationPolicy?>(null);
@@ -47,7 +46,6 @@ internal sealed class FullNetPermissionPolicyProvider : IAuthorizationPolicyProv
 
     public static string CreatePolicyName(string permissionCode)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(permissionCode);
-        return $"{PolicyPrefix}{permissionCode}";
+        return FullNetPermissionPolicies.For(permissionCode);
     }
 }

@@ -75,17 +75,24 @@ internal sealed class Handler(
         var replacementId = idGenerator.NewId();
         var replacementToken = randomTokenGenerator.Generate(32);
         var csrfToken = randomTokenGenerator.Generate(32);
-        var consumedRows = await commandExecutor.ExecuteAsync(
-                IdentitySql.ConsumeRefreshSession,
-                new ConsumeRefreshSessionUpdate(
-                    record.SessionId,
-                    clock.UtcNow,
-                    replacementId,
-                    record.SessionVersion),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (consumedRows != 1)
+        var consumed = false;
+        for (var attempt = 0; attempt < 2; attempt++)
         {
+            var consumedRows = await commandExecutor.ExecuteAsync(
+                    IdentitySql.ConsumeRefreshSession,
+                    new ConsumeRefreshSessionUpdate(
+                        record.SessionId,
+                        clock.UtcNow,
+                        replacementId,
+                        record.SessionVersion),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (consumedRows == 1)
+            {
+                consumed = true;
+                break;
+            }
+
             var concurrent = await FindAsync(presentedHash, cancellationToken)
                 .ConfigureAwait(false);
             if (concurrent?.ConsumedAtUtc.HasValue == true)
@@ -94,6 +101,17 @@ internal sealed class Handler(
                     .ConfigureAwait(false);
             }
 
+            if (!IsSameActiveSession(record, concurrent))
+            {
+                return InvalidRefreshToken();
+            }
+
+            // 上下文切换只推进 Version；重读后重试一次可避免误清理仍活动的会话。
+            record = concurrent!;
+        }
+
+        if (!consumed)
+        {
             return InvalidRefreshToken();
         }
 
@@ -161,6 +179,23 @@ internal sealed class Handler(
             IdentitySql.FindRefreshSessionByHash,
             new { TokenHash = tokenHash },
             cancellationToken);
+
+    private bool IsSameActiveSession(
+        RefreshSessionRecord previous,
+        RefreshSessionRecord? current)
+    {
+        return current is not null
+            && current.SessionId == previous.SessionId
+            && current.UserId == previous.UserId
+            && current.FamilyId == previous.FamilyId
+            && string.Equals(
+                current.TokenHash,
+                previous.TokenHash,
+                StringComparison.Ordinal)
+            && current.ExpiresAtUtc > clock.UtcNow
+            && !current.ConsumedAtUtc.HasValue
+            && !current.RevokedAtUtc.HasValue;
+    }
 
     private Task<int> RevokeFamilyAsync(
         Guid familyId,

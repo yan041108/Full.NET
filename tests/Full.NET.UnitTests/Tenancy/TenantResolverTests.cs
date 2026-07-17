@@ -75,6 +75,61 @@ public sealed class TenantResolverTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task ResolveByIdAsync_uses_the_explicit_global_id_query()
+    {
+        var expected = new TenantSummary(
+            Guid.CreateVersion7(),
+            "acme",
+            "Acme",
+            "acme.localhost",
+            true,
+            1);
+        var executor = Substitute.For<IQueryExecutor>();
+        executor.QuerySingleOrDefaultAsync<TenantSummary>(
+                TenantSql.FindById,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(expected);
+        await using var provider = CreateCacheProvider();
+        var resolver = new TenantResolver(
+            executor,
+            provider.GetRequiredService<HybridCache>(),
+            CreateEnvironment());
+
+        var result = await resolver.ResolveByIdAsync(expected.Id);
+
+        Assert.AreEqual(expected, result);
+        await executor.Received(1).QuerySingleOrDefaultAsync<TenantSummary>(
+            TenantSql.FindById,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task GetAvailableAsync_returns_the_stably_ordered_global_query()
+    {
+        var executor = Substitute.For<IQueryExecutor>();
+        executor.QueryAsync<TenantSummary>(
+                TenantSql.GetAvailable,
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns([]);
+        await using var provider = CreateCacheProvider();
+        var resolver = new TenantResolver(
+            executor,
+            provider.GetRequiredService<HybridCache>(),
+            CreateEnvironment());
+
+        var result = await resolver.GetAvailableAsync();
+
+        Assert.HasCount(0, result);
+        await executor.Received(1).QueryAsync<TenantSummary>(
+            TenantSql.GetAvailable,
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
     private static ServiceProvider CreateCacheProvider()
     {
         var services = new ServiceCollection();

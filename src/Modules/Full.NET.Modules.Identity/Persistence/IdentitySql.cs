@@ -29,6 +29,69 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    // 会话上下文可能已经进入租户；仅允许服务端使用已签名的 sub 与 sid 调用这些 Global 语句。
+    public static readonly SqlStatement FindRefreshSessionById = new(
+        "identity.find-refresh-session-by-explicit-session-id",
+        """
+        SELECT session.Id AS SessionId,
+               session.UserId,
+               session.FamilyId,
+               session.ClientId,
+               session.TokenHash,
+               session.ExpiresAtUtc,
+               session.ConsumedAtUtc,
+               session.RevokedAtUtc,
+               session.ReplacedById,
+               session.ActiveTenantId,
+               session.CreatedAtUtc,
+               session.Version AS SessionVersion,
+               identityUser.TenantId,
+               identityUser.ScopeKey,
+               identityUser.Username,
+               identityUser.NormalizedUsername,
+               identityUser.DisplayName,
+               identityUser.PasswordHash,
+               identityUser.IsActive,
+               identityUser.FailedLoginCount,
+               identityUser.LockoutEndUtc,
+               identityUser.SecurityStamp,
+               identityUser.CreatedAtUtc AS UserCreatedAtUtc,
+               identityUser.UpdatedAtUtc AS UserUpdatedAtUtc,
+               identityUser.Version AS UserVersion
+        FROM fn_identity_refresh_session AS session
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
+        WHERE session.Id = @SessionId
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement UpdateRefreshSessionContext = new(
+        "identity.update-refresh-session-explicit-context",
+        """
+        UPDATE fn_identity_refresh_session
+        SET ActiveTenantId = @ActiveTenantId,
+            Version = Version + 1
+        WHERE Id = @SessionId
+          AND UserId = @UserId
+          AND Version = @Version
+          AND ConsumedAtUtc IS NULL
+          AND RevokedAtUtc IS NULL
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertContextAudit = new(
+        "identity.insert-explicit-context-audit",
+        """
+        INSERT INTO fn_identity_auth_audit
+            (Id, UserId, SessionId, UsernameFingerprint, EventType,
+             ResultCode, Succeeded, IpAddress, UserAgent, ContextTenantId,
+             OccurredAtUtc)
+        VALUES
+            (@Id, @UserId, @SessionId, @UsernameFingerprint, @EventType,
+             @ResultCode, @Succeeded, @IpAddress, @UserAgent, @ContextTenantId,
+             @OccurredAtUtc)
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement FindRoleByScopeAndCode = new(
         "identity.find-role-by-scope-and-code",
         """
@@ -103,7 +166,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement GetUserPermissionCodes = new(
-        "identity.get-user-permission-codes",
+        "identity.get-explicit-actor-permission-codes",
         """
         SELECT rolePermission.PermissionCode
         FROM fn_identity_user_role AS userRole
@@ -120,7 +183,7 @@ internal static class IdentitySql
           )
         ORDER BY rolePermission.PermissionCode
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement UpdateLoginFailure = new(
         "identity.update-login-failure",

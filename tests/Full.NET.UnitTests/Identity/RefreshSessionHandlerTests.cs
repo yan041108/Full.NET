@@ -79,7 +79,54 @@ public sealed class RefreshSessionHandlerTests
             Arg.Any<CancellationToken>());
     }
 
-    private static RefreshSessionRecord CreateRecord() => new()
+    [TestMethod]
+    public async Task Refresh_retries_once_when_context_update_wins_the_version_race()
+    {
+        var query = Substitute.For<IQueryExecutor>();
+        query.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
+                IdentitySql.FindRefreshSessionByHash,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(CreateRecord(version: 1), CreateRecord(version: 2));
+        var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(
+                IdentitySql.ConsumeRefreshSession,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(0, 1);
+        command.ExecuteAsync(
+                Arg.Is<SqlStatement>(statement =>
+                    statement != IdentitySql.ConsumeRefreshSession),
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        var handler = new Handler(
+            query,
+            command,
+            new FixedClock(),
+            new QueueIdGenerator(ReplacementId, AuditId),
+            new StubPermissionSnapshotReader(["platform.dashboard.read"]),
+            new StubAccessTokenIssuer(),
+            new QueueTokenGenerator("replacement-token", "csrf-token"),
+            Options.Create(new IdentityOptions
+            {
+                AllowDevelopmentEphemeralSigningKey = true,
+            }));
+
+        var result = await handler.HandleAsync(
+            new Command(
+                "presented-token",
+                new ClientRequestContext("127.0.0.1", "unit-test")),
+            default);
+
+        Assert.IsTrue(result.IsSuccess);
+        await command.Received(2).ExecuteAsync(
+            IdentitySql.ConsumeRefreshSession,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    private static RefreshSessionRecord CreateRecord(int version = 1) => new()
     {
         SessionId = SessionId,
         UserId = UserId,
@@ -89,7 +136,7 @@ public sealed class RefreshSessionHandlerTests
         ExpiresAtUtc = Now.AddDays(1),
         ActiveTenantId = TenantId,
         CreatedAtUtc = Now.AddHours(-1),
-        SessionVersion = 1,
+        SessionVersion = version,
         ScopeKey = "host",
         Username = "admin",
         NormalizedUsername = "ADMIN",

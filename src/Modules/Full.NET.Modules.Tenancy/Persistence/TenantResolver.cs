@@ -68,6 +68,61 @@ internal sealed class TenantResolver(
         return entry.Tenant;
     }
 
+    public async Task<TenantSummary?> ResolveByIdAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var cacheKey = CacheKeyBuilder.ForGlobal(
+            environment.EnvironmentName,
+            "tenancy",
+            "id",
+            tenantId.ToString("N"),
+            "v1");
+        var loaded = false;
+        var entry = await cache.GetOrCreateAsync(
+                cacheKey,
+                async token =>
+                {
+                    loaded = true;
+                    return new CachedTenantResolution(
+                        await queryExecutor.QuerySingleOrDefaultAsync<TenantSummary>(
+                            TenantSql.FindById,
+                            new { TenantId = tenantId },
+                            token)
+                        .ConfigureAwait(false));
+                },
+                new HybridCacheEntryOptions
+                {
+                    Expiration = MissingTenantDuration,
+                    LocalCacheExpiration = MissingTenantDuration,
+                },
+                [CacheKeyBuilder.TenantTag(tenantId)],
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (loaded && entry.Tenant is { IsActive: true })
+        {
+            await cache.SetAsync(
+                    cacheKey,
+                    entry,
+                    new HybridCacheEntryOptions
+                    {
+                        Expiration = ActiveTenantDuration,
+                        LocalCacheExpiration = ActiveTenantDuration,
+                    },
+                    [CacheKeyBuilder.TenantTag(tenantId)],
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return entry.Tenant;
+    }
+
+    public Task<IReadOnlyList<TenantSummary>> GetAvailableAsync(
+        CancellationToken cancellationToken = default) =>
+        queryExecutor.QueryAsync<TenantSummary>(
+            TenantSql.GetAvailable,
+            cancellationToken: cancellationToken);
+
     private static string NormalizeDomain(string domain)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(domain);
