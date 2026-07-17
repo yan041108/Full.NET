@@ -1,0 +1,20 @@
+{
+  "name": "@fullnet/admin-layui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5174",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fullnet/design-tokens": "workspace:*",
+    "layui": "2.13.8"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  }
+}

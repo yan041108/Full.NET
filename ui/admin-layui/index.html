@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#172027">
+    <meta name="description" content="Full.NET Layui 管理端">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <title>Full.NET · 管理控制台</title>
+  </head>
+  <body>
+    <div class="fn-shell" data-client-kind="layui">
+      <aside class="fn-sidebar">
+        <a class="fn-brand" href="#/" aria-label="返回 Full.NET 工作台">
+          <span class="fn-brand__mark">F</span>
+          <span><strong>Full.NET</strong><small>ADMIN CONSOLE</small></span>
+        </a>
+
+        <div class="fn-tenant">
+          <span class="fn-tenant__label">当前租户</span>
+          <strong>星云科技</strong>
+          <span class="fn-tenant__meta"><i></i>生产环境 · CN-01</span>
+        </div>
+
+        <nav class="fn-nav" aria-label="主导航">
+          <span class="fn-nav__group">运行中心</span>
+          <a data-route="/" class="is-active" href="#/"><i class="layui-icon layui-icon-console"></i><span>工作台</span><em>01</em></a>
+          <a data-route="/identity" href="#/identity"><i class="layui-icon layui-icon-user"></i><span>身份权限</span><em>02</em></a>
+          <a data-route="/organization" href="#/organization"><i class="layui-icon layui-icon-group"></i><span>组织租户</span><em>03</em></a>
+          <span class="fn-nav__group">系统治理</span>
+          <a data-route="/settings" href="#/settings"><i class="layui-icon layui-icon-set"></i><span>系统设置</span><em>04</em></a>
+          <a data-route="/500" href="#/500"><i class="layui-icon layui-icon-log"></i><span>运行日志</span><em>05</em></a>
+        </nav>
+
+        <div class="fn-sidebar__footer">
+          <span class="fn-avatar">管</span>
+          <span><strong>系统管理员</strong><small>Platform Owner</small></span>
+          <button type="button" aria-label="打开账户菜单"><i class="layui-icon layui-icon-more-vertical"></i></button>
+        </div>
+      </aside>
+
+      <section class="fn-stage">
+        <header class="fn-topbar">
+          <div class="fn-topbar__context"><span>控制台</span><i>/</i><strong>工作台</strong></div>
+          <div class="fn-topbar__actions">
+            <button type="button" aria-label="搜索"><i class="layui-icon layui-icon-search"></i></button>
+            <button type="button" aria-label="通知" class="has-signal"><i class="layui-icon layui-icon-notice"></i></button>
+            <span class="fn-clock"><small>系统时间</small><strong>UTC +08:00</strong></span>
+          </div>
+        </header>
+
+        <div class="fn-content">
+          <main data-route-view="overview" class="fn-overview">
+            <section class="fn-heading">
+              <div>
+                <p>FULL.NET / OPERATIONS</p>
+                <h1>早上好，系统管理员</h1>
+                <span>所有核心服务运行稳定，待处理事项集中在权限复核与发布确认。</span>
+              </div>
+              <div class="fn-heading__actions">
+                <span class="fn-live"><i></i>实时运行中</span>
+                <button class="layui-btn fn-probe" type="button" data-testid="load-current-user">
+                  <i class="layui-icon layui-icon-vercode"></i>检查会话
+                </button>
+              </div>
+            </section>
+
+            <section class="fn-metrics" aria-label="核心运营指标">
+              <article data-tone="jade"><span>活跃租户</span><strong>128</strong><em>+12.4% <small>较昨日</small></em></article>
+              <article data-tone="cyan"><span>在线用户</span><strong>2,406</strong><em>+8.1% <small>较昨日</small></em></article>
+              <article data-tone="amber"><span>今日请求</span><strong>86.2k</strong><em>+18.7% <small>较昨日</small></em></article>
+              <article data-tone="rose"><span>异常率</span><strong>0.08%</strong><em>-0.03% <small>较昨日</small></em></article>
+            </section>
+
+            <section class="fn-contract" data-contract-result hidden>
+              <span>会话与权限契约检查结果</span>
+              <strong data-testid="error-code"></strong>
+              <code data-testid="trace-id"></code>
+            </section>
+
+            <section class="fn-grid">
+              <article class="fn-panel fn-panel--chart">
+                <header><div><b>01</b><h2>运行态势</h2></div><span>最近 12 小时</span></header>
+                <div class="fn-chart" role="img" aria-label="最近十二小时请求吞吐趋势">
+                  <div class="fn-chart__scale"><span>120k</span><span>80k</span><span>40k</span><span>0</span></div>
+                  <svg viewBox="0 0 760 250" preserveAspectRatio="none" aria-hidden="true">
+                    <defs><linearGradient id="layui-signal-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b8f87" stop-opacity=".32"/><stop offset="1" stop-color="#0b8f87" stop-opacity=".01"/></linearGradient></defs>
+                    <g class="fn-chart__grid"><line x1="0" y1="40" x2="760" y2="40"/><line x1="0" y1="105" x2="760" y2="105"/><line x1="0" y1="170" x2="760" y2="170"/><line x1="0" y1="235" x2="760" y2="235"/></g>
+                    <path class="fn-chart__area" d="M0,218 C60,212 78,168 130,176 C176,184 188,78 244,94 C294,108 304,158 360,142 C422,123 442,48 498,69 C550,88 566,151 622,136 C680,121 710,82 760,102 L760,250 L0,250 Z"/>
+                    <path class="fn-chart__line" d="M0,218 C60,212 78,168 130,176 C176,184 188,78 244,94 C294,108 304,158 360,142 C422,123 442,48 498,69 C550,88 566,151 622,136 C680,121 710,82 760,102"/>
+                    <circle cx="244" cy="94" r="5"/><circle cx="498" cy="69" r="5"/>
+                  </svg>
+                  <div class="fn-chart__axis"><span>00:00</span><span>03:00</span><span>06:00</span><span>09:00</span><span>12:00</span></div>
+                </div>
+              </article>
+
+              <article class="fn-panel fn-pulse">
+                <header><div><b>02</b><h2>系统脉搏</h2></div><i class="fn-dot"></i></header>
+                <div class="fn-pulse__score"><strong>98.6</strong><span>健康指数</span></div>
+                <div class="fn-pulse__list">
+                  <div><span>API 可用性</span><div class="layui-progress"><div class="layui-progress-bar" lay-percent="99%" style="width:99%"></div></div></div>
+                  <div><span>缓存命中率</span><div class="layui-progress"><div class="layui-progress-bar" lay-percent="94%" style="width:94%"></div></div></div>
+                  <div><span>任务准点率</span><div class="layui-progress"><div class="layui-progress-bar" lay-percent="97%" style="width:97%"></div></div></div>
+                </div>
+              </article>
+
+              <article class="fn-panel fn-activity">
+                <header><div><b>03</b><h2>最近活动</h2></div><button type="button">查看全部</button></header>
+                <ol>
+                  <li><span>01</span><div><strong>租户“澎海科技”已完成初始化</strong><small>Tenancy · 2 分钟前</small></div><em>成功</em></li>
+                  <li><span>02</span><div><strong>权限策略已同步至双管理端</strong><small>Identity · 18 分钟前</small></div><em>已同步</em></li>
+                  <li><span>03</span><div><strong>SQL Server 迁移验证完成</strong><small>Migrator · 41 分钟前</small></div><em>通过</em></li>
+                  <li><span>04</span><div><strong>MySQL 数据一致性巡检</strong><small>Observability · 1 小时前</small></div><em>运行中</em></li>
+                </ol>
+              </article>
+
+              <article class="fn-panel fn-todo">
+                <header><div><b>04</b><h2>待办事项</h2></div><span>4 项</span></header>
+                <div><button type="button"><span>权限变更复核</span><strong>08</strong></button><button type="button"><span>租户开通审批</span><strong>03</strong></button><button type="button"><span>异常告警确认</span><strong>01</strong></button></div>
+              </article>
+            </section>
+          </main>
+
+          <main data-route-view="status" class="fn-status" hidden>
+            <div class="fn-status__code" data-status-code></div>
+            <p>FULL.NET / ROUTE STATUS</p>
+            <h1 data-status-title></h1>
+            <span data-status-description></span>
+            <a class="layui-btn" href="#/">返回工作台</a>
+          </main>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
