@@ -128,6 +128,107 @@ public sealed class SqlServerMigrationTests
         Assert.AreEqual(-1L, payload.MaximumLength);
     }
 
+    [TestMethod]
+    public async Task SqlServer_localization_migration_recovers_legacy_and_partial_states()
+    {
+        var runner = CreateRunner();
+        await runner.MigrateAsync();
+
+        await using var connection = new SqlConnection(_container.GetConnectionString());
+        await connection.ExecuteAsync(
+            """
+            ALTER TABLE dbo.fn_identity_user DROP CONSTRAINT DF_fn_identity_user_PreferredLocale;
+            ALTER TABLE dbo.fn_identity_user DROP CONSTRAINT DF_fn_identity_user_ProfileVersion;
+            ALTER TABLE dbo.fn_tenant_tenant DROP CONSTRAINT DF_fn_tenant_tenant_DefaultLocale;
+            ALTER TABLE dbo.fn_identity_user DROP COLUMN PreferredLocale, ProfileVersion;
+            ALTER TABLE dbo.fn_tenant_tenant DROP COLUMN DefaultLocale;
+            DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%004_LocalizationPreferences.sql';
+            """);
+        var now = DateTime.UtcNow;
+        var userId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO dbo.fn_tenant_tenant
+                (Id, Identifier, Name, Domain, IsActive, CreatedAt, UpdatedAt, Version)
+            VALUES
+                (@TenantId, 'legacy', 'Legacy', 'legacy.localhost', 1, @Now, NULL, 1);
+            INSERT INTO dbo.fn_identity_user
+                (Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
+                 PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
+                 SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version)
+            VALUES
+                (@UserId, NULL, 'host', 'legacy', 'LEGACY', 'Legacy',
+                 'unused', 1, 0, NULL, 'stamp', @Now, NULL, 1);
+            """,
+            new { TenantId = tenantId, UserId = userId, Now = now });
+
+        var legacyUpgrade = await runner.MigrateAsync();
+        Assert.AreEqual(1, legacyUpgrade.ExecutedScriptCount);
+        await AssertLocalizationStateAsync(connection, userId, tenantId);
+
+        // 模拟 DDL 已部分提交但 DbUp 尚未记账；重跑必须修复空值、可空性和默认约束。
+        await connection.ExecuteAsync(
+            """
+            DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%004_LocalizationPreferences.sql';
+            ALTER TABLE dbo.fn_identity_user DROP CONSTRAINT DF_fn_identity_user_PreferredLocale;
+            ALTER TABLE dbo.fn_identity_user DROP CONSTRAINT DF_fn_identity_user_ProfileVersion;
+            ALTER TABLE dbo.fn_tenant_tenant DROP CONSTRAINT DF_fn_tenant_tenant_DefaultLocale;
+            ALTER TABLE dbo.fn_identity_user ALTER COLUMN PreferredLocale varchar(35) NULL;
+            ALTER TABLE dbo.fn_identity_user ALTER COLUMN ProfileVersion int NULL;
+            ALTER TABLE dbo.fn_tenant_tenant ALTER COLUMN DefaultLocale varchar(35) NULL;
+            UPDATE dbo.fn_identity_user SET PreferredLocale = NULL, ProfileVersion = NULL WHERE Id = @UserId;
+            UPDATE dbo.fn_tenant_tenant SET DefaultLocale = NULL WHERE Id = @TenantId;
+            """,
+            new { UserId = userId, TenantId = tenantId });
+
+        var recovered = await runner.MigrateAsync();
+        Assert.AreEqual(1, recovered.ExecutedScriptCount);
+        await AssertLocalizationStateAsync(connection, userId, tenantId);
+    }
+
+    private DbUpMigrationRunner CreateRunner() => new(
+        Options.Create(new DatabaseOptions
+        {
+            Provider = DatabaseProvider.SqlServer,
+            ConnectionString = _container.GetConnectionString(),
+        }),
+        NullLoggerFactory.Instance);
+
+    private static async Task AssertLocalizationStateAsync(
+        SqlConnection connection,
+        Guid userId,
+        Guid tenantId)
+    {
+        var values = await connection.QuerySingleAsync<LocalizationValues>(
+            """
+            SELECT identityUser.PreferredLocale,
+                   identityUser.ProfileVersion,
+                   tenantObject.DefaultLocale
+            FROM dbo.fn_identity_user AS identityUser
+            CROSS JOIN dbo.fn_tenant_tenant AS tenantObject
+            WHERE identityUser.Id = @UserId AND tenantObject.Id = @TenantId
+            """,
+            new { UserId = userId, TenantId = tenantId });
+        Assert.AreEqual("zh-CN", values.PreferredLocale);
+        Assert.AreEqual(1, values.ProfileVersion);
+        Assert.AreEqual("zh-CN", values.DefaultLocale);
+
+        var columns = (await connection.QueryAsync<LocalizationColumnMetadata>(
+            """
+            SELECT TABLE_NAME AS TableName,
+                   COLUMN_NAME AS Name,
+                   IS_NULLABLE AS IsNullable,
+                   COLUMN_DEFAULT AS ColumnDefault,
+                   CAST(CHARACTER_MAXIMUM_LENGTH AS bigint) AS MaximumLength
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo'
+              AND COLUMN_NAME IN ('PreferredLocale', 'ProfileVersion', 'DefaultLocale')
+            """))
+            .ToArray();
+        AssertLocalizationColumns(columns);
+    }
+
     private static void AssertRequiredOutboxColumns(IEnumerable<ColumnMetadata> columns)
     {
         var names = columns.Select(column => column.Name).ToArray();
@@ -203,4 +304,9 @@ public sealed class SqlServerMigrationTests
         string IsNullable,
         string ColumnDefault,
         long? MaximumLength);
+
+    private sealed record LocalizationValues(
+        string PreferredLocale,
+        int ProfileVersion,
+        string DefaultLocale);
 }

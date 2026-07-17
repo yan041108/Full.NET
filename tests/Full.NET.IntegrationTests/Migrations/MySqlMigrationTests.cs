@@ -132,6 +132,102 @@ public sealed class MySqlMigrationTests
         Assert.AreEqual("longblob", payload.DataType, ignoreCase: true);
     }
 
+    [TestMethod]
+    public async Task MySql_localization_migration_recovers_legacy_and_partial_states()
+    {
+        var runner = CreateRunner();
+        await runner.MigrateAsync();
+
+        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await connection.ExecuteAsync(
+            """
+            ALTER TABLE fn_identity_user DROP COLUMN PreferredLocale, DROP COLUMN ProfileVersion;
+            ALTER TABLE fn_tenant_tenant DROP COLUMN DefaultLocale;
+            DELETE FROM schemaversions WHERE ScriptName LIKE '%004_LocalizationPreferences.sql';
+            """);
+        var now = DateTime.UtcNow;
+        var userId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO fn_tenant_tenant
+                (Id, Identifier, Name, Domain, IsActive, CreatedAt, UpdatedAt, Version)
+            VALUES
+                (@TenantId, 'legacy', 'Legacy', 'legacy.localhost', true, @Now, NULL, 1);
+            INSERT INTO fn_identity_user
+                (Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
+                 PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
+                 SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version)
+            VALUES
+                (@UserId, NULL, 'host', 'legacy', 'LEGACY', 'Legacy',
+                 'unused', true, 0, NULL, 'stamp', @Now, NULL, 1);
+            """,
+            new { TenantId = tenantId, UserId = userId, Now = now });
+
+        var legacyUpgrade = await runner.MigrateAsync();
+        Assert.AreEqual(1, legacyUpgrade.ExecutedScriptCount);
+        await AssertLocalizationStateAsync(connection, userId, tenantId);
+
+        // MySQL DDL 会隐式提交；模拟列已存在但约束未收紧、DbUp 尚未记账的恢复路径。
+        await connection.ExecuteAsync(
+            """
+            DELETE FROM schemaversions WHERE ScriptName LIKE '%004_LocalizationPreferences.sql';
+            ALTER TABLE fn_identity_user
+                MODIFY COLUMN PreferredLocale varchar(35) NULL,
+                MODIFY COLUMN ProfileVersion int NULL;
+            ALTER TABLE fn_tenant_tenant MODIFY COLUMN DefaultLocale varchar(35) NULL;
+            UPDATE fn_identity_user SET PreferredLocale = NULL, ProfileVersion = NULL WHERE Id = @UserId;
+            UPDATE fn_tenant_tenant SET DefaultLocale = NULL WHERE Id = @TenantId;
+            """,
+            new { UserId = userId, TenantId = tenantId });
+
+        var recovered = await runner.MigrateAsync();
+        Assert.AreEqual(1, recovered.ExecutedScriptCount);
+        await AssertLocalizationStateAsync(connection, userId, tenantId);
+    }
+
+    private DbUpMigrationRunner CreateRunner() => new(
+        Options.Create(new DatabaseOptions
+        {
+            Provider = DatabaseProvider.MySql,
+            ConnectionString = _container.GetConnectionString(),
+        }),
+        NullLoggerFactory.Instance);
+
+    private static async Task AssertLocalizationStateAsync(
+        MySqlConnection connection,
+        Guid userId,
+        Guid tenantId)
+    {
+        var values = await connection.QuerySingleAsync<LocalizationValues>(
+            """
+            SELECT identityUser.PreferredLocale,
+                   identityUser.ProfileVersion,
+                   tenantObject.DefaultLocale
+            FROM fn_identity_user AS identityUser
+            CROSS JOIN fn_tenant_tenant AS tenantObject
+            WHERE identityUser.Id = @UserId AND tenantObject.Id = @TenantId
+            """,
+            new { UserId = userId, TenantId = tenantId });
+        Assert.AreEqual("zh-CN", values.PreferredLocale);
+        Assert.AreEqual(1, values.ProfileVersion);
+        Assert.AreEqual("zh-CN", values.DefaultLocale);
+
+        var columns = (await connection.QueryAsync<LocalizationColumnMetadata>(
+            """
+            SELECT TABLE_NAME AS TableName,
+                   COLUMN_NAME AS Name,
+                   IS_NULLABLE AS IsNullable,
+                   COLUMN_DEFAULT AS ColumnDefault,
+                   CAST(CHARACTER_MAXIMUM_LENGTH AS SIGNED) AS MaximumLength
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND COLUMN_NAME IN ('PreferredLocale', 'ProfileVersion', 'DefaultLocale')
+            """))
+            .ToArray();
+        AssertLocalizationColumns(columns);
+    }
+
     private static void AssertRequiredOutboxColumns(IEnumerable<ColumnMetadata> columns)
     {
         var names = columns.Select(column => column.Name).ToArray();
@@ -205,4 +301,9 @@ public sealed class MySqlMigrationTests
         string IsNullable,
         string ColumnDefault,
         long? MaximumLength);
+
+    private sealed record LocalizationValues(
+        string PreferredLocale,
+        int ProfileVersion,
+        string DefaultLocale);
 }

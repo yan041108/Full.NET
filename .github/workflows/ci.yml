@@ -81,7 +81,7 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 161
+          --minimum-expected-tests 164
 
       - name: Compatibility tests
         run: >-
@@ -102,7 +102,7 @@ jobs:
           dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 10
+          --minimum-expected-tests 12
           --timeout 10m
           --report-trx
           --report-trx-filename Full.NET.IntegrationTests.trx

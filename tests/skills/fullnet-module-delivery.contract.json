@@ -50,6 +50,18 @@
         "ProblemDetails",
         "测试数量"
       ]
+    },
+    {
+      "name": "半完成迁移恢复",
+      "prompt": "修复一个 DbUp 未记账、DDL 只完成一部分后无法重跑的迁移。",
+      "required_terms": [
+        "未记账",
+        "部分完成",
+        "收敛",
+        "SQL Server",
+        "MySQL",
+        "集成测试"
+      ]
     }
   ]
 }

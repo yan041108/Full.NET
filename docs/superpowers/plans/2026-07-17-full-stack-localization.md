@@ -380,6 +380,10 @@ git commit -m "feat: localize structured problem details"
 - Modify: src/Modules/Full.NET.Modules.Tenancy/Domain/Tenant.cs
 - Modify: src/Modules/Full.NET.Modules.Tenancy/Contracts/TenantSummary.cs
 - Modify: src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs
+- Modify: src/BuildingBlocks/Full.NET.Migrations.DbUp/DbUpMigrationRunner.cs
+- Modify: tests/Full.NET.IntegrationTests/Migrations/SqlServerMigrationTests.cs
+- Modify: tests/Full.NET.IntegrationTests/Migrations/MySqlMigrationTests.cs
+- Create: tests/Full.NET.UnitTests/Identity/UpdateLocaleHandlerTests.cs
 - Modify: tests/Full.NET.IntegrationTests/Tenancy/TenantProvisioningTests.cs
 - Create: tests/Full.NET.IntegrationTests/Identity/LocalePreferenceTests.cs
 
@@ -398,11 +402,11 @@ Expected: FAIL，迁移字段和 Endpoint 不存在。
 
 - [x] **Step 3: 增加双库迁移**
 
-Identity 用户增加 PreferredLocale（varchar/nvarchar(35)、NOT NULL、默认 zh-CN）和独立 ProfileVersion（int、NOT NULL、默认 1），Tenancy 增加 DefaultLocale（varchar/nvarchar(35)、NOT NULL、默认 zh-CN）；迁移先回填再收紧约束，SQL Server/MySQL 使用各自合法语法。ProfileVersion 只保护展示资料更新，不得复用或推进参与登录、锁定、SecurityStamp 与 Refresh Session 校验的 IdentityUser.Version。
+Identity 用户增加 PreferredLocale（varchar/nvarchar(35)、NOT NULL、默认 zh-CN）和独立 ProfileVersion（int、NOT NULL、默认 1），Tenancy 增加 DefaultLocale（varchar/nvarchar(35)、NOT NULL、默认 zh-CN）；迁移先回填再收紧约束，SQL Server/MySQL 使用各自合法语法。非事务或隐式提交 DDL 必须允许在 DbUp 未记账、结构部分完成后重跑收敛，并以两库真实恢复测试覆盖。ProfileVersion 只保护展示资料更新，不得复用或推进参与登录、锁定、SecurityStamp 与 Refresh Session 校验的 IdentityUser.Version。
 
 - [x] **Step 4: 实现 Dapper 命令**
 
-UpdateLocale Handler 从认证主体的签名 sub 与 ActorScope 取得用户边界，以 ProfileVersion 做乐观并发更新并只持久化规范语言标签。请求体只含 locale/profileVersion；禁止客户端提交 UserId、TenantId 或 ScopeKey。Validator 负责空值与版本形状；非空但不受支持的语言由 Handler 返回顶层 localization.unsupported_locale，避免被通用 validation.failed 包络掩盖。更新成功返回规范 PreferredLocale 与递增后的 ProfileVersion。
+UpdateLocale Handler 从认证主体的签名 sub 与 ActorScope 取得用户边界，以 ProfileVersion 做乐观并发更新并只持久化规范语言标签。请求体只含 locale/profileVersion；禁止客户端提交 UserId、TenantId 或 ScopeKey。Validator 负责空值与版本形状；非空但不受支持的语言由 Handler 返回顶层 localization.unsupported_locale，避免被通用 validation.failed 包络掩盖。更新成功返回规范 PreferredLocale 与递增后的 ProfileVersion；0 行更新必须用同一签名 UserId + ScopeKey 重读，账号缺失或停用返回 401，账号仍活动才返回 409 并发冲突。
 
 - [x] **Step 5: 更新会话 DTO**
 
@@ -412,7 +416,9 @@ UpdateLocale Handler 从认证主体的签名 sub 与 ActorScope 取得用户边
 
 Run: dotnet build Full.NET.slnx --configuration Release --no-restore
 
-Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 10 --timeout 10m
+Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 164 --timeout 5m
+
+Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 12 --timeout 10m
 Expected: SQL Server/MySQL 全部通过。
 
 - [x] **Step 7: 提交**

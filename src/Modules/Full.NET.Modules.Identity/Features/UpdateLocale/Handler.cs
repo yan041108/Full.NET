@@ -57,6 +57,17 @@ internal sealed class Handler(
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
+            var currentProfile = await queryExecutor
+                .QuerySingleOrDefaultAsync<IdentityProfileRecord>(
+                    IdentitySql.FindProfileByIdentity,
+                    new { UserId = userId, ScopeKey = scopeKey },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (currentProfile is not { IsActive: true })
+            {
+                return Unauthorized();
+            }
+
             return Result<LocalePreferenceResponse>.Failure(new Error(
                 Code: IdentityErrorCodes.ProfileVersionConflict,
                 Message: "The account profile was updated concurrently.",

@@ -54,6 +54,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 - 使用 Dapper、参数化 SQL 和现有 SQL Scope；不要引入 EF Core 捷径。
 - 数据库行为变化时同时实现 SQL Server 与 MySQL 的 SQL、DbUp 迁移、索引和集成测试。
+- 非事务或隐式提交的 DDL 必须按结构探测、回填和约束收紧分别收敛；双库集成测试要模拟 DbUp 未记账且迁移部分完成后的重跑恢复。
 - 只读端点若不改变结构，不要创建迁移；只为实际查询添加 SQL 和测试。
 - 评估排序稳定性、分页、索引和最坏数据量，不凭感觉宣称性能提升。
 

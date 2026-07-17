@@ -3,6 +3,7 @@ using DbUp.Builder;
 using Full.NET.Data.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MySqlConnector;
 
 namespace Full.NET.Migrations.DbUp;
 
@@ -44,8 +45,14 @@ public sealed class DbUpMigrationRunner(
                     ".Migrations.SqlServer.");
 
             case DatabaseProvider.MySql:
+                var connectionStringBuilder = new MySqlConnectionStringBuilder(
+                    options.ConnectionString)
+                {
+                    // 条件 DDL 通过 PREPARE 使用 MySQL 用户变量，必须仅为迁移连接显式开启。
+                    AllowUserVariables = true,
+                };
                 return (
-                    DeployChanges.To.MySqlDatabase(options.ConnectionString),
+                    DeployChanges.To.MySqlDatabase(connectionStringBuilder.ConnectionString),
                     ".Migrations.MySql.");
 
             default:

@@ -35,7 +35,7 @@
 | --- | --- |
 | 新 Command/Query | 模块 `Features/<UseCase>/`、Dispatcher 注册、Unit Tests |
 | 新校验 | `IValidator<T>`、模块显式注册、Validation Behavior Tests |
-| 新表或列 | `Migrations/SqlServer` 与 `Migrations/MySql` 同序号脚本、Integration Tests |
+| 新表或列 | `Migrations/SqlServer` 与 `Migrations/MySql` 同序号脚本、旧结构升级与未记账部分完成恢复 Integration Tests |
 | 新集成事件 | 模块 `Contracts`、MessagePack Resolver、Outbox 写入、Worker Handler、序列化测试 |
 | 新缓存 | 模块缓存消费者、租户化 Key、提交后失效 Handler、Unit/Integration Tests |
 | 新公开 JSON DTO | 模块 `JsonSerializerContext`、API 测试、兼容性评估 |
@@ -53,10 +53,10 @@ dotnet build Full.NET.slnx -c Release
 直接运行 Microsoft Testing Platform 程序集：
 
 ```powershell
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 161
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 164
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 5
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 9
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 10 --timeout 10m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 12 --timeout 10m
 ```
 
 增删测试时同步更新：
