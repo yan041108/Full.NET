@@ -10,4 +10,5 @@
   <data name="validation.required" xml:space="preserve"><value>该字段为必填项。</value></data>
   <data name="validation.maximum_length" xml:space="preserve"><value>长度不能超过 {MaxLength} 个字符。</value></data>
   <data name="validation.invalid_format" xml:space="preserve"><value>字段格式无效。</value></data>
+  <data name="localization.unsupported_locale" xml:space="preserve"><value>不支持请求的语言。</value></data>
 </root>

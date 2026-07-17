@@ -1,3 +1,5 @@
+using Full.NET.Localization;
+
 namespace Full.NET.Modules.Identity.Domain;
 
 internal sealed record IdentityUser(
@@ -14,4 +16,6 @@ internal sealed record IdentityUser(
     string SecurityStamp,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    int Version);
+    int Version,
+    string PreferredLocale = LocaleCatalog.DefaultLocale,
+    int ProfileVersion = 1);

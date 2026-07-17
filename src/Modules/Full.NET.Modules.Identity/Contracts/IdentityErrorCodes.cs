@@ -31,6 +31,9 @@ public static class IdentityErrorCodes
     /// <summary>浏览器请求来源不在允许列表中。</summary>
     public const string OriginNotAllowed = "identity.origin_not_allowed";
 
+    /// <summary>账号资料已经被其他请求更新。</summary>
+    public const string ProfileVersionConflict = "identity.profile_version_conflict";
+
     /// <summary>密码长度小于最低安全要求。</summary>
     public const string PasswordMinimumLength = "identity.password.minimum_length";
 
@@ -70,6 +73,7 @@ public static class IdentityErrorCodes
         InvalidCredentials,
         InvalidRefreshToken,
         OriginNotAllowed,
+        ProfileVersionConflict,
         PasswordMinimumLength,
         PasswordUppercaseRequired,
         PasswordLowercaseRequired,

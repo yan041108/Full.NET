@@ -88,7 +88,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 
 | 候选 | 状态/次数 | 当前证据 | 下一升级触发 |
 | --- | --- | --- | --- |
-| `fullnet-dual-database-change` | 观察 / 3 | 基础迁移、Tenancy SQL/API 与 Identity 授权上下文均已覆盖 SQL Server/MySQL | 下一个独立模块出现提供程序差异时，评估从模块交付 Skill 拆分 |
+| `fullnet-dual-database-change` | 观察 / 4 | 基础迁移、Tenancy SQL/API、Identity 授权上下文与语言偏好迁移均覆盖双库；语言偏好迁移真实暴露并修复了 SQL Server 同批次新增列解析差异 | 再出现跨模块提供程序分支时，评估从模块交付 Skill 拆分；当前单一差异仍由既有双库测试门禁更可靠地覆盖 |
 | `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 事件使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
 | `fullnet-api-compatibility` | 候选 / 2 | 标准 ProblemDetails 与 Admin.NET Mapper 已存在；Task 3 复核恢复了 Error 旧构造、Message/init、Deconstruct 与 JSON shape，并增加聚焦兼容测试 | 新增分页、文件或另一类兼容端点时评估升级 |
 | `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名与按 ID 的租户解析缓存及 tag 失效处理已存在 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |
@@ -96,7 +96,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-realtime-feature` | 等待真实实现 / 0 | 只有 SignalR、MessagePack Hub、Redis Backplane 设计 | 首个 `IRealtimePublisher` 消费者验收后评估 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 3 | Identity 会话、租户切换、权限导航以及 `zh-CN/en-US` 国际化与可访问性基线已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |
-| `fullnet-localization-delivery` | 候选 / 2 | L0 语言目录、术语与 Schema 门禁已落地；L1 已实现 ASP.NET Core Accept-Language 协商、CultureScope、Identity/Tenancy 模块资源、本地化 ProblemDetails、结构化 violations 与兼容适配器 | L2 落地双库可翻译业务数据，或下一个独立业务模块交付本地化资源时评估升级 |
+| `fullnet-localization-delivery` | 候选 / 3 | L0 语言目录、L1 请求/错误本地化与 L2 前置账号语言偏好/租户默认语言双库持久化已落地；偏好 API 验证了规范化、并发、可信身份与 Claim 边界 | L2 落地首个双库可翻译业务数据，或下一个独立业务模块交付本地化资源时评估升级 |
 | `fullnet-seed-data-delivery` | 等待真实实现 / 0 | 已形成生产 Baseline、Development/Demo/Test Overlay、双库锁/审计和场景 Test Factory 分层设计，当前仍是 Migrator 硬编码 `--seed-local` | S0-S2 落地且第二个真实业务模块贡献双库幂等 Seed 后评估 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。

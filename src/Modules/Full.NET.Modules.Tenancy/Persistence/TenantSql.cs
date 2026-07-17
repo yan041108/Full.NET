@@ -25,7 +25,7 @@ internal static class TenantSql
     public static readonly SqlStatement FindByDomain = new(
         "tenancy.find-by-domain",
         """
-        SELECT Id, Identifier, Name, Domain, IsActive, Version
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
         FROM fn_tenant_tenant
         WHERE Domain = @Domain
         """,
@@ -35,7 +35,7 @@ internal static class TenantSql
     public static readonly SqlStatement FindById = new(
         "tenancy.find-by-explicit-id",
         """
-        SELECT Id, Identifier, Name, Domain, IsActive, Version
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
         FROM fn_tenant_tenant
         WHERE Id = @TenantId
         """,
@@ -44,7 +44,7 @@ internal static class TenantSql
     public static readonly SqlStatement GetAvailable = new(
         "tenancy.get-available-for-host-administrator",
         """
-        SELECT Id, Identifier, Name, Domain, IsActive, Version
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
         FROM fn_tenant_tenant
         WHERE IsActive = 1
         ORDER BY Name, Identifier, Id
@@ -55,16 +55,16 @@ internal static class TenantSql
         "tenancy.insert",
         """
         INSERT INTO fn_tenant_tenant
-            (Id, Identifier, Name, Domain, IsActive, CreatedAt, Version)
+            (Id, Identifier, Name, Domain, IsActive, CreatedAt, Version, DefaultLocale)
         VALUES
-            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAt, @Version)
+            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAt, @Version, @DefaultLocale)
         """,
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement GetCurrent = new(
         "tenancy.get-current",
         """
-        SELECT Id, Identifier, Name, Domain, IsActive, Version
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
         FROM fn_tenant_tenant
         WHERE Id = @TenantId AND IsActive = 1
         """,

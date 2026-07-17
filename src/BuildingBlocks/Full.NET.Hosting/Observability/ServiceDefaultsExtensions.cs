@@ -63,6 +63,9 @@ public static class ServiceDefaultsExtensions
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             ValidationErrorResourceSource>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IErrorResourceSource,
+            LocalizationErrorResourceSource>());
         builder.Services.AddHealthChecks();
 
         var openTelemetry = builder.Services.AddOpenTelemetry()

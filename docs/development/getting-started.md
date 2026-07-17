@@ -19,7 +19,7 @@ dotnet build Full.NET.slnx --configuration Release
 dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 161
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 9
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 8 --timeout 10m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 10 --timeout 10m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。CI 不跳过任何数据库测试。
@@ -68,7 +68,7 @@ pnpm --filter @fullnet/admin-layui dev
 
 ### 2.2 多语言当前边界与后续契约
 
-当前已实现 Vue/Layui 管理壳层的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题和双端 E2E；服务端已建立仅接受 `Accept-Language` 的 `RequestLocalization`、规范别名映射、异步 CultureScope、本地化 ProblemDetails、模块错误资源与响应头能力。标准错误的 `status/code/traceId/violations` 不随语言变化，`title` 与兼容适配器的 `message` 在响应边界按协商语言解析；翻译缺失时回退到 `zh-CN` 并记录低基数指标。Element Plus/Day.js、Layui 组件内置文案、账号/租户语言偏好、uni-app 与 Flutter 仍属于后续开发计划，不得在交付说明中提前标记为已支持。
+当前已实现 Vue/Layui 管理壳层的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题和双端 E2E；服务端已建立仅接受 `Accept-Language` 的 `RequestLocalization`、规范别名映射、异步 CultureScope、本地化 ProblemDetails、模块错误资源与响应头能力。账号语言偏好与租户默认语言已通过双库 `004_LocalizationPreferences.sql` 持久化；`/api/v1/me` 从数据库读取偏好，`PUT /api/v1/me/locale` 规范化别名并使用独立 `ProfileVersion` 并发控制，偏好不会写入 JWT Claim。标准错误的 `status/code/traceId/violations` 不随语言变化，`title` 与兼容适配器的 `message` 在响应边界按协商语言解析；翻译缺失时回退到 `zh-CN` 并记录低基数指标。Element Plus/Day.js、Layui 组件内置文案、客户端接入账号偏好、uni-app 与 Flutter 仍属于后续开发计划，不得在交付说明中提前标记为已支持。
 
 全栈方案统一使用 BCP 47 的 `zh-CN` 和 `en-US`；uni-app 内部的 `zh-Hans` 与 Flutter ARB 的 `zh_CN` 只在各自适配层出现。HTTP 业务逻辑始终依赖稳定 `status/code/traceId`，不比较本地化 `title/detail`。日期按 UTC/ISO 传输，语言和时区分别处理；通知、报表、Realtime 服务端文本与 AI 输出必须显式指定接收者语言。
 
@@ -121,7 +121,8 @@ AppHost 给 Migrator 传入 `--seed-local` 以及两个 Bootstrap Parameter。�
 | `POST` | `/api/v1/auth/login` | 校验精确 Origin、限流和账号锁定，返回短期 Access Token |
 | `POST` | `/api/v1/auth/refresh` | 校验 Refresh Cookie 与 `X-CSRF-Token`，原子轮换会话 |
 | `POST` | `/api/v1/auth/logout` | 撤销会话并清除 Cookie |
-| `GET` | `/api/v1/me` | 返回当前用户、Actor/有效作用域和租户摘要 |
+| `GET` | `/api/v1/me` | 从数据库返回当前用户、Actor/有效作用域、账号语言偏好和资料版本 |
+| `PUT` | `/api/v1/me/locale` | 规范化并乐观并发更新当前认证账号语言偏好 |
 | `GET` | `/api/v1/navigation` | 返回当前有效作用域的权限导航树 |
 | `GET` | `/api/v1/tenancy/available` | 返回当前 Actor 可进入的活动租户列表 |
 | `PUT` | `/api/v1/tenancy/context` | 以乐观并发方式进入租户或返回 Host，并签发新 Access Token |

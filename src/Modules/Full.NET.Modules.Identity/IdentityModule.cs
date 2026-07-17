@@ -14,6 +14,7 @@ using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Serialization;
 using Full.NET.Modules.Identity.Resources;
 using Full.NET.Hosting.Api;
+using Full.NET.Localization;
 using Full.NET.Validation.FluentValidation;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -51,6 +52,7 @@ public sealed class IdentityModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddFullNetLocalization();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             IdentityAuthorizationContributor>());
@@ -84,6 +86,8 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<IIdentityBootstrapService, IdentityBootstrapService>();
         services.AddFullNetFluentValidation();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
+        services.TryAddScoped<IValidator<Features.UpdateLocale.Command>,
+            Features.UpdateLocale.Validator>();
         services.TryAddScoped<
             Full.NET.Abstractions.Messaging.ICommandHandler<Command, LoginSessionResult>,
             Handler>();
@@ -98,6 +102,11 @@ public sealed class IdentityModule : IFullNetModule
                 Features.Logout.Command,
                 Features.Logout.LogoutResult>,
             Features.Logout.Handler>();
+        services.TryAddScoped<
+            Full.NET.Abstractions.Messaging.ICommandHandler<
+                Features.UpdateLocale.Command,
+                LocalePreferenceResponse>,
+            Features.UpdateLocale.Handler>();
         services.TryAddSingleton<RsaSigningKeyRing>();
         services.TryAddSingleton<IRandomTokenGenerator, CryptographicTokenGenerator>();
         services.TryAddSingleton<AllowedOriginValidator>();
@@ -174,6 +183,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.RefreshSession.Endpoint.Map(group);
         Features.Logout.Endpoint.Map(group);
         Features.GetCurrentUser.Endpoint.Map(endpoints);
+        Features.UpdateLocale.Endpoint.Map(endpoints);
         Features.GetNavigation.Endpoint.Map(endpoints);
     }
 }

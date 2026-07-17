@@ -9,7 +9,8 @@ internal static class IdentitySql
         """
         SELECT Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
-               SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version
+               SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
+               PreferredLocale, ProfileVersion
         FROM fn_identity_user
         WHERE ScopeKey = @ScopeKey AND NormalizedUsername = @NormalizedUsername
         """,
@@ -21,11 +22,13 @@ internal static class IdentitySql
         INSERT INTO fn_identity_user
             (Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
              PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
-             SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version)
+             SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
+             PreferredLocale, ProfileVersion)
         VALUES
             (@Id, @TenantId, @ScopeKey, @Username, @NormalizedUsername, @DisplayName,
              @PasswordHash, @IsActive, @FailedLoginCount, @LockoutEndUtc,
-             @SecurityStamp, @CreatedAtUtc, @UpdatedAtUtc, @Version)
+             @SecurityStamp, @CreatedAtUtc, @UpdatedAtUtc, @Version,
+             @PreferredLocale, @ProfileVersion)
         """,
         SqlDataScope.HostOnly);
 
@@ -57,7 +60,9 @@ internal static class IdentitySql
                identityUser.SecurityStamp,
                identityUser.CreatedAtUtc AS UserCreatedAtUtc,
                identityUser.UpdatedAtUtc AS UserUpdatedAtUtc,
-               identityUser.Version AS UserVersion
+               identityUser.Version AS UserVersion,
+               identityUser.PreferredLocale,
+               identityUser.ProfileVersion
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
         WHERE session.Id = @SessionId
@@ -270,7 +275,9 @@ internal static class IdentitySql
                identityUser.SecurityStamp,
                identityUser.CreatedAtUtc AS UserCreatedAtUtc,
                identityUser.UpdatedAtUtc AS UserUpdatedAtUtc,
-               identityUser.Version AS UserVersion
+               identityUser.Version AS UserVersion,
+               identityUser.PreferredLocale,
+               identityUser.ProfileVersion
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
         WHERE session.TokenHash = @TokenHash
@@ -300,6 +307,30 @@ internal static class IdentitySql
         WHERE FamilyId = @FamilyId AND RevokedAtUtc IS NULL
         """,
         SqlDataScope.HostOnly);
+
+    // Global 查询仅接受 JWT 验证后的 sub 与演员原始作用域，两项必须同时命中。
+    public static readonly SqlStatement FindProfileByIdentity = new(
+        "identity.find-profile-by-verified-identity",
+        """
+        SELECT Id, ScopeKey, Username, DisplayName, IsActive,
+               PreferredLocale, ProfileVersion
+        FROM fn_identity_user
+        WHERE Id = @UserId AND ScopeKey = @ScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement UpdateLocalePreference = new(
+        "identity.update-locale-preference-by-verified-identity",
+        """
+        UPDATE fn_identity_user
+        SET PreferredLocale = @PreferredLocale,
+            ProfileVersion = ProfileVersion + 1
+        WHERE Id = @UserId
+          AND ScopeKey = @ScopeKey
+          AND ProfileVersion = @ProfileVersion
+          AND IsActive = 1
+        """,
+        SqlDataScope.Global);
 
 }
 

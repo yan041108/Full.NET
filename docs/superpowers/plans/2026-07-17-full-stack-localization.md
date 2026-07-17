@@ -349,7 +349,7 @@ Run: dotnet build Full.NET.slnx --configuration Release --no-restore
 
 Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 161 --timeout 5m
 
-Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 8 --timeout 10m
+Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 10 --timeout 10m
 Expected: 单元和 SQL Server/MySQL 集成全部通过；两种语言仅展示文本不同。
 
 - [ ] **Step 7: 提交**
@@ -387,35 +387,35 @@ git commit -m "feat: localize structured problem details"
 - Produces: CurrentUserResponse.PreferredLocale/ProfileVersion、PUT /api/v1/me/locale、Tenant.DefaultLocale。
 - Consumes: ILocaleNormalizer；用户 ID 和租户只来自认证上下文。
 
-- [ ] **Step 1: 使用 fullnet-module-delivery Skill 建立 RED 双库测试**
+- [x] **Step 1: 使用 fullnet-module-delivery Skill 建立 RED 双库测试**
 
 测试 SQL Server/MySQL：默认 zh-CN/ProfileVersion=1；用户更新 en-US 后 /api/v1/me 返回 en-US 与新 ProfileVersion；非法值返回 400/localization.unsupported_locale；旧 ProfileVersion 并发更新返回 409/identity.profile_version_conflict；租户默认语言不能覆盖用户偏好。测试必须从真实登录取得令牌，且请求体不得出现 UserId、TenantId 或 ScopeKey。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
-Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 8 --timeout 10m
+Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 10 --timeout 10m
 Expected: FAIL，迁移字段和 Endpoint 不存在。
 
-- [ ] **Step 3: 增加双库迁移**
+- [x] **Step 3: 增加双库迁移**
 
 Identity 用户增加 PreferredLocale（varchar/nvarchar(35)、NOT NULL、默认 zh-CN）和独立 ProfileVersion（int、NOT NULL、默认 1），Tenancy 增加 DefaultLocale（varchar/nvarchar(35)、NOT NULL、默认 zh-CN）；迁移先回填再收紧约束，SQL Server/MySQL 使用各自合法语法。ProfileVersion 只保护展示资料更新，不得复用或推进参与登录、锁定、SecurityStamp 与 Refresh Session 校验的 IdentityUser.Version。
 
-- [ ] **Step 4: 实现 Dapper 命令**
+- [x] **Step 4: 实现 Dapper 命令**
 
 UpdateLocale Handler 从认证主体的签名 sub 与 ActorScope 取得用户边界，以 ProfileVersion 做乐观并发更新并只持久化规范语言标签。请求体只含 locale/profileVersion；禁止客户端提交 UserId、TenantId 或 ScopeKey。Validator 负责空值与版本形状；非空但不受支持的语言由 Handler 返回顶层 localization.unsupported_locale，避免被通用 validation.failed 包络掩盖。更新成功返回规范 PreferredLocale 与递增后的 ProfileVersion。
 
-- [ ] **Step 5: 更新会话 DTO**
+- [x] **Step 5: 更新会话 DTO**
 
 /api/v1/me 必须依据签名 sub 与 ActorScope 查询 Identity 数据库记录，返回当前 PreferredLocale 与 ProfileVersion；不能从 JWT 或请求 Header 推断已保存偏好。登录、刷新和租户切换后的既有 hydrate 继续读取该 Endpoint。PreferredLocale/ProfileVersion 不写入 Access Token Claim，避免展示偏好触发令牌轮换或进入授权语义；读取与更新 SQL 使用 Global scope 仅因为身份边界来自已验证 Claim，并必须同时限定 UserId 与 ActorScope。
 
-- [ ] **Step 6: 运行 GREEN**
+- [x] **Step 6: 运行 GREEN**
 
 Run: dotnet build Full.NET.slnx --configuration Release --no-restore
 
-Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 8 --timeout 10m
+Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 10 --timeout 10m
 Expected: SQL Server/MySQL 全部通过。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ~~~powershell
 git add src/BuildingBlocks/Full.NET.Migrations.DbUp src/Modules/Full.NET.Modules.Identity src/Modules/Full.NET.Modules.Tenancy tests/Full.NET.IntegrationTests

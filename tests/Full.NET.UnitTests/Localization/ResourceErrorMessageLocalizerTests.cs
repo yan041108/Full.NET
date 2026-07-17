@@ -41,8 +41,12 @@ public sealed class ResourceErrorMessageLocalizerTests
             CultureInfo.GetCultureInfo("en-US"));
 
         Assert.AreEqual("Safe fallback.", message);
-        Assert.HasCount(1, measurements);
-        var measurement = measurements[0];
+        var matching = measurements.Where(measurement => measurement.Tags.Any(tag =>
+            tag.Key == "code"
+            && Equals(tag.Value, "identity.missing")))
+            .ToArray();
+        Assert.HasCount(1, matching);
+        var measurement = matching[0];
         Assert.AreEqual("fullnet.localization.error.fallbacks", measurement.Name);
         Assert.AreEqual(1L, measurement.Value);
         CollectionAssert.AreEquivalent(

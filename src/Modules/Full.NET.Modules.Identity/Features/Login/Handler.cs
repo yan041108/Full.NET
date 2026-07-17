@@ -386,7 +386,9 @@ internal sealed class Handler(
         record.SecurityStamp,
         record.CreatedAtUtc,
         record.UpdatedAtUtc,
-        record.Version);
+        record.Version,
+        record.PreferredLocale,
+        record.ProfileVersion);
 
     private static string? Truncate(string? value, int maxLength) =>
         string.IsNullOrWhiteSpace(value)

@@ -1,3 +1,5 @@
+using Full.NET.Localization;
+
 namespace Full.NET.Modules.Identity.Persistence;
 
 internal sealed class IdentityUserRecord
@@ -20,7 +22,9 @@ internal sealed class IdentityUserRecord
         string securityStamp,
         DateTimeOffset createdAtUtc,
         DateTimeOffset? updatedAtUtc,
-        int version)
+        int version,
+        string preferredLocale = LocaleCatalog.DefaultLocale,
+        int profileVersion = 1)
     {
         Id = id;
         TenantId = tenantId;
@@ -36,6 +40,8 @@ internal sealed class IdentityUserRecord
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = updatedAtUtc;
         Version = version;
+        PreferredLocale = preferredLocale;
+        ProfileVersion = profileVersion;
     }
 
     public Guid Id { get; set; }
@@ -65,4 +71,8 @@ internal sealed class IdentityUserRecord
     public DateTimeOffset? UpdatedAtUtc { get; set; }
 
     public int Version { get; set; }
+
+    public string PreferredLocale { get; set; } = string.Empty;
+
+    public int ProfileVersion { get; set; }
 }

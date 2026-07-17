@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Domain;
 using Full.NET.Modules.Tenancy.Persistence;
+using Full.NET.Localization;
 
 namespace Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 
@@ -60,7 +61,8 @@ internal sealed class Handler(
             domain,
             true,
             clock.UtcNow,
-            1);
+            1,
+            LocaleCatalog.DefaultLocale);
         var affectedRows = await commandExecutor
             .ExecuteAsync(TenantSql.Insert, tenant, cancellationToken)
             .ConfigureAwait(false);
@@ -86,7 +88,8 @@ internal sealed class Handler(
             tenant.Name,
             tenant.Domain,
             tenant.IsActive,
-            tenant.Version));
+            tenant.Version,
+            tenant.DefaultLocale));
     }
 
     private static Result<TenantSummary> Conflict(string code, string message) =>

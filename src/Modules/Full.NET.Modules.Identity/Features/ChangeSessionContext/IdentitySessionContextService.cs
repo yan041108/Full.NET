@@ -190,7 +190,9 @@ internal sealed class IdentitySessionContextService(
         record.SecurityStamp,
         record.UserCreatedAtUtc,
         record.UserUpdatedAtUtc,
-        record.UserVersion);
+        record.UserVersion,
+        record.PreferredLocale,
+        record.ProfileVersion);
 
     private static Result<TenantContextTokenResponse> SessionNotActive() =>
         Failure(

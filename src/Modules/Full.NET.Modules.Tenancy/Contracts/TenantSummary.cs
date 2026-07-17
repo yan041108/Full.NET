@@ -1,3 +1,5 @@
+using Full.NET.Localization;
+
 namespace Full.NET.Modules.Tenancy.Contracts;
 
 public sealed record TenantSummary(
@@ -6,4 +8,5 @@ public sealed record TenantSummary(
     string Name,
     string Domain,
     bool IsActive,
-    int Version);
+    int Version,
+    string DefaultLocale = LocaleCatalog.DefaultLocale);

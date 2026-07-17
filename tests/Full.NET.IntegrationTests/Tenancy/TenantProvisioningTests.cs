@@ -102,6 +102,7 @@ public sealed class TenantProvisioningTests
             Assert.AreEqual("acme", result.Value.Identifier);
             Assert.AreEqual("Acme Corporation", result.Value.Name);
             Assert.AreEqual("acme.localhost", result.Value.Domain);
+            Assert.AreEqual("zh-CN", result.Value.DefaultLocale);
 
             var duplicate = await provisioning.ProvisionAsync(
                 new ProvisionTenantRequest(

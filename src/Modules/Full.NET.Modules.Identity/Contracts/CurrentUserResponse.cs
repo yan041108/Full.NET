@@ -11,6 +11,8 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <param name="Scope">当前请求使用的有效作用域。</param>
 /// <param name="Permissions">服务端签发的稳定权限码集合。</param>
 /// <param name="SessionId">当前刷新会话标识。</param>
+/// <param name="PreferredLocale">账号已保存的规范语言偏好。</param>
+/// <param name="ProfileVersion">只保护展示资料更新的乐观并发版本。</param>
 public sealed record CurrentUserResponse(
     Guid Id,
     string Username,
@@ -19,4 +21,6 @@ public sealed record CurrentUserResponse(
     string ActorScope,
     string Scope,
     IReadOnlyCollection<string> Permissions,
-    Guid SessionId);
+    Guid SessionId,
+    string PreferredLocale,
+    int ProfileVersion);

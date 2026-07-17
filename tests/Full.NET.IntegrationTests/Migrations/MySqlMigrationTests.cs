@@ -96,6 +96,26 @@ public sealed class MySqlMigrationTests
             "fn_identity_auth_audit",
             "ContextTenantId");
 
+        var localizationColumns = (await connection.QueryAsync<LocalizationColumnMetadata>(
+            """
+            SELECT TABLE_NAME AS TableName,
+                   COLUMN_NAME AS Name,
+                   IS_NULLABLE AS IsNullable,
+                   COLUMN_DEFAULT AS ColumnDefault,
+                   CAST(CHARACTER_MAXIMUM_LENGTH AS SIGNED) AS MaximumLength
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND
+              (
+                  (TABLE_NAME = 'fn_identity_user'
+                   AND COLUMN_NAME IN ('PreferredLocale', 'ProfileVersion'))
+                  OR (TABLE_NAME = 'fn_tenant_tenant'
+                      AND COLUMN_NAME = 'DefaultLocale')
+              )
+            """))
+            .ToArray();
+        AssertLocalizationColumns(localizationColumns);
+
         var columns = (await connection.QueryAsync<ColumnMetadata>(
             """
             SELECT COLUMN_NAME AS Name,
@@ -152,6 +172,23 @@ public sealed class MySqlMigrationTests
         Assert.AreEqual("YES", column.IsNullable, ignoreCase: true);
     }
 
+    private static void AssertLocalizationColumns(
+        IReadOnlyCollection<LocalizationColumnMetadata> columns)
+    {
+        Assert.HasCount(3, columns);
+        foreach (var name in new[] { "PreferredLocale", "DefaultLocale" })
+        {
+            var column = columns.Single(item => item.Name == name);
+            Assert.AreEqual("NO", column.IsNullable, ignoreCase: true);
+            Assert.AreEqual(35L, column.MaximumLength);
+            Assert.AreEqual("zh-CN", column.ColumnDefault);
+        }
+
+        var version = columns.Single(item => item.Name == "ProfileVersion");
+        Assert.AreEqual("NO", version.IsNullable, ignoreCase: true);
+        Assert.AreEqual("1", version.ColumnDefault);
+    }
+
     private static void AssertContainsIgnoreCase(IEnumerable<string> values, string expected) =>
         Assert.IsTrue(values.Contains(expected, StringComparer.OrdinalIgnoreCase));
 
@@ -161,4 +198,11 @@ public sealed class MySqlMigrationTests
         string TableName,
         string Name,
         string IsNullable);
+
+    private sealed record LocalizationColumnMetadata(
+        string TableName,
+        string Name,
+        string IsNullable,
+        string ColumnDefault,
+        long? MaximumLength);
 }

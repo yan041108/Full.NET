@@ -51,4 +51,8 @@ internal sealed class RefreshSessionRecord
     public DateTimeOffset? UserUpdatedAtUtc { get; set; }
 
     public int UserVersion { get; set; }
+
+    public string PreferredLocale { get; set; } = string.Empty;
+
+    public int ProfileVersion { get; set; }
 }

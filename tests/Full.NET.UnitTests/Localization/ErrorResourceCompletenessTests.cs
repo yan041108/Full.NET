@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Resources;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Localization;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy;
@@ -27,7 +28,9 @@ public sealed class ErrorResourceCompletenessTests
 
         AssertResources(
             manager,
-            CommonErrorCodes.All.Concat(ValidationErrorCodes.All));
+            CommonErrorCodes.All
+                .Concat(ValidationErrorCodes.All)
+                .Concat(LocalizationErrorCodes.All));
     }
 
     [TestMethod]

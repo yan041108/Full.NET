@@ -1,3 +1,5 @@
+using Full.NET.Localization;
+
 namespace Full.NET.Modules.Tenancy.Domain;
 
 internal sealed record Tenant(
@@ -7,4 +9,5 @@ internal sealed record Tenant(
     string Domain,
     bool IsActive,
     DateTimeOffset CreatedAt,
-    int Version);
+    int Version,
+    string DefaultLocale = LocaleCatalog.DefaultLocale);
