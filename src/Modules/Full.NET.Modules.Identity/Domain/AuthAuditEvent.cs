@@ -10,4 +10,5 @@ internal sealed record AuthAuditEvent(
     bool Succeeded,
     string? IpAddress,
     string? UserAgent,
+    Guid? ContextTenantId,
     DateTimeOffset OccurredAtUtc);

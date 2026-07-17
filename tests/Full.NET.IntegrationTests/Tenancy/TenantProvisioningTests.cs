@@ -9,6 +9,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
@@ -215,6 +216,7 @@ public sealed class TenantProvisioningTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddRouting();
         services.AddSingleton<IHostEnvironment, TestHostEnvironment>();
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
@@ -225,6 +227,7 @@ public sealed class TenantProvisioningTests
         services.AddFullNetDapper(configuration);
         services.AddFullNetMessagePack();
         services.AddFullNetCaching(configuration, "Test");
+        services.AddFullNetModule<IdentityModule>(configuration);
         services.AddFullNetModule<TenancyModule>(configuration);
 
         if (throwOnOutbox)

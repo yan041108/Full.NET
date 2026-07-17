@@ -89,8 +89,8 @@ try
 
             logger.LogInformation(
                 bootstrap.Value!.Created
-                    ? "Host administrator bootstrap completed"
-                    : "Host administrator already exists; bootstrap skipped");
+                    ? "Host administrator bootstrap and authorization synchronization completed"
+                    : "Host administrator authorization synchronization completed");
         }
     }
 

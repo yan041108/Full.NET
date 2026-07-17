@@ -1,4 +1,7 @@
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Caching.Fusion;
+using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
@@ -11,6 +14,35 @@ namespace Full.NET.UnitTests.Tenancy;
 [TestClass]
 public sealed class TenantProvisionedCacheInvalidationHandlerTests
 {
+    [TestMethod]
+    public async Task AddFullNetTenancyWorkerServices_RegistersOnlyWorkerDependencies()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFusionCache().AsHybridCache();
+        services.AddSingleton<IIntegrationEventSerializer,
+            MessagePackIntegrationEventSerializer>();
+
+        services.AddFullNetTenancyWorkerServices();
+
+        await using var provider = services.BuildServiceProvider(
+            new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true,
+            });
+        await using var scope = provider.CreateAsyncScope();
+        var handlers = scope.ServiceProvider
+            .GetServices<IIntegrationEventHandler>()
+            .ToArray();
+        Assert.HasCount(1, handlers);
+        Assert.IsInstanceOfType<TenantProvisionedCacheInvalidationHandler>(
+            handlers[0]);
+        Assert.AreSame(
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>(),
+            scope.ServiceProvider.GetRequiredService<ICurrentTenant>());
+    }
+
     [TestMethod]
     public async Task HandleAsync_InvalidatesTenantAndDomainTags()
     {

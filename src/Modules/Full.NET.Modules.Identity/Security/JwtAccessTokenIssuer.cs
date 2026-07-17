@@ -17,10 +17,18 @@ internal sealed class JwtAccessTokenIssuer(
     private readonly IdentityOptions _options = options.Value;
     private readonly JsonWebTokenHandler _handler = new();
 
-    public IssuedAccessToken Issue(IdentityUser user, Guid sessionId)
+    public IssuedAccessToken Issue(
+        IdentityUser user,
+        Guid sessionId,
+        Guid? activeTenantId,
+        IReadOnlyCollection<string> permissions)
     {
         var issuedAt = clock.UtcNow;
         var expiresAt = issuedAt.AddMinutes(_options.AccessTokenMinutes);
+        var effectiveTenantId = activeTenantId ?? user.TenantId;
+        var effectiveScope = effectiveTenantId.HasValue
+            ? $"tenant:{effectiveTenantId.Value:N}"
+            : user.ScopeKey;
         var claims = new Dictionary<string, object>
         {
             [JwtRegisteredClaimNames.Sub] = user.Id.ToString("D"),
@@ -29,12 +37,23 @@ internal sealed class JwtAccessTokenIssuer(
             ["preferred_username"] = user.Username,
             ["client_id"] = _options.ClientId,
             [IdentityClaimTypes.SessionId] = sessionId.ToString("D"),
-            [IdentityClaimTypes.Scope] = user.ScopeKey,
+            [IdentityClaimTypes.ActorScope] = user.ScopeKey,
+            [IdentityClaimTypes.Scope] = effectiveScope,
             [IdentityClaimTypes.SecurityStamp] = user.SecurityStamp,
         };
-        if (user.TenantId.HasValue)
+        if (effectiveTenantId.HasValue)
         {
-            claims[IdentityClaimTypes.TenantId] = user.TenantId.Value.ToString("D");
+            claims[IdentityClaimTypes.TenantId] = effectiveTenantId.Value.ToString("D");
+        }
+
+        var normalizedPermissions = permissions
+            .Where(permission => !string.IsNullOrWhiteSpace(permission))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(permission => permission, StringComparer.Ordinal)
+            .ToArray();
+        if (normalizedPermissions.Length > 0)
+        {
+            claims[IdentityClaimTypes.Permission] = normalizedPermissions;
         }
 
         var descriptor = new SecurityTokenDescriptor

@@ -8,7 +8,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 public interface IIdentityBootstrapService
 {
     /// <summary>
-    /// 创建首个宿主管理员；账号已存在时保持原密码并返回现有标识。
+    /// 创建首个宿主管理员并同步系统授权；账号已存在时保持原密码。
     /// </summary>
     Task<Result<BootstrapHostAdminResult>> BootstrapHostAdminAsync(
         BootstrapHostAdminRequest request,
@@ -24,6 +24,12 @@ public sealed record BootstrapHostAdminRequest(
     string DisplayName);
 
 /// <summary>
-/// 宿主管理员引导结果；Created 表示本次是否实际插入账号。
+/// 宿主管理员引导结果；同时报告账号创建和系统授权同步结果。
 /// </summary>
-public sealed record BootstrapHostAdminResult(Guid UserId, bool Created);
+/// <param name="UserId">完成引导的宿主管理员标识。</param>
+/// <param name="Created">本次是否新建了管理员账号。</param>
+/// <param name="AuthorizationSynchronized">系统角色与权限是否已同步完成。</param>
+public sealed record BootstrapHostAdminResult(
+    Guid UserId,
+    bool Created,
+    bool AuthorizationSynchronized);

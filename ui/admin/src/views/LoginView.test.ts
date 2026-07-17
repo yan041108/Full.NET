@@ -15,8 +15,15 @@ describe('Vue 登录页', () => {
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         id: 'user-id', username: 'admin', displayName: '系统管理员',
-        tenantId: null, scope: 'host', permissions: [], sessionId: 'session-id'
-      }), { status: 200, headers: { 'content-type': 'application/json' } })));
+        tenantId: null, actorScope: 'host', scope: 'host',
+        permissions: ['platform.dashboard.read'], sessionId: 'session-id'
+      }), { status: 200, headers: { 'content-type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{
+        id: 'overview', parentId: null, routeName: 'overview', path: '/',
+        componentKey: 'overview', title: '工作台', caption: '平台运行概览',
+        icon: 'dashboard', order: 10,
+        requiredPermission: 'platform.dashboard.read', children: []
+      }]), { status: 200, headers: { 'content-type': 'application/json' } })));
     const wrapper = mount(LoginView, { global: { plugins: [pinia] } });
 
     await wrapper.get('input[name="username"]').setValue('admin');

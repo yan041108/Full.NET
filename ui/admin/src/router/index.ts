@@ -3,28 +3,27 @@ import {
   createWebHashHistory,
   type RouterHistory
 } from 'vue-router';
+import type { Pinia } from 'pinia';
+import { useSessionStore } from '../auth/session';
+import { flattenNavigation } from '../navigation/catalog';
 import OverviewView from '../views/OverviewView.vue';
 import StatusView from '../views/StatusView.vue';
+import TenantContextView from '../views/TenantContextView.vue';
 
-export function createAppRouter(history: RouterHistory = createWebHashHistory()) {
-  return createRouter({
+const statusPaths = new Set(['/403', '/404', '/500']);
+
+export function createAppRouter(
+  history: RouterHistory = createWebHashHistory(),
+  pinia?: Pinia
+) {
+  const router = createRouter({
     history,
     routes: [
-      { path: '/', component: OverviewView },
+      { name: 'overview', path: '/', component: OverviewView },
       {
-        path: '/identity',
-        component: StatusView,
-        props: { code: 'C2.1', title: '身份权限模块', description: '用户、角色、菜单和按钮权限将在首个双管理端纵向切片中交付。' }
-      },
-      {
-        path: '/organization',
-        component: StatusView,
-        props: { code: 'C2.1', title: '组织架构模块', description: '组织、职位和数据范围将与后端契约同步实现。' }
-      },
-      {
-        path: '/settings',
-        component: StatusView,
-        props: { code: 'C2.2', title: '系统设置模块', description: '字典、配置和元数据将在快速交付阶段接入。' }
+        name: 'tenant-context',
+        path: '/tenant-context',
+        component: TenantContextView
       },
       { path: '/403', component: StatusView, props: { code: '403', title: '没有访问权限', description: '当前身份无权访问此资源，请联系管理员核对权限策略。' } },
       { path: '/404', component: StatusView, props: { code: '404', title: '页面不存在', description: '目标页面可能已移动，或当前菜单尚未发布。' } },
@@ -32,4 +31,17 @@ export function createAppRouter(history: RouterHistory = createWebHashHistory())
       { path: '/:pathMatch(.*)*', redirect: '/404' }
     ]
   });
+
+  router.beforeEach(to => {
+    const session = useSessionStore(pinia);
+    if (!session.isAuthenticated || statusPaths.has(to.path)) {
+      return true;
+    }
+
+    return flattenNavigation(session.navigation).some(node => node.path === to.path)
+      ? true
+      : '/403';
+  });
+
+  return router;
 }

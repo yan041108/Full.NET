@@ -20,6 +20,8 @@ internal sealed class RefreshSessionRecord
 
     public Guid? ReplacedById { get; set; }
 
+    public Guid? ActiveTenantId { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public int SessionVersion { get; set; }

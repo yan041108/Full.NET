@@ -31,6 +31,26 @@ internal static class TenantSql
         """,
         SqlDataScope.Global);
 
+    // 按 ID 的 Global 查询只服务于宿主管理员上下文切换，调用方必须先通过权限策略。
+    public static readonly SqlStatement FindById = new(
+        "tenancy.find-by-explicit-id",
+        """
+        SELECT Id, Identifier, Name, Domain, IsActive, Version
+        FROM fn_tenant_tenant
+        WHERE Id = @TenantId
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement GetAvailable = new(
+        "tenancy.get-available-for-host-administrator",
+        """
+        SELECT Id, Identifier, Name, Domain, IsActive, Version
+        FROM fn_tenant_tenant
+        WHERE IsActive = 1
+        ORDER BY Name, Identifier, Id
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement Insert = new(
         "tenancy.insert",
         """

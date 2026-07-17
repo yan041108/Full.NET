@@ -1,14 +1,18 @@
+using Full.NET.Modules.Identity.Contracts;
+
 namespace Full.NET.Modules.Identity.Security;
 
 internal static class IdentityClaimTypes
 {
-    public const string SessionId = "sid";
+    public const string SessionId = FullNetIdentityClaimTypes.SessionId;
 
-    public const string Scope = "fullnet_scope";
+    public const string ActorScope = FullNetIdentityClaimTypes.ActorScope;
 
-    public const string SecurityStamp = "fullnet_security_stamp";
+    public const string Scope = FullNetIdentityClaimTypes.Scope;
 
-    public const string TenantId = "fullnet_tenant_id";
+    public const string SecurityStamp = FullNetIdentityClaimTypes.SecurityStamp;
 
-    public const string Permission = "fullnet_permission";
+    public const string TenantId = FullNetIdentityClaimTypes.TenantId;
+
+    public const string Permission = FullNetIdentityClaimTypes.Permission;
 }

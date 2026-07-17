@@ -10,5 +10,6 @@ internal sealed record RefreshSession(
     DateTimeOffset? ConsumedAtUtc,
     DateTimeOffset? RevokedAtUtc,
     Guid? ReplacedById,
+    Guid? ActiveTenantId,
     DateTimeOffset CreatedAtUtc,
     int Version);

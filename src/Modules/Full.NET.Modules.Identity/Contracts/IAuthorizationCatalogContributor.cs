@@ -1,0 +1,17 @@
+namespace Full.NET.Modules.Identity.Contracts;
+
+/// <summary>
+/// 允许业务模块向授权目录贡献稳定权限和导航定义。
+/// </summary>
+public interface IAuthorizationCatalogContributor
+{
+    /// <summary>
+    /// 获取当前模块拥有的权限定义。
+    /// </summary>
+    IReadOnlyCollection<PermissionDefinition> Permissions { get; }
+
+    /// <summary>
+    /// 获取当前模块拥有的导航定义。
+    /// </summary>
+    IReadOnlyCollection<NavigationDefinition> Navigation { get; }
+}

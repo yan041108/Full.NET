@@ -6,6 +6,9 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity;
+using Full.NET.Modules.Tenancy;
 using Microsoft.AspNetCore.Identity;
 using NSubstitute;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -19,6 +22,8 @@ public sealed class IdentityBootstrapServiceTests
         new(2026, 7, 17, 1, 2, 3, TimeSpan.Zero);
     private static readonly Guid UserId =
         Guid.Parse("01981a08-0c40-7000-8000-000000000001");
+    private static readonly Guid RoleId =
+        Guid.Parse("01981a08-0c40-7000-8000-000000000002");
 
     [TestMethod]
     public async Task Weak_password_is_rejected_before_database_access()
@@ -35,7 +40,7 @@ public sealed class IdentityBootstrapServiceTests
     }
 
     [TestMethod]
-    public async Task Existing_admin_is_not_overwritten()
+    public async Task Existing_admin_is_not_overwritten_and_authorization_is_synchronized()
     {
         var fixture = new Fixture();
         fixture.QueryExecutor
@@ -68,8 +73,22 @@ public sealed class IdentityBootstrapServiceTests
         Assert.IsTrue(result.IsSuccess);
         Assert.IsFalse(result.Value!.Created);
         Assert.AreEqual(UserId, result.Value.UserId);
-        await fixture.CommandExecutor.DidNotReceiveWithAnyArgs()
-            .ExecuteAsync(default!, default, default);
+        await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(
+            IdentitySql.InsertUser,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+        await fixture.CommandExecutor.Received(1).ExecuteAsync(
+            IdentitySql.InsertRole,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+        await fixture.CommandExecutor.Received(4).ExecuteAsync(
+            IdentitySql.EnsureRolePermission,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+        await fixture.CommandExecutor.Received(1).ExecuteAsync(
+            IdentitySql.EnsureUserRole,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -110,21 +129,81 @@ public sealed class IdentityBootstrapServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Existing_role_only_receives_missing_known_permissions()
+    {
+        var fixture = new Fixture();
+        fixture.SetExistingUser();
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindRoleByScopeAndCode,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new IdentityRoleRecord(
+                RoleId,
+                null,
+                "host",
+                "host-administrator",
+                "宿主管理员",
+                true,
+                true,
+                Now,
+                null,
+                1));
+        fixture.QueryExecutor
+            .QueryAsync<string>(
+                IdentitySql.GetRolePermissionCodes,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(["platform.dashboard.read", "custom.retained"]);
+
+        var result = await fixture.Service.BootstrapHostAdminAsync(
+            new BootstrapHostAdminRequest(
+                "admin",
+                "FullNet!2026Secure",
+                "系统管理员"));
+
+        Assert.IsTrue(result.IsSuccess);
+        await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(
+            IdentitySql.InsertRole,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+        await fixture.CommandExecutor.Received(3).ExecuteAsync(
+            IdentitySql.EnsureRolePermission,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
     private sealed class Fixture
     {
         public Fixture()
         {
             QueryExecutor = Substitute.For<IQueryExecutor>();
             CommandExecutor = Substitute.For<ICommandExecutor>();
+            QueryExecutor
+                .QueryAsync<string>(
+                    Arg.Any<SqlStatement>(),
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns([]);
+            CommandExecutor
+                .ExecuteAsync(
+                    Arg.Any<SqlStatement>(),
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(1);
             var idGenerator = Substitute.For<IIdGenerator>();
-            idGenerator.NewId().Returns(UserId);
+            idGenerator.NewId().Returns(UserId, RoleId);
+            var catalog = AuthorizationCatalog.Create(
+                [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
             Service = new IdentityBootstrapService(
                 QueryExecutor,
                 CommandExecutor,
                 new PassthroughTransaction(),
                 new PasswordHasher<IdentityUser>(),
                 new FixedClock(),
-                idGenerator);
+                idGenerator,
+                catalog);
         }
 
         public IQueryExecutor QueryExecutor { get; }
@@ -132,6 +211,30 @@ public sealed class IdentityBootstrapServiceTests
         public ICommandExecutor CommandExecutor { get; }
 
         public IdentityBootstrapService Service { get; }
+
+        public void SetExistingUser()
+        {
+            QueryExecutor
+                .QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                    IdentitySql.FindUserByScopeAndUsername,
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(new IdentityUserRecord(
+                    UserId,
+                    null,
+                    "host",
+                    "admin",
+                    "ADMIN",
+                    "系统管理员",
+                    "existing-hash",
+                    true,
+                    0,
+                    null,
+                    "stamp",
+                    Now,
+                    null,
+                    1));
+        }
     }
 
     private sealed class PassthroughTransaction : ICommandTransaction

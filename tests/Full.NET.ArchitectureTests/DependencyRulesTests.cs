@@ -40,8 +40,9 @@ public sealed class DependencyRulesTests
         var unexpectedPublicTypes = typeof(TenancyModule).Assembly
             .GetExportedTypes()
             .Where(type => type.Namespace != "Full.NET.Modules.Tenancy.Contracts")
-            .Where(type => type.Name is not "TenancyModule"
-                and not "TenancyApplicationBuilderExtensions")
+            .Where(type => type != typeof(TenancyModule)
+                && type != typeof(TenancyApplicationBuilderExtensions)
+                && type != typeof(TenancyServiceCollectionExtensions))
             .Select(type => type.FullName)
             .ToArray();
 
@@ -63,6 +64,16 @@ public sealed class DependencyRulesTests
         Assert.IsTrue(
             result.IsSuccessful,
             $"Identity dependency violations: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void Tenancy_declares_identity_as_an_explicit_module_dependency()
+    {
+        var module = new TenancyModule();
+
+        CollectionAssert.Contains(
+            module.Dependencies.ToArray(),
+            typeof(IdentityModule));
     }
 
     [TestMethod]
