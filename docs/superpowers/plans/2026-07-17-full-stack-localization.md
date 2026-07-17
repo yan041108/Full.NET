@@ -431,7 +431,11 @@ git commit -m "feat: persist locale preferences"
 ### Task 5: 补齐 Vue/Layui 组件库语言与 HTTP 协商
 
 **Files:**
+- Modify: packages/client-contracts/src/identity.ts
+- Modify: packages/client-contracts/src/index.ts
+- Modify: packages/client-contracts/tests/identity.test.ts
 - Modify: packages/admin-i18n/src/locale.ts
+- Modify: packages/admin-i18n/src/messages.ts
 - Modify: packages/admin-i18n/tests/i18n.test.ts
 - Modify: ui/admin/src/api/http.ts
 - Modify: ui/admin/src/api/http.test.ts
@@ -453,7 +457,7 @@ git commit -m "feat: persist locale preferences"
 
 - [ ] **Step 1: 写两端失败测试**
 
-Vue 断言 ElConfigProvider locale 与 adminI18n.locale 同步；Layui 断言 i18n.set 在 table/laypage/laydate 第一次渲染前执行；两端 HTTP 测试断言 Accept-Language。
+客户端契约先断言 `/api/v1/me` 必须包含规范 `preferredLocale` 与正整数 `profileVersion`，并为 `PUT /api/v1/me/locale` 响应提供独立守卫。Vue 断言 ElConfigProvider locale 与 adminI18n.locale 同步；Layui 断言公开 `i18n.set` 在 table/laypage/laydate 第一次渲染前执行；两端 HTTP 测试断言 Accept-Language。
 
 - [ ] **Step 2: 运行 RED**
 
@@ -479,7 +483,7 @@ layui-locale.js 只调用公开 layui.i18n.set，传入 zh-CN/en 组件消息；
 
 - [ ] **Step 5: 同步 HTTP 与账号偏好**
 
-两端 request 在每次发送前读取当前活动语言并设置 Accept-Language。登录/刷新响应的 PreferredLocale 进入 i18n；已认证切换调用 PUT /api/v1/me/locale，失败显示本地化提示但不清除会话。
+两端 request 在每次发送前读取当前活动语言并设置 Accept-Language。Access Token 与登录/刷新 TokenResponse 不携带语言偏好；登录、刷新、恢复和租户切换后的 `/api/v1/me` 是已保存 `PreferredLocale/ProfileVersion` 的唯一来源，并在完整快照通过守卫后同步 i18n。匿名切换只更新本地偏好；已认证切换使用当前 ProfileVersion 调用 PUT `/api/v1/me/locale`，只在响应通过守卫后提交本地语言与版本。保存失败显示本地化提示，且不得清除会话、改变租户或乐观覆盖原语言。
 
 - [ ] **Step 6: 扩展双端 E2E**
 
