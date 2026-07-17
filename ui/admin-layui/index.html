@@ -9,7 +9,51 @@
     <title>Full.NET · 管理控制台</title>
   </head>
   <body>
-    <div class="fn-shell" data-client-kind="layui">
+    <section class="fn-session-boot" data-session-boot aria-live="polite">
+      <span>F</span>
+      <strong>正在恢复安全会话</strong>
+      <i aria-hidden="true"></i>
+    </section>
+
+    <main class="fn-login" data-login-view hidden>
+      <section class="fn-login__signal" aria-label="Full.NET 平台说明">
+        <div class="fn-login__brand"><span>F</span><div><strong>Full.NET</strong><small>ADMIN CONSOLE</small></div></div>
+        <div class="fn-login__statement">
+          <p>IDENTITY / DELIVERY NODE</p>
+          <h1>连接安全域<br><em>开始快速交付</em></h1>
+          <span>同一套身份与会话契约，独立的 Layui 原生实现。令牌只驻留内存，刷新由安全 Cookie、CSRF 与重用检测共同保护。</span>
+        </div>
+        <div class="fn-login__facts">
+          <div><b>10m</b><span>ACCESS WINDOW</span></div>
+          <div><b>0</b><span>STORAGE TOKEN</span></div>
+          <div><b>2×DB</b><span>PROVIDER PARITY</span></div>
+        </div>
+      </section>
+
+      <section class="fn-login__panel">
+        <form class="layui-form" data-login-form>
+          <header><span>01 / AUTHENTICATE</span><i aria-hidden="true"></i></header>
+          <h2>管理员登录</h2>
+          <p>宿主控制面 · Layui 管理端</p>
+          <div class="layui-form-item">
+            <label for="login-username">账号</label>
+            <input id="login-username" class="layui-input" name="username" autocomplete="username" maxlength="128" required placeholder="输入宿主管理员账号">
+          </div>
+          <div class="layui-form-item">
+            <label for="login-password">密码</label>
+            <input id="login-password" class="layui-input" name="password" type="password" autocomplete="current-password" maxlength="1024" required placeholder="输入安全密码">
+          </div>
+          <div class="fn-login__problem" data-login-problem role="alert" hidden>
+            <strong data-login-error-code></strong>
+            <span data-login-error-title></span>
+          </div>
+          <button class="layui-btn fn-login__submit" type="submit"><span>进入控制台</span><b>→</b></button>
+          <small>系统不会在浏览器持久化 Access Token</small>
+        </form>
+      </section>
+    </main>
+
+    <div class="fn-shell" data-client-kind="layui" data-session-shell hidden>
       <aside class="fn-sidebar">
         <a class="fn-brand" href="#/" aria-label="返回 Full.NET 工作台">
           <span class="fn-brand__mark">F</span>
@@ -34,8 +78,8 @@
 
         <div class="fn-sidebar__footer">
           <span class="fn-avatar">管</span>
-          <span><strong>系统管理员</strong><small>Platform Owner</small></span>
-          <button type="button" aria-label="打开账户菜单"><i class="layui-icon layui-icon-more-vertical"></i></button>
+          <span><strong data-current-user></strong><small data-current-scope></small></span>
+          <button data-session-logout type="button" aria-label="退出登录"><i class="layui-icon layui-icon-logout"></i></button>
         </div>
       </aside>
 
