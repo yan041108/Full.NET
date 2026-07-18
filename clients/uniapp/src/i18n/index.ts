@@ -50,8 +50,17 @@ const runtime: LocaleRuntime = {
         return;
       }
 
+      if (typeof result?.locale !== 'string') {
+        return;
+      }
+
       const canonicalLocale = toCanonicalLocale(result.locale);
       const platformLocale = toUniLocale(canonicalLocale);
+      const currentPlatformLocale = toUniLocale(toCanonicalLocale(uni.getLocale()));
+      if (platformLocale !== currentPlatformLocale) {
+        return;
+      }
+
       if (expectedPlatformLocale === platformLocale) {
         expectedPlatformLocale = undefined;
         return;

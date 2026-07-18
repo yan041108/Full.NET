@@ -7,6 +7,9 @@
   "transformPx": false,
   "locale": "zh-Hans",
   "vueVersion": "3",
+  "uniStatistics": {
+    "enable": false
+  },
   "app-plus": {},
   "h5": {},
   "mp-weixin": {

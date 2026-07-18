@@ -3,26 +3,20 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useI18n } from 'vue-i18n';
 
-import { HttpProblem, toProblemPresentation } from '../../api/problem-details';
 import {
   initializeLocale,
   localeController,
   setActiveLocale,
   synchronizeNavigationTitle
 } from '../../i18n';
-import { isCanonicalLocale, type CanonicalLocale } from '../../i18n/locale-adapter';
-import type { LocaleSnapshot } from '../../i18n/locale-controller';
+import type { CanonicalLocale } from '../../i18n/locale-adapter';
+import { createLocaleSettingsModel } from './locale-settings-model';
 
 interface LocaleOption {
   readonly value: CanonicalLocale;
   readonly code: string;
   readonly labelKey: string;
   readonly detailKey: string;
-}
-
-interface ErrorFeedback {
-  readonly message: string;
-  readonly traceId?: string;
 }
 
 const localeOptions: readonly LocaleOption[] = [
@@ -41,39 +35,34 @@ const localeOptions: readonly LocaleOption[] = [
 ];
 
 const { t, te } = useI18n();
-const snapshot = ref<LocaleSnapshot>(initializeLocale());
-const selectedLocale = ref<CanonicalLocale>(snapshot.value.preferredLocale);
-const feedback = ref<'success' | 'error'>();
-const errorFeedback = ref<ErrorFeedback>();
-
-const hasPendingChange = computed(() =>
-  selectedLocale.value !== snapshot.value.preferredLocale
-);
-const statusText = computed(() => hasPendingChange.value
+const model = createLocaleSettingsModel({
+  initialize: initializeLocale,
+  subscribe: listener => localeController.subscribe(listener),
+  setActiveLocale,
+  translate: (key, arguments_) => t(key, arguments_ ?? {}),
+  hasTranslation: key => te(key)
+});
+const state = ref(model.state);
+const stopModelSubscription = model.subscribe(nextState => {
+  state.value = nextState;
+});
+const statusText = computed(() => state.value.hasPendingChange
   ? t('settings.locale.pending')
   : t('settings.locale.unchanged')
 );
-const actionText = computed(() => snapshot.value.authenticated
+const actionText = computed(() => state.value.snapshot.authenticated
   ? t('settings.locale.actions.save')
   : t('settings.locale.actions.apply')
 );
 
-const stopSubscription = localeController.subscribe(nextSnapshot => {
-  snapshot.value = nextSnapshot;
-  if (!nextSnapshot.saving) {
-    selectedLocale.value = nextSnapshot.preferredLocale;
-  }
+onBeforeUnmount(() => {
+  stopModelSubscription();
+  model.dispose();
 });
-
-onBeforeUnmount(stopSubscription);
 onShow(synchronizeNavigationTitle);
 
 function selectLocale(event: { readonly detail: { readonly value: string } }): void {
-  if (!snapshot.value.saving && isCanonicalLocale(event.detail.value)) {
-    selectedLocale.value = event.detail.value;
-    feedback.value = undefined;
-    errorFeedback.value = undefined;
-  }
+  model.selectLocale(event.detail.value);
 }
 
 function localeName(locale: CanonicalLocale): string {
@@ -81,36 +70,7 @@ function localeName(locale: CanonicalLocale): string {
 }
 
 async function saveSelection(): Promise<void> {
-  if (!hasPendingChange.value || snapshot.value.saving) {
-    return;
-  }
-
-  feedback.value = undefined;
-  errorFeedback.value = undefined;
-  try {
-    await setActiveLocale(selectedLocale.value);
-    feedback.value = 'success';
-  } catch (error) {
-    feedback.value = 'error';
-    errorFeedback.value = presentError(error);
-  }
-}
-
-function presentError(error: unknown): ErrorFeedback {
-  if (!(error instanceof HttpProblem)) {
-    return { message: t('settings.save.failure') };
-  }
-
-  const presentation = toProblemPresentation(error, (code, arguments_) => {
-    const key = `errors.${code}`;
-    return te(key) ? t(key, arguments_ ?? {}) : undefined;
-  });
-  return {
-    message: presentation.fieldMessages.locale?.[0]
-      ?? presentation.message
-      ?? t('settings.save.failure'),
-    traceId: presentation.traceId
-  };
+  await model.saveSelection();
 }
 </script>
 
@@ -134,13 +94,13 @@ function presentError(error: unknown): ErrorFeedback {
       <section class="status-strip" aria-live="polite">
         <view class="status-item">
           <text class="status-label">{{ t('settings.locale.current') }}</text>
-          <text class="status-value">{{ localeName(snapshot.preferredLocale) }}</text>
+          <text class="status-value">{{ localeName(state.snapshot.preferredLocale) }}</text>
         </view>
         <view class="status-rule" aria-hidden="true" />
         <view class="status-item status-item--end">
           <text class="status-label">{{ statusText }}</text>
           <text class="status-value status-value--accent">
-            {{ localeName(selectedLocale) }}
+            {{ localeName(state.selectedLocale) }}
           </text>
         </view>
       </section>
@@ -149,12 +109,12 @@ function presentError(error: unknown): ErrorFeedback {
         <view class="mode-indicator" aria-hidden="true" />
         <view class="mode-copy">
           <text class="mode-title">
-            {{ snapshot.authenticated
+            {{ state.snapshot.authenticated
               ? t('settings.locale.authenticated')
               : t('settings.locale.anonymous') }}
           </text>
-          <text v-if="snapshot.authenticated" class="mode-version">
-            {{ t('settings.locale.profileVersion', { version: snapshot.profileVersion }) }}
+          <text v-if="state.snapshot.authenticated" class="mode-version">
+            {{ t('settings.locale.profileVersion', { version: state.snapshot.profileVersion }) }}
           </text>
         </view>
       </section>
@@ -165,13 +125,13 @@ function presentError(error: unknown): ErrorFeedback {
             v-for="option in localeOptions"
             :key="option.value"
             class="language-card"
-            :class="{ 'language-card--selected': selectedLocale === option.value }"
+            :class="{ 'language-card--selected': state.selectedLocale === option.value }"
           >
             <radio
               class="language-radio"
               :value="option.value"
-              :checked="selectedLocale === option.value"
-              :disabled="snapshot.saving"
+              :checked="state.selectedLocale === option.value"
+              :disabled="state.isBusy"
               color="#38d4b2"
             />
             <view class="option-copy">
@@ -186,24 +146,24 @@ function presentError(error: unknown): ErrorFeedback {
         <button
           class="save-button"
           form-type="submit"
-          :disabled="!hasPendingChange || snapshot.saving"
-          :loading="snapshot.saving"
+          :disabled="state.isSubmitDisabled"
+          :loading="state.isBusy"
         >
-          {{ snapshot.saving ? t('settings.save.saving') : actionText }}
+          {{ state.isBusy ? t('settings.save.saving') : actionText }}
         </button>
       </form>
 
-      <view v-if="feedback === 'success'" class="feedback feedback--success" role="status">
+      <view v-if="state.feedback === 'success'" class="feedback feedback--success" role="status">
         <text class="feedback-mark" aria-hidden="true">✓</text>
         <text>{{ t('settings.save.success') }}</text>
       </view>
 
-      <view v-else-if="feedback === 'error' && errorFeedback" class="feedback feedback--error" role="alert">
+      <view v-else-if="state.feedback === 'error' && state.errorFeedback" class="feedback feedback--error" role="alert">
         <text class="feedback-mark" aria-hidden="true">!</text>
         <view class="feedback-copy">
-          <text>{{ errorFeedback.message }}</text>
-          <text v-if="errorFeedback.traceId" class="trace-id">
-            {{ t('traceId.label') }}: {{ errorFeedback.traceId }}
+          <text>{{ state.errorFeedback.message }}</text>
+          <text v-if="state.errorFeedback.traceId" class="trace-id">
+            {{ t('traceId.label') }}: {{ state.errorFeedback.traceId }}
           </text>
         </view>
       </view>

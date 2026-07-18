@@ -38,6 +38,7 @@ describe('uni-app application configuration', () => {
 
     expect(manifest.name).toBe('%app.name%');
     expect(manifest.locale).toBe('zh-Hans');
+    expect(manifest.uniStatistics).toEqual({ enable: false });
   });
 
   it.each([

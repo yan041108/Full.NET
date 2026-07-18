@@ -65,6 +65,14 @@ describe('uni-app workspace contract', () => {
     expect(viteConfig).toMatch(/plugins:\s*mode === 'test' \? \[\] : \[uni\(\)\]/);
   });
 
+  it('includes routed Vue SFC files in the standard typecheck project', async () => {
+    const tsconfig = JSON.parse(
+      await readFile(new URL('../tsconfig.json', import.meta.url), 'utf8')
+    ) as { readonly include?: readonly string[] };
+
+    expect(tsconfig.include).toContain('src/**/*.vue');
+  });
+
   it('records the required runtime licenses', async () => {
     const notices = await readFile(
       new URL('../../../THIRD-PARTY-NOTICES', import.meta.url),
