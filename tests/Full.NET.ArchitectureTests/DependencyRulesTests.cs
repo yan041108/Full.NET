@@ -21,6 +21,7 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Migrations.DbUp.IDatabaseMigrationRunner).Assembly,
         typeof(Full.NET.Modularity.Modules.IFullNetModule).Assembly,
         typeof(Full.NET.Serialization.MessagePack.MessagePackIntegrationEventSerializer).Assembly,
+        typeof(Full.NET.Seeding.Abstractions.SeedProfile).Assembly,
         typeof(Full.NET.Validation.FluentValidation.ServiceCollectionExtensions).Assembly,
     ];
 
@@ -210,6 +211,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Migrations.DbUp.IDatabaseMigrationRunner).Assembly,
         typeof(Full.NET.Modularity.Modules.IFullNetModule).Assembly,
         typeof(Full.NET.Serialization.MessagePack.MessagePackIntegrationEventSerializer).Assembly,
+        typeof(Full.NET.Seeding.Abstractions.SeedProfile).Assembly,
         typeof(Full.NET.Validation.FluentValidation.ServiceCollectionExtensions).Assembly,
         typeof(Full.NET.Compatibility.AdminNet.AdminNetApiResultMapper).Assembly,
         typeof(Full.NET.Composition.FullNetHostProfile).Assembly,

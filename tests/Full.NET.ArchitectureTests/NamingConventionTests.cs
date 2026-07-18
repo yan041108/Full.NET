@@ -282,7 +282,8 @@ public sealed class NamingConventionTests
 
     private static bool IsGenerated(MemberInfo member) =>
         member.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false)
-        || member.Name.Contains('<', StringComparison.Ordinal);
+        || member.Name.Contains('<', StringComparison.Ordinal)
+        || (member.DeclaringType is not null && IsGenerated(member.DeclaringType));
 
     private static bool IsRecord(Type type) =>
         type.GetProperty(
