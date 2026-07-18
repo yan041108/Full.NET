@@ -17,6 +17,7 @@ SQL Server 保持 `uniqueidentifier`，但必须与同编号迁移一起验证�
 - 生产等价备份及独立环境恢复成功记录；
 - 008/009 空库、存量升级、半完成恢复和冲突拒绝测试记录；
 - API、Worker、Migrator 使用同一 Binary16 连接策略的构建产物；
+- MySQL 迁移账号具有 `ALTER`、`CREATE ROUTINE`、`ALTER ROUTINE`、`EXECUTE`、`CREATE TEMPORARY TABLES` 和 `TRIGGER` 权限；启用 binary log 时，实例已由数据库负责人配置受信函数/触发器创建或提供等价受控权限，禁止由应用临时提权；
 - SQL Server 聚集索引基准与 MySQL 行数、唯一性、引用和摘要基线；
 - 已批准的破坏性 DDL 豁免标识、维护窗口起止时间和业务通知。
 
@@ -54,7 +55,7 @@ SQL Server 保持 `uniqueidentifier`，但必须与同编号迁移一起验证�
 ### 4.3 执行或核对 008 Expand
 
 1. 如果 008 尚未执行，运行 Migrator 执行 008；如果已执行，先确认 DbUp 记账和真实影子对象一致。
-2. 核对每个影子列、同步触发器、源/目标非空数、Distinct 数与 `BIN_TO_UUID(Binary, 0)` 往返。
+2. 执行版本化只读脚本 [`sql/uuid-binary-expand-verification.mysql.sql`](sql/uuid-binary-expand-verification.mysql.sql)，核对每个影子列、唯一索引、同步触发器、源/目标非空数、Distinct 数、聚合 SHA-256、`BIN_TO_UUID(Binary, 0)` 往返与引用缺失数；脚本只输出聚合结果，不得临时改为输出业务 UUID。若 `SourceNonNullCount > 0` 但 `SampleCount = 0`，本次抽样证据判定失败，必须调整固定抽样模数后重新执行并留存结果。
 3. 对 008 后产生的增量执行 delta backfill，再次核对行数、唯一性、引用关系和摘要。
 4. 发现非法 UUID、源/目标冲突、空目标、孤立引用或缺失触发器时立即停止。
 

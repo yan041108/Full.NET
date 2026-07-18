@@ -50,6 +50,7 @@ public sealed class TenantProvisioningTests
     public async Task MySql_provisioning_is_atomic_and_writes_binary_outbox()
     {
         await using var container = new MySqlBuilder("mysql:8.0")
+            .WithCommand("--log-bin-trust-function-creators=1")
             .WithDatabase("fullnet")
             .WithUsername("fullnet")
             .WithPassword("FullNet_Test!123")

@@ -134,10 +134,15 @@ function inspectSql(sql, file, profile, debt, violations) {
 
 function collectTableReferences(lines, cteNames) {
   const references = [];
-  const pattern = /\b(?:CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|INSERT\s+INTO|UPDATE|FROM|JOIN)\s+(?:([A-Za-z][A-Za-z0-9_]*)\.)?([A-Za-z][A-Za-z0-9_]*)/gi;
+  const pattern = /\b(?:CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|INSERT\s+INTO|FROM|JOIN)\s+(?:([A-Za-z][A-Za-z0-9_]*)\.)?([A-Za-z][A-Za-z0-9_]*)/gi;
+  const updatePattern = /(?:^|;)\s*UPDATE\s+(?:([A-Za-z][A-Za-z0-9_]*)\.)?([A-Za-z][A-Za-z0-9_]*)/gi;
   lines.forEach((line, index) => {
     const text = stripComment(line);
     for (const match of text.matchAll(pattern)) {
+      if (isSystemSchema(match[1]) || cteNames.has(match[2].toLowerCase())) continue;
+      references.push({ name: match[2], line: index + 1 });
+    }
+    for (const match of text.matchAll(updatePattern)) {
       if (isSystemSchema(match[1]) || cteNames.has(match[2].toLowerCase())) continue;
       references.push({ name: match[2], line: index + 1 });
     }

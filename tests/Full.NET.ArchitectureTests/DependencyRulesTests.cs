@@ -232,10 +232,20 @@ public sealed class DependencyRulesTests
             + "UUID_TO_BIN"
             + "(\n    @Id,\n    1\n)";
         var sourceOffenders = GuidStorageArchitectureScanner.FindUnsafeSqlConversions(
-            [new GuidStorageSourceFile("negative-fixture.sql", multilineSql)],
+            [
+                new GuidStorageSourceFile("negative-fixture.sql", multilineSql),
+                new GuidStorageSourceFile(
+                    "nested-negative-fixture.sql",
+                    "SELECT " + "UUID_TO_BIN" + "(TRIM(Id), 1)"),
+                new GuidStorageSourceFile(
+                    "safe-fixture.sql",
+                    "SELECT UUID_TO_BIN(Id, 0); INSERT INTO sample(Value) VALUES (1)"),
+            ],
             []);
 
         CollectionAssert.Contains(sourceOffenders, "negative-fixture.sql");
+        CollectionAssert.Contains(sourceOffenders, "nested-negative-fixture.sql");
+        CollectionAssert.DoesNotContain(sourceOffenders, "safe-fixture.sql");
     }
 
     [TestMethod]

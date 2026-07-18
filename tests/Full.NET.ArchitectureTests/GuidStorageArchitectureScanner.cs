@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text.RegularExpressions;
 
 namespace Full.NET.ArchitectureTests;
 
@@ -10,10 +9,7 @@ internal static class GuidStorageArchitectureScanner
 {
     private static readonly OpCode[] OneByteOpCodes = new OpCode[0x100];
     private static readonly OpCode[] TwoByteOpCodes = new OpCode[0x100];
-    private static readonly Regex TimeSwapUuidToBinPattern = new(
-        @"\bUUID_TO_BIN\s*\([^;]*?,\s*1\s*\)",
-        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Singleline,
-        TimeSpan.FromSeconds(1));
+    private const string UuidToBinFunction = "UUID_TO_BIN";
 
     static GuidStorageArchitectureScanner()
     {
@@ -45,11 +41,64 @@ internal static class GuidStorageArchitectureScanner
         return files
             .Where(file => !allowed.Contains(file.Path))
             .Where(file => file.Content.Contains(timeSwapGuidFormat, StringComparison.Ordinal)
-                || TimeSwapUuidToBinPattern.IsMatch(file.Content))
+                || ContainsTimeSwapUuidToBin(file.Content))
             .Select(file => file.Path)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static bool ContainsTimeSwapUuidToBin(string content)
+    {
+        var searchIndex = 0;
+        while ((searchIndex = content.IndexOf(
+                   UuidToBinFunction,
+                   searchIndex,
+                   StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            var cursor = searchIndex + UuidToBinFunction.Length;
+            while (cursor < content.Length && char.IsWhiteSpace(content[cursor]))
+            {
+                cursor++;
+            }
+
+            if (cursor >= content.Length || content[cursor] != '(')
+            {
+                searchIndex = cursor;
+                continue;
+            }
+
+            var depth = 1;
+            var secondArgumentStart = -1;
+            for (cursor++; cursor < content.Length && depth > 0; cursor++)
+            {
+                switch (content[cursor])
+                {
+                    case '(':
+                        depth++;
+                        break;
+                    case ')':
+                        depth--;
+                        if (depth == 0 && secondArgumentStart >= 0)
+                        {
+                            var argument = content[secondArgumentStart..cursor].Trim();
+                            if (string.Equals(argument, "1", StringComparison.Ordinal))
+                            {
+                                return true;
+                            }
+                        }
+
+                        break;
+                    case ',' when depth == 1 && secondArgumentStart < 0:
+                        secondArgumentStart = cursor + 1;
+                        break;
+                }
+            }
+
+            searchIndex += UuidToBinFunction.Length;
+        }
+
+        return false;
     }
 
     public static string[] FindGuidToByteArrayCalls(IEnumerable<Assembly> assemblies)

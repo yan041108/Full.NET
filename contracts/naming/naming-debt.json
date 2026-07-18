@@ -630,6 +630,20 @@
       "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
       "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/008_UuidBinaryExpand.sql",
+      "reason": "008 只能从版本控制内的 23 列封闭清单构造可重入 DDL、回填和引用核对 SQL；已由真实半完成恢复测试人工审查，现有静态门禁尚不能解析存储过程内的固定标识符拼接。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/008_UuidBinaryExpand.sql",
+      "reason": "008 使用存储过程与固定命名触发器实现非事务 DDL 恢复和 legacy 写同步；对象名称由集成测试核对，待静态门禁支持 routine/trigger 语法后移除。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

@@ -38,6 +38,7 @@ public sealed class SeedExecutionInfrastructureTests
     public async Task MySql_lease_and_audit_store_are_database_backed()
     {
         await using var container = new MySqlBuilder("mysql:8.0")
+            .WithCommand("--log-bin-trust-function-creators=1")
             .WithDatabase("fullnet")
             .WithUsername("fullnet")
             .WithPassword("FullNet_Test!123")

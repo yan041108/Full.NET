@@ -178,6 +178,21 @@ public sealed class SqlServerMigrationTests
     }
 
     [TestMethod]
+    public async Task UuidBinaryExpand_SqlServer_pairs_008_without_binary_shadow_columns()
+    {
+        await CreateRunner().MigrateAsync();
+        await using var connection = new SqlConnection(_container.GetConnectionString());
+
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM dbo.SchemaVersions WHERE ScriptName LIKE '%008_UuidBinaryExpand.sql'"));
+        Assert.AreEqual(0, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo' AND COLUMN_NAME LIKE '%Binary'
+            """));
+    }
+
+    [TestMethod]
     public async Task SqlServer_seed_audit_migration_recovers_after_first_table_commit()
     {
         var runner = CreateRunner();

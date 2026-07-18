@@ -10,6 +10,7 @@ public sealed class TenancyApiMySqlTests
     public async Task Api_resolves_tenant_and_returns_standard_http_contract()
     {
         await using var container = new MySqlBuilder("mysql:8.0")
+            .WithCommand("--log-bin-trust-function-creators=1")
             .WithDatabase("fullnet")
             .WithUsername("fullnet")
             .WithPassword("FullNet_Test!123")

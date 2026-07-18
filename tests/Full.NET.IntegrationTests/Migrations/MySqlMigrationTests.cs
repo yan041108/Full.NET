@@ -12,6 +12,7 @@ namespace Full.NET.IntegrationTests.Migrations;
 public sealed class MySqlMigrationTests
 {
     private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
+        .WithCommand("--log-bin-trust-function-creators=1")
         .WithDatabase("fullnet")
         .WithUsername("fullnet")
         .WithPassword("FullNet_Test!123")
@@ -66,7 +67,45 @@ public sealed class MySqlMigrationTests
             WHERE TABLE_SCHEMA = DATABASE()
               AND TABLE_NAME IN ('fn_seed_run', 'fn_seed_run_item')
             """);
-        Assert.AreEqual(19, seedAuditColumnCount);
+        Assert.AreEqual(21, seedAuditColumnCount);
+        var seedAuditBinaryColumnCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND
+              (
+                  (TABLE_NAME = 'fn_seed_run' AND COLUMN_NAME = 'IdBinary')
+                  OR (TABLE_NAME = 'fn_seed_run_item' AND COLUMN_NAME = 'RunIdBinary')
+              )
+              AND DATA_TYPE = 'binary'
+              AND CHARACTER_MAXIMUM_LENGTH = 16
+            """);
+        Assert.AreEqual(2, seedAuditBinaryColumnCount);
+        var uuidBinaryUniqueIndexCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM (
+                SELECT TABLE_NAME, INDEX_NAME
+                FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND
+                  (
+                      (TABLE_NAME = 'fn_tenant_tenant' AND INDEX_NAME = 'UX_fn_tenant_tenant_IdBinary')
+                      OR (TABLE_NAME = 'fn_outbox_message' AND INDEX_NAME = 'UX_fn_outbox_message_IdBinary')
+                      OR (TABLE_NAME = 'fn_identity_user' AND INDEX_NAME = 'UX_fn_identity_user_IdBinary')
+                      OR (TABLE_NAME = 'fn_identity_refresh_session' AND INDEX_NAME = 'UX_fn_identity_refresh_session_IdBinary')
+                      OR (TABLE_NAME = 'fn_identity_auth_audit' AND INDEX_NAME = 'UX_fn_identity_auth_audit_IdBinary')
+                      OR (TABLE_NAME = 'fn_identity_role' AND INDEX_NAME = 'UX_fn_identity_role_IdBinary')
+                      OR (TABLE_NAME = 'fn_seed_run' AND INDEX_NAME = 'UX_fn_seed_run_IdBinary')
+                  )
+                GROUP BY TABLE_NAME, INDEX_NAME
+                HAVING COUNT(*) = 1
+                   AND MAX(NON_UNIQUE = 0 AND COLUMN_NAME = 'IdBinary'
+                           AND SEQ_IN_INDEX = 1 AND SUB_PART IS NULL) = 1
+            ) AS exact_uuid_binary_indexes
+            """);
+        Assert.AreEqual(7, uuidBinaryUniqueIndexCount);
         var seedAuditContractCount = await connection.ExecuteScalarAsync<int>(
             """
             SELECT COUNT(*)

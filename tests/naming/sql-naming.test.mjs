@@ -64,6 +64,16 @@ test('债务清单只能精确放行同文件、同类型和同值', async () =>
   assert.equal((await validateSqlNaming([file], { repositoryRoot, debt: wrongFile })).length, 1);
 });
 
+test('触发器 BEFORE UPDATE 不把 ON 误判为业务表', async () => {
+  const violations = await validateSqlNaming(
+    [path.join(fixtureRoot, 'trigger-update.sql')],
+    { repositoryRoot, debt: { schemaVersion: 1, items: [] } }
+  );
+
+  assert.equal(violations.some(item => item.ruleId === 'FNDB001' && item.actual === 'ON'), false);
+  assert.equal(violations.some(item => item.ruleId === 'FNSQL003'), true);
+});
+
 test('SQL Server 和 MySQL 迁移必须按文件名成对出现', async () => {
   const migrationRoot = path.join(fixtureRoot, 'Migrations');
   const violations = await validateMigrationPairs(migrationRoot, { repositoryRoot });
