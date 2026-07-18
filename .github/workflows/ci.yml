@@ -27,21 +27,32 @@ jobs:
 
       - name: Audit client dependencies
         run: |
-          pnpm audit --audit-level high
+          pnpm audit:clients
           pnpm licenses list --prod --json > client-production-licenses.json
           pnpm licenses list --json > client-development-licenses.json
 
-      - name: Test client workspace and packages
+      - name: Test shared and admin client packages
         run: |
           pnpm test:workspace
           pnpm test:localization
-          pnpm test:clients
+          pnpm --filter @fullnet/admin-i18n --filter @fullnet/admin --filter @fullnet/admin-layui test
+
+      - name: Verify uni-app targets
+        run: |
+          pnpm --filter @fullnet/uniapp test
+          pnpm --filter @fullnet/uniapp typecheck
+          pnpm --filter @fullnet/uniapp build:h5
+          pnpm --filter @fullnet/uniapp build:mp-weixin
+          pnpm --filter @fullnet/uniapp build:mp-alipay
 
       - name: Build client packages
         run: pnpm build:clients
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @fullnet/admin-parity-e2e exec playwright install --with-deps chromium
+        run: pnpm --filter @fullnet/uniapp-h5-e2e exec playwright install --with-deps chromium
+
+      - name: Verify uni-app H5
+        run: pnpm test:e2e:uniapp
 
       - name: Verify Vue and Layui parity
         run: pnpm test:e2e
@@ -56,6 +67,8 @@ jobs:
             client-development-licenses.json
             tests/e2e/admin-parity/playwright-report/**
             tests/e2e/admin-parity/test-results/**
+            tests/e2e/uniapp-h5/playwright-report/**
+            tests/e2e/uniapp-h5/test-results/**
           if-no-files-found: warn
 
   build-test:

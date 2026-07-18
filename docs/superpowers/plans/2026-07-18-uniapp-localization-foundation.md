@@ -6,13 +6,13 @@
 
 **Architecture:** 业务层只识别 `zh-CN/en-US`，`zh-Hans/en` 仅存在于 uni-app 平台适配器。活动语言控制器、HTTP 客户端和账号偏好端口均依赖可注入的窄接口，便于在无平台运行时的 Vitest 中验证；页面只消费这些端口，不自行解释 Token、语言别名或错误文本。首期使用一个原创的移动端语言设置页验证完整链路，不建立假登录、原生 App 或原生 tabBar。
 
-**Tech Stack:** uni-app Vue 3、Vue 3.4.21、Vue I18n 9.1.9、Vite 5.2.8、TypeScript 5.9.3、Vitest 2.1.9、vue-tsc 2.2.12、Playwright 1.61.1、pnpm 10.26.0、Node.js 24。
+**Tech Stack:** uni-app Vue 3、Vue 3.4.21、Vue I18n 9.14.5、Vite 5.4.21、TypeScript 5.9.3、Vitest 3.2.6、vue-tsc 2.2.12、Playwright 1.61.1、pnpm 10.26.0、Node.js 24。
 
 ## Global Constraints
 
 - `@dcloudio/uni-app`、`@dcloudio/uni-components`、`@dcloudio/uni-h5`、`@dcloudio/uni-mp-weixin`、`@dcloudio/uni-mp-alipay`、`@dcloudio/uni-cli-shared` 与 `@dcloudio/vite-plugin-uni` 必须统一固定为 `3.0.0-5010520260709002`。
-- `@dcloudio/types` 必须固定为 `3.4.31`；Vue 与 `@vue/compiler-sfc` 固定为 `3.4.21`；Vite 固定为 `5.2.8`；禁止 `latest`、星号或版本范围。
-- Vue I18n 按 uni-app 官方国际化文档固定为 `9.1.9`，业务资源键在 `zh-CN/en-US` 两份消息中必须完全一致。
+- `@dcloudio/types` 必须固定为 `3.4.31`；Vue 与 `@vue/compiler-sfc` 固定为 `3.4.21`；Vite 经安全审计与兼容验证固定为 `5.4.21`。DCloud 插件声明的 `5.2.8` peer 偏差由版本化安全策略管理；禁止 `latest`、星号或版本范围。
+- Vue I18n 经安全审计固定为 `9.14.5`，业务资源键在 `zh-CN/en-US` 两份消息中必须完全一致；同时用精确 override 将公共提升的 `@intlify/message-compiler` 统一到 `9.14.5`，避免 DCloud 构建链解析到旧编译器。
 - 对外 API、存储的账号偏好和测试断言只使用 `zh-CN/en-US`；`zh-Hans/en` 只允许出现在 uni-app 平台适配层和平台资源文件名。
 - 匿名切换立即提交本地语言；已认证切换只有 `PUT /api/v1/me/locale` 响应通过完整守卫后才原子提交语言与 `ProfileVersion`，失败保留旧语言、版本、会话与租户。
 - `/api/v1/me` 是已保存偏好的唯一可信来源；JWT 与 TokenResponse 禁止增加语言偏好字段。
@@ -90,7 +90,7 @@ Expected: FAIL，因为 `clients/uniapp/package.json` 尚不存在。
     "@dcloudio/uni-mp-alipay": "3.0.0-5010520260709002",
     "@dcloudio/uni-mp-weixin": "3.0.0-5010520260709002",
     "vue": "3.4.21",
-    "vue-i18n": "9.1.9"
+    "vue-i18n": "9.14.5"
   },
   "devDependencies": {
     "@dcloudio/types": "3.4.31",
@@ -98,8 +98,8 @@ Expected: FAIL，因为 `clients/uniapp/package.json` 尚不存在。
     "@dcloudio/vite-plugin-uni": "3.0.0-5010520260709002",
     "@vue/compiler-sfc": "3.4.21",
     "typescript": "5.9.3",
-    "vite": "5.2.8",
-    "vitest": "2.1.9",
+    "vite": "5.4.21",
+    "vitest": "3.2.6",
     "vue-tsc": "2.2.12"
   }
 }
@@ -291,6 +291,7 @@ git commit -m "feat: add uniapp api localization"
 **Files:**
 - Create: `clients/uniapp/src/main.ts`
 - Create: `clients/uniapp/src/App.vue`
+- Create: `clients/uniapp/index.html`
 - Create: `clients/uniapp/src/pages.json`
 - Create: `clients/uniapp/src/manifest.json`
 - Create: `clients/uniapp/src/locale/zh-Hans.json`
@@ -298,34 +299,39 @@ git commit -m "feat: add uniapp api localization"
 - Create: `clients/uniapp/src/locale/uni-app.zh-Hans.json`
 - Create: `clients/uniapp/src/locale/uni-app.en.json`
 - Create: `clients/uniapp/src/i18n/index.ts`
+- Create: `clients/uniapp/src/i18n/messages.zh-CN.json`
+- Create: `clients/uniapp/src/i18n/messages.en-US.json`
 - Create: `clients/uniapp/src/pages/settings/locale.vue`
+- Create: `clients/uniapp/src/pages/settings/locale-settings-model.ts`
 - Create: `clients/uniapp/tests/app-config.test.ts`
+- Create: `clients/uniapp/tests/i18n-integration.test.ts`
+- Create: `clients/uniapp/tests/locale-settings-model.test.ts`
 
 **Interfaces:**
 - Produces: `i18n`、`localeController`、`setActiveLocale` 与 H5/小程序入口页面。
 - Consumes: Task 2 状态机、Task 3 账号偏好端口和 uni-app 生命周期。
 
-- [ ] **Step 1: 写应用配置 RED 测试**
+- [x] **Step 1: 写应用配置 RED 测试**
 
 测试解析 pages/manifest/平台 locale JSON，断言启动页唯一指向 `pages/settings/locale`、默认语言为 `zh-Hans`、`%app.name%` 和 `%settings.title%` 键存在、无原生 tabBar、无远程 URL、所有平台资源双语同键。
 
-- [ ] **Step 2: 确认 RED**
+- [x] **Step 2: 确认 RED**
 
 Run: `pnpm --filter @fullnet/uniapp test -- app-config`
 
 Expected: FAIL，因为应用配置和页面尚不存在。
 
-- [ ] **Step 3: 装配 Vue I18n 与平台生命周期**
+- [x] **Step 3: 装配 Vue I18n 与平台生命周期**
 
 使用 `createI18n({ legacy: false, locale: 'zh-CN', fallbackLocale: 'zh-CN', messages })`。启动时从控制器初始化；每次快照提交后同步 Vue I18n、`uni.setLocale(toUniLocale(locale))`、`uni.setNavigationBarTitle`，H5 额外同步 `document.documentElement.lang`。`uni.onLocaleChange` 只通过控制器入口更新，避免事件回环。
 
-- [ ] **Step 4: 实现设置页**
+- [x] **Step 4: 实现设置页**
 
 视觉方向为“安静、可信的跨端控制面板”：深墨蓝背景、青绿色状态强调、紧凑但不拥挤的双选语言卡、明确的当前/待保存状态；不使用远程字体或图片。页面使用真实 `button`/`radio` 语义和可见焦点，支持窄屏、安全区、减少动画偏好；保存失败展示本地化错误与 traceId，不能清理会话或乐观改变语言。
 
 页面只展示“当前为匿名模式”或由上层注入的认证状态，不实现假 Token、假账号或平台登录。无 tabBar 是明确的首期设计；动态标题统一调用公开 `uni.setNavigationBarTitle`。
 
-- [ ] **Step 5: 转绿、类型检查并提交**
+- [x] **Step 5: 转绿、类型检查并提交**
 
 Run: `pnpm --filter @fullnet/uniapp test -- app-config`
 
@@ -358,19 +364,19 @@ git commit -m "feat: add uniapp locale settings"
 - Produces: 可重复的三目标构建门禁、H5 浏览器冒烟和具备证据的 L3/C3 状态。
 - Consumes: Task 1–4 完整应用。
 
-- [ ] **Step 1: 写 H5 冒烟与 CI RED 契约**
+- [x] **Step 1: 写 H5 冒烟与 CI RED 契约**
 
 Playwright 启动 `pnpm --filter @fullnet/uniapp dev:h5`，只运行 Chromium/Edge 一个 H5 项目。场景断言：中文启动、切换英文、刷新保持、`html lang=en-US`、英文导航标题/核心文案、匿名请求发送 `Accept-Language: en-US`、模拟认证保存失败时语言与会话视图保持原值、未知 ProblemDetails 显示 title 与 traceId。
 
 根脚本增加 `test:e2e:uniapp`。CI 必须运行 uni-app 单测、类型检查、三目标构建和 H5 E2E，并上传 H5 Playwright 报告；不得声称 CI 替代微信/支付宝开发者工具。
 
-- [ ] **Step 2: 确认新门禁先失败**
+- [x] **Step 2: 确认新门禁先失败**
 
 Run: `pnpm test:e2e:uniapp`
 
 Expected: FAIL，因为 E2E 配置、脚本或完整交互尚未接入。
 
-- [ ] **Step 3: 完成 H5 E2E 和 CI 接线**
+- [x] **Step 3: 完成 H5 E2E 和 CI 接线**
 
 `tests/e2e/uniapp-h5` 精确依赖 `@playwright/test: 1.61.1`，本地使用 Edge、CI 使用安装的 Chromium。CI 在客户端依赖安装后执行：
 
@@ -387,7 +393,7 @@ Expected: FAIL，因为 E2E 配置、脚本或完整交互尚未接入。
   run: pnpm test:e2e:uniapp
 ```
 
-- [ ] **Step 4: 运行三目标和 H5 验证**
+- [x] **Step 4: 运行三目标和 H5 验证**
 
 Run: `pnpm --filter @fullnet/uniapp test`
 
@@ -403,13 +409,13 @@ Run: `pnpm test:e2e:uniapp`
 
 Expected: 所有命令退出 0；三份产物不存在远程语言资源。
 
-- [ ] **Step 5: 记录工具与状态，不伪造平台验收**
+- [x] **Step 5: 记录工具与状态，不伪造平台验收**
 
 `docs/verification/uniapp-localization.md` 逐项记录 Node、pnpm、DCloud、Vue I18n、构建命令、测试数量、产物路径和时间。若微信开发者工具与支付宝小程序开发者工具仍未安装，分别写明 `Not executed — required tool not installed`，L3/C3 状态更新为 `Implementing / Build-verified`，不能写 `Verified`。
 
 README 与 getting-started 说明启动、测试、三目标构建、规范语言边界和后续开发者工具验收步骤；全栈设计与总计划只勾选实际完成的 Task 6 步骤。
 
-- [ ] **Step 6: 全工作区回归和依赖审计**
+- [x] **Step 6: 全工作区回归和依赖审计**
 
 Run: `pnpm test:workspace`
 
@@ -421,7 +427,7 @@ Run: `pnpm build:clients`
 
 Run: `pnpm test:e2e`
 
-Run: `pnpm audit --audit-level high`
+Run: `pnpm audit:clients`
 
 Expected: 全部退出 0；许可证报告中没有未披露的生产依赖。
 

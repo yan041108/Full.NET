@@ -28,7 +28,8 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单、全仓库语言治理清单、服务端资源本地化 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
 | C1 双管理端壳层 | Implemented | Vue/Element Plus、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、管理端 `zh-CN/en-US` 自有及组件文案、逐请求 Accept-Language、账号偏好原子同步、WCAG 2.2 A/AA、键盘/焦点、320 CSS px 重排、减弱动画与同场景双端 E2E | Windows Edge + NVDA、200% 缩放与强制颜色人工验收 |
 | C2 业务模块 | Mapped | 功能波次和双端同步门禁 | 首个 Identity/Tenancy/Organization 纵向切片 |
-| C3/C4 业务客户端 | Designing | 技术路线、平台边界和多语言统一设计 | uni-app、Flutter 工程、原生资源与平台构建验证 |
+| C3 uni-app 基础客户端 | Implementing / Build-verified | Vue 3/TypeScript、Vue I18n、规范语言适配、pages/manifest、本地资源、HTTP/ProblemDetails、账号偏好原子提交、96 项单测、类型检查、三目标 CLI 构建和 5 项 H5 E2E | 微信/支付宝开发者工具、真机、真实登录/租户/会话流程和平台发布清单 |
+| C4 Flutter 业务客户端 | Designing | 技术路线、平台边界和多语言统一设计 | Flutter 工程、原生资源与平台构建验证 |
 
 “C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的真实认证、租户、权限、管理端自有及组件文案、HTTP 协商、账号偏好、服务端错误本地化与自动可访问性流程已经通过验证；真实辅助技术、200% 缩放和强制颜色仍待完成，因此保持 `Implemented`，不提前标记为 `Verified`。
 
@@ -41,7 +42,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | L0 统一语言治理 | Implemented | 已实现 BCP 47 清单、平台映射、术语、资源 Schema 与缺键门禁 |
 | L1 ASP.NET Core | Implemented | 已实现 Accept-Language、规范别名、CultureScope、模块 .resx、响应头、本地化 ProblemDetails、结构化 violations 与 Admin.NET 兼容映射 |
 | L2 双管理端补齐 | Implemented | Element Plus/Day.js、Layui 公开 i18n、逐请求 Accept-Language、账号偏好与租户默认语言、双端保存失败回滚及 E2E |
-| L3 uni-app | Designing | Vue I18n、zh-CN↔zh-Hans 映射、pages/manifest、H5/微信/支付宝构建 |
+| L3 uni-app | Implementing / Build-verified | Vue I18n、zh-CN↔zh-Hans 映射、pages/manifest、H5/微信/支付宝 CLI 构建与 H5 浏览器冒烟；两个小程序开发者工具未执行 |
 | L4 Flutter | Designing | gen_l10n/ARB、请求语言、平台资源、移动/桌面构建 |
 | L5 业务内容与异步 | Mapped | 翻译表、通知/报表、Realtime、AI 输出语言 |
 | L6 MAUI | Decision Gate | 命中既有门禁后使用 .resx 和平台资源 |
@@ -233,6 +234,6 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 2. 执行 L2：补齐 Element Plus/Day.js、Layui 组件语言、Accept-Language 和账号/租户偏好；
 3. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
 4. 为 Identity 用户/角色/菜单、Tenancy 租户/套餐 CRUD 和 Organization 建立首批双管理端业务切片计划；当前只把可信租户上下文切换视为已验证基础，不把完整 C2.1 误标为完成；
-5. L1 契约稳定后执行 L3 uni-app 三目标计划；
+5. 继续执行 L3 uni-app 平台验收：在微信与支付宝开发者工具完成真实登录/API/错误/会话冒烟；当前仅为 `Implementing / Build-verified`；
 6. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 L4 Flutter 计划；
 7. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列和 L0-L6 状态。

@@ -37,6 +37,7 @@ pnpm test:workspace
 pnpm test:clients
 pnpm build:clients
 pnpm test:e2e
+pnpm test:e2e:uniapp
 ```
 
 `pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue 和 Layui 单元测试，当前门槛为 117 项；`pnpm test:e2e` 启动两个本地服务，并用同一组 28 项 Playwright 场景验证动态导航、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 组件语言、逐请求 `Accept-Language`、刷新恢复、偏好保存失败回滚、稳定错误码、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
@@ -49,6 +50,24 @@ pnpm --filter @fullnet/admin test
 pnpm --filter @fullnet/admin-layui test
 pnpm --filter @fullnet/admin-parity-e2e test
 ```
+
+### 2.2 uni-app 三目标基础
+
+uni-app 要求同一 Node.js 24 与 pnpm 10.26.0 工作区。H5 开发、单元测试、标准 SFC 类型检查和三个生产目标分别运行：
+
+```powershell
+pnpm --filter @fullnet/uniapp dev:h5
+pnpm --filter @fullnet/uniapp test
+pnpm --filter @fullnet/uniapp typecheck
+pnpm --filter @fullnet/uniapp build:h5
+pnpm --filter @fullnet/uniapp build:mp-weixin
+pnpm --filter @fullnet/uniapp build:mp-alipay
+pnpm test:e2e:uniapp
+```
+
+业务、API、账号资料与本地存储只使用规范 BCP 47 标签 `zh-CN/en-US`；uni-app 的 `zh-Hans/en` 只存在于平台适配器和平台资源文件。匿名选择立即保存在设备；认证选择通过 `PUT /api/v1/me/locale`，请求仍携带切换前已提交的 `Accept-Language`，只有响应中的规范语言与递增 `ProfileVersion` 通过守卫后才提交。失败保留旧语言、版本和认证视图；业务分支只读取稳定 ProblemDetails code，未知 code 安全展示服务端 title 与 `traceId`。
+
+H5 E2E 使用 DEV-only 测试端口注入认证快照并复用正式控制器、`HttpClient` 和 `uni.request`；端口和 fixture marker 会接受生产 H5 产物扫描，不进入 release。它不是登录功能，也不生成 Token 或假用户。微信与支付宝 CLI 构建成功后，仍须分别在对应开发者工具导入 `clients/uniapp/dist/build/mp-weixin` 和 `clients/uniapp/dist/build/mp-alipay`，执行中文启动、英文切换、重启保持、真实登录/API Header、错误、会话失效和导航标题验证。缺少工具时只能记录 `Not executed — required tool not installed`，不能写成已验证。当前证据见[uni-app 多语言验证记录](../verification/uniapp-localization.md)。
 
 自动检查不能替代真实辅助技术。版本发布前仍须在 Windows Edge + NVDA 下人工冒烟登录、导航、错误反馈和租户切换，并检查浏览器 200% 缩放及强制颜色模式；这些项目完成前不得把 C1 标记为 `Verified`。生产构建会把 Layui 2.13.8 从锁定的 MIT npm 包打入本地产物，不依赖公共 CDN，也不包含 layuiAdmin 产品主题源码或资产。`@axe-core/playwright` 仅为 MPL-2.0 开发测试依赖，不进入最终发布物。
 
@@ -66,9 +85,9 @@ pnpm --filter @fullnet/admin-layui dev
 
 服务端返回的导航元数据不是可执行配置。Vue 与 Layui 都必须先执行共享契约校验，再把语义组件、路由和路径映射到各自源码内的精确白名单；未知标识会被拒绝，禁止动态导入任意路径、执行字符串代码或插入任意 HTML。按钮隐藏只改善交互，API 仍执行服务端权限策略。Access Token、有效租户和权限快照只保存在内存，页面刷新通过 Refresh Cookie 恢复，不得写入 `localStorage` 或 `sessionStorage`。
 
-### 2.2 多语言当前边界与后续契约
+### 2.3 多语言当前边界与后续契约
 
-当前已实现 Vue/Layui 管理端的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题、Element Plus/Day.js、Layui 公开 `i18n.set` 组件语言和双端 E2E；所有管理端 HTTP 请求在发送前读取当前活动语言并覆盖为规范 `Accept-Language`，认证刷新重试保持相同语义。账号语言偏好与租户默认语言已通过双库 `004_LocalizationPreferences.sql` 持久化；客户端只在完整 `/api/v1/me` 快照通过守卫后同步偏好，认证切换通过 `PUT /api/v1/me/locale` 使用独立 `ProfileVersion`，只有响应通过守卫才提交本地语言和版本。保存失败保留会话、租户、旧语言和旧版本，TokenResponse/JWT 不携带偏好。服务端已建立规范别名映射、异步 CultureScope、本地化 ProblemDetails、模块错误资源与响应头能力；标准错误的 `status/code/traceId/violations` 不随语言变化，`title` 与兼容适配器的 `message` 在响应边界按协商语言解析。uni-app、Flutter、业务翻译表、通知/报表、Realtime 与 AI 输出仍属于后续阶段，不得据此宣称 Full.NET 全栈多语言已经完成。
+当前已实现 Vue/Layui 管理端的 `zh-CN/en-US` 自有文案、语言持久化、`html lang`、页面标题、Element Plus/Day.js、Layui 公开 `i18n.set` 组件语言和双端 E2E；所有管理端 HTTP 请求在发送前读取当前活动语言并覆盖为规范 `Accept-Language`，认证刷新重试保持相同语义。账号语言偏好与租户默认语言已通过双库 `004_LocalizationPreferences.sql` 持久化；客户端只在完整 `/api/v1/me` 快照通过守卫后同步偏好，认证切换通过 `PUT /api/v1/me/locale` 使用独立 `ProfileVersion`，只有响应通过守卫才提交本地语言和版本。保存失败保留会话、租户、旧语言和旧版本，TokenResponse/JWT 不携带偏好。服务端已建立规范别名映射、异步 CultureScope、本地化 ProblemDetails、模块错误资源与响应头能力；标准错误的 `status/code/traceId/violations` 不随语言变化，`title` 与兼容适配器的 `message` 在响应边界按协商语言解析。uni-app 已有基础应用、三目标构建和 H5 自动冒烟，但仍缺两个小程序开发者工具、真实登录/租户/会话流程验收，因此保持 `Implementing / Build-verified`。Flutter、业务翻译表、通知/报表、Realtime 与 AI 输出仍属于后续阶段，不得据此宣称 Full.NET 全栈多语言已经完成。
 
 全栈方案统一使用 BCP 47 的 `zh-CN` 和 `en-US`；uni-app 内部的 `zh-Hans` 与 Flutter ARB 的 `zh_CN` 只在各自适配层出现。HTTP 业务逻辑始终依赖稳定 `status/code/traceId`，不比较本地化 `title/detail`。日期按 UTC/ISO 传输，语言和时区分别处理；通知、报表、Realtime 服务端文本与 AI 输出必须显式指定接收者语言。
 

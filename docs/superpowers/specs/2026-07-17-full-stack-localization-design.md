@@ -30,7 +30,7 @@ Full.NET 采用“统一治理、平台原生实现”的多语言架构：
 | Vue 管理端 | 已支持 zh-CN/en-US 自有文案、Element Plus/Day.js 组件语言、逐请求 Accept-Language、账号偏好原子同步和双端 E2E | 真实辅助技术人工验收与后续业务模块资源仍需逐切片完成 |
 | Layui 管理端 | 已复用同一消息键，以纯文本 DOM 绑定切换语言，并通过公开 i18n.set 配置表格、分页、日期、表单和上传等组件消息 | 真实辅助技术人工验收与后续业务模块资源仍需逐切片完成 |
 | ASP.NET Core | 已实现请求本地化、规范别名、Content-Language、本地化 ProblemDetails/violations、资源完整性、账号偏好与租户默认语言双库持久化 | 后台任务、通知及业务内容翻译需随真实消费者实现 |
-| uni-app | 技术路线和工作区入口已规划 | clients/uniapp 尚未创建；应用、pages/manifest、小程序原生组件和 API 请求语言均未设计落地 |
+| uni-app | 已建立 Vue 3/TypeScript 应用、Vue I18n、规范语言适配、pages/manifest、本地资源、逐请求 Accept-Language、账号偏好原子提交、ProblemDetails、96 项单测、类型检查、三目标 CLI 构建和 H5 E2E | 微信/支付宝开发者工具与真机未执行；真实登录、租户、会话失效、原生组件和发布流程仍待平台验收 |
 | Flutter | 技术路线已确定 | clients/flutter 尚未创建；ARB、生成类、平台包名称、布局方向和请求语言均未落地 |
 | .NET MAUI | 仅有决策门禁 | 命中门禁后才采用 .resx 与平台资源；当前不创建第二套 App |
 | 业务内容 | 菜单、字典、通知、模板、报表仍在后续模块 | 尚未区分系统资源、用户输入和需要多版本翻译的业务内容 |
@@ -219,7 +219,7 @@ clients/uniapp 使用 Vue 3 + TypeScript + Vue I18n：
 - 微信/支付宝原生组件或 API 不能被 Vue I18n 控制的部分必须分别真机/开发者工具验收；
 - uni.request 统一发送外部规范 Accept-Language，不把 zh-Hans 暴露给 API。
 
-H5 同步 html lang/dir；微信和支付宝分别构建，禁止以 H5 成功推断小程序多语言成功。
+H5 同步 html lang/dir；微信和支付宝分别构建，禁止以 H5 成功推断小程序多语言成功。当前 H5 浏览器冒烟与三个 CLI 目标已通过，但微信、支付宝开发者工具未安装，所以 L3/C3 保持 `Implementing / Build-verified`，不标记为 `Verified`。
 
 ### 7.4 Flutter
 
@@ -289,7 +289,7 @@ MAUI 仍受现有决策门禁约束。命中后使用 .resx、CurrentUICulture �
 ### 10.3 客户端
 
 - Vue/Layui 同场景 E2E 同时断言应用文案、Element Plus/Layui 组件、请求 Header、刷新持久化和长文本布局；
-- uni-app 分别构建 H5、mp-weixin、mp-alipay，并分别验证标题、错误、语言切换与 API Header；
+- uni-app 分别构建 H5、mp-weixin、mp-alipay；H5 自动验证标题、错误、语言切换与 API Header，两个小程序必须在各自开发者工具或真机补齐同场景证据；
 - Flutter 执行 flutter gen-l10n、flutter analyze、单元/Widget 测试和受影响平台构建；
 - 所有客户端都验证语言切换不清除会话、不改变租户、不扩大权限、不依赖本地化错误文本。
 
@@ -300,7 +300,7 @@ MAUI 仍受现有决策门禁约束。命中后使用 .resx、CurrentUICulture �
 | L0 统一契约 | locales/glossary、资源规范、验证脚本 | 清单与现有管理端资源一致，CI 能阻止缺键和非法语言 |
 | L1 后端本地化 | BuildingBlock、Accept-Language、.resx、ProblemDetails/violations | zh-CN/en-US API 集成测试通过，逻辑 code 完全一致 |
 | L2 双管理端补齐 | Element Plus/Day.js、Layui i18n、Header、账号偏好 | 两端应用与组件文案、偏好同步和 E2E 通过 |
-| L3 uni-app | 工程、Vue I18n、平台映射、pages/manifest、三目标构建 | H5/微信/支付宝分别完成语言切换、登录/API/错误冒烟 |
+| L3 uni-app | 工程、Vue I18n、平台映射、pages/manifest、三目标构建；当前 `Implementing / Build-verified` | H5/微信/支付宝分别完成语言切换、登录/API/错误冒烟 |
 | L4 Flutter | ARB/gen_l10n、请求语言、平台资源、移动/桌面验证 | 每个声明平台有构建与本地化冒烟证据 |
 | L5 业务内容与异步 | 翻译表、通知/报表模板、Realtime、AI 输出语言 | 多接收者、多租户、多语言并发与回退可验证 |
 | L6 MAUI（按需） | 命中门禁后的 .resx 与平台资源 | 独立 ADR、平台范围与构建矩阵通过 |
@@ -324,6 +324,7 @@ Full.NET 只有满足以下条件才能宣称“支持多语言”：
 - .NET localization resources: https://learn.microsoft.com/dotnet/core/extensions/localization
 - uni-app internationalization: https://uniapp.dcloud.net.cn/tutorial/i18n.html
 - uni-app locale APIs: https://uniapp.dcloud.net.cn/api/ui/locale
+- uni-app CLI project: https://uniapp.dcloud.net.cn/quickstart-cli.html
 - Flutter internationalization: https://docs.flutter.dev/ui/internationalization
 - .NET MAUI localization: https://learn.microsoft.com/dotnet/maui/fundamentals/localization?view=net-maui-10.0
 - Element Plus internationalization: https://element-plus.org/en-US/guide/i18n

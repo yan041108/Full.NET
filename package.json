@@ -9,13 +9,28 @@
   "scripts": {
     "test:localization": "node --test tests/localization-contract.test.mjs",
     "test:workspace": "node tests/client-workspace.test.mjs",
-    "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --if-present test",
+    "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/uniapp-h5-e2e --if-present test",
     "build:clients": "pnpm --recursive --if-present build",
-    "test:e2e": "pnpm --filter @fullnet/admin-parity-e2e test"
+    "test:e2e": "pnpm --filter @fullnet/admin-parity-e2e test",
+    "test:e2e:uniapp": "pnpm --filter @fullnet/uniapp-h5-e2e test",
+    "audit:clients": "node scripts/audit-client-dependencies.mjs"
   },
   "pnpm": {
     "overrides": {
-      "glob": "10.5.0"
+      "glob": "10.5.0",
+      "@intlify/message-compiler": "9.14.5",
+      "@dcloudio/uni-cli-shared>@intlify/core-base": "9.1.11",
+      "@intlify/message-resolver@9.1.9": "9.1.11",
+      "@intlify/message-resolver@9.1.10": "9.1.11",
+      "@jimp/jpeg>jpeg-js": "0.4.4",
+      "@dcloudio/uni-mp-weixin>ws": "8.21.0",
+      "@dcloudio/uni-cli-shared>adm-zip": "0.6.0",
+      "express@4.20.0>path-to-regexp": "0.1.13"
+    },
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "@dcloudio/vite-plugin-uni>vite": "5.4.21"
+      }
     }
   }
 }

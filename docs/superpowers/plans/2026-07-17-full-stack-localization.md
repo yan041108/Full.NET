@@ -536,11 +536,11 @@ git commit -m "feat: complete dual admin localization"
 - Produces: resolveUniLocale、toCanonicalLocale、setActiveLocale、uni.request Accept-Language。
 - Consumes: Task 1 规范语言，Task 4 账号偏好，标准 ProblemDetails。
 
-- [ ] **Step 1: 固定工具链版本**
+- [x] **Step 1: 固定工具链版本**
 
-从 uni-app 官方 CLI/Vite Vue 3 TypeScript 模板创建工程；@dcloudio 运行时与构建包统一固定为 `3.0.0-5010520260709002`，Vue/Vue compiler 固定为 `3.4.21`，Vite 固定为 `5.2.8`，`@dcloudio/types` 固定为 `3.4.31`，Vue I18n 按 uni-app 官方文档固定为 `9.1.9`。TypeScript、vue-tsc 与 Vitest 同样使用精确版本，禁止 latest、星号或未锁定插件市场依赖。记录 Node 24/pnpm 10.26.0 的实际兼容验证。
+从 uni-app 官方 CLI/Vite Vue 3 TypeScript 模板创建工程；@dcloudio 运行时与构建包统一固定为 `3.0.0-5010520260709002`，Vue/Vue compiler 固定为 `3.4.21`，`@dcloudio/types` 固定为 `3.4.31`。安全审计后将 Vue I18n 固定为 `9.14.5`、Vitest 固定为 `3.2.6`、Vite 固定为经三端构建和 H5 E2E 验证的 `5.4.21`；DCloud 插件仍声明精确 peer `5.2.8`，该偏差必须通过版本化、路径受限且可过期的安全策略管理，不能宣称获得上游正式支持。TypeScript 与 vue-tsc 同样使用精确版本，禁止 latest、星号或未锁定插件市场依赖。记录 Node 24/pnpm 10.26.0 的实际兼容验证。
 
-- [ ] **Step 2: 写 RED 适配测试**
+- [x] **Step 2: 写 RED 适配测试**
 
 ~~~typescript
 expect(toCanonicalLocale('zh-Hans')).toBe('zh-CN');
@@ -551,19 +551,19 @@ expect(toUniLocale('en-US')).toBe('en');
 
 HTTP 测试模拟 uni.request，断言 Header 为外部规范 zh-CN/en-US。
 
-- [ ] **Step 3: 初始化 Vue I18n**
+- [x] **Step 3: 初始化 Vue I18n**
 
 createI18n 使用 legacy: false、fallbackLocale: zh-CN、两套静态消息；初始值来自 uni.getLocale 经适配器规范化。setActiveLocale 同步 Vue I18n 与 uni.setLocale，并监听 uni.onLocaleChange。
 
-- [ ] **Step 4: 本地化应用配置**
+- [x] **Step 4: 本地化应用配置**
 
 locale/ 文件覆盖 app.name、导航标题和启动说明；manifest 默认 zh-Hans。小程序动态页面标题使用 uni.setNavigationBarTitle；需要运行时切换的 tabBar 使用自定义实现，不调用平台不支持的动态原生 tabBar 文案接口。
 
-- [ ] **Step 5: 接入账号偏好与错误**
+- [x] **Step 5: 接入账号偏好与错误**
 
 匿名选择立即本地持久化；登录后只有通过守卫的 `/api/v1/me` PreferredLocale 决定活动语言；已认证切换携带 ProfileVersion 调用 PUT `/api/v1/me/locale`，只有服务端响应通过守卫后才提交本地语言和版本，失败保留原语言、版本、会话与租户。ProblemDetails 优先用 violations.code/arguments 本地化，未知 code 使用服务端 title 并展示 traceId。
 
-- [ ] **Step 6: 三目标验证**
+- [x] **Step 6: 三目标验证**
 
 Run: pnpm --filter @fullnet/uniapp test
 
@@ -577,6 +577,8 @@ Expected: 单元测试和三目标构建均退出 0；构建产物无未锁定�
 - [ ] **Step 7: 平台冒烟**
 
 H5、微信开发者工具、支付宝小程序开发者工具分别验证中文启动、切换英文、重启保持、登录/API Header、验证错误、会话失效和导航标题。每个平台保存版本和结果到 docs/verification/uniapp-localization.md。
+
+当前证据：H5 已通过 5 项 Playwright 自动冒烟；微信与支付宝开发者工具均为 `Not executed — required tool not installed`，因此本步骤保持未完成，L3/C3 只能标记为 `Implementing / Build-verified`。
 
 - [ ] **Step 8: 提交**
 

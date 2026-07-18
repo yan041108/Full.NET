@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "registry": "https://registry.npmjs.org",
+  "minimumSeverity": "high",
+  "exceptions": [
+    {
+      "ghsa": "GHSA-fx2h-pf6j-xcff",
+      "package": "vite",
+      "allowedPaths": [
+        "clients__uniapp>vite",
+        "clients__uniapp>@dcloudio/uni-h5>@dcloudio/uni-h5-vite>@vitejs/plugin-basic-ssl>vite"
+      ],
+      "rationale": "DCloud 3.0.0-5010520260709002 declares an exact Vite 5.2.8 peer while the patched advisory requires Vite 6.4.3 or later; Full.NET has verified Vite 5.4.21 without claiming upstream support.",
+      "upstreamPeerEvidence": {
+        "package": "@dcloudio/vite-plugin-uni",
+        "version": "3.0.0-5010520260709002",
+        "vite": "5.2.8"
+      },
+      "mitigations": [
+        "The uni-app development server binds only to 127.0.0.1.",
+        "Client directories must not contain secrets, .env files, certificates, or private keys.",
+        "Production artifacts do not include the Vite development server or its Node runtime package; only generated build helper identifiers may remain."
+      ],
+      "reviewBy": "2026-10-18"
+    }
+  ]
+}

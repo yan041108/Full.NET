@@ -1,0 +1,13 @@
+{
+  "name": "@fullnet/uniapp-h5-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pretest": "pnpm --filter @fullnet/uniapp build:h5",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}

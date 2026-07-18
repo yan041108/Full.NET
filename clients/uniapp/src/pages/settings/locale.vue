@@ -72,6 +72,14 @@ function localeName(locale: CanonicalLocale): string {
 async function saveSelection(): Promise<void> {
   await model.saveSelection();
 }
+
+function activateSave(): void {
+  if (state.value.isSubmitDisabled) {
+    return;
+  }
+
+  void saveSelection();
+}
 </script>
 
 <template>
@@ -148,6 +156,14 @@ async function saveSelection(): Promise<void> {
           form-type="submit"
           :disabled="state.isSubmitDisabled"
           :loading="state.isBusy"
+          role="button"
+          :tabindex="state.isSubmitDisabled ? -1 : 0"
+          :aria-label="state.isBusy ? t('settings.save.saving') : actionText"
+          :aria-disabled="state.isSubmitDisabled ? 'true' : 'false'"
+          :aria-busy="state.isBusy ? 'true' : 'false'"
+          @click="activateSave"
+          @keydown.enter.prevent="activateSave"
+          @keydown.space.prevent="activateSave"
         >
           {{ state.isBusy ? t('settings.save.saving') : actionText }}
         </button>
