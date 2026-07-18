@@ -31,6 +31,9 @@ jobs:
           pnpm licenses list --prod --json > client-production-licenses.json
           pnpm licenses list --json > client-development-licenses.json
 
+      - name: Verify naming governance
+        run: pnpm test:naming
+
       - name: Test shared and admin client packages
         run: |
           pnpm test:workspace

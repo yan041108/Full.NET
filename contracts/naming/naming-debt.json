@@ -98,6 +98,125 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
       "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/004_LocalizationPreferences.sql",
+      "reason": "历史补丁迁移仍引用旧 Tenancy 表名，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/004_LocalizationPreferences.sql",
+      "reason": "历史补丁迁移仍引用旧 Tenancy 表名，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_outbox_message.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_outbox_message.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_identity_user.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/002_Identity.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_identity_user.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/002_Identity.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_identity_refresh_session.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/002_Identity.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_identity_refresh_session.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/002_Identity.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_identity_auth_audit.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/002_Identity.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_identity_auth_audit.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/002_Identity.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "reason": "现有静态 SQL 仍依赖旧 Tenancy 表名，必须与数据库规范化迁移同步切换。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "query",
+      "value": "select_all_columns",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "reason": "SQL Server Outbox 领取 CTE 使用星号投影，需在独立 SQL 优化任务中改为显式列。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/004_LocalizationPreferences.sql",
+      "reason": "历史可重入迁移使用动态 SQL，已人工审查但静态门禁不能可靠解析。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/005_SuperAdministrator.sql",
+      "reason": "历史可重入迁移使用动态 SQL，已人工审查但静态门禁不能可靠解析。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/004_LocalizationPreferences.sql",
+      "reason": "历史可重入迁移使用 PREPARE，已人工审查但静态门禁不能可靠解析。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/005_SuperAdministrator.sql",
+      "reason": "历史可重入迁移使用 PREPARE，已人工审查但静态门禁不能可靠解析。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/006_SuperAdministratorAuditActor.sql",
+      "reason": "历史可重入迁移使用 PREPARE，已人工审查但静态门禁不能可靠解析。",
+      "removalMilestone": "M1.0"
     }
   ]
 }
