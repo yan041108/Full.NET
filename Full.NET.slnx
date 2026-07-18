@@ -9,6 +9,7 @@
     <Project Path="src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Data.CodeGeneration/Full.NET.Data.CodeGeneration.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Data.MySql/Full.NET.Data.MySql.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Localization/Full.NET.Localization.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Migrations.DbUp/Full.NET.Migrations.DbUp.csproj" />

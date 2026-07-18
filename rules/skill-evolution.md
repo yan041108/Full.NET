@@ -88,7 +88,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 
 | 候选 | 状态/次数 | 当前证据 | 下一升级触发 |
 | --- | --- | --- | --- |
-| `fullnet-dual-database-change` | 观察 / 7 | 基础迁移、Tenancy SQL/API、Identity 授权上下文与语言偏好迁移均覆盖双库；Seed 执行审计新增双库迁移、未记账部分 DDL 恢复、数据库级锁竞争与参数化审计真实测试 | 再出现跨模块提供程序分支时，评估从模块交付 Skill 拆分；当前由强化后的既有 Skill 与双库恢复门禁覆盖 |
+| `fullnet-dual-database-change` | 观察 / 8 | 基础迁移、Tenancy SQL/API、Identity 授权上下文、语言偏好与 Seed 审计均覆盖双库；本次又把 Dapper、DbUp、Seed 的 MySQL UUID 连接策略集中到同一 Provider 边界，并用固定向量和依赖门禁验证 | 完成 008/009 UUID 存储迁移及恢复/切换验收后，按测试先行流程评估从模块交付 Skill 拆分；当前边界尚未覆盖完整迁移停止条件 |
 | `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 事件使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
 | `fullnet-api-compatibility` | 候选 / 4 | 标准 ProblemDetails 与 Admin.NET Mapper 已存在；认证 Challenge 已收敛为保留 `WWW-Authenticate` 的本地化 ProblemDetails，本次又让 RateLimiter 中间件拒绝通过同一 Mapper 返回稳定、本地化 429，并以真实 API 测试锁定协议 | 新增分页、文件或另一类兼容端点时评估升级 |
 | `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名与按 ID 的租户解析缓存及 tag 失效处理已存在 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |

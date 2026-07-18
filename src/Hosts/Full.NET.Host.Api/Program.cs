@@ -12,7 +12,9 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddFullNetServiceDefaults();
 builder.Services.AddOpenApi();
-builder.Services.AddFullNetDapper(builder.Configuration);
+builder.Services.AddFullNetDapper(
+    builder.Configuration,
+    builder.Environment.EnvironmentName);
 builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetCaching(
     builder.Configuration,

@@ -16,6 +16,7 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Data.Abstractions.SqlStatement).Assembly,
         typeof(Full.NET.Data.CodeGeneration.Naming.NamingProfile).Assembly,
         typeof(Full.NET.Data.Dapper.ServiceCollectionExtensions).Assembly,
+        typeof(Full.NET.Data.MySql.MySqlConnectionStringPolicy).Assembly,
         typeof(Full.NET.Hosting.Api.IApiResultMapper).Assembly,
         typeof(Full.NET.Localization.ILocaleNormalizer).Assembly,
         typeof(Full.NET.Migrations.DbUp.IDatabaseMigrationRunner).Assembly,
@@ -87,6 +88,141 @@ public sealed class DependencyRulesTests
         Assert.IsTrue(
             result.IsSuccessful,
             $"Business module data dependency violations: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void MySql_provider_has_only_approved_dependencies_and_consumers()
+    {
+        var root = FindRepositoryRoot();
+        var providerProjectPath = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Data.MySql",
+            "Full.NET.Data.MySql.csproj");
+        Assert.IsTrue(File.Exists(providerProjectPath), "MySQL Provider 项目必须存在。");
+
+        var providerProject = XDocument.Load(providerProjectPath);
+        var dependencies = providerProject
+            .Descendants()
+            .Where(element => element.Name.LocalName is "ProjectReference" or "PackageReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "..\\Full.NET.Data.Abstractions\\Full.NET.Data.Abstractions.csproj",
+                "MySqlConnector",
+            },
+            dependencies);
+
+        var moduleProjectOffenders = Directory
+            .EnumerateFiles(
+                Path.Combine(root, "src", "Modules"),
+                "*.csproj",
+                SearchOption.AllDirectories)
+            .Where(path => XDocument.Load(path)
+                .Descendants()
+                .Where(element => element.Name.LocalName is "ProjectReference" or "PackageReference")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Any(value => value?.Contains("Full.NET.Data.MySql", StringComparison.Ordinal) == true
+                    || string.Equals(value, "MySqlConnector", StringComparison.Ordinal)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .ToArray();
+        Assert.HasCount(0, moduleProjectOffenders, string.Join(Environment.NewLine, moduleProjectOffenders));
+
+        var approvedConsumers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Data.Dapper", "Full.NET.Data.Dapper.csproj"),
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "Full.NET.Migrations.DbUp.csproj"),
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Seeding.Dapper", "Full.NET.Seeding.Dapper.csproj"),
+            Path.Combine("src", "Hosts", "Full.NET.Host.Migrator", "Full.NET.Host.Migrator.csproj"),
+            Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
+            Path.Combine("tests", "Full.NET.IntegrationTests", "Full.NET.IntegrationTests.csproj"),
+            Path.Combine("tests", "Full.NET.ArchitectureTests", "Full.NET.ArchitectureTests.csproj"),
+        };
+        var consumers = Directory
+            .EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => XDocument.Load(path)
+                .Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Any(value => value?.Contains("Full.NET.Data.MySql", StringComparison.Ordinal) == true))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+        var unapprovedConsumers = consumers
+            .Where(path => !approvedConsumers.Contains(path))
+            .ToArray();
+        Assert.HasCount(0, unapprovedConsumers, string.Join(Environment.NewLine, unapprovedConsumers));
+        CollectionAssert.Contains(
+            consumers,
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Data.Dapper", "Full.NET.Data.Dapper.csproj"));
+        CollectionAssert.Contains(
+            consumers,
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "Full.NET.Migrations.DbUp.csproj"));
+        CollectionAssert.Contains(
+            consumers,
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Seeding.Dapper", "Full.NET.Seeding.Dapper.csproj"));
+
+        AssertPolicyConsumer(
+            root,
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Data.Dapper", "DbConnectionFactory.cs"),
+            "allowUserVariables: false");
+        AssertPolicyConsumer(
+            root,
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Seeding.Dapper", "SeedDbConnectionFactory.cs"),
+            "allowUserVariables: false");
+        AssertPolicyConsumer(
+            root,
+            Path.Combine("src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "DbUpMigrationRunner.cs"),
+            "allowUserVariables: true");
+    }
+
+    [TestMethod]
+    public void Guid_storage_unsafe_conversions_exist_only_in_negative_fixtures()
+    {
+        var root = FindRepositoryRoot();
+        var allowedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Path.Combine("tests", "Full.NET.UnitTests", "Data", "MySqlConnectionStringPolicyTests.cs"),
+            Path.Combine("tests", "Full.NET.IntegrationTests", "Data", "GuidBinaryRoundTripTests.cs"),
+        };
+        var forbiddenFragments = new[]
+        {
+            "Guid." + "ToByteArray",
+            "TimeSwap" + "Binary16",
+        };
+        var offenders = Directory
+            .EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
+            .Where(path => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.OrdinalIgnoreCase))
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                StringComparison.OrdinalIgnoreCase))
+            .Select(path => new
+            {
+                Path = Path.GetRelativePath(root, path),
+                Content = File.ReadAllText(path),
+            })
+            .Where(file => !allowedFiles.Contains(file.Path))
+            .Where(file => forbiddenFragments.Any(fragment =>
+                    file.Content.Contains(fragment, StringComparison.Ordinal))
+                || System.Text.RegularExpressions.Regex.IsMatch(
+                    file.Content,
+                    @"UUID_TO_BIN\s*\([^\r\n;]*,\s*1\s*\)",
+                    System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            .Select(file => file.Path)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(0, offenders, string.Join(Environment.NewLine, offenders));
     }
 
     [TestMethod]
@@ -212,6 +348,22 @@ public sealed class DependencyRulesTests
         }
     }
 
+    private static void AssertPolicyConsumer(
+        string root,
+        string relativePath,
+        string expectedUserVariableSetting)
+    {
+        var content = File.ReadAllText(Path.Combine(root, relativePath));
+        Assert.Contains(
+            "MySqlConnectionStringPolicy.Create",
+            content,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            expectedUserVariableSetting,
+            content,
+            StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -235,6 +387,9 @@ internal static class ProductionAssemblies
     public static readonly Assembly DataDapper =
         typeof(Full.NET.Data.Dapper.ServiceCollectionExtensions).Assembly;
 
+    public static readonly Assembly DataMySql =
+        typeof(Full.NET.Data.MySql.MySqlConnectionStringPolicy).Assembly;
+
     public static readonly Assembly SeedingDapper =
         typeof(Full.NET.Seeding.Dapper.SeedCommandLine).Assembly;
 
@@ -251,6 +406,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Data.Abstractions.SqlStatement).Assembly,
         typeof(Full.NET.Data.CodeGeneration.Naming.NamingProfile).Assembly,
         DataDapper,
+        DataMySql,
         typeof(Full.NET.Hosting.Api.IApiResultMapper).Assembly,
         typeof(Full.NET.Localization.ILocaleNormalizer).Assembly,
         typeof(Full.NET.Migrations.DbUp.IDatabaseMigrationRunner).Assembly,

@@ -106,7 +106,7 @@ public sealed class MultiResultQueryTests
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(serviceProvider =>
             serviceProvider.GetRequiredService<CurrentTenantAccessor>());
-        services.AddFullNetDapper(configuration);
+        services.AddFullNetDapper(configuration, "Testing");
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
             // 本用例只验证数据执行器；Outbox 的完整依赖由其专用集成测试负责。

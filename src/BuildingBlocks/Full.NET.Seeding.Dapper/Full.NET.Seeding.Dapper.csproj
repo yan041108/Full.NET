@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
     <ProjectReference Include="..\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Include="..\Full.NET.Data.MySql\Full.NET.Data.MySql.csproj" />
     <ProjectReference Include="..\Full.NET.Seeding.Abstractions\Full.NET.Seeding.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
@@ -11,7 +12,6 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
-    <PackageReference Include="MySqlConnector" />
   </ItemGroup>
 
 </Project>

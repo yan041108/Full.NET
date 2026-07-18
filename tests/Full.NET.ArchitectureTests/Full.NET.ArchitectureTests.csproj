@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.CodeGeneration\Full.NET.Data.CodeGeneration.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.MySql\Full.NET.Data.MySql.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Localization\Full.NET.Localization.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Migrations.DbUp\Full.NET.Migrations.DbUp.csproj" />

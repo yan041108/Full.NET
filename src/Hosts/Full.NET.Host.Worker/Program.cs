@@ -7,7 +7,9 @@ using Full.NET.Serialization.MessagePack;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.AddFullNetServiceDefaults();
-builder.Services.AddFullNetDapper(builder.Configuration);
+builder.Services.AddFullNetDapper(
+    builder.Configuration,
+    builder.Environment.EnvironmentName);
 builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetCaching(
     builder.Configuration,

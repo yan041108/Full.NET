@@ -10,13 +10,29 @@ namespace Full.NET.Data.Dapper;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// 注册 Full.NET Dapper 数据边界与启动配置验证。
+    /// </summary>
+    /// <param name="services">宿主服务集合。</param>
+    /// <param name="configuration">宿主最终配置。</param>
+    /// <param name="environmentName">当前宿主环境名称。</param>
+    /// <returns>原服务集合，便于链式装配。</returns>
     public static IServiceCollection AddFullNetDapper(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        string environmentName)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
+
         SqlMapper.AddTypeHandler(new UtcDateTimeOffsetTypeHandler());
+        var databaseSection = configuration.GetSection(DatabaseOptions.SectionName);
+        var hasExplicitMySqlGuidStorageMode = databaseSection
+            .GetSection(nameof(DatabaseOptions.MySqlGuidStorageMode))
+            .Value is not null;
         services.AddOptions<DatabaseOptions>()
-            .Bind(configuration.GetSection(DatabaseOptions.SectionName))
+            .Bind(databaseSection)
             .PostConfigure(options =>
             {
                 if (string.IsNullOrWhiteSpace(options.ConnectionString))
@@ -31,6 +47,16 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => options.CommandTimeoutSeconds > 0,
                 "CommandTimeoutSeconds must be greater than zero.")
+            .Validate(
+                options => Enum.IsDefined(options.MySqlGuidStorageMode),
+                "MySqlGuidStorageMode must be a supported value.")
+            .Validate(
+                _ => !string.Equals(
+                        environmentName,
+                        "Production",
+                        StringComparison.OrdinalIgnoreCase)
+                    || hasExplicitMySqlGuidStorageMode,
+                "MySqlGuidStorageMode must be explicitly configured in Production.")
             .ValidateOnStart();
 
         services.AddSingleton<DbConnectionFactory>();

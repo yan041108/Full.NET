@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Include="..\Full.NET.Data.MySql\Full.NET.Data.MySql.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="dbup-core" />
@@ -10,7 +11,6 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options" />
-    <PackageReference Include="MySqlConnector" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Migrations\**\*.sql" />

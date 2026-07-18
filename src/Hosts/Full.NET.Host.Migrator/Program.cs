@@ -13,7 +13,9 @@ using Microsoft.Extensions.Logging;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.AddFullNetServiceDefaults();
-builder.Services.AddFullNetDapper(builder.Configuration);
+builder.Services.AddFullNetDapper(
+    builder.Configuration,
+    builder.Environment.EnvironmentName);
 builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetMigrations();
 builder.Services.AddFullNetSeeding(builder.Configuration);

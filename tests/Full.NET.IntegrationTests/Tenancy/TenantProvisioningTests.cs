@@ -230,7 +230,7 @@ public sealed class TenantProvisioningTests
         // 该夹具只验证非 HTTP 事务切片；显式替身用于满足完整模块的授权结果映射依赖。
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         services.AddFullNetModularity();
-        services.AddFullNetDapper(configuration);
+        services.AddFullNetDapper(configuration, "Testing");
         services.AddFullNetMessagePack();
         services.AddFullNetCaching(configuration, "Test");
         services.AddFullNetModule<IdentityModule>(configuration);
