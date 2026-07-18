@@ -90,6 +90,41 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Business_modules_do_not_depend_on_seeding_dapper()
+    {
+        var result = Types.InAssemblies(
+                [typeof(IdentityModule).Assembly, typeof(TenancyModule).Assembly])
+            .ShouldNot()
+            .HaveDependencyOn("Full.NET.Seeding.Dapper")
+            .GetResult();
+
+        Assert.IsTrue(
+            result.IsSuccessful,
+            $"业务模块 Seed 基础设施依赖违规: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void Only_migrator_host_depends_on_seeding_dapper()
+    {
+        var runtimeHostResult = Types.InAssemblies(
+                [ProductionAssemblies.HostApi, ProductionAssemblies.HostWorker])
+            .ShouldNot()
+            .HaveDependencyOn("Full.NET.Seeding.Dapper")
+            .GetResult();
+        var migratorReferencesSeeding = ProductionAssemblies.HostMigrator
+            .GetReferencedAssemblies()
+            .Any(reference => string.Equals(
+                reference.Name,
+                "Full.NET.Seeding.Dapper",
+                StringComparison.Ordinal));
+
+        Assert.IsTrue(
+            runtimeHostResult.IsSuccessful,
+            $"运行时 Host Seed 基础设施依赖违规: {string.Join(", ", runtimeHostResult.FailingTypeNames ?? [])}");
+        Assert.IsTrue(migratorReferencesSeeding, "Migrator 必须显式引用 Seed Dapper 基础设施。");
+    }
+
+    [TestMethod]
     public void RejectedDapperExtensions_AreNotReferencedByProjectsOrCentralVersions()
     {
         var rejectedPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -203,6 +238,12 @@ internal static class ProductionAssemblies
     public static readonly Assembly SeedingDapper =
         typeof(Full.NET.Seeding.Dapper.SeedCommandLine).Assembly;
 
+    public static readonly Assembly HostApi = Assembly.Load("Full.NET.Host.Api");
+
+    public static readonly Assembly HostMigrator = Assembly.Load("Full.NET.Host.Migrator");
+
+    public static readonly Assembly HostWorker = Assembly.Load("Full.NET.Host.Worker");
+
     public static readonly Assembly[] All =
     [
         typeof(Full.NET.Abstractions.Results.Result<>).Assembly,
@@ -222,8 +263,8 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Composition.FullNetHostProfile).Assembly,
         typeof(IdentityModule).Assembly,
         typeof(TenancyModule).Assembly,
-        Assembly.Load("Full.NET.Host.Api"),
-        Assembly.Load("Full.NET.Host.Migrator"),
-        Assembly.Load("Full.NET.Host.Worker"),
+        HostApi,
+        HostMigrator,
+        HostWorker,
     ];
 }

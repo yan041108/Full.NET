@@ -113,17 +113,23 @@ internal sealed class IdentityBootstrapService(
             userId = user.Id;
         }
 
-        await SynchronizeAuthorizationAsync(
+        var authorizationChanged = await SynchronizeAuthorizationAsync(
                 userId!.Value,
                 now,
                 cancellationToken)
             .ConfigureAwait(false);
 
         return Result<BootstrapHostAdminResult>.Success(
-            new BootstrapHostAdminResult(userId.Value, created, true));
+            new BootstrapHostAdminResult(
+                userId.Value,
+                created,
+                true)
+            {
+                AuthorizationChanged = authorizationChanged,
+            });
     }
 
-    private async Task SynchronizeAuthorizationAsync(
+    private async Task<bool> SynchronizeAuthorizationAsync(
         Guid userId,
         DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -134,6 +140,7 @@ internal sealed class IdentityBootstrapService(
                 cancellationToken)
             .ConfigureAwait(false);
         Guid roleId;
+        var authorizationChanged = false;
         if (role is null)
         {
             roleId = idGenerator.NewId();
@@ -154,6 +161,7 @@ internal sealed class IdentityBootstrapService(
                     "role insert",
                     cancellationToken)
                 .ConfigureAwait(false);
+            authorizationChanged = true;
         }
         else
         {
@@ -177,15 +185,17 @@ internal sealed class IdentityBootstrapService(
                         "role update",
                         cancellationToken)
                     .ConfigureAwait(false);
+                authorizationChanged = true;
             }
         }
 
-        await RequireZeroOrOneAsync(
+        var userRoleAffectedRows = await RequireZeroOrOneAsync(
                 IdentitySql.EnsureUserRole,
                 new IdentityUserRole(userId, roleId),
                 "user role synchronization",
                 cancellationToken)
             .ConfigureAwait(false);
+        return authorizationChanged || userRoleAffectedRows == 1;
     }
 
     private async Task RequireExactlyOneAsync(
@@ -206,7 +216,7 @@ internal sealed class IdentityBootstrapService(
         }
     }
 
-    private async Task RequireZeroOrOneAsync(
+    private async Task<int> RequireZeroOrOneAsync(
         SqlStatement statement,
         object parameters,
         string operation,
@@ -222,5 +232,7 @@ internal sealed class IdentityBootstrapService(
             throw new InvalidOperationException(
                 $"Identity bootstrap {operation} affected an invalid number of rows: {affectedRows}.");
         }
+
+        return affectedRows;
     }
 }

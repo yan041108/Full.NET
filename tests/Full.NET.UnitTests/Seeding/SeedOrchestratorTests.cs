@@ -3,6 +3,8 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -104,8 +106,10 @@ public sealed class SeedOrchestratorTests
     public async Task Contributor_failure_records_stable_code_and_stops_later_contributors()
     {
         const string sensitiveMessage = "secret-input-must-not-be-audited";
+        var failure = new InvalidOperationException(sensitiveMessage);
         var leaseProvider = Substitute.For<ISeedExecutionLeaseProvider>();
         var store = Substitute.For<ISeedExecutionStore>();
+        var logger = Substitute.For<ILogger<SeedOrchestrator>>();
         leaseProvider.AcquireAsync(Arg.Any<CancellationToken>())
             .Returns(Substitute.For<IAsyncDisposable>());
         var later = Contributor(
@@ -113,14 +117,15 @@ public sealed class SeedOrchestratorTests
             new SeedContributionResult(1, 0, 0, "seed.succeeded"));
         var contributors = new IDataSeedContributor[]
         {
-            Contributor("tenancy.failure", _ => throw new InvalidOperationException(sensitiveMessage)),
+            Contributor("tenancy.failure", _ => throw failure),
             later,
         };
         var orchestrator = CreateOrchestrator(
             contributors,
             leaseProvider,
             store,
-            "Development");
+            "Development",
+            logger);
 
         var result = await orchestrator.RunAsync(SeedProfile.Baseline);
 
@@ -143,6 +148,9 @@ public sealed class SeedOrchestratorTests
             .SelectMany(call => call.GetArguments())
             .OfType<string>()
             .Any(value => value.Contains(sensitiveMessage, StringComparison.Ordinal)));
+        Assert.IsTrue(logger.ReceivedCalls()
+            .SelectMany(call => call.GetArguments())
+            .Any(argument => ReferenceEquals(argument, failure)));
     }
 
     [TestMethod]
@@ -219,7 +227,8 @@ public sealed class SeedOrchestratorTests
         IEnumerable<IDataSeedContributor> contributors,
         ISeedExecutionLeaseProvider leaseProvider,
         ISeedExecutionStore store,
-        string environmentName)
+        string environmentName,
+        ILogger<SeedOrchestrator>? logger = null)
     {
         var environment = Substitute.For<IHostEnvironment>();
         environment.EnvironmentName.Returns(environmentName);
@@ -231,7 +240,8 @@ public sealed class SeedOrchestratorTests
             environment,
             Options.Create(new SeedOptions()),
             new StubClock(StartedAtUtc),
-            new StubIdGenerator(Guid.Parse("019822d3-0700-7000-8000-000000000001")));
+            new StubIdGenerator(Guid.Parse("019822d3-0700-7000-8000-000000000001")),
+            logger ?? NullLogger<SeedOrchestrator>.Instance);
     }
 
     private static StubContributor Contributor(

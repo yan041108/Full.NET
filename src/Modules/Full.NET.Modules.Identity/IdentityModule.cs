@@ -15,8 +15,10 @@ using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Serialization;
 using Full.NET.Modules.Identity.Resources;
+using Full.NET.Modules.Identity.Seeding;
 using Full.NET.Hosting.Api;
 using Full.NET.Localization;
+using Full.NET.Seeding.Abstractions;
 using Full.NET.Validation.FluentValidation;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -95,6 +97,9 @@ public sealed class IdentityModule : IFullNetModule
             Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>,
             Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>>();
         services.TryAddScoped<IIdentityBootstrapService, IdentityBootstrapService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDataSeedContributor,
+            HostAdministratorSeedContributor>());
         services.TryAddScoped<ISuperAdministratorService, SuperAdministratorService>();
         services.TryAddScoped<SuperAdministratorManagementService>();
         services.TryAddScoped<SuperAdministratorQueryService>();

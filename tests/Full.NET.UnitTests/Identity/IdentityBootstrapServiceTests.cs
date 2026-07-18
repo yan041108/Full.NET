@@ -117,6 +117,7 @@ public sealed class IdentityBootstrapServiceTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsFalse(result.Value!.Created);
+        Assert.IsTrue(result.Value.AuthorizationChanged);
         Assert.AreEqual(UserId, result.Value.UserId);
         await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(
             IdentitySql.InsertUser,
@@ -161,6 +162,7 @@ public sealed class IdentityBootstrapServiceTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsTrue(result.Value!.Created);
+        Assert.IsTrue(result.Value.AuthorizationChanged);
         Assert.AreEqual(UserId, result.Value.UserId);
         await fixture.CommandExecutor.Received(1).ExecuteAsync(
             IdentitySql.InsertUser,
@@ -203,6 +205,7 @@ public sealed class IdentityBootstrapServiceTests
                 "系统管理员"));
 
         Assert.IsTrue(result.IsSuccess);
+        Assert.IsTrue(result.Value!.AuthorizationChanged);
         await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(
             IdentitySql.InsertRole,
             Arg.Any<object?>(),
@@ -218,6 +221,45 @@ public sealed class IdentityBootstrapServiceTests
             IdentitySql.EnsureRolePermission,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Existing_compliant_role_and_relation_report_no_authorization_change()
+    {
+        var fixture = new Fixture();
+        fixture.SetExistingUser();
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindRoleByScopeAndCode,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new IdentityRoleRecord(
+                RoleId,
+                null,
+                "host",
+                "host-administrator",
+                "宿主管理员",
+                true,
+                true,
+                true,
+                Now,
+                null,
+                1));
+        fixture.CommandExecutor.ExecuteAsync(
+                IdentitySql.EnsureUserRole,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(0);
+
+        var result = await fixture.Service.BootstrapHostAdminAsync(
+            new BootstrapHostAdminRequest(
+                "admin",
+                "FullNet!2026Secure",
+                "系统管理员"));
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsFalse(result.Value!.Created);
+        Assert.IsFalse(result.Value.AuthorizationChanged);
     }
 
     private sealed class Fixture

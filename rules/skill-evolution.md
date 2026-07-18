@@ -97,7 +97,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 4 | Identity 会话、租户切换、权限导航、`zh-CN/en-US` 国际化/可访问性及组件语言与偏好失败回滚已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |
 | `fullnet-localization-delivery` | 候选 / 5 | 在 L0-L2 基础上，L3 uni-app 已落地规范语言适配、平台别名、Vue I18n、账号偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具仍未安装，尚未形成完整跨平台验收停止条件 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
-| `fullnet-seed-data-delivery` | 候选 / 3 | S0 契约与依赖图、Orchestrator 双库锁和审计之后，Tenancy 已通过首个真实 Development Contributor 验证自然键查询、领域服务创建、幂等跳过、冲突拒绝、稳定错误码透传及 Scoped 多实现注册；Migrator 尚待后续任务接入 | Identity 作为第二个业务模块复用幂等 Contributor 流程并完成 Migrator 接入后评估升级 |
+| `fullnet-seed-data-delivery` | 候选 / 4 | Tenancy Development Contributor 之后，Identity 已作为第二个模块复用 Contributor、稳定错误码与 Scoped 多实现注册，并由 Migrator 完成迁移后显式 Profile 编排、失败阻断、兼容别名和 Host 依赖门禁；当前仍缺完整 Profile 双库 E2E，尚未满足稳定停止条件 | 完成 SQL Server/MySQL 的 Baseline/Development/Demo/Test E2E 与生产失败场景后，按测试先行流程评估升级 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。
 

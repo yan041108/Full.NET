@@ -16,9 +16,9 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 260
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 277
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 18
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 20
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 22 --timeout 15m
 ```
 
@@ -128,9 +128,9 @@ $env:UseMySql = "true"
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
-AppHost 给 Migrator 传入 `--seed-local` 以及两个 Bootstrap Parameter。它会幂等创建标识为 `local`、域名为 `localhost` 的开发租户和首个宿主管理员；账号已存在时不会覆盖密码，也不会把启动视为失败。
+AppHost 给 Migrator 传入 `--seed development` 以及两个 Bootstrap Parameter。Migrator 先完成迁移，再通过模块化 Seed Orchestrator 确定性执行 Baseline 和 Development Contributor，幂等协调标识为 `local`、域名为 `localhost` 的开发租户及首个宿主管理员；账号已存在时不会覆盖密码。
 
-这是当前实现，不是最终种子模块。后续将以显式 `--seed baseline|development|demo|test`、模块 Contributor、双库执行锁和 `fn_seed_run/fn_seed_run_item` 审计替代宿主硬编码；默认 Migrator 只迁移，Production 只允许显式 Baseline，Development/Demo/Test 确定性继承 Baseline。首个管理员仍要求 Secret；自动化测试可复用 Baseline/Test，但具体场景数据继续由临时数据库内的 Test Factory 隔离创建。详细边界见[种子数据模块设计](../superpowers/specs/2026-07-17-seed-data-module-design.md)和[测试先行实施计划](../superpowers/plans/2026-07-17-seed-data-module.md)。
+直接运行 Migrator 且不传 Seed 参数时只执行迁移；可显式使用 `--seed baseline|development|demo|test`，Production 只允许 Baseline，Development/Demo/Test 确定性继承 Baseline。`--seed-local` 暂时映射到 Development 并输出弃用告警。首个管理员仍要求成对提供 Secret，缺失时以稳定码 `seeding.bootstrap.secret_missing` 失败；具体测试场景数据继续由临时数据库内的 Test Factory 隔离创建。完整 Profile 双库 E2E 与生产运维验收仍待后续任务，详细边界见[种子数据模块设计](../superpowers/specs/2026-07-17-seed-data-module-design.md)和[测试先行实施计划](../superpowers/plans/2026-07-17-seed-data-module.md)。
 
 ### 3.1 Identity 会话与密钥
 

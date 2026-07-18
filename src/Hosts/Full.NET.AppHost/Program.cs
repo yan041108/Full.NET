@@ -20,7 +20,7 @@ var migrator = builder
     .WithEnvironment("Database__Provider", provider)
     .WithEnvironment("Identity__Bootstrap__Username", bootstrapUsername)
     .WithEnvironment("Identity__Bootstrap__Password", bootstrapPassword)
-    .WithArgs("--seed-local")
+    .WithArgs("--seed", "development")
     .WaitFor(database);
 
 builder

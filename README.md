@@ -33,16 +33,16 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 260
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 277
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 18
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 20
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 22 --timeout 15m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
 AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。Bootstrap 现在幂等创建受保护超级管理员角色，不再同步逐项权限；签名 Claim、当前作用域动态权限、逐请求 Session/SecurityStamp 校验、双库并发最后一名保护、远程授予/撤销 API、事务内可追责审计和 Vue/Layui 对等管理页已经实现。远程写操作只允许 Development/Testing 显式开启，Production 在 MFA/强认证 Provider 落地前无法开启；账号禁用/删除路径保护和真实后端浏览器 E2E 仍按[设计](docs/superpowers/specs/2026-07-18-super-administrator-design.md)与[计划](docs/superpowers/plans/2026-07-18-super-administrator.md)后续交付，因此当前不能标记为完整 `Verified`。
 
-当前本地真实数据仍由 Migrator 的 `--seed-local` 硬编码入口创建。模块化种子管道已经实现封闭 Profile、CLI/Contributor 契约、确定性依赖排序、SQL Server/MySQL 数据库锁与执行审计，以及首个幂等 Development Tenancy Contributor；Production Baseline、Identity Contributor、Migrator 新工作流接入和完整 Profile 双库 E2E 尚未完成，因此 Production 仍不能使用新管线播种。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
+模块化种子管道已经接管 Migrator：默认只迁移，显式 `--seed baseline|development|demo|test` 才播种，AppHost 使用 `--seed development`。管线已实现确定性 Profile 继承、SQL Server/MySQL 数据库锁与执行审计、Baseline 宿主管理员 Contributor 和 Development 本地租户 Contributor；`--seed-local` 仅保留为带弃用告警的兼容别名。完整 Profile 双库 E2E 与生产部署 Secret/运维验收尚未完成，因此 Production Seed 仍不能标记为可用或 `Verified`。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
 
 更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。新增数据库对象、API、机器码或生成模板必须遵守 [Full.NET 命名规范](rules/naming-conventions.md)：官方表保留 `fn` OwnerKey，项目表使用脚手架阶段冻结的项目 OwnerKey，`sys` 不作为项目表前缀。当前能力以[状态矩阵](docs/roadmap/capability-status.md)为唯一总览；架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 

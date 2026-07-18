@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Seeding.Abstractions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Seeding.Dapper;
@@ -15,7 +16,8 @@ internal sealed class SeedOrchestrator(
     IHostEnvironment environment,
     IOptions<SeedOptions> options,
     IClock clock,
-    IIdGenerator idGenerator) : ISeedOrchestrator
+    IIdGenerator idGenerator,
+    ILogger<SeedOrchestrator> logger) : ISeedOrchestrator
 {
     private readonly IReadOnlyCollection<IDataSeedContributor> _contributors =
         contributors.ToArray();
@@ -166,7 +168,7 @@ internal sealed class SeedOrchestrator(
                 CancellationToken.None);
             return Failure(exception.Code, ErrorType.Conflict);
         }
-        catch
+        catch (Exception exception)
         {
             if (currentContributor is not null)
             {
@@ -186,6 +188,11 @@ internal sealed class SeedOrchestrator(
                     SeedExecutionStatuses.Failed,
                     SeedErrorCodes.ContributorFailed),
                 CancellationToken.None);
+            logger.LogError(
+                exception,
+                "Seed contributor {ContributorName} failed with {ErrorCode}",
+                currentContributor?.Name ?? "unknown",
+                SeedErrorCodes.ContributorFailed);
             return Failure(SeedErrorCodes.ContributorFailed, ErrorType.Unexpected);
         }
     }

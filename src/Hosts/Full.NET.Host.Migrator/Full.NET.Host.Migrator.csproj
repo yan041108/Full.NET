@@ -11,6 +11,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Migrations.DbUp\Full.NET.Migrations.DbUp.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Serialization.MessagePack\Full.NET.Serialization.MessagePack.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Seeding.Dapper\Full.NET.Seeding.Dapper.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
   </ItemGroup>

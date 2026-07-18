@@ -23,6 +23,9 @@ public sealed class SeedContributionException : Exception
 /// </summary>
 public static class SeedContributionErrorCodes
 {
+    /// <summary>宿主管理员 Baseline 缺少成对配置的用户名或密码。</summary>
+    public const string BootstrapSecretMissing = "seeding.bootstrap.secret_missing";
+
     /// <summary>自然键已存在，但真实数据与目标 Seed 状态冲突。</summary>
     public const string DataConflict = "seeding.data.conflict";
 }

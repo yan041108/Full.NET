@@ -32,4 +32,8 @@ public sealed record BootstrapHostAdminRequest(
 public sealed record BootstrapHostAdminResult(
     Guid UserId,
     bool Created,
-    bool AuthorizationSynchronized);
+    bool AuthorizationSynchronized)
+{
+    /// <summary>获取本次是否修复了系统角色或账号角色关系。</summary>
+    public bool AuthorizationChanged { get; init; }
+}
