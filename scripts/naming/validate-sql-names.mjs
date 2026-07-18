@@ -105,7 +105,9 @@ function inspectSql(sql, file, profile, debt, violations) {
         '显式列出查询投影'
       ));
     }
-    if (/\bEXEC\s*\(|\bPREPARE\s+[A-Za-z][A-Za-z0-9_]*\s+FROM\b/i.test(text)) {
+    const containsDynamicSql = /\bEXEC\s*\(|\bPREPARE\s+[A-Za-z][A-Za-z0-9_]*\s+FROM\b|N?'\s*(?:ALTER|CREATE|DROP|RENAME|UPDATE|DELETE|INSERT)\b/i
+      .test(text);
+    if (containsDynamicSql) {
       violations.push(violation(
         'FNSQL002',
         'dynamic_sql',
@@ -113,6 +115,18 @@ function inspectSql(sql, file, profile, debt, violations) {
         file,
         index + 1,
         '由人工审查动态 SQL，并为既有语句登记精确、有限期债务'
+      ));
+    }
+    const containsUnsupportedDdl = /\bCREATE\s+(?:OR\s+ALTER\s+)?(?:VIEW|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bDROP\s+(?:TABLE|VIEW|COLUMN|INDEX|CONSTRAINT|PROCEDURE|FUNCTION|TRIGGER|SCHEMA|DATABASE)\b|\bRENAME\s+(?:TABLE|COLUMN)\b|\bALTER\s+TABLE\b.*\bRENAME\b/i
+      .test(text);
+    if (!containsDynamicSql && containsUnsupportedDdl) {
+      violations.push(violation(
+        'FNSQL003',
+        'unsupported_sql',
+        'unsupported_ddl',
+        file,
+        index + 1,
+        '当前静态命名扫描器不支持该 DDL，必须人工审查后扩展解析器或登记精确债务'
       ));
     }
   });

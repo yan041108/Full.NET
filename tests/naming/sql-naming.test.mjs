@@ -36,7 +36,8 @@ test('SQL 门禁报告表、列、约束、长度、保留所有权和 SELECT �
       'FNDB004',
       'FNDB005',
       'FNSQL001',
-      'FNSQL002'
+      'FNSQL002',
+      'FNSQL003'
     ])
   );
   assert.ok(violations.every(item => item.file === 'tests/fixtures/naming/invalid-schema.sql'));

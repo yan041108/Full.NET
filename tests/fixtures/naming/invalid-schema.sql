@@ -12,3 +12,5 @@ CREATE INDEX IX_fn_notifications_delivery_attempt_SubscriptionId_RequestedAtUtc_
 SELECT * FROM sys_identity_User;
 
 EXEC(N'ALTER TABLE dbo.sys_identity_User ADD LegacyColumn int NULL;');
+
+CREATE VIEW sys_identity_user_view AS SELECT Id FROM sys_identity_User;

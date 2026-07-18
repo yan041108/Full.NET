@@ -8,7 +8,7 @@
 ## 已实现能力
 
 - `contracts/naming/fullnet-naming-profile.json` 是 Node、Architecture Tests 与 C# 命名内核的共同事实源；`examples.json` 同时驱动 Node/C# 行为一致性测试。
-- SQL 门禁扫描 `src/**/*.sql` 与明确登记的 C# 静态 SQL 容器，检查表/列/索引/约束、64 字符上限、迁移文件配对和 `SELECT *`。动态 `EXEC/PREPARE` 不会假装安全通过，必须人工审查并精确登记。
+- SQL 门禁扫描 `src/**/*.sql` 与明确登记的 C# 静态 SQL 容器，检查表/列/索引/约束、64 字符上限、迁移文件配对和 `SELECT *`。动态 `EXEC/PREPARE`、DDL 字符串以及当前不支持的 View/Procedure/Drop/Rename 不会假装安全通过，必须人工审查并精确登记或扩展受控解析器。
 - Architecture Tests 从运行时权限 Contributor、ErrorCodes Catalog、集成事件 Handler 与 `SqlStatement` 字段枚举稳定值，不用源码正则替代运行时契约。
 - `Full.NET.Data.CodeGeneration` 嵌入 Profile，提供框架/项目表名、长索引/约束 SHA-256 确定性摘要及列、权限、错误、消息、Statement ID 校验。
 - 项目模块交付 Skill 已要求读取命名规范、运行 `pnpm test:naming`，并禁止通配债务和模板自行实现命名算法。
