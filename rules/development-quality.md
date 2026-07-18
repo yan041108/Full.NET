@@ -48,6 +48,7 @@
 5. 启动、迁移和后台 Worker 的职责必须分离；API Host 不得在并发启动时隐式执行不可控迁移。
 6. 参考 `dotnet/eShop` 时只吸收可解释的架构思想，不机械复制微服务复杂度；参考 Admin.NET 时对标功能，不复制其耦合方式。
 7. 宿主注册完整模块时必须同时注册该模块声明的全部 `Dependencies`；Worker 只消费事件处理器等后台能力时，应由模块提供并使用可验证的最小服务注册入口，禁止为了单个消费者注册完整 HTTP 模块或留下不完整依赖图。
+8. Full.NET 官方 Api、Worker、Migrator 必须通过 `Full.NET.Composition` 的显式 Host Profile 选择模块能力；新增模块只能更新共享目录和对应测试，禁止在各宿主 `Program.cs` 恢复手工完整模块清单。Composition 可以依赖具体 Modules，通用 BuildingBlock 禁止反向引用业务模块。
 
 ## 4. 安全、权限与租户隔离
 
@@ -65,8 +66,8 @@
 - 来源：Identity 双管理端会话审查发现，Playwright 路由模拟掩盖了真实 API 缺失 CORS 响应的问题
 - 适用范围：任何与 API 不同 Origin 且携带 Cookie、Authorization 或其他凭据的浏览器客户端
 - 风险：配置过窄会导致浏览器在 Endpoint 前阻断请求；配置过宽会造成跨站凭据暴露、Login CSRF 或未授权来源调用
-- 规则：必须使用显式、精确的受信 Origin 列表，禁止为凭据请求使用任意 Origin；策略必须读取宿主最终 Options 配置，并在认证授权前进入中间件管道；前端路由模拟 E2E 不能替代真实 Host 预检验证
-- 验证：集成测试必须分别发送受信和不受信 Origin 的 `OPTIONS` 预检，断言受信来源返回精确 `Access-Control-Allow-Origin` 与凭据头，不受信来源不返回允许头
+- 规则：必须使用显式、精确的受信 Origin 列表，禁止为凭据请求使用任意 Origin；策略必须读取宿主最终 Options 配置，并在认证授权前进入中间件管道。登录、Refresh、Logout 等匿名认证/会话写端点还必须执行精确 Origin 校验并使用有界命名限流策略，拒绝状态必须为 429；Refresh/Logout 继续要求独立 CSRF 防护。前端路由模拟 E2E 不能替代真实 Host 预检验证
+- 验证：集成测试必须分别发送受信和不受信 Origin 的 `OPTIONS` 预检，断言受信来源返回精确 `Access-Control-Allow-Origin` 与凭据头，不受信来源不返回允许头；真实 API 测试还必须覆盖不可信 Origin 的认证/会话写请求和限流拒绝状态
 - 例外：浏览器与 API 严格同源且部署验证能证明不会发生跨域请求时，可不启用 CORS，但必须在部署文档中明确同源约束
 
 ### R-20260717-client-navigation-boundary：动态导航只能映射本地可信能力

@@ -13,6 +13,7 @@
 | `src/BuildingBlocks/Full.NET.Hosting` | API 映射、ProblemDetails、JSON、日志和健康端点 |
 | `src/BuildingBlocks/Full.NET.Localization` | 规范语言目录、Accept-Language 请求协商、CultureScope 与响应头辅助能力 |
 | `src/Compatibility/Full.NET.Compatibility.AdminNet` | Admin.NET 可选响应包络与适配注册 |
+| `src/Composition/Full.NET.Composition` | 官方模块共享目录、Api/Worker/Migrator 的显式 Host Profile 与最小后台装配 |
 | `src/Modules/Full.NET.Modules.*` | 按 Contracts、Domain、Features、Persistence、Serialization 组织的业务模块 |
 | `src/Hosts/Full.NET.Host.Api` | HTTP Host 与模块装配 |
 | `src/Hosts/Full.NET.Host.Worker` | Outbox、通知和后台处理 |
@@ -42,6 +43,7 @@
 | 新公开 JSON DTO | 模块 `JsonSerializerContext`、API 测试、兼容性评估 |
 | 新 Admin.NET 响应 | Compatibility 层 Mapper 与 Compatibility Tests |
 | 新模块依赖 | 模块项目引用、Architecture Tests、`Directory.Packages.props`、许可通知 |
+| 新模块宿主装配 | `Full.NET.Composition`、`FullNetHostProfile`、Profile Unit Tests 与宿主 Architecture Tests |
 | 新数据库/API/机器码或生成模板 | `rules/naming-conventions.md`、`contracts/naming/`、CodeGeneration 内核、`pnpm test:naming` |
 
 ## 验证命令
@@ -56,9 +58,9 @@ dotnet build Full.NET.slnx -c Release
 直接运行 Microsoft Testing Platform 程序集：
 
 ```powershell
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 203
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 209
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 5
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 15
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 16
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 18 --timeout 15m
 ```
 

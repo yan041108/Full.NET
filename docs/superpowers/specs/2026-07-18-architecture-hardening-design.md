@@ -32,8 +32,8 @@
 | 测试命令改为 `dotnet test` | 不接受 | 当前使用 Microsoft.Testing.Platform 可执行测试宿主，直接运行 DLL 并带最小测试数门禁是有意设计，可防止零发现假成功 |
 | AI/Agent 内容过早 | 部分接受，P2 | 保留 M5+ 安全边界，但能力状态必须明确为 `Planned`，不得挤占近期底座硬化 |
 | 能力范围容易高估 | 接受，P0 | 新增唯一总览状态矩阵，明确当前主要落地范围和证据，不再要求读者拼接多个文档判断 |
-| 模块生命周期脱节 | 接受，P0 | `IFullNetModule.InitializeAsync` 当前没有统一调用链，接口与行为不一致 |
-| 宿主装配漂移 | 接受，P0 | Api/Migrator 手工注册完整模块，Worker 使用专用入口；需要显式 Host Profile/Manifest 和一致性测试，不采用全程序集扫描 |
+| 模块生命周期脱节 | 已处理 | 没有真实初始化消费者，因此删除悬空 `InitializeAsync`；未来只有出现真实幂等初始化需求并先建立失败验证时才重新引入 |
+| 宿主装配漂移 | 已处理当前官方模块 | `Full.NET.Composition` 集中维护 Api/Worker/Migrator 显式 Profile，Architecture Tests 阻止宿主恢复手工模块清单 |
 | 双管理端逻辑复制 | 接受，P1 | HTTP、会话、导航白名单存在镜像实现；提取纯 headless 策略和协议夹具，保留 Vue/Layui 框架适配 |
 | 浏览器 E2E 真实后端不足 | 接受，P1 | API 集成测试已覆盖真实 Host/CORS，但 Playwright 主要 Mock API；两者不能互相替代 |
 | 多客户端共享不足 | 部分接受，P2 | 跨平台共享稳定协议、错误码、OpenAPI 模型和测试夹具；不强行共享 UI、存储或平台认证实现 |
@@ -99,7 +99,9 @@ Background Refresh 只优化延迟，不证明正确性。多实例验证必须�
 - `Migrator`：迁移、Seed Contributor 和必要领域服务；
 - `Test`：在生产 Profile 上追加测试专用能力。
 
-`InitializeAsync` 必须在 Host 启动后、接收业务流量前，按依赖拓扑恰好调用一次；失败阻止 Host 就绪。它只用于幂等的运行时初始化/自检，不执行 Migration、Seed 或不可回滚外部副作用。若第一个真实使用者设计时仍无必要，应删除悬空钩子，而不是长期保留无行为接口。
+本轮设计检查确认没有任何模块需要独立运行时初始化，因此选择删除 `InitializeAsync`，不为未来假设保留无行为接口。若以后出现真实初始化消费者，必须重新提交 ADR 与 RED 测试，定义依赖顺序、恰好一次、失败阻止就绪、取消传播和幂等边界；Migration、Seed 与不可回滚外部副作用仍禁止进入该钩子。
+
+官方宿主通过 `Full.NET.Composition` 选择显式 Profile：Api/Migrator 注册完整 Identity/Tenancy 模块并沿用依赖拓扑；Worker 只注册租户缓存失效等后台最小能力。Composition 是组合根，可以依赖 Modules；`Full.NET.Modularity` 仍保持通用 BuildingBlock，不得反向引用具体模块。
 
 ## 7. 会话与浏览器并发
 

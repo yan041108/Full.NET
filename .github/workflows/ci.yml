@@ -98,7 +98,7 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 203
+          --minimum-expected-tests 209
 
       - name: Compatibility tests
         run: >-
@@ -112,7 +112,7 @@ jobs:
           dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 15
+          --minimum-expected-tests 16
 
       - name: SQL Server and MySQL integration tests
         run: >-

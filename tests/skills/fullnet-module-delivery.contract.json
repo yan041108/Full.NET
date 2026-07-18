@@ -76,6 +76,16 @@
         "债务",
         "生成"
       ]
+    },
+    {
+      "name": "宿主装配",
+      "prompt": "新增模块后同步接入 API、Worker 与 Migrator。",
+      "required_terms": [
+        "Full.NET.Composition",
+        "FullNetHostProfile",
+        "最小后台",
+        "共享目录"
+      ]
     }
   ]
 }

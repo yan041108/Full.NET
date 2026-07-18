@@ -16,7 +16,7 @@
 |---|---:|---|
 | H0 状态与门禁基线 | P0 | 状态矩阵成为 README/路线图唯一总览；CI 可识别危险 SQL 与命名漂移 |
 | H1 Seed 闭环 | P0 | 既有 Seed 计划 S0-S2 全部通过 SQL Server/MySQL |
-| H2 模块生命周期与宿主 Profile | P0 | 初始化钩子行为确定；三宿主注册漂移被架构测试阻止 |
+| H2 模块生命周期与宿主 Profile（已完成） | P0 | 无消费者的初始化钩子已删除；三宿主注册漂移由共享 Composition/Profile 与架构测试阻止 |
 | H3 消息、缓存与日志可靠性 | P1 | 多版本/死信、陈旧窗口、高优先级日志故障场景可验证 |
 | H4 浏览器真实链路与共享策略 | P1 | Vue/Layui 在真实后端完成安全关键 E2E；镜像策略收敛 |
 | H5 L5 i18n 与工具链治理 | P2 | 首个业务翻译表双库验证；兼容性队列有自动检查 |
@@ -66,22 +66,23 @@
 
 ### Task 4: 模块目录、宿主 Profile 与初始化生命周期
 
+**状态：已完成（实现基线 `d5c109c`）。** 设计检查选择删除无真实消费者的 `InitializeAsync`；目录位于独立 Composition 组合根，而不是让通用 Modularity BuildingBlock 反向依赖具体模块。
+
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
-- Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/ModuleExtensions.cs`
-- Create: `src/BuildingBlocks/Full.NET.Modularity/Modules/FullNetHostProfile.cs`
-- Create: `src/BuildingBlocks/Full.NET.Modularity/Modules/FullNetModuleCatalog.cs`
+- Create: `src/Composition/Full.NET.Composition/FullNetHostProfile.cs`
+- Create: `src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs`
 - Modify: `src/Hosts/Full.NET.Host.Api/Program.cs`
 - Modify: `src/Hosts/Full.NET.Host.Worker/Program.cs`
 - Modify: `src/Hosts/Full.NET.Host.Migrator/Program.cs`
 - Test: `tests/Full.NET.UnitTests/Modularity/ModuleLifecycleTests.cs`
 - Test: `tests/Full.NET.ArchitectureTests/HostModuleProfileTests.cs`
 
-1. 先证明现状：注册模块后 `InitializeAsync` 不会被调用；新增测试定义依赖顺序、恰好一次、失败阻止就绪和取消传播。
-2. 在设计检查点选择“实现确定性初始化”或“删除无真实使用者的钩子”；禁止继续保留接口有、行为无的状态。
-3. 建立显式 Catalog/Profile，不使用任意程序集扫描。Worker 只能选择模块公开的最小后台入口。
-4. 架构测试比较 Api/Worker/Migrator 与模块声明，阻止漏依赖、重复注册、错误 Endpoint 和顺序漂移。
-5. 初始化不得运行 Migration/Seed，不得执行不可回滚外部副作用。
+1. [x] 以失败测试证明 `InitializeAsync` 是没有执行方的接口承诺。
+2. [x] 删除无真实使用者的钩子；未来重引入必须重新定义生命周期与失败门禁。
+3. [x] 建立显式 Catalog/Profile，不使用程序集扫描；Worker 只选择模块公开的最小后台入口。
+4. [x] Unit Tests 验证 Profile 内容和依赖顺序，Architecture Tests 阻止 Api/Worker/Migrator 绕过共享目录。
+5. [x] 保持 Migration/Seed 与模块运行时装配分离。
 
 ### Task 5: 双数据库语义 SQL Catalog
 
