@@ -202,6 +202,22 @@
             </section>
           </main>
 
+          <main data-route-view="super-administrators" class="fn-super-admin" hidden>
+            <section class="fn-super-admin__heading">
+              <div><p data-i18n="superAdmin.eyebrow"></p><h1 data-route-heading tabindex="-1" data-i18n="superAdmin.title"></h1><span data-i18n="superAdmin.description"></span></div>
+              <em data-i18n="superAdmin.protected"></em>
+            </section>
+            <div class="fn-context-problem" data-super-admin-problem role="alert" hidden><strong translate="no"></strong><span></span></div>
+            <form class="fn-super-admin__grant" data-super-admin-grant-form data-permission="identity.super_administrators.manage">
+              <div><small>01</small><h2 data-i18n="superAdmin.grantTitle"></h2></div>
+              <label><span data-i18n="superAdmin.username"></span><input class="layui-input" name="username" autocomplete="off" required data-i18n-placeholder="superAdmin.usernamePlaceholder"></label>
+              <label><span data-i18n="superAdmin.currentPassword"></span><input class="layui-input" name="currentPassword" type="password" autocomplete="current-password" required data-i18n-placeholder="superAdmin.passwordPlaceholder"></label>
+              <button class="layui-btn" type="submit" data-i18n="superAdmin.grant"></button>
+            </form>
+            <section class="fn-super-admin__ledger"><header><div><small>02</small><h2 data-i18n="superAdmin.directoryTitle"></h2></div></header><div data-super-admin-directory></div></section>
+            <section class="fn-super-admin__audit"><header><small>03</small><h2 data-i18n="superAdmin.auditTitle"></h2></header><ol data-super-admin-audits></ol></section>
+          </main>
+
           <main data-route-view="status" class="fn-status" hidden>
             <div class="fn-status__code" data-status-code></div>
             <p data-i18n="status.routeKicker"></p>

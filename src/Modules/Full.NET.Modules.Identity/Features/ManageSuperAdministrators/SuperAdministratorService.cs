@@ -22,13 +22,6 @@ internal sealed class SuperAdministratorService(
     IClock clock,
     IIdGenerator idGenerator) : ISuperAdministratorService
 {
-    private const string OperatorRequiredCode =
-        "identity.super_administrator.operator_required";
-    private const string TargetNotFoundCode =
-        "identity.super_administrator.target_not_found";
-    private const string LastRemainingCode =
-        "identity.super_administrator.last_remaining";
-
     public Task<Result<SuperAdministratorChangeResponse>> GrantAsync(
         Guid operatorUserId,
         Guid targetUserId,
@@ -60,7 +53,9 @@ internal sealed class SuperAdministratorService(
         if (!await IsActiveSuperAdministratorAsync(operatorUserId, cancellationToken)
                 .ConfigureAwait(false))
         {
-            return Failure(OperatorRequiredCode, "The operator is not an active super administrator.");
+            return Failure(
+                IdentityErrorCodes.SuperAdministratorOperatorRequired,
+                "The operator is not an active super administrator.");
         }
 
         var targetExists = await queryExecutor.QuerySingleOrDefaultAsync<long>(
@@ -70,7 +65,9 @@ internal sealed class SuperAdministratorService(
             .ConfigureAwait(false) > 0;
         if (!targetExists)
         {
-            return Failure(TargetNotFoundCode, "The target is not an active Host account.");
+            return Failure(
+                IdentityErrorCodes.SuperAdministratorTargetNotFound,
+                "The target is not an active Host account.");
         }
 
         var affectedRows = await commandExecutor.ExecuteAsync(
@@ -112,7 +109,9 @@ internal sealed class SuperAdministratorService(
         if (!await IsActiveSuperAdministratorAsync(operatorUserId, cancellationToken)
                 .ConfigureAwait(false))
         {
-            return Failure(OperatorRequiredCode, "The operator is not an active super administrator.");
+            return Failure(
+                IdentityErrorCodes.SuperAdministratorOperatorRequired,
+                "The operator is not an active super administrator.");
         }
 
         if (!await IsActiveSuperAdministratorAsync(targetUserId, cancellationToken)
@@ -129,7 +128,7 @@ internal sealed class SuperAdministratorService(
         if (activeCount <= 1)
         {
             return Failure(
-                LastRemainingCode,
+                IdentityErrorCodes.SuperAdministratorLastRemaining,
                 "The last active super administrator cannot be revoked.");
         }
 
@@ -205,19 +204,22 @@ internal sealed class SuperAdministratorService(
                 cancellationToken)
             .ConfigureAwait(false);
         var auditRows = await commandExecutor.ExecuteAsync(
-                IdentitySql.InsertAuthAudit,
-                new AuthAuditEvent(
-                    idGenerator.NewId(),
-                    targetUserId,
-                    null,
-                    TokenHash.Compute(operatorUserId.ToString("N")),
-                    eventType,
-                    eventType,
-                    true,
-                    null,
-                    null,
-                    null,
-                    now),
+                IdentitySql.InsertSuperAdministratorAudit,
+                new
+                {
+                    Id = idGenerator.NewId(),
+                    UserId = targetUserId,
+                    SessionId = (Guid?)null,
+                    UsernameFingerprint = TokenHash.Compute(targetUserId.ToString("N")),
+                    EventType = eventType,
+                    ResultCode = eventType,
+                    Succeeded = true,
+                    IpAddress = (string?)null,
+                    UserAgent = (string?)null,
+                    ContextTenantId = (Guid?)null,
+                    OccurredAtUtc = now,
+                    ActorUserId = operatorUserId,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (auditRows != 1)

@@ -16,6 +16,18 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindHostUserById = new(
+        "identity.find-host-user-by-id",
+        """
+        SELECT Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
+               PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
+               SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
+               PreferredLocale, ProfileVersion
+        FROM fn_identity_user
+        WHERE Id = @UserId AND ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement InsertUser = new(
         "identity.insert-user",
         """
@@ -251,6 +263,69 @@ internal static class IdentitySql
         """
         DELETE FROM fn_identity_user_role
         WHERE UserId = @UserId AND RoleId = @RoleId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListSuperAdministrators = new(
+        "identity.list-super-administrators",
+        """
+        SELECT identityUser.Id AS UserId,
+               identityUser.Username,
+               identityUser.DisplayName,
+               identityUser.IsActive
+        FROM fn_identity_user AS identityUser
+        INNER JOIN fn_identity_user_role AS userRole
+            ON userRole.UserId = identityUser.Id
+        INNER JOIN fn_identity_role AS roleObject
+            ON roleObject.Id = userRole.RoleId
+        WHERE identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+          AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL
+          AND roleObject.IsSuperAdministrator = 1
+        ORDER BY identityUser.NormalizedUsername
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListSuperAdministratorAuditsSqlServer = new(
+        "identity.list-super-administrator-audits.sql-server",
+        """
+        SELECT TOP (@Limit)
+               Id, UserId AS TargetUserId, ActorUserId,
+               EventType, ResultCode, Succeeded, OccurredAtUtc
+        FROM fn_identity_auth_audit
+        WHERE EventType IN
+            ('identity.super_administrator.granted',
+             'identity.super_administrator.revoked')
+        ORDER BY OccurredAtUtc DESC, Id DESC
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListSuperAdministratorAuditsMySql = new(
+        "identity.list-super-administrator-audits.mysql",
+        """
+        SELECT Id, UserId AS TargetUserId, ActorUserId,
+               EventType, ResultCode, Succeeded, OccurredAtUtc
+        FROM fn_identity_auth_audit
+        WHERE EventType IN
+            ('identity.super_administrator.granted',
+             'identity.super_administrator.revoked')
+        ORDER BY OccurredAtUtc DESC, Id DESC
+        LIMIT @Limit
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertSuperAdministratorAudit = new(
+        "identity.insert-super-administrator-audit",
+        """
+        INSERT INTO fn_identity_auth_audit
+            (Id, UserId, SessionId, UsernameFingerprint, EventType,
+             ResultCode, Succeeded, IpAddress, UserAgent, ContextTenantId,
+             OccurredAtUtc, ActorUserId)
+        VALUES
+            (@Id, @UserId, @SessionId, @UsernameFingerprint, @EventType,
+             @ResultCode, @Succeeded, @IpAddress, @UserAgent, @ContextTenantId,
+             @OccurredAtUtc, @ActorUserId)
         """,
         SqlDataScope.HostOnly);
 

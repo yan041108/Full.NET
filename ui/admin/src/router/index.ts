@@ -9,6 +9,7 @@ import { flattenNavigation } from '../navigation/catalog';
 import OverviewView from '../views/OverviewView.vue';
 import StatusView from '../views/StatusView.vue';
 import TenantContextView from '../views/TenantContextView.vue';
+import SuperAdministratorsView from '../views/SuperAdministratorsView.vue';
 
 const statusPaths = new Set(['/403', '/404', '/500']);
 
@@ -24,6 +25,11 @@ export function createAppRouter(
         name: 'tenant-context',
         path: '/tenant-context',
         component: TenantContextView
+      },
+      {
+        name: 'super-administrators',
+        path: '/identity/super-administrators',
+        component: SuperAdministratorsView
       },
       { path: '/403', component: StatusView, props: { code: '403' } },
       { path: '/404', component: StatusView, props: { code: '404' } },

@@ -61,6 +61,26 @@ public static class IdentityErrorCodes
     /// <summary>当前会话已失效。</summary>
     public const string SessionNotActive = "identity.session_not_active";
 
+    /// <summary>超级管理员远程写操作当前未启用。</summary>
+    public const string SuperAdministratorRemoteManagementDisabled =
+        "identity.super_administrator.remote_management_disabled";
+
+    /// <summary>超级管理员高风险操作的当前密码重认证失败。</summary>
+    public const string SuperAdministratorReauthenticationFailed =
+        "identity.super_administrator.reauthentication_failed";
+
+    /// <summary>执行人不是当前有效的超级管理员。</summary>
+    public const string SuperAdministratorOperatorRequired =
+        "identity.super_administrator.operator_required";
+
+    /// <summary>目标不是有效的 Host 账号。</summary>
+    public const string SuperAdministratorTargetNotFound =
+        "identity.super_administrator.target_not_found";
+
+    /// <summary>最后一名有效超级管理员受系统保护。</summary>
+    public const string SuperAdministratorLastRemaining =
+        "identity.super_administrator.last_remaining";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -82,5 +102,10 @@ public static class IdentityErrorCodes
         RefreshTokenReuseDetected,
         SessionContextConflict,
         SessionNotActive,
+        SuperAdministratorRemoteManagementDisabled,
+        SuperAdministratorReauthenticationFailed,
+        SuperAdministratorOperatorRequired,
+        SuperAdministratorTargetNotFound,
+        SuperAdministratorLastRemaining,
     ]);
 }

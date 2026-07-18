@@ -123,6 +123,8 @@ internal static class IdentityApiAssertions
             new[]
             {
                 "identity.navigation.read",
+                "identity.super_administrators.manage",
+                "identity.super_administrators.read",
                 "platform.dashboard.read",
                 "tenancy.tenants.read",
                 "tenancy.tenants.switch",
@@ -143,7 +145,9 @@ internal static class IdentityApiAssertions
         {
             forbiddenRequest.Headers.Authorization = new AuthenticationHeaderValue(
                 "Bearer",
-                factory.CreateHostAccessToken(["platform.dashboard.read"]));
+                await factory.CreateHostAccessTokenAsync(
+                    ["platform.dashboard.read"],
+                    cancellationToken));
             using var forbiddenResponse = await client.SendAsync(
                 forbiddenRequest,
                 cancellationToken);
@@ -168,11 +172,138 @@ internal static class IdentityApiAssertions
             .ReadFromJsonAsync<NavigationNodeResponse[]>(cancellationToken);
         Assert.IsNotNull(navigation);
         CollectionAssert.AreEqual(
-            new[] { "overview", "tenant-context" },
+            new[] { "overview", "tenant-context", "super-administrators" },
             navigation.Select(item => item.Id).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "overview", "tenant-context" },
+            new[] { "overview", "tenant-context", "super-administrators" },
             navigation.Select(item => item.ComponentKey).ToArray());
+
+        var operatorUserId = Guid.Parse(
+            jwt.GetClaim(JwtRegisteredClaimNames.Sub).Value);
+        var targetIdentity = await factory.CreateHostIdentityAsync(
+            $"remote-target-{Guid.NewGuid():N}",
+            [],
+            cancellationToken);
+        using (var invalidReauthenticationRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/super-administrators/grant",
+            token.AccessToken,
+            new GrantSuperAdministratorRequest(
+                targetIdentity.Username,
+                "wrong-password")))
+        using (var invalidReauthenticationResponse = await client.SendAsync(
+            invalidReauthenticationRequest,
+            cancellationToken))
+        {
+            Assert.AreEqual(
+                HttpStatusCode.Unauthorized,
+                invalidReauthenticationResponse.StatusCode);
+        }
+
+        using (var grantRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/super-administrators/grant",
+            token.AccessToken,
+            new GrantSuperAdministratorRequest(
+                targetIdentity.Username,
+                FullNetApiFactory.TestPassword)))
+        using (var grantResponse = await client.SendAsync(
+            grantRequest,
+            cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, grantResponse.StatusCode);
+            var grant = await grantResponse.Content
+                .ReadFromJsonAsync<SuperAdministratorChangeResponse>(
+                    cancellationToken);
+            Assert.IsNotNull(grant);
+            Assert.AreEqual(targetIdentity.UserId, grant.TargetUserId);
+            Assert.IsTrue(grant.Changed);
+        }
+
+        using (var targetOldTokenRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/navigation"))
+        {
+            targetOldTokenRequest.Headers.Authorization =
+                new AuthenticationHeaderValue(
+                    "Bearer",
+                    targetIdentity.AccessToken);
+            using var targetOldTokenResponse = await client.SendAsync(
+                targetOldTokenRequest,
+                cancellationToken);
+            Assert.AreEqual(
+                HttpStatusCode.Unauthorized,
+                targetOldTokenResponse.StatusCode);
+        }
+
+        using (var administratorsRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/super-administrators/"))
+        {
+            administratorsRequest.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", token.AccessToken);
+            using var administratorsResponse = await client.SendAsync(
+                administratorsRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, administratorsResponse.StatusCode);
+            var administrators = await administratorsResponse.Content
+                .ReadFromJsonAsync<SuperAdministratorResponse[]>(
+                    cancellationToken);
+            Assert.IsNotNull(administrators);
+            CollectionAssert.Contains(
+                administrators.Select(item => item.UserId).ToArray(),
+                targetIdentity.UserId);
+        }
+
+        using (var auditsRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/super-administrators/audits?limit=20"))
+        {
+            auditsRequest.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", token.AccessToken);
+            using var auditsResponse = await client.SendAsync(
+                auditsRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, auditsResponse.StatusCode);
+            var audits = await auditsResponse.Content
+                .ReadFromJsonAsync<SuperAdministratorAuditResponse[]>(
+                    cancellationToken);
+            Assert.IsNotNull(audits);
+            Assert.IsTrue(audits.Any(item =>
+                item.TargetUserId == targetIdentity.UserId
+                && item.ActorUserId == operatorUserId
+                && item.EventType == "identity.super_administrator.granted"));
+        }
+
+        using (var revokeRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/super-administrators/{targetIdentity.UserId:D}/revoke",
+            token.AccessToken,
+            new RevokeSuperAdministratorRequest(FullNetApiFactory.TestPassword)))
+        using (var revokeResponse = await client.SendAsync(
+            revokeRequest,
+            cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, revokeResponse.StatusCode);
+        }
+
+        using (var lastAdministratorRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/super-administrators/{operatorUserId:D}/revoke",
+            token.AccessToken,
+            new RevokeSuperAdministratorRequest(FullNetApiFactory.TestPassword)))
+        using (var lastAdministratorResponse = await client.SendAsync(
+            lastAdministratorRequest,
+            cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, lastAdministratorResponse.StatusCode);
+            using var lastAdministratorProblem = JsonDocument.Parse(
+                await lastAdministratorResponse.Content.ReadAsStringAsync(
+                    cancellationToken));
+            Assert.AreEqual(
+                IdentityErrorCodes.SuperAdministratorLastRemaining,
+                lastAdministratorProblem.RootElement.GetProperty("code").GetString());
+        }
 
         var refreshCookie = ExtractCookie(cookies, "__Host-fullnet-refresh");
         var csrfCookie = ExtractCookie(cookies, "fullnet-csrf");
@@ -233,6 +364,26 @@ internal static class IdentityApiAssertions
             {
                 response.Dispose();
             }
+        }
+
+        using (var consumedSessionRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/navigation"))
+        {
+            consumedSessionRequest.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", token.AccessToken);
+            using var consumedSessionResponse = await client.SendAsync(
+                consumedSessionRequest,
+                cancellationToken);
+            Assert.AreEqual(
+                HttpStatusCode.Unauthorized,
+                consumedSessionResponse.StatusCode);
+            using var consumedSessionProblem = JsonDocument.Parse(
+                await consumedSessionResponse.Content.ReadAsStringAsync(
+                    cancellationToken));
+            Assert.AreEqual(
+                IdentityErrorCodes.SessionNotActive,
+                consumedSessionProblem.RootElement.GetProperty("code").GetString());
         }
 
         var concurrentLoginResponses = await Task.WhenAll(
@@ -314,6 +465,22 @@ internal static class IdentityApiAssertions
             }),
         };
         request.Headers.Add("Origin", "http://localhost");
+        return request;
+    }
+
+    private static HttpRequestMessage CreateBearerJsonRequest<TRequest>(
+        HttpMethod method,
+        string path,
+        string accessToken,
+        TRequest body)
+    {
+        var request = new HttpRequestMessage(method, path)
+        {
+            Content = JsonContent.Create(body),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
         return request;
     }
 

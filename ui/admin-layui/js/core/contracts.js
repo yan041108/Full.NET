@@ -1,6 +1,6 @@
 const stableKeyPattern = /^[a-z][a-z0-9-]{0,63}$/;
 const routePathPattern = /^\/(?:[a-z0-9-]+(?:\/[a-z0-9-]+)*)?$/;
-const permissionPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/;
+const permissionPattern = /^[a-z][a-z0-9_]*(?:[.-][a-z][a-z0-9_]*)+$/;
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identifierPattern = /^[a-z0-9][a-z0-9-]{0,62}$/;
 

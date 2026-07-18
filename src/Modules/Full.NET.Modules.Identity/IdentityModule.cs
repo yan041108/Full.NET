@@ -33,6 +33,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
@@ -82,11 +83,15 @@ public sealed class IdentityModule : IFullNetModule
             IdentityOptionsValidator>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<AccessSessionValidator>();
+        services.TryAddScoped<FullNetJwtBearerEvents>();
         services.TryAddScoped<
             Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>,
             Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>>();
         services.TryAddScoped<IIdentityBootstrapService, IdentityBootstrapService>();
         services.TryAddScoped<ISuperAdministratorService, SuperAdministratorService>();
+        services.TryAddScoped<SuperAdministratorManagementService>();
+        services.TryAddScoped<SuperAdministratorQueryService>();
         services.AddFullNetFluentValidation();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
         services.TryAddScoped<IValidator<Features.UpdateLocale.Command>,
@@ -122,6 +127,7 @@ public sealed class IdentityModule : IFullNetModule
                 {
                     var settings = identityOptions.Value;
                     jwt.MapInboundClaims = false;
+                    jwt.EventsType = typeof(FullNetJwtBearerEvents);
                     jwt.TokenValidationParameters = new TokenValidationParameters
                     {
                         ValidateIssuerSigningKey = true,
@@ -163,6 +169,7 @@ public sealed class IdentityModule : IFullNetModule
                 cors.AddPolicy(BrowserCorsPolicy, policy.Build());
             });
         services.AddRateLimiter(rateLimiter =>
+        {
             rateLimiter.AddPolicy("identity-login", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -172,7 +179,21 @@ public sealed class IdentityModule : IFullNetModule
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                         AutoReplenishment = true,
-                    })));
+                    }));
+            rateLimiter.AddPolicy(
+                "identity-super-administrator-write",
+                httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                        ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                        ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    }));
+        });
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -188,5 +209,6 @@ public sealed class IdentityModule : IFullNetModule
         Features.GetCurrentUser.Endpoint.Map(endpoints);
         Features.UpdateLocale.Endpoint.Map(endpoints);
         Features.GetNavigation.Endpoint.Map(endpoints);
+        Features.ManageSuperAdministrators.Endpoint.Map(endpoints);
     }
 }

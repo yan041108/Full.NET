@@ -18,6 +18,8 @@ public sealed class AuthorizationCatalogTests
             new[]
             {
                 "identity.navigation.read",
+                "identity.super_administrators.manage",
+                "identity.super_administrators.read",
                 "platform.dashboard.read",
                 "tenancy.tenants.read",
                 "tenancy.tenants.switch",

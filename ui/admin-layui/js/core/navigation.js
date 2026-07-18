@@ -14,6 +14,14 @@ const localNavigation = new Map([
     iconClass: 'layui-icon-group',
     titleKey: 'navigation.tenantContext.title',
     captionKey: 'navigation.tenantContext.caption'
+  }],
+  ['super-administrators', {
+    routeName: 'super-administrators',
+    path: '/identity/super-administrators',
+    view: 'super-administrators',
+    iconClass: 'layui-icon-auz',
+    titleKey: 'navigation.superAdministrators.title',
+    captionKey: 'navigation.superAdministrators.caption'
   }]
 ]);
 

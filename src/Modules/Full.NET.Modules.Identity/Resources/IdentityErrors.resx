@@ -20,4 +20,9 @@
   <data name="identity.refresh_token_reuse_detected" xml:space="preserve"><value>检测到刷新令牌被重复使用，当前会话已撤销。</value></data>
   <data name="identity.session_context_conflict" xml:space="preserve"><value>会话上下文已被并发修改。</value></data>
   <data name="identity.session_not_active" xml:space="preserve"><value>当前会话已失效。</value></data>
+  <data name="identity.super_administrator.remote_management_disabled" xml:space="preserve"><value>超级管理员远程写操作当前未启用。</value></data>
+  <data name="identity.super_administrator.reauthentication_failed" xml:space="preserve"><value>当前密码重认证失败。</value></data>
+  <data name="identity.super_administrator.operator_required" xml:space="preserve"><value>当前账号不是有效的超级管理员。</value></data>
+  <data name="identity.super_administrator.target_not_found" xml:space="preserve"><value>目标不是有效的 Host 账号。</value></data>
+  <data name="identity.super_administrator.last_remaining" xml:space="preserve"><value>不能撤销最后一名有效超级管理员。</value></data>
 </root>

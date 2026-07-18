@@ -34,7 +34,7 @@
 | Identity 会话安全基础 | `Build-verified` | 登录、轮换、重用撤销、CSRF/CORS、审计测试 | 多浏览器 Tab 刷新竞争和上下文切换线性化专项验证待补 |
 | Tenancy 可信上下文切换 | `Build-verified` | 租户解析、可用租户、切换与刷新集成测试 | 完整租户/套餐 CRUD 尚未开始；不能宣传为完整租户后台 |
 | 最小 RBAC 与权限导航 | `Build-verified` | 当前用户、权限、Vue/Layui 导航与按钮门禁 | 用户、角色、菜单、组织、数据范围管理 CRUD 尚未实现 |
-| 受保护超级管理员 | `Implemented` | 005 双库迁移、动态 Catalog 权限、签名 Claim、Bootstrap、双库并发最后一名保护、Vue/Layui 标识 | 远程授予/撤销 Endpoint、重新认证/MFA、可靠管理 Audit/Outbox、系统角色 CRUD 保护、双端管理流程和真实后端 E2E 尚未完成 |
+| 受保护超级管理员 | `Implemented` | 005/006 双库迁移、动态 Catalog 权限、逐请求会话校验、远程授予/撤销 API、当前密码重认证、含 ActorUserId 的事务审计、双库最后一名保护、Vue/Layui 对等管理页与 Mock E2E | Production MFA/强认证 Provider、账号禁用/删除及普通角色 CRUD 的系统角色保护、真实后端浏览器 E2E 尚未完成 |
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
 | Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E | 与 Vue 重复的会话/HTTP/导航规则需收敛到 headless 契约层 |
@@ -59,7 +59,7 @@
 ## 4. 近期优先队列
 
 1. **P0：命名与生成基线**——先建立 Naming Profile、精确债务清单、SQL/C#/协议门禁和生成器共用命名内核；存量规范化按独立迁移计划执行，不阻塞规则先保护新增内容。
-2. **P0：生产可控性**——实施 Seed Baseline/Overlay，闭合超级管理员远程管理与可靠审计；建立 SQL 破坏性变更门禁，并与命名门禁共用扫描入口而不复制规则。
+2. **P0：生产可控性**——实施 Seed Baseline/Overlay，为超级管理员远程写操作接入 MFA/强认证 Provider并补账号禁用/删除保护；建立 SQL 破坏性变更门禁，并与命名门禁共用扫描入口而不复制规则。
 3. **P0：模块可增长性**——闭合模块初始化生命周期，建立 Api/Worker/Migrator 的显式宿主 Profile 与一致性测试。
 4. **P1：可靠性**——Outbox 版本兼容/死信、缓存一致性分级和高优先级日志通道。
 5. **P1：交付真实性**——真实后端参与的 Vue/Layui Playwright 安全冒烟；浏览器跨 Tab 刷新协调。

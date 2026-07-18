@@ -16,6 +16,13 @@ const overview = {
 };
 
 describe('权限导航契约', () => {
+  it('权限段接受命名规范规定的 snake_case', () => {
+    expect(isNavigationTree([{
+      ...overview,
+      requiredPermission: 'identity.super_administrators.read'
+    }])).toBe(true);
+  });
+
   it('接受完整且父子关系一致的导航树', () => {
     const tree = [{
       ...overview,

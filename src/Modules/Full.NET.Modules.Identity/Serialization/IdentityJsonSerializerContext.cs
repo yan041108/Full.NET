@@ -12,4 +12,9 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(LocalePreferenceResponse))]
 [JsonSerializable(typeof(NavigationNodeResponse[]))]
 [JsonSerializable(typeof(TenantContextTokenResponse))]
+[JsonSerializable(typeof(GrantSuperAdministratorRequest))]
+[JsonSerializable(typeof(RevokeSuperAdministratorRequest))]
+[JsonSerializable(typeof(SuperAdministratorResponse[]))]
+[JsonSerializable(typeof(SuperAdministratorAuditResponse[]))]
+[JsonSerializable(typeof(SuperAdministratorChangeResponse))]
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

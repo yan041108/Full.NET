@@ -20,6 +20,12 @@ const supportedComponents = new Map<string, LocalNavigationDefinition>([
     path: '/tenant-context',
     titleKey: 'navigation.tenantContext.title',
     captionKey: 'navigation.tenantContext.caption'
+  }],
+  ['super-administrators', {
+    routeName: 'super-administrators',
+    path: '/identity/super-administrators',
+    titleKey: 'navigation.superAdministrators.title',
+    captionKey: 'navigation.superAdministrators.caption'
   }]
 ]);
 

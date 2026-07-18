@@ -30,6 +30,18 @@ export {
   isTenantContextTokenResponse
 } from './tenancy.js';
 
+export {
+  isSuperAdministratorArray,
+  isSuperAdministratorAuditArray,
+  isSuperAdministratorChangeResponse
+} from './super-administrators.js';
+
+export type {
+  SuperAdministrator,
+  SuperAdministratorAudit,
+  SuperAdministratorChangeResponse
+} from './super-administrators.js';
+
 export type {
   TenantContextDescriptor,
   TenantContextSummary,

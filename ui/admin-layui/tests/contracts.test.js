@@ -39,6 +39,10 @@ describe('Layui 不可信响应契约', () => {
       children: [{ ...node, id: 'child', parentId: 'wrong' }]
     }])).toBe(false);
     expect(isNavigationTree([{ ...node, componentKey: '../script' }])).toBe(false);
+    expect(isNavigationTree([{
+      ...node,
+      requiredPermission: 'identity.super_administrators.read'
+    }])).toBe(true);
   });
 
   it('校验租户列表和上下文令牌的一致性', () => {

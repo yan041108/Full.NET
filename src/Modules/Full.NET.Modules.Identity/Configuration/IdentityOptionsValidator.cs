@@ -60,6 +60,13 @@ internal sealed class IdentityOptionsValidator(IHostEnvironment environment)
                 "A production signing key and matching ActiveKeyId are required.");
         }
 
+        if (options.EnableRemoteSuperAdministratorManagement
+            && environment.IsProduction())
+        {
+            failures.Add(
+                "Remote super-administrator management cannot be enabled in Production until a strong reauthentication provider is configured.");
+        }
+
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);

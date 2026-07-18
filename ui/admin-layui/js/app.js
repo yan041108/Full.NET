@@ -9,9 +9,10 @@ import {
   localViewFor,
   renderNavigation
 } from './core/navigation.js';
+import { createSuperAdministratorController } from './core/super-administrators.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/super-administrators']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -57,13 +58,18 @@ export function initializeAdminApp(root = document, options = {}) {
   let isLoggingIn = false;
   let isSwitchingContext = false;
   let componentLocaleGeneration = 0;
+  const superAdministrators = createSuperAdministratorController(root, {
+    request,
+    translation: () => translation
+  });
 
-  const onRouteChange = () => renderRoute(
-    root,
-    latestSnapshot,
-    translation,
-    { focusHeading: true }
-  );
+  const onRouteChange = () => {
+    renderRoute(root, latestSnapshot, translation, { focusHeading: true });
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/identity/super-administrators') {
+      void superAdministrators.load();
+    }
+  };
   const onProbe = async () => {
     if (isProbing) {
       return;
@@ -209,6 +215,10 @@ export function initializeAdminApp(root = document, options = {}) {
   const unsubscribeSession = session.subscribe((snapshot) => {
     latestSnapshot = normalizeSnapshot(snapshot);
     renderSession(root, latestSnapshot, translation);
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/identity/super-administrators') {
+      void superAdministrators.load();
+    }
   });
   const unsubscribeI18n = i18n.subscribe((snapshot) => {
     translation = snapshot;
@@ -267,6 +277,7 @@ export function initializeAdminApp(root = document, options = {}) {
         selector.removeEventListener('change', onLocaleChange);
       });
       tenantDirectory?.removeEventListener('click', onTenantAction);
+      superAdministrators.dispose();
       unsubscribeSession();
       unsubscribeI18n();
     }

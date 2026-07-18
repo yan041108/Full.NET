@@ -17,6 +17,7 @@ public sealed class IdentityOptionsValidatorTests
         Assert.AreEqual(5, options.LockoutThreshold);
         Assert.AreEqual(15, options.LockoutMinutes);
         Assert.IsTrue(options.RequireSecureCookies);
+        Assert.IsFalse(options.EnableRemoteSuperAdministratorManagement);
     }
 
     [TestMethod]
@@ -54,6 +55,23 @@ public sealed class IdentityOptionsValidatorTests
 
         Assert.IsTrue(result.Failed);
         StringAssert.Contains(string.Join(";", result.Failures), "Development or Testing");
+    }
+
+    [TestMethod]
+    public void Remote_super_administrator_management_is_rejected_in_production()
+    {
+        var options = new IdentityOptions
+        {
+            AllowDevelopmentEphemeralSigningKey = true,
+            EnableRemoteSuperAdministratorManagement = true,
+        };
+
+        var result = CreateValidator(Environments.Production).Validate(null, options);
+
+        Assert.IsTrue(result.Failed);
+        StringAssert.Contains(
+            string.Join(";", result.Failures),
+            "cannot be enabled in Production");
     }
 
     private static IdentityOptionsValidator CreateValidator(string environmentName)

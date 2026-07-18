@@ -37,6 +37,7 @@ internal sealed class FullNetApiFactory(
                 [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
                 [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
                 ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
+                ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
                 ["Identity:AllowedOrigins:0"] = "http://localhost",
                 ["Tenancy:HostDomains:0"] = "localhost",
             }));
@@ -122,16 +123,30 @@ internal sealed class FullNetApiFactory(
         return new FullNetApiFactory(provider, connectionString);
     }
 
-    public string CreateHostAccessToken(
-        IReadOnlyCollection<string> permissions)
+    public async Task<string> CreateHostAccessTokenAsync(
+        IReadOnlyCollection<string> permissions,
+        CancellationToken cancellationToken = default) =>
+        (await CreateHostIdentityAsync(
+                $"limited-{Guid.NewGuid():N}",
+                permissions,
+                cancellationToken)
+            .ConfigureAwait(false)).AccessToken;
+
+    public async Task<HostTestIdentity> CreateHostIdentityAsync(
+        string username,
+        IReadOnlyCollection<string> permissions,
+        CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var suffix = userId.ToString("N");
         var user = new IdentityUser(
-            Guid.NewGuid(),
+            userId,
             null,
             "host",
-            "limited-admin",
-            "LIMITED-ADMIN",
+            username,
+            username.ToUpperInvariant(),
             "受限管理员",
             "unused",
             true,
@@ -141,9 +156,59 @@ internal sealed class FullNetApiFactory(
             now,
             null,
             1);
-        return Services.GetRequiredService<IAccessTokenIssuer>()
-            .Issue(user, Guid.NewGuid(), null, permissions, false)
-            .AccessToken;
+        await using var scope = Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider
+            .GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            await command.ExecuteAsync(
+                IdentitySql.InsertUser,
+                new IdentityUserRecord(
+                    user.Id,
+                    user.TenantId,
+                    user.ScopeKey,
+                    user.Username,
+                    user.NormalizedUsername,
+                    user.DisplayName,
+                    user.PasswordHash,
+                    user.IsActive,
+                    user.FailedLoginCount,
+                    user.LockoutEndUtc,
+                    user.SecurityStamp,
+                    user.CreatedAtUtc,
+                    user.UpdatedAtUtc,
+                    user.Version,
+                    user.PreferredLocale,
+                    user.ProfileVersion),
+                cancellationToken);
+            await command.ExecuteAsync(
+                IdentitySql.InsertRefreshSession,
+                new RefreshSession(
+                    sessionId,
+                    userId,
+                    Guid.NewGuid(),
+                    "fullnet-admin",
+                    $"test-{suffix}",
+                    now.AddHours(1),
+                    null,
+                    null,
+                    null,
+                    null,
+                    now,
+                    1),
+                cancellationToken);
+            var accessToken = scope.ServiceProvider
+                .GetRequiredService<IAccessTokenIssuer>()
+                .Issue(user, sessionId, null, permissions, false)
+                .AccessToken;
+            return new HostTestIdentity(userId, username, accessToken);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     public async Task<long> GetAuthenticationAuditCountAsync(
@@ -272,3 +337,8 @@ internal sealed record HostAuthorizationState(
     long RoleCount,
     long PermissionCount,
     long AssignmentCount);
+
+internal sealed record HostTestIdentity(
+    Guid UserId,
+    string Username,
+    string AccessToken);

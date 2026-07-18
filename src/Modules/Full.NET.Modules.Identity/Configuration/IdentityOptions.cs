@@ -24,6 +24,8 @@ internal sealed class IdentityOptions
 
     public bool EnableTokenEndpoints { get; set; } = true;
 
+    public bool EnableRemoteSuperAdministratorManagement { get; set; }
+
     public string ActiveKeyId { get; set; } = string.Empty;
 
     public Dictionary<string, IdentitySigningKeyOptions> SigningKeys { get; set; } =

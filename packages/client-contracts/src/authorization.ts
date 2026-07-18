@@ -14,7 +14,7 @@ export interface NavigationNode {
 
 const stableKeyPattern = /^[a-z][a-z0-9-]{0,63}$/;
 const routePathPattern = /^\/(?:[a-z0-9-]+(?:\/[a-z0-9-]+)*)?$/;
-const permissionPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/;
+const permissionPattern = /^[a-z][a-z0-9_]*(?:[.-][a-z][a-z0-9_]*)+$/;
 
 /**
  * 校验服务端导航投影的完整树结构，不修改或修补任何不可信输入。

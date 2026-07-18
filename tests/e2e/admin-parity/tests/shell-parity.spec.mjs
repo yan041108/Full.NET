@@ -18,6 +18,7 @@ test('动态导航和可信租户范围在两套管理端保持一致', async ({
   await expect(navigation).toBeVisible();
   await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /租户上下文/ })).toBeVisible();
+  await expect(navigation.getByRole('link', { name: /超级管理员/ })).toBeVisible();
   await expect(page.getByRole('button', { name: '检查会话' })).toBeVisible();
   await expect(page.getByText('Full.NET Host', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('活跃租户', { exact: true })).toBeVisible();
@@ -26,6 +27,51 @@ test('动态导航和可信租户范围在两套管理端保持一致', async ({
   await navigation.getByRole('link', { name: /租户上下文/ }).click();
   await expect(page.getByRole('heading', { name: '租户上下文' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Acme Corporation' })).toBeVisible();
+});
+
+test('超级管理员列表、审计与密码重认证授予在两端保持一致', async ({ page }) => {
+  await mockAuthenticatedSession(page);
+  const grants = [];
+  await page.route('**/api/v1/identity/super-administrators/audits?*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([{
+      id: 'audit-1', targetUserId: 'target-1', actorUserId: 'e2e-user-id',
+      eventType: 'identity.super_administrator.granted',
+      resultCode: 'identity.super_administrator.granted', succeeded: true,
+      occurredAtUtc: '2026-07-18T00:00:00Z'
+    }])
+  }));
+  await page.route('**/api/v1/identity/super-administrators/', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([{
+      userId: 'e2e-user-id', username: 'admin',
+      displayName: '系统管理员', isActive: true
+    }])
+  }));
+  await page.route('**/api/v1/identity/super-administrators/grant', async route => {
+    grants.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ targetUserId: 'target-1', changed: true })
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /超级管理员/ }).click();
+  await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible();
+  await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('identity.super_administrator.granted', { exact: true })).toBeVisible();
+  await page.getByLabel('Host 账号', { exact: true }).fill('target-admin');
+  await page.getByLabel('当前密码', { exact: true }).fill('FullNet!2026Secure');
+  await page.getByRole('button', { name: '确认授予' }).click();
+  await expect.poll(() => grants).toEqual([{
+    username: 'target-admin',
+    currentPassword: 'FullNet!2026Secure'
+  }]);
+  await expect(page.getByLabel('当前密码', { exact: true })).toHaveValue('');
 });
 
 test('进入租户、刷新恢复并返回 Host 的闭环等价', async ({ page }) => {
@@ -100,8 +146,8 @@ test('刷新失败后可登录、进入动态控制台并安全退出', async ({
 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
-  await page.getByLabel('账号').fill('admin');
-  await page.getByLabel('密码').fill('FullNet!2026Secure');
+  await page.getByLabel('账号', { exact: true }).fill('admin');
+  await page.getByLabel('密码', { exact: true }).fill('FullNet!2026Secure');
   await page.getByRole('button', { name: '进入控制台' }).click();
 
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
@@ -217,6 +263,8 @@ function currentUserResponse(activeTenantId = null) {
       : 'host',
     permissions: [
       'identity.navigation.read',
+      'identity.super_administrators.manage',
+      'identity.super_administrators.read',
       'platform.dashboard.read',
       'tenancy.tenants.read',
       'tenancy.tenants.switch'
@@ -240,6 +288,13 @@ function navigationResponse(unknownComponent = false) {
       path: '/tenant-context', componentKey: 'tenant-context',
       title: '租户上下文', caption: '进入租户或返回 Host', icon: 'building',
       order: 20, requiredPermission: 'tenancy.tenants.read', children: []
+    },
+    {
+      id: 'super-administrators', parentId: null,
+      routeName: 'super-administrators', path: '/identity/super-administrators',
+      componentKey: 'super-administrators', title: '超级管理员',
+      caption: '受保护的 Host 最高权限账号', icon: 'shield', order: 40,
+      requiredPermission: 'identity.super_administrators.read', children: []
     }
   ];
 }

@@ -102,6 +102,8 @@ fullnet_super_administrator = true
 
 每个 Endpoint 仍必须声明精确权限。未知权限、未声明权限或作用域不匹配必须拒绝，禁止将超级管理员实现为“授权处理器无条件成功”。
 
+当前实现通过 JWT `OnTokenValidated` 对每个受保护请求读取权威 Session/User 记录，同时核对 `sub`、`sid`、SecurityStamp、账号/锁定状态、Refresh Session 活性、ActorScope、EffectiveScope 与 TenantId。该 S0 判定暂不使用缓存，因此授予、撤销、刷新轮换和上下文切换后旧 Access Token 会立即失效；未来若引入缓存，必须先建立同步本机失效和可靠跨节点传播。
+
 ### 5.3 客户端契约
 
 `GET /api/v1/me` 以加法兼容增加：
@@ -125,6 +127,8 @@ fullnet_super_administrator = true
 - 授予、撤销、禁用、恢复和失败原因全部审计；
 - 变更用户安全戳并撤销目标账号全部活动 Session；
 - 缓存按 S0 安全数据处理，禁止 Fail-Safe，提交后先清本机再通过 Outbox/Backplane 修复其他节点。
+
+第一阶段远程写入口仅允许 Development/Testing 通过 `Identity:EnableRemoteSuperAdministratorManagement=true` 显式开启，并要求当前密码重认证；配置验证器禁止在 Production 开启。只读列表与审计仍受 Host 精确权限保护。Production 必须先接入 MFA/强认证 Provider，再通过新的架构决策解除门禁，不能只修改配置绕过。
 
 双管理端必须同步实现超级管理员标识、系统角色只读状态、授予/撤销确认、最后一名保护错误和审计入口。只有服务端、SQL Server/MySQL、Vue/Layui 和真实后端 E2E 全部通过后才可标记 `Verified`。
 
