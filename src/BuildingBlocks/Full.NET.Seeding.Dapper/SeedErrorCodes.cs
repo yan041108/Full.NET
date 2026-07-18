@@ -29,6 +29,18 @@ public static class SeedErrorCodes
     /// <summary>Seeding 配置节不满足安全边界。</summary>
     public const string OptionsInvalid = "seeding.options.invalid";
 
+    /// <summary>当前宿主环境不允许执行请求的 Profile。</summary>
+    public const string ProfileNotAllowed = "seeding.profile.not_allowed";
+
+    /// <summary>在限定时间内未取得数据库级 Seed 独占锁。</summary>
+    public const string LockTimeout = "seeding.lock.timeout";
+
+    /// <summary>Contributor 执行失败，详细异常不得写入执行审计。</summary>
+    public const string ContributorFailed = "seeding.contributor.failed";
+
+    /// <summary>Seed 执行被调用方取消。</summary>
+    public const string ExecutionCancelled = "seeding.execution.cancelled";
+
     /// <summary>获取全部稳定错误码，用于命名契约门禁。</summary>
     public static IReadOnlyList<string> All { get; } =
     [
@@ -40,6 +52,10 @@ public static class SeedErrorCodes
         DependencyMissing,
         DependencyCycle,
         OptionsInvalid,
+        ProfileNotAllowed,
+        LockTimeout,
+        ContributorFailed,
+        ExecutionCancelled,
     ];
 }
 

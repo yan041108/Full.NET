@@ -200,6 +200,9 @@ internal static class ProductionAssemblies
     public static readonly Assembly DataDapper =
         typeof(Full.NET.Data.Dapper.ServiceCollectionExtensions).Assembly;
 
+    public static readonly Assembly SeedingDapper =
+        typeof(Full.NET.Seeding.Dapper.SeedCommandLine).Assembly;
+
     public static readonly Assembly[] All =
     [
         typeof(Full.NET.Abstractions.Results.Result<>).Assembly,
@@ -213,7 +216,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modularity.Modules.IFullNetModule).Assembly,
         typeof(Full.NET.Serialization.MessagePack.MessagePackIntegrationEventSerializer).Assembly,
         typeof(Full.NET.Seeding.Abstractions.SeedProfile).Assembly,
-        typeof(Full.NET.Seeding.Dapper.SeedCommandLine).Assembly,
+        SeedingDapper,
         typeof(Full.NET.Validation.FluentValidation.ServiceCollectionExtensions).Assembly,
         typeof(Full.NET.Compatibility.AdminNet.AdminNetApiResultMapper).Assembly,
         typeof(Full.NET.Composition.FullNetHostProfile).Assembly,

@@ -317,8 +317,8 @@ git commit -m "feat: validate seed profiles and contributors"
 - Create: `src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedExecutionStore.cs`
 - Create: `src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedOrchestrator.cs`
 - Modify: `src/BuildingBlocks/Full.NET.Seeding.Dapper/ServiceCollectionExtensions.cs`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/007_Seeding.sql`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/007_Seeding.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/007_SeedExecutionAudit.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/007_SeedExecutionAudit.sql`
 - Modify: `tests/Full.NET.IntegrationTests/Migrations/SqlServerMigrationTests.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Migrations/MySqlMigrationTests.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj`
@@ -329,7 +329,7 @@ git commit -m "feat: validate seed profiles and contributors"
 - Consumes: Task 2 的排序、配置和错误码；现有 `DatabaseOptions`、`IClock`、`IIdGenerator`。
 - Produces: `AddFullNetSeeding(IConfiguration)` 与 `ISeedOrchestrator` Dapper 实现。
 
-- [ ] **Step 1: 写 Orchestrator RED 测试**
+- [x] **Step 1: 写 Orchestrator RED 测试**
 
 使用可记录的 Store/Lease 替身和真实 Contributor 对象断言：
 
@@ -340,17 +340,17 @@ git commit -m "feat: validate seed profiles and contributors"
 - 成功结果聚合 Created/Updated/Skipped；
 - 审计只接收 ErrorCode，不接收异常 Message 或 Seed 输入。
 
-同时先创建 `SeedInfrastructureTests`，让 SQL Server/MySQL 分别断言 `007_Seeding.sql` 后存在 run/item 两表、同一资源的第二个 lease 在短超时内失败、释放后可再次获取，以及参数化 run/item 审计可以读取。此时测试必须因迁移、Lease 和 Store 不存在而失败。
+同时先创建 `SeedInfrastructureTests`，让 SQL Server/MySQL 分别断言 `007_SeedExecutionAudit.sql` 后存在 run/item 两表、同一资源的第二个 lease 在短超时内失败、释放后可再次获取，以及参数化 run/item 审计可以读取。此时测试必须因迁移、Lease 和 Store 不存在而失败。
 
-- [ ] **Step 2: 运行 Unit RED**
+- [x] **Step 2: 运行 Unit RED**
 
 Run: `dotnet build Full.NET.slnx --configuration Release`
 
 Expected: FAIL，Orchestrator、Store 与 Lease 类型不存在。
 
-- [ ] **Step 3: 编写双库迁移**
+- [x] **Step 3: 编写双库迁移**
 
-两份 `007_Seeding.sql` 创建 `fn_seed_run` 和 `fn_seed_run_item`。`005_SuperAdministrator.sql` 与 `006_SuperAdministratorAuditActor.sql` 已由受保护超级管理员切片占用；SQL Server 使用 `uniqueidentifier/datetimeoffset/nvarchar`，MySQL 使用 `char(36)/datetime(6)/varchar`；都包含：
+两份 `007_SeedExecutionAudit.sql` 创建 `fn_seed_run` 和 `fn_seed_run_item`。`005_SuperAdministrator.sql` 与 `006_SuperAdministratorAuditActor.sql` 已由受保护超级管理员切片占用；SQL Server 使用 `uniqueidentifier/datetimeoffset/nvarchar`，MySQL 使用 `char(36)/datetime(6)/varchar`；都包含：
 
 ```text
 fn_seed_run: Id PK, Profile, EnvironmentName, Status, ApplicationVersion,
@@ -362,7 +362,7 @@ fn_seed_run_item: RunId + Contributor PK/FK, ContributorVersion, Status,
 
 状态列限制为 16 字符，Contributor 为 128 字符，ErrorCode 为 128 字符。SQL 文件头用中文说明这是执行审计而非幂等跳过表，已发布后只能向前迁移。
 
-- [ ] **Step 4: 实现 provider-specific lease**
+- [x] **Step 4: 实现 provider-specific lease**
 
 `SeedExecutionLease.AcquireAsync` 根据 `DatabaseProvider` 打开并持有专用连接：
 
@@ -378,11 +378,11 @@ MySQL: SELECT GET_LOCK('Full.NET.Seeding', @LockTimeoutSeconds)
 
 SQL Server 返回值小于 0 或 MySQL 不返回 1 时映射 `seeding.lock.timeout`。Dispose 时分别调用 `sp_releaseapplock`、`RELEASE_LOCK`，保持原执行结果优先。
 
-- [ ] **Step 5: 实现审计 Store 和 Orchestrator**
+- [x] **Step 5: 实现审计 Store 和 Orchestrator**
 
 Store 使用参数化 Dapper 写入 run/item；Orchestrator 顺序固定为：环境门禁、依赖图验证、获取锁、StartRun、Contributor 循环、CompleteRun。Orchestrator 与 Contributor 都注册为 Scoped，并由 Migrator 的同一个显式执行 Scope 解析，禁止 Singleton 捕获 Scoped Contributor 或请求级租户状态。Contributor 改变 `CurrentTenant` 时必须在自身 `finally` 中恢复。
 
-- [ ] **Step 6: 运行 Unit GREEN**
+- [x] **Step 6: 运行 Unit GREEN**
 
 Run: `dotnet build Full.NET.slnx --configuration Release --no-restore`
 
@@ -390,7 +390,7 @@ Run: `dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
 
 Expected: Orchestrator 的门禁、失败、取消和计数测试全部通过。
 
-- [ ] **Step 7: 运行真实双库迁移/锁 GREEN**
+- [x] **Step 7: 运行真实双库迁移/锁 GREEN**
 
 迁移测试断言两表、主外键、长度和可空性。运行 Step 1 已建立的 `SeedInfrastructureTests`，确认每个 provider 都能执行迁移、获取第一个 lease、让第二个短超时获取失败、释放后重新获取成功，并查询 run/item 审计行。
 
@@ -398,7 +398,7 @@ Run: `dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.Integr
 
 Expected: SQL Server/MySQL 的迁移、锁竞争和审计均通过。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```powershell
 git add src/BuildingBlocks/Full.NET.Seeding.Dapper src/BuildingBlocks/Full.NET.Migrations.DbUp tests/Full.NET.UnitTests tests/Full.NET.IntegrationTests
