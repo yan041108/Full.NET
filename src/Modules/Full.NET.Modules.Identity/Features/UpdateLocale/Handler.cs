@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Localization;
 using Full.NET.Modules.Identity.Contracts;
@@ -13,24 +14,26 @@ namespace Full.NET.Modules.Identity.Features.UpdateLocale;
 internal sealed class Handler(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
-    ILocaleNormalizer localeNormalizer)
+    ILocaleNormalizer localeNormalizer,
+    IClock clock)
     : ICommandHandler<Command, LocalePreferenceResponse>
 {
     public async Task<Result<LocalePreferenceResponse>> HandleAsync(
         Command command,
         CancellationToken cancellationToken)
     {
-        if (!TryReadIdentity(command.Principal, out var userId, out var scopeKey))
+        if (!TryReadIdentity(
+                command.Principal,
+                out var userId,
+                out var sessionId,
+                out var scopeKey))
         {
             return Unauthorized();
         }
 
-        var profile = await queryExecutor.QuerySingleOrDefaultAsync<IdentityProfileRecord>(
-                IdentitySql.FindProfileByIdentity,
-                new { UserId = userId, ScopeKey = scopeKey },
-                cancellationToken)
+        var session = await FindSessionAsync(sessionId, cancellationToken)
             .ConfigureAwait(false);
-        if (profile is not { IsActive: true })
+        if (!IsOwnedActiveSession(session, userId, scopeKey, command.Principal))
         {
             return Unauthorized();
         }
@@ -49,7 +52,10 @@ internal sealed class Handler(
                 new
                 {
                     UserId = userId,
+                    SessionId = sessionId,
                     ScopeKey = scopeKey,
+                    SecurityStamp = session!.SecurityStamp,
+                    NowUtc = clock.UtcNow,
                     PreferredLocale = preferredLocale,
                     command.ProfileVersion,
                 },
@@ -57,13 +63,13 @@ internal sealed class Handler(
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
-            var currentProfile = await queryExecutor
-                .QuerySingleOrDefaultAsync<IdentityProfileRecord>(
-                    IdentitySql.FindProfileByIdentity,
-                    new { UserId = userId, ScopeKey = scopeKey },
-                    cancellationToken)
+            var currentSession = await FindSessionAsync(sessionId, cancellationToken)
                 .ConfigureAwait(false);
-            if (currentProfile is not { IsActive: true })
+            if (!IsOwnedActiveSession(
+                    currentSession,
+                    userId,
+                    scopeKey,
+                    command.Principal))
             {
                 return Unauthorized();
             }
@@ -82,14 +88,44 @@ internal sealed class Handler(
     private static bool TryReadIdentity(
         ClaimsPrincipal principal,
         out Guid userId,
+        out Guid sessionId,
         out string scopeKey)
     {
+        sessionId = Guid.Empty;
         scopeKey = principal.FindFirstValue(IdentityClaimTypes.ActorScope) ?? string.Empty;
         return Guid.TryParse(
                 principal.FindFirstValue(JwtRegisteredClaimNames.Sub),
                 out userId)
+            && Guid.TryParse(
+                principal.FindFirstValue(IdentityClaimTypes.SessionId),
+                out sessionId)
             && !string.IsNullOrWhiteSpace(scopeKey);
     }
+
+    private Task<RefreshSessionRecord?> FindSessionAsync(
+        Guid sessionId,
+        CancellationToken cancellationToken) =>
+        queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
+            IdentitySql.FindRefreshSessionById,
+            new { SessionId = sessionId },
+            cancellationToken);
+
+    private bool IsOwnedActiveSession(
+        RefreshSessionRecord? session,
+        Guid userId,
+        string scopeKey,
+        ClaimsPrincipal principal) =>
+        session is not null
+        && session.UserId == userId
+        && string.Equals(session.ScopeKey, scopeKey, StringComparison.Ordinal)
+        && string.Equals(
+            session.SecurityStamp,
+            principal.FindFirstValue(IdentityClaimTypes.SecurityStamp),
+            StringComparison.Ordinal)
+        && session.IsActive
+        && session.ExpiresAtUtc > clock.UtcNow
+        && !session.ConsumedAtUtc.HasValue
+        && !session.RevokedAtUtc.HasValue;
 
     private static Result<LocalePreferenceResponse> Unauthorized() =>
         Result<LocalePreferenceResponse>.Failure(new Error(

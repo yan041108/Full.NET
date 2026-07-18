@@ -329,6 +329,16 @@ internal static class IdentitySql
           AND ScopeKey = @ScopeKey
           AND ProfileVersion = @ProfileVersion
           AND IsActive = 1
+          AND SecurityStamp = @SecurityStamp
+          AND EXISTS (
+              SELECT 1
+              FROM fn_identity_refresh_session AS session
+              WHERE session.Id = @SessionId
+                AND session.UserId = fn_identity_user.Id
+                AND session.ExpiresAtUtc > @NowUtc
+                AND session.ConsumedAtUtc IS NULL
+                AND session.RevokedAtUtc IS NULL
+          )
         """,
         SqlDataScope.Global);
 
