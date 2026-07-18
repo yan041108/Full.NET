@@ -14,6 +14,7 @@
 | `src/BuildingBlocks/Full.NET.Localization` | 规范语言目录、Accept-Language 请求协商、CultureScope 与响应头辅助能力 |
 | `src/Compatibility/Full.NET.Compatibility.AdminNet` | Admin.NET 可选响应包络与适配注册 |
 | `src/Composition/Full.NET.Composition` | 官方模块共享目录、Api/Worker/Migrator 的显式 Host Profile 与最小后台装配 |
+| `packages/client-contracts` | ProblemDetails/身份/租户/权限契约解析，以及无框架 headless 层（`createHttpClient`、`createIdentitySession`、`createAdminNavigationCatalog`）；Vue/Layui 只做渲染适配 |
 | `src/Modules/Full.NET.Modules.*`（Core） | 按 Contracts、Domain、Features、Persistence、Serialization 组织的业务逻辑；禁止直接使用 ASP.NET Core API（`BusinessModuleCores_DoNotDependOnAspNetCore` 门禁），只对外暴露 `Contracts` 命名空间 |
 | `src/Modules/Full.NET.Modules.*.Http`（可选） | 承载 `IFullNetModule` 实现、Endpoint 与中间件的 Web 面；引用同名 Core，仅暴露模块入口类型（如 Tenancy 已拆分） |
 | `src/Modules/Full.NET.Modules.Identity.Contracts` | Identity 跨模块契约（Claim 类型、会话上下文、导航/权限定义等），web-free，供其他模块 Core 引用而不拖入 ASP.NET Core |

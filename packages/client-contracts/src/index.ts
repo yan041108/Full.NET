@@ -5,6 +5,39 @@ export {
 
 export type { FullNetProblemDetails } from './problem-details.js';
 
+export { readCsrfHeaders } from './csrf.js';
+
+export {
+  createHttpClient
+} from './http.js';
+
+export type {
+  AuthenticationBridge,
+  HttpClient,
+  RequestOptions
+} from './http.js';
+
+export {
+  ADMIN_NAVIGATION_CATALOG,
+  createAdminNavigationCatalog
+} from './navigation-catalog.js';
+
+export type {
+  AdminNavigationCatalog,
+  AdminNavigationCatalogEntry
+} from './navigation-catalog.js';
+
+export {
+  createIdentitySession
+} from './identity-session.js';
+
+export type {
+  IdentitySessionController,
+  IdentitySessionOptions,
+  IdentitySessionSnapshot,
+  SessionState
+} from './identity-session.js';
+
 export {
   isCurrentUserResponse,
   isLocalePreferenceResponse,

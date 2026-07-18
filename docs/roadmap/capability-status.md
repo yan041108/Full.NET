@@ -38,7 +38,7 @@
 | 受保护超级管理员 | `Implemented` | 005/006 双库迁移、动态 Catalog 权限、逐请求会话校验、远程授予/撤销 API、当前密码重认证、含 ActorUserId 的事务审计、双库最后一名保护、Vue/Layui 对等管理页与 Mock E2E | Production MFA/强认证 Provider、账号禁用/删除及普通角色 CRUD 的系统角色保护、真实后端浏览器 E2E 尚未完成 |
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
-| Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E | 与 Vue 重复的会话/HTTP/导航规则需收敛到 headless 契约层 |
+| Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E | 会话/HTTP/导航白名单已收敛到 `@fullnet/client-contracts` headless 层；Layui 仅保留 DOM 渲染适配 |
 | 双管理端真实后端浏览器联调 | `Designing` | 真实 Host 已有 API/CORS 集成测试 | Playwright 目前主要 Mock API；需补 Cookie/CORS/刷新/租户切换真实链路 |
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |

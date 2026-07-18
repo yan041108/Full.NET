@@ -5,7 +5,7 @@ import {
   isNavigationTree,
   isTenantContextSummaryArray,
   isTenantContextTokenResponse
-} from '../js/core/contracts.js';
+} from '@fullnet/client-contracts';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 

@@ -1,23 +1,21 @@
-const localNavigation = new Map([
+import { createAdminNavigationCatalog } from '@fullnet/client-contracts';
+
+const navigationCatalog = createAdminNavigationCatalog();
+
+const presentation = new Map([
   ['overview', {
-    routeName: 'overview',
-    path: '/',
     view: 'overview',
     iconClass: 'layui-icon-console',
     titleKey: 'navigation.overview.title',
     captionKey: 'navigation.overview.caption'
   }],
   ['tenant-context', {
-    routeName: 'tenant-context',
-    path: '/tenant-context',
     view: 'tenant-context',
     iconClass: 'layui-icon-group',
     titleKey: 'navigation.tenantContext.title',
     captionKey: 'navigation.tenantContext.caption'
   }],
   ['super-administrators', {
-    routeName: 'super-administrators',
-    path: '/identity/super-administrators',
     view: 'super-administrators',
     iconClass: 'layui-icon-auz',
     titleKey: 'navigation.superAdministrators.title',
@@ -27,29 +25,24 @@ const localNavigation = new Map([
 
 /** 返回组件键对应的本地可信导航定义，未知键始终拒绝。 */
 export function localNavigationFor(componentKey) {
-  return localNavigation.get(componentKey);
+  const entry = navigationCatalog.localNavigationFor(componentKey);
+  const local = presentation.get(componentKey);
+  if (!entry || !local) {
+    return undefined;
+  }
+
+  return {
+    routeName: entry.routeName,
+    path: entry.path,
+    ...local
+  };
 }
 
 /** 确认服务端导航只引用当前 Layui 版本显式发布的本地视图。 */
-export function isSupportedNavigationTree(navigation) {
-  return navigation.every(node => {
-    const local = localNavigation.get(node.componentKey);
-    return local !== undefined
-      && local.routeName === node.routeName
-      && local.path === node.path
-      && isSupportedNavigationTree(node.children);
-  });
-}
+export const isSupportedNavigationTree = navigationCatalog.isSupportedNavigationTree;
 
 /** 按树顺序生成平铺导航，不修改源数据。 */
-export function flattenNavigation(navigation) {
-  const result = [];
-  for (const node of navigation) {
-    result.push(node, ...flattenNavigation(node.children));
-  }
-
-  return result;
-}
+export const flattenNavigation = navigationCatalog.flattenNavigation;
 
 /** 查找与 Hash 路径精确匹配的已授权本地导航。 */
 export function findNavigationByPath(navigation, path) {
@@ -58,7 +51,7 @@ export function findNavigationByPath(navigation, path) {
 
 /** 获取组件键对应的固定本地视图键。 */
 export function localViewFor(componentKey) {
-  return localNavigation.get(componentKey)?.view;
+  return presentation.get(componentKey)?.view;
 }
 
 /** 使用安全 DOM API 呈现导航，服务端文本不会进入 HTML 解析器。 */
@@ -70,7 +63,7 @@ export function renderNavigation(container, navigation, activePath, t) {
   fragment.append(group);
 
   flattenNavigation(navigation).forEach((node, index) => {
-    const local = localNavigation.get(node.componentKey);
+    const local = localNavigationFor(node.componentKey);
     if (!local) {
       return;
     }
