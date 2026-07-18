@@ -8,6 +8,8 @@
 
 **Tech Stack:** .NET 10、Dapper、Microsoft.Data.SqlClient、MySqlConnector、DbUp、Microsoft Testing Platform、Testcontainers SQL Server/MySQL
 
+**Migration prerequisite:** 必须先完成 UUID Binary16 007/008 与命名规范化 009/010；本计划的 Seed 基础表固定使用 `011_Seeding.sql`，不得复用已经分配的迁移编号。
+
 ## Global Constraints
 
 - 默认 Migrator 只迁移；只有显式 `--seed baseline|development|demo|test` 才运行 Seed。
@@ -317,8 +319,8 @@ git commit -m "feat: validate seed profiles and contributors"
 - Create: `src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedExecutionStore.cs`
 - Create: `src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedOrchestrator.cs`
 - Modify: `src/BuildingBlocks/Full.NET.Seeding.Dapper/ServiceCollectionExtensions.cs`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/007_Seeding.sql`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/007_Seeding.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_Seeding.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_Seeding.sql`
 - Modify: `tests/Full.NET.IntegrationTests/Migrations/SqlServerMigrationTests.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Migrations/MySqlMigrationTests.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj`
@@ -340,7 +342,7 @@ git commit -m "feat: validate seed profiles and contributors"
 - 成功结果聚合 Created/Updated/Skipped；
 - 审计只接收 ErrorCode，不接收异常 Message 或 Seed 输入。
 
-同时先创建 `SeedInfrastructureTests`，让 SQL Server/MySQL 分别断言 `007_Seeding.sql` 后存在 run/item 两表、同一资源的第二个 lease 在短超时内失败、释放后可再次获取，以及参数化 run/item 审计可以读取。此时测试必须因迁移、Lease 和 Store 不存在而失败。
+同时先创建 `SeedInfrastructureTests`，让 SQL Server/MySQL 分别断言 `011_Seeding.sql` 后存在 run/item 两表、同一资源的第二个 lease 在短超时内失败、释放后可再次获取，以及参数化 run/item 审计可以读取。此时测试必须因迁移、Lease 和 Store 不存在而失败。
 
 - [ ] **Step 2: 运行 Unit RED**
 
@@ -350,7 +352,7 @@ Expected: FAIL，Orchestrator、Store 与 Lease 类型不存在。
 
 - [ ] **Step 3: 编写双库迁移**
 
-两份 `007_Seeding.sql` 创建 `fn_seed_run` 和 `fn_seed_run_item`。`005_SuperAdministrator.sql` 与 `006_SuperAdministratorAuditActor.sql` 已由受保护超级管理员切片占用；SQL Server 使用 `uniqueidentifier/datetimeoffset/nvarchar`，MySQL 使用 `char(36)/datetime(6)/varchar`；都包含：
+两份 `011_Seeding.sql` 创建 `fn_seed_run` 和 `fn_seed_run_item`。`007/008` 已分配给 UUID Binary16，`009/010` 已分配给 1.0 前命名规范化；SQL Server UUID 使用 `uniqueidentifier`，MySQL UUID 使用 RFC 字节序 `BINARY(16)`，时间/文本分别使用 `datetimeoffset`/`datetime(6)` 与 `nvarchar`/`varchar`；都包含：
 
 ```text
 fn_seed_run: Id PK, Profile, EnvironmentName, Status, ApplicationVersion,

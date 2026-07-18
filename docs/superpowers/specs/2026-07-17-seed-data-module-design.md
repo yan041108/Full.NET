@@ -267,6 +267,8 @@ Host.Migrator 启动
 
 审计表只用于观察和故障定位，不记录 Seed 输入正文，不保存密码、个人数据或异常堆栈，也不决定是否跳过 Contributor。
 
+RunId 服从 [ADR-0003](../../architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md) 的统一主键存储：应用在运行开始前生成 UUID v7；SQL Server 使用 `uniqueidentifier`，MySQL 使用 RFC 字节序 `BINARY(16)`。Contributor、Seeder 和业务模块只处理 C# `Guid`，不得自行进行 MySQL 字节转换。Seed 表迁移必须排在 UUID Binary16 与 1.0 前命名规范化之后。
+
 ## 11. CLI 与兼容策略
 
 目标命令：

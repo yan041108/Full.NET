@@ -41,6 +41,7 @@
 - 数据访问以 Dapper 和显式 SQL 为默认实现；未经明确架构决策不得引入 EF Core 作为业务数据访问层。
 - Dapper 辅助能力只允许通过 Full.NET 自有边界使用：原生 `QueryMultiple` 经多结果集执行器暴露，`Dapper.SqlBuilder` 仅在真实动态列表消费者出现时由专用查询构建层封装；禁止业务模块直接引用 Dapper/ADO.NET、`Dapper.ProviderTools`、`Dapper.Transaction`、通用 Repository 或自动 CRUD 扩展。
 - 数据库正式支持 SQL Server 与 MySQL；数据库行为变更必须同时验证两者。
+- Full.NET 官方表的默认逻辑主键为应用端生成的 UUID v7，C# 与业务模块只使用 `Guid`；SQL Server 持久化为 `uniqueidentifier`，MySQL 目标类型为 RFC 9562 大端字节序的 `BINARY(16)`。MySQL 转换只允许由 Full.NET 数据边界统一完成，禁止业务模块使用 `Guid.ToByteArray()`、time-swap 或自行交换字节；现有 `char(36)` 必须在 1.0 前按已批准迁移计划治理。SQL Server 必须显式决定主键/聚集索引，禁止假定 UUID v7 天然按时间聚集。
 - 数据库表采用 `{owner}_{module}_{entity}`：Full.NET 官方表的 OwnerKey 固定为 `fn`，项目表使用脚手架阶段冻结的项目 OwnerKey；`sys` 是保留 OwnerKey，禁止运行时动态表前缀。数据库列使用 PascalCase 与 C# Dapper 投影直接映射，详细命名服从 [`rules/naming-conventions.md`](rules/naming-conventions.md)。
 - 外部 HTTP API 使用标准状态码与 ProblemDetails；Admin.NET 统一包络只存在于兼容适配层。
 - JSON 使用 System.Text.Json；内部高性能序列化按既定边界使用 MessagePack，服务契约可使用 gRPC。

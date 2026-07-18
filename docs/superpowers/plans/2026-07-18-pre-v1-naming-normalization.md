@@ -4,13 +4,14 @@
 
 **Goal:** 在 Full.NET 1.0 前用可恢复的双数据库迁移规范化现有 Tenancy、Outbox 和稳定机器代码命名，同时保证存量数据、待处理消息和旧客户端不会被静默破坏。
 
-**Architecture:** 数据库采用 `expand -> application switch -> contract`：先新增规范表/列并回填，在受控维护窗口切换应用，再延后删除旧对象。公共错误码通过明确破坏性版本说明和兼容映射迁移；Outbox 旧 MessageType 保留并行 Handler，直到旧消息排空和退役窗口结束。本计划不修改 001-004 历史迁移。
+**Architecture:** 数据库采用 `expand -> application switch -> contract`：先新增规范表/列并回填，在受控维护窗口切换应用，再延后删除旧对象。公共错误码通过明确破坏性版本说明和兼容映射迁移；Outbox 旧 MessageType 保留并行 Handler，直到旧消息排空和退役窗口结束。本计划不修改 001-008 历史迁移，并以 UUID Binary16 007/008 已完成为前置条件。
 
 **Tech Stack:** .NET 10、Dapper、DbUp、SQL Server、MySQL、Testcontainers、MessagePack Outbox、MSTest/Microsoft Testing Platform、Vue/Layui 契约测试。
 
 ## Global Constraints
 
 - 必须先完成 `2026-07-18-naming-governance.md` 的 Naming Profile、精确债务清单和自动化门禁。
+- 必须先完成 `2026-07-18-uuid-v7-primary-key-storage.md` 的 007/008 迁移和 Binary16 应用切换；本计划固定使用 009/010，禁止与主键或 Seed 计划交换编号。
 - 生产/持久化数据库禁止直接 Rename/Drop；所有步骤可在迁移未记账且前序 DDL 已部分完成时安全重跑。
 - SQL Server/MySQL 必须具有相同目标表、列、约束和索引名称，并分别执行真实恢复测试。
 - 迁移切换期间 API、Worker 和 Migrator 的顺序必须明确；Outbox 未排空时禁止移除旧消息路由。
@@ -29,7 +30,7 @@
 - Modify: `package.json`
 
 **Interfaces:**
-- Consumes: 当前 001-004 双库迁移、ErrorCodes、Audit/Statement IDs 和 Outbox MessageType
+- Consumes: 当前 001-008 双库迁移、ErrorCodes、Audit/Statement IDs 和 Outbox MessageType
 - Produces: 机器可读 `PreV1NameMapV1` 与停止写入、备份、迁移、验证、回退步骤
 
 - [ ] **Step 1: 写失败的映射完整性测试**
@@ -74,21 +75,21 @@ git commit -m "docs: freeze pre-v1 naming migration map"
 ### Task 2: 为 Tenancy 和 Outbox 建立双库 Expand 迁移
 
 **Files:**
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/006_NamingExpand.sql`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/006_NamingExpand.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/009_NamingExpand.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_NamingExpand.sql`
 - Create: `tests/Full.NET.IntegrationTests/Migrations/NamingExpandMigrationTests.cs`
 - Create: `tests/Full.NET.IntegrationTests/Migrations/NamingPartialRecoveryTests.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj`
 
 **Interfaces:**
-- Consumes: 001-004 当前结构与 `PreV1NameMapV1`
+- Consumes: 001-008 当前结构与 `PreV1NameMapV1`
 - Produces: 已回填的 `fn_tenancy_tenant` 和 Outbox 规范镜像列；旧表/列仍保留
 
 - [ ] **Step 1: 先写 SQL Server/MySQL 失败测试**
 
-测试从 005 状态写入多个 Tenant 和处于 Pending/Processed/Retry/Locked 的 Outbox 行，执行 006 后断言新旧行数、Id、二进制 Payload、MessageType、四个 UTC 时间和 NULL 状态完全一致。分别模拟：新表已创建但未复制、只增加部分列、部分行已回填、迁移未记账，再次运行必须收敛。
+测试从 008 状态写入多个 Tenant 和处于 Pending/Processed/Retry/Locked 的 Outbox 行，执行 009 后断言新旧行数、Id、二进制 Payload、MessageType、四个 UTC 时间和 NULL 状态完全一致。分别模拟：新表已创建但未复制、只增加部分列、部分行已回填、迁移未记账，再次运行必须收敛。
 
-- [ ] **Step 2: 运行并确认 006 缺失而失败**
+- [ ] **Step 2: 运行并确认 009 缺失而失败**
 
 Run:
 
@@ -101,7 +102,7 @@ Expected: FAIL，指出目标迁移或规范对象不存在。
 
 - [ ] **Step 3: 实现可重入 Expand**
 
-006 创建 `fn_tenancy_tenant`，使用显式 `PK_/UX_/DF_` 名称和 `CreatedAtUtc/UpdatedAtUtc`；按 Id 幂等复制旧 Tenant。Outbox 在原表新增可空 `MessageType/OccurredAtUtc/ProcessedAtUtc/NextAttemptAtUtc/LockedUntilUtc` 并分批回填；每个 DDL/回填步骤先探测真实结构和行状态，不能只依赖 DbUp Journal。
+009 创建 `fn_tenancy_tenant`，使用显式 `PK_/UX_/DF_` 名称和 `CreatedAtUtc/UpdatedAtUtc`；按 Id 幂等复制旧 Tenant。Outbox 在原表新增可空 `MessageType/OccurredAtUtc/ProcessedAtUtc/NextAttemptAtUtc/LockedUntilUtc` 并分批回填；每个 DDL/回填步骤先探测真实结构和行状态，不能只依赖 DbUp Journal。两库 UUID 列沿用 ADR-0003 的目标类型：SQL Server `uniqueidentifier`，MySQL `BINARY(16)`。
 
 - [ ] **Step 4: 增加数据冲突和超时保护**
 
@@ -140,7 +141,7 @@ git commit -m "feat: expand canonical database names"
 - Modify: `tests/Full.NET.IntegrationTests/`
 
 **Interfaces:**
-- Consumes: 006 Expand 后的新表/列
+- Consumes: 009 Expand 后的新表/列
 - Produces: 新写入只使用规范数据库名称；Worker 同时消费 legacy/canonical MessageType
 
 - [ ] **Step 1: 先写应用切换失败测试**
@@ -233,8 +234,8 @@ git commit -m "refactor: normalize pre-v1 contract names"
 ### Task 5: 收紧非空约束并完成 Contract 清理
 
 **Files:**
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/007_NamingContract.sql`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/007_NamingContract.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/010_NamingContract.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/010_NamingContract.sql`
 - Create: `tests/Full.NET.IntegrationTests/Migrations/NamingContractMigrationTests.cs`
 - Create: `tests/Full.NET.IntegrationTests/Migrations/NamingContractPartialRecoveryTests.cs`
 - Modify: `contracts/naming/naming-debt.json`
@@ -247,7 +248,7 @@ git commit -m "refactor: normalize pre-v1 contract names"
 
 - [ ] **Step 1: 写 Contract 前置条件失败测试**
 
-只要新列有 NULL、旧新值冲突、旧表行数与新表不一致、存在 Legacy Pending Outbox 或数据库记录的应用兼容版本未达到门槛，007 必须拒绝执行。测试覆盖迁移未记账但部分旧对象已删除的恢复场景。
+只要新列有 NULL、旧新值冲突、旧表行数与新表不一致、存在 Legacy Pending Outbox 或数据库记录的应用兼容版本未达到门槛，010 必须拒绝执行。测试覆盖迁移未记账但部分旧对象已删除的恢复场景。
 
 - [ ] **Step 2: 实现先收紧、后删除的 Contract**
 
@@ -255,7 +256,7 @@ git commit -m "refactor: normalize pre-v1 contract names"
 
 - [ ] **Step 3: 运行全新、升级和半完成双库矩阵**
 
-矩阵至少包含：空数据库 001→007、005 存量数据→007、006 后新应用写入→007、Legacy Pending 消息拒绝、007 部分完成重跑。所有场景验证 Tenant/Outbox 行数、Payload SHA-256、索引和约束名称。
+矩阵至少包含：空数据库 001→010、008 存量数据→010、009 后新应用写入→010、Legacy Pending 消息拒绝、010 部分完成重跑。所有场景验证 Tenant/Outbox 行数、Payload SHA-256、UUID Binary16 往返、索引和约束名称。
 
 - [ ] **Step 4: 清除已完成债务并验证没有扩大豁免**
 

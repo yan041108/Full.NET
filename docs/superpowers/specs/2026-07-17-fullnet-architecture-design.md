@@ -443,7 +443,11 @@ Host 管理员管理平台和租户；Tenant 管理员管理当前租户。Tenan
 
 ### 11.1 表与主键
 
-模块拥有自己的表，物理名统一为 `{owner_key}_{module_key}_{entity_key}` 的小写 snake_case。Full.NET 官方框架和官方模块的 OwnerKey 固定为 `fn`，具体项目在脚手架创建时冻结独立 OwnerKey（例如 `crm`）；项目扩展官方模块也必须使用项目 OwnerKey。`sys` 保留给数据库系统语义，禁止作为项目 OwnerKey；表名不得由租户或运行时配置动态拼接。默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 产生。项目模板可选择 Snowflake `long`，但框架核心表采用 UUID v7。
+模块拥有自己的表，物理名统一为 `{owner_key}_{module_key}_{entity_key}` 的小写 snake_case。Full.NET 官方框架和官方模块的 OwnerKey 固定为 `fn`，具体项目在脚手架创建时冻结独立 OwnerKey（例如 `crm`）；项目扩展官方模块也必须使用项目 OwnerKey。`sys` 保留给数据库系统语义，禁止作为项目 OwnerKey；表名不得由租户或运行时配置动态拼接。
+
+默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 在写库前产生，因此父子记录、审计与 Outbox 可在同一事务中直接引用，不依赖数据库序列。SQL Server 持久化为 `uniqueidentifier`；MySQL 目标类型为 RFC 9562 大端字节序的 `BINARY(16)`，只由 Full.NET 数据层统一转换，业务模块不得感知 `byte[]` 或自行交换字节。HTTP/JSON 始终使用规范 UUID 字符串。现有 MySQL `char(36)` 是尚未完成的 1.0 前存储债务，不能把目标设计表述为已实现。
+
+SQL Server 必须把主键约束与聚集索引分开显式设计：高频追加表优先采用 UUID 非聚集主键和符合时间/租户访问路径的显式聚集索引，不能假定 UUID v7 按 SQL Server `uniqueidentifier` 比较顺序天然追加。项目模板可通过独立 ADR 选择 Snowflake `long`；面向 JavaScript 的 API 必须输出十进制字符串，框架核心表继续采用 UUID v7。完整决策、迁移和验证门禁见 [ADR-0003](../../architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md)。
 
 数据库列使用 PascalCase 并与 C# 持久化投影直接映射，不启用全局 snake_case 隐式映射。表、列、约束、代码、API 和稳定机器码的完整规则及存量兼容边界见 [`Full.NET 命名规范`](../../../rules/naming-conventions.md)。
 

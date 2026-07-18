@@ -3,7 +3,7 @@
 - 日期：2026-07-18
 - 状态：已批准
 - 决策来源：项目所有者确认保留 `fn_` 作为 Full.NET 所有权前缀，具体项目采用自己的 OwnerKey，不使用 `sys_` 作为默认前缀
-- 实现状态：规范已确定；自动化门禁、存量数据库迁移和代码生成器命名内核尚未实现
+- 实现状态：命名内核与基础门禁已实现；UUID v7 逻辑主键已经使用，但 MySQL `BINARY(16)` 数据边界、存量转换和 SQL Server 聚集索引治理尚未实现
 
 ## 1. 问题与目标
 
@@ -106,6 +106,14 @@ else: first_55_ascii_chars + "_" + first_8_hex(SHA256(UTF8(full_name)))
 
 需要同一部署承载多个客户时使用 `TenantId` 或已批准的独立数据库租户 Provider，而不是为每个租户修改表前缀。
 
+### 4.5 主键的逻辑类型与物理存储
+
+主键名称、逻辑类型和数据库物理表示是三个不同决策。Full.NET 官方表的单列主键名称为 `Id`，逻辑类型为应用端生成的 UUID v7/C# `Guid`；SQL Server 使用 `uniqueidentifier`，MySQL 使用 RFC 9562 大端字节序 `BINARY(16)`。Dapper 参数和领域模型始终使用 `Guid`，MySQL 的转换由 Full.NET 数据层统一配置，业务模块不得使用 `Guid.ToByteArray()`、time-swap 或字符串 UUID 规避边界。
+
+该方案保留应用写库前获得主键、父子/审计/Outbox 同事务引用以及多节点独立生成能力，同时缩小 MySQL 主外键和二级索引。公共 API 仍输出规范 UUID 字符串，客户端不依赖数据库物理格式。SQL Server 的 `uniqueidentifier` 比较顺序与 RFC 字节序不同，因此每张表必须显式决定主键是否聚集；高频追加表按实际时间/租户查询路径建立聚集索引，而不是把 UUID v7 本身视为顺序聚集保证。
+
+复合关系主键继续由外键组成，不添加无业务意义的代理 `Id`。Snowflake `long` 只允许在项目脚手架阶段通过 ADR 选择，并对 JavaScript 客户端序列化为字符串。完整理由与迁移门禁见 [ADR-0003](../../architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md)。
+
 ## 5. C# 与纵向 Feature
 
 C# 遵循 .NET 平台惯例：类型与公开成员 PascalCase，参数和局部变量 camelCase，接口前缀 `I`，异步方法后缀 `Async`。Full.NET 固定缩写词典，尤其使用 `Id` 而非 `ID`、`FullNet` 而非 `FullNET`。
@@ -162,6 +170,7 @@ Schema 导入不能看到 `fn_identity_user` 后就无条件猜出 `IdentityUser
 | Outbox `Type` | `MessageType` | 新列回填和双版本读取；不得丢失待处理消息 |
 | 错误/Audit/Statement 使用连字符 | 点分层＋snake_case 分段 | 按公共/内部契约分类；公共值提供兼容窗口 |
 | 随机或非规范约束名 | 显式规范名 | 新对象立即执行，旧对象按模块迁移处理 |
+| MySQL UUID `char(36)` | RFC 字节序 `BINARY(16)` | 不修改历史迁移；按专项计划影子列回填、核对、切换和 Contract |
 
 上述目标是 `Designing`，不是已完成能力。迁移必须遵守破坏性 DDL 规则、SQL Server/MySQL 双库验证和发布前备份/数据核对。
 
@@ -175,6 +184,8 @@ Schema 导入不能看到 `fn_identity_user` 后就无条件猜出 `IdentityUser
 4. 当前 Foundation/Identity/Tenancy 债务按批准计划完成或保留有期限的精确豁免；
 5. CodeGeneration 使用同一命名内核并通过快照、重复生成和碰撞测试；
 6. 公共契约改名具有版本、兼容说明和客户端验证。
+7. 固定 UUID 向量在 MySQL 驱动、`UUID_TO_BIN(value, 0)`、Dapper 和 HTTP 文本之间往返一致，time-swap 路径被测试拒绝。
+8. SQL Server 每个新主键显式声明聚集属性，高写入表具有与真实访问路径对应的聚集索引证据。
 
 ## 10. 参考依据
 

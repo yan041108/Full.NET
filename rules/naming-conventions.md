@@ -79,6 +79,22 @@ CreatedAtUtc
 - 复合主键不再增加无业务用途的代理 `Id`；
 - 租户业务表的租户边界列固定为 `TenantId`，不得使用 `TenantID`、`Tenant` 或 `OrganizationId` 代替隔离语义。
 
+Full.NET 官方表的单列默认标识采用应用端 UUID v7，逻辑类型固定为 C# `Guid`。应用必须在数据库写入前通过 `IIdGenerator` 生成非空标识；数据库默认值不作为业务主键的主要生成机制。父子记录、审计、Outbox 和同一事务中的其他引用直接使用已生成的 `Guid`。
+
+Provider 物理类型固定如下：
+
+| Provider/边界 | UUID 类型或格式 |
+| --- | --- |
+| SQL Server | `uniqueidentifier` |
+| MySQL | RFC 9562 大端/网络字节序 `BINARY(16)` |
+| C# 与 Dapper 参数 | `Guid` |
+| HTTP/JSON/OpenAPI | 小写规范 UUID 字符串 |
+
+- MySQL 必须由 Full.NET 数据边界统一使用 `GuidFormat=Binary16` 或等价的受测编解码契约；业务模块不得把 UUID 改为 `byte[]`/字符串，也不得调用 `Guid.ToByteArray()`、`UUID_TO_BIN(..., 1)`、`TimeSwapBinary16` 或自行交换字节；
+- 同一关系链的 UUID 主键、外键、租约与审计引用必须采用相同物理类型和字节序；
+- API、缓存键、日志和消息头只在边界输出规范 UUID 文本，禁止把 MySQL 二进制表现泄漏给客户端；
+- 项目模板选择 Snowflake `long` 必须有独立 ADR；对 JavaScript 客户端的 JSON 值必须使用十进制字符串，禁止与同一实体的 UUID 混用。
+
 ### 4.3 时间、日期和时区
 
 - 表示时间线瞬间的列必须显式带 `Utc`，通常使用 `CreatedAtUtc`、`OccurredAtUtc`、`ExpiresAtUtc`、`LockedUntilUtc`、`ValidFromUtc`；
@@ -114,6 +130,8 @@ CreatedAtUtc
 3. 名称只使用 ASCII 字母、数字和下划线，完整长度最多 64 字符。
 4. 生成名称超过 64 字符时，统一使用：规范完整名的 UTF-8 SHA-256 前 8 位小写十六进制摘要，并输出“前 55 字符＋下划线＋8 位摘要”。人工不得自创其他截断算法。
 5. 自动截断仅适用于索引和约束；表名、列名、API 字段和稳定业务代码超长时必须重新命名。
+6. SQL Server 的主键约束与聚集索引必须分别显式决定。高频追加表默认使用 UUID 主键非聚集索引，并按真实查询/清理路径设计显式聚集索引；关系表可在复合主键顺序与主导连接一致时显式聚集；禁止依赖 `PRIMARY KEY` 的 Provider 默认聚集行为。
+7. SQL Server 聚集键不得从通用模板盲目复制。Outbox、审计、执行记录和历史表需优先评估 `(OccurredAtUtc, Id)`、`(CreatedAtUtc, Id)` 等时间路径；租户列表表只有在查询证据支持时才评估 `(TenantId, CreatedAtUtc, Id)`。高写入表在发布前必须验证页分裂、碎片率和典型执行计划。
 
 ## 6. SQL 与迁移
 
@@ -194,7 +212,7 @@ CreatedAtUtc
 
 1. 数据库表/列重命名必须使用 `expand -> migrate/backfill -> contract`，提供 SQL Server/MySQL 成对迁移、数据核对、部署顺序和回滚/前滚方案；禁止直接修改旧迁移脚本伪造历史。
 2. 公共 API、JSON 字段、错误码、权限码和消息类型重命名必须版本化或同时接受旧值；Outbox 旧消息未排空前必须保留旧版本 Handler。
-3. 当前已确认的 1.0 前命名债务包括：`fn_tenant_tenant` 所有权段错误；Foundation Tenancy/Outbox 的 UTC 时间列缺少 `Utc`；Outbox `Type` 未表达 `MessageType`；错误码、审计码、Statement 标识和事件类型混用连字符/下划线；部分主键、外键和索引未遵循本规范的显式名称。
+3. 当前已确认的 1.0 前债务包括：`fn_tenant_tenant` 所有权段错误；Foundation Tenancy/Outbox 的 UTC 时间列缺少 `Utc`；Outbox `Type` 未表达 `MessageType`；错误码、审计码、Statement 标识和事件类型混用连字符/下划线；部分主键、外键和索引未遵循本规范的显式名称；MySQL 001-006 的 UUID 主键、外键和租约标识仍使用 `char(36)`，尚未迁移为统一 RFC 字节序的 `BINARY(16)`。
 4. 上述债务只表示已识别，不表示已经修复。新增代码不得复制债务形式；触碰对应模块时必须更新技术债清单或执行已批准迁移计划。
 5. 第三方数据库若无法改名，必须在独立 Compatibility/Provider 层使用显式映射，并记录来源和退出条件；不得放宽 Full.NET 自有表规范。
 6. 偏离本文需要 ADR，说明范围、兼容影响、两库验证、代码生成器行为和恢复方式。`sys_`、运行时动态表前缀及隐式全局 snake_case 映射没有默认例外。
@@ -206,6 +224,8 @@ CreatedAtUtc
 - 协议契约测试枚举错误码、权限码、消息类型、指标和配置 Key；
 - 代码生成器快照测试验证相同 Schema 重复生成无漂移、长名称摘要稳定且不会碰撞；
 - SQL Server/MySQL Testcontainers 在 Linux 环境执行迁移和典型 Dapper 投影，验证大小写与直接映射；
+- 固定 UUID 向量验证 MySQL `Guid -> BINARY(16) -> Guid`、`UUID_TO_BIN(value, 0)` 一致性、主外键引用和规范 API 文本；测试必须拒绝 time-swap 与业务层手工字节转换；
+- SQL Server 迁移扫描验证主键与聚集属性显式声明；高写入表必须具有与实际访问路径对应的基准/执行计划证据；
 - 现有债务必须位于精确 Allowlist，包含负责人范围、原因和最晚移除里程碑；禁止使用通配符豁免。
 
 详细决策背景与实施顺序见：
@@ -213,3 +233,5 @@ CreatedAtUtc
 - [`../docs/superpowers/specs/2026-07-18-fullnet-naming-conventions-design.md`](../docs/superpowers/specs/2026-07-18-fullnet-naming-conventions-design.md)
 - [`../docs/superpowers/plans/2026-07-18-naming-governance.md`](../docs/superpowers/plans/2026-07-18-naming-governance.md)
 - [`../docs/superpowers/plans/2026-07-18-pre-v1-naming-normalization.md`](../docs/superpowers/plans/2026-07-18-pre-v1-naming-normalization.md)
+- [`../docs/architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md`](../docs/architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md)
+- [`../docs/superpowers/plans/2026-07-18-uuid-v7-primary-key-storage.md`](../docs/superpowers/plans/2026-07-18-uuid-v7-primary-key-storage.md)

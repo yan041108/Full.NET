@@ -25,6 +25,7 @@
 | 模块化单体、显式模块依赖与宿主 Profile | `Build-verified` | `Full.NET.Modularity`、`Full.NET.Composition`、Api/Worker/Migrator 显式 Profile、Unit 与 Architecture Tests | 新模块必须进入共享目录；Worker 只允许最小后台入口，禁止宿主恢复手工模块清单 |
 | 跨栈命名治理与生成器命名内核 | `Implemented` | `contracts/naming/`、`pnpm test:naming`、16 项 Architecture Tests、`Full.NET.Data.CodeGeneration` 与[验证记录](../verification/naming-governance.md) | 90 项存量债务仍待 1.0 前规范化；动态 SQL 继续要求人工审查，完整业务模板与重复生成快照尚未交付，因此不能标记为 `Verified` |
 | Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks；QueryMultiple 顺序/完整消费及 SQL Server/MySQL 真实测试 | `TenantRequired` 仍需从参数文本检查升级为受控语义元数据，Global Statement 需精确目录；SqlBuilder 只在真实消费者命中门禁后引入 |
+| UUID v7 主键与跨库物理存储 | `Designing` | 应用侧 `IIdGenerator`/`Guid.CreateVersion7()` 与 SQL Server `uniqueidentifier` 已存在；ADR-0003 已批准目标策略 | MySQL 仍为 `char(36)`；需实现统一 `GuidFormat=Binary16` 数据边界、007/008 存量迁移、双库往返/恢复验证和 SQL Server 聚集索引治理 |
 | SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
@@ -58,12 +59,13 @@
 
 ## 4. 近期优先队列
 
-1. **P0：生产可控性**——实施 Seed Baseline/Overlay，为超级管理员远程写操作接入 MFA/强认证 Provider并补账号禁用/删除保护；建立 SQL 破坏性变更门禁，并复用现有命名扫描入口。
-2. **P0：1.0 前命名规范化**——按独立 Expand/Contract 计划迁移 90 项精确债务，不修改已执行迁移，不把存量旧名称复制到新模板。
-3. **P1：可靠性**——Outbox 版本兼容/死信、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道。
-4. **P1：交付真实性**——真实后端参与的 Vue/Layui Playwright 安全冒烟；浏览器跨 Tab 刷新协调。
-5. **P1：复用而不耦合**——浏览器 headless 契约层；OpenAPI/协议夹具扩展到 uni-app/Flutter。
-6. **P2：后续业务能力**——首批 Identity/Tenancy/Organization 双管理端纵向切片、L5 业务内容翻译样例。
+1. **P0：主键物理存储与数据安全**——先实施 ADR-0003 的 MySQL `BINARY(16)` 数据边界和 007/008 存量迁移，完成备份、字节序、主外键、部分迁移恢复和 SQL Server 聚集索引验证。
+2. **P0：生产可控性**——在主键存储迁移完成后实施 Seed Baseline/Overlay，为超级管理员远程写操作接入 MFA/强认证 Provider 并补账号禁用/删除保护；建立 SQL 破坏性变更门禁，并复用现有命名扫描入口。
+3. **P0：1.0 前命名规范化**——按 009/010 Expand/Contract 计划迁移 90 项精确债务，不修改已执行迁移，不把存量旧名称复制到新模板。
+4. **P1：可靠性**——Outbox 版本兼容/死信、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道。
+5. **P1：交付真实性**——真实后端参与的 Vue/Layui Playwright 安全冒烟；浏览器跨 Tab 刷新协调。
+6. **P1：复用而不耦合**——浏览器 headless 契约层；OpenAPI/协议夹具扩展到 uni-app/Flutter。
+7. **P2：后续业务能力**——首批 Identity/Tenancy/Organization 双管理端纵向切片、L5 业务内容翻译样例。
 
 ## 5. 关联文档
 
@@ -75,6 +77,7 @@
 - [命名体系设计](../superpowers/specs/2026-07-18-fullnet-naming-conventions-design.md)
 - [命名治理实施计划](../superpowers/plans/2026-07-18-naming-governance.md)
 - [1.0 前存量命名规范化计划](../superpowers/plans/2026-07-18-pre-v1-naming-normalization.md)
+- [UUID v7 主键存储 ADR](../architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md)与[专项实施计划](../superpowers/plans/2026-07-18-uuid-v7-primary-key-storage.md)
 - [客户端交付路线图](client-delivery-roadmap.md)
 - [Admin.NET.Pro 功能对标路线](adminnet-feature-parity.md)
 - [种子数据模块设计](../superpowers/specs/2026-07-17-seed-data-module-design.md)
