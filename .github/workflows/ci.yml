@@ -22,6 +22,10 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install client dependencies
         run: pnpm install --frozen-lockfile
 
@@ -33,6 +37,9 @@ jobs:
 
       - name: Verify rules governance consistency
         run: pnpm test:governance
+
+      - name: Verify project skills contract
+        run: pnpm test:skills
 
       - name: Verify naming governance
         run: pnpm test:naming

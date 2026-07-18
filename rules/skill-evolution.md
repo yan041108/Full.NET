@@ -82,22 +82,24 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 
 | Skill | 状态 | 触发范围 | 验证 |
 | --- | --- | --- | --- |
-| [`fullnet-module-delivery`](../.agents/skills/fullnet-module-delivery/SKILL.md) | 已验证 | 模块、CRUD、Endpoint、Command/Query、Dapper、双库迁移、Admin.NET 对标纵向切片 | `tests/skills/validate_project_skills.py` + `quick_validate.py` |
+| [`fullnet-module-delivery`](../.agents/skills/fullnet-module-delivery/SKILL.md) | 已验证 | 模块、CRUD、Endpoint、Command/Query、Dapper、双库迁移、Admin.NET 对标纵向切片 | `pnpm test:skills`（`tests/skills/validate_project_skills.py`）+ `quick_validate.py` |
 
 ## 8. 候选登记
 
+候选证据只保留可核验事实与下一升级触发；完整背景写入 `docs/verification/`，不在此展开叙事。
+
 | 候选 | 状态/次数 | 当前证据 | 下一升级触发 |
 | --- | --- | --- | --- |
-| `fullnet-dual-database-change` | 观察 / 10 | 基础迁移、Tenancy SQL/API、Identity 授权上下文、语言偏好与 Seed 审计均覆盖双库；008/009 已用真实 MySQL/SQL Server 验证 23 列 Expand/Contract、维护窗口拒绝、schema-mode 启动门禁、显式聚集策略及未记账半完成恢复 | 完成一次生产等价的停止写入、备份恢复演练与发布验收，或第二个破坏性双库迁移复用该流程后，按测试先行流程评估从模块交付 Skill 拆分；当前仍缺真实恢复介质与 RTO/RPO 停止条件证据 |
-| `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 事件使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
-| `fullnet-api-compatibility` | 候选 / 4 | 标准 ProblemDetails 与 Admin.NET Mapper 已存在；认证 Challenge 已收敛为保留 `WWW-Authenticate` 的本地化 ProblemDetails，本次又让 RateLimiter 中间件拒绝通过同一 Mapper 返回稳定、本地化 429，并以真实 API 测试锁定协议 | 新增分页、文件或另一类兼容端点时评估升级 |
-| `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名与按 ID 的租户解析缓存及 tag 失效处理已存在 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |
-| `fullnet-release-verification` | 自动化优先 / 10 | uni-app 三目标构建、fresh H5 浏览器 E2E、许可证与漏洞门禁已落地；本次双管理端验收又发现默认 Vite 端口会与开发服务串台、过高浏览器并发会造成验收服务不稳定，现已改用专用端口和有界 Worker | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
+| `fullnet-dual-database-change` | 观察 / 10 | 双库迁移、Tenancy SQL/API、Identity 授权、语言偏好与 Seed 审计均覆盖；008/009 已用真实 MySQL/SQL Server 验证 23 列 Expand/Contract、维护窗口拒绝、schema-mode 门禁、显式聚集与未记账半完成恢复 | 完成生产等价停止写入＋备份恢复演练，或第二个破坏性双库迁移复用后，按测试先行评估从模块交付 Skill 拆分；仍缺真实恢复介质与 RTO/RPO 停止条件 |
+| `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
+| `fullnet-api-compatibility` | 候选 / 4 | ProblemDetails、Admin.NET Mapper、保留 `WWW-Authenticate` 的本地化认证 Challenge，以及经同一 Mapper 返回的稳定本地化 429 均有真实 API 测试锁定 | 新增分页、文件或另一类兼容端点时评估升级 |
+| `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名/按 ID 租户解析缓存与 tag 失效已落地 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |
+| `fullnet-release-verification` | 自动化优先 / 10 | uni-app 三目标构建、fresh H5 E2E、许可与漏洞门禁已落地；双管理端验收已改用专用端口与有界 Worker 避免串台和不稳定 | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
 | `fullnet-realtime-feature` | 等待真实实现 / 0 | 只有 SignalR、MessagePack Hub、Redis Backplane 设计 | 首个 `IRealtimePublisher` 消费者验收后评估 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
-| `fullnet-dual-admin-feature` | 候选 / 4 | Identity 会话、租户切换、权限导航、`zh-CN/en-US` 国际化/可访问性及组件语言与偏好失败回滚已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |
-| `fullnet-localization-delivery` | 候选 / 5 | 在 L0-L2 基础上，L3 uni-app 已落地规范语言适配、平台别名、Vue I18n、账号偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具仍未安装，尚未形成完整跨平台验收停止条件 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
-| `fullnet-seed-data-delivery` | 候选 / 4 | Tenancy Development Contributor 之后，Identity 已作为第二个模块复用 Contributor、稳定错误码与 Scoped 多实现注册，并由 Migrator 完成迁移后显式 Profile 编排、失败阻断、兼容别名和 Host 依赖门禁；当前仍缺完整 Profile 双库 E2E，尚未满足稳定停止条件 | 完成 SQL Server/MySQL 的 Baseline/Development/Demo/Test E2E 与生产失败场景后，按测试先行流程评估升级 |
+| `fullnet-dual-admin-feature` | 候选 / 4 | Identity 会话、租户切换、权限导航、`zh-CN/en-US` 国际化/可访问性及偏好失败回滚已按同一契约实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个含列表、表单、权限与租户边界的双端业务 CRUD 达到 `Verified` 后评估升级 |
+| `fullnet-localization-delivery` | 候选 / 5 | L0-L2 之上，L3 uni-app 已落地规范语言/别名、Vue I18n、偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具未安装，跨平台停止条件未闭合 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
+| `fullnet-seed-data-delivery` | 候选 / 4 | Identity 作为第二个模块复用 Contributor、稳定错误码与 Scoped 多实现，并由 Migrator 完成迁移后 Profile 编排、失败阻断、兼容别名与 Host 依赖门禁；缺完整 Profile 双库 E2E | 完成 SQL Server/MySQL 的 Baseline/Development/Demo/Test E2E 与生产失败场景后按测试先行评估升级 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。
 

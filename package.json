@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test:governance": "node --test tests/governance/*.test.mjs",
+    "test:skills": "python -X utf8 tests/skills/validate_project_skills.py",
     "test:naming": "node --test tests/naming/*.test.mjs tests/database/uuid-storage-contract.test.mjs",
     "test:uuid-storage": "node --test tests/database/uuid-storage-contract.test.mjs",
     "test:localization": "node --test tests/localization-contract.test.mjs",
