@@ -47,9 +47,7 @@ public sealed class DependencyRulesTests
         var unexpectedPublicTypes = typeof(TenancyModule).Assembly
             .GetExportedTypes()
             .Where(type => type.Namespace != "Full.NET.Modules.Tenancy.Contracts")
-            .Where(type => type != typeof(TenancyModule)
-                && type != typeof(TenancyApplicationBuilderExtensions)
-                && type != typeof(TenancyServiceCollectionExtensions))
+            .Where(type => type != typeof(TenancyModule))
             .Select(type => type.FullName)
             .ToArray();
 

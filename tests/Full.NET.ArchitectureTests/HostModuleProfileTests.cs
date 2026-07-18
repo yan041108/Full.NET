@@ -1,8 +1,39 @@
+using System.Xml.Linq;
+
 namespace Full.NET.ArchitectureTests;
 
 [TestClass]
 public sealed class HostModuleProfileTests
 {
+    [TestMethod]
+    public void Runtime_hosts_do_not_reference_business_module_projects_directly()
+    {
+        var root = FindRepositoryRoot();
+        var runtimeHosts = new[]
+        {
+            "src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj",
+            "src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj",
+            "src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj",
+        };
+
+        foreach (var relativePath in runtimeHosts)
+        {
+            var projectPath = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var moduleReferences = XDocument.Load(projectPath)
+                .Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .Select(element => element.Attribute("Include")?.Value ?? string.Empty)
+                .Where(value => value.Contains("Full.NET.Modules.", StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.HasCount(
+                0,
+                moduleReferences,
+                $"{relativePath} 必须通过 Full.NET.Composition 装配模块，"
+                    + $"禁止直接引用具体业务模块项目：{string.Join(", ", moduleReferences)}");
+        }
+    }
+
     [TestMethod]
     public void Hosts_select_modules_through_the_shared_explicit_profile_catalog()
     {

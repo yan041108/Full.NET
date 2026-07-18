@@ -31,13 +31,20 @@ public static class FullNetModuleCatalog
             case FullNetHostProfile.Api:
             case FullNetHostProfile.Migrator:
                 services.AddFullNetModularity();
-                services.AddFullNetModule<IdentityModule>(configuration);
-                services.AddFullNetModule<TenancyModule>(configuration);
+                foreach (var module in CreateModules())
+                {
+                    services.AddFullNetModule(module, configuration);
+                }
+
                 break;
 
             case FullNetHostProfile.Worker:
-                // Worker 只装配事件处理等后台能力，避免把 HTTP、认证和完整模块依赖图带入后台进程。
-                services.AddFullNetTenancyWorkerServices();
+                // Worker 只装配各模块声明的后台能力，避免把 HTTP、认证和完整模块依赖图带入后台进程。
+                foreach (var module in CreateModules())
+                {
+                    module.AddBackgroundServices(services, configuration);
+                }
+
                 break;
 
             default:
@@ -49,4 +56,13 @@ public static class FullNetModuleCatalog
 
         return services;
     }
+
+    /// <summary>
+    /// 官方模块的唯一集中清单，按依赖顺序排列；新增模块只在此追加一行。
+    /// </summary>
+    private static IReadOnlyList<IFullNetModule> CreateModules() =>
+    [
+        new IdentityModule(),
+        new TenancyModule(),
+    ];
 }

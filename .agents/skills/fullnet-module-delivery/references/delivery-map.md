@@ -23,8 +23,7 @@
 
 读取以下文件以观察当前约定，不要机械复制不适用部分：
 
-- `src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs`：模块服务注册；
-- `src/Modules/Full.NET.Modules.Tenancy/TenancyApplicationBuilderExtensions.cs`：中间件与 Endpoint 映射；
+- `src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs`：模块服务注册、后台能力（`AddBackgroundServices`）与中间件贡献（`UseModuleMiddleware`）；宿主通过 `UseFullNetModuleMiddleware(stage)` 统一应用，禁止在宿主直接引用模块或手写 `UseXxx`；
 - `src/Modules/Full.NET.Modules.Tenancy/Features/ProvisionTenant/`：Command、Validator、Handler、Endpoint 与服务；
 - `src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs`：显式 SQL；
 - `src/Modules/Full.NET.Modules.Tenancy/Serialization/`：JSON 源生成与 MessagePack Resolver；

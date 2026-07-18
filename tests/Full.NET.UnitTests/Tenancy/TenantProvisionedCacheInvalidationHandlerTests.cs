@@ -6,6 +6,7 @@ using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ZiggyCreatures.Caching.Fusion;
 
@@ -15,7 +16,7 @@ namespace Full.NET.UnitTests.Tenancy;
 public sealed class TenantProvisionedCacheInvalidationHandlerTests
 {
     [TestMethod]
-    public async Task AddFullNetTenancyWorkerServices_RegistersOnlyWorkerDependencies()
+    public async Task AddBackgroundServices_RegistersOnlyWorkerDependencies()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -23,7 +24,9 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         services.AddSingleton<IIntegrationEventSerializer,
             MessagePackIntegrationEventSerializer>();
 
-        services.AddFullNetTenancyWorkerServices();
+        new TenancyModule().AddBackgroundServices(
+            services,
+            new ConfigurationBuilder().Build());
 
         await using var provider = services.BuildServiceProvider(
             new ServiceProviderOptions

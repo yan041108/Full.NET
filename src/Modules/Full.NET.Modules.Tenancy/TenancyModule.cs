@@ -47,7 +47,7 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddScoped<
             IValidator<ProvisionTenantCommand>,
             ProvisionTenantCommandValidator>();
-        services.AddFullNetTenancyWorkerServices();
+        AddBackgroundServices(services, configuration);
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
 
@@ -84,5 +84,31 @@ public sealed class TenancyModule : IFullNetModule
         Features.GetCurrentTenant.Endpoint.Map(group);
         Features.GetAvailableTenants.Endpoint.Map(group);
         Features.ChangeTenantContext.Endpoint.Map(group);
+    }
+
+    /// <summary>
+    /// 注册 Worker 消费租户事件所需的最小后台能力；不引入 HTTP、认证与完整模块依赖图。
+    /// </summary>
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.TryAddScoped<CurrentTenantAccessor>();
+        services.TryAddScoped<ICurrentTenant>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            TenantProvisionedCacheInvalidationHandler>());
+    }
+
+    /// <summary>
+    /// 租户解析必须在认证之后、授权之前建立上下文，因此只在 <see cref="ModulePipelineStage.BeforeAuthorization"/> 注册。
+    /// </summary>
+    public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
+    {
+        if (stage == ModulePipelineStage.BeforeAuthorization)
+        {
+            app.UseMiddleware<TenantResolutionMiddleware>();
+        }
     }
 }
