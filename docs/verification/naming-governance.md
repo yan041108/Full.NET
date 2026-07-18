@@ -2,7 +2,7 @@
 
 - 日期：2026-07-18
 - 状态：`Implemented`
-- 代码基线：`af995c0`
+- 代码基线：`5d9f775`
 - 范围：Naming Profile、精确债务、SQL/迁移/C#／稳定协议门禁、CodeGeneration 命名内核和项目 Skill 接入
 
 ## 已实现能力
@@ -21,7 +21,9 @@
 | `dotnet build Full.NET.slnx -c Release --no-restore` | 0 警告、0 错误 |
 | CodeGeneration Unit Tests | 17/17 通过，包含固定 10 万名称样例无碰撞 |
 | 全量 Unit Tests | 203/203 通过 |
+| Compatibility Tests | 5/5 通过 |
 | Architecture Tests | 15/15 通过 |
+| SQL Server/MySQL Integration Tests | 18/18 通过，Docker Server 29.6.1 |
 | 项目 Skill 契约 | 35 项检查通过 |
 | `skill-creator` 官方 `quick_validate.py` | `Skill is valid!` |
 
