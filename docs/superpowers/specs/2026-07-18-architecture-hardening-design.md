@@ -109,7 +109,7 @@ Refresh 的租户来源以服务端 Session 记录为唯一权威；请求中的
 
 Vue 与 Layui 保持功能、权限、租户、错误、关键流程和 E2E 对等；允许控件、布局和复杂交互形式不同，但必须给出可完成相同业务目标的等价路径。不得把“Layui 降级”解释为删除功能或绕过门禁。
 
-可共享的无框架 ESM 层仅包含：ProblemDetails 解析、稳定错误/权限代码、Session 状态转换、刷新重试策略、导航白名单语义、OpenAPI DTO/协议夹具。不得共享 DOM 操作、Vue Store、Layui 组件、路由器实例或框架生命周期。Layui 增加 JSDoc + `checkJs` 类型门禁。
+可共享的无框架 ESM 层仅包含：ProblemDetails 解析、稳定错误/权限代码、Session 状态转换、刷新重试策略、导航白名单语义、OpenAPI DTO/协议夹具。不得共享 DOM 操作、Vue Store、Layui 组件、路由器实例或框架生命周期。Vue 迁入 Art Design Pro 时也必须经过这层契约，不得用模板请求/认证实现绕过；Layui 增加 JSDoc + `checkJs` 类型门禁。
 
 Web Components 暂不引入。只有出现至少两个真实、复杂、跨端复用且现有 headless 层无法解决的交互组件，并完成可访问性、体积和维护成本评估后再建 ADR。
 

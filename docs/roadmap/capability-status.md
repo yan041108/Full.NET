@@ -33,11 +33,12 @@
 | Identity 会话安全基础 | `Build-verified` | 登录、轮换、重用撤销、CSRF/CORS、审计测试 | 多浏览器 Tab 刷新竞争和上下文切换线性化专项验证待补 |
 | Tenancy 可信上下文切换 | `Build-verified` | 租户解析、可用租户、切换与刷新集成测试 | 完整租户/套餐 CRUD 尚未开始；不能宣传为完整租户后台 |
 | 最小 RBAC 与权限导航 | `Build-verified` | 当前用户、权限、Vue/Layui 导航与按钮门禁 | 用户、角色、菜单、组织、数据范围管理 CRUD 尚未实现 |
-| Vue 管理壳层 | `Implemented` | 会话、租户、导航、i18n、可访问性自动化 | 真实后台 CRUD 与剩余人工可访问性验收待补 |
+| Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
+| Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
 | Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E | 与 Vue 重复的会话/HTTP/导航规则需收敛到 headless 契约层 |
 | 双管理端真实后端浏览器联调 | `Designing` | 真实 Host 已有 API/CORS 集成测试 | Playwright 目前主要 Mock API；需补 Cookie/CORS/刷新/租户切换真实链路 |
-| uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | 微信/支付宝开发者工具、真机及真实后端会话未验证 |
-| Flutter 移动/桌面客户端 | `Designing` | 技术路线与多语言边界 | 工程、构建节点、登录/API 冒烟均未实现 |
+| uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
+| Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |
 | 模块化 Seed Baseline/Overlay | `Designing` | 已批准规格与详细实施计划 | 仍由 `--seed-local` 硬编码；S0-S2 尚未实施 |
 | SignalR / Realtime | `Planned` | 架构边界已定义 | 抽象、鉴权分组、MessagePack Hub、Redis Backplane 尚未实现 |

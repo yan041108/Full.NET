@@ -124,11 +124,11 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 
 | Admin.NET.Pro 资产/交付需求 | Full.NET 对标 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus | Client | M2-M4 | Implementing |
+| `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus；按计划迁入 MIT Art Design Pro 壳层基线 | Client | M2-M4 | Implementing |
 | JS/HTML 完整管理端 | `ui/admin-layui`：Layui 2 + HTML/CSS/原生 JavaScript | Client | M2-M4，与 Vue 同步 | Implementing |
-| `App` H5/小程序资产 | `clients/uniapp`：H5、微信小程序、支付宝小程序 | Client | M3-M4 | Implementing |
-| 原生移动端 | `clients/flutter`：Android、iOS | Client | M5+ | Designing |
-| `Web_Desktop`/PC 桌面需求 | `clients/flutter`：Windows、macOS、Linux | Client | M5+ | Designing |
+| `App` H5/小程序资产 | `clients/uniapp`：H5、微信小程序、支付宝小程序；默认 uni-ui | Client | M3-M4 | Implementing |
+| 原生移动端 | `clients/flutter`：Flutter 3.44 Material 3 + Cupertino；Android、iOS | Client | M5+ | Designing |
+| `Web_Desktop`/PC 桌面需求 | `clients/flutter`：Flutter 3.44 Material 3 + Cupertino；Windows、macOS、Linux | Client | M5+ | Designing |
 | .NET MAUI 交付 | `clients/maui-template`：命中 C#/Windows 企业项目门禁后按需建立 | Provider/Template | M5+ 按需 | Mapped |
 | `Web_Artd` | Vue/Layui 设计令牌与可替换主题能力，不再维护第三套完整管理端 | Client | M4/M5+ | Mapped |
 | `GoView` | 可视化大屏客户端 | Client | M5+ | Mapped |

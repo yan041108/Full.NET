@@ -3,6 +3,7 @@
 - 建立日期：2026-07-17
 - 状态：Implementing
 - 详细设计：[`../superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md`](../superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)
+- UI 框架设计：[`../superpowers/specs/2026-07-18-client-ui-framework-design.md`](../superpowers/specs/2026-07-18-client-ui-framework-design.md)
 - 多语言设计：[`../superpowers/specs/2026-07-17-full-stack-localization-design.md`](../superpowers/specs/2026-07-17-full-stack-localization-design.md)
 - 多语言计划：[`../superpowers/plans/2026-07-17-full-stack-localization.md`](../superpowers/plans/2026-07-17-full-stack-localization.md)
 - 总功能矩阵：[`adminnet-feature-parity.md`](adminnet-feature-parity.md)
@@ -29,10 +30,10 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | 范围 | 当前状态 | 已完成 | 尚未完成 |
 |---|---|---|---|
 | C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单、全仓库语言治理清单、服务端资源本地化 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
-| C1 双管理端壳层 | Implemented | Vue/Element Plus、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、管理端 `zh-CN/en-US` 自有及组件文案、逐请求 Accept-Language、账号偏好原子同步、WCAG 2.2 A/AA、键盘/焦点、320 CSS px 重排、减弱动画与同场景双端 E2E | Windows Edge + NVDA、200% 缩放与强制颜色人工验收 |
+| C1 双管理端壳层 | Implemented | Vue/Element Plus 自研壳层、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、管理端 `zh-CN/en-US` 自有及组件文案、逐请求 Accept-Language、账号偏好原子同步、WCAG 2.2 A/AA、键盘/焦点、320 CSS px 重排、减弱动画与同场景双端 E2E | Art Design Pro 已选定但未迁入；Windows Edge + NVDA、200% 缩放与强制颜色人工验收 |
 | C2 业务模块 | Mapped | 功能波次和双端同步门禁 | 首个 Identity/Tenancy/Organization 纵向切片 |
-| C3 uni-app 基础客户端 | Implementing / Build-verified | Vue 3/TypeScript、Vue I18n、规范语言适配、pages/manifest、本地资源、HTTP/ProblemDetails、账号偏好原子提交、96 项单测、类型检查、三目标 CLI 构建和 5 项 H5 E2E | 微信/支付宝开发者工具、真机、真实登录/租户/会话流程和平台发布清单 |
-| C4 Flutter 业务客户端 | Designing | 技术路线、平台边界和多语言统一设计 | Flutter 工程、原生资源与平台构建验证 |
+| C3 uni-app 基础客户端 | Implementing / Build-verified | Vue 3/TypeScript、Vue I18n、规范语言适配、pages/manifest、本地资源、HTTP/ProblemDetails、账号偏好原子提交、96 项单测、类型检查、三目标 CLI 构建和 5 项 H5 E2E | uni-ui 已选定但未引入；微信/支付宝开发者工具、真机、真实登录/租户/会话流程和平台发布清单 |
+| C4 Flutter 业务客户端 | Designing | Flutter 3.44、Material 3 + Cupertino、平台边界和多语言统一设计 | Flutter 工程、设计令牌、原生资源与平台构建验证 |
 
 “C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的真实认证、租户、权限、管理端自有及组件文案、HTTP 协商、账号偏好、服务端错误本地化与自动可访问性流程已经通过验证；真实辅助技术、200% 缩放和强制颜色仍待完成，因此保持 `Implemented`，不提前标记为 `Verified`。
 
@@ -102,7 +103,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 
 **交付：**
 
-- Vue 3 + TypeScript + Vite + Element Plus 工程；
+- Vue 3 + TypeScript + Vite + Element Plus 工程，以固定提交的 MIT Art Design Pro 作为管理壳层和通用交互基线；ECharts 作为标准图表引擎；
 - Layui 2 + HTML/CSS/原生 JavaScript 工程，核心资源本地化；
 - 基于公开页面体验形成 Full.NET 原创设计令牌和后台壳层，不复制 layuiAdmin 产品资产；
 - 登录、退出、刷新会话、租户选择、菜单、按钮权限、403/404/500 页面；
@@ -111,7 +112,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 - Element Plus/Day.js 与 Layui 组件语言、Accept-Language 和账号语言偏好同步；
 - Vue/Layui 相同场景的 Playwright E2E。
 
-**退出条件：** 两端都能完成登录、租户切换、权限菜单和退出流程；Layui 生产产物不依赖 Vue/React 等 SPA 运行时。
+**退出条件：** 两端都能完成登录、租户切换、权限菜单和退出流程；Art Design Pro 迁入不替换 Full.NET 认证、请求、租户和导航白名单契约；Layui 生产产物不依赖 Vue/React 等 SPA 运行时。
 
 ### C2：双管理端核心模块对标
 
@@ -142,14 +143,14 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 
 1. 工程、环境配置、路由、Pinia、`uni.request` 适配和 ProblemDetails；
 2. Vue I18n、`uni.getLocale/setLocale/onLocaleChange`、`zh-CN ↔ zh-Hans` 映射、pages/manifest 资源和请求语言；
-3. 启动页、普通登录、租户选择、首页、个人中心、账号安全、错误与离线页；
+3. 引入官方 uni-ui、建立 easycom 和 Full.NET 设计令牌映射，再实现启动页、普通登录、租户选择、首页、个人中心、账号安全、错误与离线页；
 4. H5 Cookie/CSRF 流程；
 5. 微信小程序 `code` 登录适配和后端 Provider 对接；
 6. 支付宝小程序授权码登录适配和后端 Provider 对接；
 7. 文件、扫码、分享、订阅消息和支付按独立 Provider 规格增加；
 8. 三目标分别构建、真机/开发者工具多语言冒烟和发布清单。
 
-**退出条件：** H5、微信小程序、支付宝小程序分别完成构建、登录、租户、核心 API、会话失效和错误展示验证。
+**退出条件：** H5、微信小程序、支付宝小程序分别完成 uni-ui 组件构建、登录、租户、核心 API、会话失效和错误展示验证；默认依赖中不存在原版 uView 2 或第二套全量 UI 组件库。
 
 ### C4：Flutter 原生移动与 PC 桌面
 
@@ -157,7 +158,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 
 **交付顺序：**
 
-1. 工程、环境、路由、主题、OpenAPI Dart 客户端、ProblemDetails 和安全存储；
+1. 使用 Flutter 3.44 创建工程，启用 Material 3，建立 Cupertino 自适应层、Full.NET `ThemeExtension`、路由、OpenAPI Dart 客户端、ProblemDetails 和安全存储；
 2. `gen_l10n/ARB`、`flutter_localizations`、请求语言、账号偏好和各平台应用元数据；
 3. OAuth 2.0/OIDC Authorization Code + PKCE、租户选择、首页、个人中心和错误页；
 4. Android 与 Windows 本地开发和打包基线；
@@ -226,8 +227,13 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 | Mock E2E 掩盖 Cookie/CORS/中间件问题 | 保留快速 Mock 契约层，新增真实 API、数据库、Redis 的最小 Playwright 安全套件 |
 | 为追求一致而复制 UI 组件 | 只共享契约、令牌和场景，不共享框架 UI 源码 |
 | 多端认证采用最低共同标准 | 浏览器、小程序、原生应用分别采用适合平台的令牌策略 |
+| Art Design Pro 模板覆盖既有安全层 | 只迁入经审计的壳层/主题/组件；认证、请求、租户、权限、导航白名单和 E2E 继续由 Full.NET 拥有 |
+| ECharts 增大首屏和无障碍不足 | 只从 `echarts/core` 注册所需图表，路由级懒加载，提供数据表/文本摘要和减弱动画 |
+| 富文本造成 XSS、Base64 膨胀或编辑器锁定 | Tiptap Core 双端 Adapter；服务端白名单净化；图片走 Files API；首期保存可迁移的净化 HTML |
 | uni-app 条件编译散落 | 平台差异集中在 `platform/`，共享页面禁止直接访问平台专属 API |
+| uni-ui 与其他整套组件库混用 | uni-ui 是唯一默认基础库；补充库必须通过真实缺口、三目标、许可证和体积 ADR |
 | Flutter 插件缺少桌面实现 | 引入前建立平台支持和许可证矩阵，允许平台适配替代 |
+| Flutter UI 被第三方组件库锁定 | Material 3/Cupertino 和 ThemeExtension 拥有主题；重型组件逐项适配，不决定应用架构 |
 | 各端语言清单、错误文本或术语漂移 | 共享治理清单、稳定 code、平台原生资源和跨资源 CI；禁止业务逻辑比较翻译文本 |
 | Worker/通知并行处理串语言 | 每项后台渲染显式 CultureScope/Locale，离开作用域恢复并执行并发测试 |
 | MAUI 与 Flutter重复建设 | 决策门禁、独立维护责任和范围，不默认创建模板 |
@@ -237,9 +243,12 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 
 1. 先执行 L0/L1：建立仓库语言治理、ASP.NET Core 请求本地化、本地化 ProblemDetails 与结构化 violations；
 2. 执行 L2：补齐 Element Plus/Day.js、Layui 组件语言、Accept-Language 和账号/租户偏好；
-3. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
-4. 先按[架构硬化实施计划](../superpowers/plans/2026-07-18-architecture-hardening.md)完成浏览器 headless 契约层、跨 Tab 刷新协调和真实后端双管理端 Playwright 安全套件；
-5. 为 Identity 用户/角色/菜单、Tenancy 租户/套餐 CRUD 和 Organization 建立首批双管理端业务切片计划；当前只把可信租户上下文切换视为已验证基础，不把完整 C2.1 误标为完成；
-6. 继续执行 L3 uni-app 平台验收：在微信与支付宝开发者工具完成真实登录/API/错误/会话冒烟；当前仅为 `Implementing / Build-verified`；
-7. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 L4 Flutter 计划；
-8. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列、L0-L6 和全项目能力状态矩阵。
+3. 先按[架构硬化实施计划](../superpowers/plans/2026-07-18-architecture-hardening.md)完成浏览器 headless 契约层、跨 Tab 刷新协调和真实后端双管理端 Playwright 安全套件；
+4. 执行 [Vue Art Design Pro 迁移计划](../superpowers/plans/2026-07-18-vue-art-design-pro-adoption.md)，先锁住 Full.NET 安全契约，再迁入壳层和 ECharts 图表层；
+5. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
+6. 为 Identity 用户/角色/菜单、Tenancy 租户/套餐 CRUD 和 Organization 建立首批双管理端业务切片计划；当前只把可信租户上下文切换视为已验证基础，不把完整 C2.1 误标为完成；
+7. 执行 [uni-app uni-ui 引入计划](../superpowers/plans/2026-07-18-uniapp-uni-ui-adoption.md)，完成三目标组件冒烟后再扩展业务页面；
+8. 继续执行 L3 uni-app 平台验收：在微信与支付宝开发者工具完成真实登录/API/错误/会话冒烟；当前仅为 `Implementing / Build-verified`；
+9. Files 与 Notifications 进入公告/站内通知纵向切片时执行[富文本基础计划](../superpowers/plans/2026-07-18-rich-text-editor-foundation.md)，同步完成服务端净化、媒体引用及 Vue/Layui 双端闭环；
+10. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 [Flutter UI 基础计划](../superpowers/plans/2026-07-18-flutter-ui-foundation.md)；
+11. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列、L0-L6 和全项目能力状态矩阵。

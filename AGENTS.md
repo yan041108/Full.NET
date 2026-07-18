@@ -43,8 +43,9 @@
 - 缓存以 FusionCache 为唯一实现，并通过 `.AsHybridCache()` 同时暴露 HybridCache 抽象。
 - 后续功能以 Admin.NET 为功能参考目标，但实现必须遵守 Full.NET 的架构、安全和发布许可边界。
 - 后台管理功能必须在 Vue 主管理端与 Layui JS/HTML 管理端按同一模块同步开发；只有两端的权限、租户、错误处理、关键流程和 E2E 都通过后，客户端功能才可标记为 `Verified`。
+- Vue 主管理端采用 Vue 3 + TypeScript + Vite + Element Plus，并以 MIT 的 Art Design Pro 作为管理壳层与交互基线；Apache-2.0 的 ECharts 是默认图表引擎，必须模块化注册和按需加载。富文本默认采用 MIT Tiptap Core，由 Vue/Layui 分别适配，禁止默认引入付费 Pro 扩展。只引入经许可证和资产来源审计的代码，Full.NET 自有认证、租户、权限、ProblemDetails、路由白名单和 OpenAPI 契约不得被模板内置 Mock/请求层替代。
 - Layui 管理端只依赖 MIT 的 Layui 核心库并独立实现；layuiAdmin 仅可作为公开页面的功能/交互参考，未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制或提交其源码及产品资产。
-- H5、微信小程序和支付宝小程序统一采用 uni-app；原生 Android/iOS 与 Windows/macOS/Linux 桌面端默认采用 Flutter；.NET MAUI 只在真实 C#/Windows 企业需求命中决策门禁后作为可选模板引入。
+- H5、微信小程序和支付宝小程序统一采用 uni-app Vue 3，默认 UI 组件库为官方 uni-ui；原版 uView 2 不进入默认依赖，其他组件库只能在缺口、Vue 3/三目标兼容、许可证和体积门禁通过后按需引入。原生 Android/iOS 与 Windows/macOS/Linux 桌面端默认采用 Flutter 3.44 的 Material 3 + Cupertino 官方组件和 Full.NET 设计令牌，不绑定第三方整套 UI 框架；.NET MAUI 只在真实 C#/Windows 企业需求命中决策门禁后作为可选模板引入。
 - 多语言采用“统一治理、平台原生实现”：全栈使用规范 BCP 47 语言标签和稳定错误/权限/枚举代码，各客户端与服务端分别使用平台原生资源机制；业务逻辑不得依赖翻译文本，完成状态必须按路线图和跨端验证如实标记，不能用管理壳层翻译代替全栈支持。
 - 种子数据采用“生产安全 Baseline＋环境 Overlay”：默认 Migrator 只迁移，Production 只允许显式 Baseline，Development/Demo/Test 先执行 Baseline 再叠加各自数据；API/Worker 不得启动播种，测试专用 Contributor 不进入发布物，Contributor 必须幂等且通过 SQL Server/MySQL 双库验证。
 

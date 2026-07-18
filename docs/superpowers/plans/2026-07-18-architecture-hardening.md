@@ -157,6 +157,8 @@
 
 ### Task 10: 双管理端 headless 契约层
 
+Vue 壳层迁移按 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue-art-design-pro-adoption.md) 执行；本任务先提供不会被模板覆盖的无框架契约边界。
+
 **Files:**
 - Modify: `packages/client-contracts`
 - Modify: `ui/admin/src/api/http.ts`
@@ -201,6 +203,8 @@
 3. 记录 Admin Web、shared packages、uni-app/DCloud、E2E 的版本队列、上游约束和复核日期。
 4. CI 检查同一队列一致性和跨队列协议夹具；不强迫不兼容工具升级到同一版本。
 5. 状态矩阵只有在真实消费者、双库和对应客户端通过后才提升 L5。
+
+客户端 UI 落地分别执行 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue-art-design-pro-adoption.md)、[`2026-07-18-rich-text-editor-foundation.md`](2026-07-18-rich-text-editor-foundation.md)、[`2026-07-18-uniapp-uni-ui-adoption.md`](2026-07-18-uniapp-uni-ui-adoption.md) 与 [`2026-07-18-flutter-ui-foundation.md`](2026-07-18-flutter-ui-foundation.md)，不得把“已选型”误标为“已集成”。
 
 ## 完成门禁
 

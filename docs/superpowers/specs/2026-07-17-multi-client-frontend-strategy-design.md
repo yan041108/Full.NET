@@ -31,10 +31,10 @@ Vue 与 Layui 共享后台功能清单和完成门禁，但不共享具体 UI �
 
 | 交付形态 | 目录 | 技术栈 | 产品定位 |
 |---|---|---|---|
-| 主管理端 | `ui/admin` | Vue 3 + TypeScript + Vite + Element Plus | 完整后台、复杂交互、长期产品化 |
+| 主管理端 | `ui/admin` | Vue 3 + TypeScript + Vite + Element Plus + Art Design Pro 基线 | 完整后台、复杂交互、长期产品化 |
 | JS/HTML 管理端 | `ui/admin-layui` | Layui 2 + 独立实现的 HTML/CSS/原生 JavaScript 后台壳层 | 完整后台、快速交付、轻依赖、传统部署 |
-| H5 与小程序 | `clients/uniapp` | uni-app + Vue 3 + TypeScript + Pinia | H5、微信小程序、支付宝小程序统一业务客户端 |
-| 原生移动与桌面 | `clients/flutter` | Flutter + Dart | Android、iOS、Windows、macOS、Linux |
+| H5 与小程序 | `clients/uniapp` | uni-app + Vue 3 + TypeScript + uni-ui | H5、微信小程序、支付宝小程序统一业务客户端 |
+| 原生移动与桌面 | `clients/flutter` | Flutter 3.44 + Dart + Material 3/Cupertino | Android、iOS、Windows、macOS、Linux |
 | C# 原生模板 | `clients/maui-template`（按需） | .NET MAUI | C# 团队、Windows 优先或企业原生项目 |
 
 `.NET MAUI` 目录在真实项目通过决策门禁前不创建，防止未被使用的模板持续消耗升级和测试成本。
@@ -43,7 +43,9 @@ Vue 与 Layui 共享后台功能清单和完成门禁，但不共享具体 UI �
 
 ### 3.1 已确定基线
 
-`ui/admin` 采用 Vue 3、TypeScript、Vite 和 Element Plus。这与本地 Admin.NET.Pro `Web` 的基础路线一致，方便对照菜单、权限、表格、表单和业务流程，但 Full.NET 不复制其源码、目录结构或全部依赖。
+`ui/admin` 采用 Vue 3、TypeScript、Vite 和 Element Plus，并采用 MIT [Art Design Pro](https://github.com/Daymychen/art-design-pro) 作为管理壳层基线。这与本地 Admin.NET.Pro `Web` 的基础路线一致，方便对照菜单、权限、表格、表单和业务流程，但 Full.NET 不复制 Admin.NET.Pro 的源码、目录结构或全部依赖。
+
+Art Design Pro 以固定上游提交选择性迁入，而不是把 Full.NET 变成其后端示例的换皮版本。可采用布局、主题、菜单外观、标签页、通用表格/表单交互和无业务耦合组件；ECharts 作为标准图表引擎纳入，但必须按图表类型模块化注册、路由级懒加载并提供数据表/文本摘要。必须保留 Full.NET 已验证的内存 Access Token、HttpOnly Refresh Cookie、CSRF、精确 CORS、ProblemDetails、租户切换、权限导航白名单、账号语言偏好和 OpenAPI 契约。Mock、演示业务、品牌图像、请求封装、认证与动态路由不能直接覆盖现有实现。
 
 基础依赖限于：
 
@@ -52,8 +54,11 @@ Vue 与 Layui 共享后台功能清单和完成门禁，但不共享具体 UI �
 - OpenAPI 生成的 TypeScript 客户端：后端契约访问；
 - `@microsoft/signalr`：Realtime 模块启用后的浏览器实时通信；
 - Element Plus：通用管理端组件。
+- Art Design Pro：主管理壳层、主题、布局和可复用交互基线；不是后端协议来源。
+- Apache ECharts：Vue 管理端标准图表引擎；模块化、懒加载并由 Full.NET 统一主题和无障碍替代内容。
+- Tiptap Core：Vue/Layui 默认富文本引擎；只使用 MIT Core/开源扩展，付费 Pro 扩展不进入默认框架。
 
-VXE Table、富文本编辑器、低代码设计器、大屏组件等重型依赖只在对应功能规格确认后引入，禁止为了“以后可能使用”预装 Admin.NET.Pro 的完整依赖集合。
+VXE Table、低代码设计器、大屏组件以及 Tiptap Profile 之外的富文本扩展等重型依赖，只在对应功能规格确认后引入；禁止为了“以后可能使用”预装 Admin.NET.Pro 的完整依赖集合。
 
 ### 3.2 功能范围
 
@@ -120,6 +125,8 @@ Layui 端与 Vue 端不追求像素一致，也不复制 Vue 组件，但两者�
 - 微信小程序 `mp-weixin`；
 - 支付宝小程序 `mp-alipay`。
 
+默认 UI 组件库采用 DCloud 官方 [uni-ui](https://github.com/dcloudio/uni-ui)，通过 npm 包依赖和 easycom 使用，不复制组件源码。原版 uView 2 不进入默认依赖；只有 uni-ui 无法满足两个以上真实业务模块、候选库明确支持当前 uni-app Vue 3/H5/微信/支付宝版本、许可证和体积门禁通过时，才能用 ADR 引入少量补充组件。禁止同时以 uni-ui 和另一整套组件库作为基础层。
+
 uni-app 同样具备 App 构建能力，但 Full.NET 默认不使用它输出原生 App，避免与 Flutter 的职责重叠。后续只有在特定项目明确选择 uni-app App 时，才建立独立的架构决策记录。
 
 ### 5.2 代码组织
@@ -185,6 +192,10 @@ H5、微信和支付宝构建产物必须分别测试，禁止以 H5 通过推�
 
 ### 6.3 Flutter 架构边界
 
+- 基线锁定 Flutter 3.44 稳定系列，默认开启 Material 3；
+- iOS 使用 Cupertino 官方组件或自适应封装保留平台行为；
+- Full.NET 颜色、字体、间距、圆角、状态和动效令牌映射为 `ThemeExtension`，业务页面不硬编码品牌样式；
+- 不引入第三方整套 UI 框架；数据网格、图表、编辑器等能力按真实模块逐项审查，不反向决定应用主题；
 - 采用按业务功能组织的轻量分层结构；
 - 使用 OpenAPI 生成 Dart 数据模型和 API 客户端；
 - 使用 OAuth 2.0/OIDC Authorization Code + PKCE 和系统浏览器登录；
@@ -264,6 +275,8 @@ CodeGeneration 把 Vue 与 Layui CRUD 同时作为完整后台生成目标。uni
 - Flutter、.NET MAUI、组件、图标、字体、SDK、生成器和插件必须登记到第三方清单；
 - Admin.NET.Pro 的本地二开商用授权不等于允许把复制内容以 MIT 重新发布，Full.NET 只把它作为功能和交互验收参考；
 - 所有客户端锁定依赖版本、提交锁文件并执行依赖和许可证扫描。
+
+Art Design Pro 与 Tiptap Core 当前采用 MIT，选择性迁入/依赖使用时保留其版权与许可证；uni-ui 与 Apache ECharts 当前采用 Apache-2.0，发布物必须保留许可证、修改和 NOTICE 要求。Tiptap Pro 扩展需要商业订阅，不进入默认发布物。Flutter SDK 及其组件、图标、字体与任何后续插件仍须按实际锁定版本登记。规划选型不等于依赖已经进入发布物，只有真正引入后才更新 `THIRD-PARTY-NOTICES`。
 
 ## 11. 分阶段交付
 

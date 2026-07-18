@@ -624,13 +624,13 @@ Agent 运行保存会话、步骤、工具参数摘要、模型、Token、费用
 
 ## 19. 客户端
 
-Vue 主管理端放在 `ui/admin`，采用 Vue 3、TypeScript、Vite 和 Element Plus；JS/HTML 管理端放在 `ui/admin-layui`，采用 Layui 2、HTML、CSS 和原生 JavaScript。两套管理端覆盖相同后台功能并按同一后端模块同步开发，不要求像素一致，也不得共享框架相关 UI 组件源码。layuiAdmin 可以作为公开页面的布局和交互参考，但其静态主题并非 MIT 资产，未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制其源码和产品资产。
+Vue 主管理端放在 `ui/admin`，采用 Vue 3、TypeScript、Vite 和 Element Plus，并以 MIT Art Design Pro 作为管理壳层、主题、布局与通用交互基线。Apache ECharts 是标准图表引擎，使用 `echarts/core` 模块化注册、路由级懒加载和 Full.NET 主题；富文本默认使用 MIT Tiptap Core，由 Vue/Layui 分别建立 Adapter，不采用 Art Design Pro 自带编辑器作为隐式默认，也不引入 Tiptap 付费 Pro 扩展。采用方式是固定上游版本后审计并选择性迁入，不直接用其 Mock、认证、请求、动态路由或后端约定替换 Full.NET 的安全与协议层；导入代码、修改声明和许可证通知必须可追踪。JS/HTML 管理端放在 `ui/admin-layui`，采用 Layui 2、HTML、CSS 和原生 JavaScript。两套管理端覆盖相同后台功能并按同一后端模块同步开发，不要求像素一致，也不得共享框架相关 UI 组件源码。layuiAdmin 可以作为公开页面的布局和交互参考，但其静态主题并非 MIT 资产，未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制其源码和产品资产。
 
 双管理端首版页面覆盖登录、用户、角色、权限、菜单、组织、租户、配置、字典、审计、文件、通知、任务和代码生成。每个后台功能必须分别记录 Vue 与 Layui 的实现状态，只有两端的权限、流程、错误处理和关键 E2E 都通过后，客户端功能才可标记为 `Verified`。Admin.NET.Pro 的页面可作为交互验收基准，但视觉设计、状态模型和 API 接入应围绕 Full.NET 模块边界重新整理。
 
-H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 uni-app Vue 3；原生 Android/iOS 和 Windows/macOS/Linux 桌面端放在 `clients/flutter`。Flutter 不再重复承担 H5，uni-app 默认不再重复输出原生 App。.NET MAUI 只在 C#/Windows 企业项目的真实需求命中决策门禁时建立模板，不与 Flutter 长期维护全功能对等实现。
+H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 uni-app Vue 3 和官方 uni-ui 作为默认组件库；原版 uView 2 不进入默认依赖，也不允许两套全量 UI 组件库长期并存。原生 Android/iOS 和 Windows/macOS/Linux 桌面端放在 `clients/flutter`，以 Flutter 3.44 的 Material 3、Cupertino 和 Full.NET 设计令牌构建自适应组件层，不绑定第三方整套 UI 框架。Flutter 不再重复承担 H5，uni-app 默认不再重复输出原生 App。.NET MAUI 只在 C#/Windows 企业项目的真实需求命中决策门禁时建立模板，不与 Flutter 长期维护全功能对等实现。
 
-所有客户端通过同一 OpenAPI 契约、标准 HTTP 状态码和 ProblemDetails 与后端解耦，共享权限标识、租户语义和设计令牌，不共享具体 UI 实现。详细技术边界、平台安全策略、测试矩阵和客户端阶段见 [`2026-07-17-multi-client-frontend-strategy-design.md`](2026-07-17-multi-client-frontend-strategy-design.md)。
+所有客户端通过同一 OpenAPI 契约、标准 HTTP 状态码和 ProblemDetails 与后端解耦，共享权限标识、租户语义和设计令牌，不共享具体 UI 实现。详细 UI 选型见 [`2026-07-18-client-ui-framework-design.md`](2026-07-18-client-ui-framework-design.md)；平台安全策略、测试矩阵和客户端阶段见 [`2026-07-17-multi-client-frontend-strategy-design.md`](2026-07-17-multi-client-frontend-strategy-design.md)。
 
 ## 20. 测试策略
 

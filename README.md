@@ -59,15 +59,15 @@ pnpm test:e2e:uniapp
 
 ## 客户端规划
 
-- `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus 主管理端；
+- `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus 主管理端；后续按独立迁移计划采用 MIT Art Design Pro 管理壳层、ECharts 图表与 Tiptap Core 富文本基线，保留 Full.NET 自有认证、租户、权限和 API 契约；
 - `ui/admin-layui`：基于 MIT Layui 2 独立实现的 HTML/CSS/原生 JavaScript 管理端，与 Vue 覆盖相同后台功能并同步验收；layuiAdmin 仅作交互参考，不复制其非 MIT 主题资产；
-- `clients/uniapp`：一套代码覆盖 H5、微信小程序和支付宝小程序；
-- `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端；
+- `clients/uniapp`：一套代码覆盖 H5、微信小程序和支付宝小程序，默认采用官方 uni-ui；当前尚未引入组件包；
+- `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端，采用 Flutter 3.44 Material 3 + Cupertino；当前尚未创建工程；
 - .NET MAUI：仅在真实 C#/Windows 企业需求命中决策门禁后提供可选模板。
 
 Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新轮换、退出、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、标准错误展示与同场景双端 E2E 已经实现。两端当前共享 `zh-CN/en-US` 管理壳层契约；Element Plus/Day.js 与 Layui 2.13.8 组件语言会随账号偏好同步，每个 HTTP 请求在发送前读取活动语言并携带规范 `Accept-Language`。服务端 ProblemDetails 与 Admin.NET 兼容适配器按协商语言返回本地化错误标题，而稳定 `status/code/traceId/violations` 不随语言变化。账号语言偏好与租户默认语言已由 SQL Server/MySQL 双库持久化，`/api/v1/me` 是客户端偏好的唯一可信来源；认证切换通过 `PUT /api/v1/me/locale` 使用独立资料版本乐观并发，失败不会退出、改变租户或覆盖旧语言，偏好也不进入 JWT Claim。现有自动验收还覆盖无 axe 排除项的 WCAG 2.2 A/AA、键盘焦点、320 CSS px 重排和减弱动画。
 
-`clients/uniapp` 已进入 `Implementing / Build-verified`：Vue I18n、规范 `zh-CN/en-US` 与平台 `zh-Hans/en` 映射、pages/manifest 静态资源、逐请求 `Accept-Language`、账号偏好成功后原子提交、ProblemDetails 回退、96 项单元测试、标准 SFC 类型检查、H5/微信/支付宝 CLI 构建和 5 项 Edge H5 冒烟已经通过。可用命令为 `pnpm --filter @fullnet/uniapp dev:h5`、`test`、`typecheck`、`build:h5`、`build:mp-weixin`、`build:mp-alipay` 与根 `pnpm test:e2e:uniapp`。微信和支付宝开发者工具当前未安装，因此没有开发者工具或真机验收，不能标记为 `Verified`；详见[验证记录](docs/verification/uniapp-localization.md)。这也不代表 Flutter、通知或业务内容已经完成全栈多语言。动态导航只能映射到各客户端本地精确白名单；令牌和租户授权状态不写入 Web Storage。Windows Edge + NVDA 和强制颜色模式仍待人工验证，因此 C1 保持 `Implemented`；后台业务 CRUD 继续按 C2 路线交付。详细决策见[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)、[全栈多语言设计](docs/superpowers/specs/2026-07-17-full-stack-localization-design.md)和[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
+`clients/uniapp` 已进入 `Implementing / Build-verified`：Vue I18n、规范 `zh-CN/en-US` 与平台 `zh-Hans/en` 映射、pages/manifest 静态资源、逐请求 `Accept-Language`、账号偏好成功后原子提交、ProblemDetails 回退、96 项单元测试、标准 SFC 类型检查、H5/微信/支付宝 CLI 构建和 5 项 Edge H5 冒烟已经通过。可用命令为 `pnpm --filter @fullnet/uniapp dev:h5`、`test`、`typecheck`、`build:h5`、`build:mp-weixin`、`build:mp-alipay` 与根 `pnpm test:e2e:uniapp`。官方 uni-ui 已确定为默认 UI 组件库但尚未引入，因此现有成果不能描述为“uni-ui 基础完成”。微信和支付宝开发者工具当前未安装，因此没有开发者工具或真机验收，不能标记为 `Verified`；详见[验证记录](docs/verification/uniapp-localization.md)。这也不代表 Flutter、通知或业务内容已经完成全栈多语言。动态导航只能映射到各客户端本地精确白名单；令牌和租户授权状态不写入 Web Storage。Windows Edge + NVDA 和强制颜色模式仍待人工验证，因此 C1 保持 `Implemented`；后台业务 CRUD 继续按 C2 路线交付。详细决策见[客户端 UI 框架设计](docs/superpowers/specs/2026-07-18-client-ui-framework-design.md)、[多客户端前端策略](docs/superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)、[全栈多语言设计](docs/superpowers/specs/2026-07-17-full-stack-localization-design.md)和[客户端交付路线图](docs/roadmap/client-delivery-roadmap.md)。
 
 ## 当前边界
 
