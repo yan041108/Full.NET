@@ -88,7 +88,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 
 | 候选 | 状态/次数 | 当前证据 | 下一升级触发 |
 | --- | --- | --- | --- |
-| `fullnet-dual-database-change` | 观察 / 6 | 基础迁移、Tenancy SQL/API、Identity 授权上下文与语言偏好迁移均覆盖双库；本次超级管理员迁移继续验证 DbUp 未记账、DDL 部分完成恢复，并以 SQL Server/MySQL 真实并发测试锁定最后一名保护 | 再出现跨模块提供程序分支时，评估从模块交付 Skill 拆分；当前由强化后的既有 Skill 与双库恢复门禁覆盖 |
+| `fullnet-dual-database-change` | 观察 / 7 | 基础迁移、Tenancy SQL/API、Identity 授权上下文与语言偏好迁移均覆盖双库；Seed 执行审计新增双库迁移、未记账部分 DDL 恢复、数据库级锁竞争与参数化审计真实测试 | 再出现跨模块提供程序分支时，评估从模块交付 Skill 拆分；当前由强化后的既有 Skill 与双库恢复门禁覆盖 |
 | `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 事件使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
 | `fullnet-api-compatibility` | 候选 / 4 | 标准 ProblemDetails 与 Admin.NET Mapper 已存在；认证 Challenge 已收敛为保留 `WWW-Authenticate` 的本地化 ProblemDetails，本次又让 RateLimiter 中间件拒绝通过同一 Mapper 返回稳定、本地化 429，并以真实 API 测试锁定协议 | 新增分页、文件或另一类兼容端点时评估升级 |
 | `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名与按 ID 的租户解析缓存及 tag 失效处理已存在 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |
@@ -97,7 +97,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 4 | Identity 会话、租户切换、权限导航、`zh-CN/en-US` 国际化/可访问性及组件语言与偏好失败回滚已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |
 | `fullnet-localization-delivery` | 候选 / 5 | 在 L0-L2 基础上，L3 uni-app 已落地规范语言适配、平台别名、Vue I18n、账号偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具仍未安装，尚未形成完整跨平台验收停止条件 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
-| `fullnet-seed-data-delivery` | 候选 / 1 | S0 已真实落地 Seeding 契约、封闭 Profile、CLI 兼容解析、Contributor 契约门禁和确定性依赖图；Migrator 仍由硬编码 `--seed-local` 执行真实数据 | 完成 S1-S2 双库锁/审计及首批真实 Contributor，并由第二个业务模块复用幂等 Seed 流程后评估升级 |
+| `fullnet-seed-data-delivery` | 候选 / 3 | S0 契约与依赖图、Orchestrator 双库锁和审计之后，Tenancy 已通过首个真实 Development Contributor 验证自然键查询、领域服务创建、幂等跳过、冲突拒绝、稳定错误码透传及 Scoped 多实现注册；Migrator 尚待后续任务接入 | Identity 作为第二个业务模块复用幂等 Contributor 流程并完成 Migrator 接入后评估升级 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。
 

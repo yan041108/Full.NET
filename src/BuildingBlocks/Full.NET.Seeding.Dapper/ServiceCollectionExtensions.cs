@@ -1,5 +1,9 @@
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Time;
+using Full.NET.Seeding.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Seeding.Dapper;
 
@@ -28,6 +32,11 @@ public static class ServiceCollectionExtensions
                     && options.LockTimeoutSeconds is >= 1 and <= 300,
                 SeedErrorCodes.OptionsInvalid)
             .ValidateOnStart();
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<ISeedExecutionLeaseProvider, SeedExecutionLease>();
+        services.TryAddScoped<ISeedExecutionStore, SeedExecutionStore>();
+        services.TryAddScoped<ISeedOrchestrator, SeedOrchestrator>();
         return services;
     }
 }

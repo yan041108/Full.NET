@@ -25,7 +25,7 @@
 | 模块化单体、显式模块依赖与宿主 Profile | `Build-verified` | `Full.NET.Modularity`、`Full.NET.Composition`、Api/Worker/Migrator 显式 Profile、Unit 与 Architecture Tests | 新模块必须进入共享目录；Worker 只允许最小后台入口，禁止宿主恢复手工模块清单 |
 | 跨栈命名治理与生成器命名内核 | `Implemented` | `contracts/naming/`、`pnpm test:naming`、16 项 Architecture Tests、`Full.NET.Data.CodeGeneration` 与[验证记录](../verification/naming-governance.md) | 90 项存量债务仍待 1.0 前规范化；动态 SQL 继续要求人工审查，完整业务模板与重复生成快照尚未交付，因此不能标记为 `Verified` |
 | Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks；QueryMultiple 顺序/完整消费及 SQL Server/MySQL 真实测试 | `TenantRequired` 仍需从参数文本检查升级为受控语义元数据，Global Statement 需精确目录；SqlBuilder 只在真实消费者命中门禁后引入 |
-| UUID v7 主键与跨库物理存储 | `Designing` | 应用侧 `IIdGenerator`/`Guid.CreateVersion7()` 与 SQL Server `uniqueidentifier` 已存在；ADR-0003 已批准目标策略 | MySQL 仍为 `char(36)`；需实现统一 `GuidFormat=Binary16` 数据边界、007/008 存量迁移、双库往返/恢复验证和 SQL Server 聚集索引治理 |
+| UUID v7 主键与跨库物理存储 | `Designing` | 应用侧 `IIdGenerator`/`Guid.CreateVersion7()` 与 SQL Server `uniqueidentifier` 已存在；ADR-0003 已批准目标策略 | MySQL 001-007 仍为 `char(36)`；需实现统一 `GuidFormat=Binary16` 数据边界、008/009 存量迁移、双库往返/恢复验证和 SQL Server 聚集索引治理 |
 | SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
@@ -43,7 +43,7 @@
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |
-| 模块化 Seed Baseline/Overlay | `Implemented` | S0 已落地 Seeding 契约、封闭 Profile、CLI 兼容解析、Contributor 契约验证与确定性依赖图；Unit 246 项、Architecture 18 项通过 | 仍由 `--seed-local` 硬编码执行真实数据；S1 运行锁/审计与 S2 真实 Contributor/双库 E2E 尚未实施，不能视为生产 Seed 可用 |
+| 模块化 Seed Baseline/Overlay | `Implemented` | 已落地封闭 Profile、CLI/Contributor 契约、确定性依赖图、SQL Server/MySQL 锁与执行审计，以及首个幂等 Development Tenancy Contributor；Release Build、Unit 260、Architecture 18、Integration 22 项通过 | Migrator 仍由 `--seed-local` 硬编码执行真实数据；Production Baseline、Identity Contributor、新工作流接入和完整 Profile 双库 E2E 尚未实施，不能视为生产 Seed 可用 |
 | SignalR / Realtime | `Planned` | 架构边界已定义 | 抽象、鉴权分组、MessagePack Hub、Redis Backplane 尚未实现 |
 | gRPC 服务通信 | `Planned` | 架构边界已定义 | 首次真实服务拆分前不引入 |
 | AI / Agent / MCP / Agentic Web | `Planned` | M5+ 安全边界已定义 | 不属于 1.0 当前可用能力，不应占用近期底座优先级 |
@@ -59,9 +59,9 @@
 
 ## 4. 近期优先队列
 
-1. **P0：主键物理存储与数据安全**——先实施 ADR-0003 的 MySQL `BINARY(16)` 数据边界和 007/008 存量迁移，完成备份、字节序、主外键、部分迁移恢复和 SQL Server 聚集索引验证。
+1. **P0：主键物理存储与数据安全**——先实施 ADR-0003 的 MySQL `BINARY(16)` 数据边界和 008/009 存量迁移，完成备份、字节序、主外键、Seed 审计引用、部分迁移恢复和 SQL Server 聚集索引验证。
 2. **P0：生产可控性**——在主键存储迁移完成后实施 Seed Baseline/Overlay，为超级管理员远程写操作接入 MFA/强认证 Provider 并补账号禁用/删除保护；建立 SQL 破坏性变更门禁，并复用现有命名扫描入口。
-3. **P0：1.0 前命名规范化**——按 009/010 Expand/Contract 计划迁移 90 项精确债务，不修改已执行迁移，不把存量旧名称复制到新模板。
+3. **P0：1.0 前命名规范化**——按 010/011 Expand/Contract 计划迁移 90 项精确债务，不修改已执行迁移，不把存量旧名称复制到新模板。
 4. **P1：可靠性**——Outbox 版本兼容/死信、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道。
 5. **P1：交付真实性**——真实后端参与的 Vue/Layui Playwright 安全冒烟；浏览器跨 Tab 刷新协调。
 6. **P1：复用而不耦合**——浏览器 headless 契约层；OpenAPI/协议夹具扩展到 uni-app/Flutter。

@@ -70,7 +70,7 @@ SQL Server 的主键约束和聚集索引是两个独立决策，不得依赖 `P
 
 ## 存量迁移
 
-现有 MySQL `char(36)` 是 1.0 前存储债务，不修改 001-006 历史迁移。迁移采用独立的 `expand -> verify -> switch -> contract` 计划：
+现有 MySQL `char(36)` 是 1.0 前存储债务，不修改 001-007 历史迁移；007 已由 Seed 执行审计占用，其 RunId 也属于转换范围。迁移采用独立的 `expand -> verify -> switch -> contract` 计划：
 
 1. 冻结所有 UUID 主键、外键、租约和审计引用清单；
 2. 添加 `BINARY(16)` 影子列并使用 `UUID_TO_BIN(value, 0)` 回填；
@@ -102,7 +102,7 @@ SQL Server 的主键约束和聚集索引是两个独立决策，不得依赖 `P
 - 单元测试验证固定 UUID 的 RFC 字节序、规范文本和空值拒绝；
 - MySQL Testcontainers 验证 `Guid -> BINARY(16) -> Guid`、`UUID_TO_BIN(..., 0)` 与驱动结果完全一致，并显式证明 time-swap 结果不被接受；
 - SQL Server/MySQL 集成测试验证主键、外键、事务、QueryMultiple、Outbox、Seed 和并发路径；
-- 迁移测试覆盖空库、001-006 升级、部分 Expand 重跑、冲突数据拒绝、切换和恢复；
+- 迁移测试覆盖空库、001-007 升级、部分 Expand 重跑、冲突数据拒绝、切换和恢复；
 - SQL 扫描检查新 MySQL UUID 列不再使用 `char(36)`，业务模块不出现手写 UUID 字节转换；
 - SQL Server 高写入表在 Contract 前提交聚集索引基准和执行计划证据；
 - 能力状态在上述实现与双库验证完成前保持 `Designing`。

@@ -55,7 +55,47 @@ public sealed class MySqlMigrationTests
         AssertContainsIgnoreCase(tables, "fn_identity_role");
         AssertContainsIgnoreCase(tables, "fn_identity_user_role");
         AssertContainsIgnoreCase(tables, "fn_identity_role_permission");
+        AssertContainsIgnoreCase(tables, "fn_seed_run");
+        AssertContainsIgnoreCase(tables, "fn_seed_run_item");
         AssertContainsIgnoreCase(tables, "SchemaVersions");
+
+        var seedAuditColumnCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME IN ('fn_seed_run', 'fn_seed_run_item')
+            """);
+        Assert.AreEqual(19, seedAuditColumnCount);
+        var seedAuditContractCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND
+              (
+                  (TABLE_NAME = 'fn_seed_run_item'
+                   AND COLUMN_NAME = 'Contributor'
+                   AND CHARACTER_MAXIMUM_LENGTH = 128
+                   AND IS_NULLABLE = 'NO')
+                  OR (TABLE_NAME IN ('fn_seed_run', 'fn_seed_run_item')
+                      AND COLUMN_NAME = 'ErrorCode'
+                      AND CHARACTER_MAXIMUM_LENGTH = 128
+                      AND IS_NULLABLE = 'YES')
+                  OR (TABLE_NAME IN ('fn_seed_run', 'fn_seed_run_item')
+                      AND COLUMN_NAME = 'CompletedAt'
+                      AND IS_NULLABLE = 'YES')
+              )
+            """);
+        Assert.AreEqual(5, seedAuditContractCount);
+        var seedAuditForeignKeyCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = DATABASE()
+              AND CONSTRAINT_NAME = 'FK_fn_seed_run_item_Run'
+            """);
+        Assert.AreEqual(1, seedAuditForeignKeyCount);
 
         var indexes = (await connection.QueryAsync<string>(
             """
@@ -140,6 +180,33 @@ public sealed class MySqlMigrationTests
         var payload = columns.Single(column =>
             string.Equals(column.Name, "Payload", StringComparison.OrdinalIgnoreCase));
         Assert.AreEqual("longblob", payload.DataType, ignoreCase: true);
+    }
+
+    [TestMethod]
+    public async Task MySql_seed_audit_migration_recovers_after_first_table_commit()
+    {
+        var runner = CreateRunner();
+        await runner.MigrateAsync();
+
+        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await connection.ExecuteAsync(
+            """
+            DROP TABLE fn_seed_run_item;
+            DELETE FROM schemaversions
+            WHERE ScriptName LIKE '%007_SeedExecutionAudit.sql';
+            """);
+
+        var recovered = await runner.MigrateAsync();
+
+        Assert.AreEqual(1, recovered.ExecutedScriptCount);
+        var tableCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME IN ('fn_seed_run', 'fn_seed_run_item')
+            """);
+        Assert.AreEqual(2, tableCount);
     }
 
     [TestMethod]

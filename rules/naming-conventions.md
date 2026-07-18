@@ -212,7 +212,7 @@ Provider 物理类型固定如下：
 
 1. 数据库表/列重命名必须使用 `expand -> migrate/backfill -> contract`，提供 SQL Server/MySQL 成对迁移、数据核对、部署顺序和回滚/前滚方案；禁止直接修改旧迁移脚本伪造历史。
 2. 公共 API、JSON 字段、错误码、权限码和消息类型重命名必须版本化或同时接受旧值；Outbox 旧消息未排空前必须保留旧版本 Handler。
-3. 当前已确认的 1.0 前债务包括：`fn_tenant_tenant` 所有权段错误；Foundation Tenancy/Outbox 的 UTC 时间列缺少 `Utc`；Outbox `Type` 未表达 `MessageType`；错误码、审计码、Statement 标识和事件类型混用连字符/下划线；部分主键、外键和索引未遵循本规范的显式名称；MySQL 001-006 的 UUID 主键、外键和租约标识仍使用 `char(36)`，尚未迁移为统一 RFC 字节序的 `BINARY(16)`。
+3. 当前已确认的 1.0 前债务包括：`fn_tenant_tenant` 所有权段错误；Foundation Tenancy/Outbox 的 UTC 时间列缺少 `Utc`；Outbox `Type` 未表达 `MessageType`；错误码、审计码、Statement 标识和事件类型混用连字符/下划线；部分主键、外键和索引未遵循本规范的显式名称；MySQL 001-007 的 UUID 主键、外键、租约和 Seed 执行标识仍使用 `char(36)`，尚未迁移为统一 RFC 字节序的 `BINARY(16)`。
 4. 上述债务只表示已识别，不表示已经修复。新增代码不得复制债务形式；触碰对应模块时必须更新技术债清单或执行已批准迁移计划。
 5. 第三方数据库若无法改名，必须在独立 Compatibility/Provider 层使用显式映射，并记录来源和退出条件；不得放宽 Full.NET 自有表规范。
 6. 偏离本文需要 ADR，说明范围、兼容影响、两库验证、代码生成器行为和恢复方式。`sys_`、运行时动态表前缀及隐式全局 snake_case 映射没有默认例外。

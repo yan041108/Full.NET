@@ -7,6 +7,7 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Migrations.DbUp\Full.NET.Migrations.DbUp.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Seeding.Dapper\Full.NET.Seeding.Dapper.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Serialization.MessagePack\Full.NET.Serialization.MessagePack.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Api\Full.NET.Host.Api.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />

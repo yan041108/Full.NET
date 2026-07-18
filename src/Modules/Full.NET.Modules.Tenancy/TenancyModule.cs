@@ -10,6 +10,8 @@ using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 using Full.NET.Modules.Tenancy.Persistence;
 using Full.NET.Modules.Tenancy.Serialization;
 using Full.NET.Modules.Tenancy.Resources;
+using Full.NET.Modules.Tenancy.Seeding;
+using Full.NET.Seeding.Abstractions;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
@@ -56,6 +58,9 @@ public sealed class TenancyModule : IFullNetModule
             IQueryHandler<GetCurrentTenantQuery, TenantSummary>,
             Features.GetCurrentTenant.Handler>();
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDataSeedContributor,
+            LocalTenantSeedContributor>());
         services.AddScoped<ITenantResolver, TenantResolver>();
         services.AddScoped<
             IQueryHandler<
