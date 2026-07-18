@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Composition\Full.NET.Composition\Full.NET.Composition.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Caching.Fusion\Full.NET.Caching.Fusion.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
@@ -9,7 +10,6 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Serialization.MessagePack\Full.NET.Serialization.MessagePack.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
-    <ProjectReference Include="..\..\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />

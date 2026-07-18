@@ -1,12 +1,9 @@
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Composition;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Migrations.DbUp;
-using Full.NET.Modularity.Messaging;
-using Full.NET.Modularity.Modules;
-using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
-using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,12 +12,12 @@ using Microsoft.Extensions.Logging;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.AddFullNetServiceDefaults();
-builder.Services.AddFullNetModularity();
 builder.Services.AddFullNetDapper(builder.Configuration);
 builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetMigrations();
-builder.Services.AddFullNetModule<IdentityModule>(builder.Configuration);
-builder.Services.AddFullNetModule<TenancyModule>(builder.Configuration);
+builder.Services.AddFullNetApplicationModules(
+    builder.Configuration,
+    FullNetHostProfile.Migrator);
 
 using var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILoggerFactory>()

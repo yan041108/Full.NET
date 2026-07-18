@@ -19,6 +19,9 @@
   <Folder Name="/src/Compatibility/">
     <Project Path="src/Compatibility/Full.NET.Compatibility.AdminNet/Full.NET.Compatibility.AdminNet.csproj" />
   </Folder>
+  <Folder Name="/src/Composition/">
+    <Project Path="src/Composition/Full.NET.Composition/Full.NET.Composition.csproj" />
+  </Folder>
   <Folder Name="/src/Hosts/">
     <Project Path="src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj" />
     <Project Path="src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj" />

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
+  </ItemGroup>
+</Project>

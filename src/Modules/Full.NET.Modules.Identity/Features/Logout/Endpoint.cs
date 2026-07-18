@@ -17,10 +17,23 @@ internal static class Endpoint
         group.MapPost("/logout", async (
             ICommandDispatcher dispatcher,
             IApiResultMapper mapper,
+            AllowedOriginValidator originValidator,
             IdentityCookieWriter cookieWriter,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            var origin = httpContext.Request.Headers.Origin.ToString();
+            var requestOrigin = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
+            if (!originValidator.IsAllowed(origin, requestOrigin))
+            {
+                return mapper.Map(
+                    Result<LogoutResult>.Failure(new Error(
+                        Code: IdentityErrorCodes.OriginNotAllowed,
+                        Message: "The request origin is not allowed.",
+                        Type: ErrorType.Forbidden)),
+                    httpContext);
+            }
+
             var csrfCookie = httpContext.Request.Cookies[IdentityCookieWriter.CsrfCookieName];
             var csrfHeader = httpContext.Request.Headers["X-CSRF-Token"].ToString();
             if (!CsrfTokenValidator.IsValid(csrfCookie, csrfHeader))
@@ -53,6 +66,8 @@ internal static class Endpoint
             return result.IsSuccess
                 ? Results.NoContent()
                 : mapper.Map(result, httpContext);
-        }).AllowAnonymous();
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting(IdentityModule.SessionMutationRateLimitPolicy);
     }
 }

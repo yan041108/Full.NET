@@ -4,6 +4,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Composition\Full.NET.Composition\Full.NET.Composition.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Caching.Fusion\Full.NET.Caching.Fusion.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />

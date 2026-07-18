@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\Composition\Full.NET.Composition\Full.NET.Composition.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Migrations.DbUp\Full.NET.Migrations.DbUp.csproj" />

@@ -42,6 +42,11 @@ namespace Full.NET.Modules.Identity;
 public sealed class IdentityModule : IFullNetModule
 {
     /// <summary>
+    /// 匿名会话轮换与退出共享的限流策略，避免攻击者绕过登录限流持续消耗密码学与数据库资源。
+    /// </summary>
+    internal const string SessionMutationRateLimitPolicy = "identity-session-mutation";
+
+    /// <summary>
     /// 浏览器管理端使用的精确来源 CORS 策略名称。
     /// </summary>
     public const string BrowserCorsPolicy = "FullNET.Identity.BrowserClients";
@@ -170,12 +175,23 @@ public sealed class IdentityModule : IFullNetModule
             });
         services.AddRateLimiter(rateLimiter =>
         {
+            rateLimiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             rateLimiter.AddPolicy("identity-login", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    }));
+            rateLimiter.AddPolicy(SessionMutationRateLimitPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 30,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                         AutoReplenishment = true,

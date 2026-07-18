@@ -13,8 +13,4 @@ public interface IFullNetModule
     void AddServices(IServiceCollection services, IConfiguration configuration);
 
     void MapEndpoints(IEndpointRouteBuilder endpoints);
-
-    Task InitializeAsync(
-        IServiceProvider services,
-        CancellationToken cancellationToken) => Task.CompletedTask;
 }

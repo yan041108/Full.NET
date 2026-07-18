@@ -307,6 +307,24 @@ internal static class IdentityApiAssertions
 
         var refreshCookie = ExtractCookie(cookies, "__Host-fullnet-refresh");
         var csrfCookie = ExtractCookie(cookies, "fullnet-csrf");
+        using (var untrustedOriginRequest = CreateSessionRequest(
+            "/api/v1/auth/refresh",
+            "untrusted-refresh-token",
+            csrfCookie,
+            csrfCookie,
+            "https://untrusted.example"))
+        using (var untrustedOriginResponse = await client.SendAsync(
+            untrustedOriginRequest,
+            cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, untrustedOriginResponse.StatusCode);
+            using var problem = JsonDocument.Parse(
+                await untrustedOriginResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                "identity.origin_not_allowed",
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
         using (var invalidCsrfRequest = CreateSessionRequest(
             "/api/v1/auth/refresh",
             refreshCookie,
@@ -527,13 +545,15 @@ internal static class IdentityApiAssertions
         string path,
         string refreshCookie,
         string csrfCookie,
-        string csrfHeader)
+        string csrfHeader,
+        string origin = "http://localhost")
     {
         var request = new HttpRequestMessage(HttpMethod.Post, path);
         request.Headers.Add(
             "Cookie",
             $"__Host-fullnet-refresh={refreshCookie}; fullnet-csrf={csrfCookie}");
         request.Headers.Add("X-CSRF-Token", csrfHeader);
+        request.Headers.Add("Origin", origin);
         return request;
     }
 

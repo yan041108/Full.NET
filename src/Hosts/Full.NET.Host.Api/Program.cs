@@ -1,11 +1,10 @@
 using Full.NET.Caching.Fusion;
+using Full.NET.Composition;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Localization;
 using Full.NET.Migrations.DbUp;
-using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
-using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Serialization.MessagePack;
 using Scalar.AspNetCore;
@@ -13,21 +12,21 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddFullNetServiceDefaults();
 builder.Services.AddOpenApi();
-builder.Services.AddFullNetModularity();
 builder.Services.AddFullNetDapper(builder.Configuration);
 builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetMigrations();
-builder.Services.AddFullNetModule<IdentityModule>(builder.Configuration);
-builder.Services.AddFullNetModule<TenancyModule>(builder.Configuration);
+builder.Services.AddFullNetApplicationModules(
+    builder.Configuration,
+    FullNetHostProfile.Api);
 
 var app = builder.Build();
 app.UseFullNetLocalization();
 app.UseFullNetRequestLogging();
 app.UseExceptionHandler();
-app.UseCors(IdentityModule.BrowserCorsPolicy);
+app.UseCors(FullNetModuleCatalog.BrowserCorsPolicy);
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseFullNetTenancy();
