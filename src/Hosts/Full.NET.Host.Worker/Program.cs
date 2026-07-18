@@ -10,6 +10,7 @@ builder.AddFullNetServiceDefaults();
 builder.Services.AddFullNetDapper(
     builder.Configuration,
     builder.Environment.EnvironmentName);
+builder.Services.AddFullNetDatabaseSchemaModeGuard();
 builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetCaching(
     builder.Configuration,

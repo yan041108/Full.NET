@@ -134,13 +134,8 @@ public sealed class UuidBinaryExpandMigrationTests
         Assert.AreEqual(0, rerun.ExecutedScriptCount);
     }
 
-    private DbUpMigrationRunner CreateRunner() => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.MySql,
-            ConnectionString = _container.GetConnectionString(),
-        }),
-        NullLoggerFactory.Instance);
+    private IDatabaseMigrationRunner CreateRunner() =>
+        new UuidBinaryExpandTestMigrationRunner(_container.GetConnectionString());
 
     private MySqlConnection CreateConnection() => new(_container.GetConnectionString());
 }

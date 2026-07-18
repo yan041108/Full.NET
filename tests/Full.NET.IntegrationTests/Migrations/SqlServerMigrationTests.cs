@@ -30,8 +30,10 @@ public sealed class SqlServerMigrationTests
             {
                 Provider = DatabaseProvider.SqlServer,
                 ConnectionString = _container.GetConnectionString(),
+                CommandTimeoutSeconds = 300,
             }),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance,
+            ContractOptions());
 
         var first = await runner.MigrateAsync();
         var second = await runner.MigrateAsync();
@@ -329,8 +331,19 @@ public sealed class SqlServerMigrationTests
         {
             Provider = DatabaseProvider.SqlServer,
             ConnectionString = _container.GetConnectionString(),
+            CommandTimeoutSeconds = 300,
         }),
-        NullLoggerFactory.Instance);
+        NullLoggerFactory.Instance,
+        ContractOptions());
+
+    private static IOptions<UuidBinaryContractOptions> ContractOptions() =>
+        Options.Create(new UuidBinaryContractOptions
+        {
+            MaintenanceMode = true,
+            BackupVerified = true,
+            LegacyWritersStopped = true,
+            DestructiveDdlApprovalId = "test-uuid-contract-009",
+        });
 
     private static async Task AssertLocalizationStateAsync(
         SqlConnection connection,

@@ -6,7 +6,7 @@
 
 SQL Server 保持 `uniqueidentifier`，但必须与同编号迁移一起验证显式主键和聚集索引策略。任何步骤不得使用 `Guid.ToByteArray()`、time-swap、`UUID_TO_BIN(value, 1)` 或 `FOREIGN_KEY_CHECKS=0` 绕过数据问题。
 
-本 Runbook 不是当前可执行发布授权。008、009、连接策略和恢复测试尚未全部合并前，必须保持能力状态为 `Designing`。
+本 Runbook 不是生产发布授权。仓库已提供 008 Expand、009 Contract、连接模式门禁与恢复测试；实际窗口仍须由发布负责人依据本文 Go/No-Go 证据单独批准。
 
 ## 2. 角色与必备证据
 
@@ -61,14 +61,26 @@ SQL Server 保持 `uniqueidentifier`，但必须与同编号迁移一起验证�
 
 ### 4.4 执行 009 Contract
 
-1. 再次确认所有写入者停止、备份有效、维护窗口令牌和破坏性 DDL 豁免已登记。
+009 的四项门禁只允许注入 Migrator，API 与 Worker 不得接收这些批准值：
+
+```text
+UuidBinaryContract__MaintenanceMode=true
+UuidBinaryContract__BackupVerified=true
+UuidBinaryContract__LegacyWritersStopped=true
+UuidBinaryContract__DestructiveDdlApprovalId=<已登记的非敏感批准编号>
+Database__CommandTimeoutSeconds=1800       # 按已演练窗口调整
+```
+
+批准编号只能使用 1–64 位 ASCII 字母、数字、点、下划线、冒号或连字符；它会写入 `fn_uuid_contract_state` 用于审计，不得放入 Secret、Token 或业务数据。
+
+1. 再次确认所有写入者停止、备份有效、维护窗口令牌和破坏性 DDL 批准编号已登记。
 2. 运行 Migrator 执行 009；不得手工拆分执行或跳过前置检查。
 3. 验证 canonical UUID 列均为 `BINARY(16)`，可空性、主键、外键、唯一约束和查询索引均与合同一致。
-4. 验证 legacy 列、同步触发器和过渡标志按 009 合同退出，DbUp Journal 已记账。
+4. 验证 legacy 列、同步触发器和过渡标志按 009 合同退出，DbUp Journal 已记账，且 `fn_uuid_contract_state.SchemaMode = 'Binary16'`。
 
 ### 4.5 部署与冒烟
 
-1. 部署统一配置为 `GuidFormat=Binary16` 的 API、Worker、Migrator 和导入适配器。
+1. 部署统一配置为 `Database__MySqlGuidStorageMode=Binary16` 的 API、Worker、Migrator 和导入适配器；API/Worker 在 schema 状态不匹配时必须启动失败。
 2. 在 SQL Server 和 MySQL 分别执行租户解析、登录/刷新、权限导航、Outbox、Seed Baseline/Development 和 QueryMultiple 冒烟。
 3. 验证新写入 UUID 为 v7、主外键可连接、审计与 Outbox 引用完整，MySQL `BIN_TO_UUID(value, 0)` 与应用文本一致。
 4. 先恢复后台处理并观察，再按小流量逐步开放 API；持续监控数据库错误、Outbox backlog、认证失败率和引用完整性。

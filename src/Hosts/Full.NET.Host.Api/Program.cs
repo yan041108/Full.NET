@@ -15,11 +15,12 @@ builder.Services.AddOpenApi();
 builder.Services.AddFullNetDapper(
     builder.Configuration,
     builder.Environment.EnvironmentName);
+builder.Services.AddFullNetDatabaseSchemaModeGuard();
 builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
-builder.Services.AddFullNetMigrations();
+builder.Services.AddFullNetMigrations(builder.Configuration);
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Api);

@@ -1,5 +1,6 @@
 using Dapper;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
 using Full.NET.Migrations.DbUp;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -32,8 +33,11 @@ public sealed class MySqlMigrationTests
             {
                 Provider = DatabaseProvider.MySql,
                 ConnectionString = _container.GetConnectionString(),
+                MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+                CommandTimeoutSeconds = 300,
             }),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance,
+            ContractOptions());
 
         var first = await runner.MigrateAsync();
         var second = await runner.MigrateAsync();
@@ -43,7 +47,7 @@ public sealed class MySqlMigrationTests
         Assert.IsTrue(second.Successful);
         Assert.AreEqual(0, second.ExecutedScriptCount);
 
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = CreateConnection();
         var tables = (await connection.QueryAsync<string>(
             "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE()"))
             .ToArray();
@@ -67,7 +71,7 @@ public sealed class MySqlMigrationTests
             WHERE TABLE_SCHEMA = DATABASE()
               AND TABLE_NAME IN ('fn_seed_run', 'fn_seed_run_item')
             """);
-        Assert.AreEqual(21, seedAuditColumnCount);
+        Assert.AreEqual(19, seedAuditColumnCount);
         var seedAuditBinaryColumnCount = await connection.ExecuteScalarAsync<int>(
             """
             SELECT COUNT(*)
@@ -75,37 +79,21 @@ public sealed class MySqlMigrationTests
             WHERE TABLE_SCHEMA = DATABASE()
               AND
               (
-                  (TABLE_NAME = 'fn_seed_run' AND COLUMN_NAME = 'IdBinary')
-                  OR (TABLE_NAME = 'fn_seed_run_item' AND COLUMN_NAME = 'RunIdBinary')
+                  (TABLE_NAME = 'fn_seed_run' AND COLUMN_NAME = 'Id')
+                  OR (TABLE_NAME = 'fn_seed_run_item' AND COLUMN_NAME = 'RunId')
               )
               AND DATA_TYPE = 'binary'
               AND CHARACTER_MAXIMUM_LENGTH = 16
             """);
         Assert.AreEqual(2, seedAuditBinaryColumnCount);
-        var uuidBinaryUniqueIndexCount = await connection.ExecuteScalarAsync<int>(
+        var uuidBinaryShadowIndexCount = await connection.ExecuteScalarAsync<int>(
             """
-            SELECT COUNT(*)
-            FROM (
-                SELECT TABLE_NAME, INDEX_NAME
-                FROM INFORMATION_SCHEMA.STATISTICS
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND
-                  (
-                      (TABLE_NAME = 'fn_tenant_tenant' AND INDEX_NAME = 'UX_fn_tenant_tenant_IdBinary')
-                      OR (TABLE_NAME = 'fn_outbox_message' AND INDEX_NAME = 'UX_fn_outbox_message_IdBinary')
-                      OR (TABLE_NAME = 'fn_identity_user' AND INDEX_NAME = 'UX_fn_identity_user_IdBinary')
-                      OR (TABLE_NAME = 'fn_identity_refresh_session' AND INDEX_NAME = 'UX_fn_identity_refresh_session_IdBinary')
-                      OR (TABLE_NAME = 'fn_identity_auth_audit' AND INDEX_NAME = 'UX_fn_identity_auth_audit_IdBinary')
-                      OR (TABLE_NAME = 'fn_identity_role' AND INDEX_NAME = 'UX_fn_identity_role_IdBinary')
-                      OR (TABLE_NAME = 'fn_seed_run' AND INDEX_NAME = 'UX_fn_seed_run_IdBinary')
-                  )
-                GROUP BY TABLE_NAME, INDEX_NAME
-                HAVING COUNT(*) = 1
-                   AND MAX(NON_UNIQUE = 0 AND COLUMN_NAME = 'IdBinary'
-                           AND SEQ_IN_INDEX = 1 AND SUB_PART IS NULL) = 1
-            ) AS exact_uuid_binary_indexes
+            SELECT COUNT(DISTINCT CONCAT(TABLE_NAME, ':', INDEX_NAME))
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND INDEX_NAME LIKE 'UX\_%\_IdBinary'
             """);
-        Assert.AreEqual(7, uuidBinaryUniqueIndexCount);
+        Assert.AreEqual(0, uuidBinaryShadowIndexCount);
         var seedAuditContractCount = await connection.ExecuteScalarAsync<int>(
             """
             SELECT COUNT(*)
@@ -224,10 +212,10 @@ public sealed class MySqlMigrationTests
     [TestMethod]
     public async Task MySql_seed_audit_migration_recovers_after_first_table_commit()
     {
-        var runner = CreateRunner();
+        var runner = CreateExpandRunner();
         await runner.MigrateAsync();
 
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = CreateLegacyConnection();
         await connection.ExecuteAsync(
             """
             DROP TABLE fn_seed_run_item;
@@ -251,10 +239,10 @@ public sealed class MySqlMigrationTests
     [TestMethod]
     public async Task MySql_localization_migration_recovers_legacy_and_partial_states()
     {
-        var runner = CreateRunner();
+        var runner = CreateExpandRunner();
         await runner.MigrateAsync();
 
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = CreateLegacyConnection();
         await connection.ExecuteAsync(
             """
             ALTER TABLE fn_identity_user DROP COLUMN PreferredLocale, DROP COLUMN ProfileVersion;
@@ -305,10 +293,10 @@ public sealed class MySqlMigrationTests
     [TestMethod]
     public async Task MySql_super_administrator_migration_recovers_partial_state()
     {
-        var runner = CreateRunner();
+        var runner = CreateExpandRunner();
         await runner.MigrateAsync();
 
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = CreateLegacyConnection();
         var roleId = Guid.NewGuid();
         await connection.ExecuteAsync(
             """
@@ -353,8 +341,35 @@ public sealed class MySqlMigrationTests
         {
             Provider = DatabaseProvider.MySql,
             ConnectionString = _container.GetConnectionString(),
+            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+            CommandTimeoutSeconds = 300,
         }),
-        NullLoggerFactory.Instance);
+        NullLoggerFactory.Instance,
+        ContractOptions());
+
+    private MySqlConnection CreateConnection() => new(
+        MySqlConnectionStringPolicy.Create(
+            _container.GetConnectionString(),
+            MySqlGuidStorageMode.Binary16,
+            allowUserVariables: false));
+
+    private IDatabaseMigrationRunner CreateExpandRunner() =>
+        new UuidBinaryExpandTestMigrationRunner(_container.GetConnectionString());
+
+    private MySqlConnection CreateLegacyConnection() => new(
+        MySqlConnectionStringPolicy.Create(
+            _container.GetConnectionString(),
+            MySqlGuidStorageMode.LegacyChar36,
+            allowUserVariables: false));
+
+    private static IOptions<UuidBinaryContractOptions> ContractOptions() =>
+        Options.Create(new UuidBinaryContractOptions
+        {
+            MaintenanceMode = true,
+            BackupVerified = true,
+            LegacyWritersStopped = true,
+            DestructiveDdlApprovalId = "test-uuid-contract-009",
+        });
 
     private static async Task AssertLocalizationStateAsync(
         MySqlConnection connection,

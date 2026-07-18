@@ -19,7 +19,7 @@ dotnet build Full.NET.slnx --configuration Release
 dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 291
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 24
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 40 --timeout 15m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 58 --timeout 45m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。CI 不跳过任何数据库测试。
@@ -181,11 +181,13 @@ Tenancy__HostDomains__0=api.example.com
 ```text
 Database__Provider=SqlServer        # 或 MySql
 Database__ConnectionName=fullnet
-Database__MySqlGuidStorageMode=LegacyChar36
+Database__MySqlGuidStorageMode=Binary16
 ConnectionStrings__fullnet=<由 Secret 管理器注入>
 ```
 
-`Database__MySqlGuidStorageMode` 在 Production 必须显式配置。当前 001-007 结构仍使用 `LegacyChar36`；只有完成 008/009 迁移、核对和切换门禁后才能改为 `Binary16`。普通 API、Worker 与 Seed 连接不允许 MySQL 用户变量，只有 Migrator 连接会为条件 DDL 启用该能力。
+`Database__MySqlGuidStorageMode` 在 Production 必须显式配置为 `Binary16`，`LegacyChar36` 只允许用于迁移测试与 009 之前的受控工具连接。API 与 Worker 启动时会核对 `fn_uuid_contract_state.SchemaMode`，模式不一致即拒绝启动。普通 API、Worker 与 Seed 连接不允许 MySQL 用户变量，只有 Migrator 连接会为条件 DDL 启用该能力。
+
+执行 009 时还必须仅向 Migrator 注入 `UuidBinaryContract__MaintenanceMode=true`、`BackupVerified=true`、`LegacyWritersStopped=true` 和已登记的 `DestructiveDdlApprovalId`；详见 [UUID Binary16 迁移 Runbook](uuid-binary-migration-runbook.md)。
 
 ## 5. 缓存约定
 

@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Api;
 
@@ -36,6 +38,7 @@ internal sealed class FullNetApiFactory(
                 [$"{DatabaseOptions.SectionName}:Provider"] = provider.ToString(),
                 [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
                 [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
+                [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] = "Binary16",
                 ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
                 ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
                 ["Identity:AllowedOrigins:0"] = "http://localhost",
@@ -53,6 +56,23 @@ internal sealed class FullNetApiFactory(
                 return;
             }
 
+            await new DbUpMigrationRunner(
+                    Options.Create(new DatabaseOptions
+                    {
+                        Provider = provider,
+                        ConnectionString = connectionString,
+                        MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+                        CommandTimeoutSeconds = 300,
+                    }),
+                    NullLoggerFactory.Instance,
+                    Options.Create(new UuidBinaryContractOptions
+                    {
+                        MaintenanceMode = true,
+                        BackupVerified = true,
+                        LegacyWritersStopped = true,
+                        DestructiveDdlApprovalId = "test-api-uuid-contract-009",
+                    }))
+                .MigrateAsync(cancellationToken);
             using var bootstrapClient = CreateClient();
             await using var scope = Services.CreateAsyncScope();
             var currentTenant = scope.ServiceProvider

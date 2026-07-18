@@ -379,20 +379,15 @@ public sealed class UuidBinaryPartialRecoveryTests
         """);
 
     private static async Task AssertMigrationFailureAsync(
-        DbUpMigrationRunner runner,
+        IDatabaseMigrationRunner runner,
         string expectedMessage)
     {
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.MigrateAsync());
         StringAssert.Contains(exception.InnerException?.Message ?? string.Empty, expectedMessage);
     }
 
-    private DbUpMigrationRunner CreateRunner() => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.MySql,
-            ConnectionString = _container.GetConnectionString(),
-        }),
-        NullLoggerFactory.Instance);
+    private IDatabaseMigrationRunner CreateRunner() =>
+        new UuidBinaryExpandTestMigrationRunner(_container.GetConnectionString());
 
     private MySqlConnection CreateConnection() => new(_container.GetConnectionString());
 }

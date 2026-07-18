@@ -85,6 +85,14 @@ public static class ServiceCollectionExtensions
                         StringComparison.OrdinalIgnoreCase)
                     || hasExplicitMySqlGuidStorageMode,
                 "MySqlGuidStorageMode must be explicitly configured in Production.")
+            .Validate(
+                options => !string.Equals(
+                        environmentName,
+                        Environments.Production,
+                        StringComparison.OrdinalIgnoreCase)
+                    || options.Provider != DatabaseProvider.MySql
+                    || options.MySqlGuidStorageMode == MySqlGuidStorageMode.Binary16,
+                "LegacyChar36 is not permitted in Production; use Binary16.")
             .ValidateOnStart();
 
         services.AddSingleton<DbConnectionFactory>();
@@ -99,6 +107,22 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOutboxWriter, DapperOutboxWriter>();
         services.AddScoped<IOutboxStore, DapperOutboxStore>();
         services.AddScoped<ICommandTransaction, DapperCommandTransaction>();
+        return services;
+    }
+
+    /// <summary>
+    /// 注册 MySQL UUID 应用模式与数据库 Contract schema 的启动前一致性门禁。
+    /// </summary>
+    /// <remarks>
+    /// API 与 Worker 必须注册该门禁；Migrator 需要连接旧 schema 执行 009，因此不得注册。
+    /// </remarks>
+    /// <param name="services">宿主服务集合。</param>
+    /// <returns>原服务集合，便于链式装配。</returns>
+    public static IServiceCollection AddFullNetDatabaseSchemaModeGuard(
+        this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.AddHostedService<MySqlSchemaModeStartupValidator>();
         return services;
     }
 }

@@ -6,6 +6,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
+using Full.NET.Data.MySql;
 using Full.NET.Hosting.Api;
 using Full.NET.Abstractions.Results;
 using Full.NET.Migrations.DbUp;
@@ -70,10 +71,13 @@ public sealed class TenantProvisioningTests
         {
             Provider = databaseProvider,
             ConnectionString = connectionString,
+            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+            CommandTimeoutSeconds = 300,
         };
         var migrationRunner = new DbUpMigrationRunner(
             Options.Create(options),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance,
+            ContractOptions());
         await migrationRunner.MigrateAsync();
 
         var configuration = CreateConfiguration(options);
@@ -211,6 +215,8 @@ public sealed class TenantProvisioningTests
             {
                 [$"{DatabaseOptions.SectionName}:Provider"] = options.Provider.ToString(),
                 [$"{DatabaseOptions.SectionName}:ConnectionString"] = options.ConnectionString,
+                [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] =
+                    options.MySqlGuidStorageMode.ToString(),
                 [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
             })
             .Build();
@@ -283,9 +289,22 @@ public sealed class TenantProvisioningTests
         string connectionString) => databaseProvider switch
         {
             DatabaseProvider.SqlServer => new SqlConnection(connectionString),
-            DatabaseProvider.MySql => new MySqlConnection(connectionString),
+            DatabaseProvider.MySql => new MySqlConnection(
+                MySqlConnectionStringPolicy.Create(
+                    connectionString,
+                    MySqlGuidStorageMode.Binary16,
+                    allowUserVariables: false)),
             _ => throw new ArgumentOutOfRangeException(nameof(databaseProvider)),
         };
+
+    private static IOptions<UuidBinaryContractOptions> ContractOptions() =>
+        Options.Create(new UuidBinaryContractOptions
+        {
+            MaintenanceMode = true,
+            BackupVerified = true,
+            LegacyWritersStopped = true,
+            DestructiveDdlApprovalId = "test-tenancy-uuid-contract-009",
+        });
 
     private sealed class OutboxRow
     {

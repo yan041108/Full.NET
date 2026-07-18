@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Dapper;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Seeding.Dapper;
 using Microsoft.Data.SqlClient;
@@ -27,6 +28,7 @@ public sealed class SeedExecutionInfrastructureTests
         {
             Provider = DatabaseProvider.SqlServer,
             ConnectionString = container.GetConnectionString(),
+            CommandTimeoutSeconds = 300,
         };
 
         await VerifyInfrastructureAsync(
@@ -48,11 +50,17 @@ public sealed class SeedExecutionInfrastructureTests
         {
             Provider = DatabaseProvider.MySql,
             ConnectionString = container.GetConnectionString(),
+            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+            CommandTimeoutSeconds = 300,
         };
 
         await VerifyInfrastructureAsync(
             options,
-            () => new MySqlConnection(container.GetConnectionString()));
+            () => new MySqlConnection(
+                MySqlConnectionStringPolicy.Create(
+                    container.GetConnectionString(),
+                    MySqlGuidStorageMode.Binary16,
+                    allowUserVariables: false)));
     }
 
     private static async Task VerifyInfrastructureAsync(
@@ -61,7 +69,14 @@ public sealed class SeedExecutionInfrastructureTests
     {
         var migration = new DbUpMigrationRunner(
             Options.Create(databaseOptions),
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance,
+            Options.Create(new UuidBinaryContractOptions
+            {
+                MaintenanceMode = true,
+                BackupVerified = true,
+                LegacyWritersStopped = true,
+                DestructiveDdlApprovalId = "test-seeding-uuid-contract-009",
+            }));
         var migrationResult = await migration.MigrateAsync();
         Assert.IsTrue(migrationResult.Successful);
 

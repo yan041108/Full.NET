@@ -17,7 +17,7 @@ builder.Services.AddFullNetDapper(
     builder.Configuration,
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetMessagePack();
-builder.Services.AddFullNetMigrations();
+builder.Services.AddFullNetMigrations(builder.Configuration);
 builder.Services.AddFullNetSeeding(builder.Configuration);
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,

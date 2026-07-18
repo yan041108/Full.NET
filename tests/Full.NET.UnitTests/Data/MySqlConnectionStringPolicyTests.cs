@@ -153,16 +153,18 @@ public sealed class MySqlConnectionStringPolicyTests
     }
 
     [TestMethod]
-    public void Production_accepts_explicit_storage_mode_configuration()
+    public void Production_accepts_explicit_binary_storage_mode_configuration()
     {
-        var configuration = CreateConfiguration(includeStorageMode: true);
+        var configuration = CreateConfiguration(
+            includeStorageMode: true,
+            storageMode: MySqlGuidStorageMode.Binary16);
         using var provider = new ServiceCollection()
             .AddFullNetDapper(configuration, Environments.Production)
             .BuildServiceProvider();
 
         var options = provider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
 
-        Assert.AreEqual(MySqlGuidStorageMode.LegacyChar36, options.MySqlGuidStorageMode);
+        Assert.AreEqual(MySqlGuidStorageMode.Binary16, options.MySqlGuidStorageMode);
     }
 
     [TestMethod]
@@ -208,7 +210,8 @@ public sealed class MySqlConnectionStringPolicyTests
 
     private static IConfiguration CreateConfiguration(
         bool includeStorageMode,
-        string? environmentName = null)
+        string? environmentName = null,
+        MySqlGuidStorageMode storageMode = MySqlGuidStorageMode.LegacyChar36)
     {
         var values = new Dictionary<string, string?>
         {
@@ -219,7 +222,7 @@ public sealed class MySqlConnectionStringPolicyTests
         if (includeStorageMode)
         {
             values[$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] =
-                MySqlGuidStorageMode.LegacyChar36.ToString();
+                storageMode.ToString();
         }
 
         if (environmentName is not null)

@@ -644,6 +644,83 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/008_UuidBinaryExpand.sql",
       "reason": "008 使用存储过程与固定命名触发器实现非事务 DDL 恢复和 legacy 写同步；对象名称由集成测试核对，待静态门禁支持 routine/trigger 语法后移除。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "schemaversions",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "reason": "009 必须核对 DbUp 既有 journal 表确认 008 已记账；该框架表名不属于业务对象。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "reason": "009 必须在 Task 6 命名迁移前继续收敛既有 Tenancy 表，不能在 UUID Contract 中隐式改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_uuid_contract_state.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "reason": "MySQL information_schema 固定将显式 PK_fn_uuid_contract_state 主键报告为 PRIMARY，扫描器无法区分约束声明与元数据比较。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "reason": "009 使用受真实 MySQL 恢复测试覆盖的存储过程处理非事务 DDL；待扫描器支持 routine 语法后移除。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "reason": "009 只从版本控制内的 23 列封闭清单拼接受控 DDL，已由冲突拒绝与半完成重跑测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "SchemaVersions",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/009_UuidBinaryContract.sql",
+      "reason": "009 必须核对 DbUp 既有 journal 表确认 008 已记账；该框架表名不属于业务对象。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "SET",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/009_UuidBinaryContract.sql",
+      "reason": "扫描器将 MERGE 的 WHEN MATCHED UPDATE SET 误识别为表名；真实对象由配对迁移测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "dbo",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/009_UuidBinaryContract.sql",
+      "reason": "扫描器将受控动态 DROP CONSTRAINT 中的 dbo schema 误识别为业务表；动态标识符来自固定表清单。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/009_UuidBinaryContract.sql",
+      "reason": "009 必须在 Task 6 命名迁移前继续治理既有 Tenancy 表，不能在 UUID Contract 中隐式改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/009_UuidBinaryContract.sql",
+      "reason": "009 的条件 DROP/ALTER 与游标式恢复 DDL 尚不被静态扫描器支持，已由真实 SQL Server 未记账重跑测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/009_UuidBinaryContract.sql",
+      "reason": "009 只对固定十表主键清单执行 QUOTENAME 保护的 DROP CONSTRAINT，已由显式聚集策略和恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }
