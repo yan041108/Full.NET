@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using System.Xml.Linq;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
@@ -191,12 +192,7 @@ public sealed class DependencyRulesTests
             Path.Combine("tests", "Full.NET.UnitTests", "Data", "MySqlConnectionStringPolicyTests.cs"),
             Path.Combine("tests", "Full.NET.IntegrationTests", "Data", "GuidBinaryRoundTripTests.cs"),
         };
-        var forbiddenFragments = new[]
-        {
-            "Guid." + "ToByteArray",
-            "TimeSwap" + "Binary16",
-        };
-        var offenders = Directory
+        var sourceFiles = Directory
             .EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
             .Where(path => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                 || path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
@@ -206,23 +202,73 @@ public sealed class DependencyRulesTests
             .Where(path => !path.Contains(
                 $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
                 StringComparison.OrdinalIgnoreCase))
-            .Select(path => new
-            {
-                Path = Path.GetRelativePath(root, path),
-                Content = File.ReadAllText(path),
-            })
-            .Where(file => !allowedFiles.Contains(file.Path))
-            .Where(file => forbiddenFragments.Any(fragment =>
-                    file.Content.Contains(fragment, StringComparison.Ordinal))
-                || System.Text.RegularExpressions.Regex.IsMatch(
-                    file.Content,
-                    @"UUID_TO_BIN\s*\([^\r\n;]*,\s*1\s*\)",
-                    System.Text.RegularExpressions.RegexOptions.CultureInvariant))
-            .Select(file => file.Path)
+            .Select(path => new GuidStorageSourceFile(
+                Path.GetRelativePath(root, path),
+                File.ReadAllText(path)))
+            .ToArray();
+        var sourceOffenders = GuidStorageArchitectureScanner
+            .FindUnsafeSqlConversions(sourceFiles, allowedFiles);
+        var compiledOffenders = GuidStorageArchitectureScanner
+            .FindGuidToByteArrayCalls(ProductionAssemblies.All);
+        var offenders = sourceOffenders
+            .Concat(compiledOffenders)
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
 
         Assert.HasCount(0, offenders, string.Join(Environment.NewLine, offenders));
+    }
+
+    [TestMethod]
+    public void Guid_storage_scanners_recognize_compiled_and_multiline_negative_fixtures()
+    {
+        var compiledOffenders = GuidStorageArchitectureScanner.FindGuidToByteArrayCalls(
+            [typeof(GuidToByteArrayNegativeFixture).Assembly]);
+        CollectionAssert.Contains(
+            compiledOffenders,
+            typeof(GuidToByteArrayNegativeFixture).FullName
+                + ".Convert");
+
+        var multilineSql = "SELECT "
+            + "UUID_TO_BIN"
+            + "(\n    @Id,\n    1\n)";
+        var sourceOffenders = GuidStorageArchitectureScanner.FindUnsafeSqlConversions(
+            [new GuidStorageSourceFile("negative-fixture.sql", multilineSql)],
+            []);
+
+        CollectionAssert.Contains(sourceOffenders, "negative-fixture.sql");
+    }
+
+    [TestMethod]
+    public void Guid_round_trip_fixture_uses_uuid_storage_contract_as_single_source()
+    {
+        var root = FindRepositoryRoot();
+        var contractPath = Path.Combine(
+            root,
+            "contracts",
+            "database",
+            "uuid-storage-v1.json");
+        using var contract = JsonDocument.Parse(File.ReadAllText(contractPath));
+        var vector = contract.RootElement
+            .GetProperty("vectors")
+            .EnumerateArray()
+            .Single(item => string.Equals(
+                item.GetProperty("name").GetString(),
+                "readable-boundaries",
+                StringComparison.Ordinal));
+        var guid = vector.GetProperty("uuid").GetString()
+            ?? throw new InvalidDataException("UUID 契约向量缺少 uuid。");
+        var hex = vector.GetProperty("hex").GetString()
+            ?? throw new InvalidDataException("UUID 契约向量缺少 hex。");
+        var testSource = File.ReadAllText(Path.Combine(
+            root,
+            "tests",
+            "Full.NET.IntegrationTests",
+            "Data",
+            "GuidBinaryRoundTripTests.cs"));
+
+        Assert.Contains("uuid-storage-v1.json", testSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(guid, testSource, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(hex, testSource, StringComparison.OrdinalIgnoreCase);
     }
 
     [TestMethod]

@@ -115,6 +115,27 @@ public sealed class MySqlConnectionStringPolicyTests
     }
 
     [TestMethod]
+    public void Explicit_old_guids_is_rejected_for_every_storage_mode()
+    {
+        foreach (var mode in Enum.GetValues<MySqlGuidStorageMode>())
+        {
+            foreach (var oldGuids in new[] { false, true })
+            {
+                var exception = Assert.ThrowsExactly<ArgumentException>(() =>
+                    MySqlConnectionStringPolicy.Create(
+                        $"{ConnectionString};Old Guids={oldGuids}",
+                        mode,
+                        allowUserVariables: false));
+
+                Assert.DoesNotContain(
+                    "unit-test-secret",
+                    exception.Message,
+                    StringComparison.Ordinal);
+            }
+        }
+    }
+
+    [TestMethod]
     public void Production_requires_explicit_storage_mode_configuration()
     {
         var configuration = CreateConfiguration(includeStorageMode: false);
@@ -144,7 +165,50 @@ public sealed class MySqlConnectionStringPolicyTests
         Assert.AreEqual(MySqlGuidStorageMode.LegacyChar36, options.MySqlGuidStorageMode);
     }
 
-    private static IConfiguration CreateConfiguration(bool includeStorageMode)
+    [TestMethod]
+    public void Two_parameter_overload_infers_non_production_environment()
+    {
+        var configuration = CreateConfiguration(
+            includeStorageMode: false,
+            environmentName: Environments.Development);
+        using var provider = new ServiceCollection()
+            .AddFullNetDapper(configuration)
+            .BuildServiceProvider();
+
+        var options = provider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+
+        Assert.AreEqual(MySqlGuidStorageMode.LegacyChar36, options.MySqlGuidStorageMode);
+    }
+
+    [TestMethod]
+    public void Two_parameter_overload_enforces_production_explicit_mode()
+    {
+        var configuration = CreateConfiguration(
+            includeStorageMode: false,
+            environmentName: Environments.Production);
+        using var provider = new ServiceCollection()
+            .AddFullNetDapper(configuration)
+            .BuildServiceProvider();
+
+        Assert.ThrowsExactly<OptionsValidationException>(() =>
+            _ = provider.GetRequiredService<IOptions<DatabaseOptions>>().Value);
+    }
+
+    [TestMethod]
+    public void Two_parameter_overload_treats_missing_environment_as_production()
+    {
+        var configuration = CreateConfiguration(includeStorageMode: false);
+        using var provider = new ServiceCollection()
+            .AddFullNetDapper(configuration)
+            .BuildServiceProvider();
+
+        Assert.ThrowsExactly<OptionsValidationException>(() =>
+            _ = provider.GetRequiredService<IOptions<DatabaseOptions>>().Value);
+    }
+
+    private static IConfiguration CreateConfiguration(
+        bool includeStorageMode,
+        string? environmentName = null)
     {
         var values = new Dictionary<string, string?>
         {
@@ -156,6 +220,11 @@ public sealed class MySqlConnectionStringPolicyTests
         {
             values[$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] =
                 MySqlGuidStorageMode.LegacyChar36.ToString();
+        }
+
+        if (environmentName is not null)
+        {
+            values[HostDefaults.EnvironmentKey] = environmentName;
         }
 
         return new ConfigurationBuilder()

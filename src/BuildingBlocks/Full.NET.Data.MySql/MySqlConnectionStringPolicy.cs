@@ -19,7 +19,7 @@ public static class MySqlConnectionStringPolicy
     /// <param name="mode">当前部署阶段使用的 UUID 物理存储模式。</param>
     /// <param name="allowUserVariables">是否允许迁移脚本使用 MySQL 用户变量。</param>
     /// <returns>不包含冲突 UUID 映射且权限最小化的连接字符串。</returns>
-    /// <exception cref="ArgumentException">连接字符串无效或显式 GuidFormat 与策略冲突。</exception>
+    /// <exception cref="ArgumentException">连接字符串无效或显式 UUID 驱动选项与策略冲突。</exception>
     /// <exception cref="ArgumentOutOfRangeException">存储模式不是受支持的封闭枚举值。</exception>
     public static string Create(
         string connectionString,
@@ -44,6 +44,13 @@ public static class MySqlConnectionStringPolicy
             // 原始异常可能包含连接属性值，因此只返回不携带内部异常的固定错误。
             throw new ArgumentException(
                 "MySQL 连接字符串无效。",
+                nameof(connectionString));
+        }
+
+        if (builder.ContainsKey(nameof(MySqlConnectionStringBuilder.OldGuids)))
+        {
+            throw new ArgumentException(
+                "连接字符串中的 Old Guids 与 Full.NET MySQL UUID 存储策略冲突。",
                 nameof(connectionString));
         }
 

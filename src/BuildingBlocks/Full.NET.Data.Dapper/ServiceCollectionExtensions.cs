@@ -3,6 +3,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper.Outbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using global::Dapper;
 
@@ -10,6 +11,30 @@ namespace Full.NET.Data.Dapper;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// 从宿主配置推断环境并注册 Full.NET Dapper 数据边界。
+    /// </summary>
+    /// <remarks>
+    /// 环境键缺失时按 Production 处理，避免旧重载绕过生产配置门禁。
+    /// </remarks>
+    /// <param name="services">宿主服务集合。</param>
+    /// <param name="configuration">包含宿主环境键的最终配置。</param>
+    /// <returns>原服务集合，便于链式装配。</returns>
+    public static IServiceCollection AddFullNetDapper(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var environmentName = configuration[HostDefaults.EnvironmentKey];
+        return services.AddFullNetDapper(
+            configuration,
+            string.IsNullOrWhiteSpace(environmentName)
+                ? Environments.Production
+                : environmentName);
+    }
+
     /// <summary>
     /// 注册 Full.NET Dapper 数据边界与启动配置验证。
     /// </summary>
@@ -26,6 +51,9 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
 
+        // Dapper 内置 Guid 类型映射优先于 TypeHandler，必须先移除才会经过空值门禁。
+        SqlMapper.RemoveTypeMap(typeof(Guid));
+        SqlMapper.AddTypeHandler(new AssignedGuidTypeHandler());
         SqlMapper.AddTypeHandler(new UtcDateTimeOffsetTypeHandler());
         var databaseSection = configuration.GetSection(DatabaseOptions.SectionName);
         var hasExplicitMySqlGuidStorageMode = databaseSection
@@ -53,7 +81,7 @@ public static class ServiceCollectionExtensions
             .Validate(
                 _ => !string.Equals(
                         environmentName,
-                        "Production",
+                        Environments.Production,
                         StringComparison.OrdinalIgnoreCase)
                     || hasExplicitMySqlGuidStorageMode,
                 "MySqlGuidStorageMode must be explicitly configured in Production.")

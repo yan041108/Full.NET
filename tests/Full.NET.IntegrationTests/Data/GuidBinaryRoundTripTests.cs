@@ -1,7 +1,11 @@
 using Dapper;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
+using System.Text.Json;
 using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Data;
@@ -9,9 +13,9 @@ namespace Full.NET.IntegrationTests.Data;
 [TestClass]
 public sealed class GuidBinaryRoundTripTests
 {
-    private const string CanonicalText = "01890f4e-7c2a-7abc-8def-0123456789ab";
-    private const string ExpectedHex = "01890F4E7C2A7ABC8DEF0123456789AB";
-    private static readonly Guid FixedGuid = Guid.Parse(CanonicalText);
+    private static readonly IReadOnlyDictionary<string, UuidStorageVector> StorageVectors =
+        LoadStorageVectors();
+    private static readonly UuidStorageVector FixedVector = StorageVectors["readable-boundaries"];
     private static readonly MySqlContainer Container = new MySqlBuilder("mysql:8.0")
         .WithDatabase("fullnet")
         .WithUsername("fullnet")
@@ -19,7 +23,11 @@ public sealed class GuidBinaryRoundTripTests
         .Build();
 
     [ClassInitialize]
-    public static Task StartAsync(TestContext _) => Container.StartAsync();
+    public static Task StartAsync(TestContext _)
+    {
+        RegisterDapperBoundary();
+        return Container.StartAsync();
+    }
 
     [ClassCleanup]
     public static async Task CleanupAsync() => await Container.DisposeAsync();
@@ -32,15 +40,15 @@ public sealed class GuidBinaryRoundTripTests
             "CREATE TEMPORARY TABLE guid_round_trip (Id BINARY(16) NOT NULL PRIMARY KEY)");
         await connection.ExecuteAsync(
             "INSERT INTO guid_round_trip (Id) VALUES (@Id)",
-            new { Id = FixedGuid });
+            new { Id = FixedVector.Guid });
 
         var actual = await connection.QuerySingleAsync<Guid>(
             "SELECT Id FROM guid_round_trip");
         var hex = await connection.QuerySingleAsync<string>(
             "SELECT HEX(Id) FROM guid_round_trip");
 
-        Assert.AreEqual(FixedGuid, actual);
-        Assert.AreEqual(ExpectedHex, hex);
+        Assert.AreEqual(FixedVector.Guid, actual);
+        Assert.AreEqual(FixedVector.Hex, hex, ignoreCase: true);
     }
 
     [TestMethod]
@@ -54,17 +62,17 @@ public sealed class GuidBinaryRoundTripTests
                    HEX(UUID_TO_BIN(@CanonicalText, 0)) AS FunctionHex,
                    HEX(@Id) AS DriverHex
             """,
-            new { Id = FixedGuid, CanonicalText });
+            new { Id = FixedVector.Guid, CanonicalText = FixedVector.Uuid });
 
-        Assert.AreEqual(CanonicalText, result.CanonicalText);
-        Assert.AreEqual(ExpectedHex, result.FunctionHex);
-        Assert.AreEqual(ExpectedHex, result.DriverHex);
+        Assert.AreEqual(FixedVector.Uuid, result.CanonicalText);
+        Assert.AreEqual(FixedVector.Hex, result.FunctionHex, ignoreCase: true);
+        Assert.AreEqual(FixedVector.Hex, result.DriverHex, ignoreCase: true);
     }
 
     [TestMethod]
     public async Task GuidBinaryRoundTrip_Primary_and_foreign_keys_join_with_guid_parameters()
     {
-        var childId = Guid.Parse("019822d3-0700-7000-8000-000000000201");
+        var childId = StorageVectors["seed-run-sample"].Guid;
         await using var connection = await OpenConnectionAsync();
         // MySQL 禁止临时表参与外键，因此该用例在隔离容器中创建普通表并在结束时回收。
         try
@@ -80,10 +88,10 @@ public sealed class GuidBinaryRoundTripTests
                 """);
             await connection.ExecuteAsync(
                 "INSERT INTO guid_parent (Id) VALUES (@Id)",
-                new { Id = FixedGuid });
+                new { Id = FixedVector.Guid });
             await connection.ExecuteAsync(
                 "INSERT INTO guid_child (Id, ParentId) VALUES (@Id, @ParentId)",
-                new { Id = childId, ParentId = FixedGuid });
+                new { Id = childId, ParentId = FixedVector.Guid });
 
             var joinedParentId = await connection.QuerySingleAsync<Guid>(
                 """
@@ -94,7 +102,7 @@ public sealed class GuidBinaryRoundTripTests
                 """,
                 new { ChildId = childId });
 
-            Assert.AreEqual(FixedGuid, joinedParentId);
+            Assert.AreEqual(FixedVector.Guid, joinedParentId);
         }
         finally
         {
@@ -111,7 +119,13 @@ public sealed class GuidBinaryRoundTripTests
             "CREATE TEMPORARY TABLE guid_empty_gate (Id BINARY(16) NOT NULL PRIMARY KEY)");
 
         await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
-            InsertAssignedGuidAsync(connection, Guid.Empty));
+            connection.ExecuteAsync(
+                "INSERT INTO guid_empty_gate (Id) VALUES (@Id)",
+                new { Id = Guid.Empty }));
+
+        var persistedCount = await connection.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM guid_empty_gate");
+        Assert.AreEqual(0, persistedCount);
     }
 
     [TestMethod]
@@ -121,9 +135,9 @@ public sealed class GuidBinaryRoundTripTests
 
         var swappedHex = await connection.QuerySingleAsync<string>(
             "SELECT HEX(UUID_TO_BIN(@CanonicalText, 1))",
-            new { CanonicalText });
+            new { CanonicalText = FixedVector.Uuid });
 
-        Assert.AreNotEqual(ExpectedHex, swappedHex);
+        Assert.AreNotEqual(FixedVector.Hex, swappedHex, ignoreCase: true);
     }
 
     private static async Task<MySqlConnection> OpenConnectionAsync()
@@ -137,16 +151,54 @@ public sealed class GuidBinaryRoundTripTests
         return connection;
     }
 
-    private static Task InsertAssignedGuidAsync(MySqlConnection connection, Guid id)
+    private static void RegisterDapperBoundary()
     {
-        if (id == Guid.Empty)
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{DatabaseOptions.SectionName}:Provider"] = DatabaseProvider.MySql.ToString(),
+                [$"{DatabaseOptions.SectionName}:ConnectionString"] =
+                    "Server=localhost;Database=fullnet;User ID=fullnet;Password=integration-test",
+                [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] =
+                    MySqlGuidStorageMode.Binary16.ToString(),
+            })
+            .Build();
+        _ = new ServiceCollection().AddFullNetDapper(configuration, "Testing");
+    }
+
+    private static IReadOnlyDictionary<string, UuidStorageVector> LoadStorageVectors()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
         {
-            throw new ArgumentException("持久化标识必须由应用预先分配。", nameof(id));
+            var contractPath = Path.Combine(
+                directory.FullName,
+                "contracts",
+                "database",
+                "uuid-storage-v1.json");
+            if (File.Exists(contractPath))
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(contractPath));
+                return document.RootElement
+                    .GetProperty("vectors")
+                    .EnumerateArray()
+                    .Select(element =>
+                    {
+                        var name = element.GetProperty("name").GetString()
+                            ?? throw new InvalidDataException("UUID 契约向量缺少 name。");
+                        var uuid = element.GetProperty("uuid").GetString()
+                            ?? throw new InvalidDataException("UUID 契约向量缺少 uuid。");
+                        var hex = element.GetProperty("hex").GetString()
+                            ?? throw new InvalidDataException("UUID 契约向量缺少 hex。");
+                        return new UuidStorageVector(name, uuid, Guid.Parse(uuid), hex);
+                    })
+                    .ToDictionary(vector => vector.Name, StringComparer.Ordinal);
+            }
+
+            directory = directory.Parent;
         }
 
-        return connection.ExecuteAsync(
-            "INSERT INTO guid_empty_gate (Id) VALUES (@Id)",
-            new { Id = id });
+        throw new FileNotFoundException("找不到 UUID 存储契约 uuid-storage-v1.json。");
     }
 
     private sealed class GuidFunctionRow
@@ -157,4 +209,6 @@ public sealed class GuidBinaryRoundTripTests
 
         public string DriverHex { get; init; } = string.Empty;
     }
+
+    private sealed record UuidStorageVector(string Name, string Uuid, Guid Guid, string Hex);
 }
