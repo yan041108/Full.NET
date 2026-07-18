@@ -13,6 +13,57 @@ dotnet_diagnostic.IDE0005.severity = suggestion
 csharp_style_namespace_declarations = file_scoped:warning
 csharp_style_prefer_primary_constructors = true:suggestion
 
+# 接口统一使用 I 前缀与 PascalCase。
+dotnet_naming_rule.interfaces_use_i_prefix.symbols = interfaces
+dotnet_naming_rule.interfaces_use_i_prefix.style = interface_style
+dotnet_naming_rule.interfaces_use_i_prefix.severity = warning
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_symbols.interfaces.applicable_accessibilities = *
+dotnet_naming_style.interface_style.required_prefix = I
+dotnet_naming_style.interface_style.capitalization = pascal_case
+
+# 类型与公开成员使用 PascalCase。
+dotnet_naming_rule.types_use_pascal_case.symbols = types
+dotnet_naming_rule.types_use_pascal_case.style = pascal_case_style
+dotnet_naming_rule.types_use_pascal_case.severity = warning
+dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum, delegate
+dotnet_naming_symbols.types.applicable_accessibilities = *
+dotnet_naming_rule.public_members_use_pascal_case.symbols = public_members
+dotnet_naming_rule.public_members_use_pascal_case.style = pascal_case_style
+dotnet_naming_rule.public_members_use_pascal_case.severity = warning
+dotnet_naming_symbols.public_members.applicable_kinds = property, event, method
+dotnet_naming_symbols.public_members.applicable_accessibilities = public, internal, protected, protected_internal, private_protected
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# 参数与局部变量使用 camelCase。
+dotnet_naming_rule.parameters_use_camel_case.symbols = parameters
+dotnet_naming_rule.parameters_use_camel_case.style = camel_case_style
+dotnet_naming_rule.parameters_use_camel_case.severity = suggestion
+dotnet_naming_symbols.parameters.applicable_kinds = parameter, local
+dotnet_naming_symbols.parameters.applicable_accessibilities = *
+dotnet_naming_style.camel_case_style.capitalization = camel_case
+
+# 私有常量和静态字段沿用 PascalCase，实例字段使用 _camelCase。
+dotnet_naming_rule.private_constants_use_pascal_case.symbols = private_constants
+dotnet_naming_rule.private_constants_use_pascal_case.style = pascal_case_style
+dotnet_naming_rule.private_constants_use_pascal_case.severity = warning
+dotnet_naming_symbols.private_constants.applicable_kinds = field
+dotnet_naming_symbols.private_constants.applicable_accessibilities = private
+dotnet_naming_symbols.private_constants.required_modifiers = const
+dotnet_naming_rule.private_static_fields_use_pascal_case.symbols = private_static_fields
+dotnet_naming_rule.private_static_fields_use_pascal_case.style = pascal_case_style
+dotnet_naming_rule.private_static_fields_use_pascal_case.severity = warning
+dotnet_naming_symbols.private_static_fields.applicable_kinds = field
+dotnet_naming_symbols.private_static_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_fields.required_modifiers = static
+dotnet_naming_rule.private_instance_fields_use_underscore.symbols = private_instance_fields
+dotnet_naming_rule.private_instance_fields_use_underscore.style = underscore_camel_case_style
+dotnet_naming_rule.private_instance_fields_use_underscore.severity = warning
+dotnet_naming_symbols.private_instance_fields.applicable_kinds = field
+dotnet_naming_symbols.private_instance_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel_case_style.required_prefix = _
+dotnet_naming_style.underscore_camel_case_style.capitalization = camel_case
+
 [*.{xml,json,yml,yaml}]
 indent_style = space
 indent_size = 2

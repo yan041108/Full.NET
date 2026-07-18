@@ -112,7 +112,7 @@ jobs:
           dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 11
+          --minimum-expected-tests 15
 
       - name: SQL Server and MySQL integration tests
         run: >-
