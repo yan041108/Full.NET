@@ -20,6 +20,7 @@
   <data name="identity.refresh_token_reuse_detected" xml:space="preserve"><value>Refresh token reuse was detected and the session was revoked.</value></data>
   <data name="identity.session_context_conflict" xml:space="preserve"><value>The session context changed concurrently.</value></data>
   <data name="identity.session_not_active" xml:space="preserve"><value>The current session is no longer active.</value></data>
+  <data name="identity.authentication.rate_limited" xml:space="preserve"><value>Too many authentication session requests. Try again later.</value></data>
   <data name="identity.super_administrator.remote_management_disabled" xml:space="preserve"><value>Remote super-administrator write operations are disabled.</value></data>
   <data name="identity.super_administrator.reauthentication_failed" xml:space="preserve"><value>Current password reauthentication failed.</value></data>
   <data name="identity.super_administrator.operator_required" xml:space="preserve"><value>The current account is not an active super administrator.</value></data>

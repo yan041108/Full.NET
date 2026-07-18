@@ -61,6 +61,9 @@ public static class IdentityErrorCodes
     /// <summary>当前会话已失效。</summary>
     public const string SessionNotActive = "identity.session_not_active";
 
+    /// <summary>认证会话写请求超过允许速率。</summary>
+    public const string AuthenticationRateLimited = "identity.authentication.rate_limited";
+
     /// <summary>超级管理员远程写操作当前未启用。</summary>
     public const string SuperAdministratorRemoteManagementDisabled =
         "identity.super_administrator.remote_management_disabled";
@@ -102,6 +105,7 @@ public static class IdentityErrorCodes
         RefreshTokenReuseDetected,
         SessionContextConflict,
         SessionNotActive,
+        AuthenticationRateLimited,
         SuperAdministratorRemoteManagementDisabled,
         SuperAdministratorReauthenticationFailed,
         SuperAdministratorOperatorRequired,

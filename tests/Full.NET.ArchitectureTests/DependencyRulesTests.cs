@@ -212,6 +212,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Serialization.MessagePack.MessagePackIntegrationEventSerializer).Assembly,
         typeof(Full.NET.Validation.FluentValidation.ServiceCollectionExtensions).Assembly,
         typeof(Full.NET.Compatibility.AdminNet.AdminNetApiResultMapper).Assembly,
+        typeof(Full.NET.Composition.FullNetHostProfile).Assembly,
         typeof(IdentityModule).Assembly,
         typeof(TenancyModule).Assembly,
         Assembly.Load("Full.NET.Host.Api"),

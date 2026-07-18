@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Configuration;
@@ -176,6 +177,18 @@ public sealed class IdentityModule : IFullNetModule
         services.AddRateLimiter(rateLimiter =>
         {
             rateLimiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            rateLimiter.OnRejected = async (context, _) =>
+            {
+                var mapper = context.HttpContext.RequestServices
+                    .GetRequiredService<IApiResultMapper>();
+                var problem = mapper.Map(
+                    Result<object?>.Failure(new Error(
+                        Code: IdentityErrorCodes.AuthenticationRateLimited,
+                        Message: "Too many authentication session requests.",
+                        Type: ErrorType.RateLimited)),
+                    context.HttpContext);
+                await problem.ExecuteAsync(context.HttpContext).ConfigureAwait(false);
+            };
             rateLimiter.AddPolicy("identity-login", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",

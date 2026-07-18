@@ -63,6 +63,41 @@ internal static class IdentityApiAssertions
                 out _));
         }
 
+        using (var rateLimitFactory = factory.CreateIsolatedFactory())
+        using (var rateLimitClient = rateLimitFactory.CreateClientForHost("localhost"))
+        {
+            for (var attempt = 0; attempt < 30; attempt++)
+            {
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    "/api/v1/auth/refresh");
+                request.Headers.Add("Origin", "http://localhost");
+                using var response = await rateLimitClient.SendAsync(
+                    request,
+                    cancellationToken);
+                Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+            }
+
+            using var rejectedRequest = new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/v1/auth/refresh");
+            rejectedRequest.Headers.Add("Origin", "http://localhost");
+            using var rejectedResponse = await rateLimitClient.SendAsync(
+                rejectedRequest,
+                cancellationToken);
+            Assert.AreEqual(
+                HttpStatusCode.TooManyRequests,
+                rejectedResponse.StatusCode);
+            Assert.AreEqual(
+                "application/problem+json",
+                rejectedResponse.Content.Headers.ContentType?.MediaType);
+            using var problem = JsonDocument.Parse(
+                await rejectedResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                "identity.authentication.rate_limited",
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
         using var invalidRequest = CreateLoginRequest("wrong-password");
         using var invalidResponse = await client.SendAsync(
             invalidRequest,

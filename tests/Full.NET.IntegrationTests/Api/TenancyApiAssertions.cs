@@ -167,6 +167,7 @@ internal static class TenancyApiAssertions
         refreshRequest.Headers.Add(
             "Cookie",
             $"__Host-fullnet-refresh={refreshCookie}; fullnet-csrf={csrfCookie}");
+        refreshRequest.Headers.Add("Origin", "http://localhost");
         refreshRequest.Headers.Add("X-CSRF-Token", csrfCookie);
         using var refreshResponse = await client.SendAsync(
             refreshRequest,
