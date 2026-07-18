@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史 Foundation 迁移使用了错误的 Tenancy 模块键，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史 Foundation 迁移使用了错误的 Tenancy 模块键，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_tenant_tenant.CreatedAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史时间线列缺少 Utc 后缀，需要通过 Expand/Contract 迁移修正。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_tenant_tenant.UpdatedAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史时间线列缺少 Utc 后缀，需要通过 Expand/Contract 迁移修正。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_tenant_tenant.CreatedAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史时间线列缺少 Utc 后缀，需要通过 Expand/Contract 迁移修正。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_tenant_tenant.UpdatedAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史时间线列缺少 Utc 后缀，需要通过 Expand/Contract 迁移修正。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.Type",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史列未表达 MessageType 语义，需要保留待处理消息兼容窗口。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.Type",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史列未表达 MessageType 语义，需要保留待处理消息兼容窗口。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "message_type",
+      "value": "fullnet.tenancy.tenant-provisioned",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Features/ProvisionTenant/Handler.cs",
+      "reason": "已持久化消息类型使用连字符，必须在旧消息排空前保留显式别名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "identity.bootstrap.invalid-password",
+      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "reason": "已发布错误码使用连字符，需与资源和客户端一起版本化迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "tenancy.domain-exists",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
+      "reason": "已发布错误码使用连字符，需保留兼容映射窗口。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "statement_id",
+      "value": "outbox.acquire.sql-server",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "reason": "内部可观测标识使用连字符，需和指标及日志查询同步迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_tenant_tenant.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_tenant_tenant.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史内联主键没有显式规范名称，不能修改已执行迁移。",
+      "removalMilestone": "M1.0"
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "database": {
+    "frameworkOwnerKey": "fn",
+    "projectOwnerPattern": "^[a-z][a-z0-9]{1,11}$",
+    "reservedOwnerKeys": [
+      "dbo",
+      "fn",
+      "information_schema",
+      "mysql",
+      "performance_schema",
+      "sys"
+    ],
+    "modulePattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+    "entityPattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+    "tablePattern": "^[a-z][a-z0-9]*_[a-z][a-z0-9_]*_[a-z][a-z0-9_]*$",
+    "tableTemplate": "{owner}_{module}_{entity}",
+    "columnPattern": "^[A-Z][A-Za-z0-9]*$",
+    "columnCase": "pascal",
+    "timelineSuffixes": [
+      "AtUtc",
+      "FromUtc",
+      "ToUtc",
+      "UntilUtc",
+      "EndUtc"
+    ],
+    "maxIdentifierLength": 64,
+    "constraintFormats": {
+      "primaryKey": "PK_{table}",
+      "foreignKey": "FK_{table}_{columns}",
+      "unique": "UX_{table}_{columns}",
+      "index": "IX_{table}_{columns}",
+      "check": "CK_{table}_{rule}",
+      "default": "DF_{table}_{column}"
+    },
+    "constraintDigest": {
+      "algorithm": "sha256",
+      "prefixLength": 55,
+      "hexLength": 8,
+      "separator": "_"
+    }
+  },
+  "dotnet": {
+    "typePattern": "^[A-Z][A-Za-z0-9]*$",
+    "interfacePattern": "^I[A-Z][A-Za-z0-9]*$",
+    "memberPattern": "^[A-Z][A-Za-z0-9]*$",
+    "parameterPattern": "^[a-z][A-Za-z0-9]*$",
+    "privateFieldPattern": "^_[a-z][A-Za-z0-9]*$",
+    "asyncSuffix": "Async",
+    "abbreviations": [
+      "Api",
+      "Csp",
+      "Csrf",
+      "FullNet",
+      "Grpc",
+      "Html",
+      "Http",
+      "Https",
+      "Id",
+      "Ids",
+      "Ip",
+      "Json",
+      "Jwt",
+      "Sql",
+      "Ui",
+      "Uri",
+      "Url",
+      "Utc",
+      "Uuid"
+    ]
+  },
+  "contracts": {
+    "jsonCase": "camel",
+    "httpPathSegmentPattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+    "permission": {
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+      "template": "{module}.{plural_resource}.{action}"
+    },
+    "error": {
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*){2,}$",
+      "template": "{module}.{area}.{reason}"
+    },
+    "message": {
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+      "template": "{owner}.{module}.{entity}.{event}",
+      "schemaVersionInType": false
+    },
+    "statement": {
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
+    },
+    "configuration": {
+      "pattern": "^[A-Z][A-Za-z0-9]*(?::[A-Z][A-Za-z0-9]*)*$"
+    },
+    "cache": {
+      "pattern": "^fullnet:[a-z0-9_-]+:(?:host|tenant:[a-f0-9-]+):[a-z0-9_]+:[a-z0-9_:-]+:[a-z0-9_.-]+$"
+    }
+  }
+}
