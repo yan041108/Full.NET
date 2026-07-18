@@ -1,7 +1,7 @@
 # Full.NET 当前能力状态矩阵
 
 - 快照日期：2026-07-18
-- 基线提交：`d5c109c`
+- 基线提交：本文件所在提交
 - 文档职责：作为“当前能用到什么程度”的唯一总览；详细范围仍由各规格、路线图和验证记录负责
 - 更新规则：每次里程碑、公开发布和能力状态变化时更新；没有可定位证据不得提升状态
 
@@ -42,7 +42,7 @@
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |
-| 模块化 Seed Baseline/Overlay | `Designing` | 已批准规格与详细实施计划 | 仍由 `--seed-local` 硬编码；S0-S2 尚未实施 |
+| 模块化 Seed Baseline/Overlay | `Implemented` | S0 已落地 Seeding 契约、封闭 Profile、CLI 兼容解析、Contributor 契约验证与确定性依赖图；Unit 246 项、Architecture 18 项通过 | 仍由 `--seed-local` 硬编码执行真实数据；S1 运行锁/审计与 S2 真实 Contributor/双库 E2E 尚未实施，不能视为生产 Seed 可用 |
 | SignalR / Realtime | `Planned` | 架构边界已定义 | 抽象、鉴权分组、MessagePack Hub、Redis Backplane 尚未实现 |
 | gRPC 服务通信 | `Planned` | 架构边界已定义 | 首次真实服务拆分前不引入 |
 | AI / Agent / MCP / Agentic Web | `Planned` | M5+ 安全边界已定义 | 不属于 1.0 当前可用能力，不应占用近期底座优先级 |

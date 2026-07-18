@@ -62,7 +62,7 @@
 
 1. 先覆盖首次创建、旧库升级、重复执行、缺 Secret、普通角色同名冲突和已存在账号场景。
 2. Bootstrap 幂等创建/修复唯一系统角色并分配引导账号，不再同步逐项权限；不覆盖已有密码。
-3. `identity.host-administrator` Baseline Contributor 只能调用同一服务；Development/Demo/Test Overlay 不得创建额外超级管理员。
+3. `identity.host_administrator` Baseline Contributor 只能调用同一服务；Development/Demo/Test Overlay 不得创建额外超级管理员。
 4. 恢复命令使用显式 Secret、非交互 CI 友好的退出码和完整审计；日志不得输出密码或 Token。
 
 ### Task 4: 最后一名保护和高风险管理服务

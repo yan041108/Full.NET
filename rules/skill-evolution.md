@@ -97,7 +97,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 4 | Identity 会话、租户切换、权限导航、`zh-CN/en-US` 国际化/可访问性及组件语言与偏好失败回滚已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |
 | `fullnet-localization-delivery` | 候选 / 5 | 在 L0-L2 基础上，L3 uni-app 已落地规范语言适配、平台别名、Vue I18n、账号偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具仍未安装，尚未形成完整跨平台验收停止条件 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
-| `fullnet-seed-data-delivery` | 等待真实实现 / 0 | 已形成生产 Baseline、Development/Demo/Test Overlay、双库锁/审计和场景 Test Factory 分层设计，当前仍是 Migrator 硬编码 `--seed-local` | S0-S2 落地且第二个真实业务模块贡献双库幂等 Seed 后评估 |
+| `fullnet-seed-data-delivery` | 候选 / 1 | S0 已真实落地 Seeding 契约、封闭 Profile、CLI 兼容解析、Contributor 契约门禁和确定性依赖图；Migrator 仍由硬编码 `--seed-local` 执行真实数据 | 完成 S1-S2 双库锁/审计及首批真实 Contributor，并由第二个业务模块复用幂等 Seed 流程后评估升级 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。
 

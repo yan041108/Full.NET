@@ -70,13 +70,15 @@ src/BuildingBlocks/Full.NET.Seeding.Abstractions
 ├── SeedContext.cs
 ├── SeedContributionResult.cs
 ├── IDataSeedContributor.cs
-└── SeedErrors.cs
+└── ISeedOrchestrator.cs
 
 src/BuildingBlocks/Full.NET.Seeding.Dapper
 ├── SeedOrchestrator.cs
 ├── SeedContributorGraph.cs
 ├── SeedExecutionStore.cs
 ├── SeedExecutionLease.cs
+├── SeedCommandLine.cs
+├── SeedErrorCodes.cs
 ├── SeedOptions.cs
 └── ServiceCollectionExtensions.cs
 ```
@@ -130,7 +132,7 @@ public interface IDataSeedContributor
 
 约束如下：
 
-- `Name` 使用稳定的小写点分标识，例如 `tenancy.local-tenant`，发布后不可静默改名；
+- `Name` 使用稳定的小写点分标识，每段只允许小写字母、数字和下划线，例如 `tenancy.local_tenant`，发布后不可静默改名；
 - `Version` 从 1 开始，只在贡献者声明的数据契约发生变化时递增；
 - `Dependencies` 引用其他贡献者的 `Name`，执行前统一检查缺失、重复和循环；
 - Contributor 通过构造函数取得所属模块服务，禁止从 `SeedContext` 使用 Service Locator；
@@ -152,20 +154,20 @@ Baseline 可以在 Production 显式运行，只能包含生产运行所必需�
 - 后续模块明确声明为系统目录的字典、配置、菜单或内置任务定义；
 - 生产必须存在且具有稳定 code 的基础数据。
 
-现有 `IIdentityBootstrapService` 由 `identity.host-administrator` Baseline Contributor 调用。Username、Password 和 DisplayName 来自配置/Secret；超级管理员计划实施后，重复执行幂等修复受保护系统角色和账号关系，不再逐项同步权限，也不覆盖已有密码。缺少必需 Secret 时 Baseline 失败，不能静默产生一个没有管理员的“成功初始化”。Development/Demo/Test Overlay 不得另建超级管理员。详细边界见[超级管理员设计](2026-07-18-super-administrator-design.md)。
+现有 `IIdentityBootstrapService` 由 `identity.host_administrator` Baseline Contributor 调用。Username、Password 和 DisplayName 来自配置/Secret；超级管理员计划实施后，重复执行幂等修复受保护系统角色和账号关系，不再逐项同步权限，也不覆盖已有密码。缺少必需 Secret 时 Baseline 失败，不能静默产生一个没有管理员的“成功初始化”。Development/Demo/Test Overlay 不得另建超级管理员。详细边界见[超级管理员设计](2026-07-18-super-administrator-design.md)。
 
 Baseline 禁止包含示例订单、虚构客户、演示组织、可预测密码、随机大数据或只为 UI 好看的内容。
 
 ### 7.2 Development
 
-首个贡献者为 `tenancy.local-tenant`：
+首个贡献者为 `tenancy.local_tenant`：
 
 - Identifier：`local`；
 - Name：`Full.NET Local`；
 - Domain：`localhost`；
 - 默认语言：多语言 L0/L1 落地后使用 `zh-CN`。
 
-Development 自动先运行全部 Baseline Contributor，再运行 `tenancy.local-tenant` 等开发 Contributor。Seeder 不内置默认密码，也不把密码写入日志、审计表或种子清单。
+Development 自动先运行全部 Baseline Contributor，再运行 `tenancy.local_tenant` 等开发 Contributor。Seeder 不内置默认密码，也不把密码写入日志、审计表或种子清单。
 
 ### 7.3 Demo
 
@@ -186,7 +188,7 @@ Test 自动先运行 Baseline。Test 专用 Contributor 放在 `tests/` 或 Samp
 
 ### 7.5 Production
 
-当 `IHostEnvironment.IsProduction()` 为 true 时，只允许 `baseline`；`development`、`demo` 和 `test` 均在数据库锁与任何写入之前失败，错误码为 `seeding.profile_not_allowed`。首版不提供配置开关绕过该门禁。
+当 `IHostEnvironment.IsProduction()` 为 true 时，只允许 `baseline`；`development`、`demo` 和 `test` 均在数据库锁与任何写入之前失败，错误码为 `seeding.profile.not_allowed`。首版不提供配置开关绕过该门禁。
 
 生产部署必须显式传入 `--seed baseline` 才执行初始化。迁移与 Baseline 在日志、审计和退出码中分别报告，不互相掩盖失败。
 
@@ -232,7 +234,7 @@ Host.Migrator 启动
 - SQL Server 使用 session 级 `sp_getapplock`，资源名 `Full.NET.Seeding`；
 - MySQL 使用 `GET_LOCK('Full.NET.Seeding', timeoutSeconds)`；
 - 持锁连接在整个贡献者管道期间保持打开；
-- 默认等待 30 秒，超时返回 `seeding.lock_timeout`；
+- 默认等待 30 秒，超时返回 `seeding.lock.timeout`；
 - 释放失败只记录警告，原始执行结果不能被释放异常覆盖。
 
 ### 10.2 审计表
@@ -298,14 +300,16 @@ AppHost 改为传入 `--seed development`。生产部署流水线在需要初始
 
 稳定错误码至少包括：
 
-- `seeding.invalid_profile`；
-- `seeding.profile_not_allowed`；
-- `seeding.duplicate_contributor`；
-- `seeding.missing_dependency`；
-- `seeding.dependency_cycle`；
-- `seeding.lock_timeout`；
-- `seeding.contributor_failed`；
-- `seeding.cancelled`。
+- `seeding.command.invalid`；
+- `seeding.profile.not_allowed`；
+- `seeding.contributor.duplicate`；
+- `seeding.dependency.missing`；
+- `seeding.dependency.cycle`；
+- `seeding.lock.timeout`；
+- `seeding.contributor.failed`；
+- `seeding.execution.cancelled`；
+- `seeding.data.conflict`；
+- `seeding.bootstrap.secret_missing`。
 
 失败日志保留内部异常供运维诊断；CLI 只输出安全摘要并返回非零退出码。
 
