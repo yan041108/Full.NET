@@ -17,6 +17,7 @@
 3. 必须检查 `.agents/skills/` 是否存在匹配当前任务的项目 Skill；新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时必须使用 [`fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)。
 4. 必须检查当前分支、`git status`、相关设计与计划，保留用户已有和无关变更。
 5. 必须确认需求、授权边界和验收条件；能从仓库安全确定的信息不得反复询问。
+6. 产生或更新架构评估、设计规格、重大决策、实施计划或验证记录时，必须按 [`rules/development-quality.md`](rules/development-quality.md) 第 12.1 节执行文档产物分层；评估和计划不得静默覆盖已批准规格，计划完成状态不得代替验证证据。
 
 ### 开发中
 
@@ -36,6 +37,7 @@
 
 ## Full.NET 不可隐式改变的基线
 
+- Full.NET 1.0 采用强化型模块化单体，API、Worker、Migrator 按运行角色分离，AppHost 只负责编排；禁止全面微服务化或以未来假设提前引入网络边界。局部模块拆分必须满足 [`ADR-0002`](docs/architecture/adr/ADR-0002-modular-monolith-evolution.md) 的全部门禁并新增独立 ADR。
 - 数据访问以 Dapper 和显式 SQL 为默认实现；未经明确架构决策不得引入 EF Core 作为业务数据访问层。
 - Dapper 辅助能力只允许通过 Full.NET 自有边界使用：原生 `QueryMultiple` 经多结果集执行器暴露，`Dapper.SqlBuilder` 仅在真实动态列表消费者出现时由专用查询构建层封装；禁止业务模块直接引用 Dapper/ADO.NET、`Dapper.ProviderTools`、`Dapper.Transaction`、通用 Repository 或自动 CRUD 扩展。
 - 数据库正式支持 SQL Server 与 MySQL；数据库行为变更必须同时验证两者。

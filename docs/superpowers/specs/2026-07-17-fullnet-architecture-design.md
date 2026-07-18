@@ -2,6 +2,7 @@
 
 - 状态：已批准；后续在既定目标和授权范围内默认采用本文推荐方案推进
 - 硬化补充：[`2026-07-18-architecture-hardening-design.md`](2026-07-18-architecture-hardening-design.md)
+- 架构演进决策：[`ADR-0002：强化型模块化单体与按证据拆分`](../../architecture/adr/ADR-0002-modular-monolith-evolution.md)
 - 当前能力：[`../../roadmap/capability-status.md`](../../roadmap/capability-status.md)
 - 日期：2026-07-17
 - 项目目录：`G:\wwwroot\github_fork\Full.NET`
@@ -35,7 +36,7 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - 新建独立框架，不在 Admin.NET.Pro 中直接重构。
 - Full.NET 目录必须是独立 Git 仓库，不能把父级脏仓库的内容带入提交。
 - 后端采用 .NET 10 LTS、ASP.NET Core、C#，开启 Nullable。
-- 架构形态为模块化单体；首版不采用微服务。
+- 架构形态为强化型模块化单体；Full.NET 1.0 不采用全面微服务，局部模块只有满足 ADR-0002 的全部拆分门禁后才能独立部署。
 - 数据访问采用 Dapper-first，不以 EF Core 作为默认运行时依赖。
 - 数据迁移采用 DbUp 和可审查的 SQL 脚本。
 - 最终公开仓库使用 MIT License，并维护第三方许可清单。
@@ -102,7 +103,18 @@ Data Abstractions + Dapper + DbUp
 SQL Server / MySQL
 ```
 
-模块在同一进程中运行，但拥有明确的代码和数据边界。后续如果某个模块确有独立伸缩或隔离需求，可以围绕已有 Contracts 和 Integration Events 拆分，而首版不为未来假设支付微服务复杂度。
+业务模块默认在同一 API 进程中运行，但拥有明确的代码、契约和数据所有权边界。模块内部实现默认 `internal`，跨模块只依赖公开 Contracts；共享数据库实例不等于共享数据模型，模块禁止直接访问其他模块的内部表。API、Worker、Migrator 按运行角色分离，AppHost 只负责本地编排；这种角色分离不构成微服务拆分。
+
+Full.NET 1.0 不为未来假设支付微服务复杂度。局部模块只有同时满足以下门禁并通过独立 ADR 后，才能围绕稳定 Contracts、Integration Events 或 gRPC 契约拆分：
+
+1. 存在可测量的独立伸缩、SLA、故障隔离或发布节奏需求；
+2. 模块能够独占写入自己的数据，不访问其他模块内部表；
+3. 目标业务流程不依赖跨模块本地事务；
+4. Integration Event 或 RPC 契约已经版本化并具有兼容测试；
+5. Outbox、重试、死信、重放和可观测性已经在生产等价拓扑验证；
+6. ADR 证明独立部署收益高于新增运维、测试和故障处理成本。
+
+详细理由、备选方案和演进后果见 [`ADR-0002`](../../architecture/adr/ADR-0002-modular-monolith-evolution.md)。
 
 ### 4.2 解决方案结构
 
@@ -677,11 +689,13 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 - `Host.Migrator`：数据库迁移和种子数据；
 - `AppHost`：本地 Aspire 编排。
 
-支持三种部署：
+支持三种运行拓扑，均保持 API、Worker、Migrator 的职责边界：
 
-1. 简单部署：API 内运行轻量后台任务；
-2. 标准部署：API、Worker、Migrator 分离；
-3. 多实例部署：多个 API 和 Worker，共享数据库与 Redis。
+1. 开发编排：AppHost 启动独立 API、Worker、Migrator 进程及其依赖；
+2. 标准生产：API、Worker 独立运行，Migrator 作为发布前一次性作业；
+3. 多实例生产：多个 API 和 Worker 共享数据库与 Redis，Migrator 仍作为独立发布作业。
+
+禁止为了减少部署单元把迁移、Seed 或可靠后台消费静默放回 API 进程。若某个业务模块需要独立宿主，仍必须先满足第 4.1 节和 ADR-0002 的拆分门禁。
 
 生产发布顺序：
 
@@ -715,7 +729,7 @@ Full.NET 引入 eShop 的工程和可靠性模式，但不照搬其服务数量�
 | OpenTelemetry 与健康端点 | Full.NET 统一可观测性和 `/health/*` 端点 |
 | 容器和自动化测试 | Docker、模块集成测试、E2E 和部署门禁 |
 
-Full.NET 不默认引入 eShop 的每模块微服务、每服务独立数据库、RabbitMQ 强依赖、EF Integration Event Log 或 API Gateway/BFF。需要拆分时，现有 Contracts、Integration Events、Outbox 和 Worker 提供演进基础。
+Full.NET 不默认引入 eShop 的每模块微服务、每服务独立数据库、RabbitMQ 强依赖、EF Integration Event Log 或 API Gateway/BFF。现有 Contracts、Integration Events、Outbox 和 Worker 只提供演进基础，不自动证明模块已经适合拆分；局部服务拆分必须满足第 4.1 节门禁并新增 ADR。
 
 ### 22.2 Admin.NET 功能演进
 
@@ -808,6 +822,8 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 9. Admin.NET 对标按能力和流程验收，不按源文件数量或代码相似度验收。
 10. 核心不因未来可能需要 gRPC、SignalR 或 AI 而创建未被真实模块消费的抽象；首次真实使用时建立独立计划和验收。
 11. 开放协议的标准格式优先于内部偏好；MCP、AG-UI 等要求 JSON/SSE 时必须保持协议兼容。
+12. API、Worker、Migrator 必须保持运行角色分离；角色分离不等于业务服务拆分，AppHost 不承载业务能力。
+13. 局部模块拆分必须先满足第 4.1 节全部门禁并通过独立 ADR；禁止以“未来可能扩容”或“团队可能增长”代替可测量证据。
 
 ## 27. 参考资料
 
