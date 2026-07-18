@@ -1,4 +1,5 @@
 using Full.NET.Seeding.Abstractions;
+using Full.NET.Seeding.Dapper;
 using NetArchTest.Rules;
 
 namespace Full.NET.ArchitectureTests;
@@ -21,5 +22,21 @@ public sealed class SeedingDependencyRulesTests
         Assert.IsTrue(
             result.IsSuccessful,
             $"Seed 契约依赖违规: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void Seeding_dapper_does_not_depend_on_business_or_host_layers()
+    {
+        var result = Types.InAssembly(typeof(SeedCommandLine).Assembly)
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                "Full.NET.Modules",
+                "Full.NET.Host",
+                "Full.NET.Composition")
+            .GetResult();
+
+        Assert.IsTrue(
+            result.IsSuccessful,
+            $"Seed Dapper 基础设施依赖违规: {string.Join(", ", result.FailingTypeNames ?? [])}");
     }
 }

@@ -15,6 +15,7 @@
     <Project Path="src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Serialization.MessagePack/Full.NET.Serialization.MessagePack.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Seeding.Abstractions/Full.NET.Seeding.Abstractions.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Seeding.Dapper/Full.NET.Seeding.Dapper.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Validation.FluentValidation/Full.NET.Validation.FluentValidation.csproj" />
   </Folder>
   <Folder Name="/src/Compatibility/">
