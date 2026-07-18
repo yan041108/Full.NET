@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Caching.Fusion;
 using Full.NET.Composition;
 using Full.NET.Data.Dapper;
 using Full.NET.Host.Migrator;
@@ -14,6 +15,10 @@ using Microsoft.Extensions.Logging;
 var builder = Host.CreateApplicationBuilder(args);
 builder.AddFullNetServiceDefaults();
 builder.Services.AddFullNetDapper(
+    builder.Configuration,
+    builder.Environment.EnvironmentName);
+builder.Services.AddRouting();
+builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetMessagePack();
