@@ -158,6 +158,7 @@ Provider 物理类型固定如下：
 ### 7.2 模块与领域类型
 
 - 项目和 Namespace 沿用 `Full.NET.{Layer}.{Module}`；代码标识符中的品牌写作 `FullNet`；
+- 模块可按需拆分子层项目：`Full.NET.Modules.{Module}`（web-free 业务 Core，禁止直接依赖 ASP.NET Core）、`Full.NET.Modules.{Module}.Http`（承载 Endpoint 与中间件的 Web 面）、`Full.NET.Modules.{Module}.Contracts`（供其他模块 Core 引用的 web-free 跨模块契约）；子层项目沿用同一根 Namespace，仅在有真实消费者时创建，禁止建空层；
 - 模块 Namespace 已表达上下文时，领域实体不重复模块名，例如 `Full.NET.Modules.Tenancy.Domain.Tenant`，不命名为 `TenancyTenant`；
 - 数据库读取专用类型使用 `Row` 后缀，领域投影按用途使用 `Summary`、`Details` 等，禁止笼统 `Model`；
 - HTTP 边界使用 `Request`、`Response`，应用消息使用 `Command`、`Query`，跨模块使用具体业务契约名；禁止无语义 `Dto`、`Data`、`Info`；

@@ -67,7 +67,7 @@
     {
       "kind": "error_code",
       "value": "identity.bootstrap.invalid-password",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "已发布错误码使用连字符，需与资源和客户端一起版本化迁移。",
       "removalMilestone": "M1.0"
     },
@@ -277,70 +277,70 @@
     {
       "kind": "error_code",
       "value": "identity.bootstrap.invalid-profile",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.csrf_validation_failed",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.invalid_actor_scope",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.invalid_credentials",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.invalid_refresh_token",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.origin_not_allowed",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.profile_version_conflict",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.refresh_token_reuse_detected",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.session_context_conflict",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
     {
       "kind": "error_code",
       "value": "identity.session_not_active",
-      "file": "src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },

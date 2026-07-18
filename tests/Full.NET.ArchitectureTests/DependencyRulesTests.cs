@@ -28,6 +28,15 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Validation.FluentValidation.ServiceCollectionExtensions).Assembly,
     ];
 
+    // 业务模块的全部程序集：Core（含跨模块契约）与 .Http 承载面都必须遵守数据与基础设施边界。
+    private static readonly Assembly[] BusinessModuleAssemblies =
+    [
+        typeof(IdentityModule).Assembly,
+        typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
+        typeof(TenancyModule).Assembly,
+        typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
+    ];
+
     [TestMethod]
     public void BuildingBlocks_DoNotDependOnModules()
     {
@@ -42,16 +51,55 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void BusinessModuleCores_DoNotDependOnAspNetCore()
+    {
+        // Core（业务逻辑与跨模块契约）必须可脱离 ASP.NET Core 运行，Web 面只允许存在于 .Http 承载程序集。
+        var coreAssemblies = new[]
+        {
+            typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
+            typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
+        };
+
+        var offenders = coreAssemblies
+            .SelectMany(assembly => assembly
+                .GetReferencedAssemblies()
+                .Where(reference => reference.Name is not null
+                    && reference.Name.StartsWith(
+                        "Microsoft.AspNetCore",
+                        StringComparison.Ordinal))
+                .Select(reference => $"{assembly.GetName().Name} -> {reference.Name}"))
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(0, offenders, string.Join(Environment.NewLine, offenders));
+    }
+
+    [TestMethod]
     public void Tenancy_ExportsOnlyContractsAndCompositionEntryPoints()
     {
-        var unexpectedPublicTypes = typeof(TenancyModule).Assembly
+        // Core 仅对外暴露跨模块契约命名空间；业务实现（Handler、Resolver、Options 等）保持 internal。
+        var coreUnexpectedTypes = typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly
             .GetExportedTypes()
             .Where(type => type.Namespace != "Full.NET.Modules.Tenancy.Contracts")
+            .Select(type => type.FullName)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            coreUnexpectedTypes,
+            string.Join(Environment.NewLine, coreUnexpectedTypes));
+
+        // Http 承载程序集仅暴露模块入口 TenancyModule；Endpoint 与中间件保持 internal。
+        var httpUnexpectedTypes = typeof(TenancyModule).Assembly
+            .GetExportedTypes()
             .Where(type => type != typeof(TenancyModule))
             .Select(type => type.FullName)
             .ToArray();
 
-        Assert.HasCount(0, unexpectedPublicTypes);
+        Assert.HasCount(
+            0,
+            httpUnexpectedTypes,
+            string.Join(Environment.NewLine, httpUnexpectedTypes));
     }
 
     [TestMethod]
@@ -74,8 +122,7 @@ public sealed class DependencyRulesTests
     [TestMethod]
     public void BusinessModules_DoNotDependOnDapperOrAdoNetProviders()
     {
-        var result = Types.InAssemblies(
-                [typeof(IdentityModule).Assembly, typeof(TenancyModule).Assembly])
+        var result = Types.InAssemblies(BusinessModuleAssemblies)
             .ShouldNot()
             .HaveDependencyOnAny(
                 "Dapper",
@@ -282,8 +329,7 @@ public sealed class DependencyRulesTests
     [TestMethod]
     public void Business_modules_do_not_depend_on_seeding_dapper()
     {
-        var result = Types.InAssemblies(
-                [typeof(IdentityModule).Assembly, typeof(TenancyModule).Assembly])
+        var result = Types.InAssemblies(BusinessModuleAssemblies)
             .ShouldNot()
             .HaveDependencyOn("Full.NET.Seeding.Dapper")
             .GetResult();
@@ -472,7 +518,9 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Compatibility.AdminNet.AdminNetApiResultMapper).Assembly,
         typeof(Full.NET.Composition.FullNetHostProfile).Assembly,
         typeof(IdentityModule).Assembly,
+        typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
         typeof(TenancyModule).Assembly,
+        typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
         HostApi,
         HostMigrator,
         HostWorker,

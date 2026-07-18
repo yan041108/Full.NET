@@ -33,7 +33,9 @@
   </Folder>
   <Folder Name="/src/Modules/">
     <Project Path="src/Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Tenancy.Http/Full.NET.Modules.Tenancy.Http.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj" />

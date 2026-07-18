@@ -5,7 +5,6 @@ using Full.NET.Hosting.Api;
 using Full.NET.Localization;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
-using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.UnitTests.Localization;
@@ -46,9 +45,10 @@ public sealed class ErrorResourceCompletenessTests
     [TestMethod]
     public void Tenancy_error_codes_have_all_required_resources()
     {
+        // 资源嵌入 Tenancy Core 程序集；TenancyModule 已迁至 .Http，需用 Core 类型定位资源。
         var manager = new ResourceManager(
             "Full.NET.Modules.Tenancy.Resources.TenancyErrors",
-            typeof(TenancyModule).Assembly);
+            typeof(TenancyErrorCodes).Assembly);
 
         AssertResources(manager, TenancyErrorCodes.All);
     }

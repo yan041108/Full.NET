@@ -14,7 +14,9 @@
 | `src/BuildingBlocks/Full.NET.Localization` | 规范语言目录、Accept-Language 请求协商、CultureScope 与响应头辅助能力 |
 | `src/Compatibility/Full.NET.Compatibility.AdminNet` | Admin.NET 可选响应包络与适配注册 |
 | `src/Composition/Full.NET.Composition` | 官方模块共享目录、Api/Worker/Migrator 的显式 Host Profile 与最小后台装配 |
-| `src/Modules/Full.NET.Modules.*` | 按 Contracts、Domain、Features、Persistence、Serialization 组织的业务模块 |
+| `src/Modules/Full.NET.Modules.*`（Core） | 按 Contracts、Domain、Features、Persistence、Serialization 组织的业务逻辑；禁止直接使用 ASP.NET Core API（`BusinessModuleCores_DoNotDependOnAspNetCore` 门禁），只对外暴露 `Contracts` 命名空间 |
+| `src/Modules/Full.NET.Modules.*.Http`（可选） | 承载 `IFullNetModule` 实现、Endpoint 与中间件的 Web 面；引用同名 Core，仅暴露模块入口类型（如 Tenancy 已拆分） |
+| `src/Modules/Full.NET.Modules.Identity.Contracts` | Identity 跨模块契约（Claim 类型、会话上下文、导航/权限定义等），web-free，供其他模块 Core 引用而不拖入 ASP.NET Core |
 | `src/Hosts/Full.NET.Host.Api` | HTTP Host 与模块装配 |
 | `src/Hosts/Full.NET.Host.Worker` | Outbox、通知和后台处理 |
 | `tests/Full.NET.*Tests` | Unit、Compatibility、Architecture、Integration 四类验证 |
@@ -23,8 +25,8 @@
 
 读取以下文件以观察当前约定，不要机械复制不适用部分：
 
-- `src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs`：模块服务注册、后台能力（`AddBackgroundServices`）与中间件贡献（`UseModuleMiddleware`）；宿主通过 `UseFullNetModuleMiddleware(stage)` 统一应用，禁止在宿主直接引用模块或手写 `UseXxx`；
-- `src/Modules/Full.NET.Modules.Tenancy/Features/ProvisionTenant/`：Command、Validator、Handler、Endpoint 与服务；
+- `src/Modules/Full.NET.Modules.Tenancy.Http/TenancyModule.cs`：模块服务注册、后台能力（`AddBackgroundServices`）与中间件贡献（`UseModuleMiddleware`）；宿主通过 `UseFullNetModuleMiddleware(stage)` 统一应用，禁止在宿主直接引用模块或手写 `UseXxx`；Web 面（Endpoint、`TenantResolutionMiddleware`）均在 `.Http` 项目；
+- `src/Modules/Full.NET.Modules.Tenancy/Features/ProvisionTenant/`：Core 中的 Command、Validator、Handler 与服务（Endpoint 位于 `.Http` 的同名 Feature 目录）；
 - `src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs`：显式 SQL；
 - `src/Modules/Full.NET.Modules.Tenancy/Serialization/`：JSON 源生成与 MessagePack Resolver；
 - `tests/Full.NET.IntegrationTests/Tenancy/TenantProvisioningTests.cs`：双数据库事务与 Outbox；
@@ -42,7 +44,8 @@
 | 新公开 JSON DTO | 模块 `JsonSerializerContext`、API 测试、兼容性评估 |
 | 新 Admin.NET 响应 | Compatibility 层 Mapper 与 Compatibility Tests |
 | 新模块依赖 | 模块项目引用、Architecture Tests、`Directory.Packages.props`、许可通知 |
-| 新模块宿主装配 | `Full.NET.Composition`、`FullNetHostProfile`、Profile Unit Tests 与宿主 Architecture Tests |
+| 新 Endpoint/中间件（Web 面） | 模块 `.Http` 项目（Endpoint 保持 internal、中间件通过 `UseModuleMiddleware` 贡献）；Core 保持 web-free；`BusinessModuleCores_DoNotDependOnAspNetCore` 与导出断言 |
+| 新模块宿主装配 | `Full.NET.Composition`（引用模块 `.Http`）、`FullNetHostProfile`、Profile Unit Tests 与宿主 Architecture Tests |
 | 新数据库/API/机器码或生成模板 | `rules/naming-conventions.md`、`contracts/naming/`、CodeGeneration 内核、`pnpm test:naming` |
 
 ## 验证命令
@@ -57,9 +60,9 @@ dotnet build Full.NET.slnx -c Release
 直接运行 Microsoft Testing Platform 程序集：
 
 ```powershell
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 291
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 293
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 5
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 24
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 26
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 58 --timeout 45m
 ```
 
