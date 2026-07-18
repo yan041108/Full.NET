@@ -146,6 +146,41 @@ public sealed class SeedOrchestratorTests
     }
 
     [TestMethod]
+    public async Task Contributor_stable_failure_code_is_preserved_in_result_and_audit()
+    {
+        var leaseProvider = Substitute.For<ISeedExecutionLeaseProvider>();
+        var store = Substitute.For<ISeedExecutionStore>();
+        leaseProvider.AcquireAsync(Arg.Any<CancellationToken>())
+            .Returns(Substitute.For<IAsyncDisposable>());
+        var contributor = Contributor(
+            "tenancy.conflict",
+            _ => throw new SeedContributionException(
+                SeedContributionErrorCodes.DataConflict));
+        var orchestrator = CreateOrchestrator(
+            [contributor],
+            leaseProvider,
+            store,
+            "Development");
+
+        var result = await orchestrator.RunAsync(SeedProfile.Baseline);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(SeedContributionErrorCodes.DataConflict, result.Error!.Code);
+        await store.Received(1).CompleteItemAsync(
+            Arg.Is<SeedRunItemAuditCompletion>(audit =>
+                audit != null &&
+                audit.Status == SeedExecutionStatuses.Failed &&
+                audit.ErrorCode == SeedContributionErrorCodes.DataConflict),
+            Arg.Any<CancellationToken>());
+        await store.Received(1).CompleteRunAsync(
+            Arg.Is<SeedRunAuditCompletion>(audit =>
+                audit != null &&
+                audit.Status == SeedExecutionStatuses.Failed &&
+                audit.ErrorCode == SeedContributionErrorCodes.DataConflict),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task Cancellation_records_cancelled_and_returns_stable_code()
     {
         var cancellation = new CancellationTokenSource();

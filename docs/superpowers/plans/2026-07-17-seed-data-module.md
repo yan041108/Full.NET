@@ -408,6 +408,8 @@ git commit -m "feat: add dual database seed runner"
 ### Task 4: Tenancy development contributor
 
 **Files:**
+- Create: `src/BuildingBlocks/Full.NET.Seeding.Abstractions/SeedContributionException.cs`
+- Modify: `src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedOrchestrator.cs`
 - Modify: `src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj`
 - Create: `src/Modules/Full.NET.Modules.Tenancy/Seeding/LocalTenantSeedContributor.cs`
 - Modify: `src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs`
@@ -418,7 +420,7 @@ git commit -m "feat: add dual database seed runner"
 - Consumes: `IDataSeedContributor`、`ITenantProvisioningService`、`IQueryExecutor`、`TenantSql`。
 - Produces: contributor `Name = "tenancy.local_tenant"`、`Version = 1`、Profiles 只含 Development。
 
-- [ ] **Step 1: 写 Contributor RED 测试**
+- [x] **Step 1: 写 Contributor RED 测试**
 
 覆盖三个独立场景：
 
@@ -428,13 +430,13 @@ git commit -m "feat: add dual database seed runner"
 
 同时断言 Demo profile 不会选择该 Contributor，取消令牌传入查询和 Provision。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Run: `dotnet build Full.NET.slnx --configuration Release`
 
 Expected: FAIL，Tenancy 尚未引用 Seed Abstractions，Contributor 不存在。
 
-- [ ] **Step 3: 实现只查询完整摘要的 SQL**
+- [x] **Step 3: 实现只查询完整摘要的 SQL**
 
 新增 `TenantSql.FindSummaryByIdentifier`：
 
@@ -446,19 +448,19 @@ WHERE Identifier = @Identifier
 
 使用 `SqlDataScope.Global`，只允许 Seeder 在 Host 上下文中调用；保留现有计数 SQL，避免无关重构。
 
-- [ ] **Step 4: 实现 Contributor 并注册**
+- [x] **Step 4: 实现 Contributor 并注册**
 
 Contributor 先按规范 Identifier 查询；完全匹配返回 skipped；存在冲突拒绝；不存在时调用真实 `ITenantProvisioningService`，从而保留领域校验、事务与 MessagePack Outbox。`TenancyModule.AddServices` 使用 `TryAddEnumerable` 注册 Scoped Contributor，避免重复注册。
 
-- [ ] **Step 5: 运行 GREEN**
+- [x] **Step 5: 运行 GREEN**
 
 Run: `dotnet build Full.NET.slnx --configuration Release --no-restore`
 
-Run: `dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 136 --timeout 5m`
+Run: `dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 260 --timeout 5m`
 
 Expected: 新建、跳过、冲突和取消全部通过；既有 Tenancy 测试不回归。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git add src/Modules/Full.NET.Modules.Tenancy tests/Full.NET.UnitTests/Tenancy

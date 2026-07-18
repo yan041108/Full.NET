@@ -147,6 +147,25 @@ internal sealed class SeedOrchestrator(
                 CancellationToken.None);
             return Failure(SeedErrorCodes.ExecutionCancelled, ErrorType.BusinessRule);
         }
+        catch (SeedContributionException exception)
+        {
+            if (currentContributor is not null)
+            {
+                await store.CompleteItemAsync(
+                    CompleteItem(
+                        runId,
+                        currentContributor.Name,
+                        SeedExecutionStatuses.Failed,
+                        null,
+                        exception.Code),
+                    CancellationToken.None);
+            }
+
+            await store.CompleteRunAsync(
+                CompleteRun(runId, SeedExecutionStatuses.Failed, exception.Code),
+                CancellationToken.None);
+            return Failure(exception.Code, ErrorType.Conflict);
+        }
         catch
         {
             if (currentContributor is not null)

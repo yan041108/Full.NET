@@ -13,6 +13,16 @@ internal static class TenantSql
         """,
         SqlDataScope.Global);
 
+    // Seeder 只在 Migrator 的可信宿主上下文使用该 Global 查询，并以自然键判断幂等状态。
+    public static readonly SqlStatement FindSummaryByIdentifier = new(
+        "tenancy.tenant.find_summary_by_identifier",
+        """
+        SELECT Id, Identifier, Name, Domain, IsActive, Version
+        FROM fn_tenant_tenant
+        WHERE Identifier = @Identifier
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement CountByDomain = new(
         "tenancy.count-by-domain",
         """
