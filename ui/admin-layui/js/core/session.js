@@ -2,6 +2,7 @@ import { createIdentitySession as createSharedIdentitySession } from '@fullnet/c
 import { http } from './http.js';
 import { adminI18n } from './i18n.js';
 import { isSupportedNavigationTree } from './navigation.js';
+import { sessionRefreshCoordinator } from './session-refresh-coordinator.js';
 
 /**
  * 创建独立管理端会话状态机；Access Token 只保存在闭包内，不写入浏览器持久化存储。
@@ -14,7 +15,8 @@ export function createIdentitySession(options = {}) {
       getLocale: () => i18n.snapshot().locale,
       setLocale: locale => i18n.setLocale(locale)
     },
-    isSupportedNavigationTree
+    isSupportedNavigationTree,
+    sessionRefreshCoordinator
   });
 }
 

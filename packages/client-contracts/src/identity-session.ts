@@ -1,5 +1,6 @@
 import { readCsrfHeaders } from './csrf.js';
 import type { HttpClient } from './http.js';
+import type { SessionRefreshCoordinator } from './session-refresh-coordinator.js';
 import {
   isCurrentUserResponse,
   isLocalePreferenceResponse,
@@ -48,6 +49,7 @@ export interface IdentitySessionOptions {
     setLocale: (locale: SupportedLocale) => void;
   };
   isSupportedNavigationTree: (navigation: readonly NavigationNode[]) => boolean;
+  sessionRefreshCoordinator?: SessionRefreshCoordinator;
 }
 
 const readTenantsPermission = 'tenancy.tenants.read';
@@ -59,7 +61,7 @@ const contextConflictCode = 'identity.session_context_conflict';
 export function createIdentitySession(
   options: IdentitySessionOptions
 ): IdentitySessionController {
-  const { http, i18n, isSupportedNavigationTree } = options;
+  const { http, i18n, isSupportedNavigationTree, sessionRefreshCoordinator } = options;
   let state: SessionState = 'initializing';
   let currentUser: CurrentUserResponse | undefined;
   let navigation: NavigationNode[] = [];
@@ -69,6 +71,21 @@ export function createIdentitySession(
   let token: TokenResponse | undefined;
   let sessionGeneration = 0;
   const listeners = new Set<(snapshot: IdentitySessionSnapshot) => void>();
+  const unsubscribeCoordinator = sessionRefreshCoordinator?.subscribe(message => {
+    if (message.sourceId === sessionRefreshCoordinator.tabId) {
+      return;
+    }
+
+    if (message.type === 'session-cleared') {
+      clearLocal();
+      return;
+    }
+
+    if (message.type === 'refresh-complete' && message.success
+      && state === 'authenticated') {
+      void restore();
+    }
+  });
 
   http.configureAuthentication({
     getAccessToken: () => token?.accessToken,
@@ -137,29 +154,37 @@ export function createIdentitySession(
   async function refreshAccessToken(
     operationGeneration = sessionGeneration
   ): Promise<boolean> {
-    try {
-      const value = await http.request<unknown>('/api/v1/auth/refresh', {
-        method: 'POST',
-        headers: readCsrfHeaders()
-      }, undefined, { retryUnauthorized: false });
-      if (operationGeneration !== sessionGeneration) {
+    const execute = async (): Promise<boolean> => {
+      try {
+        const value = await http.request<unknown>('/api/v1/auth/refresh', {
+          method: 'POST',
+          headers: readCsrfHeaders()
+        }, undefined, { retryUnauthorized: false });
+        if (operationGeneration !== sessionGeneration) {
+          return false;
+        }
+
+        if (!isTokenResponse(value)) {
+          clearLocal();
+          return false;
+        }
+
+        token = value;
+        return true;
+      } catch {
+        if (operationGeneration === sessionGeneration) {
+          clearLocal();
+        }
+
         return false;
       }
+    };
 
-      if (!isTokenResponse(value)) {
-        clear();
-        return false;
-      }
-
-      token = value;
-      return true;
-    } catch {
-      if (operationGeneration === sessionGeneration) {
-        clear();
-      }
-
-      return false;
+    if (sessionRefreshCoordinator === undefined) {
+      return execute();
     }
+
+    return sessionRefreshCoordinator.runExclusive(execute);
   }
 
   async function switchTenant(tenantId: string | null): Promise<void> {
@@ -283,7 +308,8 @@ export function createIdentitySession(
   async function logout(): Promise<void> {
     const headers = readCsrfHeaders();
     // Logout 立即推进代际，避免在途 Refresh 或上下文切换重新写回旧令牌。
-    clear();
+    clearLocal();
+    sessionRefreshCoordinator?.notifySessionCleared();
     try {
       await http.request<void>('/api/v1/auth/logout', {
         method: 'POST',
@@ -334,7 +360,7 @@ export function createIdentitySession(
     return currentUser?.permissions.includes(permission) === true;
   }
 
-  function clear(): void {
+  function clearLocal(): void {
     sessionGeneration++;
     token = undefined;
     currentUser = undefined;
@@ -342,6 +368,10 @@ export function createIdentitySession(
     availableTenants = [];
     state = 'anonymous';
     notify();
+  }
+
+  function clear(): void {
+    clearLocal();
   }
 
   function buildSnapshot(): IdentitySessionSnapshot {
@@ -381,6 +411,7 @@ export function createIdentitySession(
   function dispose(): void {
     sessionGeneration++;
     listeners.clear();
+    unsubscribeCoordinator?.();
     token = undefined;
     http.configureAuthentication();
     http.configureRequestLocale();

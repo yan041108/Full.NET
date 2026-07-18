@@ -39,7 +39,7 @@
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
 | Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E | 会话/HTTP/导航白名单已收敛到 `@fullnet/client-contracts` headless 层；Layui 仅保留 DOM 渲染适配 |
-| 双管理端真实后端浏览器联调 | `Implementing` | `tests/e2e/admin-real-stack`：Testcontainer SQL Server + Migrator Development Seed + 真实 API；Vue/Layui 登录/导航/退出冒烟（禁止 route mock） | Cookie/CSRF 刷新、跨 Tab、租户切换、ProblemDetails 与 MySQL 变体待补；CI 仅主干门禁 |
+| 双管理端真实后端浏览器联调 | `Implementing` | `tests/e2e/admin-real-stack`：Testcontainer SQL Server + Migrator Development Seed + 真实 API；Vue/Layui 登录/刷新恢复/租户切换/退出冒烟 | Cookie/CSRF 并发刷新、跨 Tab、ProblemDetails 与 MySQL 变体待补；CI 仅主干门禁 |
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |

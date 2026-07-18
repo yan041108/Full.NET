@@ -18,6 +18,16 @@ export type {
 } from './http.js';
 
 export {
+  createSessionRefreshCoordinator
+} from './session-refresh-coordinator.js';
+
+export type {
+  SessionRefreshCoordinator,
+  SessionRefreshCoordinatorMessage,
+  SessionRefreshCoordinatorOptions
+} from './session-refresh-coordinator.js';
+
+export {
   ADMIN_NAVIGATION_CATALOG,
   createAdminNavigationCatalog
 } from './navigation-catalog.js';

@@ -12,6 +12,7 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 import { http } from '../api/http';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { isSupportedNavigationTree } from '../navigation/catalog';
+import { sessionRefreshCoordinator } from './session-refresh-coordinator';
 
 export type { SessionState };
 
@@ -34,7 +35,8 @@ export const useSessionStore = defineStore('identity-session', () => {
           getLocale: () => adminI18n.locale.value,
           setLocale: locale => adminI18n.setLocale(locale)
         },
-        isSupportedNavigationTree
+        isSupportedNavigationTree,
+        sessionRefreshCoordinator
       });
       controller.subscribe(snapshot => {
         state.value = snapshot.state;
