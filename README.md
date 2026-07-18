@@ -11,7 +11,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - 标准 HTTP 状态码与 `zh-CN/en-US` 本地化 ProblemDetails，机器字段和结构化校验违规保持稳定；Admin.NET 响应信封为显式可选适配器。
 - 显式模块注册、CQRS 分发、租户上下文和基于域名的租户解析。
 - 传输无关的 Command/Query 行为管道；FluentValidation 显式注册、统一 `validation.failed` 错误，并在事务开启前短路无效命令。
-- Dapper-first 数据访问、SQL 作用域保护和事务边界，不引入 EF Core；QueryMultiple 与 SqlBuilder 的受控扩展已完成[设计](docs/superpowers/specs/2026-07-18-dapper-tooling-design.md)，尚未实现。
+- Dapper-first 数据访问、SQL 作用域保护和事务边界，不引入 EF Core；原生 QueryMultiple 已通过自有抽象和 SQL Server/MySQL 真实测试落地，SqlBuilder 仍等待首个真实动态列表命中准入门禁。
 - SQL Server/MySQL 双数据库 DbUp 迁移及 Testcontainers 集成测试。
 - MessagePack 二进制 Outbox、租约式至少一次消费、schema 版本路由和指数退避。
 - FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`。
@@ -32,14 +32,14 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 166
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 171
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 9
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 12 --timeout 10m
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 11
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 18 --timeout 15m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
-AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。当前实现仍通过 Bootstrap 同步显式权限；受保护超级管理员的动态全权限和最后一名保护已完成[设计](docs/superpowers/specs/2026-07-18-super-administrator-design.md)与[计划](docs/superpowers/plans/2026-07-18-super-administrator.md)，尚未实现。
+AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。Bootstrap 现在幂等创建受保护超级管理员角色，不再同步逐项权限；签名 Claim、当前作用域动态权限、SecurityStamp/Session 失效和双库并发最后一名保护已经实现。远程授予/撤销 Endpoint、重新认证/MFA 门禁、可靠管理审计/Outbox、双端管理页面和真实浏览器 E2E 仍按[设计](docs/superpowers/specs/2026-07-18-super-administrator-design.md)与[计划](docs/superpowers/plans/2026-07-18-super-administrator.md)后续交付，因此当前不能标记为完整 `Verified`。
 
 当前本地数据仍由 Migrator 的 `--seed-local` 硬编码入口创建。模块化种子管道已经完成设计但尚未实现：Production 可显式运行安全 `baseline`，Development/Demo/Test 在 Baseline 上叠加各自数据，Testcontainers 中的场景数据继续由隔离 Test Factory 创建。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
 

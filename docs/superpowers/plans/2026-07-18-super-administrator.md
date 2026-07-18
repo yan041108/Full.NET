@@ -10,15 +10,17 @@
 
 ---
 
-## 前置与迁移顺序
+## 实施进度与迁移顺序
 
-本计划依赖 `2026-07-18-pre-v1-naming-normalization.md` 完成其 `005/006` 迁移，因此超级管理员迁移固定使用 `007_SuperAdministrator.sql`。若实施时迁移号已被占用，必须新增后续序号并同步本计划，禁止修改已发布迁移或复用编号。
+实施时数据库真实基线只有 001-004，而命名规范化尚未开始。为避免空占迁移号和执行顺序倒置，超级管理员使用下一真实编号 `005_SuperAdministrator.sql`；未实施的命名 Expand/Contract 顺延为 006/007。禁止修改已经执行或发布的迁移。
+
+截至 2026-07-18，Task 1-3、动态授权主链、Task 4 的内部授予/撤销服务与双库并发最后一名保护、Task 5 的共享契约和双端标识已实现。Task 4 的公开高风险入口、MFA/重新认证、可靠 Audit/Outbox 与缓存传播，以及 Task 5 的完整管理页面和真实浏览器 E2E 仍待用户/角色管理切片交付；状态只能是 `Implemented`，不能标记 `Verified`。
 
 ### Task 1: 建立双库角色标记和迁移恢复测试
 
 **Files:**
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/007_SuperAdministrator.sql`
-- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/007_SuperAdministrator.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/005_SuperAdministrator.sql`
+- Create: `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/005_SuperAdministrator.sql`
 - Modify: `src/Modules/Full.NET.Modules.Identity/Persistence/IdentityRoleRecord.cs`
 - Modify: `src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs`
 - Create: `tests/Full.NET.IntegrationTests/Migrations/SuperAdministratorMigrationRecoveryTests.cs`

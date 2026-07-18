@@ -121,7 +121,7 @@ internal sealed class Handler(
         }
 
         user = successfulUser;
-        var permissions = await permissionSnapshotReader.ReadAsync(
+        var authorization = await permissionSnapshotReader.ReadAsync(
                 user.Id,
                 user.ScopeKey,
                 user.TenantId,
@@ -163,7 +163,8 @@ internal sealed class Handler(
             user,
             sessionId,
             null,
-            permissions);
+            authorization.Permissions,
+            authorization.IsSuperAdministrator);
         return Result<LoginSessionResult>.Success(new LoginSessionResult(
             new TokenResponse(
                 accessToken.AccessToken,

@@ -36,4 +36,19 @@ public sealed class IdentityApiSqlServerTests
 
         await LocalePreferenceTests.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Last_super_administrator_is_protected_under_sql_server_concurrency()
+    {
+        await using var container = new MsSqlBuilder(
+                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
+            .WithPassword("FullNet_Test!123")
+            .Build();
+        await container.StartAsync();
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            container.GetConnectionString());
+
+        await SuperAdministratorConcurrencyAssertions.VerifyAsync(factory);
+    }
 }

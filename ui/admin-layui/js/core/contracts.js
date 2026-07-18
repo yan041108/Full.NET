@@ -34,6 +34,7 @@ export function isCurrentUserResponse(value) {
     && typeof value.actorScope === 'string'
     && value.actorScope.length > 0
     && typeof value.scope === 'string'
+    && typeof value.isSuperAdministrator === 'boolean'
     && Array.isArray(value.permissions)
     && value.permissions.every(permission => typeof permission === 'string')
     && typeof value.sessionId === 'string'

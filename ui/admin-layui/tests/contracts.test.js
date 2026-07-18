@@ -14,6 +14,7 @@ describe('Layui 不可信响应契约', () => {
     const user = currentUser();
     expect(isCurrentUserResponse(user)).toBe(true);
     expect(isCurrentUserResponse({ ...user, actorScope: undefined })).toBe(false);
+    expect(isCurrentUserResponse({ ...user, isSuperAdministrator: undefined })).toBe(false);
     expect(isCurrentUserResponse({ ...user, preferredLocale: 'fr-FR' })).toBe(false);
   });
 
@@ -87,6 +88,7 @@ function currentUser() {
   return {
     id: 'user-id', username: 'admin', displayName: '系统管理员',
     tenantId: null, actorScope: 'host', scope: 'host',
+    isSuperAdministrator: true,
     permissions: [], sessionId: 'session-id',
     preferredLocale: 'zh-CN', profileVersion: 1
   };

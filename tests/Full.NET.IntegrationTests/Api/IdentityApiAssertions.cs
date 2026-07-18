@@ -17,7 +17,7 @@ internal static class IdentityApiAssertions
         await factory.InitializeAsync(cancellationToken);
         var authorization = await factory.GetHostAuthorizationStateAsync(cancellationToken);
         Assert.AreEqual(1L, authorization.RoleCount);
-        Assert.AreEqual(4L, authorization.PermissionCount);
+        Assert.AreEqual(0L, authorization.PermissionCount);
         Assert.AreEqual(1L, authorization.AssignmentCount);
         using var client = factory.CreateClientForHost("localhost");
 
@@ -89,18 +89,11 @@ internal static class IdentityApiAssertions
         var jwt = new JsonWebToken(token.AccessToken);
         Assert.AreEqual("host", jwt.GetClaim(IdentityClaimTypes.ActorScope).Value);
         Assert.AreEqual("host", jwt.GetClaim(IdentityClaimTypes.Scope).Value);
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                "identity.navigation.read",
-                "platform.dashboard.read",
-                "tenancy.tenants.read",
-                "tenancy.tenants.switch",
-            },
-            jwt.Claims
-                .Where(claim => claim.Type == IdentityClaimTypes.Permission)
-                .Select(claim => claim.Value)
-                .ToArray());
+        Assert.AreEqual(
+            "true",
+            jwt.GetClaim(IdentityClaimTypes.SuperAdministrator).Value);
+        Assert.IsFalse(jwt.Claims.Any(claim =>
+            claim.Type == IdentityClaimTypes.Permission));
         using (var tokenDocument = JsonDocument.Parse(json))
         {
             Assert.IsFalse(tokenDocument.RootElement.TryGetProperty("refreshToken", out _));
@@ -125,6 +118,7 @@ internal static class IdentityApiAssertions
         Assert.AreEqual("host", currentUser.ActorScope);
         Assert.AreEqual("host", currentUser.Scope);
         Assert.IsNull(currentUser.TenantId);
+        Assert.IsTrue(currentUser.IsSuperAdministrator);
         CollectionAssert.AreEqual(
             new[]
             {

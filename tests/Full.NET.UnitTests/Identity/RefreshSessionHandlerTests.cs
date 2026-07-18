@@ -238,12 +238,12 @@ public sealed class RefreshSessionHandlerTests
     private sealed class StubPermissionSnapshotReader(
         IReadOnlyList<string> permissions) : IPermissionSnapshotReader
     {
-        public Task<IReadOnlyList<string>> ReadAsync(
+        public Task<PermissionSnapshot> ReadAsync(
             Guid userId,
             string scopeKey,
             Guid? tenantId,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(permissions);
+            Task.FromResult(new PermissionSnapshot(permissions, false));
     }
 
     private sealed class StubAccessTokenIssuer : IAccessTokenIssuer
@@ -256,7 +256,8 @@ public sealed class RefreshSessionHandlerTests
             IdentityUser user,
             Guid sessionId,
             Guid? activeTenantId,
-            IReadOnlyCollection<string> permissions)
+            IReadOnlyCollection<string> permissions,
+            bool isSuperAdministrator)
         {
             ActiveTenantId = activeTenantId;
             Permissions = permissions;

@@ -11,6 +11,7 @@ export interface CurrentUserResponse {
   tenantId: string | null;
   actorScope: string;
   scope: string;
+  isSuperAdministrator: boolean;
   permissions: string[];
   sessionId: string;
   preferredLocale: SupportedLocale;
@@ -53,6 +54,7 @@ export function isCurrentUserResponse(value: unknown): value is CurrentUserRespo
     && typeof value.actorScope === 'string'
     && value.actorScope.length > 0
     && typeof value.scope === 'string'
+    && typeof value.isSuperAdministrator === 'boolean'
     && Array.isArray(value.permissions)
     && value.permissions.every(permission => typeof permission === 'string')
     && typeof value.sessionId === 'string'

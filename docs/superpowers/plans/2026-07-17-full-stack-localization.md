@@ -416,9 +416,9 @@ UpdateLocale Handler 从认证主体的签名 sub 与 ActorScope 取得用户边
 
 Run: dotnet build Full.NET.slnx --configuration Release --no-restore
 
-Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 166 --timeout 5m
+Run: dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 171 --timeout 5m
 
-Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 12 --timeout 10m
+Run: dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 18 --timeout 15m
 Expected: SQL Server/MySQL 全部通过。
 
 - [x] **Step 7: 提交**

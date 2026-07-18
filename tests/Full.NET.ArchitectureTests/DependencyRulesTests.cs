@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Xml.Linq;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
 using NetArchTest.Rules;
@@ -68,6 +69,58 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void BusinessModules_DoNotDependOnDapperOrAdoNetProviders()
+    {
+        var result = Types.InAssemblies(
+                [typeof(IdentityModule).Assembly, typeof(TenancyModule).Assembly])
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                "Dapper",
+                "System.Data",
+                "Microsoft.Data.SqlClient",
+                "MySqlConnector")
+            .GetResult();
+
+        Assert.IsTrue(
+            result.IsSuccessful,
+            $"Business module data dependency violations: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void RejectedDapperExtensions_AreNotReferencedByProjectsOrCentralVersions()
+    {
+        var rejectedPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Dapper.Contrib",
+            "Dapper.FastCrud",
+            "Dapper.FluentMap",
+            "Dapper.ProviderTools",
+            "Dapper.Rainbow",
+            "Dapper.SimpleCRUD",
+            "Dapper.StrongName",
+            "Dapper.Transaction",
+            "Dommel",
+            "MicroOrm.Dapper.Repositories",
+            "Z.Dapper.Plus",
+        };
+        var root = FindRepositoryRoot();
+        var offenders = Directory
+            .EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+            .Append(Path.Combine(root, "Directory.Packages.props"))
+            .Where(File.Exists)
+            .SelectMany(path => XDocument.Load(path)
+                .Descendants()
+                .Where(element => element.Name.LocalName is "PackageReference" or "PackageVersion")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Where(package => package is not null && rejectedPackages.Contains(package))
+                .Select(package => $"{Path.GetRelativePath(root, path)}: {package}"))
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(0, offenders, string.Join(Environment.NewLine, offenders));
+    }
+
+    [TestMethod]
     public void Tenancy_declares_identity_as_an_explicit_module_dependency()
     {
         var module = new TenancyModule();
@@ -119,6 +172,23 @@ public sealed class DependencyRulesTests
         {
             return exception.Types.OfType<Type>();
         }
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException(
+            "Could not locate the Full.NET repository root.");
     }
 }
 

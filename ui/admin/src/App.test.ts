@@ -19,6 +19,7 @@ function createAuthenticatedPinia() {
     currentUser: {
       id: 'user-id', username: 'admin', displayName: '系统管理员',
       tenantId: null, actorScope: 'host', scope: 'host',
+      isSuperAdministrator: true,
       permissions: ['platform.dashboard.read', 'tenancy.tenants.read'],
       sessionId: 'session-id', preferredLocale: 'zh-CN', profileVersion: 1
     },
@@ -69,6 +70,7 @@ describe('Vue 管理端壳层', () => {
     )).toBe(true);
     expect(wrapper.text()).toContain('工作台');
     expect(wrapper.text()).toContain('租户上下文');
+    expect(wrapper.text()).toContain('超级管理员');
     expect(wrapper.text()).not.toContain('身份权限');
   });
 

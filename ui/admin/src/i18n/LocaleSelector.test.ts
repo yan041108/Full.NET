@@ -19,6 +19,7 @@ describe('Vue 语言选择器', () => {
       currentUser: {
         id: 'user-id', username: 'admin', displayName: '系统管理员',
         tenantId: null, actorScope: 'host', scope: 'host', permissions: [],
+        isSuperAdministrator: true,
         sessionId: 'session-id', preferredLocale: 'zh-CN', profileVersion: 1
       }
     });

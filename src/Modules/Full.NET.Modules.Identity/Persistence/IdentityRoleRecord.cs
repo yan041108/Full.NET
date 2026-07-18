@@ -8,6 +8,7 @@ internal sealed record IdentityRoleRecord(
     string Name,
     bool IsSystem,
     bool IsActive,
+    bool IsSuperAdministrator,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     int Version);
@@ -20,6 +21,7 @@ internal sealed record InsertIdentityRole(
     string Name,
     bool IsSystem,
     bool IsActive,
+    bool IsSuperAdministrator,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     int Version);
@@ -27,8 +29,13 @@ internal sealed record InsertIdentityRole(
 internal sealed record UpdateIdentitySystemRole(
     Guid Id,
     string Name,
+    bool IsSuperAdministrator,
     DateTimeOffset UpdatedAtUtc,
     int Version);
+
+internal sealed record IdentityAuthorizationRow(
+    string? PermissionCode,
+    bool IsSuperAdministrator);
 
 internal sealed record IdentityRolePermission(
     Guid RoleId,

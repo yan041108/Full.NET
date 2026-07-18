@@ -13,11 +13,11 @@ internal sealed class TenancyAuthorizationContributor
         new PermissionDefinition(
             TenantsRead,
             "读取可用租户",
-            AuthorizationScope.Host),
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
         new PermissionDefinition(
             TenantsSwitch,
             "切换租户上下文",
-            AuthorizationScope.Host),
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =

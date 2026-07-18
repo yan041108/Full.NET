@@ -95,6 +95,16 @@ public sealed class MySqlMigrationTests
             identityColumns,
             "fn_identity_auth_audit",
             "ContextTenantId");
+        var superAdministratorColumns = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_identity_role'
+              AND COLUMN_NAME = 'IsSuperAdministrator'
+              AND IS_NULLABLE = 'NO'
+            """);
+        Assert.AreEqual(1, superAdministratorColumns);
 
         var localizationColumns = (await connection.QueryAsync<LocalizationColumnMetadata>(
             """
@@ -184,6 +194,52 @@ public sealed class MySqlMigrationTests
         var recovered = await runner.MigrateAsync();
         Assert.AreEqual(1, recovered.ExecutedScriptCount);
         await AssertLocalizationStateAsync(connection, userId, tenantId);
+    }
+
+    [TestMethod]
+    public async Task MySql_super_administrator_migration_recovers_partial_state()
+    {
+        var runner = CreateRunner();
+        await runner.MigrateAsync();
+
+        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        var roleId = Guid.NewGuid();
+        await connection.ExecuteAsync(
+            """
+            ALTER TABLE fn_identity_role
+                DROP CONSTRAINT CK_fn_identity_role_SuperAdministratorScope;
+            ALTER TABLE fn_identity_role
+                MODIFY COLUMN IsSuperAdministrator boolean NULL DEFAULT NULL;
+            INSERT INTO fn_identity_role
+                (Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+                 IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version)
+            VALUES
+                (@RoleId, NULL, 'host', 'host-administrator', '超级管理员',
+                 true, true, NULL, @Now, NULL, 1);
+            DELETE FROM schemaversions
+            WHERE ScriptName LIKE '%005_SuperAdministrator.sql';
+            """,
+            new { RoleId = roleId, Now = DateTime.UtcNow });
+
+        var recovered = await runner.MigrateAsync();
+
+        Assert.AreEqual(1, recovered.ExecutedScriptCount);
+        Assert.IsTrue(await connection.QuerySingleAsync<bool>(
+            "SELECT IsSuperAdministrator FROM fn_identity_role WHERE Id = @RoleId",
+            new { RoleId = roleId }));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fn_identity_role'
+              AND COLUMN_NAME = 'IsSuperAdministrator' AND IS_NULLABLE = 'NO'
+              AND COLUMN_DEFAULT = '0'
+            """));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'fn_identity_role'
+              AND CONSTRAINT_NAME = 'CK_fn_identity_role_SuperAdministratorScope'
+            """));
     }
 
     private DbUpMigrationRunner CreateRunner() => new(

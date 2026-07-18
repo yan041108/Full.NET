@@ -409,6 +409,7 @@ function currentUser(
     displayName: '系统管理员',
     tenantId: activeTenantId,
     actorScope: 'host',
+    isSuperAdministrator: true,
     scope: activeTenantId
       ? `tenant:${activeTenantId.replaceAll('-', '')}`
       : 'host',

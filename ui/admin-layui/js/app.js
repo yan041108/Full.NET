@@ -285,9 +285,11 @@ function renderSession(root, snapshot, translation) {
   const currentScope = root.querySelector('[data-current-scope]');
   if (currentUser) currentUser.textContent = snapshot.currentUser?.displayName ?? '';
   if (currentScope) {
-    currentScope.textContent = snapshot.currentUser?.scope === 'host'
-      ? translation.t('shell.hostAdmin')
-      : snapshot.currentUser?.username ?? '';
+    currentScope.textContent = snapshot.currentUser?.isSuperAdministrator
+      ? translation.t('shell.superAdministrator')
+      : snapshot.currentUser?.scope === 'host'
+        ? translation.t('shell.hostAdmin')
+        : snapshot.currentUser?.username ?? '';
   }
   root.querySelectorAll('[data-current-context]').forEach((element) => {
     element.textContent = snapshot.currentContextName;

@@ -17,6 +17,7 @@ internal sealed class IdentitySessionContextService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IPermissionSnapshotReader permissionSnapshotReader,
+    PermissionClaimEvaluator permissionClaimEvaluator,
     IAccessTokenIssuer accessTokenIssuer,
     IClock clock,
     IIdGenerator idGenerator) : IIdentitySessionContextService
@@ -42,13 +43,7 @@ internal sealed class IdentitySessionContextService(
                 ErrorType.Forbidden);
         }
 
-        var hasPermission = principal
-            .FindAll(IdentityClaimTypes.Permission)
-            .Any(claim => string.Equals(
-                claim.Value,
-                SwitchPermission,
-                StringComparison.Ordinal));
-        if (!hasPermission)
+        if (!permissionClaimEvaluator.HasPermission(principal, SwitchPermission))
         {
             return Failure(
                 CommonErrorCodes.PermissionDenied,
@@ -87,10 +82,10 @@ internal sealed class IdentitySessionContextService(
                 ErrorType.Conflict);
         }
 
-        var permissions = await permissionSnapshotReader.ReadAsync(
+        var authorization = await permissionSnapshotReader.ReadAsync(
                 record!.UserId,
                 record.ScopeKey,
-                record.TenantId,
+                tenant?.Id ?? record.TenantId,
                 cancellationToken)
             .ConfigureAwait(false);
         var audit = new AuthAuditEvent(
@@ -120,7 +115,8 @@ internal sealed class IdentitySessionContextService(
             ToUser(record),
             record.SessionId,
             tenant?.Id,
-            permissions);
+            authorization.Permissions,
+            authorization.IsSuperAdministrator);
         var context = tenant is null
             ? new TenantContextDescriptor(null, "host", "Host", HostScope)
             : new TenantContextDescriptor(

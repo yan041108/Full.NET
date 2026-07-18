@@ -8,32 +8,42 @@ internal sealed class PermissionSnapshotReader(
     IQueryExecutor queryExecutor,
     AuthorizationCatalog catalog) : IPermissionSnapshotReader
 {
-    public async Task<IReadOnlyList<string>> ReadAsync(
+    public async Task<PermissionSnapshot> ReadAsync(
         Guid userId,
         string scopeKey,
         Guid? tenantId,
         CancellationToken cancellationToken = default)
     {
-        var grantedCodes = await queryExecutor.QueryAsync<string>(
-                IdentitySql.GetUserPermissionCodes,
+        var authorization = await queryExecutor.QueryAsync<IdentityAuthorizationRow>(
+                IdentitySql.GetUserAuthorization,
                 new { UserId = userId, ScopeKey = scopeKey, TenantId = tenantId },
                 cancellationToken)
             .ConfigureAwait(false);
-        var requiredScope = string.Equals(
-            scopeKey,
-            "host",
-            StringComparison.Ordinal)
-            ? AuthorizationScope.Host
-            : AuthorizationScope.Tenant;
-        var knownCodes = catalog.Permissions
+        var requiredScope = tenantId.HasValue
+            ? AuthorizationScope.Tenant
+            : string.Equals(scopeKey, "host", StringComparison.Ordinal)
+                ? AuthorizationScope.Host
+                : AuthorizationScope.Tenant;
+        var knownPermissions = catalog.Permissions
             .Where(permission => (permission.Scope & requiredScope) != 0)
+            .ToArray();
+        var isSuperAdministrator = authorization.Any(item =>
+            item.IsSuperAdministrator);
+        var knownCodes = knownPermissions
             .Select(permission => permission.Code)
             .ToHashSet(StringComparer.Ordinal);
+        var permissions = isSuperAdministrator
+            ? knownPermissions.Select(permission => permission.Code)
+            : authorization
+                .Select(item => item.PermissionCode)
+                .Where(code => code is not null && knownCodes.Contains(code))
+                .Select(code => code!);
 
-        return grantedCodes
-            .Where(knownCodes.Contains)
+        return new PermissionSnapshot(
+            permissions
             .Distinct(StringComparer.Ordinal)
             .OrderBy(code => code, StringComparer.Ordinal)
-            .ToArray();
+            .ToArray(),
+            isSuperAdministrator);
     }
 }

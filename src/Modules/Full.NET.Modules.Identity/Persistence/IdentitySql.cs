@@ -101,6 +101,7 @@ internal static class IdentitySql
         "identity.find-role-by-scope-and-code",
         """
         SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+               IsSuperAdministrator,
                CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_role
         WHERE ScopeKey = @ScopeKey AND Code = @Code
@@ -112,9 +113,11 @@ internal static class IdentitySql
         """
         INSERT INTO fn_identity_role
             (Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+             IsSuperAdministrator,
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
             (@Id, @TenantId, @ScopeKey, @Code, @Name, @IsSystem, @IsActive,
+             @IsSuperAdministrator,
              @CreatedAtUtc, @UpdatedAtUtc, @Version)
         """,
         SqlDataScope.HostOnly);
@@ -126,6 +129,7 @@ internal static class IdentitySql
         SET Name = @Name,
             IsSystem = 1,
             IsActive = 1,
+            IsSuperAdministrator = @IsSuperAdministrator,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @Id AND Version = @Version
@@ -170,21 +174,123 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement GetUserPermissionCodes = new(
-        "identity.get-explicit-actor-permission-codes",
+    public static readonly SqlStatement LockSuperAdministratorRoleSqlServer = new(
+        "identity.lock_super_administrator_role.sql_server",
         """
-        SELECT rolePermission.PermissionCode
+        SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+               IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_role WITH (UPDLOCK, HOLDLOCK)
+        WHERE ScopeKey = 'host' AND Code = 'host-administrator'
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement LockSuperAdministratorRoleMySql = new(
+        "identity.lock_super_administrator_role.my_sql",
+        """
+        SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+               IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_role
+        WHERE ScopeKey = 'host' AND Code = 'host-administrator'
+        FOR UPDATE
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountActiveSuperAdministratorAssignment = new(
+        "identity.count_active_super_administrator_assignment",
+        """
+        SELECT COUNT(*)
+        FROM fn_identity_user AS identityUser
+        INNER JOIN fn_identity_user_role AS userRole
+            ON userRole.UserId = identityUser.Id
+        INNER JOIN fn_identity_role AS roleObject
+            ON roleObject.Id = userRole.RoleId
+        WHERE identityUser.Id = @UserId
+          AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+          AND identityUser.IsActive = 1
+          AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL
+          AND roleObject.IsActive = 1
+          AND roleObject.IsSuperAdministrator = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountActiveSuperAdministrators = new(
+        "identity.count_active_super_administrators",
+        """
+        SELECT COUNT(*)
+        FROM fn_identity_user AS identityUser
+        INNER JOIN fn_identity_user_role AS userRole
+            ON userRole.UserId = identityUser.Id
+        INNER JOIN fn_identity_role AS roleObject
+            ON roleObject.Id = userRole.RoleId
+        WHERE identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+          AND identityUser.IsActive = 1
+          AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL
+          AND roleObject.IsActive = 1
+          AND roleObject.IsSuperAdministrator = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountActiveHostUser = new(
+        "identity.count_active_host_user",
+        """
+        SELECT COUNT(*)
+        FROM fn_identity_user
+        WHERE Id = @UserId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteSuperAdministratorAssignment = new(
+        "identity.delete_super_administrator_assignment",
+        """
+        DELETE FROM fn_identity_user_role
+        WHERE UserId = @UserId AND RoleId = @RoleId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RotateSecurityStamp = new(
+        "identity.rotate_security_stamp",
+        """
+        UPDATE fn_identity_user
+        SET SecurityStamp = @SecurityStamp,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId AND ScopeKey = 'host'
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RevokeAllUserSessions = new(
+        "identity.revoke_all_user_sessions",
+        """
+        UPDATE fn_identity_refresh_session
+        SET RevokedAtUtc = @RevokedAtUtc,
+            Version = Version + 1
+        WHERE UserId = @UserId AND RevokedAtUtc IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement GetUserAuthorization = new(
+        "identity.get_actor_authorization",
+        """
+        SELECT rolePermission.PermissionCode,
+               roleObject.IsSuperAdministrator
         FROM fn_identity_user_role AS userRole
         INNER JOIN fn_identity_role AS roleObject ON roleObject.Id = userRole.RoleId
-        INNER JOIN fn_identity_role_permission AS rolePermission
+        LEFT JOIN fn_identity_role_permission AS rolePermission
             ON rolePermission.RoleId = roleObject.Id
         WHERE userRole.UserId = @UserId
           AND roleObject.IsActive = 1
           AND roleObject.ScopeKey = @ScopeKey
           AND
           (
-              (roleObject.TenantId IS NULL AND @TenantId IS NULL)
-              OR roleObject.TenantId = @TenantId
+              (@ScopeKey = 'host' AND roleObject.TenantId IS NULL)
+              OR (@ScopeKey <> 'host' AND roleObject.TenantId = @TenantId)
           )
         ORDER BY rolePermission.PermissionCode
         """,

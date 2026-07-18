@@ -65,10 +65,10 @@ internal sealed class Handler(
             return InvalidRefreshToken();
         }
 
-        var permissions = await permissionSnapshotReader.ReadAsync(
+        var authorization = await permissionSnapshotReader.ReadAsync(
                 record.UserId,
                 record.ScopeKey,
-                record.TenantId,
+                record.ActiveTenantId ?? record.TenantId,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -144,7 +144,8 @@ internal sealed class Handler(
             ToUser(record),
             replacementId,
             record.ActiveTenantId,
-            permissions);
+            authorization.Permissions,
+            authorization.IsSuperAdministrator);
         return Result<RefreshSessionResult>.Success(new RefreshSessionResult(
             new TokenResponse(
                 accessToken.AccessToken,

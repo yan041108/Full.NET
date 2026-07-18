@@ -137,6 +137,8 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 
 超级管理员按[专用设计](../superpowers/specs/2026-07-18-super-administrator-design.md)和[实施计划](../superpowers/plans/2026-07-18-super-administrator.md)交付。Vue/Layui 必须同步覆盖系统角色只读标识、授予/撤销确认、最后一名保护、会话失效和审计入口；客户端标记不能绕过服务端权限或租户边界。
 
+当前两端已消费 `isSuperAdministrator` 契约并展示超级管理员标识；服务端动态权限和双库最后一名并发保护已落地。由于用户/角色管理页面、授予/撤销确认、重新认证/MFA、审计入口和真实后端浏览器链路尚未完成，C2.1 仍保持 `Designing`，不能把单一标识展示等同于管理功能对等。
+
 代码生成在进入首个双端 CRUD 样例前必须先完成 [`命名治理实施计划`](../superpowers/plans/2026-07-18-naming-governance.md) 的 Profile、门禁和共用命名内核。Vue、Layui、SQL 和后端模板只能消费同一逻辑/物理名称映射，禁止各端自行转换大小写、单复数或项目表前缀。
 
 ### C3：uni-app H5/微信/支付宝基础客户端

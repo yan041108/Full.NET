@@ -21,7 +21,8 @@ internal sealed class JwtAccessTokenIssuer(
         IdentityUser user,
         Guid sessionId,
         Guid? activeTenantId,
-        IReadOnlyCollection<string> permissions)
+        IReadOnlyCollection<string> permissions,
+        bool isSuperAdministrator)
     {
         var issuedAt = clock.UtcNow;
         var expiresAt = issuedAt.AddMinutes(_options.AccessTokenMinutes);
@@ -46,12 +47,17 @@ internal sealed class JwtAccessTokenIssuer(
             claims[IdentityClaimTypes.TenantId] = effectiveTenantId.Value.ToString("D");
         }
 
+        if (isSuperAdministrator)
+        {
+            claims[IdentityClaimTypes.SuperAdministrator] = true;
+        }
+
         var normalizedPermissions = permissions
             .Where(permission => !string.IsNullOrWhiteSpace(permission))
             .Distinct(StringComparer.Ordinal)
             .OrderBy(permission => permission, StringComparer.Ordinal)
             .ToArray();
-        if (normalizedPermissions.Length > 0)
+        if (!isSuperAdministrator && normalizedPermissions.Length > 0)
         {
             claims[IdentityClaimTypes.Permission] = normalizedPermissions;
         }

@@ -38,4 +38,9 @@ public static class FullNetIdentityClaimTypes
     /// 获取可重复权限编码 Claim 名称。
     /// </summary>
     public const string Permission = "fullnet_permission";
+
+    /// <summary>
+    /// 获取受保护超级管理员标记 Claim 名称。
+    /// </summary>
+    public const string SuperAdministrator = "fullnet_super_administrator";
 }

@@ -5,6 +5,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -19,6 +20,7 @@ internal static class Endpoint
         endpoints.MapGet("/api/v1/me", async (
             ClaimsPrincipal principal,
             IQueryExecutor queryExecutor,
+            PermissionClaimEvaluator permissionClaimEvaluator,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -56,18 +58,19 @@ internal static class Endpoint
                 out var parsedTenantId)
                 ? parsedTenantId
                 : (Guid?)null;
+            var scope = principal.FindFirstValue(IdentityClaimTypes.Scope) ?? string.Empty;
+            var isSuperAdministrator =
+                PermissionClaimEvaluator.IsSuperAdministrator(principal);
+            var permissions = permissionClaimEvaluator.ResolvePermissions(principal);
             var response = new CurrentUserResponse(
                 userId,
                 profile.Username,
                 profile.DisplayName,
                 tenantId,
                 actorScope,
-                principal.FindFirstValue(IdentityClaimTypes.Scope) ?? string.Empty,
-                principal.FindAll(IdentityClaimTypes.Permission)
-                    .Select(claim => claim.Value)
-                    .Distinct(StringComparer.Ordinal)
-                    .OrderBy(permission => permission, StringComparer.Ordinal)
-                    .ToArray(),
+                scope,
+                isSuperAdministrator,
+                permissions,
                 sessionId,
                 profile.PreferredLocale,
                 profile.ProfileVersion);

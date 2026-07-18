@@ -30,6 +30,7 @@ describe('身份会话契约', () => {
       tenantId: null,
       actorScope: 'host',
       scope: 'host',
+      isSuperAdministrator: true,
       permissions: [],
       sessionId: 'session-id',
       preferredLocale: 'en-US',
@@ -41,6 +42,7 @@ describe('身份会话契约', () => {
       displayName: '系统管理员',
       tenantId: null,
       scope: 'host',
+      isSuperAdministrator: true,
       permissions: [],
       sessionId: 'session-id',
       preferredLocale: 'en-US',
@@ -53,9 +55,22 @@ describe('身份会话契约', () => {
       tenantId: null,
       actorScope: 'host',
       scope: 'host',
+      isSuperAdministrator: true,
       permissions: [],
       sessionId: 'session-id',
       preferredLocale: 'fr-FR',
+      profileVersion: 2
+    })).toBe(false);
+    expect(isCurrentUserResponse({
+      id: 'user-id',
+      username: 'admin',
+      displayName: '系统管理员',
+      tenantId: null,
+      actorScope: 'host',
+      scope: 'host',
+      permissions: [],
+      sessionId: 'session-id',
+      preferredLocale: 'en-US',
       profileVersion: 2
     })).toBe(false);
     expect(isCurrentUserResponse({ id: 'user-id', permissions: 'all' })).toBe(false);

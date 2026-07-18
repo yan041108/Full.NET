@@ -8,7 +8,8 @@ internal interface IAccessTokenIssuer
         IdentityUser user,
         Guid sessionId,
         Guid? activeTenantId,
-        IReadOnlyCollection<string> permissions);
+        IReadOnlyCollection<string> permissions,
+        bool isSuperAdministrator);
 }
 
 internal sealed record IssuedAccessToken(

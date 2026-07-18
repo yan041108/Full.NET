@@ -88,11 +88,11 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 
 | 候选 | 状态/次数 | 当前证据 | 下一升级触发 |
 | --- | --- | --- | --- |
-| `fullnet-dual-database-change` | 观察 / 5 | 基础迁移、Tenancy SQL/API、Identity 授权上下文与语言偏好迁移均覆盖双库；语言偏好迁移审查进一步暴露 DbUp 未记账、DDL 部分完成时两库均无法恢复，现已加入真实恢复测试与现有模块交付 Skill | 再出现跨模块提供程序分支时，评估从模块交付 Skill 拆分；当前由强化后的既有 Skill 与双库恢复门禁覆盖 |
+| `fullnet-dual-database-change` | 观察 / 6 | 基础迁移、Tenancy SQL/API、Identity 授权上下文与语言偏好迁移均覆盖双库；本次超级管理员迁移继续验证 DbUp 未记账、DDL 部分完成恢复，并以 SQL Server/MySQL 真实并发测试锁定最后一名保护 | 再出现跨模块提供程序分支时，评估从模块交付 Skill 拆分；当前由强化后的既有 Skill 与双库恢复门禁覆盖 |
 | `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 事件使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
 | `fullnet-api-compatibility` | 候选 / 3 | 标准 ProblemDetails 与 Admin.NET Mapper 已存在；本次终审又将认证 Challenge 的裸 401 收敛为保留 `WWW-Authenticate` 的稳定、本地化 ProblemDetails，并以聚焦测试锁定协议 | 新增分页、文件或另一类兼容端点时评估升级 |
 | `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名与按 ID 的租户解析缓存及 tag 失效处理已存在 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |
-| `fullnet-release-verification` | 自动化优先 / 9 | uni-app 交付新增三目标构建、强制 fresh H5 产物的浏览器 E2E、许可证与官方 registry 漏洞门禁；审查发现陈旧产物可造成 DEV bridge 泄漏扫描假通过，现已由 `pretest` 契约阻止 | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
+| `fullnet-release-verification` | 自动化优先 / 10 | uni-app 三目标构建、fresh H5 浏览器 E2E、许可证与漏洞门禁已落地；本次双管理端验收又发现默认 Vite 端口会与开发服务串台、过高浏览器并发会造成验收服务不稳定，现已改用专用端口和有界 Worker | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
 | `fullnet-realtime-feature` | 等待真实实现 / 0 | 只有 SignalR、MessagePack Hub、Redis Backplane 设计 | 首个 `IRealtimePublisher` 消费者验收后评估 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 4 | Identity 会话、租户切换、权限导航、`zh-CN/en-US` 国际化/可访问性及组件语言与偏好失败回滚已按同一契约分别实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个包含列表、表单、权限和租户边界的双端业务 CRUD 切片达到 `Verified` 后评估升级 |

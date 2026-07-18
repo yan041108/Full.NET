@@ -90,6 +90,16 @@ public sealed class SqlServerMigrationTests
             identityColumns,
             "fn_identity_auth_audit",
             "ContextTenantId");
+        var superAdministratorColumns = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo'
+              AND TABLE_NAME = 'fn_identity_role'
+              AND COLUMN_NAME = 'IsSuperAdministrator'
+              AND IS_NULLABLE = 'NO'
+            """);
+        Assert.AreEqual(1, superAdministratorColumns);
 
         var localizationColumns = (await connection.QueryAsync<LocalizationColumnMetadata>(
             """
@@ -185,6 +195,52 @@ public sealed class SqlServerMigrationTests
         var recovered = await runner.MigrateAsync();
         Assert.AreEqual(1, recovered.ExecutedScriptCount);
         await AssertLocalizationStateAsync(connection, userId, tenantId);
+    }
+
+    [TestMethod]
+    public async Task SqlServer_super_administrator_migration_recovers_partial_state()
+    {
+        var runner = CreateRunner();
+        await runner.MigrateAsync();
+
+        await using var connection = new SqlConnection(_container.GetConnectionString());
+        var roleId = Guid.NewGuid();
+        await connection.ExecuteAsync(
+            """
+            ALTER TABLE dbo.fn_identity_role
+                DROP CONSTRAINT CK_fn_identity_role_SuperAdministratorScope;
+            ALTER TABLE dbo.fn_identity_role
+                DROP CONSTRAINT DF_fn_identity_role_IsSuperAdministrator;
+            ALTER TABLE dbo.fn_identity_role
+                ALTER COLUMN IsSuperAdministrator bit NULL;
+            INSERT INTO dbo.fn_identity_role
+                (Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+                 IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version)
+            VALUES
+                (@RoleId, NULL, 'host', 'host-administrator', N'超级管理员',
+                 1, 1, NULL, @Now, NULL, 1);
+            DELETE FROM dbo.SchemaVersions
+            WHERE ScriptName LIKE '%005_SuperAdministrator.sql';
+            """,
+            new { RoleId = roleId, Now = DateTimeOffset.UtcNow });
+
+        var recovered = await runner.MigrateAsync();
+
+        Assert.AreEqual(1, recovered.ExecutedScriptCount);
+        Assert.IsTrue(await connection.QuerySingleAsync<bool>(
+            "SELECT IsSuperAdministrator FROM dbo.fn_identity_role WHERE Id = @RoleId",
+            new { RoleId = roleId }));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'fn_identity_role'
+              AND COLUMN_NAME = 'IsSuperAdministrator' AND IS_NULLABLE = 'NO'
+            """));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM sys.check_constraints
+            WHERE name = 'CK_fn_identity_role_SuperAdministratorScope'
+            """));
     }
 
     private DbUpMigrationRunner CreateRunner() => new(

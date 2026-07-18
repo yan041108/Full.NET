@@ -15,4 +15,7 @@ internal static class IdentityClaimTypes
     public const string TenantId = FullNetIdentityClaimTypes.TenantId;
 
     public const string Permission = FullNetIdentityClaimTypes.Permission;
+
+    public const string SuperAdministrator =
+        FullNetIdentityClaimTypes.SuperAdministrator;
 }

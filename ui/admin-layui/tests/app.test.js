@@ -251,7 +251,7 @@ describe('Layui 管理端应用', () => {
       state: 'authenticated',
       currentUser: {
         username: 'admin', displayName: '系统管理员', tenantId: null,
-        scope: 'host', permissions: []
+        scope: 'host', isSuperAdministrator: true, permissions: []
       },
       navigation: [],
       availableTenants: [],
@@ -286,6 +286,7 @@ describe('Layui 管理端应用', () => {
     expect(document.querySelector('[data-login-view]').hidden).toBe(true);
     expect(document.querySelector('[data-session-shell]').hidden).toBe(false);
     expect(document.querySelector('[data-current-user]').textContent).toBe('系统管理员');
+    expect(document.querySelector('[data-current-scope]').textContent).toBe('超级管理员');
     app.dispose();
   });
 
@@ -450,6 +451,7 @@ function authorizedSnapshot() {
     currentUser: {
       id: 'user-id', username: 'admin', displayName: '系统管理员',
       tenantId: null, actorScope: 'host', scope: 'host',
+      isSuperAdministrator: true,
       permissions: [
         'platform.dashboard.read',
         'tenancy.tenants.read',

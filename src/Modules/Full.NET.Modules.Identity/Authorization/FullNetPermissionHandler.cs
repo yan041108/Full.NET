@@ -3,23 +3,14 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Full.NET.Modules.Identity.Authorization;
 
-internal sealed class FullNetPermissionHandler
+internal sealed class FullNetPermissionHandler(PermissionClaimEvaluator evaluator)
     : AuthorizationHandler<FullNetPermissionRequirement>
 {
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         FullNetPermissionRequirement requirement)
     {
-        var granted = context.User.Claims.Any(claim =>
-            string.Equals(
-                claim.Type,
-                IdentityClaimTypes.Permission,
-                StringComparison.Ordinal)
-            && string.Equals(
-                claim.Value,
-                requirement.PermissionCode,
-                StringComparison.Ordinal));
-        if (granted)
+        if (evaluator.HasPermission(context.User, requirement.PermissionCode))
         {
             context.Succeed(requirement);
         }

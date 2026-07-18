@@ -107,7 +107,7 @@ Identity 提供权限/导航贡献接口和聚合器；Identity、Tenancy 分别
 Bootstrap 每次运行都幂等确保：
 
 - `host-administrator` 系统角色存在且启用；
-- 当前实现同步全部 Host 权限行；按 2026-07-18 新设计升级后，该角色设置 `IsSuperAdministrator=true` 并动态获得当前作用域权限，不再依赖逐项同步；
+- 当前角色已设置 `IsSuperAdministrator=true` 并动态获得当前作用域权限，Bootstrap 不再同步逐项权限行；
 - 首个宿主管理员已分配该角色。
 
 已有账号不能因为“用户已存在”而跳过角色和权限同步。
@@ -152,6 +152,7 @@ Bootstrap 每次运行都幂等确保：
 - 非空 `tenantId`：Tenancy 验证租户存在且启用，再调用 Identity 会话上下文服务；
 - 空值：仅宿主管理员可以返回 Host 上下文；
 - Endpoint 要求 Bearer Token 与 `tenancy.tenants.switch`；Bearer Token 不会被浏览器自动附加，因此该请求不依赖 Cookie 完成授权；
+- `tenancy.tenants.read/switch` 同时允许 Host 与 Tenant 有效作用域，使同一宿主演员进入租户后仍能展示上下文入口并返回 Host；服务端另外校验 `ActorScope=host`，租户原生账号即使取得同名权限也不能枚举平台租户或切换宿主会话；
 - Identity 再次验证 `sub`、`sid`、宿主演员作用域、权限与活动会话归属；
 - 更新成功后返回扁平的 `TenantContextTokenResponse`：保留 `accessToken`、`tokenType`、`expiresAtUtc` 三个既有 Token 字段，并增加 `context`；`context` 固定包含 `tenantId`、`identifier`、`name`、`scope`，Host 上下文的 `tenantId` 为空、`identifier` 为 `host`；客户端替换内存 Token，再重新加载 `/me` 和导航；
 - 会话已轮换、撤销或不属于当前用户时返回标准 `401`；租户不存在或已停用时返回 `404`；权限不足返回 `403`。
@@ -264,8 +265,8 @@ Exception -> CORS -> RateLimit -> Authentication -> Tenancy -> Authorization -> 
 两个 Provider 分别验证：
 
 - `003` 迁移重复运行与角色/权限关系约束；
-- Bootstrap 重复运行仍同步系统角色、权限和用户分配；
-- 登录 Token 包含显式宿主权限；
+- Bootstrap 重复运行仍修复超级管理员系统角色和用户分配，但不再同步逐项权限行；
+- 普通账号登录 Token 包含显式宿主权限，超级管理员 Token 只携带受信标记并在服务端按当前目录动态解析；
 - 可用租户只返回活动租户且排序稳定；
 - 进入租户、刷新保持上下文、返回 Host 完整闭环；
 - 停用/不存在租户、无权限、跨域 Claim 不匹配被拒绝；

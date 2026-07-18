@@ -63,7 +63,8 @@ public sealed class JwtAccessTokenIssuerTests
             user,
             SessionId,
             TenantId,
-            ["z.permission", "a.permission", "z.permission"]);
+            ["z.permission", "a.permission", "z.permission"],
+            true);
         var token = new JsonWebToken(issued.AccessToken);
 
         Assert.IsFalse(string.IsNullOrWhiteSpace(token.Kid));
@@ -80,12 +81,11 @@ public sealed class JwtAccessTokenIssuerTests
         Assert.AreEqual(
             TenantId.ToString("D"),
             token.GetClaim(IdentityClaimTypes.TenantId).Value);
-        CollectionAssert.AreEqual(
-            new[] { "a.permission", "z.permission" },
-            token.Claims
-                .Where(claim => claim.Type == IdentityClaimTypes.Permission)
-                .Select(claim => claim.Value)
-                .ToArray());
+        Assert.AreEqual(
+            "true",
+            token.GetClaim(IdentityClaimTypes.SuperAdministrator).Value);
+        Assert.IsFalse(token.Claims.Any(claim =>
+            claim.Type == IdentityClaimTypes.Permission));
         Assert.AreEqual("security-stamp", token.GetClaim(IdentityClaimTypes.SecurityStamp).Value);
         Assert.AreEqual(Now.AddMinutes(10), issued.ExpiresAtUtc);
 

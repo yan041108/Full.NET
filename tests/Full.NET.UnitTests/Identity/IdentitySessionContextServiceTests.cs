@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Persistence;
@@ -95,16 +96,53 @@ public sealed class IdentitySessionContextServiceTests
                 default);
     }
 
-    private static ClaimsPrincipal CreatePrincipal(string actorScope = "host")
+    [TestMethod]
+    public async Task Super_administrator_can_switch_context_without_permission_claims()
     {
+        var fixture = new Fixture();
+        fixture.CommandExecutor.ExecuteAsync(
+                IdentitySql.UpdateRefreshSessionContext,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+
+        var result = await fixture.Service.ChangeAsync(
+            CreatePrincipal(isSuperAdministrator: true, includePermission: false),
+            new VerifiedTenantContext(
+                TenantId,
+                "acme",
+                "Acme Corporation",
+                "acme.localhost"));
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(TenantId, fixture.TokenIssuer.ActiveTenantId);
+    }
+
+    private static ClaimsPrincipal CreatePrincipal(
+        string actorScope = "host",
+        bool isSuperAdministrator = false,
+        bool includePermission = true)
+    {
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, UserId.ToString("D")),
+            new(IdentityClaimTypes.SessionId, SessionId.ToString("D")),
+            new(IdentityClaimTypes.ActorScope, actorScope),
+            new(IdentityClaimTypes.Scope, actorScope),
+            new(IdentityClaimTypes.SecurityStamp, "stamp"),
+            new(
+                IdentityClaimTypes.SuperAdministrator,
+                isSuperAdministrator.ToString().ToLowerInvariant()),
+        };
+        if (includePermission)
+        {
+            claims.Add(new Claim(
+                IdentityClaimTypes.Permission,
+                "tenancy.tenants.switch"));
+        }
+
         return new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim(JwtRegisteredClaimNames.Sub, UserId.ToString("D")),
-                new Claim(IdentityClaimTypes.SessionId, SessionId.ToString("D")),
-                new Claim(IdentityClaimTypes.ActorScope, actorScope),
-                new Claim(IdentityClaimTypes.SecurityStamp, "stamp"),
-                new Claim(IdentityClaimTypes.Permission, "tenancy.tenants.switch"),
-            ],
+            claims,
             "unit-test"));
     }
 
@@ -150,6 +188,11 @@ public sealed class IdentitySessionContextServiceTests
                 QueryExecutor,
                 CommandExecutor,
                 new StubPermissionSnapshotReader(),
+                new PermissionClaimEvaluator(AuthorizationCatalog.Create(
+                    [
+                        new IdentityAuthorizationContributor(),
+                        new Full.NET.Modules.Tenancy.TenancyAuthorizationContributor(),
+                    ])),
                 TokenIssuer,
                 new FixedClock(),
                 new FixedIdGenerator());
@@ -166,15 +209,14 @@ public sealed class IdentitySessionContextServiceTests
 
     private sealed class StubPermissionSnapshotReader : IPermissionSnapshotReader
     {
-        public Task<IReadOnlyList<string>> ReadAsync(
+        public Task<PermissionSnapshot> ReadAsync(
             Guid userId,
             string scopeKey,
             Guid? tenantId,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<string>>([
-                "identity.navigation.read",
-                "tenancy.tenants.switch",
-            ]);
+            Task.FromResult(new PermissionSnapshot(
+                ["identity.navigation.read", "tenancy.tenants.switch"],
+                false));
     }
 
     private sealed class StubTokenIssuer : IAccessTokenIssuer
@@ -185,7 +227,8 @@ public sealed class IdentitySessionContextServiceTests
             IdentityUser user,
             Guid sessionId,
             Guid? activeTenantId,
-            IReadOnlyCollection<string> permissions)
+            IReadOnlyCollection<string> permissions,
+            bool isSuperAdministrator)
         {
             ActiveTenantId = activeTenantId;
             return new IssuedAccessToken("context-token", Now.AddMinutes(10));

@@ -16,6 +16,7 @@ describe('Vue 租户上下文页面', () => {
       currentUser: {
         id: 'user-id', username: 'admin', displayName: '系统管理员',
         tenantId: null, actorScope: 'host', scope: 'host',
+        isSuperAdministrator: true,
         permissions: ['tenancy.tenants.read', 'tenancy.tenants.switch'],
         sessionId: 'session-id', preferredLocale: 'zh-CN', profileVersion: 1
       },
@@ -46,6 +47,7 @@ describe('Vue 租户上下文页面', () => {
       currentUser: {
         id: 'user-id', username: 'viewer', displayName: '只读管理员',
         tenantId: null, actorScope: 'host', scope: 'host',
+        isSuperAdministrator: false,
         permissions: ['tenancy.tenants.read'], sessionId: 'session-id',
         preferredLocale: 'zh-CN', profileVersion: 1
       },

@@ -142,7 +142,7 @@ internal sealed class FullNetApiFactory(
             null,
             1);
         return Services.GetRequiredService<IAccessTokenIssuer>()
-            .Issue(user, Guid.NewGuid(), null, permissions)
+            .Issue(user, Guid.NewGuid(), null, permissions, false)
             .AccessToken;
     }
 
@@ -194,6 +194,7 @@ internal sealed class FullNetApiFactory(
                     FROM fn_identity_role
                     WHERE ScopeKey = 'host' AND Code = 'host-administrator'
                       AND IsSystem = 1 AND IsActive = 1
+                      AND IsSuperAdministrator = 1
                     """,
                     SqlDataScope.HostOnly),
                 cancellationToken: cancellationToken);

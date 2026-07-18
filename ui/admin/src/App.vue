@@ -225,7 +225,7 @@ watch(
           </div>
           <LocaleSelector id="shell-locale" compact />
           <button type="button" :aria-label="t('shell.notifications')"><Bell aria-hidden="true" /><i aria-hidden="true" /></button>
-          <div class="operator"><span aria-hidden="true">FN</span><div><strong>{{ session.currentUser?.displayName }}</strong><small>{{ session.currentUser?.scope === 'host' ? t('shell.hostAdmin') : session.currentUser?.username }}</small></div></div>
+          <div class="operator"><span aria-hidden="true">FN</span><div><strong>{{ session.currentUser?.displayName }}</strong><small>{{ session.currentUser?.isSuperAdministrator ? t('shell.superAdministrator') : session.currentUser?.scope === 'host' ? t('shell.hostAdmin') : session.currentUser?.username }}</small></div></div>
           <button type="button" :aria-label="t('shell.logout')" @click="session.logout"><span aria-hidden="true">↗</span></button>
         </div>
       </header>

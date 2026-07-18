@@ -11,7 +11,8 @@ internal sealed class DapperSqlExecutor(
     DbSession session,
     ICurrentTenant currentTenant,
     IOptions<DatabaseOptions> options,
-    ILogger<DapperSqlExecutor> logger) : IQueryExecutor, ICommandExecutor
+    ILogger<DapperSqlExecutor> logger)
+    : IQueryExecutor, ICommandExecutor, IMultiResultQueryExecutor
 {
     private readonly DatabaseOptions _options = options.Value;
 
@@ -81,6 +82,43 @@ internal sealed class DapperSqlExecutor(
                 .GetOpenConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
             return await connection.ExecuteAsync(command).ConfigureAwait(false);
+        }
+        finally
+        {
+            LogExecution(statement, stopwatch);
+        }
+    }
+
+    public async Task<TResult> QueryMultipleAsync<TResult>(
+        SqlStatement statement,
+        object? parameters,
+        Func<IMultiResultReader, CancellationToken, Task<TResult>> projector,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(projector);
+        var command = await CreateCommandAsync(
+            statement,
+            parameters,
+            cancellationToken).ConfigureAwait(false);
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            var connection = await session
+                .GetOpenConnectionAsync(cancellationToken)
+                .ConfigureAwait(false);
+            await using var grid = await connection
+                .QueryMultipleAsync(command)
+                .ConfigureAwait(false);
+            var reader = new DapperMultiResultReader(grid);
+            var result = await projector(reader, cancellationToken).ConfigureAwait(false);
+            if (!grid.IsConsumed)
+            {
+                throw new InvalidOperationException(
+                    "The multi-result projector must consume every result set in order.");
+            }
+
+            return result;
         }
         finally
         {

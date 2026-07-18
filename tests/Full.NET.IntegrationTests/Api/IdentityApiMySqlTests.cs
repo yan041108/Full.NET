@@ -38,4 +38,20 @@ public sealed class IdentityApiMySqlTests
 
         await LocalePreferenceTests.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Last_super_administrator_is_protected_under_mysql_concurrency()
+    {
+        await using var container = new MySqlBuilder("mysql:8.0")
+            .WithDatabase("fullnet")
+            .WithUsername("fullnet")
+            .WithPassword("FullNet_Test!123")
+            .Build();
+        await container.StartAsync();
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            container.GetConnectionString());
+
+        await SuperAdministratorConcurrencyAssertions.VerifyAsync(factory);
+    }
 }

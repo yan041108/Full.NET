@@ -212,7 +212,8 @@ public sealed class LoginHandlerTests
             IdentityUser user,
             Guid sessionId,
             Guid? activeTenantId,
-            IReadOnlyCollection<string> permissions)
+            IReadOnlyCollection<string> permissions,
+            bool isSuperAdministrator)
         {
             Permissions = permissions;
             return new IssuedAccessToken("access-token", Now.AddMinutes(10));
@@ -222,13 +223,13 @@ public sealed class LoginHandlerTests
     private sealed class StubPermissionSnapshotReader(
         IReadOnlyList<string> permissions) : IPermissionSnapshotReader
     {
-        public Task<IReadOnlyList<string>> ReadAsync(
+        public Task<PermissionSnapshot> ReadAsync(
             Guid userId,
             string scopeKey,
             Guid? tenantId,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(permissions);
+            return Task.FromResult(new PermissionSnapshot(permissions, false));
         }
     }
 

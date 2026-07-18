@@ -13,11 +13,12 @@ internal static class Endpoint
     {
         endpoints.MapGet(
                 "/api/v1/navigation",
-                (ClaimsPrincipal principal, NavigationProjector projector) =>
+                (
+                    ClaimsPrincipal principal,
+                    PermissionClaimEvaluator permissionClaimEvaluator,
+                    NavigationProjector projector) =>
                 {
-                    var permissions = principal
-                        .FindAll(IdentityClaimTypes.Permission)
-                        .Select(claim => claim.Value);
+                    var permissions = permissionClaimEvaluator.ResolvePermissions(principal);
                     return Results.Ok(projector.Project(permissions));
                 })
             .WithTags("Identity")

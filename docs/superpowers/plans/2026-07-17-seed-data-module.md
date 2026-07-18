@@ -576,7 +576,7 @@ git commit -m "feat: orchestrate baseline and development seeds"
 
 - [ ] **Step 2: 运行纵向验证**
 
-Run: `dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 12 --timeout 10m`
+Run: `dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 18 --timeout 15m`
 
 Expected: SQL Server/MySQL 的 Baseline 生产初始化、Development/Test 继承、首次、重复、冲突、审计、Outbox 和 Production 门禁全部通过。若任一场景失败，停止任务并使用 `superpowers:systematic-debugging` 先建立最小失败复现，再修改所属实现；禁止放宽门禁、删除断言或绕过真实 Dapper。
 

@@ -40,6 +40,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DapperSqlExecutor>());
         services.AddScoped<ICommandExecutor>(provider =>
             provider.GetRequiredService<DapperSqlExecutor>());
+        services.AddScoped<IMultiResultQueryExecutor>(provider =>
+            provider.GetRequiredService<DapperSqlExecutor>());
         services.AddScoped<IOutboxWriter, DapperOutboxWriter>();
         services.AddScoped<IOutboxStore, DapperOutboxStore>();
         services.AddScoped<ICommandTransaction, DapperCommandTransaction>();

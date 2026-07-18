@@ -22,6 +22,7 @@ describe('Vue 登录页', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({
         id: 'user-id', username: 'admin', displayName: '系统管理员',
         tenantId: null, actorScope: 'host', scope: 'host',
+        isSuperAdministrator: true,
         permissions: ['platform.dashboard.read'], sessionId: 'session-id',
         preferredLocale: 'zh-CN', profileVersion: 1
       }), { status: 200, headers: { 'content-type': 'application/json' } }))

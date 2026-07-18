@@ -3,7 +3,7 @@
 - 日期：2026-07-18
 - 状态：已批准
 - 决策来源：项目所有者要求评估 Dapper.SqlBuilder、Dapper.ProviderTools、Dapper.Transaction、QueryMultiple、批量与通用 CRUD 扩展
-- 实现状态：当前只有 Dapper Core、统一执行器和自有事务；本文批准的 SqlBuilder 封装和 QueryMultiple 执行能力尚未实现
+- 实现状态：QueryMultiple 自有抽象、统一执行器、完整消费门禁和 SQL Server/MySQL 真实测试已实现；SqlBuilder 仍等待首个真实动态列表消费者命中门禁
 
 ## 1. 基线
 
@@ -15,8 +15,8 @@ Full.NET 当前使用 Dapper 2.1.79，业务模块只依赖 `Full.NET.Data.Abstr
 
 | 能力 | 来源/许可 | 结论 | Full.NET 边界 |
 | --- | --- | --- | --- |
-| Dapper.SqlBuilder | DapperLib 官方包，Apache-2.0；当前稳定版 2.1.66 | **批准按计划引入** | 仅由 Full.NET 数据查询构建层封装；只接受代码定义的片段与参数，用于列表/报表动态条件 |
-| Dapper Core `QueryMultiple` | Dapper Core，Apache-2.0；当前已依赖 | **批准优先实现** | 通过 `IMultiResultQueryExecutor` 暴露，不把 `GridReader`、连接或裸 Dapper 泄漏给业务层 |
+| Dapper.SqlBuilder | DapperLib 官方包，Apache-2.0；当前稳定版 2.1.66 | **批准但尚未命中引入门禁** | 仅由 Full.NET 数据查询构建层封装；只接受代码定义的片段与参数，用于列表/报表动态条件 |
+| Dapper Core `QueryMultiple` | Dapper Core，Apache-2.0；当前已依赖 | **已实现 / Build-verified** | 通过 `IMultiResultQueryExecutor` 暴露，不把 `GridReader`、连接或裸 Dapper 泄漏给业务层 |
 | Dapper.ProviderTools | DapperLib 旧包，Apache-2.0；最后发布 2.0.90（2021-04-29） | **不引入** | 它只是 Provider-agnostic ADO.NET 辅助工具，不能替代 SQL 方言和语义 Statement；继续使用 Full.NET 自有抽象 |
 | Dapper.Transaction | ZZZ Projects，MIT；当前包 2.1.79 | **不引入** | 与 `ICommandTransaction + DbSession` 重复；直接扩展 `IDbTransaction` 会鼓励绕过 Executor、作用域和 Outbox 边界 |
 | Dapper.Rainbow | DapperLib 官方包，Apache-2.0 | **不引入** | 自动单表 CRUD、类型/表约定与代码生成器和 `{owner}_{module}_{entity}` 命名边界重叠 |
@@ -114,7 +114,7 @@ Provider 分支只能位于 `Full.NET.Data.Dapper`、迁移、模块 Persistence
 
 ## 8. 验收
 
-达到 `Verified` 需要：
+当前 QueryMultiple 子能力已通过双库真实测试；整项 Dapper 辅助能力达到 `Verified` 仍需要：
 
 1. QueryMultiple 统一执行器通过 Unit 和 SQL Server/MySQL Integration；
 2. SqlBuilder 封装由首个真实列表消费者验证，所有用户可控标识符经过白名单；

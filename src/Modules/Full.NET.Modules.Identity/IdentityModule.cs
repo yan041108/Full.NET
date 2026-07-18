@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
+using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Serialization;
@@ -61,6 +62,7 @@ public sealed class IdentityModule : IFullNetModule
             IdentityErrorResourceSource>());
         services.TryAddSingleton(provider => AuthorizationCatalog.Create(
             provider.GetServices<IAuthorizationCatalogContributor>()));
+        services.TryAddSingleton<PermissionClaimEvaluator>();
         services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
         services.TryAddScoped<
             IIdentitySessionContextService,
@@ -84,6 +86,7 @@ public sealed class IdentityModule : IFullNetModule
             Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>,
             Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>>();
         services.TryAddScoped<IIdentityBootstrapService, IdentityBootstrapService>();
+        services.TryAddScoped<ISuperAdministratorService, SuperAdministratorService>();
         services.AddFullNetFluentValidation();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
         services.TryAddScoped<IValidator<Features.UpdateLocale.Command>,

@@ -7,7 +7,6 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
-using Full.NET.Modules.Identity.Authorization;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity.Features.Bootstrap;
@@ -18,8 +17,7 @@ internal sealed class IdentityBootstrapService(
     ICommandTransaction transaction,
     Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> passwordHasher,
     IClock clock,
-    IIdGenerator idGenerator,
-    AuthorizationCatalog authorizationCatalog) : IIdentityBootstrapService
+    IIdGenerator idGenerator) : IIdentityBootstrapService
 {
     private const string HostScope = "host";
     private const string HostAdministratorRoleCode = "host-administrator";
@@ -149,6 +147,7 @@ internal sealed class IdentityBootstrapService(
                         HostAdministratorRoleName,
                         true,
                         true,
+                        true,
                         now,
                         null,
                         1),
@@ -161,6 +160,7 @@ internal sealed class IdentityBootstrapService(
             roleId = role.Id;
             if (!role.IsSystem
                 || !role.IsActive
+                || !role.IsSuperAdministrator
                 || !string.Equals(
                     role.Name,
                     HostAdministratorRoleName,
@@ -171,36 +171,13 @@ internal sealed class IdentityBootstrapService(
                         new UpdateIdentitySystemRole(
                             role.Id,
                             HostAdministratorRoleName,
+                            true,
                             now,
                             role.Version),
                         "role update",
                         cancellationToken)
                     .ConfigureAwait(false);
             }
-        }
-
-        var existingPermissions = (await queryExecutor.QueryAsync<string>(
-                IdentitySql.GetRolePermissionCodes,
-                new { RoleId = roleId },
-                cancellationToken)
-            .ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
-        var hostPermissions = authorizationCatalog.Permissions
-            .Where(permission =>
-                (permission.Scope & AuthorizationScope.Host) != 0)
-            .Select(permission => permission.Code);
-        foreach (var permissionCode in hostPermissions)
-        {
-            if (existingPermissions.Contains(permissionCode))
-            {
-                continue;
-            }
-
-            await RequireZeroOrOneAsync(
-                    IdentitySql.EnsureRolePermission,
-                    new IdentityRolePermission(roleId, permissionCode),
-                    "role permission synchronization",
-                    cancellationToken)
-                .ConfigureAwait(false);
         }
 
         await RequireZeroOrOneAsync(

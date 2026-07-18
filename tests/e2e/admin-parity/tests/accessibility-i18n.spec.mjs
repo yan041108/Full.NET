@@ -325,6 +325,7 @@ function currentUserResponse(preferredLocale = 'zh-CN', profileVersion = 1) {
     tenantId: null,
     actorScope: 'host',
     scope: 'host',
+    isSuperAdministrator: true,
     permissions: [
       'identity.navigation.read',
       'platform.dashboard.read',

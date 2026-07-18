@@ -85,7 +85,7 @@ public sealed class IdentityBootstrapServiceTests
     }
 
     [TestMethod]
-    public async Task Existing_admin_is_not_overwritten_and_authorization_is_synchronized()
+    public async Task Existing_admin_is_not_overwritten_and_super_role_is_ensured()
     {
         var fixture = new Fixture();
         fixture.QueryExecutor
@@ -126,7 +126,7 @@ public sealed class IdentityBootstrapServiceTests
             IdentitySql.InsertRole,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
-        await fixture.CommandExecutor.Received(4).ExecuteAsync(
+        await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(
             IdentitySql.EnsureRolePermission,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
@@ -175,7 +175,7 @@ public sealed class IdentityBootstrapServiceTests
     }
 
     [TestMethod]
-    public async Task Existing_role_only_receives_missing_known_permissions()
+    public async Task Existing_role_is_upgraded_without_synchronizing_permission_rows()
     {
         var fixture = new Fixture();
         fixture.SetExistingUser();
@@ -192,16 +192,10 @@ public sealed class IdentityBootstrapServiceTests
                 "宿主管理员",
                 true,
                 true,
+                false,
                 Now,
                 null,
                 1));
-        fixture.QueryExecutor
-            .QueryAsync<string>(
-                IdentitySql.GetRolePermissionCodes,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(["platform.dashboard.read", "custom.retained"]);
-
         var result = await fixture.Service.BootstrapHostAdminAsync(
             new BootstrapHostAdminRequest(
                 "admin",
@@ -213,7 +207,14 @@ public sealed class IdentityBootstrapServiceTests
             IdentitySql.InsertRole,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
-        await fixture.CommandExecutor.Received(3).ExecuteAsync(
+        await fixture.CommandExecutor.Received(1).ExecuteAsync(
+            IdentitySql.UpdateSystemRole,
+            Arg.Is<object>(value =>
+                value != null
+                && value.GetType() == typeof(UpdateIdentitySystemRole)
+                && ((UpdateIdentitySystemRole)value).IsSuperAdministrator),
+            Arg.Any<CancellationToken>());
+        await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(
             IdentitySql.EnsureRolePermission,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
@@ -225,12 +226,6 @@ public sealed class IdentityBootstrapServiceTests
         {
             QueryExecutor = Substitute.For<IQueryExecutor>();
             CommandExecutor = Substitute.For<ICommandExecutor>();
-            QueryExecutor
-                .QueryAsync<string>(
-                    Arg.Any<SqlStatement>(),
-                    Arg.Any<object?>(),
-                    Arg.Any<CancellationToken>())
-                .Returns([]);
             CommandExecutor
                 .ExecuteAsync(
                     Arg.Any<SqlStatement>(),
@@ -239,16 +234,13 @@ public sealed class IdentityBootstrapServiceTests
                 .Returns(1);
             var idGenerator = Substitute.For<IIdGenerator>();
             idGenerator.NewId().Returns(UserId, RoleId);
-            var catalog = AuthorizationCatalog.Create(
-                [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
             Service = new IdentityBootstrapService(
                 QueryExecutor,
                 CommandExecutor,
                 new PassthroughTransaction(),
                 new PasswordHasher<IdentityUser>(),
                 new FixedClock(),
-                idGenerator,
-                catalog);
+                idGenerator);
         }
 
         public IQueryExecutor QueryExecutor { get; }
