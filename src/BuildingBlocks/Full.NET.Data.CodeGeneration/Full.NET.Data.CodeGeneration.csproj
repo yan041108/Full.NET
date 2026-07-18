@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <EmbeddedResource
+      Include="..\..\..\contracts\naming\fullnet-naming-profile.json"
+      Link="Naming\fullnet-naming-profile.json"
+      LogicalName="Full.NET.Data.CodeGeneration.fullnet-naming-profile.json" />
+  </ItemGroup>
+</Project>

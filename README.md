@@ -12,6 +12,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - 显式模块注册、CQRS 分发、租户上下文和基于域名的租户解析。
 - 传输无关的 Command/Query 行为管道；FluentValidation 显式注册、统一 `validation.failed` 错误，并在事务开启前短路无效命令。
 - Dapper-first 数据访问、SQL 作用域保护和事务边界，不引入 EF Core；原生 QueryMultiple 已通过自有抽象和 SQL Server/MySQL 真实测试落地，SqlBuilder 仍等待首个真实动态列表命中准入门禁。
+- 跨工具 Naming Profile、SQL/C#／稳定协议命名门禁，以及供脚手架复用的确定性 CodeGeneration 命名内核；存量债务按文件和值精确登记，不会被新代码继承。
 - SQL Server/MySQL 双数据库 DbUp 迁移及 Testcontainers 集成测试。
 - MessagePack 二进制 Outbox、租约式至少一次消费、schema 版本路由和指数退避。
 - FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`。
@@ -32,7 +33,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 186
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 203
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 5
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 15
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 18 --timeout 15m

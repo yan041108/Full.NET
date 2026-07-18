@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "databaseObjects": [
+    {
+      "input": "PK_fn_identity_user",
+      "output": "PK_fn_identity_user"
+    },
+    {
+      "input": "IX_fn_notifications_delivery_attempt_SubscriptionId_RequestedAtUtc_ChannelProvider",
+      "output": "IX_fn_notifications_delivery_attempt_SubscriptionId_Req_5b137a8d"
+    }
+  ],
+  "contracts": {
+    "columns": [
+      { "value": "CreatedAtUtc", "valid": true },
+      { "value": "created_at_utc", "valid": false }
+    ],
+    "permissions": [
+      { "value": "identity.super_administrators.read", "valid": true },
+      { "value": "identity.super-administrators.read", "valid": false }
+    ],
+    "errors": [
+      { "value": "identity.session.not_active", "valid": true },
+      { "value": "identity.session_not_active", "valid": false }
+    ],
+    "messages": [
+      { "value": "fullnet.tenancy.tenant.provisioned", "valid": true },
+      { "value": "fullnet.tenancy.tenant-provisioned", "valid": false }
+    ],
+    "statements": [
+      { "value": "identity.user.find_by_id", "valid": true },
+      { "value": "identity.find-user-by-id", "valid": false }
+    ]
+  }
+}
