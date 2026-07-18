@@ -43,7 +43,7 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运�
 
 当前本地数据仍由 Migrator 的 `--seed-local` 硬编码入口创建。模块化种子管道已经完成设计但尚未实现：Production 可显式运行安全 `baseline`，Development/Demo/Test 在 Baseline 上叠加各自数据，Testcontainers 中的场景数据继续由隔离 Test Factory 创建。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
 
-更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。当前能力以[状态矩阵](docs/roadmap/capability-status.md)为唯一总览；架构设计及 Admin.NET 功能对标路线位于 `docs/`。
+更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。新增数据库对象、API、机器码或生成模板必须遵守 [Full.NET 命名规范](rules/naming-conventions.md)：官方表保留 `fn` OwnerKey，项目表使用脚手架阶段冻结的项目 OwnerKey，`sys` 不作为项目表前缀。当前能力以[状态矩阵](docs/roadmap/capability-status.md)为唯一总览；架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 
 客户端基础验证：
 

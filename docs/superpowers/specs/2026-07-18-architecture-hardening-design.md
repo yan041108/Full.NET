@@ -118,13 +118,13 @@ Web Components 暂不引入。只有出现至少两个真实、复杂、跨端�
 系统错误、权限、菜单元数据和枚举继续使用稳定代码与资源文件。需要持久化翻译的业务实体由所属模块维护规范化表，例如：
 
 ```text
-fn_{module}_{entity}_translation
+{owner}_{module}_{entity}_translation
 TenantId? + EntityId + Locale  唯一
 Name / Description / OtherTypedTranslatedFields
-Version + CreatedAt + UpdatedAt
+Version + CreatedAtUtc + UpdatedAtUtc
 ```
 
-租户实体必须包含租户边界；Fallback 在应用层按统一语言链执行。翻译字段保留明确列和索引，不建立跨模块 `fn_i18n_resources` EAV。默认也不在核心表增加 `Name_ZhCN/Name_EnUS` 列。只有不参与筛选、排序、唯一性和局部更新的长描述内容，才可在模块 ADR 与双库测试后使用 JSON。
+Full.NET 官方模块使用 `fn`，项目业务模块使用脚手架阶段冻结的 OwnerKey；租户实体必须包含租户边界。Fallback 在应用层按统一语言链执行。翻译字段保留明确列和索引，不建立跨模块 `fn_i18n_resources` EAV。默认也不在核心表增加 `Name_ZhCN/Name_EnUS` 列。只有不参与筛选、排序、唯一性和局部更新的长描述内容，才可在模块 ADR 与双库测试后使用 JSON。所有对象命名服从 [`rules/naming-conventions.md`](../../../rules/naming-conventions.md)。
 
 ## 10. SQL 变更安全
 
@@ -137,6 +137,8 @@ Version + CreatedAt + UpdatedAt
 - 未分批的大表回填和未说明锁影响的索引/约束变更。
 
 确有必要时必须提交机器可检查的临时豁免，包含数据库、脚本、风险、备份/验证、回滚或前滚策略、指定数据责任人、到期版本。开源协作不强制角色名称为 DBA，但破坏性变更必须有独立数据审查者；CI 静态扫描和双库集成测试仍是硬门禁。
+
+同一 SQL 门禁还必须加载 Naming Profile：拒绝 `sys` 项目 OwnerKey、运行时动态表前缀、非规范表/列/约束名、超过共同 64 字符上限的数据库对象和 SQL Server/MySQL 命名漂移。存量名称只能由精确、带退役里程碑的债务清单放行。
 
 ## 11. 日志与审计可靠性
 

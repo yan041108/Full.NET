@@ -13,7 +13,7 @@
 ### 开始前
 
 1. 必须读取本文件和 [`rules/README.md`](rules/README.md)。
-2. 必须读取 [`rules/development-quality.md`](rules/development-quality.md)；涉及代码、SQL、配置或脚本时，还必须读取 [`rules/code-comments.md`](rules/code-comments.md)。
+2. 必须读取 [`rules/development-quality.md`](rules/development-quality.md)；涉及代码、SQL、配置或脚本时，还必须读取 [`rules/code-comments.md`](rules/code-comments.md)；新增或修改数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成器产物时，还必须读取 [`rules/naming-conventions.md`](rules/naming-conventions.md)。
 3. 必须检查 `.agents/skills/` 是否存在匹配当前任务的项目 Skill；新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时必须使用 [`fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)。
 4. 必须检查当前分支、`git status`、相关设计与计划，保留用户已有和无关变更。
 5. 必须确认需求、授权边界和验收条件；能从仓库安全确定的信息不得反复询问。
@@ -38,6 +38,7 @@
 
 - 数据访问以 Dapper 和显式 SQL 为默认实现；未经明确架构决策不得引入 EF Core 作为业务数据访问层。
 - 数据库正式支持 SQL Server 与 MySQL；数据库行为变更必须同时验证两者。
+- 数据库表采用 `{owner}_{module}_{entity}`：Full.NET 官方表的 OwnerKey 固定为 `fn`，项目表使用脚手架阶段冻结的项目 OwnerKey；`sys` 是保留 OwnerKey，禁止运行时动态表前缀。数据库列使用 PascalCase 与 C# Dapper 投影直接映射，详细命名服从 [`rules/naming-conventions.md`](rules/naming-conventions.md)。
 - 外部 HTTP API 使用标准状态码与 ProblemDetails；Admin.NET 统一包络只存在于兼容适配层。
 - JSON 使用 System.Text.Json；内部高性能序列化按既定边界使用 MessagePack，服务契约可使用 gRPC。
 - 缓存以 FusionCache 为唯一实现，并通过 `.AsHybridCache()` 同时暴露 HybridCache 抽象。
@@ -54,6 +55,7 @@
 - [`rules/README.md`](rules/README.md)：规则范围、用词和维护方式。
 - [`rules/code-comments.md`](rules/code-comments.md)：中文代码注释与文档注释规范。
 - [`rules/development-quality.md`](rules/development-quality.md)：常见遗漏防护和完成定义。
+- [`rules/naming-conventions.md`](rules/naming-conventions.md)：数据库、C#、API、机器码、配置、缓存和生成器的统一命名边界。
 - [`rules/rule-evolution.md`](rules/rule-evolution.md)：自动复盘、规则升级、冲突与退役机制。
 - [`rules/skill-evolution.md`](rules/skill-evolution.md)：项目 Skills 候选、测试先行、升级与退役机制。
 - [`.agents/skills/fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)：完整业务模块纵向交付流程。

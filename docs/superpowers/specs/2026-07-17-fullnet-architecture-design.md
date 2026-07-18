@@ -331,7 +331,8 @@ Full.NET.Data.Abstractions
 - 不构建表达式树到 SQL 的隐藏 ORM；
 - 不使用覆盖所有实体的通用 Repository；
 - 简单 CRUD 由生成器产生，复杂 SQL 存为靠近 Feature 的 `.sql` 文件；
-- 原生 SQL 逃生口必须显式声明数据作用域并进入审计。
+- 原生 SQL 逃生口必须显式声明数据作用域并进入审计；
+- 表、列、参数、Statement、索引和约束统一服从 [`rules/naming-conventions.md`](../../../rules/naming-conventions.md)，SQL Server/MySQL 不得各自派生命名。
 
 ### 7.3 数据库支持
 
@@ -424,17 +425,19 @@ Host 管理员管理平台和租户；Tenant 管理员管理当前租户。Tenan
 
 ### 11.1 表与主键
 
-模块拥有自己的表，使用 `fn_{module}_{entity}` 前缀。默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 产生。项目模板可选择 Snowflake `long`，但框架核心表采用 UUID v7。
+模块拥有自己的表，物理名统一为 `{owner_key}_{module_key}_{entity_key}` 的小写 snake_case。Full.NET 官方框架和官方模块的 OwnerKey 固定为 `fn`，具体项目在脚手架创建时冻结独立 OwnerKey（例如 `crm`）；项目扩展官方模块也必须使用项目 OwnerKey。`sys` 保留给数据库系统语义，禁止作为项目 OwnerKey；表名不得由租户或运行时配置动态拼接。默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 产生。项目模板可选择 Snowflake `long`，但框架核心表采用 UUID v7。
+
+数据库列使用 PascalCase 并与 C# 持久化投影直接映射，不启用全局 snake_case 隐式映射。表、列、约束、代码、API 和稳定机器码的完整规则及存量兼容边界见 [`Full.NET 命名规范`](../../../rules/naming-conventions.md)。
 
 ### 11.2 公共字段
 
-租户业务表默认包含：
+租户业务表按真实能力从下列公共字段中选择，不为模板整齐强迫每张表具备软删除或完整审计：
 
 ```text
 Id, TenantId,
-CreatedAt, CreatedBy,
-UpdatedAt, UpdatedBy,
-IsDeleted, DeletedAt, DeletedBy,
+CreatedAtUtc, CreatedById,
+UpdatedAtUtc, UpdatedById,
+IsDeleted, DeletedAtUtc, DeletedById,
 Version
 ```
 
@@ -456,15 +459,15 @@ Version
 ```text
 数据库元数据或 YAML 模型
 -> 统一 FullNetSchema
--> 生成配置
+-> NamingProfile + 生成配置
 -> 后端 / SQL / 前端 / 测试模板
 ```
 
-数据库导入和 YAML 定义最终转换成同一个 `FullNetSchema`，避免两套生成管线。
+数据库导入和 YAML 定义最终转换成同一个 `FullNetSchema`，避免两套生成管线。Schema 同时保留逻辑名称与已验证的物理名称；OwnerKey 在项目初始化时冻结。生成器、SQL Lint 和多客户端模板读取同一 Naming Profile，禁止各模板自行实现单复数、snake_case、PascalCase 或长约束截断。
 
 ### 12.2 生成内容
 
-生成器可以创建实体、DTO、Command、Query、Handler、Validator、Endpoint、权限、参数化 SQL、分页 SQL、Vue/Layui 页面、TypeScript/JavaScript API 客户端和基础测试，并分阶段扩展 uni-app 与 Dart 客户端。生成的 SQL 自动包含租户、软删除、审计和并发字段规则。
+生成器可以创建实体、DTO、Command、Query、Handler、Validator、Endpoint、权限、参数化 SQL、分页 SQL、Vue/Layui 页面、TypeScript/JavaScript API 客户端和基础测试，并分阶段扩展 uni-app 与 Dart 客户端。生成的 SQL 自动包含适用的租户、软删除、审计和并发字段规则，并通过同一命名内核生成表、列、约束和稳定协议码。
 
 ### 12.3 防覆盖策略
 
@@ -545,6 +548,8 @@ API 使用 `/api/v1` 版本前缀和 OpenAPI。成功响应直接返回强类型
 | 未处理异常 | 500 |
 
 前端根据稳定错误码处理逻辑，不匹配中文消息。生产环境不得返回堆栈、SQL、连接字符串和内部类型名。
+
+API 路径使用小写 kebab-case，HTTP JSON 使用 camelCase；权限、错误、消息和 Statement 使用各自的小写点分层规则。稳定值一旦发布必须按兼容契约迁移，不能只为视觉统一直接替换连字符或下划线。
 
 `Full.NET.Compatibility.AdminNet` 提供可选的 Admin.NET 响应适配器，用于旧前端或迁移项目。适配器可以把普通 JSON API 转换为统一外壳，但必须保留真实 HTTP 状态码；不得把未认证、禁止、验证失败、冲突和服务器异常全部伪装成 HTTP 200。文件下载、SSE、SignalR、Webhook、健康检查和 `204 No Content` 不进入响应外壳。默认 Full.NET Host 不启用该适配器。
 

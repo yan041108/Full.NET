@@ -128,12 +128,14 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | C2.2 | 在线用户、公告、站内通知 | Mapped | Mapped | Realtime + Notifications | L |
 | C2.3 | 文件、对象存储和预览 | Mapped | Mapped | Files + Storage Provider | L |
 | C2.3 | 任务调度、执行记录和重试 | Mapped | Mapped | Jobs | L |
-| C2.3 | 代码生成、模板和生成记录 | Mapped | Mapped | CodeGeneration | XL |
+| C2.3 | 代码生成、模板和生成记录 | Designing | Designing | CodeGeneration + Naming Profile | XL |
 | C2.4 | 工作台、统计和监控入口 | Mapped | Mapped | Dashboard Contracts | L |
 
 规模只表示相对拆分需要，不是工期承诺：`M` 应拆成至少一个可独立验收切片，`L` 至少两个，`XL` 必须先建立独立设计和多阶段计划。
 
 **退出条件：** 纳入 Full.NET 1.0 的后台功能全部达到双端 `Verified`；后续官方模块继续复用同一门禁。
+
+代码生成在进入首个双端 CRUD 样例前必须先完成 [`命名治理实施计划`](../superpowers/plans/2026-07-18-naming-governance.md) 的 Profile、门禁和共用命名内核。Vue、Layui、SQL 和后端模板只能消费同一逻辑/物理名称映射，禁止各端自行转换大小写、单复数或项目表前缀。
 
 ### C3：uni-app H5/微信/支付宝基础客户端
 

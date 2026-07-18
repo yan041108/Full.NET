@@ -27,6 +27,7 @@
 | 客户端把服务端动态导航当作可执行配置 | 任意组件加载、路由混淆或 XSS | R-20260717-client-navigation-boundary |
 | 只替换管理壳层文案，遗漏组件库、服务端生成文本和其他客户端 | 各端语言状态漂移，错误与后台任务无法按用户语言交付，却被误报为全栈已支持 | R-20260717-full-stack-localization-boundary |
 | 没有区分生产 Baseline、环境 Overlay 和场景测试数据 | 默认密码、生产误播种、测试耦合和重复脏数据 | R-20260717-seed-data-boundary |
+| 把框架、项目和数据库系统对象都命名为 `sys_*`，或在各模板重复实现命名转换 | 所有权混淆、跨库大小写故障、Dapper 隐式映射和生成漂移 | `naming-conventions.md` |
 
 ## 2. 任务开始与范围控制
 
@@ -89,6 +90,7 @@
 9. 应用 SQL 禁止 `SELECT *`，禁止无 `WHERE` 的 `UPDATE/DELETE`。迁移中确需全表修正时必须进入窄范围豁免并断言预期行数；注释或文件名不能单独作为放行证据。
 10. Provider 专有 SQL 必须按同一语义提供 SQL Server/MySQL 成对实现和真实测试。CTE、窗口、Upsert、锁、JSON 和日期函数不得以数据库分支散落在业务 Handler；JSON 聚合/变更默认在应用层完成。
 11. 新查询必须评估索引、排序稳定性、分页复杂度和最坏数据量。性能结论必须来自基准或执行计划，不得只凭 ORM 偏好判断。
+12. 新增或修改表、列、索引、约束、Statement 和生成模板必须遵守 [`naming-conventions.md`](naming-conventions.md)：表按冻结的 OwnerKey/ModuleKey/EntityKey 命名，列用 PascalCase 与 Dapper 投影直接映射；禁止 `sys` 项目 OwnerKey、运行时动态表前缀、全局 snake_case 映射和模板私有命名算法。
 
 ## 6. 并发、重试、幂等与 Outbox
 

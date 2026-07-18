@@ -14,7 +14,7 @@
 
 | 阶段 | 优先级 | 退出条件 |
 |---|---:|---|
-| H0 状态与门禁基线 | P0 | 状态矩阵成为 README/路线图唯一总览；CI 可识别危险 SQL |
+| H0 状态与门禁基线 | P0 | 状态矩阵成为 README/路线图唯一总览；CI 可识别危险 SQL 与命名漂移 |
 | H1 Seed 闭环 | P0 | 既有 Seed 计划 S0-S2 全部通过 SQL Server/MySQL |
 | H2 模块生命周期与宿主 Profile | P0 | 初始化钩子行为确定；三宿主注册漂移被架构测试阻止 |
 | H3 消息、缓存与日志可靠性 | P1 | 多版本/死信、陈旧窗口、高优先级日志故障场景可验证 |
@@ -42,13 +42,14 @@
 **Files:**
 - Create: `eng/sql-lint.ps1`
 - Create: `eng/sql-waivers/README.md`
+- Follow: `docs/superpowers/plans/2026-07-18-naming-governance.md`
 - Modify: `rules/development-quality.md`
 - Modify: `.github/workflows/ci.yml`
 - Test: `tests/Full.NET.ArchitectureTests/SqlGovernanceTests.cs`
 
-1. 先用测试夹具证明扫描器会拒绝应用 SQL 的 `SELECT *`、无 `WHERE` 的 `UPDATE/DELETE`，以及迁移中的 DROP/TRUNCATE/直接重命名等危险语句。
+1. 先用测试夹具证明扫描器会拒绝应用 SQL 的 `SELECT *`、无 `WHERE` 的 `UPDATE/DELETE`，以及迁移中的 DROP/TRUNCATE/直接重命名等危险语句；命名违规由同一 CI 阶段调用 Naming Profile 门禁报告，不在两个脚本重复实现规则。
 2. 定义窄范围、带到期版本的豁免 Schema；没有风险、备份/验证、发布策略和数据审查者时拒绝。
-3. 扫描模块内嵌 SQL、迁移脚本和代码生成模板；排除测试中明确标记的反例夹具。
+3. 扫描模块内嵌 SQL、迁移脚本和代码生成模板；排除测试中明确标记的反例夹具。命名债务只能来自精确 Allowlist，禁止目录级或通配豁免。
 4. 将危险 DDL 继续交给 SQL Server/MySQL 半完成迁移集成测试验证，Lint 不替代真实数据库。
 5. 记录行号、规则码和修复指导，避免只有模糊失败。
 
@@ -96,6 +97,7 @@
 3. 将 CTE、窗口、Upsert、锁、JSON、日期函数纳入准入表；默认业务 Handler 不含 Provider 分支。
 4. JSON 聚合/更新先在应用层实现；只有基准和 ADR 通过才增加双 Provider SQL。
 5. 在代码生成模板中生成两库配对测试骨架。
+6. Statement 名、表/列/约束和模板输出必须调用 Naming Profile/命名内核，不在 SQL Catalog 另建命名算法。
 
 ### Task 6: Outbox 多版本、最大重试与死信
 
