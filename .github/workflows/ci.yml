@@ -31,6 +31,9 @@ jobs:
           pnpm licenses list --prod --json > client-production-licenses.json
           pnpm licenses list --json > client-development-licenses.json
 
+      - name: Verify rules governance consistency
+        run: pnpm test:governance
+
       - name: Verify naming governance
         run: pnpm test:naming
 
