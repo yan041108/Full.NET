@@ -52,6 +52,20 @@ pnpm --filter @fullnet/admin-layui test
 pnpm --filter @fullnet/admin-parity-e2e test
 ```
 
+真实后端双管理端冒烟（需 Docker、.NET 10 SDK，且本机 `localhost` 可访问；管理端必须使用 `http://localhost`，不得用 `127.0.0.1`，否则 Refresh Cookie 无法写入）：
+
+```powershell
+pnpm test:e2e:real
+```
+
+该套件通过 Testcontainer 启动 SQL Server、执行 Migrator `--seed development` 并拉起 API（默认 `http://localhost:5149`），再对 Vue/Layui 各跑登录、动态导航与退出场景；禁止 `page.route` mock。已手动启动栈时可跳过引导：
+
+```powershell
+$env:FULLNET_E2E_SKIP_BOOTSTRAP = "1"
+$env:FULLNET_E2E_API_URL = "http://localhost:5149"
+pnpm test:e2e:real
+```
+
 ### 2.2 uni-app 三目标基础
 
 uni-app 要求同一 Node.js 24 与 pnpm 10.26.0 工作区。H5 开发、单元测试、标准 SFC 类型检查和三个生产目标分别运行：

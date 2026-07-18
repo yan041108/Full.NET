@@ -1,0 +1,14 @@
+{
+  "name": "@fullnet/admin-real-stack-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "bootstrap": "node scripts/bootstrap-stack.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "testcontainers": "11.12.0"
+  }
+}

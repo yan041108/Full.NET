@@ -13,9 +13,10 @@
     "test:uuid-storage": "node --test tests/database/uuid-storage-contract.test.mjs",
     "test:localization": "node --test tests/localization-contract.test.mjs",
     "test:workspace": "node tests/client-workspace.test.mjs",
-    "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/uniapp-h5-e2e --if-present test",
+    "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/admin-real-stack-e2e --filter=!@fullnet/uniapp-h5-e2e --if-present test",
     "build:clients": "pnpm --recursive --if-present build",
     "test:e2e": "pnpm --filter @fullnet/admin-parity-e2e test",
+    "test:e2e:real": "pnpm --filter @fullnet/admin-real-stack-e2e test",
     "test:e2e:uniapp": "pnpm --filter @fullnet/uniapp-h5-e2e test",
     "audit:clients": "node scripts/audit-client-dependencies.mjs"
   },

@@ -84,6 +84,49 @@ jobs:
             tests/e2e/uniapp-h5/test-results/**
           if-no-files-found: warn
 
+  real-stack-e2e:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install client dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build backend for real-stack E2E
+        run: dotnet build Full.NET.slnx --configuration Release
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
+
+      - name: Verify real backend admin smoke
+        run: pnpm test:e2e:real
+
+      - name: Upload real-stack reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-real-stack-e2e-reports
+          path: |
+            tests/e2e/admin-real-stack/playwright-report/**
+            tests/e2e/admin-real-stack/test-results/**
+          if-no-files-found: warn
+
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
