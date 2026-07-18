@@ -1,6 +1,8 @@
 # Full.NET 总体架构设计规格
 
 - 状态：已批准；后续在既定目标和授权范围内默认采用本文推荐方案推进
+- 硬化补充：[`2026-07-18-architecture-hardening-design.md`](2026-07-18-architecture-hardening-design.md)
+- 当前能力：[`../../roadmap/capability-status.md`](../../roadmap/capability-status.md)
 - 日期：2026-07-17
 - 项目目录：`G:\wwwroot\github_fork\Full.NET`
 - 产品名称：Full.NET
@@ -198,7 +200,9 @@ builder.Services
     .AddTenancyModule();
 ```
 
-不依赖大范围运行时程序集扫描。模块依赖图必须是有向无环图，由架构测试验证。
+不依赖大范围运行时程序集扫描。模块依赖图必须是有向无环图，由架构测试验证。Api、Worker、Migrator 和 Test 使用显式 Host Profile 声明完整模块或最小后台能力，模块 Catalog 与架构测试必须阻止宿主漏注册、顺序漂移和 Worker 为单个消费者装入完整 HTTP 模块。
+
+模块初始化必须在宿主接收业务流量前按依赖顺序恰好执行一次，失败时宿主不得进入就绪状态。初始化钩子只允许执行幂等运行时自检或准备，不得替代 Migration/Seed，也不得产生不可回滚外部副作用。接口一旦存在就必须有统一调用链；如果没有真实使用者，应删除钩子而不是保留“接口有、行为无”的能力。
 
 ### 5.2 Command 和 Query
 
@@ -247,6 +251,8 @@ gRPC 是 RPC 框架，MessagePack 是序列化格式，二者不作为同层替�
 MessagePack 集成事件使用显式 `[MessagePackObject]` 和整数 `[Key(n)]`。字段只能在尾部追加；已发布 Key 不得重排、复用或改变语义，删除字段后保留其编号。禁止 Typeless 和 Contractless Resolver，所有网络、数据库及消息来源均按不可信数据处理，启用 `MessagePackSecurity.UntrustedData` 并使用最新无已知高危漏洞的受支持版本。
 
 每个可靠事件保存 `MessageId`、`MessageType`、`SchemaVersion`、`ContentType`、`TenantId`、`TraceId` 和 `OccurredAt` 等可查询元数据。载荷以 SQL Server `varbinary(max)` 或 MySQL `longblob` 保存，不做 Base64，不依赖人工直接阅读二进制正文。压缩只在基准证明载荷大小收益超过 CPU 成本时按阈值启用。
+
+发布第二个事件版本时必须在兼容窗口内保留并行版本 Handler，或提供基于显式旧版本契约的相邻版本升级链；升级链不能先把旧载荷反序列化为当前 DTO，也不能启用 Typeless/Contractless。发布顺序固定为“先消费者、后生产者、最后退役旧消费者”，兼容窗口覆盖最长 Outbox 保留、失败重试和部署回滚窗口。超过最大尝试次数或确定不可重试的消息必须进入可查询、可审计重放的死信状态，单条毒消息不得永久阻塞批次。
 
 ## 6. 首版业务模块
 
@@ -331,13 +337,17 @@ Full.NET.Data.Abstractions
 
 首版正式支持 SQL Server 和 MySQL 8。PostgreSQL 保留 Provider 接口，在后续里程碑补齐迁移脚本和完整测试矩阵。
 
-分页、标识符、批量操作和迁移 SQL 由 `ISqlDialect` 和数据库专用脚本处理，不追求一条复杂 SQL 在所有数据库无条件通用。
+分页、标识符、批量操作和迁移 SQL 由小而稳定的 `ISqlDialect` 原语和数据库专用 Statement 处理，不追求一条复杂 SQL 在所有数据库无条件通用。Provider 专用 SQL 必须在同一语义名称下提供 SQL Server/MySQL 成对实现，明确输入、输出、并发与空值语义，并通过双库真实测试；业务 Handler 只选择语义，不得隐藏数据库函数分支。
+
+CTE、窗口函数、Upsert、锁、JSON 路径/聚合、日期函数和排序规则属于受控专有能力。JSON 聚合和局部更新默认放在应用层；SQL Server `MERGE` 不作为默认 Upsert。只有基准或原子性要求成立、两库实现完整且 ADR 获批时才能进入业务 SQL。
 
 ### 7.4 迁移
 
 DbUp 读取模块内嵌的、有序、数据库专用 SQL 脚本。`Host.Migrator` 负责执行并写入 Journal。已经发布的迁移脚本不可修改，只能新增向前迁移。
 
 生产环境 API 启动时不自动迁移数据库，迁移必须作为独立部署步骤。
+
+数据库结构采用 `expand -> migrate/backfill -> contract`。破坏性 DDL、缩窄类型、无保护的大表回填、应用 SQL 的 `SELECT *` 和无 `WHERE` 的 `UPDATE/DELETE` 默认由 CI 拒绝；确需执行时必须有机器可检查的限期豁免、数据验证/备份、前滚或回滚策略和独立数据审查者。Lint 不能替代 SQL Server/MySQL 的半完成迁移与真实集成测试。
 
 ## 8. 多租户数据隔离
 
@@ -513,6 +523,8 @@ fullnet:{environment}:{tenantId}:{module}:{resource}:{id}:{version}
 
 Outbox 保证失败后重试，Backplane 负责多节点本地缓存同步，两者职责不同。
 
+缓存按一致性分级：权限、用户禁用/安全戳、租户启停/到期、API Key 和 Session 属于安全关键数据，写事务提交后必须同步清除当前进程缓存，再由 Outbox/Backplane 修复其他节点；授权决定不能只依赖可能陈旧的 L1。业务关键配置声明最大陈旧窗口；字典和展示投影才可按上限使用 Fail-Safe 或 Background Refresh。Background Refresh 只优化延迟，不是正确性保证。
+
 ## 14. API 与错误模型
 
 API 使用 `/api/v1` 版本前缀和 OpenAPI。成功响应直接返回强类型数据，不包装成永远 HTTP 200 的 `{code,msg,data}`。分页统一返回 `items`、`page`、`pageSize` 和 `total`。
@@ -563,7 +575,7 @@ JSON 统一使用 System.Text.Json 的 Web 默认语义和 UTF-8 输出。每个
 
 Full.NET 使用 OpenTelemetry 标准关联日志、Trace 和 Metrics，不绑定单一监控平台。业务代码只调用 `ILogger<T>`，高频路径和固定模板使用 `[LoggerMessage]` 源生成；禁止业务模块直接调用 Serilog 静态 API。
 
-默认日志管道为 `ILogger<T> -> Serilog -> 异步有界 Sink -> JSON Console/集中式平台`。文件和网络 Sink 不在请求线程同步写入；队列必须有容量上限、使用率指标和丢弃计数，Debug/Information 在过载时允许按策略丢弃以保护业务吞吐。Warning/Error 使用独立路由或可靠降级策略。登录、授权、资金、租户、配置和 Agent 工具调用等审计记录不属于普通运行日志，必须通过数据库事务或 Outbox 可靠保存，不能因日志队列满而丢失。
+默认日志管道为 `ILogger<T> -> Serilog -> 异步有界 Sink -> JSON Console/集中式平台`。文件和网络 Sink 不在请求线程同步写入；队列必须有容量上限、使用率指标和丢弃计数，Debug/Information 在过载时允许按策略丢弃以保护业务吞吐。Error/Critical 使用独立容量、独立指标和本地短期 Spool/可靠 Sink 的高优先级通道；高优先级通道耗尽时进入健康降级和告警，但不默认阻塞请求线程同步写网络。登录、授权、资金、租户、配置和 Agent 工具调用等审计记录不属于普通运行日志，必须通过数据库事务或 Outbox 可靠保存，不能因日志队列满而丢失。
 
 每个 HTTP 请求默认只产生一条汇总访问日志；生产环境不默认记录完整请求体、响应体或高基数对象。日志输出在应用结束时有界刷新，不能无限等待慢 Sink。
 
@@ -639,7 +651,7 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 - API 契约测试验证 OpenAPI、状态码、ProblemDetails、权限和兼容性；
 - 兼容性测试验证 Admin.NET 响应适配、真实 HTTP 状态码及文件、流、SignalR、健康检查等排除规则；
 - 生成器使用 Golden File 测试，并编译生成结果、执行集成测试；
-- Playwright 覆盖登录、Token 刷新、权限、多租户、代码生成、文件和通知关键流程。
+- Playwright 分为快速 Mock 契约层和最小真实栈层。Mock 层覆盖双端一致场景；真实 API、数据库与 Redis 层覆盖 Cookie、精确 CORS、CSRF、登录、并发刷新、租户切换、退出和 ProblemDetails，二者不能互相替代。
 
 ### 20.5 性能基线
 

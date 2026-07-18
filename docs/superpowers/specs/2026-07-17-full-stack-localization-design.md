@@ -256,6 +256,17 @@ MAUI 仍受现有决策门禁约束。命中后使用 .resx、CurrentUICulture �
 
 翻译表必须由所属模块拥有，不建立跨模块通用 EAV 翻译表。这样可以保留外键、唯一约束、租户范围和 Dapper SQL 的可解释性，并能在 SQL Server/MySQL 上建立相同业务约束。
 
+首个真实消费者应使用以下参考结构固化模块约定，而不是提前建立全局 `fn_i18n_resources`：
+
+```text
+fn_{module}_{entity}_translation
+TenantId? + EntityId + Locale  唯一
+Name / Description / OtherTypedTranslatedFields
+Version + CreatedAt + UpdatedAt
+```
+
+租户实体必须把 `TenantId` 纳入唯一键和查询条件；Fallback 在应用层按统一语言链执行。需要筛选、排序、唯一性或局部更新的翻译内容使用明确列和索引，不采用 JSON；不参与上述操作的长描述只有在模块 ADR 与双库验证后才能使用 JSON。默认也不在核心表按语言增加 `Name_ZhCN/Name_EnUS` 列，避免语言扩展导致结构迁移。
+
 ## 9. 性能、缓存与安全
 
 1. 两种首期语言的壳层资源静态编译；大型业务模块达到可测量体积阈值后按模块/语言懒加载；

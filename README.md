@@ -4,7 +4,9 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 
 项目最终以 MIT 许可证发布。所使用的第三方组件及其许可证见 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES)。
 
-## M0–M1 基础与 M2 首批能力已实现
+## 当前基础能力
+
+项目仍处于 M2 建设阶段。以下是已经落地的基础范围，不代表完整后台框架、完整 RBAC 或 Admin.NET 全功能已经交付；权威状态、证据和缺口见[当前能力状态矩阵](docs/roadmap/capability-status.md)。
 
 - 标准 HTTP 状态码与 `zh-CN/en-US` 本地化 ProblemDetails，机器字段和结构化校验违规保持稳定；Admin.NET 响应信封为显式可选适配器。
 - 显式模块注册、CQRS 分发、租户上下文和基于域名的租户解析。
@@ -41,7 +43,7 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运�
 
 当前本地数据仍由 Migrator 的 `--seed-local` 硬编码入口创建。模块化种子管道已经完成设计但尚未实现：Production 可显式运行安全 `baseline`，Development/Demo/Test 在 Baseline 上叠加各自数据，Testcontainers 中的场景数据继续由隔离 Test Factory 创建。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
 
-更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。架构设计及 Admin.NET 功能对标路线位于 `docs/`。
+更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。当前能力以[状态矩阵](docs/roadmap/capability-status.md)为唯一总览；架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 
 客户端基础验证：
 

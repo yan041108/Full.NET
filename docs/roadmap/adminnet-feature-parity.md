@@ -4,6 +4,7 @@
 - 基线分支：`v2.1`
 - 建立日期：2026-07-17
 - 目标：Admin.NET.Pro 的适用功能原则上在 Full.NET 中全量对标
+- 当前能力总览：[`capability-status.md`](capability-status.md)
 
 ## 1. 对标定义
 
@@ -29,12 +30,14 @@
 
 功能对标完成的唯一标准是状态为 `Verified` 或经批准的 `Not Applicable`。
 
+本矩阵表达长期功能范围，不等于当前可用清单。当前真正落地的业务范围、验证级别和近期缺口以 `capability-status.md` 为唯一总览；任何公开介绍不得把大量 `Mapped` 行合计为“已具备完整后台能力”。
+
 ## 2. README 内置功能基线
 
 | Admin.NET.Pro 功能 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| 管理端登录、刷新会话、退出与当前用户 | Identity + `ui/admin` + `ui/admin-layui` | Core + Client | M2 | Verified |
-| 最小 RBAC、可信租户上下文与动态权限导航 | Identity + Tenancy + 双管理端 | Core + Client | M2 | Verified |
+| 管理端登录、刷新会话、退出与当前用户 | Identity + `ui/admin` + `ui/admin-layui` | Core + Client | M2 | Implemented |
+| 最小 RBAC、可信租户上下文与动态权限导航 | Identity + Tenancy + 双管理端 | Core + Client | M2 | Implemented |
 | 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | Mapped |
 | 用户管理 | Identity | Core | M2 | Mapped |
 | 机构管理 | Organization | Core | M2 | Mapped |
@@ -89,8 +92,8 @@
 | 国密 SM2/SM3/SM4 | Cryptography.GM | Provider | M5+ | Mapped |
 | 数据导入导出工具 | ImportExport | Official Module | M5+ | Mapped |
 | 服务器硬件与运行时信息 | Observability Admin | Official Module | M5+ | Mapped |
-| System.Text.Json 源生成与序列化基准 | Serialization | Core | M0-M1 | Designing |
-| MessagePack 可靠事件载荷 | Messaging + Outbox | Core | M1 | Designing |
+| System.Text.Json 源生成与序列化基准 | Serialization | Core | M0-M1 | Implemented |
+| MessagePack 可靠事件载荷 | Messaging + Outbox | Core | M1 | Implemented |
 | gRPC/Protobuf 跨进程同步通信 | ServiceCommunication.Grpc | Provider/Template | 首次服务拆分时 | Mapped |
 | SignalR、MessagePack Hub 和 Redis Backplane | Realtime | Core + Provider | M2 | Mapped |
 | 模型供应商中立 AI 抽象 | AI.Abstractions | Official Module | M5+ | Mapped |
@@ -123,7 +126,7 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 |---|---|---|---|---|
 | `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus | Client | M2-M4 | Implementing |
 | JS/HTML 完整管理端 | `ui/admin-layui`：Layui 2 + HTML/CSS/原生 JavaScript | Client | M2-M4，与 Vue 同步 | Implementing |
-| `App` H5/小程序资产 | `clients/uniapp`：H5、微信小程序、支付宝小程序 | Client | M3-M4 | Designing |
+| `App` H5/小程序资产 | `clients/uniapp`：H5、微信小程序、支付宝小程序 | Client | M3-M4 | Implementing |
 | 原生移动端 | `clients/flutter`：Android、iOS | Client | M5+ | Designing |
 | `Web_Desktop`/PC 桌面需求 | `clients/flutter`：Windows、macOS、Linux | Client | M5+ | Designing |
 | .NET MAUI 交付 | `clients/maui-template`：命中 C#/Windows 企业项目门禁后按需建立 | Provider/Template | M5+ 按需 | Mapped |
@@ -131,6 +134,8 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 | `GoView` | 可视化大屏客户端 | Client | M5+ | Mapped |
 
 Vue 与 Layui 覆盖相同的后台管理功能，采用同一模块的双端纵向切片同步开发。客户端功能只有在两端的入口、权限、租户、状态反馈、错误处理、关键流程和 E2E 都通过后才能标记为 `Verified`。视觉样式可以重新设计，不要求像素级复制；差异必须有显式记录和等价交互。
+
+登录/会话与最小 RBAC 已有 API 集成测试和 Mock 双端 E2E，但尚缺真实后端参与的浏览器 Cookie/CORS/CSRF/并发刷新链路，因此统一保留为 `Implemented`；真实栈门禁完成后再恢复 `Verified`。
 
 uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信/支付宝业务客户端，Flutter 负责原生移动和 PC 桌面。详细阶段、依赖和双端状态矩阵见 [`client-delivery-roadmap.md`](client-delivery-roadmap.md)。
 

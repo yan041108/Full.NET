@@ -6,6 +6,9 @@
 - 多语言设计：[`../superpowers/specs/2026-07-17-full-stack-localization-design.md`](../superpowers/specs/2026-07-17-full-stack-localization-design.md)
 - 多语言计划：[`../superpowers/plans/2026-07-17-full-stack-localization.md`](../superpowers/plans/2026-07-17-full-stack-localization.md)
 - 总功能矩阵：[`adminnet-feature-parity.md`](adminnet-feature-parity.md)
+- 全项目当前状态：[`capability-status.md`](capability-status.md)
+
+本文件维护客户端细节；全项目对外能力状态以 `capability-status.md` 为唯一总览，避免把客户端壳层完成误读为完整后台功能完成。
 
 ## 1. 交付目标
 
@@ -219,6 +222,8 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 |---|---|
 | 双管理端进度逐渐分叉 | 同一模块双端切片、双状态列、双端 E2E 作为统一退出门禁 |
 | Layui 代码退化为全局脚本 | 核心能力模块化、禁止内联业务脚本、静态检查和单元测试 |
+| Vue/Layui 会话与安全修复需要维护两份 | 提取无框架 headless 契约、状态机和共享协议夹具；DOM、路由器和 UI 组件继续独立 |
+| Mock E2E 掩盖 Cookie/CORS/中间件问题 | 保留快速 Mock 契约层，新增真实 API、数据库、Redis 的最小 Playwright 安全套件 |
 | 为追求一致而复制 UI 组件 | 只共享契约、令牌和场景，不共享框架 UI 源码 |
 | 多端认证采用最低共同标准 | 浏览器、小程序、原生应用分别采用适合平台的令牌策略 |
 | uni-app 条件编译散落 | 平台差异集中在 `platform/`，共享页面禁止直接访问平台专属 API |
@@ -233,7 +238,8 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 1. 先执行 L0/L1：建立仓库语言治理、ASP.NET Core 请求本地化、本地化 ProblemDetails 与结构化 violations；
 2. 执行 L2：补齐 Element Plus/Day.js、Layui 组件语言、Accept-Language 和账号/租户偏好；
 3. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
-4. 为 Identity 用户/角色/菜单、Tenancy 租户/套餐 CRUD 和 Organization 建立首批双管理端业务切片计划；当前只把可信租户上下文切换视为已验证基础，不把完整 C2.1 误标为完成；
-5. 继续执行 L3 uni-app 平台验收：在微信与支付宝开发者工具完成真实登录/API/错误/会话冒烟；当前仅为 `Implementing / Build-verified`；
-6. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 L4 Flutter 计划；
-7. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列和 L0-L6 状态。
+4. 先按[架构硬化实施计划](../superpowers/plans/2026-07-18-architecture-hardening.md)完成浏览器 headless 契约层、跨 Tab 刷新协调和真实后端双管理端 Playwright 安全套件；
+5. 为 Identity 用户/角色/菜单、Tenancy 租户/套餐 CRUD 和 Organization 建立首批双管理端业务切片计划；当前只把可信租户上下文切换视为已验证基础，不把完整 C2.1 误标为完成；
+6. 继续执行 L3 uni-app 平台验收：在微信与支付宝开发者工具完成真实登录/API/错误/会话冒烟；当前仅为 `Implementing / Build-verified`；
+7. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 L4 Flutter 计划；
+8. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列、L0-L6 和全项目能力状态矩阵。

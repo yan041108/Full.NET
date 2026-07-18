@@ -194,6 +194,8 @@ Test 自动先运行 Baseline。Test 专用 Contributor 放在 `tests/` 或 Samp
 
 审计历史不作为跳过依据。每次 Seed 都重新执行适用 Contributor，由 Contributor 查询真实业务状态并幂等协调，这样人工删除部分演示数据后可以重新补齐。
 
+Seed 不提供通用 `Down`。Contributor 可能通过领域服务写入 Outbox、引用数据或用户已修改内容，自动逆向删除无法证明安全。Development/Test 重置数据库使用 Testcontainers 临时库重建、受控 Drop/Recreate 或明确的备份恢复流程，与生产 Seeder 完全分离。版本升级时 Contributor 依据真实状态向前协调；删除、不可逆修正或大批量回填必须使用显式 Migration 或受审计管理命令。
+
 统一规则：
 
 - 使用稳定 code、Identifier、Username 等业务自然键查找，不依赖随机名称；
