@@ -43,7 +43,7 @@
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |
-| 模块化 Seed Baseline/Overlay | `Implemented` | Migrator 已按迁移后可选 Seed 两阶段编排，支持显式 Profile 与稳定失败码；已落地 SQL Server/MySQL 锁和审计、Baseline Identity Contributor、Development Tenancy Contributor及宿主依赖门禁；Release Build、Unit 277、Architecture 20、Integration 22 项通过 | 完整 Profile 的 SQL Server/MySQL E2E、Production Secret 注入与运维验收尚未实施，不能视为生产 Seed 可用或标记为 `Verified` |
+| 模块化 Seed Baseline/Overlay | `Implemented` | Migrator 已按迁移后可选 Seed 两阶段编排，支持显式 Profile 与稳定失败码；已落地 SQL Server/MySQL 锁和审计、Baseline Identity Contributor、Development Tenancy Contributor及宿主依赖门禁；Release Build、Unit 291、Compatibility 5、Architecture 24、Integration 58 项通过（[核对记录](../verification/test-threshold-audit-2026-07-19.md)，基线 `7894c8d`） | 完整 Profile 的 SQL Server/MySQL E2E、Production Secret 注入与运维验收尚未实施，不能视为生产 Seed 可用或标记为 `Verified` |
 | SignalR / Realtime | `Planned` | 架构边界已定义 | 抽象、鉴权分组、MessagePack Hub、Redis Backplane 尚未实现 |
 | gRPC 服务通信 | `Planned` | 架构边界已定义 | 首次真实服务拆分前不引入 |
 | AI / Agent / MCP / Agentic Web | `Planned` | M5+ 安全边界已定义 | 不属于 1.0 当前可用能力，不应占用近期底座优先级 |
@@ -72,6 +72,7 @@
 - [总体架构设计](../superpowers/specs/2026-07-17-fullnet-architecture-design.md)
 - [架构风险复核与硬化设计](../superpowers/specs/2026-07-18-architecture-hardening-design.md)
 - [外部静态分析复核记录](../verification/external-review-2026-07-18.md)
+- [测试数量门槛核对记录](../verification/test-threshold-audit-2026-07-19.md)
 - [架构硬化实施计划](../superpowers/plans/2026-07-18-architecture-hardening.md)
 - [Full.NET 命名规范](../../rules/naming-conventions.md)
 - [命名体系设计](../superpowers/specs/2026-07-18-fullnet-naming-conventions-design.md)
