@@ -1,0 +1,291 @@
+{
+  "contract": "UuidStorageContractV1",
+  "schemaVersion": 1,
+  "logicalType": "uuid-v7",
+  "legacyMigrationRange": "001-007",
+  "storageMigrations": [
+    "008_UuidBinaryExpand",
+    "009_UuidBinaryContract"
+  ],
+  "followingNamingMigrations": [
+    "010_NamingExpand",
+    "011_NamingContract"
+  ],
+  "mySql": {
+    "byteOrder": "rfc-9562-network",
+    "guidFormat": "Binary16",
+    "uuidToBinSwapFlag": 0
+  },
+  "vectors": [
+    {
+      "name": "readable-boundaries",
+      "uuid": "01890f4e-7c2a-7abc-8def-0123456789ab",
+      "hex": "01890f4e7c2a7abc8def0123456789ab"
+    },
+    {
+      "name": "seed-run-sample",
+      "uuid": "019822d3-0700-7000-8000-000000000201",
+      "hex": "019822d3070070008000000000000201"
+    },
+    {
+      "name": "upper-boundary",
+      "uuid": "ffffffff-ffff-7fff-bfff-ffffffffffff",
+      "hex": "ffffffffffff7fffbfffffffffffffff"
+    }
+  ],
+  "columns": [
+    {
+      "table": "fn_tenant_tenant",
+      "column": "Id",
+      "nullable": false,
+      "role": "primary",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_outbox_message",
+      "column": "Id",
+      "nullable": false,
+      "role": "primary",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_outbox_message",
+      "column": "TenantId",
+      "nullable": true,
+      "role": "reference",
+      "referencedTable": "fn_tenant_tenant",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_outbox_message",
+      "column": "LockId",
+      "nullable": true,
+      "role": "lease",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_user",
+      "column": "Id",
+      "nullable": false,
+      "role": "primary",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_user",
+      "column": "TenantId",
+      "nullable": true,
+      "role": "reference",
+      "referencedTable": "fn_tenant_tenant",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_refresh_session",
+      "column": "Id",
+      "nullable": false,
+      "role": "primary",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_refresh_session",
+      "column": "UserId",
+      "nullable": false,
+      "role": "foreign",
+      "referencedTable": "fn_identity_user",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_refresh_session",
+      "column": "FamilyId",
+      "nullable": false,
+      "role": "family",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_refresh_session",
+      "column": "ReplacedById",
+      "nullable": true,
+      "role": "reference",
+      "referencedTable": "fn_identity_refresh_session",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_refresh_session",
+      "column": "ActiveTenantId",
+      "nullable": true,
+      "role": "reference",
+      "referencedTable": "fn_tenant_tenant",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_auth_audit",
+      "column": "Id",
+      "nullable": false,
+      "role": "primary",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_auth_audit",
+      "column": "UserId",
+      "nullable": true,
+      "role": "foreign",
+      "referencedTable": "fn_identity_user",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_auth_audit",
+      "column": "SessionId",
+      "nullable": true,
+      "role": "reference",
+      "referencedTable": "fn_identity_refresh_session",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_auth_audit",
+      "column": "ContextTenantId",
+      "nullable": true,
+      "role": "reference",
+      "referencedTable": "fn_tenant_tenant",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_auth_audit",
+      "column": "ActorUserId",
+      "nullable": true,
+      "role": "reference",
+      "referencedTable": "fn_identity_user",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_role",
+      "column": "Id",
+      "nullable": false,
+      "role": "primary",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_role",
+      "column": "TenantId",
+      "nullable": true,
+      "role": "reference",
+      "referencedTable": "fn_tenant_tenant",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_user_role",
+      "column": "UserId",
+      "nullable": false,
+      "role": "foreign",
+      "referencedTable": "fn_identity_user",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_user_role",
+      "column": "RoleId",
+      "nullable": false,
+      "role": "foreign",
+      "referencedTable": "fn_identity_role",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_identity_role_permission",
+      "column": "RoleId",
+      "nullable": false,
+      "role": "foreign",
+      "referencedTable": "fn_identity_role",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_seed_run",
+      "column": "Id",
+      "nullable": false,
+      "role": "primary",
+      "referencedTable": null,
+      "referencedColumn": null,
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    },
+    {
+      "table": "fn_seed_run_item",
+      "column": "RunId",
+      "nullable": false,
+      "role": "foreign",
+      "referencedTable": "fn_seed_run",
+      "referencedColumn": "Id",
+      "sqlServerType": "uniqueidentifier",
+      "mySqlLegacyType": "char(36)",
+      "mySqlTargetType": "binary(16)"
+    }
+  ]
+}
