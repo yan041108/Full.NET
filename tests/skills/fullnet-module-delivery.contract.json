@@ -11,7 +11,11 @@
     "FusionCache",
     "MessagePack",
     "Outbox",
-    "中文"
+    "中文",
+    "rules/naming-conventions.md",
+    "pnpm test:naming",
+    "contracts/naming/naming-debt.json",
+    "Full.NET.Data.CodeGeneration"
   ],
   "scenarios": [
     {
@@ -61,6 +65,16 @@
         "SQL Server",
         "MySQL",
         "集成测试"
+      ]
+    },
+    {
+      "name": "命名与生成器",
+      "prompt": "新增带数据库、API、错误码和消息类型的生成模板。",
+      "required_terms": [
+        "Naming Profile",
+        "精确",
+        "债务",
+        "生成"
       ]
     }
   ]

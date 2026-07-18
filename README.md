@@ -51,6 +51,7 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运�
 ```powershell
 corepack enable
 pnpm install --frozen-lockfile
+pnpm test:naming
 pnpm test:workspace
 pnpm test:clients
 pnpm build:clients

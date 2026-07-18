@@ -296,7 +296,7 @@ MessagePack 集成事件使用显式 `[MessagePackObject]` 和整数 `[Key(n)]`�
 
 ### 6.9 CodeGeneration
 
-提供数据库元数据读取、模型定义、后端、SQL、Vue/Layui 双管理端页面、多平台 API 客户端和测试生成，是快速交付的核心能力。`Full.NET.Data.CodeGeneration` 是不依赖 Web 的生成引擎和 CLI 基础；`Full.NET.Modules.CodeGeneration` 负责权限、任务记录、模板管理和后台页面 API，不重复实现模板引擎。
+提供数据库元数据读取、模型定义、后端、SQL、Vue/Layui 双管理端页面、多平台 API 客户端和测试生成，是快速交付的核心能力。`Full.NET.Data.CodeGeneration` 是不依赖 Web 的生成引擎和 CLI 基础；当前已实现嵌入 Naming Profile 的表名、索引/约束确定性摘要和稳定协议校验纯函数，元数据读取、模板渲染、CLI 与双管理端生成仍按 M3 纵向样例推进。`Full.NET.Modules.CodeGeneration` 负责权限、任务记录、模板管理和后台页面 API，不重复实现模板引擎。
 
 ## 7. Dapper-first 数据层
 

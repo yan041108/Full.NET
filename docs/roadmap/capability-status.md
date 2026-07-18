@@ -1,7 +1,7 @@
 # Full.NET 当前能力状态矩阵
 
 - 快照日期：2026-07-18
-- 基线提交：`62ae522`
+- 基线提交：`af995c0`
 - 文档职责：作为“当前能用到什么程度”的唯一总览；详细范围仍由各规格、路线图和验证记录负责
 - 更新规则：每次里程碑、公开发布和能力状态变化时更新；没有可定位证据不得提升状态
 
@@ -23,9 +23,9 @@
 | 能力 | 状态 | 当前证据 | 主要缺口/下一门禁 |
 |---|---|---|---|
 | 模块化单体、显式模块依赖排序 | `Implemented` | `Full.NET.Modularity`、架构测试 | `InitializeAsync` 尚无统一调用；Api/Migrator/Worker 注册清单仍分散 |
-| 跨栈命名治理与生成器命名内核 | `Designing` | 已批准命名规范、设计规格和两阶段实施计划 | Naming Profile、精确债务清单、SQL/C#/协议门禁和 CodeGeneration 命名内核尚未实现；存量数据库/协议名尚未规范化 |
+| 跨栈命名治理与生成器命名内核 | `Implemented` | `contracts/naming/`、`pnpm test:naming`、15 项 Architecture Tests、`Full.NET.Data.CodeGeneration` 与[验证记录](../verification/naming-governance.md) | 90 项存量债务仍待 1.0 前规范化；动态 SQL 继续要求人工审查，完整业务模板与重复生成快照尚未交付，因此不能标记为 `Verified` |
 | Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks；QueryMultiple 顺序/完整消费及 SQL Server/MySQL 真实测试 | SqlBuilder 仅在首个真实动态列表命中门禁后引入；ProviderTools/Transaction/自动 CRUD 不引入；性能基准仍待真实消费者建立 |
-| SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试与既有验证命令 | 破坏性 DDL 审批、半完成迁移扫描和 CI SQL Lint 尚未闭环 |
+| SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
 | 标准 HTTP + ProblemDetails | `Build-verified` | API、兼容测试、Admin.NET 适配层 | OpenAPI 破坏性变更门禁和多客户端生成待补 |
@@ -58,9 +58,9 @@
 
 ## 4. 近期优先队列
 
-1. **P0：命名与生成基线**——先建立 Naming Profile、精确债务清单、SQL/C#/协议门禁和生成器共用命名内核；存量规范化按独立迁移计划执行，不阻塞规则先保护新增内容。
-2. **P0：生产可控性**——实施 Seed Baseline/Overlay，为超级管理员远程写操作接入 MFA/强认证 Provider并补账号禁用/删除保护；建立 SQL 破坏性变更门禁，并与命名门禁共用扫描入口而不复制规则。
-3. **P0：模块可增长性**——闭合模块初始化生命周期，建立 Api/Worker/Migrator 的显式宿主 Profile 与一致性测试。
+1. **P0：生产可控性**——实施 Seed Baseline/Overlay，为超级管理员远程写操作接入 MFA/强认证 Provider并补账号禁用/删除保护；建立 SQL 破坏性变更门禁，并复用现有命名扫描入口。
+2. **P0：模块可增长性**——闭合模块初始化生命周期，建立 Api/Worker/Migrator 的显式宿主 Profile 与一致性测试。
+3. **P0：1.0 前命名规范化**——按独立 Expand/Contract 计划迁移 90 项精确债务，不修改已执行迁移，不把存量旧名称复制到新模板。
 4. **P1：可靠性**——Outbox 版本兼容/死信、缓存一致性分级和高优先级日志通道。
 5. **P1：交付真实性**——真实后端参与的 Vue/Layui Playwright 安全冒烟；浏览器跨 Tab 刷新协调。
 6. **P1：复用而不耦合**——浏览器 headless 契约层；OpenAPI/协议夹具扩展到 uni-app/Flutter。

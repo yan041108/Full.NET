@@ -9,7 +9,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 先交付一条可运行、可验证的纵向切片，再扩展横向能力。每个切片同时满足模块边界、租户与授权、Dapper 双数据库、标准 API、中文注释和真实测试要求。
 
-开始前必须读取根目录 `AGENTS.md`、相关 `rules/`、架构规格和功能对标路线。需要精确路径、参考切片和验证命令时，读取 [交付地图](references/delivery-map.md)。
+开始前必须读取根目录 `AGENTS.md`、相关 `rules/`、架构规格和功能对标路线。涉及数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成产物时，必须读取 `rules/naming-conventions.md`。需要精确路径、参考切片和验证命令时，读取 [交付地图](references/delivery-map.md)。
 
 ## 1. 定义交付契约
 
@@ -18,6 +18,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 3. 明确归属为 `Core`、Official Module、Provider、Compatibility、Sample 或 Client。
 4. 区分本次必须交付与后续能力；没有真实消费者的抽象不要提前创建。
 5. 记录会变化的公共契约、数据库结构、事件格式和缓存语义。
+6. 从 Naming Profile 确定 OwnerKey、模块键、实体键、列名和稳定协议名称；不要让模板或模块各自实现大小写、截断或摘要算法。
 
 ## 2. 设计纵向切片
 
@@ -53,6 +54,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 ### Dapper 与双数据库
 
 - 使用 Dapper、参数化 SQL 和现有 SQL Scope；不要引入 EF Core 捷径。
+- 表、索引、约束和稳定协议名称通过 `Full.NET.Data.CodeGeneration` 校验或生成；表名超长必须重新设计，只有索引和约束可使用确定性摘要压缩。
 - 数据库行为变化时同时实现 SQL Server 与 MySQL 的 SQL、DbUp 迁移、索引和集成测试。
 - 非事务或隐式提交的 DDL 必须按结构探测、回填和约束收紧分别收敛；双库集成测试要模拟 DbUp 未记账且迁移部分完成后的重跑恢复。
 - 只读端点若不改变结构，不要创建迁移；只为实际查询添加 SQL 和测试。
@@ -73,6 +75,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 3. 只有明确需要旧客户端兼容时才通过 Compatibility 层启用 Admin.NET 包络，且保留真实状态码。
 4. 文件、流、SignalR、Webhook、健康检查和 `204 No Content` 不进入统一包络。
 5. JSON 使用 System.Text.Json；公开热路径 DTO 加入模块源生成上下文。
+6. 权限码、错误码、消息类型和 Statement ID 必须通过同一 Naming Profile；业务逻辑依赖稳定机器码，不依赖显示文本。
 
 ## 6. 接入运行时
 
@@ -85,12 +88,13 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 ## 7. 完成验证
 
-1. 先运行受影响测试，再运行 Release 构建和四套测试程序集；命令见交付地图。
+1. 先运行受影响测试和 `pnpm test:naming`，再运行 Release 构建和四套测试程序集；命令见交付地图。
 2. 使用 `--minimum-expected-tests` 防止零测试假通过；增删测试后同步 README、开发文档和 CI 的测试数量。
 3. 数据变更必须实际运行 SQL Server/MySQL 集成测试。依赖不可用时报告未验证项，不得写成通过。
 4. 检查 `git diff --check`、架构依赖、UTF-8、许可证和工作区状态。
 5. 更新功能对标状态时严格区分 Mapped、Implementing、Implemented 与 Verified。
 6. 执行 rules 复盘，再执行 Skills 复盘；达到门槛时在同一任务更新相应治理文件。
+7. 存量不兼容名称只可在 `contracts/naming/naming-debt.json` 按类型、值和文件精确登记，并给出移除里程碑；禁止通配、目录豁免或让新生成代码继承债务。
 
 ## 按需决策速查
 
@@ -98,6 +102,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 | --- | --- | --- |
 | 新业务状态与写入 | Domain、Command、Validator、Handler、双库 SQL/测试 | 与当前用例无关的通用仓储 |
 | 新数据库结构 | SQL Server/MySQL DbUp 迁移与回归测试 | 单库迁移或运行时自动建表 |
+| 新数据库/API/消息命名 | Naming Profile、`Full.NET.Data.CodeGeneration`、`pnpm test:naming` | 自行截断、通配债务或复制存量旧名称 |
 | 跨模块可靠通知 | Contract 事件、MessagePack、事务 Outbox、Handler | 事务提交前直接推送 |
 | 高频读且有失效事件 | FusionCache 键、提交后失效、多实例验证 | 没有失效策略的永久缓存 |
 | 标准 Web API | 授权、验证、Result 映射、ProblemDetails | 默认 Admin.NET 包络 |

@@ -132,6 +132,7 @@ CreatedAtUtc
 
 - Namespace、类型、方法、属性、事件和常量使用 PascalCase；接口使用 `I` 前缀；
 - 参数、局部变量和非公开实例字段使用 camelCase，私有实例字段使用 `_camelCase`；
+- positional record 的主构造参数同时生成公开属性，因此使用 PascalCase；该例外不适用于普通构造函数或方法参数。EditorConfig 对参数保留 IDE 建议，Architecture Tests 对排除编译器生成 record 成员后的普通方法参数执行硬门禁；
 - 异步方法使用 `Async` 后缀并接受 `CancellationToken`；
 - 非 Flags 枚举使用单数名并显式赋整数值；Flags 枚举使用复数名和二进制幂值；
 - 禁止把全大写蛇形用于 C# 常量；协议字符串的值按其协议规则，不因常量属性名改变大小写。

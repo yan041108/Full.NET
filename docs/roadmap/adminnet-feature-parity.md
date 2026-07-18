@@ -56,7 +56,7 @@
 | 系统配置 | Settings | Core | M3 | Mapped |
 | 邮件与短信 | Notifications Providers | Provider | M5+ | Mapped |
 | Swagger、OpenAPI 和接口文档 | Hosting | Core | M1 | Mapped |
-| 前后端代码生成 | CodeGeneration | Core | P0 Naming Profile/命名内核；M3 首个纵向样例 | Designing |
+| 前后端代码生成 | CodeGeneration | Core | P0 Naming Profile/命名内核；M3 首个纵向样例 | Implementing |
 | 在线表单构建器 | FormBuilder | Official Module | M5+ | Mapped |
 | 微信小程序与微信支付 | WeChat + Payments | Official Module + Provider | M5+ | Mapped |
 | Excel 导入导出、HTML/PDF 报告 | ImportExport + Reporting | Official Module + Provider | M5+ | Mapped |
