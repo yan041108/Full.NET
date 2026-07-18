@@ -317,11 +317,14 @@ Full.NET.Data.Abstractions
 - `IUnitOfWork`；
 - `ICurrentTransaction`；
 - `IQueryExecutor`；
+- `IMultiResultQueryExecutor` 与 `IMultiResultReader`；
 - `ICommandExecutor`；
 - `ISqlDialect`；
 - `IMigrationRunner`。
 
 业务代码不能直接创建连接，也不能直接调用裸 Dapper 扩展方法。框架执行器统一处理连接、事务、参数、租户上下文、超时、取消、日志、追踪和慢 SQL。
+
+原生 `QueryMultiple` 通过自有多结果集执行器暴露，业务层不能接触 `GridReader`。`Dapper.SqlBuilder` 只有真实动态列表消费者出现时才可由 `Full.NET.Data.QueryBuilding` 封装；用户值参数化，标识符和 SQL 片段来自代码白名单。详细准入见[Dapper 辅助能力设计](2026-07-18-dapper-tooling-design.md)。
 
 ### 7.2 SQL 原则
 
@@ -333,6 +336,7 @@ Full.NET.Data.Abstractions
 - 简单 CRUD 由生成器产生，复杂 SQL 存为靠近 Feature 的 `.sql` 文件；
 - 原生 SQL 逃生口必须显式声明数据作用域并进入审计；
 - 表、列、参数、Statement、索引和约束统一服从 [`rules/naming-conventions.md`](../../../rules/naming-conventions.md)，SQL Server/MySQL 不得各自派生命名。
+- 不引入 Dapper.ProviderTools、Dapper.Transaction、Rainbow、通用 Repository 或自动 CRUD 扩展；Provider 和事务继续服从 Full.NET 自有抽象。
 
 ### 7.3 数据库支持
 
@@ -341,6 +345,8 @@ Full.NET.Data.Abstractions
 分页、标识符、批量操作和迁移 SQL 由小而稳定的 `ISqlDialect` 原语和数据库专用 Statement 处理，不追求一条复杂 SQL 在所有数据库无条件通用。Provider 专用 SQL 必须在同一语义名称下提供 SQL Server/MySQL 成对实现，明确输入、输出、并发与空值语义，并通过双库真实测试；业务 Handler 只选择语义，不得隐藏数据库函数分支。
 
 CTE、窗口函数、Upsert、锁、JSON 路径/聚合、日期函数和排序规则属于受控专有能力。JSON 聚合和局部更新默认放在应用层；SQL Server `MERGE` 不作为默认 Upsert。只有基准或原子性要求成立、两库实现完整且 ADR 获批时才能进入业务 SQL。
+
+多结果集只用于具有共同参数和一致性窗口的聚合读取；必须顺序消费并在统一 Executor 内释放 Reader。动态 SQL 构建不能替代成对 Provider Statement，也不能把任意字符串变成安全 SQL。
 
 ### 7.4 迁移
 

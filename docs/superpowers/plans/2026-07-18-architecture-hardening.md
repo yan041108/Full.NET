@@ -85,6 +85,8 @@
 
 ### Task 5: 双数据库语义 SQL Catalog
 
+原生多结果集、受控动态查询构建及扩展包准入统一执行 [`2026-07-18-dapper-tooling.md`](2026-07-18-dapper-tooling.md)；本任务不再引入 ProviderTools、Dapper.Transaction 或另一套查询构建抽象。
+
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Data.Abstractions`
 - Modify: `src/BuildingBlocks/Full.NET.Data.Dapper`
@@ -98,6 +100,7 @@
 4. JSON 聚合/更新先在应用层实现；只有基准和 ADR 通过才增加双 Provider SQL。
 5. 在代码生成模板中生成两库配对测试骨架。
 6. Statement 名、表/列/约束和模板输出必须调用 Naming Profile/命名内核，不在 SQL Catalog 另建命名算法。
+7. 具有共同一致性窗口的聚合读取优先评估原生 QueryMultiple；动态筛选只有真实消费者命中门禁后才引入 SqlBuilder 封装。
 
 ### Task 6: Outbox 多版本、最大重试与死信
 

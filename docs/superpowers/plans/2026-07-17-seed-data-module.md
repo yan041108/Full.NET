@@ -481,11 +481,11 @@ git commit -m "feat: seed local development tenant"
 
 **Interfaces:**
 - Consumes: `AddFullNetSeeding`、`SeedCommandLine.Parse`、`ISeedOrchestrator`、`IIdentityBootstrapService` 与 `IdentityOptions.Bootstrap`。
-- Produces: `identity.host-administrator` Baseline Contributor，以及 Migrator 的迁移、可选 Seed 两阶段退出语义。
+- Produces: `identity.host-administrator` Baseline Contributor，以及 Migrator 的迁移、可选 Seed 两阶段退出语义；Contributor 必须遵循受保护超级管理员计划，不能复制角色或权限 SQL。
 
 - [ ] **Step 1: 写 Identity Baseline Contributor RED 测试**
 
-覆盖：Username/Password 任一缺失都返回 `seeding.bootstrap_secret_missing` 且不调用 Bootstrap；完整 Secret 调用 `BootstrapHostAdminAsync`，新建返回 Created=1、已存在授权同步返回 Updated=1；Bootstrap 失败映射稳定错误码；结果、日志和异常不包含 Password。Contributor 固定 `Name = "identity.host-administrator"`、`Version = 1`、Profiles 只含 Baseline。
+覆盖：Username/Password 任一缺失都返回 `seeding.bootstrap_secret_missing` 且不调用 Bootstrap；完整 Secret 调用 `BootstrapHostAdminAsync`，新建返回 Created=1、已存在受保护角色/账号关系修复返回 Updated=1；Bootstrap 失败映射稳定错误码；结果、日志和异常不包含 Password。Contributor 固定 `Name = "identity.host-administrator"`、`Version = 1`、Profiles 只含 Baseline。它只调用领域服务，不复制角色、权限或最后一名保护算法；Overlay 不得创建超级管理员。
 
 - [ ] **Step 2: 写 Workflow RED 测试**
 
@@ -565,7 +565,7 @@ git commit -m "feat: orchestrate baseline and development seeds"
 每个 provider 启动全新 Testcontainer，执行迁移并构建与 Migrator 相同的服务集合。测试顺序：
 
 1. `RunAsync(Development)` 首次成功，并按依赖顺序执行 `identity.host-administrator` 与 `tenancy.local-tenant`；
-2. 查询宿主管理员、系统授权和 `fn_tenant_tenant`，各自只有期望记录，local 恰好 1 条；
+2. 查询宿主管理员、受保护超级管理员系统角色/关系和 `fn_tenant_tenant`，各自只有期望记录，local 恰好 1 条；超级管理员动态权限由独立授权测试验证，不以逐项权限行数量作为事实源；
 3. 查询未处理的 TenantProvisioned Outbox，恰好 1 条；
 4. 第二次运行成功，管理员密码不改变，租户和创建 Outbox 仍各 1 条，第二个 run 的 Baseline/Development item 以 Updated/Skipped 报告；
 5. 在另一全新数据库手工写入 Identifier=`local`、Domain=`conflict.localhost` 后运行 Development，返回 `seeding.data_conflict` 且不覆盖；

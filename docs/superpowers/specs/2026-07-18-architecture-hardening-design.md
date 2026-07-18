@@ -76,6 +76,8 @@ Outbox 继续以 `(MessageType, SchemaVersion)` 路由，不用 CLR 类型名充
 
 `ISqlDialect` 只提供小而稳定的语法原语；复杂查询使用 Provider Statement Catalog，不演化成囊括全部数据库能力的“上帝接口”。SQL Server `MERGE` 不作为默认 Upsert；JSON 聚合、检索和局部更新默认在应用层完成，只有基准证明收益且双库语义可控时通过 ADR 准入。
 
+Provider 隔离不引入已长期停更且不能解决 SQL 语义差异的 `Dapper.ProviderTools`。原生 `QueryMultiple` 通过 Full.NET 自有执行器用于有共同参数/一致性窗口的聚合读取；`Dapper.SqlBuilder` 只在首个真实动态列表命中门禁时由专用构建层封装。现有 `ICommandTransaction + DbSession` 保持唯一事务路径，不引入 `Dapper.Transaction`。详细边界与实施顺序见[Dapper 辅助能力设计](2026-07-18-dapper-tooling-design.md)及[计划](../plans/2026-07-18-dapper-tooling.md)。
+
 ## 5. 缓存一致性等级
 
 | 等级 | 典型数据 | 规则 |

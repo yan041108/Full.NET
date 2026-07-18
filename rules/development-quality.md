@@ -28,6 +28,8 @@
 | 只替换管理壳层文案，遗漏组件库、服务端生成文本和其他客户端 | 各端语言状态漂移，错误与后台任务无法按用户语言交付，却被误报为全栈已支持 | R-20260717-full-stack-localization-boundary |
 | 没有区分生产 Baseline、环境 Overlay 和场景测试数据 | 默认密码、生产误播种、测试耦合和重复脏数据 | R-20260717-seed-data-boundary |
 | 把框架、项目和数据库系统对象都命名为 `sys_*`，或在各模板重复实现命名转换 | 所有权混淆、跨库大小写故障、Dapper 隐式映射和生成漂移 | `naming-conventions.md` |
+| 用用户名、通配符或无条件授权实现超级管理员，或允许移除最后一名 | 权限绕过、租户泄漏和平台失去恢复入口 | R-20260718-super-administrator-boundary |
+| 在业务模块直接引入 Dapper 扩展、连接、事务或自动 CRUD | 绕过租户守卫、事务/Outbox 和 SQL 审查边界 | R-20260718-dapper-tooling-boundary |
 
 ## 2. 任务开始与范围控制
 
@@ -91,6 +93,22 @@
 10. Provider 专有 SQL 必须按同一语义提供 SQL Server/MySQL 成对实现和真实测试。CTE、窗口、Upsert、锁、JSON 和日期函数不得以数据库分支散落在业务 Handler；JSON 聚合/变更默认在应用层完成。
 11. 新查询必须评估索引、排序稳定性、分页复杂度和最坏数据量。性能结论必须来自基准或执行计划，不得只凭 ORM 偏好判断。
 12. 新增或修改表、列、索引、约束、Statement 和生成模板必须遵守 [`naming-conventions.md`](naming-conventions.md)：表按冻结的 OwnerKey/ModuleKey/EntityKey 命名，列用 PascalCase 与 Dapper 投影直接映射；禁止 `sys` 项目 OwnerKey、运行时动态表前缀、全局 snake_case 映射和模板私有命名算法。
+
+### R-20260718-dapper-tooling-boundary：Dapper 辅助包不能绕过统一数据路径
+
+- 状态：强制
+- 来源：项目所有者要求评估 Dapper 官方/社区扩展；审查确认现有 Executor、租户守卫和事务已构成安全边界
+- 规则：业务模块不得直接引用 Dapper、ADO.NET 连接/事务、`GridReader`、`Dapper.ProviderTools`、`Dapper.Transaction`、Rainbow、Contrib、FluentMap、Dommel 或其他自动 CRUD/通用 Repository 包。原生 `QueryMultiple` 只能经 Full.NET 多结果集执行器顺序消费；`Dapper.SqlBuilder` 只有真实动态列表消费者命中门禁后才能由专用查询构建层封装，值必须参数化，列名、排序、运算符和 SQL 片段必须来自代码白名单。Provider 差异继续使用小型 `ISqlDialect` 与成对语义 Statement，事务继续使用 `ICommandTransaction + DbSession`。
+- 验证：架构/依赖测试阻止被拒绝引用；QueryMultiple、动态列表和 Provider Statement 必须通过 SQL Server/MySQL 真实集成测试；包引入同步许可证 Notice
+- 设计：[`../docs/superpowers/specs/2026-07-18-dapper-tooling-design.md`](../docs/superpowers/specs/2026-07-18-dapper-tooling-design.md)
+
+### R-20260718-super-administrator-boundary：超级管理员是受保护角色，不是授权旁路
+
+- 状态：强制
+- 来源：项目所有者确认对标 Admin.NET 引入默认拥有全部权限的超级管理员账号
+- 规则：超级管理员只能由持久化、受保护的 Host 系统角色表达，并从服务端授权目录动态投影当前可信作用域的全部适用权限；禁止用户名判断、用户表魔法字段、通配符权限和授权处理器无条件成功。每个 Endpoint 仍声明精确权限，超级管理员仍受租户隔离、账号/会话状态、安全戳、审计和高风险确认约束。授予、撤销、禁用或删除必须由专用领域服务处理，并在并发下至少保留一名有效超级管理员。
+- 验证：Unit 覆盖未知权限和作用域拒绝；SQL Server/MySQL 覆盖未来权限、最后一名并发保护和会话撤销；Vue/Layui 覆盖相同高风险流程与真实后端 E2E
+- 设计：[`../docs/superpowers/specs/2026-07-18-super-administrator-design.md`](../docs/superpowers/specs/2026-07-18-super-administrator-design.md)
 
 ## 6. 并发、重试、幂等与 Outbox
 

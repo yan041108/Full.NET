@@ -37,12 +37,14 @@
 ## Full.NET 不可隐式改变的基线
 
 - 数据访问以 Dapper 和显式 SQL 为默认实现；未经明确架构决策不得引入 EF Core 作为业务数据访问层。
+- Dapper 辅助能力只允许通过 Full.NET 自有边界使用：原生 `QueryMultiple` 经多结果集执行器暴露，`Dapper.SqlBuilder` 仅在真实动态列表消费者出现时由专用查询构建层封装；禁止业务模块直接引用 Dapper/ADO.NET、`Dapper.ProviderTools`、`Dapper.Transaction`、通用 Repository 或自动 CRUD 扩展。
 - 数据库正式支持 SQL Server 与 MySQL；数据库行为变更必须同时验证两者。
 - 数据库表采用 `{owner}_{module}_{entity}`：Full.NET 官方表的 OwnerKey 固定为 `fn`，项目表使用脚手架阶段冻结的项目 OwnerKey；`sys` 是保留 OwnerKey，禁止运行时动态表前缀。数据库列使用 PascalCase 与 C# Dapper 投影直接映射，详细命名服从 [`rules/naming-conventions.md`](rules/naming-conventions.md)。
 - 外部 HTTP API 使用标准状态码与 ProblemDetails；Admin.NET 统一包络只存在于兼容适配层。
 - JSON 使用 System.Text.Json；内部高性能序列化按既定边界使用 MessagePack，服务契约可使用 gRPC。
 - 缓存以 FusionCache 为唯一实现，并通过 `.AsHybridCache()` 同时暴露 HybridCache 抽象。
 - 后续功能以 Admin.NET 为功能参考目标，但实现必须遵守 Full.NET 的架构、安全和发布许可边界。
+- 默认引导账号属于受保护的 `host-administrator` 超级管理员系统角色，并按当前可信 Host/Tenant 上下文动态拥有授权目录中的全部适用权限；超级管理员不得绕过租户隔离、账号/会话状态、精确 Endpoint 权限、审计和高风险确认，且系统必须保护最后一名有效超级管理员。
 - 后台管理功能必须在 Vue 主管理端与 Layui JS/HTML 管理端按同一模块同步开发；只有两端的权限、租户、错误处理、关键流程和 E2E 都通过后，客户端功能才可标记为 `Verified`。
 - Vue 主管理端采用 Vue 3 + TypeScript + Vite + Element Plus，并以 MIT 的 Art Design Pro 作为管理壳层与交互基线；Apache-2.0 的 ECharts 是默认图表引擎，必须模块化注册和按需加载。富文本默认采用 MIT Tiptap Core，由 Vue/Layui 分别适配，禁止默认引入付费 Pro 扩展。只引入经许可证和资产来源审计的代码，Full.NET 自有认证、租户、权限、ProblemDetails、路由白名单和 OpenAPI 契约不得被模板内置 Mock/请求层替代。
 - Layui 管理端只依赖 MIT 的 Layui 核心库并独立实现；layuiAdmin 仅可作为公开页面的功能/交互参考，未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制或提交其源码及产品资产。

@@ -24,7 +24,7 @@
 |---|---|---|---|
 | 模块化单体、显式模块依赖排序 | `Implemented` | `Full.NET.Modularity`、架构测试 | `InitializeAsync` 尚无统一调用；Api/Migrator/Worker 注册清单仍分散 |
 | 跨栈命名治理与生成器命名内核 | `Designing` | 已批准命名规范、设计规格和两阶段实施计划 | Naming Profile、精确债务清单、SQL/C#/协议门禁和 CodeGeneration 命名内核尚未实现；存量数据库/协议名尚未规范化 |
-| Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks、Unit/Integration 测试 | 随业务 SQL 增长前补方言准入表和 SQL 静态门禁 |
+| Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks、Unit/Integration 测试 | 原生 QueryMultiple 执行器和真实消费者驱动的 SqlBuilder 封装已完成设计、尚未实现；ProviderTools/Transaction/自动 CRUD 不引入 |
 | SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试与既有验证命令 | 破坏性 DDL 审批、半完成迁移扫描和 CI SQL Lint 尚未闭环 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
@@ -34,6 +34,7 @@
 | Identity 会话安全基础 | `Build-verified` | 登录、轮换、重用撤销、CSRF/CORS、审计测试 | 多浏览器 Tab 刷新竞争和上下文切换线性化专项验证待补 |
 | Tenancy 可信上下文切换 | `Build-verified` | 租户解析、可用租户、切换与刷新集成测试 | 完整租户/套餐 CRUD 尚未开始；不能宣传为完整租户后台 |
 | 最小 RBAC 与权限导航 | `Build-verified` | 当前用户、权限、Vue/Layui 导航与按钮门禁 | 用户、角色、菜单、组织、数据范围管理 CRUD 尚未实现 |
+| 受保护超级管理员 | `Designing` | 已批准动态授权、最后一名保护和双端对等设计与实施计划 | 当前 `host-administrator` 仍依赖逐项权限同步；角色标记、动态 Claim、并发保护、双库和双端 E2E 尚未实现 |
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
 | Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E | 与 Vue 重复的会话/HTTP/导航规则需收敛到 headless 契约层 |
@@ -58,7 +59,7 @@
 ## 4. 近期优先队列
 
 1. **P0：命名与生成基线**——先建立 Naming Profile、精确债务清单、SQL/C#/协议门禁和生成器共用命名内核；存量规范化按独立迁移计划执行，不阻塞规则先保护新增内容。
-2. **P0：生产可控性**——实施 Seed Baseline/Overlay；建立 SQL 破坏性变更门禁，并与命名门禁共用扫描入口而不复制规则。
+2. **P0：生产可控性**——实施 Seed Baseline/Overlay 和受保护超级管理员；建立 SQL 破坏性变更门禁，并与命名门禁共用扫描入口而不复制规则。
 3. **P0：模块可增长性**——闭合模块初始化生命周期，建立 Api/Worker/Migrator 的显式宿主 Profile 与一致性测试。
 4. **P1：可靠性**——Outbox 版本兼容/死信、缓存一致性分级和高优先级日志通道。
 5. **P1：交付真实性**——真实后端参与的 Vue/Layui Playwright 安全冒烟；浏览器跨 Tab 刷新协调。
@@ -77,3 +78,5 @@
 - [客户端交付路线图](client-delivery-roadmap.md)
 - [Admin.NET.Pro 功能对标路线](adminnet-feature-parity.md)
 - [种子数据模块设计](../superpowers/specs/2026-07-17-seed-data-module-design.md)
+- [超级管理员设计](../superpowers/specs/2026-07-18-super-administrator-design.md)与[实施计划](../superpowers/plans/2026-07-18-super-administrator.md)
+- [Dapper 辅助能力设计](../superpowers/specs/2026-07-18-dapper-tooling-design.md)与[实施计划](../superpowers/plans/2026-07-18-dapper-tooling.md)

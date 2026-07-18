@@ -11,7 +11,7 @@ Full.NET 增加独立的种子数据基础设施，采用“生产安全基线�
 
 种子数据分成三个有明确继承关系、但不混淆发布边界的层次：
 
-1. **Baseline Seed**：生产安全初始化，包含系统权限、必要字典、首个宿主管理员等生产所需数据；安全敏感项必须使用显式 Secret。
+1. **Baseline Seed**：生产安全初始化，包含系统权限、必要字典、首个受保护超级管理员等生产所需数据；安全敏感项必须使用显式 Secret。
 2. **Development/Demo/Test Overlay**：分别在 Baseline 之上叠加本地开发、产品演示或自动化测试所需数据。
 3. **Scenario Test Fixture**：单个测试场景的订单、冲突、失败等数据仍由测试工厂创建；Test profile 负责共享基线，Test Factory 负责每个用例的隔离状态。
 
@@ -148,11 +148,11 @@ public interface IDataSeedContributor
 Baseline 可以在 Production 显式运行，只能包含生产运行所必需或安全的初始化数据：
 
 - 当前代码定义的系统权限、系统角色和角色权限关系；
-- 使用 Secret 创建或协调的首个宿主管理员；
+- 使用 Secret 创建或协调的首个受保护超级管理员；
 - 后续模块明确声明为系统目录的字典、配置、菜单或内置任务定义；
 - 生产必须存在且具有稳定 code 的基础数据。
 
-现有 `IIdentityBootstrapService` 由 `identity.host-administrator` Baseline Contributor 调用。Username、Password 和 DisplayName 来自配置/Secret；重复执行继续同步系统授权但不覆盖已有密码。缺少必需 Secret 时 Baseline 失败，不能静默产生一个没有管理员的“成功初始化”。
+现有 `IIdentityBootstrapService` 由 `identity.host-administrator` Baseline Contributor 调用。Username、Password 和 DisplayName 来自配置/Secret；超级管理员计划实施后，重复执行幂等修复受保护系统角色和账号关系，不再逐项同步权限，也不覆盖已有密码。缺少必需 Secret 时 Baseline 失败，不能静默产生一个没有管理员的“成功初始化”。Development/Demo/Test Overlay 不得另建超级管理员。详细边界见[超级管理员设计](2026-07-18-super-administrator-design.md)。
 
 Baseline 禁止包含示例订单、虚构客户、演示组织、可预测密码、随机大数据或只为 UI 好看的内容。
 
