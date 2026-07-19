@@ -39,7 +39,7 @@
 
 测试扫描当前 SQL 和代码，要求每个已登记债务有唯一目标且目标通过 Naming Profile；数据库映射必须说明 `expandName`、`switchRelease`、`contractRelease`，协议映射必须说明 `legacyValue`、`canonicalValue`、`compatibilityMode`。
 
-- [ ] **Step 2: 建立精确映射**
+- [x] **Step 2: 建立精确映射**
 
 至少包含：
 
@@ -57,17 +57,17 @@ fullnet.tenancy.tenant-provisioned -> fullnet.tenancy.tenant.provisioned
 
 错误、Audit 和 Statement 值只把同一语义段内连字符替换为下划线，例如 `identity.bootstrap.invalid-password -> identity.bootstrap.invalid_password`、`tenancy.domain-exists -> tenancy.domain_exists`、`identity.login-succeeded -> identity.login_succeeded`、`outbox.acquire.sql-server -> outbox.acquire.sql_server`。
 
-- [ ] **Step 3: 编写维护窗口 Runbook**
+- [x] **Step 3: 编写维护窗口 Runbook**
 
 Runbook 明确：停止 API/Worker；等待当前事务；记录未处理 Outbox 数量；执行备份；运行 Expand；核对行数/关键字段摘要；部署新 API/Worker；执行双端冒烟；保留旧对象；失败时停止新应用并回退旧版本。没有满足全部前置条件时迁移必须停止。
 
-- [ ] **Step 4: 运行映射测试**
+- [x] **Step 4: 运行映射测试**
 
 Run: `pnpm test:naming`
 
 Expected: PASS；不存在一个旧值映射到多个目标、目标超过 64 字符或未登记扫描结果。
 
-- [ ] **Step 5: 提交迁移合同**
+- [x] **Step 5: 提交迁移合同**
 
 ```bash
 git add contracts/naming tests/naming docs/development/pre-v1-naming-migration-runbook.md package.json
