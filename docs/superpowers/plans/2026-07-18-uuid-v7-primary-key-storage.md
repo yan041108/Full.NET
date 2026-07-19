@@ -289,19 +289,19 @@ git commit -m "test: verify uuid v7 persistence boundaries"
 - Consumes: ADR-0003、UuidStorageContractV1、目标数据库状态
 - Produces: 新模块/CRUD 默认生成正确物理类型、显式聚集属性和跨端契约
 
-- [ ] **Step 1: 先写生成器快照 RED 测试**
+- [x] **Step 1: 先写生成器快照 RED 测试**
 
 同一 UUID Schema 必须生成 C# `Guid`、SQL Server `uniqueidentifier`、MySQL `BINARY(16)` 和 JSON `string/uuid`；关系外键/复合主键沿用相同类型。Snowflake Profile 生成 `long/bigint` 和 JSON 字符串，并与 UUID Profile 互斥。
 
-- [ ] **Step 2: 增加 SQL 硬门禁**
+- [x] **Step 2: 增加 SQL 硬门禁**
 
 扫描新增/修改 MySQL 迁移，禁止 UUID 列使用 `char(36)`；扫描业务代码禁止手工 UUID 字节转换；扫描 SQL Server 新主键必须显式 `CLUSTERED`/`NONCLUSTERED`，并要求高写入表登记聚集索引用途。历史 001-007 只允许精确路径豁免，009 完成后删除该豁免。
 
-- [ ] **Step 3: 更新项目 Skill（测试先行）**
+- [x] **Step 3: 更新项目 Skill（测试先行）**
 
 先扩展 Skill 合同，要求任何新模块交付检查 UUID logical/physical mapping、MySQL Binary16、SQL Server clustering 和 API UUID string；确认现有 Skill 合同 RED 后再更新 `SKILL.md`，运行项目 Skill 验证与官方 `quick_validate.py`。
 
-- [ ] **Step 4: 运行生成器与治理验证**
+- [x] **Step 4: 运行生成器与治理验证**
 
 ```powershell
 pnpm test:uuid-storage

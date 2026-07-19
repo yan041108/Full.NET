@@ -55,6 +55,8 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 - 使用 Dapper、参数化 SQL 和现有 SQL Scope；不要引入 EF Core 捷径。
 - 表、索引、约束和稳定协议名称通过 `Full.NET.Data.CodeGeneration` 校验或生成；表名超长必须重新设计，只有索引和约束可使用确定性摘要压缩。
+- 新模块主键默认使用 `PrimaryKeyTypeMapping` 的 UUID v7 配置档：C# `Guid`、SQL Server `uniqueidentifier`、MySQL `BINARY(16)`、JSON `string/uuid`；Snowflake 只能由独立 ADR 授权且不得与 UUID 混用。
+- 010+ 迁移必须满足 `pnpm test:naming` 中的 UUID SQL 门禁：MySQL 禁止 UUID 列 `char(36)`；SQL Server 新 UUID 主键必须显式 `CLUSTERED`/`NONCLUSTERED`，高写入表（Outbox、Auth Audit）使用非聚集主键并配套时间聚集索引。
 - 数据库行为变化时同时实现 SQL Server 与 MySQL 的 SQL、DbUp 迁移、索引和集成测试。
 - 非事务或隐式提交的 DDL 必须按结构探测、回填和约束收紧分别收敛；双库集成测试要模拟 DbUp 未记账且迁移部分完成后的重跑恢复。
 - 只读端点若不改变结构，不要创建迁移；只为实际查询添加 SQL 和测试。

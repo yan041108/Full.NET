@@ -15,7 +15,10 @@
     "rules/naming-conventions.md",
     "pnpm test:naming",
     "contracts/naming/naming-debt.json",
-    "Full.NET.Data.CodeGeneration"
+    "Full.NET.Data.CodeGeneration",
+    "PrimaryKeyTypeMapping",
+    "BINARY(16)",
+    "CLUSTERED"
   ],
   "scenarios": [
     {
@@ -75,6 +78,17 @@
         "精确",
         "债务",
         "生成"
+      ]
+    },
+    {
+      "name": "UUID 主键模块",
+      "prompt": "新增使用 UUID v7 主键的业务模块和双库迁移。",
+      "required_terms": [
+        "BINARY(16)",
+        "uniqueidentifier",
+        "CLUSTERED",
+        "Guid",
+        "pnpm test:naming"
       ]
     },
     {

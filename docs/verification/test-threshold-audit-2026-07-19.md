@@ -78,6 +78,16 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 
 结论：声明门槛 **296/6/26/66** 与实测一致；UUID v7 应用持久化、读取路径与外部 JSON 契约相关新增测试在双库聚焦与 Integration 全量下均通过。本记录不将 UUID 能力整体提升为 `Verified`（生产维护窗口与 Runbook 实跑仍缺）。
 
+## 增补（2026-07-19，基线 `f855e86` 之后，P0 UUID Task 6）
+
+| 变更 | 说明 |
+| --- | --- |
+| UnitTests 门槛 **296 → 304** | `PrimaryKeyTypeMappingTests`（UUID v7 / Snowflake 四端映射与互斥） |
+| Node 治理 | `validate-uuid-storage-sql.mjs` + `uuid-storage-sql-governance.test.mjs`（FNUUID001–003）；`pnpm test:naming` **20/20** |
+| Skill 合同 | `fullnet-module-delivery` 新增 UUID 主键场景与 `PrimaryKeyTypeMapping`/`BINARY(16)`/`CLUSTERED` 术语 |
+
+四处 canonical 门槛已同步为 **304/6/26/66**。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
