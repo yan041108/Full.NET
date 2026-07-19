@@ -54,13 +54,13 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | 新鲜验证 | `pnpm test:e2e:real` **16/16**（SQL Server）；`pnpm test:e2e:real:mysql` **16/16**（MySQL）；新增 `permission-denied`、`session-cross-tab`；CI `real-stack-e2e-mysql` |
 | client-contracts | `session-refresh-coordinator` 无 Web Locks 时 `sessionStorage` 互斥回退，单测 **27** 项 |
 
-四处 canonical 门槛已同步为 **295/5/26/60**。
+四处 canonical 门槛已同步为 **295/5/26/62**。
 
 ## 增补（2026-07-19，基线 `9760590` 之后）
 
 | 变更 | 说明 |
 | --- | --- |
-| UnitTests 门槛 **294 → 295** | 新增 `GuidV7IdGeneratorTests`（P0 UUID Task 5 Step 1） |
+| Integration 门槛 **60 → 62** | 新增 `GuidPrimaryKeyApplicationTests`（SQL Server + MySQL 各 1） |
 
 ## 关联文档
 
