@@ -215,7 +215,7 @@ jobs:
           dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 62
+          --minimum-expected-tests 64
           --timeout 45m
           --report-trx
           --report-trx-filename Full.NET.IntegrationTests.trx
