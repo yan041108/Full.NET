@@ -18,7 +18,7 @@ internal sealed class Handler(
     IIdGenerator idGenerator)
     : ICommandHandler<ProvisionTenantCommand, TenantSummary>
 {
-    private const string EventType = "fullnet.tenancy.tenant-provisioned";
+    private const string EventType = "fullnet.tenancy.tenant.provisioned";
 
     public async Task<Result<TenantSummary>> HandleAsync(
         ProvisionTenantCommand command,

@@ -41,6 +41,12 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         Assert.HasCount(1, handlers);
         Assert.IsInstanceOfType<TenantProvisionedCacheInvalidationHandler>(
             handlers[0]);
+        Assert.AreEqual(
+            "fullnet.tenancy.tenant.provisioned",
+            handlers[0].EventType);
+        CollectionAssert.Contains(
+            handlers[0].LegacyEventTypes.ToArray(),
+            "fullnet.tenancy.tenant-provisioned");
         Assert.AreSame(
             scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>(),
             scope.ServiceProvider.GetRequiredService<ICurrentTenant>());

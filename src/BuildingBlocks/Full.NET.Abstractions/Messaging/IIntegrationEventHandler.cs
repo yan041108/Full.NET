@@ -4,6 +4,8 @@ public interface IIntegrationEventHandler
 {
     string EventType { get; }
 
+    IReadOnlyList<string> LegacyEventTypes => [];
+
     int SchemaVersion { get; }
 
     Task HandleAsync(

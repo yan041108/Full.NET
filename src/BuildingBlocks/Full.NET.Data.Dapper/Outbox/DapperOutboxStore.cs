@@ -98,7 +98,7 @@ internal sealed class DapperOutboxStore(
         CancellationToken cancellationToken)
     {
         var rows = await queryExecutor
-            .QueryAsync<SqlServerOutboxRow>(
+            .QueryAsync<OutboxRow>(
                 OutboxSql.AcquireSqlServer,
                 parameters,
                 cancellationToken)
@@ -125,29 +125,29 @@ internal sealed class DapperOutboxStore(
             },
             cancellationToken);
 
-    private static OutboxEnvelope Map(SqlServerOutboxRow row) => new(
-        row.Id,
-        row.LockId,
-        row.Type,
-        row.SchemaVersion,
-        row.ContentType,
-        row.TenantId,
-        row.TraceId,
-        row.Payload,
-        row.Attempts,
-        row.OccurredAt);
-
     private static OutboxEnvelope Map(MySqlOutboxRow row) => new(
         row.Id,
         row.LockId,
-        row.Type,
+        row.MessageType,
         row.SchemaVersion,
         row.ContentType,
         row.TenantId,
         row.TraceId,
         row.Payload,
         row.Attempts,
-        new DateTimeOffset(DateTime.SpecifyKind(row.OccurredAt, DateTimeKind.Utc)));
+        new DateTimeOffset(DateTime.SpecifyKind(row.OccurredAtUtc, DateTimeKind.Utc)));
+
+    private static OutboxEnvelope Map(OutboxRow row) => new(
+        row.Id,
+        row.LockId,
+        row.MessageType,
+        row.SchemaVersion,
+        row.ContentType,
+        row.TenantId,
+        row.TraceId,
+        row.Payload,
+        row.Attempts,
+        row.OccurredAtUtc);
 
     private static void EnsureSingleRow(int affectedRows, Guid id, Guid lockId)
     {
@@ -157,31 +157,31 @@ internal sealed class DapperOutboxStore(
         }
     }
 
-    private sealed class SqlServerOutboxRow
+    private sealed class OutboxRow
     {
         public Guid Id { get; init; }
         public Guid LockId { get; init; }
-        public string Type { get; init; } = string.Empty;
+        public string MessageType { get; init; } = string.Empty;
         public int SchemaVersion { get; init; }
         public string ContentType { get; init; } = string.Empty;
         public Guid? TenantId { get; init; }
         public string? TraceId { get; init; }
         public byte[] Payload { get; init; } = [];
         public int Attempts { get; init; }
-        public DateTimeOffset OccurredAt { get; init; }
+        public DateTimeOffset OccurredAtUtc { get; init; }
     }
 
     private sealed class MySqlOutboxRow
     {
         public Guid Id { get; init; }
         public Guid LockId { get; init; }
-        public string Type { get; init; } = string.Empty;
+        public string MessageType { get; init; } = string.Empty;
         public int SchemaVersion { get; init; }
         public string ContentType { get; init; } = string.Empty;
         public Guid? TenantId { get; init; }
         public string? TraceId { get; init; }
         public byte[] Payload { get; init; } = [];
         public int Attempts { get; init; }
-        public DateTime OccurredAt { get; init; }
+        public DateTime OccurredAtUtc { get; init; }
     }
 }

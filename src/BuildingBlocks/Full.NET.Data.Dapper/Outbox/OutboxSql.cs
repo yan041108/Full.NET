@@ -11,25 +11,27 @@ internal static class OutboxSql
         (
             SELECT TOP (@BatchSize) *
             FROM fn_outbox_message WITH (UPDLOCK, READPAST, ROWLOCK)
-            WHERE ProcessedAt IS NULL
-              AND (NextAttemptAt IS NULL OR NextAttemptAt <= @Now)
-              AND (LockedUntil IS NULL OR LockedUntil <= @Now)
-            ORDER BY OccurredAt
+            WHERE COALESCE(ProcessedAtUtc, ProcessedAt) IS NULL
+              AND (COALESCE(NextAttemptAtUtc, NextAttemptAt) IS NULL
+                   OR COALESCE(NextAttemptAtUtc, NextAttemptAt) <= @Now)
+              AND (COALESCE(LockedUntilUtc, LockedUntil) IS NULL
+                   OR COALESCE(LockedUntilUtc, LockedUntil) <= @Now)
+            ORDER BY COALESCE(OccurredAtUtc, OccurredAt)
         )
         UPDATE Pending
         SET LockId = @LockId,
-            LockedUntil = @LockedUntil,
+            LockedUntilUtc = @LockedUntil,
             Attempts = Attempts + 1
         OUTPUT inserted.Id,
                inserted.LockId,
-               inserted.Type,
+               COALESCE(inserted.MessageType, inserted.Type) AS MessageType,
                inserted.SchemaVersion,
                inserted.ContentType,
                inserted.TenantId,
                inserted.TraceId,
                inserted.Payload,
                inserted.Attempts,
-               inserted.OccurredAt;
+               COALESCE(inserted.OccurredAtUtc, inserted.OccurredAt) AS OccurredAtUtc;
         """,
         SqlDataScope.HostOnly);
 
@@ -38,12 +40,14 @@ internal static class OutboxSql
         """
         UPDATE fn_outbox_message
         SET LockId = @LockId,
-            LockedUntil = @LockedUntil,
+            LockedUntilUtc = @LockedUntil,
             Attempts = Attempts + 1
-        WHERE ProcessedAt IS NULL
-          AND (NextAttemptAt IS NULL OR NextAttemptAt <= @Now)
-          AND (LockedUntil IS NULL OR LockedUntil <= @Now)
-        ORDER BY OccurredAt
+        WHERE COALESCE(ProcessedAtUtc, ProcessedAt) IS NULL
+          AND (COALESCE(NextAttemptAtUtc, NextAttemptAt) IS NULL
+               OR COALESCE(NextAttemptAtUtc, NextAttemptAt) <= @Now)
+          AND (COALESCE(LockedUntilUtc, LockedUntil) IS NULL
+               OR COALESCE(LockedUntilUtc, LockedUntil) <= @Now)
+        ORDER BY COALESCE(OccurredAtUtc, OccurredAt)
         LIMIT @BatchSize;
         """,
         SqlDataScope.HostOnly);
@@ -53,17 +57,17 @@ internal static class OutboxSql
         """
         SELECT Id,
                LockId,
-               Type,
+               COALESCE(MessageType, Type) AS MessageType,
                SchemaVersion,
                ContentType,
                TenantId,
                TraceId,
                Payload,
                Attempts,
-               OccurredAt
+               COALESCE(OccurredAtUtc, OccurredAt) AS OccurredAtUtc
         FROM fn_outbox_message
         WHERE LockId = @LockId
-        ORDER BY OccurredAt;
+        ORDER BY COALESCE(OccurredAtUtc, OccurredAt);
         """,
         SqlDataScope.HostOnly);
 
@@ -71,11 +75,13 @@ internal static class OutboxSql
         "outbox.mark-processed",
         """
         UPDATE fn_outbox_message
-        SET ProcessedAt = @Now,
+        SET ProcessedAtUtc = @Now,
             LockId = NULL,
-            LockedUntil = NULL,
+            LockedUntilUtc = NULL,
             Error = NULL
-        WHERE Id = @Id AND LockId = @LockId AND ProcessedAt IS NULL;
+        WHERE Id = @Id
+          AND LockId = @LockId
+          AND COALESCE(ProcessedAtUtc, ProcessedAt) IS NULL;
         """,
         SqlDataScope.HostOnly);
 
@@ -83,11 +89,13 @@ internal static class OutboxSql
         "outbox.mark-failed",
         """
         UPDATE fn_outbox_message
-        SET NextAttemptAt = @NextAttemptAt,
+        SET NextAttemptAtUtc = @NextAttemptAt,
             LockId = NULL,
-            LockedUntil = NULL,
+            LockedUntilUtc = NULL,
             Error = @Error
-        WHERE Id = @Id AND LockId = @LockId AND ProcessedAt IS NULL;
+        WHERE Id = @Id
+          AND LockId = @LockId
+          AND COALESCE(ProcessedAtUtc, ProcessedAt) IS NULL;
         """,
         SqlDataScope.HostOnly);
 }

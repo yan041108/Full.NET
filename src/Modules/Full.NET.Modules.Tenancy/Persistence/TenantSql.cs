@@ -8,7 +8,7 @@ internal static class TenantSql
         "tenancy.find-by-identifier",
         """
         SELECT COUNT(*)
-        FROM fn_tenant_tenant
+        FROM fn_tenancy_tenant
         WHERE Identifier = @Identifier
         """,
         SqlDataScope.Global);
@@ -18,7 +18,7 @@ internal static class TenantSql
         "tenancy.tenant.find_summary_by_identifier",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version
-        FROM fn_tenant_tenant
+        FROM fn_tenancy_tenant
         WHERE Identifier = @Identifier
         """,
         SqlDataScope.Global);
@@ -27,7 +27,7 @@ internal static class TenantSql
         "tenancy.count-by-domain",
         """
         SELECT COUNT(*)
-        FROM fn_tenant_tenant
+        FROM fn_tenancy_tenant
         WHERE Domain = @Domain
         """,
         SqlDataScope.Global);
@@ -36,7 +36,7 @@ internal static class TenantSql
         "tenancy.find-by-domain",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
-        FROM fn_tenant_tenant
+        FROM fn_tenancy_tenant
         WHERE Domain = @Domain
         """,
         SqlDataScope.Global);
@@ -46,7 +46,7 @@ internal static class TenantSql
         "tenancy.find-by-explicit-id",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
-        FROM fn_tenant_tenant
+        FROM fn_tenancy_tenant
         WHERE Id = @TenantId
         """,
         SqlDataScope.Global);
@@ -55,7 +55,7 @@ internal static class TenantSql
         "tenancy.get-available-for-host-administrator",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
-        FROM fn_tenant_tenant
+        FROM fn_tenancy_tenant
         WHERE IsActive = 1
         ORDER BY Name, Identifier, Id
         """,
@@ -64,10 +64,10 @@ internal static class TenantSql
     public static readonly SqlStatement Insert = new(
         "tenancy.insert",
         """
-        INSERT INTO fn_tenant_tenant
-            (Id, Identifier, Name, Domain, IsActive, CreatedAt, Version, DefaultLocale)
+        INSERT INTO fn_tenancy_tenant
+            (Id, Identifier, Name, Domain, IsActive, CreatedAtUtc, Version, DefaultLocale)
         VALUES
-            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAt, @Version, @DefaultLocale)
+            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAtUtc, @Version, @DefaultLocale)
         """,
         SqlDataScope.HostOnly);
 
@@ -75,7 +75,7 @@ internal static class TenantSql
         "tenancy.get-current",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
-        FROM fn_tenant_tenant
+        FROM fn_tenancy_tenant
         WHERE Id = @TenantId AND IsActive = 1
         """,
         SqlDataScope.TenantRequired);

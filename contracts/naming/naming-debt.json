@@ -59,10 +59,59 @@
       "removalMilestone": "M1.0"
     },
     {
-      "kind": "message_type",
-      "value": "fullnet.tenancy.tenant-provisioned",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Features/ProvisionTenant/Handler.cs",
-      "reason": "已持久化消息类型使用连字符，必须在旧消息排空前保留显式别名。",
+      "kind": "column",
+      "value": "fn_outbox_message.OccurredAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史时间列缺少 Utc 后缀，010 Expand 已新增镜像列，待 011 Contract 删除 legacy 列。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.ProcessedAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史时间列缺少 Utc 后缀，010 Expand 已新增镜像列，待 011 Contract 删除 legacy 列。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.NextAttemptAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史时间列缺少 Utc 后缀，010 Expand 已新增镜像列，待 011 Contract 删除 legacy 列。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.LockedUntil",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
+      "reason": "历史时间列缺少 Utc 后缀，010 Expand 已新增镜像列，待 011 Contract 删除 legacy 列。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.OccurredAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史时间列缺少 Utc 后缀，010 Expand 已新增镜像列，待 011 Contract 删除 legacy 列。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.ProcessedAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史时间列缺少 Utc 后缀，010 Expand 已新增镜像列，待 011 Contract 删除 legacy 列。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.NextAttemptAt",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史时间列缺少 Utc 后缀，010 Expand 已新增镜像列，待 011 Contract 删除 legacy 列。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.LockedUntil",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/001_Foundation.sql",
+      "reason": "历史时间列缺少 Utc 后缀，010 Expand 已新增镜像列，待 011 Contract 删除 legacy 列。",
       "removalMilestone": "M1.0"
     },
     {
@@ -171,13 +220,6 @@
       "removalMilestone": "M1.0"
     },
     {
-      "kind": "table",
-      "value": "fn_tenant_tenant",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
-      "reason": "现有静态 SQL 仍依赖旧 Tenancy 表名，必须与数据库规范化迁移同步切换。",
-      "removalMilestone": "M1.0"
-    },
-    {
       "kind": "query",
       "value": "select_all_columns",
       "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
@@ -223,7 +265,7 @@
       "kind": "message_type",
       "value": "fullnet.tenancy.tenant-provisioned",
       "file": "src/Modules/Full.NET.Modules.Tenancy/TenantProvisionedCacheInvalidationHandler.cs",
-      "reason": "既有消费者声明的消息类型使用连字符，必须与生产者和待处理消息同步迁移。",
+      "reason": "Worker 路由在旧消息排空前通过 LegacyEventTypes 显式兼容连字符 MessageType。",
       "removalMilestone": "M1.0"
     },
     {
@@ -749,6 +791,41 @@
       "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/010_NamingExpand.sql",
       "reason": "010 Expand 在单批次 ALTER 后通过 EXEC 动态 SQL 引用新 Outbox 镜像列，避免 SQL Server 编译期列解析失败。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.Type",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "reason": "010 Expand 后读取路径通过 COALESCE 兼容 legacy Type，待 011 Contract 删除旧列后移除。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.OccurredAt",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "reason": "010 Expand 后读取路径通过 COALESCE 兼容 legacy OccurredAt，待 011 Contract 删除旧列后移除。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.ProcessedAt",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "reason": "领取与完成路径在 legacy 消息排空前仍需识别 ProcessedAt。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.NextAttemptAt",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "reason": "失败重试路径在 legacy 消息排空前仍需识别 NextAttemptAt。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "column",
+      "value": "fn_outbox_message.LockedUntil",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "reason": "租约路径在 legacy 消息排空前仍需识别 LockedUntil。",
       "removalMilestone": "M1.0"
     }
   ]

@@ -8,6 +8,6 @@ internal sealed record Tenant(
     string Name,
     string Domain,
     bool IsActive,
-    DateTimeOffset CreatedAt,
+    DateTimeOffset CreatedAtUtc,
     int Version,
     string DefaultLocale = LocaleCatalog.DefaultLocale);

@@ -146,25 +146,25 @@ git commit -m "feat: expand canonical database names"
 - Consumes: 010 Expand 后的新表/列
 - Produces: 新写入只使用规范数据库名称；Worker 同时消费 legacy/canonical MessageType
 
-- [ ] **Step 1: 先写应用切换失败测试**
+- [x] **Step 1: 先写应用切换失败测试**
 
 覆盖 Tenant 创建/解析/查询只访问 `fn_tenancy_tenant`；Outbox 新写入填充 `MessageType` 和 `...Utc` 列；Worker 对 `fullnet.tenancy.tenant-provisioned` 与 `fullnet.tenancy.tenant.provisioned` 都路由到同一幂等处理语义；未知类型仍失败/进入既定重试路径。
 
-- [ ] **Step 2: 运行聚焦测试并确认仍访问旧名称而失败**
+- [x] **Step 2: 运行聚焦测试并确认仍访问旧名称而失败**
 
 Run: 使用 README 的 Release Build 后 Unit/Integration Test 命令，并通过 `--filter "Tenancy|Outbox|Naming"` 聚焦。
 
 Expected: FAIL，断言 SQL 或新列尚未切换。
 
-- [ ] **Step 3: 切换 Tenancy 与 Outbox**
+- [x] **Step 3: 切换 Tenancy 与 Outbox**
 
 Tenant 领域属性统一为 `CreatedAtUtc/UpdatedAtUtc`；所有静态 SQL 使用新表和规范列。Outbox Row/Envelope 使用 `MessageType` 和规范 UTC 属性；旧数据库列只由迁移兼容逻辑读取，业务路径不得继续双写无期限债务。
 
-- [ ] **Step 4: 添加旧消息类型别名路由**
+- [x] **Step 4: 添加旧消息类型别名路由**
 
 Handler 声明一个 Canonical MessageType 和显式 Legacy Aliases，启动时仍验证 `(MessageType, SchemaVersion)` 唯一。两种类型反序列化同一 MessagePack Schema，幂等键继续使用 MessageId，不能重新发布造成重复副作用。
 
-- [ ] **Step 5: 运行双库、Worker 和缓存失效验证**
+- [x] **Step 5: 运行双库、Worker 和缓存失效验证**
 
 Run: README 中 Unit、Architecture、Integration 的完整 Release 命令及 `pnpm test:naming`。
 

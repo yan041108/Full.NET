@@ -85,19 +85,15 @@ internal sealed class OutboxProcessor(
                     $"Unsupported Outbox content type '{message.ContentType}'.");
             }
 
-            var matchingHandlers = handlers
-                .Where(handler =>
-                    string.Equals(
-                        handler.EventType,
-                        message.Type,
-                        StringComparison.Ordinal)
-                    && handler.SchemaVersion == message.SchemaVersion)
-                .ToArray();
-            if (matchingHandlers.Length != 1)
+            var matchingHandlers = IntegrationEventHandlerMatcher.Match(
+                handlers,
+                message.MessageType,
+                message.SchemaVersion);
+            if (matchingHandlers.Count != 1)
             {
                 throw new InvalidOperationException(
-                    $"Expected one handler for '{message.Type}' schema {message.SchemaVersion}, "
-                    + $"but found {matchingHandlers.Length}.");
+                    $"Expected one handler for '{message.MessageType}' schema {message.SchemaVersion}, "
+                    + $"but found {matchingHandlers.Count}.");
             }
 
             await matchingHandlers[0]
@@ -112,7 +108,7 @@ internal sealed class OutboxProcessor(
             OutboxProcessorLog.MessageProcessed(
                 logger,
                 message.Id,
-                message.Type,
+                message.MessageType,
                 message.SchemaVersion,
                 message.Attempts);
         }
@@ -136,7 +132,7 @@ internal sealed class OutboxProcessor(
                 logger,
                 exception,
                 message.Id,
-                message.Type,
+                message.MessageType,
                 message.SchemaVersion,
                 message.Attempts,
                 retryAt);

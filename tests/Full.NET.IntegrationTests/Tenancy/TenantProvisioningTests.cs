@@ -120,7 +120,9 @@ public sealed class TenantProvisioningTests
             Assert.AreEqual("tenancy.identifier-exists", duplicate.Error.Code);
 
             var outbox = await ReadOutboxAsync(databaseProvider, connectionString);
-            Assert.AreEqual("fullnet.tenancy.tenant-provisioned", outbox.Type);
+            Assert.AreEqual("fullnet.tenancy.tenant.provisioned", outbox.MessageType);
+            Assert.IsNull(outbox.LegacyType);
+            Assert.AreNotEqual(default(DateTimeOffset), outbox.OccurredAtUtc);
             Assert.AreEqual(1, outbox.SchemaVersion);
             Assert.AreEqual("application/x-msgpack", outbox.ContentType);
             Assert.IsTrue(outbox.Payload.Length > 0);
@@ -142,7 +144,7 @@ public sealed class TenantProvisioningTests
             var leasedMessage = leasedMessages[0];
             Assert.AreNotEqual(Guid.Empty, leasedMessage.LockId);
             Assert.AreEqual(1, leasedMessage.Attempts);
-            Assert.AreEqual(outbox.Type, leasedMessage.Type);
+            Assert.AreEqual(outbox.MessageType, leasedMessage.MessageType);
             CollectionAssert.AreEqual(outbox.Payload, leasedMessage.Payload);
             await outboxStore.MarkProcessedAsync(
                 leasedMessage.Id,
@@ -167,6 +169,9 @@ public sealed class TenantProvisioningTests
 
         Assert.AreEqual(
             1L,
+            await CountAsync(databaseProvider, connectionString, "fn_tenancy_tenant"));
+        Assert.AreEqual(
+            0L,
             await CountAsync(databaseProvider, connectionString, "fn_tenant_tenant"));
         Assert.AreEqual(
             1L,
@@ -202,7 +207,7 @@ public sealed class TenantProvisioningTests
             await CountAsync(
                 databaseProvider,
                 connectionString,
-                "fn_tenant_tenant",
+                "fn_tenancy_tenant",
                 "Identifier = 'rollback'"));
         Assert.AreEqual(
             1L,
@@ -262,9 +267,14 @@ public sealed class TenantProvisioningTests
         await using var connection = CreateConnection(databaseProvider, connectionString);
         return await connection.QuerySingleAsync<OutboxRow>(
             """
-            SELECT Type, SchemaVersion, ContentType, Payload
+            SELECT MessageType,
+                   Type AS LegacyType,
+                   OccurredAtUtc,
+                   SchemaVersion,
+                   ContentType,
+                   Payload
             FROM fn_outbox_message
-            WHERE ProcessedAt IS NULL
+            WHERE COALESCE(ProcessedAtUtc, ProcessedAt) IS NULL
             """);
     }
 
@@ -308,7 +318,11 @@ public sealed class TenantProvisioningTests
 
     private sealed class OutboxRow
     {
-        public string Type { get; set; } = string.Empty;
+        public string MessageType { get; set; } = string.Empty;
+
+        public string? LegacyType { get; set; }
+
+        public DateTimeOffset OccurredAtUtc { get; set; }
 
         public int SchemaVersion { get; set; }
 

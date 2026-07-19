@@ -110,7 +110,21 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | --- | --- | --- |
 | Integration 聚焦 | `--filter "NamingExpand\|NamingPartialRecovery"`，`--minimum-expected-tests 8` | **8/8** 通过，约 9m 54s |
 
-四处 canonical 门槛已同步为 **304/6/26/74**（Integration 全量 74 项待下一轮 CI/本地全量重跑确认）。
+四处 canonical 门槛已同步为 **308/6/26/74**（Integration 全量 74 项待下一轮 CI/本地全量重跑确认）。
+
+## 增补（2026-07-19，命名规范化 Task 3 Step 5）
+
+| 变更 | 说明 |
+| --- | --- |
+| UnitTests 门槛 **304 → 308** | `IntegrationEventHandlerMatcherTests`（2）与 `OutboxProcessorTests` 别名/未知类型（2） |
+| 应用切换 | Tenancy 写入 `fn_tenancy_tenant` + `CreatedAtUtc`；Outbox 写入 `MessageType`/`OccurredAtUtc`；Worker 兼容 legacy MessageType |
+
+| 验证 | 结果 |
+| --- | --- |
+| Unit 聚焦（Outbox/Tenancy/Messaging） | **8/8** 通过 |
+| Integration `TenantProvisioning` | **2/2** 通过（双库） |
+| `pnpm test:naming` | **22/22** 通过 |
+| Architecture | **26/26** 通过 |
 
 ## 关联文档
 

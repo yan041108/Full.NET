@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Caching.Fusion;
 using Full.NET.Composition;
 using Full.NET.Data.Dapper;
@@ -21,4 +22,10 @@ builder.Services.AddFullNetApplicationModules(
 builder.Services.AddHostedService<OutboxProcessor>();
 
 var host = builder.Build();
+using (var scope = host.Services.CreateScope())
+{
+    IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
+        scope.ServiceProvider.GetServices<IIntegrationEventHandler>());
+}
+
 await host.RunAsync();

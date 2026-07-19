@@ -10,7 +10,12 @@ internal sealed class TenantProvisionedCacheInvalidationHandler(
     IIntegrationEventSerializer serializer,
     HybridCache cache) : IIntegrationEventHandler
 {
-    public string EventType => "fullnet.tenancy.tenant-provisioned";
+    private static readonly string[] LegacyEventTypesValue =
+        ["fullnet.tenancy.tenant-provisioned"];
+
+    public string EventType => "fullnet.tenancy.tenant.provisioned";
+
+    public IReadOnlyList<string> LegacyEventTypes => LegacyEventTypesValue;
 
     public int SchemaVersion => 1;
 

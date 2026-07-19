@@ -164,3 +164,33 @@ WHERE NextAttemptAtUtc IS NULL AND NextAttemptAt IS NOT NULL;
 UPDATE fn_outbox_message
 SET LockedUntilUtc = LockedUntil
 WHERE LockedUntilUtc IS NULL AND LockedUntil IS NOT NULL;
+
+SET @legacy_type_nullable := (
+    SELECT IS_NULLABLE = 'YES'
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_outbox_message'
+      AND COLUMN_NAME = 'Type'
+);
+SET @legacy_type_nullable_sql := IF(
+    @legacy_type_nullable,
+    'SELECT 1',
+    'ALTER TABLE fn_outbox_message MODIFY COLUMN Type varchar(256) NULL');
+PREPARE legacy_type_nullable_stmt FROM @legacy_type_nullable_sql;
+EXECUTE legacy_type_nullable_stmt;
+DEALLOCATE PREPARE legacy_type_nullable_stmt;
+
+SET @legacy_occurred_nullable := (
+    SELECT IS_NULLABLE = 'YES'
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_outbox_message'
+      AND COLUMN_NAME = 'OccurredAt'
+);
+SET @legacy_occurred_nullable_sql := IF(
+    @legacy_occurred_nullable,
+    'SELECT 1',
+    'ALTER TABLE fn_outbox_message MODIFY COLUMN OccurredAt datetime(6) NULL');
+PREPARE legacy_occurred_nullable_stmt FROM @legacy_occurred_nullable_sql;
+EXECUTE legacy_occurred_nullable_stmt;
+DEALLOCATE PREPARE legacy_occurred_nullable_stmt;

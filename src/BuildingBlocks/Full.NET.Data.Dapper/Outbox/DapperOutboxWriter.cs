@@ -17,9 +17,9 @@ internal sealed class DapperOutboxWriter(
         "outbox.insert",
         """
         INSERT INTO fn_outbox_message
-            (Id, Type, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAt, Attempts)
+            (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAtUtc, Attempts)
         VALUES
-            (@Id, @Type, @SchemaVersion, @ContentType, @TenantId, @TraceId, @Payload, @OccurredAt, 0)
+            (@Id, @MessageType, @SchemaVersion, @ContentType, @TenantId, @TraceId, @Payload, @OccurredAtUtc, 0)
         """,
         SqlDataScope.Global);
 

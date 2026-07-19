@@ -124,3 +124,23 @@ UPDATE dbo.fn_outbox_message
 SET LockedUntilUtc = LockedUntil
 WHERE LockedUntilUtc IS NULL AND LockedUntil IS NOT NULL;
 ');
+
+IF EXISTS
+(
+    SELECT 1
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.fn_outbox_message')
+      AND name = N'Type'
+      AND is_nullable = 0
+)
+    ALTER TABLE dbo.fn_outbox_message ALTER COLUMN Type nvarchar(256) NULL;
+
+IF EXISTS
+(
+    SELECT 1
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.fn_outbox_message')
+      AND name = N'OccurredAt'
+      AND is_nullable = 0
+)
+    ALTER TABLE dbo.fn_outbox_message ALTER COLUMN OccurredAt datetimeoffset(7) NULL;

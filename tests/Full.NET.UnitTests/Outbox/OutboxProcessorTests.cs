@@ -17,9 +17,9 @@ public sealed class OutboxProcessorTests
     {
         var message = CreateMessage(attempts: 1);
         var store = CreateStore(message);
-        var matching = new RecordingHandler(message.Type, message.SchemaVersion);
+        var matching = new RecordingHandler(message.MessageType, message.SchemaVersion);
         var wrongType = new RecordingHandler("another.event", message.SchemaVersion);
-        var wrongVersion = new RecordingHandler(message.Type, message.SchemaVersion + 1);
+        var wrongVersion = new RecordingHandler(message.MessageType, message.SchemaVersion + 1);
         var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
         await using var provider = CreateProvider(store, matching, wrongType, wrongVersion);
         var processor = new OutboxProcessor(
@@ -50,7 +50,7 @@ public sealed class OutboxProcessorTests
     {
         var message = CreateMessage(attempts: 3);
         var store = CreateStore(message);
-        var handler = new ThrowingHandler(message.Type, message.SchemaVersion);
+        var handler = new ThrowingHandler(message.MessageType, message.SchemaVersion);
         var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
         await using var provider = CreateProvider(store, handler);
         var processor = new OutboxProcessor(
@@ -70,6 +70,55 @@ public sealed class OutboxProcessorTests
             default,
             default,
             default);
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_DispatchesLegacyAliasTypeToCanonicalHandler()
+    {
+        const string canonicalType = "fullnet.tenancy.tenant.provisioned";
+        const string legacyType = "fullnet.tenancy.tenant-provisioned";
+        var message = CreateMessage(
+            attempts: 1,
+            messageType: legacyType);
+        var store = CreateStore(message);
+        var handler = new LegacyAliasHandler(canonicalType, legacyType);
+        var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = new OutboxProcessor(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            new FixedClock(now),
+            NullLogger<OutboxProcessor>.Instance);
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, handler.HandledCount);
+        await store.Received(1).MarkProcessedAsync(
+            message.Id,
+            message.LockId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_OnUnknownEventTypeMarksRetryWithFutureBackoff()
+    {
+        var message = CreateMessage(attempts: 2, messageType: "fullnet.unknown.event");
+        var store = CreateStore(message);
+        var handler = new RecordingHandler("fullnet.test.event", 1);
+        var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = new OutboxProcessor(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            new FixedClock(now),
+            NullLogger<OutboxProcessor>.Instance);
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        await store.Received(1).MarkFailedAsync(
+            message.Id,
+            message.LockId,
+            Arg.Is<string>(error => !string.IsNullOrWhiteSpace(error)),
+            Arg.Is<DateTimeOffset>(retryAt => retryAt > now),
+            Arg.Any<CancellationToken>());
     }
 
     private static IOutboxStore CreateStore(OutboxEnvelope message)
@@ -99,10 +148,12 @@ public sealed class OutboxProcessorTests
         return services.BuildServiceProvider();
     }
 
-    private static OutboxEnvelope CreateMessage(int attempts) => new(
+    private static OutboxEnvelope CreateMessage(
+        int attempts,
+        string messageType = "fullnet.test.event") => new(
         Guid.CreateVersion7(),
         Guid.CreateVersion7(),
-        "fullnet.test.event",
+        messageType,
         1,
         "application/x-msgpack",
         Guid.CreateVersion7(),
@@ -110,6 +161,26 @@ public sealed class OutboxProcessorTests
         [1, 2, 3, 4],
         attempts,
         new DateTimeOffset(2026, 7, 16, 23, 59, 0, TimeSpan.Zero));
+
+    private sealed class LegacyAliasHandler(string canonicalType, string legacyType)
+        : IIntegrationEventHandler
+    {
+        public string EventType => canonicalType;
+
+        public IReadOnlyList<string> LegacyEventTypes => [legacyType];
+
+        public int SchemaVersion => 1;
+
+        public int HandledCount { get; private set; }
+
+        public Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            HandledCount++;
+            return Task.CompletedTask;
+        }
+    }
 
     private sealed class RecordingHandler(string eventType, int schemaVersion)
         : IIntegrationEventHandler
