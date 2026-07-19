@@ -312,7 +312,7 @@ python tests/skills/validate_project_skills.py
 
 Expected: 全部 PASS；修改一份夹具为 `char(36)`、time-swap 或隐式 SQL Server 主键时测试可确定性失败。
 
-- [ ] **Step 5: 提交生成治理**
+- [x] **Step 5: 提交生成治理**（`97719d8`）
 
 ```bash
 git add src/BuildingBlocks/Full.NET.Data.CodeGeneration contracts tests .github .agents/skills/fullnet-module-delivery
