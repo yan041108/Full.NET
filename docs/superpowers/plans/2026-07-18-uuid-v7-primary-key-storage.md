@@ -246,27 +246,27 @@ git commit -m "feat: switch uuid storage to binary16"
 - Consumes: 009 数据库与 Binary16 连接策略
 - Produces: 业务层只用 `Guid`、写库前有 Id、父子/审计/Outbox 同事务可引用的跨库证据
 
-- [ ] **Step 1: 补 UUID v7 行为测试**
+- [x] **Step 1: 补 UUID v7 行为测试**
 
 验证 `IIdGenerator` 产生非空 Version 7 UUID，版本位与变体位正确；任何持久化 Command 在执行首条 SQL 前已得到 Id。测试不把“连续生成值严格单调”作为 UUID 标准保证。
 
-- [ ] **Step 2: 验证同事务引用**
+- [x] **Step 2: 验证同事务引用**
 
 SQL Server/MySQL 分别创建父记录、子/关系记录、审计和 Outbox，全部在同一 `ICommandTransaction` 使用预生成 `Guid`；提交后引用完整，故障注入回滚后全部不存在。证明应用侧生成能力没有因 `BINARY(16)` 丢失。
 
-- [ ] **Step 3: 验证读取路径**
+- [x] **Step 3: 验证读取路径**
 
 覆盖单行、列表、动态筛选、`QueryMultiple`、Nullable Guid、跨表 Join、Outbox lease/LockId、刷新 Session family/replacement 和超级管理员 Actor；业务 Row/DTO 仍为 `Guid`，禁止出现 `byte[]`。
 
-- [ ] **Step 4: 验证外部契约**
+- [x] **Step 4: 验证外部契约**
 
 标准 API、ProblemDetails extension、Admin.NET 兼容包络、Vue/Layui/uni-app 契约夹具继续使用规范 UUID 字符串。OpenAPI 格式为 `uuid`；小写输出为规范化要求，输入可按 System.Text.Json 的标准 UUID 解析并在输出时规范化。
 
-- [ ] **Step 5: 运行双库全路径聚焦测试**
+- [x] **Step 5: 运行双库全路径聚焦测试**
 
 运行 Unit、Architecture、Integration 的 Release 全量命令前，先以 `--filter "Guid|IdentityApi|TenancyApi|Outbox|MultiResult"` 执行聚焦测试。所有新增测试通过后，以新鲜发现数量更新 README 门槛，不得降低现有门槛。
 
-- [ ] **Step 6: 提交应用验证**
+- [x] **Step 6: 提交应用验证**（分步提交：`f9bac5c`–`b7ff745`；验证记录见 `docs/verification/test-threshold-audit-2026-07-19.md`）
 
 ```bash
 git add tests src docs

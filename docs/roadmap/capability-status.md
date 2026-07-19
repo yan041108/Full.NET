@@ -25,7 +25,7 @@
 | 模块化单体、显式模块依赖与宿主 Profile | `Build-verified` | `Full.NET.Modularity`、`Full.NET.Composition`、Api/Worker/Migrator 显式 Profile、Unit 与 Architecture Tests | 新模块必须进入共享目录；Worker 只允许最小后台入口，禁止宿主恢复手工模块清单 |
 | 跨栈命名治理与生成器命名内核 | `Implemented` | `contracts/naming/`、`pnpm test:naming`、16 项 Architecture Tests、`Full.NET.Data.CodeGeneration` 与[验证记录](../verification/naming-governance.md) | 90 项存量债务仍待 1.0 前规范化；动态 SQL 继续要求人工审查，完整业务模板与重复生成快照尚未交付，因此不能标记为 `Verified` |
 | Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks；QueryMultiple 顺序/完整消费及 SQL Server/MySQL 真实测试 | `TenantRequired` 仍需从参数文本检查升级为受控语义元数据，Global Statement 需精确目录；SqlBuilder 只在真实消费者命中门禁后引入 |
-| UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`MySqlConnectionStringPolicy`/`Binary16` 启动校验、UUID 集成测试（Expand/Contract/Recovery）、真实栈 MySQL E2E 走 Binary16 | 生产维护窗口演练、恢复 Runbook 实跑与 SQL Server 聚集索引基准证据尚未完成 |
+| UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`MySqlConnectionStringPolicy`/`Binary16` 启动校验、UUID 集成测试（Expand/Contract/Recovery）、`GuidPrimaryKeyApplicationTests`/`GuidPrimaryKeyReadPathTests`/`UuidExternalContractIntegrationTests`（同事务引用、读取/Join/Outbox lease、标准 API 与 Admin.NET 包络 JSON）、真实栈 MySQL E2E 走 Binary16；门槛 **296/6/26/66** 新鲜验证见[测试门槛核对记录](../verification/test-threshold-audit-2026-07-19.md) | 生产维护窗口演练、恢复 Runbook 实跑与 SQL Server 聚集索引基准证据尚未完成 |
 | SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |

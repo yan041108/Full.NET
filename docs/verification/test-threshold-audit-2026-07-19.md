@@ -64,6 +64,20 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Compatibility 门槛 **5 → 6** | `AdminNetApiResultMapperTests` 验证 Guid 包络 JSON |
 | Integration 门槛 **64 → 66** | 新增 `UuidExternalContractIntegrationTests`（SQL Server + MySQL 各 1） |
 
+## 增补（2026-07-19，基线 `b7ff745` 之后，P0 UUID Task 5 Step 5）
+
+环境：Windows 10、.NET SDK `10.0.400-preview.0.26322.102`、Docker Desktop（Linux containers）、Testcontainers。
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| Unit 聚焦 | `--filter "FullyQualifiedName~Guid\|FullyQualifiedName~FullNetJson"`，`--minimum-expected-tests 6` | **9/9** 通过，约 0.4s |
+| Integration 聚焦 | `--filter "FullyQualifiedName~Guid\|FullyQualifiedName~IdentityApi\|FullyQualifiedName~TenancyApi\|FullyQualifiedName~Outbox\|FullyQualifiedName~MultiResult"`，`--minimum-expected-tests 20` | **26/26** 通过，约 8m 32s |
+| Integration 全量 | `--minimum-expected-tests 66 --timeout 45m` | **66/66** 通过，27m 59s；Workers=2，真实 SQL Server + MySQL |
+| Architecture 全量 | `--minimum-expected-tests 26` | **26/26** 通过 |
+| Compatibility 全量 | `--minimum-expected-tests 6` | **6/6** 通过 |
+
+结论：声明门槛 **296/6/26/66** 与实测一致；UUID v7 应用持久化、读取路径与外部 JSON 契约相关新增测试在双库聚焦与 Integration 全量下均通过。本记录不将 UUID 能力整体提升为 `Verified`（生产维护窗口与 Runbook 实跑仍缺）。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
