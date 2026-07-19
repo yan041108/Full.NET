@@ -14,7 +14,8 @@ namespace Full.NET.Compatibility.AdminNet;
 /// <param name="localeContext">当前请求已经规范化的语言上下文。</param>
 public sealed class AdminNetApiResultMapper(
     IErrorMessageLocalizer localizer,
-    ILocaleContext localeContext) : IApiResultMapper
+    ILocaleContext localeContext,
+    IPreV1LegacyErrorCodeProfile legacyErrorCodeProfile) : IApiResultMapper
 {
     /// <inheritdoc />
     public IResult Map<T>(Result<T> result, HttpContext httpContext)
@@ -42,10 +43,13 @@ public sealed class AdminNetApiResultMapper(
             httpContext.Response,
             locale,
             varyByAcceptLanguage: true);
+        var envelopeCode = legacyErrorCodeProfile.EmitLegacyErrorCodes
+            ? PreV1ProtocolCompatibility.ToLegacyErrorCode(error.Code)
+            : error.Code;
         return Results.Json(
             new AdminNetEnvelope<T>(
                 false,
-                error.Code,
+                envelopeCode,
                 localizedMessage,
                 default,
                 traceId),

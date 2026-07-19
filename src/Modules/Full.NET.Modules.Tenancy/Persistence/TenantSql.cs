@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Tenancy.Persistence;
 internal static class TenantSql
 {
     public static readonly SqlStatement FindByIdentifier = new(
-        "tenancy.find-by-identifier",
+        "tenancy.find_by_identifier",
         """
         SELECT COUNT(*)
         FROM fn_tenancy_tenant
@@ -24,7 +24,7 @@ internal static class TenantSql
         SqlDataScope.Global);
 
     public static readonly SqlStatement CountByDomain = new(
-        "tenancy.count-by-domain",
+        "tenancy.count_by_domain",
         """
         SELECT COUNT(*)
         FROM fn_tenancy_tenant
@@ -33,7 +33,7 @@ internal static class TenantSql
         SqlDataScope.Global);
 
     public static readonly SqlStatement FindByDomain = new(
-        "tenancy.find-by-domain",
+        "tenancy.find_by_domain",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
         FROM fn_tenancy_tenant
@@ -43,7 +43,7 @@ internal static class TenantSql
 
     // 按 ID 的 Global 查询只服务于宿主管理员上下文切换，调用方必须先通过权限策略。
     public static readonly SqlStatement FindById = new(
-        "tenancy.find-by-explicit-id",
+        "tenancy.find_by_explicit_id",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
         FROM fn_tenancy_tenant
@@ -52,7 +52,7 @@ internal static class TenantSql
         SqlDataScope.Global);
 
     public static readonly SqlStatement GetAvailable = new(
-        "tenancy.get-available-for-host-administrator",
+        "tenancy.get_available_for_host_administrator",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
         FROM fn_tenancy_tenant
@@ -72,7 +72,7 @@ internal static class TenantSql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement GetCurrent = new(
-        "tenancy.get-current",
+        "tenancy.get_current",
         """
         SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
         FROM fn_tenancy_tenant

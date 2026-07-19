@@ -194,14 +194,14 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 308
+          --minimum-expected-tests 314
 
       - name: Compatibility tests
         run: >-
           dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 6
+          --minimum-expected-tests 7
 
       - name: Architecture tests
         run: >-

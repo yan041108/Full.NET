@@ -117,7 +117,7 @@ public sealed class TenantProvisioningTests
 
             Assert.IsFalse(duplicate.IsSuccess);
             Assert.IsNotNull(duplicate.Error);
-            Assert.AreEqual("tenancy.identifier-exists", duplicate.Error.Code);
+            Assert.AreEqual("tenancy.identifier_exists", duplicate.Error.Code);
 
             var outbox = await ReadOutboxAsync(databaseProvider, connectionString);
             Assert.AreEqual("fullnet.tenancy.tenant.provisioned", outbox.MessageType);

@@ -40,7 +40,7 @@ public sealed class AdminNetApiResultMapperTests
         var context = new DefaultHttpContext();
         var mapped = CreateMapper("en-US").Map(
             Result<string>.Failure(new Error(
-                Code: "tenancy.identifier-exists",
+                Code: "tenancy.identifier_exists",
                 Message: "Identifier exists.",
                 Type: ErrorType.Conflict)),
             context);
@@ -49,7 +49,7 @@ public sealed class AdminNetApiResultMapperTests
         var envelope = (AdminNetEnvelope<string>?)((IValueHttpResult)mapped).Value;
         Assert.IsNotNull(envelope);
         Assert.IsFalse(envelope.Success);
-        Assert.AreEqual("tenancy.identifier-exists", envelope.Code);
+        Assert.AreEqual("tenancy.identifier_exists", envelope.Code);
         Assert.AreEqual(
             "A tenant with this identifier already exists.",
             envelope.Message);
@@ -61,7 +61,7 @@ public sealed class AdminNetApiResultMapperTests
     public void Failure_localizes_only_message_and_preserves_envelope_shape()
     {
         var error = new Error(
-            Code: "tenancy.identifier-exists",
+            Code: "tenancy.identifier_exists",
             Message: "A tenant with this identifier already exists.",
             Type: ErrorType.Conflict);
         var chineseContext = new DefaultHttpContext();
@@ -138,12 +138,36 @@ public sealed class AdminNetApiResultMapperTests
             && descriptor.ImplementationType == typeof(AdminNetApiResultMapper)));
     }
 
-    private static AdminNetApiResultMapper CreateMapper(string locale)
+    [TestMethod]
+    public void Legacy_profile_maps_canonical_error_code_back_to_legacy_envelope_code()
+    {
+        var context = new DefaultHttpContext();
+        var mapped = CreateMapper("en-US", emitLegacyErrorCodes: true).Map(
+            Result<string>.Failure(new Error(
+                Code: "tenancy.identifier_exists",
+                Message: "Identifier exists.",
+                Type: ErrorType.Conflict)),
+            context);
+
+        var envelope = (AdminNetEnvelope<string>?)((IValueHttpResult)mapped).Value;
+        Assert.IsNotNull(envelope);
+        Assert.AreEqual("tenancy.identifier-exists", envelope.Code);
+    }
+
+    private static AdminNetApiResultMapper CreateMapper(
+        string locale,
+        bool emitLegacyErrorCodes = false)
     {
         var source = new DictionaryResourceSource(locale);
         return new AdminNetApiResultMapper(
             new ResourceErrorMessageLocalizer([source], new NamedMessageFormatter()),
-            new StubLocaleContext(locale));
+            new StubLocaleContext(locale),
+            new StubLegacyProfile(emitLegacyErrorCodes));
+    }
+
+    private sealed class StubLegacyProfile(bool emitLegacyErrorCodes) : IPreV1LegacyErrorCodeProfile
+    {
+        public bool EmitLegacyErrorCodes => emitLegacyErrorCodes;
     }
 
     private sealed class StubLocaleContext(string locale) : ILocaleContext
@@ -165,7 +189,7 @@ public sealed class AdminNetApiResultMapperTests
                 : "A tenant with this identifier already exists.";
             return string.Equals(
                 code,
-                "tenancy.identifier-exists",
+                "tenancy.identifier_exists",
                 StringComparison.Ordinal);
         }
     }

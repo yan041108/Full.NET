@@ -1,4 +1,9 @@
 export {
+  areEquivalentPreV1ErrorCodes,
+  normalizePreV1ErrorCode
+} from './pre-v1-protocol.js';
+
+export {
   isFullNetProblemDetails,
   readProblemDetails
 } from './problem-details.js';

@@ -154,7 +154,7 @@ internal sealed class Handler(
             sessionId,
             normalizedUsername,
             "login",
-            "identity.login-succeeded",
+            "identity.login_succeeded",
             true,
             command,
             cancellationToken).ConfigureAwait(false);

@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Identity.Persistence;
 internal static class IdentitySql
 {
     public static readonly SqlStatement FindUserByScopeAndUsername = new(
-        "identity.find-user-by-scope-and-username",
+        "identity.find_user_by_scope_and_username",
         """
         SELECT Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
@@ -17,7 +17,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement FindHostUserById = new(
-        "identity.find-host-user-by-id",
+        "identity.find_host_user_by_id",
         """
         SELECT Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
@@ -29,7 +29,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement InsertUser = new(
-        "identity.insert-user",
+        "identity.insert_user",
         """
         INSERT INTO fn_identity_user
             (Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
@@ -46,7 +46,7 @@ internal static class IdentitySql
 
     // 会话上下文可能已经进入租户；仅允许服务端使用已签名的 sub 与 sid 调用这些 Global 语句。
     public static readonly SqlStatement FindRefreshSessionById = new(
-        "identity.find-refresh-session-by-explicit-session-id",
+        "identity.find_refresh_session_by_explicit_session_id",
         """
         SELECT session.Id AS SessionId,
                session.UserId,
@@ -82,7 +82,7 @@ internal static class IdentitySql
         SqlDataScope.Global);
 
     public static readonly SqlStatement UpdateRefreshSessionContext = new(
-        "identity.update-refresh-session-explicit-context",
+        "identity.update_refresh_session_explicit_context",
         """
         UPDATE fn_identity_refresh_session
         SET ActiveTenantId = @ActiveTenantId,
@@ -96,7 +96,7 @@ internal static class IdentitySql
         SqlDataScope.Global);
 
     public static readonly SqlStatement InsertContextAudit = new(
-        "identity.insert-explicit-context-audit",
+        "identity.insert_explicit_context_audit",
         """
         INSERT INTO fn_identity_auth_audit
             (Id, UserId, SessionId, UsernameFingerprint, EventType,
@@ -110,7 +110,7 @@ internal static class IdentitySql
         SqlDataScope.Global);
 
     public static readonly SqlStatement FindRoleByScopeAndCode = new(
-        "identity.find-role-by-scope-and-code",
+        "identity.find_role_by_scope_and_code",
         """
         SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
                IsSuperAdministrator,
@@ -121,7 +121,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement InsertRole = new(
-        "identity.insert-role",
+        "identity.insert_role",
         """
         INSERT INTO fn_identity_role
             (Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
@@ -135,7 +135,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement UpdateSystemRole = new(
-        "identity.update-system-role",
+        "identity.update_system_role",
         """
         UPDATE fn_identity_role
         SET Name = @Name,
@@ -149,7 +149,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement GetRolePermissionCodes = new(
-        "identity.get-role-permission-codes",
+        "identity.get_role_permission_codes",
         """
         SELECT PermissionCode
         FROM fn_identity_role_permission
@@ -159,7 +159,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement EnsureRolePermission = new(
-        "identity.ensure-role-permission",
+        "identity.ensure_role_permission",
         """
         INSERT INTO fn_identity_role_permission (RoleId, PermissionCode)
         SELECT @RoleId, @PermissionCode
@@ -173,7 +173,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement EnsureUserRole = new(
-        "identity.ensure-user-role",
+        "identity.ensure_user_role",
         """
         INSERT INTO fn_identity_user_role (UserId, RoleId)
         SELECT @UserId, @RoleId
@@ -267,7 +267,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement ListSuperAdministrators = new(
-        "identity.list-super-administrators",
+        "identity.list_super_administrators",
         """
         SELECT identityUser.Id AS UserId,
                identityUser.Username,
@@ -288,7 +288,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement ListSuperAdministratorAuditsSqlServer = new(
-        "identity.list-super-administrator-audits.sql-server",
+        "identity.list_super_administrator_audits.sql_server",
         """
         SELECT TOP (@Limit)
                Id, UserId AS TargetUserId, ActorUserId,
@@ -302,7 +302,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement ListSuperAdministratorAuditsMySql = new(
-        "identity.list-super-administrator-audits.mysql",
+        "identity.list_super_administrator_audits.mysql",
         """
         SELECT Id, UserId AS TargetUserId, ActorUserId,
                EventType, ResultCode, Succeeded, OccurredAtUtc
@@ -316,7 +316,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement InsertSuperAdministratorAudit = new(
-        "identity.insert-super-administrator-audit",
+        "identity.insert_super_administrator_audit",
         """
         INSERT INTO fn_identity_auth_audit
             (Id, UserId, SessionId, UsernameFingerprint, EventType,
@@ -372,7 +372,7 @@ internal static class IdentitySql
         SqlDataScope.Global);
 
     public static readonly SqlStatement UpdateLoginFailure = new(
-        "identity.update-login-failure",
+        "identity.update_login_failure",
         """
         UPDATE fn_identity_user
         SET FailedLoginCount = @FailedLoginCount,
@@ -384,7 +384,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement UpdateLoginSuccess = new(
-        "identity.update-login-success",
+        "identity.update_login_success",
         """
         UPDATE fn_identity_user
         SET PasswordHash = @PasswordHash,
@@ -397,7 +397,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement InsertRefreshSession = new(
-        "identity.insert-refresh-session",
+        "identity.insert_refresh_session",
         """
         INSERT INTO fn_identity_refresh_session
             (Id, UserId, FamilyId, ClientId, TokenHash, ExpiresAtUtc,
@@ -411,7 +411,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement InsertAuthAudit = new(
-        "identity.insert-auth-audit",
+        "identity.insert_auth_audit",
         """
         INSERT INTO fn_identity_auth_audit
             (Id, UserId, SessionId, UsernameFingerprint, EventType,
@@ -425,12 +425,12 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement CountAuthenticationAudits = new(
-        "identity.count-authentication-audits",
+        "identity.count_authentication_audits",
         "SELECT COUNT(*) FROM fn_identity_auth_audit",
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement FindRefreshSessionByHash = new(
-        "identity.find-refresh-session-by-hash",
+        "identity.find_refresh_session_by_hash",
         """
         SELECT session.Id AS SessionId,
                session.UserId,
@@ -466,7 +466,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement ConsumeRefreshSession = new(
-        "identity.consume-refresh-session",
+        "identity.consume_refresh_session",
         """
         UPDATE fn_identity_refresh_session
         SET ConsumedAtUtc = @ConsumedAtUtc,
@@ -480,7 +480,7 @@ internal static class IdentitySql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement RevokeRefreshFamily = new(
-        "identity.revoke-refresh-family",
+        "identity.revoke_refresh_family",
         """
         UPDATE fn_identity_refresh_session
         SET RevokedAtUtc = @RevokedAtUtc,
@@ -491,7 +491,7 @@ internal static class IdentitySql
 
     // Global 查询仅接受 JWT 验证后的 sub 与演员原始作用域，两项必须同时命中。
     public static readonly SqlStatement FindProfileByIdentity = new(
-        "identity.find-profile-by-verified-identity",
+        "identity.find_profile_by_verified_identity",
         """
         SELECT Id, ScopeKey, Username, DisplayName, IsActive,
                PreferredLocale, ProfileVersion
@@ -501,7 +501,7 @@ internal static class IdentitySql
         SqlDataScope.Global);
 
     public static readonly SqlStatement UpdateLocalePreference = new(
-        "identity.update-locale-preference-by-verified-identity",
+        "identity.update_locale_preference_by_verified_identity",
         """
         UPDATE fn_identity_user
         SET PreferredLocale = @PreferredLocale,

@@ -50,7 +50,11 @@ public sealed class ResourceErrorMessageLocalizer : IErrorMessageLocalizer
         var source = _sources.FirstOrDefault(candidate =>
             error.Code.StartsWith(candidate.Prefix, StringComparison.Ordinal));
         if (source is null
-            || !source.TryGetTemplate(error.Code, culture, out var template)
+            || !TryGetLocalizedTemplate(
+                source,
+                error.Code,
+                culture,
+                out var template)
             || !_formatter.TryFormat(
                 template,
                 error.Arguments,
@@ -62,6 +66,27 @@ public sealed class ResourceErrorMessageLocalizer : IErrorMessageLocalizer
         }
 
         return message;
+    }
+
+    private static bool TryGetLocalizedTemplate(
+        IErrorResourceSource source,
+        string code,
+        CultureInfo culture,
+        out string template)
+    {
+        if (source.TryGetTemplate(code, culture, out template))
+        {
+            return true;
+        }
+
+        if (PreV1ProtocolCompatibility.TryGetLegacyErrorCodeAlias(code, out var legacyCode)
+            && source.TryGetTemplate(legacyCode, culture, out template))
+        {
+            return true;
+        }
+
+        template = string.Empty;
+        return false;
     }
 
     private static void RecordFallback(string code, string locale) =>

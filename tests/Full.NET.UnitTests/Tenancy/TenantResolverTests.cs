@@ -43,7 +43,7 @@ public sealed class TenantResolverTests
         Assert.AreEqual(expected.Id, second?.Id);
         await executor.Received(1).QuerySingleOrDefaultAsync<TenantSummary>(
             Arg.Is<SqlStatement>(statement =>
-                statement != null && statement.Name == "tenancy.find-by-domain"),
+                statement != null && statement.Name == "tenancy.find_by_domain"),
             Arg.Is<object>(parameters =>
                 parameters != null && ReadDomain(parameters) == "acme.localhost"),
             Arg.Any<CancellationToken>());

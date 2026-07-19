@@ -5,7 +5,7 @@ namespace Full.NET.Data.Dapper.Outbox;
 internal static class OutboxSql
 {
     public static readonly SqlStatement AcquireSqlServer = new(
-        "outbox.acquire.sql-server",
+        "outbox.acquire.sql_server",
         """
         ;WITH Pending AS
         (
@@ -36,7 +36,7 @@ internal static class OutboxSql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement AcquireMySql = new(
-        "outbox.acquire.my-sql",
+        "outbox.acquire.my_sql",
         """
         UPDATE fn_outbox_message
         SET LockId = @LockId,
@@ -53,7 +53,7 @@ internal static class OutboxSql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement SelectMySqlLease = new(
-        "outbox.select-my-sql-lease",
+        "outbox.select_my_sql_lease",
         """
         SELECT Id,
                LockId,
@@ -72,7 +72,7 @@ internal static class OutboxSql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement MarkProcessed = new(
-        "outbox.mark-processed",
+        "outbox.mark_processed",
         """
         UPDATE fn_outbox_message
         SET ProcessedAtUtc = @Now,
@@ -86,7 +86,7 @@ internal static class OutboxSql
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement MarkFailed = new(
-        "outbox.mark-failed",
+        "outbox.mark_failed",
         """
         UPDATE fn_outbox_message
         SET NextAttemptAtUtc = @NextAttemptAt,

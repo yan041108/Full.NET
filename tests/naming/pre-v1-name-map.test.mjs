@@ -129,10 +129,10 @@ test('命名债务中的连字符协议值在 PreV1NameMapV1 中有唯一目标'
       .map(item => `${item.kind}:${item.value}`)
   )].sort();
 
-  assert.ok(hyphenDebts.length > 0);
   for (const key of hyphenDebts) {
     assert.ok(protocolByLegacy.has(key), `债务未登记协议映射：${key}`);
   }
 
   assert.ok(protocolByLegacy.has('error_code:identity.login-succeeded'));
+  assert.ok(protocolByLegacy.has('message_type:fullnet.tenancy.tenant-provisioned'));
 });

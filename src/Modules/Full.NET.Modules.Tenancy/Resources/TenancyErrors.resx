@@ -6,8 +6,8 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="tenancy.context_mismatch" xml:space="preserve"><value>已认证的租户上下文与请求不匹配。</value></data>
   <data name="tenancy.context_not_found" xml:space="preserve"><value>未找到请求的租户上下文。</value></data>
-  <data name="tenancy.domain-exists" xml:space="preserve"><value>已存在使用该域名的租户。</value></data>
-  <data name="tenancy.host-not-found" xml:space="preserve"><value>当前主机未配置可用租户。</value></data>
-  <data name="tenancy.identifier-exists" xml:space="preserve"><value>已存在使用该标识的租户。</value></data>
-  <data name="tenancy.not-found" xml:space="preserve"><value>未找到当前租户。</value></data>
+  <data name="tenancy.domain_exists" xml:space="preserve"><value>已存在使用该域名的租户。</value></data>
+  <data name="tenancy.host_not_found" xml:space="preserve"><value>当前主机未配置可用租户。</value></data>
+  <data name="tenancy.identifier_exists" xml:space="preserve"><value>已存在使用该标识的租户。</value></data>
+  <data name="tenancy.not_found" xml:space="preserve"><value>未找到当前租户。</value></data>
 </root>

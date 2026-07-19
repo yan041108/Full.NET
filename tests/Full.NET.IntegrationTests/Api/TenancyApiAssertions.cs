@@ -41,7 +41,7 @@ internal static class TenancyApiAssertions
         using var problem = JsonDocument.Parse(
             await missingResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
-            "tenancy.host-not-found",
+            "tenancy.host_not_found",
             problem.RootElement.GetProperty("code").GetString());
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             problem.RootElement.GetProperty("traceId").GetString()));

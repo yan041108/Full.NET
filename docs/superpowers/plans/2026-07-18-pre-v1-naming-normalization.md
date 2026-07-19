@@ -170,7 +170,7 @@ Run: README 中 Unit、Architecture、Integration 的完整 Release 命令及 `p
 
 Expected: 全部 PASS；新写入旧列不再变化，旧 Pending 消息仍被成功处理。
 
-- [ ] **Step 6: 提交应用切换**
+- [x] **Step 6: 提交应用切换**
 
 ```bash
 git add src tests
@@ -199,19 +199,19 @@ git commit -m "refactor: switch to canonical persisted names"
 - Consumes: `PreV1NameMapV1` 中 protocol 类映射
 - Produces: 新响应/审计/Statement 使用 canonical 值；兼容层和发布说明记录 legacy 值
 
-- [ ] **Step 1: 先写协议兼容失败测试**
+- [x] **Step 1: 先写协议兼容失败测试**
 
 从 ErrorCodes、资源源、Admin.NET Mapper、Vue/Layui/uni-app 回退目录枚举值，断言 canonical 值存在且 legacy 值只出现在映射/兼容夹具。Audit 与 Statement 属内部可观测契约，断言新写入只使用 canonical 值，历史查询可同时筛选旧/新值。
 
-- [ ] **Step 2: 按映射表执行最小规范化**
+- [x] **Step 2: 按映射表执行最小规范化**
 
 只把连字符替换为同一语义段的下划线，不趁机重写层级或文案。例如 `tenancy.domain-exists` 变为 `tenancy.domain_exists`，避免一次迁移同时改变 casing 和领域含义。
 
-- [ ] **Step 3: 同步资源、多客户端和兼容说明**
+- [x] **Step 3: 同步资源、多客户端和兼容说明**
 
 ProblemDetails 新响应返回 canonical code；兼容适配器可在明确的 Pre-v1 Legacy Profile 下映射旧 code。双管理端和 uni-app 同时识别迁移期旧/新值；文档列出破坏性变化和移除旧兼容的版本，禁止永久双码。
 
-- [ ] **Step 4: 运行协议、本地化和客户端测试**
+- [x] **Step 4: 运行协议、本地化和客户端测试**
 
 Run:
 

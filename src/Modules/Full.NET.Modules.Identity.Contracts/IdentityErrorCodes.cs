@@ -11,10 +11,10 @@ public static class IdentityErrorCodes
     public const string Prefix = "identity.";
 
     /// <summary>初始化管理员密码不符合安全策略。</summary>
-    public const string BootstrapInvalidPassword = "identity.bootstrap.invalid-password";
+    public const string BootstrapInvalidPassword = "identity.bootstrap.invalid_password";
 
     /// <summary>初始化管理员资料无效。</summary>
-    public const string BootstrapInvalidProfile = "identity.bootstrap.invalid-profile";
+    public const string BootstrapInvalidProfile = "identity.bootstrap.invalid_profile";
 
     /// <summary>会话请求的 CSRF 校验失败。</summary>
     public const string CsrfValidationFailed = "identity.csrf_validation_failed";

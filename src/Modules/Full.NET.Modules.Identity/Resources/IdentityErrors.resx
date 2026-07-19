@@ -4,8 +4,8 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
-  <data name="identity.bootstrap.invalid-password" xml:space="preserve"><value>初始化管理员密码不符合密码策略。</value></data>
-  <data name="identity.bootstrap.invalid-profile" xml:space="preserve"><value>初始化管理员用户名或显示名称无效。</value></data>
+  <data name="identity.bootstrap.invalid_password" xml:space="preserve"><value>初始化管理员密码不符合密码策略。</value></data>
+  <data name="identity.bootstrap.invalid_profile" xml:space="preserve"><value>初始化管理员用户名或显示名称无效。</value></data>
   <data name="identity.csrf_validation_failed" xml:space="preserve"><value>CSRF 校验失败。</value></data>
   <data name="identity.invalid_actor_scope" xml:space="preserve"><value>当前身份不能切换租户上下文。</value></data>
   <data name="identity.invalid_credentials" xml:space="preserve"><value>用户名或密码无效。</value></data>

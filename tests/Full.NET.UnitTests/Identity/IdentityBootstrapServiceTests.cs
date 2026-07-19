@@ -35,7 +35,7 @@ public sealed class IdentityBootstrapServiceTests
             new BootstrapHostAdminRequest("admin", "weak", "系统管理员"));
 
         Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual("identity.bootstrap.invalid-password", result.Error?.Code);
+        Assert.AreEqual("identity.bootstrap.invalid_password", result.Error?.Code);
         await fixture.QueryExecutor.DidNotReceiveWithAnyArgs()
             .QuerySingleOrDefaultAsync<IdentityUserRecord>(default!, default, default);
     }

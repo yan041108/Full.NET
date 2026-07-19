@@ -54,6 +54,9 @@ public static class ServiceDefaultsExtensions
         builder.Services.TryAddSingleton<
             IErrorMessageLocalizer,
             ResourceErrorMessageLocalizer>();
+        builder.Services.TryAddSingleton<
+            IPreV1LegacyErrorCodeProfile,
+            DefaultPreV1LegacyErrorCodeProfile>();
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             CommonErrorResourceSource>());

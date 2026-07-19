@@ -115,27 +115,6 @@
       "removalMilestone": "M1.0"
     },
     {
-      "kind": "error_code",
-      "value": "identity.bootstrap.invalid-password",
-      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
-      "reason": "已发布错误码使用连字符，需与资源和客户端一起版本化迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "error_code",
-      "value": "tenancy.domain-exists",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
-      "reason": "已发布错误码使用连字符，需保留兼容映射窗口。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "outbox.acquire.sql-server",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "内部可观测标识使用连字符，需和指标及日志查询同步迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
       "kind": "primary_key",
       "value": "fn_tenant_tenant.PRIMARY KEY",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",
@@ -270,6 +249,34 @@
     },
     {
       "kind": "error_code",
+      "value": "tenancy.domain_exists",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
+      "reason": "Tenancy 两段式 reason 码在 Pre-v1 规范化后仍不符合三段 lower_snake 模板，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "tenancy.host_not_found",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
+      "reason": "Tenancy 两段式 reason 码在 Pre-v1 规范化后仍不符合三段 lower_snake 模板，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "tenancy.identifier_exists",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
+      "reason": "Tenancy 两段式 reason 码在 Pre-v1 规范化后仍不符合三段 lower_snake 模板，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "tenancy.not_found",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
+      "reason": "Tenancy 两段式 reason 码在 Pre-v1 规范化后仍不符合三段 lower_snake 模板，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
       "value": "authorization.permission_denied",
       "file": "src/BuildingBlocks/Full.NET.Abstractions/Results/CommonErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
@@ -314,13 +321,6 @@
       "kind": "error_code",
       "value": "localization.unsupported_locale",
       "file": "src/BuildingBlocks/Full.NET.Localization/LocalizationErrorCodes.cs",
-      "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "error_code",
-      "value": "identity.bootstrap.invalid-profile",
-      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
       "removalMilestone": "M1.0"
     },
@@ -399,279 +399,6 @@
       "value": "tenancy.context_not_found",
       "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
       "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "error_code",
-      "value": "tenancy.host-not-found",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
-      "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "error_code",
-      "value": "tenancy.identifier-exists",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
-      "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "error_code",
-      "value": "tenancy.not-found",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Contracts/TenancyErrorCodes.cs",
-      "reason": "既有错误码不符合三段 lower_snake 规范，必须通过版本化兼容映射迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "outbox.acquire.my-sql",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "outbox.select-my-sql-lease",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "outbox.mark-processed",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "outbox.mark-failed",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.find-user-by-scope-and-username",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.find-host-user-by-id",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.insert-user",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.find-refresh-session-by-explicit-session-id",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.update-refresh-session-explicit-context",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.insert-explicit-context-audit",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.find-role-by-scope-and-code",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.insert-role",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.update-system-role",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.get-role-permission-codes",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.ensure-role-permission",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.ensure-user-role",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.list-super-administrators",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.list-super-administrator-audits.sql-server",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.list-super-administrator-audits.mysql",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.insert-super-administrator-audit",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.update-login-failure",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.update-login-success",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.insert-refresh-session",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.insert-auth-audit",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.count-authentication-audits",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.find-refresh-session-by-hash",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.consume-refresh-session",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.revoke-refresh-family",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.find-profile-by-verified-identity",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "identity.update-locale-preference-by-verified-identity",
-      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "tenancy.find-by-identifier",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "tenancy.count-by-domain",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "tenancy.find-by-domain",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "tenancy.find-by-explicit-id",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "tenancy.get-available-for-host-administrator",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "statement_id",
-      "value": "tenancy.get-current",
-      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
-      "reason": "既有可观测 Statement ID 使用连字符，必须与日志、指标和查询一起兼容迁移。",
       "removalMilestone": "M1.0"
     },
     {
