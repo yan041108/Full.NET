@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.Compatibility.AdminNet;
 using Full.NET.Hosting.Api;
@@ -103,6 +104,27 @@ public sealed class AdminNetApiResultMapperTests
         using var provider = builder.Services.BuildServiceProvider();
         Assert.IsInstanceOfType<AdminNetApiResultMapper>(
             provider.GetRequiredService<IApiResultMapper>());
+    }
+
+    [TestMethod]
+    public void Success_WithGuidData_SerializesCanonicalUuidString()
+    {
+        var identifier = Guid.Parse("019822d3-0700-7000-8000-000000000203");
+        var context = new DefaultHttpContext();
+        var mapped = CreateMapper("en-US").Map(
+            Result<Guid>.Success(identifier),
+            context);
+        var envelope = (AdminNetEnvelope<Guid>?)((IValueHttpResult)mapped).Value;
+        Assert.IsNotNull(envelope);
+
+        var json = JsonSerializer.Serialize(
+            envelope,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        using var document = JsonDocument.Parse(json);
+        Assert.AreEqual(
+            "019822d3-0700-7000-8000-000000000203",
+            document.RootElement.GetProperty("data").GetString());
     }
 
     [TestMethod]

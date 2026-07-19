@@ -194,14 +194,14 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 295
+          --minimum-expected-tests 296
 
       - name: Compatibility tests
         run: >-
           dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 5
+          --minimum-expected-tests 6
 
       - name: Architecture tests
         run: >-
@@ -215,7 +215,7 @@ jobs:
           dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 64
+          --minimum-expected-tests 66
           --timeout 45m
           --report-trx
           --report-trx-filename Full.NET.IntegrationTests.trx
