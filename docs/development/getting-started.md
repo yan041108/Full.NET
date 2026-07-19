@@ -201,7 +201,7 @@ ConnectionStrings__fullnet=<由 Secret 管理器注入>
 
 `Database__MySqlGuidStorageMode` 在 Production 必须显式配置为 `Binary16`，`LegacyChar36` 只允许用于迁移测试与 009 之前的受控工具连接。API 与 Worker 启动时会核对 `fn_uuid_contract_state.SchemaMode`，模式不一致即拒绝启动。普通 API、Worker 与 Seed 连接不允许 MySQL 用户变量，只有 Migrator 连接会为条件 DDL 启用该能力。
 
-执行 009 时还必须仅向 Migrator 注入 `UuidBinaryContract__MaintenanceMode=true`、`BackupVerified=true`、`LegacyWritersStopped=true` 和已登记的 `DestructiveDdlApprovalId`；详见 [UUID Binary16 迁移 Runbook](uuid-binary-migration-runbook.md)。
+执行 009 时还必须仅向 Migrator 注入 `UuidBinaryContract__MaintenanceMode=true`、`BackupVerified=true`、`LegacyWritersStopped=true` 和已登记的 `DestructiveDdlApprovalId`；详见 [UUID Binary16 迁移 Runbook](uuid-binary-migration-runbook.md)。自动化恢复演练与 Runbook 映射见 [UUID v7 验证记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)。
 
 ## 5. 缓存约定
 

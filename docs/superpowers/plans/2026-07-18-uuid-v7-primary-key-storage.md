@@ -344,9 +344,13 @@ git commit -m "feat: govern uuid primary key generation"
 
 使用含真实关系数据、Pending Outbox 和 Seed 审计的备份演练两条路径：008 前/后回退旧应用；009 后恢复数据库备份并回退旧应用。记录耗时、数据摘要、RPO/RTO 和无法仅靠应用回滚的事实。
 
+自动化等价路径（Testcontainers 31 项 + Runbook 映射）已记录于 [`docs/verification/uuid-v7-primary-key-storage-2026-07-19.md`](../../verification/uuid-v7-primary-key-storage-2026-07-19.md)。真实生产整库备份恢复与 RPO/RTO 计时仍待完成。
+
 - [ ] **Step 3: 发布验证记录**
 
 验证文档记录提交、镜像版本、数据库版本、连接模式、测试发现/通过数量、迁移耗时、行数/摘要、聚集索引基准与已知限制。不得保存连接串、用户数据或 Secret。
+
+[`docs/verification/uuid-v7-primary-key-storage-2026-07-19.md`](../../verification/uuid-v7-primary-key-storage-2026-07-19.md) 已覆盖自动化恢复与 SQL Server 聚集索引 **结构** 证据；性能基准与生产窗口记录仍缺。
 
 - [ ] **Step 4: 更新真实状态**
 
