@@ -722,6 +722,34 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/009_UuidBinaryContract.sql",
       "reason": "009 只对固定十表主键清单执行 QUOTENAME 保护的 DROP CONSTRAINT，已由显式聚集策略和恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/010_NamingExpand.sql",
+      "reason": "010 Expand 必须从 legacy Tenancy 表幂等复制到 fn_tenancy_tenant，在 011 Contract 前不得删除旧表。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/010_NamingExpand.sql",
+      "reason": "010 Expand 必须从 legacy Tenancy 表幂等复制到 fn_tenancy_tenant，在 011 Contract 前不得删除旧表。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/010_NamingExpand.sql",
+      "reason": "010 Expand 使用 PREPARE 探测列存在性与冲突门禁，已由 NamingPartialRecovery 双库测试人工审查。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/010_NamingExpand.sql",
+      "reason": "010 Expand 在单批次 ALTER 后通过 EXEC 动态 SQL 引用新 Outbox 镜像列，避免 SQL Server 编译期列解析失败。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

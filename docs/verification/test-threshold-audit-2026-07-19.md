@@ -100,6 +100,18 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 
 详情见 [UUID v7 验证记录](uuid-v7-primary-key-storage-2026-07-19.md)。真实栈 E2E 未在本轮重跑。
 
+## 增补（2026-07-19，命名规范化 Task 2 Step 5）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **66 → 74** | 新增 `NamingExpandMigrationTests`（4）与 `NamingPartialRecoveryTests`（4），双库 Expand 与半完成恢复 |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| Integration 聚焦 | `--filter "NamingExpand\|NamingPartialRecovery"`，`--minimum-expected-tests 8` | **8/8** 通过，约 9m 54s |
+
+四处 canonical 门槛已同步为 **304/6/26/74**（Integration 全量 74 项待下一轮 CI/本地全量重跑确认）。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

@@ -87,11 +87,11 @@ git commit -m "docs: freeze pre-v1 naming migration map"
 - Consumes: 001-009 当前结构与 `PreV1NameMapV1`
 - Produces: 已回填的 `fn_tenancy_tenant` 和 Outbox 规范镜像列；旧表/列仍保留
 
-- [ ] **Step 1: 先写 SQL Server/MySQL 失败测试**
+- [x] **Step 1: 先写 SQL Server/MySQL 失败测试**
 
 测试从 009 状态写入多个 Tenant 和处于 Pending/Processed/Retry/Locked 的 Outbox 行，执行 010 后断言新旧行数、Id、二进制 Payload、MessageType、四个 UTC 时间和 NULL 状态完全一致。分别模拟：新表已创建但未复制、只增加部分列、部分行已回填、迁移未记账，再次运行必须收敛。
 
-- [ ] **Step 2: 运行并确认 010 缺失而失败**
+- [x] **Step 2: 运行并确认 010 缺失而失败**
 
 Run:
 
@@ -102,15 +102,15 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 
 Expected: FAIL，指出目标迁移或规范对象不存在。
 
-- [ ] **Step 3: 实现可重入 Expand**
+- [x] **Step 3: 实现可重入 Expand**
 
 010 创建 `fn_tenancy_tenant`，使用显式 `PK_/UX_/DF_` 名称和 `CreatedAtUtc/UpdatedAtUtc`；按 Id 幂等复制旧 Tenant。Outbox 在原表新增可空 `MessageType/OccurredAtUtc/ProcessedAtUtc/NextAttemptAtUtc/LockedUntilUtc` 并分批回填；每个 DDL/回填步骤先探测真实结构和行状态，不能只依赖 DbUp Journal。两库 UUID 列沿用 ADR-0003 的目标类型：SQL Server `uniqueidentifier`，MySQL `BINARY(16)`。
 
-- [ ] **Step 4: 增加数据冲突和超时保护**
+- [x] **Step 4: 增加数据冲突和超时保护**
 
 若同一 Id 的新旧 Tenant 关键字段不同，或 Outbox 新旧列同时非空但值不同，迁移必须失败并输出行 Id/计数，不覆盖目标。日志不得输出 Payload、Token 或完整错误正文。大表回填使用可配置批次和确定排序，Runbook 记录预计锁时间。
 
-- [ ] **Step 5: 运行双库迁移与部分恢复测试**
+- [x] **Step 5: 运行双库迁移与部分恢复测试**
 
 先实现并固定 8 项测试：两种数据库分别覆盖完整 Expand、建表后恢复、部分列恢复和部分数据恢复。Run:
 
