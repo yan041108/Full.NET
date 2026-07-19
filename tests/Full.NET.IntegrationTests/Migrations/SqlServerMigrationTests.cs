@@ -373,6 +373,7 @@ public sealed class SqlServerMigrationTests
                    CAST(CHARACTER_MAXIMUM_LENGTH AS bigint) AS MaximumLength
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = 'dbo'
+              AND TABLE_NAME IN ('fn_identity_user', 'fn_tenant_tenant')
               AND COLUMN_NAME IN ('PreferredLocale', 'ProfileVersion', 'DefaultLocale')
             """))
             .ToArray();
@@ -425,15 +426,23 @@ public sealed class SqlServerMigrationTests
         IReadOnlyCollection<LocalizationColumnMetadata> columns)
     {
         Assert.HasCount(3, columns);
-        foreach (var name in new[] { "PreferredLocale", "DefaultLocale" })
-        {
-            var column = columns.Single(item => item.Name == name);
-            Assert.AreEqual("NO", column.IsNullable, ignoreCase: true);
-            Assert.AreEqual(35L, column.MaximumLength);
-            StringAssert.Contains(column.ColumnDefault, "zh-CN");
-        }
+        var preferred = columns.Single(item =>
+            item.Name == "PreferredLocale"
+            && string.Equals(item.TableName, "fn_identity_user", StringComparison.OrdinalIgnoreCase));
+        Assert.AreEqual("NO", preferred.IsNullable, ignoreCase: true);
+        Assert.AreEqual(35L, preferred.MaximumLength);
+        StringAssert.Contains(preferred.ColumnDefault, "zh-CN");
 
-        var version = columns.Single(item => item.Name == "ProfileVersion");
+        var defaultLocale = columns.Single(item =>
+            item.Name == "DefaultLocale"
+            && string.Equals(item.TableName, "fn_tenant_tenant", StringComparison.OrdinalIgnoreCase));
+        Assert.AreEqual("NO", defaultLocale.IsNullable, ignoreCase: true);
+        Assert.AreEqual(35L, defaultLocale.MaximumLength);
+        StringAssert.Contains(defaultLocale.ColumnDefault, "zh-CN");
+
+        var version = columns.Single(item =>
+            item.Name == "ProfileVersion"
+            && string.Equals(item.TableName, "fn_identity_user", StringComparison.OrdinalIgnoreCase));
         Assert.AreEqual("NO", version.IsNullable, ignoreCase: true);
         StringAssert.Contains(version.ColumnDefault, "1");
     }

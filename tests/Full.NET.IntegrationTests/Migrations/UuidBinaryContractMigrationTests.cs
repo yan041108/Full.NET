@@ -44,7 +44,7 @@ public sealed class UuidBinaryContractMigrationTests
         await CreateRunner().MigrateAsync();
         await using var connection = new MySqlConnection(_container.GetConnectionString());
 
-        Assert.AreEqual(23, await connection.ExecuteScalarAsync<int>(
+        Assert.AreEqual(24, await connection.ExecuteScalarAsync<int>(
             """
             SELECT COUNT(*)
             FROM INFORMATION_SCHEMA.COLUMNS
