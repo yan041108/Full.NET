@@ -11,6 +11,7 @@
     "test:skills": "python -X utf8 tests/skills/validate_project_skills.py",
     "test:naming": "node --test tests/naming/*.test.mjs tests/database/uuid-storage-contract.test.mjs",
     "test:uuid-storage": "node --test tests/database/uuid-storage-contract.test.mjs",
+    "test:pre-v1-naming": "node --test tests/naming/pre-v1-name-map.test.mjs",
     "test:localization": "node --test tests/localization-contract.test.mjs",
     "test:workspace": "node tests/client-workspace.test.mjs",
     "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/admin-real-stack-e2e --filter=!@fullnet/uniapp-h5-e2e --if-present test",

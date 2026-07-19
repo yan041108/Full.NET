@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
       "kind": "table",

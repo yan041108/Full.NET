@@ -35,7 +35,7 @@
 - Consumes: 当前 001-009 双库迁移、ErrorCodes、Audit/Statement IDs 和 Outbox MessageType
 - Produces: 机器可读 `PreV1NameMapV1` 与停止写入、备份、迁移、验证、回退步骤
 
-- [ ] **Step 1: 写失败的映射完整性测试**
+- [x] **Step 1: 写失败的映射完整性测试**
 
 测试扫描当前 SQL 和代码，要求每个已登记债务有唯一目标且目标通过 Naming Profile；数据库映射必须说明 `expandName`、`switchRelease`、`contractRelease`，协议映射必须说明 `legacyValue`、`canonicalValue`、`compatibilityMode`。
 

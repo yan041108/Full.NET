@@ -1,0 +1,349 @@
+{
+  "contract": "PreV1NameMapV1",
+  "schemaVersion": 1,
+  "migrations": {
+    "expand": "010_NamingExpand",
+    "contract": "011_NamingContract"
+  },
+  "database": {
+    "tables": [
+      {
+        "legacyName": "fn_tenant_tenant",
+        "canonicalName": "fn_tenancy_tenant",
+        "expandName": "fn_tenancy_tenant",
+        "switchRelease": "1.0.0-pre-v1-switch",
+        "contractRelease": "1.0.0"
+      }
+    ],
+    "columns": [
+      {
+        "tableLegacy": "fn_tenant_tenant",
+        "legacyName": "CreatedAt",
+        "canonicalName": "CreatedAtUtc",
+        "expandName": "CreatedAtUtc",
+        "switchRelease": "1.0.0-pre-v1-switch",
+        "contractRelease": "1.0.0"
+      },
+      {
+        "tableLegacy": "fn_tenant_tenant",
+        "legacyName": "UpdatedAt",
+        "canonicalName": "UpdatedAtUtc",
+        "expandName": "UpdatedAtUtc",
+        "switchRelease": "1.0.0-pre-v1-switch",
+        "contractRelease": "1.0.0"
+      },
+      {
+        "tableLegacy": "fn_outbox_message",
+        "legacyName": "Type",
+        "canonicalName": "MessageType",
+        "expandName": "MessageType",
+        "switchRelease": "1.0.0-pre-v1-switch",
+        "contractRelease": "1.0.0"
+      },
+      {
+        "tableLegacy": "fn_outbox_message",
+        "legacyName": "OccurredAt",
+        "canonicalName": "OccurredAtUtc",
+        "expandName": "OccurredAtUtc",
+        "switchRelease": "1.0.0-pre-v1-switch",
+        "contractRelease": "1.0.0"
+      },
+      {
+        "tableLegacy": "fn_outbox_message",
+        "legacyName": "ProcessedAt",
+        "canonicalName": "ProcessedAtUtc",
+        "expandName": "ProcessedAtUtc",
+        "switchRelease": "1.0.0-pre-v1-switch",
+        "contractRelease": "1.0.0"
+      },
+      {
+        "tableLegacy": "fn_outbox_message",
+        "legacyName": "NextAttemptAt",
+        "canonicalName": "NextAttemptAtUtc",
+        "expandName": "NextAttemptAtUtc",
+        "switchRelease": "1.0.0-pre-v1-switch",
+        "contractRelease": "1.0.0"
+      },
+      {
+        "tableLegacy": "fn_outbox_message",
+        "legacyName": "LockedUntil",
+        "canonicalName": "LockedUntilUtc",
+        "expandName": "LockedUntilUtc",
+        "switchRelease": "1.0.0-pre-v1-switch",
+        "contractRelease": "1.0.0"
+      }
+    ]
+  },
+  "protocol": [
+    {
+      "kind": "message_type",
+      "legacyValue": "fullnet.tenancy.tenant-provisioned",
+      "canonicalValue": "fullnet.tenancy.tenant.provisioned",
+      "compatibilityMode": "alias_until_drained"
+    },
+    {
+      "kind": "error_code",
+      "legacyValue": "identity.bootstrap.invalid-password",
+      "canonicalValue": "identity.bootstrap.invalid_password",
+      "compatibilityMode": "client_resource_alias"
+    },
+    {
+      "kind": "error_code",
+      "legacyValue": "identity.bootstrap.invalid-profile",
+      "canonicalValue": "identity.bootstrap.invalid_profile",
+      "compatibilityMode": "client_resource_alias"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.consume-refresh-session",
+      "canonicalValue": "identity.consume_refresh_session",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.count-authentication-audits",
+      "canonicalValue": "identity.count_authentication_audits",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.ensure-role-permission",
+      "canonicalValue": "identity.ensure_role_permission",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.ensure-user-role",
+      "canonicalValue": "identity.ensure_user_role",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.find-host-user-by-id",
+      "canonicalValue": "identity.find_host_user_by_id",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.find-profile-by-verified-identity",
+      "canonicalValue": "identity.find_profile_by_verified_identity",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.find-refresh-session-by-explicit-session-id",
+      "canonicalValue": "identity.find_refresh_session_by_explicit_session_id",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.find-refresh-session-by-hash",
+      "canonicalValue": "identity.find_refresh_session_by_hash",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.find-role-by-scope-and-code",
+      "canonicalValue": "identity.find_role_by_scope_and_code",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.find-user-by-scope-and-username",
+      "canonicalValue": "identity.find_user_by_scope_and_username",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.get-role-permission-codes",
+      "canonicalValue": "identity.get_role_permission_codes",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.insert-auth-audit",
+      "canonicalValue": "identity.insert_auth_audit",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.insert-explicit-context-audit",
+      "canonicalValue": "identity.insert_explicit_context_audit",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.insert-refresh-session",
+      "canonicalValue": "identity.insert_refresh_session",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.insert-role",
+      "canonicalValue": "identity.insert_role",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.insert-super-administrator-audit",
+      "canonicalValue": "identity.insert_super_administrator_audit",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.insert-user",
+      "canonicalValue": "identity.insert_user",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.list-super-administrator-audits.mysql",
+      "canonicalValue": "identity.list_super_administrator_audits.mysql",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.list-super-administrator-audits.sql-server",
+      "canonicalValue": "identity.list_super_administrator_audits.sql_server",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.list-super-administrators",
+      "canonicalValue": "identity.list_super_administrators",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "error_code",
+      "legacyValue": "identity.login-succeeded",
+      "canonicalValue": "identity.login_succeeded",
+      "compatibilityMode": "client_resource_alias"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.revoke-refresh-family",
+      "canonicalValue": "identity.revoke_refresh_family",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.update-locale-preference-by-verified-identity",
+      "canonicalValue": "identity.update_locale_preference_by_verified_identity",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.update-login-failure",
+      "canonicalValue": "identity.update_login_failure",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.update-login-success",
+      "canonicalValue": "identity.update_login_success",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.update-refresh-session-explicit-context",
+      "canonicalValue": "identity.update_refresh_session_explicit_context",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "identity.update-system-role",
+      "canonicalValue": "identity.update_system_role",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "outbox.acquire.my-sql",
+      "canonicalValue": "outbox.acquire.my_sql",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "outbox.acquire.sql-server",
+      "canonicalValue": "outbox.acquire.sql_server",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "outbox.mark-failed",
+      "canonicalValue": "outbox.mark_failed",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "outbox.mark-processed",
+      "canonicalValue": "outbox.mark_processed",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "outbox.select-my-sql-lease",
+      "canonicalValue": "outbox.select_my_sql_lease",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "tenancy.count-by-domain",
+      "canonicalValue": "tenancy.count_by_domain",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "error_code",
+      "legacyValue": "tenancy.domain-exists",
+      "canonicalValue": "tenancy.domain_exists",
+      "compatibilityMode": "client_resource_alias"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "tenancy.find-by-domain",
+      "canonicalValue": "tenancy.find_by_domain",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "tenancy.find-by-explicit-id",
+      "canonicalValue": "tenancy.find_by_explicit_id",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "tenancy.find-by-identifier",
+      "canonicalValue": "tenancy.find_by_identifier",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "tenancy.get-available-for-host-administrator",
+      "canonicalValue": "tenancy.get_available_for_host_administrator",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "statement_id",
+      "legacyValue": "tenancy.get-current",
+      "canonicalValue": "tenancy.get_current",
+      "compatibilityMode": "observability_dual_emit"
+    },
+    {
+      "kind": "error_code",
+      "legacyValue": "tenancy.host-not-found",
+      "canonicalValue": "tenancy.host_not_found",
+      "compatibilityMode": "client_resource_alias"
+    },
+    {
+      "kind": "error_code",
+      "legacyValue": "tenancy.identifier-exists",
+      "canonicalValue": "tenancy.identifier_exists",
+      "compatibilityMode": "client_resource_alias"
+    },
+    {
+      "kind": "error_code",
+      "legacyValue": "tenancy.not-found",
+      "canonicalValue": "tenancy.not_found",
+      "compatibilityMode": "client_resource_alias"
+    }
+  ]
+}
