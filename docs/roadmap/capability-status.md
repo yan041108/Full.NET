@@ -32,14 +32,14 @@
 | 标准 HTTP + ProblemDetails | `Build-verified` | API、兼容测试、Admin.NET 适配层 | OpenAPI 破坏性变更门禁和多客户端生成待补 |
 | System.Text.Json 源生成基础 | `Implemented` | 模块 JSON Context 与 HTTP 契约 | 后续 DTO 必须持续纳入源生成和兼容测试 |
 | 高并发结构化日志与 OpenTelemetry | `Implemented` | 有界异步 Serilog、队列监控、OTel | Warning/Error 独立高优先级通道和降级演练未实现 |
-| Identity 会话安全基础 | `Build-verified` | 登录、事务轮换、重用/family 撤销、逐请求 Session/账号/安全戳校验、CSRF/CORS/Origin、Refresh/Logout 限流与审计测试 | 多浏览器 Tab 刷新竞争、事务故障注入和上下文切换线性化专项验证待补 |
+| Identity 会话安全基础 | `Build-verified` | 登录、事务轮换、重用/family 撤销、逐请求 Session/账号/安全戳校验、CSRF/CORS/Origin、Refresh/Logout 限流与审计测试；`SessionRaceAssertions` 双库集成（60 项门槛） | 事务故障注入和 Redis 分布式会话未实现 |
 | Tenancy 可信上下文切换 | `Build-verified` | 租户解析、可用租户、切换与刷新集成测试 | 完整租户/套餐 CRUD 尚未开始；不能宣传为完整租户后台 |
 | 最小 RBAC 与权限导航 | `Build-verified` | 当前用户、权限、Vue/Layui 导航与按钮门禁 | 用户、角色、菜单、组织、数据范围管理 CRUD 尚未实现 |
 | 受保护超级管理员 | `Implemented` | 005/006 双库迁移、动态 Catalog 权限、逐请求会话校验、远程授予/撤销 API、当前密码重认证、含 ActorUserId 的事务审计、双库最后一名保护、Vue/Layui 对等管理页与 Mock E2E | Production MFA/强认证 Provider、账号禁用/删除及普通角色 CRUD 的系统角色保护、真实后端浏览器 E2E 尚未完成 |
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
 | Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E | 会话/HTTP/导航白名单已收敛到 `@fullnet/client-contracts` headless 层；Layui 仅保留 DOM 渲染适配 |
-| 双管理端真实后端浏览器联调 | `Implementing` | `tests/e2e/admin-real-stack`：Testcontainer SQL Server + Migrator Development Seed + 真实 API；Vue/Layui 登录/刷新恢复/租户切换/退出冒烟 | Cookie/CSRF 并发刷新、跨 Tab、ProblemDetails 与 MySQL 变体待补；CI 仅主干门禁 |
+| 双管理端真实后端浏览器联调 | `Build-verified` | `tests/e2e/admin-real-stack`：Testcontainer SQL Server/MySQL + Migrator Development Seed + 真实 API；Vue/Layui **16** 项（登录/刷新/跨 Tab/租户/ProblemDetails/403/权限拒绝/退出）；CI `real-stack-e2e` + `real-stack-e2e-mysql`（main） | Redis 未纳入真实栈；Overview「检查会话」级 API 403 UI 探针仍依赖 mock parity；不能标为 `Verified` |
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |

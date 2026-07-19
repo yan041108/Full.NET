@@ -50,10 +50,11 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | 变更 | 说明 |
 | --- | --- |
 | Integration 门槛 **58 → 60** | 新增 `Session_refresh_and_context_switch_races_are_linearized`（SQL Server + MySQL 各 1） |
-| 新鲜验证 | SQL Server/MySQL Integration 新用例通过；`pnpm test:e2e:real` **12/12** 通过（含 `auth-problem`、`forbidden-access`、`zz-logout`） |
+| UnitTests 门槛 **293 → 294** | 新增 `E2eHostViewerSeedContributorTests` |
+| 新鲜验证 | `pnpm test:e2e:real` **16/16**（SQL Server）；`pnpm test:e2e:real:mysql` **16/16**（MySQL）；新增 `permission-denied`、`session-cross-tab`；CI `real-stack-e2e-mysql` |
 | client-contracts | `session-refresh-coordinator` 无 Web Locks 时 `sessionStorage` 互斥回退，单测 **27** 项 |
 
-四处 canonical 门槛已同步为 **291/5/26/60**（Architecture 门槛在 `84ab8f5` 前已为 26，本增补仅 Integration +2）。
+四处 canonical 门槛已同步为 **294/5/26/60**。
 
 ## 关联文档
 

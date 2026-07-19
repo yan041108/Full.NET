@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
+    "test:mysql": "node scripts/run-mysql-test.mjs",
     "bootstrap": "node scripts/bootstrap-stack.mjs"
   },
   "devDependencies": {

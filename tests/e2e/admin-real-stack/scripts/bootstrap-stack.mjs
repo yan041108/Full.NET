@@ -8,21 +8,48 @@ import { waitForApi } from './wait-for-api.mjs';
 const repoRoot = path.resolve(fileURLToPath(new URL('../../../..', import.meta.url)));
 const statePath = path.join(repoRoot, 'tests/e2e/admin-real-stack/.stack-state.json');
 const sqlPassword = 'FullNet_Test!123';
+const mysqlPassword = 'FullNet_Test!123';
 const apiPort = 5149;
 const apiUrl = `http://localhost:${apiPort}`;
 const adminPassword = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
 const adminUsername = process.env.FULLNET_E2E_USERNAME ?? 'admin';
+const viewerUsername = process.env.FULLNET_E2E_VIEWER_USERNAME ?? 'e2e-viewer';
 
 /** 由 global-teardown 调用的进程内栈引用，避免序列化 testcontainers 句柄。 */
 let activeStack;
 
-/**
- * 启动 SQL Server Testcontainer、执行 Migrator Development Seed，并拉起 API Host。
- * 真实套件禁止 route mock；凭据通过环境变量覆盖。
- */
-export async function bootstrapStack() {
-  if (activeStack) {
-    return activeStack;
+function resolveDatabaseProvider() {
+  const value = (process.env.FULLNET_E2E_DATABASE_PROVIDER ?? 'SqlServer').toLowerCase();
+  if (value === 'mysql') {
+    return 'MySql';
+  }
+
+  return 'SqlServer';
+}
+
+async function startDatabaseContainer(provider) {
+  if (provider === 'MySql') {
+    const container = await new GenericContainer('mysql:8.0')
+      .withEnvironment({
+        MYSQL_DATABASE: 'fullnet',
+        MYSQL_USER: 'fullnet',
+        MYSQL_PASSWORD: mysqlPassword,
+        MYSQL_ROOT_PASSWORD: mysqlPassword
+      })
+      .withCommand(['--log-bin-trust-function-creators=1'])
+      .withExposedPorts(3306)
+      .withWaitStrategy(Wait.forListeningPorts())
+      .start();
+
+    const connectionString = [
+      `Server=${container.getHost()}`,
+      `Port=${container.getMappedPort(3306)}`,
+      'Database=fullnet',
+      'User=fullnet',
+      `Password=${mysqlPassword}`
+    ].join(';');
+
+    return { container, connectionString };
   }
 
   const container = await new GenericContainer(
@@ -43,9 +70,24 @@ export async function bootstrapStack() {
     'TrustServerCertificate=True'
   ].join(';');
 
+  return { container, connectionString };
+}
+
+/**
+ * 启动 Testcontainer、执行 Migrator Development Seed，并拉起 API Host。
+ * 真实套件禁止 route mock；凭据通过环境变量覆盖。
+ */
+export async function bootstrapStack() {
+  if (activeStack) {
+    return activeStack;
+  }
+
+  const databaseProvider = resolveDatabaseProvider();
+  const { container, connectionString } = await startDatabaseContainer(databaseProvider);
+
   const sharedEnv = {
     ...process.env,
-    Database__Provider: 'SqlServer',
+    Database__Provider: databaseProvider,
     Database__ConnectionString: connectionString,
     Database__MySqlGuidStorageMode: 'Binary16',
     UuidBinaryContract__MaintenanceMode: 'true',
@@ -54,11 +96,13 @@ export async function bootstrapStack() {
     UuidBinaryContract__DestructiveDdlApprovalId: 'e2e-real-stack-009',
     Identity__Bootstrap__Username: adminUsername,
     Identity__Bootstrap__Password: adminPassword,
+    Identity__E2eViewer__Username: viewerUsername,
+    Identity__E2eViewer__Password: adminPassword,
     Identity__AllowDevelopmentEphemeralSigningKey: 'true',
     Identity__AllowedOrigins__0: 'http://localhost:25173',
     Identity__AllowedOrigins__1: 'http://localhost:25174',
-    Identity__LoginRateLimitPermitLimitPerMinute: '120',
-    Identity__SessionMutationRateLimitPermitLimitPerMinute: '120',
+    Identity__LoginRateLimitPermitLimitPerMinute: '240',
+    Identity__SessionMutationRateLimitPermitLimitPerMinute: '240',
     Tenancy__HostDomains__0: 'localhost',
     DOTNET_ENVIRONMENT: 'Development',
     ASPNETCORE_ENVIRONMENT: 'Development'
@@ -97,12 +141,14 @@ export async function bootstrapStack() {
   activeStack = {
     apiUrl,
     apiProcess,
-    container
+    container,
+    databaseProvider
   };
   writeFileSync(statePath, JSON.stringify({
     apiUrl,
     apiPid: apiProcess.pid,
-    containerId: container.getId()
+    containerId: container.getId(),
+    databaseProvider
   }, null, 2));
 
   return activeStack;

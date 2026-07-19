@@ -17,6 +17,7 @@
     "build:clients": "pnpm --recursive --if-present build",
     "test:e2e": "pnpm --filter @fullnet/admin-parity-e2e test",
     "test:e2e:real": "pnpm --filter @fullnet/admin-real-stack-e2e test",
+    "test:e2e:real:mysql": "pnpm --filter @fullnet/admin-real-stack-e2e test:mysql",
     "test:e2e:uniapp": "pnpm --filter @fullnet/uniapp-h5-e2e test",
     "audit:clients": "node scripts/audit-client-dependencies.mjs"
   },
