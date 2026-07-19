@@ -51,4 +51,19 @@ public sealed class IdentityApiSqlServerTests
 
         await SuperAdministratorConcurrencyAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Session_refresh_and_context_switch_races_are_linearized()
+    {
+        await using var container = new MsSqlBuilder(
+                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
+            .WithPassword("FullNet_Test!123")
+            .Build();
+        await container.StartAsync();
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            container.GetConnectionString());
+
+        await SessionRaceAssertions.VerifyAsync(factory);
+    }
 }

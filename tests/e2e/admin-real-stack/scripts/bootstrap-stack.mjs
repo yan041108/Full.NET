@@ -57,6 +57,8 @@ export async function bootstrapStack() {
     Identity__AllowDevelopmentEphemeralSigningKey: 'true',
     Identity__AllowedOrigins__0: 'http://localhost:25173',
     Identity__AllowedOrigins__1: 'http://localhost:25174',
+    Identity__LoginRateLimitPermitLimitPerMinute: '120',
+    Identity__SessionMutationRateLimitPermitLimitPerMinute: '120',
     Tenancy__HostDomains__0: 'localhost',
     DOTNET_ENVIRONMENT: 'Development',
     ASPNETCORE_ENVIRONMENT: 'Development'

@@ -179,6 +179,9 @@ public sealed class IdentityModule : IFullNetModule
 
                 cors.AddPolicy(BrowserCorsPolicy, policy.Build());
             });
+        var identityRateLimits = configuration
+            .GetSection(IdentityOptions.SectionName)
+            .Get<IdentityOptions>() ?? new IdentityOptions();
         services.AddRateLimiter(rateLimiter =>
         {
             rateLimiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -199,7 +202,7 @@ public sealed class IdentityModule : IFullNetModule
                     httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 10,
+                        PermitLimit = identityRateLimits.LoginRateLimitPermitLimitPerMinute,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                         AutoReplenishment = true,
@@ -209,7 +212,7 @@ public sealed class IdentityModule : IFullNetModule
                     httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 30,
+                        PermitLimit = identityRateLimits.SessionMutationRateLimitPermitLimitPerMinute,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                         AutoReplenishment = true,

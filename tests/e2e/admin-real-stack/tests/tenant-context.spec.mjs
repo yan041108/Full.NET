@@ -1,7 +1,5 @@
 import { expect, test } from '@playwright/test';
-
-const username = process.env.FULLNET_E2E_USERNAME ?? 'admin';
-const password = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
+import { loginAsHostAdmin } from './support/real-stack-auth.mjs';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -10,13 +8,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('真实 API 可进入 Development 种子租户并返回 Host', async ({ page }) => {
-  await page.goto('/');
-  await page.getByLabel('账号', { exact: true }).fill(username);
-  await page.getByLabel('密码', { exact: true }).fill(password);
-  await page.getByRole('button', { name: '进入控制台' }).click();
+  await loginAsHostAdmin(page);
 
   const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation).toBeVisible();
   await navigation.getByRole('link', { name: /租户上下文/ }).click();
   await expect(page.getByRole('heading', { name: '租户上下文' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Full.NET Local' })).toBeVisible();

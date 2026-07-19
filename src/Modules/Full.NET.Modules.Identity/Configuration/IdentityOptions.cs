@@ -34,6 +34,16 @@ internal sealed class IdentityOptions
     public string[] AllowedOrigins { get; set; } = [];
 
     public IdentityBootstrapOptions Bootstrap { get; set; } = new();
+
+    /// <summary>
+    /// 登录端点每分钟允许的请求数；真实栈 E2E 等本地自动化场景可提高以避免误触限流。
+    /// </summary>
+    public int LoginRateLimitPermitLimitPerMinute { get; set; } = 10;
+
+    /// <summary>
+    /// Refresh/Logout 等会话变更端点每分钟允许的请求数。
+    /// </summary>
+    public int SessionMutationRateLimitPermitLimitPerMinute { get; set; } = 30;
 }
 
 internal sealed class IdentitySigningKeyOptions

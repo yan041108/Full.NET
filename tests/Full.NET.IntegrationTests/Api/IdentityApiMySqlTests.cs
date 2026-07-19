@@ -57,4 +57,21 @@ public sealed class IdentityApiMySqlTests
 
         await SuperAdministratorConcurrencyAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Session_refresh_and_context_switch_races_are_linearized()
+    {
+        await using var container = new MySqlBuilder("mysql:8.0")
+            .WithCommand("--log-bin-trust-function-creators=1")
+            .WithDatabase("fullnet")
+            .WithUsername("fullnet")
+            .WithPassword("FullNet_Test!123")
+            .Build();
+        await container.StartAsync();
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            container.GetConnectionString());
+
+        await SessionRaceAssertions.VerifyAsync(factory);
+    }
 }

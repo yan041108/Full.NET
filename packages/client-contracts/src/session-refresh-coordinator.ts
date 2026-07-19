@@ -20,6 +20,83 @@ export interface SessionRefreshCoordinatorOptions {
 
 const defaultChannelName = 'fullnet.session.refresh';
 const defaultLockName = 'fullnet.session.refresh';
+const storageLockKey = 'fullnet.session.refresh.lock';
+const storageLockTtlMs = 30_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+}
+
+interface StorageLockRecord {
+  owner: string;
+  expiresAt: number;
+}
+
+function readStorageLock(): StorageLockRecord | undefined {
+  if (typeof sessionStorage === 'undefined') {
+    return undefined;
+  }
+
+  const raw = sessionStorage.getItem(storageLockKey);
+  if (!raw) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(raw) as StorageLockRecord;
+  } catch {
+    sessionStorage.removeItem(storageLockKey);
+    return undefined;
+  }
+}
+
+function writeStorageLock(owner: string): void {
+  if (typeof sessionStorage === 'undefined') {
+    return;
+  }
+
+  sessionStorage.setItem(storageLockKey, JSON.stringify({
+    owner,
+    expiresAt: Date.now() + storageLockTtlMs
+  } satisfies StorageLockRecord));
+}
+
+function clearStorageLock(owner: string): void {
+  if (typeof sessionStorage === 'undefined') {
+    return;
+  }
+
+  const current = readStorageLock();
+  if (current?.owner === owner) {
+    sessionStorage.removeItem(storageLockKey);
+  }
+}
+
+async function withStorageLock<T>(
+  owner: string,
+  operation: () => Promise<T>
+): Promise<T> {
+  const deadline = Date.now() + storageLockTtlMs;
+  while (Date.now() < deadline) {
+    const current = readStorageLock();
+    if (!current || current.expiresAt <= Date.now()) {
+      writeStorageLock(owner);
+      if (readStorageLock()?.owner === owner) {
+        try {
+          return await operation();
+        } finally {
+          clearStorageLock(owner);
+        }
+      }
+    }
+
+    await sleep(25);
+  }
+
+  throw new Error('session refresh storage lock timeout');
+}
 
 function createTabId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID !== undefined) {
@@ -85,6 +162,10 @@ export function createSessionRefreshCoordinator(
 
     if (supportsWebLocks()) {
       return navigator.locks.request(lockName, execute);
+    }
+
+    if (typeof sessionStorage !== 'undefined') {
+      return withStorageLock(tabId, execute);
     }
 
     return execute();

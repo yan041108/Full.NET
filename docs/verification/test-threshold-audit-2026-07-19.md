@@ -45,6 +45,16 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 - 基准测试：`benchmarks/Full.NET.Benchmarks` 序列化基线未重跑。
 - 本记录绑定提交 `7894c8d`；后续未提交工作区变更不在本证据范围内。
 
+## 增补（2026-07-19，基线 `84ab8f5` 之后）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **58 → 60** | 新增 `Session_refresh_and_context_switch_races_are_linearized`（SQL Server + MySQL 各 1） |
+| 新鲜验证 | SQL Server/MySQL Integration 新用例通过；`pnpm test:e2e:real` **12/12** 通过（含 `auth-problem`、`forbidden-access`、`zz-logout`） |
+| client-contracts | `session-refresh-coordinator` 无 Web Locks 时 `sessionStorage` 互斥回退，单测 **27** 项 |
+
+四处 canonical 门槛已同步为 **291/5/26/60**（Architecture 门槛在 `84ab8f5` 前已为 26，本增补仅 Integration +2）。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

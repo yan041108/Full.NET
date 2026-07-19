@@ -4,6 +4,10 @@ import {
   type SessionRefreshCoordinatorMessage
 } from '../src/session-refresh-coordinator';
 
+const sleep = (ms: number) => new Promise<void>(resolve => {
+  setTimeout(resolve, ms);
+});
+
 class MockBroadcastChannel {
   static channels = new Map<string, Set<MockBroadcastChannel>>();
 
@@ -82,5 +86,42 @@ describe('session refresh coordinator', () => {
     expect(cleared).toEqual([
       { type: 'session-cleared', sourceId: 'leader' }
     ]);
+  });
+
+  it('无 Web Locks 时通过 sessionStorage 互斥执行', async () => {
+    vi.stubGlobal('navigator', {});
+    vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
+    const storage = new Map<string, string>();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      }
+    });
+
+    let active = 0;
+    let maxActive = 0;
+    const coordinator = createSessionRefreshCoordinator({ tabId: 'storage-tab' });
+    await Promise.all([
+      coordinator.runExclusive(async () => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await sleep(30);
+        active -= 1;
+        return true;
+      }),
+      coordinator.runExclusive(async () => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await sleep(30);
+        active -= 1;
+        return true;
+      })
+    ]);
+
+    expect(maxActive).toBe(1);
   });
 });
