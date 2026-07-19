@@ -4,6 +4,8 @@
 
 **Goal:** 在 Full.NET 1.0 前用可恢复的双数据库迁移规范化现有 Tenancy、Outbox 和稳定机器代码命名，同时保证存量数据、待处理消息和旧客户端不会被静默破坏。
 
+**前置条件状态（2026-07-19）**：`main` 基线 `55e82d4` 已完成 UUID 008/009 与 Task 5–7 自动化证据；010/011 编号已在 `UuidStorageContractV1` 冻结，可启动本计划实施（仍须独立维护窗口与验证记录）。
+
 **Architecture:** 数据库采用 `expand -> application switch -> contract`：先新增规范表/列并回填，在受控维护窗口切换应用，再延后删除旧对象。公共错误码通过明确破坏性版本说明和兼容映射迁移；Outbox 旧 MessageType 保留并行 Handler，直到旧消息排空和退役窗口结束。本计划不修改 001-009 历史迁移，并以 UUID Binary16 008/009 已完成为前置条件。
 
 **Tech Stack:** .NET 10、Dapper、DbUp、SQL Server、MySQL、Testcontainers、MessagePack Outbox、MSTest/Microsoft Testing Platform、Vue/Layui 契约测试。

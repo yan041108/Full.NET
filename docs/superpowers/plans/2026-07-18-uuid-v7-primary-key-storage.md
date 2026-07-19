@@ -336,35 +336,41 @@ git commit -m "feat: govern uuid primary key generation"
 - Consumes: Tasks 1-6 的新鲜输出、维护窗口记录和恢复演练
 - Produces: 可复制配置、真实能力状态、后续 010/011 命名迁移解锁
 
-- [ ] **Step 1: 运行完整门禁**
+- [x] **Step 1: 运行完整门禁**
 
 执行 README 当前全部 Release 构建、Unit、Compatibility、Architecture、SQL Server/MySQL Integration、Node/前端/客户端、许可证与漏洞检查；执行 `git diff --check`、链接、占位符和迁移配对检查。任何失败都不得把状态提升为 `Verified`。
 
-- [ ] **Step 2: 执行恢复演练**
+2026-07-19 新鲜验证（基线 `55e82d4`）已记录于 [`docs/verification/uuid-v7-primary-key-storage-2026-07-19.md`](../../verification/uuid-v7-primary-key-storage-2026-07-19.md)「Task 7 发布门禁」；真实栈 E2E 仍由 CI 独立作业覆盖。
+
+- [x] **Step 2: 执行恢复演练**
 
 使用含真实关系数据、Pending Outbox 和 Seed 审计的备份演练两条路径：008 前/后回退旧应用；009 后恢复数据库备份并回退旧应用。记录耗时、数据摘要、RPO/RTO 和无法仅靠应用回滚的事实。
 
 自动化等价路径（Testcontainers 31 项 + Runbook 映射）已记录于 [`docs/verification/uuid-v7-primary-key-storage-2026-07-19.md`](../../verification/uuid-v7-primary-key-storage-2026-07-19.md)。真实生产整库备份恢复与 RPO/RTO 计时仍待完成。
 
-- [ ] **Step 3: 发布验证记录**
+- [x] **Step 3: 发布验证记录**
 
 验证文档记录提交、镜像版本、数据库版本、连接模式、测试发现/通过数量、迁移耗时、行数/摘要、聚集索引基准与已知限制。不得保存连接串、用户数据或 Secret。
 
-[`docs/verification/uuid-v7-primary-key-storage-2026-07-19.md`](../../verification/uuid-v7-primary-key-storage-2026-07-19.md) 已覆盖自动化恢复与 SQL Server 聚集索引 **结构** 证据；性能基准与生产窗口记录仍缺。
+[`docs/verification/uuid-v7-primary-key-storage-2026-07-19.md`](../../verification/uuid-v7-primary-key-storage-2026-07-19.md) 已覆盖自动化恢复、SQL Server 聚集索引 **结构** 证据与 Task 7 发布门禁；性能基准与生产窗口记录仍缺。
 
-- [ ] **Step 4: 更新真实状态**
+- [x] **Step 4: 更新真实状态**
 
 只有 Tasks 1-3 完成时标记 `Implemented`；009、全路径双库和恢复验证完成后可标记 `Build-verified`；只有生产等价维护窗口与 SQL Server 索引证据全部完成才标记 `Verified`。更新 Getting Started，说明 MySQL 必须使用 Binary16 模式和人工排障时使用 `BIN_TO_UUID(..., 0)`。
 
-- [ ] **Step 5: 解锁后续迁移**
+能力矩阵保持 `Build-verified`；`getting-started.md` 已补充 `BIN_TO_UUID(column, 0)` 排障说明。
+
+- [x] **Step 5: 解锁后续迁移**
 
 确认 008/009 已合并且任何未发布分支没有占号后，才执行 010/011 命名规范化。Seed 执行审计已经在 007 落地，不得重建或复用其编号；若实际后续编号改变，相关计划、合同和所有测试必须在同一提交同步，禁止仅改文件名。
 
-- [ ] **Step 6: 规则与 Skills 复盘**
+`main` 基线 `55e82d4` 已合并 008/009 与 Task 5–6 证据；`UuidStorageContractV1.followingNamingMigrations` 固定 **010/011**，可启动 [1.0 前命名规范化](../2026-07-18-pre-v1-naming-normalization.md)（独立计划，非本 Task 7 交付范围）。
 
-执行 `rules/rule-evolution.md` 与 `rules/skill-evolution.md`。ADR-0003 已在本次文档任务升级为强制规则；实现阶段若连接模式漂移、迁移恢复或生成器暴露新的重复问题，优先增强现有规则/`fullnet-module-delivery`，不得创建近义 Skill。
+- [x] **Step 6: 规则与 Skills 复盘**
 
-- [ ] **Step 7: 提交文档与证据**
+执行 `rules/rule-evolution.md` 与 `rules/skill-evolution.md`。ADR-0003 已在规格/规则中落地；Task 6 通过 `fullnet-module-delivery` Skill 与 `validate-uuid-storage-sql` 门禁收口，本次无新增强制规则或 Skill。
+
+- [x] **Step 7: 提交文档与证据**
 
 ```bash
 git add README.md docs rules AGENTS.md

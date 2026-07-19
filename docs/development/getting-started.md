@@ -203,6 +203,8 @@ ConnectionStrings__fullnet=<由 Secret 管理器注入>
 
 执行 009 时还必须仅向 Migrator 注入 `UuidBinaryContract__MaintenanceMode=true`、`BackupVerified=true`、`LegacyWritersStopped=true` 和已登记的 `DestructiveDdlApprovalId`；详见 [UUID Binary16 迁移 Runbook](uuid-binary-migration-runbook.md)。自动化恢复演练与 Runbook 映射见 [UUID v7 验证记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)。
 
+MySQL 运维排障时，可在只读会话用 `BIN_TO_UUID(column, 0)` 将 RFC 9562 网络字节序 `BINARY(16)` 转为规范小写连字符文本；禁止在业务 SQL 或应用代码中手工做 UUID 字节转换。应用与 Dapper 仍只使用 C# `Guid`，公共 API 继续输出规范 UUID 字符串。
+
 ## 5. 缓存约定
 
 FusionCache 是唯一缓存实现，业务代码可以依赖 `IFusionCache`，也可以依赖由 `.AsHybridCache()` 暴露的 Microsoft `HybridCache`；两者指向同一个底层实例。

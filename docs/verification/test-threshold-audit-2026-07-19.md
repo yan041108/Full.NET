@@ -88,6 +88,18 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 
 四处 canonical 门槛已同步为 **304/6/26/66**。
 
+## 增补（2026-07-19，基线 `55e82d4` 之后，P0 UUID Task 7 Step 1）
+
+| 验证 | 结果 |
+| --- | --- |
+| Release 构建 | 0 警告、0 错误 |
+| 四套 .NET 测试 | **304/6/26/66** 全部通过（Integration 26m 06s） |
+| Node/客户端 | `test:naming` 20、`test:governance` 6、`test:skills` 44、`test:workspace`、`test:clients`、`audit:clients` 通过 |
+| NuGet 漏洞扫描 | 无已知漏洞 |
+| `git diff --check` | 通过 |
+
+详情见 [UUID v7 验证记录](uuid-v7-primary-key-storage-2026-07-19.md)。真实栈 E2E 未在本轮重跑。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

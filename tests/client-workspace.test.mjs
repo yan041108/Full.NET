@@ -37,7 +37,7 @@ assert.equal(
 );
 assert.equal(
   packageDefinition.scripts['test:clients'],
-  'pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/uniapp-h5-e2e --if-present test'
+  'pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/admin-real-stack-e2e --filter=!@fullnet/uniapp-h5-e2e --if-present test'
 );
 assert.equal(
   packageDefinition.scripts['test:e2e:uniapp'],

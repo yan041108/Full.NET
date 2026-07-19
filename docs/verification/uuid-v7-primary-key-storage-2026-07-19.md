@@ -3,8 +3,8 @@
 - 日期：2026-07-19
 - 类型：自动化恢复演练与 Runbook 映射
 - 状态：已完成（自动化证据）；生产等价维护窗口未实跑
-- 代码基线：`16274fb`（`docs: record uuid task 5 verification at threshold 296/6/26/66`）
-- 范围：MySQL `BINARY(16)` 008/009 迁移、半完成恢复、009 门禁、应用连接模式、SQL Server 聚集索引显式治理，以及 Task 5 应用持久化/外部契约测试
+- 代码基线：`55e82d4`（`docs: mark uuid task 6 plan steps complete`）
+- 范围：MySQL `BINARY(16)` 008/009 迁移、半完成恢复、009 门禁、应用连接模式、SQL Server 聚集索引显式治理、Task 5–6 应用/生成器治理，以及 Task 7 发布门禁
 - 方法：Release 构建、Testcontainers（SQL Server 2022 / MySQL 8.0）、`pnpm test:uuid-storage`、Integration 聚焦 filter
 
 ## 声明结论
@@ -21,7 +21,25 @@
 | --- | --- | --- |
 | UUID 存储合同 | `pnpm test:uuid-storage` | **3/3** 通过 |
 | 迁移/恢复矩阵 | `--filter "FullyQualifiedName~UuidBinary"`，`--minimum-expected-tests 25` | **31/31** 通过，约 17m 22s |
-| 应用持久化与契约 | 见 [test-threshold-audit-2026-07-19.md](test-threshold-audit-2026-07-19.md) `b7ff745` 增补 | Unit 聚焦 **9/9**；Integration 聚焦 **26/26**；全量 **66/66** |
+| 应用持久化与契约 | 见 [test-threshold-audit-2026-07-19.md](test-threshold-audit-2026-07-19.md) | Unit **304/304**；Integration **66/66**（约 26m） |
+
+## Task 7 发布门禁（2026-07-19，基线 `55e82d4`）
+
+| 验证 | 结果 |
+| --- | --- |
+| `dotnet build Full.NET.slnx -c Release` | 0 警告、0 错误 |
+| Unit / Compatibility / Architecture | **304/6/26** 通过 |
+| Integration（Testcontainers 双库） | **66/66** 通过，26m 06s |
+| `pnpm test:naming` | **20/20** |
+| `pnpm test:governance` | **6/6** |
+| `pnpm test:skills` | **44/44** |
+| `pnpm test:workspace` | 通过 |
+| `pnpm test:clients` | 通过（含 client-contracts、Vue、Layui、uni-app **96+51+46** 等） |
+| `pnpm audit:clients` | 无未登记 critical/high |
+| `dotnet list package --vulnerable` | 无已知漏洞 |
+| `git diff --check` | 通过 |
+
+**未纳入本次门禁**：`pnpm test:e2e`、`pnpm test:e2e:real`、`pnpm test:e2e:uniapp`（需独立环境/时长，由 CI `real-stack-e2e` 等作业覆盖）。**不能**据此将 UUID 提升为 `Verified`。
 
 ## Runbook 步骤与自动化证据映射
 
@@ -79,7 +97,7 @@
 - 真实生产（或生产等价数据量）维护窗口：冻结发布、业务通知、备份恢复 RPO/RTO 计时、人工 Go/No-Go 签字。
 - 009 后 **整库备份恢复** 与旧应用镜像回退（仅验证 Migrator 半完成重收敛，未挂载备份文件）。
 - SQL Server 高写入表聚集索引 **性能** 基准与执行计划证据。
-- 完整发布门禁（README 全部客户端/E2E/许可证）在本记录范围外；见 Task 7 Step 1。
+- 真实栈 E2E（`pnpm test:e2e:real` / `mysql`）与浏览器 E2E 未在本记录 Task 7 门禁中重跑；最近证据见 [test-threshold-audit-2026-07-19.md](test-threshold-audit-2026-07-19.md) `9760590` 增补（各 **16/16**）。
 
 ## 关联文档
 
