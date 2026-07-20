@@ -270,7 +270,7 @@ Run: README 中全部 Release 构建、Unit、Compatibility、Architecture、双
 
 Expected: 全部自动化 PASS；维护窗口中的备份恢复、行数/摘要和人工数据库审查记录进入验证文档。未执行人工项时不得标记 `Verified`。
 
-> 2026-07-21 增补：Integration 全量 **85/85** 与 Naming 聚焦矩阵已绿；完整 README 门禁与人工项仍待独立执行。
+> 2026-07-21 增补：Integration 全量 **85/85**、Naming 聚焦矩阵、Unit/Compat/Arch/客户端/审计自动化门禁已绿；E2E 与人工维护窗口项仍开放。
 
 - [x] **Step 6: 提交 Contract 迁移**
 

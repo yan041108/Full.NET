@@ -3,7 +3,7 @@
 - 日期：2026-07-21
 - 类型：双库 Expand/Contract 自动化矩阵与 Runbook 映射
 - 状态：`Build-verified`（自动化证据）；生产维护窗口与备份升级演练未实跑
-- 代码基线：`a7c7439`（`test: fix post-011 integration recovery boundaries`）
+- 代码基线：`7a25b34`（Task 6 文档交付 + Task 5 Step 5 自动化门禁）
 - 范围：010 Expand、011 Contract、应用 SQL/Outbox 切换、协议别名兼容、`PreV1NameMapV1` 债务收敛
 - 方法：Release 构建、Testcontainers 双库、`pnpm test:naming`、Integration 全量与聚焦 filter
 
@@ -19,12 +19,20 @@
 
 | 验证 | 命令要点 | 结果 |
 | --- | --- | --- |
-| 命名合同 | `pnpm test:naming` | **23/23** 通过 |
-| Naming 聚焦矩阵 | `--filter "NamingExpand\|NamingContract\|NamingPartialRecovery"` | **19/19** 通过（双库 Expand/Contract/PartialRecovery） |
-| Integration 全量 | `--minimum-expected-tests 85 --timeout 90m` | **85/85** 通过，约 22m 41s |
+| Release 构建 | `dotnet build Full.NET.slnx -c Release` | 0 警告、0 错误 |
+| Unit | `--minimum-expected-tests 314` | **314/314** |
+| Compatibility | `--minimum-expected-tests 7` | **7/7** |
+| Architecture | `--minimum-expected-tests 26` | **26/26** |
+| Integration 全量 | `--minimum-expected-tests 85 --timeout 90m` | **85/85**，约 22m 41s |
+| 命名合同 | `pnpm test:naming` | **23/23** |
+| Naming 聚焦矩阵 | `--filter "NamingExpand\|NamingContract\|NamingPartialRecovery"` | **19/19** |
+| 治理 / Skills / Workspace | `pnpm test:governance` / `test:skills` / `test:workspace` | **6/6**、**44** 项、通过 |
+| 客户端 | `pnpm test:clients` | **230** 项（contracts 29、uni-app 96、Vue 46、Layui 51、i18n 8 等） |
+| 依赖审计 | `pnpm audit:clients`、`dotnet list package --vulnerable` | 无未登记 critical/high；NuGet 无已知漏洞 |
+| 仓库卫生 | `git diff --check` | 通过 |
 | 迁移恢复边界 | localization Through008、UUID Contract Through009 runner | 6 项先前失败用例已收敛 |
 
-**未纳入本次记录**：README 完整发布门禁（Unit/Compatibility/Architecture/客户端 E2E/依赖审计全矩阵）；Task 5 Step 5 仍待独立执行与签字。
+**未纳入本次门禁**：`pnpm test:e2e` / `test:e2e:real` / `test:e2e:uniapp`（需独立环境与时长）；Task 6 Step 2 发布候选备份升级演练；生产维护窗口人工签字。
 
 ## 数据库对象最终状态
 
@@ -90,7 +98,7 @@
 - 真实生产（或生产等价数据量）维护窗口：冻结发布、备份恢复 RPO/RTO、人工 Go/No-Go。
 - **发布候选升级演练**（Task 6 Step 2）：从上一发布版本备份恢复 → 010 → 应用切换 → 011 → 双端冒烟。
 - Legacy `MessageType` 与公共 ErrorCode/StatementId 别名 **排空时间与退役签字**。
-- README 完整发布门禁全矩阵（Unit/Architecture/客户端 E2E/audit）在本记录日未重跑。
+- Playwright / 真实栈 E2E（`pnpm test:e2e`、`test:e2e:real`、`test:e2e:uniapp`）未在本记录日重跑。
 
 ## 关联文档
 
