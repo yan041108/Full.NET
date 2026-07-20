@@ -256,7 +256,7 @@ git commit -m "refactor: normalize pre-v1 contract names"
 
 先把规范 Outbox 列收紧为正确 NULL/NOT NULL 语义并重建规范索引；再在独立、带豁免的步骤删除旧列和 `fn_tenant_tenant`。SQL Server/MySQL 每步探测结构并验证数据，删除操作引用具体批准的豁免 ID 和到期版本。
 
-- [ ] **Step 3: 运行全新、升级和半完成双库矩阵**
+- [x] **Step 3: 运行全新、升级和半完成双库矩阵**
 
 矩阵至少包含：空数据库 001→011、009 存量数据→011、010 后新应用写入→011、Legacy Pending 消息拒绝、011 部分完成重跑。所有场景验证 Tenant/Outbox 行数、Payload SHA-256、UUID Binary16 往返、索引和约束名称。
 
