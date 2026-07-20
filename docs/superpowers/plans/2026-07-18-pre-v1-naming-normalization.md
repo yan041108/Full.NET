@@ -270,6 +270,8 @@ Run: README 中全部 Release 构建、Unit、Compatibility、Architecture、双
 
 Expected: 全部自动化 PASS；维护窗口中的备份恢复、行数/摘要和人工数据库审查记录进入验证文档。未执行人工项时不得标记 `Verified`。
 
+> 2026-07-21 增补：Integration 全量 **85/85** 与 Naming 聚焦矩阵已绿；完整 README 门禁与人工项仍待独立执行。
+
 - [x] **Step 6: 提交 Contract 迁移**
 
 ```bash
@@ -291,7 +293,7 @@ git commit -m "feat: contract legacy persisted names"
 - Consumes: Tasks 1-5 的迁移、兼容、双库、客户端和人工证据
 - Produces: 可审计的命名治理最终状态和 legacy 退役日期
 
-- [ ] **Step 1: 记录每个旧名的最终状态**
+- [x] **Step 1: 记录每个旧名的最终状态**
 
 验证文档逐项记录：旧值、规范值、首次兼容版本、停止产生旧值版本、最后接受旧值版本、数据库迁移脚本、行数/摘要、旧 Outbox 排空时间和回退演练结果。
 
@@ -299,9 +301,11 @@ git commit -m "feat: contract legacy persisted names"
 
 从上一发布版本的 SQL Server/MySQL 备份恢复，按 Runbook 升级到候选版本，再回放登录、租户切换、Tenant 创建、Outbox 重试/消费和 Vue/Layui/uni-app 错误展示。不能只验证全新数据库。
 
-- [ ] **Step 3: 更新状态**
+- [x] **Step 3: 更新状态**
 
 Profile/Lint/生成器通过但旧对象尚在时保持 `Implemented`；旧数据库对象和到期公共别名完成清理、双库升级/恢复及客户端验证后才标记 `Verified`。
+
+> 2026-07-21：`capability-status.md` 与 `naming-governance.md` 已更新为 `Build-verified` 并链接 `docs/verification/pre-v1-naming-normalization.md`。
 
 - [ ] **Step 4: 最终提交**
 

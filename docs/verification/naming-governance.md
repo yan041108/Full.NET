@@ -1,7 +1,7 @@
 # 命名治理验证记录
 
-- 日期：2026-07-18
-- 状态：`Implemented`
+- 日期：2026-07-21（自动化矩阵增补）
+- 状态：`Build-verified`（治理门禁）；1.0 前 Tenancy/Outbox 持久化规范化见[专项验证记录](pre-v1-naming-normalization.md)
 - 代码基线：`5d9f775`
 - 范围：Naming Profile、精确债务、SQL/迁移/C#／稳定协议门禁、CodeGeneration 命名内核和项目 Skill 接入
 
@@ -29,6 +29,6 @@
 
 ## 存量债务与停止条件
 
-当前债务清单共 90 项：列 6、动态 SQL 5、错误码 24、消息类型 2、未命名主键 10、查询 1、Statement ID 37、表名 5。每项均包含精确类型、值、文件、原因和 `M1.0` 移除里程碑；文件移动或新值不会被放行。
+当前债务清单共 **83** 项（2026-07-21）：列 14、动态 SQL 12、错误码 22、消息类型 1、未命名主键 11、查询 1、表名 17、不支持 SQL 5。`fn_tenant_tenant` 与 Outbox legacy 列等 7 项已在 011 Contract 中清除。
 
-本能力不能标记为 `Verified`：1.0 前 Expand/Contract 规范化尚未执行，完整元数据/模板生成器与重复生成快照尚未实现，动态 SQL 仍需要人工审查。具体迁移服从[1.0 前存量命名规范化计划](../superpowers/plans/2026-07-18-pre-v1-naming-normalization.md)，禁止修改已执行迁移或在本门禁任务中静默改变已发布协议值。
+本能力不能标记为 `Verified`：协议别名排空与生产升级演练尚未完成；完整元数据/模板生成器与重复生成快照尚未实现，动态 SQL 仍需要人工审查。Tenancy/Outbox 持久化 010/011 自动化证据见[1.0 前命名规范化验证记录](pre-v1-naming-normalization.md)。

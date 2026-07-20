@@ -1,6 +1,6 @@
 # Full.NET 当前能力状态矩阵
 
-- 快照日期：2026-07-18
+- 快照日期：2026-07-21
 - 基线提交：本文件所在提交
 - 文档职责：作为“当前能用到什么程度”的唯一总览；详细范围仍由各规格、路线图和验证记录负责
 - 更新规则：每次里程碑、公开发布和能力状态变化时更新；没有可定位证据不得提升状态
@@ -23,10 +23,10 @@
 | 能力 | 状态 | 当前证据 | 主要缺口/下一门禁 |
 |---|---|---|---|
 | 模块化单体、显式模块依赖与宿主 Profile | `Build-verified` | `Full.NET.Modularity`、`Full.NET.Composition`、Api/Worker/Migrator 显式 Profile、Unit 与 Architecture Tests | 新模块必须进入共享目录；Worker 只允许最小后台入口，禁止宿主恢复手工模块清单 |
-| 跨栈命名治理与生成器命名内核 | `Implemented` | `contracts/naming/`、`pnpm test:naming`、16 项 Architecture Tests、`Full.NET.Data.CodeGeneration` 与[验证记录](../verification/naming-governance.md) | 90 项存量债务仍待 1.0 前规范化；动态 SQL 继续要求人工审查，完整业务模板与重复生成快照尚未交付，因此不能标记为 `Verified` |
+| 跨栈命名治理与生成器命名内核 | `Build-verified` | `contracts/naming/`、`pnpm test:naming`（23 项）、010/011 双库迁移、19 项 Naming Integration 矩阵、[命名治理](../verification/naming-governance.md)与[1.0 前规范化验证](../verification/pre-v1-naming-normalization.md)；债务 **83** 项 | 真实维护窗口、备份升级演练、协议别名排空与客户端 E2E 升级路径未实跑；动态 SQL 仍须人工审查；完整业务模板与重复生成快照未交付，因此不能标记为 `Verified` |
 | Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks；QueryMultiple 顺序/完整消费及 SQL Server/MySQL 真实测试 | `TenantRequired` 仍需从参数文本检查升级为受控语义元数据，Global Statement 需精确目录；SqlBuilder 只在真实消费者命中门禁后引入 |
 | UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`PrimaryKeyTypeMapping`、`validate-uuid-storage-sql`（010+ 门禁）、UUID 集成测试（Expand/Contract/Recovery 31 项）、应用持久化/外部契约测试、Runbook 与[自动化恢复演练记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)、真实栈 MySQL E2E 走 Binary16；门槛 **304/6/26/66** 见[测试门槛核对](test-threshold-audit-2026-07-19.md) | 真实生产维护窗口与整库备份恢复 RPO/RTO 实跑、SQL Server 聚集索引性能基准尚未完成 |
-| SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
+| SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试（Integration **85** 项）、010/011 Naming Expand/Contract、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
 | 标准 HTTP + ProblemDetails | `Build-verified` | API、兼容测试、Admin.NET 适配层 | OpenAPI 破坏性变更门禁和多客户端生成待补 |
@@ -61,7 +61,7 @@
 
 1. **P0：主键物理存储与数据安全**——先实施 ADR-0003 的 MySQL `BINARY(16)` 数据边界和 008/009 存量迁移，完成备份、字节序、主外键、Seed 审计引用、部分迁移恢复和 SQL Server 聚集索引验证。
 2. **P0：生产可控性**——在主键存储迁移完成后实施 Seed Baseline/Overlay，为超级管理员远程写操作接入 MFA/强认证 Provider 并补账号禁用/删除保护；建立 SQL 破坏性变更门禁，并复用现有命名扫描入口。
-3. **P0：1.0 前命名规范化**——按 010/011 Expand/Contract 计划迁移 90 项精确债务，不修改已执行迁移，不把存量旧名称复制到新模板。
+3. **P0：1.0 前命名规范化**——Tenancy/Outbox 持久化层 010/011 与双库自动化矩阵已完成；剩余 **83** 项债务（协议别名窗口、动态 SQL 等）与生产升级演练待闭环。
 4. **P1：可靠性**——Outbox 版本兼容/死信、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道。
 5. **P1：交付真实性**——真实后端参与的 Vue/Layui Playwright 安全冒烟；浏览器跨 Tab 刷新协调。
 6. **P1：复用而不耦合**——浏览器 headless 契约层；OpenAPI/协议夹具扩展到 uni-app/Flutter。
@@ -78,6 +78,7 @@
 - [命名体系设计](../superpowers/specs/2026-07-18-fullnet-naming-conventions-design.md)
 - [命名治理实施计划](../superpowers/plans/2026-07-18-naming-governance.md)
 - [1.0 前存量命名规范化计划](../superpowers/plans/2026-07-18-pre-v1-naming-normalization.md)
+- [1.0 前命名规范化验证记录](../verification/pre-v1-naming-normalization.md)
 - [UUID v7 主键存储 ADR](../architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md)与[专项实施计划](../superpowers/plans/2026-07-18-uuid-v7-primary-key-storage.md)
 - [客户端交付路线图](client-delivery-roadmap.md)
 - [Admin.NET.Pro 功能对标路线](adminnet-feature-parity.md)
