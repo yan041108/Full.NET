@@ -4,23 +4,17 @@ using Full.NET.Migrations.DbUp;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Testcontainers.MsSql;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
 [TestClass]
 public sealed class SqlServerMigrationTests
 {
-    private readonly MsSqlContainer _container = new MsSqlBuilder(
-            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private string _connectionString = null!;
 
     [TestInitialize]
-    public Task StartAsync() => _container.StartAsync();
-
-    [TestCleanup]
-    public async Task CleanupAsync() => await _container.DisposeAsync();
+    public async Task StartAsync() =>
+        _connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
 
     [TestMethod]
     public async Task SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema()
@@ -29,7 +23,7 @@ public sealed class SqlServerMigrationTests
             Options.Create(new DatabaseOptions
             {
                 Provider = DatabaseProvider.SqlServer,
-                ConnectionString = _container.GetConnectionString(),
+                ConnectionString = _connectionString,
                 CommandTimeoutSeconds = 300,
             }),
             NullLoggerFactory.Instance,
@@ -44,7 +38,7 @@ public sealed class SqlServerMigrationTests
         Assert.IsTrue(second.Successful);
         Assert.AreEqual(0, second.ExecutedScriptCount);
 
-        await using var connection = new SqlConnection(_container.GetConnectionString());
+        await using var connection = new SqlConnection(_connectionString);
         var tables = (await connection.QueryAsync<string>(
             "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'dbo'"))
             .ToArray();
@@ -185,7 +179,7 @@ public sealed class SqlServerMigrationTests
     public async Task UuidBinaryExpand_SqlServer_pairs_008_without_binary_shadow_columns()
     {
         await CreateRunner().MigrateAsync();
-        await using var connection = new SqlConnection(_container.GetConnectionString());
+        await using var connection = new SqlConnection(_connectionString);
 
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(*) FROM dbo.SchemaVersions WHERE ScriptName LIKE '%008_UuidBinaryExpand.sql'"));
@@ -202,7 +196,7 @@ public sealed class SqlServerMigrationTests
         var runner = CreateRunner();
         await runner.MigrateAsync();
 
-        await using var connection = new SqlConnection(_container.GetConnectionString());
+        await using var connection = new SqlConnection(_connectionString);
         await connection.ExecuteAsync(
             """
             DROP TABLE dbo.fn_seed_run_item;
@@ -229,7 +223,7 @@ public sealed class SqlServerMigrationTests
         var runner = CreateRunner();
         await runner.MigrateAsync();
 
-        await using var connection = new SqlConnection(_container.GetConnectionString());
+        await using var connection = new SqlConnection(_connectionString);
         await connection.ExecuteAsync(
             """
             ALTER TABLE dbo.fn_identity_user DROP CONSTRAINT DF_fn_identity_user_PreferredLocale;
@@ -262,7 +256,7 @@ public sealed class SqlServerMigrationTests
         Assert.AreEqual(1, legacyUpgrade.ExecutedScriptCount);
         await AssertLocalizationStateAsync(connection, userId, tenantId);
 
-        // 模拟 DDL 已部分提交但 DbUp 尚未记账；重跑必须修复空值、可空性和默认约束。
+        // ???? DDL ??????????? DbUp ???????????????????????????????????????????
         await connection.ExecuteAsync(
             """
             DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%004_LocalizationPreferences.sql';
@@ -288,7 +282,7 @@ public sealed class SqlServerMigrationTests
         var runner = CreateRunner();
         await runner.MigrateAsync();
 
-        await using var connection = new SqlConnection(_container.GetConnectionString());
+        await using var connection = new SqlConnection(_connectionString);
         var roleId = Guid.NewGuid();
         await connection.ExecuteAsync(
             """
@@ -302,7 +296,7 @@ public sealed class SqlServerMigrationTests
                 (Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
                  IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version)
             VALUES
-                (@RoleId, NULL, 'host', 'host-administrator', N'超级管理员',
+                (@RoleId, NULL, 'host', 'host-administrator', N'Host Administrator',
                  1, 1, NULL, @Now, NULL, 1);
             DELETE FROM dbo.SchemaVersions
             WHERE ScriptName LIKE '%005_SuperAdministrator.sql';
@@ -332,7 +326,7 @@ public sealed class SqlServerMigrationTests
         Options.Create(new DatabaseOptions
         {
             Provider = DatabaseProvider.SqlServer,
-            ConnectionString = _container.GetConnectionString(),
+            ConnectionString = _connectionString,
             CommandTimeoutSeconds = 300,
         }),
         NullLoggerFactory.Instance,

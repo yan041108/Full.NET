@@ -7,32 +7,23 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
-using Testcontainers.MySql;
-using Testcontainers.MsSql;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
 [TestClass]
 public sealed class UuidBinaryContractMigrationTests
 {
-    private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
-        .WithCommand("--log-bin-trust-function-creators=1")
-        .WithDatabase("fullnet")
-        .WithUsername("fullnet")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private string _connectionString = null!;
 
     [TestInitialize]
-    public Task StartAsync() => _container.StartAsync();
-
-    [TestCleanup]
-    public async Task CleanupAsync() => await _container.DisposeAsync();
+    public async Task StartAsync() =>
+        _connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
 
     [TestMethod]
     public async Task UuidBinaryContract_MySql_records_paired_contract_migration()
     {
         await CreateRunner().MigrateAsync();
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = new MySqlConnection(_connectionString);
 
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(*) FROM schemaversions WHERE ScriptName LIKE '%009_UuidBinaryContract.sql'"));
@@ -42,7 +33,7 @@ public sealed class UuidBinaryContractMigrationTests
     public async Task UuidBinaryContract_MySql_switches_all_uuid_columns_and_removes_expand_objects()
     {
         await CreateRunner().MigrateAsync();
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = new MySqlConnection(_connectionString);
 
         Assert.AreEqual(24, await connection.ExecuteScalarAsync<int>(
             """
@@ -131,7 +122,7 @@ public sealed class UuidBinaryContractMigrationTests
     public async Task UuidBinaryContract_MySql_rejects_incomplete_008_schema()
     {
         await ApplyExpandAsync();
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = new MySqlConnection(_connectionString);
         await connection.ExecuteAsync(
             "ALTER TABLE fn_tenant_tenant DROP COLUMN IdBinary");
 
@@ -146,7 +137,7 @@ public sealed class UuidBinaryContractMigrationTests
     public async Task UuidBinaryContract_MySql_rejects_shadow_null_or_conflict()
     {
         await ApplyExpandAsync();
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = new MySqlConnection(_connectionString);
         await connection.ExecuteAsync(
             """
             INSERT INTO fn_tenant_tenant
@@ -184,7 +175,7 @@ public sealed class UuidBinaryContractMigrationTests
     public async Task UuidBinaryContract_MySql_rejects_missing_sync_trigger()
     {
         await ApplyExpandAsync();
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = new MySqlConnection(_connectionString);
         await connection.ExecuteAsync("DROP TRIGGER TR_fn_seed_run_UuidBinary_BU");
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -198,7 +189,7 @@ public sealed class UuidBinaryContractMigrationTests
     public async Task UuidBinaryContract_MySql_rejects_reference_mismatch()
     {
         await ApplyExpandAsync();
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = new MySqlConnection(_connectionString);
         await connection.ExecuteAsync(
             """
             INSERT INTO fn_identity_user
@@ -232,7 +223,7 @@ public sealed class UuidBinaryContractMigrationTests
     public async Task UuidBinaryContract_MySql_rejects_wrong_canonical_type()
     {
         await ApplyExpandAsync();
-        await using var connection = new MySqlConnection(_container.GetConnectionString());
+        await using var connection = new MySqlConnection(_connectionString);
         await connection.ExecuteAsync(
             "ALTER TABLE fn_tenant_tenant MODIFY COLUMN Id varchar(36) NOT NULL");
 
@@ -246,41 +237,30 @@ public sealed class UuidBinaryContractMigrationTests
     [TestMethod]
     public async Task UuidBinaryContract_SqlServer_governs_explicit_clustered_indexes()
     {
-        await using var sqlContainer = new MsSqlBuilder(
-                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await sqlContainer.StartAsync();
-        try
-        {
-            var runner = CreateSqlServerRunner(sqlContainer.GetConnectionString());
-            await runner.MigrateAsync();
-            await using var connection = new SqlConnection(sqlContainer.GetConnectionString());
+        var sqlConnectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        var runner = CreateSqlServerRunner(sqlConnectionString);
+        await runner.MigrateAsync();
+        await using var connection = new SqlConnection(sqlConnectionString);
 
-            Assert.AreEqual(2, await connection.ExecuteScalarAsync<int>(
-                """
-                SELECT COUNT(*)
-                FROM sys.key_constraints keyObject
-                INNER JOIN sys.indexes indexObject
-                    ON indexObject.object_id = keyObject.parent_object_id
-                   AND indexObject.index_id = keyObject.unique_index_id
-                WHERE OBJECT_NAME(keyObject.parent_object_id) IN
-                      ('fn_outbox_message', 'fn_identity_auth_audit')
-                  AND keyObject.type = 'PK' AND indexObject.type_desc = 'NONCLUSTERED'
-                """));
-            Assert.AreEqual(2, await connection.ExecuteScalarAsync<int>(
-                """
-                SELECT COUNT(*) FROM sys.indexes
-                WHERE name IN
-                      ('IX_fn_outbox_message_OccurredAtUtc_Id',
-                       'IX_fn_identity_auth_audit_OccurredAtUtc_Id')
-                  AND type_desc = 'CLUSTERED'
-                """));
-        }
-        finally
-        {
-            await sqlContainer.DisposeAsync();
-        }
+        Assert.AreEqual(2, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM sys.key_constraints keyObject
+            INNER JOIN sys.indexes indexObject
+                ON indexObject.object_id = keyObject.parent_object_id
+               AND indexObject.index_id = keyObject.unique_index_id
+            WHERE OBJECT_NAME(keyObject.parent_object_id) IN
+                  ('fn_outbox_message', 'fn_identity_auth_audit')
+              AND keyObject.type = 'PK' AND indexObject.type_desc = 'NONCLUSTERED'
+            """));
+        Assert.AreEqual(2, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM sys.indexes
+            WHERE name IN
+                  ('IX_fn_outbox_message_OccurredAtUtc_Id',
+                   'IX_fn_identity_auth_audit_OccurredAtUtc_Id')
+              AND type_desc = 'CLUSTERED'
+            """));
     }
 
     private DbUpMigrationRunner CreateRunner(
@@ -291,7 +271,7 @@ public sealed class UuidBinaryContractMigrationTests
         Options.Create(new DatabaseOptions
         {
             Provider = DatabaseProvider.MySql,
-            ConnectionString = _container.GetConnectionString(),
+            ConnectionString = _connectionString,
             MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
             CommandTimeoutSeconds = 300,
         }),
@@ -309,7 +289,7 @@ public sealed class UuidBinaryContractMigrationTests
     {
         var result = DeployChanges.To.MySqlDatabase(
                 MySqlConnectionStringPolicy.Create(
-                    _container.GetConnectionString(),
+                    _connectionString,
                     MySqlGuidStorageMode.LegacyChar36,
                     allowUserVariables: true))
             .WithScriptsEmbeddedInAssembly(

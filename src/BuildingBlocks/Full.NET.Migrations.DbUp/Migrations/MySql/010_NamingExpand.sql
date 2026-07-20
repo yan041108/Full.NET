@@ -8,12 +8,29 @@ CREATE TABLE IF NOT EXISTS fn_tenancy_tenant
     IsActive boolean NOT NULL,
     CreatedAtUtc datetime(6) NOT NULL,
     UpdatedAtUtc datetime(6) NULL,
-    DefaultLocale varchar(35) NOT NULL,
+    DefaultLocale varchar(35) NOT NULL DEFAULT 'zh-CN',
     Version int NOT NULL DEFAULT 1,
     CONSTRAINT PK_fn_tenancy_tenant PRIMARY KEY (Id),
     UNIQUE KEY UX_fn_tenancy_tenant_Identifier (Identifier),
     UNIQUE KEY UX_fn_tenancy_tenant_Domain (Domain)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- CREATE IF NOT EXISTS 不会改已有表；补齐 DefaultLocale 默认值以匹配 004 语义。
+SET @tenancy_default_locale := (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_tenancy_tenant'
+      AND COLUMN_NAME = 'DefaultLocale'
+      AND COLUMN_DEFAULT IS NOT NULL
+);
+SET @tenancy_default_locale_sql := IF(
+    @tenancy_default_locale = 0,
+    'ALTER TABLE fn_tenancy_tenant MODIFY COLUMN DefaultLocale varchar(35) NOT NULL DEFAULT ''zh-CN''',
+    'SELECT 1');
+PREPARE tenancy_default_locale_stmt FROM @tenancy_default_locale_sql;
+EXECUTE tenancy_default_locale_stmt;
+DEALLOCATE PREPARE tenancy_default_locale_stmt;
 
 SET @naming_conflict := (
     SELECT COUNT(*)

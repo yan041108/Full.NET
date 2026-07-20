@@ -19,12 +19,37 @@ dotnet build Full.NET.slnx --configuration Release
 dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 314
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 26
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 86 --timeout 45m
 ```
 
-集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。CI 不跳过任何数据库测试。
+集成测试按风险分三档（共享 SQL Server/MySQL 容器 + 每测独立库；墙钟瓶颈是全量 DbUp，不是容器启动）：
+
+| 档位 | 何时用 | 命令要点 |
+| --- | --- | --- |
+| 日常 | 默认本地验证 | 双库冒烟 2 项，`--timeout 15m` |
+| 聚焦 | 改迁移 / Naming / UUID / Outbox SQL | `--filter` 只跑相关用例 |
+| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 82 --timeout 90m` |
+
+```powershell
+# 日常：双库冒烟
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "migration_is_idempotent_and_creates_binary_outbox_schema" --minimum-expected-tests 2 --timeout 15m
+
+# 聚焦：命名 Expand/Contract（合并门禁后约 19 项）
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery" --minimum-expected-tests 19 --timeout 45m
+
+# 发布：完整双库矩阵
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 82 --timeout 90m
+```
+
+集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。
 
 测试项目使用 Microsoft.Testing.Platform 的可执行测试宿主。先完成 Release 构建，再直接运行生成的测试 DLL；`--minimum-expected-tests` 可以防止测试发现异常被误判为成功。
+
+### 2.0 集成测试分层门禁说明
+
+- **分层只改变何时跑完整双库，不降低覆盖**：数据库行为变更在合入前仍须双库相关 filter 或全量全绿；禁止把「未执行」表述为「通过」。
+- CI：PR 只跑双库冒烟；完整矩阵仅在 `push main` 执行（见 `.github/workflows/ci.yml`，超时 90m）。
+- 方法级并行 Worker 数在 `tests/Full.NET.IntegrationTests/MSTestSettings.cs`（默认 6）；本机内存充足时可上调。
+- Naming Contract 的 5 个维护门禁已合并为单测同库连试，避免 DataRow 重复 Through010 准备。
 
 ### 2.1 客户端工作区与双管理端
 

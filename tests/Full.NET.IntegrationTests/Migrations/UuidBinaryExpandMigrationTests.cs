@@ -4,25 +4,17 @@ using Full.NET.Migrations.DbUp;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
 [TestClass]
 public sealed class UuidBinaryExpandMigrationTests
 {
-    private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
-        .WithCommand("--log-bin-trust-function-creators=1")
-        .WithDatabase("fullnet")
-        .WithUsername("fullnet")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private string _connectionString = null!;
 
     [TestInitialize]
-    public Task StartAsync() => _container.StartAsync();
-
-    [TestCleanup]
-    public async Task CleanupAsync() => await _container.DisposeAsync();
+    public async Task StartAsync() =>
+        _connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
 
     [TestMethod]
     public async Task UuidBinaryExpand_MySql_creates_all_registered_columns_and_triggers()
@@ -135,7 +127,7 @@ public sealed class UuidBinaryExpandMigrationTests
     }
 
     private IDatabaseMigrationRunner CreateRunner() =>
-        new UuidBinaryExpandTestMigrationRunner(_container.GetConnectionString());
+        new UuidBinaryExpandTestMigrationRunner(_connectionString);
 
-    private MySqlConnection CreateConnection() => new(_container.GetConnectionString());
+    private MySqlConnection CreateConnection() => new(_connectionString);
 }

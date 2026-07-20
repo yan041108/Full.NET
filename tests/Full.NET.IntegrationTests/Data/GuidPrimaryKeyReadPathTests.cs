@@ -12,8 +12,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Data;
 
@@ -87,31 +85,17 @@ public sealed class GuidPrimaryKeyReadPathTests
     [TestMethod]
     public async Task SqlServer_read_paths_project_guids_for_sessions_outbox_and_audits()
     {
-        await using var container = new MsSqlBuilder(
-                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-
         await VerifyReadPathsAsync(
             DatabaseProvider.SqlServer,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
 
     [TestMethod]
     public async Task MySql_read_paths_project_guids_for_sessions_outbox_and_audits()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-
         await VerifyReadPathsAsync(
             DatabaseProvider.MySql,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
     private static async Task VerifyReadPathsAsync(

@@ -4,25 +4,17 @@ using Full.NET.Migrations.DbUp;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
 [TestClass]
 public sealed class UuidBinaryPartialRecoveryTests
 {
-    private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
-        .WithCommand("--log-bin-trust-function-creators=1")
-        .WithDatabase("fullnet")
-        .WithUsername("fullnet")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private string _connectionString = null!;
 
     [TestInitialize]
-    public Task StartAsync() => _container.StartAsync();
-
-    [TestCleanup]
-    public async Task CleanupAsync() => await _container.DisposeAsync();
+    public async Task StartAsync() =>
+        _connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
 
     [TestMethod]
     public async Task UuidBinaryPartialRecovery_existing_identity_outbox_and_seed_graph_is_backfilled()
@@ -387,7 +379,7 @@ public sealed class UuidBinaryPartialRecoveryTests
     }
 
     private IDatabaseMigrationRunner CreateRunner() =>
-        new UuidBinaryExpandTestMigrationRunner(_container.GetConnectionString());
+        new UuidBinaryExpandTestMigrationRunner(_connectionString);
 
-    private MySqlConnection CreateConnection() => new(_container.GetConnectionString());
+    private MySqlConnection CreateConnection() => new(_connectionString);
 }

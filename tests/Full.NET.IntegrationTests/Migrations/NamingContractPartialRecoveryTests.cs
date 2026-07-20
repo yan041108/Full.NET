@@ -3,44 +3,23 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
 [TestClass]
-[DoNotParallelize]
 public sealed class NamingContractPartialRecoveryTests
 {
-    private MySqlContainer? _mySqlContainer;
+    private string _mySqlConnectionString = null!;
 
     [TestInitialize]
-    public async Task StartMySqlAsync()
-    {
-        _mySqlContainer = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await _mySqlContainer.StartAsync();
-    }
-
-    [TestCleanup]
-    public async Task CleanupMySqlAsync()
-    {
-        if (_mySqlContainer is not null)
-        {
-            await _mySqlContainer.DisposeAsync();
-            _mySqlContainer = null;
-        }
-    }
+    public async Task StartMySqlAsync() =>
+        _mySqlConnectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
 
     [TestMethod]
     public async Task NamingContractPartialRecovery_MySql_completes_after_legacy_columns_removed()
     {
         await NamingContractTestMigrationRunner.PrepareMySqlExpandStateAsync(
-            _mySqlContainer!.GetConnectionString());
+            _mySqlConnectionString);
         await using var connection = CreateMySqlConnection();
         await connection.ExecuteAsync(
             """
@@ -55,7 +34,7 @@ public sealed class NamingContractPartialRecoveryTests
             """);
 
         var recovery = await NamingContractTestMigrationRunner
-            .CreateMySqlRunner(_mySqlContainer!.GetConnectionString())
+            .CreateMySqlRunner(_mySqlConnectionString)
             .MigrateAsync();
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
@@ -72,7 +51,7 @@ public sealed class NamingContractPartialRecoveryTests
     public async Task NamingContractPartialRecovery_MySql_completes_after_legacy_tenant_dropped()
     {
         await NamingContractTestMigrationRunner.PrepareMySqlExpandStateAsync(
-            _mySqlContainer!.GetConnectionString());
+            _mySqlConnectionString);
         await using var connection = CreateMySqlConnection();
         await connection.ExecuteAsync(
             """
@@ -81,7 +60,7 @@ public sealed class NamingContractPartialRecoveryTests
             """);
 
         var recovery = await NamingContractTestMigrationRunner
-            .CreateMySqlRunner(_mySqlContainer!.GetConnectionString())
+            .CreateMySqlRunner(_mySqlConnectionString)
             .MigrateAsync();
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
@@ -92,10 +71,10 @@ public sealed class NamingContractPartialRecoveryTests
     [TestMethod]
     public async Task NamingContractPartialRecovery_SqlServer_completes_after_legacy_columns_removed()
     {
-        await using var container = await StartSqlServerContainerAsync();
+        var sqlConnectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         await NamingContractTestMigrationRunner.PrepareSqlServerExpandStateAsync(
-            container.GetConnectionString());
-        await using var connection = new SqlConnection(container.GetConnectionString());
+            sqlConnectionString);
+        await using var connection = new SqlConnection(sqlConnectionString);
         await connection.ExecuteAsync(
             """
             DROP INDEX IX_fn_outbox_message_Pending ON dbo.fn_outbox_message;
@@ -110,7 +89,7 @@ public sealed class NamingContractPartialRecoveryTests
             """);
 
         var recovery = await NamingContractTestMigrationRunner
-            .CreateSqlServerRunner(container.GetConnectionString())
+            .CreateSqlServerRunner(sqlConnectionString)
             .MigrateAsync();
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
@@ -121,10 +100,10 @@ public sealed class NamingContractPartialRecoveryTests
     [TestMethod]
     public async Task NamingContractPartialRecovery_SqlServer_completes_after_legacy_tenant_dropped()
     {
-        await using var container = await StartSqlServerContainerAsync();
+        var sqlConnectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         await NamingContractTestMigrationRunner.PrepareSqlServerExpandStateAsync(
-            container.GetConnectionString());
-        await using var connection = new SqlConnection(container.GetConnectionString());
+            sqlConnectionString);
+        await using var connection = new SqlConnection(sqlConnectionString);
         await connection.ExecuteAsync(
             """
             DROP TABLE dbo.fn_tenant_tenant;
@@ -132,7 +111,7 @@ public sealed class NamingContractPartialRecoveryTests
             """);
 
         var recovery = await NamingContractTestMigrationRunner
-            .CreateSqlServerRunner(container.GetConnectionString())
+            .CreateSqlServerRunner(sqlConnectionString)
             .MigrateAsync();
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
@@ -142,16 +121,7 @@ public sealed class NamingContractPartialRecoveryTests
 
     private MySqlConnection CreateMySqlConnection() => new(
         MySqlConnectionStringPolicy.Create(
-            _mySqlContainer!.GetConnectionString(),
+            _mySqlConnectionString,
             MySqlGuidStorageMode.Binary16,
             allowUserVariables: false));
-
-    private static async Task<MsSqlContainer> StartSqlServerContainerAsync()
-    {
-        var container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-        return container;
-    }
 }

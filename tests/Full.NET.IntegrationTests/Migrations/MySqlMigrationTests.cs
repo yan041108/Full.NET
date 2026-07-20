@@ -5,25 +5,17 @@ using Full.NET.Migrations.DbUp;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
 [TestClass]
 public sealed class MySqlMigrationTests
 {
-    private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
-        .WithCommand("--log-bin-trust-function-creators=1")
-        .WithDatabase("fullnet")
-        .WithUsername("fullnet")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private string _connectionString = null!;
 
     [TestInitialize]
-    public Task StartAsync() => _container.StartAsync();
-
-    [TestCleanup]
-    public async Task CleanupAsync() => await _container.DisposeAsync();
+    public async Task StartAsync() =>
+        _connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
 
     [TestMethod]
     public async Task MySql_migration_is_idempotent_and_creates_binary_outbox_schema()
@@ -32,7 +24,7 @@ public sealed class MySqlMigrationTests
             Options.Create(new DatabaseOptions
             {
                 Provider = DatabaseProvider.MySql,
-                ConnectionString = _container.GetConnectionString(),
+                ConnectionString = _connectionString,
                 MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
                 CommandTimeoutSeconds = 300,
             }),
@@ -342,7 +334,7 @@ public sealed class MySqlMigrationTests
         Options.Create(new DatabaseOptions
         {
             Provider = DatabaseProvider.MySql,
-            ConnectionString = _container.GetConnectionString(),
+            ConnectionString = _connectionString,
             MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
             CommandTimeoutSeconds = 300,
         }),
@@ -352,16 +344,16 @@ public sealed class MySqlMigrationTests
 
     private MySqlConnection CreateConnection() => new(
         MySqlConnectionStringPolicy.Create(
-            _container.GetConnectionString(),
+            _connectionString,
             MySqlGuidStorageMode.Binary16,
             allowUserVariables: false));
 
     private IDatabaseMigrationRunner CreateExpandRunner() =>
-        new UuidBinaryExpandTestMigrationRunner(_container.GetConnectionString());
+        new UuidBinaryExpandTestMigrationRunner(_connectionString);
 
     private MySqlConnection CreateLegacyConnection() => new(
         MySqlConnectionStringPolicy.Create(
-            _container.GetConnectionString(),
+            _connectionString,
             MySqlGuidStorageMode.LegacyChar36,
             allowUserVariables: false));
 

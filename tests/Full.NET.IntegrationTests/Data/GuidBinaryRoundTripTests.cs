@@ -6,7 +6,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
 using System.Text.Json;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Data;
 
@@ -16,21 +15,14 @@ public sealed class GuidBinaryRoundTripTests
     private static readonly IReadOnlyDictionary<string, UuidStorageVector> StorageVectors =
         LoadStorageVectors();
     private static readonly UuidStorageVector FixedVector = StorageVectors["readable-boundaries"];
-    private static readonly MySqlContainer Container = new MySqlBuilder("mysql:8.0")
-        .WithDatabase("fullnet")
-        .WithUsername("fullnet")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private static string _connectionString = null!;
 
     [ClassInitialize]
-    public static Task StartAsync(TestContext _)
+    public static async Task StartAsync(TestContext _)
     {
         RegisterDapperBoundary();
-        return Container.StartAsync();
+        _connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
     }
-
-    [ClassCleanup]
-    public static async Task CleanupAsync() => await Container.DisposeAsync();
 
     [TestMethod]
     public async Task GuidBinaryRoundTrip_Dapper_round_trip_preserves_guid_and_hex()
@@ -143,7 +135,7 @@ public sealed class GuidBinaryRoundTripTests
     private static async Task<MySqlConnection> OpenConnectionAsync()
     {
         var connectionString = MySqlConnectionStringPolicy.Create(
-            Container.GetConnectionString(),
+            _connectionString,
             MySqlGuidStorageMode.Binary16,
             allowUserVariables: false);
         var connection = new MySqlConnection(connectionString);

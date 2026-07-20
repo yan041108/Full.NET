@@ -3,8 +3,6 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Data;
 
@@ -14,26 +12,17 @@ public sealed class MultiResultQueryTests
     [TestMethod]
     public async Task SqlServer_reads_ordered_results_and_reuses_the_scoped_connection()
     {
-        await using var container = new MsSqlBuilder(
-                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-
-        await VerifyAsync(DatabaseProvider.SqlServer, container.GetConnectionString());
+        await VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
 
     [TestMethod]
     public async Task MySql_reads_ordered_results_and_reuses_the_scoped_connection()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-
-        await VerifyAsync(DatabaseProvider.MySql, container.GetConnectionString());
+        await VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
     private static async Task VerifyAsync(

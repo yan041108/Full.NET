@@ -4,46 +4,25 @@ using Full.NET.Data.MySql;
 using Full.NET.Migrations.DbUp;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
 [TestClass]
-[DoNotParallelize]
 public sealed class NamingContractMigrationTests
 {
-    private MySqlContainer? _mySqlContainer;
+    private string _mySqlConnectionString = null!;
 
     [TestInitialize]
-    public async Task StartMySqlAsync()
-    {
-        _mySqlContainer = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await _mySqlContainer.StartAsync();
-    }
-
-    [TestCleanup]
-    public async Task CleanupMySqlAsync()
-    {
-        if (_mySqlContainer is not null)
-        {
-            await _mySqlContainer.DisposeAsync();
-            _mySqlContainer = null;
-        }
-    }
+    public async Task StartMySqlAsync() =>
+        _mySqlConnectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
 
     [TestMethod]
     public async Task NamingContract_MySql_drops_legacy_objects_and_tightens_outbox()
     {
         await NamingContractTestMigrationRunner.PrepareMySqlExpandStateAsync(
-            _mySqlContainer!.GetConnectionString());
+            _mySqlConnectionString);
         var contract = await NamingContractTestMigrationRunner
-            .CreateMySqlRunner(_mySqlContainer!.GetConnectionString())
+            .CreateMySqlRunner(_mySqlConnectionString)
             .MigrateAsync();
 
         Assert.AreEqual(1, contract.ExecutedScriptCount);
@@ -79,9 +58,9 @@ public sealed class NamingContractMigrationTests
     public async Task NamingContract_MySql_records_paired_contract_migration()
     {
         await NamingContractTestMigrationRunner.PrepareMySqlExpandStateAsync(
-            _mySqlContainer!.GetConnectionString());
+            _mySqlConnectionString);
         await NamingContractTestMigrationRunner
-            .CreateMySqlRunner(_mySqlContainer!.GetConnectionString())
+            .CreateMySqlRunner(_mySqlConnectionString)
             .MigrateAsync();
         await using var connection = CreateMySqlConnection();
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -89,51 +68,56 @@ public sealed class NamingContractMigrationTests
     }
 
     [TestMethod]
-    [DataRow(false, true, true, true, MigrationContractOptionFactory.NamingApprovalId, "maintenance mode")]
-    [DataRow(true, false, true, true, MigrationContractOptionFactory.NamingApprovalId, "verified backup")]
-    [DataRow(true, true, false, true, MigrationContractOptionFactory.NamingApprovalId, "legacy writers stopped")]
-    [DataRow(true, true, true, false, MigrationContractOptionFactory.NamingApprovalId, "legacy outbox drained")]
-    [DataRow(true, true, true, true, "", "destructive DDL approval")]
-    public async Task NamingContract_MySql_rejects_missing_maintenance_evidence(
-        bool maintenanceMode,
-        bool backupVerified,
-        bool legacyWritersStopped,
-        bool legacyOutboxDrained,
-        string approvalId,
-        string expectedMessage)
+    public async Task NamingContract_MySql_rejects_missing_maintenance_evidence()
     {
+        // 同一 Expand 库上连续试 5 个门禁，避免 DataRow 各起一轮 Through010 准备。
         await NamingContractTestMigrationRunner.PrepareMySqlExpandStateAsync(
-            _mySqlContainer!.GetConnectionString());
-        var runner = new DbUpMigrationRunner(
-            Microsoft.Extensions.Options.Options.Create(new DatabaseOptions
-            {
-                Provider = DatabaseProvider.MySql,
-                ConnectionString = _mySqlContainer!.GetConnectionString(),
-                MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
-                CommandTimeoutSeconds = 300,
-            }),
-            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance,
-            MigrationContractOptionFactory.UuidOptions(),
-            Microsoft.Extensions.Options.Options.Create(new PreV1NamingContractOptions
-            {
-                MaintenanceMode = maintenanceMode,
-                BackupVerified = backupVerified,
-                LegacyWritersStopped = legacyWritersStopped,
-                LegacyOutboxDrained = legacyOutboxDrained,
-                DestructiveDdlApprovalId = approvalId,
-            }));
+            _mySqlConnectionString);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.MigrateAsync());
-        StringAssert.Contains(
-            exception.InnerException?.Message ?? exception.Message,
-            expectedMessage);
+        (bool MaintenanceMode, bool BackupVerified, bool LegacyWritersStopped,
+            bool LegacyOutboxDrained, string ApprovalId, string ExpectedMessage)[] cases =
+        [
+            (false, true, true, true, MigrationContractOptionFactory.NamingApprovalId, "maintenance mode"),
+            (true, false, true, true, MigrationContractOptionFactory.NamingApprovalId, "verified backup"),
+            (true, true, false, true, MigrationContractOptionFactory.NamingApprovalId, "legacy writers stopped"),
+            (true, true, true, false, MigrationContractOptionFactory.NamingApprovalId, "legacy outbox drained"),
+            (true, true, true, true, "", "destructive DDL approval"),
+        ];
+
+        foreach (var gate in cases)
+        {
+            var runner = new DbUpMigrationRunner(
+                Microsoft.Extensions.Options.Options.Create(new DatabaseOptions
+                {
+                    Provider = DatabaseProvider.MySql,
+                    ConnectionString = _mySqlConnectionString,
+                    MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+                    CommandTimeoutSeconds = 300,
+                }),
+                Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance,
+                MigrationContractOptionFactory.UuidOptions(),
+                Microsoft.Extensions.Options.Options.Create(new PreV1NamingContractOptions
+                {
+                    MaintenanceMode = gate.MaintenanceMode,
+                    BackupVerified = gate.BackupVerified,
+                    LegacyWritersStopped = gate.LegacyWritersStopped,
+                    LegacyOutboxDrained = gate.LegacyOutboxDrained,
+                    DestructiveDdlApprovalId = gate.ApprovalId,
+                }));
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => runner.MigrateAsync());
+            StringAssert.Contains(
+                exception.InnerException?.Message ?? exception.Message,
+                gate.ExpectedMessage);
+        }
     }
 
     [TestMethod]
     public async Task NamingContract_MySql_rejects_legacy_pending_outbox()
     {
         await NamingContractTestMigrationRunner.PrepareMySqlExpandStateAsync(
-            _mySqlContainer!.GetConnectionString());
+            _mySqlConnectionString);
         await using var connection = CreateMySqlConnection();
         await connection.OpenAsync();
         await using (var command = connection.CreateCommand())
@@ -145,7 +129,7 @@ public sealed class NamingContractMigrationTests
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             NamingContractTestMigrationRunner
-                .CreateMySqlRunner(_mySqlContainer!.GetConnectionString())
+                .CreateMySqlRunner(_mySqlConnectionString)
                 .MigrateAsync());
 
         StringAssert.Contains(
@@ -156,15 +140,15 @@ public sealed class NamingContractMigrationTests
     [TestMethod]
     public async Task NamingContract_SqlServer_drops_legacy_objects_and_tightens_outbox()
     {
-        await using var container = await StartSqlServerContainerAsync();
+        var sqlConnectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         await NamingContractTestMigrationRunner.PrepareSqlServerExpandStateAsync(
-            container.GetConnectionString());
+            sqlConnectionString);
         var contract = await NamingContractTestMigrationRunner
-            .CreateSqlServerRunner(container.GetConnectionString())
+            .CreateSqlServerRunner(sqlConnectionString)
             .MigrateAsync();
 
         Assert.AreEqual(1, contract.ExecutedScriptCount);
-        await using var connection = new SqlConnection(container.GetConnectionString());
+        await using var connection = new SqlConnection(sqlConnectionString);
         Assert.IsFalse(await connection.ExecuteScalarAsync<bool>(
             "SELECT CAST(IIF(OBJECT_ID(N'dbo.fn_tenant_tenant', N'U') IS NULL, 0, 1) AS bit)"));
         Assert.AreEqual(0, await connection.ExecuteScalarAsync<int>(
@@ -181,13 +165,13 @@ public sealed class NamingContractMigrationTests
     [TestMethod]
     public async Task NamingContract_SqlServer_records_paired_contract_migration()
     {
-        await using var container = await StartSqlServerContainerAsync();
+        var sqlConnectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         await NamingContractTestMigrationRunner.PrepareSqlServerExpandStateAsync(
-            container.GetConnectionString());
+            sqlConnectionString);
         await NamingContractTestMigrationRunner
-            .CreateSqlServerRunner(container.GetConnectionString())
+            .CreateSqlServerRunner(sqlConnectionString)
             .MigrateAsync();
-        await using var connection = new SqlConnection(container.GetConnectionString());
+        await using var connection = new SqlConnection(sqlConnectionString);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(*) FROM dbo.SchemaVersions WHERE ScriptName LIKE '%011_NamingContract.sql'"));
     }
@@ -195,15 +179,15 @@ public sealed class NamingContractMigrationTests
     [TestMethod]
     public async Task NamingContract_SqlServer_rejects_tenant_count_mismatch()
     {
-        await using var container = await StartSqlServerContainerAsync();
+        var sqlConnectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         await NamingContractTestMigrationRunner.PrepareSqlServerExpandStateAsync(
-            container.GetConnectionString());
-        await using var connection = new SqlConnection(container.GetConnectionString());
+            sqlConnectionString);
+        await using var connection = new SqlConnection(sqlConnectionString);
         await connection.ExecuteAsync("DELETE FROM dbo.fn_tenancy_tenant");
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             NamingContractTestMigrationRunner
-                .CreateSqlServerRunner(container.GetConnectionString())
+                .CreateSqlServerRunner(sqlConnectionString)
                 .MigrateAsync());
 
         StringAssert.Contains(
@@ -213,16 +197,7 @@ public sealed class NamingContractMigrationTests
 
     private MySqlConnection CreateMySqlConnection() => new(
         MySqlConnectionStringPolicy.Create(
-            _mySqlContainer!.GetConnectionString(),
+            _mySqlConnectionString,
             MySqlGuidStorageMode.Binary16,
             allowUserVariables: false));
-
-    private static async Task<MsSqlContainer> StartSqlServerContainerAsync()
-    {
-        var container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-        return container;
-    }
 }

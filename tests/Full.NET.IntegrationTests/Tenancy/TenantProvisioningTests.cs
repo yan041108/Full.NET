@@ -26,8 +26,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Tenancy;
 
@@ -37,31 +35,17 @@ public sealed class TenantProvisioningTests
     [TestMethod]
     public async Task SqlServer_provisioning_is_atomic_and_writes_binary_outbox()
     {
-        await using var container = new MsSqlBuilder(
-                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-
         await VerifyProviderAsync(
             DatabaseProvider.SqlServer,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
 
     [TestMethod]
     public async Task MySql_provisioning_is_atomic_and_writes_binary_outbox()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-
         await VerifyProviderAsync(
             DatabaseProvider.MySql,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
     private static async Task VerifyProviderAsync(

@@ -172,7 +172,8 @@ jobs:
 
   build-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # PR 仅冒烟；push main 含完整双库矩阵（约 90m），须高于测试 --timeout。
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -210,17 +211,31 @@ jobs:
           --progress off
           --minimum-expected-tests 26
 
-      - name: SQL Server and MySQL integration tests
+      # PR 快门禁：只跑双库冒烟，快速反馈；完整双库矩阵放到 push main。
+      - name: Integration smoke (dual-provider)
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         run: >-
           dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 86
-          --timeout 45m
+          --filter "migration_is_idempotent_and_creates_binary_outbox_schema"
+          --minimum-expected-tests 2
+          --timeout 15m
+
+      # 完整双库集成矩阵：仅在 push main 执行，避免每个 PR 承担长墙钟。
+      - name: SQL Server and MySQL integration tests
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: >-
+          dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
+          --no-ansi
+          --progress off
+          --minimum-expected-tests 82
+          --timeout 90m
           --report-trx
           --report-trx-filename Full.NET.IntegrationTests.trx
 
       - name: Serialization baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: >-
           dotnet run
           --no-build

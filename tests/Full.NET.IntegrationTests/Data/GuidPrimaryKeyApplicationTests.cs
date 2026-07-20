@@ -12,8 +12,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Data;
 
@@ -63,31 +61,17 @@ public sealed class GuidPrimaryKeyApplicationTests
     [TestMethod]
     public async Task SqlServer_same_transaction_preserves_uuid_references_and_rolls_back_on_failure()
     {
-        await using var container = new MsSqlBuilder(
-                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-
         await VerifyProviderAsync(
             DatabaseProvider.SqlServer,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
 
     [TestMethod]
     public async Task MySql_same_transaction_preserves_uuid_references_and_rolls_back_on_failure()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-
         await VerifyProviderAsync(
             DatabaseProvider.MySql,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
     private static async Task VerifyProviderAsync(

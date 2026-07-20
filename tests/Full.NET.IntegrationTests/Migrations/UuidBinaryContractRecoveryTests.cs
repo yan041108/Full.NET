@@ -11,26 +11,17 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
 [TestClass]
 public sealed class UuidBinaryContractRecoveryTests
 {
-    private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
-        .WithCommand("--log-bin-trust-function-creators=1")
-        .WithDatabase("fullnet")
-        .WithUsername("fullnet")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private string _connectionString = null!;
 
     [TestInitialize]
-    public Task StartAsync() => _container.StartAsync();
-
-    [TestCleanup]
-    public async Task CleanupAsync() => await _container.DisposeAsync();
+    public async Task StartAsync() =>
+        _connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
 
     [TestMethod]
     public async Task UuidBinaryContractRecovery_MySql_recovers_partial_constraint_deletion()
@@ -102,14 +93,10 @@ public sealed class UuidBinaryContractRecoveryTests
     [TestMethod]
     public async Task UuidBinaryContractRecovery_SqlServer_recovers_unjournaled_index_state()
     {
-        await using var container = new MsSqlBuilder(
-                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
-        var runner = CreateSqlServerRunner(container.GetConnectionString());
+        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        var runner = CreateSqlServerRunner(connectionString);
         await runner.MigrateAsync();
-        await using var connection = new SqlConnection(container.GetConnectionString());
+        await using var connection = new SqlConnection(connectionString);
         await connection.ExecuteAsync(
             """
             ALTER TABLE dbo.fn_seed_run_item DROP CONSTRAINT FK_fn_seed_run_item_Run;
@@ -143,7 +130,7 @@ public sealed class UuidBinaryContractRecoveryTests
         var settings = new Dictionary<string, string?>
         {
             ["Database:Provider"] = "MySql",
-            ["Database:ConnectionString"] = _container.GetConnectionString(),
+            ["Database:ConnectionString"] = _connectionString,
             ["Database:MySqlGuidStorageMode"] = applicationMode.ToString(),
             ["Database:CommandTimeoutSeconds"] = "30",
         };
@@ -164,7 +151,7 @@ public sealed class UuidBinaryContractRecoveryTests
         var settings = new Dictionary<string, string?>
         {
             ["Database:Provider"] = "MySql",
-            ["Database:ConnectionString"] = _container.GetConnectionString(),
+            ["Database:ConnectionString"] = _connectionString,
             ["Database:MySqlGuidStorageMode"] = MySqlGuidStorageMode.LegacyChar36.ToString(),
             ["Database:CommandTimeoutSeconds"] = "30",
         };
@@ -182,7 +169,7 @@ public sealed class UuidBinaryContractRecoveryTests
         Options.Create(new DatabaseOptions
         {
             Provider = DatabaseProvider.MySql,
-            ConnectionString = _container.GetConnectionString(),
+            ConnectionString = _connectionString,
             MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
             CommandTimeoutSeconds = 300,
         }),
@@ -212,7 +199,7 @@ public sealed class UuidBinaryContractRecoveryTests
     {
         var result = DeployChanges.To.MySqlDatabase(
                 MySqlConnectionStringPolicy.Create(
-                    _container.GetConnectionString(),
+                    _connectionString,
                     MySqlGuidStorageMode.LegacyChar36,
                     allowUserVariables: true))
             .WithScriptsEmbeddedInAssembly(
@@ -227,7 +214,7 @@ public sealed class UuidBinaryContractRecoveryTests
 
     private MySqlConnection CreateMySqlConnection() => new(
         MySqlConnectionStringPolicy.Create(
-            _container.GetConnectionString(),
+            _connectionString,
             MySqlGuidStorageMode.Binary16,
             allowUserVariables: false));
 }

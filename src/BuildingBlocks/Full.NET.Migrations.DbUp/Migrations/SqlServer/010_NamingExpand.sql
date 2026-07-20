@@ -10,13 +10,26 @@ BEGIN
         IsActive bit NOT NULL,
         CreatedAtUtc datetimeoffset(7) NOT NULL,
         UpdatedAtUtc datetimeoffset(7) NULL,
-        DefaultLocale varchar(35) NOT NULL,
+        DefaultLocale varchar(35) NOT NULL
+            CONSTRAINT DF_fn_tenancy_tenant_DefaultLocale DEFAULT ('zh-CN'),
         Version int NOT NULL CONSTRAINT DF_fn_tenancy_tenant_Version DEFAULT (1),
         CONSTRAINT PK_fn_tenancy_tenant PRIMARY KEY CLUSTERED (Id)
     );
     CREATE UNIQUE INDEX UX_fn_tenancy_tenant_Identifier ON dbo.fn_tenancy_tenant(Identifier);
     CREATE UNIQUE INDEX UX_fn_tenancy_tenant_Domain ON dbo.fn_tenancy_tenant(Domain);
 END;
+
+IF OBJECT_ID(N'dbo.fn_tenancy_tenant', N'U') IS NOT NULL
+   AND NOT EXISTS
+(
+    SELECT 1
+    FROM sys.default_constraints
+    WHERE parent_object_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+      AND name = N'DF_fn_tenancy_tenant_DefaultLocale'
+)
+    ALTER TABLE dbo.fn_tenancy_tenant
+        ADD CONSTRAINT DF_fn_tenancy_tenant_DefaultLocale
+        DEFAULT ('zh-CN') FOR DefaultLocale;
 
 IF EXISTS
 (

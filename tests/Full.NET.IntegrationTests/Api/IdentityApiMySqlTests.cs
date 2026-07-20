@@ -1,6 +1,5 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Identity;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Api;
 
@@ -10,16 +9,9 @@ public sealed class IdentityApiMySqlTests
     [TestMethod]
     public async Task Login_and_current_user_follow_secure_http_contract()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
 
         await IdentityApiAssertions.VerifyLoginAsync(factory);
     }
@@ -27,16 +19,9 @@ public sealed class IdentityApiMySqlTests
     [TestMethod]
     public async Task Locale_preference_is_persisted_with_mysql()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
 
         await LocalePreferenceTests.VerifyAsync(factory);
     }
@@ -44,16 +29,9 @@ public sealed class IdentityApiMySqlTests
     [TestMethod]
     public async Task Last_super_administrator_is_protected_under_mysql_concurrency()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
 
         await SuperAdministratorConcurrencyAssertions.VerifyAsync(factory);
     }
@@ -61,16 +39,9 @@ public sealed class IdentityApiMySqlTests
     [TestMethod]
     public async Task Session_refresh_and_context_switch_races_are_linearized()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            container.GetConnectionString());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
 
         await SessionRaceAssertions.VerifyAsync(factory);
     }

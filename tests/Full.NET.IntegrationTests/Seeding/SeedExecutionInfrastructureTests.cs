@@ -9,8 +9,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
-using Testcontainers.MsSql;
-using Testcontainers.MySql;
 
 namespace Full.NET.IntegrationTests.Seeding;
 
@@ -20,37 +18,27 @@ public sealed class SeedExecutionInfrastructureTests
     [TestMethod]
     public async Task SqlServer_lease_and_audit_store_are_database_backed()
     {
-        await using var container = new MsSqlBuilder(
-                "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
+        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         var options = new DatabaseOptions
         {
             Provider = DatabaseProvider.SqlServer,
-            ConnectionString = container.GetConnectionString(),
+            ConnectionString = connectionString,
             CommandTimeoutSeconds = 300,
         };
 
         await VerifyInfrastructureAsync(
             options,
-            () => new SqlConnection(container.GetConnectionString()));
+            () => new SqlConnection(connectionString));
     }
 
     [TestMethod]
     public async Task MySql_lease_and_audit_store_are_database_backed()
     {
-        await using var container = new MySqlBuilder("mysql:8.0")
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername("fullnet")
-            .WithPassword("FullNet_Test!123")
-            .Build();
-        await container.StartAsync();
+        var connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var options = new DatabaseOptions
         {
             Provider = DatabaseProvider.MySql,
-            ConnectionString = container.GetConnectionString(),
+            ConnectionString = connectionString,
             MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
             CommandTimeoutSeconds = 300,
         };
@@ -59,7 +47,7 @@ public sealed class SeedExecutionInfrastructureTests
             options,
             () => new MySqlConnection(
                 MySqlConnectionStringPolicy.Create(
-                    container.GetConnectionString(),
+                    connectionString,
                     MySqlGuidStorageMode.Binary16,
                     allowUserVariables: false)));
     }
