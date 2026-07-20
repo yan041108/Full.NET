@@ -19,7 +19,7 @@ dotnet build Full.NET.slnx --configuration Release
 dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 314
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 26
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 74 --timeout 45m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 86 --timeout 45m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。CI 不跳过任何数据库测试。

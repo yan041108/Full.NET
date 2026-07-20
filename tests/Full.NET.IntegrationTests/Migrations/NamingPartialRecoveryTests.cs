@@ -1,10 +1,7 @@
 using Dapper;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
-using Full.NET.Migrations.DbUp;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using MySqlConnector;
 using Testcontainers.MsSql;
 using Testcontainers.MySql;
@@ -15,18 +12,29 @@ namespace Full.NET.IntegrationTests.Migrations;
 [DoNotParallelize]
 public sealed class NamingPartialRecoveryTests
 {
-    private readonly MySqlContainer _mySqlContainer = new MySqlBuilder("mysql:8.0")
-        .WithCommand("--log-bin-trust-function-creators=1")
-        .WithDatabase("fullnet")
-        .WithUsername("fullnet")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private MySqlContainer? _mySqlContainer;
 
     [TestInitialize]
-    public Task StartMySqlAsync() => _mySqlContainer.StartAsync();
+    public async Task StartMySqlAsync()
+    {
+        _mySqlContainer = new MySqlBuilder("mysql:8.0")
+            .WithCommand("--log-bin-trust-function-creators=1")
+            .WithDatabase("fullnet")
+            .WithUsername("fullnet")
+            .WithPassword("FullNet_Test!123")
+            .Build();
+        await _mySqlContainer.StartAsync();
+    }
 
     [TestCleanup]
-    public async Task CleanupMySqlAsync() => await _mySqlContainer.DisposeAsync();
+    public async Task CleanupMySqlAsync()
+    {
+        if (_mySqlContainer is not null)
+        {
+            await _mySqlContainer.DisposeAsync();
+            _mySqlContainer = null;
+        }
+    }
 
     [TestMethod]
     public async Task NamingPartialRecovery_MySql_recreates_missing_tenancy_table()
@@ -37,7 +45,8 @@ public sealed class NamingPartialRecoveryTests
         await connection.ExecuteAsync(
             "DELETE FROM schemaversions WHERE ScriptName LIKE '%010_NamingExpand.sql'");
 
-        var recovery = await CreateMySqlRunner().MigrateAsync();
+        var recovery = await NamingExpandTestMigrationRunner.MigrateMySqlThrough010Async(
+            _mySqlContainer!.GetConnectionString());
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -61,7 +70,8 @@ public sealed class NamingPartialRecoveryTests
             DELETE FROM schemaversions WHERE ScriptName LIKE '%010_NamingExpand.sql';
             """);
 
-        var recovery = await CreateMySqlRunner().MigrateAsync();
+        var recovery = await NamingExpandTestMigrationRunner.MigrateMySqlThrough010Async(
+            _mySqlContainer!.GetConnectionString());
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -81,7 +91,8 @@ public sealed class NamingPartialRecoveryTests
         await connection.ExecuteAsync(
             "DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%010_NamingExpand.sql'");
 
-        var recovery = await CreateSqlServerRunner(container.GetConnectionString()).MigrateAsync();
+        var recovery = await NamingExpandTestMigrationRunner.MigrateSqlServerThrough010Async(
+            container.GetConnectionString());
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -106,7 +117,8 @@ public sealed class NamingPartialRecoveryTests
             DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%010_NamingExpand.sql';
             """);
 
-        var recovery = await CreateSqlServerRunner(container.GetConnectionString()).MigrateAsync();
+        var recovery = await NamingExpandTestMigrationRunner.MigrateSqlServerThrough010Async(
+            container.GetConnectionString());
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -119,10 +131,11 @@ public sealed class NamingPartialRecoveryTests
     private async Task PrepareMySqlExpandStateAsync()
     {
         await NamingExpandTestMigrationRunner.MigrateMySqlThrough009Async(
-            _mySqlContainer.GetConnectionString());
+            _mySqlContainer!.GetConnectionString());
         await using var connection = CreateMySqlConnection();
         await NamingExpandTestData.InsertTenantAndOutboxAsync(connection);
-        await CreateMySqlRunner().MigrateAsync();
+        await NamingExpandTestMigrationRunner.MigrateMySqlThrough010Async(
+            _mySqlContainer!.GetConnectionString());
     }
 
     private static async Task PrepareSqlServerExpandStateAsync(string connectionString)
@@ -130,47 +143,14 @@ public sealed class NamingPartialRecoveryTests
         await NamingExpandTestMigrationRunner.MigrateSqlServerThrough009Async(connectionString);
         await using var connection = new SqlConnection(connectionString);
         await NamingExpandTestData.InsertTenantAndOutboxAsync(connection);
-        await CreateSqlServerRunner(connectionString).MigrateAsync();
+        await NamingExpandTestMigrationRunner.MigrateSqlServerThrough010Async(connectionString);
     }
 
     private MySqlConnection CreateMySqlConnection() => new(
         MySqlConnectionStringPolicy.Create(
-            _mySqlContainer.GetConnectionString(),
+            _mySqlContainer!.GetConnectionString(),
             MySqlGuidStorageMode.Binary16,
             allowUserVariables: false));
-
-    private DbUpMigrationRunner CreateMySqlRunner() => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.MySql,
-            ConnectionString = _mySqlContainer.GetConnectionString(),
-            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = true,
-            BackupVerified = true,
-            LegacyWritersStopped = true,
-            DestructiveDdlApprovalId = "test-uuid-contract-009",
-        }));
-
-    private static DbUpMigrationRunner CreateSqlServerRunner(string connectionString) => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.SqlServer,
-            ConnectionString = connectionString,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = true,
-            BackupVerified = true,
-            LegacyWritersStopped = true,
-            DestructiveDdlApprovalId = "test-uuid-contract-009",
-        }));
 
     private static async Task<MsSqlContainer> StartSqlServerContainerAsync()
     {

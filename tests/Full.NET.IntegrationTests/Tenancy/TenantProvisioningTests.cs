@@ -9,6 +9,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.Hosting.Api;
 using Full.NET.Abstractions.Results;
+using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
@@ -77,7 +78,8 @@ public sealed class TenantProvisioningTests
         var migrationRunner = new DbUpMigrationRunner(
             Options.Create(options),
             NullLoggerFactory.Instance,
-            ContractOptions());
+            ContractOptions(),
+            MigrationContractOptionFactory.NamingOptions());
         await migrationRunner.MigrateAsync();
 
         var configuration = CreateConfiguration(options);
@@ -121,7 +123,6 @@ public sealed class TenantProvisioningTests
 
             var outbox = await ReadOutboxAsync(databaseProvider, connectionString);
             Assert.AreEqual("fullnet.tenancy.tenant.provisioned", outbox.MessageType);
-            Assert.IsNull(outbox.LegacyType);
             Assert.AreNotEqual(default(DateTimeOffset), outbox.OccurredAtUtc);
             Assert.AreEqual(1, outbox.SchemaVersion);
             Assert.AreEqual("application/x-msgpack", outbox.ContentType);
@@ -170,9 +171,6 @@ public sealed class TenantProvisioningTests
         Assert.AreEqual(
             1L,
             await CountAsync(databaseProvider, connectionString, "fn_tenancy_tenant"));
-        Assert.AreEqual(
-            0L,
-            await CountAsync(databaseProvider, connectionString, "fn_tenant_tenant"));
         Assert.AreEqual(
             1L,
             await CountAsync(databaseProvider, connectionString, "fn_outbox_message"));
@@ -268,13 +266,12 @@ public sealed class TenantProvisioningTests
         return await connection.QuerySingleAsync<OutboxRow>(
             """
             SELECT MessageType,
-                   Type AS LegacyType,
                    OccurredAtUtc,
                    SchemaVersion,
                    ContentType,
                    Payload
             FROM fn_outbox_message
-            WHERE COALESCE(ProcessedAtUtc, ProcessedAt) IS NULL
+            WHERE ProcessedAtUtc IS NULL
             """);
     }
 
@@ -319,8 +316,6 @@ public sealed class TenantProvisioningTests
     private sealed class OutboxRow
     {
         public string MessageType { get; set; } = string.Empty;
-
-        public string? LegacyType { get; set; }
 
         public DateTimeOffset OccurredAtUtc { get; set; }
 

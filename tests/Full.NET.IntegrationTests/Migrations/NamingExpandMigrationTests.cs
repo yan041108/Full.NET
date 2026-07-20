@@ -1,10 +1,7 @@
 using Dapper;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
-using Full.NET.Migrations.DbUp;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using MySqlConnector;
 using Testcontainers.MsSql;
 using Testcontainers.MySql;
@@ -15,28 +12,40 @@ namespace Full.NET.IntegrationTests.Migrations;
 [DoNotParallelize]
 public sealed class NamingExpandMigrationTests
 {
-    private readonly MySqlContainer _mySqlContainer = new MySqlBuilder("mysql:8.0")
-        .WithCommand("--log-bin-trust-function-creators=1")
-        .WithDatabase("fullnet")
-        .WithUsername("fullnet")
-        .WithPassword("FullNet_Test!123")
-        .Build();
+    private MySqlContainer? _mySqlContainer;
 
     [TestInitialize]
-    public Task StartMySqlAsync() => _mySqlContainer.StartAsync();
+    public async Task StartMySqlAsync()
+    {
+        _mySqlContainer = new MySqlBuilder("mysql:8.0")
+            .WithCommand("--log-bin-trust-function-creators=1")
+            .WithDatabase("fullnet")
+            .WithUsername("fullnet")
+            .WithPassword("FullNet_Test!123")
+            .Build();
+        await _mySqlContainer.StartAsync();
+    }
 
     [TestCleanup]
-    public async Task CleanupMySqlAsync() => await _mySqlContainer.DisposeAsync();
+    public async Task CleanupMySqlAsync()
+    {
+        if (_mySqlContainer is not null)
+        {
+            await _mySqlContainer.DisposeAsync();
+            _mySqlContainer = null;
+        }
+    }
 
     [TestMethod]
     public async Task NamingExpand_MySql_copies_tenant_and_outbox_mirror_columns()
     {
         await NamingExpandTestMigrationRunner.MigrateMySqlThrough009Async(
-            _mySqlContainer.GetConnectionString());
+            _mySqlContainer!.GetConnectionString());
         await using var connection = CreateMySqlConnection();
         await NamingExpandTestData.InsertTenantAndOutboxAsync(connection);
 
-        var expand = await CreateMySqlRunner().MigrateAsync();
+        var expand = await NamingExpandTestMigrationRunner.MigrateMySqlThrough010Async(
+            _mySqlContainer!.GetConnectionString());
 
         Assert.AreEqual(1, expand.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -63,7 +72,8 @@ public sealed class NamingExpandMigrationTests
     [TestMethod]
     public async Task NamingExpand_MySql_records_paired_expand_migration()
     {
-        await CreateMySqlRunner().MigrateAsync();
+        await NamingExpandTestMigrationRunner.MigrateMySqlThrough010Async(
+            _mySqlContainer!.GetConnectionString());
         await using var connection = CreateMySqlConnection();
 
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -79,7 +89,8 @@ public sealed class NamingExpandMigrationTests
         await using var connection = new SqlConnection(container.GetConnectionString());
         await NamingExpandTestData.InsertTenantAndOutboxAsync(connection);
 
-        var expand = await CreateSqlServerRunner(container.GetConnectionString()).MigrateAsync();
+        var expand = await NamingExpandTestMigrationRunner.MigrateSqlServerThrough010Async(
+            container.GetConnectionString());
 
         Assert.AreEqual(1, expand.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -107,7 +118,8 @@ public sealed class NamingExpandMigrationTests
     public async Task NamingExpand_SqlServer_records_paired_expand_migration()
     {
         await using var container = await StartSqlServerContainerAsync();
-        await CreateSqlServerRunner(container.GetConnectionString()).MigrateAsync();
+        await NamingExpandTestMigrationRunner.MigrateSqlServerThrough010Async(
+            container.GetConnectionString());
         await using var connection = new SqlConnection(container.GetConnectionString());
 
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -116,42 +128,9 @@ public sealed class NamingExpandMigrationTests
 
     private MySqlConnection CreateMySqlConnection() => new(
         MySqlConnectionStringPolicy.Create(
-            _mySqlContainer.GetConnectionString(),
+            _mySqlContainer!.GetConnectionString(),
             MySqlGuidStorageMode.Binary16,
             allowUserVariables: false));
-
-    private DbUpMigrationRunner CreateMySqlRunner() => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.MySql,
-            ConnectionString = _mySqlContainer.GetConnectionString(),
-            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = true,
-            BackupVerified = true,
-            LegacyWritersStopped = true,
-            DestructiveDdlApprovalId = "test-uuid-contract-009",
-        }));
-
-    private static DbUpMigrationRunner CreateSqlServerRunner(string connectionString) => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.SqlServer,
-            ConnectionString = connectionString,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = true,
-            BackupVerified = true,
-            LegacyWritersStopped = true,
-            DestructiveDdlApprovalId = "test-uuid-contract-009",
-        }));
 
     private static async Task<MsSqlContainer> StartSqlServerContainerAsync()
     {
@@ -170,19 +149,19 @@ internal static class NamingExpandTestData
             """
             INSERT INTO fn_tenant_tenant
                 (Id, Identifier, Name, Domain, IsActive, CreatedAt, UpdatedAt, Version)
-            VALUES (@TenantId, 'naming-expand', 'Naming Expand', 'naming-expand.local', true, UTC_TIMESTAMP(6), NULL, 1);
+            VALUES (UUID_TO_BIN(@TenantId), 'naming-expand', 'Naming Expand', 'naming-expand.local', true, UTC_TIMESTAMP(6), NULL, 1);
             INSERT INTO fn_outbox_message
                 (Id, Type, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAt,
                  ProcessedAt, NextAttemptAt, Attempts, LockId, LockedUntil, Error)
-            VALUES (@OutboxId, 'fullnet.tenancy.tenant-provisioned', 1, 'application/json', @TenantId,
-                    NULL, X'7B7D', UTC_TIMESTAMP(6), NULL, NULL, 0, @LockId,
+            VALUES (UUID_TO_BIN(@OutboxId), 'fullnet.tenancy.tenant-provisioned', 1, 'application/json', UUID_TO_BIN(@TenantId),
+                    NULL, X'7B7D', UTC_TIMESTAMP(6), NULL, NULL, 0, UUID_TO_BIN(@LockId),
                     DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 5 MINUTE), NULL);
             """,
             new
             {
-                TenantId = Guid.Parse("01890f4e-7c2a-7abc-8def-0123456789ab"),
-                OutboxId = Guid.Parse("019822d3-0700-7000-8000-000000000201"),
-                LockId = Guid.Parse("019822d3-0700-7000-8000-000000000202"),
+                TenantId = "01890f4e-7c2a-7abc-8def-0123456789ab",
+                OutboxId = "019822d3-0700-7000-8000-000000000201",
+                LockId = "019822d3-0700-7000-8000-000000000202",
             });
 
     public static Task InsertTenantAndOutboxAsync(SqlConnection connection) =>

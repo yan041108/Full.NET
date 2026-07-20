@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddOptions<UuidBinaryContractOptions>();
+        services.AddOptions<PreV1NamingContractOptions>();
         services.AddSingleton<IDatabaseMigrationRunner, DbUpMigrationRunner>();
         return services;
     }
@@ -40,6 +41,14 @@ public static class ServiceCollectionExtensions
                     || UuidBinaryContractOptions.IsApprovalIdValid(
                         options.DestructiveDdlApprovalId),
                 "UuidBinaryContract:DestructiveDdlApprovalId has an invalid format.")
+            .ValidateOnStart();
+        services.AddOptions<PreV1NamingContractOptions>()
+            .Bind(configuration.GetSection(PreV1NamingContractOptions.SectionName))
+            .Validate(
+                options => string.IsNullOrEmpty(options.DestructiveDdlApprovalId)
+                    || UuidBinaryContractOptions.IsApprovalIdValid(
+                        options.DestructiveDdlApprovalId),
+                "PreV1NamingContract:DestructiveDdlApprovalId has an invalid format.")
             .ValidateOnStart();
         services.AddSingleton<IDatabaseMigrationRunner, DbUpMigrationRunner>();
         return services;

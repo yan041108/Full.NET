@@ -13,6 +13,7 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
     private readonly IOptions<DatabaseOptions> _databaseOptions;
     private readonly ILoggerFactory _loggerFactory;
     private readonly UuidBinaryContractOptions _contractOptions;
+    private readonly PreV1NamingContractOptions _namingContractOptions;
 
     public DbUpMigrationRunner(
         IOptions<DatabaseOptions> databaseOptions,
@@ -20,7 +21,8 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         : this(
             databaseOptions,
             loggerFactory,
-            Options.Create(new UuidBinaryContractOptions()))
+            Options.Create(new UuidBinaryContractOptions()),
+            Options.Create(new PreV1NamingContractOptions()))
     {
     }
 
@@ -28,10 +30,24 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         IOptions<DatabaseOptions> databaseOptions,
         ILoggerFactory loggerFactory,
         IOptions<UuidBinaryContractOptions> contractOptions)
+        : this(
+            databaseOptions,
+            loggerFactory,
+            contractOptions,
+            Options.Create(new PreV1NamingContractOptions()))
+    {
+    }
+
+    public DbUpMigrationRunner(
+        IOptions<DatabaseOptions> databaseOptions,
+        ILoggerFactory loggerFactory,
+        IOptions<UuidBinaryContractOptions> contractOptions,
+        IOptions<PreV1NamingContractOptions> namingContractOptions)
     {
         _databaseOptions = databaseOptions;
         _loggerFactory = loggerFactory;
         _contractOptions = contractOptions.Value;
+        _namingContractOptions = namingContractOptions.Value;
     }
 
     public async Task<MigrationResult> MigrateAsync(
@@ -40,6 +56,7 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         cancellationToken.ThrowIfCancellationRequested();
 
         ValidateContractOptions(_contractOptions);
+        ValidateNamingContractOptions(_namingContractOptions);
         var options = _databaseOptions.Value;
         var (builder, providerSegment) = CreateBuilder(options);
         var upgrader = builder
@@ -51,6 +68,21 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
             .WithVariable("UuidContractBackupVerified", ToSqlBoolean(_contractOptions.BackupVerified))
             .WithVariable("UuidContractLegacyWritersStopped", ToSqlBoolean(_contractOptions.LegacyWritersStopped))
             .WithVariable("UuidContractDestructiveDdlApprovalId", _contractOptions.DestructiveDdlApprovalId)
+            .WithVariable(
+                "PreV1NamingContractMaintenanceMode",
+                ToSqlBoolean(_namingContractOptions.MaintenanceMode))
+            .WithVariable(
+                "PreV1NamingContractBackupVerified",
+                ToSqlBoolean(_namingContractOptions.BackupVerified))
+            .WithVariable(
+                "PreV1NamingContractLegacyWritersStopped",
+                ToSqlBoolean(_namingContractOptions.LegacyWritersStopped))
+            .WithVariable(
+                "PreV1NamingContractLegacyOutboxDrained",
+                ToSqlBoolean(_namingContractOptions.LegacyOutboxDrained))
+            .WithVariable(
+                "PreV1NamingContractDestructiveDdlApprovalId",
+                _namingContractOptions.DestructiveDdlApprovalId)
             .LogTo(_loggerFactory)
             .Build();
 
@@ -75,6 +107,16 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         {
             throw new InvalidOperationException(
                 "UuidBinaryContract:DestructiveDdlApprovalId 格式无效。");
+        }
+    }
+
+    private static void ValidateNamingContractOptions(PreV1NamingContractOptions options)
+    {
+        if (!string.IsNullOrEmpty(options.DestructiveDdlApprovalId)
+            && !UuidBinaryContractOptions.IsApprovalIdValid(options.DestructiveDdlApprovalId))
+        {
+            throw new InvalidOperationException(
+                "PreV1NamingContract:DestructiveDdlApprovalId 格式无效。");
         }
     }
 

@@ -521,38 +521,66 @@
       "removalMilestone": "M1.0"
     },
     {
-      "kind": "column",
-      "value": "fn_outbox_message.Type",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "010 Expand 后读取路径通过 COALESCE 兼容 legacy Type，待 011 Contract 删除旧列后移除。",
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "reason": "011 Contract 在 legacy 表/列可能已部分删除时使用 PREPARE 条件探测，已由 NamingContractPartialRecovery 双库测试覆盖。",
       "removalMilestone": "M1.0"
     },
     {
-      "kind": "column",
-      "value": "fn_outbox_message.OccurredAt",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "010 Expand 后读取路径通过 COALESCE 兼容 legacy OccurredAt，待 011 Contract 删除旧列后移除。",
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "reason": "011 Contract 在 legacy 表/列可能已部分删除时分支执行 DROP/ALTER，已由 NamingContractPartialRecovery 双库测试覆盖。",
       "removalMilestone": "M1.0"
     },
     {
-      "kind": "column",
-      "value": "fn_outbox_message.ProcessedAt",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "领取与完成路径在 legacy 消息排空前仍需识别 ProcessedAt。",
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "reason": "011 Contract 在维护窗口内退役 legacy Tenancy 表，迁移脚本必须显式 DROP。",
       "removalMilestone": "M1.0"
     },
     {
-      "kind": "column",
-      "value": "fn_outbox_message.NextAttemptAt",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "失败重试路径在 legacy 消息排空前仍需识别 NextAttemptAt。",
+      "kind": "table",
+      "value": "fn_tenant_tenant",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "reason": "011 Contract 在维护窗口内退役 legacy Tenancy 表，迁移脚本必须显式 DROP。",
       "removalMilestone": "M1.0"
     },
     {
-      "kind": "column",
-      "value": "fn_outbox_message.LockedUntil",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
-      "reason": "租约路径在 legacy 消息排空前仍需识别 LockedUntil。",
+      "kind": "table",
+      "value": "schemaversions",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "reason": "011 必须核对 DbUp journal 确认 010 Expand 已记账；该框架表名不属于业务对象。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "SchemaVersions",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "reason": "011 必须核对 DbUp journal 确认 010 Expand 已记账；该框架表名不属于业务对象。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "SET",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "reason": "扫描器将 MERGE 的 WHEN MATCHED UPDATE SET 误识别为表名；真实对象由 NamingContract 配对迁移测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "reason": "011 Contract 的门禁与条件 DROP/ALTER 使用存储过程与 PREPARE 分支，由 NamingContract 双库集成测试与半完成恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "reason": "011 Contract 的条件 DROP INDEX/COLUMN/TABLE 由 NamingContract 双库集成测试与半完成恢复测试覆盖。",
       "removalMilestone": "M1.0"
     }
   ]

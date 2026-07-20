@@ -37,7 +37,8 @@ public sealed class MySqlMigrationTests
                 CommandTimeoutSeconds = 300,
             }),
             NullLoggerFactory.Instance,
-            ContractOptions());
+            MigrationContractOptionFactory.UuidOptions(),
+            MigrationContractOptionFactory.NamingOptions());
 
         var first = await runner.MigrateAsync();
         var second = await runner.MigrateAsync();
@@ -52,7 +53,8 @@ public sealed class MySqlMigrationTests
             "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE()"))
             .ToArray();
 
-        AssertContainsIgnoreCase(tables, "fn_tenant_tenant");
+        AssertContainsIgnoreCase(tables, "fn_tenancy_tenant");
+        Assert.IsFalse(tables.Contains("fn_tenant_tenant", StringComparer.OrdinalIgnoreCase));
         AssertContainsIgnoreCase(tables, "fn_outbox_message");
         AssertContainsIgnoreCase(tables, "fn_identity_user");
         AssertContainsIgnoreCase(tables, "fn_identity_refresh_session");
@@ -186,7 +188,7 @@ public sealed class MySqlMigrationTests
               (
                   (TABLE_NAME = 'fn_identity_user'
                    AND COLUMN_NAME IN ('PreferredLocale', 'ProfileVersion'))
-                  OR (TABLE_NAME = 'fn_tenant_tenant'
+                  OR (TABLE_NAME = 'fn_tenancy_tenant'
                       AND COLUMN_NAME = 'DefaultLocale')
               )
             """))
@@ -345,7 +347,8 @@ public sealed class MySqlMigrationTests
             CommandTimeoutSeconds = 300,
         }),
         NullLoggerFactory.Instance,
-        ContractOptions());
+        MigrationContractOptionFactory.UuidOptions(),
+        MigrationContractOptionFactory.NamingOptions());
 
     private MySqlConnection CreateConnection() => new(
         MySqlConnectionStringPolicy.Create(
@@ -363,13 +366,7 @@ public sealed class MySqlMigrationTests
             allowUserVariables: false));
 
     private static IOptions<UuidBinaryContractOptions> ContractOptions() =>
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = true,
-            BackupVerified = true,
-            LegacyWritersStopped = true,
-            DestructiveDdlApprovalId = "test-uuid-contract-009",
-        });
+        MigrationContractOptionFactory.UuidOptions();
 
     private static async Task AssertLocalizationStateAsync(
         MySqlConnection connection,
@@ -409,7 +406,10 @@ public sealed class MySqlMigrationTests
     private static void AssertRequiredOutboxColumns(IEnumerable<ColumnMetadata> columns)
     {
         var names = columns.Select(column => column.Name).ToArray();
+        AssertContainsIgnoreCase(names, "MessageType");
         AssertContainsIgnoreCase(names, "SchemaVersion");
+        AssertContainsIgnoreCase(names, "OccurredAtUtc");
+        AssertContainsIgnoreCase(names, "ProcessedAtUtc");
         AssertContainsIgnoreCase(names, "ContentType");
         AssertContainsIgnoreCase(names, "TenantId");
         AssertContainsIgnoreCase(names, "TraceId");
@@ -459,7 +459,7 @@ public sealed class MySqlMigrationTests
 
         var defaultLocale = columns.Single(item =>
             item.Name == "DefaultLocale"
-            && string.Equals(item.TableName, "fn_tenant_tenant", StringComparison.OrdinalIgnoreCase));
+            && string.Equals(item.TableName, "fn_tenancy_tenant", StringComparison.OrdinalIgnoreCase));
         Assert.AreEqual("NO", defaultLocale.IsNullable, ignoreCase: true);
         Assert.AreEqual(35L, defaultLocale.MaximumLength);
         Assert.AreEqual("zh-CN", defaultLocale.ColumnDefault);

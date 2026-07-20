@@ -78,7 +78,7 @@ public sealed class UuidBinaryContractMigrationTests
             SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
             WHERE CONSTRAINT_SCHEMA = DATABASE()
               AND TABLE_NAME IN
-                  ('fn_tenant_tenant', 'fn_outbox_message', 'fn_identity_user',
+                  ('fn_tenancy_tenant', 'fn_outbox_message', 'fn_identity_user',
                    'fn_identity_refresh_session', 'fn_identity_auth_audit', 'fn_identity_role',
                    'fn_identity_user_role', 'fn_identity_role_permission',
                    'fn_seed_run', 'fn_seed_run_item')
@@ -272,7 +272,7 @@ public sealed class UuidBinaryContractMigrationTests
                 """
                 SELECT COUNT(*) FROM sys.indexes
                 WHERE name IN
-                      ('IX_fn_outbox_message_OccurredAt_Id',
+                      ('IX_fn_outbox_message_OccurredAtUtc_Id',
                        'IX_fn_identity_auth_audit_OccurredAtUtc_Id')
                   AND type_desc = 'CLUSTERED'
                 """));
@@ -302,7 +302,8 @@ public sealed class UuidBinaryContractMigrationTests
             BackupVerified = backupVerified,
             LegacyWritersStopped = legacyWritersStopped,
             DestructiveDdlApprovalId = approvalId,
-        }));
+        }),
+        MigrationContractOptionFactory.NamingOptions());
 
     private async Task ApplyExpandAsync()
     {
@@ -335,5 +336,6 @@ public sealed class UuidBinaryContractMigrationTests
             BackupVerified = true,
             LegacyWritersStopped = true,
             DestructiveDdlApprovalId = "test-uuid-contract-009",
-        }));
+        }),
+        MigrationContractOptionFactory.NamingOptions());
 }

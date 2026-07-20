@@ -63,9 +63,10 @@
 ### 4.5 执行 011 Contract
 
 1. 再次确认写入者停止、备份有效、批准编号已登记。
-2. 运行 Migrator 执行 011；不得手工拆分。
-3. 验证 canonical 表/列、约束与索引与 Naming Profile 一致；legacy 对象按合同退役。
-4. 部署最终应用并恢复流量；持续监控 Outbox backlog 与错误率。
+2. 在 Migrator 配置中设置 `PreV1NamingContract` 全部门禁为 `true`，并填写已批准的 `DestructiveDdlApprovalId`（格式见 `UuidBinaryContractOptions.IsApprovalIdValid`）。
+3. 运行 Migrator 执行 011；不得手工拆分。
+4. 验证 `fn_pre_v1_naming_contract_state.SchemaMode = 'Contracted'`；`fn_tenant_tenant` 与 Outbox legacy 列已删除；canonical 列/索引为 NOT NULL。
+5. 部署最终应用并恢复流量；持续监控 Outbox backlog 与错误率。
 
 ## 5. 停止与回退边界
 

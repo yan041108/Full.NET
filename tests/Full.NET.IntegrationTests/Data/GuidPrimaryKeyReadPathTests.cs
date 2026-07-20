@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
+using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
@@ -22,10 +23,10 @@ public sealed class GuidPrimaryKeyReadPathTests
     private static readonly SqlStatement InsertTenant = new(
         "test.guid-read-path.insert-tenant",
         """
-        INSERT INTO fn_tenant_tenant
-            (Id, Identifier, Name, Domain, IsActive, CreatedAt, Version, DefaultLocale)
+        INSERT INTO fn_tenancy_tenant
+            (Id, Identifier, Name, Domain, IsActive, CreatedAtUtc, Version, DefaultLocale)
         VALUES
-            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAt, @Version, @DefaultLocale)
+            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAtUtc, @Version, @DefaultLocale)
         """,
         SqlDataScope.HostOnly);
 
@@ -33,9 +34,9 @@ public sealed class GuidPrimaryKeyReadPathTests
         "test.guid-read-path.insert-outbox",
         """
         INSERT INTO fn_outbox_message
-            (Id, Type, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAt, Attempts)
+            (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAtUtc, Attempts)
         VALUES
-            (@Id, @Type, @SchemaVersion, @ContentType, @TenantId, @TraceId, @Payload, @OccurredAt, 0)
+            (@Id, @MessageType, @SchemaVersion, @ContentType, @TenantId, @TraceId, @Payload, @OccurredAtUtc, 0)
         """,
         SqlDataScope.Global);
 
@@ -127,7 +128,8 @@ public sealed class GuidPrimaryKeyReadPathTests
         await new DbUpMigrationRunner(
             Options.Create(options),
             NullLoggerFactory.Instance,
-            ContractOptions()).MigrateAsync();
+            ContractOptions(),
+            MigrationContractOptionFactory.NamingOptions()).MigrateAsync();
 
         var configuration = CreateConfiguration(options);
         await using var services = BuildServices(configuration);
@@ -282,7 +284,7 @@ public sealed class GuidPrimaryKeyReadPathTests
                 Name = "UUID Read Path Tenant",
                 Domain = $"read-{tenantId:N}.localhost",
                 IsActive = true,
-                CreatedAt = now,
+                CreatedAtUtc = now,
                 Version = 1,
                 DefaultLocale = "zh-CN",
             });
@@ -340,26 +342,26 @@ public sealed class GuidPrimaryKeyReadPathTests
             new
             {
                 Id = hostOutboxId,
-                Type = "test.uuid-read-path.host",
+                MessageType = "test.uuid-read-path.host",
                 SchemaVersion = 1,
                 ContentType = "application/octet-stream",
                 TenantId = (Guid?)null,
                 TraceId = "trace-host",
                 Payload = new byte[] { 0x01 },
-                OccurredAt = now,
+                OccurredAtUtc = now,
             });
         await commandExecutor.ExecuteAsync(
             InsertOutbox,
             new
             {
                 Id = tenantOutboxId,
-                Type = "test.uuid-read-path.tenant",
+                MessageType = "test.uuid-read-path.tenant",
                 SchemaVersion = 1,
                 ContentType = "application/octet-stream",
                 TenantId = tenantId,
                 TraceId = "trace-tenant",
                 Payload = new byte[] { 0x02 },
-                OccurredAt = now,
+                OccurredAtUtc = now,
             });
     }
 

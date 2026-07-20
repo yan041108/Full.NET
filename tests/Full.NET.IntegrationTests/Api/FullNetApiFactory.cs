@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
@@ -71,7 +72,8 @@ internal sealed class FullNetApiFactory(
                         BackupVerified = true,
                         LegacyWritersStopped = true,
                         DestructiveDdlApprovalId = "test-api-uuid-contract-009",
-                    }))
+                    }),
+                    MigrationContractOptionFactory.NamingOptions())
                 .MigrateAsync(cancellationToken);
             using var bootstrapClient = CreateClient();
             await using var scope = Services.CreateAsyncScope();

@@ -64,4 +64,72 @@ internal static class NamingExpandTestMigrationRunner
 
         return Task.FromResult(new MigrationResult(true, result.Scripts.Count()));
     }
+
+    public static Task<MigrationResult> MigrateMySqlThrough010Async(
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = DeployChanges.To.MySqlDatabase(
+                MySqlConnectionStringPolicy.Create(
+                    connectionString,
+                    MySqlGuidStorageMode.Binary16,
+                    allowUserVariables: true))
+            .WithScriptsEmbeddedInAssembly(
+                typeof(DbUpMigrationRunner).Assembly,
+                name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
+                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+            .WithVariable("UuidContractMaintenanceMode", "1")
+            .WithVariable("UuidContractBackupVerified", "1")
+            .WithVariable("UuidContractLegacyWritersStopped", "1")
+            .WithVariable("UuidContractDestructiveDdlApprovalId", ContractApprovalId)
+            .WithVariable("PreV1NamingContractMaintenanceMode", "1")
+            .WithVariable("PreV1NamingContractBackupVerified", "1")
+            .WithVariable("PreV1NamingContractLegacyWritersStopped", "1")
+            .WithVariable("PreV1NamingContractLegacyOutboxDrained", "1")
+            .WithVariable(
+                "PreV1NamingContractDestructiveDdlApprovalId",
+                MigrationContractOptionFactory.NamingApprovalId)
+            .WithExecutionTimeout(TimeSpan.FromSeconds(300))
+            .Build()
+            .PerformUpgrade();
+        if (!result.Successful)
+        {
+            throw new InvalidOperationException("Database migration failed.", result.Error);
+        }
+
+        return Task.FromResult(new MigrationResult(true, result.Scripts.Count()));
+    }
+
+    public static Task<MigrationResult> MigrateSqlServerThrough010Async(
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = DeployChanges.To.SqlDatabase(connectionString)
+            .WithScriptsEmbeddedInAssembly(
+                typeof(DbUpMigrationRunner).Assembly,
+                name => name.Contains(".Migrations.SqlServer.", StringComparison.Ordinal)
+                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+            .WithVariable("UuidContractMaintenanceMode", "1")
+            .WithVariable("UuidContractBackupVerified", "1")
+            .WithVariable("UuidContractLegacyWritersStopped", "1")
+            .WithVariable("UuidContractDestructiveDdlApprovalId", ContractApprovalId)
+            .WithVariable("PreV1NamingContractMaintenanceMode", "1")
+            .WithVariable("PreV1NamingContractBackupVerified", "1")
+            .WithVariable("PreV1NamingContractLegacyWritersStopped", "1")
+            .WithVariable("PreV1NamingContractLegacyOutboxDrained", "1")
+            .WithVariable(
+                "PreV1NamingContractDestructiveDdlApprovalId",
+                MigrationContractOptionFactory.NamingApprovalId)
+            .WithExecutionTimeout(TimeSpan.FromSeconds(300))
+            .Build()
+            .PerformUpgrade();
+        if (!result.Successful)
+        {
+            throw new InvalidOperationException("Database migration failed.", result.Error);
+        }
+
+        return Task.FromResult(new MigrationResult(true, result.Scripts.Count()));
+    }
 }

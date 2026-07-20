@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
+using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
@@ -23,9 +24,9 @@ public sealed class GuidPrimaryKeyApplicationTests
         "test.outbox.insert-guid-primary-key",
         """
         INSERT INTO fn_outbox_message
-            (Id, Type, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAt, Attempts, LockId)
+            (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAtUtc, Attempts, LockId)
         VALUES
-            (@Id, @Type, @SchemaVersion, @ContentType, @TenantId, @TraceId, @Payload, @OccurredAt, 0, @LockId)
+            (@Id, @MessageType, @SchemaVersion, @ContentType, @TenantId, @TraceId, @Payload, @OccurredAtUtc, 0, @LockId)
         """,
         SqlDataScope.Global);
 
@@ -103,7 +104,8 @@ public sealed class GuidPrimaryKeyApplicationTests
         var migrationRunner = new DbUpMigrationRunner(
             Options.Create(options),
             NullLoggerFactory.Instance,
-            ContractOptions());
+            ContractOptions(),
+            MigrationContractOptionFactory.NamingOptions());
         await migrationRunner.MigrateAsync();
 
         var configuration = CreateConfiguration(options);
@@ -259,13 +261,13 @@ public sealed class GuidPrimaryKeyApplicationTests
             new
             {
                 Id = outboxId,
-                Type = "test.uuid-primary-key",
+                MessageType = "test.uuid-primary-key",
                 SchemaVersion = 1,
                 ContentType = "application/octet-stream",
                 TenantId = (Guid?)null,
                 TraceId = "trace-uuid-app",
                 Payload = new byte[] { 0x01 },
-                OccurredAt = now,
+                OccurredAtUtc = now,
                 LockId = lockId,
             },
             cancellationToken);

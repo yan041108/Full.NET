@@ -2,6 +2,7 @@ using System.Data.Common;
 using Dapper;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
+using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Seeding.Dapper;
 using Microsoft.Data.SqlClient;
@@ -76,7 +77,8 @@ public sealed class SeedExecutionInfrastructureTests
                 BackupVerified = true,
                 LegacyWritersStopped = true,
                 DestructiveDdlApprovalId = "test-seeding-uuid-contract-009",
-            }));
+            }),
+            MigrationContractOptionFactory.NamingOptions());
         var migrationResult = await migration.MigrateAsync();
         Assert.IsTrue(migrationResult.Successful);
 

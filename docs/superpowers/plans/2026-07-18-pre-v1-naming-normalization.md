@@ -226,7 +226,7 @@ pnpm test:naming
 
 Expected: 上述新增聚焦用例全部 PASS，legacy code 不再由标准 API 新产生；随后运行 README 中 Unit 与 Compatibility 的最新全量命令并按新鲜发现数量更新门槛。
 
-- [ ] **Step 5: 提交协议规范化**
+- [x] **Step 5: 提交协议规范化**
 
 ```bash
 git add src packages ui clients tests docs/development/pre-v1-contract-name-migration.md
@@ -248,11 +248,11 @@ git commit -m "refactor: normalize pre-v1 contract names"
 - Consumes: 已部署并验证的新应用版本、旧 Outbox 排空证据、Expand 数据核对结果
 - Produces: 规范对象成为唯一写入结构；到期债务从 Allowlist 移除
 
-- [ ] **Step 1: 写 Contract 前置条件失败测试**
+- [x] **Step 1: 写 Contract 前置条件失败测试**
 
 只要新列有 NULL、旧新值冲突、旧表行数与新表不一致、存在 Legacy Pending Outbox 或数据库记录的应用兼容版本未达到门槛，011 必须拒绝执行。测试覆盖迁移未记账但部分旧对象已删除的恢复场景。
 
-- [ ] **Step 2: 实现先收紧、后删除的 Contract**
+- [x] **Step 2: 实现先收紧、后删除的 Contract**
 
 先把规范 Outbox 列收紧为正确 NULL/NOT NULL 语义并重建规范索引；再在独立、带豁免的步骤删除旧列和 `fn_tenant_tenant`。SQL Server/MySQL 每步探测结构并验证数据，删除操作引用具体批准的豁免 ID 和到期版本。
 
@@ -260,7 +260,7 @@ git commit -m "refactor: normalize pre-v1 contract names"
 
 矩阵至少包含：空数据库 001→011、009 存量数据→011、010 后新应用写入→011、Legacy Pending 消息拒绝、011 部分完成重跑。所有场景验证 Tenant/Outbox 行数、Payload SHA-256、UUID Binary16 往返、索引和约束名称。
 
-- [ ] **Step 4: 清除已完成债务并验证没有扩大豁免**
+- [x] **Step 4: 清除已完成债务并验证没有扩大豁免**
 
 仅删除已有真实证据的债务项；协议兼容窗口未结束的条目继续保留。`pnpm test:naming` 必须在删除每个条目后仍通过，不能添加新通配项抵消失败。
 
@@ -270,7 +270,7 @@ Run: README 中全部 Release 构建、Unit、Compatibility、Architecture、双
 
 Expected: 全部自动化 PASS；维护窗口中的备份恢复、行数/摘要和人工数据库审查记录进入验证文档。未执行人工项时不得标记 `Verified`。
 
-- [ ] **Step 6: 提交 Contract 迁移**
+- [x] **Step 6: 提交 Contract 迁移**
 
 ```bash
 git add src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations tests/Full.NET.IntegrationTests contracts/naming docs/development/pre-v1-naming-migration-runbook.md
