@@ -307,9 +307,11 @@ Profile/Lint/生成器通过但旧对象尚在时保持 `Implemented`；旧数�
 
 > 2026-07-21：`capability-status.md` 与 `naming-governance.md` 已更新为 `Build-verified` 并链接 `docs/verification/pre-v1-naming-normalization.md`。
 
-- [ ] **Step 4: 最终提交**
+- [x] **Step 4: 最终提交**
 
 ```bash
 git add README.md docs contracts/naming
 git commit -m "docs: verify pre-v1 naming normalization"
 ```
+
+> 2026-07-21：`3c1ac34`
