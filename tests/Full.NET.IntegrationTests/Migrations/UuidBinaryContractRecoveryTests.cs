@@ -26,8 +26,7 @@ public sealed class UuidBinaryContractRecoveryTests
     [TestMethod]
     public async Task UuidBinaryContractRecovery_MySql_recovers_partial_constraint_deletion()
     {
-        var runner = CreateMySqlRunner();
-        await runner.MigrateAsync();
+        await UuidBinaryContractTestMigrationRunner.MigrateMySqlThrough009Async(_connectionString);
         await using var connection = CreateMySqlConnection();
         await connection.ExecuteAsync(
             """
@@ -36,7 +35,8 @@ public sealed class UuidBinaryContractRecoveryTests
             DELETE FROM schemaversions WHERE ScriptName LIKE '%009_UuidBinaryContract.sql';
             """);
 
-        var recovery = await runner.MigrateAsync();
+        var recovery = await UuidBinaryContractTestMigrationRunner.MigrateMySqlThrough009Async(
+            _connectionString);
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -69,7 +69,8 @@ public sealed class UuidBinaryContractRecoveryTests
             ALTER TABLE fn_outbox_message RENAME COLUMN LockIdBinary TO LockId;
             """);
 
-        var recovery = await CreateMySqlRunner().MigrateAsync();
+        var recovery = await UuidBinaryContractTestMigrationRunner.MigrateMySqlThrough009Async(
+            _connectionString);
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -94,8 +95,7 @@ public sealed class UuidBinaryContractRecoveryTests
     public async Task UuidBinaryContractRecovery_SqlServer_recovers_unjournaled_index_state()
     {
         var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
-        var runner = CreateSqlServerRunner(connectionString);
-        await runner.MigrateAsync();
+        await UuidBinaryContractTestMigrationRunner.MigrateSqlServerThrough009Async(connectionString);
         await using var connection = new SqlConnection(connectionString);
         await connection.ExecuteAsync(
             """
@@ -104,7 +104,8 @@ public sealed class UuidBinaryContractRecoveryTests
             DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%009_UuidBinaryContract.sql';
             """);
 
-        var recovery = await runner.MigrateAsync();
+        var recovery = await UuidBinaryContractTestMigrationRunner.MigrateSqlServerThrough009Async(
+            connectionString);
 
         Assert.AreEqual(1, recovery.ExecutedScriptCount);
         Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
@@ -174,7 +175,8 @@ public sealed class UuidBinaryContractRecoveryTests
             CommandTimeoutSeconds = 300,
         }),
         NullLoggerFactory.Instance,
-        ContractOptions());
+        ContractOptions(),
+        MigrationContractOptionFactory.NamingOptions());
 
     private static DbUpMigrationRunner CreateSqlServerRunner(string connectionString) => new(
         Options.Create(new DatabaseOptions
@@ -184,7 +186,8 @@ public sealed class UuidBinaryContractRecoveryTests
             CommandTimeoutSeconds = 300,
         }),
         NullLoggerFactory.Instance,
-        ContractOptions());
+        ContractOptions(),
+        MigrationContractOptionFactory.NamingOptions());
 
     private static IOptions<UuidBinaryContractOptions> ContractOptions() =>
         Options.Create(new UuidBinaryContractOptions
@@ -205,7 +208,9 @@ public sealed class UuidBinaryContractRecoveryTests
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal))
+                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal)
+                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
+                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
             .Build()
             .PerformUpgrade();
         Assert.IsTrue(result.Successful, result.Error?.ToString());

@@ -388,7 +388,7 @@ public sealed class MySqlMigrationTests
                    CAST(CHARACTER_MAXIMUM_LENGTH AS SIGNED) AS MaximumLength
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME IN ('fn_identity_user', 'fn_tenant_tenant')
+              AND TABLE_NAME IN ('fn_identity_user', 'fn_tenant_tenant', 'fn_tenancy_tenant')
               AND COLUMN_NAME IN ('PreferredLocale', 'ProfileVersion', 'DefaultLocale')
             """))
             .ToArray();
@@ -451,7 +451,8 @@ public sealed class MySqlMigrationTests
 
         var defaultLocale = columns.Single(item =>
             item.Name == "DefaultLocale"
-            && string.Equals(item.TableName, "fn_tenancy_tenant", StringComparison.OrdinalIgnoreCase));
+            && (string.Equals(item.TableName, "fn_tenancy_tenant", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.TableName, "fn_tenant_tenant", StringComparison.OrdinalIgnoreCase)));
         Assert.AreEqual("NO", defaultLocale.IsNullable, ignoreCase: true);
         Assert.AreEqual(35L, defaultLocale.MaximumLength);
         Assert.AreEqual("zh-CN", defaultLocale.ColumnDefault);

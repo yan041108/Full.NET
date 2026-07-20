@@ -1,4 +1,5 @@
 using Dapper;
+using DbUp;
 using Full.NET.Data.Abstractions;
 using Full.NET.Migrations.DbUp;
 using Microsoft.Data.SqlClient;
@@ -220,8 +221,8 @@ public sealed class SqlServerMigrationTests
     [TestMethod]
     public async Task SqlServer_localization_migration_recovers_legacy_and_partial_states()
     {
-        var runner = CreateRunner();
-        await runner.MigrateAsync();
+        // 004 恢复必须停在 naming Contract 之前：011 会 DROP fn_tenant_tenant。
+        await MigrateSqlServerThrough008Async();
 
         await using var connection = new SqlConnection(_connectionString);
         await connection.ExecuteAsync(
@@ -252,11 +253,11 @@ public sealed class SqlServerMigrationTests
             """,
             new { TenantId = tenantId, UserId = userId, Now = now });
 
-        var legacyUpgrade = await runner.MigrateAsync();
+        var legacyUpgrade = await MigrateSqlServerThrough008Async();
         Assert.AreEqual(1, legacyUpgrade.ExecutedScriptCount);
         await AssertLocalizationStateAsync(connection, userId, tenantId);
 
-        // ???? DDL ??????????? DbUp ???????????????????????????????????????????
+        // 模拟列已存在但约束未收紧、DbUp 尚未记账的恢复路径。
         await connection.ExecuteAsync(
             """
             DELETE FROM dbo.SchemaVersions WHERE ScriptName LIKE '%004_LocalizationPreferences.sql';
@@ -271,7 +272,7 @@ public sealed class SqlServerMigrationTests
             """,
             new { UserId = userId, TenantId = tenantId });
 
-        var recovered = await runner.MigrateAsync();
+        var recovered = await MigrateSqlServerThrough008Async();
         Assert.AreEqual(1, recovered.ExecutedScriptCount);
         await AssertLocalizationStateAsync(connection, userId, tenantId);
     }
@@ -322,6 +323,27 @@ public sealed class SqlServerMigrationTests
             """));
     }
 
+
+    private Task<MigrationResult> MigrateSqlServerThrough008Async()
+    {
+        var result = DbUp.DeployChanges.To.SqlDatabase(_connectionString)
+            .WithScriptsEmbeddedInAssembly(
+                typeof(DbUpMigrationRunner).Assembly,
+                name => name.Contains(".Migrations.SqlServer.", StringComparison.Ordinal)
+                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal)
+                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
+                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+            .WithExecutionTimeout(TimeSpan.FromSeconds(300))
+            .Build()
+            .PerformUpgrade();
+        if (!result.Successful)
+        {
+            throw new InvalidOperationException("Database migration failed.", result.Error);
+        }
+
+        return Task.FromResult(new MigrationResult(true, result.Scripts.Count()));
+    }
+
     private DbUpMigrationRunner CreateRunner() => new(
         Options.Create(new DatabaseOptions
         {
@@ -330,7 +352,8 @@ public sealed class SqlServerMigrationTests
             CommandTimeoutSeconds = 300,
         }),
         NullLoggerFactory.Instance,
-        ContractOptions());
+        ContractOptions(),
+        MigrationContractOptionFactory.NamingOptions());
 
     private static IOptions<UuidBinaryContractOptions> ContractOptions() =>
         MigrationContractOptionFactory.UuidOptions();
@@ -428,7 +451,8 @@ public sealed class SqlServerMigrationTests
 
         var defaultLocale = columns.Single(item =>
             item.Name == "DefaultLocale"
-            && string.Equals(item.TableName, "fn_tenancy_tenant", StringComparison.OrdinalIgnoreCase));
+            && (string.Equals(item.TableName, "fn_tenancy_tenant", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.TableName, "fn_tenant_tenant", StringComparison.OrdinalIgnoreCase)));
         Assert.AreEqual("NO", defaultLocale.IsNullable, ignoreCase: true);
         Assert.AreEqual(35L, defaultLocale.MaximumLength);
         StringAssert.Contains(defaultLocale.ColumnDefault, "zh-CN");

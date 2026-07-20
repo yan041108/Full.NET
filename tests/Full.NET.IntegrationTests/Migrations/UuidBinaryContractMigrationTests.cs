@@ -35,7 +35,7 @@ public sealed class UuidBinaryContractMigrationTests
         await CreateRunner().MigrateAsync();
         await using var connection = new MySqlConnection(_connectionString);
 
-        Assert.AreEqual(24, await connection.ExecuteScalarAsync<int>(
+        Assert.AreEqual(23, await connection.ExecuteScalarAsync<int>(
             """
             SELECT COUNT(*)
             FROM INFORMATION_SCHEMA.COLUMNS
@@ -295,7 +295,9 @@ public sealed class UuidBinaryContractMigrationTests
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal))
+                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal)
+                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
+                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
             .Build()
             .PerformUpgrade();
         Assert.IsTrue(result.Successful, result.Error?.ToString());

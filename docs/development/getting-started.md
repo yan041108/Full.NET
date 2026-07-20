@@ -27,7 +27,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | 日常 | 默认本地验证 | 双库冒烟 2 项，`--timeout 15m` |
 | 聚焦 | 改迁移 / Naming / UUID / Outbox SQL | `--filter` 只跑相关用例 |
-| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 82 --timeout 90m` |
+| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 85 --timeout 90m` |
 
 ```powershell
 # 日常：双库冒烟
@@ -37,7 +37,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery" --minimum-expected-tests 19 --timeout 45m
 
 # 发布：完整双库矩阵
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 82 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 85 --timeout 90m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。
@@ -48,7 +48,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 
 - **分层只改变何时跑完整双库，不降低覆盖**：数据库行为变更在合入前仍须双库相关 filter 或全量全绿；禁止把「未执行」表述为「通过」。
 - CI：PR 只跑双库冒烟；完整矩阵仅在 `push main` 执行（见 `.github/workflows/ci.yml`，超时 90m）。
-- 方法级并行 Worker 数在 `tests/Full.NET.IntegrationTests/MSTestSettings.cs`（默认 6）；本机内存充足时可上调。
+- 方法级并行 Worker 数在 `tests/Full.NET.IntegrationTests/MSTestSettings.cs`（默认 2）；本机验证稳定后再酌情上调。
 - Naming Contract 的 5 个维护门禁已合并为单测同库连试，避免 DataRow 重复 Through010 准备。
 
 ### 2.1 客户端工作区与双管理端

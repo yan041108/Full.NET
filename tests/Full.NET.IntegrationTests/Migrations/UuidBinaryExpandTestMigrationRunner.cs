@@ -19,7 +19,9 @@ internal sealed class UuidBinaryExpandTestMigrationRunner(string connectionStrin
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal))
+                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal)
+                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
+                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
             .Build()
             .PerformUpgrade();
         if (!result.Successful)
