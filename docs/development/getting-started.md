@@ -69,7 +69,7 @@ pnpm test:e2e
 pnpm test:e2e:uniapp
 ```
 
-`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue、Layui 和 uni-app 单元测试，当前管理端与共享包门槛为 138 项（`client-contracts` 30、`admin-i18n` 8、Vue 48、Layui 52），uni-app 为 96 项；`pnpm test:e2e` 启动两个本地服务，并用同一组 32 项 Playwright 场景（16 个唯一场景 × Vue/Layui 双端）验证动态导航、Host 用户列表/创建/禁用、超级管理员列表/审计/密码重认证、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 组件语言、逐请求 `Accept-Language`、刷新恢复、偏好保存失败回滚、稳定错误码、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
+`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue、Layui 和 uni-app 单元测试，当前管理端与共享包门槛为 139 项（`client-contracts` 30、`admin-i18n` 8、Vue 49、Layui 52），uni-app 为 96 项；`pnpm test:e2e` 启动两个本地服务，并用同一组 32 项 Playwright 场景（16 个唯一场景 × Vue/Layui 双端）验证动态导航、Host 用户列表/创建/禁用、超级管理员列表/审计/密码重认证、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 组件语言、逐请求 `Accept-Language`、刷新恢复、偏好保存失败回滚、稳定错误码、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
 
 排查单个客户端层时可以直接运行：
 

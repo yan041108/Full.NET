@@ -36,6 +36,14 @@ internal sealed class HostUserManagementService(
             token => DisableCoreAsync(userId, token),
             cancellationToken);
 
+    public Task<Result<HostUserResponse>> UpdateAsync(
+        Guid userId,
+        UpdateHostUserRequest request,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => UpdateCoreAsync(userId, request, token),
+            cancellationToken);
+
     private async Task<Result<HostUserResponse>> CreateCoreAsync(
         CreateHostUserRequest request,
         CancellationToken cancellationToken)
@@ -197,6 +205,68 @@ internal sealed class HostUserManagementService(
                 updated.Version));
     }
 
+    private async Task<Result<HostUserResponse>> UpdateCoreAsync(
+        Guid userId,
+        UpdateHostUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var displayName = request.DisplayName?.Trim() ?? string.Empty;
+        if (displayName.Length is < 1 or > 128)
+        {
+            return Result<HostUserResponse>.Failure(new Error(
+                ValidationErrorCodes.Failed,
+                "Display name is invalid.",
+                ErrorType.Validation));
+        }
+
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.UpdateHostUserDisplayName,
+                new
+                {
+                    UserId = userId,
+                    DisplayName = displayName,
+                    UpdatedAtUtc = now,
+                    request.Version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            var exists = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                    IdentitySql.FindHostUserById,
+                    new { UserId = userId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (exists is null)
+            {
+                return NotFound();
+            }
+
+            return VersionConflict();
+        }
+
+        var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                new { UserId = userId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (updated is null)
+        {
+            return NotFound();
+        }
+
+        return Result<HostUserResponse>.Success(
+            new HostUserResponse(
+                updated.Id,
+                updated.Username,
+                updated.DisplayName,
+                updated.IsActive,
+                updated.CreatedAtUtc,
+                updated.UpdatedAtUtc,
+                updated.Version));
+    }
+
     private async Task<bool> IsActiveSuperAdministratorAsync(
         Guid userId,
         CancellationToken cancellationToken) =>
@@ -217,6 +287,12 @@ internal sealed class HostUserManagementService(
             IdentityErrorCodes.UserNotFound,
             "The host user was not found.",
             ErrorType.NotFound));
+
+    private static Result<HostUserResponse> VersionConflict() =>
+        Result<HostUserResponse>.Failure(new Error(
+            IdentityErrorCodes.ProfileVersionConflict,
+            "The host user was updated concurrently.",
+            ErrorType.Conflict));
 
     private static Result<HostUserResponse> ValidationFailure(
         IReadOnlyList<IdentityPasswordPolicyViolation> violations) =>

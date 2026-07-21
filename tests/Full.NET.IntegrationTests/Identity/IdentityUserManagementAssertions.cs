@@ -30,6 +30,9 @@ internal static class IdentityUserManagementAssertions
             factory,
             client,
             cancellationToken);
+        await VerifyUpdateDisplayNameWithOptimisticVersionAsync(
+            client,
+            cancellationToken);
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(
@@ -137,6 +140,54 @@ internal static class IdentityUserManagementAssertions
             await loginResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
             IdentityErrorCodes.InvalidCredentials,
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyUpdateDisplayNameWithOptimisticVersionAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var username = $"update-{Guid.NewGuid():N}";
+
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                username,
+                "更新前名称",
+                Api.FullNetApiFactory.TestPassword));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+
+        using var updateRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{created.Id:D}",
+            adminToken,
+            new UpdateHostUserRequest("更新后名称", created.Version));
+        using var updateResponse = await client.SendAsync(updateRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(updated);
+        Assert.AreEqual("更新后名称", updated.DisplayName);
+        Assert.AreEqual(created.Version + 1, updated.Version);
+
+        using var staleRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{created.Id:D}",
+            adminToken,
+            new UpdateHostUserRequest("冲突名称", created.Version));
+        using var staleResponse = await client.SendAsync(staleRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, staleResponse.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await staleResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            IdentityErrorCodes.ProfileVersionConflict,
             problem.RootElement.GetProperty("code").GetString());
     }
 

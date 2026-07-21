@@ -7,9 +7,9 @@
 
 ## 范围
 
-Host 作用域用户：分页列表、详情（API）、创建、禁用；`identity.users.read` / `identity.users.write`；Vue/Layui 对等管理页；双库 Integration；Mock parity E2E；真实栈最小冒烟。
+Host 作用域用户：分页列表、详情、创建、更新资料、禁用；`identity.users.read` / `identity.users.write`；Vue/Layui 对等管理页；双库 Integration；Mock parity E2E；真实栈最小冒烟。
 
-**明确未交付**：用户资料更新 UI、角色/菜单/组织 CRUD、OpenAPI 夹具、Production 超级管理员 MFA。
+**明确未交付**：角色/菜单/组织 CRUD、OpenAPI 夹具、Production 超级管理员 MFA。
 
 ## 后端
 
@@ -19,8 +19,9 @@ Host 作用域用户：分页列表、详情（API）、创建、禁用；`ident
 | `GET /api/v1/identity/users/{id}` | `identity.users.read` | 200 |
 | `POST /api/v1/identity/users` | `identity.users.write` | 201 |
 | `POST /api/v1/identity/users/{id}/disable` | `identity.users.write` | 200 |
+| `PUT /api/v1/identity/users/{id}` | `identity.users.write` | 200（乐观 `Version`；冲突 `identity.profile_version_conflict` 409） |
 
-集成测试：`Host_user_management_*`（SQL Server + MySQL，无权限 403、用户名冲突 409、禁用后登录 401）。
+集成测试：`Host_user_management_*`（SQL Server + MySQL；含更新资料乐观版本冲突）。
 
 ## 客户端
 

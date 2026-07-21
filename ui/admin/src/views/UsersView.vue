@@ -11,7 +11,7 @@ import type { FullNetProblemDetails, HostUser } from '@fullnet/client-contracts'
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { createHostUser, disableHostUser, listHostUsers } from '../api/users';
+import { createHostUser, disableHostUser, listHostUsers, updateHostUser } from '../api/users';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -57,6 +57,30 @@ async function create(): Promise<void> {
     ElMessage.success(t('users.createSuccess'));
     await load();
   } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function edit(user: HostUser): Promise<void> {
+  if (changing.value) return;
+  try {
+    const result = await ElMessageBox.prompt(
+      t('users.editTitle'),
+      t('users.edit'),
+      {
+        inputValue: user.displayName,
+        inputPattern: /.+/,
+        showCancelButton: true
+      }
+    );
+    changing.value = true;
+    await updateHostUser(user.id, result.value.trim(), user.version);
+    ElMessage.success(t('users.updateSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') return;
     problem.value = toProblem(error, 'users.operationFailed');
   } finally {
     changing.value = false;
@@ -146,15 +170,25 @@ function toProblem(
         <el-tag :type="user.isActive ? 'success' : 'info'">
           {{ t(user.isActive ? 'users.active' : 'users.inactive') }}
         </el-tag>
-        <el-button
-          v-if="canWrite && user.isActive"
-          type="danger"
-          plain
-          :disabled="changing"
-          @click="disable(user)"
-        >
-          {{ t('users.disable') }}
-        </el-button>
+        <div class="users-actions">
+          <el-button
+            v-if="canWrite"
+            plain
+            :disabled="changing"
+            @click="edit(user)"
+          >
+            {{ t('users.edit') }}
+          </el-button>
+          <el-button
+            v-if="canWrite && user.isActive"
+            type="danger"
+            plain
+            :disabled="changing"
+            @click="disable(user)"
+          >
+            {{ t('users.disable') }}
+          </el-button>
+        </div>
       </article>
     </section>
   </section>
@@ -177,6 +211,7 @@ function toProblem(
 .identity-ledger > header { display: flex; min-height: 66px; align-items: center; justify-content: space-between; padding: 0 22px; border-bottom: 1px solid var(--fullnet-color-line); }
 .identity-ledger header div { gap: 12px; }
 .identity-ledger article { display: grid; grid-template-columns: 44px minmax(180px, 1fr) auto auto; align-items: center; gap: 16px; padding: 15px 22px; border-bottom: 1px solid var(--fullnet-color-line); }
+.users-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .identity-mark { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: var(--fullnet-color-ink); color: #fff; font-weight: 700; }
 .identity-ledger article div { display: grid; gap: 4px; }
 .identity-ledger code { color: var(--fullnet-color-ink-muted); font-size: 11px; }

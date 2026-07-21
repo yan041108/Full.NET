@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { request } from './http';
-import { createHostUser, disableHostUser, listHostUsers } from './users';
+import { createHostUser, disableHostUser, listHostUsers, updateHostUser } from './users';
 
 vi.mock('./http', () => ({ request: vi.fn() }));
 const requestMock = vi.mocked(request);
@@ -54,6 +54,24 @@ describe('Vue Host 用户 API', () => {
       2,
       '/api/v1/identity/users/user-id/disable',
       expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('通过 JSON 正文更新显示名称与乐观版本', async () => {
+    requestMock.mockResolvedValue({
+      ...sampleUser,
+      displayName: '新名称',
+      version: 2
+    });
+
+    await updateHostUser('user-id', '新名称', 1);
+
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/identity/users/user-id',
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ displayName: '新名称', version: 1 })
+      })
     );
   });
 });

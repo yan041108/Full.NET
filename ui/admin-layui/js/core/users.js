@@ -48,13 +48,43 @@ export function createUsersController(root, options) {
     }
   };
 
-  const onDisable = event => {
-    const button = event.target instanceof Element
+  const onDirectoryAction = event => {
+    const editButton = event.target instanceof Element
+      ? event.target.closest('[data-users-edit]')
+      : undefined;
+    if (editButton && !changing) {
+      const userId = editButton.dataset.usersEdit;
+      const version = Number(editButton.dataset.version ?? '0');
+      const currentName = editButton.dataset.displayName ?? '';
+      promptText(translation().t('users.editTitle'), currentName, async displayName => {
+        if (!displayName.trim()) return;
+        changing = true;
+        try {
+          await request(
+            `/api/v1/identity/users/${encodeURIComponent(userId)}`,
+            {
+              method: 'PUT',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ displayName: displayName.trim(), version })
+            }
+          );
+          notify(translation().t('users.updateSuccess'), 1);
+          await load();
+        } catch (problem) {
+          showProblem(root, problem, translation().t('users.operationFailed'));
+        } finally {
+          changing = false;
+        }
+      });
+      return;
+    }
+
+    const disableButton = event.target instanceof Element
       ? event.target.closest('[data-users-disable]')
       : undefined;
-    if (!button || changing) return;
-    const userId = button.dataset.usersDisable;
-    const username = button.dataset.username ?? '';
+    if (!disableButton || changing) return;
+    const userId = disableButton.dataset.usersDisable;
+    const username = disableButton.dataset.username ?? '';
     const message = translation().t('users.confirmDisable', { name: username });
     confirmAction(message, async () => {
       changing = true;
@@ -74,12 +104,12 @@ export function createUsersController(root, options) {
   };
 
   form?.addEventListener('submit', onCreate);
-  directory?.addEventListener('click', onDisable);
+  directory?.addEventListener('click', onDirectoryAction);
   return {
     load,
     dispose() {
       form?.removeEventListener('submit', onCreate);
-      directory?.removeEventListener('click', onDisable);
+      directory?.removeEventListener('click', onDirectoryAction);
     }
   };
 }
@@ -116,7 +146,16 @@ function renderDirectory(container, users, translation) {
     identity.append(name, username);
     const state = container.ownerDocument.createElement('em');
     state.textContent = translation.t(user.isActive ? 'users.active' : 'users.inactive');
-    article.append(mark, identity, state);
+    const actions = container.ownerDocument.createElement('div');
+    actions.className = 'fn-users__actions';
+    const edit = container.ownerDocument.createElement('button');
+    edit.type = 'button';
+    edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
+    edit.dataset.usersEdit = user.id;
+    edit.dataset.version = String(user.version ?? 0);
+    edit.dataset.displayName = user.displayName ?? '';
+    edit.textContent = translation.t('users.edit');
+    actions.append(edit);
     if (user.isActive) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
@@ -124,8 +163,9 @@ function renderDirectory(container, users, translation) {
       disable.dataset.usersDisable = user.id;
       disable.dataset.username = user.username;
       disable.textContent = translation.t('users.disable');
-      article.append(disable);
+      actions.append(disable);
     }
+    article.append(mark, identity, state, actions);
     fragment.append(article);
   });
   container.replaceChildren(fragment);
@@ -142,6 +182,18 @@ function confirmAction(message, confirm) {
   if (globalThis.confirm(message)) {
     void confirm();
   }
+}
+
+function promptText(title, value, confirm) {
+  if (globalThis.layui?.layer?.prompt) {
+    globalThis.layui.layer.prompt({ title, value, formType: 0 }, (input, index) => {
+      globalThis.layui.layer.close(index);
+      if (input) void confirm(input);
+    });
+    return;
+  }
+  const input = globalThis.prompt(title, value);
+  if (input) void confirm(input);
 }
 
 function showProblem(root, problem, fallback) {

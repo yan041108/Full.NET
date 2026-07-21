@@ -64,6 +64,20 @@ internal static class Endpoint
         })
         .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
 
+        group.MapPut("/{userId:guid}", async (
+            Guid userId,
+            UpdateHostUserRequest request,
+            HostUserManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.UpdateAsync(userId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+
         group.MapPost("/{userId:guid}/disable", async (
             Guid userId,
             HostUserManagementService service,
