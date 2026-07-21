@@ -2,6 +2,7 @@
 
 - 状态：已批准；后续在既定目标和授权范围内默认采用本文推荐方案推进
 - 硬化补充：[`2026-07-18-architecture-hardening-design.md`](2026-07-18-architecture-hardening-design.md)
+- 2026-07-22 巡检增补：[`../../verification/architecture-review-2026-07-22.md`](../../verification/architecture-review-2026-07-22.md)
 - 架构演进决策：[`ADR-0002：强化型模块化单体与按证据拆分`](../../architecture/adr/ADR-0002-modular-monolith-evolution.md)
 - 当前能力：[`../../roadmap/capability-status.md`](../../roadmap/capability-status.md)
 - 日期：2026-07-17
@@ -212,7 +213,9 @@ builder.Services
     .AddTenancyModule();
 ```
 
-不依赖大范围运行时程序集扫描。模块依赖图必须是有向无环图，由架构测试验证。Api、Worker、Migrator 和 Test 使用显式 Host Profile 声明完整模块或最小后台能力，模块 Catalog 与架构测试必须阻止宿主漏注册、顺序漂移和 Worker 为单个消费者装入完整 HTTP 模块。
+不依赖大范围运行时程序集扫描。模块依赖图必须是有向无环图，由架构测试验证。模块排序依赖使用唯一、稳定的模块键表达，不得要求业务模块引用另一个模块的实现程序集或具体 `Module` 类型。跨模块编译期依赖只允许指向公开 Contracts；生产模块不得通过 `InternalsVisibleTo` 获取另一个生产模块的内部实现。Composition 是唯一允许引用具体模块入口并组装 Catalog 的位置。
+
+Api、Worker、Migrator 和 Test 使用显式 Host Profile 声明完整模块或最小后台能力，模块 Catalog 与架构测试必须阻止宿主漏注册、顺序漂移和非 HTTP 宿主装入完整 HTTP 模块。API Profile 装配 HTTP、认证与业务运行时能力；Worker Profile 只装配后台消费者；Migration/Seed Profile 只装配 DbUp、Seed 编排与 Contributor 所需服务。三者不得为了复用测试夹具而共享超出角色职责的注册集合。
 
 模块初始化必须在宿主接收业务流量前按依赖顺序恰好执行一次，失败时宿主不得进入就绪状态。初始化钩子只允许执行幂等运行时自检或准备，不得替代 Migration/Seed，也不得产生不可回滚外部副作用。接口一旦存在就必须有统一调用链；如果没有真实使用者，应删除钩子而不是保留“接口有、行为无”的能力。
 
@@ -364,7 +367,7 @@ CTE、窗口函数、Upsert、锁、JSON 路径/聚合、日期函数和排序�
 
 DbUp 读取模块内嵌的、有序、数据库专用 SQL 脚本。`Host.Migrator` 负责执行并写入 Journal。已经发布的迁移脚本不可修改，只能新增向前迁移。
 
-生产环境 API 启动时不自动迁移数据库，迁移必须作为独立部署步骤。
+生产环境 API 启动时不自动迁移数据库，迁移必须作为独立部署步骤。API 项目及其发布物不得引用、注册或解析 `Full.NET.Migrations.DbUp`/`IDatabaseMigrationRunner`；`Host.Migrator` 和显式测试基础设施是迁移执行能力的唯一消费者。API 集成测试必须在启动 API 前由测试夹具直接完成迁移，不能以测试便利为由把迁移器注入 API DI。
 
 数据库结构采用 `expand -> migrate/backfill -> contract`。破坏性 DDL、缩窄类型、无保护的大表回填、应用 SQL 的 `SELECT *` 和无 `WHERE` 的 `UPDATE/DELETE` 默认由 CI 拒绝；确需执行时必须有机器可检查的限期豁免、数据验证/备份、前滚或回滚策略和独立数据审查者。Lint 不能替代 SQL Server/MySQL 的半完成迁移与真实集成测试。
 
@@ -587,6 +590,8 @@ API 使用 `/api/v1` 版本前缀和 OpenAPI。成功响应直接返回强类型
 
 API 路径使用小写 kebab-case，HTTP JSON 使用 camelCase；权限、错误、消息和 Statement 使用各自的小写点分层规则。稳定值一旦发布必须按兼容契约迁移，不能只为视觉统一直接替换连字符或下划线。
 
+每个 Endpoint 必须显式调用 `RequireAuthorization(...)` 或 `AllowAnonymous()`，禁止依赖路由组或框架默认行为表达安全意图。匿名 Endpoint 必须有契约测试锁定最小返回字段，避免租户、账号、权限或内部标识被后续 DTO 扩展意外公开。
+
 `Full.NET.Compatibility.AdminNet` 提供可选的 Admin.NET 响应适配器，用于旧前端或迁移项目。适配器可以把普通 JSON API 转换为统一外壳，但必须保留真实 HTTP 状态码；不得把未认证、禁止、验证失败、冲突和服务器异常全部伪装成 HTTP 200。文件下载、SSE、SignalR、Webhook、健康检查和 `204 No Content` 不进入响应外壳。默认 Full.NET Host 不启用该适配器。
 
 JSON 统一使用 System.Text.Json 的 Web 默认语义和 UTF-8 输出。每个模块维护自己的 `JsonSerializerContext`，由模块注册入口把生成的 `JsonTypeInfoResolver` 加入 Host；公开热路径 DTO 必须进入源生成上下文。运行时反射只允许用于动态插件或兼容层，不能成为核心 API 的默认路径。`JsonSerializerOptions` 由 Host 单例配置并复用，不得在每次请求中创建。大列表优先采用分页、异步流或 `Utf8JsonWriter`，避免构造巨大中间字符串。
@@ -637,6 +642,8 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 - `/health/ready`：数据库、缓存和必要依赖就绪；
 - `/health/startup`：迁移和初始化完成。
 
+`ready` 和 `startup` 必须至少注册一个与当前部署拓扑相符的真实检查；空检查集合不得返回可供编排器采用的成功信号。数据库检查必须覆盖当前 Provider，配置 Redis/Backplane 时必须检查 Redis，Worker/Outbox 必须暴露积压或持续失败状态，startup 必须证明所需 Schema 与初始化阶段已经完成。检查使用稳定标签分组，并通过依赖失败集成测试验证 HTTP 状态，而不是只断言服务已注册。
+
 ## 17. 实时通信
 
 实时能力分为 `Full.NET.Realtime.Abstractions` 与 `Full.NET.Realtime.SignalR`。业务模块依赖 `IRealtimePublisher`，不得直接依赖 `IHubContext`；Hub 只负责连接、鉴权、分组和传输，不实现业务规则。所有业务通知在数据库事务提交后由 Outbox/Worker 触发，不能在事务提交前直接推送。
@@ -685,7 +692,7 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 
 ### 20.3 架构测试
 
-自动禁止模块循环依赖、跨模块内部引用、裸连接、业务层直接调用 Dapper、Endpoint 包含业务逻辑、租户查询绕过执行器、Service Locator，以及 BuildingBlocks 反向依赖业务模块。
+自动禁止模块循环依赖、跨模块内部引用、生产模块之间的 `InternalsVisibleTo`、模块实现项目引用、裸连接、业务层直接调用 Dapper、Endpoint 包含业务逻辑、租户查询绕过执行器、Service Locator，以及 BuildingBlocks 反向依赖业务模块。架构测试还必须限制 DbUp 迁移组件消费者、验证 Host Profile 的服务集合边界，并拒绝未显式声明认证或匿名意图的 Endpoint。
 
 ### 20.4 API、生成器和 E2E
 

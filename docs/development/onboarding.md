@@ -55,8 +55,10 @@ docs/verification/    审查与验证事实
 
 ## 5. 近期优先工作（会变，以矩阵为准）
 
-以 [`capability-status.md` §4](../roadmap/capability-status.md) 为准。2026-07-21 所有者已确认：
+以 [`capability-status.md` §4](../roadmap/capability-status.md) 为准。2026-07-22 架构巡检后：
 
+- P0 先移出 E2E Seed 发布物并恢复 Layui 客户端聚合门禁（硬化计划 Task 3A～3B）
+- P1 随后关闭跨模块实现依赖、API 迁移能力、Migrator 完整 HTTP 装配和空健康检查（硬化计划 Task 4A～4D）
 - Identity **用户管理**为已批准的首个业务纵向切片（见[计划](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md)）
 - Vue / Layui **长期并行**（后台模块必须双端同步）
 - Outbox 死信 / 多 Worker 验证（硬化计划 Task 6）与 PR 集成冒烟加宽仍为近期工程项

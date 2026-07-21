@@ -1,12 +1,20 @@
 # Full.NET 架构硬化实施计划
 
-> **For Codex:** REQUIRED SUB-SKILL: Use `fullnet-module-delivery` for module/CRUD/Dapper work, and use test-driven development for every behavior change. Execute one phase at a time; do not start lower-priority feature expansion while a P0 gate remains open without an explicit decision record.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:test-driven-development` for every behavior change and `fullnet-module-delivery` for module/CRUD/Dapper work. Execute one phase at a time; do not start lower-priority feature expansion while a P0 gate remains open without an explicit decision record. Steps use checkbox (`- [ ]`) syntax for newly added work.
 
 **Goal:** 把已确认的实施雷区转化为可验证的生产门禁，并让状态、宿主、数据库、消息和真实客户端链路随着模块增长仍保持一致。
 
 **Architecture:** 保留模块化单体、Dapper-first、SQL Server/MySQL、MessagePack Outbox、FusionCache、标准 HTTP/ProblemDetails 和 Vue/Layui 双端基线。通过显式 Profile、语义 SQL Catalog、版本升级链、缓存一致性等级和双层 E2E 加固，而不引入运行时扫描、通用 ORM、全局 EAV 或额外缓存实现。
 
 **Tech Stack:** .NET 10、Dapper、DbUp、SQL Server 2022、MySQL 8、MessagePack-CSharp、FusionCache、Redis、Serilog、OpenTelemetry、Vue 3、Layui 2、Vite、Vitest、Playwright、Microsoft.Testing.Platform、Testcontainers。
+
+## Global Constraints
+
+- Full.NET 1.0 保持强化型模块化单体，跨模块编译依赖只指向公开 Contracts；Composition 是具体模块入口的唯一组合根。
+- API、Worker、Migrator 按运行角色分离；API 不携带迁移执行能力，Migrator 不装入完整 HTTP 模块。
+- 行为变更先建立可失败契约，再实现最小修复；SQL/数据库行为必须同时验证 SQL Server 与 MySQL。
+- 每个 Endpoint 显式声明 `RequireAuthorization(...)` 或 `AllowAnonymous()`；每个 ready/startup 健康端点必须由真实检查支撑。
+- 当前阶段只完善 Outbox；Task 17 的 CDC/Kafka Decision Gate 必须最后执行。
 
 ---
 
@@ -17,11 +25,15 @@
 | H0 状态与门禁基线 | P0 | 状态矩阵成为 README/路线图唯一总览；CI 可识别危险 SQL 与命名漂移 |
 | H1 Seed 闭环 | P0 | 既有 Seed 计划 S0-S2 全部通过 SQL Server/MySQL |
 | H1A 测试数据发布物隔离 | P0 | E2E 专用 Contributor、配置与凭据不进入 Identity/Host 发布物，真实栈场景仍可重复建立 |
-| H2 模块生命周期与宿主 Profile（已完成） | P0 | 无消费者的初始化钩子已删除；三宿主注册漂移由共享 Composition/Profile 与架构测试阻止 |
+| H1B 客户端主干门禁恢复 | P0 | Layui 聚焦测试与 `pnpm test:clients` 全部通过，且未放宽断言或等待时间 |
+| H2 模块边界与宿主 Profile（重新打开） | P1 | 生产模块只依赖 Contracts；API 无迁移引用；Migrator 只装配 Migration/Seed；架构测试阻止回归 |
+| H2A 真实健康与显式 Endpoint 安全意图 | P1 | ready/startup 有真实依赖检查；依赖失败时非 2xx；所有 Endpoint 显式认证或匿名 |
 | H3 消息、缓存与日志可靠性 | P1 | 多版本/死信、陈旧窗口、高优先级日志故障场景可验证 |
 | H4 浏览器真实链路与共享策略 | P1 | Vue/Layui 在真实后端完成安全关键 E2E；镜像策略收敛 |
 | H5 L5 i18n 与工具链治理 | P2 | 首个业务翻译表双库验证；兼容性队列有自动检查 |
 | H6 事件交付演进门禁（最后执行） | M5+ Decision Gate | 有真实 SLA 与瓶颈证据后完成 ADR/Provider 选型；未命中则保持纯 Outbox |
+
+当前固定执行顺序为 `Task 3A → Task 3B → Task 4A → Task 4B → Task 4C → Task 4D`，之后再继续 Task 5/6/7/13/16 等既有 P1；Task 4E 可在 4D 后独立交付。Task 17 始终最后执行。任何跳过 P0/P1 前置门禁的情况都必须有独立决策记录，不得仅在提交说明中口头放行。
 
 ### Task 1: 自动校验状态单一事实源和发布检查
 
@@ -90,9 +102,36 @@
 5. 对 API、Worker、Migrator 执行 Release `dotnet publish` 到临时目录，扫描 E2E 类型名、默认查看者用户名和 `Identity:E2eViewer` 均为零命中；临时目录不得提交。
 6. 更新 Seed 验证记录、能力矩阵和测试门槛；执行规则与 Skill 复盘后单独提交。
 
+### Task 3B: 恢复 Layui 用户-机构隶属客户端门禁（2026-07-22 P0）
+
+**Files:**
+- Modify: `ui/admin-layui/tests/org-user-units.test.js`
+- Verify only: `ui/admin-layui/js/core/org-user-units.js`
+- Modify: `docs/verification/architecture-review-2026-07-22.md`
+
+**Interfaces:**
+- Consumes: `createOrgUserUnitsController(root, { request, translation })`
+- Produces: 稳定锁定“首次加载 3 请求 → 创建 1 请求 → 刷新 3 请求”的 Layui 测试契约
+
+- [ ] **Step 1: 保留并复现 RED**
+
+  运行 `pnpm --filter @fullnet/admin-layui exec vitest run tests/org-user-units.test.js`，预期在现状下失败为 `expected 7 times, but got 3 times`。禁止先延长 `vi.waitFor` 超时。
+
+- [ ] **Step 2: 修正测试夹具的响应顺序**
+
+  保持控制器的并行请求顺序为 `user-units`、`organization/units`、`identity/users`；把 Mock 的第 2 个响应固定为机构分页、第 3 个响应固定为用户分页，第 5～7 个刷新响应保持同一顺序。增加 NthCalledWith 断言锁定 1～7 次请求 URL，创建请求仍必须是第 4 次。
+
+- [ ] **Step 3: 证明不是等待时间偶发问题**
+
+  连续运行聚焦命令两次，预期均为 1/1 通过；随后运行 `pnpm test:clients`，预期整个聚合门禁退出码为 0。不得用 `.skip`、降低调用次数或宽泛 `toHaveBeenCalled()` 转绿。
+
+- [ ] **Step 4: 同步验证记录并单独提交**
+
+  在本巡检报告的新鲜验证表追加修复提交和通过数量；只提交测试与文档，不混入现有未跟踪日志。
+
 ### Task 4: 模块目录、宿主 Profile 与初始化生命周期
 
-**状态：已完成（实现基线 `d5c109c`）。** 设计检查选择删除无真实消费者的 `InitializeAsync`；目录位于独立 Composition 组合根，而不是让通用 Modularity BuildingBlock 反向依赖具体模块。
+**状态：目录与生命周期基础已完成（实现基线 `d5c109c`），模块/角色边界于 2026-07-22 重新打开。** 无真实消费者的 `InitializeAsync` 已删除，Catalog 位于独立 Composition 组合根；但第二轮巡检发现跨模块具体类型依赖、API 迁移能力和 Migrator 完整 HTTP 装配，必须继续执行 Task 4A～4C。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
@@ -108,7 +147,160 @@
 2. [x] 删除无真实使用者的钩子；未来重引入必须重新定义生命周期与失败门禁。
 3. [x] 建立显式 Catalog/Profile，不使用程序集扫描；Worker 只选择模块公开的最小后台入口。
 4. [x] Unit Tests 验证 Profile 内容和依赖顺序，Architecture Tests 阻止 Api/Worker/Migrator 绕过共享目录。
-5. [x] 保持 Migration/Seed 与模块运行时装配分离。
+5. [ ] 按 Task 4A～4C 关闭模块实现引用、API 迁移执行能力与 Migrator 完整 HTTP 装配；未关闭前不得把 H2 描述为已完成。
+
+### Task 4A: 关闭跨模块实现依赖（2026-07-22 P1）
+
+**Files:**
+- Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
+- Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/FullNetModuleRegistry.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/IdentityModule.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/Properties/AssemblyInfo.cs`
+- Modify: `src/Modules/Full.NET.Modules.Tenancy.Http/TenancyModule.cs`
+- Modify: `src/Modules/Full.NET.Modules.Tenancy.Http/Full.NET.Modules.Tenancy.Http.csproj`
+- Modify: `src/Modules/Full.NET.Modules.Organization/OrganizationModule.cs`
+- Modify: `src/Modules/Full.NET.Modules.Organization/Full.NET.Modules.Organization.csproj`
+- Modify: `src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUnits/Endpoint.cs`
+- Modify: `src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/Endpoint.cs`
+- Modify: `tests/Full.NET.ArchitectureTests/DependencyRulesTests.cs`
+- Modify: `tests/Full.NET.UnitTests/Modularity/ModuleLifecycleTests.cs`
+
+**Interfaces:**
+- Produces: `IFullNetModule.Name : string` 作为唯一模块键，`IFullNetModule.Dependencies : IReadOnlyCollection<string>` 只保存稳定模块键
+- Consumes: `FullNetPermissionPolicies.For(string permissionCode)` 作为跨模块 Endpoint 的公开授权策略入口
+
+- [ ] **Step 1: 写入失败的架构契约**
+
+  新增扫描断言：`src/Modules/*/*.csproj` 不得引用另一个逻辑业务模块的非 `.Contracts` 项目；同一逻辑模块的 Core/Http 项目引用允许保留，例如 Tenancy.Http→Tenancy。生产模块 `AssemblyInfo.cs` 不得把另一个生产模块列入 `InternalsVisibleTo`。现状必须报告 Organization→Identity/Tenancy.Http、Tenancy.Http→Identity 和 Identity→Organization 友元。
+
+- [ ] **Step 2: 用稳定模块键替代具体类型依赖**
+
+  将 `Dependencies` 改为字符串模块键；Registry 以 `module.Name` 建立唯一字典，拒绝空键、重复键、未知依赖和循环。Identity 使用 `[]`，Tenancy 使用 `["Identity"]`，Organization 使用 `["Identity", "Tenancy"]`；单元测试分别覆盖确定顺序、未知键和循环。
+
+- [ ] **Step 3: 移除实现引用和生产友元**
+
+  Organization Endpoint 改用 `.RequireAuthorization(FullNetPermissionPolicies.For(permissionCode))`，删除对 `Full.NET.Modules.Identity.Authorization` 的引用；随后删除 Organization→Identity、Organization→Tenancy.Http、Tenancy.Http→Identity 的项目引用，以及 Identity 对 Organization 的 `InternalsVisibleTo`。Contracts 引用保持不变。
+
+- [ ] **Step 4: 验证边界与行为未漂移**
+
+  运行 Architecture、Unit、Organization/Identity/Tenancy 聚焦 Integration 与 OpenAPI 门禁；对比模块顺序和权限策略名称，预期公开 API、权限码及 Endpoint 行为无变化。
+
+### Task 4B: API 移除迁移执行能力（2026-07-22 P1）
+
+**Files:**
+- Modify: `src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj`
+- Modify: `src/Hosts/Full.NET.Host.Api/Program.cs`
+- Modify: `tests/Full.NET.IntegrationTests/Api/FullNetApiFactory.cs`
+- Modify: `tests/Full.NET.ArchitectureTests/DependencyRulesTests.cs`
+
+**Interfaces:**
+- Consumes: 测试夹具直接构造的 `DbUpMigrationRunner`
+- Produces: 不含 `Full.NET.Migrations.DbUp`、`AddFullNetMigrations` 或 `IDatabaseMigrationRunner` 的 API 发布物
+
+- [ ] **Step 1: 新增迁移消费者失败契约**
+
+  架构测试扫描全部 `.csproj`，生产消费者只允许 `Full.NET.Host.Migrator`；测试项目可以显式引用迁移组件。另扫描 API 源码，拒绝 `AddFullNetMigrations` 和 `IDatabaseMigrationRunner`。
+
+- [ ] **Step 2: 先让测试夹具脱离 API DI**
+
+  `FullNetApiFactory.InitializeAsync` 保留启动 API 前直接构造 `DbUpMigrationRunner` 的一次迁移，删除从 `Services` 解析并再次执行 `IDatabaseMigrationRunner` 的路径；租户和管理员初始化仍在 API Scope 中执行。
+
+- [ ] **Step 3: 删除 API 引用与注册**
+
+  从 API csproj 删除迁移项目引用，从 `Program.cs` 删除命名空间和 `AddFullNetMigrations`。执行 Release publish 后扫描 `.deps.json` 与输出 DLL，预期 API 发布物不包含 `Full.NET.Migrations.DbUp`。
+
+- [ ] **Step 4: 运行 API 与双库迁移验证**
+
+  运行 API 聚焦 Integration、SQL Server/MySQL migration idempotence、Architecture Tests；预期测试夹具仍可初始化数据库，而 API 宿主无法解析迁移执行器。
+
+### Task 4C: Migrator 建立最小 Migration/Seed Profile（2026-07-22 P1）
+
+**Files:**
+- Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
+- Modify: `src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/IdentityModule.cs`
+- Modify: `src/Modules/Full.NET.Modules.Tenancy.Http/TenancyModule.cs`
+- Modify: `tests/Full.NET.UnitTests/Modularity/ModuleLifecycleTests.cs`
+- Modify: `tests/Full.NET.ArchitectureTests/HostModuleProfileTests.cs`
+- Test: `tests/Full.NET.IntegrationTests/Seeding/*`
+
+**Interfaces:**
+- Produces: `IFullNetModule.AddMigrationServices(IServiceCollection, IConfiguration)`；默认空实现，只由存在 Seed Contributor 的模块显式实现
+- Consumes: `FullNetHostProfile.Migrator` 调用每个模块的最小迁移注册入口
+
+- [ ] **Step 1: 建立服务集合 RED 快照**
+
+  测试要求 Migrator 能解析所有 `IDataSeedContributor` 及其传递依赖，但不能注册认证 Scheme、动态权限 Provider、CORS、RateLimiter、HTTP JSON Resolver、Endpoint Handler 或后台 Outbox Consumer。现状必须因 Api/Migrator 共用 `AddServices` 而失败。
+
+- [ ] **Step 2: 分离每个模块的迁移注册闭包**
+
+  为当前确有 Contributor 的 Identity 与 Tenancy 提取 Contributor、Options、Validator、持久化服务和所需领域服务的最小闭包；`AddServices` 复用该闭包后再追加 HTTP/认证能力，`AddMigrationServices` 只调用闭包。Organization 当前没有 Contributor，保持默认空实现，未来只有新增真实 Seed 时才能加入。不得复制同一 ServiceDescriptor 清单。
+
+- [ ] **Step 3: 修改 Catalog 的 Migrator 分支**
+
+  Api 继续 `AddFullNetModule`，Worker 继续 `AddBackgroundServices`，Migrator 只执行 `AddFullNetModularity` 与 `AddMigrationServices`。Catalog 仍是唯一具体模块清单，不在 Migrator Program 恢复手写列表。
+
+- [ ] **Step 4: 双库验证 Contributor 完整性**
+
+  运行 Development/Test/Production Seed 的 SQL Server/MySQL Integration，覆盖首次、重复、失败重跑和 Production 拒绝；再运行服务集合快照，证明减少注册没有漏掉 Contributor 依赖，也没有重新装入 HTTP 服务。
+
+### Task 4D: 健康端点提供真实就绪信号（2026-07-22 P1）
+
+**Files:**
+- Create: `src/BuildingBlocks/Full.NET.Data.Dapper/Health/DatabaseConnectivityHealthCheck.cs`
+- Create: `src/BuildingBlocks/Full.NET.Data.Dapper/Health/DatabaseSchemaHealthCheck.cs`
+- Modify: `src/BuildingBlocks/Full.NET.Data.Dapper/ServiceCollectionExtensions.cs`
+- Create: `src/BuildingBlocks/Full.NET.Caching.Fusion/Health/DistributedCacheHealthCheck.cs`
+- Modify: `src/BuildingBlocks/Full.NET.Caching.Fusion/ServiceCollectionExtensions.cs`
+- Modify: `src/BuildingBlocks/Full.NET.Hosting/Observability/ServiceDefaultsExtensions.cs`
+- Modify: `src/BuildingBlocks/Full.NET.Hosting/Observability/HealthEndpointExtensions.cs`
+- Modify: `src/Hosts/Full.NET.Host.Api/Program.cs`
+- Create: `tests/Full.NET.IntegrationTests/Api/HealthEndpointTests.cs`
+- Modify: `docs/development/getting-started.md`
+
+**Interfaces:**
+- Produces: `live` 只证明进程存活；`ready` 检查当前数据库及已配置的 Redis；`startup` 通过只读 Schema Contract 查询证明所需迁移已经完成
+- Consumes: Data.Dapper 内部连接工厂、配置存在时的 `IDistributedCache`；Hosting 只负责端点分组，不反向依赖 Data/Caching
+
+- [ ] **Step 1: 写入空集合和依赖失败 RED**
+
+  测试分别覆盖：空 `ready`/`startup` 注册在映射端点时失败；数据库断开时 `/health/ready` 非 2xx；配置 Redis 但不可达时非 2xx；缺少当前 Schema Contract 时 `/health/startup` 非 2xx；live 在上述依赖失败时仍可返回 200。
+
+- [ ] **Step 2: 注册稳定标签和真实检查**
+
+  Data.Dapper 注册只读 `SELECT 1` 的 ready 检查和读取 `fn_uuid_contract_state` 当前契约状态的 startup 检查；Caching 仅在 Redis 已配置时注册对固定不存在键执行 `GetAsync` 的 ready 探针。标签只使用 `ready`、`startup`，同一检查可同时属于两组；API Program 在 Data/Caching 注册完成后映射端点。
+
+- [ ] **Step 3: 防止健康检查泄密和放大故障**
+
+  HTTP 响应不返回连接字符串、SQL、异常堆栈或内部类型；检查使用短超时且不重试，不在健康请求中执行迁移、Seed、缓存写入或 Outbox 消费。Hosting 项目不得为实现健康检查新增对 Data.Dapper 或 Caching 的项目引用。
+
+- [ ] **Step 4: 运行 API 集成与故障注入**
+
+  在 SQL Server/MySQL 分别验证 ready/startup 正常与断连；Redis 场景验证正常、断连、恢复。更新 getting-started 中三类端点的编排器用途和“空集合不得作为成功证据”说明。
+
+### Task 4E: Endpoint 显式声明安全意图（2026-07-22 P2）
+
+**Files:**
+- Modify: `src/Modules/Full.NET.Modules.Tenancy.Http/Features/GetCurrentTenant/Endpoint.cs`
+- Create: `tests/Full.NET.ArchitectureTests/EndpointAuthorizationTests.cs`
+- Modify: `tests/Full.NET.IntegrationTests/Api/TenancyApiAssertions.cs`
+- Modify: `tests/Full.NET.IntegrationTests/Api/TenancyApiSqlServerTests.cs`
+- Modify: `tests/Full.NET.IntegrationTests/Api/TenancyApiMySqlTests.cs`
+
+**Interfaces:**
+- Produces: `/api/v1/tenancy/current` 显式 `AllowAnonymous()`；所有 Endpoint 必须显式认证或匿名
+
+- [ ] **Step 1: 写入 Endpoint 授权意图 RED**
+
+  架构测试扫描 Endpoint 映射，要求每条路由最终声明 `RequireAuthorization`/权限策略或 `AllowAnonymous`；现状必须只报告 `tenancy/current`。若静态扫描不能可靠理解路由组元数据，改用测试宿主枚举 `EndpointDataSource` 的授权元数据，禁止字符串猜测。
+
+- [ ] **Step 2: 固定匿名租户发现契约**
+
+  在 current Endpoint 显式调用 `AllowAnonymous()`；API 测试锁定匿名已知域返回的最小 `TenantSummary` 字段、未知域的标准 ProblemDetails，以及响应不包含账号、角色、权限、连接信息或内部配置。
+
+- [ ] **Step 3: 验证全路由与 OpenAPI**
+
+  运行 Architecture、SQL Server/MySQL Tenancy API Integration 和 `pnpm test:openapi`；在验证记录说明匿名是既有行为显式化，不是放宽授权。当前没有 tenancy/current 的独立 OpenAPI 基线，不得顺手创建与本任务无关的全局快照。
 
 ### Task 5: 双数据库语义 SQL Catalog
 

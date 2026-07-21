@@ -41,13 +41,13 @@
 
 ## 3. 架构与模块边界
 
-1. Full.NET 采用模块化单体优先的架构；模块通过明确契约通信，禁止直接引用其他模块的内部实现或表结构。
+1. Full.NET 采用模块化单体优先的架构；模块通过明确契约通信，禁止直接引用其他模块的内部实现或表结构。生产模块的项目引用只能指向其他模块的公开 Contracts，禁止通过具体 `Module` 类型、实现项目引用或 `InternalsVisibleTo` 建立跨模块依赖；具体模块入口只允许由 Composition 组合根引用。
 2. 依赖方向必须从 Host/Module 指向 BuildingBlocks 抽象与实现，抽象层不得反向依赖基础设施或宿主。
 3. 新横切能力必须先判断应属于 Abstractions、BuildingBlocks、Compatibility 还是具体 Module，禁止把业务逻辑堆入 Host。
 4. 服务注册必须审查生命周期、线程安全和作用域捕获；禁止 Singleton 直接持有 Scoped 服务或请求级租户状态。
-5. 启动、迁移和后台 Worker 的职责必须分离；API Host 不得在并发启动时隐式执行不可控迁移。
+5. 启动、迁移和后台 Worker 的职责必须分离；API Host 不得引用、注册、解析或执行 DbUp 迁移能力，迁移只能由 Migrator 或显式测试基础设施执行。Migrator 只允许装配 Migration/Seed 与 Contributor 的最小依赖闭包，不得复用 API Profile 装入认证、授权、CORS、限流或 HTTP Endpoint 服务。
 6. 参考 `dotnet/eShop` 时只吸收可解释的架构思想，不机械复制微服务复杂度；参考 Admin.NET 时对标功能，不复制其耦合方式。
-7. 宿主注册完整模块时必须同时注册该模块声明的全部 `Dependencies`；Worker 只消费事件处理器等后台能力时，应由模块提供并使用可验证的最小服务注册入口，禁止为了单个消费者注册完整 HTTP 模块或留下不完整依赖图。
+7. 宿主注册完整模块时必须同时注册该模块声明的全部 `Dependencies`；模块排序依赖必须使用稳定模块键而不是另一个模块的具体类型。Worker 或 Migrator 只消费后台/迁移能力时，应由模块提供并使用可验证的最小服务注册入口，禁止为了单个消费者或 Contributor 注册完整 HTTP 模块或留下不完整依赖图。
 8. Full.NET 官方 Api、Worker、Migrator 必须通过 `Full.NET.Composition` 的显式 Host Profile 选择模块能力；新增模块只能更新共享目录和对应测试，禁止在各宿主 `Program.cs` 恢复手工完整模块清单。Composition 可以依赖具体 Modules，通用 BuildingBlock 禁止反向引用业务模块。
 9. Full.NET 1.0 必须保持强化型模块化单体以及 API、Worker、Migrator 运行角色分离；局部模块只有满足 [`ADR-0002`](../docs/architecture/adr/ADR-0002-modular-monolith-evolution.md) 的全部拆分门禁并新增独立 ADR 后才能拆分。禁止用未来扩容、团队增长或技术偏好代替可测量证据，禁止把角色分离误报为微服务能力。
 
@@ -140,7 +140,7 @@
 
 1. 对外 HTTP API 必须使用标准 HTTP 状态码与 ProblemDetails；领域失败不得默认返回 `200 OK`。
 2. Admin.NET 包络只能由 Compatibility 适配层显式启用，核心业务与标准端点不得依赖兼容模型。
-3. Minimal API/FastEndpoints 的端点必须声明授权、输入验证、状态码和取消传播；异常统一交给异常处理管道。
+3. Minimal API/FastEndpoints 的每条端点必须显式声明 `RequireAuthorization(...)`/权限策略或 `AllowAnonymous()`，并声明输入验证、状态码和取消传播；禁止依赖默认行为表达安全意图。匿名端点必须有契约测试锁定最小返回字段；异常统一交给异常处理管道。
 4. JSON 使用 System.Text.Json。高频或 Native AOT 路径应使用源生成上下文；新增多态或自定义转换器必须有往返和兼容测试。
 5. 内部通信可按边界使用 gRPC 或 MessagePack，但必须版本化契约并测试未知字段、旧版本和不可信载荷；禁止仅因性能偏好暴露内部二进制格式给公共 Web API。
 6. 公共响应、事件和缓存对象的字段改名、类型改变或删除属于兼容性变更，必须迁移或版本化。
@@ -163,7 +163,7 @@
 3. 权限、用户禁用/安全戳、租户启停/到期、API Key 和 Session 属于安全关键缓存：Fail-Safe 必须关闭，授权决定不得只依赖可能陈旧的 L1；写事务提交后先同步清除当前进程，再通过 Outbox/Backplane 修复其他节点。Background Refresh 不能作为安全正确性证明。
 4. 每项缓存必须定义过期、失效、空值、降级和源故障行为。多实例部署必须验证分布式缓存与失效通知，而非只测单机内存。
 5. SignalR Hub 必须鉴权；组名和连接映射必须包含租户边界。横向扩展时必须采用受支持的背板并限制消息大小、频率和连接资源。
-6. 健康检查必须注册真实依赖并区分存活与就绪；空检查集合返回成功不能作为依赖健康证据。
+6. 健康检查必须注册真实依赖并区分存活、就绪与启动完成；`ready`/`startup` 空检查集合不得返回可供编排器采用的成功信号。当前数据库、已配置的 Redis/Backplane 和必要初始化必须有短超时、无副作用的检查，并以依赖失败集成测试验证 HTTP 状态；健康响应不得泄露连接串、SQL 或异常堆栈。
 7. 基础设施不可用时必须定义 fail-fast 或降级策略，禁止静默切换到可能造成数据不一致的本地实现。
 
 ## 9. 日志、指标与高并发
