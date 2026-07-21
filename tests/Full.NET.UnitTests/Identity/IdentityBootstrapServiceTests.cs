@@ -195,6 +195,7 @@ public sealed class IdentityBootstrapServiceTests
                 true,
                 true,
                 false,
+                RoleDataScopeKinds.All,
                 Now,
                 null,
                 1));
@@ -242,6 +243,7 @@ public sealed class IdentityBootstrapServiceTests
                 true,
                 true,
                 true,
+                RoleDataScopeKinds.All,
                 Now,
                 null,
                 1));

@@ -1,0 +1,42 @@
+{
+  "id": "identity-host-role-data-scope-v1",
+  "version": 1,
+  "description": "Host 角色数据范围 HTTP 契约冻结夹具；与 RoleDataScopeContracts 和 ManageHostRoles.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/roles/{roleId}/data-scope",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.roles.read",
+          "successStatus": 200,
+          "responseSchema": "HostRoleDataScopeResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.roles.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostRoleDataScopeRequest",
+          "responseSchema": "HostRoleDataScopeResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostRoleDataScopeResponse": {
+      "properties": [
+        "roleId",
+        "dataScopeKind",
+        "unitIds",
+        "version"
+      ]
+    },
+    "UpdateHostRoleDataScopeRequest": {
+      "properties": [
+        "dataScopeKind",
+        "unitIds",
+        "version"
+      ]
+    }
+  }
+}

@@ -3,9 +3,11 @@ import { request } from './http';
 import {
   createHostRole,
   disableHostRole,
+  getHostRoleDataScope,
   listHostRoles,
   replaceHostRolePermissions,
-  updateHostRole
+  updateHostRole,
+  updateHostRoleDataScope
 } from './roles';
 
 vi.mock('./http', () => ({ request: vi.fn() }));
@@ -89,6 +91,44 @@ describe('Vue Host 角色 API', () => {
       expect.objectContaining({
         method: 'PUT',
         body: JSON.stringify({ name: '新名称', version: 1 })
+      })
+    );
+  });
+
+  it('读取并更新角色数据范围', async () => {
+    requestMock
+      .mockResolvedValueOnce({
+        roleId: 'role-id',
+        dataScopeKind: 'identity.data_scope.all',
+        unitIds: [],
+        version: 1
+      })
+      .mockResolvedValueOnce({
+        roleId: 'role-id',
+        dataScopeKind: 'identity.data_scope.self',
+        unitIds: [],
+        version: 2
+      });
+
+    await expect(getHostRoleDataScope('role-id')).resolves.toMatchObject({
+      dataScopeKind: 'identity.data_scope.all'
+    });
+    await updateHostRoleDataScope('role-id', 'identity.data_scope.self', null, 1);
+
+    expect(requestMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/identity/roles/role-id/data-scope'
+    );
+    expect(requestMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/identity/roles/role-id/data-scope',
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({
+          dataScopeKind: 'identity.data_scope.self',
+          unitIds: null,
+          version: 1
+        })
       })
     );
   });

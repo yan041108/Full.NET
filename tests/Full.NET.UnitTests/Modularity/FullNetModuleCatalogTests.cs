@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Composition;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Organization;
 using Full.NET.Modules.Tenancy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,7 +28,7 @@ public sealed class FullNetModuleCatalogTests
             .Select(module => module.GetType())
             .ToArray();
         CollectionAssert.AreEqual(
-            new[] { typeof(IdentityModule), typeof(TenancyModule) },
+            new[] { typeof(IdentityModule), typeof(TenancyModule), typeof(OrganizationModule) },
             modules);
     }
 

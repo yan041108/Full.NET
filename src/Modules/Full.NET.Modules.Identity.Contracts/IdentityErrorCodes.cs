@@ -99,6 +99,18 @@ public static class IdentityErrorCodes
     /// <summary>系统角色受保护，禁止变更。</summary>
     public const string RoleSystemLocked = "identity.roles.system_locked";
 
+    /// <summary>数据范围种类无效。</summary>
+    public const string DataScopeInvalidKind = "identity.data_scope.invalid_kind";
+
+    /// <summary>自定义数据范围缺少机构单元。</summary>
+    public const string DataScopeCustomUnitsRequired = "identity.data_scope.custom_units_required";
+
+    /// <summary>自定义数据范围需要租户上下文。</summary>
+    public const string DataScopeTenantContextRequired = "identity.data_scope.tenant_context_required";
+
+    /// <summary>数据范围引用的机构单元不存在。</summary>
+    public const string DataScopeUnitNotFound = "identity.data_scope.unit_not_found";
+
     /// <summary>Host 菜单路由名在作用域内已存在。</summary>
     public const string MenuRouteNameExists = "identity.menus.route_name_exists";
 
@@ -140,6 +152,10 @@ public static class IdentityErrorCodes
         RoleCodeExists,
         RoleNotFound,
         RoleSystemLocked,
+        DataScopeInvalidKind,
+        DataScopeCustomUnitsRequired,
+        DataScopeTenantContextRequired,
+        DataScopeUnitNotFound,
         MenuRouteNameExists,
         MenuNotFound,
         MenuSystemLocked,

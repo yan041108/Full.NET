@@ -14,6 +14,18 @@ internal static class OrganizationSql
         """,
         SqlDataScope.TenantRequired);
 
+    public static readonly SqlStatement FindActiveUnitByTenantAndId = new(
+        "organization.find_active_unit_by_tenant_and_id",
+        """
+        SELECT Id, TenantId, ParentId, Code, Name, DisplayOrder,
+               IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_organization_unit
+        WHERE Id = @UnitId
+          AND TenantId = @TenantId
+          AND IsActive = 1
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement FindUnitByTenantAndCode = new(
         "organization.find_unit_by_tenant_and_code",
         """

@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Options;
@@ -23,7 +24,7 @@ public sealed class SuperAdministratorServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(new IdentityRoleRecord(
                 Guid.NewGuid(), null, "host", "host-administrator", "超级管理员",
-                true, true, true, DateTimeOffset.UtcNow, null, 1));
+                true, true, true, RoleDataScopeKinds.All, DateTimeOffset.UtcNow, null, 1));
         query.QuerySingleOrDefaultAsync<long>(
                 IdentitySql.CountActiveSuperAdministratorAssignment,
                 Arg.Any<object?>(),

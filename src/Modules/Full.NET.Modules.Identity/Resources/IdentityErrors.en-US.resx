@@ -31,6 +31,10 @@
   <data name="identity.roles.code_exists" xml:space="preserve"><value>A host role with this code already exists.</value></data>
   <data name="identity.roles.not_found" xml:space="preserve"><value>The host role was not found.</value></data>
   <data name="identity.roles.system_locked" xml:space="preserve"><value>System roles are protected and cannot be changed.</value></data>
+  <data name="identity.data_scope.invalid_kind" xml:space="preserve"><value>The data scope kind is invalid.</value></data>
+  <data name="identity.data_scope.custom_units_required" xml:space="preserve"><value>Custom data scope requires at least one organization unit.</value></data>
+  <data name="identity.data_scope.tenant_context_required" xml:space="preserve"><value>Custom data scope requires an active tenant context.</value></data>
+  <data name="identity.data_scope.unit_not_found" xml:space="preserve"><value>One or more organization units were not found.</value></data>
   <data name="identity.menus.route_name_exists" xml:space="preserve"><value>A host menu with this route name already exists.</value></data>
   <data name="identity.menus.not_found" xml:space="preserve"><value>The host menu was not found.</value></data>
   <data name="identity.menus.system_locked" xml:space="preserve"><value>System menus are protected and cannot be changed.</value></data>

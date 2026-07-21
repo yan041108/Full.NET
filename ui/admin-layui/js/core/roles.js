@@ -1,4 +1,4 @@
-import { HOST_ROLE_ASSIGNABLE_PERMISSIONS } from '@fullnet/client-contracts';
+import { HOST_ROLE_ASSIGNABLE_PERMISSIONS, ROLE_DATA_SCOPE_KINDS } from '@fullnet/client-contracts';
 
 /**
  * 装配 Host 角色管理视图；系统角色只读，自定义角色支持权限替换。
@@ -115,6 +115,41 @@ export function createRolesController(root, options) {
       return;
     }
 
+    const dataScopeButton = event.target instanceof Element
+      ? event.target.closest('[data-roles-data-scope]')
+      : undefined;
+    if (dataScopeButton && !changing) {
+      void openDataScopeDialog(
+        dataScopeButton.dataset.rolesDataScope,
+        translation(),
+        request,
+        async (dataScopeKind, unitIds, version) => {
+          changing = true;
+          try {
+            await request(
+              `/api/v1/identity/roles/${encodeURIComponent(dataScopeButton.dataset.rolesDataScope)}/data-scope`,
+              {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  dataScopeKind,
+                  unitIds,
+                  version
+                })
+              }
+            );
+            notify(translation().t('roles.dataScopeSuccess'), 1);
+            await load();
+          } catch (problem) {
+            showProblem(root, problem, translation().t('roles.operationFailed'));
+          } finally {
+            changing = false;
+          }
+        }
+      );
+      return;
+    }
+
     const disableButton = event.target instanceof Element
       ? event.target.closest('[data-roles-disable]')
       : undefined;
@@ -204,6 +239,13 @@ function renderDirectory(container, roles, translation) {
       permissions.dataset.permissionCodes = (role.permissionCodes ?? []).join(',');
       permissions.textContent = translation.t('roles.permissions');
       actions.append(permissions);
+      const dataScope = container.ownerDocument.createElement('button');
+      dataScope.type = 'button';
+      dataScope.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      dataScope.dataset.rolesDataScope = role.id;
+      dataScope.dataset.version = String(role.version ?? 0);
+      dataScope.textContent = translation.t('roles.dataScope');
+      actions.append(dataScope);
     }
     if (role.isActive && !role.isSystem) {
       const disable = container.ownerDocument.createElement('button');
@@ -240,6 +282,7 @@ function openPermissionsDialog(roleId, version, initialPermissionCodes, translat
   });
 
   if (globalThis.layui?.layer?.open) {
+    document.body.appendChild(content);
     globalThis.layui.layer.open({
       type: 1,
       title: translation.t('roles.permissionsTitle'),
@@ -252,6 +295,9 @@ function openPermissionsDialog(roleId, version, initialPermissionCodes, translat
           .sort();
         globalThis.layui.layer.close(index);
         void confirm(permissionCodes);
+      },
+      end() {
+        content.remove();
       }
     });
     return;
@@ -259,6 +305,117 @@ function openPermissionsDialog(roleId, version, initialPermissionCodes, translat
 
   const fallbackPermissionCodes = [...selected];
   void confirm(fallbackPermissionCodes);
+}
+
+function openDataScopeDialog(roleId, translation, request, confirm) {
+  const kindLabels = {
+    'identity.data_scope.all': translation.t('roles.dataScopeKindAll'),
+    'identity.data_scope.org': translation.t('roles.dataScopeKindOrg'),
+    'identity.data_scope.org_subtree': translation.t('roles.dataScopeKindOrgSubtree'),
+    'identity.data_scope.self': translation.t('roles.dataScopeKindSelf'),
+    'identity.data_scope.custom': translation.t('roles.dataScopeKindCustom')
+  };
+
+  return request(`/api/v1/identity/roles/${encodeURIComponent(roleId)}/data-scope`)
+    .then(scope => {
+      const scopeVersion = scope?.version ?? 0;
+      const selectedKind = scope?.dataScopeKind ?? 'identity.data_scope.all';
+      const kindOptions = ROLE_DATA_SCOPE_KINDS.map(kind => (
+        `<option value="${kind}"${kind === selectedKind ? ' selected' : ''}>${kindLabels[kind] ?? kind}</option>`
+      )).join('');
+      const html = `
+        <div class="fn-roles__data-scope-dialog">
+          <label>${translation.t('roles.dataScopeKind')}
+            <select data-data-scope-kind>${kindOptions}</select>
+          </label>
+          <div data-data-scope-units hidden></div>
+        </div>`;
+
+      const submitFromRoot = root => {
+        const kindSelect = root.querySelector('[data-data-scope-kind]');
+        const dataScopeKind = kindSelect?.value ?? selectedKind;
+        const unitIds = dataScopeKind === 'identity.data_scope.custom'
+          ? [...root.querySelectorAll('input[type="checkbox"]:checked')].map(input => input.value)
+          : null;
+        void confirm(dataScopeKind, unitIds, scopeVersion);
+      };
+
+      if (!globalThis.layui?.layer?.open) {
+        const fallback = document.createElement('div');
+        fallback.innerHTML = html;
+        submitFromRoot(fallback);
+        return;
+      }
+
+      let dialogRoot;
+      globalThis.layui.layer.open({
+        type: 1,
+        title: translation.t('roles.dataScopeTitle'),
+        area: ['560px', '460px'],
+        content: html,
+        btn: [translation.t('roles.saveDataScope'), translation.t('status.back')],
+        success(layero) {
+          dialogRoot = resolveLayerContent(layero, '.fn-roles__data-scope-dialog');
+          const kindSelect = dialogRoot?.querySelector('[data-data-scope-kind]');
+          const unitsPanel = dialogRoot?.querySelector('[data-data-scope-units]');
+          if (!kindSelect || !unitsPanel) return;
+
+          const renderUnits = (units, selectedIds) => {
+            unitsPanel.replaceChildren();
+            const title = document.createElement('span');
+            title.textContent = translation.t('roles.dataScopeUnits');
+            unitsPanel.append(title);
+            const selected = new Set(selectedIds ?? []);
+            units.forEach(unit => {
+              const label = document.createElement('label');
+              const input = document.createElement('input');
+              input.type = 'checkbox';
+              input.value = unit.id;
+              input.checked = selected.has(unit.id);
+              label.append(input, document.createTextNode(` ${unit.name} (${unit.code})`));
+              unitsPanel.append(label);
+            });
+          };
+
+          kindSelect.addEventListener('change', async () => {
+            if (kindSelect.value !== 'identity.data_scope.custom') {
+              unitsPanel.hidden = true;
+              unitsPanel.replaceChildren();
+              return;
+            }
+            try {
+              const page = await request('/api/v1/organization/units?page=1&pageSize=100');
+              renderUnits(Array.isArray(page?.items) ? page.items : [], scope?.unitIds ?? []);
+              unitsPanel.hidden = false;
+            } catch {
+              unitsPanel.hidden = false;
+              unitsPanel.textContent = translation.t('roles.dataScopeTenantRequired');
+            }
+          });
+
+          if (kindSelect.value === 'identity.data_scope.custom') {
+            void kindSelect.dispatchEvent(new Event('change'));
+          }
+        },
+        yes(index) {
+          if (dialogRoot) {
+            submitFromRoot(dialogRoot);
+          }
+          globalThis.layui.layer.close(index);
+        }
+      });
+    });
+}
+
+function resolveLayerContent(layero, selector) {
+  if (layero && typeof layero.find === 'function') {
+    return layero.find(selector)[0];
+  }
+  if (layero instanceof Element) {
+    return layero.querySelector(selector) ?? layero;
+  }
+  const root = layero?.[0];
+  return root?.querySelector?.(selector) ?? root;
 }
 
 function confirmAction(message, confirm) {

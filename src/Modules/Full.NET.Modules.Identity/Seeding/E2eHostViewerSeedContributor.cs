@@ -108,6 +108,7 @@ internal sealed class E2eHostViewerSeedContributor(
                         true,
                         true,
                         false,
+                        RoleDataScopeKinds.All,
                         now,
                         null,
                         1),

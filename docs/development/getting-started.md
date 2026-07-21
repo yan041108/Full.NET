@@ -18,7 +18,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 315
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 319
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 26
 ```
@@ -29,7 +29,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | 日常 | 默认本地验证 | 双库冒烟 2 项，`--timeout 15m` |
 | 聚焦 | 改迁移 / Naming / UUID / Outbox SQL | `--filter` 只跑相关用例 |
-| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 95 --timeout 90m` |
+| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 97 --timeout 90m` |
 
 ```powershell
 # 日常：双库冒烟
@@ -39,7 +39,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery" --minimum-expected-tests 19 --timeout 45m
 
 # 发布：完整双库矩阵
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 95 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 97 --timeout 90m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。
@@ -70,7 +70,7 @@ pnpm test:e2e
 pnpm test:e2e:uniapp
 ```
 
-`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue、Layui 和 uni-app 单元测试，当前管理端与共享包门槛为 **156** 项（`client-contracts` 34、`admin-i18n` 8、Vue 58、Layui 56），uni-app 为 96 项；`pnpm test:e2e` 启动两个本地服务，并用同一组 **40** 项 Playwright 场景（20 个唯一场景 × Vue/Layui 双端）验证动态导航、Host 用户/角色/菜单/机构与用户机构隶属列表与创建/禁用、超级管理员列表/审计/密码重认证、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 组件语言、逐请求 `Accept-Language`、刷新恢复、偏好保存失败回滚、稳定错误码、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
+`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue、Layui 和 uni-app 单元测试，当前管理端与共享包门槛为 **157** 项（`client-contracts` 34、`admin-i18n` 8、Vue 59、Layui 56），uni-app 为 96 项；`pnpm test:e2e` 启动两个本地服务，并用同一组 **40** 项 Playwright 场景（20 个唯一场景 × Vue/Layui 双端）验证动态导航、Host 用户/角色/菜单/机构与用户机构隶属列表与创建/禁用、角色数据范围配置、超级管理员列表/审计/密码重认证、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 组件语言、逐请求 `Accept-Language`、刷新恢复、偏好保存失败回滚、稳定错误码、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
 
 排查单个客户端层时可以直接运行：
 

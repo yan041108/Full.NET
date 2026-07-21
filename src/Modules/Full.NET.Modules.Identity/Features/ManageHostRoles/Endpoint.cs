@@ -107,5 +107,32 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Write);
+
+        group.MapGet("/{roleId:guid}/data-scope", async (
+            Guid roleId,
+            HostRoleDataScopeService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetAsync(roleId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Read);
+
+        group.MapPut("/{roleId:guid}/data-scope", async (
+            Guid roleId,
+            UpdateHostRoleDataScopeRequest request,
+            HostRoleDataScopeService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.UpdateAsync(roleId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Write);
     }
 }

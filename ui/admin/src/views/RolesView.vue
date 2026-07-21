@@ -8,12 +8,17 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
+  ElSelect,
   ElTag
 } from 'element-plus';
 import {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
+  ROLE_DATA_SCOPE_KINDS,
   type FullNetProblemDetails,
-  type HostRole
+  type HostRole,
+  type OrganizationUnit,
+  type RoleDataScopeKind
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
@@ -21,10 +26,13 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createHostRole,
   disableHostRole,
+  getHostRoleDataScope,
   listHostRoles,
   replaceHostRolePermissions,
-  updateHostRole
+  updateHostRole,
+  updateHostRoleDataScope
 } from '../api/roles';
+import { listOrganizationUnits } from '../api/org-units';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -35,10 +43,17 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const permissionsVisible = ref(false);
+const dataScopeVisible = ref(false);
 const editingRole = ref<HostRole>();
 const selectedPermissions = ref<string[]>([]);
+const selectedDataScopeKind = ref<RoleDataScopeKind>('identity.data_scope.all');
+const selectedUnitIds = ref<string[]>([]);
+const dataScopeVersion = ref(0);
+const orgUnits = ref<OrganizationUnit[]>([]);
+const dataScopeKinds = ROLE_DATA_SCOPE_KINDS;
 const assignablePermissions = HOST_ROLE_ASSIGNABLE_PERMISSIONS;
 const canWrite = computed(() => session.can('identity.roles.write'));
+const inTenantContext = computed(() => !!session.currentUser?.tenantId);
 
 onMounted(load);
 
@@ -119,6 +134,78 @@ async function savePermissions(): Promise<void> {
     permissionsVisible.value = false;
     editingRole.value = undefined;
     ElMessage.success(t('roles.permissionsSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'roles.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+function dataScopeKindLabel(kind: RoleDataScopeKind): string {
+  const labels: Record<RoleDataScopeKind, 'roles.dataScopeKindAll' | 'roles.dataScopeKindOrg' | 'roles.dataScopeKindOrgSubtree' | 'roles.dataScopeKindSelf' | 'roles.dataScopeKindCustom'> = {
+    'identity.data_scope.all': 'roles.dataScopeKindAll',
+    'identity.data_scope.org': 'roles.dataScopeKindOrg',
+    'identity.data_scope.org_subtree': 'roles.dataScopeKindOrgSubtree',
+    'identity.data_scope.self': 'roles.dataScopeKindSelf',
+    'identity.data_scope.custom': 'roles.dataScopeKindCustom'
+  };
+  return t(labels[kind]);
+}
+
+async function openDataScope(role: HostRole): Promise<void> {
+  if (role.isSystem || changing.value) return;
+  editingRole.value = role;
+  problem.value = undefined;
+  try {
+    const scope = await getHostRoleDataScope(role.id);
+    selectedDataScopeKind.value = scope.dataScopeKind;
+    selectedUnitIds.value = [...scope.unitIds];
+    dataScopeVersion.value = scope.version;
+    if (scope.dataScopeKind === 'identity.data_scope.custom' && inTenantContext.value) {
+      await loadOrgUnits();
+    } else {
+      orgUnits.value = [];
+    }
+    dataScopeVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'roles.operationFailed');
+  }
+}
+
+async function loadOrgUnits(): Promise<void> {
+  const page = await listOrganizationUnits(1, 100);
+  orgUnits.value = page.items;
+}
+
+async function onDataScopeKindChange(kind: RoleDataScopeKind): Promise<void> {
+  selectedDataScopeKind.value = kind;
+  if (kind === 'identity.data_scope.custom' && inTenantContext.value) {
+    await loadOrgUnits();
+    return;
+  }
+  selectedUnitIds.value = [];
+  orgUnits.value = [];
+}
+
+async function saveDataScope(): Promise<void> {
+  const role = editingRole.value;
+  if (!role || changing.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const unitIds = selectedDataScopeKind.value === 'identity.data_scope.custom'
+      ? [...selectedUnitIds.value]
+      : null;
+    await updateHostRoleDataScope(
+      role.id,
+      selectedDataScopeKind.value,
+      unitIds,
+      dataScopeVersion.value
+    );
+    dataScopeVisible.value = false;
+    editingRole.value = undefined;
+    ElMessage.success(t('roles.dataScopeSuccess'));
     await load();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'roles.operationFailed');
@@ -221,6 +308,14 @@ function toProblem(
             {{ t('roles.permissions') }}
           </el-button>
           <el-button
+            v-if="canWrite && !role.isSystem"
+            plain
+            :disabled="changing"
+            @click="openDataScope(role)"
+          >
+            {{ t('roles.dataScope') }}
+          </el-button>
+          <el-button
             v-if="canWrite && role.isActive && !role.isSystem"
             type="danger"
             plain
@@ -255,6 +350,55 @@ function toProblem(
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="dataScopeVisible"
+      :title="t('roles.dataScopeTitle')"
+      width="560px"
+    >
+      <label class="roles-data-scope-kind">
+        <span>{{ t('roles.dataScopeKind') }}</span>
+        <el-select
+          :model-value="selectedDataScopeKind"
+          @update:model-value="onDataScopeKindChange"
+        >
+          <el-option
+            v-for="kind in dataScopeKinds"
+            :key="kind"
+            :label="dataScopeKindLabel(kind)"
+            :value="kind"
+          />
+        </el-select>
+      </label>
+      <p
+        v-if="selectedDataScopeKind === 'identity.data_scope.custom' && !inTenantContext"
+        class="roles-data-scope-hint"
+      >
+        {{ t('roles.dataScopeTenantRequired') }}
+      </p>
+      <section
+        v-if="selectedDataScopeKind === 'identity.data_scope.custom' && inTenantContext"
+        class="roles-data-scope-units"
+      >
+        <span>{{ t('roles.dataScopeUnits') }}</span>
+        <el-checkbox-group v-model="selectedUnitIds">
+          <el-checkbox
+            v-for="unit in orgUnits"
+            :key="unit.id"
+            :label="unit.id"
+          >
+            <span translate="no">{{ unit.name }}</span>
+            <code translate="no">{{ unit.code }}</code>
+          </el-checkbox>
+        </el-checkbox-group>
+      </section>
+      <template #footer>
+        <el-button @click="dataScopeVisible = false">{{ t('status.back') }}</el-button>
+        <el-button type="primary" :loading="changing" @click="saveDataScope">
+          {{ t('roles.saveDataScope') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -281,6 +425,11 @@ function toProblem(
 .identity-ledger code { color: var(--fullnet-color-ink-muted); font-size: 11px; }
 .roles-empty { padding: 28px; margin: 0; text-align: center; color: var(--fullnet-color-ink-muted); }
 .roles-permissions { display: grid; gap: 10px; }
+.roles-data-scope-kind { display: grid; gap: 8px; margin-bottom: 16px; }
+.roles-data-scope-kind span { font-size: 12px; color: var(--fullnet-color-ink-muted); }
+.roles-data-scope-hint { margin: 0 0 12px; color: var(--fullnet-color-danger); font-size: 13px; }
+.roles-data-scope-units { display: grid; gap: 10px; }
+.roles-data-scope-units code { margin-left: 8px; color: var(--fullnet-color-ink-muted); font-size: 11px; }
 @media (max-width: 1080px) {
   .create-strip { grid-template-columns: 1fr; }
   .identity-ledger article { grid-template-columns: 44px 1fr auto; }

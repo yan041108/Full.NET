@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
+  ROLE_DATA_SCOPE_KINDS,
   isHostRole,
+  isHostRoleDataScope,
   isHostRolePage,
   isReplaceHostRolePermissionsRequest,
+  isUpdateHostRoleDataScopeRequest,
   isUpdateHostRoleRequest
 } from '../src/host-roles';
 
@@ -34,6 +37,18 @@ describe('Host 角色客户端契约', () => {
       permissionCodes: ['identity.users.read'],
       version: 2
     })).toBe(true);
+    expect(isHostRoleDataScope({
+      roleId: 'role-id',
+      dataScopeKind: 'identity.data_scope.all',
+      unitIds: [],
+      version: 1
+    })).toBe(true);
+    expect(isUpdateHostRoleDataScopeRequest({
+      dataScopeKind: 'identity.data_scope.self',
+      unitIds: null,
+      version: 2
+    })).toBe(true);
+    expect(ROLE_DATA_SCOPE_KINDS).toContain('identity.data_scope.custom');
     expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).toContain('identity.roles.write');
   });
 });

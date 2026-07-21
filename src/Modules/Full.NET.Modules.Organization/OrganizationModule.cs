@@ -46,6 +46,7 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantUnitManagementService>();
         services.TryAddScoped<TenantUserUnitQueryService>();
         services.TryAddScoped<TenantUserUnitManagementService>();
+        services.TryAddScoped<ITenantOrganizationUnitDirectory, TenantUnits.TenantOrganizationUnitDirectory>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

@@ -16,6 +16,17 @@ export const HOST_ROLE_ASSIGNABLE_PERMISSIONS = [
   'tenancy.tenants.switch'
 ] as const;
 
+/** 角色数据范围种类稳定机器码（与后端 RoleDataScopeKinds 一致）。 */
+export const ROLE_DATA_SCOPE_KINDS = [
+  'identity.data_scope.all',
+  'identity.data_scope.org',
+  'identity.data_scope.org_subtree',
+  'identity.data_scope.self',
+  'identity.data_scope.custom'
+] as const;
+
+export type RoleDataScopeKind = typeof ROLE_DATA_SCOPE_KINDS[number];
+
 export type HostRoleAssignablePermission =
   typeof HOST_ROLE_ASSIGNABLE_PERMISSIONS[number];
 
@@ -49,6 +60,19 @@ export interface ReplaceHostRolePermissionsRequest {
   version: number;
 }
 
+export interface HostRoleDataScope {
+  roleId: string;
+  dataScopeKind: RoleDataScopeKind;
+  unitIds: string[];
+  version: number;
+}
+
+export interface UpdateHostRoleDataScopeRequest {
+  dataScopeKind: RoleDataScopeKind;
+  unitIds: string[] | null;
+  version: number;
+}
+
 /** 校验不可信 JSON 是否为 Host 角色更新请求。 */
 export function isUpdateHostRoleRequest(
   value: unknown
@@ -66,6 +90,30 @@ export function isReplaceHostRolePermissionsRequest(
   return isRecord(value)
     && Array.isArray(value.permissionCodes)
     && value.permissionCodes.every(code => typeof code === 'string')
+    && typeof value.version === 'number';
+}
+
+/** 校验不可信 JSON 是否为 Host 角色数据范围响应。 */
+export function isHostRoleDataScope(value: unknown): value is HostRoleDataScope {
+  return isRecord(value)
+    && isText(value.roleId)
+    && typeof value.dataScopeKind === 'string'
+    && ROLE_DATA_SCOPE_KINDS.includes(value.dataScopeKind as RoleDataScopeKind)
+    && Array.isArray(value.unitIds)
+    && value.unitIds.every(unitId => isText(unitId))
+    && typeof value.version === 'number';
+}
+
+/** 校验不可信 JSON 是否为 Host 角色数据范围更新请求。 */
+export function isUpdateHostRoleDataScopeRequest(
+  value: unknown
+): value is UpdateHostRoleDataScopeRequest {
+  return isRecord(value)
+    && typeof value.dataScopeKind === 'string'
+    && ROLE_DATA_SCOPE_KINDS.includes(value.dataScopeKind as RoleDataScopeKind)
+    && (value.unitIds === null
+      || (Array.isArray(value.unitIds)
+        && value.unitIds.every(unitId => isText(unitId))))
     && typeof value.version === 'number';
 }
 

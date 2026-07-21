@@ -95,6 +95,7 @@ internal sealed class HostRoleManagementService(
                     false,
                     true,
                     false,
+                    RoleDataScopeKinds.All,
                     now,
                     null,
                     1),

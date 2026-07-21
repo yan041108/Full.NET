@@ -185,7 +185,7 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
   await mockAuthenticatedSession(page);
   const operations = [];
   const roleId = 'e2e-host-role-id';
-  const state = { hasRole: false, disabled: false };
+  const state = { hasRole: false, disabled: false, dataScopeKind: 'identity.data_scope.all' };
   const listBody = () => {
     if (!state.hasRole) {
       return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
@@ -239,6 +239,39 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
       })
     });
   });
+  await page.route(`**/api/v1/identity/roles/${roleId}/data-scope`, async route => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          roleId,
+          dataScopeKind: state.dataScopeKind,
+          unitIds: [],
+          version: 1
+        })
+      });
+      return;
+    }
+
+    if (route.request().method() === 'PUT') {
+      operations.push({ type: 'data-scope', body: route.request().postDataJSON() });
+      state.dataScopeKind = route.request().postDataJSON().dataScopeKind;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          roleId,
+          dataScopeKind: state.dataScopeKind,
+          unitIds: [],
+          version: 2
+        })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
   await page.route(`**/api/v1/identity/roles/${roleId}/disable`, async route => {
     operations.push({ type: 'disable' });
     state.disabled = true;
@@ -277,6 +310,19 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
     }
   }]);
   await expect(page.getByText('对等角色', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('article').getByRole('button', { name: '数据范围' }).click();
+  if (clientKind === 'vue') {
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.locator('.el-select').click();
+    await page.locator('.el-select-dropdown__item').filter({ hasText: '本人' }).click();
+    await dialog.getByRole('button', { name: '保存数据范围', exact: true }).click();
+  } else {
+    await page.locator('.layui-layer-content select').selectOption('identity.data_scope.self');
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'data-scope')).toBe(true);
 
   await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
   if (clientKind === 'vue') {

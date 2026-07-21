@@ -104,17 +104,23 @@ export type {
 
 export {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
+  ROLE_DATA_SCOPE_KINDS,
   isHostRole,
+  isHostRoleDataScope,
   isHostRolePage,
   isReplaceHostRolePermissionsRequest,
+  isUpdateHostRoleDataScopeRequest,
   isUpdateHostRoleRequest
 } from './host-roles.js';
 
 export type {
   HostRole,
   HostRoleAssignablePermission,
+  HostRoleDataScope,
   HostRolePage,
   ReplaceHostRolePermissionsRequest,
+  RoleDataScopeKind,
+  UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest
 } from './host-roles.js';
 

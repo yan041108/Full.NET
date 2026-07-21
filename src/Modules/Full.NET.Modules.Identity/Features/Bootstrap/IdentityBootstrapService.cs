@@ -155,6 +155,7 @@ internal sealed class IdentityBootstrapService(
                         true,
                         true,
                         true,
+                        RoleDataScopeKinds.All,
                         now,
                         null,
                         1),

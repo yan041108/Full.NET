@@ -108,7 +108,7 @@ internal static class IdentitySql
         "identity.find_host_role_by_id",
         """
         SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
-               IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version
+               IsSuperAdministrator, DataScopeKind, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_role
         WHERE Id = @RoleId AND ScopeKey = 'host' AND TenantId IS NULL
         """,
@@ -127,7 +127,7 @@ internal static class IdentitySql
         "identity.list_host_roles.sql_server",
         """
         SELECT Id, Code, Name, IsSystem, IsActive, IsSuperAdministrator,
-               CreatedAtUtc, UpdatedAtUtc, Version
+               DataScopeKind, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_role
         WHERE ScopeKey = 'host' AND TenantId IS NULL
         ORDER BY Code
@@ -139,7 +139,7 @@ internal static class IdentitySql
         "identity.list_host_roles.mysql",
         """
         SELECT Id, Code, Name, IsSystem, IsActive, IsSuperAdministrator,
-               CreatedAtUtc, UpdatedAtUtc, Version
+               DataScopeKind, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_role
         WHERE ScopeKey = 'host' AND TenantId IS NULL
         ORDER BY Code
@@ -389,7 +389,7 @@ internal static class IdentitySql
         "identity.find_role_by_scope_and_code",
         """
         SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
-               IsSuperAdministrator,
+               IsSuperAdministrator, DataScopeKind,
                CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_role
         WHERE ScopeKey = @ScopeKey AND Code = @Code
@@ -401,11 +401,11 @@ internal static class IdentitySql
         """
         INSERT INTO fn_identity_role
             (Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
-             IsSuperAdministrator,
+             IsSuperAdministrator, DataScopeKind,
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
             (@Id, @TenantId, @ScopeKey, @Code, @Name, @IsSystem, @IsActive,
-             @IsSuperAdministrator,
+             @IsSuperAdministrator, @DataScopeKind,
              @CreatedAtUtc, @UpdatedAtUtc, @Version)
         """,
         SqlDataScope.HostOnly);
@@ -799,6 +799,46 @@ internal static class IdentitySql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement GetRoleDataScopeUnitIds = new(
+        "identity.get_role_data_scope_unit_ids",
+        """
+        SELECT UnitId
+        FROM fn_identity_role_data_scope_unit
+        WHERE RoleId = @RoleId
+        ORDER BY UnitId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteRoleDataScopeUnits = new(
+        "identity.delete_role_data_scope_units",
+        """
+        DELETE FROM fn_identity_role_data_scope_unit
+        WHERE RoleId = @RoleId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertRoleDataScopeUnit = new(
+        "identity.insert_role_data_scope_unit",
+        """
+        INSERT INTO fn_identity_role_data_scope_unit (RoleId, UnitId)
+        VALUES (@RoleId, @UnitId)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateRoleDataScopeKind = new(
+        "identity.update_role_data_scope_kind",
+        """
+        UPDATE fn_identity_role
+        SET DataScopeKind = @DataScopeKind,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @RoleId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
 }
 
 internal sealed record ConsumeRefreshSessionUpdate(

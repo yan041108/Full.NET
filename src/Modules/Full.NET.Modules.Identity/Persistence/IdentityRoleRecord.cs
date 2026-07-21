@@ -9,6 +9,7 @@ internal sealed record IdentityRoleRecord(
     bool IsSystem,
     bool IsActive,
     bool IsSuperAdministrator,
+    string DataScopeKind,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     int Version);
@@ -22,6 +23,7 @@ internal sealed record InsertIdentityRole(
     bool IsSystem,
     bool IsActive,
     bool IsSuperAdministrator,
+    string DataScopeKind,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     int Version);
