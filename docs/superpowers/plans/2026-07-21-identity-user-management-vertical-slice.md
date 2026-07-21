@@ -3,7 +3,7 @@
 > **For agents:** 使用 [`fullnet-module-delivery`](../../../.agents/skills/fullnet-module-delivery/SKILL.md)。行为变更必须先失败测试再实现。未完成当前切片退出条件前，不得横向铺开角色/菜单/组织全量 CRUD。
 
 - 建立日期：2026-07-21
-- 状态：**已批准**（项目所有者 2026-07-21 确认：用户管理作为首个业务纵向切片；Vue/Layui 长期并行，本切片必须双端同步）
+- 状态：**Build-verified**（Task 1–5 完成；`Verified` 仍须完整对标人工门禁与生产 MFA 等缺口）
 - 批准依据：
   - 项目所有者在外部分析吸收任务中的明确确认
   - [`2026-07-17-fullnet-architecture-design.md`](../specs/2026-07-17-fullnet-architecture-design.md) §“先做可运行的纵向切片”
@@ -102,9 +102,9 @@
 - Modify: `docs/roadmap/capability-status.md`
 - Modify: `docs/verification/**`（本切片验证记录）
 
-1. [ ] real-stack 增加用户列表或禁用冒烟（SQL Server；MySQL 在 main/发布门禁）。
-2. [ ] 更新门槛数字与能力矩阵证据列。
-3. [ ] 记录未做项（角色/菜单）防止宣传漂移。
+1. [x] real-stack 增加用户列表或禁用冒烟（SQL Server；MySQL 在 main/发布门禁）。
+2. [x] 更新门槛数字与能力矩阵证据列。
+3. [x] 记录未做项（角色/菜单）防止宣传漂移。
 
 ---
 

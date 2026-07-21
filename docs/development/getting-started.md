@@ -86,7 +86,7 @@ pnpm --filter @fullnet/admin-parity-e2e test
 pnpm test:e2e:real
 ```
 
-该套件通过 Testcontainer 启动 SQL Server、执行 Migrator `--seed development` 并拉起 API（默认 `http://localhost:5149`），再对 Vue/Layui 各跑登录、动态导航与退出场景；禁止 `page.route` mock。已手动启动栈时可跳过引导：
+该套件通过 Testcontainer 启动 SQL Server、执行 Migrator `--seed development` 并拉起 API（默认 `http://localhost:5149`），再对 Vue/Layui 各跑 **20** 项真实场景（登录、刷新、跨 Tab、租户、Host 用户列表与权限裁剪、ProblemDetails、403、权限拒绝、退出）；禁止 `page.route` mock。已手动启动栈时可跳过引导：
 
 ```powershell
 $env:FULLNET_E2E_SKIP_BOOTSTRAP = "1"

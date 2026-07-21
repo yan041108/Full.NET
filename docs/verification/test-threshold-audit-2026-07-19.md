@@ -154,6 +154,14 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 
 四处 canonical 门槛已同步为 **314/7/26/87**。
 
+## 增补（2026-07-21，Host 用户管理 Task 4–5 客户端与真实栈）
+
+| 变更 | 说明 |
+| --- | --- |
+| 客户端单测 | 管理端与共享包 **122 → 138**（`host-users` 契约、Vue/Layui 用户 API/控制器各 +1） |
+| Mock parity E2E | **30 → 32**（新增 Host 用户列表/创建/禁用场景 × 双端） |
+| Real-stack E2E | **16 → 20**（新增 `host-users.spec.mjs` 两项 × 双端）；验证记录见 [identity-user-management-2026-07-21.md](identity-user-management-2026-07-21.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
