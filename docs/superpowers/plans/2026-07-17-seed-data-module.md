@@ -568,7 +568,7 @@ git commit -m "feat: orchestrate baseline and development seeds"
 - Consumes: S0-S2 的完整 Migrator 服务注册、Development Contributor、双库审计和 Outbox。
 - Produces: 首次、重复、冲突、失败恢复与 Production 门禁的双库证据。
 
-- [ ] **Step 1: 增加两个 provider 的纵向契约测试**
+- [x] **Step 1: 增加两个 provider 的纵向契约测试**
 
 每个 provider 启动全新 Testcontainer，执行迁移并构建与 Migrator 相同的服务集合。测试顺序：
 
@@ -582,13 +582,13 @@ git commit -m "feat: orchestrate baseline and development seeds"
 
 这些场景的单元行为已经在 Tasks 3-5 分别完成 RED/GREEN；本任务把它们组合成真实双库纵向证据，不新增生产行为。
 
-- [ ] **Step 2: 运行纵向验证**
+- [x] **Step 2: 运行纵向验证**
 
-Run: `dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 18 --timeout 15m`
+Run: `dotnet test tests/Full.NET.IntegrationTests --filter FullyQualifiedName~DevelopmentSeedTests`
 
 Expected: SQL Server/MySQL 的 Baseline 生产初始化、Development/Test 继承、首次、重复、冲突、审计、Outbox 和 Production 门禁全部通过。若任一场景失败，停止任务并使用 `superpowers:systematic-debugging` 先建立最小失败复现，再修改所属实现；禁止放宽门禁、删除断言或绕过真实 Dapper。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src tests/Full.NET.IntegrationTests

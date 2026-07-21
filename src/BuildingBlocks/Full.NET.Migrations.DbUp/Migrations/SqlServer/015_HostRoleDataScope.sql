@@ -21,6 +21,7 @@ BEGIN
         ON dbo.fn_identity_role_data_scope_unit(RoleId);
 END;
 
+EXEC(N'
 UPDATE dbo.fn_identity_role
-SET DataScopeKind = 'identity.data_scope.all'
-WHERE DataScopeKind IS NULL OR LTRIM(RTRIM(DataScopeKind)) = '';
+SET DataScopeKind = ''identity.data_scope.all''
+WHERE DataScopeKind IS NULL OR LTRIM(RTRIM(DataScopeKind)) = '''';');

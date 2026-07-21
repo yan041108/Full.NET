@@ -43,7 +43,7 @@
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |
-| 模块化 Seed Baseline/Overlay | `Implemented` | Migrator 已按迁移后可选 Seed 两阶段编排，支持显式 Profile 与稳定失败码；已落地 SQL Server/MySQL 锁和审计、Baseline Identity Contributor、Development Tenancy Contributor及宿主依赖门禁；历史核对见[门槛审计](../verification/test-threshold-audit-2026-07-19.md)（当前声明门槛 **314/7/26/85**） | 完整 Profile 的 SQL Server/MySQL E2E、Production Secret 注入与运维验收尚未实施，不能视为生产 Seed 可用或标记为 `Verified` |
+| 模块化 Seed Baseline/Overlay | `Build-verified` | Migrator 已按迁移后可选 Seed 两阶段编排，支持显式 Profile 与稳定失败码；已落地 SQL Server/MySQL 锁和审计、Baseline Identity Contributor、Development Tenancy Contributor、宿主依赖门禁，以及双库 Development/Test/Production 契约（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)；门槛 **322/7/26/103**） | Production Secret 注入与运维验收、完整 Aspire/CI Profile E2E 尚未闭环，不能标记为 `Verified` |
 | SignalR / Realtime | `Planned` | 架构边界已定义 | 抽象、鉴权分组、MessagePack Hub、Redis Backplane 尚未实现 |
 | gRPC 服务通信 | `Planned` | 架构边界已定义 | 首次真实服务拆分前不引入 |
 | AI / Agent / MCP / Agentic Web | `Planned` | M5+ 安全边界已定义 | 不属于 1.0 当前可用能力，不应占用近期底座优先级 |
@@ -61,10 +61,10 @@
 
 > 2026-07-21 起纳入[外部全面分析吸收](../verification/external-review-2026-07-21.md)：在基础设施债继续收敛的同时，**必须尽早完成首个可重复业务纵向切片**，否则治理成本无法被模块复杂度验证。
 
-1. **P0：生产可控性（收尾）**——Seed Baseline/Overlay 生产 Secret/运维验收；超级管理员 MFA/强认证 Provider 与账号禁用/删除保护；SQL 破坏性变更门禁复用命名扫描入口。运行时数据范围并集切片已关闭（见[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)）。
+1. **P0：生产可控性（收尾）**——Seed Baseline/Overlay 双库契约已关闭（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)）；仍待 Production Secret/运维验收、超级管理员 MFA/强认证 Provider 与账号禁用/删除保护、SQL 破坏性变更门禁复用命名扫描入口。运行时数据范围并集切片已关闭（见[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)）。
 2. **P0：1.0 前命名债务收敛**——剩余 **83** 项（协议别名窗口、动态 SQL 等）与真实维护窗口/备份升级演练待闭环。
 3. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。
-4. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **314/7/26/91** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
+4. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **322/7/26/103** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
 5. **P1：交付真实性补强**——真实栈 Redis、Overview 级 403 UI 探针、超级管理员管理页真实栈 E2E；浏览器跨 Tab 协调已有基础，故障注入仍缺。
 6. **P1：复用而不耦合**——OpenAPI/协议夹具扩展到 uni-app/Flutter；headless 契约层已起步，继续防止双端逻辑漂移。
 7. **已决策：Layui 长期并行**——所有者 2026-07-21 确认；Vue 与 Layui 继续按同一模块同步开发与验收，不设退役窗口（见 [`client-frontend.md`](../../rules/client-frontend.md) §4）。

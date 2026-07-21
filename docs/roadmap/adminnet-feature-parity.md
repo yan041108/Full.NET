@@ -75,7 +75,7 @@
 | 缓存管理 | Caching Admin | Official Module | M5+ | Mapped |
 | 列显示个性化 | Settings + Client Preferences | Core | M3 | Mapped |
 | 全栈多语言、时区与用户语言偏好 | Localization + Identity + Tenancy + Clients | Core + Client | M2-M5+ | Implementing |
-| 模块化开发/演示种子数据与执行审计 | Seeding + Migrator + Module Contributors | Core | M2 | Designing |
+| 模块化开发/演示种子数据与执行审计 | Seeding + Migrator + Module Contributors | Core | M2 | Build-verified（双库契约见[验证记录](../verification/seed-dual-database-contract-2026-07-21.md)） |
 | 数据库管理 | DatabaseTools | Official Module | M5+ | Mapped |
 | 枚举、常量查询 | Settings Metadata | Core | M3 | Mapped |
 | 消息中心 | Notifications | Core | M3 | Mapped |

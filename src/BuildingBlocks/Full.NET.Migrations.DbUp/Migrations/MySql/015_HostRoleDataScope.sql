@@ -14,8 +14,8 @@ DEALLOCATE PREPARE stmt;
 
 CREATE TABLE IF NOT EXISTS fn_identity_role_data_scope_unit
 (
-    RoleId char(36) NOT NULL,
-    UnitId char(36) NOT NULL,
+    RoleId BINARY(16) NOT NULL,
+    UnitId BINARY(16) NOT NULL,
     CONSTRAINT PK_fn_identity_role_data_scope_unit PRIMARY KEY (RoleId, UnitId),
     CONSTRAINT FK_fn_identity_role_data_scope_unit_Role
         FOREIGN KEY (RoleId) REFERENCES fn_identity_role(Id),

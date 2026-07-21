@@ -180,6 +180,13 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Integration 门槛 **99 → 101** | 租户机构 custom 范围过滤 SQL Server/MySQL +2 |
 | 四处 canonical 门槛 | **322/7/26/101**；验证记录见 [identity-runtime-data-scope-2026-07-21.md](identity-runtime-data-scope-2026-07-21.md) |
 
+## 增补（2026-07-21，Seed 双库契约 Task 6）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **101 → 103** | `SqlServer_development_seed_contract` / `MySql_development_seed_contract` +2 |
+| 四处 canonical 门槛 | **322/7/26/103**；验证记录见 [seed-dual-database-contract-2026-07-21.md](seed-dual-database-contract-2026-07-21.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

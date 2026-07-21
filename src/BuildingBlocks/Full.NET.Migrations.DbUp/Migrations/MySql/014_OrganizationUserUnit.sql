@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS fn_organization_user_unit
 (
-    Id char(36) NOT NULL,
-    TenantId char(36) NOT NULL,
-    UserId char(36) NOT NULL,
-    UnitId char(36) NOT NULL,
+    Id BINARY(16) NOT NULL,
+    TenantId BINARY(16) NOT NULL,
+    UserId BINARY(16) NOT NULL,
+    UnitId BINARY(16) NOT NULL,
     IsPrimary tinyint(1) NOT NULL DEFAULT 0,
     IsActive tinyint(1) NOT NULL DEFAULT 1,
     CreatedAtUtc datetime(6) NOT NULL,
