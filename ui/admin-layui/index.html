@@ -202,6 +202,43 @@
             </section>
           </main>
 
+          <main data-route-view="users" class="fn-users" hidden>
+            <section class="fn-users__heading">
+              <div>
+                <p data-i18n="users.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="users.title"></h1>
+                <span data-i18n="users.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-users-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-users__create"
+              data-users-create-form
+              data-permission="identity.users.write"
+            >
+              <div><small>01</small><h2 data-i18n="users.createTitle"></h2></div>
+              <label>
+                <span data-i18n="users.username"></span>
+                <input class="layui-input" name="username" autocomplete="off" required data-i18n-placeholder="users.usernamePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="users.displayName"></span>
+                <input class="layui-input" name="displayName" autocomplete="off" required data-i18n-placeholder="users.displayNamePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="users.password"></span>
+                <input class="layui-input" name="password" type="password" autocomplete="new-password" required data-i18n-placeholder="users.passwordPlaceholder">
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="users.create"></button>
+            </form>
+            <section class="fn-users__ledger">
+              <header><div><small>02</small><h2 data-i18n="users.directoryTitle"></h2></div></header>
+              <div data-users-directory></div>
+            </section>
+          </main>
+
           <main data-route-view="super-administrators" class="fn-super-admin" hidden>
             <section class="fn-super-admin__heading">
               <div><p data-i18n="superAdmin.eyebrow"></p><h1 data-route-heading tabindex="-1" data-i18n="superAdmin.title"></h1><span data-i18n="superAdmin.description"></span></div>

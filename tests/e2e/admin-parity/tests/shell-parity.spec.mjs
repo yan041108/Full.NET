@@ -18,6 +18,7 @@ test('动态导航和可信租户范围在两套管理端保持一致', async ({
   await expect(navigation).toBeVisible();
   await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /租户上下文/ })).toBeVisible();
+  await expect(navigation.getByRole('link', { name: /用户管理/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /超级管理员/ })).toBeVisible();
   await expect(page.getByRole('button', { name: '检查会话' })).toBeVisible();
   await expect(page.getByText('Full.NET Host', { exact: true }).first()).toBeVisible();
@@ -72,6 +73,108 @@ test('超级管理员列表、审计与密码重认证授予在两端保持一�
     currentPassword: 'FullNet!2026Secure'
   }]);
   await expect(page.getByLabel('当前密码', { exact: true })).toHaveValue('');
+});
+
+test('用户列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await mockAuthenticatedSession(page);
+  const operations = [];
+  const userId = 'e2e-host-user-id';
+  const state = { hasUser: false, disabled: false };
+  const listBody = () => {
+    if (!state.hasUser) {
+      return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
+    }
+
+    return JSON.stringify({
+      items: [{
+        id: userId,
+        username: 'parity-user',
+        displayName: '对等用户',
+        isActive: !state.disabled,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: state.disabled ? '2026-07-21T01:00:00Z' : null,
+        version: state.disabled ? 2 : 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+  };
+
+  await page.route('**/api/v1/identity/users?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: listBody()
+  }));
+  await page.route('**/api/v1/identity/users', async route => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    operations.push({ type: 'create', body: route.request().postDataJSON() });
+    state.hasUser = true;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: userId,
+        username: 'parity-user',
+        displayName: '对等用户',
+        isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      })
+    });
+  });
+  await page.route(`**/api/v1/identity/users/${userId}/disable`, async route => {
+    operations.push({ type: 'disable' });
+    state.disabled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: userId,
+        username: 'parity-user',
+        displayName: '对等用户',
+        isActive: false,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: '2026-07-21T01:00:00Z',
+        version: 2
+      })
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /用户管理/ }).click();
+  await expect(page.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();
+  await expect(page.getByText('尚无 Host 用户', { exact: true })).toBeVisible();
+
+  await page.getByLabel('用户名', { exact: true }).fill('parity-user');
+  await page.getByLabel('显示名称', { exact: true }).fill('对等用户');
+  await page.getByLabel('初始密码', { exact: true }).fill('FullNet!2026Secure');
+  await page.getByRole('button', { name: '创建用户' }).click();
+  await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
+    type: 'create',
+    body: {
+      username: 'parity-user',
+      displayName: '对等用户',
+      password: 'FullNet!2026Secure'
+    }
+  }]);
+  await expect(page.getByText('对等用户', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
+      .evaluate(button => button.click());
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
+  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
 });
 
 test('进入租户、刷新恢复并返回 Host 的闭环等价', async ({ page }) => {
@@ -265,6 +368,8 @@ function currentUserResponse(activeTenantId = null) {
       'identity.navigation.read',
       'identity.super_administrators.manage',
       'identity.super_administrators.read',
+      'identity.users.read',
+      'identity.users.write',
       'platform.dashboard.read',
       'tenancy.tenants.read',
       'tenancy.tenants.switch'
@@ -288,6 +393,11 @@ function navigationResponse(unknownComponent = false) {
       path: '/tenant-context', componentKey: 'tenant-context',
       title: '租户上下文', caption: '进入租户或返回 Host', icon: 'building',
       order: 20, requiredPermission: 'tenancy.tenants.read', children: []
+    },
+    {
+      id: 'users', parentId: null, routeName: 'users', path: '/identity/users',
+      componentKey: 'users', title: '用户管理', caption: 'Host 作用域账号',
+      icon: 'users', order: 35, requiredPermission: 'identity.users.read', children: []
     },
     {
       id: 'super-administrators', parentId: null,

@@ -10,9 +10,10 @@ import {
   renderNavigation
 } from './core/navigation.js';
 import { createSuperAdministratorController } from './core/super-administrators.js';
+import { createUsersController } from './core/users.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/super-administrators']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/users', '/identity/super-administrators']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -62,12 +63,20 @@ export function initializeAdminApp(root = document, options = {}) {
     request,
     translation: () => translation
   });
+  const users = createUsersController(root, {
+    request,
+    translation: () => translation
+  });
 
   const onRouteChange = () => {
     renderRoute(root, latestSnapshot, translation, { focusHeading: true });
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/identity/super-administrators') {
       void superAdministrators.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/identity/users') {
+      void users.load();
     }
   };
   const onProbe = async () => {
@@ -219,6 +228,10 @@ export function initializeAdminApp(root = document, options = {}) {
       && currentRoute() === '/identity/super-administrators') {
       void superAdministrators.load();
     }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/identity/users') {
+      void users.load();
+    }
   });
   const unsubscribeI18n = i18n.subscribe((snapshot) => {
     translation = snapshot;
@@ -278,6 +291,7 @@ export function initializeAdminApp(root = document, options = {}) {
       });
       tenantDirectory?.removeEventListener('click', onTenantAction);
       superAdministrators.dispose();
+      users.dispose();
       unsubscribeSession();
       unsubscribeI18n();
     }

@@ -10,6 +10,7 @@ import OverviewView from '../views/OverviewView.vue';
 import StatusView from '../views/StatusView.vue';
 import TenantContextView from '../views/TenantContextView.vue';
 import SuperAdministratorsView from '../views/SuperAdministratorsView.vue';
+import UsersView from '../views/UsersView.vue';
 
 const statusPaths = new Set(['/403', '/404', '/500']);
 
@@ -25,6 +26,11 @@ export function createAppRouter(
         name: 'tenant-context',
         path: '/tenant-context',
         component: TenantContextView
+      },
+      {
+        name: 'users',
+        path: '/identity/users',
+        component: UsersView
       },
       {
         name: 'super-administrators',

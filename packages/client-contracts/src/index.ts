@@ -90,6 +90,16 @@ export type {
   SuperAdministratorChangeResponse
 } from './super-administrators.js';
 
+export {
+  isHostUser,
+  isHostUserPage
+} from './host-users.js';
+
+export type {
+  HostUser,
+  HostUserPage
+} from './host-users.js';
+
 export type {
   TenantContextDescriptor,
   TenantContextSummary,

@@ -22,6 +22,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.tenantContext.title',
     captionKey: 'navigation.tenantContext.caption'
   }],
+  ['users', {
+    titleKey: 'navigation.users.title',
+    captionKey: 'navigation.users.caption'
+  }],
   ['super-administrators', {
     titleKey: 'navigation.superAdministrators.title',
     captionKey: 'navigation.superAdministrators.caption'

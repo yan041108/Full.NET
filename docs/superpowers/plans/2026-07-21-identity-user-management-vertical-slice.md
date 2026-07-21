@@ -82,7 +82,7 @@
 
 1. [x] 标准 HTTP + ProblemDetails；精确权限 `identity.users.read` / `identity.users.write`。
 2. [x] 超级管理员仍走动态投影；禁用最后一名超管返回 `identity.super_administrator.last_remaining`。
-3. [ ] 更新 OpenAPI/契约夹具（待 Task 4 客户端）。
+3. [x] 更新 OpenAPI/契约夹具（`packages/client-contracts` Host 用户分页/单条校验；OpenAPI 生成仍待后续）。
 
 ### Task 4: Vue / Layui 双端页面
 
@@ -91,9 +91,9 @@
 - Modify: `packages/client-contracts/**`（若抽取纯函数）
 - Test: 两端单测 + `pnpm test:e2e` 同场景
 
-1. [ ] 列表、详情/表单、禁用确认；导航白名单映射本地组件。
-2. [ ] 两端场景名与断言一致；未知组件拒绝保持。
-3. [ ] 禁止单端先合入里程碑。
+1. [x] 列表、详情/表单、禁用确认；导航白名单映射本地组件。
+2. [x] 两端场景名与断言一致；未知组件拒绝保持。
+3. [x] 禁止单端先合入里程碑。
 
 ### Task 5: 真实栈冒烟与文档
 
