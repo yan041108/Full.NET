@@ -187,6 +187,13 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Integration 门槛 **101 → 103** | `SqlServer_development_seed_contract` / `MySql_development_seed_contract` +2 |
 | 四处 canonical 门槛 | **322/7/26/103**；验证记录见 [seed-dual-database-contract-2026-07-21.md](seed-dual-database-contract-2026-07-21.md) |
 
+## 增补（2026-07-21，Production Seed Secret + 超管禁用保护）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **103 → 105** | Production 缺 Bootstrap Secret SQL Server/MySQL +2 |
+| 四处 canonical 门槛 | **322/7/26/105**；见 [seed-production-secret-and-super-admin-disable-2026-07-21.md](seed-production-secret-and-super-admin-disable-2026-07-21.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

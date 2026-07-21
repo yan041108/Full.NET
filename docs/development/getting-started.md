@@ -29,7 +29,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | 日常 | 默认本地验证 | 双库冒烟 2 项，`--timeout 15m` |
 | 聚焦 | 改迁移 / Naming / UUID / Outbox SQL | `--filter` 只跑相关用例 |
-| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 103 --timeout 90m` |
+| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 105 --timeout 90m` |
 
 ```powershell
 # 日常：双库冒烟
@@ -39,7 +39,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery" --minimum-expected-tests 19 --timeout 45m
 
 # 发布：完整双库矩阵
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 103 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 105 --timeout 90m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。
@@ -174,7 +174,7 @@ dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 
 AppHost 给 Migrator 传入 `--seed development` 以及两个 Bootstrap Parameter。Migrator 先完成迁移，再通过模块化 Seed Orchestrator 确定性执行 Baseline 和 Development Contributor，幂等协调标识为 `local`、域名为 `localhost` 的开发租户及首个宿主管理员；账号已存在时不会覆盖密码。
 
-直接运行 Migrator 且不传 Seed 参数时只执行迁移；可显式使用 `--seed baseline|development|demo|test`，Production 只允许 Baseline，Development/Demo/Test 确定性继承 Baseline。`--seed-local` 暂时映射到 Development 并输出弃用告警。首个管理员仍要求成对提供 Secret，缺失时以稳定码 `seeding.bootstrap.secret_missing` 失败；具体测试场景数据继续由临时数据库内的 Test Factory 隔离创建。双库 Development/Test/Production 门禁契约见[种子数据双库验证](../verification/seed-dual-database-contract-2026-07-21.md)；生产 Secret 注入与运维验收仍待后续任务。详细边界见[种子数据模块设计](../superpowers/specs/2026-07-17-seed-data-module-design.md)和[测试先行实施计划](../superpowers/plans/2026-07-17-seed-data-module.md)。
+直接运行 Migrator 且不传 Seed 参数时只执行迁移；可显式使用 `--seed baseline|development|demo|test`，Production 只允许 Baseline，Development/Demo/Test 确定性继承 Baseline。`--seed-local` 暂时映射到 Development 并输出弃用告警。首个管理员仍要求成对提供 Secret，缺失时以稳定码 `seeding.bootstrap.secret_missing` 失败；具体测试场景数据继续由临时数据库内的 Test Factory 隔离创建。双库 Development/Test/Production 门禁契约见[种子数据双库验证](../verification/seed-dual-database-contract-2026-07-21.md)；生产 Secret 注入与缺 Secret 拒绝见[运维 Runbook](../operations/seed-production-baseline.md)和[验证记录](../verification/seed-production-secret-and-super-admin-disable-2026-07-21.md)。详细边界见[种子数据模块设计](../superpowers/specs/2026-07-17-seed-data-module-design.md)和[测试先行实施计划](../superpowers/plans/2026-07-17-seed-data-module.md)。
 
 ### 3.1 Identity 会话与密钥
 

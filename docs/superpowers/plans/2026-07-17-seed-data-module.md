@@ -612,7 +612,7 @@ git commit -m "test: verify dual database development seeds"
 - Consumes: Tasks 1-6 的最终命令、测试数量和运行边界。
 - Produces: 可复制的开发 Seed 用法、生产门禁、真实完成状态和后续 Skill 候选证据。
 
-- [ ] **Step 1: 更新使用文档**
+- [x] **Step 1: 更新使用文档**
 
 README/getting-started 明确：
 
@@ -624,7 +624,7 @@ README/getting-started 明确：
 - 重跑只补齐/跳过，不删除或覆盖用户数据；
 - 查看 `fn_seed_run`/`fn_seed_run_item` 时不得把表当业务幂等开关。
 
-- [ ] **Step 2: 更新 CI 与测试门槛**
+- [x] **Step 2: 更新 CI 与测试门槛**
 
 先用最终程序集输出确认精确测试数量，再把 Unit、Architecture、Integration 的 `--minimum-expected-tests` 同步到 README、getting-started、CI 和项目 Skill 交付地图。CI 必须实际运行 SQL Server/MySQL Testcontainers 测试，Docker 不可用时失败而不是静默跳过。
 

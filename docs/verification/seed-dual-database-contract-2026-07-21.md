@@ -38,5 +38,4 @@
 
 ## 非目标（仍开放）
 
-- Production Secret 注入与运维验收 Runbook
-- 超级管理员 MFA / 强认证 Provider
+- MFA / 强认证 Provider

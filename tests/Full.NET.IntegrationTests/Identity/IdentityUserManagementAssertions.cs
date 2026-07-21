@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Full.NET.Abstractions.Results;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 
@@ -29,6 +30,9 @@ internal static class IdentityUserManagementAssertions
             cancellationToken);
         await VerifyDisabledUserCannotLoginAsync(
             factory,
+            client,
+            cancellationToken);
+        await VerifyCannotDisableLastRemainingSuperAdministratorAsync(
             client,
             cancellationToken);
         await VerifyUpdateDisplayNameWithOptimisticVersionAsync(
@@ -145,6 +149,49 @@ internal static class IdentityUserManagementAssertions
         Assert.AreEqual(
             IdentityErrorCodes.InvalidCredentials,
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyCannotDisableLastRemainingSuperAdministratorAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=50");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedResult<HostUserResponse>>(
+            cancellationToken);
+        Assert.IsNotNull(page);
+        var admin = page.Items.Single(user => user.Username == "admin");
+
+        using var disableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{admin.Id:D}/disable",
+            adminToken,
+            new { });
+        using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, disableResponse.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await disableResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            IdentityErrorCodes.SuperAdministratorLastRemaining,
+            problem.RootElement.GetProperty("code").GetString());
+
+        using var loginRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(
+                new LoginRequest("admin", Api.FullNetApiFactory.TestPassword)),
+        };
+        loginRequest.Headers.Add("Origin", "http://localhost");
+        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
     }
 
     private static async Task VerifyUpdateDisplayNameWithOptimisticVersionAsync(

@@ -35,7 +35,7 @@
 | Identity 会话安全基础 | `Build-verified` | 登录、事务轮换、重用/family 撤销、逐请求 Session/账号/安全戳校验、CSRF/CORS/Origin、Refresh/Logout 限流与审计测试；`SessionRaceAssertions` 双库集成（60 项门槛） | 事务故障注入和 Redis 分布式会话未实现 |
 | Tenancy 可信上下文切换 | `Build-verified` | 租户解析、可用租户、切换与刷新集成测试 | 完整租户/套餐 CRUD 尚未开始；不能宣传为完整租户后台 |
 | 最小 RBAC 与权限导航 | `Build-verified` | **Host 用户**（含**用户-角色分配**）、**Host 角色**（含**数据范围**）、**运行时多角色数据范围并集**（租户机构与用户-机构隶属只读过滤）、**Host 菜单**、**租户机构**与**用户-机构隶属** API + 双端 UI + 双库集成 + Mock/真实栈冒烟 + OpenAPI 夹具（见[用户验证](../verification/identity-user-management-2026-07-21.md)、[用户-角色分配验证](../verification/identity-user-roles-assignment-2026-07-21.md)、[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)、[角色验证](../verification/identity-role-management-2026-07-21.md)、[角色数据范围验证](../verification/identity-role-data-scope-2026-07-21.md)、[菜单验证](../verification/identity-menu-management-2026-07-21.md)、[机构验证](../verification/organization-unit-management-2026-07-21.md)、[用户-机构隶属验证](../verification/organization-user-unit-assignment-2026-07-21.md)） | 其他业务模块全面接入机构过滤 |
-| 受保护超级管理员 | `Implemented` | 005/006 双库迁移、动态 Catalog 权限、逐请求会话校验、远程授予/撤销 API、当前密码重认证、含 ActorUserId 的事务审计、双库最后一名保护、Vue/Layui 对等管理页与 Mock E2E；真实栈 `permission-denied` 覆盖受限账号 API/UI 403 | Production MFA/强认证 Provider、账号禁用/删除及普通角色 CRUD 的系统角色保护、超级管理员管理页真实栈 E2E 尚未完成 |
+| 受保护超级管理员 | `Implemented` | 005/006 双库迁移、动态 Catalog 权限、逐请求会话校验、远程授予/撤销 API、当前密码重认证、含 ActorUserId 的事务审计、双库最后一名保护、**禁用最后一名超管拒绝**（见[验证记录](../verification/seed-production-secret-and-super-admin-disable-2026-07-21.md)）、Vue/Layui 对等管理页与 Mock E2E；真实栈 `permission-denied` 覆盖受限账号 API/UI 403 | Production MFA/强认证 Provider；账号硬删除 API 不在 1.0 范围；超级管理员管理页真实栈 E2E 尚未完成 |
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
 | Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E；**长期并行**（所有者 2026-07-21 确认，非过渡兼容端） | 会话/HTTP/导航白名单已收敛到 `@fullnet/client-contracts` headless 层；Layui 仅保留 DOM 渲染适配；业务切片须与 Vue 同步 |
@@ -43,7 +43,7 @@
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |
-| 模块化 Seed Baseline/Overlay | `Build-verified` | Migrator 已按迁移后可选 Seed 两阶段编排，支持显式 Profile 与稳定失败码；已落地 SQL Server/MySQL 锁和审计、Baseline Identity Contributor、Development Tenancy Contributor、宿主依赖门禁，以及双库 Development/Test/Production 契约（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)；门槛 **322/7/26/103**） | Production Secret 注入与运维验收、完整 Aspire/CI Profile E2E 尚未闭环，不能标记为 `Verified` |
+| 模块化 Seed Baseline/Overlay | `Build-verified` | Migrator 两阶段 Seed、双库 Development/Test/Production 契约、Production 缺 Secret 拒绝（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)、[Production Secret 验证](../verification/seed-production-secret-and-super-admin-disable-2026-07-21.md)、[运维 Runbook](../operations/seed-production-baseline.md)；门槛 **322/7/26/105**） | 完整 Aspire/CI Profile E2E 与 MFA 到位前的远程超管写操作仍开放中的缺口，不能标记为 `Verified` |
 | SignalR / Realtime | `Planned` | 架构边界已定义 | 抽象、鉴权分组、MessagePack Hub、Redis Backplane 尚未实现 |
 | gRPC 服务通信 | `Planned` | 架构边界已定义 | 首次真实服务拆分前不引入 |
 | AI / Agent / MCP / Agentic Web | `Planned` | M5+ 安全边界已定义 | 不属于 1.0 当前可用能力，不应占用近期底座优先级 |
@@ -61,10 +61,10 @@
 
 > 2026-07-21 起纳入[外部全面分析吸收](../verification/external-review-2026-07-21.md)：在基础设施债继续收敛的同时，**必须尽早完成首个可重复业务纵向切片**，否则治理成本无法被模块复杂度验证。
 
-1. **P0：生产可控性（收尾）**——Seed 双库契约与 SQL 破坏性静态门禁已关闭（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)、[SQL 安全门禁验证](../verification/sql-safety-governance-2026-07-21.md)）；仍待 Production Secret/运维验收、超级管理员 MFA/强认证 Provider 与账号禁用/删除保护。运行时数据范围并集切片已关闭（见[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)）。
+1. **P0：生产可控性（收尾）**——Seed 双库契约、SQL 安全门禁、Production Bootstrap Secret Runbook 与缺 Secret 双库拒绝、禁用最后一名超管保护已关闭（见[Production Secret 验证](../verification/seed-production-secret-and-super-admin-disable-2026-07-21.md)）；仍待 **MFA/强认证 Provider**（Production 远程超管写操作继续关闭）。运行时数据范围并集切片已关闭（见[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)）。
 2. **P0：1.0 前命名债务收敛**——剩余 **83** 项（协议别名窗口、动态 SQL 等）与真实维护窗口/备份升级演练待闭环。
 3. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。
-4. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **322/7/26/103** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
+4. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **322/7/26/105** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
 5. **P1：交付真实性补强**——真实栈 Redis、Overview 级 403 UI 探针、超级管理员管理页真实栈 E2E；浏览器跨 Tab 协调已有基础，故障注入仍缺。
 6. **P1：复用而不耦合**——OpenAPI/协议夹具扩展到 uni-app/Flutter；headless 契约层已起步，继续防止双端逻辑漂移。
 7. **已决策：Layui 长期并行**——所有者 2026-07-21 确认；Vue 与 Layui 继续按同一模块同步开发与验收，不设退役窗口（见 [`client-frontend.md`](../../rules/client-frontend.md) §4）。
