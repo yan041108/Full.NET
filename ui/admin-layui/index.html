@@ -397,10 +397,21 @@
               <em data-i18n="superAdmin.protected"></em>
             </section>
             <div class="fn-context-problem" data-super-admin-problem role="alert" hidden><strong translate="no"></strong><span></span></div>
+            <section class="fn-super-admin__totp" data-super-admin-totp data-permission="identity.super_administrators.read">
+              <div><small>00</small><h2 data-i18n="superAdmin.totpTitle"></h2><p data-super-admin-totp-status data-i18n="superAdmin.totpDisabled"></p></div>
+              <div class="fn-super-admin__totp-pending" data-super-admin-totp-pending hidden>
+                <label><span data-i18n="superAdmin.totpSecret"></span><code data-super-admin-totp-secret translate="no"></code></label>
+                <label><span data-i18n="superAdmin.totpUri"></span><code data-super-admin-totp-uri translate="no"></code></label>
+                <label><span data-i18n="superAdmin.totpCode"></span><input class="layui-input" name="enrollTotpCode" maxlength="6" data-i18n-placeholder="superAdmin.totpCodePlaceholder"></label>
+                <button class="layui-btn" type="button" data-super-admin-totp-confirm data-i18n="superAdmin.totpConfirm"></button>
+              </div>
+              <button class="layui-btn layui-btn-primary" type="button" data-super-admin-totp-begin data-i18n="superAdmin.totpBegin"></button>
+            </section>
             <form class="fn-super-admin__grant" data-super-admin-grant-form data-permission="identity.super_administrators.manage">
               <div><small>01</small><h2 data-i18n="superAdmin.grantTitle"></h2></div>
               <label><span data-i18n="superAdmin.username"></span><input class="layui-input" name="username" autocomplete="off" required data-i18n-placeholder="superAdmin.usernamePlaceholder"></label>
               <label><span data-i18n="superAdmin.currentPassword"></span><input class="layui-input" name="currentPassword" type="password" autocomplete="current-password" required data-i18n-placeholder="superAdmin.passwordPlaceholder"></label>
+              <label><span data-i18n="superAdmin.totpCode"></span><input class="layui-input" name="totpCode" maxlength="6" autocomplete="one-time-code" data-i18n-placeholder="superAdmin.totpCodePlaceholder"></label>
               <button class="layui-btn" type="submit" data-i18n="superAdmin.grant"></button>
             </form>
             <section class="fn-super-admin__ledger"><header><div><small>02</small><h2 data-i18n="superAdmin.directoryTitle"></h2></div></header><div data-super-admin-directory></div></section>

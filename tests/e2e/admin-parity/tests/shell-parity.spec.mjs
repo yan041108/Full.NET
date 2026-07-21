@@ -35,6 +35,11 @@ test('动态导航和可信租户范围在两套管理端保持一致', async ({
 test('超级管理员列表、审计与密码重认证授予在两端保持一致', async ({ page }) => {
   await mockAuthenticatedSession(page);
   const grants = [];
+  await page.route('**/api/v1/identity/me/mfa/totp**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ isEnrolled: false, isEnabled: false })
+  }));
   await page.route('**/api/v1/identity/super-administrators/audits?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -67,12 +72,15 @@ test('超级管理员列表、审计与密码重认证授予在两端保持一�
   await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible();
   await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('identity.super_administrator.granted', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '本账号 TOTP', exact: true })).toBeVisible();
   await page.getByLabel('Host 账号', { exact: true }).fill('target-admin');
   await page.getByLabel('当前密码', { exact: true }).fill('FullNet!2026Secure');
+  await page.locator('[data-super-admin-grant-form] [name="totpCode"], .grant-strip input[maxlength="6"]').first().fill('123456');
   await page.getByRole('button', { name: '确认授予' }).click();
   await expect.poll(() => grants).toEqual([{
     username: 'target-admin',
-    currentPassword: 'FullNet!2026Secure'
+    currentPassword: 'FullNet!2026Secure',
+    totpCode: '123456'
   }]);
   await expect(page.getByLabel('当前密码', { exact: true })).toHaveValue('');
 });

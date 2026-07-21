@@ -91,6 +91,16 @@ export type {
 } from './super-administrators.js';
 
 export {
+  isBeginTotpEnrollmentResponse,
+  isTotpEnrollmentStatus
+} from './totp-enrollment.js';
+
+export type {
+  BeginTotpEnrollmentResponse,
+  TotpEnrollmentStatus
+} from './totp-enrollment.js';
+
+export {
   isHostUser,
   isHostUserPage,
   isHostUserRoles,

@@ -22,21 +22,27 @@ export async function getSuperAdministratorAudits(): Promise<SuperAdministratorA
 
 export async function grantSuperAdministrator(
   username: string,
-  currentPassword: string
+  currentPassword: string,
+  totpCode?: string
 ): Promise<SuperAdministratorChangeResponse> {
   return await change('/api/v1/identity/super-administrators/grant', {
     username,
-    currentPassword
+    currentPassword,
+    ...(totpCode ? { totpCode } : {})
   });
 }
 
 export async function revokeSuperAdministrator(
   targetUserId: string,
-  currentPassword: string
+  currentPassword: string,
+  totpCode?: string
 ): Promise<SuperAdministratorChangeResponse> {
   return await change(
     `/api/v1/identity/super-administrators/${encodeURIComponent(targetUserId)}/revoke`,
-    { currentPassword }
+    {
+      currentPassword,
+      ...(totpCode ? { totpCode } : {})
+    }
   );
 }
 

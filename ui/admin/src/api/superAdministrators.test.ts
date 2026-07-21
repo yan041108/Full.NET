@@ -22,21 +22,31 @@ describe('Vue 超级管理员 API', () => {
     await expect(getSuperAdministratorAudits()).resolves.toHaveLength(1);
   });
 
-  it('只通过 JSON 正文发送一次性重认证密码', async () => {
+  it('只通过 JSON 正文发送一次性重认证密码与可选 TOTP', async () => {
     requestMock.mockResolvedValue({ targetUserId: 'target', changed: true });
 
-    await grantSuperAdministrator('target', 'secret');
-    await revokeSuperAdministrator('target', 'secret');
+    await grantSuperAdministrator('target', 'secret', '123456');
+    await revokeSuperAdministrator('target', 'secret', '654321');
 
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
       '/api/v1/identity/super-administrators/grant',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ username: 'target', currentPassword: 'secret' }) })
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          username: 'target',
+          currentPassword: 'secret',
+          totpCode: '123456'
+        })
+      })
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       2,
       '/api/v1/identity/super-administrators/target/revoke',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ currentPassword: 'secret' }) })
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ currentPassword: 'secret', totpCode: '654321' })
+      })
     );
   });
 });
