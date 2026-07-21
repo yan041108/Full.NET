@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using Full.NET.Hosting.Api;
-using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Security;
 using Microsoft.AspNetCore.Builder;
@@ -42,7 +42,8 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(OrganizationUnitManagementPermissions.Read);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUnitManagementPermissions.Read));
 
         group.MapGet("/{unitId:guid}", async (
             Guid unitId,
@@ -68,7 +69,8 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(OrganizationUnitManagementPermissions.Read);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUnitManagementPermissions.Read));
 
         group.MapPost("/", async (
             CreateOrganizationUnitRequest request,
@@ -88,7 +90,8 @@ internal static class Endpoint
                 $"/api/v1/organization/units/{result.Value!.Id:D}",
                 result.Value);
         })
-        .RequireFullNetPermission(OrganizationUnitManagementPermissions.Write);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUnitManagementPermissions.Write));
 
         group.MapPut("/{unitId:guid}", async (
             Guid unitId,
@@ -102,7 +105,8 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(OrganizationUnitManagementPermissions.Write);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUnitManagementPermissions.Write));
 
         group.MapPost("/{unitId:guid}/disable", async (
             Guid unitId,
@@ -115,6 +119,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(OrganizationUnitManagementPermissions.Write);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUnitManagementPermissions.Write));
     }
 }

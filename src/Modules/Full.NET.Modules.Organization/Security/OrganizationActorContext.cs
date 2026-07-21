@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Full.NET.Modules.Identity.Contracts;
-using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Organization.Security;
 
@@ -18,7 +17,7 @@ internal static class OrganizationActorContext
             out var enabled)
             && enabled;
         return Guid.TryParse(
-            principal.FindFirstValue(JwtRegisteredClaimNames.Sub),
+            principal.FindFirstValue(FullNetIdentityClaimTypes.Subject),
             out userId);
     }
 }

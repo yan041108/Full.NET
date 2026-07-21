@@ -1,10 +1,11 @@
 # Full.NET 架构复核与事件交付方案评估
 
 - 日期：2026-07-22
-- 状态：已复核，两轮巡检结论已吸收
-- 代码基线：`0dde5b4`（`main`）
+- 状态：已复核，两轮巡检结论已吸收；Task 4A 实现证据已增补
+- 原复核代码基线：`0dde5b4`（`main`）
+- Task 4A 实现基线：`fcfe2c3`（`main`）
 - 范围：仓库结构、能力状态矩阵、近期验证记录、架构硬化计划，以及用户提供的两份外部审查材料
-- 方法：静态代码核对、项目依赖图与宿主职责巡检、现有自动化证据交叉检查、规格/ADR/计划一致性检查，并执行 Release 构建、后端核心测试、静态门禁和客户端聚合测试；本轮未修改产品代码
+- 方法：静态代码核对、项目依赖图与宿主职责巡检、现有自动化证据交叉检查、规格/ADR/计划一致性检查，并执行 Release 构建、后端核心测试、静态门禁和客户端聚合测试；Task 4A 增补采用测试先行并修改模块注册与项目依赖
 
 ## 1. 总体结论
 
@@ -35,7 +36,7 @@ Full.NET 继续采用强化型模块化单体是正确方向。当前主要风�
 | 优先级 | 发现 | 当前证据 | 正式处理 |
 |---|---|---|---|
 | P0 | Layui 用户-机构隶属测试稳定失败 | 控制器请求顺序为“隶属关系、机构、用户”，测试夹具返回顺序为“隶属关系、用户、机构”，连续两次聚焦运行均为 3 次调用而非预期 7 次 | Task 3B 先修复夹具并恢复客户端聚合门禁；禁止通过放宽调用次数、延长等待或跳过测试转绿 |
-| P1 | Organization/Tenancy.Http 依赖 Identity/Tenancy 实现程序集 | `Organization.csproj`、`Tenancy.Http.csproj` 引用模块实现，Identity 通过 `InternalsVisibleTo` 向 Organization 暴露内部授权扩展；现有 Architecture Tests 反而断言具体模块类型依赖 | Task 4A 将模块排序依赖改为稳定模块键，跨模块授权改用 Identity.Contracts 的公开策略，并新增拒绝生产模块友元与实现项目引用的架构测试 |
+| P1 | Organization/Tenancy.Http 依赖 Identity/Tenancy 实现程序集 | **Task 4A 已关闭**：模块依赖改为稳定字符串键，Organization 使用 Identity.Contracts 的公开授权策略，跨模块实现项目引用与 Identity→Organization 生产友元已删除 | 新增负向 Architecture Test 扫描生产模块 `.csproj` 与 `AssemblyInfo.cs`；同一逻辑模块的存量 Core/Http 引用只作为历史兼容，不构成新项目模板 |
 | P1 | API 发布物携带 DbUp 迁移执行能力 | API 项目引用 `Full.NET.Migrations.DbUp` 并在 `Program.cs` 注册迁移服务，集成测试还从 API DI 解析 `IDatabaseMigrationRunner` | Task 4B 移除 API 引用与注册，测试夹具显式执行测试迁移器，架构测试限定迁移组件消费者 |
 | P1 | Migrator 装入完整 HTTP 模块服务 | `FullNetModuleCatalog` 将 Api 与 Migrator 放在同一分支，Migrator 因此装入认证、授权、CORS、限流和 HTTP JSON 等服务 | Task 4C 建立独立 Migration/Seed Profile，只注册迁移与 Contributor 所需能力 |
 | P1 | readiness/startup 是空检查集合 | 只调用 `AddHealthChecks()`，未注册数据库、Redis、迁移/初始化或 Outbox 检查；筛选空集合仍可返回 Healthy | Task 4D 注册真实依赖检查并增加依赖失败、空集合拒绝和标签契约测试 |
@@ -54,6 +55,23 @@ Full.NET 继续采用强化型模块化单体是正确方向。当前主要风�
 | `pnpm test:clients`（Task 3B 后） | 通过；59/59 测试文件、256/256 测试通过，其中 Layui 56/56 |
 
 Task 3B 已恢复客户端聚合门禁；但本轮没有重跑完整 SQL Server/MySQL Integration 与真实栈 E2E，客户端门禁恢复不得替代最近的双库验证记录。
+
+### 3.2 Task 4A 实现与拓扑复核
+
+Task 4A 的 Architecture RED 首次准确报告 Organization→Identity、Organization→Tenancy.Http、Tenancy.Http→Identity 三条跨模块实现引用及 Identity→Organization 生产友元；实现后相同门禁转绿。`IFullNetModule.Dependencies` 现在只保存稳定模块键，Registry 以 `module.Name` 拒绝空键、重复键、未知依赖和循环，并按 Ordinal 顺序产生确定性拓扑。Organization Endpoint 通过 Identity.Contracts 的 `FullNetPermissionPolicies.For(...)` 保持原权限策略名称，不再访问 Identity 内部实现。
+
+| Task 4A 门禁 | 新鲜结果 |
+|---|---|
+| `dotnet build Full.NET.slnx --configuration Release --no-restore` | 通过，0 warning、0 error |
+| Unit Tests | **337/337** 通过；覆盖稳定顺序、空/重复模块键、未知依赖、循环与接口契约 |
+| Compatibility Tests | **7/7** 通过 |
+| Architecture Tests | **29/29** 通过；新增跨模块实现引用和生产友元负向门禁 |
+| OpenAPI / Naming / Governance / Skills | **14/14**、**23/23**、**7/7**、**48 checks** 通过 |
+| TenantProvisioning SQL Server/MySQL | **2/2** 通过；测试夹具显式装配 Organization 后，双库原子 Provisioning 与二进制 Outbox 保持不变 |
+| Identity 登录独立 SQL Server 用例 | **0/1**；既有并发登录响应计数断言失败，独立运行仍复现，未修改产品或放宽断言 |
+| Organization 机构管理独立 SQL Server 用例 | **0/1**；在进入 Organization Endpoint 前，既有 `/api/v1/tenancy/available` 夹具返回 403（期望 200），未修改产品或放宽断言 |
+
+Tenancy 拓扑复核确认 Worker 通过 `TenancyModule.AddBackgroundServices` 注册并消费 Core 中的 `TenantProvisionedCacheInvalidationHandler`，因此存在真实非 HTTP 消费者；但该注册入口位于 `Full.NET.Modules.Tenancy.Http`，Worker/Migrator 仍必须装载 `.Http` 项目，当前双项目并未形成足够的依赖或打包隔离收益。Task 4A 按范围不移动类型、不改变公开 API；合并评估与实施已列入[架构硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 4F，必须独立建立发布物 RED、完成双库/API/Worker 验证后再决策。
 
 ## 4. 确认的改进顺序
 
@@ -104,7 +122,7 @@ Task 3B 已恢复客户端聚合门禁；但本轮没有重跑完整 SQL Server/
 
 ## 6. 未验证项
 
-- 本轮执行了 Release 构建、后端核心测试、静态门禁和客户端聚合测试；未执行完整双库 Integration、真实栈 E2E、性能基准或故障注入，代码能力状态不因部分通过而提升。
+- Task 4A 执行了 Unit、Architecture、TenantProvisioning 双库与聚焦 API Integration；未执行完整 109 项 Integration、真实栈 E2E、性能基准或故障注入，且 Identity/Organization 两项独立 API 夹具失败仍开放，代码能力状态不因部分通过而提升。
 - 未验证任何特定 Kafka、Debezium 或 Kafka Connect 版本与许可证/部署组合。
 - `1000 QPS` 仅作为用户提出的初始量级，不作为项目门禁常量。
 - 工作区存在用户已有的未跟踪测试输出文件，本轮不读取其结论、不修改也不纳入文档变更。

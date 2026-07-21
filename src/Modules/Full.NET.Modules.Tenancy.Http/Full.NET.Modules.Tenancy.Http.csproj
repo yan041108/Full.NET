@@ -11,7 +11,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Seeding.Abstractions\Full.NET.Seeding.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Validation.FluentValidation\Full.NET.Validation.FluentValidation.csproj" />
-    <ProjectReference Include="..\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
   </ItemGroup>
 

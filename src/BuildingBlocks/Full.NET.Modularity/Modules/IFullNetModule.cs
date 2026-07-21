@@ -7,9 +7,15 @@ namespace Full.NET.Modularity.Modules;
 
 public interface IFullNetModule
 {
+    /// <summary>
+    /// 获取模块在依赖图中的唯一稳定键；键按区分大小写的 Ordinal 规则比较，发布后不得随 CLR 类型重命名而变化。
+    /// </summary>
     string Name { get; }
 
-    IReadOnlyCollection<Type> Dependencies { get; }
+    /// <summary>
+    /// 获取当前模块依赖的稳定模块键；每个键必须对应已注册模块，且依赖图必须保持无循环。
+    /// </summary>
+    IReadOnlyCollection<string> Dependencies { get; }
 
     void AddServices(IServiceCollection services, IConfiguration configuration);
 

@@ -13,7 +13,6 @@ using Full.NET.Modules.Tenancy.Resources;
 using Full.NET.Modules.Tenancy.Seeding;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Hosting.Api;
-using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Validation.FluentValidation;
 using Microsoft.AspNetCore.Builder;
@@ -29,7 +28,7 @@ public sealed class TenancyModule : IFullNetModule
 {
     public string Name => "Tenancy";
 
-    public IReadOnlyCollection<Type> Dependencies => [typeof(IdentityModule)];
+    public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
     public void AddServices(
         IServiceCollection services,

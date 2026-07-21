@@ -54,7 +54,7 @@ public sealed class ModulePipelineTests
     {
         public string Name => "Alpha";
 
-        public IReadOnlyCollection<Type> Dependencies => [];
+        public IReadOnlyCollection<string> Dependencies => [];
 
         public void AddServices(IServiceCollection services, IConfiguration configuration)
         {
@@ -72,7 +72,7 @@ public sealed class ModulePipelineTests
     {
         public string Name => "Beta";
 
-        public IReadOnlyCollection<Type> Dependencies => [typeof(AlphaModule)];
+        public IReadOnlyCollection<string> Dependencies => ["Alpha"];
 
         public void AddServices(IServiceCollection services, IConfiguration configuration)
         {
@@ -91,7 +91,7 @@ public sealed class ModulePipelineTests
     {
         public string Name => "Silent";
 
-        public IReadOnlyCollection<Type> Dependencies => [];
+        public IReadOnlyCollection<string> Dependencies => [];
 
         public void AddServices(IServiceCollection services, IConfiguration configuration)
         {

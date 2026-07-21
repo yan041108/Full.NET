@@ -10,6 +10,11 @@ namespace Full.NET.Modules.Identity.Contracts;
 public static class FullNetIdentityClaimTypes
 {
     /// <summary>
+    /// 获取主体账号标识 Claim 名称，值遵循标准 JWT <c>sub</c> 语义。
+    /// </summary>
+    public const string Subject = "sub";
+
+    /// <summary>
     /// 获取刷新会话标识 Claim 名称。
     /// </summary>
     public const string SessionId = "sid";

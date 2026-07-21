@@ -3,14 +3,12 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Localization;
 using Full.NET.Modularity.Modules;
-using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Features.ManageTenantUnits;
 using Full.NET.Modules.Organization.Features.ManageTenantUserUnits;
 using Full.NET.Modules.Organization.Resources;
 using Full.NET.Modules.Organization.Serialization;
-using Full.NET.Modules.Tenancy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -23,10 +21,10 @@ public sealed class OrganizationModule : IFullNetModule
 {
     public string Name => "Organization";
 
-    public IReadOnlyCollection<Type> Dependencies =>
+    public IReadOnlyCollection<string> Dependencies =>
     [
-        typeof(IdentityModule),
-        typeof(TenancyModule),
+        "Identity",
+        "Tenancy",
     ];
 
     public void AddServices(

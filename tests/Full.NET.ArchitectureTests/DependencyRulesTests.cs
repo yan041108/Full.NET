@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
@@ -50,6 +51,23 @@ public sealed class DependencyRulesTests
         Assert.IsTrue(
             result.IsSuccessful,
             $"BuildingBlocks depending on Modules: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void Production_modules_do_not_reference_other_module_implementations_or_grant_friend_access()
+    {
+        var root = FindRepositoryRoot();
+        var modulesRoot = Path.Combine(root, "src", "Modules");
+        var offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.csproj", SearchOption.AllDirectories)
+            .SelectMany(FindCrossModuleImplementationReferences)
+            .Concat(Directory
+                .EnumerateFiles(modulesRoot, "AssemblyInfo.cs", SearchOption.AllDirectories)
+                .SelectMany(FindCrossModuleFriendAssemblies))
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(0, offenders, string.Join(Environment.NewLine, offenders));
     }
 
     [TestMethod]
@@ -403,7 +421,7 @@ public sealed class DependencyRulesTests
 
         CollectionAssert.Contains(
             module.Dependencies.ToArray(),
-            typeof(IdentityModule));
+            "Identity");
     }
 
     [TestMethod]
@@ -412,7 +430,7 @@ public sealed class DependencyRulesTests
         var module = new Full.NET.Modules.Organization.OrganizationModule();
 
         CollectionAssert.AreEquivalent(
-            new[] { typeof(IdentityModule), typeof(TenancyModule) },
+            new[] { "Identity", "Tenancy" },
             module.Dependencies.ToArray());
     }
 
@@ -458,6 +476,78 @@ public sealed class DependencyRulesTests
         {
             return exception.Types.OfType<Type>();
         }
+    }
+
+    private static IEnumerable<string> FindCrossModuleImplementationReferences(
+        string projectPath)
+    {
+        var sourceProject = Path.GetFileNameWithoutExtension(projectPath);
+        var sourceModule = GetLogicalModuleName(sourceProject);
+        if (sourceModule is null)
+        {
+            yield break;
+        }
+
+        foreach (var reference in XDocument.Load(projectPath)
+                     .Descendants()
+                     .Where(element => element.Name.LocalName == "ProjectReference")
+                     .Select(element => element.Attribute("Include")?.Value)
+                     .Where(value => !string.IsNullOrWhiteSpace(value))
+                     .Select(value => value!))
+        {
+            var targetProject = Path.GetFileNameWithoutExtension(reference);
+            var targetModule = GetLogicalModuleName(targetProject);
+            if (targetModule is null
+                || string.Equals(sourceModule, targetModule, StringComparison.Ordinal)
+                || targetProject.EndsWith(".Contracts", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            yield return $"{sourceProject} -> {targetProject}";
+        }
+    }
+
+    private static IEnumerable<string> FindCrossModuleFriendAssemblies(
+        string assemblyInfoPath)
+    {
+        var projectDirectory = Directory.GetParent(assemblyInfoPath)?.Parent;
+        var sourceProject = projectDirectory?.Name;
+        var sourceModule = GetLogicalModuleName(sourceProject);
+        if (sourceProject is null || sourceModule is null)
+        {
+            yield break;
+        }
+
+        foreach (Match match in Regex.Matches(
+                     File.ReadAllText(assemblyInfoPath),
+                     "InternalsVisibleTo\\(\\\"(?<assembly>Full\\.NET\\.Modules\\.[^\\\",]+)",
+                     RegexOptions.CultureInvariant))
+        {
+            var targetProject = match.Groups["assembly"].Value;
+            var targetModule = GetLogicalModuleName(targetProject);
+            if (targetModule is null
+                || string.Equals(sourceModule, targetModule, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            yield return $"{sourceProject} -> {targetProject} (InternalsVisibleTo)";
+        }
+    }
+
+    private static string? GetLogicalModuleName(string? projectName)
+    {
+        const string prefix = "Full.NET.Modules.";
+        if (projectName is null
+            || !projectName.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var suffix = projectName[prefix.Length..];
+        var separatorIndex = suffix.IndexOf('.');
+        return separatorIndex < 0 ? suffix : suffix[..separatorIndex];
     }
 
     private static void AssertPolicyConsumer(

@@ -2,62 +2,82 @@ namespace Full.NET.Modularity.Modules;
 
 public sealed class FullNetModuleRegistry
 {
-    private readonly Dictionary<Type, IFullNetModule> _modules = [];
+    private readonly Dictionary<string, IFullNetModule> _modules =
+        new(StringComparer.Ordinal);
 
     public void Add(IFullNetModule module)
     {
-        var moduleType = module.GetType();
-        if (!_modules.TryAdd(moduleType, module))
+        ArgumentNullException.ThrowIfNull(module);
+
+        var moduleKey = module.Name;
+        if (string.IsNullOrWhiteSpace(moduleKey))
         {
             throw new InvalidOperationException(
-                $"Module '{moduleType.FullName}' is already registered.");
+                $"Module key '{moduleKey}' must not be blank.");
+        }
+
+        if (!_modules.TryAdd(moduleKey, module))
+        {
+            var registeredModule = _modules[moduleKey];
+            throw new InvalidOperationException(
+                $"Module key '{moduleKey}' is already registered by "
+                + $"'{registeredModule.GetType().FullName}' and cannot also identify "
+                + $"'{module.GetType().FullName}'.");
         }
     }
 
     public IReadOnlyList<IFullNetModule> GetOrderedModules()
     {
         var ordered = new List<IFullNetModule>(_modules.Count);
-        var permanent = new HashSet<Type>();
-        var temporary = new HashSet<Type>();
+        var permanent = new HashSet<string>(StringComparer.Ordinal);
+        var temporary = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var moduleType in _modules.Keys)
+        foreach (var moduleKey in _modules.Keys.OrderBy(key => key, StringComparer.Ordinal))
         {
-            Visit(moduleType, permanent, temporary, ordered);
+            Visit(moduleKey, permanent, temporary, ordered);
         }
 
         return ordered;
     }
 
     private void Visit(
-        Type moduleType,
-        ISet<Type> permanent,
-        ISet<Type> temporary,
+        string moduleKey,
+        ISet<string> permanent,
+        ISet<string> temporary,
         ICollection<IFullNetModule> ordered)
     {
-        if (permanent.Contains(moduleType))
+        if (permanent.Contains(moduleKey))
         {
             return;
         }
 
-        if (!temporary.Add(moduleType))
+        if (!temporary.Add(moduleKey))
         {
             throw new InvalidOperationException(
-                $"A module dependency cycle contains '{moduleType.FullName}'.");
+                $"A module dependency cycle contains module key '{moduleKey}'.");
         }
 
-        if (!_modules.TryGetValue(moduleType, out var module))
+        if (!_modules.TryGetValue(moduleKey, out var module))
         {
             throw new InvalidOperationException(
-                $"Module dependency '{moduleType.FullName}' is not registered.");
+                $"Module dependency key '{moduleKey}' is not registered.");
         }
 
-        foreach (var dependency in module.Dependencies)
+        foreach (var dependencyKey in module.Dependencies
+                     .OrderBy(key => key, StringComparer.Ordinal))
         {
-            Visit(dependency, permanent, temporary, ordered);
+            if (!_modules.ContainsKey(dependencyKey))
+            {
+                throw new InvalidOperationException(
+                    $"Module key '{moduleKey}' depends on unknown module key "
+                    + $"'{dependencyKey}'.");
+            }
+
+            Visit(dependencyKey, permanent, temporary, ordered);
         }
 
-        temporary.Remove(moduleType);
-        permanent.Add(moduleType);
+        temporary.Remove(moduleKey);
+        permanent.Add(moduleKey);
         ordered.Add(module);
     }
 }

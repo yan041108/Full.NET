@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using Full.NET.Hosting.Api;
-using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Security;
 using Microsoft.AspNetCore.Builder;
@@ -46,7 +46,8 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(OrganizationUserUnitManagementPermissions.Read);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUserUnitManagementPermissions.Read));
 
         group.MapPost("/", async (
             CreateOrganizationUserUnitRequest request,
@@ -66,7 +67,8 @@ internal static class Endpoint
                 $"/api/v1/organization/user-units/{result.Value!.Id:D}",
                 result.Value);
         })
-        .RequireFullNetPermission(OrganizationUserUnitManagementPermissions.Write);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUserUnitManagementPermissions.Write));
 
         group.MapPut("/{assignmentId:guid}", async (
             Guid assignmentId,
@@ -80,7 +82,8 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(OrganizationUserUnitManagementPermissions.Write);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUserUnitManagementPermissions.Write));
 
         group.MapPost("/{assignmentId:guid}/disable", async (
             Guid assignmentId,
@@ -93,6 +96,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(OrganizationUserUnitManagementPermissions.Write);
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUserUnitManagementPermissions.Write));
     }
 }

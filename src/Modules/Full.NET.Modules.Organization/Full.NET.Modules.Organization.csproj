@@ -11,10 +11,8 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Localization\Full.NET.Localization.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
-    <ProjectReference Include="..\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Organization.Contracts\Full.NET.Modules.Organization.Contracts.csproj" />
-    <ProjectReference Include="..\Full.NET.Modules.Tenancy.Http\Full.NET.Modules.Tenancy.Http.csproj" />
   </ItemGroup>
 
 </Project>

@@ -14,6 +14,7 @@ using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Organization;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
@@ -229,6 +230,7 @@ public sealed class TenantProvisioningTests
         services.AddFullNetCaching(configuration, "Test");
         services.AddFullNetModule<IdentityModule>(configuration);
         services.AddFullNetModule<TenancyModule>(configuration);
+        services.AddFullNetModule<OrganizationModule>(configuration);
 
         if (throwOnOutbox)
         {

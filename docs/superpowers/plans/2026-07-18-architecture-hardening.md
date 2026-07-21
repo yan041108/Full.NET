@@ -33,7 +33,7 @@
 | H5 L5 i18n 与工具链治理 | P2 | 首个业务翻译表双库验证；兼容性队列有自动检查 |
 | H6 事件交付演进门禁（最后执行） | M5+ Decision Gate | 有真实 SLA 与瓶颈证据后完成 ADR/Provider 选型；未命中则保持纯 Outbox |
 
-当前固定执行顺序为 `Task 3A → Task 3B → Task 4A → Task 4B → Task 4C → Task 4D`，之后再继续 Task 5/6/7/13/16 等既有 P1；Task 4E 可在 4D 后独立交付。Task 17 始终最后执行。任何跳过 P0/P1 前置门禁的情况都必须有独立决策记录，不得仅在提交说明中口头放行。
+当前固定执行顺序为 `Task 3A → Task 3B → Task 4A → Task 4B → Task 4C → Task 4D`，之后再继续 Task 5/6/7/13/16 等既有 P1；Task 4E 可在 4D 后独立交付，Task 4F 是不阻塞 4B～4E 的 Tenancy 存量拓扑后续任务。Task 17 始终最后执行。任何跳过 P0/P1 前置门禁的情况都必须有独立决策记录，不得仅在提交说明中口头放行。
 
 ### Task 1: 自动校验状态单一事实源和发布检查
 
@@ -155,6 +155,8 @@
 
 ### Task 4A: 关闭跨模块实现依赖（2026-07-22 P1）
 
+**状态：实现完成，聚焦 Integration 存在两个已独立复现的既有 API 夹具失败。** 稳定模块键、Contracts 授权入口、实现引用/生产友元清理及负向架构门禁已经落地；Task 4B～4C 仍独立开放，模块能力状态保持 `Implemented`。
+
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
 - Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/FullNetModuleRegistry.cs`
@@ -173,15 +175,15 @@
 - Produces: `IFullNetModule.Name : string` 作为唯一模块键，`IFullNetModule.Dependencies : IReadOnlyCollection<string>` 只保存稳定模块键
 - Consumes: `FullNetPermissionPolicies.For(string permissionCode)` 作为跨模块 Endpoint 的公开授权策略入口
 
-- [ ] **Step 1: 写入失败的架构契约**
+- [x] **Step 1: 写入失败的架构契约**
 
   新增扫描断言：`src/Modules/*/*.csproj` 不得引用另一个逻辑业务模块的非 `.Contracts` 项目；同一逻辑模块的已有 Core/Http 引用可被依赖测试识别，例如 Tenancy.Http→Tenancy，但这不构成新建 `.Http` 项目的授权，新增项目仍须满足 `rules/development-quality.md` 第 3 节的项目拓扑门禁。生产模块 `AssemblyInfo.cs` 不得把另一个生产模块列入 `InternalsVisibleTo`。现状必须报告 Organization→Identity/Tenancy.Http、Tenancy.Http→Identity 和 Identity→Organization 友元。
 
-- [ ] **Step 2: 用稳定模块键替代具体类型依赖**
+- [x] **Step 2: 用稳定模块键替代具体类型依赖**
 
   将 `Dependencies` 改为字符串模块键；Registry 以 `module.Name` 建立唯一字典，拒绝空键、重复键、未知依赖和循环。Identity 使用 `[]`，Tenancy 使用 `["Identity"]`，Organization 使用 `["Identity", "Tenancy"]`；单元测试分别覆盖确定顺序、未知键和循环。
 
-- [ ] **Step 3: 移除实现引用和生产友元**
+- [x] **Step 3: 移除实现引用和生产友元**
 
   Organization Endpoint 改用 `.RequireAuthorization(FullNetPermissionPolicies.For(permissionCode))`，删除对 `Full.NET.Modules.Identity.Authorization` 的引用；随后删除 Organization→Identity、Organization→Tenancy.Http、Tenancy.Http→Identity 的项目引用，以及 Identity 对 Organization 的 `InternalsVisibleTo`。Contracts 引用保持不变。
 
@@ -189,9 +191,13 @@
 
   运行 Architecture、Unit、Organization/Identity/Tenancy 聚焦 Integration 与 OpenAPI 门禁；对比模块顺序和权限策略名称，预期公开 API、权限码及 Endpoint 行为无变化。
 
-- [ ] **Step 5: 复核 Tenancy 存量项目拓扑**
+  Architecture **29/29**、Unit **337/337** 与 TenantProvisioning SQL Server/MySQL **2/2** 已通过。Identity 登录用例独立复现并发响应计数不匹配，Organization 机构管理用例独立复现前置 `/api/v1/tenancy/available` 返回 403；二者均发生在 Task 4A 改动路径之外，未通过放宽断言或修改产品行为掩盖，故本步骤在独立修复并重跑前保持未完成。
+
+- [x] **Step 5: 复核 Tenancy 存量项目拓扑**
 
   在实现引用清理与 Host Profile 边界验证完成后，记录 `Tenancy.Http` 的真实非 HTTP Core 消费者、依赖/打包收益和架构测试证据。证据满足门禁则保留并在验证记录中说明；证据不足则新增独立合并任务，不在 Task 4A 中顺手移动类型或改变公开 API。无论结论如何，Tenancy 的存量拆分都不得作为新模块模板。
+
+  复核确认 Worker 确实消费 Core 中的 `TenantProvisionedCacheInvalidationHandler`，但注册入口 `TenancyModule.AddBackgroundServices` 位于 `.Http`，Worker/Migrator 因而仍装载 `.Http` 项目；现有拆分未形成足够的依赖或打包隔离收益。Task 4A 不移动类型、不改变公开 API，合并评估与实施转入下方独立 Task 4F。
 
 ### Task 4B: API 移除迁移执行能力（2026-07-22 P1）
 
@@ -309,6 +315,37 @@
 - [ ] **Step 3: 验证全路由与 OpenAPI**
 
   运行 Architecture、SQL Server/MySQL Tenancy API Integration 和 `pnpm test:openapi`；在验证记录说明匿名是既有行为显式化，不是放宽授权。当前没有 tenancy/current 的独立 OpenAPI 基线，不得顺手创建与本任务无关的全局快照。
+
+### Task 4F: Tenancy 存量 Core/Http 拓扑评估与合并（2026-07-22 P2）
+
+**状态：Planned；必须作为独立任务执行，不回填到 Task 4A。** 当前 Worker 是 Core 事件处理器的真实非 HTTP 消费者，但注册入口位于 `.Http`，Worker/Migrator 仍装载 `.Http` 发布依赖；现有拆分未证明依赖或打包隔离收益，且不得作为新模块模板。
+
+**Files:**
+- Modify: `src/Modules/Full.NET.Modules.Tenancy/**`
+- Modify/Delete: `src/Modules/Full.NET.Modules.Tenancy.Http/**`
+- Modify: `src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs`
+- Modify: `src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj`
+- Modify: `src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj`
+- Modify: `src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj`
+- Test: `tests/Full.NET.ArchitectureTests/*`
+- Test: `tests/Full.NET.UnitTests/Modularity/*`
+- Test: `tests/Full.NET.IntegrationTests/Api/*`
+
+- [ ] **Step 1: 以发布物与依赖图建立 RED**
+
+  锁定 Api/Worker/Migrator 的项目依赖和发布物清单，证明 Worker 只需要 Core 事件处理器却因组合入口装载 `.Http`；测试必须区分“真实非 HTTP 消费者存在”和“独立 `.Http` 项目有隔离收益”。
+
+- [ ] **Step 2: 选择并记录最小拓扑**
+
+  优先评估把现有 Tenancy Core/Http 合并为一个主项目；只有量化发布隔离、许可或独立消费者证据满足项目拆分门禁时才保留双项目。不得新增第三个项目或借机改变 Endpoint、Contracts、权限码和序列化契约。
+
+- [ ] **Step 3: 实施并收紧回归门禁**
+
+  迁移组合入口和项目引用，删除失去消费者的项目边界；Architecture Tests 阻止宿主重新通过 Web 项目获取后台能力，也阻止其他模块复制该历史拓扑。
+
+- [ ] **Step 4: 验证宿主与双库行为**
+
+  运行 Release build、Architecture/Unit、SQL Server/MySQL Tenancy API、TenantProvisioning、Seed、Worker Outbox 与 OpenAPI 门禁，并扫描三宿主发布物；任何公开 API 或后台事件行为变化都必须停止并拆成独立契约任务。
 
 ### Task 5: 双数据库语义 SQL Catalog
 

@@ -230,6 +230,17 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 
 本轮 Unit **332/332**、Architecture **28/28**、三宿主 Release 发布物扫描均通过。SQL Server/MySQL Integration 与真实栈因当前机器没有可用容器运行时而未执行，不能据此声明双库新路径已通过；详见 [Seed 双库契约验证记录](seed-dual-database-contract-2026-07-21.md)。
 
+## 增补（2026-07-22，架构硬化 Task 4A 跨模块实现依赖）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **332 → 337** | 模块 Registry 的确定顺序、空/重复模块键、未知依赖及稳定字符串依赖契约共 +5；新鲜运行 **337/337** |
+| Architecture 门槛 **28 → 29** | 新增 1 项生产模块不得跨逻辑模块引用非 Contracts 项目或开放生产友元的负向门禁；新鲜运行 **29/29** |
+| Compatibility / Integration 门槛 | 保持 **7/109**；Task 4A 未增删这两套测试发现项 |
+| 四处 canonical 门槛 | **337/7/29/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
+
+Task 4A 聚焦 Integration 中 TenantProvisioning SQL Server/MySQL **2/2** 通过。Identity 登录与 Organization 机构管理用例均已独立复现既有夹具失败，分别表现为并发响应计数不匹配、进入 Organization Endpoint 前 `/api/v1/tenancy/available` 返回 403；本轮未放宽断言或修改无关产品行为，也不据此声明完整 Integration 通过。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
