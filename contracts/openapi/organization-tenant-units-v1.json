@@ -1,0 +1,93 @@
+{
+  "id": "organization-tenant-units-v1",
+  "version": 1,
+  "description": "租户机构管理 HTTP 契约冻结夹具；与 OrganizationUnitManagementContracts 和 ManageTenantUnits.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/organization/units",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.units.read",
+          "successStatus": 200,
+          "responseSchema": "OrganizationUnitResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "organization.units.write",
+          "successStatus": 201,
+          "requestSchema": "CreateOrganizationUnitRequest",
+          "responseSchema": "OrganizationUnitResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/units/{unitId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.units.read",
+          "successStatus": 200,
+          "responseSchema": "OrganizationUnitResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "organization.units.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateOrganizationUnitRequest",
+          "responseSchema": "OrganizationUnitResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/units/{unitId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "organization.units.write",
+          "successStatus": 200,
+          "responseSchema": "OrganizationUnitResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OrganizationUnitResponse": {
+      "properties": [
+        "id",
+        "parentId",
+        "code",
+        "name",
+        "displayOrder",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateOrganizationUnitRequest": {
+      "properties": [
+        "parentId",
+        "code",
+        "name",
+        "displayOrder"
+      ]
+    },
+    "UpdateOrganizationUnitRequest": {
+      "properties": [
+        "parentId",
+        "name",
+        "displayOrder",
+        "version"
+      ]
+    },
+    "OrganizationUnitResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

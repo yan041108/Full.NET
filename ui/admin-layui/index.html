@@ -321,6 +321,39 @@
             </section>
           </main>
 
+          <main data-route-view="org-units" class="fn-org-units" hidden>
+            <section class="fn-org-units__heading">
+              <div>
+                <p data-i18n="orgUnits.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="orgUnits.title"></h1>
+                <span data-i18n="orgUnits.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-org-units-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-org-units__create"
+              data-org-units-create-form
+              data-permission="organization.units.write"
+            >
+              <div><small>01</small><h2 data-i18n="orgUnits.createTitle"></h2></div>
+              <label>
+                <span data-i18n="orgUnits.code"></span>
+                <input class="layui-input" name="code" autocomplete="off" required data-i18n-placeholder="orgUnits.codePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="orgUnits.name"></span>
+                <input class="layui-input" name="name" autocomplete="off" required data-i18n-placeholder="orgUnits.namePlaceholder">
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="orgUnits.create"></button>
+            </form>
+            <section class="fn-org-units__ledger">
+              <header><div><small>02</small><h2 data-i18n="orgUnits.directoryTitle"></h2></div></header>
+              <div data-org-units-directory></div>
+            </section>
+          </main>
+
           <main data-route-view="super-administrators" class="fn-super-admin" hidden>
             <section class="fn-super-admin__heading">
               <div><p data-i18n="superAdmin.eyebrow"></p><h1 data-route-heading tabindex="-1" data-i18n="superAdmin.title"></h1><span data-i18n="superAdmin.description"></span></div>

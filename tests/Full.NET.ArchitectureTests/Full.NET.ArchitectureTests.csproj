@@ -27,6 +27,8 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Tenancy.Http\Full.NET.Modules.Tenancy.Http.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Organization\Full.NET.Modules.Organization.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Organization.Contracts\Full.NET.Modules.Organization.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />

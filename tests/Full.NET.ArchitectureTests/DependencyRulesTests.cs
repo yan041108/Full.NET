@@ -35,6 +35,8 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
         typeof(TenancyModule).Assembly,
         typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
+        typeof(Full.NET.Modules.Organization.OrganizationModule).Assembly,
+        typeof(Full.NET.Modules.Organization.Contracts.OrganizationErrorCodes).Assembly,
     ];
 
     [TestMethod]
@@ -405,6 +407,16 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Organization_declares_identity_and_tenancy_as_explicit_module_dependencies()
+    {
+        var module = new Full.NET.Modules.Organization.OrganizationModule();
+
+        CollectionAssert.AreEquivalent(
+            new[] { typeof(IdentityModule), typeof(TenancyModule) },
+            module.Dependencies.ToArray());
+    }
+
+    [TestMethod]
     public void ProductionTypes_DoNotExposeServiceLocatorMembers()
     {
         var allowedTypes = new HashSet<Type>
@@ -521,6 +533,8 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
         typeof(TenancyModule).Assembly,
         typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
+        typeof(Full.NET.Modules.Organization.OrganizationModule).Assembly,
+        typeof(Full.NET.Modules.Organization.Contracts.OrganizationErrorCodes).Assembly,
         HostApi,
         HostMigrator,
         HostWorker,

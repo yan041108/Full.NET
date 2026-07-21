@@ -15,6 +15,7 @@ internal static class AdminNavigationWhitelist
             ["users"] = new("users", "/identity/users"),
             ["roles"] = new("roles", "/identity/roles"),
             ["menus"] = new("menus", "/identity/menus"),
+            ["org-units"] = new("org-units", "/organization/units"),
             ["super-administrators"] = new(
                 "super-administrators",
                 "/identity/super-administrators"),

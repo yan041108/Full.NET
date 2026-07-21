@@ -13,9 +13,10 @@ import { createSuperAdministratorController } from './core/super-administrators.
 import { createUsersController } from './core/users.js';
 import { createRolesController } from './core/roles.js';
 import { createMenusController } from './core/menus.js';
+import { createOrgUnitsController } from './core/org-units.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/users', '/identity/roles', '/identity/menus', '/identity/super-administrators']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/identity/super-administrators']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -77,6 +78,10 @@ export function initializeAdminApp(root = document, options = {}) {
     request,
     translation: () => translation
   });
+  const orgUnits = createOrgUnitsController(root, {
+    request,
+    translation: () => translation
+  });
 
   const onRouteChange = () => {
     renderRoute(root, latestSnapshot, translation, { focusHeading: true });
@@ -95,6 +100,10 @@ export function initializeAdminApp(root = document, options = {}) {
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/identity/menus') {
       void menus.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/organization/units') {
+      void orgUnits.load();
     }
   };
   const onProbe = async () => {
@@ -258,6 +267,10 @@ export function initializeAdminApp(root = document, options = {}) {
       && currentRoute() === '/identity/menus') {
       void menus.load();
     }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/organization/units') {
+      void orgUnits.load();
+    }
   });
   const unsubscribeI18n = i18n.subscribe((snapshot) => {
     translation = snapshot;
@@ -320,6 +333,7 @@ export function initializeAdminApp(root = document, options = {}) {
       users.dispose();
       roles.dispose();
       menus.dispose();
+      orgUnits.dispose();
       unsubscribeSession();
       unsubscribeI18n();
     }

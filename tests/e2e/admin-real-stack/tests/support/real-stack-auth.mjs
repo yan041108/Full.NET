@@ -60,3 +60,32 @@ export async function loginAccessToken(request, clientKind) {
   expect(typeof body.accessToken).toBe('string');
   return body.accessToken;
 }
+
+/** 将 Host 访问令牌切换为 Development 本地租户上下文。 */
+export async function enterTenantAccessToken(request, clientKind, hostAccessToken) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const availableResponse = await request.get(`${apiBaseUrl}/api/v1/tenancy/available`, {
+    headers: {
+      Authorization: `Bearer ${hostAccessToken}`,
+      Origin: origin
+    }
+  });
+  expect(availableResponse.ok()).toBeTruthy();
+  const tenants = await availableResponse.json();
+  const tenant = tenants.find(entry => entry.identifier === 'local') ?? tenants[0];
+  expect(tenant?.id).toBeTruthy();
+
+  const enterResponse = await request.put(`${apiBaseUrl}/api/v1/tenancy/context`, {
+    headers: {
+      Authorization: `Bearer ${hostAccessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    },
+    data: { tenantId: tenant.id }
+  });
+  expect(enterResponse.ok()).toBeTruthy();
+  const body = await enterResponse.json();
+  expect(typeof body.accessToken).toBe('string');
+  return body.accessToken;
+}

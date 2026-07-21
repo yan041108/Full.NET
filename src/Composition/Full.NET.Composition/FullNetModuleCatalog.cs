@@ -2,6 +2,7 @@ using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.Organization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -64,5 +65,6 @@ public static class FullNetModuleCatalog
     [
         new IdentityModule(),
         new TenancyModule(),
+        new OrganizationModule(),
     ];
 }

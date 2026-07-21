@@ -4,5 +4,6 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Tenancy.Http\Full.NET.Modules.Tenancy.Http.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.Organization\Full.NET.Modules.Organization.csproj" />
   </ItemGroup>
 </Project>

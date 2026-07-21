@@ -134,6 +134,19 @@ export type {
   UpdateHostMenuRequest
 } from './host-menus.js';
 
+export {
+  isOrganizationUnit,
+  isOrganizationUnitPage,
+  isUpdateOrganizationUnitRequest
+} from './tenant-org-units.js';
+
+export type {
+  OrganizationUnit,
+  OrganizationUnitPage,
+  CreateOrganizationUnitRequest,
+  UpdateOrganizationUnitRequest
+} from './tenant-org-units.js';
+
 export type {
   TenantContextDescriptor,
   TenantContextSummary,
