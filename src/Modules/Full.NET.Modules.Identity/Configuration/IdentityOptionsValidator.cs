@@ -61,7 +61,8 @@ internal sealed class IdentityOptionsValidator(IHostEnvironment environment)
         }
 
         if (options.EnableRemoteSuperAdministratorManagement
-            && environment.IsProduction())
+            && environment.IsProduction()
+            && !options.EnableTotpStrongReauthentication)
         {
             failures.Add(
                 "Remote super-administrator management cannot be enabled in Production until a strong reauthentication provider is configured.");

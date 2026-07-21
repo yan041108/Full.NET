@@ -194,6 +194,16 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Integration 门槛 **103 → 105** | Production 缺 Bootstrap Secret SQL Server/MySQL +2 |
 | 四处 canonical 门槛 | **322/7/26/105**；见 [seed-production-secret-and-super-admin-disable-2026-07-21.md](seed-production-secret-and-super-admin-disable-2026-07-21.md) |
 
+
+
+## 增补（2026-07-21，TOTP 强认证 Provider）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **322 → 331** | Validator/Management/TOTP 算法相关 +9 |
+| Integration 门槛 **105 → 107** | TotpStrongReauth SQL Server/MySQL +2 |
+| 四处 canonical 门槛 | **331/7/26/107**；见 [identity-totp-strong-reauth-2026-07-21.md](identity-totp-strong-reauth-2026-07-21.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

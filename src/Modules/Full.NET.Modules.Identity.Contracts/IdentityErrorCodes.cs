@@ -84,6 +84,15 @@ public static class IdentityErrorCodes
     public const string SuperAdministratorLastRemaining =
         "identity.super_administrator.last_remaining";
 
+    /// <summary>Production 强认证路径要求提供 TOTP 验证码。</summary>
+    public const string MfaTotpRequired = "identity.mfa.totp_required";
+
+    /// <summary>TOTP 验证码无效或已过期。</summary>
+    public const string MfaTotpInvalid = "identity.mfa.totp_invalid";
+
+    /// <summary>操作者尚未确认启用 TOTP。</summary>
+    public const string MfaTotpNotEnrolled = "identity.mfa.not_enrolled";
+
     /// <summary>Host 用户名在作用域内已存在。</summary>
     public const string UsernameExists = "identity.users.username_exists";
 
@@ -153,6 +162,9 @@ public static class IdentityErrorCodes
         SuperAdministratorOperatorRequired,
         SuperAdministratorTargetNotFound,
         SuperAdministratorLastRemaining,
+        MfaTotpRequired,
+        MfaTotpInvalid,
+        MfaTotpNotEnrolled,
         UsernameExists,
         UserNotFound,
         RoleCodeExists,

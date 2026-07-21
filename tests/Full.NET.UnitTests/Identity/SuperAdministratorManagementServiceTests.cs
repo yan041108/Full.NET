@@ -6,6 +6,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -107,6 +108,73 @@ public sealed class SuperAdministratorManagementServiceTests
                 Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Production_without_eligible_provider_is_rejected()
+    {
+        var fixture = new Fixture(
+            enabled: true,
+            environmentName: Environments.Production,
+            productionEligible: false);
+
+        var result = await fixture.Service.GrantAsync(
+            CreatePrincipal(),
+            "target-admin",
+            Password,
+            "123456");
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(
+            IdentityErrorCodes.SuperAdministratorRemoteManagementDisabled,
+            result.Error?.Code);
+        await fixture.DomainService.DidNotReceiveWithAnyArgs()
+            .GrantAsync(default, default, default);
+    }
+
+    [TestMethod]
+    public async Task Production_eligible_provider_missing_totp_is_rejected()
+    {
+        var fixture = new Fixture(
+            enabled: true,
+            environmentName: Environments.Production,
+            productionEligible: true,
+            verifyResult: Result<IdentityUser>.Failure(new Error(
+                IdentityErrorCodes.MfaTotpRequired,
+                "totp required",
+                ErrorType.Unauthorized)));
+
+        var result = await fixture.Service.GrantAsync(
+            CreatePrincipal(),
+            "target-admin",
+            Password);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.MfaTotpRequired, result.Error?.Code);
+        await fixture.DomainService.DidNotReceiveWithAnyArgs()
+            .GrantAsync(default, default, default);
+    }
+
+    [TestMethod]
+    public async Task Production_eligible_provider_with_totp_calls_domain_service()
+    {
+        var fixture = new Fixture(
+            enabled: true,
+            environmentName: Environments.Production,
+            productionEligible: true);
+
+        var result = await fixture.Service.GrantAsync(
+            CreatePrincipal(),
+            "target-admin",
+            Password,
+            "123456");
+
+        Assert.IsTrue(result.IsSuccess);
+        await fixture.DomainService.Received(1)
+            .GrantAsync(
+                OperatorUserId,
+                TargetUserId,
+                Arg.Any<CancellationToken>());
+    }
+
     private static ClaimsPrincipal CreatePrincipal() => new(
         new ClaimsIdentity(
             [new Claim(JwtRegisteredClaimNames.Sub, OperatorUserId.ToString("D"))],
@@ -117,7 +185,11 @@ public sealed class SuperAdministratorManagementServiceTests
 
     private sealed class Fixture
     {
-        public Fixture(bool enabled = true)
+        public Fixture(
+            bool enabled = true,
+            string environmentName = "Testing",
+            bool productionEligible = false,
+            Result<IdentityUser>? verifyResult = null)
         {
             var passwordHasher = new PasswordHasher<IdentityUser>();
             var operatorUser = CreateUser(OperatorUserId, "operator");
@@ -153,11 +225,26 @@ public sealed class SuperAdministratorManagementServiceTests
                     new SuperAdministratorChangeResponse(TargetUserId, true)));
 
             var environment = Substitute.For<IHostEnvironment>();
-            environment.EnvironmentName.Returns("Testing");
+            environment.EnvironmentName.Returns(environmentName);
+
+            IStrongReauthenticationProvider provider;
+            if (productionEligible || verifyResult is not null || environmentName == Environments.Production)
+            {
+                provider = new StubStrongReauthenticationProvider(
+                    productionEligible,
+                    verifyResult ?? Result<IdentityUser>.Success(operatorUser));
+            }
+            else
+            {
+                provider = new PasswordReauthenticationProvider(
+                    QueryExecutor,
+                    passwordHasher);
+            }
+
             Service = new SuperAdministratorManagementService(
                 QueryExecutor,
                 DomainService,
-                passwordHasher,
+                provider,
                 Options.Create(new FullNetIdentityOptions
                 {
                     EnableRemoteSuperAdministratorManagement = enabled,

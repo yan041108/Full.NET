@@ -14,7 +14,7 @@
 
 实施时数据库真实基线只有 001-004，而命名规范化尚未开始。超级管理员角色使用 `005_SuperAdministrator.sql`，可追责审计操作者列与索引使用 `006_SuperAdministratorAuditActor.sql`。后续实际分配为：Seed 执行审计使用 007、UUID Binary16 计划使用 008/009、命名 Expand/Contract 计划使用 010/011；禁止修改已经执行或发布的迁移。
 
-截至 2026-07-18，Task 1-3、动态授权主链、逐请求 Session/SecurityStamp/Scope 校验、Task 4 的专用服务、远程 API、当前密码重认证、事务审计与双库并发最后一名保护，以及 Task 5 的共享契约、Vue/Layui 管理页和 30 项双端 Mock E2E 已实现。Production 远程写操作由配置验证器硬性禁止，待 MFA/强认证 Provider 到位后再开放；账号禁用/删除路径保护、真实后端浏览器 E2E 尚未完成。当前状态仍为 `Implemented`，不能标记完整 `Verified`。
+截至 2026-07-18，Task 1-3、动态授权主链、逐请求 Session/SecurityStamp/Scope 校验、Task 4 的专用服务、远程 API、当前密码重认证、事务审计与双库并发最后一名保护，以及 Task 5 的共享契约、Vue/Layui 管理页和 30 项双端 Mock E2E 已实现。Production 远程写操作按 ADR-0004 在 TOTP 强认证 Provider 与操作者已登记 TOTP 后可显式开启；双端 MFA UI、真实后端浏览器 E2E 尚未完成。当前状态仍为 `Implemented`，不能标记完整 `Verified`。
 
 ### Task 1: 建立双库角色标记和迁移恢复测试
 

@@ -3,7 +3,7 @@
 - 日期：2026-07-18
 - 状态：已批准
 - 决策来源：项目所有者要求对标 Admin.NET，引入默认拥有全部权限的超级管理员账号概念
-- 实现状态：角色标记、动态全权限、签名 Claim、Bootstrap、双库并发最后一名保护及双端标识已实现；远程高风险管理入口、可靠 Audit/Outbox、MFA/重新认证、完整双端管理和真实浏览器 E2E 尚未实现
+- 实现状态：角色标记、动态全权限、签名 Claim、Bootstrap、双库并发最后一名保护及双端标识已实现；远程高风险管理入口、可靠 Audit/Outbox、TOTP 强认证 Provider（后端）已实现；双端 MFA UI 与真实浏览器 E2E 尚未实现
 
 ## 1. 目标与非目标
 
@@ -128,7 +128,7 @@ fullnet_super_administrator = true
 - 变更用户安全戳并撤销目标账号全部活动 Session；
 - 缓存按 S0 安全数据处理，禁止 Fail-Safe，提交后先清本机再通过 Outbox/Backplane 修复其他节点。
 
-第一阶段远程写入口仅允许 Development/Testing 通过 `Identity:EnableRemoteSuperAdministratorManagement=true` 显式开启，并要求当前密码重认证；配置验证器禁止在 Production 开启。只读列表与审计仍受 Host 精确权限保护。Production 必须先接入 MFA/强认证 Provider，再通过新的架构决策解除门禁，不能只修改配置绕过。
+第一阶段远程写入口仅允许 Development/Testing 通过 `Identity:EnableRemoteSuperAdministratorManagement=true` 显式开启，并要求当前密码重认证。Production 须同时满足：[ADR-0004](../../architecture/adr/ADR-0004-production-super-admin-strong-reauth.md) 规定的 TOTP 强认证 Provider（`Identity:EnableTotpStrongReauthentication=true`）、操作者已登记 TOTP，以及请求中的当前密码与验证码；禁止只修改配置绕过。只读列表与审计仍受 Host 精确权限保护。
 
 双管理端必须同步实现超级管理员标识、系统角色只读状态、授予/撤销确认、最后一名保护错误和审计入口。只有服务端、SQL Server/MySQL、Vue/Layui 和真实后端 E2E 全部通过后才可标记 `Verified`。
 

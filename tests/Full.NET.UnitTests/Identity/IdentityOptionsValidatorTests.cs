@@ -18,6 +18,7 @@ public sealed class IdentityOptionsValidatorTests
         Assert.AreEqual(15, options.LockoutMinutes);
         Assert.IsTrue(options.RequireSecureCookies);
         Assert.IsFalse(options.EnableRemoteSuperAdministratorManagement);
+        Assert.IsFalse(options.EnableTotpStrongReauthentication);
     }
 
     [TestMethod]
@@ -58,12 +59,12 @@ public sealed class IdentityOptionsValidatorTests
     }
 
     [TestMethod]
-    public void Remote_super_administrator_management_is_rejected_in_production()
+    public void Remote_super_administrator_management_is_rejected_in_production_without_totp_provider()
     {
         var options = new IdentityOptions
         {
-            AllowDevelopmentEphemeralSigningKey = true,
             EnableRemoteSuperAdministratorManagement = true,
+            EnableTokenEndpoints = false,
         };
 
         var result = CreateValidator(Environments.Production).Validate(null, options);
@@ -72,6 +73,21 @@ public sealed class IdentityOptionsValidatorTests
         StringAssert.Contains(
             string.Join(";", result.Failures),
             "cannot be enabled in Production");
+    }
+
+    [TestMethod]
+    public void Remote_super_administrator_management_is_allowed_in_production_with_totp_provider()
+    {
+        var options = new IdentityOptions
+        {
+            EnableRemoteSuperAdministratorManagement = true,
+            EnableTotpStrongReauthentication = true,
+            EnableTokenEndpoints = false,
+        };
+
+        var result = CreateValidator(Environments.Production).Validate(null, options);
+
+        Assert.IsTrue(result.Succeeded, string.Join(";", result.Failures ?? []));
     }
 
     private static IdentityOptionsValidator CreateValidator(string environmentName)

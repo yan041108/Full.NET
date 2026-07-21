@@ -5,22 +5,21 @@ using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
-using Microsoft.AspNetCore.Identity;
+using Full.NET.Modules.Identity.Security;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using FullNetIdentityOptions = Full.NET.Modules.Identity.Configuration.IdentityOptions;
-using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 
 /// <summary>
-/// 为远程高风险入口执行环境门禁、操作者解析和当前密码重认证，领域不变量仍由受保护服务负责。
+/// 为远程高风险入口执行环境门禁与强认证，领域不变量仍由受保护服务负责。
 /// </summary>
 internal sealed class SuperAdministratorManagementService(
     IQueryExecutor queryExecutor,
     ISuperAdministratorService domainService,
-    IPasswordHasher<IdentityUser> passwordHasher,
+    IStrongReauthenticationProvider reauthenticationProvider,
     IOptions<FullNetIdentityOptions> options,
     IHostEnvironment environment)
 {
@@ -31,11 +30,13 @@ internal sealed class SuperAdministratorManagementService(
         ClaimsPrincipal principal,
         string targetUsername,
         string currentPassword,
+        string? totpCode = null,
         CancellationToken cancellationToken = default)
     {
         var operatorResult = await ReauthenticateAsync(
                 principal,
                 currentPassword,
+                totpCode,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!operatorResult.IsSuccess)
@@ -73,11 +74,13 @@ internal sealed class SuperAdministratorManagementService(
         ClaimsPrincipal principal,
         Guid targetUserId,
         string currentPassword,
+        string? totpCode = null,
         CancellationToken cancellationToken = default)
     {
         var operatorResult = await ReauthenticateAsync(
                 principal,
                 currentPassword,
+                totpCode,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!operatorResult.IsSuccess)
@@ -96,81 +99,50 @@ internal sealed class SuperAdministratorManagementService(
     private async Task<Result<IdentityUser>> ReauthenticateAsync(
         ClaimsPrincipal principal,
         string currentPassword,
+        string? totpCode,
         CancellationToken cancellationToken)
     {
-        if (!_options.EnableRemoteSuperAdministratorManagement
-            || environment.IsProduction())
+        if (!_options.EnableRemoteSuperAdministratorManagement)
         {
-            return Failure<IdentityUser>(
-                IdentityErrorCodes.SuperAdministratorRemoteManagementDisabled,
-                "Remote super-administrator management is disabled.",
-                ErrorType.Forbidden);
+            return Disabled();
+        }
+
+        if (environment.IsProduction()
+            && !reauthenticationProvider.IsProductionEligible)
+        {
+            return Disabled();
         }
 
         if (!Guid.TryParse(
                 principal.FindFirstValue(JwtRegisteredClaimNames.Sub),
                 out var operatorUserId))
         {
-            return ReauthenticationFailed();
+            return Result<IdentityUser>.Failure(new Error(
+                IdentityErrorCodes.SuperAdministratorReauthenticationFailed,
+                "The current password reauthentication failed.",
+                ErrorType.Unauthorized));
         }
 
-        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
-                IdentitySql.FindHostUserById,
-                new { UserId = operatorUserId },
+        return await reauthenticationProvider.VerifyAsync(
+                operatorUserId,
+                currentPassword,
+                totpCode,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (record is not { IsActive: true }
-            || string.IsNullOrEmpty(currentPassword))
-        {
-            return ReauthenticationFailed();
-        }
-
-        var user = ToUser(record);
-        var verification = passwordHasher.VerifyHashedPassword(
-            user,
-            record.PasswordHash,
-            currentPassword);
-        return verification == PasswordVerificationResult.Failed
-            ? ReauthenticationFailed()
-            : Result<IdentityUser>.Success(user);
     }
 
     private static string NormalizeUsername(string value) =>
         value.Trim().ToUpperInvariant();
 
-    private static IdentityUser ToUser(IdentityUserRecord record) => new(
-        record.Id,
-        record.TenantId,
-        record.ScopeKey,
-        record.Username,
-        record.NormalizedUsername,
-        record.DisplayName,
-        record.PasswordHash,
-        record.IsActive,
-        record.FailedLoginCount,
-        record.LockoutEndUtc,
-        record.SecurityStamp,
-        record.CreatedAtUtc,
-        record.UpdatedAtUtc,
-        record.Version,
-        record.PreferredLocale,
-        record.ProfileVersion);
-
-    private static Result<IdentityUser> ReauthenticationFailed() =>
-        Failure<IdentityUser>(
-            IdentityErrorCodes.SuperAdministratorReauthenticationFailed,
-            "The current password reauthentication failed.",
-            ErrorType.Unauthorized);
+    private static Result<IdentityUser> Disabled() =>
+        Result<IdentityUser>.Failure(new Error(
+            IdentityErrorCodes.SuperAdministratorRemoteManagementDisabled,
+            "Remote super-administrator management is disabled.",
+            ErrorType.Forbidden));
 
     private static Result<SuperAdministratorChangeResponse> Failure(
         string code,
         string message,
         ErrorType type) =>
-        Failure<SuperAdministratorChangeResponse>(code, message, type);
-
-    private static Result<T> Failure<T>(
-        string code,
-        string message,
-        ErrorType type) =>
-        Result<T>.Failure(new Error(code, message, type));
+        Result<SuperAdministratorChangeResponse>.Failure(new Error(code, message, type));
 }

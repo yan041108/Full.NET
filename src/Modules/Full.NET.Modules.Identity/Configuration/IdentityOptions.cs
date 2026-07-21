@@ -26,6 +26,11 @@ internal sealed class IdentityOptions
 
     public bool EnableRemoteSuperAdministratorManagement { get; set; }
 
+    /// <summary>
+    /// 启用 TOTP 强认证 Provider（ADR-0004）。Production 开启远程超管写操作时必须为 true。
+    /// </summary>
+    public bool EnableTotpStrongReauthentication { get; set; }
+
     public string ActiveKeyId { get; set; } = string.Empty;
 
     public Dictionary<string, IdentitySigningKeyOptions> SigningKeys { get; set; } =

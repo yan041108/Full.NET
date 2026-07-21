@@ -12,6 +12,7 @@ using Full.NET.Modules.Identity.DataScope;
 using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
+using Full.NET.Modules.Identity.Features.ManageTotp;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
@@ -30,6 +31,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Http;
@@ -100,6 +102,25 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<
             Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>,
             Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>>();
+        services.AddDataProtection();
+        services.TryAddSingleton<TotpSecretProtector>();
+        var enableTotpStrongReauthentication = configuration.GetValue(
+            $"{IdentityOptions.SectionName}:EnableTotpStrongReauthentication",
+            false);
+        if (enableTotpStrongReauthentication)
+        {
+            services.TryAddScoped<
+                IStrongReauthenticationProvider,
+                TotpStrongReauthenticationProvider>();
+        }
+        else
+        {
+            services.TryAddScoped<
+                IStrongReauthenticationProvider,
+                PasswordReauthenticationProvider>();
+        }
+
+        services.TryAddScoped<TotpEnrollmentService>();
         services.TryAddScoped<IIdentityBootstrapService, IdentityBootstrapService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
@@ -266,6 +287,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.UpdateLocale.Endpoint.Map(endpoints);
         Features.GetNavigation.Endpoint.Map(endpoints);
         Features.ManageSuperAdministrators.Endpoint.Map(endpoints);
+        Features.ManageTotp.Endpoint.Map(endpoints);
         Features.ManageHostUsers.Endpoint.Map(endpoints);
         Features.ManageHostRoles.Endpoint.Map(endpoints);
         Features.ManageHostMenus.Endpoint.Map(endpoints);

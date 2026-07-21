@@ -33,7 +33,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 322
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 331
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 26
 # 日常开发默认跑双库冒烟；完整双库矩阵见下方「发布/合入」档
@@ -41,7 +41,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 # 改迁移/SQL/Outbox/UUID 时聚焦相关用例，例如：
 # dotnet tests/.../Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery|UuidBinary" --minimum-expected-tests 1 --timeout 45m
 # 合入 main / 发布候选再跑完整矩阵（约 1 小时级，勿当日常命令）
-# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 105 --timeout 90m
+# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 107 --timeout 90m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 

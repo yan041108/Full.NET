@@ -529,7 +529,7 @@ internal static class IdentitySql
         "identity.lock_super_administrator_role.sql_server",
         """
         SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
-               IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version
+               IsSuperAdministrator, DataScopeKind, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_role WITH (UPDLOCK, HOLDLOCK)
         WHERE ScopeKey = 'host' AND Code = 'host-administrator'
         """,
@@ -539,7 +539,7 @@ internal static class IdentitySql
         "identity.lock_super_administrator_role.my_sql",
         """
         SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
-               IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version
+               IsSuperAdministrator, DataScopeKind, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_role
         WHERE ScopeKey = 'host' AND Code = 'host-administrator'
         FOR UPDATE
@@ -899,6 +899,55 @@ internal static class IdentitySql
           AND ScopeKey = 'host'
           AND TenantId IS NULL
           AND IsSystem = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindUserTotpByUserId = new(
+        "identity.find_user_totp_by_user_id",
+        """
+        SELECT UserId, SecretProtected, IsEnabled, ConfirmedAtUtc,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_user_totp
+        WHERE UserId = @UserId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertUserTotpPending = new(
+        "identity.insert_user_totp_pending",
+        """
+        INSERT INTO fn_identity_user_totp
+            (UserId, SecretProtected, IsEnabled, ConfirmedAtUtc,
+             CreatedAtUtc, UpdatedAtUtc, Version)
+        VALUES
+            (@UserId, @SecretProtected, 0, NULL,
+             @CreatedAtUtc, @UpdatedAtUtc, 1)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ResetUserTotpPending = new(
+        "identity.reset_user_totp_pending",
+        """
+        UPDATE fn_identity_user_totp
+        SET SecretProtected = @SecretProtected,
+            IsEnabled = 0,
+            ConfirmedAtUtc = NULL,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE UserId = @UserId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ConfirmUserTotp = new(
+        "identity.confirm_user_totp",
+        """
+        UPDATE fn_identity_user_totp
+        SET IsEnabled = 1,
+            ConfirmedAtUtc = @ConfirmedAtUtc,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE UserId = @UserId
+          AND IsEnabled = 0
           AND Version = @Version
         """,
         SqlDataScope.HostOnly);

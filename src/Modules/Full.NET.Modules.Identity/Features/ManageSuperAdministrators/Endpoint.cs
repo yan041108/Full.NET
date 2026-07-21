@@ -53,6 +53,7 @@ internal static class Endpoint
                     principal,
                     request.Username,
                     request.CurrentPassword,
+                    request.TotpCode,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -79,6 +80,7 @@ internal static class Endpoint
                     principal,
                     targetUserId,
                     request.CurrentPassword,
+                    request.TotpCode,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
