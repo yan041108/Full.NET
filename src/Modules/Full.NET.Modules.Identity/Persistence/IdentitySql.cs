@@ -199,6 +199,128 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindHostMenuById = new(
+        "identity.find_host_menu_by_id",
+        """
+        SELECT Id, TenantId, ScopeKey, ParentId, RouteName, Path, ComponentKey,
+               Title, Caption, Icon, DisplayOrder, RequiredPermission,
+               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_navigation
+        WHERE Id = @MenuId AND ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindHostMenuByScopeAndRouteName = new(
+        "identity.find_host_menu_by_scope_and_route_name",
+        """
+        SELECT Id, TenantId, ScopeKey, ParentId, RouteName, Path, ComponentKey,
+               Title, Caption, Icon, DisplayOrder, RequiredPermission,
+               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_navigation
+        WHERE ScopeKey = @ScopeKey AND RouteName = @RouteName
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountHostMenus = new(
+        "identity.count_host_menus",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_navigation
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostMenusSqlServer = new(
+        "identity.list_host_menus.sql_server",
+        """
+        SELECT Id, ParentId, RouteName, Path, ComponentKey, Title, Caption, Icon,
+               DisplayOrder, RequiredPermission, IsSystem, IsActive,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_navigation
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        ORDER BY DisplayOrder, RouteName
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostMenusMySql = new(
+        "identity.list_host_menus.mysql",
+        """
+        SELECT Id, ParentId, RouteName, Path, ComponentKey, Title, Caption, Icon,
+               DisplayOrder, RequiredPermission, IsSystem, IsActive,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_navigation
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        ORDER BY DisplayOrder, RouteName
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListActiveHostMenus = new(
+        "identity.list_active_host_menus",
+        """
+        SELECT Id, TenantId, ScopeKey, ParentId, RouteName, Path, ComponentKey,
+               Title, Caption, Icon, DisplayOrder, RequiredPermission,
+               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_navigation
+        WHERE ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        ORDER BY DisplayOrder, RouteName
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertHostMenu = new(
+        "identity.insert_host_menu",
+        """
+        INSERT INTO fn_identity_navigation
+            (Id, TenantId, ScopeKey, ParentId, RouteName, Path, ComponentKey,
+             Title, Caption, Icon, DisplayOrder, RequiredPermission,
+             IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version)
+        VALUES
+            (@Id, @TenantId, @ScopeKey, @ParentId, @RouteName, @Path, @ComponentKey,
+             @Title, @Caption, @Icon, @DisplayOrder, @RequiredPermission,
+             @IsSystem, @IsActive, @CreatedAtUtc, @UpdatedAtUtc, @Version)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateHostMenu = new(
+        "identity.update_host_menu",
+        """
+        UPDATE fn_identity_navigation
+        SET ParentId = @ParentId,
+            Path = @Path,
+            ComponentKey = @ComponentKey,
+            Title = @Title,
+            Caption = @Caption,
+            Icon = @Icon,
+            DisplayOrder = @DisplayOrder,
+            RequiredPermission = @RequiredPermission,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @MenuId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DisableHostMenu = new(
+        "identity.disable_host_menu",
+        """
+        UPDATE fn_identity_navigation
+        SET IsActive = 0,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @MenuId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 0
+          AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindRefreshSessionById = new(
         "identity.find_refresh_session_by_explicit_session_id",
         """

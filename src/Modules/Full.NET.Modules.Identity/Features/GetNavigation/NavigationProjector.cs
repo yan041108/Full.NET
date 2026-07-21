@@ -6,20 +6,25 @@ namespace Full.NET.Modules.Identity.Features.GetNavigation;
 internal sealed class NavigationProjector(AuthorizationCatalog catalog)
 {
     public IReadOnlyList<NavigationNodeResponse> Project(
-        IEnumerable<string> permissions)
+        IEnumerable<string> permissions,
+        IEnumerable<NavigationDefinition>? additionalDefinitions = null)
     {
         ArgumentNullException.ThrowIfNull(permissions);
         var granted = permissions.ToHashSet(StringComparer.Ordinal);
-        var childrenByParent = catalog.Navigation
+        var allDefinitions = catalog.Navigation
+            .Concat(additionalDefinitions ?? [])
+            .ToArray();
+        var childrenByParent = allDefinitions
             .Where(item => item.ParentId is not null)
             .GroupBy(item => item.ParentId!, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
-                group => group.ToArray(),
+                group => group.OrderBy(item => item.Order).ToArray(),
                 StringComparer.Ordinal);
 
-        return catalog.Navigation
+        return allDefinitions
             .Where(item => item.ParentId is null)
+            .OrderBy(item => item.Order)
             .Select(item => ProjectNode(item, childrenByParent, granted))
             .OfType<NavigationNodeResponse>()
             .ToArray();

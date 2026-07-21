@@ -272,6 +272,55 @@
             </section>
           </main>
 
+          <main data-route-view="menus" class="fn-menus" hidden>
+            <section class="fn-menus__heading">
+              <div>
+                <p data-i18n="menus.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="menus.title"></h1>
+                <span data-i18n="menus.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-menus-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-menus__create"
+              data-menus-create-form
+              data-permission="identity.menus.write"
+            >
+              <div><small>01</small><h2 data-i18n="menus.createTitle"></h2></div>
+              <label>
+                <span data-i18n="menus.routeName"></span>
+                <input class="layui-input" name="routeName" autocomplete="off" required data-i18n-placeholder="menus.routeNamePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="menus.componentKey"></span>
+                <select class="layui-input" name="componentKey" required>
+                  <option value="overview">overview</option>
+                  <option value="users">users</option>
+                  <option value="roles">roles</option>
+                </select>
+              </label>
+              <input type="hidden" name="path" value="/">
+              <label>
+                <span data-i18n="menus.titleField"></span>
+                <input class="layui-input" name="title" autocomplete="off" required data-i18n-placeholder="menus.titlePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="menus.requiredPermission"></span>
+                <select class="layui-input" name="requiredPermission" required>
+                  <option value="platform.dashboard.read">platform.dashboard.read</option>
+                  <option value="identity.users.read">identity.users.read</option>
+                </select>
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="menus.create"></button>
+            </form>
+            <section class="fn-menus__ledger">
+              <header><div><small>02</small><h2 data-i18n="menus.directoryTitle"></h2></div></header>
+              <div data-menus-directory></div>
+            </section>
+          </main>
+
           <main data-route-view="super-administrators" class="fn-super-admin" hidden>
             <section class="fn-super-admin__heading">
               <div><p data-i18n="superAdmin.eyebrow"></p><h1 data-route-heading tabindex="-1" data-i18n="superAdmin.title"></h1><span data-i18n="superAdmin.description"></span></div>

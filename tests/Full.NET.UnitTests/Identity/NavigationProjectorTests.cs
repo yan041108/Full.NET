@@ -26,6 +26,31 @@ public sealed class NavigationProjectorTests
     }
 
     [TestMethod]
+    public void Project_merges_additional_definitions_with_catalog()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new StubContributor()]);
+        var projector = new NavigationProjector(catalog);
+        var additional = new NavigationDefinition(
+            "custom-menu",
+            null,
+            "custom-menu",
+            "/",
+            "overview",
+            "Custom",
+            "Custom",
+            "grid",
+            5,
+            "parent.read");
+
+        var result = projector.Project(
+            ["parent.read", "a.read", "b.read"],
+            [additional]);
+
+        Assert.IsTrue(result.Any(node => node.RouteName == "custom-menu"));
+    }
+
+    [TestMethod]
     public void Project_removes_parent_when_no_child_is_authorized()
     {
         var catalog = AuthorizationCatalog.Create(

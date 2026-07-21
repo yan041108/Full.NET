@@ -74,9 +74,15 @@ interface LocalizedNavigation extends NavigationNode {
 const navigation = computed<LocalizedNavigation[]>(() =>
   flattenNavigation(session.navigation).flatMap(node => {
     const local = localNavigationFor(node.componentKey);
-    return local
-      ? [{ ...node, title: t(local.titleKey), caption: t(local.captionKey) }]
-      : [];
+    if (!local) {
+      return [];
+    }
+
+    if (local.routeName === node.routeName) {
+      return [{ ...node, title: t(local.titleKey), caption: t(local.captionKey) }];
+    }
+
+    return [{ ...node, title: node.title, caption: node.caption }];
   })
 );
 const activePath = computed(() => route.path);

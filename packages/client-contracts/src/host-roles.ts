@@ -6,6 +6,8 @@ export const HOST_ROLE_ASSIGNABLE_PERMISSIONS = [
   'identity.users.write',
   'identity.roles.read',
   'identity.roles.write',
+  'identity.menus.read',
+  'identity.menus.write',
   'tenancy.tenants.read',
   'tenancy.tenants.switch'
 ] as const;

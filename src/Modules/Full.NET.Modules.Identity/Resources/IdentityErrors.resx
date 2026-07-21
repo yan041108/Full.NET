@@ -33,4 +33,5 @@
   <data name="identity.roles.system_locked" xml:space="preserve"><value>系统角色受保护，禁止变更。</value></data>
   <data name="identity.menus.route_name_exists" xml:space="preserve"><value>该 Host 菜单路由名已存在。</value></data>
   <data name="identity.menus.not_found" xml:space="preserve"><value>未找到指定的 Host 菜单。</value></data>
+  <data name="identity.menus.system_locked" xml:space="preserve"><value>系统菜单受保护，禁止变更。</value></data>
 </root>

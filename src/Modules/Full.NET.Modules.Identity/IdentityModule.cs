@@ -13,6 +13,7 @@ using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
+using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Serialization;
@@ -112,6 +113,9 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<HostUserManagementService>();
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();
+        services.TryAddScoped<HostMenuQueryService>();
+        services.TryAddScoped<HostMenuManagementService>();
+        services.TryAddScoped<HostNavigationDefinitionLoader>();
         services.AddFullNetFluentValidation();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
         services.TryAddScoped<IValidator<Features.UpdateLocale.Command>,
@@ -258,5 +262,6 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageSuperAdministrators.Endpoint.Map(endpoints);
         Features.ManageHostUsers.Endpoint.Map(endpoints);
         Features.ManageHostRoles.Endpoint.Map(endpoints);
+        Features.ManageHostMenus.Endpoint.Map(endpoints);
     }
 }

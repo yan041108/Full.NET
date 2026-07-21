@@ -13,13 +13,18 @@ internal static class Endpoint
     {
         endpoints.MapGet(
                 "/api/v1/navigation",
-                (
+                async (
                     ClaimsPrincipal principal,
                     PermissionClaimEvaluator permissionClaimEvaluator,
-                    NavigationProjector projector) =>
+                    NavigationProjector projector,
+                    HostNavigationDefinitionLoader navigationLoader,
+                    CancellationToken cancellationToken) =>
                 {
                     var permissions = permissionClaimEvaluator.ResolvePermissions(principal);
-                    return Results.Ok(projector.Project(permissions));
+                    var additionalDefinitions = await navigationLoader
+                        .LoadActiveDefinitionsAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    return Results.Ok(projector.Project(permissions, additionalDefinitions));
                 })
             .WithTags("Identity")
             .RequireFullNetPermission(IdentityAuthorizationContributor.NavigationRead);

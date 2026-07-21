@@ -12,6 +12,7 @@ import TenantContextView from '../views/TenantContextView.vue';
 import SuperAdministratorsView from '../views/SuperAdministratorsView.vue';
 import UsersView from '../views/UsersView.vue';
 import RolesView from '../views/RolesView.vue';
+import MenusView from '../views/MenusView.vue';
 
 const statusPaths = new Set(['/403', '/404', '/500']);
 
@@ -37,6 +38,11 @@ export function createAppRouter(
         name: 'roles',
         path: '/identity/roles',
         component: RolesView
+      },
+      {
+        name: 'menus',
+        path: '/identity/menus',
+        component: MenusView
       },
       {
         name: 'super-administrators',

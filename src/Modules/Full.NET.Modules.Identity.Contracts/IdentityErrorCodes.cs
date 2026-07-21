@@ -105,6 +105,9 @@ public static class IdentityErrorCodes
     /// <summary>目标 Host 菜单不存在。</summary>
     public const string MenuNotFound = "identity.menus.not_found";
 
+    /// <summary>系统菜单受保护，禁止变更。</summary>
+    public const string MenuSystemLocked = "identity.menus.system_locked";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -139,5 +142,6 @@ public static class IdentityErrorCodes
         RoleSystemLocked,
         MenuRouteNameExists,
         MenuNotFound,
+        MenuSystemLocked,
     ]);
 }

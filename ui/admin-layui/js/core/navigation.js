@@ -27,6 +27,12 @@ const presentation = new Map([
     titleKey: 'navigation.roles.title',
     captionKey: 'navigation.roles.caption'
   }],
+  ['menus', {
+    view: 'menus',
+    iconClass: 'layui-icon-app',
+    titleKey: 'navigation.menus.title',
+    captionKey: 'navigation.menus.caption'
+  }],
   ['super-administrators', {
     view: 'super-administrators',
     iconClass: 'layui-icon-auz',
@@ -91,8 +97,9 @@ export function renderNavigation(container, navigation, activePath, t) {
     const icon = document.createElement('i');
     icon.className = `layui-icon ${local.iconClass}`;
     icon.setAttribute('aria-hidden', 'true');
+    const useCatalogTitle = local.routeName === node.routeName;
     const title = document.createElement('span');
-    title.textContent = t(local.titleKey);
+    title.textContent = useCatalogTitle ? t(local.titleKey) : node.title;
     const order = document.createElement('em');
     order.textContent = String(index + 1).padStart(2, '0');
     link.append(icon, title, order);

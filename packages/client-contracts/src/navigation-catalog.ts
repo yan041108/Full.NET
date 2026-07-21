@@ -30,6 +30,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/identity/roles'
   },
   {
+    componentKey: 'menus',
+    routeName: 'menus',
+    path: '/identity/menus'
+  },
+  {
     componentKey: 'super-administrators',
     routeName: 'super-administrators',
     path: '/identity/super-administrators'

@@ -3,7 +3,7 @@
 > **For agents:** 使用 [`fullnet-module-delivery`](../../../.agents/skills/fullnet-module-delivery/SKILL.md)。本切片首次引入 **持久化导航表**，须先通过迁移与 `GetNavigation` 合并设计再实现 CRUD。
 
 - 建立日期：2026-07-21
-- 状态：**Designing**（Task 1 进行中）
+- 状态：**Build-verified**
 - 批准依据：
   - [`capability-status.md`](../../roadmap/capability-status.md) P0：角色切片已关闭，下一刀菜单（禁止与组织并行）
   - [`adminnet-feature-parity.md`](../../roadmap/adminnet-feature-parity.md)「菜单与按钮权限管理」
@@ -80,8 +80,10 @@
 1. [x] 本计划附录 A/B。
 2. [x] 双库迁移 `012_IdentityNavigation.sql`。
 3. [x] RED 集成测试：列表未授权 403（端点未实现时失败）。
-4. [ ] Integration 门槛上调至 **91**（+2 SQL Server/MySQL）。
+4. [x] Integration 门槛维持 **91**（+2 SQL Server/MySQL，Task 1 已计入）。
 
 ### Task 2–5
 
-（待 Task 1 全绿后按角色切片模式推进：持久化、HTTP、双端 UI、OpenAPI/真实栈。）
+- [x] Task 2–3：ManageHostMenus API、导航合并、集成验收
+- [x] Task 4：Vue `MenusView` + Layui `menus.js` + parity E2E
+- [x] Task 5：OpenAPI 夹具 + 真实栈 `host-menus.spec.mjs` + 验证记录

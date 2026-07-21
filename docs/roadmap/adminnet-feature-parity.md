@@ -43,7 +43,7 @@
 | 用户管理 | Identity | Core | M2 | Implementing（Host 列表/创建/禁用已交付；[验证记录](../verification/identity-user-management-2026-07-21.md)） |
 | 机构管理 | Organization | Core | M2 | Mapped |
 | 职位管理 | Organization | Core | M2 | Mapped |
-| 菜单与按钮权限管理 | Identity | Core | M2 | Designing（[菜单切片计划](../superpowers/plans/2026-07-21-identity-menu-management-vertical-slice.md) Task 1） |
+| 菜单与按钮权限管理 | Identity | Core | M2 | Build-verified（[菜单验证](../verification/identity-menu-management-2026-07-21.md)；按钮权限仍非目标） |
 | 角色与数据授权 | Identity + Organization | Core | M2 | Mapped |
 | 字典管理 | Settings | Core | M3 | Mapped |
 | 访问日志 | Auditing | Core | M3 | Mapped |

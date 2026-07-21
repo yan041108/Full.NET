@@ -33,4 +33,5 @@
   <data name="identity.roles.system_locked" xml:space="preserve"><value>System roles are protected and cannot be changed.</value></data>
   <data name="identity.menus.route_name_exists" xml:space="preserve"><value>A host menu with this route name already exists.</value></data>
   <data name="identity.menus.not_found" xml:space="preserve"><value>The host menu was not found.</value></data>
+  <data name="identity.menus.system_locked" xml:space="preserve"><value>System menus are protected and cannot be changed.</value></data>
 </root>

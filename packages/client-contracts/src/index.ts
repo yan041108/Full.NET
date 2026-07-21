@@ -118,6 +118,22 @@ export type {
   UpdateHostRoleRequest
 } from './host-roles.js';
 
+export {
+  HOST_MENU_ASSIGNABLE_PERMISSIONS,
+  HOST_MENU_COMPONENT_OPTIONS,
+  isHostMenu,
+  isHostMenuPage,
+  isUpdateHostMenuRequest
+} from './host-menus.js';
+
+export type {
+  HostMenu,
+  HostMenuAssignablePermission,
+  HostMenuPage,
+  CreateHostMenuRequest,
+  UpdateHostMenuRequest
+} from './host-menus.js';
+
 export type {
   TenantContextDescriptor,
   TenantContextSummary,

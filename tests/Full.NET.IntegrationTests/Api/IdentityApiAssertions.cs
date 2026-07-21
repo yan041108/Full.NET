@@ -157,6 +157,8 @@ internal static class IdentityApiAssertions
         CollectionAssert.AreEqual(
             new[]
             {
+                "identity.menus.read",
+                "identity.menus.write",
                 "identity.navigation.read",
                 "identity.roles.read",
                 "identity.roles.write",

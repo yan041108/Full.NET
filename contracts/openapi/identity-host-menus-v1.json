@@ -1,0 +1,109 @@
+{
+  "id": "identity-host-menus-v1",
+  "version": 1,
+  "description": "Host 菜单管理 HTTP 契约冻结夹具；与 IdentityMenuManagementContracts 和 ManageHostMenus.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/menus",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.menus.read",
+          "successStatus": 200,
+          "responseSchema": "HostMenuResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.menus.write",
+          "successStatus": 201,
+          "requestSchema": "CreateHostMenuRequest",
+          "responseSchema": "HostMenuResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/menus/{menuId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.menus.read",
+          "successStatus": 200,
+          "responseSchema": "HostMenuResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.menus.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostMenuRequest",
+          "responseSchema": "HostMenuResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/menus/{menuId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.menus.write",
+          "successStatus": 200,
+          "responseSchema": "HostMenuResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostMenuResponse": {
+      "properties": [
+        "id",
+        "parentId",
+        "routeName",
+        "path",
+        "componentKey",
+        "title",
+        "caption",
+        "icon",
+        "displayOrder",
+        "requiredPermission",
+        "isSystem",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateHostMenuRequest": {
+      "properties": [
+        "parentId",
+        "routeName",
+        "path",
+        "componentKey",
+        "title",
+        "caption",
+        "icon",
+        "displayOrder",
+        "requiredPermission"
+      ]
+    },
+    "UpdateHostMenuRequest": {
+      "properties": [
+        "parentId",
+        "path",
+        "componentKey",
+        "title",
+        "caption",
+        "icon",
+        "displayOrder",
+        "requiredPermission",
+        "version"
+      ]
+    },
+    "HostMenuResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

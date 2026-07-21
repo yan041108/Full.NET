@@ -20,6 +20,7 @@ test('动态导航和可信租户范围在两套管理端保持一致', async ({
   await expect(navigation.getByRole('link', { name: /租户上下文/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /用户管理/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /角色管理/ })).toBeVisible();
+  await expect(navigation.getByRole('link', { name: /菜单管理/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /超级管理员/ })).toBeVisible();
   await expect(page.getByRole('button', { name: '检查会话' })).toBeVisible();
   await expect(page.getByText('Full.NET Host', { exact: true }).first()).toBeVisible();
@@ -287,6 +288,132 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
   await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
 });
 
+test('菜单列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await mockAuthenticatedSession(page);
+  const operations = [];
+  const menuId = 'e2e-host-menu-id';
+  const state = { hasMenu: false, disabled: false };
+  const listBody = () => {
+    if (!state.hasMenu) {
+      return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
+    }
+
+    return JSON.stringify({
+      items: [{
+        id: menuId,
+        parentId: null,
+        routeName: 'parity-menu',
+        path: '/',
+        componentKey: 'overview',
+        title: '对等菜单',
+        caption: 'Parity menu',
+        icon: 'grid',
+        displayOrder: 50,
+        requiredPermission: 'platform.dashboard.read',
+        isSystem: false,
+        isActive: !state.disabled,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+  };
+
+  await page.route('**/api/v1/identity/menus?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: listBody()
+  }));
+  await page.route('**/api/v1/identity/menus', async route => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    operations.push({ type: 'create', body: route.request().postDataJSON() });
+    state.hasMenu = true;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: menuId,
+        parentId: null,
+        routeName: 'parity-menu',
+        path: '/',
+        componentKey: 'overview',
+        title: '对等菜单',
+        caption: '对等菜单',
+        icon: 'grid',
+        displayOrder: 50,
+        requiredPermission: 'platform.dashboard.read',
+        isSystem: false,
+        isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      })
+    });
+  });
+  await page.route(`**/api/v1/identity/menus/${menuId}/disable`, async route => {
+    operations.push({ type: 'disable' });
+    state.disabled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: menuId,
+        parentId: null,
+        routeName: 'parity-menu',
+        path: '/',
+        componentKey: 'overview',
+        title: '对等菜单',
+        caption: '对等菜单',
+        icon: 'grid',
+        displayOrder: 50,
+        requiredPermission: 'platform.dashboard.read',
+        isSystem: false,
+        isActive: false,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: '2026-07-21T01:00:00Z',
+        version: 2
+      })
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /菜单管理/ }).click();
+  await expect(page.getByRole('heading', { name: '菜单管理', exact: true })).toBeVisible();
+  await expect(page.getByText('尚无 Host 菜单', { exact: true })).toBeVisible();
+
+  await page.getByLabel('路由名', { exact: true }).fill('parity-menu');
+  await page.getByLabel('显示标题', { exact: true }).fill('对等菜单');
+  await page.getByRole('button', { name: '创建菜单' }).click();
+  await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
+    type: 'create',
+    body: expect.objectContaining({
+      routeName: 'parity-menu',
+      title: '对等菜单',
+      componentKey: 'overview',
+      path: '/'
+    })
+  }]);
+  await expect(page.getByText('对等菜单', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
+      .evaluate(button => button.click());
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
+  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+});
+
 test('进入租户、刷新恢复并返回 Host 的闭环等价', async ({ page }) => {
   const state = await mockAuthenticatedSession(page, { mutableContext: true });
   await page.goto('/');
@@ -476,6 +603,8 @@ function currentUserResponse(activeTenantId = null) {
       : 'host',
     permissions: [
       'identity.navigation.read',
+      'identity.menus.read',
+      'identity.menus.write',
       'identity.roles.read',
       'identity.roles.write',
       'identity.super_administrators.manage',
@@ -515,6 +644,11 @@ function navigationResponse(unknownComponent = false) {
       id: 'roles', parentId: null, routeName: 'roles', path: '/identity/roles',
       componentKey: 'roles', title: '角色管理', caption: 'Host 作用域角色与权限',
       icon: 'team', order: 36, requiredPermission: 'identity.roles.read', children: []
+    },
+    {
+      id: 'menus', parentId: null, routeName: 'menus', path: '/identity/menus',
+      componentKey: 'menus', title: '菜单管理', caption: 'Host 作用域导航配置',
+      icon: 'menu', order: 37, requiredPermission: 'identity.menus.read', children: []
     },
     {
       id: 'super-administrators', parentId: null,
