@@ -1,0 +1,108 @@
+{
+  "id": "identity-host-roles-v1",
+  "version": 1,
+  "description": "Host 角色管理 HTTP 契约冻结夹具；与 IdentityRoleManagementContracts 和 ManageHostRoles.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/roles",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.roles.read",
+          "successStatus": 200,
+          "responseSchema": "HostRoleResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.roles.write",
+          "successStatus": 201,
+          "requestSchema": "CreateHostRoleRequest",
+          "responseSchema": "HostRoleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/roles/{roleId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.roles.read",
+          "successStatus": 200,
+          "responseSchema": "HostRoleResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.roles.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostRoleRequest",
+          "responseSchema": "HostRoleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/roles/{roleId}/permissions",
+      "operations": [
+        {
+          "method": "PUT",
+          "permission": "identity.roles.write",
+          "successStatus": 200,
+          "requestSchema": "ReplaceHostRolePermissionsRequest",
+          "responseSchema": "HostRoleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/roles/{roleId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.roles.write",
+          "successStatus": 200,
+          "responseSchema": "HostRoleResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostRoleResponse": {
+      "properties": [
+        "id",
+        "code",
+        "name",
+        "isSystem",
+        "isActive",
+        "isSuperAdministrator",
+        "permissionCodes",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateHostRoleRequest": {
+      "properties": [
+        "code",
+        "name"
+      ]
+    },
+    "UpdateHostRoleRequest": {
+      "properties": [
+        "name",
+        "version"
+      ]
+    },
+    "ReplaceHostRolePermissionsRequest": {
+      "properties": [
+        "permissionCodes",
+        "version"
+      ]
+    },
+    "HostRoleResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

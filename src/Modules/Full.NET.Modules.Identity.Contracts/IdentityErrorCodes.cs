@@ -90,6 +90,15 @@ public static class IdentityErrorCodes
     /// <summary>目标 Host 用户不存在。</summary>
     public const string UserNotFound = "identity.users.not_found";
 
+    /// <summary>Host 角色编码在作用域内已存在。</summary>
+    public const string RoleCodeExists = "identity.roles.code_exists";
+
+    /// <summary>目标 Host 角色不存在。</summary>
+    public const string RoleNotFound = "identity.roles.not_found";
+
+    /// <summary>系统角色受保护，禁止变更。</summary>
+    public const string RoleSystemLocked = "identity.roles.system_locked";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -119,5 +128,8 @@ public static class IdentityErrorCodes
         SuperAdministratorLastRemaining,
         UsernameExists,
         UserNotFound,
+        RoleCodeExists,
+        RoleNotFound,
+        RoleSystemLocked,
     ]);
 }

@@ -38,6 +38,14 @@ internal sealed class IdentityAuthorizationContributor
             IdentityUserManagementPermissions.Write,
             "管理 Host 用户",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleManagementPermissions.Read,
+            "查看 Host 角色",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleManagementPermissions.Write,
+            "管理 Host 角色",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -64,6 +72,17 @@ internal sealed class IdentityAuthorizationContributor
             "user",
             35,
             IdentityUserManagementPermissions.Read),
+        new NavigationDefinition(
+            "roles",
+            null,
+            "roles",
+            "/identity/roles",
+            "roles",
+            "角色管理",
+            "Roles",
+            "team",
+            36,
+            IdentityRoleManagementPermissions.Read),
         new NavigationDefinition(
             "super-administrators",
             null,

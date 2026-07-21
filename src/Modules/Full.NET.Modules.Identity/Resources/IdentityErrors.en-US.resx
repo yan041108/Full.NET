@@ -28,4 +28,7 @@
   <data name="identity.super_administrator.last_remaining" xml:space="preserve"><value>The last active super administrator cannot be revoked.</value></data>
   <data name="identity.users.username_exists" xml:space="preserve"><value>A host user with this username already exists.</value></data>
   <data name="identity.users.not_found" xml:space="preserve"><value>The host user was not found.</value></data>
+  <data name="identity.roles.code_exists" xml:space="preserve"><value>A host role with this code already exists.</value></data>
+  <data name="identity.roles.not_found" xml:space="preserve"><value>The host role was not found.</value></data>
+  <data name="identity.roles.system_locked" xml:space="preserve"><value>System roles are protected and cannot be changed.</value></data>
 </root>

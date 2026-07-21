@@ -29,7 +29,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | 日常 | 默认本地验证 | 双库冒烟 2 项，`--timeout 15m` |
 | 聚焦 | 改迁移 / Naming / UUID / Outbox SQL | `--filter` 只跑相关用例 |
-| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 87 --timeout 90m` |
+| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 89 --timeout 90m` |
 
 ```powershell
 # 日常：双库冒烟
@@ -39,7 +39,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery" --minimum-expected-tests 19 --timeout 45m
 
 # 发布：完整双库矩阵
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 87 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 89 --timeout 90m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。
@@ -70,7 +70,7 @@ pnpm test:e2e
 pnpm test:e2e:uniapp
 ```
 
-`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue、Layui 和 uni-app 单元测试，当前管理端与共享包门槛为 139 项（`client-contracts` 30、`admin-i18n` 8、Vue 49、Layui 52），uni-app 为 96 项；`pnpm test:e2e` 启动两个本地服务，并用同一组 32 项 Playwright 场景（16 个唯一场景 × Vue/Layui 双端）验证动态导航、Host 用户列表/创建/禁用、超级管理员列表/审计/密码重认证、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 组件语言、逐请求 `Accept-Language`、刷新恢复、偏好保存失败回滚、稳定错误码、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
+`pnpm test:clients` 运行共享契约、`@fullnet/admin-i18n`、Vue、Layui 和 uni-app 单元测试，当前管理端与共享包门槛为 **144** 项（`client-contracts` 31、`admin-i18n` 8、Vue 52、Layui 53），uni-app 为 96 项；`pnpm test:e2e` 启动两个本地服务，并用同一组 **34** 项 Playwright 场景（17 个唯一场景 × Vue/Layui 双端）验证动态导航、Host 用户/角色列表与创建/禁用、超级管理员列表/审计/密码重认证、租户进入/恢复/返回 Host、登录、退出、403、ProblemDetails/TraceId 和未知组件拒绝。E2E 同时覆盖 `zh-CN/en-US` 组件语言、逐请求 `Accept-Language`、刷新恢复、偏好保存失败回滚、稳定错误码、WCAG 2.2 A/AA axe 扫描、跳转链接、路由焦点、320 CSS px 重排和减弱动画偏好，禁止通过 axe 排除项绕过缺陷。
 
 排查单个客户端层时可以直接运行：
 
@@ -87,7 +87,7 @@ pnpm --filter @fullnet/admin-parity-e2e test
 pnpm test:e2e:real
 ```
 
-该套件通过 Testcontainer 启动 SQL Server、执行 Migrator `--seed development` 并拉起 API（默认 `http://localhost:5149`），再对 Vue/Layui 各跑 **20** 项真实场景（登录、刷新、跨 Tab、租户、Host 用户列表与权限裁剪、ProblemDetails、403、权限拒绝、退出）；禁止 `page.route` mock。已手动启动栈时可跳过引导：
+该套件通过 Testcontainer 启动 SQL Server、执行 Migrator `--seed development` 并拉起 API（默认 `http://localhost:5149`），再对 Vue/Layui 各跑 **24** 项真实场景（登录、刷新、跨 Tab、租户、Host 用户/角色列表与权限裁剪、ProblemDetails、403、权限拒绝、退出）；禁止 `page.route` mock。已手动启动栈时可跳过引导：
 
 ```powershell
 $env:FULLNET_E2E_SKIP_BOOTSTRAP = "1"

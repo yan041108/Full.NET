@@ -22,4 +22,9 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(UpdateHostUserRequest))]
 [JsonSerializable(typeof(HostUserResponse))]
 [JsonSerializable(typeof(PagedResult<HostUserResponse>))]
+[JsonSerializable(typeof(CreateHostRoleRequest))]
+[JsonSerializable(typeof(UpdateHostRoleRequest))]
+[JsonSerializable(typeof(ReplaceHostRolePermissionsRequest))]
+[JsonSerializable(typeof(HostRoleResponse))]
+[JsonSerializable(typeof(PagedResult<HostRoleResponse>))]
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

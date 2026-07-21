@@ -21,6 +21,12 @@ const presentation = new Map([
     titleKey: 'navigation.users.title',
     captionKey: 'navigation.users.caption'
   }],
+  ['roles', {
+    view: 'roles',
+    iconClass: 'layui-icon-group',
+    titleKey: 'navigation.roles.title',
+    captionKey: 'navigation.roles.caption'
+  }],
   ['super-administrators', {
     view: 'super-administrators',
     iconClass: 'layui-icon-auz',

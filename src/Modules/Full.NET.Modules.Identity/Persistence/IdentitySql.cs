@@ -104,6 +104,101 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindHostRoleById = new(
+        "identity.find_host_role_by_id",
+        """
+        SELECT Id, TenantId, ScopeKey, Code, Name, IsSystem, IsActive,
+               IsSuperAdministrator, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_role
+        WHERE Id = @RoleId AND ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountHostRoles = new(
+        "identity.count_host_roles",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_role
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostRolesSqlServer = new(
+        "identity.list_host_roles.sql_server",
+        """
+        SELECT Id, Code, Name, IsSystem, IsActive, IsSuperAdministrator,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_role
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        ORDER BY Code
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostRolesMySql = new(
+        "identity.list_host_roles.mysql",
+        """
+        SELECT Id, Code, Name, IsSystem, IsActive, IsSuperAdministrator,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_role
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        ORDER BY Code
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateHostRoleName = new(
+        "identity.update_host_role_name",
+        """
+        UPDATE fn_identity_role
+        SET Name = @Name,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @RoleId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DisableHostRole = new(
+        "identity.disable_host_role",
+        """
+        UPDATE fn_identity_role
+        SET IsActive = 0,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @RoleId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 0
+          AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteRolePermissions = new(
+        "identity.delete_role_permissions",
+        """
+        DELETE FROM fn_identity_role_permission
+        WHERE RoleId = @RoleId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateHostRoleVersion = new(
+        "identity.update_host_role_version",
+        """
+        UPDATE fn_identity_role
+        SET UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @RoleId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindRefreshSessionById = new(
         "identity.find_refresh_session_by_explicit_session_id",
         """

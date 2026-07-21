@@ -102,6 +102,22 @@ export type {
   UpdateHostUserRequest
 } from './host-users.js';
 
+export {
+  HOST_ROLE_ASSIGNABLE_PERMISSIONS,
+  isHostRole,
+  isHostRolePage,
+  isReplaceHostRolePermissionsRequest,
+  isUpdateHostRoleRequest
+} from './host-roles.js';
+
+export type {
+  HostRole,
+  HostRoleAssignablePermission,
+  HostRolePage,
+  ReplaceHostRolePermissionsRequest,
+  UpdateHostRoleRequest
+} from './host-roles.js';
+
 export type {
   TenantContextDescriptor,
   TenantContextSummary,

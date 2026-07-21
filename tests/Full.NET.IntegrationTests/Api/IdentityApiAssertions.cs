@@ -158,6 +158,8 @@ internal static class IdentityApiAssertions
             new[]
             {
                 "identity.navigation.read",
+                "identity.roles.read",
+                "identity.roles.write",
                 "identity.super_administrators.manage",
                 "identity.super_administrators.read",
                 "identity.users.read",

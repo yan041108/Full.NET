@@ -11,9 +11,10 @@ import {
 } from './core/navigation.js';
 import { createSuperAdministratorController } from './core/super-administrators.js';
 import { createUsersController } from './core/users.js';
+import { createRolesController } from './core/roles.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/users', '/identity/super-administrators']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/users', '/identity/roles', '/identity/super-administrators']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -67,6 +68,10 @@ export function initializeAdminApp(root = document, options = {}) {
     request,
     translation: () => translation
   });
+  const roles = createRolesController(root, {
+    request,
+    translation: () => translation
+  });
 
   const onRouteChange = () => {
     renderRoute(root, latestSnapshot, translation, { focusHeading: true });
@@ -77,6 +82,10 @@ export function initializeAdminApp(root = document, options = {}) {
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/identity/users') {
       void users.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/identity/roles') {
+      void roles.load();
     }
   };
   const onProbe = async () => {
@@ -232,6 +241,10 @@ export function initializeAdminApp(root = document, options = {}) {
       && currentRoute() === '/identity/users') {
       void users.load();
     }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/identity/roles') {
+      void roles.load();
+    }
   });
   const unsubscribeI18n = i18n.subscribe((snapshot) => {
     translation = snapshot;
@@ -292,6 +305,7 @@ export function initializeAdminApp(root = document, options = {}) {
       tenantDirectory?.removeEventListener('click', onTenantAction);
       superAdministrators.dispose();
       users.dispose();
+      roles.dispose();
       unsubscribeSession();
       unsubscribeI18n();
     }
