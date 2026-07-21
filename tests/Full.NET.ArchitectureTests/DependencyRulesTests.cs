@@ -62,12 +62,70 @@ public sealed class DependencyRulesTests
             .EnumerateFiles(modulesRoot, "*.csproj", SearchOption.AllDirectories)
             .SelectMany(FindCrossModuleImplementationReferences)
             .Concat(Directory
-                .EnumerateFiles(modulesRoot, "AssemblyInfo.cs", SearchOption.AllDirectories)
+                .EnumerateFiles(modulesRoot, "*.cs", SearchOption.AllDirectories)
+                .Where(path => !IsBuildOutputPath(path))
                 .SelectMany(FindCrossModuleFriendAssemblies))
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
 
         Assert.HasCount(0, offenders, string.Join(Environment.NewLine, offenders));
+    }
+
+    [TestMethod]
+    public void Module_dependency_scanner_recognizes_negative_fixtures_and_allowed_boundaries()
+    {
+        var fixtureRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"fullnet-module-boundary-{Guid.NewGuid():N}");
+        var projectDirectory = Path.Combine(fixtureRoot, "Full.NET.Modules.Alpha");
+        var attributeDirectory = Path.Combine(projectDirectory, "Generated", "Attributes");
+        Directory.CreateDirectory(attributeDirectory);
+        var projectPath = Path.Combine(
+            projectDirectory,
+            "Full.NET.Modules.Alpha.csproj");
+        var attributePath = Path.Combine(attributeDirectory, "Friends.cs");
+
+        try
+        {
+            File.WriteAllText(
+                projectPath,
+                """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <ProjectReference Include="..\Full.NET.Modules.Alpha.Http\Full.NET.Modules.Alpha.Http.csproj" />
+                    <ProjectReference Include="..\Full.NET.Modules.Beta.Contracts\Full.NET.Modules.Beta.Contracts.csproj" />
+                    <ProjectReference Include="..\Full.NET.Modules.Beta\Full.NET.Modules.Beta.csproj" />
+                  </ItemGroup>
+                </Project>
+                """);
+            File.WriteAllText(
+                attributePath,
+                """
+                [assembly: InternalsVisibleTo ( "Full.NET.Modules.Beta" )]
+                [assembly: System.Runtime.CompilerServices.InternalsVisibleToAttribute("Full.NET.Modules.Gamma")]
+                [assembly: global::System.Runtime.CompilerServices.InternalsVisibleTo ("Full.NET.Modules.Delta")]
+                [assembly: InternalsVisibleTo("Full.NET.Modules.Alpha.Http")]
+                """);
+
+            var offenders = FindCrossModuleImplementationReferences(projectPath)
+                .Concat(FindCrossModuleFriendAssemblies(attributePath))
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "Full.NET.Modules.Alpha -> Full.NET.Modules.Beta",
+                    "Full.NET.Modules.Alpha -> Full.NET.Modules.Beta (InternalsVisibleTo)",
+                    "Full.NET.Modules.Alpha -> Full.NET.Modules.Delta (InternalsVisibleTo)",
+                    "Full.NET.Modules.Alpha -> Full.NET.Modules.Gamma (InternalsVisibleTo)",
+                },
+                offenders);
+        }
+        finally
+        {
+            Directory.Delete(fixtureRoot, recursive: true);
+        }
     }
 
     [TestMethod]
@@ -509,10 +567,9 @@ public sealed class DependencyRulesTests
     }
 
     private static IEnumerable<string> FindCrossModuleFriendAssemblies(
-        string assemblyInfoPath)
+        string sourcePath)
     {
-        var projectDirectory = Directory.GetParent(assemblyInfoPath)?.Parent;
-        var sourceProject = projectDirectory?.Name;
+        var sourceProject = FindContainingModuleProject(sourcePath);
         var sourceModule = GetLogicalModuleName(sourceProject);
         if (sourceProject is null || sourceModule is null)
         {
@@ -520,8 +577,10 @@ public sealed class DependencyRulesTests
         }
 
         foreach (Match match in Regex.Matches(
-                     File.ReadAllText(assemblyInfoPath),
-                     "InternalsVisibleTo\\(\\\"(?<assembly>Full\\.NET\\.Modules\\.[^\\\",]+)",
+                     File.ReadAllText(sourcePath),
+                     "(?:global::)?(?:System\\.Runtime\\.CompilerServices\\.)?"
+                     + "InternalsVisibleTo(?:Attribute)?\\s*\\(\\s*\\\""
+                     + "(?<assembly>Full\\.NET\\.Modules\\.[^\\\",]+)",
                      RegexOptions.CultureInvariant))
         {
             var targetProject = match.Groups["assembly"].Value;
@@ -534,6 +593,38 @@ public sealed class DependencyRulesTests
 
             yield return $"{sourceProject} -> {targetProject} (InternalsVisibleTo)";
         }
+    }
+
+    private static string? FindContainingModuleProject(string sourcePath)
+    {
+        var directory = new FileInfo(sourcePath).Directory;
+        while (directory is not null)
+        {
+            var projects = directory
+                .EnumerateFiles("Full.NET.Modules.*.csproj", SearchOption.TopDirectoryOnly)
+                .OrderBy(file => file.Name, StringComparer.Ordinal)
+                .ToArray();
+            if (projects.Length > 0)
+            {
+                return Path.GetFileNameWithoutExtension(projects[0].Name);
+            }
+
+            directory = directory.Parent;
+        }
+
+        return null;
+    }
+
+    private static bool IsBuildOutputPath(string path)
+    {
+        var buildOutputSegments = new[]
+        {
+            $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+            $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+        };
+        return buildOutputSegments.Any(segment => path.Contains(
+            segment,
+            StringComparison.OrdinalIgnoreCase));
     }
 
     private static string? GetLogicalModuleName(string? projectName)

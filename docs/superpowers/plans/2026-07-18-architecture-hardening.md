@@ -155,7 +155,7 @@
 
 ### Task 4A: 关闭跨模块实现依赖（2026-07-22 P1）
 
-**状态：实现完成，聚焦 Integration 存在两个已独立复现的既有 API 夹具失败。** 稳定模块键、Contracts 授权入口、实现引用/生产友元清理及负向架构门禁已经落地；Task 4B～4C 仍独立开放，模块能力状态保持 `Implemented`。
+**状态：实现完成，聚焦 Integration 存在两个当前可重复但尚未由 Base 对照确定归因的 API 失败。** 注册时稳定模块键/依赖快照、Contracts 授权入口、实现引用/生产友元清理及负向架构门禁已经落地；Task 4B～4C 仍独立开放，模块能力状态保持 `Implemented`。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
@@ -191,7 +191,7 @@
 
   运行 Architecture、Unit、Organization/Identity/Tenancy 聚焦 Integration 与 OpenAPI 门禁；对比模块顺序和权限策略名称，预期公开 API、权限码及 Endpoint 行为无变化。
 
-  Architecture **29/29**、Unit **337/337** 与 TenantProvisioning SQL Server/MySQL **2/2** 已通过。Identity 登录用例独立复现并发响应计数不匹配，Organization 机构管理用例独立复现前置 `/api/v1/tenancy/available` 返回 403；二者均发生在 Task 4A 改动路径之外，未通过放宽断言或修改产品行为掩盖，故本步骤在独立修复并重跑前保持未完成。
+  Architecture **30/30**、Unit **341/341** 与使用 Organization.Contracts 最小替身的 TenantProvisioning SQL Server/MySQL **2/2** 已通过。Identity 登录用例可重复出现并发响应计数不匹配，Organization 机构管理用例可重复出现前置 `/api/v1/tenancy/available` 返回 403；本任务未执行 Base 对照，不能判定二者由 Task 4A 引入或属于既有问题，也未通过放宽断言或修改产品行为掩盖，故本步骤保持未完成。
 
 - [x] **Step 5: 复核 Tenancy 存量项目拓扑**
 

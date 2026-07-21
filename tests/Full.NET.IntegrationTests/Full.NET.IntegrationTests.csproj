@@ -12,7 +12,6 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Serialization.MessagePack\Full.NET.Serialization.MessagePack.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Api\Full.NET.Host.Api.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Organization\Full.NET.Modules.Organization.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dapper" />

@@ -58,18 +58,18 @@ Task 3B 已恢复客户端聚合门禁；但本轮没有重跑完整 SQL Server/
 
 ### 3.2 Task 4A 实现与拓扑复核
 
-Task 4A 的 Architecture RED 首次准确报告 Organization→Identity、Organization→Tenancy.Http、Tenancy.Http→Identity 三条跨模块实现引用及 Identity→Organization 生产友元；实现后相同门禁转绿。`IFullNetModule.Dependencies` 现在只保存稳定模块键，Registry 以 `module.Name` 拒绝空键、重复键、未知依赖和循环，并按 Ordinal 顺序产生确定性拓扑。Organization Endpoint 通过 Identity.Contracts 的 `FullNetPermissionPolicies.For(...)` 保持原权限策略名称，不再访问 Identity 内部实现。
+Task 4A 的 Architecture RED 首次准确报告 Organization→Identity、Organization→Tenancy.Http、Tenancy.Http→Identity 三条跨模块实现引用及 Identity→Organization 生产友元；实现后相同门禁转绿。`IFullNetModule.Dependencies` 现在只保存稳定模块键，Registry 在 Add 时快照 `module.Name` 与依赖集合，拒绝空键、重复键、null/空白依赖、未知依赖、注册后 Name 变化和循环，并按 Ordinal 顺序产生确定性拓扑。Organization Endpoint 通过 Identity.Contracts 的 `FullNetPermissionPolicies.For(...)` 保持原权限策略名称，不再访问 Identity 内部实现。
 
 | Task 4A 门禁 | 新鲜结果 |
 |---|---|
 | `dotnet build Full.NET.slnx --configuration Release --no-restore` | 通过，0 warning、0 error |
-| Unit Tests | **337/337** 通过；覆盖稳定顺序、空/重复模块键、未知依赖、循环与接口契约 |
+| Unit Tests | **341/341** 通过；覆盖稳定顺序、注册快照、空/重复模块键、null/空白/未知依赖、单节点/多节点循环与接口契约 |
 | Compatibility Tests | **7/7** 通过 |
-| Architecture Tests | **29/29** 通过；新增跨模块实现引用和生产友元负向门禁 |
+| Architecture Tests | **30/30** 通过；跨模块实现/生产友元门禁及嵌套源文件、Attribute/全限定 IVT 负向夹具均通过 |
 | OpenAPI / Naming / Governance / Skills | **14/14**、**23/23**、**7/7**、**48 checks** 通过 |
-| TenantProvisioning SQL Server/MySQL | **2/2** 通过；测试夹具显式装配 Organization 后，双库原子 Provisioning 与二进制 Outbox 保持不变 |
-| Identity 登录独立 SQL Server 用例 | **0/1**；既有并发登录响应计数断言失败，独立运行仍复现，未修改产品或放宽断言 |
-| Organization 机构管理独立 SQL Server 用例 | **0/1**；在进入 Organization Endpoint 前，既有 `/api/v1/tenancy/available` 夹具返回 403（期望 200），未修改产品或放宽断言 |
+| TenantProvisioning SQL Server/MySQL | **2/2** 通过；夹具只注册 Identity/Tenancy，并以 Organization.Contracts 空目录替身满足最小闭包，双库原子 Provisioning 与二进制 Outbox 保持不变 |
+| Identity 登录独立 SQL Server 用例 | **0/1**；并发登录响应计数断言当前可重复失败；未执行 Base 对照，归因未确定，且未修改产品或放宽断言 |
+| Organization 机构管理独立 SQL Server 用例 | **0/1**；进入 Organization Endpoint 前 `/api/v1/tenancy/available` 返回 403（期望 200）当前可重复；未执行 Base 对照，归因未确定，且未修改产品或放宽断言 |
 
 Tenancy 拓扑复核确认 Worker 通过 `TenancyModule.AddBackgroundServices` 注册并消费 Core 中的 `TenantProvisionedCacheInvalidationHandler`，因此存在真实非 HTTP 消费者；但该注册入口位于 `Full.NET.Modules.Tenancy.Http`，Worker/Migrator 仍必须装载 `.Http` 项目，当前双项目并未形成足够的依赖或打包隔离收益。Task 4A 按范围不移动类型、不改变公开 API；合并评估与实施已列入[架构硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 4F，必须独立建立发布物 RED、完成双库/API/Worker 验证后再决策。
 
@@ -122,7 +122,7 @@ Tenancy 拓扑复核确认 Worker 通过 `TenancyModule.AddBackgroundServices` �
 
 ## 6. 未验证项
 
-- Task 4A 执行了 Unit、Architecture、TenantProvisioning 双库与聚焦 API Integration；未执行完整 109 项 Integration、真实栈 E2E、性能基准或故障注入，且 Identity/Organization 两项独立 API 夹具失败仍开放，代码能力状态不因部分通过而提升。
+- Task 4A 执行了 Unit、Architecture、TenantProvisioning 双库与聚焦 API Integration；未执行完整 109 项 Integration、真实栈 E2E、性能基准、故障注入或上述两项 API 失败的 Base 对照，代码能力状态不因部分通过而提升。
 - 未验证任何特定 Kafka、Debezium 或 Kafka Connect 版本与许可证/部署组合。
 - `1000 QPS` 仅作为用户提出的初始量级，不作为项目门禁常量。
 - 工作区存在用户已有的未跟踪测试输出文件，本轮不读取其结论、不修改也不纳入文档变更。

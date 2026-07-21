@@ -2,7 +2,7 @@ namespace Full.NET.Modularity.Modules;
 
 public sealed class FullNetModuleRegistry
 {
-    private readonly Dictionary<string, IFullNetModule> _modules =
+    private readonly Dictionary<string, ModuleRegistration> _modules =
         new(StringComparer.Ordinal);
 
     public void Add(IFullNetModule module)
@@ -16,12 +16,26 @@ public sealed class FullNetModuleRegistry
                 $"Module key '{moduleKey}' must not be blank.");
         }
 
-        if (!_modules.TryAdd(moduleKey, module))
+        var dependencyKeys = module.Dependencies?.ToArray()
+            ?? throw new InvalidOperationException(
+                $"Module key '{moduleKey}' must declare a dependency collection.");
+        for (var index = 0; index < dependencyKeys.Length; index++)
+        {
+            if (string.IsNullOrWhiteSpace(dependencyKeys[index]))
+            {
+                throw new InvalidOperationException(
+                    $"Module key '{moduleKey}' declares a null or blank dependency key "
+                    + $"at index {index}.");
+            }
+        }
+
+        var registration = new ModuleRegistration(moduleKey, dependencyKeys, module);
+        if (!_modules.TryAdd(moduleKey, registration))
         {
             var registeredModule = _modules[moduleKey];
             throw new InvalidOperationException(
                 $"Module key '{moduleKey}' is already registered by "
-                + $"'{registeredModule.GetType().FullName}' and cannot also identify "
+                + $"'{registeredModule.Module.GetType().FullName}' and cannot also identify "
                 + $"'{module.GetType().FullName}'.");
         }
     }
@@ -57,13 +71,22 @@ public sealed class FullNetModuleRegistry
                 $"A module dependency cycle contains module key '{moduleKey}'.");
         }
 
-        if (!_modules.TryGetValue(moduleKey, out var module))
+        if (!_modules.TryGetValue(moduleKey, out var registration))
         {
             throw new InvalidOperationException(
                 $"Module dependency key '{moduleKey}' is not registered.");
         }
 
-        foreach (var dependencyKey in module.Dependencies
+        var currentModuleKey = registration.Module.Name;
+        if (!string.Equals(registration.Key, currentModuleKey, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Module registered with stable key '{registration.Key}' now reports "
+                + $"mutable key '{currentModuleKey ?? "<null>"}'. Module keys must not change "
+                + "after registration.");
+        }
+
+        foreach (var dependencyKey in registration.Dependencies
                      .OrderBy(key => key, StringComparer.Ordinal))
         {
             if (!_modules.ContainsKey(dependencyKey))
@@ -78,6 +101,11 @@ public sealed class FullNetModuleRegistry
 
         temporary.Remove(moduleKey);
         permanent.Add(moduleKey);
-        ordered.Add(module);
+        ordered.Add(registration.Module);
     }
+
+    private sealed record ModuleRegistration(
+        string Key,
+        IReadOnlyList<string> Dependencies,
+        IFullNetModule Module);
 }

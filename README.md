@@ -33,9 +33,9 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 337
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 341
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 29
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 30
 # 日常开发默认跑双库冒烟；完整双库矩阵见下方「发布/合入」档
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "migration_is_idempotent_and_creates_binary_outbox_schema" --minimum-expected-tests 2 --timeout 15m
 # 改迁移/SQL/Outbox/UUID 时聚焦相关用例，例如：

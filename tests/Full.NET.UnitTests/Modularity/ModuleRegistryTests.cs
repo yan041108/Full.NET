@@ -78,6 +78,53 @@ public sealed class ModuleRegistryTests
     }
 
     [TestMethod]
+    public void Registry_rejects_null_and_blank_dependency_keys_when_adding_modules()
+    {
+        var registry = new FullNetModuleRegistry();
+
+        var nullException = Assert.Throws<InvalidOperationException>(
+            () => registry.Add(new NamedModule("null-consumer", [null!])));
+        var blankException = Assert.Throws<InvalidOperationException>(
+            () => registry.Add(new NamedModule("blank-consumer", ["   "])));
+
+        StringAssert.Contains(nullException.Message, "null-consumer", StringComparison.Ordinal);
+        StringAssert.Contains(blankException.Message, "blank-consumer", StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public void Registry_rejects_module_name_changes_after_registration()
+    {
+        var registry = new FullNetModuleRegistry();
+        var module = new MutableModule("stable");
+        registry.Add(module);
+        module.Rename("changed");
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            registry.GetOrderedModules);
+
+        StringAssert.Contains(exception.Message, "stable", StringComparison.Ordinal);
+        StringAssert.Contains(exception.Message, "changed", StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public void Registry_snapshots_dependency_keys_when_adding_modules()
+    {
+        var registry = new FullNetModuleRegistry();
+        var dependencies = new List<string> { "base" };
+        var dependent = new MutableModule("dependent", dependencies);
+        registry.Add(dependent);
+        dependencies.Clear();
+        dependencies.Add("missing");
+        registry.Add(new BaseModule());
+
+        var ordered = registry.GetOrderedModules();
+
+        CollectionAssert.AreEqual(
+            new[] { "base", "dependent" },
+            ordered.Select(module => module.Name).ToArray());
+    }
+
+    [TestMethod]
     public void Registry_rejects_dependency_cycles()
     {
         var registry = new FullNetModuleRegistry();
@@ -87,6 +134,20 @@ public sealed class ModuleRegistryTests
             registry.GetOrderedModules);
 
         StringAssert.Contains(exception.Message, "cycle", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [TestMethod]
+    public void Registry_rejects_multi_module_dependency_cycles()
+    {
+        var registry = new FullNetModuleRegistry();
+        registry.Add(new NamedModule("alpha", ["beta"]));
+        registry.Add(new NamedModule("beta", ["gamma"]));
+        registry.Add(new NamedModule("gamma", ["alpha"]));
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            registry.GetOrderedModules);
+
+        StringAssert.Contains(exception.Message, "alpha", StringComparison.Ordinal);
     }
 
     private sealed class BaseModule : TestModule
@@ -125,6 +186,22 @@ public sealed class ModuleRegistryTests
         public override string Name => name;
 
         public override IReadOnlyCollection<string> Dependencies => dependencies ?? [];
+    }
+
+    private sealed class MutableModule(
+        string name,
+        IReadOnlyCollection<string>? dependencies = null) : TestModule
+    {
+        private string _name = name;
+
+        public override string Name => _name;
+
+        public override IReadOnlyCollection<string> Dependencies { get; } = dependencies ?? [];
+
+        public void Rename(string name)
+        {
+            _name = name;
+        }
     }
 
     private abstract class TestModule : IFullNetModule

@@ -234,12 +234,12 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 
 | 变更 | 说明 |
 | --- | --- |
-| Unit 门槛 **332 → 337** | 模块 Registry 的确定顺序、空/重复模块键、未知依赖及稳定字符串依赖契约共 +5；新鲜运行 **337/337** |
-| Architecture 门槛 **28 → 29** | 新增 1 项生产模块不得跨逻辑模块引用非 Contracts 项目或开放生产友元的负向门禁；新鲜运行 **29/29** |
+| Unit 门槛 **332 → 341** | 稳定字符串依赖契约与 Registry 的确定顺序、注册快照、空/重复模块键、null/空白/未知依赖及单节点/多节点循环共 +9；新鲜运行 **341/341** |
+| Architecture 门槛 **28 → 30** | 生产模块不得跨逻辑模块引用非 Contracts 项目或开放生产友元的门禁 +1，嵌套源文件与常见 IVT 写法的负向夹具 +1；新鲜运行 **30/30** |
 | Compatibility / Integration 门槛 | 保持 **7/109**；Task 4A 未增删这两套测试发现项 |
-| 四处 canonical 门槛 | **337/7/29/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
+| 四处 canonical 门槛 | **341/7/30/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
 
-Task 4A 聚焦 Integration 中 TenantProvisioning SQL Server/MySQL **2/2** 通过。Identity 登录与 Organization 机构管理用例均已独立复现既有夹具失败，分别表现为并发响应计数不匹配、进入 Organization Endpoint 前 `/api/v1/tenancy/available` 返回 403；本轮未放宽断言或修改无关产品行为，也不据此声明完整 Integration 通过。
+Task 4A 聚焦 Integration 中，使用 Organization.Contracts 空目录替身保持最小依赖闭包的 TenantProvisioning SQL Server/MySQL **2/2** 通过。Identity 登录与 Organization 机构管理用例分别表现为并发响应计数不匹配、进入 Organization Endpoint 前 `/api/v1/tenancy/available` 返回 403，当前均可重复；本轮未执行 Base 对照，不能判定由 Task 4A 引入或属于既有问题，也未放宽断言或修改无关产品行为，不据此声明完整 Integration 通过。
 
 ## 关联文档
 
