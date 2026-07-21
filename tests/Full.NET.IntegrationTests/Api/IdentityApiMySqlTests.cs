@@ -57,6 +57,16 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Host_user_roles_follow_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await IdentityUserRolesManagementAssertions.VerifyHostUserRolesContractAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_role_management_follows_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(

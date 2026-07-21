@@ -163,6 +163,15 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Real-stack E2E | **16 → 20**（新增 `host-users.spec.mjs` 两项 × 双端）；验证记录见 [identity-user-management-2026-07-21.md](identity-user-management-2026-07-21.md) |
 | OpenAPI 夹具 | 新增 `contracts/openapi/identity-host-users-v1.json` 与 `pnpm test:openapi`（CI 已接入） |
 
+## 增补（2026-07-21，用户-角色分配纵向切片）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **97 → 99** | 新增 `Host_user_roles_management_follows_contract_with_sql_server` 与 `Host_user_roles_management_follows_contract_with_mysql` |
+| OpenAPI | **12 → 14**（`identity-host-user-roles-v1.json`） |
+| 客户端单测 | 管理端与共享包 **157 → 158**（Vue 用户 API +1） |
+| 四处 canonical 门槛 | **319/7/26/99**；验证记录见 [identity-user-roles-assignment-2026-07-21.md](identity-user-roles-assignment-2026-07-21.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

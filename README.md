@@ -41,7 +41,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 # 改迁移/SQL/Outbox/UUID 时聚焦相关用例，例如：
 # dotnet tests/.../Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery|UuidBinary" --minimum-expected-tests 1 --timeout 45m
 # 合入 main / 发布候选再跑完整矩阵（约 1 小时级，勿当日常命令）
-# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 97 --timeout 90m
+# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 99 --timeout 90m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 

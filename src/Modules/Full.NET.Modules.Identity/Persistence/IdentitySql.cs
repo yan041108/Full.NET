@@ -462,6 +462,53 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement GetUserAssignableRoleIds = new(
+        "identity.get_user_assignable_role_ids",
+        """
+        SELECT userRole.RoleId
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_role AS roleObject
+            ON roleObject.Id = userRole.RoleId
+        WHERE userRole.UserId = @UserId
+          AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL
+          AND roleObject.IsSystem = 0
+          AND roleObject.IsSuperAdministrator = 0
+        ORDER BY roleObject.Code
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteUserAssignableRoles = new(
+        "identity.delete_user_assignable_roles",
+        """
+        DELETE FROM fn_identity_user_role
+        WHERE UserId = @UserId
+          AND RoleId IN
+          (
+              SELECT roleObject.Id
+              FROM fn_identity_role AS roleObject
+              WHERE roleObject.ScopeKey = 'host'
+                AND roleObject.TenantId IS NULL
+                AND roleObject.IsSystem = 0
+                AND roleObject.IsSuperAdministrator = 0
+          )
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateHostUserRoleAssignments = new(
+        "identity.update_host_user_role_assignments",
+        """
+        UPDATE fn_identity_user
+        SET SecurityStamp = @SecurityStamp,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement LockSuperAdministratorRoleSqlServer = new(
         "identity.lock_super_administrator_role.sql_server",
         """

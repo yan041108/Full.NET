@@ -93,12 +93,16 @@ export type {
 export {
   isHostUser,
   isHostUserPage,
+  isHostUserRoles,
+  isReplaceHostUserRolesRequest,
   isUpdateHostUserRequest
 } from './host-users.js';
 
 export type {
   HostUser,
   HostUserPage,
+  HostUserRoles,
+  ReplaceHostUserRolesRequest,
   UpdateHostUserRequest
 } from './host-users.js';
 

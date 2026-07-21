@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isHostUser, isHostUserPage, isUpdateHostUserRequest } from '../src/host-users';
+import { isHostUser, isHostUserPage, isHostUserRoles, isReplaceHostUserRolesRequest, isUpdateHostUserRequest } from '../src/host-users';
 
 describe('Host 用户客户端契约', () => {
   it('校验分页列表与单条用户', () => {
@@ -22,5 +22,11 @@ describe('Host 用户客户端契约', () => {
     expect(isHostUser({ id: 'user-id' })).toBe(false);
     expect(isUpdateHostUserRequest({ displayName: '新名称', version: 2 })).toBe(true);
     expect(isUpdateHostUserRequest({ displayName: '', version: 2 })).toBe(false);
+    expect(isHostUserRoles({
+      userId: 'user-id',
+      roleIds: ['role-id'],
+      version: 2
+    })).toBe(true);
+    expect(isReplaceHostUserRolesRequest({ roleIds: ['role-id'], version: 2 })).toBe(true);
   });
 });

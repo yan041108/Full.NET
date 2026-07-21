@@ -111,6 +111,12 @@ public static class IdentityErrorCodes
     /// <summary>数据范围引用的机构单元不存在。</summary>
     public const string DataScopeUnitNotFound = "identity.data_scope.unit_not_found";
 
+    /// <summary>用户角色分配引用的角色不存在。</summary>
+    public const string UserRolesRoleNotFound = "identity.user_roles.role_not_found";
+
+    /// <summary>用户角色分配包含不可分配角色。</summary>
+    public const string UserRolesRoleNotAssignable = "identity.user_roles.role_not_assignable";
+
     /// <summary>Host 菜单路由名在作用域内已存在。</summary>
     public const string MenuRouteNameExists = "identity.menus.route_name_exists";
 
@@ -156,6 +162,8 @@ public static class IdentityErrorCodes
         DataScopeCustomUnitsRequired,
         DataScopeTenantContextRequired,
         DataScopeUnitNotFound,
+        UserRolesRoleNotFound,
+        UserRolesRoleNotAssignable,
         MenuRouteNameExists,
         MenuNotFound,
         MenuSystemLocked,

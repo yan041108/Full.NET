@@ -1,0 +1,40 @@
+{
+  "id": "identity-host-user-roles-v1",
+  "version": 1,
+  "description": "Host 用户角色分配 HTTP 契约冻结夹具；与 HostUserRolesContracts 和 ManageHostUsers.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/users/{userId}/roles",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.users.read",
+          "successStatus": 200,
+          "responseSchema": "HostUserRolesResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.users.write",
+          "successStatus": 200,
+          "requestSchema": "ReplaceHostUserRolesRequest",
+          "responseSchema": "HostUserRolesResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostUserRolesResponse": {
+      "properties": [
+        "userId",
+        "roleIds",
+        "version"
+      ]
+    },
+    "ReplaceHostUserRolesRequest": {
+      "properties": [
+        "roleIds",
+        "version"
+      ]
+    }
+  }
+}

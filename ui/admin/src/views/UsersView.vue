@@ -2,16 +2,20 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   ElButton,
+  ElCheckbox,
+  ElCheckboxGroup,
+  ElDialog,
   ElInput,
   ElMessage,
   ElMessageBox,
   ElTag
 } from 'element-plus';
-import type { FullNetProblemDetails, HostUser } from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, HostRole, HostUser } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { createHostUser, disableHostUser, listHostUsers, updateHostUser } from '../api/users';
+import { createHostUser, disableHostUser, getHostUserRoles, listHostUsers, replaceHostUserRoles, updateHostUser } from '../api/users';
+import { listHostRoles } from '../api/roles';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -22,6 +26,11 @@ const password = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const rolesVisible = ref(false);
+const editingUser = ref<HostUser>();
+const assignableRoles = ref<HostRole[]>([]);
+const selectedRoleIds = ref<string[]>([]);
+const rolesVersion = ref(0);
 const canWrite = computed(() => session.can('identity.users.write'));
 
 onMounted(load);
@@ -107,6 +116,51 @@ async function disable(user: HostUser): Promise<void> {
   }
 }
 
+async function openRoles(user: HostUser): Promise<void> {
+  if (changing.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const [rolesPage, userRoles] = await Promise.all([
+      listHostRoles(),
+      getHostUserRoles(user.id)
+    ]);
+    assignableRoles.value = rolesPage.items.filter(
+      role => role.isActive && !role.isSystem && !role.isSuperAdministrator
+    );
+    editingUser.value = user;
+    selectedRoleIds.value = [...userRoles.roleIds];
+    rolesVersion.value = userRoles.version;
+    rolesVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function saveRoles(): Promise<void> {
+  const user = editingUser.value;
+  if (!user || changing.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await replaceHostUserRoles(
+      user.id,
+      [...selectedRoleIds.value].sort(),
+      rolesVersion.value
+    );
+    rolesVisible.value = false;
+    editingUser.value = undefined;
+    ElMessage.success(t('users.rolesSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 function toProblem(
   error: unknown,
   fallbackKey: 'users.loadFailed' | 'users.operationFailed'
@@ -175,6 +229,14 @@ function toProblem(
             v-if="canWrite"
             plain
             :disabled="changing"
+            @click="openRoles(user)"
+          >
+            {{ t('users.roles') }}
+          </el-button>
+          <el-button
+            v-if="canWrite"
+            plain
+            :disabled="changing"
             @click="edit(user)"
           >
             {{ t('users.edit') }}
@@ -191,6 +253,29 @@ function toProblem(
         </div>
       </article>
     </section>
+
+    <el-dialog
+      v-model="rolesVisible"
+      :title="t('users.rolesTitle')"
+      width="520px"
+    >
+      <el-checkbox-group v-model="selectedRoleIds" class="users-roles">
+        <el-checkbox
+          v-for="role in assignableRoles"
+          :key="role.id"
+          :value="role.id"
+        >
+          {{ role.name }}
+          <code translate="no">{{ role.code }}</code>
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="rolesVisible = false">{{ t('status.back') }}</el-button>
+        <el-button type="primary" :loading="changing" @click="saveRoles">
+          {{ t('users.saveRoles') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -216,6 +301,8 @@ function toProblem(
 .identity-ledger article div { display: grid; gap: 4px; }
 .identity-ledger code { color: var(--fullnet-color-ink-muted); font-size: 11px; }
 .users-empty { padding: 28px; margin: 0; text-align: center; color: var(--fullnet-color-ink-muted); }
+.users-roles { display: grid; gap: 10px; }
+.users-roles code { margin-left: 8px; color: var(--fullnet-color-ink-muted); font-size: 11px; }
 @media (max-width: 1080px) {
   .create-strip { grid-template-columns: 1fr; }
   .identity-ledger article { grid-template-columns: 44px 1fr auto; }

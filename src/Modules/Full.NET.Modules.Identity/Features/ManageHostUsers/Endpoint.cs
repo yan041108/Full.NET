@@ -90,5 +90,32 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+
+        group.MapGet("/{userId:guid}/roles", async (
+            Guid userId,
+            HostUserRolesService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetAsync(userId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Read);
+
+        group.MapPut("/{userId:guid}/roles", async (
+            Guid userId,
+            ReplaceHostUserRolesRequest request,
+            HostUserRolesService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ReplaceAsync(userId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
     }
 }

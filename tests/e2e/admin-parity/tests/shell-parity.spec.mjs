@@ -82,7 +82,8 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
   await mockAuthenticatedSession(page);
   const operations = [];
   const userId = 'e2e-host-user-id';
-  const state = { hasUser: false, disabled: false };
+  const roleId = 'e2e-assignable-role-id';
+  const state = { hasUser: false, disabled: false, roleIds: [] };
   const listBody = () => {
     if (!state.hasUser) {
       return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
@@ -147,6 +148,58 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
       })
     });
   });
+  await page.route('**/api/v1/identity/roles?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      items: [{
+        id: roleId,
+        code: 'parity-role',
+        name: '对等角色',
+        isSystem: false,
+        isActive: true,
+        isSuperAdministrator: false,
+        permissionCodes: [],
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    })
+  }));
+  await page.route(`**/api/v1/identity/users/${userId}/roles`, async route => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          userId,
+          roleIds: state.roleIds,
+          version: state.disabled ? 2 : 1
+        })
+      });
+      return;
+    }
+
+    if (route.request().method() === 'PUT') {
+      operations.push({ type: 'roles', body: route.request().postDataJSON() });
+      state.roleIds = route.request().postDataJSON().roleIds ?? [];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          userId,
+          roleIds: state.roleIds,
+          version: 2
+        })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
 
   await page.goto('/');
   await page.getByRole('link', { name: /用户管理/ }).click();
@@ -167,6 +220,18 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
     }
   }]);
   await expect(page.getByText('对等用户', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('article').getByRole('button', { name: '角色' }).click();
+  if (clientKind === 'vue') {
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('checkbox').first().check();
+    await dialog.getByRole('button', { name: '保存角色', exact: true }).click();
+  } else {
+    await page.locator('.layui-layer-content input[type="checkbox"]').first().check();
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'roles')).toBe(true);
 
   await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
   if (clientKind === 'vue') {

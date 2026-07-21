@@ -82,25 +82,56 @@ export function createUsersController(root, options) {
     const disableButton = event.target instanceof Element
       ? event.target.closest('[data-users-disable]')
       : undefined;
-    if (!disableButton || changing) return;
-    const userId = disableButton.dataset.usersDisable;
-    const username = disableButton.dataset.username ?? '';
-    const message = translation().t('users.confirmDisable', { name: username });
-    confirmAction(message, async () => {
-      changing = true;
-      try {
-        await request(
-          `/api/v1/identity/users/${encodeURIComponent(userId)}/disable`,
-          { method: 'POST' }
-        );
-        notify(translation().t('users.disableSuccess'), 1);
-        await load();
-      } catch (problem) {
-        showProblem(root, problem, translation().t('users.operationFailed'));
-      } finally {
-        changing = false;
+    if (disableButton && !changing) {
+      const userId = disableButton.dataset.usersDisable;
+      const username = disableButton.dataset.username ?? '';
+      const message = translation().t('users.confirmDisable', { name: username });
+      confirmAction(message, async () => {
+        changing = true;
+        try {
+          await request(
+            `/api/v1/identity/users/${encodeURIComponent(userId)}/disable`,
+            { method: 'POST' }
+          );
+          notify(translation().t('users.disableSuccess'), 1);
+          await load();
+        } catch (problem) {
+          showProblem(root, problem, translation().t('users.operationFailed'));
+        } finally {
+          changing = false;
+        }
+      });
+      return;
+    }
+
+    const rolesButton = event.target instanceof Element
+      ? event.target.closest('[data-users-roles]')
+      : undefined;
+    if (!rolesButton || changing) return;
+    void openRolesDialog(
+      rolesButton.dataset.usersRoles,
+      translation(),
+      request,
+      async (roleIds, version) => {
+        changing = true;
+        try {
+          await request(
+            `/api/v1/identity/users/${encodeURIComponent(rolesButton.dataset.usersRoles)}/roles`,
+            {
+              method: 'PUT',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ roleIds, version })
+            }
+          );
+          notify(translation().t('users.rolesSuccess'), 1);
+          await load();
+        } catch (problem) {
+          showProblem(root, problem, translation().t('users.operationFailed'));
+        } finally {
+          changing = false;
+        }
       }
-    });
+    );
   };
 
   form?.addEventListener('submit', onCreate);
@@ -155,7 +186,13 @@ function renderDirectory(container, users, translation) {
     edit.dataset.version = String(user.version ?? 0);
     edit.dataset.displayName = user.displayName ?? '';
     edit.textContent = translation.t('users.edit');
-    actions.append(edit);
+    const roles = container.ownerDocument.createElement('button');
+    roles.type = 'button';
+    roles.className = 'layui-btn layui-btn-primary layui-btn-sm';
+    roles.dataset.usersRoles = user.id;
+    roles.dataset.version = String(user.version ?? 0);
+    roles.textContent = translation.t('users.roles');
+    actions.append(roles, edit);
     if (user.isActive) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
@@ -211,4 +248,57 @@ function hideProblem(root) {
 
 function notify(message, icon) {
   globalThis.layui?.layer?.msg?.(message, { icon });
+}
+
+function openRolesDialog(userId, translation, request, confirm) {
+  return Promise.all([
+    request('/api/v1/identity/roles?page=1&pageSize=20'),
+    request(`/api/v1/identity/users/${encodeURIComponent(userId)}/roles`)
+  ]).then(([rolesPage, userRoles]) => {
+    const assignableRoles = (Array.isArray(rolesPage?.items) ? rolesPage.items : [])
+      .filter(role => role.isActive && !role.isSystem && !role.isSuperAdministrator);
+    const selected = new Set(
+      Array.isArray(userRoles?.roleIds) ? userRoles.roleIds.map(String) : []
+    );
+    const rolesVersion = userRoles?.version ?? 0;
+    const checkboxes = assignableRoles.map(role => (
+      `<label><input type="checkbox" value="${role.id}"${selected.has(String(role.id)) ? ' checked' : ''}> ${role.name} <code>${role.code}</code></label>`
+    )).join('');
+    const html = `<div class="fn-users__roles-dialog">${checkboxes || `<p>${translation.t('users.emptyDirectory')}</p>`}</div>`;
+
+    if (!globalThis.layui?.layer?.open) {
+      const fallback = document.createElement('div');
+      fallback.innerHTML = html;
+      const roleIds = [...fallback.querySelectorAll('input:checked')].map(input => input.value);
+      void confirm(roleIds);
+      return;
+    }
+
+    globalThis.layui.layer.open({
+      type: 1,
+      title: translation.t('users.rolesTitle'),
+      area: ['520px', '420px'],
+      content: html,
+      btn: [translation.t('users.saveRoles'), translation.t('status.back')],
+      yes(index, layero) {
+        const dialogRoot = resolveLayerContent(layero, '.fn-users__roles-dialog');
+        const roleIds = [...(dialogRoot?.querySelectorAll('input:checked') ?? [])]
+          .map(input => input.value)
+          .sort();
+        globalThis.layui.layer.close(index);
+        void confirm(roleIds, rolesVersion);
+      }
+    });
+  });
+}
+
+function resolveLayerContent(layero, selector) {
+  if (layero && typeof layero.find === 'function') {
+    return layero.find(selector)[0];
+  }
+  if (layero instanceof Element) {
+    return layero.querySelector(selector) ?? layero;
+  }
+  const root = layero?.[0];
+  return root?.querySelector?.(selector) ?? root;
 }

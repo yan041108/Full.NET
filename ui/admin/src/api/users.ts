@@ -1,8 +1,10 @@
 import {
   isHostUser,
   isHostUserPage,
+  isHostUserRoles,
   type HostUser,
-  type HostUserPage
+  type HostUserPage,
+  type HostUserRoles
 } from '@fullnet/client-contracts';
 import { request } from './http';
 
@@ -54,5 +56,30 @@ export async function updateHostUser(
     }
   );
   if (!isHostUser(value)) throw new Error('client.invalid_host_user');
+  return value;
+}
+
+export async function getHostUserRoles(id: string): Promise<HostUserRoles> {
+  const value = await request<unknown>(
+    `/api/v1/identity/users/${encodeURIComponent(id)}/roles`
+  );
+  if (!isHostUserRoles(value)) throw new Error('client.invalid_host_user_roles');
+  return value;
+}
+
+export async function replaceHostUserRoles(
+  id: string,
+  roleIds: string[],
+  version: number
+): Promise<HostUserRoles> {
+  const value = await request<unknown>(
+    `/api/v1/identity/users/${encodeURIComponent(id)}/roles`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ roleIds, version })
+    }
+  );
+  if (!isHostUserRoles(value)) throw new Error('client.invalid_host_user_roles');
   return value;
 }

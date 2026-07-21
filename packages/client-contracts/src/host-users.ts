@@ -20,11 +20,41 @@ export interface UpdateHostUserRequest {
   version: number;
 }
 
+export interface HostUserRoles {
+  userId: string;
+  roleIds: string[];
+  version: number;
+}
+
+export interface ReplaceHostUserRolesRequest {
+  roleIds: string[];
+  version: number;
+}
+
 /** 校验不可信 JSON 是否为 Host 用户更新请求。 */
 export function isUpdateHostUserRequest(value: unknown): value is UpdateHostUserRequest {
   return isRecord(value)
     && typeof value.displayName === 'string'
     && value.displayName.length > 0
+    && typeof value.version === 'number';
+}
+
+/** 校验不可信 JSON 是否为 Host 用户角色分配响应。 */
+export function isHostUserRoles(value: unknown): value is HostUserRoles {
+  return isRecord(value)
+    && isText(value.userId)
+    && Array.isArray(value.roleIds)
+    && value.roleIds.every(roleId => isText(roleId))
+    && typeof value.version === 'number';
+}
+
+/** 校验不可信 JSON 是否为 Host 用户角色替换请求。 */
+export function isReplaceHostUserRolesRequest(
+  value: unknown
+): value is ReplaceHostUserRolesRequest {
+  return isRecord(value)
+    && Array.isArray(value.roleIds)
+    && value.roleIds.every(roleId => isText(roleId))
     && typeof value.version === 'number';
 }
 

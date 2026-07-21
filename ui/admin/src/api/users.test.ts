@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { request } from './http';
-import { createHostUser, disableHostUser, listHostUsers, updateHostUser } from './users';
+import { createHostUser, disableHostUser, getHostUserRoles, listHostUsers, replaceHostUserRoles, updateHostUser } from './users';
 
 vi.mock('./http', () => ({ request: vi.fn() }));
 const requestMock = vi.mocked(request);
@@ -71,6 +71,41 @@ describe('Vue Host 用户 API', () => {
       expect.objectContaining({
         method: 'PUT',
         body: JSON.stringify({ displayName: '新名称', version: 1 })
+      })
+    );
+  });
+
+  it('读取并替换用户可分配角色', async () => {
+    requestMock
+      .mockResolvedValueOnce({
+        userId: 'user-id',
+        roleIds: ['role-a'],
+        version: 1
+      })
+      .mockResolvedValueOnce({
+        userId: 'user-id',
+        roleIds: ['role-a', 'role-b'],
+        version: 2
+      });
+
+    await expect(getHostUserRoles('user-id')).resolves.toMatchObject({
+      roleIds: ['role-a']
+    });
+    await replaceHostUserRoles('user-id', ['role-a', 'role-b'], 1);
+
+    expect(requestMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/identity/users/user-id/roles'
+    );
+    expect(requestMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/identity/users/user-id/roles',
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({
+          roleIds: ['role-a', 'role-b'],
+          version: 1
+        })
       })
     );
   });
