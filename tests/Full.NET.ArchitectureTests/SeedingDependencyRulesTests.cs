@@ -1,7 +1,9 @@
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization;
+using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy;
 using NetArchTest.Rules;
 using System.Reflection;
@@ -12,21 +14,26 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class SeedingDependencyRulesTests
 {
+    private static readonly Assembly[] PublishedAssemblies =
+    [
+        typeof(IdentityModule).Assembly,
+        typeof(LoginRequest).Assembly,
+        typeof(TenancyModule).Assembly,
+        Assembly.Load("Full.NET.Modules.Tenancy"),
+        typeof(OrganizationModule).Assembly,
+        typeof(OrganizationUnitResponse).Assembly,
+        ProductionAssemblies.HostApi,
+        ProductionAssemblies.HostWorker,
+        ProductionAssemblies.HostMigrator,
+    ];
+
     [TestMethod]
     public void Published_modules_and_hosts_do_not_contain_test_scenario_types_or_options()
     {
-        Assembly[] publishedAssemblies =
-        [
-            typeof(IdentityModule).Assembly,
-            typeof(TenancyModule).Assembly,
-            Assembly.Load("Full.NET.Modules.Tenancy"),
-            typeof(OrganizationModule).Assembly,
-            ProductionAssemblies.HostApi,
-            ProductionAssemblies.HostWorker,
-            ProductionAssemblies.HostMigrator,
-        ];
+        AssertPublishedModuleCoverage();
+
         var forbiddenTokens = new[] { "E2e", "TestOnly" };
-        var violations = publishedAssemblies
+        var violations = PublishedAssemblies
             .Distinct()
             .SelectMany(assembly => assembly.GetTypes())
             .SelectMany(type => FindTestScenarioViolations(type, forbiddenTokens))
@@ -37,6 +44,29 @@ public sealed class SeedingDependencyRulesTests
             0,
             violations,
             $"发布程序集包含测试场景类型或配置节:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
+    }
+
+    private static void AssertPublishedModuleCoverage()
+    {
+        string[] expectedModuleAssemblies =
+        [
+            "Full.NET.Modules.Identity",
+            "Full.NET.Modules.Identity.Contracts",
+            "Full.NET.Modules.Organization",
+            "Full.NET.Modules.Organization.Contracts",
+            "Full.NET.Modules.Tenancy",
+            "Full.NET.Modules.Tenancy.Http",
+        ];
+        var actualModuleAssemblies = PublishedAssemblies
+            .Select(assembly => assembly.GetName().Name)
+            .Where(name => name?.StartsWith("Full.NET.Modules.", StringComparison.Ordinal) == true)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        CollectionAssert.AreEqual(
+            expectedModuleAssemblies,
+            actualModuleAssemblies,
+            "发布程序集扫描清单必须覆盖每个实际模块输出，新增或拆分项目时须显式纳入门禁。");
     }
 
     [TestMethod]

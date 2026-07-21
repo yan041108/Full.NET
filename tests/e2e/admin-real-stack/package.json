@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
+    "test:provisioner": "node --test scripts/provision-viewer.test.mjs",
     "test:mysql": "node scripts/run-mysql-test.mjs",
     "bootstrap": "node scripts/bootstrap-stack.mjs"
   },

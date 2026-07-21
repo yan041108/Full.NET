@@ -61,10 +61,8 @@ async function login(apiUrl, origin, username, password) {
 }
 
 async function ensureRole(apiUrl, headers) {
-  const page = await requestJson(
-    `${apiUrl}/api/v1/identity/roles?page=1&pageSize=100`,
-    { headers });
-  const matches = page.items.filter(item => item.code === viewerRoleCode);
+  const roles = await listAllPages(apiUrl, '/api/v1/identity/roles', headers);
+  const matches = roles.filter(item => item.code === viewerRoleCode);
   if (matches.length > 1) {
     throw new Error(`角色 ${viewerRoleCode} 存在 ${matches.length} 条重复记录。`);
   }
@@ -99,11 +97,9 @@ async function ensureRole(apiUrl, headers) {
 }
 
 async function ensureUser(apiUrl, headers, username, password) {
-  const page = await requestJson(
-    `${apiUrl}/api/v1/identity/users?page=1&pageSize=100`,
-    { headers });
+  const users = await listAllPages(apiUrl, '/api/v1/identity/users', headers);
   const normalizedUsername = username.toUpperCase();
-  const matches = page.items.filter(item =>
+  const matches = users.filter(item =>
     item.username.toUpperCase() === normalizedUsername);
   if (matches.length > 1) {
     throw new Error(`用户 ${username} 存在 ${matches.length} 条重复记录。`);
@@ -145,6 +141,23 @@ async function ensureUserRole(apiUrl, headers, userId, roleId) {
       version: assignment.version
     }
   });
+}
+
+async function listAllPages(apiUrl, resourcePath, headers) {
+  const pageSize = 100;
+  const firstPage = await requestJson(
+    `${apiUrl}${resourcePath}?page=1&pageSize=${pageSize}`,
+    { headers });
+  const pages = [firstPage];
+  const pageCount = Math.ceil(firstPage.total / pageSize);
+
+  for (let page = 2; page <= pageCount; page += 1) {
+    pages.push(await requestJson(
+      `${apiUrl}${resourcePath}?page=${page}&pageSize=${pageSize}`,
+      { headers }));
+  }
+
+  return pages.flatMap(page => page.items);
 }
 
 function sameSet(actual, expected) {
