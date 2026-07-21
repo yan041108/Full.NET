@@ -29,6 +29,6 @@
 
 ## 存量债务与停止条件
 
-当前债务清单共 **83** 项（2026-07-21）：列 14、动态 SQL 12、错误码 22、消息类型 1、未命名主键 11、查询 1、表名 17、不支持 SQL 5。`fn_tenant_tenant` 与 Outbox legacy 列等 7 项已在 011 Contract 中清除。
+当前债务清单共 **85** 项（2026-07-21）：列 14、动态 SQL 14、错误码 22、消息类型 1、未命名主键 11、查询 1、表名 17、不支持 SQL 5。`fn_tenant_tenant` 与 Outbox legacy 列等项已在 011 Contract 后从运行时路径清除，但仍因历史迁移脚本保留在精确债务清单；另增 `015_HostRoleDataScope` 双库 `dynamic_sql` +2。
 
-本能力不能标记为 `Verified`：协议别名排空与生产升级演练尚未完成；完整元数据/模板生成器与重复生成快照尚未实现，动态 SQL 仍需要人工审查。Tenancy/Outbox 持久化 010/011 自动化证据见[1.0 前命名规范化验证记录](pre-v1-naming-normalization.md)。
+本能力不能标记为 `Verified`：协议别名排空与生产备份介质升级演练尚未完成；完整元数据/模板生成器与重复生成快照尚未实现，动态 SQL 仍需要人工审查。Tenancy/Outbox 持久化 010/011 与逻辑克隆升级演练自动化证据见[1.0 前命名规范化验证记录](pre-v1-naming-normalization.md)。

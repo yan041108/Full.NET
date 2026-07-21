@@ -297,9 +297,11 @@ git commit -m "feat: contract legacy persisted names"
 
 验证文档逐项记录：旧值、规范值、首次兼容版本、停止产生旧值版本、最后接受旧值版本、数据库迁移脚本、行数/摘要、旧 Outbox 排空时间和回退演练结果。
 
-- [ ] **Step 2: 执行发布候选升级演练**
+- [x] **Step 2: 执行发布候选升级演练**
 
 从上一发布版本的 SQL Server/MySQL 备份恢复，按 Runbook 升级到候选版本，再回放登录、租户切换、Tenant 创建、Outbox 重试/消费和 Vue/Layui/uni-app 错误展示。不能只验证全新数据库。
+
+> 2026-07-22：已交付 CI 可重复的 **逻辑克隆** 升级演练（`NamingReleaseCandidateUpgradeDrillTests`，双库 +2）。路径为 Through009 有数据 → 同实例库间克隆 → 010→011 → 登录/available 冒烟。**不等同**生产备份介质与 RPO/RTO；生产维护窗口签字仍开放。
 
 - [x] **Step 3: 更新状态**
 

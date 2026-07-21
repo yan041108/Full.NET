@@ -1,15 +1,15 @@
 # 1.0 前命名规范化验证记录
 
-- 日期：2026-07-21
-- 类型：双库 Expand/Contract 自动化矩阵与 Runbook 映射
-- 状态：`Build-verified`（自动化证据）；生产维护窗口与备份升级演练未实跑
-- 代码基线：`7a25b34`（Task 6 文档交付 + Task 5 Step 5 自动化门禁）
-- 范围：010 Expand、011 Contract、应用 SQL/Outbox 切换、协议别名兼容、`PreV1NameMapV1` 债务收敛
-- 方法：Release 构建、Testcontainers 双库、`pnpm test:naming`、Integration 全量与聚焦 filter
+- 日期：2026-07-22（增补发布候选逻辑克隆升级演练）
+- 类型：双库 Expand/Contract 自动化矩阵、逻辑克隆升级演练与 Runbook 映射
+- 状态：`Build-verified`（自动化证据）；生产维护窗口与备份介质 RPO/RTO 未实跑
+- 代码基线：本文件所在提交
+- 范围：010 Expand、011 Contract、应用 SQL/Outbox 切换、协议别名兼容、`PreV1NameMapV1` 债务收敛、Task 6 Step 2 逻辑克隆演练
+- 方法：Release 构建、Testcontainers 双库、`pnpm test:naming`、Integration 聚焦与门槛同步
 
 ## 声明结论
 
-- 仓库内 **自动化** 双库 010/011 矩阵、半完成恢复路径与 [1.0 前命名规范化 Runbook](../development/pre-v1-naming-migration-runbook.md) 已对齐，可作为发布前核对清单的技术依据。
+- 仓库内 **自动化** 双库 010/011 矩阵、半完成恢复路径、[1.0 前命名规范化 Runbook](../development/pre-v1-naming-migration-runbook.md) 与 **发布候选逻辑克隆升级演练** 已对齐，可作为发布前核对清单的技术依据。
 - **不能** 将本能力整体提升为 `Verified`：真实生产维护窗口、备份恢复 RPO/RTO、旧 Outbox `MessageType` 排空计时、Vue/Layui/uni-app 在升级路径上的端到端演练尚未完成。
 - 能力矩阵保持 `Build-verified`；缺口见 [capability-status.md](../roadmap/capability-status.md)。
 
@@ -19,20 +19,23 @@
 
 | 验证 | 命令要点 | 结果 |
 | --- | --- | --- |
-| Release 构建 | `dotnet build Full.NET.slnx -c Release` | 0 警告、0 错误 |
-| Unit | `--minimum-expected-tests 314` | **314/314** |
-| Compatibility | `--minimum-expected-tests 7` | **7/7** |
-| Architecture | `--minimum-expected-tests 26` | **26/26** |
-| Integration 全量 | `--minimum-expected-tests 85 --timeout 90m` | **85/85**，约 22m 41s |
-| 命名合同 | `pnpm test:naming` | **23/23** |
-| Naming 聚焦矩阵 | `--filter "NamingExpand\|NamingContract\|NamingPartialRecovery"` | **19/19** |
-| 治理 / Skills / Workspace | `pnpm test:governance` / `test:skills` / `test:workspace` | **6/6**、**44** 项、通过 |
-| 客户端 | `pnpm test:clients` | **230** 项（contracts 29、uni-app 96、Vue 46、Layui 51、i18n 8 等） |
-| 依赖审计 | `pnpm audit:clients`、`dotnet list package --vulnerable` | 无未登记 critical/high；NuGet 无已知漏洞 |
-| 仓库卫生 | `git diff --check` | 通过 |
-| 迁移恢复边界 | localization Through008、UUID Contract Through009 runner | 6 项先前失败用例已收敛 |
+| Naming 演练 filter | `--filter "NamingReleaseCandidateUpgradeDrill" --minimum-expected-tests 2` | **2/2** 通过，约 2m 13s |
+| 命名合同 | `pnpm test:naming` | **23/23** 通过 |
+| Integration 门槛声明 | `--minimum-expected-tests 109` | 四处 canonical 已同步（本切片未重跑全量 109） |
 
-**未纳入本次门禁**：`pnpm test:e2e` / `test:e2e:real` / `test:e2e:uniapp`（需独立环境与时长）；Task 6 Step 2 发布候选备份升级演练；生产维护窗口人工签字。
+历史全量基线（2026-07-21）：Unit/Compat/Arch/Integration **85** 时代全量与 Naming 聚焦矩阵见下文归档段；当前声明门槛为 **333/7/26/109**。
+
+## 发布候选逻辑克隆升级演练（Task 6 Step 2）
+
+路径（不等同生产 `BACKUP`/`mysqldump` 介质）：
+
+1. Source：`Migrate*Through009` + legacy `fn_tenant_tenant` / Outbox 夹具行。
+2. Target：同实例新建库 → Through009 → `DatabaseLogicalClone` 按外键顺序覆盖业务表（不复制 SchemaVersions）。
+3. Target：010 Expand → 011 Contract（门禁全开）。
+4. 断言：legacy 表/列删除；`fn_tenancy_tenant.Identifier=naming-expand`；Outbox `MessageType` 保留镜像后的 legacy 协议值且 Payload 未丢。
+5. API：`FullNetApiFactory` 幂等补迁移 + Bootstrap；登录成功；`/api/v1/tenancy/available` 同时可见 `naming-expand` 与引导 `acme`。
+
+实现：`tests/Full.NET.IntegrationTests/Migrations/DatabaseLogicalClone.cs`、`NamingReleaseCandidateUpgradeDrillTests.cs`。
 
 ## 数据库对象最终状态
 
@@ -49,7 +52,7 @@
 | `fn_outbox_message.NextAttemptAt` | `NextAttemptAtUtc` | 镜像列 | DROP legacy 列 | 同上 | 同上 | 同上 |
 | `fn_outbox_message.LockedUntil` | `LockedUntilUtc` | 镜像列 | DROP legacy 列 | 同上 | 同上 | 同上 |
 
-**债务清单**：`contracts/naming/naming-debt.json` 自 90 项收敛至 **83** 项；上述 8 项数据库映射对应的登记项已在 011 交付中清除。其余 83 项（动态 SQL、未命名主键、协议别名窗口等）仍保留至各自 `removalMilestone`。
+**债务清单**：`contracts/naming/naming-debt.json` 当前 **85** 项（含 `015_HostRoleDataScope` 双库 `dynamic_sql` +2）。历史 001 脚本中的表/列名仍精确登记；011 后运行时路径已使用规范名。
 
 ## 协议与稳定机器码最终状态
 
@@ -72,6 +75,7 @@
 | §4.4 应用切换 | 模块 SQL、`Outbox` 路由别名测试（Task 3–4 提交） | 新写入走规范列/表与 MessageType |
 | §4.5 011 Contract | `NamingContract_*`、`NamingContractPartialRecovery_*` | 收紧 Outbox 列、删除 legacy 表/列、半完成重收敛 |
 | §4 行数/摘要 | Expand/Contract 测试内嵌断言 | Tenant/Outbox 行数、Payload、UTC 列一致性 |
+| 发布候选升级 | `NamingReleaseCandidateUpgradeDrill_*` | 逻辑克隆后 010→011 + 登录/available |
 
 ## 恢复演练路径（自动化等价）
 
@@ -93,10 +97,15 @@
 2. **009 UUID Contract** 恢复：`UuidBinaryContractTestMigrationRunner` 排除 010/011，避免访问已 DROP 的 `fn_tenant_tenant`。
 3. 证据：`a7c7439` 聚焦 6 项 + 全量 85/85。
 
+### 路径 D：发布候选逻辑克隆升级（Task 6 Step 2）
+
+1. Through009 有数据源库 → `DatabaseLogicalClone` → 010 → 011 → API 冒烟。
+2. 证据：本记录「新鲜自动验证」表。
+
 ## 未验证项
 
 - 真实生产（或生产等价数据量）维护窗口：冻结发布、备份恢复 RPO/RTO、人工 Go/No-Go。
-- **发布候选升级演练**（Task 6 Step 2）：从上一发布版本备份恢复 → 010 → 应用切换 → 011 → 双端冒烟。
+- 生产级备份介质（`BACKUP DATABASE` / `mysqldump` 文件）恢复后再升级。
 - Legacy `MessageType` 与公共 ErrorCode/StatementId 别名 **排空时间与退役签字**。
 - Playwright / 真实栈 E2E（`pnpm test:e2e`、`test:e2e:real`、`test:e2e:uniapp`）未在本记录日重跑。
 

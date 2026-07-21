@@ -211,6 +211,14 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Unit 门槛 **331 → 333** | `HostCatalogSqlScopeTests`（`ListActiveHostMenus` / `FindHostUserById` 在租户上下文可校验）+2 |
 | 四处 canonical 门槛 | **333/7/26/107**；见 [identity-tenant-navigation-host-sql-scope-2026-07-21.md](identity-tenant-navigation-host-sql-scope-2026-07-21.md) |
 
+## 增补（2026-07-22，Pre-v1 发布候选逻辑克隆升级演练）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **107 → 109** | `NamingReleaseCandidateUpgradeDrillTests` SQL Server/MySQL +2 |
+| 四处 canonical 门槛 | **333/7/26/109**；见 [pre-v1-naming-normalization.md](pre-v1-naming-normalization.md) |
+| 债务计数文档 | 权威 `naming-debt.json` **85**（含 015 双库 dynamic_sql）；能力矩阵/治理记录已对齐 |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
