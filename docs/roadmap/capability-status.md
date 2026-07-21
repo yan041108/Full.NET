@@ -25,7 +25,7 @@
 | 模块化单体、显式模块依赖与宿主 Profile | `Build-verified` | `Full.NET.Modularity`、`Full.NET.Composition`、Api/Worker/Migrator 显式 Profile、Unit 与 Architecture Tests | 新模块必须进入共享目录；Worker 只允许最小后台入口，禁止宿主恢复手工模块清单 |
 | 跨栈命名治理与生成器命名内核 | `Build-verified` | `contracts/naming/`、`pnpm test:naming`（23 项）、010/011 双库迁移、19 项 Naming Integration 矩阵、[命名治理](../verification/naming-governance.md)与[1.0 前规范化验证](../verification/pre-v1-naming-normalization.md)；债务 **83** 项 | 真实维护窗口、备份升级演练、协议别名排空与客户端 E2E 升级路径未实跑；动态 SQL 仍须人工审查；完整业务模板与重复生成快照未交付，因此不能标记为 `Verified` |
 | Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks；QueryMultiple 顺序/完整消费及 SQL Server/MySQL 真实测试 | `TenantRequired` 仍需从参数文本检查升级为受控语义元数据，Global Statement 需精确目录；SqlBuilder 只在真实消费者命中门禁后引入 |
-| UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`PrimaryKeyTypeMapping`、`validate-uuid-storage-sql`（010+ 门禁）、UUID 集成测试（Expand/Contract/Recovery 31 项）、应用持久化/外部契约测试、Runbook 与[自动化恢复演练记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)、真实栈 MySQL E2E 走 Binary16；门槛 **304/6/26/66** 见[测试门槛核对](test-threshold-audit-2026-07-19.md) | 真实生产维护窗口与整库备份恢复 RPO/RTO 实跑、SQL Server 聚集索引性能基准尚未完成 |
+| UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`PrimaryKeyTypeMapping`、`validate-uuid-storage-sql`（010+ 门禁）、UUID 集成测试（Expand/Contract/Recovery 31 项）、应用持久化/外部契约测试、Runbook 与[自动化恢复演练记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)、真实栈 MySQL E2E 走 Binary16；当前声明门槛 **314/7/26/85** 见[测试门槛核对](../verification/test-threshold-audit-2026-07-19.md) | 真实生产维护窗口与整库备份恢复 RPO/RTO 实跑、SQL Server 聚集索引性能基准尚未完成 |
 | SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试（Integration **85** 项）、010/011 Naming Expand/Contract、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
@@ -34,16 +34,16 @@
 | 高并发结构化日志与 OpenTelemetry | `Implemented` | 有界异步 Serilog、队列监控、OTel | Warning/Error 独立高优先级通道和降级演练未实现 |
 | Identity 会话安全基础 | `Build-verified` | 登录、事务轮换、重用/family 撤销、逐请求 Session/账号/安全戳校验、CSRF/CORS/Origin、Refresh/Logout 限流与审计测试；`SessionRaceAssertions` 双库集成（60 项门槛） | 事务故障注入和 Redis 分布式会话未实现 |
 | Tenancy 可信上下文切换 | `Build-verified` | 租户解析、可用租户、切换与刷新集成测试 | 完整租户/套餐 CRUD 尚未开始；不能宣传为完整租户后台 |
-| 最小 RBAC 与权限导航 | `Build-verified` | 当前用户、权限、Vue/Layui 导航与按钮门禁 | 用户、角色、菜单、组织、数据范围管理 CRUD 尚未实现 |
+| 最小 RBAC 与权限导航 | `Build-verified` | 当前用户、权限、Vue/Layui 导航与按钮门禁 | 用户/角色/菜单/组织/数据范围 CRUD 尚未实现；首刀见[用户管理纵向切片计划](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md) |
 | 受保护超级管理员 | `Implemented` | 005/006 双库迁移、动态 Catalog 权限、逐请求会话校验、远程授予/撤销 API、当前密码重认证、含 ActorUserId 的事务审计、双库最后一名保护、Vue/Layui 对等管理页与 Mock E2E；真实栈 `permission-denied` 覆盖受限账号 API/UI 403 | Production MFA/强认证 Provider、账号禁用/删除及普通角色 CRUD 的系统角色保护、超级管理员管理页真实栈 E2E 尚未完成 |
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
-| Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E | 会话/HTTP/导航白名单已收敛到 `@fullnet/client-contracts` headless 层；Layui 仅保留 DOM 渲染适配 |
+| Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E；**长期并行**（所有者 2026-07-21 确认，非过渡兼容端） | 会话/HTTP/导航白名单已收敛到 `@fullnet/client-contracts` headless 层；Layui 仅保留 DOM 渲染适配；业务切片须与 Vue 同步 |
 | 双管理端真实后端浏览器联调 | `Build-verified` | `tests/e2e/admin-real-stack`：Testcontainer SQL Server/MySQL + Migrator Development Seed + 真实 API；Vue/Layui **16** 项（登录/刷新/跨 Tab/租户/ProblemDetails/403/权限拒绝/退出）；CI `real-stack-e2e` + `real-stack-e2e-mysql`（main） | Redis 未纳入真实栈；Overview「检查会话」级 API 403 UI 探针仍依赖 mock parity；不能标为 `Verified` |
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |
-| 模块化 Seed Baseline/Overlay | `Implemented` | Migrator 已按迁移后可选 Seed 两阶段编排，支持显式 Profile 与稳定失败码；已落地 SQL Server/MySQL 锁和审计、Baseline Identity Contributor、Development Tenancy Contributor及宿主依赖门禁；Release Build、Unit 291、Compatibility 5、Architecture 24、Integration 58 项通过（[核对记录](../verification/test-threshold-audit-2026-07-19.md)，基线 `7894c8d`） | 完整 Profile 的 SQL Server/MySQL E2E、Production Secret 注入与运维验收尚未实施，不能视为生产 Seed 可用或标记为 `Verified` |
+| 模块化 Seed Baseline/Overlay | `Implemented` | Migrator 已按迁移后可选 Seed 两阶段编排，支持显式 Profile 与稳定失败码；已落地 SQL Server/MySQL 锁和审计、Baseline Identity Contributor、Development Tenancy Contributor及宿主依赖门禁；历史核对见[门槛审计](../verification/test-threshold-audit-2026-07-19.md)（当前声明门槛 **314/7/26/85**） | 完整 Profile 的 SQL Server/MySQL E2E、Production Secret 注入与运维验收尚未实施，不能视为生产 Seed 可用或标记为 `Verified` |
 | SignalR / Realtime | `Planned` | 架构边界已定义 | 抽象、鉴权分组、MessagePack Hub、Redis Backplane 尚未实现 |
 | gRPC 服务通信 | `Planned` | 架构边界已定义 | 首次真实服务拆分前不引入 |
 | AI / Agent / MCP / Agentic Web | `Planned` | M5+ 安全边界已定义 | 不属于 1.0 当前可用能力，不应占用近期底座优先级 |
@@ -59,19 +59,27 @@
 
 ## 4. 近期优先队列
 
-1. **P0：主键物理存储与数据安全**——先实施 ADR-0003 的 MySQL `BINARY(16)` 数据边界和 008/009 存量迁移，完成备份、字节序、主外键、Seed 审计引用、部分迁移恢复和 SQL Server 聚集索引验证。
-2. **P0：生产可控性**——在主键存储迁移完成后实施 Seed Baseline/Overlay，为超级管理员远程写操作接入 MFA/强认证 Provider 并补账号禁用/删除保护；建立 SQL 破坏性变更门禁，并复用现有命名扫描入口。
-3. **P0：1.0 前命名规范化**——Tenancy/Outbox 持久化层 010/011 与双库自动化矩阵已完成；剩余 **83** 项债务（协议别名窗口、动态 SQL 等）与生产升级演练待闭环。
-4. **P1：可靠性**——Outbox 版本兼容/死信、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道。
-5. **P1：交付真实性**——真实后端参与的 Vue/Layui Playwright 安全冒烟；浏览器跨 Tab 刷新协调。
-6. **P1：复用而不耦合**——浏览器 headless 契约层；OpenAPI/协议夹具扩展到 uni-app/Flutter。
-7. **P2：后续业务能力**——首批 Identity/Tenancy/Organization 双管理端纵向切片、L5 业务内容翻译样例。
+> 2026-07-21 起纳入[外部全面分析吸收](../verification/external-review-2026-07-21.md)：在基础设施债继续收敛的同时，**必须尽早完成首个可重复业务纵向切片**，否则治理成本无法被模块复杂度验证。
+
+1. **P0：交付证明——Identity 用户管理纵向切片**——按[实施计划](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md)落地 Host 用户列表/详情/创建/更新/禁用（API + 双库 + Vue/Layui + 真实栈最小冒烟）；未完成前不横向铺开角色/菜单/组织全量 CRUD。
+2. **P0：生产可控性（收尾）**——Seed Baseline/Overlay 生产 Secret/运维验收；超级管理员 MFA/强认证 Provider 与账号禁用/删除保护；SQL 破坏性变更门禁复用命名扫描入口。主键 008/009 与命名 010/011 自动化已落地，剩余为生产窗口与演练。
+3. **P0：1.0 前命名债务收敛**——剩余 **83** 项（协议别名窗口、动态 SQL 等）与真实维护窗口/备份升级演练待闭环。
+4. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。
+5. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **314/7/26/85** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
+6. **P1：交付真实性补强**——真实栈 Redis、Overview 级 403 UI 探针、超级管理员管理页真实栈 E2E；浏览器跨 Tab 协调已有基础，故障注入仍缺。
+7. **P1：复用而不耦合**——OpenAPI/协议夹具扩展到 uni-app/Flutter；headless 契约层已起步，继续防止双端逻辑漂移。
+8. **已决策：Layui 长期并行**——所有者 2026-07-21 确认；Vue 与 Layui 继续按同一模块同步开发与验收，不设退役窗口（见 [`client-frontend.md`](../../rules/client-frontend.md) §4）。
+9. **P2：运维与体验**——JWT 轮换 / Outbox 死信 / Redis 故障 / Seed 失败 Runbook；Aspire HealthCheck 钩子；人类[onboarding](../development/onboarding.md) 已建，继续补 ARCHITECTURE 总览图；Login Handler 拆分与性能基准。
+10. **P2：后续业务能力**——用户管理切片退出后，再排角色、菜单、Organization 与 L5 业务翻译样例。
 
 ## 5. 关联文档
 
+- [人类阅读入口（Onboarding）](../development/onboarding.md)
 - [总体架构设计](../superpowers/specs/2026-07-17-fullnet-architecture-design.md)
 - [架构风险复核与硬化设计](../superpowers/specs/2026-07-18-architecture-hardening-design.md)
-- [外部静态分析复核记录](../verification/external-review-2026-07-18.md)
+- [外部静态分析复核记录（2026-07-18）](../verification/external-review-2026-07-18.md)
+- [外部全面分析复核与吸收记录（2026-07-21）](../verification/external-review-2026-07-21.md)
+- [Identity 用户管理纵向切片计划](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md)
 - [测试数量门槛核对记录](../verification/test-threshold-audit-2026-07-19.md)
 - [架构硬化实施计划](../superpowers/plans/2026-07-18-architecture-hardening.md)
 - [Full.NET 命名规范](../../rules/naming-conventions.md)

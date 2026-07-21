@@ -29,11 +29,12 @@
 
 ## 4. Layui 管理端
 
-1. 只依赖 MIT 的 Layui 核心库并独立实现，不绑定第三方整套后台框架。
-2. layuiAdmin 仅可作为公开页面的功能/交互参考；未获得“公开源码并以 MIT 再发布”的明确书面授权前，禁止复制或提交其源码及产品资产。
-3. 多词文件与 HTML 路径使用 kebab-case，导出函数使用 camelCase（见 [`naming-conventions.md`](naming-conventions.md) 第 9 节）。
+1. Layui 管理端与 Vue 主管理端 **长期并行**（项目所有者 2026-07-21 确认）：不是过渡兼容层，不设默认退役窗口；后台模块必须双端同步交付，适用第 2 节 `Verified` 门槛。
+2. 只依赖 MIT 的 Layui 核心库并独立实现，不绑定第三方整套后台框架。
+3. layuiAdmin 仅可作为公开页面的功能/交互参考；未获得“公开源码并以 MIT 再发布”的明确书面授权前，禁止复制或提交其源码及产品资产。
+4. 多词文件与 HTML 路径使用 kebab-case，导出函数使用 camelCase（见 [`naming-conventions.md`](naming-conventions.md) 第 9 节）。
 
-验证：`pnpm --filter @fullnet/admin-layui test`；许可来源记录于 [`THIRD-PARTY-NOTICES`](../THIRD-PARTY-NOTICES)。
+验证：`pnpm --filter @fullnet/admin-layui test`；许可来源记录于 [`THIRD-PARTY-NOTICES`](../THIRD-PARTY-NOTICES)；决策见 [`external-review-2026-07-21`](../docs/verification/external-review-2026-07-21.md) 与 [`client-delivery-roadmap`](../docs/roadmap/client-delivery-roadmap.md) §3.1。
 
 ## 5. uni-app（H5、微信、支付宝小程序）
 

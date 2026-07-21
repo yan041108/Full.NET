@@ -1,5 +1,7 @@
 # Full.NET 本地开发与运行指南
 
+新加入开发者请先读[人类阅读入口（Onboarding）](onboarding.md)，再按本节搭建环境。能力边界以[状态矩阵](../roadmap/capability-status.md)为准。
+
 ## 1. 前置环境
 
 安装 .NET 10 SDK、Git 和 Docker Desktop。Windows 环境应启用 WSL 2，并让 Docker Desktop 使用 Linux containers。先确认 Docker Engine 可用：
@@ -47,9 +49,10 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 ### 2.0 集成测试分层门禁说明
 
 - **分层只改变何时跑完整双库，不降低覆盖**：数据库行为变更在合入前仍须双库相关 filter 或全量全绿；禁止把「未执行」表述为「通过」。
-- CI：PR 只跑双库冒烟；完整矩阵仅在 `push main` 执行（见 `.github/workflows/ci.yml`，超时 90m）。
+- CI：PR 当前只跑双库迁移冒烟 2 项；完整矩阵仅在 `push main` 执行（见 `.github/workflows/ci.yml`，超时 90m）。加宽 PR 冒烟至 Identity/Tenancy/Outbox 核心场景见[硬化计划 Task 13](../superpowers/plans/2026-07-18-architecture-hardening.md)，落地前不得宣称 PR 已覆盖业务集成回归。
 - 方法级并行 Worker 数在 `tests/Full.NET.IntegrationTests/MSTestSettings.cs`（默认 2）；本机验证稳定后再酌情上调。
 - Naming Contract 的 5 个维护门禁已合并为单测同库连试，避免 DataRow 重复 Through010 准备。
+- Worker/Outbox 多副本：领取依赖数据库租约而非默认 Leader Election；部署约束与压力验证见硬化计划 Task 6 扩展，运维文档待补。
 
 ### 2.1 客户端工作区与双管理端
 

@@ -91,6 +91,7 @@
 | 标识 | 候选经验 | 首次证据 | 次数 | 最近证据 | 建议防护 |
 | --- | --- | --- | ---: | --- | --- |
 | C-20260721-migration-recovery-boundary | 对已 DROP 的 legacy 表做恢复断言时，测试迁移必须停在破坏性后续脚本之前（如 004 停在 008、009 恢复排除 010/011） | 2026-07-21 全量 Integration：localization / UuidBinaryContractRecovery 因跑穿 011 DROP `fn_tenant_tenant` 失败 | 1 | 2026-07-21 Through008/Through009 边界 runner 修复后 85/85 通过 | 若再次出现同类失败，在 `development-quality.md` 固化“恢复用例边界 runner”强制条，并在 Naming/UUID 测试模板中默认排除后续 Contract |
+| C-20260721-test-threshold-audit-drift | 调整 `--minimum-expected-tests` 时只改 README/CI/getting-started/delivery-map，未同步 `docs/verification/test-threshold-audit-*.md`，外部审查会误判门槛不一致 | 2026-07-21 外部全面分析：audit 停在 66/74，CI 已是 85 | 1 | 同左；本轮已补记 **314/7/26/85** | 若再次出现，在 `development-quality.md` 第 11/12 节明确 audit 记录为第四处之外的强制同步点，或增加脚本比对 CI 与 audit 最新数字 |
 
 ## 8. 防止规则失控
 

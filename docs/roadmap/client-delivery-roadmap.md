@@ -18,7 +18,7 @@ Full.NET 同时维护两套功能范围一致的后台管理端，并按平台�
 | 轨道 | 目录 | 交付责任 | 优先级 |
 |---|---|---|---:|
 | A | `ui/admin` | Vue 3 主管理端，完整后台功能 | P0 |
-| B | `ui/admin-layui` | Layui JS/HTML 管理端，与 Vue 后台功能对等 | P0 |
+| B | `ui/admin-layui` | Layui JS/HTML 管理端，与 Vue 后台功能对等；**长期并行**（非退役候选） | P0 |
 | C | `clients/uniapp` | H5、微信小程序、支付宝小程序 | P1 |
 | D | `clients/flutter` | Android、iOS、Windows、macOS、Linux | P2 |
 | E | `clients/maui-template` | C#/Windows 企业项目按需模板 | 决策门禁 |
@@ -31,7 +31,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 |---|---|---|---|
 | C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单、全仓库语言治理清单、服务端资源本地化 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
 | C1 双管理端壳层 | Implemented | Vue/Element Plus 自研壳层、clean-room Layui、本地资源、登录/刷新/退出、内存令牌、CSRF、当前用户、可信租户切换、Host 返回、动态权限导航、按钮可见性、Hash 状态页、错误码/TraceId、管理端 `zh-CN/en-US` 自有及组件文案、逐请求 Accept-Language、账号偏好原子同步、WCAG 2.2 A/AA、键盘/焦点、320 CSS px 重排、减弱动画与同场景双端 E2E | Art Design Pro 已选定但未迁入；Windows Edge + NVDA、200% 缩放与强制颜色人工验收 |
-| C2 业务模块 | Mapped | 功能波次和双端同步门禁 | 首个 Identity/Tenancy/Organization 纵向切片 |
+| C2 业务模块 | Designing（已批准） | 功能波次和双端同步门禁；[用户管理纵向切片计划](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md) 已获所有者批准 | 首刀为 Identity **用户管理**（列表/详情/创建/更新/禁用）；角色/菜单/Organization 排在其后；Layui **长期并行**，切片必须双端同步 |
 | C3 uni-app 基础客户端 | Implementing / Build-verified | Vue 3/TypeScript、Vue I18n、规范语言适配、pages/manifest、本地资源、HTTP/ProblemDetails、账号偏好原子提交、96 项单测、类型检查、三目标 CLI 构建和 5 项 H5 E2E | uni-ui 已选定但未引入；微信/支付宝开发者工具、真机、真实登录/租户/会话流程和平台发布清单 |
 | C4 Flutter 业务客户端 | Designing | Flutter 3.44、Material 3 + Cupertino、平台边界和多语言统一设计 | Flutter 工程、设计令牌、原生资源与平台构建验证 |
 
@@ -78,6 +78,15 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 6. 双端 E2E、OpenAPI 漂移检查和许可证检查通过后更新矩阵。
 
 允许同一短周期内先在 Vue 或 Layui 验证复杂交互，但功能不得带着另一端欠账跨越里程碑退出门禁。
+
+### 3.1 Layui 轨道决策（2026-07-21 已确认）
+
+项目所有者确认：Layui 管理端与 Vue 主管理端 **长期并行**，不是历史兼容过渡层，**不设退役窗口**。
+
+- `rules/client-frontend.md` 双端同步与 `Verified` 门槛继续强制；
+- 禁止将 Layui 降为“尽力而为”、单端先行合入里程碑、或仅文档声明对等而未做验收；
+- 后续若改退役策略，必须书面决策并同步修订本路线图与 `client-frontend` 规则。
+- 证据：[`external-review-2026-07-21.md`](../verification/external-review-2026-07-21.md) 决策附录。
 
 ## 4. 阶段计划
 

@@ -126,7 +126,28 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | `pnpm test:naming` | **22/22** 通过 |
 | Architecture | **26/26** 通过 |
 
+## 增补（2026-07-21，声明门槛对齐；外部分析吸收）
+
+来源：[`external-review-2026-07-21.md`](external-review-2026-07-21.md) 指出本文件曾停在 **66/74**，与当前 CI/README 漂移。
+
+| 套件 | 当前声明门槛 | 权威来源 |
+| --- | ---: | --- |
+| `Full.NET.UnitTests` | **314** | `README.md`、`docs/development/getting-started.md`、`.github/workflows/ci.yml`、`.agents/skills/fullnet-module-delivery/references/delivery-map.md` |
+| `Full.NET.CompatibilityTests` | **7** | 同上 |
+| `Full.NET.ArchitectureTests` | **26** | 同上 |
+| `Full.NET.IntegrationTests` | **85**（全量 / `push main`）；PR 冒烟 **2** | 同上；PR filter=`migration_is_idempotent_and_creates_binary_outbox_schema` |
+
+核对结论：四处 canonical 声明门槛现为 **314/7/26/85**，彼此一致。自 2026-07-19 增补以来的增长主要来自命名 Expand/Contract/Recovery、UUID、会话竞态与相关 Unit/Compatibility 用例（中间过程见上文增补段；部分增补未逐次把 Integration 全量数字写回本表，造成本次漂移）。
+
+| 未在本增补完成的验证 | 说明 |
+| --- | --- |
+| Integration **85/85** 新鲜全量重跑 | 本轮为文档吸收，未附 90m 级全量日志；下次发布候选或合入敏感数据变更时必须补新鲜证据 |
+| PR 冒烟加宽 | 已记入[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 13；实现前 PR 仍只保证迁移冒烟 2 项 |
+
+能力矩阵中个别单元格若仍写历史 **304/6/26/66**，以本节声明门槛与 CI 为准，并在对应能力下次更新时改写证据列。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
 - [本地开发与运行指南](../development/getting-started.md)
+- [外部全面分析复核与吸收记录（2026-07-21）](external-review-2026-07-21.md)

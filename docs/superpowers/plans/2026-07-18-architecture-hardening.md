@@ -111,14 +111,16 @@
 - Modify: `src/BuildingBlocks/Full.NET.Data.Dapper`
 - Modify: `src/Hosts/Full.NET.Host.Worker/OutboxProcessor.cs`
 - Add: SQL Server/MySQL forward-only migrations
+- Create: `docs/operations/outbox-worker-topology.md`（或写入 getting-started 运维小节）
 - Test: `tests/Full.NET.UnitTests/Messaging/OutboxVersioningTests.cs`
 - Test: `tests/Full.NET.IntegrationTests/Messaging/OutboxRecoveryTests.cs`
 
 1. 先建立 V1 旧载荷、V2 当前载荷、未知版本、不可信载荷和缺 Handler 的失败样例。
 2. 支持并行版本 Handler 或相邻版本升级链；升级器必须使用显式旧版本契约，禁止 Typeless。
 3. 区分瞬时/永久失败，加入最大尝试、死信状态、错误摘要和可审计人工重放。
-4. 双库验证多 Worker 租约、坏消息不阻塞批次、重启恢复、版本退役扫描。
+4. 双库验证多 Worker 租约、坏消息不阻塞批次、重启恢复、版本退役扫描；**至少**覆盖两并发领取进程（同库）下无重复成功处理、租约过期回收。
 5. 文档记录兼容窗口和“先消费者、后生产者、最后退役”发布顺序。
+6. **部署拓扑（2026-07-21 吸收）**：书面明确默认依赖数据库租约的多副本安全模型；BatchSize/Lease/Poll 改为 Options；在证明租约压力场景前，**禁止**把“必须上 Redis Leader Election”写成唯一解。若生产强制单副本，必须在运维文档与 Compose/Helm 示例中写死 `replicas: 1` 及风险说明。
 
 ### Task 7: 缓存一致性等级与故障注入
 
@@ -211,6 +213,24 @@ Vue 壳层迁移按 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue
 5. 状态矩阵只有在真实消费者、双库和对应客户端通过后才提升 L5。
 
 客户端 UI 落地分别执行 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue-art-design-pro-adoption.md)、[`2026-07-18-rich-text-editor-foundation.md`](2026-07-18-rich-text-editor-foundation.md)、[`2026-07-18-uniapp-uni-ui-adoption.md`](2026-07-18-uniapp-uni-ui-adoption.md) 与 [`2026-07-18-flutter-ui-foundation.md`](2026-07-18-flutter-ui-foundation.md)，不得把“已选型”误标为“已集成”。
+
+### Task 13: PR 集成冒烟加宽（2026-07-21 吸收）
+
+**Files:**
+- Modify: `.github/workflows/ci.yml`
+- Modify: `docs/development/getting-started.md`
+- Modify: `docs/verification/test-threshold-audit-2026-07-19.md`
+- Test: 现有 Integration 用例的稳定 filter 组合（不新建慢套件）
+
+1. 保持 `push main` 全量 **85**（或当时门槛）与 90m 超时不变。
+2. 将 PR 门禁从仅 `migration_is_idempotent_and_creates_binary_outbox_schema`（2 项）扩展为 Identity/Tenancy/Outbox 核心场景 filter；目标墙钟 **≤15m**，失败即阻断合入。
+3. filter 必须点名稳定测试名或明确命名前缀；禁止用过于宽泛的正则把 PR 拖回全量矩阵。
+4. 同步 README/getting-started/delivery-map 对“日常/PR/发布”三档的说明；更新门槛审计。
+5. 数据库结构或 Outbox SQL 变更的 PR 仍须额外跑相关聚焦 filter 或全量，不能只靠加宽后的冒烟宣称双库完成。
+
+### Task 14: 首个业务纵向切片跟踪
+
+业务实现不在本硬化计划内展开，统一执行 [`2026-07-21-identity-user-management-vertical-slice.md`](2026-07-21-identity-user-management-vertical-slice.md)。本 Task 仅要求：硬化门禁与用户管理切片并行时，Outbox/SQL 守卫变更不得破坏切片测试；切片合入后回头补 Architecture Tests（模块表所有权、SqlDataScope 显式性）。
 
 ## 完成门禁
 
