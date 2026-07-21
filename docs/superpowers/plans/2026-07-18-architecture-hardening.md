@@ -171,7 +171,7 @@
 
 - [ ] **Step 1: 写入失败的架构契约**
 
-  新增扫描断言：`src/Modules/*/*.csproj` 不得引用另一个逻辑业务模块的非 `.Contracts` 项目；同一逻辑模块的 Core/Http 项目引用允许保留，例如 Tenancy.Http→Tenancy。生产模块 `AssemblyInfo.cs` 不得把另一个生产模块列入 `InternalsVisibleTo`。现状必须报告 Organization→Identity/Tenancy.Http、Tenancy.Http→Identity 和 Identity→Organization 友元。
+  新增扫描断言：`src/Modules/*/*.csproj` 不得引用另一个逻辑业务模块的非 `.Contracts` 项目；同一逻辑模块的已有 Core/Http 引用可被依赖测试识别，例如 Tenancy.Http→Tenancy，但这不构成新建 `.Http` 项目的授权，新增项目仍须满足 `rules/development-quality.md` 第 3 节的项目拓扑门禁。生产模块 `AssemblyInfo.cs` 不得把另一个生产模块列入 `InternalsVisibleTo`。现状必须报告 Organization→Identity/Tenancy.Http、Tenancy.Http→Identity 和 Identity→Organization 友元。
 
 - [ ] **Step 2: 用稳定模块键替代具体类型依赖**
 
@@ -184,6 +184,10 @@
 - [ ] **Step 4: 验证边界与行为未漂移**
 
   运行 Architecture、Unit、Organization/Identity/Tenancy 聚焦 Integration 与 OpenAPI 门禁；对比模块顺序和权限策略名称，预期公开 API、权限码及 Endpoint 行为无变化。
+
+- [ ] **Step 5: 复核 Tenancy 存量项目拓扑**
+
+  在实现引用清理与 Host Profile 边界验证完成后，记录 `Tenancy.Http` 的真实非 HTTP Core 消费者、依赖/打包收益和架构测试证据。证据满足门禁则保留并在验证记录中说明；证据不足则新增独立合并任务，不在 Task 4A 中顺手移动类型或改变公开 API。无论结论如何，Tenancy 的存量拆分都不得作为新模块模板。
 
 ### Task 4B: API 移除迁移执行能力（2026-07-22 P1）
 

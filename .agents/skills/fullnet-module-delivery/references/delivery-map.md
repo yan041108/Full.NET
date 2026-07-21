@@ -15,8 +15,9 @@
 | `src/Compatibility/Full.NET.Compatibility.AdminNet` | Admin.NET 可选响应包络与适配注册 |
 | `src/Composition/Full.NET.Composition` | 官方模块共享目录、Api/Worker/Migrator 的显式 Host Profile 与最小后台装配 |
 | `packages/client-contracts` | ProblemDetails/身份/租户/权限契约解析，以及无框架 headless 层（`createHttpClient`、`createIdentitySession`、`createAdminNavigationCatalog`）；Vue/Layui 只做渲染适配 |
-| `src/Modules/Full.NET.Modules.*`（Core） | 按 Contracts、Domain、Features、Persistence、Serialization 组织的业务逻辑；禁止直接使用 ASP.NET Core API（`BusinessModuleCores_DoNotDependOnAspNetCore` 门禁），只对外暴露 `Contracts` 命名空间 |
-| `src/Modules/Full.NET.Modules.*.Http`（可选） | 承载 `IFullNetModule` 实现、Endpoint 与中间件的 Web 面；引用同名 Core，仅暴露模块入口类型（如 Tenancy 已拆分） |
+| `src/Modules/Full.NET.Modules.*`（主项目） | 每个内聚业务模块默认只有一个主项目，按 Contracts、Domain、Features、Persistence、Serialization 组织；CRUD、菜单、实体、用例与 Endpoint 不单独建项目 |
+| `src/Modules/Full.NET.Modules.*.Contracts`（可选） | 只有存在真实跨模块或外部编译期消费者且需要稳定契约程序集隔离时创建；否则使用主项目内 `Contracts/` |
+| `src/Modules/Full.NET.Modules.*.Http`（可选） | 只有同一 web-free Core 被非 HTTP 宿主真实复用且能证明独立传输适配收益时创建；Tenancy 是存量参考而非新模块模板 |
 | `src/Modules/Full.NET.Modules.Identity.Contracts` | Identity 跨模块契约（Claim 类型、会话上下文、导航/权限定义等），web-free，供其他模块 Core 引用而不拖入 ASP.NET Core |
 | `src/Hosts/Full.NET.Host.Api` | HTTP Host 与模块装配 |
 | `src/Hosts/Full.NET.Host.Worker` | Outbox、通知和后台处理 |
@@ -44,9 +45,9 @@
 | 新缓存 | 模块缓存消费者、租户化 Key、提交后失效 Handler、Unit/Integration Tests |
 | 新公开 JSON DTO | 模块 `JsonSerializerContext`、API 测试、兼容性评估 |
 | 新 Admin.NET 响应 | Compatibility 层 Mapper 与 Compatibility Tests |
-| 新模块依赖 | 模块项目引用、Architecture Tests、`Directory.Packages.props`、许可通知 |
-| 新 Endpoint/中间件（Web 面） | 模块 `.Http` 项目（Endpoint 保持 internal、中间件通过 `UseModuleMiddleware` 贡献）；Core 保持 web-free；`BusinessModuleCores_DoNotDependOnAspNetCore` 与导出断言 |
-| 新模块宿主装配 | `Full.NET.Composition`（引用模块 `.Http`）、`FullNetHostProfile`、Profile Unit Tests 与宿主 Architecture Tests |
+| 新模块依赖 | 只引用对方公开 Contracts；Architecture Tests、`Directory.Packages.props`、许可通知 |
+| 新 Endpoint/中间件（Web 面） | 默认放在模块主项目并保持 internal；只有满足项目拓扑门禁时才新建 `.Http`，同时补充 Core web-free、导出和依赖断言 |
+| 新模块宿主装配 | `Full.NET.Composition`（引用模块主项目或有证据的适配项目）、`FullNetHostProfile`、Profile Unit Tests 与宿主 Architecture Tests |
 | 新数据库/API/机器码或生成模板 | `rules/naming-conventions.md`、`contracts/naming/`、CodeGeneration 内核、`pnpm test:naming` |
 
 ## 验证命令

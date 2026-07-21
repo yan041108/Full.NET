@@ -178,7 +178,26 @@ Full.NET/
     └── roadmap/adminnet-feature-parity.md
 ```
 
-BuildingBlocks 必须保持小而稳定，不允许依赖业务模块。每个业务模块首版保持单程序集，避免为每个模块拆出 Domain/Application/Infrastructure/API 四个项目造成项目数量膨胀。
+BuildingBlocks 必须保持小而稳定，不允许依赖业务模块。逻辑模块、功能切片和物理项目是三个不同层级：一个逻辑模块可以包含多个 CRUD、实体和用例，但这些小功能默认只形成目录与垂直切片，不形成新的 `.csproj`。
+
+业务模块物理拓扑默认采用“一个主项目＋按证据可选项目”：
+
+```text
+Full.NET.Modules.<Module>             # 默认且必须：模块实现、持久化、注册与 Endpoint
+Full.NET.Modules.<Module>.Contracts   # 可选：存在真实跨模块或外部编译期消费者
+Full.NET.Modules.<Module>.Http        # 可选：存在独立传输适配收益
+```
+
+项目创建规则如下：
+
+| 变化 | 默认承载方式 | 允许新增项目的证据 |
+| --- | --- | --- |
+| CRUD、菜单、实体、Command/Query、Endpoint | 主项目内 `Features/<UseCase>` 等垂直切片 | 不允许按小功能拆项目 |
+| 公开接口、DTO、权限定义、Integration Event | 无外部消费者时放在主项目 `Contracts/` | 至少一个真实跨模块或外部编译期消费者，且需要稳定契约的程序集隔离 |
+| HTTP、Worker 或其他适配 | 先由主项目提供分层注册入口，由 Host Profile 选择能力 | 同一核心被非该传输宿主真实复用，并能证明依赖、打包或安全隔离收益 |
+| 独立业务模块 | 新建一个主项目 | 具有独立数据所有权、业务不变量、生命周期和公开契约；不能只由菜单层级决定 |
+
+禁止为每个模块机械拆出 Domain/Application/Infrastructure/API 项目，禁止按 CRUD、数据表或前端菜单增加项目，也禁止为了压低项目数量把无关业务合并为大杂烩模块。API、Worker、Migrator 的运行角色分离不自动要求模块拆出 `.Http` 或 `.Worker`；先使用同一程序集内的显式注册入口和 Host Profile，只有上表证据成立并由 Spec 或计划记录真实消费者、依赖方向、收益与架构测试时才增加可选项目。
 
 ### 4.3 模块内部结构
 

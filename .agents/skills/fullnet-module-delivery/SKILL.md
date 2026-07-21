@@ -22,6 +22,13 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 ## 2. 设计纵向切片
 
+项目拓扑默认采用“一个主项目＋按证据可选项目”。一个大业务模块先创建一个 `Full.NET.Modules.<Module>` 主项目，CRUD、实体、菜单、Command/Query 与 Endpoint 都作为项目内垂直切片，不得按 CRUD 或目录机械增加 `.csproj`。
+
+- 只有存在真实跨模块消费者或外部编译期消费者，并且需要隔离稳定公开契约时，才创建独立 `*.Contracts` 项目；否则使用主项目内的 `Contracts/` 目录。
+- 只有同一核心被非该传输宿主真实复用，并能证明独立传输适配收益，包括依赖、打包或安全隔离收益时，才创建 `*.Http`、`*.Worker` 等适配项目。
+- API、Worker、Migrator 的角色分离不是拆项目证据；先使用主项目内显式注册入口和 `FullNetHostProfile`。
+- 新增可选项目必须在已批准 Spec 或计划中写明消费者、依赖方向、收益和架构测试；没有证据时保持一个主项目。
+
 按需选择以下组成部分，禁止为目录完整而创建空层：
 
 | 组成 | 使用条件 | 责任 |
@@ -114,6 +121,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 ## 常见错误
 
+- 把每个 CRUD、菜单或 Endpoint 建成独立项目，或把 `Contracts`、`.Http` 当作每个模块的固定模板。
 - 只完成 Endpoint 和表，遗漏注册、权限、租户、序列化或测试。
 - SQL Server 通过后假定 MySQL 等价，未运行真实集成测试。
 - 把 FluentValidation 当授权系统，或信任客户端传入的租户标识。

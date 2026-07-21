@@ -39,6 +39,7 @@
 下列基线只陈述不变量并指向唯一权威源；执行细则与验证方式以链接的 `rules/` 文件或 ADR 为准，不在此内联复述，避免双写漂移。
 
 - Full.NET 1.0 保持强化型模块化单体，API、Worker、Migrator 按运行角色分离，AppHost 只负责编排，禁止全面微服务化或提前引入网络边界；拆分门禁见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节与 [`ADR-0002`](docs/architecture/adr/ADR-0002-modular-monolith-evolution.md)。
+- 业务模块物理拓扑默认采用“一个主项目＋按证据可选 Contracts/传输适配项目”；小功能、CRUD、实体、菜单和用例只能作为主项目内的垂直切片，禁止按功能机械增加 `.csproj`；项目拆分门禁见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节与[总体架构 Spec §4.2](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#42-解决方案结构)。
 - 业务数据访问默认使用 Dapper 与显式 SQL，未经明确架构决策不得引入 EF Core；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 5 节。
 - Dapper 辅助能力只允许通过 Full.NET 自有边界使用，业务模块禁止直连数据库、通用 Repository 或自动 CRUD；禁用清单与验证以 [`rules/development-quality.md`](rules/development-quality.md) R-20260718-dapper-tooling-boundary 为准。
 - 当前可靠业务 Integration Event 只通过事务 Outbox 发布；CDC Relay/Kafka 排在当前硬化和核心业务之后，必须经真实 SLA、瓶颈与双库运维门禁，且不得按瞬时 QPS 动态改变可靠性语义；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 6 节与[总体架构 Spec §9.1](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)。

@@ -30,6 +30,7 @@
 | 把框架、项目和数据库系统对象都命名为 `sys_*`，或在各模板重复实现命名转换 | 所有权混淆、跨库大小写故障、Dapper 隐式映射和生成漂移 | `naming-conventions.md` |
 | 用用户名、通配符或无条件授权实现超级管理员，或允许移除最后一名 | 权限绕过、租户泄漏和平台失去恢复入口 | R-20260718-super-administrator-boundary |
 | 在业务模块直接引入 Dapper 扩展、连接、事务或自动 CRUD | 绕过租户守卫、事务/Outbox 和 SQL 审查边界 | R-20260718-dapper-tooling-boundary |
+| 把每个 CRUD、菜单、实体或用例拆成独立项目，或把 `Contracts`/`.Http` 当作模块标配 | 项目数量膨胀、构建与装配成本上升，并形成没有业务意义的物理边界 | 第 3 节 |
 
 ## 2. 任务开始与范围控制
 
@@ -42,14 +43,17 @@
 ## 3. 架构与模块边界
 
 1. Full.NET 采用模块化单体优先的架构；模块通过明确契约通信，禁止直接引用其他模块的内部实现或表结构。生产模块的项目引用只能指向其他模块的公开 Contracts，禁止通过具体 `Module` 类型、实现项目引用或 `InternalsVisibleTo` 建立跨模块依赖；具体模块入口只允许由 Composition 组合根引用。
-2. 依赖方向必须从 Host/Module 指向 BuildingBlocks 抽象与实现，抽象层不得反向依赖基础设施或宿主。
-3. 新横切能力必须先判断应属于 Abstractions、BuildingBlocks、Compatibility 还是具体 Module，禁止把业务逻辑堆入 Host。
-4. 服务注册必须审查生命周期、线程安全和作用域捕获；禁止 Singleton 直接持有 Scoped 服务或请求级租户状态。
-5. 启动、迁移和后台 Worker 的职责必须分离；API Host 不得引用、注册、解析或执行 DbUp 迁移能力，迁移只能由 Migrator 或显式测试基础设施执行。Migrator 只允许装配 Migration/Seed 与 Contributor 的最小依赖闭包，不得复用 API Profile 装入认证、授权、CORS、限流或 HTTP Endpoint 服务。
-6. 参考 `dotnet/eShop` 时只吸收可解释的架构思想，不机械复制微服务复杂度；参考 Admin.NET 时对标功能，不复制其耦合方式。
-7. 宿主注册完整模块时必须同时注册该模块声明的全部 `Dependencies`；模块排序依赖必须使用稳定模块键而不是另一个模块的具体类型。Worker 或 Migrator 只消费后台/迁移能力时，应由模块提供并使用可验证的最小服务注册入口，禁止为了单个消费者或 Contributor 注册完整 HTTP 模块或留下不完整依赖图。
-8. Full.NET 官方 Api、Worker、Migrator 必须通过 `Full.NET.Composition` 的显式 Host Profile 选择模块能力；新增模块只能更新共享目录和对应测试，禁止在各宿主 `Program.cs` 恢复手工完整模块清单。Composition 可以依赖具体 Modules，通用 BuildingBlock 禁止反向引用业务模块。
-9. Full.NET 1.0 必须保持强化型模块化单体以及 API、Worker、Migrator 运行角色分离；局部模块只有满足 [`ADR-0002`](../docs/architecture/adr/ADR-0002-modular-monolith-evolution.md) 的全部拆分门禁并新增独立 ADR 后才能拆分。禁止用未来扩容、团队增长或技术偏好代替可测量证据，禁止把角色分离误报为微服务能力。
+2. 一个内聚业务边界默认只创建一个 `Full.NET.Modules.<Module>` 主项目；小功能、CRUD、实体、菜单、Command/Query 和 Endpoint 必须作为主项目内的目录或垂直切片，禁止按功能机械增加 `.csproj`。业务边界按数据所有权、业务不变量、生命周期和公开契约判断，不得仅按前端菜单分组，也不得为了减少项目数把无关能力塞入大杂烩模块。
+3. `Full.NET.Modules.<Module>.Contracts` 只有在存在至少一个真实跨模块或外部编译期消费者，并且需要以程序集隔离稳定公开接口、DTO、权限定义或集成事件时才可创建；没有消费者时 `Contracts/` 只是主项目内目录。禁止为了未来可能复用提前创建 Contracts 项目，禁止把业务契约上移到 BuildingBlocks 以减少项目数量。
+4. `.Http`、`.Worker` 或其他传输/运行适配项目只有在同一模块核心被非该传输宿主真实复用，且程序集隔离能带来可验证的依赖、打包或安全收益时才可创建。API、Worker、Migrator 的运行角色分离本身不构成适配项目拆分证据；应先在主项目中使用显式注册入口和 Host Profile 控制能力集合。新增可选项目必须在已批准 Spec 或计划中列出真实消费者、依赖方向、收益和架构测试；缺少任一项时保持一个主项目。
+5. 依赖方向必须从 Host/Module 指向 BuildingBlocks 抽象与实现，抽象层不得反向依赖基础设施或宿主。
+6. 新横切能力必须先判断应属于 Abstractions、BuildingBlocks、Compatibility 还是具体 Module，禁止把业务逻辑堆入 Host。
+7. 服务注册必须审查生命周期、线程安全和作用域捕获；禁止 Singleton 直接持有 Scoped 服务或请求级租户状态。
+8. 启动、迁移和后台 Worker 的职责必须分离；API Host 不得引用、注册、解析或执行 DbUp 迁移能力，迁移只能由 Migrator 或显式测试基础设施执行。Migrator 只允许装配 Migration/Seed 与 Contributor 的最小依赖闭包，不得复用 API Profile 装入认证、授权、CORS、限流或 HTTP Endpoint 服务。
+9. 参考 `dotnet/eShop` 时只吸收可解释的架构思想，不机械复制微服务复杂度；参考 Admin.NET 时对标功能，不复制其耦合方式。
+10. 宿主注册完整模块时必须同时注册该模块声明的全部 `Dependencies`；模块排序依赖必须使用稳定模块键而不是另一个模块的具体类型。Worker 或 Migrator 只消费后台/迁移能力时，应由模块提供并使用可验证的最小服务注册入口，禁止为了单个消费者或 Contributor 注册完整 HTTP 模块或留下不完整依赖图。
+11. Full.NET 官方 Api、Worker、Migrator 必须通过 `Full.NET.Composition` 的显式 Host Profile 选择模块能力；新增模块只能更新共享目录和对应测试，禁止在各宿主 `Program.cs` 恢复手工完整模块清单。Composition 可以依赖具体 Modules，通用 BuildingBlock 禁止反向引用业务模块。
+12. Full.NET 1.0 必须保持强化型模块化单体以及 API、Worker、Migrator 运行角色分离；局部模块只有满足 [`ADR-0002`](../docs/architecture/adr/ADR-0002-modular-monolith-evolution.md) 的全部拆分门禁并新增独立 ADR 后才能拆分。禁止用未来扩容、团队增长或技术偏好代替可测量证据，禁止把角色分离误报为微服务能力。
 
 ## 4. 安全、权限与租户隔离
 
