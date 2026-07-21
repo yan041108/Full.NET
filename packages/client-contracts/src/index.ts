@@ -147,6 +147,19 @@ export type {
   UpdateOrganizationUnitRequest
 } from './tenant-org-units.js';
 
+export {
+  isOrganizationUserUnit,
+  isOrganizationUserUnitPage,
+  isUpdateOrganizationUserUnitRequest
+} from './tenant-user-units.js';
+
+export type {
+  OrganizationUserUnit,
+  OrganizationUserUnitPage,
+  CreateOrganizationUserUnitRequest,
+  UpdateOrganizationUserUnitRequest
+} from './tenant-user-units.js';
+
 export type {
   TenantContextDescriptor,
   TenantContextSummary,

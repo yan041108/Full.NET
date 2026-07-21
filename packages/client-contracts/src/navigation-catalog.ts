@@ -40,6 +40,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/organization/units'
   },
   {
+    componentKey: 'org-user-units',
+    routeName: 'org-user-units',
+    path: '/organization/user-units'
+  },
+  {
     componentKey: 'super-administrators',
     routeName: 'super-administrators',
     path: '/identity/super-administrators'

@@ -6,4 +6,7 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="organization.units.code_exists" xml:space="preserve"><value>该租户机构编码已存在。</value></data>
   <data name="organization.units.not_found" xml:space="preserve"><value>未找到指定的机构。</value></data>
+  <data name="organization.user_units.already_assigned" xml:space="preserve"><value>该用户已隶属此机构。</value></data>
+  <data name="organization.user_units.not_found" xml:space="preserve"><value>未找到指定的用户机构隶属。</value></data>
+  <data name="organization.user_units.user_not_found" xml:space="preserve"><value>未找到指定的 Host 用户。</value></data>
 </root>

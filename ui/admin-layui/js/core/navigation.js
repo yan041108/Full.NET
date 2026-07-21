@@ -39,6 +39,12 @@ const presentation = new Map([
     titleKey: 'navigation.orgUnits.title',
     captionKey: 'navigation.orgUnits.caption'
   }],
+  ['org-user-units', {
+    view: 'org-user-units',
+    iconClass: 'layui-icon-user',
+    titleKey: 'navigation.orgUserUnits.title',
+    captionKey: 'navigation.orgUserUnits.caption'
+  }],
   ['super-administrators', {
     view: 'super-administrators',
     iconClass: 'layui-icon-auz',

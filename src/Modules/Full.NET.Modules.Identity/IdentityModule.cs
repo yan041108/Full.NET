@@ -115,6 +115,7 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<HostRoleManagementService>();
         services.TryAddScoped<HostMenuQueryService>();
         services.TryAddScoped<HostMenuManagementService>();
+        services.TryAddScoped<IHostUserDirectory, HostUsers.HostUserDirectory>();
         services.TryAddScoped<HostNavigationDefinitionLoader>();
         services.AddFullNetFluentValidation();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();

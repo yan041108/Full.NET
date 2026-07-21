@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Features.ManageTenantUnits;
+using Full.NET.Modules.Organization.Features.ManageTenantUserUnits;
 using Full.NET.Modules.Organization.Resources;
 using Full.NET.Modules.Organization.Serialization;
 using Full.NET.Modules.Tenancy;
@@ -43,6 +44,8 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<TenantUnitQueryService>();
         services.TryAddScoped<TenantUnitManagementService>();
+        services.TryAddScoped<TenantUserUnitQueryService>();
+        services.TryAddScoped<TenantUserUnitManagementService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -52,5 +55,6 @@ public sealed class OrganizationModule : IFullNetModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageTenantUnits.Endpoint.Map(endpoints);
+        Features.ManageTenantUserUnits.Endpoint.Map(endpoints);
     }
 }

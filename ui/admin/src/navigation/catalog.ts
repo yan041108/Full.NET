@@ -38,6 +38,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.orgUnits.title',
     captionKey: 'navigation.orgUnits.caption'
   }],
+  ['org-user-units', {
+    titleKey: 'navigation.orgUserUnits.title',
+    captionKey: 'navigation.orgUserUnits.caption'
+  }],
   ['super-administrators', {
     titleKey: 'navigation.superAdministrators.title',
     captionKey: 'navigation.superAdministrators.caption'

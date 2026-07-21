@@ -14,6 +14,7 @@ import UsersView from '../views/UsersView.vue';
 import RolesView from '../views/RolesView.vue';
 import MenusView from '../views/MenusView.vue';
 import OrgUnitsView from '../views/OrgUnitsView.vue';
+import OrgUserUnitsView from '../views/OrgUserUnitsView.vue';
 
 const statusPaths = new Set(['/403', '/404', '/500']);
 
@@ -49,6 +50,11 @@ export function createAppRouter(
         name: 'org-units',
         path: '/organization/units',
         component: OrgUnitsView
+      },
+      {
+        name: 'org-user-units',
+        path: '/organization/user-units',
+        component: OrgUserUnitsView
       },
       {
         name: 'super-administrators',

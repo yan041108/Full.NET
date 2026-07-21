@@ -14,9 +14,10 @@ import { createUsersController } from './core/users.js';
 import { createRolesController } from './core/roles.js';
 import { createMenusController } from './core/menus.js';
 import { createOrgUnitsController } from './core/org-units.js';
+import { createOrgUserUnitsController } from './core/org-user-units.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/identity/super-administrators']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/identity/super-administrators']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -82,6 +83,10 @@ export function initializeAdminApp(root = document, options = {}) {
     request,
     translation: () => translation
   });
+  const orgUserUnits = createOrgUserUnitsController(root, {
+    request,
+    translation: () => translation
+  });
 
   const onRouteChange = () => {
     renderRoute(root, latestSnapshot, translation, { focusHeading: true });
@@ -104,6 +109,10 @@ export function initializeAdminApp(root = document, options = {}) {
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/organization/units') {
       void orgUnits.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/organization/user-units') {
+      void orgUserUnits.load();
     }
   };
   const onProbe = async () => {
@@ -271,6 +280,10 @@ export function initializeAdminApp(root = document, options = {}) {
       && currentRoute() === '/organization/units') {
       void orgUnits.load();
     }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/organization/user-units') {
+      void orgUserUnits.load();
+    }
   });
   const unsubscribeI18n = i18n.subscribe((snapshot) => {
     translation = snapshot;
@@ -334,6 +347,7 @@ export function initializeAdminApp(root = document, options = {}) {
       roles.dispose();
       menus.dispose();
       orgUnits.dispose();
+      orgUserUnits.dispose();
       unsubscribeSession();
       unsubscribeI18n();
     }

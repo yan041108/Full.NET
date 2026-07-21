@@ -1,0 +1,87 @@
+{
+  "id": "organization-tenant-user-units-v1",
+  "version": 1,
+  "description": "租户用户-机构隶属 HTTP 契约冻结夹具；与 OrganizationUserUnitManagementContracts 和 ManageTenantUserUnits.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/organization/user-units",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.user_units.read",
+          "successStatus": 200,
+          "responseSchema": "OrganizationUserUnitResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "organization.user_units.write",
+          "successStatus": 201,
+          "requestSchema": "CreateOrganizationUserUnitRequest",
+          "responseSchema": "OrganizationUserUnitResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/user-units/{assignmentId}",
+      "operations": [
+        {
+          "method": "PUT",
+          "permission": "organization.user_units.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateOrganizationUserUnitRequest",
+          "responseSchema": "OrganizationUserUnitResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/user-units/{assignmentId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "organization.user_units.write",
+          "successStatus": 200,
+          "responseSchema": "OrganizationUserUnitResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OrganizationUserUnitResponse": {
+      "properties": [
+        "id",
+        "userId",
+        "username",
+        "displayName",
+        "unitId",
+        "unitCode",
+        "unitName",
+        "isPrimary",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateOrganizationUserUnitRequest": {
+      "properties": [
+        "userId",
+        "unitId",
+        "isPrimary"
+      ]
+    },
+    "UpdateOrganizationUserUnitRequest": {
+      "properties": [
+        "isPrimary",
+        "version"
+      ]
+    },
+    "OrganizationUserUnitResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

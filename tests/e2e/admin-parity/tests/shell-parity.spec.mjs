@@ -526,6 +526,173 @@ test('机构列表、创建与禁用在两端保持一致', async ({ page }, tes
   await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
 });
 
+test('用户机构隶属列表、分配与取消在两端保持一致', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await mockAuthenticatedSession(page, { initialTenantId: tenantId });
+  const operations = [];
+  const assignmentId = 'e2e-tenant-user-unit-id';
+  const state = { hasAssignment: false, disabled: false };
+  const listBody = () => {
+    if (!state.hasAssignment) {
+      return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
+    }
+
+    return JSON.stringify({
+      items: [{
+        id: assignmentId,
+        userId: 'e2e-user-id',
+        username: 'admin',
+        displayName: '系统管理员',
+        unitId: 'e2e-tenant-unit-id',
+        unitCode: 'parity-unit',
+        unitName: '对等机构',
+        isPrimary: false,
+        isActive: !state.disabled,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: state.disabled ? '2026-07-21T01:00:00Z' : null,
+        version: state.disabled ? 2 : 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+  };
+
+  await page.route('**/api/v1/identity/users?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      items: [{
+        id: 'e2e-user-id',
+        username: 'admin',
+        displayName: '系统管理员',
+        isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    })
+  }));
+  await page.route('**/api/v1/organization/units?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      items: [{
+        id: 'e2e-tenant-unit-id',
+        parentId: null,
+        code: 'parity-unit',
+        name: '对等机构',
+        displayOrder: 10,
+        isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    })
+  }));
+  await page.route('**/api/v1/organization/user-units?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: listBody()
+  }));
+  await page.route('**/api/v1/organization/user-units', async route => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    operations.push({ type: 'create', body: route.request().postDataJSON() });
+    state.hasAssignment = true;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: assignmentId,
+        userId: 'e2e-user-id',
+        username: 'admin',
+        displayName: '系统管理员',
+        unitId: 'e2e-tenant-unit-id',
+        unitCode: 'parity-unit',
+        unitName: '对等机构',
+        isPrimary: false,
+        isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      })
+    });
+  });
+  await page.route(`**/api/v1/organization/user-units/${assignmentId}/disable`, async route => {
+    operations.push({ type: 'disable' });
+    state.disabled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: assignmentId,
+        userId: 'e2e-user-id',
+        username: 'admin',
+        displayName: '系统管理员',
+        unitId: 'e2e-tenant-unit-id',
+        unitCode: 'parity-unit',
+        unitName: '对等机构',
+        isPrimary: false,
+        isActive: false,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: '2026-07-21T01:00:00Z',
+        version: 2
+      })
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /用户机构隶属/ }).click();
+  await expect(page.getByRole('heading', { name: '用户机构隶属', exact: true })).toBeVisible();
+  await expect(page.getByText('尚无用户机构隶属', { exact: true })).toBeVisible();
+
+  const orgUserUnitsView = routeView(
+    page,
+    clientKind,
+    'org-user-units',
+    '.org-user-units-view'
+  );
+  if (clientKind === 'vue') {
+    await orgUserUnitsView.locator('.el-select').first().click();
+    await page.getByRole('option', { name: /系统管理员/ }).click();
+    await orgUserUnitsView.locator('.el-select').nth(1).click();
+    await page.getByRole('option', { name: /对等机构/ }).click();
+  } else {
+    await orgUserUnitsView.locator('[data-org-user-units-user]').selectOption('e2e-user-id');
+    await orgUserUnitsView.locator('[data-org-user-units-unit]').selectOption('e2e-tenant-unit-id');
+  }
+  await orgUserUnitsView.getByRole('button', { name: '创建隶属' }).click();
+  await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
+    type: 'create',
+    body: {
+      userId: 'e2e-user-id',
+      unitId: 'e2e-tenant-unit-id',
+      isPrimary: false
+    }
+  }]);
+  await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('article').getByRole('button', { name: '取消隶属' }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '取消隶属', exact: true })
+      .evaluate(button => button.click());
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
+  await expect(page.getByText('已取消', { exact: true })).toBeVisible();
+});
+
 test('进入租户、刷新恢复并返回 Host 的闭环等价', async ({ page }) => {
   const state = await mockAuthenticatedSession(page, { mutableContext: true });
   await page.goto('/');
@@ -733,7 +900,12 @@ function currentUserResponse(activeTenantId = null) {
       'tenancy.tenants.read',
       'tenancy.tenants.switch',
       ...(activeTenantId
-        ? ['organization.units.read', 'organization.units.write']
+        ? [
+            'organization.units.read',
+            'organization.units.write',
+            'organization.user_units.read',
+            'organization.user_units.write'
+          ]
         : [])
     ],
     sessionId: 'e2e-session-id',
@@ -786,6 +958,12 @@ function navigationResponse(unknownComponent = false, activeTenantId = null) {
       path: '/organization/units', componentKey: 'org-units',
       title: '机构管理', caption: '租户作用域组织单元', icon: 'office-building',
       order: 45, requiredPermission: 'organization.units.read', children: []
+    });
+    nodes.push({
+      id: 'org-user-units', parentId: null, routeName: 'org-user-units',
+      path: '/organization/user-units', componentKey: 'org-user-units',
+      title: '用户机构隶属', caption: '租户作用域 Host 用户与机构关系', icon: 'user',
+      order: 46, requiredPermission: 'organization.user_units.read', children: []
     });
   }
 

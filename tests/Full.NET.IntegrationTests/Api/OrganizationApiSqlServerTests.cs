@@ -15,4 +15,15 @@ public sealed class OrganizationApiSqlServerTests
 
         await OrganizationUnitManagementAssertions.VerifyTenantUnitManagementContractAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Tenant_user_unit_management_follows_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await OrganizationUserUnitManagementAssertions
+            .VerifyTenantUserUnitManagementContractAsync(factory);
+    }
 }

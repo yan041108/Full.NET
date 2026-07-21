@@ -15,6 +15,8 @@ export const HOST_MENU_ASSIGNABLE_PERMISSIONS = [
   'identity.menus.write',
   'organization.units.read',
   'organization.units.write',
+  'organization.user_units.read',
+  'organization.user_units.write',
   'tenancy.tenants.read',
   'tenancy.tenants.switch'
 ] as const;
