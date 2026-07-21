@@ -42,6 +42,12 @@ Host 作用域用户：分页列表、详情、创建、更新资料、禁用；
 
 本地验证：2026-07-21 本机无可用容器运行时（Testcontainers 无法启动 SQL Server），未附新鲜 `pnpm test:e2e:real` 日志；以 CI 作业为准。
 
+## OpenAPI 夹具
+
+- 冻结清单：`contracts/openapi/identity-host-users-v1.json`
+- 静态门禁：`pnpm test:openapi`（校验夹具结构与 C#/Endpoint 源码对齐）
+- 运行时门禁：Integration `OpenApiHostUsersContractAssertions` 拉取 `/openapi/v1.json` 校验路径、状态码与 schema 属性
+
 ## 结论
 
 首个业务纵向切片已证明模块交付流程可复制；`adminnet-feature-parity`「用户管理」保持 `Implementing`，待角色/菜单与完整对标验收后再升格。

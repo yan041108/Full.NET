@@ -161,6 +161,7 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | 客户端单测 | 管理端与共享包 **122 → 138**（`host-users` 契约、Vue/Layui 用户 API/控制器各 +1） |
 | Mock parity E2E | **30 → 32**（新增 Host 用户列表/创建/禁用场景 × 双端） |
 | Real-stack E2E | **16 → 20**（新增 `host-users.spec.mjs` 两项 × 双端）；验证记录见 [identity-user-management-2026-07-21.md](identity-user-management-2026-07-21.md) |
+| OpenAPI 夹具 | 新增 `contracts/openapi/identity-host-users-v1.json` 与 `pnpm test:openapi`（CI 已接入） |
 
 ## 关联文档
 

@@ -48,6 +48,7 @@ jobs:
         run: |
           pnpm test:workspace
           pnpm test:localization
+          pnpm test:openapi
           pnpm --filter @fullnet/admin-i18n --filter @fullnet/admin --filter @fullnet/admin-layui test
 
       - name: Verify uni-app targets

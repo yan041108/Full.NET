@@ -1,0 +1,89 @@
+{
+  "id": "identity-host-users-v1",
+  "version": 1,
+  "description": "Host 用户管理 HTTP 契约冻结夹具；与 IdentityUserManagementContracts 和 ManageHostUsers.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/users",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.users.read",
+          "successStatus": 200,
+          "responseSchema": "HostUserResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.users.write",
+          "successStatus": 201,
+          "requestSchema": "CreateHostUserRequest",
+          "responseSchema": "HostUserResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/users/{userId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.users.read",
+          "successStatus": 200,
+          "responseSchema": "HostUserResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.users.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostUserRequest",
+          "responseSchema": "HostUserResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/users/{userId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.users.write",
+          "successStatus": 200,
+          "responseSchema": "HostUserResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostUserResponse": {
+      "properties": [
+        "id",
+        "username",
+        "displayName",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateHostUserRequest": {
+      "properties": [
+        "username",
+        "displayName",
+        "password"
+      ]
+    },
+    "UpdateHostUserRequest": {
+      "properties": [
+        "displayName",
+        "version"
+      ]
+    },
+    "HostUserResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostUserResponse"
+    }
+  }
+}

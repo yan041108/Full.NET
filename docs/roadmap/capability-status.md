@@ -34,7 +34,7 @@
 | 高并发结构化日志与 OpenTelemetry | `Implemented` | 有界异步 Serilog、队列监控、OTel | Warning/Error 独立高优先级通道和降级演练未实现 |
 | Identity 会话安全基础 | `Build-verified` | 登录、事务轮换、重用/family 撤销、逐请求 Session/账号/安全戳校验、CSRF/CORS/Origin、Refresh/Logout 限流与审计测试；`SessionRaceAssertions` 双库集成（60 项门槛） | 事务故障注入和 Redis 分布式会话未实现 |
 | Tenancy 可信上下文切换 | `Build-verified` | 租户解析、可用租户、切换与刷新集成测试 | 完整租户/套餐 CRUD 尚未开始；不能宣传为完整租户后台 |
-| 最小 RBAC 与权限导航 | `Build-verified` | 当前用户、权限、Vue/Layui 导航与按钮门禁；**Host 用户**列表/创建/更新/禁用 API + 双端 UI + 双库集成 + Mock/真实栈冒烟（见[验证记录](../verification/identity-user-management-2026-07-21.md)） | 角色/菜单/组织/数据范围 CRUD 未实现；OpenAPI 夹具待补 |
+| 最小 RBAC 与权限导航 | `Build-verified` | 当前用户、权限、Vue/Layui 导航与按钮门禁；**Host 用户**列表/创建/更新/禁用 API + 双端 UI + 双库集成 + Mock/真实栈冒烟 + OpenAPI 夹具（见[验证记录](../verification/identity-user-management-2026-07-21.md)） | 角色/菜单/组织/数据范围 CRUD 未实现 |
 | 受保护超级管理员 | `Implemented` | 005/006 双库迁移、动态 Catalog 权限、逐请求会话校验、远程授予/撤销 API、当前密码重认证、含 ActorUserId 的事务审计、双库最后一名保护、Vue/Layui 对等管理页与 Mock E2E；真实栈 `permission-denied` 覆盖受限账号 API/UI 403 | Production MFA/强认证 Provider、账号禁用/删除及普通角色 CRUD 的系统角色保护、超级管理员管理页真实栈 E2E 尚未完成 |
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
@@ -61,7 +61,7 @@
 
 > 2026-07-21 起纳入[外部全面分析吸收](../verification/external-review-2026-07-21.md)：在基础设施债继续收敛的同时，**必须尽早完成首个可重复业务纵向切片**，否则治理成本无法被模块复杂度验证。
 
-1. **P0：交付证明——Identity 用户管理纵向切片**——Host 用户 CRUD 核心路径（含更新资料）已交付；下一步 OpenAPI 夹具收敛，再排角色/菜单/组织，禁止三刀并行。
+1. **P0：交付证明——Identity 用户管理纵向切片**——Host 用户 CRUD 核心路径与 OpenAPI 夹具已交付；下一步排角色/菜单/组织，禁止三刀并行。
 2. **P0：生产可控性（收尾）**——Seed Baseline/Overlay 生产 Secret/运维验收；超级管理员 MFA/强认证 Provider 与账号禁用/删除保护；SQL 破坏性变更门禁复用命名扫描入口。主键 008/009 与命名 010/011 自动化已落地，剩余为生产窗口与演练。
 3. **P0：1.0 前命名债务收敛**——剩余 **83** 项（协议别名窗口、动态 SQL 等）与真实维护窗口/备份升级演练待闭环。
 4. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。

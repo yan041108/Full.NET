@@ -92,12 +92,14 @@ export type {
 
 export {
   isHostUser,
-  isHostUserPage
+  isHostUserPage,
+  isUpdateHostUserRequest
 } from './host-users.js';
 
 export type {
   HostUser,
-  HostUserPage
+  HostUserPage,
+  UpdateHostUserRequest
 } from './host-users.js';
 
 export type {

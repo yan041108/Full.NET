@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Identity;
@@ -31,6 +32,9 @@ internal static class IdentityUserManagementAssertions
             client,
             cancellationToken);
         await VerifyUpdateDisplayNameWithOptimisticVersionAsync(
+            client,
+            cancellationToken);
+        await OpenApiHostUsersContractAssertions.VerifyAsync(
             client,
             cancellationToken);
     }

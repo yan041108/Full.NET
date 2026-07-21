@@ -15,6 +15,19 @@ export interface HostUserPage {
   total: number;
 }
 
+export interface UpdateHostUserRequest {
+  displayName: string;
+  version: number;
+}
+
+/** 校验不可信 JSON 是否为 Host 用户更新请求。 */
+export function isUpdateHostUserRequest(value: unknown): value is UpdateHostUserRequest {
+  return isRecord(value)
+    && typeof value.displayName === 'string'
+    && value.displayName.length > 0
+    && typeof value.version === 'number';
+}
+
 /** 校验不可信 JSON 是否为 Host 用户分页结果。 */
 export function isHostUserPage(value: unknown): value is HostUserPage {
   return isRecord(value)

@@ -82,7 +82,7 @@
 
 1. [x] 标准 HTTP + ProblemDetails；精确权限 `identity.users.read` / `identity.users.write`。
 2. [x] 超级管理员仍走动态投影；禁用最后一名超管返回 `identity.super_administrator.last_remaining`。
-3. [x] 更新 OpenAPI/契约夹具（`packages/client-contracts` Host 用户分页/单条校验；OpenAPI 生成仍待后续）。
+3. [x] 更新 OpenAPI/契约夹具（`contracts/openapi/identity-host-users-v1.json`、`test:openapi`、Integration OpenAPI 断言、`client-contracts` 更新请求校验）。
 
 ### Task 4: Vue / Layui 双端页面
 
