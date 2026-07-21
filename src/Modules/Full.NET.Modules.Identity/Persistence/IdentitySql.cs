@@ -478,6 +478,22 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement GetUserActiveRoleDataScopes = new(
+        "identity.get_user_active_role_data_scopes",
+        """
+        SELECT roleObject.Id AS RoleId,
+               roleObject.DataScopeKind,
+               roleObject.IsSuperAdministrator
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_role AS roleObject
+            ON roleObject.Id = userRole.RoleId
+        WHERE userRole.UserId = @UserId
+          AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL
+          AND roleObject.IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement DeleteUserAssignableRoles = new(
         "identity.delete_user_assignable_roles",
         """

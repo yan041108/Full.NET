@@ -46,4 +46,47 @@ public sealed class RoleDataScopeProjectionTests
                 "identity.data_scope.unknown",
                 "unitObject.Id"));
     }
+
+    [TestMethod]
+    public void Union_without_roles_denies_all_rows()
+    {
+        var fragment = RoleDataScopeProjection.BuildUnionOrganizationUnitFilter(
+            [],
+            "unitObject.Id",
+            Guid.NewGuid());
+        Assert.IsNotNull(fragment);
+        StringAssert.Contains(fragment.Sql, "1 = 0");
+    }
+
+    [TestMethod]
+    public void Union_with_all_role_returns_no_filter()
+    {
+        var fragment = RoleDataScopeProjection.BuildUnionOrganizationUnitFilter(
+            [new RoleDataScopeEntry(Guid.NewGuid(), RoleDataScopeKinds.All)],
+            "unitObject.Id",
+            Guid.NewGuid());
+        Assert.IsNull(fragment);
+    }
+
+    [TestMethod]
+    public void Union_combines_self_and_custom_with_or()
+    {
+        var userId = Guid.Parse("019bc2b1-2a40-7cc3-8992-a80de51bf294");
+        var customRoleId = Guid.Parse("019bc2b1-2a40-7cc3-8992-a80de51bf295");
+        var fragment = RoleDataScopeProjection.BuildUnionOrganizationUnitFilter(
+            [
+                new RoleDataScopeEntry(Guid.NewGuid(), RoleDataScopeKinds.Self),
+                new RoleDataScopeEntry(customRoleId, RoleDataScopeKinds.Custom),
+            ],
+            "unitObject.Id",
+            userId);
+        Assert.IsNotNull(fragment);
+        StringAssert.Contains(fragment.Sql, " OR ");
+        StringAssert.Contains(fragment.Sql, "fn_identity_role_data_scope_unit");
+        StringAssert.Contains(fragment.Sql, "@DataScopeRoleId_0");
+        var parameters = fragment.Parameters as IDictionary<string, object?>;
+        Assert.IsNotNull(parameters);
+        Assert.AreEqual(userId, parameters["DataScopeUserId"]);
+        Assert.AreEqual(customRoleId, parameters["DataScopeRoleId_0"]);
+    }
 }

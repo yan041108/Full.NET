@@ -170,7 +170,15 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Integration 门槛 **97 → 99** | 新增 `Host_user_roles_management_follows_contract_with_sql_server` 与 `Host_user_roles_management_follows_contract_with_mysql` |
 | OpenAPI | **12 → 14**（`identity-host-user-roles-v1.json`） |
 | 客户端单测 | 管理端与共享包 **157 → 158**（Vue 用户 API +1） |
-| 四处 canonical 门槛 | **319/7/26/99**；验证记录见 [identity-user-roles-assignment-2026-07-21.md](identity-user-roles-assignment-2026-07-21.md) |
+| 四处 canonical 门槛 | **322/7/26/99**；验证记录见 [identity-user-roles-assignment-2026-07-21.md](identity-user-roles-assignment-2026-07-21.md) |
+
+## 增补（2026-07-21，运行时数据范围并集纵向切片）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **319 → 322** | 多角色并集 SQL 投影 +3 |
+| Integration 门槛 **99 → 101** | 租户机构 custom 范围过滤 SQL Server/MySQL +2 |
+| 四处 canonical 门槛 | **322/7/26/101**；验证记录见 [identity-runtime-data-scope-2026-07-21.md](identity-runtime-data-scope-2026-07-21.md) |
 
 ## 关联文档
 

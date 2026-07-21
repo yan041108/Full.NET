@@ -46,3 +46,8 @@ internal sealed record IdentityRolePermission(
 internal sealed record IdentityUserRole(
     Guid UserId,
     Guid RoleId);
+
+internal sealed record IdentityUserRoleDataScopeRow(
+    Guid RoleId,
+    string DataScopeKind,
+    bool IsSuperAdministrator);

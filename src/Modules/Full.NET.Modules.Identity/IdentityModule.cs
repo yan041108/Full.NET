@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.Login;
+using Full.NET.Modules.Identity.DataScope;
 using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
@@ -112,6 +113,8 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<HostUserQueryService>();
         services.TryAddScoped<HostUserManagementService>();
         services.TryAddScoped<HostUserRolesService>();
+        services.TryAddScoped<IUserDataScopeResolver, UserDataScopeResolver>();
+        services.TryAddSingleton<IDataScopeSqlFilterBuilder, DataScopeSqlFilterBuilder>();
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();
         services.TryAddScoped<HostRoleDataScopeService>();

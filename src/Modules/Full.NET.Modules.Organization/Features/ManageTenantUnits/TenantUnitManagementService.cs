@@ -108,7 +108,7 @@ internal sealed class TenantUnitManagementService(
                 $"Organization unit insert affected {affectedRows} rows instead of one.");
         }
 
-        return await unitQueries.GetByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        return await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<OrganizationUnitResponse>> UpdateCoreAsync(
@@ -174,7 +174,7 @@ internal sealed class TenantUnitManagementService(
                 .ConfigureAwait(false);
         }
 
-        return await unitQueries.GetByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        return await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<OrganizationUnitResponse>> DisableCoreAsync(
@@ -203,7 +203,7 @@ internal sealed class TenantUnitManagementService(
             return NotFound();
         }
 
-        return await unitQueries.GetByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        return await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<OrganizationUnitResponse>?> EnsureParentExistsAsync(

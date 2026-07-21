@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Organization.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -15,6 +17,7 @@ internal static class Endpoint
             .WithTags("Organization");
 
         group.MapGet("/", async (
+            ClaimsPrincipal principal,
             int? page,
             int? pageSize,
             TenantUnitQueryService queries,
@@ -22,7 +25,17 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (!OrganizationActorContext.TryResolve(
+                    principal,
+                    out var userId,
+                    out var isSuperAdministrator))
+            {
+                return Results.Unauthorized();
+            }
+
             var result = await queries.ListAsync(
+                    userId,
+                    isSuperAdministrator,
                     page ?? 1,
                     pageSize ?? 20,
                     cancellationToken)
@@ -33,12 +46,25 @@ internal static class Endpoint
 
         group.MapGet("/{unitId:guid}", async (
             Guid unitId,
+            ClaimsPrincipal principal,
             TenantUnitQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.GetByIdAsync(unitId, cancellationToken)
+            if (!OrganizationActorContext.TryResolve(
+                    principal,
+                    out var userId,
+                    out var isSuperAdministrator))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await queries.GetByIdForActorAsync(
+                    unitId,
+                    userId,
+                    isSuperAdministrator,
+                    cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

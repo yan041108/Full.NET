@@ -59,7 +59,7 @@ internal sealed class TenantUserUnitManagementService(
             return UserNotFound();
         }
 
-        var unitResult = await unitQueries.GetByIdAsync(request.UnitId, cancellationToken)
+        var unitResult = await unitQueries.FindByIdAsync(request.UnitId, cancellationToken)
             .ConfigureAwait(false);
         if (!unitResult.IsSuccess)
         {

@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Persistence;
 using Microsoft.Extensions.Options;
@@ -9,9 +10,13 @@ namespace Full.NET.Modules.Organization.Features.ManageTenantUnits;
 /// <summary>租户机构分页列表与详情只读查询。</summary>
 internal sealed class TenantUnitQueryService(
     IQueryExecutor queryExecutor,
+    IUserDataScopeResolver dataScopeResolver,
+    IDataScopeSqlFilterBuilder dataScopeFilterBuilder,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<OrganizationUnitResponse>>> ListAsync(
+        Guid currentUserId,
+        bool isSuperAdministrator,
         int page,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -19,20 +24,37 @@ internal sealed class TenantUnitQueryService(
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
-        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                OrganizationSql.CountUnits,
-                cancellationToken: cancellationToken)
+        var scope = await dataScopeResolver.ResolveAsync(
+                currentUserId,
+                isSuperAdministrator,
+                cancellationToken)
             .ConfigureAwait(false);
-        var statement = databaseOptions.Value.Provider switch
+        var filter = dataScopeFilterBuilder.BuildOrganizationUnitFilter(
+            scope,
+            "Id",
+            currentUserId);
+        var countStatement = TenantScopedSqlComposer.ApplyDataScopeFilter(
+            OrganizationSql.CountUnits,
+            filter);
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                countStatement,
+                TenantScopedSqlComposer.MergeParameters(null, filter),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var baseStatement = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => OrganizationSql.ListUnitsSqlServer,
             DatabaseProvider.MySql => OrganizationSql.ListUnitsMySql,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
+        var listStatement = TenantScopedSqlComposer.ApplyDataScopeFilter(baseStatement, filter);
+        var queryParameters = TenantScopedSqlComposer.MergeParameters(
+            new { Offset = offset, PageSize = pageSize },
+            filter);
         var rows = await queryExecutor.QueryAsync<OrganizationUnitListRow>(
-                statement,
-                new { Offset = offset, PageSize = pageSize },
+                listStatement,
+                queryParameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -40,7 +62,38 @@ internal sealed class TenantUnitQueryService(
             new PagedResult<OrganizationUnitResponse>(items, page, pageSize, total));
     }
 
-    public async Task<Result<OrganizationUnitResponse>> GetByIdAsync(
+    public async Task<Result<OrganizationUnitResponse>> GetByIdForActorAsync(
+        Guid unitId,
+        Guid currentUserId,
+        bool isSuperAdministrator,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = await dataScopeResolver.ResolveAsync(
+                currentUserId,
+                isSuperAdministrator,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var filter = dataScopeFilterBuilder.BuildOrganizationUnitFilter(
+            scope,
+            "Id",
+            currentUserId);
+        var statement = TenantScopedSqlComposer.ApplyDataScopeFilter(
+            OrganizationSql.FindUnitById,
+            filter);
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
+                statement,
+                TenantScopedSqlComposer.MergeParameters(new { UnitId = unitId }, filter),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null)
+        {
+            return NotFound();
+        }
+
+        return Result<OrganizationUnitResponse>.Success(Map(record));
+    }
+
+    internal async Task<Result<OrganizationUnitResponse>> FindByIdAsync(
         Guid unitId,
         CancellationToken cancellationToken = default)
     {

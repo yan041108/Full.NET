@@ -60,6 +60,74 @@ internal static class RoleDataScopeProjection
         };
     }
 
+    /// <summary>
+    /// 多角色数据范围并集；返回 null 表示不限制，<c>1 = 0</c> 表示无可见数据。
+    /// </summary>
+    public static RoleDataScopeSqlFragment? BuildUnionOrganizationUnitFilter(
+        IReadOnlyList<RoleDataScopeEntry> roleScopes,
+        string unitIdColumn,
+        Guid currentUserId)
+    {
+        ArgumentNullException.ThrowIfNull(roleScopes);
+        ArgumentException.ThrowIfNullOrWhiteSpace(unitIdColumn);
+
+        if (roleScopes.Count == 0)
+        {
+            return DenyAll();
+        }
+
+        var parts = new List<string>();
+        var parameters = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["DataScopeUserId"] = currentUserId,
+        };
+        var customRoleIndex = 0;
+
+        foreach (var roleScope in roleScopes)
+        {
+            if (string.Equals(
+                    roleScope.DataScopeKind,
+                    RoleDataScopeKinds.All,
+                    StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var fragment = BuildOrganizationUnitFilter(
+                roleScope.DataScopeKind,
+                unitIdColumn,
+                currentUserId);
+            if (fragment is null)
+            {
+                return null;
+            }
+
+            var sql = fragment.Sql;
+            if (string.Equals(
+                    roleScope.DataScopeKind,
+                    RoleDataScopeKinds.Custom,
+                    StringComparison.Ordinal))
+            {
+                var parameterName = $"DataScopeRoleId_{customRoleIndex}";
+                sql = sql.Replace("@DataScopeRoleId", $"@{parameterName}", StringComparison.Ordinal);
+                parameters[parameterName] = roleScope.RoleId;
+                customRoleIndex++;
+            }
+
+            parts.Add($"({sql})");
+        }
+
+        if (parts.Count == 0)
+        {
+            return DenyAll();
+        }
+
+        return new RoleDataScopeSqlFragment(string.Join(" OR ", parts), parameters);
+    }
+
+    private static RoleDataScopeSqlFragment DenyAll() =>
+        new("1 = 0", null);
+
     private static string BuildSubtreeSql(string unitIdColumn) =>
         $"""
         {unitIdColumn} IN (
