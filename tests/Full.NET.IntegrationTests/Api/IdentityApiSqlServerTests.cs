@@ -65,4 +65,14 @@ public sealed class IdentityApiSqlServerTests
 
         await IdentityRoleManagementAssertions.VerifyHostRoleManagementContractAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_menu_management_follows_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await IdentityMenuManagementAssertions.VerifyHostMenuManagementContractAsync(factory);
+    }
 }

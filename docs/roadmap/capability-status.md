@@ -61,11 +61,11 @@
 
 > 2026-07-21 起纳入[外部全面分析吸收](../verification/external-review-2026-07-21.md)：在基础设施债继续收敛的同时，**必须尽早完成首个可重复业务纵向切片**，否则治理成本无法被模块复杂度验证。
 
-1. **P0：交付证明——Identity 角色管理纵向切片**——Host 角色 API/UI/OpenAPI/真实栈冒烟已交付；下一步菜单/组织，禁止三刀并行。
+1. **P0：交付证明——Identity 菜单管理纵向切片**——`fn_identity_navigation` 迁移与 RED 夹具已起；角色切片已关闭；禁止与组织并行三刀。
 2. **P0：生产可控性（收尾）**——Seed Baseline/Overlay 生产 Secret/运维验收；超级管理员 MFA/强认证 Provider 与账号禁用/删除保护；SQL 破坏性变更门禁复用命名扫描入口。主键 008/009 与命名 010/011 自动化已落地，剩余为生产窗口与演练。
 3. **P0：1.0 前命名债务收敛**——剩余 **83** 项（协议别名窗口、动态 SQL 等）与真实维护窗口/备份升级演练待闭环。
 4. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。
-5. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **314/7/26/89** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
+5. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **314/7/26/91** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
 6. **P1：交付真实性补强**——真实栈 Redis、Overview 级 403 UI 探针、超级管理员管理页真实栈 E2E；浏览器跨 Tab 协调已有基础，故障注入仍缺。
 7. **P1：复用而不耦合**——OpenAPI/协议夹具扩展到 uni-app/Flutter；headless 契约层已起步，继续防止双端逻辑漂移。
 8. **已决策：Layui 长期并行**——所有者 2026-07-21 确认；Vue 与 Layui 继续按同一模块同步开发与验收，不设退役窗口（见 [`client-frontend.md`](../../rules/client-frontend.md) §4）。
@@ -80,7 +80,7 @@
 - [外部静态分析复核记录（2026-07-18）](../verification/external-review-2026-07-18.md)
 - [外部全面分析复核与吸收记录（2026-07-21）](../verification/external-review-2026-07-21.md)
 - [Identity 用户管理纵向切片计划](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md)
-- [Identity 角色管理纵向切片计划](../superpowers/plans/2026-07-21-identity-role-management-vertical-slice.md)
+- [Identity 菜单管理纵向切片计划](../superpowers/plans/2026-07-21-identity-menu-management-vertical-slice.md)
 - [Identity 角色管理验证记录（2026-07-21）](../verification/identity-role-management-2026-07-21.md)
 - [Identity Host 用户管理验证记录（2026-07-21）](../verification/identity-user-management-2026-07-21.md)
 - [测试数量门槛核对记录](../verification/test-threshold-audit-2026-07-19.md)

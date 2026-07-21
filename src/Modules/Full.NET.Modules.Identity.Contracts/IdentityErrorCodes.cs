@@ -99,6 +99,12 @@ public static class IdentityErrorCodes
     /// <summary>系统角色受保护，禁止变更。</summary>
     public const string RoleSystemLocked = "identity.roles.system_locked";
 
+    /// <summary>Host 菜单路由名在作用域内已存在。</summary>
+    public const string MenuRouteNameExists = "identity.menus.route_name_exists";
+
+    /// <summary>目标 Host 菜单不存在。</summary>
+    public const string MenuNotFound = "identity.menus.not_found";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -131,5 +137,7 @@ public static class IdentityErrorCodes
         RoleCodeExists,
         RoleNotFound,
         RoleSystemLocked,
+        MenuRouteNameExists,
+        MenuNotFound,
     ]);
 }
