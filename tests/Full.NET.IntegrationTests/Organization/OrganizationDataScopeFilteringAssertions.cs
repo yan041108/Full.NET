@@ -22,6 +22,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyCustomRoleScopeLimitsVisibleUnitsAsync(client, cancellationToken);
+        await VerifyTenantUserUnitListDataScopeFilteringAsync(client, cancellationToken);
     }
 
     private static async Task VerifyCustomRoleScopeLimitsVisibleUnitsAsync(
@@ -160,6 +161,172 @@ internal static class OrganizationDataScopeFilteringAssertions
             scopedTenantToken);
         using var hiddenResponse = await client.SendAsync(hiddenRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, hiddenResponse.StatusCode);
+    }
+
+    private static async Task VerifyTenantUserUnitListDataScopeFilteringAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminTenantToken = await LoginAndEnterAcmeTenantAsync(client, cancellationToken);
+        var visibleCode = $"scope-u-visible-{Guid.NewGuid():N}".ToLowerInvariant();
+        var hiddenCode = $"scope-u-hidden-{Guid.NewGuid():N}".ToLowerInvariant();
+        var visibleUnit = await CreateUnitAsync(
+            client,
+            adminTenantToken,
+            visibleCode,
+            "隶属可见机构",
+            cancellationToken);
+        var hiddenUnit = await CreateUnitAsync(
+            client,
+            adminTenantToken,
+            hiddenCode,
+            "隶属隐藏机构",
+            cancellationToken);
+
+        using var usersRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=20");
+        usersRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminTenantToken);
+        using var usersResponse = await client.SendAsync(usersRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, usersResponse.StatusCode);
+        var usersPage = await usersResponse.Content
+            .ReadFromJsonAsync<PagedResult<HostUserResponse>>(cancellationToken);
+        Assert.IsNotNull(usersPage);
+        var adminUser = usersPage.Items.Single(user => user.Username == "admin");
+
+        await CreateUserUnitAssignmentAsync(
+            client,
+            adminTenantToken,
+            adminUser.Id,
+            visibleUnit.Id,
+            cancellationToken);
+        await CreateUserUnitAssignmentAsync(
+            client,
+            adminTenantToken,
+            adminUser.Id,
+            hiddenUnit.Id,
+            cancellationToken);
+
+        var roleCode = $"scope-u-role-{Guid.NewGuid():N}".ToLowerInvariant();
+        using var createRoleRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            adminTenantToken,
+            new CreateHostRoleRequest(roleCode, "隶属数据范围角色"));
+        using var createRoleResponse = await client.SendAsync(createRoleRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createRoleResponse.StatusCode);
+        var createdRole = await createRoleResponse.Content
+            .ReadFromJsonAsync<HostRoleResponse>(cancellationToken);
+        Assert.IsNotNull(createdRole);
+
+        using var updatePermissionsRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{createdRole.Id:D}/permissions",
+            adminTenantToken,
+            new ReplaceHostRolePermissionsRequest(
+                [
+                    OrganizationUserUnitManagementPermissions.Read,
+                    "tenancy.tenants.switch",
+                    "platform.dashboard.read",
+                ],
+                createdRole.Version));
+        using var updatePermissionsResponse = await client.SendAsync(
+            updatePermissionsRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updatePermissionsResponse.StatusCode);
+        var roleWithPermissions = await updatePermissionsResponse.Content
+            .ReadFromJsonAsync<HostRoleResponse>(cancellationToken);
+        Assert.IsNotNull(roleWithPermissions);
+
+        using var updateScopeRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{createdRole.Id:D}/data-scope",
+            adminTenantToken,
+            new UpdateHostRoleDataScopeRequest(
+                RoleDataScopeKinds.Custom,
+                [visibleUnit.Id],
+                roleWithPermissions.Version));
+        using var updateScopeResponse = await client.SendAsync(updateScopeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updateScopeResponse.StatusCode);
+
+        var username = $"scope-u-user-{Guid.NewGuid():N}".ToLowerInvariant();
+        using var createUserRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminTenantToken,
+            new CreateHostUserRequest(
+                username,
+                "隶属范围受限用户",
+                FullNetApiFactory.TestPassword));
+        using var createUserResponse = await client.SendAsync(createUserRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createUserResponse.StatusCode);
+        var createdUser = await createUserResponse.Content
+            .ReadFromJsonAsync<HostUserResponse>(cancellationToken);
+        Assert.IsNotNull(createdUser);
+
+        using var getRolesRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/users/{createdUser.Id:D}/roles");
+        getRolesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminTenantToken);
+        using var getRolesResponse = await client.SendAsync(getRolesRequest, cancellationToken);
+        var userRoles = await getRolesResponse.Content
+            .ReadFromJsonAsync<HostUserRolesResponse>(cancellationToken);
+        Assert.IsNotNull(userRoles);
+
+        using var assignRoleRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{createdUser.Id:D}/roles",
+            adminTenantToken,
+            new ReplaceHostUserRolesRequest([createdRole.Id], userRoles.Version));
+        using var assignRoleResponse = await client.SendAsync(assignRoleRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, assignRoleResponse.StatusCode);
+
+        using var loginRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, FullNetApiFactory.TestPassword)),
+        };
+        loginRequest.Headers.Add("Origin", "http://localhost");
+        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
+        var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
+        Assert.IsNotNull(loginToken);
+
+        var scopedTenantToken = await EnterAcmeTenantAsync(
+            client,
+            loginToken.AccessToken,
+            cancellationToken);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/organization/user-units?page=1&pageSize=20");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            scopedTenantToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var page = await listResponse.Content
+            .ReadFromJsonAsync<PagedResult<OrganizationUserUnitResponse>>(cancellationToken);
+        Assert.IsNotNull(page);
+        Assert.AreEqual(1, page.Total);
+        Assert.AreEqual(1, page.Items.Count);
+        Assert.AreEqual(visibleUnit.Id, page.Items[0].UnitId);
+    }
+
+    private static async Task CreateUserUnitAssignmentAsync(
+        HttpClient client,
+        string tenantToken,
+        Guid userId,
+        Guid unitId,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/organization/user-units",
+            tenantToken,
+            new CreateOrganizationUserUnitRequest(userId, unitId, false));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
     }
 
     private static async Task<OrganizationUnitResponse> CreateUnitAsync(

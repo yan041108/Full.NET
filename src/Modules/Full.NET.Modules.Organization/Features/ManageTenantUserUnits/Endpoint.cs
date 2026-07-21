@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Organization.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -15,6 +17,7 @@ internal static class Endpoint
             .WithTags("Organization");
 
         group.MapGet("/", async (
+            ClaimsPrincipal principal,
             int? page,
             int? pageSize,
             Guid? userId,
@@ -24,7 +27,17 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (!OrganizationActorContext.TryResolve(
+                    principal,
+                    out var actorUserId,
+                    out var isSuperAdministrator))
+            {
+                return Results.Unauthorized();
+            }
+
             var result = await queries.ListAsync(
+                    actorUserId,
+                    isSuperAdministrator,
                     page ?? 1,
                     pageSize ?? 20,
                     userId,

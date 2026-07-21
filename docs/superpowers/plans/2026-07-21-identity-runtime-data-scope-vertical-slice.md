@@ -29,11 +29,10 @@
 |---|---|
 | `GET /api/v1/organization/units` | 列表 + 计数 |
 | `GET /api/v1/organization/units/{id}` | 详情（范围外 404） |
+| `GET /api/v1/organization/user-units` | 隶属列表与计数 |
 
 写操作与内部 `FindByIdAsync` 不受数据范围过滤（管理边界仍靠权限）。
 
 ## 非目标
 
-- 业务模块全面接入机构过滤
-- 用户-机构隶属列表过滤
-- 新 HTTP 只读诊断端点
+- 其他业务模块全面接入机构过滤

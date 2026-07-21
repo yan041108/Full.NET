@@ -114,6 +114,9 @@ internal static class OrganizationSql
         """
         SELECT COUNT(1)
         FROM fn_organization_user_unit AS assignment
+        INNER JOIN fn_organization_unit AS unitObject
+            ON unitObject.Id = assignment.UnitId
+           AND unitObject.TenantId = assignment.TenantId
         WHERE assignment.TenantId = @TenantId
           AND (@UserId IS NULL OR assignment.UserId = @UserId)
           AND (@UnitId IS NULL OR assignment.UnitId = @UnitId)

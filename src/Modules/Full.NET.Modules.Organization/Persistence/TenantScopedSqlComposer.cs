@@ -8,16 +8,19 @@ internal static class TenantScopedSqlComposer
 {
     private const string TenantWhereAnchor = "WHERE TenantId = @TenantId";
 
+    internal const string AssignmentTenantWhereAnchor = "WHERE assignment.TenantId = @TenantId";
+
     internal static SqlStatement ApplyDataScopeFilter(
         SqlStatement statement,
-        DataScopeSqlFilter? filter)
+        DataScopeSqlFilter? filter,
+        string tenantWhereAnchor = TenantWhereAnchor)
     {
         if (filter is null)
         {
             return statement;
         }
 
-        var text = InjectFilter(statement.Text, filter.Sql);
+        var text = InjectFilter(statement.Text, filter.Sql, tenantWhereAnchor);
         return statement with
         {
             Name = statement.Name + ".data_scope",
@@ -43,16 +46,16 @@ internal static class TenantScopedSqlComposer
         return merged;
     }
 
-    private static string InjectFilter(string sql, string condition)
+    private static string InjectFilter(string sql, string condition, string tenantWhereAnchor)
     {
-        var index = sql.IndexOf(TenantWhereAnchor, StringComparison.Ordinal);
+        var index = sql.IndexOf(tenantWhereAnchor, StringComparison.Ordinal);
         if (index < 0)
         {
             throw new InvalidOperationException(
                 "Tenant-scoped SQL must contain the tenant boundary anchor.");
         }
 
-        var insertAt = index + TenantWhereAnchor.Length;
+        var insertAt = index + tenantWhereAnchor.Length;
         return sql.Insert(insertAt, $" AND ({condition})");
     }
 

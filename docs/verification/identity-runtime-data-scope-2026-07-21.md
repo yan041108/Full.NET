@@ -9,8 +9,8 @@
 |---|---|
 | 契约 | `EffectiveUserDataScope`、`IUserDataScopeResolver`、`IDataScopeSqlFilterBuilder` |
 | Identity | `UserDataScopeResolver`、`DataScopeSqlFilterBuilder`、`BuildUnionOrganizationUnitFilter` |
-| Organization | `TenantScopedSqlComposer`、机构列表/详情只读过滤 |
-| 测试 | Unit +3 并集投影；Integration +2（双库 custom 范围过滤） |
+| Organization | `TenantScopedSqlComposer`、机构列表/详情与用户-机构隶属列表只读过滤 |
+| 测试 | Unit +3 并集投影；Integration +2（双库机构与用户-机构隶属 custom 范围过滤） |
 
 ## 门槛（本切片后）
 
@@ -32,5 +32,4 @@
 
 ## 非目标（按计划冻结）
 
-- 全业务模块机构过滤
-- 用户-机构隶属列表过滤
+- 其他业务模块全面接入机构过滤

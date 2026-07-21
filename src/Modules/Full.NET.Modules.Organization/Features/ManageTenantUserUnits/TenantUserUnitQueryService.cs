@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Persistence;
 using Microsoft.Extensions.Options;
@@ -9,9 +10,13 @@ namespace Full.NET.Modules.Organization.Features.ManageTenantUserUnits;
 /// <summary>租户用户-机构隶属只读查询。</summary>
 internal sealed class TenantUserUnitQueryService(
     IQueryExecutor queryExecutor,
+    IUserDataScopeResolver dataScopeResolver,
+    IDataScopeSqlFilterBuilder dataScopeFilterBuilder,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<OrganizationUserUnitResponse>>> ListAsync(
+        Guid currentUserId,
+        bool isSuperAdministrator,
         int page,
         int pageSize,
         Guid? userId,
@@ -21,27 +26,48 @@ internal sealed class TenantUserUnitQueryService(
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
-        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                OrganizationSql.CountUserUnits,
-                new { UserId = userId, UnitId = unitId },
+        var scope = await dataScopeResolver.ResolveAsync(
+                currentUserId,
+                isSuperAdministrator,
                 cancellationToken)
             .ConfigureAwait(false);
-        var statement = databaseOptions.Value.Provider switch
+        var filter = dataScopeFilterBuilder.BuildOrganizationUnitFilter(
+            scope,
+            "unitObject.Id",
+            currentUserId);
+        var countStatement = TenantScopedSqlComposer.ApplyDataScopeFilter(
+            OrganizationSql.CountUserUnits,
+            filter,
+            TenantScopedSqlComposer.AssignmentTenantWhereAnchor);
+        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                countStatement,
+                TenantScopedSqlComposer.MergeParameters(
+                    new { UserId = userId, UnitId = unitId },
+                    filter),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var baseStatement = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => OrganizationSql.ListUserUnitsSqlServer,
             DatabaseProvider.MySql => OrganizationSql.ListUserUnitsMySql,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
+        var listStatement = TenantScopedSqlComposer.ApplyDataScopeFilter(
+            baseStatement,
+            filter,
+            TenantScopedSqlComposer.AssignmentTenantWhereAnchor);
         var rows = await queryExecutor.QueryAsync<OrganizationUserUnitListRow>(
-                statement,
-                new
-                {
-                    UserId = userId,
-                    UnitId = unitId,
-                    Offset = offset,
-                    PageSize = pageSize,
-                },
+                listStatement,
+                TenantScopedSqlComposer.MergeParameters(
+                    new
+                    {
+                        UserId = userId,
+                        UnitId = unitId,
+                        Offset = offset,
+                        PageSize = pageSize,
+                    },
+                    filter),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
