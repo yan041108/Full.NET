@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "ruleId": "FNSAFETY001",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/008_UuidBinaryExpand.sql",
+      "line": 16,
+      "actual": "delete_without_where",
+      "reason": "清空 Expand 进度临时表后按固定十表清单重建；无业务行删除，由 UuidBinaryExpand 双库恢复测试覆盖。",
+      "risk": "仅影响迁移进度辅助表，失败可重跑 Expand。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY001",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "line": 15,
+      "actual": "delete_without_where",
+      "reason": "清空 Contract 进度临时表后按固定清单重建；无业务行删除，由 UuidBinaryContract 双库恢复测试覆盖。",
+      "risk": "仅影响迁移进度辅助表，失败可重跑 Contract。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY004",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "line": 395,
+      "actual": "RENAME",
+      "reason": "UUID Binary16 Contract 在维护窗口内将影子列提升为主列名；受 DestructiveDdlApprovalId 与双库恢复测试门禁。",
+      "risk": "维护窗口内列重命名；回滚依赖备份与 008 影子列策略。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY004",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "line": 420,
+      "actual": "RENAME",
+      "reason": "UUID Binary16 Contract 第二阶段列重命名；与同文件维护门禁及恢复测试绑定。",
+      "risk": "维护窗口内列重命名；回滚依赖备份。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
+      "line": 592,
+      "actual": "DROP COLUMN",
+      "reason": "Contract 删除 char(36) 遗留列；需 DestructiveDdlApprovalId，由 UuidBinaryContract 双库测试覆盖。",
+      "risk": "不可逆丢弃遗留文本 UUID 列；发布前须备份验证。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "line": 302,
+      "actual": "DROP COLUMN",
+      "reason": "Pre-v1 Naming Contract 退役 Outbox legacy Type 列；维护窗口 + NamingContract 双库测试。",
+      "risk": "丢弃 legacy 镜像列；协议别名窗口关闭前不得提前执行。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "line": 317,
+      "actual": "DROP COLUMN",
+      "reason": "退役 Outbox legacy OccurredAt 列；同上维护窗口。",
+      "risk": "丢弃 legacy 时间列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "line": 332,
+      "actual": "DROP COLUMN",
+      "reason": "退役 Outbox legacy ProcessedAt 列。",
+      "risk": "丢弃 legacy 时间列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "line": 347,
+      "actual": "DROP COLUMN",
+      "reason": "退役 Outbox legacy NextAttemptAt 列。",
+      "risk": "丢弃 legacy 时间列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "line": 362,
+      "actual": "DROP COLUMN",
+      "reason": "退役 Outbox legacy LockedUntil 列。",
+      "risk": "丢弃 legacy 时间列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
+      "line": 376,
+      "actual": "DROP TABLE",
+      "reason": "退役 legacy fn_tenant_tenant；数据已复制到 fn_tenancy_tenant，由 NamingContract 双库测试覆盖。",
+      "risk": "删除 legacy 表；Contract 后不可回读旧表名。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "line": 207,
+      "actual": "DROP COLUMN",
+      "reason": "SQL Server Naming Contract 退役 Outbox Type 列。",
+      "risk": "丢弃 legacy 镜像列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "line": 209,
+      "actual": "DROP COLUMN",
+      "reason": "退役 Outbox OccurredAt 列。",
+      "risk": "丢弃 legacy 时间列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "line": 211,
+      "actual": "DROP COLUMN",
+      "reason": "退役 Outbox ProcessedAt 列。",
+      "risk": "丢弃 legacy 时间列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "line": 213,
+      "actual": "DROP COLUMN",
+      "reason": "退役 Outbox NextAttemptAt 列。",
+      "risk": "丢弃 legacy 时间列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "line": 215,
+      "actual": "DROP COLUMN",
+      "reason": "退役 Outbox LockedUntil 列。",
+      "risk": "丢弃 legacy 时间列。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
+      "line": 218,
+      "actual": "DROP TABLE",
+      "reason": "退役 legacy fn_tenant_tenant；与 MySQL 011 对称。",
+      "risk": "删除 legacy 表。",
+      "backupVerified": true,
+      "reviewer": "architecture-hardening-task-2",
+      "removalMilestone": "M1.0"
+    }
+  ]
+}

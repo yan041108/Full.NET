@@ -39,19 +39,21 @@
 
 ### Task 2: SQL 静态门禁与破坏性变更豁免
 
+**状态：已完成（实现基线见验证记录 `sql-safety-governance-2026-07-21`）。** 破坏性规则由 `scripts/sql/validate-sql-safety.mjs` 扫描；命名仍走既有 Naming Profile，不在安全脚本重复实现。
+
 **Files:**
 - Create: `eng/sql-lint.ps1`
-- Create: `eng/sql-waivers/README.md`
-- Follow: `docs/superpowers/plans/2026-07-18-naming-governance.md`
-- Modify: `rules/development-quality.md`
-- Modify: `.github/workflows/ci.yml`
-- Test: `tests/Full.NET.ArchitectureTests/SqlGovernanceTests.cs`
+- Create: `eng/sql-waivers/README.md`（指向 `contracts/sql-safety/`）
+- Create: `contracts/sql-safety/waivers.json`
+- Create: `scripts/sql/validate-sql-safety.mjs`
+- Modify: `.github/workflows/ci.yml`、`package.json`
+- Test: `tests/sql/sql-safety.test.mjs`
 
-1. 先用测试夹具证明扫描器会拒绝应用 SQL 的 `SELECT *`、无 `WHERE` 的 `UPDATE/DELETE`，以及迁移中的 DROP/TRUNCATE/直接重命名等危险语句；命名违规由同一 CI 阶段调用 Naming Profile 门禁报告，不在两个脚本重复实现规则。
-2. 定义窄范围、带到期版本的豁免 Schema；没有风险、备份/验证、发布策略和数据审查者时拒绝。
-3. 扫描模块内嵌 SQL、迁移脚本和代码生成模板；排除测试中明确标记的反例夹具。命名债务只能来自精确 Allowlist，禁止目录级或通配豁免。
-4. 将危险 DDL 继续交给 SQL Server/MySQL 半完成迁移集成测试验证，Lint 不替代真实数据库。
-5. 记录行号、规则码和修复指导，避免只有模糊失败。
+1. [x] 测试夹具证明拒绝无 `WHERE` 的 `UPDATE/DELETE`、`TRUNCATE`、`DROP TABLE/COLUMN`、直接 `RENAME`；命名违规由同一 CI 阶段 `pnpm test:naming` 报告。
+2. [x] 定义窄范围、带 `backupVerified`/`reviewer`/`removalMilestone` 的精确豁免 Schema。
+3. [x] 扫描模块内嵌 SQL、迁移脚本与登记的 C# 静态 SQL；排除测试夹具；禁止目录级通配豁免。
+4. [x] 危险 DDL 继续由 SQL Server/MySQL 半完成迁移集成测试验证，Lint 不替代真实数据库。
+5. [x] 违规输出含行号、规则码和修复指导。
 
 ### Task 3: 执行 Seed Baseline/Overlay 既有计划
 

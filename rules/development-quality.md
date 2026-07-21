@@ -91,7 +91,7 @@
 6. 数据库行为变更必须同时提供 SQL Server 与 MySQL 的迁移、SQL、索引和集成验证；不能以“语法相近”代替双库测试。
 7. 迁移必须可重复部署并有确定顺序。仅验证 DbUp 已记账后的零脚本重跑不算可恢复；对非事务或会隐式提交的 DDL，每个结构探测、数据回填、约束收紧和默认值步骤必须在“迁移未记账且前序步骤已部分完成”时独立收敛，并用 SQL Server/MySQL 真实集成测试模拟旧结构与半完成状态。不可逆变更、长时间锁表和大数据回填必须提供风险说明与发布策略。
 8. 数据库结构变更采用 `expand -> migrate/backfill -> contract`。`DROP TABLE/COLUMN`、`TRUNCATE`、直接重命名、缩窄类型、直接增加无默认值的非空列和未分批的大表回填默认禁止；确需执行时必须有机器可检查的限期豁免、备份/验证、前滚或回滚策略和独立数据审查者。
-9. 应用 SQL 禁止 `SELECT *`，禁止无 `WHERE` 的 `UPDATE/DELETE`。迁移中确需全表修正时必须进入窄范围豁免并断言预期行数；注释或文件名不能单独作为放行证据。
+9. 应用 SQL 禁止 `SELECT *`，禁止无 `WHERE` 的 `UPDATE/DELETE`。迁移中确需全表修正时必须进入窄范围豁免并断言预期行数；注释或文件名不能单独作为放行证据。破坏性 DDL 与无 `WHERE` 写操作由 `pnpm test:sql-safety`（[`contracts/sql-safety/`](../contracts/sql-safety/README.md)）强制；命名类违规继续由 `pnpm test:naming` 负责，二者不得双写同一规则。
 10. Provider 专有 SQL 必须按同一语义提供 SQL Server/MySQL 成对实现和真实测试。CTE、窗口、Upsert、锁、JSON 和日期函数不得以数据库分支散落在业务 Handler；JSON 聚合/变更默认在应用层完成。
 11. 新查询必须评估索引、排序稳定性、分页复杂度和最坏数据量。性能结论必须来自基准或执行计划，不得只凭 ORM 偏好判断。
 12. 新增或修改表、列、索引、约束、Statement 和生成模板必须遵守 [`naming-conventions.md`](naming-conventions.md)：表按冻结的 OwnerKey/ModuleKey/EntityKey 命名，列用 PascalCase 与 Dapper 投影直接映射；禁止 `sys` 项目 OwnerKey、运行时动态表前缀、全局 snake_case 映射和模板私有命名算法。

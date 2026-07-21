@@ -40,4 +40,3 @@
 
 - Production Secret 注入与运维验收 Runbook
 - 超级管理员 MFA / 强认证 Provider
-- SQL 破坏性 DDL 静态 Lint（`eng/sql-lint.ps1`）

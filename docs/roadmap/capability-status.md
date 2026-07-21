@@ -26,7 +26,7 @@
 | 跨栈命名治理与生成器命名内核 | `Build-verified` | `contracts/naming/`、`pnpm test:naming`（23 项）、010/011 双库迁移、19 项 Naming Integration 矩阵、[命名治理](../verification/naming-governance.md)与[1.0 前规范化验证](../verification/pre-v1-naming-normalization.md)；债务 **83** 项 | 真实维护窗口、备份升级演练、协议别名排空与客户端 E2E 升级路径未实跑；动态 SQL 仍须人工审查；完整业务模板与重复生成快照未交付，因此不能标记为 `Verified` |
 | Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks；QueryMultiple 顺序/完整消费及 SQL Server/MySQL 真实测试 | `TenantRequired` 仍需从参数文本检查升级为受控语义元数据，Global Statement 需精确目录；SqlBuilder 只在真实消费者命中门禁后引入 |
 | UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`PrimaryKeyTypeMapping`、`validate-uuid-storage-sql`（010+ 门禁）、UUID 集成测试（Expand/Contract/Recovery 31 项）、应用持久化/外部契约测试、Runbook 与[自动化恢复演练记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)、真实栈 MySQL E2E 走 Binary16；当前声明门槛 **314/7/26/89** 见[测试门槛核对](../verification/test-threshold-audit-2026-07-19.md) | 真实生产维护窗口与整库备份恢复 RPO/RTO 实跑、SQL Server 聚集索引性能基准尚未完成 |
-| SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试（Integration **85** 项）、010/011 Naming Expand/Contract、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
+| SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试（Integration **103** 项）、010/011 Naming Expand/Contract、迁移文件配对与 CI SQL 命名 Lint；破坏性 DDL/无 WHERE 写操作由 [`pnpm test:sql-safety`](../verification/sql-safety-governance-2026-07-21.md) 强制 | 通用半完成迁移扫描仍依赖既有双库恢复用例；动态 SQL 精确债务须持续人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
 | 标准 HTTP + ProblemDetails | `Build-verified` | API、兼容测试、Admin.NET 适配层 | OpenAPI 破坏性变更门禁和多客户端生成待补 |
@@ -61,7 +61,7 @@
 
 > 2026-07-21 起纳入[外部全面分析吸收](../verification/external-review-2026-07-21.md)：在基础设施债继续收敛的同时，**必须尽早完成首个可重复业务纵向切片**，否则治理成本无法被模块复杂度验证。
 
-1. **P0：生产可控性（收尾）**——Seed Baseline/Overlay 双库契约已关闭（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)）；仍待 Production Secret/运维验收、超级管理员 MFA/强认证 Provider 与账号禁用/删除保护、SQL 破坏性变更门禁复用命名扫描入口。运行时数据范围并集切片已关闭（见[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)）。
+1. **P0：生产可控性（收尾）**——Seed 双库契约与 SQL 破坏性静态门禁已关闭（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)、[SQL 安全门禁验证](../verification/sql-safety-governance-2026-07-21.md)）；仍待 Production Secret/运维验收、超级管理员 MFA/强认证 Provider 与账号禁用/删除保护。运行时数据范围并集切片已关闭（见[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)）。
 2. **P0：1.0 前命名债务收敛**——剩余 **83** 项（协议别名窗口、动态 SQL 等）与真实维护窗口/备份升级演练待闭环。
 3. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。
 4. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **322/7/26/103** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。

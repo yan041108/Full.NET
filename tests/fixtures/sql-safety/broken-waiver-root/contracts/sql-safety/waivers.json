@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "ruleId": "FNSAFETY001",
+      "file": "dummy.sql",
+      "line": 1,
+      "actual": "delete_without_where",
+      "reason": "fixture",
+      "risk": "none",
+      "backupVerified": false,
+      "reviewer": "tests",
+      "removalMilestone": "fixture"
+    }
+  ]
+}

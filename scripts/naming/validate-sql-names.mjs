@@ -8,8 +8,10 @@ const defaultRepositoryRoot = path.resolve(path.dirname(fileURLToPath(import.met
 const registeredStaticSqlFiles = [
   'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperOutboxWriter.cs',
   'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs',
+  'src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedExecutionStore.cs',
   'src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs',
-  'src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs'
+  'src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs',
+  'src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs',
 ];
 
 /** 检查静态 SQL 子集中的数据库对象、列、约束和危险查询命名。 */

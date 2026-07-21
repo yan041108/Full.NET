@@ -582,6 +582,20 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
       "reason": "011 Contract 的条件 DROP INDEX/COLUMN/TABLE 由 NamingContract 双库集成测试与半完成恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/015_HostRoleDataScope.sql",
+      "reason": "015 使用 information_schema + PREPARE 条件增加 DataScopeKind，避免重复 ADD COLUMN；行为由角色数据范围双库集成覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/015_HostRoleDataScope.sql",
+      "reason": "015 将 UPDATE DataScopeKind 包入 EXEC，避免批处理在同一批次解析尚未可见的新列；由角色数据范围双库集成覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

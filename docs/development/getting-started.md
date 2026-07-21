@@ -62,6 +62,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 corepack enable
 pnpm install --frozen-lockfile
 pnpm test:naming
+pnpm test:sql-safety
 pnpm test:openapi
 pnpm test:workspace
 pnpm test:clients

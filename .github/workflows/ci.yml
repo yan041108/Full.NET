@@ -44,6 +44,9 @@ jobs:
       - name: Verify naming governance
         run: pnpm test:naming
 
+      - name: Verify SQL safety governance
+        run: pnpm test:sql-safety
+
       - name: Test shared and admin client packages
         run: |
           pnpm test:workspace
