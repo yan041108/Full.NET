@@ -30,6 +30,14 @@ internal sealed class IdentityAuthorizationContributor
             SuperAdministratorsManage,
             "管理超级管理员",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityUserManagementPermissions.Read,
+            "查看 Host 用户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityUserManagementPermissions.Write,
+            "管理 Host 用户",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -45,6 +53,17 @@ internal sealed class IdentityAuthorizationContributor
             "grid",
             10,
             DashboardRead),
+        new NavigationDefinition(
+            "users",
+            null,
+            "users",
+            "/identity/users",
+            "users",
+            "用户管理",
+            "Users",
+            "user",
+            35,
+            IdentityUserManagementPermissions.Read),
         new NavigationDefinition(
             "super-administrators",
             null,

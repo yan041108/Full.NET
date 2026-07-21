@@ -44,7 +44,52 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
-    // 会话上下文可能已经进入租户；仅允许服务端使用已签名的 sub 与 sid 调用这些 Global 语句。
+    public static readonly SqlStatement CountHostUsers = new(
+        "identity.count_host_users",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_user
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostUsersSqlServer = new(
+        "identity.list_host_users.sql_server",
+        """
+        SELECT Id, Username, DisplayName, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_user
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        ORDER BY NormalizedUsername
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostUsersMySql = new(
+        "identity.list_host_users.mysql",
+        """
+        SELECT Id, Username, DisplayName, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_user
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        ORDER BY NormalizedUsername
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DisableHostUser = new(
+        "identity.disable_host_user",
+        """
+        UPDATE fn_identity_user
+        SET IsActive = 0,
+            SecurityStamp = @SecurityStamp,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindRefreshSessionById = new(
         "identity.find_refresh_session_by_explicit_session_id",
         """

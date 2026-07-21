@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Serialization;
@@ -17,4 +18,7 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(SuperAdministratorResponse[]))]
 [JsonSerializable(typeof(SuperAdministratorAuditResponse[]))]
 [JsonSerializable(typeof(SuperAdministratorChangeResponse))]
+[JsonSerializable(typeof(CreateHostUserRequest))]
+[JsonSerializable(typeof(HostUserResponse))]
+[JsonSerializable(typeof(PagedResult<HostUserResponse>))]
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

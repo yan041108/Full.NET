@@ -20,6 +20,8 @@ public sealed class AuthorizationCatalogTests
                 "identity.navigation.read",
                 "identity.super_administrators.manage",
                 "identity.super_administrators.read",
+                "identity.users.read",
+                "identity.users.write",
                 "platform.dashboard.read",
                 "tenancy.tenants.read",
                 "tenancy.tenants.switch",

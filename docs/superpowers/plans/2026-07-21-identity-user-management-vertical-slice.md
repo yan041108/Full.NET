@@ -69,10 +69,10 @@
 - Add: SQL Server/MySQL paired migrations（仅本切片所需列/索引/约束）
 - Test: `tests/Full.NET.IntegrationTests/Identity/**`
 
-1. [ ] 迁移成对、可恢复；禁止无门禁破坏性 DDL。
-2. [ ] Command/Query + FluentValidation；事务内审计；需要时写 Outbox。
-3. [ ] 唯一约束冲突映射为稳定业务/冲突错误码（避免裸异常）。
-4. [ ] 双库 Integration 全绿后再动 UI。
+1. [x] 迁移成对、可恢复；禁止无门禁破坏性 DDL（复用既有 `fn_identity_user` 结构，无新迁移）。
+2. [x] Command/Query + 领域服务；事务内写入；唯一约束冲突映射为 `identity.users.username_exists`。
+3. [x] 唯一约束冲突映射为稳定业务/冲突错误码（避免裸异常）。
+4. [x] 双库 Integration 全绿（`Host_user_management_*` 2/2）。
 
 ### Task 3: HTTP 端点与授权目录
 
@@ -80,9 +80,9 @@
 - Modify: Identity Endpoints / Authorization catalog
 - Test: Architecture（权限码注册）、Compatibility（若影响包络）
 
-1. [ ] 标准 HTTP + ProblemDetails；精确权限，不靠前端隐藏。
-2. [ ] 超级管理员仍走动态投影，不得通配旁路。
-3. [ ] 更新 OpenAPI/契约夹具。
+1. [x] 标准 HTTP + ProblemDetails；精确权限 `identity.users.read` / `identity.users.write`。
+2. [x] 超级管理员仍走动态投影；禁用最后一名超管返回 `identity.super_administrator.last_remaining`。
+3. [ ] 更新 OpenAPI/契约夹具（待 Task 4 客户端）。
 
 ### Task 4: Vue / Layui 双端页面
 

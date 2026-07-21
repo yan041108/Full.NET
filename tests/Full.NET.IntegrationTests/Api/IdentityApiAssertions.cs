@@ -160,6 +160,8 @@ internal static class IdentityApiAssertions
                 "identity.navigation.read",
                 "identity.super_administrators.manage",
                 "identity.super_administrators.read",
+                "identity.users.read",
+                "identity.users.write",
                 "platform.dashboard.read",
                 "tenancy.tenants.read",
                 "tenancy.tenants.switch",
@@ -207,10 +209,10 @@ internal static class IdentityApiAssertions
             .ReadFromJsonAsync<NavigationNodeResponse[]>(cancellationToken);
         Assert.IsNotNull(navigation);
         CollectionAssert.AreEqual(
-            new[] { "overview", "tenant-context", "super-administrators" },
+            new[] { "overview", "tenant-context", "users", "super-administrators" },
             navigation.Select(item => item.Id).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "overview", "tenant-context", "super-administrators" },
+            new[] { "overview", "tenant-context", "users", "super-administrators" },
             navigation.Select(item => item.ComponentKey).ToArray());
 
         var operatorUserId = Guid.Parse(
