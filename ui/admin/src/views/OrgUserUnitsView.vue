@@ -46,10 +46,16 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const [assignmentPage, userPage, unitPage] = await Promise.all([
+    const [assignmentPage, unitPage, userPage] = await Promise.all([
       listOrganizationUserUnits(),
-      listHostUsers(),
-      listOrganizationUnits()
+      listOrganizationUnits(),
+      // 租户上下文通常无 identity.users.read；选择器可降级，列表仍应可渲染。
+      listHostUsers().catch(() => ({
+        items: [] as HostUser[],
+        page: 1,
+        pageSize: 20,
+        total: 0
+      }))
     ]);
     assignments.value = assignmentPage.items;
     users.value = userPage.items.filter(user => user.isActive);

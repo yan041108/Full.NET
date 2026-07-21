@@ -26,7 +26,8 @@ internal static class IdentitySql
         FROM fn_identity_user
         WHERE Id = @UserId AND ScopeKey = 'host' AND TenantId IS NULL
         """,
-        SqlDataScope.HostOnly);
+        // Global：供租户上下文中的 IHostUserDirectory 校验；SQL 仍限定 Host 行。
+        SqlDataScope.Global);
 
     public static readonly SqlStatement InsertUser = new(
         "identity.insert_user",
@@ -256,6 +257,14 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>
+    /// 列出活动 Host 菜单定义，供导航投影在任意请求上下文中合并代码目录。
+    /// </summary>
+    /// <remarks>
+    /// 必须使用 <see cref="SqlDataScope.Global"/>：GetNavigation 在租户上下文中也会调用本语句；
+    /// HostOnly 会触发 HostContextRequiredException，导致进入租户后会话快照加载失败并被客户端清空。
+    /// SQL 本身仍限制 ScopeKey='host' 且 TenantId IS NULL，不读取租户业务行。
+    /// </remarks>
     public static readonly SqlStatement ListActiveHostMenus = new(
         "identity.list_active_host_menus",
         """
@@ -268,7 +277,7 @@ internal static class IdentitySql
           AND IsActive = 1
         ORDER BY DisplayOrder, RouteName
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement InsertHostMenu = new(
         "identity.insert_host_menu",

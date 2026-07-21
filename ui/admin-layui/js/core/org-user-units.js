@@ -15,10 +15,11 @@ export function createOrgUserUnitsController(root, options) {
     if (loading) return await loading;
     loading = Promise.all([
       request('/api/v1/organization/user-units?page=1&pageSize=20'),
-      request('/api/v1/identity/users?page=1&pageSize=20'),
-      request('/api/v1/organization/units?page=1&pageSize=20')
+      request('/api/v1/organization/units?page=1&pageSize=20'),
+      // 租户上下文无 identity.users.read；选择器可降级为空，列表仍应可渲染。
+      request('/api/v1/identity/users?page=1&pageSize=20').catch(() => ({ items: [] }))
     ])
-      .then(([assignmentPage, userPage, unitPage]) => {
+      .then(([assignmentPage, unitPage, userPage]) => {
         renderSelectOptions(
           userSelect,
           Array.isArray(userPage?.items)

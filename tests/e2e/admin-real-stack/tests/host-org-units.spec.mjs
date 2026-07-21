@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  enterDevelopmentTenant,
   enterTenantAccessToken,
   loginAccessToken,
   loginAsHostAdmin,
@@ -18,10 +19,9 @@ test.beforeEach(async ({ page }) => {
 
 test('Host 管理员在租户上下文中可从真实 API 加载机构列表', async ({ page }) => {
   await loginAsHostAdmin(page);
+  await enterDevelopmentTenant(page);
 
   const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /租户上下文/ }).click();
-  await page.getByRole('button', { name: '进入租户' }).click();
   await expect(navigation.getByRole('link', { name: /机构管理/ })).toBeVisible();
   await navigation.getByRole('link', { name: /机构管理/ }).click();
 
@@ -52,9 +52,8 @@ test('受限 Host 账号在租户上下文中访问机构 API 被拒绝且导航
   expect(problem.code).toBe('authorization.permission_denied');
 
   await loginAsHostViewer(page);
+  await enterDevelopmentTenant(page);
   const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /租户上下文/ }).click();
-  await page.getByRole('button', { name: '进入租户' }).click();
   await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /机构管理/ })).toHaveCount(0);
 

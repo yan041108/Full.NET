@@ -125,3 +125,20 @@ export async function enterTenantAccessToken(request, clientKind, hostAccessToke
   expect(typeof body.accessToken).toBe('string');
   return body.accessToken;
 }
+
+/** 登录后进入 Development 种子租户，并等待侧栏上下文名可见。 */
+export async function enterDevelopmentTenant(page, tenantName = 'Full.NET Local') {
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  await navigation.getByRole('link', { name: /租户上下文/ }).click();
+  await expect(page.getByRole('heading', { name: '租户上下文' })).toBeVisible();
+  await page.getByRole('button', { name: '进入租户' }).click();
+  await expectVisibleCurrentContext(page, tenantName);
+}
+
+/** 断言侧栏当前上下文名称（避开 el-select/option 等 hidden 文本）。 */
+export async function expectVisibleCurrentContext(page, name) {
+  const vueContext = page.locator('.tenant-card > strong');
+  const layuiContext = page.locator('.fn-tenant > [data-current-context]');
+  const target = (await vueContext.count()) > 0 ? vueContext : layuiContext;
+  await expect(target).toHaveText(name, { timeout: 15_000 });
+}

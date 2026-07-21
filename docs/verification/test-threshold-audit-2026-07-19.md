@@ -204,6 +204,13 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Integration 门槛 **105 → 107** | TotpStrongReauth SQL Server/MySQL +2 |
 | 四处 canonical 门槛 | **331/7/26/107**；见 [identity-totp-strong-reauth-2026-07-21.md](identity-totp-strong-reauth-2026-07-21.md) |
 
+## 增补（2026-07-21，租户上下文 Host 目录 SQL 作用域）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **331 → 333** | `HostCatalogSqlScopeTests`（`ListActiveHostMenus` / `FindHostUserById` 在租户上下文可校验）+2 |
+| 四处 canonical 门槛 | **333/7/26/107**；见 [identity-tenant-navigation-host-sql-scope-2026-07-21.md](identity-tenant-navigation-host-sql-scope-2026-07-21.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

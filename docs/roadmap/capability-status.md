@@ -39,11 +39,11 @@
 | Vue 管理壳层 | `Implemented` | 自研 Element Plus 壳层、会话、租户、导航、i18n、可访问性自动化 | Art Design Pro 已选定但尚未迁入；迁移期间必须保留现有安全契约和 E2E |
 | Vue 图表与双管理端富文本 | `Designing` | ECharts 6.1 与 Tiptap Core 3.28 已完成选型和边界设计 | 依赖、主题、懒加载、服务端 HTML 净化、Files 上传及 Vue/Layui Adapter 尚未实现 |
 | Layui 管理壳层 | `Implemented` | Vite/Vitest、独立 JS/HTML 壳层、同场景 E2E；**长期并行**（所有者 2026-07-21 确认，非过渡兼容端） | 会话/HTTP/导航白名单已收敛到 `@fullnet/client-contracts` headless 层；Layui 仅保留 DOM 渲染适配；业务切片须与 Vue 同步 |
-| 双管理端真实后端浏览器联调 | `Build-verified` | `tests/e2e/admin-real-stack`：Testcontainer SQL Server/MySQL + Migrator Development Seed + 真实 API；Vue/Layui **38** 项（登录/刷新/跨 Tab/租户/**Host 用户/角色/菜单/机构与用户-机构隶属列表与权限裁剪**/超级管理员授予撤销/ProblemDetails/403/权限拒绝/退出）；CI `real-stack-e2e` + `real-stack-e2e-mysql`（main） | Redis 未纳入真实栈；Overview「检查会话」级 API 403 UI 探针仍依赖 mock parity；不能标为 `Verified` |
+| 双管理端真实后端浏览器联调 | `Build-verified` | `tests/e2e/admin-real-stack`：Testcontainer SQL Server/MySQL + Migrator Development Seed + 真实 API；Vue/Layui **38** 项（登录/刷新/跨 Tab/租户/**Host 用户/角色/菜单/机构与用户-机构隶属列表与权限裁剪**/超级管理员授予撤销/ProblemDetails/403/权限拒绝/退出）；租户上下文导航 Host 目录 SQL 作用域修复见[验证](../verification/identity-tenant-navigation-host-sql-scope-2026-07-21.md)；CI `real-stack-e2e` + `real-stack-e2e-mysql`（main） | Redis 未纳入真实栈；Overview「检查会话」级 API 403 UI 探针仍依赖 mock parity；租户内可分配 Host 用户 API 仍开放；不能标为 `Verified` |
 | uni-app H5/微信/支付宝基础 | `Build-verified` | 96 项单测、类型检查、三目标 CLI 构建、H5 E2E | uni-ui 已选定但尚未引入；微信/支付宝开发者工具、真机及真实后端会话未验证 |
 | Flutter 移动/桌面客户端 | `Designing` | Flutter 3.44、Material 3 + Cupertino、平台与多语言边界已确定 | 工程、设计令牌映射、构建节点、登录/API 冒烟均未实现 |
 | 全栈多语言 L0-L3 | `Build-verified` | 服务端、双管理端、uni-app 自动化记录 | L4 Flutter 与 L5 业务内容/异步消息仍为设计状态 |
-| 模块化 Seed Baseline/Overlay | `Build-verified` | Migrator 两阶段 Seed、双库 Development/Test/Production 契约、Production 缺 Secret 拒绝（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)、[Production Secret 验证](../verification/seed-production-secret-and-super-admin-disable-2026-07-21.md)、[运维 Runbook](../operations/seed-production-baseline.md)；门槛 **331/7/26/107**） | 完整 Aspire/CI Profile E2E 仍开放；Production 远程超管写已可按 ADR-0004 开启，不能标记为 `Verified` |
+| 模块化 Seed Baseline/Overlay | `Build-verified` | Migrator 两阶段 Seed、双库 Development/Test/Production 契约、Production 缺 Secret 拒绝（见[种子双库验证](../verification/seed-dual-database-contract-2026-07-21.md)、[Production Secret 验证](../verification/seed-production-secret-and-super-admin-disable-2026-07-21.md)、[运维 Runbook](../operations/seed-production-baseline.md)；门槛 **333/7/26/107**） | 完整 Aspire/CI Profile E2E 仍开放；Production 远程超管写已可按 ADR-0004 开启，不能标记为 `Verified` |
 | SignalR / Realtime | `Planned` | 架构边界已定义 | 抽象、鉴权分组、MessagePack Hub、Redis Backplane 尚未实现 |
 | gRPC 服务通信 | `Planned` | 架构边界已定义 | 首次真实服务拆分前不引入 |
 | AI / Agent / MCP / Agentic Web | `Planned` | M5+ 安全边界已定义 | 不属于 1.0 当前可用能力，不应占用近期底座优先级 |
@@ -64,7 +64,7 @@
 1. **P0：生产可控性（收尾）**——Seed 双库契约、SQL 安全门禁、Production Bootstrap Secret Runbook 与缺 Secret 双库拒绝、禁用最后一名超管保护已关闭（见[Production Secret 验证](../verification/seed-production-secret-and-super-admin-disable-2026-07-21.md)）；TOTP 强认证 Provider 与 ADR-0004 已关闭后端门禁（见[验证记录](../verification/identity-totp-strong-reauth-2026-07-21.md)）；双端 TOTP 登记/确认 UI 已同步（见[TOTP UI 验证](../verification/identity-totp-admin-ui-2026-07-21.md)）；超管管理页真实栈授予/撤销 E2E 已关闭（见[真实栈验证](../verification/identity-super-admin-real-stack-2026-07-21.md)）；仍待 Production TOTP 强制路径真实栈。运行时数据范围并集切片已关闭（见[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)）。
 2. **P0：1.0 前命名债务收敛**——剩余 **83** 项（协议别名窗口、动态 SQL 等）与真实维护窗口/备份升级演练待闭环。
 3. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。
-4. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **331/7/26/107** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
+4. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **333/7/26/107** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
 5. **P1：交付真实性补强**——真实栈 Redis、Overview 级 403 UI 探针、Production TOTP 强制路径真实栈；浏览器跨 Tab 协调已有基础，故障注入仍缺。
 6. **P1：复用而不耦合**——OpenAPI/协议夹具扩展到 uni-app/Flutter；headless 契约层已起步，继续防止双端逻辑漂移。
 7. **已决策：Layui 长期并行**——所有者 2026-07-21 确认；Vue 与 Layui 继续按同一模块同步开发与验收，不设退役窗口（见 [`client-frontend.md`](../../rules/client-frontend.md) §4）。

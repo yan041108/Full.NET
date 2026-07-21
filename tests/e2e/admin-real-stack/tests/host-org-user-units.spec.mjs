@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  enterDevelopmentTenant,
   enterTenantAccessToken,
   loginAccessToken,
   loginAsHostAdmin,
@@ -18,15 +19,16 @@ test.beforeEach(async ({ page }) => {
 
 test('Host 管理员在租户上下文中可从真实 API 加载用户机构隶属列表', async ({ page }) => {
   await loginAsHostAdmin(page);
+  await enterDevelopmentTenant(page);
 
   const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /租户上下文/ }).click();
-  await page.getByRole('button', { name: '进入租户' }).click();
   await expect(navigation.getByRole('link', { name: /用户机构隶属/ })).toBeVisible();
   await navigation.getByRole('link', { name: /用户机构隶属/ }).click();
 
   await expect(page.getByRole('heading', { name: '用户机构隶属', exact: true })).toBeVisible();
-  await expect(page.getByText('尚无用户机构隶属', { exact: true })).toBeVisible();
+  await expect(page.getByText('尚无用户机构隶属', { exact: true })).toBeVisible({
+    timeout: 15_000
+  });
 });
 
 test('受限 Host 账号在租户上下文中访问用户机构隶属 API 被拒绝且导航裁剪', async ({
@@ -52,9 +54,8 @@ test('受限 Host 账号在租户上下文中访问用户机构隶属 API 被拒
   expect(problem.code).toBe('authorization.permission_denied');
 
   await loginAsHostViewer(page);
+  await enterDevelopmentTenant(page);
   const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /租户上下文/ }).click();
-  await page.getByRole('button', { name: '进入租户' }).click();
   await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /用户机构隶属/ })).toHaveCount(0);
 
