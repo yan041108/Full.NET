@@ -14,9 +14,11 @@ describe('Layui 租户用户-机构隶属控制器', () => {
       .mockResolvedValueOnce({ items: [], page: 1, pageSize: 20, total: 0 })
       .mockResolvedValueOnce({
         items: [{
-          id: 'user-1',
-          username: 'admin',
-          displayName: '系统管理员',
+          id: 'unit-1',
+          parentId: null,
+          code: 'hq',
+          name: '总部',
+          displayOrder: 10,
           isActive: true,
           createdAtUtc: '2026-07-21T00:00:00Z',
           updatedAtUtc: null,
@@ -28,11 +30,9 @@ describe('Layui 租户用户-机构隶属控制器', () => {
       })
       .mockResolvedValueOnce({
         items: [{
-          id: 'unit-1',
-          parentId: null,
-          code: 'hq',
-          name: '总部',
-          displayOrder: 10,
+          id: 'user-1',
+          username: 'admin',
+          displayName: '系统管理员',
           isActive: true,
           createdAtUtc: '2026-07-21T00:00:00Z',
           updatedAtUtc: null,
@@ -59,9 +59,11 @@ describe('Layui 租户用户-机构隶属控制器', () => {
       .mockResolvedValueOnce({ items: [], page: 1, pageSize: 20, total: 0 })
       .mockResolvedValueOnce({
         items: [{
-          id: 'user-1',
-          username: 'admin',
-          displayName: '系统管理员',
+          id: 'unit-1',
+          parentId: null,
+          code: 'hq',
+          name: '总部',
+          displayOrder: 10,
           isActive: true,
           createdAtUtc: '2026-07-21T00:00:00Z',
           updatedAtUtc: null,
@@ -73,11 +75,9 @@ describe('Layui 租户用户-机构隶属控制器', () => {
       })
       .mockResolvedValueOnce({
         items: [{
-          id: 'unit-1',
-          parentId: null,
-          code: 'hq',
-          name: '总部',
-          displayOrder: 10,
+          id: 'user-1',
+          username: 'admin',
+          displayName: '系统管理员',
           isActive: true,
           createdAtUtc: '2026-07-21T00:00:00Z',
           updatedAtUtc: null,
@@ -99,12 +99,36 @@ describe('Layui 租户用户-机构隶属控制器', () => {
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(7));
     expect(request).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/organization/user-units?page=1&pageSize=20'
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/organization/units?page=1&pageSize=20'
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/identity/users?page=1&pageSize=20'
+    );
+    expect(request).toHaveBeenNthCalledWith(
       4,
       '/api/v1/organization/user-units',
       expect.objectContaining({
         method: 'POST',
         body: expect.stringContaining('user-1')
       })
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      5,
+      '/api/v1/organization/user-units?page=1&pageSize=20'
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      6,
+      '/api/v1/organization/units?page=1&pageSize=20'
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      7,
+      '/api/v1/identity/users?page=1&pageSize=20'
     );
     controller.dispose();
   });
