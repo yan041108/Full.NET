@@ -34,5 +34,5 @@
 ## 明确仍开放
 
 - Vue/Layui TOTP 登记与超管写操作确认 UI
-- 超级管理员管理页真实栈 E2E
+- Production TOTP 强制路径真实栈（Development 超管页授予/撤销见[真实栈验证](./identity-super-admin-real-stack-2026-07-21.md)）
 - WebAuthn / 其他因子（须新 ADR）

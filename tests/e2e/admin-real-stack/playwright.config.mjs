@@ -19,7 +19,8 @@ export default defineConfig({
     {
       command: `pnpm --dir ../../.. --filter @fullnet/admin exec vite --host localhost --port 25173`,
       url: 'http://localhost:25173',
-      reuseExistingServer: !process.env.CI,
+      // 禁止默认复用本机 Vite：陈旧进程常缺 VITE_API_BASE_URL，会表现为全套 client.login_failed。
+      reuseExistingServer: process.env.FULLNET_E2E_REUSE_SERVER === '1',
       env: {
         VITE_API_BASE_URL: apiBaseUrl
       }
@@ -27,7 +28,8 @@ export default defineConfig({
     {
       command: `pnpm --dir ../../.. --filter @fullnet/admin-layui exec vite --host localhost --port 25174`,
       url: 'http://localhost:25174',
-      reuseExistingServer: !process.env.CI,
+      // 禁止默认复用本机 Vite：陈旧进程常缺 VITE_API_BASE_URL，会表现为全套 client.login_failed。
+      reuseExistingServer: process.env.FULLNET_E2E_REUSE_SERVER === '1',
       env: {
         VITE_API_BASE_URL: apiBaseUrl
       }

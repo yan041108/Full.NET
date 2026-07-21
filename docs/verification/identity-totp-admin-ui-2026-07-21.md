@@ -24,4 +24,4 @@
 
 ## 明确仍开放
 
-- 超级管理员管理页真实栈 E2E（含 Production TOTP 路径）
+- Production 环境 TOTP 强制路径的真实栈覆盖（Development 密码重认证路径见[超管真实栈验证](./identity-super-admin-real-stack-2026-07-21.md)）

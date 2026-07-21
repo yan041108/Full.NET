@@ -43,12 +43,48 @@ export function adminOrigin(clientKind) {
 
 /** 使用真实登录 API 获取 Access Token（不依赖 route mock）。 */
 export async function loginAccessToken(request, clientKind) {
+  return loginWithPassword(request, clientKind, viewerUsername, viewerPassword);
+}
+
+/** 使用 Host 管理员凭据获取 Access Token，供真实栈写路径准备数据。 */
+export async function loginHostAdminAccessToken(request, clientKind) {
+  return loginWithPassword(request, clientKind, username, password);
+}
+
+/**
+ * 经真实 API 创建一次性 Host 用户，避免污染 e2e-viewer 等共享账号。
+ * @returns {Promise<{ id: string, username: string }>}
+ */
+export async function createHostUserViaApi(request, clientKind, options) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.post(`${apiBaseUrl}/api/v1/identity/users`, {
+    data: {
+      username: options.username,
+      displayName: options.displayName,
+      password: options.password
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.username).toBe(options.username);
+  return { id: body.id, username: body.username };
+}
+
+async function loginWithPassword(request, clientKind, loginUsername, loginPassword) {
   const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   const origin = adminOrigin(clientKind);
   const response = await request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: {
-      username: viewerUsername,
-      password: viewerPassword
+      username: loginUsername,
+      password: loginPassword
     },
     headers: {
       Origin: origin,
