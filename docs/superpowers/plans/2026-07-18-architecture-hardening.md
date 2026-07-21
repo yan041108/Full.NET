@@ -84,6 +84,8 @@
 
 **批准依据：** [2026-07-22 架构复核](../../verification/architecture-review-2026-07-22.md)与强制规则 `R-20260717-seed-data-boundary`。本任务必须先于剩余 P1 工作执行。
 
+**状态：实现完成，环境验证待补（实现基线 `c463311`，审查修正 `8a09c00`）。** Identity 发布物隔离、测试侧 API 准备脚本、跨页幂等门禁和三宿主 Release 扫描均已关闭；当前机器缺少容器运行时，SQL Server/MySQL 真实栈必须由具备容器能力的 CI 或开发机补跑，补证前不得宣称本任务双库 `Verified`。
+
 **Files:**
 - Delete: `src/Modules/Full.NET.Modules.Identity/Seeding/E2eHostViewerSeedContributor.cs`
 - Delete: `src/Modules/Full.NET.Modules.Identity/Configuration/IdentityE2eViewerOptions.cs`
