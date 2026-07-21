@@ -147,3 +147,59 @@ test('client-frontend.md 内部链接必须真实存在', async () => {
     assert.ok(await exists(resolved), `client-frontend.md 链接指向不存在的文件：${target}`);
   }
 });
+
+test('测试门槛在 canonical 来源与最新审计记录中保持一致', async () => {
+  const canonicalFiles = [
+    'README.md',
+    'docs/development/getting-started.md',
+    '.github/workflows/ci.yml',
+    '.agents/skills/fullnet-module-delivery/references/delivery-map.md'
+  ];
+  const suites = [
+    'Full.NET.UnitTests',
+    'Full.NET.CompatibilityTests',
+    'Full.NET.ArchitectureTests',
+    'Full.NET.IntegrationTests'
+  ];
+  const canonicalThresholds = [];
+  for (const file of canonicalFiles) {
+    const text = await read(file);
+    const thresholds = suites.map(suite => {
+      const pattern = new RegExp(
+        `${suite.replaceAll('.', '\\.')}[\\s\\S]{0,400}?--minimum-expected-tests\\s+(\\d+)`,
+        'g'
+      );
+      const matches = [...text.matchAll(pattern)];
+      assert.ok(matches.length > 0, `${file} 缺少 ${suite} 的测试门槛`);
+      return Math.max(...matches.map(match => Number(match[1])));
+    });
+    canonicalThresholds.push(thresholds);
+  }
+
+  for (const thresholds of canonicalThresholds.slice(1)) {
+    assert.deepEqual(
+      thresholds,
+      canonicalThresholds[0],
+      'README、getting-started、CI 与 Skill delivery-map 的门槛必须一致'
+    );
+  }
+
+  const auditText = await read('docs/verification/test-threshold-audit-2026-07-19.md');
+  const auditMatches = [...auditText.matchAll(
+    /四处 canonical 门槛[^\n]*\*\*(\d+)\/(\d+)\/(\d+)\/(\d+)\*\*/g
+  )];
+  assert.ok(auditMatches.length > 0, '测试门槛审计缺少 canonical 门槛记录');
+  const latestAuditThresholds = auditMatches.at(-1).slice(1).map(Number);
+  assert.deepEqual(
+    latestAuditThresholds,
+    canonicalThresholds[0],
+    '最新测试门槛审计必须与四个 canonical 来源一致'
+  );
+
+  const qualityRules = await read('rules/development-quality.md');
+  assert.match(
+    qualityRules,
+    /test-threshold-audit/,
+    '开发质量规则必须要求同步最新测试门槛审计记录'
+  );
+});

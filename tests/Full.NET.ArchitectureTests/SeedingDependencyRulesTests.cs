@@ -1,12 +1,44 @@
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
+using Full.NET.Modules.Identity;
+using Full.NET.Modules.Organization;
+using Full.NET.Modules.Tenancy;
 using NetArchTest.Rules;
+using System.Reflection;
+using System.Reflection.Emit;
 
 namespace Full.NET.ArchitectureTests;
 
 [TestClass]
 public sealed class SeedingDependencyRulesTests
 {
+    [TestMethod]
+    public void Published_modules_and_hosts_do_not_contain_test_scenario_types_or_options()
+    {
+        Assembly[] publishedAssemblies =
+        [
+            typeof(IdentityModule).Assembly,
+            typeof(TenancyModule).Assembly,
+            Assembly.Load("Full.NET.Modules.Tenancy"),
+            typeof(OrganizationModule).Assembly,
+            ProductionAssemblies.HostApi,
+            ProductionAssemblies.HostWorker,
+            ProductionAssemblies.HostMigrator,
+        ];
+        var forbiddenTokens = new[] { "E2e", "TestOnly" };
+        var violations = publishedAssemblies
+            .Distinct()
+            .SelectMany(assembly => assembly.GetTypes())
+            .SelectMany(type => FindTestScenarioViolations(type, forbiddenTokens))
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            violations,
+            $"发布程序集包含测试场景类型或配置节:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
+    }
+
     [TestMethod]
     public void Seeding_abstractions_do_not_depend_on_runtime_or_business_layers()
     {
@@ -38,5 +70,55 @@ public sealed class SeedingDependencyRulesTests
         Assert.IsTrue(
             result.IsSuccessful,
             $"Seed Dapper 基础设施依赖违规: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    private static IEnumerable<string> FindTestScenarioViolations(
+        Type type,
+        IReadOnlyCollection<string> forbiddenTokens)
+    {
+        if (forbiddenTokens.Any(token =>
+                type.FullName?.Contains(token, StringComparison.OrdinalIgnoreCase) == true))
+        {
+            yield return $"{type.Assembly.GetName().Name}:type:{type.FullName}";
+        }
+
+        var contributorName = ReadConstantContributorName(type);
+        if (contributorName is not null && forbiddenTokens.Any(token =>
+                contributorName.Contains(token, StringComparison.OrdinalIgnoreCase)))
+        {
+            yield return $"{type.Assembly.GetName().Name}:contributor:{contributorName}";
+        }
+
+        foreach (var property in type.GetProperties(
+                     BindingFlags.Instance |
+                     BindingFlags.Static |
+                     BindingFlags.Public |
+                     BindingFlags.NonPublic))
+        {
+            if (forbiddenTokens.Any(token =>
+                    property.Name.Contains(token, StringComparison.OrdinalIgnoreCase)))
+            {
+                yield return $"{type.Assembly.GetName().Name}:option:{type.FullName}.{property.Name}";
+            }
+        }
+    }
+
+    private static string? ReadConstantContributorName(Type type)
+    {
+        if (!typeof(IDataSeedContributor).IsAssignableFrom(type))
+        {
+            return null;
+        }
+
+        var getter = type.GetProperty(nameof(IDataSeedContributor.Name))?.GetMethod;
+        var instructions = getter?.GetMethodBody()?.GetILAsByteArray();
+        if (instructions is not { Length: >= 6 }
+            || instructions[0] != unchecked((byte)OpCodes.Ldstr.Value))
+        {
+            return null;
+        }
+
+        var metadataToken = BitConverter.ToInt32(instructions, 1);
+        return getter!.Module.ResolveString(metadataToken);
     }
 }

@@ -99,7 +99,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 4 | Identity 会话、租户切换、权限导航、`zh-CN/en-US` 国际化/可访问性及偏好失败回滚已按同一契约实现 Vue/Pinia 与 Layui/原生 JS，并通过同场景双端 E2E | 首个含列表、表单、权限与租户边界的双端业务 CRUD 达到 `Verified` 后评估升级 |
 | `fullnet-localization-delivery` | 候选 / 5 | L0-L2 之上，L3 uni-app 已落地规范语言/别名、Vue I18n、偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具未安装，跨平台停止条件未闭合 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
-| `fullnet-seed-data-delivery` | 候选 / 4 | Identity 作为第二个模块复用 Contributor、稳定错误码与 Scoped 多实现，并由 Migrator 完成迁移后 Profile 编排、失败阻断、兼容别名与 Host 依赖门禁；缺完整 Profile 双库 E2E | 完成 SQL Server/MySQL 的 Baseline/Development/Demo/Test E2E 与生产失败场景后按测试先行评估升级 |
+| `fullnet-seed-data-delivery` | 候选 / 5 | Identity 作为第二个模块复用 Contributor、稳定错误码与 Scoped 多实现，并由 Migrator 完成迁移后 Profile 编排、失败阻断、兼容别名与 Host 依赖门禁；Task 3A 已将场景查看者移出发布物并改为 API 健康后的测试脚本幂等创建，Architecture 与三宿主发布物扫描已锁定边界；当前机器缺容器运行时，更新后的双库真实栈未验证 | 在 SQL Server/MySQL 完成 Baseline/Development/Demo/Test 与新场景准备脚本 E2E 后，按测试先行评估升级 |
 
 候选命中时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。
 

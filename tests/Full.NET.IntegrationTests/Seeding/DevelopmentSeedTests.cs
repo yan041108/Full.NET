@@ -89,7 +89,7 @@ public sealed class DevelopmentSeedTests
         await AssertDevelopmentDataStateAsync(scope.ServiceProvider, options, 1L);
         await AssertLatestRunContributorsAsync(
             options,
-            ["identity.host_administrator", "tenancy.local_tenant", "identity.e2e_host_viewer"],
+            ["identity.host_administrator", "tenancy.local_tenant"],
             ["identity.host_administrator", "tenancy.local_tenant"]);
 
         var second = await orchestrator.RunAsync(SeedProfile.Development);
@@ -102,7 +102,7 @@ public sealed class DevelopmentSeedTests
         await AssertDevelopmentDataStateAsync(scope.ServiceProvider, options, 2L);
         await AssertLatestRunContributorsAsync(
             options,
-            ["identity.host_administrator", "tenancy.local_tenant", "identity.e2e_host_viewer"],
+            ["identity.host_administrator", "tenancy.local_tenant"],
             ["identity.host_administrator", "tenancy.local_tenant"]);
 
         var hasher = scope.ServiceProvider

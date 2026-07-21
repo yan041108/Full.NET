@@ -125,9 +125,6 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
             HostAdministratorSeedContributor>());
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IDataSeedContributor,
-            E2eHostViewerSeedContributor>());
         services.TryAddScoped<ISuperAdministratorService, SuperAdministratorService>();
         services.TryAddScoped<SuperAdministratorManagementService>();
         services.TryAddScoped<SuperAdministratorQueryService>();

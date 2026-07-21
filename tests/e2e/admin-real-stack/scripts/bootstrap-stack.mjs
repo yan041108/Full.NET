@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GenericContainer, Wait } from 'testcontainers';
+import { provisionViewer } from './provision-viewer.mjs';
 import { waitForApi } from './wait-for-api.mjs';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../../../..', import.meta.url)));
@@ -13,7 +14,6 @@ const apiPort = 5149;
 const apiUrl = `http://localhost:${apiPort}`;
 const adminPassword = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
 const adminUsername = process.env.FULLNET_E2E_USERNAME ?? 'admin';
-const viewerUsername = process.env.FULLNET_E2E_VIEWER_USERNAME ?? 'e2e-viewer';
 
 /** 由 global-teardown 调用的进程内栈引用，避免序列化 testcontainers 句柄。 */
 let activeStack;
@@ -86,7 +86,7 @@ export async function bootstrapStack() {
   const { container, connectionString } = await startDatabaseContainer(databaseProvider);
 
   const sharedEnv = {
-    ...process.env,
+    ...withoutTestScenarioHostConfiguration(process.env),
     Database__Provider: databaseProvider,
     Database__ConnectionString: connectionString,
     Database__MySqlGuidStorageMode: 'Binary16',
@@ -101,8 +101,6 @@ export async function bootstrapStack() {
     PreV1NamingContract__DestructiveDdlApprovalId: 'e2e-real-stack-011',
     Identity__Bootstrap__Username: adminUsername,
     Identity__Bootstrap__Password: adminPassword,
-    Identity__E2eViewer__Username: viewerUsername,
-    Identity__E2eViewer__Password: adminPassword,
     Identity__AllowDevelopmentEphemeralSigningKey: 'true',
     Identity__AllowedOrigins__0: 'http://localhost:25173',
     Identity__AllowedOrigins__1: 'http://localhost:25174',
@@ -142,6 +140,13 @@ export async function bootstrapStack() {
   );
 
   await waitForApi(apiUrl);
+  const viewerEnvironment = {
+    ...process.env,
+    FULLNET_E2E_API_URL: apiUrl
+  };
+  await provisionViewer(viewerEnvironment);
+  // 第二次准备必须只复用同一角色和用户，防止测试重跑产生重复场景数据。
+  await provisionViewer(viewerEnvironment);
 
   activeStack = {
     apiUrl,
@@ -157,6 +162,12 @@ export async function bootstrapStack() {
   }, null, 2));
 
   return activeStack;
+}
+
+function withoutTestScenarioHostConfiguration(environment) {
+  return Object.fromEntries(
+    Object.entries(environment).filter(([key]) =>
+      !key.toLowerCase().startsWith('identity__e2eviewer__')));
 }
 
 /** 停止 bootstrap 拉起的 API 与 Testcontainer。 */

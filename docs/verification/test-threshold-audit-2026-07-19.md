@@ -219,6 +219,17 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | 四处 canonical 门槛 | **333/7/26/109**；见 [pre-v1-naming-normalization.md](pre-v1-naming-normalization.md) |
 | 债务计数文档 | 权威 `naming-debt.json` **85**（含 015 双库 dynamic_sql）；能力矩阵/治理记录已对齐 |
 
+## 增补（2026-07-22，架构硬化 Task 3A E2E 场景数据发布物隔离）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **333 → 332** | 删除仅覆盖生产程序集内 `E2eHostViewerSeedContributor` 的 1 项单测；真实栈查看者改由测试目录脚本创建 |
+| Architecture 门槛 **26 → 28** | 基线实际已有 27 项；新增 1 项生产发布程序集测试场景类型、Contributor 名和配置节门禁后，新鲜运行 **28/28** |
+| Integration 门槛 | 保持 **109**；`DevelopmentSeedTests` 仍为 SQL Server/MySQL 各 1 项，但 Contributor 预期改为生产 Baseline + Development Overlay |
+| 四处 canonical 门槛 | **332/7/28/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
+
+本轮 Unit **332/332**、Architecture **28/28**、三宿主 Release 发布物扫描均通过。SQL Server/MySQL Integration 与真实栈因当前机器没有可用容器运行时而未执行，不能据此声明双库新路径已通过；详见 [Seed 双库契约验证记录](seed-dual-database-contract-2026-07-21.md)。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

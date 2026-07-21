@@ -199,7 +199,7 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 333
+          --minimum-expected-tests 332
 
       - name: Compatibility tests
         run: >-
@@ -213,7 +213,7 @@ jobs:
           dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 26
+          --minimum-expected-tests 28
 
       # PR 快门禁：只跑双库冒烟，快速反馈；完整双库矩阵放到 push main。
       - name: Integration smoke (dual-provider)

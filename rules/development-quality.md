@@ -195,7 +195,7 @@
 2. 至少覆盖成功、验证失败、权限失败、取消、并发、重复请求和依赖故障中与变更相关的路径。
 3. 数据层变更必须运行 SQL Server 与 MySQL 集成测试。Docker 或外部依赖不可用时，必须报告未验证项，禁止静默跳过后宣称通过。
 4. Full.NET 使用 Microsoft Testing Platform；必须按 README 直接执行测试程序集并保留 `--minimum-expected-tests` 门槛，不能只看到构建成功就认为测试已执行。
-5. 增删测试后必须同步 README、开发文档和 CI 中的最小测试数量，防止过滤或发现失败造成“零测试通过”。
+5. 增删测试后必须同步 `README.md`、`docs/development/getting-started.md`、CI 与 `fullnet-module-delivery` delivery-map 中的最小测试数量，并在最新 `docs/verification/test-threshold-audit-*.md` 增补当前门槛和新鲜验证；`pnpm test:governance` 必须阻止四个 canonical 来源与最新审计记录漂移，防止过滤或发现失败造成“零测试通过”。
 6. 架构、兼容性和序列化契约必须有专门测试；不能只依赖端到端测试偶然覆盖。
 7. 完成前必须运行 Release 构建、相关测试和 `git diff --check`；报告测试总数、失败数和任何跳过项。
 8. 验证命令必须在最终代码状态下重新运行，禁止复用变更前的结果作为完成证据。凡测试会扫描或执行构建产物，测试入口必须在同一命令链先生成当前源码的新产物；禁止依赖工作区遗留产物产生假通过。
