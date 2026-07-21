@@ -23,7 +23,7 @@ Full.NET 继续采用“轻量核心 + 官方模块 + 可选 Provider”的结�
 | Mapperly | M3 优先评估 | CodeGeneration/模板 |
 | Hangfire | 不作为默认任务引擎 | 用户显式选择的可选 Provider |
 | Quartz.NET | M3 默认调度器候选 | Jobs Provider |
-| MassTransit + RabbitMQ | 真实跨进程消息出现后引入 | M4+ EventBus Provider |
+| Kafka / CDC Relay / EventBus Provider | 当前不引入；真实跨进程高吞吐事件命中门禁后再选 Provider | M5+，排在当前硬化与核心业务模块之后 |
 | YARP | 服务拆分、多上游或 BFF 出现后引入 | M4+ Gateway Provider |
 | Envoy/Linkerd | 不作为 NuGet 依赖 | M5+ 部署模板 |
 | NSubstitute | 保持唯一 Mock 框架 | Test Infrastructure |
@@ -129,9 +129,11 @@ Handler 保留以下业务规则：
 1. M2 Identity/RBAC 与 SignalR；
 2. M3 Jobs 抽象、Quartz Provider 和任务管理页面；
 3. M3 Mapperly 与 Full.NET 代码生成器；
-4. M4 MassTransit/RabbitMQ EventBus Provider；
-5. M4 YARP Gateway Provider；
-6. M5+ Elsa Workflow Module；
-7. M5+ Envoy/Linkerd Kubernetes 部署模板。
+4. M4 YARP Gateway Provider（仅在服务拆分门禁通过后）；
+5. M5+ Elsa Workflow Module；
+6. M5+ Envoy/Linkerd Kubernetes 部署模板；
+7. M5+ 事件交付演进 Decision Gate：先以真实 SLA 和压测复核 Outbox，再决定是否建立 Kafka Provider，以及是否以 CDC Relay 替代特定事件流的轮询发布。
 
 每一项必须有独立规格、依赖许可复核、真实消费者和验收测试，不得仅为未来假设预装。
+
+事件交付的长期边界以[总体架构 Spec §9.1](2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)为准。当前阶段只完成事务 Outbox 的版本、死信、重放、多 Worker 与运维闭环；`1000 QPS` 不是固定切换阈值，直接 Kafka 只允许承载可丢失、可重算且不要求业务事务原子性的流量。

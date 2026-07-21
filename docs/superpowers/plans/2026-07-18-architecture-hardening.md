@@ -16,10 +16,12 @@
 |---|---:|---|
 | H0 状态与门禁基线 | P0 | 状态矩阵成为 README/路线图唯一总览；CI 可识别危险 SQL 与命名漂移 |
 | H1 Seed 闭环 | P0 | 既有 Seed 计划 S0-S2 全部通过 SQL Server/MySQL |
+| H1A 测试数据发布物隔离 | P0 | E2E 专用 Contributor、配置与凭据不进入 Identity/Host 发布物，真实栈场景仍可重复建立 |
 | H2 模块生命周期与宿主 Profile（已完成） | P0 | 无消费者的初始化钩子已删除；三宿主注册漂移由共享 Composition/Profile 与架构测试阻止 |
 | H3 消息、缓存与日志可靠性 | P1 | 多版本/死信、陈旧窗口、高优先级日志故障场景可验证 |
 | H4 浏览器真实链路与共享策略 | P1 | Vue/Layui 在真实后端完成安全关键 E2E；镜像策略收敛 |
 | H5 L5 i18n 与工具链治理 | P2 | 首个业务翻译表双库验证；兼容性队列有自动检查 |
+| H6 事件交付演进门禁（最后执行） | M5+ Decision Gate | 有真实 SLA 与瓶颈证据后完成 ADR/Provider 选型；未命中则保持纯 Outbox |
 
 ### Task 1: 自动校验状态单一事实源和发布检查
 
@@ -65,6 +67,28 @@
 2. 增加文档断言：不提供通用 Down；开发/Test 重置采用临时数据库重建或受控备份恢复。
 3. SQL Server/MySQL 必须覆盖首次、重复、失败重跑、冲突、Production Profile 拒绝、Outbox 幂等和 Secret 脱敏。
 4. 只有当前 `--seed-local` 被安全替代、Production 显式门禁生效且双库通过后，状态才从 `Designing` 提升。
+
+### Task 3A: E2E 场景数据移出发布物（2026-07-22 P0）
+
+**批准依据：** [2026-07-22 架构复核](../../verification/architecture-review-2026-07-22.md)与强制规则 `R-20260717-seed-data-boundary`。本任务必须先于剩余 P1 工作执行。
+
+**Files:**
+- Delete: `src/Modules/Full.NET.Modules.Identity/Seeding/E2eHostViewerSeedContributor.cs`
+- Delete: `src/Modules/Full.NET.Modules.Identity/Configuration/IdentityE2eViewerOptions.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/Configuration/IdentityOptions.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/IdentityModule.cs`
+- Delete: `tests/Full.NET.UnitTests/Identity/E2eHostViewerSeedContributorTests.cs`
+- Modify: `tests/Full.NET.UnitTests/Identity/HostAdministratorSeedContributorTests.cs`
+- Create: `tests/e2e/admin-real-stack/scripts/provision-viewer.mjs`
+- Modify: `tests/e2e/admin-real-stack/scripts/bootstrap-stack.mjs`
+- Modify: `tests/Full.NET.ArchitectureTests/SeedingDependencyRulesTests.cs`
+
+1. 先增加失败的 Architecture Test：扫描 Identity、Tenancy、Organization 和 Host 发布程序集，拒绝类型名/Contributor 名包含 `E2e`、`TestOnly` 或测试场景配置节；同时保留现有 API/Worker 不执行 Seed 的断言。
+2. 删除 Identity 发布程序集中的 E2E Contributor、`Identity:E2eViewer` 配置模型与 DI 注册；更新单元测试，证明模块只注册生产 Baseline Contributor。
+3. 在真实栈 API 启动并健康后，由测试目录内 `provision-viewer.mjs` 使用 Bootstrap 管理员经真实 Host 用户/角色/权限/用户角色 API 幂等建立受限查看者；脚本只读取 `FULLNET_E2E_*` 测试环境变量，不向 Host 传入 `Identity__E2eViewer__*`。
+4. SQL Server 与 MySQL 真实栈分别验证受限查看者登录、导航裁剪和 API 403；重复执行准备脚本不得创建重复角色或用户。
+5. 对 API、Worker、Migrator 执行 Release `dotnet publish` 到临时目录，扫描 E2E 类型名、默认查看者用户名和 `Identity:E2eViewer` 均为零命中；临时目录不得提交。
+6. 更新 Seed 验证记录、能力矩阵和测试门槛；执行规则与 Skill 复盘后单独提交。
 
 ### Task 4: 模块目录、宿主 Profile 与初始化生命周期
 
@@ -233,6 +257,62 @@ Vue 壳层迁移按 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue
 ### Task 14: 首个业务纵向切片跟踪
 
 业务实现不在本硬化计划内展开，统一执行 [`2026-07-21-identity-user-management-vertical-slice.md`](2026-07-21-identity-user-management-vertical-slice.md)。本 Task 仅要求：硬化门禁与用户管理切片并行时，Outbox/SQL 守卫变更不得破坏切片测试；切片合入后回头补 Architecture Tests（模块表所有权、SqlDataScope 显式性）。
+
+### Task 15: Identity 组合根按职责拆分（P2）
+
+**Files:**
+- Modify: `src/Modules/Full.NET.Modules.Identity/IdentityModule.cs`
+- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityAuthenticationExtensions.cs`
+- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityAuthorizationExtensions.cs`
+- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityDomainServiceExtensions.cs`
+- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityHttpPolicyExtensions.cs`
+- Create: `tests/Full.NET.UnitTests/Identity/IdentityModuleRegistrationTests.cs`
+
+1. 先以服务描述符快照建立失败测试，覆盖认证 Scheme、Options Validator、授权 Handler、Command Handler、Seed Contributor、CORS、限流和 JSON Context；重复调用 `AddServices` 后不可出现非预期重复注册。
+2. 将认证/Token/TOTP 注册移入 `AddIdentityAuthentication`，授权 Catalog/Policy/DataScope 移入 `AddIdentityAuthorization`，业务服务/Handler/Validator/Seed 移入 `AddIdentityDomainServices`，CORS/限流/JSON 移入 `AddIdentityHttpPolicies`。
+3. `IdentityModule.AddServices` 只按固定顺序调用上述私有扩展；不得新增程序集扫描、Service Locator、公共扩展入口或改变生命周期。
+4. 运行 Identity 单元测试、Architecture Tests、登录/刷新/权限/Seed 聚焦集成测试以及 Vue/Layui 登录真实栈冒烟；快照差异必须为零。
+5. 只报告结构调整，不提升任何能力状态；完成规则与 Skill 复盘后提交。
+
+### Task 16: 可信代理后的客户端地址与限流（生产前 P1）
+
+**Files:**
+- Modify: `src/Hosts/Full.NET.Host.Api/Program.cs`
+- Create: `src/BuildingBlocks/Full.NET.Hosting/Api/Forwarding/TrustedProxyOptions.cs`
+- Create: `src/BuildingBlocks/Full.NET.Hosting/Api/Forwarding/TrustedProxyOptionsValidator.cs`
+- Create: `src/BuildingBlocks/Full.NET.Hosting/Api/Forwarding/ServiceCollectionExtensions.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/IdentityModule.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/Features/Login/Endpoint.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/Features/RefreshSession/Endpoint.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity/Features/Logout/Endpoint.cs`
+- Create: `tests/Full.NET.IntegrationTests/Api/TrustedProxyForwardingTests.cs`
+- Modify: `docs/development/getting-started.md`
+
+1. 先建立失败测试：无可信代理配置时伪造 `X-Forwarded-For` 不得改变客户端地址；来自显式可信代理/网络且转发层数不超限时才接受最右侧受信链解析结果；无效 IP、超长链和未知代理必须拒绝或回退连接地址。
+2. 使用 ASP.NET Core `ForwardedHeadersMiddleware`，只启用所需 Header，显式配置 `KnownProxies`/`KnownNetworks` 与 `ForwardLimit`；Production 配置为空时不得自动信任任意代理。
+3. `UseForwardedHeaders` 必须位于请求日志、限流、认证和 Endpoint 之前。限流与登录/刷新/退出审计统一读取中间件规范化后的 `Connection.RemoteIpAddress`，不在业务模块自行解析 Header。
+4. 覆盖直连、单层可信代理、多层可信链、恶意客户端伪造和 IPv4/IPv6；验证相同真实客户端共享限流分区、不同客户端不因代理地址合并。
+5. 文档记录 Aspire、Nginx/Kubernetes 的可信代理配置示例和错误配置风险；运行 Hosting/Identity 单元与集成测试后提交。
+
+### Task 17: Outbox 后的 CDC/Kafka 演进门禁（M5+，最后执行）
+
+**批准依据：** [总体架构 Spec §9.1](../specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)与[2026-07-22 架构复核](../../verification/architecture-review-2026-07-22.md)。Task 3A、5、6、7、8、11、13 及当前核心业务模块未完成前，不得开始本任务。
+
+**Files:**
+- Create: `tests/performance/outbox/README.md`
+- Create: `tests/performance/outbox/outbox-throughput.js`
+- Create: `docs/verification/event-delivery-capacity-gate.md`
+- Create on gate pass only: `docs/architecture/adr/ADR-0005-event-delivery-provider.md`
+- Modify on gate pass only: `docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md`
+- Create on gate pass only: `docs/superpowers/specs/2026-07-22-event-delivery-provider-design.md`
+- Create on gate pass only: `docs/superpowers/plans/2026-07-22-event-delivery-provider.md`
+
+1. 从真实消费者登记稳定事件目录：事件类型、可靠性、可丢失/可重算预算、顺序键、Payload P50/P95/P99、持续/峰值速率、端到端延迟和保留期；缺少任一字段即停止，不以 `1000 QPS` 默认值替代。
+2. 对已完成 Task 6 的 Outbox 在 SQL Server/MySQL 分别压测单/多 Worker、不同 Batch/Lease/Poll、正常消费、慢消费者、进程崩溃和恢复；记录数据库 CPU/IO/锁、队列深度、最老消息年龄、重复率和 P95/P99 延迟。
+3. 先调优索引、批量、Payload 与消费者并复测。两库均满足 SLA 时，记录“保持纯 Outbox”并停止，不创建 Kafka/CDC 依赖。
+4. 仅在可靠业务事件仍有可复现瓶颈时，评估 Outbox + CDC Relay + Kafka；仅对可丢失、可重算且无事务原子要求的流量评估直接 Kafka。禁止运行时按 QPS 动态切换，禁止轮询与 CDC 同时拥有同一事件流。
+5. Gate Pass 前核对 SQL Server CDC/MySQL Binlog 权限与保留、Connector Offset/恢复、Kafka ACL/TLS/分区/Schema/DLQ/重放/监控、至少一次消费幂等、许可证、成本、RPO/RTO 和责任人；任何一项缺失即保持 Decision Gate。
+6. Gate Pass 后才创建 ADR，对比保持轮询、CDC Relay 和直接 Kafka，并锁定 Provider、版本、事件目录、切换/排空/回退流程；随后按文档分层创建独立 Spec 与逐步实施计划。本 Task 本身不安装 Broker、不修改产品运行时。
 
 ## 完成门禁
 

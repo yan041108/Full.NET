@@ -122,6 +122,9 @@
 6. 锁、租约、批大小和并行度必须有边界，且在崩溃、超时和时钟偏差下能恢复。
 7. 乐观并发失败后若重读状态并重试，必须重新验证账号活动状态、安全戳、权限、租户边界和业务前置条件中受并发影响的部分；禁止只替换版本号后继续执行高权限操作。
 8. 已发布 Outbox 事件必须保留稳定消息类型和正整数 `SchemaVersion`。出现第二个版本时必须提供并行旧版本 Handler 或显式相邻版本升级链，并记录兼容/退役窗口；未知版本、永久失败和超过最大重试的毒消息必须进入可查询、可审计重放的死信路径，不能永久阻塞批次。
+9. 同进程模块内部事件使用类型化 Contract/Dispatcher，不得为未来吞吐假设默认进入外部 Broker。当前可靠业务 Integration Event 只允许通过与业务数据同事务的 Outbox 发布；不得根据瞬时 QPS 动态切换到可靠性更弱的链路。
+10. CDC Relay 与直接 Kafka 属于 M5+ Decision Gate：只有 Outbox 双库生产闭环、真实消费者与 SLA、轮询瓶颈基准、SQL Server CDC/MySQL Binlog 运维能力以及独立 ADR/Spec/计划全部具备后才允许实现。CDC/Kafka 端到端仍按至少一次与消费幂等设计，禁止宣称 Exactly-Once；轮询 Worker 与 CDC Relay 不得同时拥有同一事件流。
+11. 直接 Broker 发布只能承载经事件目录批准的可丢失、可重算且不要求业务事务原子性的流量；禁止在 `finally`、无人观察的后台任务或无界缓冲中 fire-and-forget。详细边界见[总体架构 Spec §9.1](../docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)。
 
 ### R-20260717-seed-data-boundary：生产 Baseline、环境 Overlay 与场景测试数据必须分层
 

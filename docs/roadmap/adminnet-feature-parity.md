@@ -89,7 +89,7 @@
 | 系统升级 | Upgrade Management | Official Module | M5+ | Mapped |
 | 支付宝 | Payments.Alipay | Provider | M5+ | Mapped |
 | 微信生态 | WeChat | Official Module + Provider | M5+ | Mapped |
-| RabbitMQ 事件集成 | EventBus.RabbitMQ | Provider | M5+ | Mapped |
+| Kafka / CDC Relay / EventBus 事件集成 | EventDelivery Provider | Provider | M5+ Decision Gate | Mapped（当前只做 Outbox；见[总体架构 Spec §9.1](../superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)） |
 | 国密 SM2/SM3/SM4 | Cryptography.GM | Provider | M5+ | Mapped |
 | 数据导入导出工具 | ImportExport | Official Module | M5+ | Mapped |
 | 服务器硬件与运行时信息 | Observability Admin | Official Module | M5+ | Mapped |

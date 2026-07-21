@@ -1,6 +1,6 @@
 # Full.NET 当前能力状态矩阵
 
-- 快照日期：2026-07-21
+- 快照日期：2026-07-22
 - 基线提交：本文件所在提交
 - 文档职责：作为“当前能用到什么程度”的唯一总览；详细范围仍由各规格、路线图和验证记录负责
 - 更新规则：每次里程碑、公开发布和能力状态变化时更新；没有可定位证据不得提升状态
@@ -28,6 +28,7 @@
 | UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`PrimaryKeyTypeMapping`、`validate-uuid-storage-sql`（010+ 门禁）、UUID 集成测试（Expand/Contract/Recovery 31 项）、应用持久化/外部契约测试、Runbook 与[自动化恢复演练记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)、真实栈 MySQL E2E 走 Binary16；当前声明门槛 **314/7/26/89** 见[测试门槛核对](../verification/test-threshold-audit-2026-07-19.md) | 真实生产维护窗口与整库备份恢复 RPO/RTO 实跑、SQL Server 聚集索引性能基准尚未完成 |
 | SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试（Integration **103** 项）、010/011 Naming Expand/Contract、迁移文件配对与 CI SQL 命名 Lint；破坏性 DDL/无 WHERE 写操作由 [`pnpm test:sql-safety`](../verification/sql-safety-governance-2026-07-21.md) 强制 | 通用半完成迁移扫描仍依赖既有双库恢复用例；动态 SQL 精确债务须持续人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
+| CDC Relay / Kafka 事件交付 | `Decision Gate` | [总体架构 Spec §9.1](../superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)、[2026-07-22 复核](../verification/architecture-review-2026-07-22.md) | 当前不实现；Outbox 生产闭环、真实消费者、SLA、双库 CDC 运维能力和瓶颈基准全部具备后，才创建 ADR/Provider 规格与实施计划 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
 | 标准 HTTP + ProblemDetails | `Build-verified` | API、兼容测试、Admin.NET 适配层 | OpenAPI 破坏性变更门禁和多客户端生成待补 |
 | System.Text.Json 源生成基础 | `Implemented` | 模块 JSON Context 与 HTTP 契约 | 后续 DTO 必须持续纳入源生成和兼容测试 |
@@ -61,15 +62,16 @@
 
 > 2026-07-21 起纳入[外部全面分析吸收](../verification/external-review-2026-07-21.md)：在基础设施债继续收敛的同时，**必须尽早完成首个可重复业务纵向切片**，否则治理成本无法被模块复杂度验证。
 
-1. **P0：生产可控性（收尾）**——Seed 双库契约、SQL 安全门禁、Production Bootstrap Secret Runbook 与缺 Secret 双库拒绝、禁用最后一名超管保护已关闭（见[Production Secret 验证](../verification/seed-production-secret-and-super-admin-disable-2026-07-21.md)）；TOTP 强认证 Provider 与 ADR-0004 已关闭后端门禁（见[验证记录](../verification/identity-totp-strong-reauth-2026-07-21.md)）；双端 TOTP 登记/确认 UI 已同步（见[TOTP UI 验证](../verification/identity-totp-admin-ui-2026-07-21.md)）；超管管理页真实栈授予/撤销 E2E 已关闭（见[真实栈验证](../verification/identity-super-admin-real-stack-2026-07-21.md)）；仍待 Production TOTP 强制路径真实栈。运行时数据范围并集切片已关闭（见[运行时数据范围验证](../verification/identity-runtime-data-scope-2026-07-21.md)）。
-2. **P0：1.0 前命名债务收敛**——剩余 **85** 项（协议别名窗口、动态 SQL 等）；CI 逻辑克隆升级演练已关闭，真实生产维护窗口/备份介质仍待闭环。
+1. **P0：规则合规与生产可控性（收尾）**——先将 `E2eHostViewerSeedContributor` 移出 Identity 发布程序集并增加发布物边界断言；它虽仅声明 Development Profile，仍违反“测试专用 Contributor 不进入发布物”的强制 Seed 边界。Seed 双库契约、SQL 安全门禁、Production Bootstrap Secret、禁用最后一名超管、TOTP Provider/双端 UI 与真实栈授予撤销已关闭；仍待 Production TOTP 强制路径真实栈。
+2. **P0：1.0 前命名发布闭环**——治理清单共 **85** 项，其中包含不可改写的历史迁移登记和动态 SQL 精确豁免，不等于 85 个现行数据库缺陷；010/011 后运行时对象已规范化，剩余门禁是真实生产维护窗口、备份介质恢复和协议别名排空/退役。
 3. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。
 4. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **333/7/26/109** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
 5. **P1：交付真实性补强**——真实栈 Redis、Overview 级 403 UI 探针、Production TOTP 强制路径真实栈；浏览器跨 Tab 协调已有基础，故障注入仍缺。
 6. **P1：复用而不耦合**——OpenAPI/协议夹具扩展到 uni-app/Flutter；headless 契约层已起步，继续防止双端逻辑漂移。
 7. **已决策：Layui 长期并行**——所有者 2026-07-21 确认；Vue 与 Layui 继续按同一模块同步开发与验收，不设退役窗口（见 [`client-frontend.md`](../../rules/client-frontend.md) §4）。
-8. **P2：运维与体验**——JWT 轮换 / Outbox 死信 / Redis 故障 / Seed 失败 Runbook；Aspire HealthCheck 钩子；人类[onboarding](../development/onboarding.md) 已建，继续补 ARCHITECTURE 总览图；Login Handler 拆分与性能基准。
-9. **P2：后续业务能力**——用户管理切片退出后，再排角色、菜单、Organization 与 L5 业务翻译样例。
+8. **P2：运维与可维护性**——JWT 轮换 / Outbox 死信 / Redis 故障 / Seed 失败 Runbook；Aspire HealthCheck 钩子；按行为不变方式拆分 `IdentityModule.AddServices`；Login Handler 只在相邻行为变更或基准支持时拆分。
+9. **M5+ 最后阶段 Decision Gate**——当前只做 Outbox。Kafka/CDC Relay 必须排在现有硬化和核心业务模块之后，并满足真实 SLA、轮询瓶颈、双库 CDC 运维和事件目录门禁；不得按瞬时 QPS 动态切换可靠性语义。
+10. **P2：后续业务能力**——用户管理切片退出后，再排角色、菜单、Organization 与 L5 业务翻译样例。
 
 ## 5. 关联文档
 
