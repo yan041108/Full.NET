@@ -58,9 +58,9 @@
 - Test: Integration/API 失败夹具骨架
 - Modify: `docs/roadmap/adminnet-feature-parity.md`（用户管理 → Designing/Implementing）
 
-1. [ ] 写出验收表：端点、权限码、状态码、ProblemDetails code、双库约束名。
-2. [ ] 先提交失败的 API/集成测试（列表未授权 403、创建重复用户名冲突、禁用后登录拒绝）。
-3. [ ] 确认不扩大到角色/菜单表结构。
+1. [x] 写出验收表：端点、权限码、状态码、ProblemDetails code、双库约束名（见附录 A）。
+2. [x] 先提交失败的 API/集成测试（列表未授权 403、创建重复用户名冲突、禁用后登录拒绝）。
+3. [x] 确认不扩大到角色/菜单表结构。
 
 ### Task 2: 双库持久化与领域命令
 
@@ -117,3 +117,20 @@
 ## 完成门禁
 
 与 [`architecture-hardening`](2026-07-18-architecture-hardening.md) 完成门禁相同：新鲜测试、门槛同步、矩阵更新、规则/Skill 复盘、`git diff --check`。
+
+---
+
+## 附录 A：Host 用户管理验收表（Task 1 冻结）
+
+| 场景 | 方法 | 路径 | 权限 | 成功 | 失败 code | 双库约束 |
+|---|---|---|---|---|---|---|
+| 分页列表 | GET | `/api/v1/identity/users?page=&pageSize=` | `identity.users.read` | 200 + `PagedResult<HostUserResponse>` | `authorization.permission_denied` 403 | 仅 `ScopeKey=host` |
+| 详情 | GET | `/api/v1/identity/users/{id}` | `identity.users.read` | 200 | `identity.users.not_found` 404 | 同上 |
+| 创建 | POST | `/api/v1/identity/users` | `identity.users.write` | 201 | `identity.users.username_exists` 409 | `UX_fn_identity_user_Scope_Username` |
+| 更新资料 | PUT | `/api/v1/identity/users/{id}` | `identity.users.write` | 200 | `identity.profile_version_conflict` 409 | 乐观 `Version` |
+| 禁用 | POST | `/api/v1/identity/users/{id}/disable` | `identity.users.write` | 200 | 超管/最后一名保护沿用既有领域服务 | `IsActive=0` + 撤销会话 |
+| 禁用后登录 | POST | `/api/v1/auth/login` | 匿名 | — | `identity.invalid_credentials` 401 | 审计 `identity.user-disabled` |
+
+集成夹具：`tests/Full.NET.IntegrationTests/Identity/IdentityUserManagementAssertions.cs`（SQL Server + MySQL 各 1 项，共 +2 Integration 测试）。
+
+契约：`IdentityUserManagementContracts.cs`、`IdentityErrorCodes.UsernameExists` / `UserNotFound`。

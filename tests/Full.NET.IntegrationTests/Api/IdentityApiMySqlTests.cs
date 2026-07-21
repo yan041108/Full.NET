@@ -45,4 +45,14 @@ public sealed class IdentityApiMySqlTests
 
         await SessionRaceAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_user_management_follows_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await IdentityUserManagementAssertions.VerifyHostUserManagementContractAsync(factory);
+    }
 }

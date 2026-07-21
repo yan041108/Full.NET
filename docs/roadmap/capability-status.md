@@ -25,7 +25,7 @@
 | 模块化单体、显式模块依赖与宿主 Profile | `Build-verified` | `Full.NET.Modularity`、`Full.NET.Composition`、Api/Worker/Migrator 显式 Profile、Unit 与 Architecture Tests | 新模块必须进入共享目录；Worker 只允许最小后台入口，禁止宿主恢复手工模块清单 |
 | 跨栈命名治理与生成器命名内核 | `Build-verified` | `contracts/naming/`、`pnpm test:naming`（23 项）、010/011 双库迁移、19 项 Naming Integration 矩阵、[命名治理](../verification/naming-governance.md)与[1.0 前规范化验证](../verification/pre-v1-naming-normalization.md)；债务 **83** 项 | 真实维护窗口、备份升级演练、协议别名排空与客户端 E2E 升级路径未实跑；动态 SQL 仍须人工审查；完整业务模板与重复生成快照未交付，因此不能标记为 `Verified` |
 | Dapper-first、事务与租户 SQL 作用域 | `Build-verified` | Data BuildingBlocks；QueryMultiple 顺序/完整消费及 SQL Server/MySQL 真实测试 | `TenantRequired` 仍需从参数文本检查升级为受控语义元数据，Global Statement 需精确目录；SqlBuilder 只在真实消费者命中门禁后引入 |
-| UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`PrimaryKeyTypeMapping`、`validate-uuid-storage-sql`（010+ 门禁）、UUID 集成测试（Expand/Contract/Recovery 31 项）、应用持久化/外部契约测试、Runbook 与[自动化恢复演练记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)、真实栈 MySQL E2E 走 Binary16；当前声明门槛 **314/7/26/85** 见[测试门槛核对](../verification/test-threshold-audit-2026-07-19.md) | 真实生产维护窗口与整库备份恢复 RPO/RTO 实跑、SQL Server 聚集索引性能基准尚未完成 |
+| UUID v7 主键与跨库物理存储 | `Build-verified` | `UuidStorageContractV1`、008/009 双库迁移、`PrimaryKeyTypeMapping`、`validate-uuid-storage-sql`（010+ 门禁）、UUID 集成测试（Expand/Contract/Recovery 31 项）、应用持久化/外部契约测试、Runbook 与[自动化恢复演练记录](../verification/uuid-v7-primary-key-storage-2026-07-19.md)、真实栈 MySQL E2E 走 Binary16；当前声明门槛 **314/7/26/87** 见[测试门槛核对](../verification/test-threshold-audit-2026-07-19.md) | 真实生产维护窗口与整库备份恢复 RPO/RTO 实跑、SQL Server 聚集索引性能基准尚未完成 |
 | SQL Server / MySQL DbUp 迁移 | `Build-verified` | 双库迁移测试（Integration **85** 项）、010/011 Naming Expand/Contract、迁移文件配对与 CI SQL 命名 Lint | 破坏性 DDL 审批和通用半完成迁移扫描尚未闭环；动态 SQL 仍以精确债务触发人工审查 |
 | MessagePack Outbox、租约、重试 | `Implemented` | Outbox 表、Worker、`MessageType + SchemaVersion` 路由 | 缺跨版本升级链、版本退役策略、最大重试/死信闭环 |
 | FusionCache + `.AsHybridCache()` | `Implemented` | 单一实现、L2/Backplane、全局关闭 Fail-Safe | 安全关键数据的同步本机失效、陈旧窗口和故障注入验证待补 |
@@ -65,7 +65,7 @@
 2. **P0：生产可控性（收尾）**——Seed Baseline/Overlay 生产 Secret/运维验收；超级管理员 MFA/强认证 Provider 与账号禁用/删除保护；SQL 破坏性变更门禁复用命名扫描入口。主键 008/009 与命名 010/011 自动化已落地，剩余为生产窗口与演练。
 3. **P0：1.0 前命名债务收敛**——剩余 **83** 项（协议别名窗口、动态 SQL 等）与真实维护窗口/备份升级演练待闭环。
 4. **P1：可靠性**——Outbox 最大重试/死信/版本共存、**多 Worker 租约压力与部署拓扑文档**、TenantRequired/Global SQL 语义门禁、缓存一致性分级和高优先级日志通道（见[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 6 扩展）。
-5. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **314/7/26/85** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
+5. **P1：工程门禁**——PR 集成冒烟从“仅迁移 2 项”加宽到 Identity/Tenancy/Outbox 核心 filter（目标 ≤15m）；门槛审计与 CI **314/7/26/87** 保持同步；Architecture Tests 随模块增长补表所有权与 SqlDataScope 显式性。
 6. **P1：交付真实性补强**——真实栈 Redis、Overview 级 403 UI 探针、超级管理员管理页真实栈 E2E；浏览器跨 Tab 协调已有基础，故障注入仍缺。
 7. **P1：复用而不耦合**——OpenAPI/协议夹具扩展到 uni-app/Flutter；headless 契约层已起步，继续防止双端逻辑漂移。
 8. **已决策：Layui 长期并行**——所有者 2026-07-21 确认；Vue 与 Layui 继续按同一模块同步开发与验收，不设退役窗口（见 [`client-frontend.md`](../../rules/client-frontend.md) §4）。

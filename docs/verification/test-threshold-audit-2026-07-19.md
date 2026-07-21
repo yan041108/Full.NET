@@ -135,9 +135,9 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | `Full.NET.UnitTests` | **314** | `README.md`、`docs/development/getting-started.md`、`.github/workflows/ci.yml`、`.agents/skills/fullnet-module-delivery/references/delivery-map.md` |
 | `Full.NET.CompatibilityTests` | **7** | 同上 |
 | `Full.NET.ArchitectureTests` | **26** | 同上 |
-| `Full.NET.IntegrationTests` | **85**（全量 / `push main`）；PR 冒烟 **2** | 同上；PR filter=`migration_is_idempotent_and_creates_binary_outbox_schema` |
+| `Full.NET.IntegrationTests` | **87**（全量 / `push main`）；PR 冒烟 **2** | 同上；PR filter=`migration_is_idempotent_and_creates_binary_outbox_schema` |
 
-核对结论：四处 canonical 声明门槛现为 **314/7/26/85**，彼此一致。自 2026-07-19 增补以来的增长主要来自命名 Expand/Contract/Recovery、UUID、会话竞态与相关 Unit/Compatibility 用例（中间过程见上文增补段；部分增补未逐次把 Integration 全量数字写回本表，造成本次漂移）。
+核对结论：四处 canonical 声明门槛现为 **314/7/26/87**，彼此一致。自 2026-07-19 增补以来的增长主要来自命名 Expand/Contract/Recovery、UUID、会话竞态与相关 Unit/Compatibility 用例（中间过程见上文增补段；部分增补未逐次把 Integration 全量数字写回本表，造成本次漂移）。
 
 | 未在本增补完成的验证 | 说明 |
 | --- | --- |
@@ -145,6 +145,14 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | PR 冒烟加宽 | 已记入[硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 13；实现前 PR 仍只保证迁移冒烟 2 项 |
 
 能力矩阵中个别单元格若仍写历史 **304/6/26/66**，以本节声明门槛与 CI 为准，并在对应能力下次更新时改写证据列。
+
+## 增补（2026-07-21，Host 用户管理 Task 1 RED 夹具）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **85 → 87** | 新增 `Host_user_management_follows_contract_with_sql_server` 与 `Host_user_management_follows_contract_with_mysql`（RED，待 Task 2–3 实现端点后转绿） |
+
+四处 canonical 门槛已同步为 **314/7/26/87**。
 
 ## 关联文档
 

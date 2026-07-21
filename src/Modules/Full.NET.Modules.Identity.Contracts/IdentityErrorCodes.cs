@@ -84,6 +84,12 @@ public static class IdentityErrorCodes
     public const string SuperAdministratorLastRemaining =
         "identity.super_administrator.last_remaining";
 
+    /// <summary>Host 用户名在作用域内已存在。</summary>
+    public const string UsernameExists = "identity.users.username_exists";
+
+    /// <summary>目标 Host 用户不存在。</summary>
+    public const string UserNotFound = "identity.users.not_found";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -111,5 +117,7 @@ public static class IdentityErrorCodes
         SuperAdministratorOperatorRequired,
         SuperAdministratorTargetNotFound,
         SuperAdministratorLastRemaining,
+        UsernameExists,
+        UserNotFound,
     ]);
 }

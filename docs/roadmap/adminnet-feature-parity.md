@@ -40,7 +40,7 @@
 | 最小 RBAC、可信租户上下文与动态权限导航 | Identity + Tenancy + 双管理端 | Core + Client | M2 | Implemented |
 | 默认超级管理员、未来权限自动获得与最后一名保护 | Identity + 双管理端 | Core + Client | M2 | Implementing |
 | 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | Mapped |
-| 用户管理 | Identity | Core | M2 | Designing（首刀；[计划已批准](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md)） |
+| 用户管理 | Identity | Core | M2 | Implementing（首刀；[计划已批准](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md)） |
 | 机构管理 | Organization | Core | M2 | Mapped |
 | 职位管理 | Organization | Core | M2 | Mapped |
 | 菜单与按钮权限管理 | Identity | Core | M2 | Mapped |

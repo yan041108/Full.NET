@@ -29,7 +29,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | 日常 | 默认本地验证 | 双库冒烟 2 项，`--timeout 15m` |
 | 聚焦 | 改迁移 / Naming / UUID / Outbox SQL | `--filter` 只跑相关用例 |
-| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 85 --timeout 90m` |
+| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 87 --timeout 90m` |
 
 ```powershell
 # 日常：双库冒烟
@@ -39,7 +39,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery" --minimum-expected-tests 19 --timeout 45m
 
 # 发布：完整双库矩阵
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 85 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 87 --timeout 90m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。
