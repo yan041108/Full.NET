@@ -53,7 +53,7 @@ Full.NET 继续采用强化型模块化单体是正确方向。当前主要风�
 | Task 3B Layui 聚焦门禁（修复提交 `b718245eaa3f84e8a626ca1784e2d9dd8f857764`） | 连续两次 `pnpm --filter @fullnet/admin-layui exec vitest run tests/org-user-units.test.js` 均为 1/1 通过；夹具第 2/3 与第 6/7 个响应已按“机构、用户”顺序修正，并锁定 1～7 次请求 URL |
 | `pnpm test:clients`（Task 3B 后） | 通过；59/59 测试文件、256/256 测试通过，其中 Layui 56/56 |
 
-本轮没有重跑完整 SQL Server/MySQL Integration 与真实栈 E2E，因此不得用本记录替代最近的双库验证记录。后端核心门禁通过也不抵消客户端聚合测试失败。
+Task 3B 已恢复客户端聚合门禁；但本轮没有重跑完整 SQL Server/MySQL Integration 与真实栈 E2E，客户端门禁恢复不得替代最近的双库验证记录。
 
 ## 4. 确认的改进顺序
 

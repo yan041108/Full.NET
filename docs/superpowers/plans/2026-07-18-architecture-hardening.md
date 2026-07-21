@@ -106,6 +106,8 @@
 
 ### Task 3B: 恢复 Layui 用户-机构隶属客户端门禁（2026-07-22 P0）
 
+**状态：已完成。** 测试门禁修复：`b718245eaa3f84e8a626ca1784e2d9dd8f857764`；新鲜验证记录：`e4e9580447d92628a20e5b1f6896ccb1a8a5042f`。
+
 **Files:**
 - Modify: `ui/admin-layui/tests/org-user-units.test.js`
 - Verify only: `ui/admin-layui/js/core/org-user-units.js`
@@ -115,19 +117,19 @@
 - Consumes: `createOrgUserUnitsController(root, { request, translation })`
 - Produces: 稳定锁定“首次加载 3 请求 → 创建 1 请求 → 刷新 3 请求”的 Layui 测试契约
 
-- [ ] **Step 1: 保留并复现 RED**
+- [x] **Step 1: 保留并复现 RED**
 
   运行 `pnpm --filter @fullnet/admin-layui exec vitest run tests/org-user-units.test.js`，预期在现状下失败为 `expected 7 times, but got 3 times`。禁止先延长 `vi.waitFor` 超时。
 
-- [ ] **Step 2: 修正测试夹具的响应顺序**
+- [x] **Step 2: 修正测试夹具的响应顺序**
 
   保持控制器的并行请求顺序为 `user-units`、`organization/units`、`identity/users`；把 Mock 的第 2 个响应固定为机构分页、第 3 个响应固定为用户分页，第 5～7 个刷新响应保持同一顺序。增加 NthCalledWith 断言锁定 1～7 次请求 URL，创建请求仍必须是第 4 次。
 
-- [ ] **Step 3: 证明不是等待时间偶发问题**
+- [x] **Step 3: 证明不是等待时间偶发问题**
 
   连续运行聚焦命令两次，预期均为 1/1 通过；随后运行 `pnpm test:clients`，预期整个聚合门禁退出码为 0。不得用 `.skip`、降低调用次数或宽泛 `toHaveBeenCalled()` 转绿。
 
-- [ ] **Step 4: 同步验证记录并单独提交**
+- [x] **Step 4: 同步验证记录并单独提交**
 
   在本巡检报告的新鲜验证表追加修复提交和通过数量；只提交测试与文档，不混入现有未跟踪日志。
 
