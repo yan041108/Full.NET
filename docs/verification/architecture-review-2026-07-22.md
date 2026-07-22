@@ -75,11 +75,11 @@ Tenancy 拓扑复核确认 Worker 通过 `TenancyModule.AddBackgroundServices` �
 
 ### 3.3 Task 4B API 迁移执行能力隔离
 
-Task 4B 的 Architecture 契约扫描全部项目引用，仅允许 `Full.NET.Host.Migrator` 作为生产迁移消费者，并拒绝 API 源码出现 `AddFullNetMigrations` 或 `IDatabaseMigrationRunner`。基线 `788b6f4` 同时存在 API 项目引用、启动注册与测试夹具二次 DI 执行路径，构成 RED 证据；最小实现删除 API 引用/注册，并保留测试夹具启动前直接构造 `DbUpMigrationRunner` 的一次迁移。
+Task 4B 的 Architecture 契约扫描全部项目的直接迁移引用，仅允许 `Full.NET.Host.Migrator` 作为生产迁移消费者；同时递归遍历 API 的完整 `ProjectReference` 闭包，并拒绝 API 源码出现 `AddFullNetMigrations` 或 `IDatabaseMigrationRunner`。基线 `788b6f4` 同时存在 API 项目引用、启动注册与测试夹具二次 DI 执行路径，构成 RED 证据；最小实现删除 API 引用/注册，并保留测试夹具启动前直接构造 `DbUpMigrationRunner` 的一次迁移。
 
 | Task 4B 门禁 | 新鲜结果 |
 |---|---|
-| Architecture Tests | **31/31** 通过；迁移组件生产消费者与 API 源码负向门禁生效 |
+| Architecture Tests | **33/33** 通过；迁移组件生产消费者、API 递归项目依赖闭包与源码负向门禁生效，正/反斜杠 Include 夹具防止跨平台漏报 |
 | SQL Server/MySQL API 聚焦 | **2/2** 通过；测试夹具仍可在 API 启动前完成迁移和初始化 |
 | SQL Server/MySQL migration idempotence | **2/2** 通过 |
 | API Release publish | 通过；111 个发布文件中 `.deps.json` 和 `Full.NET.Migrations.DbUp*.dll` 均 **0** 命中 |

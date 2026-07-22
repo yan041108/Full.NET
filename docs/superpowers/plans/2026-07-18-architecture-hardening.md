@@ -201,7 +201,7 @@
 
 ### Task 4B: API 移除迁移执行能力（2026-07-22 P1）
 
-**状态：已完成（2026-07-22）。** API 项目与启动注册已移除 DbUp 迁移能力；测试夹具改为启动 API 前直接迁移一次。Architecture **31/31**、SQL Server/MySQL API 聚焦 **2/2**、双库 migration idempotence **2/2** 通过，Release 发布物的 `.deps.json` 与 DLL 扫描均为零命中。
+**状态：已完成（2026-07-22）。** API 项目与启动注册已移除 DbUp 迁移能力；测试夹具改为启动 API 前直接迁移一次。Architecture **33/33**（含正/反斜杠 Include 与 API 递归项目依赖闭包）、SQL Server/MySQL API 聚焦 **2/2**、双库 migration idempotence **2/2** 通过，Release 发布物的 `.deps.json` 与 DLL 扫描均为零命中。
 
 **Files:**
 - Modify: `src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj`

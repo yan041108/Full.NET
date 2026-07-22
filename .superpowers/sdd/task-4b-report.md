@@ -3,7 +3,8 @@
 - 日期：2026-07-22
 - 分支：`main`
 - 基线：`788b6f4`
-- 提交 SHA：本报告与实现同一提交，最终 SHA 由提交后的 `git rev-parse HEAD` 结果及任务回报记录；Git 提交对象不能在自身内容中预写自身 SHA。
+- 原实现提交 SHA：`e6245e1698e9f0bc92406743d5c59115a8e27112`
+- Review 修复提交 SHA：由追加提交后的 `git rev-parse HEAD` 结果及任务回报记录；Git 提交对象不能在自身内容中预写自身 SHA。
 - 范围：仅关闭 API Host 的 DbUp 迁移执行职责，不实施 Task 4C。
 
 ## 1. RED 证据
@@ -78,3 +79,33 @@ git grep -n -e 'Full.NET.Migrations.DbUp' -e 'AddFullNetMigrations' -e 'IDatabas
 ## 6. 最终 Git 门禁
 
 提交前重新执行 `git diff --check`、Task 4B 路径暂存清单核对、`git status --short --branch` 与 `git branch --show-current`。最终提交只包含上述 Task 4B 文件；未跟踪 `.txt` 保持原状。
+
+## 7. 独立 review 修复
+
+Reviewer 指出两个 Important：直接迁移消费者扫描使用 `Path.GetFileName` 解析反斜杠 Include，在 Linux 上可能漏报；同时 API 门禁没有递归遍历 `ProjectReference`，无法阻止间接重新携带迁移程序集。
+
+### 7.1 Review RED
+
+先加入两个临时 `.csproj` 项目图夹具：
+
+1. `Migration_project_reference_scanner_handles_both_separator_styles` 同时使用 `..\Migration\...` 与 `../Migration/...`。
+2. `Api_project_dependency_closure_detects_transitive_migration_reference` 构造 API→Bridge→DbUp 两跳依赖，并混用正、反斜杠。
+
+```powershell
+dotnet build tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj -c Release
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll `
+  --no-ansi --progress off --minimum-expected-tests 33
+```
+
+RED 结果：Build 通过，0 warning / 0 error；Architecture **32/33**，`Api_project_dependency_closure_detects_transitive_migration_reference` 按预期失败，实际闭包只有 `Api/Full.NET.Host.Api.csproj` 与 `Bridge/Full.NET.Migration.Bridge.csproj`，缺少第二跳 `Migration/Full.NET.Migrations.DbUp.csproj`。分隔符夹具在当前 Windows 主机通过；它与闭包夹具均在实现前加入并由同一失败运行覆盖，不能把 Windows 通过伪写成分隔符 RED。首次 Task 4B 契约未在原实现前实际运行的历史事实仍按第 1 节记录，不以后补 review RED 冒充首次 RED。
+
+### 7.2 Review GREEN
+
+- 直接消费者扫描复用统一的 `GetProjectNameFromReference`，先把 `\` 规范为 `/`，不再依赖宿主平台解释 Include。
+- 递归闭包把两种分隔符转换为当前平台分隔符，以绝对路径解析每个 ProjectReference，并用已访问集合防止项目环导致无限遍历。
+- 主门禁继续保留“生产直接消费者只允许 Migrator”和 API 源码令牌检查，同时新增真实 API 项目递归闭包不得包含 `Full.NET.Migrations.DbUp`。
+- Architecture 门槛从 **31** 更新为 **33**，四处 canonical 门槛同步为 **342/7/33/109**。
+
+首次 GREEN：Architecture **33/33**，Build 0 warning / 0 error。
+
+追加提交前最终刷新：Architecture **33/33**；`pnpm test:governance` **7/7**；`pnpm test:skills` **48 checks**；`dotnet build Full.NET.slnx -c Release --no-restore` 0 warning / 0 error；`git diff --check` 通过。规则复盘仍由现有 `development-quality.md` 第 3 节第 8 条完整覆盖，无新增规则；Skill 仅机械同步测试门槛，无实质演进。

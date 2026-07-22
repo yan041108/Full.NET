@@ -261,6 +261,16 @@ Identity 登录、机构管理、用户-机构隶属 SQL Server/MySQL 聚焦 Int
 
 SQL Server/MySQL API 聚焦 **2/2**、migration idempotence **2/2** 通过；API Release 发布物 `.deps.json` 与迁移 DLL 扫描均为零命中。完整 Integration 门槛仍为 **109**，本增补不把聚焦通过表述为全量通过。
 
+## 增补（2026-07-22，Task 4B review 跨平台与传递闭包修复）
+
+| 变更 | 说明 |
+| --- | --- |
+| Architecture 门槛 **31 → 33** | 正/反斜杠 `ProjectReference` Include 夹具 +1，API→Bridge→DbUp 传递闭包夹具 +1；新鲜运行 **33/33** |
+| Unit / Compatibility / Integration 门槛 | 保持 **342/7/109**；review 修复未增删这三套测试发现项 |
+| 四处 canonical 门槛 | **342/7/33/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
+
+RED 为 **32/33**：闭包仅返回 API 与 Bridge，未发现第二跳 DbUp；GREEN 改为统一解析两种分隔符并用已访问集合递归遍历项目图，真实 API 闭包与两类夹具全部通过。首次 Task 4B RED 未在实现前实际运行的历史事实保持原记录，不以后补夹具伪装为首次 RED。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

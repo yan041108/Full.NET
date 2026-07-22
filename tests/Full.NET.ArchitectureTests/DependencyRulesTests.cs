@@ -460,28 +460,11 @@ public sealed class DependencyRulesTests
     public void Migration_execution_is_owned_by_migrator_and_excluded_from_api_host()
     {
         var root = FindRepositoryRoot();
-        var migratorProject = Path.Combine(
-            "src",
-            "Hosts",
-            "Full.NET.Host.Migrator",
-            "Full.NET.Host.Migrator.csproj");
-        var migrationConsumers = Directory
-            .EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
-            .Where(path => XDocument.Load(path)
-                .Descendants()
-                .Where(element => element.Name.LocalName == "ProjectReference")
-                .Select(element => element.Attribute("Include")?.Value)
-                .Any(reference => string.Equals(
-                    Path.GetFileName(reference),
-                    "Full.NET.Migrations.DbUp.csproj",
-                    StringComparison.OrdinalIgnoreCase)))
-            .Select(path => Path.GetRelativePath(root, path))
-            .OrderBy(path => path, StringComparer.Ordinal)
-            .ToArray();
+        const string migratorProject =
+            "src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj";
+        var migrationConsumers = FindDirectMigrationConsumers(root);
         var unapprovedProductionConsumers = migrationConsumers
-            .Where(path => !path.StartsWith(
-                $"tests{Path.DirectorySeparatorChar}",
-                StringComparison.OrdinalIgnoreCase))
+            .Where(path => !path.StartsWith("tests/", StringComparison.OrdinalIgnoreCase))
             .Where(path => !string.Equals(
                 path,
                 migratorProject,
@@ -493,6 +476,21 @@ public sealed class DependencyRulesTests
             unapprovedProductionConsumers,
             string.Join(Environment.NewLine, unapprovedProductionConsumers));
         CollectionAssert.Contains(migrationConsumers, migratorProject);
+
+        var apiDependencyClosure = GetProjectDependencyClosure(
+            root,
+            "src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj");
+        var apiMigrationDependencies = apiDependencyClosure
+            .Where(path => string.Equals(
+                GetProjectNameFromReference(path),
+                "Full.NET.Migrations.DbUp",
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            apiMigrationDependencies,
+            string.Join(Environment.NewLine, apiMigrationDependencies));
 
         var apiSourceOffenders = Directory
             .EnumerateFiles(
@@ -511,6 +509,73 @@ public sealed class DependencyRulesTests
             .ToArray();
 
         Assert.HasCount(0, apiSourceOffenders, string.Join(Environment.NewLine, apiSourceOffenders));
+    }
+
+    [TestMethod]
+    public void Migration_project_reference_scanner_handles_both_separator_styles()
+    {
+        var fixtureRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"fullnet-migration-separators-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(fixtureRoot, "Migration"));
+        Directory.CreateDirectory(Path.Combine(fixtureRoot, "Consumers"));
+
+        try
+        {
+            WriteProject(
+                Path.Combine(fixtureRoot, "Migration", "Full.NET.Migrations.DbUp.csproj"));
+            WriteProject(
+                Path.Combine(fixtureRoot, "Consumers", "Backslash.Consumer.csproj"),
+                @"..\Migration\Full.NET.Migrations.DbUp.csproj");
+            WriteProject(
+                Path.Combine(fixtureRoot, "Consumers", "ForwardSlash.Consumer.csproj"),
+                "../Migration/Full.NET.Migrations.DbUp.csproj");
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "Consumers/Backslash.Consumer.csproj",
+                    "Consumers/ForwardSlash.Consumer.csproj",
+                },
+                FindDirectMigrationConsumers(fixtureRoot));
+        }
+        finally
+        {
+            Directory.Delete(fixtureRoot, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public void Api_project_dependency_closure_detects_transitive_migration_reference()
+    {
+        var fixtureRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"fullnet-migration-closure-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(fixtureRoot, "Api"));
+        Directory.CreateDirectory(Path.Combine(fixtureRoot, "Bridge"));
+        Directory.CreateDirectory(Path.Combine(fixtureRoot, "Migration"));
+
+        try
+        {
+            WriteProject(
+                Path.Combine(fixtureRoot, "Api", "Full.NET.Host.Api.csproj"),
+                "../Bridge/Full.NET.Migration.Bridge.csproj");
+            WriteProject(
+                Path.Combine(fixtureRoot, "Bridge", "Full.NET.Migration.Bridge.csproj"),
+                @"..\Migration\Full.NET.Migrations.DbUp.csproj");
+            WriteProject(
+                Path.Combine(fixtureRoot, "Migration", "Full.NET.Migrations.DbUp.csproj"));
+
+            CollectionAssert.Contains(
+                GetProjectDependencyClosure(
+                    fixtureRoot,
+                    "Api/Full.NET.Host.Api.csproj"),
+                "Migration/Full.NET.Migrations.DbUp.csproj");
+        }
+        finally
+        {
+            Directory.Delete(fixtureRoot, recursive: true);
+        }
     }
 
     [TestMethod]
@@ -647,6 +712,84 @@ public sealed class DependencyRulesTests
         var fileName = normalizedReference[
             (normalizedReference.LastIndexOf('/') + 1)..];
         return Path.GetFileNameWithoutExtension(fileName);
+    }
+
+    private static string[] FindDirectMigrationConsumers(string root)
+    {
+        return Directory
+            .EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => XDocument.Load(path)
+                .Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Any(reference => string.Equals(
+                    reference is null ? null : GetProjectNameFromReference(reference),
+                    "Full.NET.Migrations.DbUp",
+                    StringComparison.OrdinalIgnoreCase)))
+            .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string[] GetProjectDependencyClosure(
+        string root,
+        string entryProject)
+    {
+        var normalizedRoot = Path.GetFullPath(root);
+        var entryPath = ResolveProjectReference(normalizedRoot, entryProject);
+        var pending = new Stack<string>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        pending.Push(entryPath);
+
+        while (pending.TryPop(out var projectPath))
+        {
+            if (!visited.Add(projectPath))
+            {
+                continue;
+            }
+
+            foreach (var reference in XDocument.Load(projectPath)
+                         .Descendants()
+                         .Where(element => element.Name.LocalName == "ProjectReference")
+                         .Select(element => element.Attribute("Include")?.Value)
+                         .Where(reference => !string.IsNullOrWhiteSpace(reference)))
+            {
+                pending.Push(ResolveProjectReference(
+                    Path.GetDirectoryName(projectPath)!,
+                    reference!));
+            }
+        }
+
+        return visited
+            .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string ResolveProjectReference(string baseDirectory, string reference)
+    {
+        var platformPath = reference
+            .Trim()
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+        return Path.GetFullPath(Path.Combine(baseDirectory, platformPath));
+    }
+
+    private static void WriteProject(string path, params string[] projectReferences)
+    {
+        var references = string.Join(
+            Environment.NewLine,
+            projectReferences.Select(reference =>
+                $"    <ProjectReference Include=\"{reference}\" />"));
+        File.WriteAllText(
+            path,
+            $"""
+            <Project Sdk="Microsoft.NET.Sdk">
+              <ItemGroup>
+            {references}
+              </ItemGroup>
+            </Project>
+            """);
     }
 
     private static IEnumerable<string> FindCrossModuleFriendAssemblies(
