@@ -93,8 +93,11 @@ public sealed class DependencyRulesTests
                 <Project Sdk="Microsoft.NET.Sdk">
                   <ItemGroup>
                     <ProjectReference Include="..\Full.NET.Modules.Alpha.Http\Full.NET.Modules.Alpha.Http.csproj" />
+                    <ProjectReference Include="../Full.NET.Modules.Alpha.Worker/Full.NET.Modules.Alpha.Worker.csproj" />
                     <ProjectReference Include="..\Full.NET.Modules.Beta.Contracts\Full.NET.Modules.Beta.Contracts.csproj" />
+                    <ProjectReference Include="../Full.NET.Modules.Gamma.Contracts/Full.NET.Modules.Gamma.Contracts.csproj" />
                     <ProjectReference Include="..\Full.NET.Modules.Beta\Full.NET.Modules.Beta.csproj" />
+                    <ProjectReference Include="../Full.NET.Modules.Gamma/Full.NET.Modules.Gamma.csproj" />
                   </ItemGroup>
                 </Project>
                 """);
@@ -107,6 +110,20 @@ public sealed class DependencyRulesTests
                 [assembly: InternalsVisibleTo("Full.NET.Modules.Alpha.Http")]
                 """);
 
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "Full.NET.Modules.Beta",
+                    "Full.NET.Modules.Gamma",
+                },
+                new[]
+                {
+                    GetProjectNameFromReference(
+                        @"..\Full.NET.Modules.Beta\Full.NET.Modules.Beta.csproj"),
+                    GetProjectNameFromReference(
+                        "../Full.NET.Modules.Gamma/Full.NET.Modules.Gamma.csproj"),
+                });
+
             var offenders = FindCrossModuleImplementationReferences(projectPath)
                 .Concat(FindCrossModuleFriendAssemblies(attributePath))
                 .OrderBy(value => value, StringComparer.Ordinal)
@@ -118,6 +135,7 @@ public sealed class DependencyRulesTests
                     "Full.NET.Modules.Alpha -> Full.NET.Modules.Beta",
                     "Full.NET.Modules.Alpha -> Full.NET.Modules.Beta (InternalsVisibleTo)",
                     "Full.NET.Modules.Alpha -> Full.NET.Modules.Delta (InternalsVisibleTo)",
+                    "Full.NET.Modules.Alpha -> Full.NET.Modules.Gamma",
                     "Full.NET.Modules.Alpha -> Full.NET.Modules.Gamma (InternalsVisibleTo)",
                 },
                 offenders);
@@ -553,7 +571,7 @@ public sealed class DependencyRulesTests
                      .Where(value => !string.IsNullOrWhiteSpace(value))
                      .Select(value => value!))
         {
-            var targetProject = Path.GetFileNameWithoutExtension(reference);
+            var targetProject = GetProjectNameFromReference(reference);
             var targetModule = GetLogicalModuleName(targetProject);
             if (targetModule is null
                 || string.Equals(sourceModule, targetModule, StringComparison.Ordinal)
@@ -564,6 +582,14 @@ public sealed class DependencyRulesTests
 
             yield return $"{sourceProject} -> {targetProject}";
         }
+    }
+
+    private static string GetProjectNameFromReference(string reference)
+    {
+        var normalizedReference = reference.Trim().Replace('\\', '/');
+        var fileName = normalizedReference[
+            (normalizedReference.LastIndexOf('/') + 1)..];
+        return Path.GetFileNameWithoutExtension(fileName);
     }
 
     private static IEnumerable<string> FindCrossModuleFriendAssemblies(
