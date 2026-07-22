@@ -251,6 +251,16 @@ Task 4A 首轮聚焦 Integration 中，使用 Organization.Contracts 空目录�
 
 Identity 登录、机构管理、用户-机构隶属 SQL Server/MySQL 聚焦 Integration **6/6** 通过；原失败已归因为测试契约/权限夹具漂移、Host/租户作用域误用、Guid 参数数据库类型和 Organization 成功响应 OpenAPI 元数据缺失。完整 Integration 门槛仍为 **109**，本增补不把聚焦通过表述为全量通过。
 
+## 增补（2026-07-22，架构硬化 Task 4B API 迁移能力隔离）
+
+| 变更 | 说明 |
+| --- | --- |
+| Architecture 门槛 **30 → 31** | 新增迁移组件消费者与 API 源码负向门禁；新鲜运行 **31/31** |
+| Unit / Compatibility / Integration 门槛 | 保持 **342/7/109**；Task 4B 未增删这三套测试发现项 |
+| 四处 canonical 门槛 | **342/7/31/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
+
+SQL Server/MySQL API 聚焦 **2/2**、migration idempotence **2/2** 通过；API Release 发布物 `.deps.json` 与迁移 DLL 扫描均为零命中。完整 Integration 门槛仍为 **109**，本增补不把聚焦通过表述为全量通过。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

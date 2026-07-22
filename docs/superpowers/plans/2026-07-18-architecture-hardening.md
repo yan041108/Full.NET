@@ -155,7 +155,7 @@
 
 ### Task 4A: 关闭跨模块实现依赖（2026-07-22 P1）
 
-**状态：已完成（2026-07-22）。** 注册时稳定模块键/依赖快照、Contracts 授权入口、实现引用/生产友元清理及负向架构门禁已经落地；聚焦 Identity/Organization SQL Server/MySQL Integration **6/6** 通过。Task 4B～4C 仍独立开放，模块能力状态保持 `Implemented`。
+**状态：已完成（2026-07-22）。** 注册时稳定模块键/依赖快照、Contracts 授权入口、实现引用/生产友元清理及负向架构门禁已经落地；聚焦 Identity/Organization SQL Server/MySQL Integration **6/6** 通过。Task 4B 已关闭 API 迁移执行能力，Task 4C 仍独立开放，模块能力状态保持 `Implemented`。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
@@ -201,6 +201,8 @@
 
 ### Task 4B: API 移除迁移执行能力（2026-07-22 P1）
 
+**状态：已完成（2026-07-22）。** API 项目与启动注册已移除 DbUp 迁移能力；测试夹具改为启动 API 前直接迁移一次。Architecture **31/31**、SQL Server/MySQL API 聚焦 **2/2**、双库 migration idempotence **2/2** 通过，Release 发布物的 `.deps.json` 与 DLL 扫描均为零命中。
+
 **Files:**
 - Modify: `src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj`
 - Modify: `src/Hosts/Full.NET.Host.Api/Program.cs`
@@ -211,19 +213,19 @@
 - Consumes: 测试夹具直接构造的 `DbUpMigrationRunner`
 - Produces: 不含 `Full.NET.Migrations.DbUp`、`AddFullNetMigrations` 或 `IDatabaseMigrationRunner` 的 API 发布物
 
-- [ ] **Step 1: 新增迁移消费者失败契约**
+- [x] **Step 1: 新增迁移消费者失败契约**
 
   架构测试扫描全部 `.csproj`，生产消费者只允许 `Full.NET.Host.Migrator`；测试项目可以显式引用迁移组件。另扫描 API 源码，拒绝 `AddFullNetMigrations` 和 `IDatabaseMigrationRunner`。
 
-- [ ] **Step 2: 先让测试夹具脱离 API DI**
+- [x] **Step 2: 先让测试夹具脱离 API DI**
 
   `FullNetApiFactory.InitializeAsync` 保留启动 API 前直接构造 `DbUpMigrationRunner` 的一次迁移，删除从 `Services` 解析并再次执行 `IDatabaseMigrationRunner` 的路径；租户和管理员初始化仍在 API Scope 中执行。
 
-- [ ] **Step 3: 删除 API 引用与注册**
+- [x] **Step 3: 删除 API 引用与注册**
 
   从 API csproj 删除迁移项目引用，从 `Program.cs` 删除命名空间和 `AddFullNetMigrations`。执行 Release publish 后扫描 `.deps.json` 与输出 DLL，预期 API 发布物不包含 `Full.NET.Migrations.DbUp`。
 
-- [ ] **Step 4: 运行 API 与双库迁移验证**
+- [x] **Step 4: 运行 API 与双库迁移验证**
 
   运行 API 聚焦 Integration、SQL Server/MySQL migration idempotence、Architecture Tests；预期测试夹具仍可初始化数据库，而 API 宿主无法解析迁移执行器。
 

@@ -1,7 +1,7 @@
 # Full.NET 架构复核与事件交付方案评估
 
 - 日期：2026-07-22
-- 状态：已复核，两轮巡检结论已吸收；Task 4A 已闭环
+- 状态：已复核，两轮巡检结论已吸收；Task 4A～4B 已闭环
 - 原复核代码基线：`0dde5b4`（`main`）
 - Task 4A 实现基线：`fcfe2c3`（`main`）
 - 范围：仓库结构、能力状态矩阵、近期验证记录、架构硬化计划，以及用户提供的两份外部审查材料
@@ -37,7 +37,7 @@ Full.NET 继续采用强化型模块化单体是正确方向。当前主要风�
 |---|---|---|---|
 | P0 | Layui 用户-机构隶属测试稳定失败 | 控制器请求顺序为“隶属关系、机构、用户”，测试夹具返回顺序为“隶属关系、用户、机构”，连续两次聚焦运行均为 3 次调用而非预期 7 次 | Task 3B 先修复夹具并恢复客户端聚合门禁；禁止通过放宽调用次数、延长等待或跳过测试转绿 |
 | P1 | Organization/Tenancy.Http 依赖 Identity/Tenancy 实现程序集 | **Task 4A 已关闭**：模块依赖改为稳定字符串键，Organization 使用 Identity.Contracts 的公开授权策略，跨模块实现项目引用与 Identity→Organization 生产友元已删除 | 新增负向 Architecture Test 扫描生产模块 `.csproj` 与 `AssemblyInfo.cs`；同一逻辑模块的存量 Core/Http 引用只作为历史兼容，不构成新项目模板 |
-| P1 | API 发布物携带 DbUp 迁移执行能力 | API 项目引用 `Full.NET.Migrations.DbUp` 并在 `Program.cs` 注册迁移服务，集成测试还从 API DI 解析 `IDatabaseMigrationRunner` | Task 4B 移除 API 引用与注册，测试夹具显式执行测试迁移器，架构测试限定迁移组件消费者 |
+| P1 | API 发布物携带 DbUp 迁移执行能力 | **Task 4B 已关闭**：API 项目/启动注册不再引用迁移组件，测试夹具在启动前直接迁移一次；Release `.deps.json` 与 DLL 扫描零命中 | Architecture Test 只允许 Migrator 和显式测试基础设施消费迁移组件，并拒绝 API 源码重新注册或解析迁移执行器 |
 | P1 | Migrator 装入完整 HTTP 模块服务 | `FullNetModuleCatalog` 将 Api 与 Migrator 放在同一分支，Migrator 因此装入认证、授权、CORS、限流和 HTTP JSON 等服务 | Task 4C 建立独立 Migration/Seed Profile，只注册迁移与 Contributor 所需能力 |
 | P1 | readiness/startup 是空检查集合 | 只调用 `AddHealthChecks()`，未注册数据库、Redis、迁移/初始化或 Outbox 检查；筛选空集合仍可返回 Healthy | Task 4D 注册真实依赖检查并增加依赖失败、空集合拒绝和标签契约测试 |
 | P2 | `/api/v1/tenancy/current` 未显式声明授权意图 | Endpoint 既无 `RequireAuthorization` 也无 `AllowAnonymous`；当前租户发现可以保持公开，但公开边界不可依赖默认行为 | Task 4E 显式 `AllowAnonymous`，锁定最小响应字段，并让架构测试拒绝未声明授权意图的 Endpoint |
@@ -72,6 +72,17 @@ Task 4A 的 Architecture RED 首次准确报告 Organization→Identity、Organi
 | 原 API 失败复核 | Identity 为新增角色/菜单后精确导航数组未同步；Organization 为夹具缺少前置租户读取权限、租户上下文误用 Host 用户目录、Guid TypeHandler 未声明 `DbType.Guid` 以及成功响应 OpenAPI 元数据缺失；均已以最小契约/实现修正关闭 |
 
 Tenancy 拓扑复核确认 Worker 通过 `TenancyModule.AddBackgroundServices` 注册并消费 Core 中的 `TenantProvisionedCacheInvalidationHandler`，因此存在真实非 HTTP 消费者；但该注册入口位于 `Full.NET.Modules.Tenancy.Http`，Worker/Migrator 仍必须装载 `.Http` 项目，当前双项目并未形成足够的依赖或打包隔离收益。Task 4A 按范围不移动类型、不改变公开 API；合并评估与实施已列入[架构硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 4F，必须独立建立发布物 RED、完成双库/API/Worker 验证后再决策。
+
+### 3.3 Task 4B API 迁移执行能力隔离
+
+Task 4B 的 Architecture 契约扫描全部项目引用，仅允许 `Full.NET.Host.Migrator` 作为生产迁移消费者，并拒绝 API 源码出现 `AddFullNetMigrations` 或 `IDatabaseMigrationRunner`。基线 `788b6f4` 同时存在 API 项目引用、启动注册与测试夹具二次 DI 执行路径，构成 RED 证据；最小实现删除 API 引用/注册，并保留测试夹具启动前直接构造 `DbUpMigrationRunner` 的一次迁移。
+
+| Task 4B 门禁 | 新鲜结果 |
+|---|---|
+| Architecture Tests | **31/31** 通过；迁移组件生产消费者与 API 源码负向门禁生效 |
+| SQL Server/MySQL API 聚焦 | **2/2** 通过；测试夹具仍可在 API 启动前完成迁移和初始化 |
+| SQL Server/MySQL migration idempotence | **2/2** 通过 |
+| API Release publish | 通过；111 个发布文件中 `.deps.json` 和 `Full.NET.Migrations.DbUp*.dll` 均 **0** 命中 |
 
 ## 4. 确认的改进顺序
 

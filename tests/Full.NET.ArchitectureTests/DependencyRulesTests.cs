@@ -457,6 +457,63 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Migration_execution_is_owned_by_migrator_and_excluded_from_api_host()
+    {
+        var root = FindRepositoryRoot();
+        var migratorProject = Path.Combine(
+            "src",
+            "Hosts",
+            "Full.NET.Host.Migrator",
+            "Full.NET.Host.Migrator.csproj");
+        var migrationConsumers = Directory
+            .EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => XDocument.Load(path)
+                .Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Any(reference => string.Equals(
+                    Path.GetFileName(reference),
+                    "Full.NET.Migrations.DbUp.csproj",
+                    StringComparison.OrdinalIgnoreCase)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+        var unapprovedProductionConsumers = migrationConsumers
+            .Where(path => !path.StartsWith(
+                $"tests{Path.DirectorySeparatorChar}",
+                StringComparison.OrdinalIgnoreCase))
+            .Where(path => !string.Equals(
+                path,
+                migratorProject,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            unapprovedProductionConsumers,
+            string.Join(Environment.NewLine, unapprovedProductionConsumers));
+        CollectionAssert.Contains(migrationConsumers, migratorProject);
+
+        var apiSourceOffenders = Directory
+            .EnumerateFiles(
+                Path.Combine(root, "src", "Hosts", "Full.NET.Host.Api"),
+                "*.cs",
+                SearchOption.AllDirectories)
+            .Where(path => !IsBuildOutputPath(path))
+            .Where(path =>
+            {
+                var source = File.ReadAllText(path);
+                return source.Contains("AddFullNetMigrations", StringComparison.Ordinal)
+                    || source.Contains("IDatabaseMigrationRunner", StringComparison.Ordinal);
+            })
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(0, apiSourceOffenders, string.Join(Environment.NewLine, apiSourceOffenders));
+    }
+
+    [TestMethod]
     public void RejectedDapperExtensions_AreNotReferencedByProjectsOrCentralVersions()
     {
         var rejectedPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

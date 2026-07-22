@@ -3,7 +3,6 @@ using Full.NET.Composition;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Localization;
-using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Modules;
 using Full.NET.Serialization.MessagePack;
 using Scalar.AspNetCore;
@@ -19,7 +18,6 @@ builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
-builder.Services.AddFullNetMigrations(builder.Configuration);
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Api);

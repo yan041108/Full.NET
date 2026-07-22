@@ -82,9 +82,6 @@ internal sealed class FullNetApiFactory(
             currentTenant.SetHost();
             try
             {
-                await scope.ServiceProvider
-                    .GetRequiredService<IDatabaseMigrationRunner>()
-                    .MigrateAsync(cancellationToken);
                 var result = await scope.ServiceProvider
                     .GetRequiredService<ITenantProvisioningService>()
                     .ProvisionAsync(
