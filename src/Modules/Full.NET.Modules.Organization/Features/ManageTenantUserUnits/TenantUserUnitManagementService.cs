@@ -104,7 +104,6 @@ internal sealed class TenantUserUnitManagementService(
                 OrganizationSql.InsertUserUnit,
                 new InsertOrganizationUserUnit(
                     assignmentId,
-                    currentTenant.Id!.Value,
                     request.UserId,
                     request.UnitId,
                     request.IsPrimary,

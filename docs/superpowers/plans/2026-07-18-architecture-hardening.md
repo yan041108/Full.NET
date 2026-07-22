@@ -155,7 +155,7 @@
 
 ### Task 4A: 关闭跨模块实现依赖（2026-07-22 P1）
 
-**状态：实现完成，聚焦 Integration 存在两个当前可重复但尚未由 Base 对照确定归因的 API 失败。** 注册时稳定模块键/依赖快照、Contracts 授权入口、实现引用/生产友元清理及负向架构门禁已经落地；Task 4B～4C 仍独立开放，模块能力状态保持 `Implemented`。
+**状态：已完成（2026-07-22）。** 注册时稳定模块键/依赖快照、Contracts 授权入口、实现引用/生产友元清理及负向架构门禁已经落地；聚焦 Identity/Organization SQL Server/MySQL Integration **6/6** 通过。Task 4B～4C 仍独立开放，模块能力状态保持 `Implemented`。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
@@ -187,11 +187,11 @@
 
   Organization Endpoint 改用 `.RequireAuthorization(FullNetPermissionPolicies.For(permissionCode))`，删除对 `Full.NET.Modules.Identity.Authorization` 的引用；随后删除 Organization→Identity、Organization→Tenancy.Http、Tenancy.Http→Identity 的项目引用，以及 Identity 对 Organization 的 `InternalsVisibleTo`。Contracts 引用保持不变。
 
-- [ ] **Step 4: 验证边界与行为未漂移**
+- [x] **Step 4: 验证边界与行为未漂移**
 
   运行 Architecture、Unit、Organization/Identity/Tenancy 聚焦 Integration 与 OpenAPI 门禁；对比模块顺序和权限策略名称，预期公开 API、权限码及 Endpoint 行为无变化。
 
-  Architecture **30/30**、Unit **341/341** 与使用 Organization.Contracts 最小替身的 TenantProvisioning SQL Server/MySQL **2/2** 已通过。Identity 登录用例可重复出现并发响应计数不匹配，Organization 机构管理用例可重复出现前置 `/api/v1/tenancy/available` 返回 403；本任务未执行 Base 对照，不能判定二者由 Task 4A 引入或属于既有问题，也未通过放宽断言或修改产品行为掩盖，故本步骤保持未完成。
+  Architecture **30/30**、Unit **342/342**、使用 Organization.Contracts 最小替身的 TenantProvisioning SQL Server/MySQL **2/2**，以及 Identity 登录、机构管理、用户-机构隶属 SQL Server/MySQL 聚焦 Integration **6/6** 已通过。复核确认原失败不是模块依赖改造造成的行为回归：Identity 导航精确数组未同步新增角色/菜单；Organization 权限夹具遗漏前置租户读取权限并在租户上下文误调用 Host 用户目录；自定义 Guid TypeHandler 未显式设置 `DbType.Guid`，导致 SQL Server 参数成为 `sql_variant`；Organization Endpoint 同时缺少成功响应 OpenAPI 元数据。对应契约与最小实现已修正，未放宽权限断言。
 
 - [x] **Step 5: 复核 Tenancy 存量项目拓扑**
 

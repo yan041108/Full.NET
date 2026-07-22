@@ -91,7 +91,6 @@ internal sealed class TenantUnitManagementService(
                 OrganizationSql.InsertUnit,
                 new InsertOrganizationUnit(
                     unitId,
-                    currentTenant.Id!.Value,
                     parentId,
                     code,
                     request.Name.Trim(),

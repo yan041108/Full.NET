@@ -1,7 +1,7 @@
 # Full.NET 架构复核与事件交付方案评估
 
 - 日期：2026-07-22
-- 状态：已复核，两轮巡检结论已吸收；Task 4A 实现证据已增补
+- 状态：已复核，两轮巡检结论已吸收；Task 4A 已闭环
 - 原复核代码基线：`0dde5b4`（`main`）
 - Task 4A 实现基线：`fcfe2c3`（`main`）
 - 范围：仓库结构、能力状态矩阵、近期验证记录、架构硬化计划，以及用户提供的两份外部审查材料
@@ -63,13 +63,13 @@ Task 4A 的 Architecture RED 首次准确报告 Organization→Identity、Organi
 | Task 4A 门禁 | 新鲜结果 |
 |---|---|
 | `dotnet build Full.NET.slnx --configuration Release --no-restore` | 通过，0 warning、0 error |
-| Unit Tests | **341/341** 通过；覆盖稳定顺序、注册快照、空/重复模块键、null/空白/未知依赖、单节点/多节点循环与接口契约 |
+| Unit Tests | **342/342** 通过；覆盖稳定顺序、注册快照、空/重复模块键、null/空白/未知依赖、单节点/多节点循环、接口契约与 Guid 参数数据库类型 |
 | Compatibility Tests | **7/7** 通过 |
 | Architecture Tests | **30/30** 通过；跨模块实现/生产友元门禁及嵌套源文件、Attribute/全限定 IVT 负向夹具均通过 |
 | OpenAPI / Naming / Governance / Skills | **14/14**、**23/23**、**7/7**、**48 checks** 通过 |
 | TenantProvisioning SQL Server/MySQL | **2/2** 通过；夹具只注册 Identity/Tenancy，并以 Organization.Contracts 空目录替身满足最小闭包，双库原子 Provisioning 与二进制 Outbox 保持不变 |
-| Identity 登录独立 SQL Server 用例 | **0/1**；并发登录响应计数断言当前可重复失败；未执行 Base 对照，归因未确定，且未修改产品或放宽断言 |
-| Organization 机构管理独立 SQL Server 用例 | **0/1**；进入 Organization Endpoint 前 `/api/v1/tenancy/available` 返回 403（期望 200）当前可重复；未执行 Base 对照，归因未确定，且未修改产品或放宽断言 |
+| Identity/Organization SQL Server/MySQL 聚焦用例 | **6/6** 通过；覆盖登录与当前用户、机构管理、用户-机构隶属和对应 OpenAPI 契约 |
+| 原 API 失败复核 | Identity 为新增角色/菜单后精确导航数组未同步；Organization 为夹具缺少前置租户读取权限、租户上下文误用 Host 用户目录、Guid TypeHandler 未声明 `DbType.Guid` 以及成功响应 OpenAPI 元数据缺失；均已以最小契约/实现修正关闭 |
 
 Tenancy 拓扑复核确认 Worker 通过 `TenancyModule.AddBackgroundServices` 注册并消费 Core 中的 `TenantProvisionedCacheInvalidationHandler`，因此存在真实非 HTTP 消费者；但该注册入口位于 `Full.NET.Modules.Tenancy.Http`，Worker/Migrator 仍必须装载 `.Http` 项目，当前双项目并未形成足够的依赖或打包隔离收益。Task 4A 按范围不移动类型、不改变公开 API；合并评估与实施已列入[架构硬化计划](../superpowers/plans/2026-07-18-architecture-hardening.md) Task 4F，必须独立建立发布物 RED、完成双库/API/Worker 验证后再决策。
 
@@ -122,7 +122,7 @@ Tenancy 拓扑复核确认 Worker 通过 `TenancyModule.AddBackgroundServices` �
 
 ## 6. 未验证项
 
-- Task 4A 执行了 Unit、Architecture、TenantProvisioning 双库与聚焦 API Integration；未执行完整 109 项 Integration、真实栈 E2E、性能基准、故障注入或上述两项 API 失败的 Base 对照，代码能力状态不因部分通过而提升。
+- Task 4A 执行了 Unit、Architecture、TenantProvisioning 双库与 Identity/Organization 聚焦双库 API Integration；未执行完整 109 项 Integration、真实栈 E2E、性能基准或故障注入，代码能力状态不因部分通过而提升。
 - 未验证任何特定 Kafka、Debezium 或 Kafka Connect 版本与许可证/部署组合。
 - `1000 QPS` 仅作为用户提出的初始量级，不作为项目门禁常量。
 - 工作区存在用户已有的未跟踪测试输出文件，本轮不读取其结论、不修改也不纳入文档变更。

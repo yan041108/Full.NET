@@ -21,6 +21,7 @@ internal sealed class AssignedGuidTypeHandler : SqlMapper.TypeHandler<Guid>
             throw new ArgumentException("持久化标识必须由应用预先分配。", nameof(value));
         }
 
+        parameter.DbType = DbType.Guid;
         parameter.Value = value;
     }
 }

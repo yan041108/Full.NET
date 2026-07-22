@@ -14,7 +14,6 @@ internal sealed record OrganizationUnitRecord(
 
 internal sealed record InsertOrganizationUnit(
     Guid Id,
-    Guid TenantId,
     Guid? ParentId,
     string Code,
     string Name,

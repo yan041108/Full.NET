@@ -239,7 +239,17 @@ Integration 执行前曾终止一次孤儿宿主进程并干净重跑；完整�
 | Compatibility / Integration 门槛 | 保持 **7/109**；Task 4A 未增删这两套测试发现项 |
 | 四处 canonical 门槛 | **341/7/30/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
 
-Task 4A 聚焦 Integration 中，使用 Organization.Contracts 空目录替身保持最小依赖闭包的 TenantProvisioning SQL Server/MySQL **2/2** 通过。Identity 登录与 Organization 机构管理用例分别表现为并发响应计数不匹配、进入 Organization Endpoint 前 `/api/v1/tenancy/available` 返回 403，当前均可重复；本轮未执行 Base 对照，不能判定由 Task 4A 引入或属于既有问题，也未放宽断言或修改无关产品行为，不据此声明完整 Integration 通过。
+Task 4A 首轮聚焦 Integration 中，使用 Organization.Contracts 空目录替身保持最小依赖闭包的 TenantProvisioning SQL Server/MySQL **2/2** 通过；Identity 登录与 Organization 机构管理曾暴露可重复失败。后续复核与闭环结果见下方增补，首轮结果不再作为当前阻塞项。
+
+## 增补（2026-07-22，Task 4A 聚焦 API 失败闭环）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **341 → 342** | 新增 `AssignedGuidTypeHandlerTests`，锁定自定义 Guid Handler 必须声明 `DbType.Guid`；新鲜运行 **342/342** |
+| Compatibility / Architecture / Integration 门槛 | 保持 **7/30/109**；未增删对应测试发现项 |
+| 四处 canonical 门槛 | **342/7/30/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
+
+Identity 登录、机构管理、用户-机构隶属 SQL Server/MySQL 聚焦 Integration **6/6** 通过；原失败已归因为测试契约/权限夹具漂移、Host/租户作用域误用、Guid 参数数据库类型和 Organization 成功响应 OpenAPI 元数据缺失。完整 Integration 门槛仍为 **109**，本增补不把聚焦通过表述为全量通过。
 
 ## 关联文档
 

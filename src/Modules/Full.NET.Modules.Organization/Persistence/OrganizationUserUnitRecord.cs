@@ -31,7 +31,6 @@ internal sealed class OrganizationUserUnitListRow
 
 internal sealed record InsertOrganizationUserUnit(
     Guid Id,
-    Guid TenantId,
     Guid UserId,
     Guid UnitId,
     bool IsPrimary,

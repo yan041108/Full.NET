@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
@@ -46,6 +47,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .Produces<PagedResult<OrganizationUserUnitResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUserUnitManagementPermissions.Read));
 
@@ -67,6 +69,7 @@ internal static class Endpoint
                 $"/api/v1/organization/user-units/{result.Value!.Id:D}",
                 result.Value);
         })
+        .Produces<OrganizationUserUnitResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUserUnitManagementPermissions.Write));
 
@@ -82,6 +85,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .Produces<OrganizationUserUnitResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUserUnitManagementPermissions.Write));
 
@@ -96,6 +100,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .Produces<OrganizationUserUnitResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUserUnitManagementPermissions.Write));
     }

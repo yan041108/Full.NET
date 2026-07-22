@@ -213,10 +213,26 @@ internal static class IdentityApiAssertions
             .ReadFromJsonAsync<NavigationNodeResponse[]>(cancellationToken);
         Assert.IsNotNull(navigation);
         CollectionAssert.AreEqual(
-            new[] { "overview", "tenant-context", "users", "super-administrators" },
+            new[]
+            {
+                "overview",
+                "tenant-context",
+                "users",
+                "roles",
+                "menus",
+                "super-administrators",
+            },
             navigation.Select(item => item.Id).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "overview", "tenant-context", "users", "super-administrators" },
+            new[]
+            {
+                "overview",
+                "tenant-context",
+                "users",
+                "roles",
+                "menus",
+                "super-administrators",
+            },
             navigation.Select(item => item.ComponentKey).ToArray());
 
         var operatorUserId = Guid.Parse(

@@ -42,6 +42,7 @@ internal static class OrganizationUnitManagementAssertions
             await factory.CreateHostAccessTokenAsync(
                 [
                     "platform.dashboard.read",
+                    "tenancy.tenants.read",
                     "tenancy.tenants.switch",
                 ],
                 cancellationToken),

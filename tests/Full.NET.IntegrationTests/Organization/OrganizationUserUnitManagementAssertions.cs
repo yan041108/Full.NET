@@ -43,6 +43,7 @@ internal static class OrganizationUserUnitManagementAssertions
             await factory.CreateHostAccessTokenAsync(
                 [
                     "platform.dashboard.read",
+                    "tenancy.tenants.read",
                     "tenancy.tenants.switch",
                 ],
                 cancellationToken),
@@ -153,18 +154,20 @@ internal static class OrganizationUserUnitManagementAssertions
         string adminTenantToken,
         CancellationToken cancellationToken)
     {
-        using var usersRequest = new HttpRequestMessage(
+        using var currentUserRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            "/api/v1/identity/users?page=1&pageSize=20");
-        usersRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "/api/v1/me");
+        currentUserRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminTenantToken);
-        using var usersResponse = await client.SendAsync(usersRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, usersResponse.StatusCode);
-        var usersPage = await usersResponse.Content
-            .ReadFromJsonAsync<PagedResult<HostUserResponse>>(cancellationToken);
-        Assert.IsNotNull(usersPage);
-        var admin = usersPage.Items.Single(user => user.Username == "admin");
+        using var currentUserResponse = await client.SendAsync(
+            currentUserRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, currentUserResponse.StatusCode);
+        var admin = await currentUserResponse.Content
+            .ReadFromJsonAsync<CurrentUserResponse>(cancellationToken);
+        Assert.IsNotNull(admin);
+        Assert.AreEqual("admin", admin.Username);
 
         var code = $"unit-{Guid.NewGuid():N}".ToLowerInvariant();
         using var createUnitRequest = CreateBearerJsonRequest(
