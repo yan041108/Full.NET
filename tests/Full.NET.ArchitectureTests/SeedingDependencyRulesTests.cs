@@ -19,7 +19,6 @@ public sealed class SeedingDependencyRulesTests
         typeof(IdentityModule).Assembly,
         typeof(LoginRequest).Assembly,
         typeof(TenancyModule).Assembly,
-        Assembly.Load("Full.NET.Modules.Tenancy"),
         typeof(OrganizationModule).Assembly,
         typeof(OrganizationUnitResponse).Assembly,
         ProductionAssemblies.HostApi,
@@ -55,7 +54,6 @@ public sealed class SeedingDependencyRulesTests
             "Full.NET.Modules.Organization",
             "Full.NET.Modules.Organization.Contracts",
             "Full.NET.Modules.Tenancy",
-            "Full.NET.Modules.Tenancy.Http",
         ];
         var actualModuleAssemblies = PublishedAssemblies
             .Select(assembly => assembly.GetName().Name)

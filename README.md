@@ -14,8 +14,8 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - Dapper-first 数据访问、SQL 作用域保护和事务边界，不引入 EF Core；原生 QueryMultiple 已通过自有抽象和 SQL Server/MySQL 真实测试落地，SqlBuilder 仍等待首个真实动态列表命中准入门禁。
 - 跨工具 Naming Profile、SQL/C#／稳定协议命名门禁，以及供脚手架复用的确定性 CodeGeneration 命名内核；存量债务按文件和值精确登记，不会被新代码继承。
 - SQL Server/MySQL 双数据库 DbUp 迁移及 Testcontainers 集成测试。
-- MessagePack 二进制 Outbox、租约式至少一次消费、schema 版本路由和指数退避。
-- FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`。
+- MessagePack 二进制 Outbox、精确 schema 版本路由、最大尝试、死信终态和租约式至少一次消费。
+- FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`；安全关键租户缓存已实现“提交后本机同步失效 + Outbox 跨节点修复”的最小闭环。
 - System.Text.Json 源生成 HTTP 合约、Serilog 有界异步日志、OpenTelemetry 和健康检查。
 - ASP.NET Core `Accept-Language` 请求协商、`zh-CN/en-US` 规范化、异步 CultureScope、模块错误资源和本地化响应头能力。
 - Identity 安全会话与授权上下文底座：强密码引导、RSA JWT、登录锁定、Refresh Token 轮换/重用撤销、CSRF、CORS、审计、最小 RBAC、可信租户切换和权限导航。
@@ -33,15 +33,17 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 342
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 348
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 33
-# 日常开发默认跑双库冒烟；完整双库矩阵见下方「发布/合入」档
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 36
+# 日常：仅验证双库迁移/outbox schema 冒烟
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "migration_is_idempotent_and_creates_binary_outbox_schema" --minimum-expected-tests 2 --timeout 15m
-# 改迁移/SQL/Outbox/UUID 时聚焦相关用例，例如：
+# PR / 合入前快门禁：Identity/Tenancy/Outbox 核心双库场景（当前 8 项，约 4 分钟）
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox" --minimum-expected-tests 8 --timeout 15m
+# 改迁移/SQL/Outbox/UUID 时追加聚焦相关用例，例如：
 # dotnet tests/.../Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery|UuidBinary" --minimum-expected-tests 1 --timeout 45m
-# 合入 main / 发布候选再跑完整矩阵（约 1 小时级，勿当日常命令）
-# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 109 --timeout 90m
+# 发布 / push main：完整双库矩阵（约 1 小时级，勿当日常命令）
+# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 126 --timeout 90m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
@@ -49,7 +51,7 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运�
 
 模块化种子管道已经接管 Migrator：默认只迁移，显式 `--seed baseline|development|demo|test` 才播种，AppHost 使用 `--seed development`。管线已实现确定性 Profile 继承、SQL Server/MySQL 数据库锁与执行审计、Baseline 宿主管理员 Contributor 和 Development 本地租户 Contributor；`--seed-local` 仅保留为带弃用告警的兼容别名。Production Bootstrap Secret 运维 Runbook 与缺 Secret 双库拒绝已落地（见 [docs/operations/seed-production-baseline.md](docs/operations/seed-production-baseline.md)）；完整 Aspire/CI Profile E2E 与 MFA 到位前的远程超管写操作仍开放，因此 Production Seed 仍不能标记为 `Verified`。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
 
-新人阅读路径见 [Onboarding](docs/development/onboarding.md)；更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。1.0 前 Tenancy/Outbox 命名规范化自动化证据见 [验证记录](docs/verification/pre-v1-naming-normalization.md)。新增数据库对象、API、机器码或生成模板必须遵守 [Full.NET 命名规范](rules/naming-conventions.md)：官方表保留 `fn` OwnerKey，项目表使用脚手架阶段冻结的项目 OwnerKey，`sys` 不作为项目表前缀。当前能力以[状态矩阵](docs/roadmap/capability-status.md)为唯一总览；架构设计及 Admin.NET 功能对标路线位于 `docs/`。
+新人阅读路径见 [Onboarding](docs/development/onboarding.md)；更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。Outbox 多副本拓扑、死信原因码和受控人工重放边界见 [Outbox Worker 运维说明](docs/operations/outbox-worker-topology.md)。1.0 前 Tenancy/Outbox 命名规范化自动化证据见 [验证记录](docs/verification/pre-v1-naming-normalization.md)。新增数据库对象、API、机器码或生成模板必须遵守 [Full.NET 命名规范](rules/naming-conventions.md)：官方表保留 `fn` OwnerKey，项目表使用脚手架阶段冻结的项目 OwnerKey，`sys` 不作为项目表前缀。当前能力以[状态矩阵](docs/roadmap/capability-status.md)为唯一总览；架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 
 客户端基础验证：
 

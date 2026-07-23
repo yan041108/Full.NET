@@ -177,6 +177,33 @@ public sealed class SqlServerMigrationTests
     }
 
     [TestMethod]
+    public async Task SqlServer_outbox_dead_letter_migration_recovers_partial_state()
+    {
+        var runner = CreateRunner();
+        await runner.MigrateAsync();
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.ExecuteAsync(
+            """
+            ALTER TABLE dbo.fn_outbox_message DROP COLUMN DeadLetterReasonCode;
+            DELETE FROM dbo.SchemaVersions
+            WHERE ScriptName LIKE '%017_OutboxDeadLetter.sql';
+            """);
+
+        var recovered = await runner.MigrateAsync();
+
+        Assert.AreEqual(1, recovered.ExecutedScriptCount);
+        Assert.AreEqual(2, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo'
+              AND TABLE_NAME = 'fn_outbox_message'
+              AND COLUMN_NAME IN ('DeadLetteredAtUtc', 'DeadLetterReasonCode')
+            """));
+    }
+
+    [TestMethod]
     public async Task UuidBinaryExpand_SqlServer_pairs_008_without_binary_shadow_columns()
     {
         await CreateRunner().MigrateAsync();
@@ -404,6 +431,8 @@ public sealed class SqlServerMigrationTests
         AssertContainsIgnoreCase(names, "TenantId");
         AssertContainsIgnoreCase(names, "TraceId");
         AssertContainsIgnoreCase(names, "Payload");
+        AssertContainsIgnoreCase(names, "DeadLetteredAtUtc");
+        AssertContainsIgnoreCase(names, "DeadLetterReasonCode");
     }
 
     private static void AssertRequiredIdentityIndexes(IEnumerable<string> indexes)

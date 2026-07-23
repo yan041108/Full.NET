@@ -27,4 +27,24 @@ public sealed class ModuleLifecycleTests
             typeof(IReadOnlyCollection<string>),
             dependenciesProperty?.PropertyType);
     }
+
+    [TestMethod]
+    public void Module_contract_exposes_a_dedicated_migration_service_registration_hook()
+    {
+        var addMigrationServicesMethod = typeof(IFullNetModule).GetMethod(
+            nameof(IFullNetModule.AddMigrationServices));
+
+        Assert.IsNotNull(
+            addMigrationServicesMethod,
+            "Migrator Profile 需要独立的最小迁移/Seed 注册入口，不能继续复用完整模块 AddServices。");
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                typeof(Microsoft.Extensions.DependencyInjection.IServiceCollection),
+                typeof(Microsoft.Extensions.Configuration.IConfiguration),
+            },
+            addMigrationServicesMethod.GetParameters()
+                .Select(parameter => parameter.ParameterType)
+                .ToArray());
+    }
 }

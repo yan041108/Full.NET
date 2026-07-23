@@ -204,6 +204,33 @@ public sealed class MySqlMigrationTests
     }
 
     [TestMethod]
+    public async Task MySql_outbox_dead_letter_migration_recovers_partial_state()
+    {
+        var runner = CreateRunner();
+        await runner.MigrateAsync();
+
+        await using var connection = CreateConnection();
+        await connection.ExecuteAsync(
+            """
+            ALTER TABLE fn_outbox_message DROP COLUMN DeadLetterReasonCode;
+            DELETE FROM schemaversions
+            WHERE ScriptName LIKE '%017_OutboxDeadLetter.sql';
+            """);
+
+        var recovered = await runner.MigrateAsync();
+
+        Assert.AreEqual(1, recovered.ExecutedScriptCount);
+        Assert.AreEqual(2, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_outbox_message'
+              AND COLUMN_NAME IN ('DeadLetteredAtUtc', 'DeadLetterReasonCode')
+            """));
+    }
+
+    [TestMethod]
     public async Task MySql_seed_audit_migration_recovers_after_first_table_commit()
     {
         var runner = CreateExpandRunner();
@@ -406,6 +433,8 @@ public sealed class MySqlMigrationTests
         AssertContainsIgnoreCase(names, "TenantId");
         AssertContainsIgnoreCase(names, "TraceId");
         AssertContainsIgnoreCase(names, "Payload");
+        AssertContainsIgnoreCase(names, "DeadLetteredAtUtc");
+        AssertContainsIgnoreCase(names, "DeadLetterReasonCode");
     }
 
     private static void AssertRequiredIdentityIndexes(IEnumerable<string> indexes)

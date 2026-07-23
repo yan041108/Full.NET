@@ -23,6 +23,7 @@ internal static class Endpoint
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
-        });
+        })
+        .AllowAnonymous();
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using ZiggyCreatures.Caching.Fusion;
+using Full.NET.Caching.Fusion.Health;
 
 namespace Full.NET.Caching.Fusion;
 
@@ -35,10 +36,19 @@ public static class ServiceCollectionExtensions
             });
             services.AddFusionCacheStackExchangeRedisBackplane(options =>
                 options.Configuration = redisConnectionString);
+            services.AddHealthChecks()
+                .AddCheck<DistributedCacheHealthCheck>(
+                    "distributed-cache",
+                    tags: ["ready"]);
         }
 
         services
             .AddFusionCache()
+            .WithOptions(options =>
+            {
+                // 安全关键缓存要求提交后尽快摘除旧条目；标签仅做惰性屏蔽会放大多节点陈旧窗口。
+                options.RemoveByTagBehavior = RemoveByTagBehavior.Remove;
+            })
             .WithDefaultEntryOptions(options =>
             {
                 options.Duration = cacheOptions.DefaultDuration;

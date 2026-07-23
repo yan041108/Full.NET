@@ -2,10 +2,18 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Composition;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Seeding.Abstractions;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Modularity;
 
@@ -13,14 +21,11 @@ namespace Full.NET.UnitTests.Modularity;
 public sealed class FullNetModuleCatalogTests
 {
     [TestMethod]
-    [DataRow(FullNetHostProfile.Api)]
-    [DataRow(FullNetHostProfile.Migrator)]
-    public void Full_profiles_register_complete_modules_in_dependency_order(
-        FullNetHostProfile profile)
+    public void Api_profile_registers_complete_modules_in_dependency_order()
     {
         var services = CreateServices();
 
-        services.AddFullNetApplicationModules(CreateConfiguration(), profile);
+        services.AddFullNetApplicationModules(CreateConfiguration(), FullNetHostProfile.Api);
 
         using var provider = services.BuildServiceProvider();
         var modules = provider.GetRequiredService<FullNetModuleRegistry>()
@@ -45,6 +50,40 @@ public sealed class FullNetModuleCatalogTests
             descriptor.ServiceType == typeof(FullNetModuleRegistry)));
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(IIntegrationEventHandler)));
+    }
+
+    [TestMethod]
+    public void Migrator_profile_registers_seed_contributors_without_http_and_auth_runtime_services()
+    {
+        var services = CreateServices();
+
+        services.AddFullNetApplicationModules(
+            CreateConfiguration(),
+            FullNetHostProfile.Migrator);
+
+        var contributorDescriptors = services
+            .Where(descriptor => descriptor.ServiceType == typeof(IDataSeedContributor))
+            .ToArray();
+        Assert.IsTrue(
+            contributorDescriptors.Length >= 2,
+            "Migrator 必须保留 Identity/Tenancy 的 Seed Contributor 注册。");
+        Assert.IsTrue(
+            contributorDescriptors.All(descriptor => descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsFalse(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(IAuthenticationSchemeProvider)));
+        Assert.IsFalse(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(ICorsService)));
+        Assert.IsFalse(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(IConfigureOptions<RateLimiterOptions>)));
+        Assert.IsFalse(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(IConfigureOptions<JsonOptions>)));
+        Assert.IsFalse(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(IAuthorizationPolicyProvider)
+            && descriptor.ImplementationType == typeof(Full.NET.Modules.Identity.Authorization.FullNetPermissionPolicyProvider)));
+        Assert.IsFalse(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(IIntegrationEventHandler)));
+        Assert.IsFalse(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(Full.NET.Abstractions.Messaging.ICommandHandler<Command, LoginSessionResult>)));
     }
 
     private static ServiceCollection CreateServices() => new();

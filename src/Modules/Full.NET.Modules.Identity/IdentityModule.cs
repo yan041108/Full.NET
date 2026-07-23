@@ -68,6 +68,8 @@ public sealed class IdentityModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        AddMigrationServices(services, configuration);
+
         services.AddFullNetLocalization();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
@@ -89,19 +91,8 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IHostedService,
             AuthorizationCatalogValidator>());
-        services.AddOptions<IdentityOptions>()
-            .Bind(configuration.GetSection(IdentityOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<IdentityOptions>,
-            IdentityOptionsValidator>());
-        services.TryAddSingleton<IClock, SystemClock>();
-        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<AccessSessionValidator>();
         services.TryAddScoped<FullNetJwtBearerEvents>();
-        services.TryAddScoped<
-            Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>,
-            Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>>();
         services.AddDataProtection();
         services.TryAddSingleton<TotpSecretProtector>();
         var enableTotpStrongReauthentication = configuration.GetValue(
@@ -121,10 +112,6 @@ public sealed class IdentityModule : IFullNetModule
         }
 
         services.TryAddScoped<TotpEnrollmentService>();
-        services.TryAddScoped<IIdentityBootstrapService, IdentityBootstrapService>();
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IDataSeedContributor,
-            HostAdministratorSeedContributor>());
         services.TryAddScoped<ISuperAdministratorService, SuperAdministratorService>();
         services.TryAddScoped<SuperAdministratorManagementService>();
         services.TryAddScoped<SuperAdministratorQueryService>();
@@ -272,6 +259,27 @@ public sealed class IdentityModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 IdentityJsonSerializerContext.Default));
+    }
+
+    public void AddMigrationServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<IdentityOptions>()
+            .Bind(configuration.GetSection(IdentityOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<IdentityOptions>,
+            IdentityOptionsValidator>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<
+            Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>,
+            Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>>();
+        services.TryAddScoped<IIdentityBootstrapService, IdentityBootstrapService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDataSeedContributor,
+            HostAdministratorSeedContributor>());
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

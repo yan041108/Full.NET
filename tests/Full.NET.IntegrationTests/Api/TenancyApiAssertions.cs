@@ -21,32 +21,86 @@ internal static class TenancyApiAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         var successJson = await response.Content
             .ReadAsStringAsync(cancellationToken);
+        AssertTenantSummaryContract(successJson);
         var tenant = JsonSerializer.Deserialize<TenantSummary>(
             successJson,
             new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.IsNotNull(tenant);
         Assert.AreEqual("acme", tenant.Identifier);
         Assert.AreEqual("acme.localhost", tenant.Domain);
-        using (var successDocument = JsonDocument.Parse(successJson))
-        {
-            Assert.IsFalse(successDocument.RootElement.TryGetProperty("success", out _));
-            Assert.IsFalse(successDocument.RootElement.TryGetProperty("code", out _));
-            Assert.IsFalse(successDocument.RootElement.TryGetProperty("data", out _));
-        }
 
         using var missingClient = factory.CreateClientForHost("missing.localhost");
         using var missingResponse = await missingClient
             .GetAsync("/api/v1/tenancy/current", cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, missingResponse.StatusCode);
-        using var problem = JsonDocument.Parse(
-            await missingResponse.Content.ReadAsStringAsync(cancellationToken));
-        Assert.AreEqual(
-            "tenancy.host_not_found",
-            problem.RootElement.GetProperty("code").GetString());
-        Assert.IsFalse(string.IsNullOrWhiteSpace(
-            problem.RootElement.GetProperty("traceId").GetString()));
+        var problemJson = await missingResponse.Content.ReadAsStringAsync(cancellationToken);
+        AssertStandardProblemContract(
+            problemJson,
+            HttpStatusCode.NotFound,
+            "tenancy.host_not_found");
 
         await VerifyHostTenantContextFlowAsync(factory, cancellationToken);
+    }
+
+    private static void AssertTenantSummaryContract(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var actualProperties = root.EnumerateObject()
+            .Select(property => property.Name)
+            .ToArray();
+
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "id",
+                "identifier",
+                "name",
+                "domain",
+                "isActive",
+                "version",
+                "defaultLocale",
+            },
+            actualProperties);
+
+        Assert.IsFalse(root.TryGetProperty("success", out _));
+        Assert.IsFalse(root.TryGetProperty("code", out _));
+        Assert.IsFalse(root.TryGetProperty("data", out _));
+        AssertNoSensitiveProperties(root);
+    }
+
+    private static void AssertStandardProblemContract(
+        string json,
+        HttpStatusCode expectedStatus,
+        string expectedCode)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var actualProperties = root.EnumerateObject()
+            .Select(property => property.Name)
+            .ToArray();
+
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "type",
+                "title",
+                "status",
+                "code",
+                "traceId",
+            },
+            actualProperties);
+
+        Assert.AreEqual(
+            $"https://full.net/errors/{expectedCode}",
+            root.GetProperty("type").GetString());
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            root.GetProperty("title").GetString()));
+        Assert.AreEqual((int)expectedStatus, root.GetProperty("status").GetInt32());
+        Assert.AreEqual(expectedCode, root.GetProperty("code").GetString());
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            root.GetProperty("traceId").GetString()));
+        AssertNoSensitiveProperties(root);
     }
 
     private static async Task VerifyHostTenantContextFlowAsync(
@@ -240,6 +294,19 @@ internal static class TenancyApiAssertions
         Assert.AreEqual(
             "tenancy.context_mismatch",
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static void AssertNoSensitiveProperties(JsonElement root)
+    {
+        Assert.IsFalse(root.TryGetProperty("username", out _));
+        Assert.IsFalse(root.TryGetProperty("userName", out _));
+        Assert.IsFalse(root.TryGetProperty("roles", out _));
+        Assert.IsFalse(root.TryGetProperty("permissions", out _));
+        Assert.IsFalse(root.TryGetProperty("connectionString", out _));
+        Assert.IsFalse(root.TryGetProperty("connectionStrings", out _));
+        Assert.IsFalse(root.TryGetProperty("redisConnectionString", out _));
+        Assert.IsFalse(root.TryGetProperty("configuration", out _));
+        Assert.IsFalse(root.TryGetProperty("settings", out _));
     }
 
     private static string DecodeJwtPayload(string accessToken)

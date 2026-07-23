@@ -93,6 +93,35 @@ internal sealed class DapperOutboxStore(
         EnsureSingleRow(affectedRows, id, lockId);
     }
 
+    public async Task MarkDeadLetterAsync(
+        Guid id,
+        Guid lockId,
+        string error,
+        string deadLetterReasonCode,
+        DateTimeOffset deadLetteredAt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(error);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deadLetterReasonCode);
+        var storedError = error.Length <= MaximumErrorLength
+            ? error
+            : error[..MaximumErrorLength];
+        var affectedRows = await commandExecutor
+            .ExecuteAsync(
+                OutboxSql.MarkDeadLetter,
+                new
+                {
+                    Id = id,
+                    LockId = lockId,
+                    Error = storedError,
+                    DeadLetterReasonCode = deadLetterReasonCode,
+                    DeadLetteredAt = deadLetteredAt
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        EnsureSingleRow(affectedRows, id, lockId);
+    }
+
     private async Task<IReadOnlyList<OutboxEnvelope>> AcquireSqlServerAsync(
         object parameters,
         CancellationToken cancellationToken)

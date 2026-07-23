@@ -13,16 +13,24 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Events;
+using ZiggyCreatures.Caching.Fusion.DangerZone;
 
 namespace Full.NET.IntegrationTests.Api;
 
 internal sealed class FullNetApiFactory(
     DatabaseProvider provider,
-    string connectionString) : WebApplicationFactory<Program>
+    string connectionString,
+    IReadOnlyDictionary<string, string?>? settingsOverrides = null) : WebApplicationFactory<Program>
 {
     public const string TestPassword = "FullNet!2026Integration";
 
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
+    private readonly string _cacheInstanceId = $"integration-{Guid.NewGuid():N}";
+    private readonly List<BackplaneEventObservation> _backplaneEvents = [];
+    private readonly object _backplaneEventsLock = new();
+    private bool _backplaneEventsSubscribed;
     private bool _initialized;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -34,17 +42,42 @@ internal sealed class FullNetApiFactory(
             "Hosts",
             "Full.NET.Host.Api"));
         builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            configuration.AddInMemoryCollection(BuildSettings()));
+        builder.ConfigureServices(services =>
+            services.PostConfigure<FusionCacheOptions>(options =>
             {
-                [$"{DatabaseOptions.SectionName}:Provider"] = provider.ToString(),
-                [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
-                [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
-                [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] = "Binary16",
-                ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
-                ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
-                ["Identity:AllowedOrigins:0"] = "http://localhost",
-                ["Tenancy:HostDomains:0"] = "localhost",
+                // 集成测试会在同一进程里启动多个 API 工厂；若共享同一个 InstanceId，
+                // FusionCache Backplane 会把它们视为同一缓存节点并忽略彼此的失效广播。
+                FusionCacheDangerZoneUtils.SetInstanceId(options, _cacheInstanceId);
             }));
+    }
+
+    private Dictionary<string, string?> BuildSettings()
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            [$"{DatabaseOptions.SectionName}:Provider"] = provider.ToString(),
+            [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
+            [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
+            [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] = "Binary16",
+            ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
+            ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
+            ["Identity:AllowedOrigins:0"] = "http://localhost",
+            ["Tenancy:HostDomains:0"] = "localhost",
+        };
+
+        if (settingsOverrides is null)
+        {
+            return settings;
+        }
+
+        // 测试宿主只允许在内存配置层覆盖必要设置，避免为单个场景复制整套 API 装配逻辑。
+        foreach (var pair in settingsOverrides)
+        {
+            settings[pair.Key] = pair.Value;
+        }
+
+        return settings;
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -118,11 +151,30 @@ internal sealed class FullNetApiFactory(
                 currentTenant.Clear();
             }
 
+            SubscribeBackplaneEvents();
             _initialized = true;
         }
         finally
         {
             _initializationLock.Release();
+        }
+    }
+
+    public string CacheInstanceId => _cacheInstanceId;
+
+    public void ClearBackplaneEvents()
+    {
+        lock (_backplaneEventsLock)
+        {
+            _backplaneEvents.Clear();
+        }
+    }
+
+    public IReadOnlyList<BackplaneEventObservation> GetBackplaneEventsSnapshot()
+    {
+        lock (_backplaneEventsLock)
+        {
+            return _backplaneEvents.ToArray();
         }
     }
 
@@ -139,7 +191,7 @@ internal sealed class FullNetApiFactory(
 
     public FullNetApiFactory CreateIsolatedFactory()
     {
-        return new FullNetApiFactory(provider, connectionString);
+        return new FullNetApiFactory(provider, connectionString, settingsOverrides);
     }
 
     public async Task<string> CreateHostAccessTokenAsync(
@@ -350,12 +402,60 @@ internal sealed class FullNetApiFactory(
         throw new DirectoryNotFoundException(
             "Could not locate the Full.NET repository root.");
     }
+
+    private void SubscribeBackplaneEvents()
+    {
+        if (_backplaneEventsSubscribed)
+        {
+            return;
+        }
+
+        var cache = Services.GetRequiredService<IFusionCache>();
+        if (!cache.HasBackplane)
+        {
+            return;
+        }
+
+        cache.Events.Backplane.MessagePublished += OnBackplaneMessagePublished;
+        cache.Events.Backplane.MessageReceived += OnBackplaneMessageReceived;
+        _backplaneEventsSubscribed = true;
+    }
+
+    private void OnBackplaneMessagePublished(
+        object? sender,
+        FusionCacheBackplaneMessageEventArgs args) =>
+        RecordBackplaneEvent("published", args);
+
+    private void OnBackplaneMessageReceived(
+        object? sender,
+        FusionCacheBackplaneMessageEventArgs args) =>
+        RecordBackplaneEvent("received", args);
+
+    private void RecordBackplaneEvent(
+        string direction,
+        FusionCacheBackplaneMessageEventArgs args)
+    {
+        lock (_backplaneEventsLock)
+        {
+            _backplaneEvents.Add(new BackplaneEventObservation(
+                direction,
+                args.Message.SourceId,
+                args.Message.Action.ToString(),
+                args.Message.CacheKey));
+        }
+    }
 }
 
 internal sealed record HostAuthorizationState(
     long RoleCount,
     long PermissionCount,
     long AssignmentCount);
+
+internal sealed record BackplaneEventObservation(
+    string Direction,
+    string? SourceId,
+    string Action,
+    string? CacheKey);
 
 internal sealed record HostTestIdentity(
     Guid UserId,

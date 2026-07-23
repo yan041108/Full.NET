@@ -271,6 +271,62 @@ SQL Server/MySQL API 聚焦 **2/2**、migration idempotence **2/2** 通过；API
 
 RED 为 **32/33**：闭包仅返回 API 与 Bridge，未发现第二跳 DbUp；GREEN 改为统一解析两种分隔符并用已访问集合递归遍历项目图，真实 API 闭包与两类夹具全部通过。首次 Task 4B RED 未在实现前实际运行的历史事实保持原记录，不以后补夹具伪装为首次 RED。
 
+## 增补（2026-07-23，Task 4F Tenancy Core/Http 拓扑合并）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **342 → 343** | 新增 Tenancy 合并后的宿主/模块装配回归断言 1 项；新鲜运行 **343/343** |
+| Architecture 门槛 **33 → 36** | 新增 Tenancy 单主项目拓扑、防止 Composition 回退引用 `.Http` 以及发布/导出边界相关门禁共 +3；新鲜运行 **36/36** |
+| Compatibility / Integration 门槛 | 保持 **7/109**；Task 4F 未增删这两套测试发现项 |
+| 四处 canonical 门槛 | **343/7/36/109**，已同步 README、getting-started、CI 与 Skill delivery-map |
+
+Tenancy API + TenantProvisioning SQL Server/MySQL 聚焦 Integration **4/4**、Development/Production Seed SQL Server/MySQL 聚焦 Integration **4/4**、`pnpm test:openapi` **14/14** 通过；三宿主 Release 发布物对 `Full.NET.Modules.Tenancy.Http` 的文本扫描为 **0** 命中。当前记录只声明 4F 相关聚焦验证与门槛同步已完成，不把上述结果表述为全量 Integration **109** 项已重跑。
+
+## 增补（2026-07-23，Task 13 PR 集成冒烟加宽）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit / Compatibility / Architecture / Integration 全量门槛 | 保持 **343/7/36/109**；Task 13 只调整 PR 快门禁 filter，不增删测试发现项 |
+| PR Integration smoke | **2 → 8**；由仅双库迁移冒烟升级为 Identity/Tenancy/Outbox 核心双库组合 |
+| PR smoke 稳定 filter | `SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema`、`MySql_migration_is_idempotent_and_creates_binary_outbox_schema`、`Login_and_current_user_follow_secure_http_contract`、`Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract`、`SqlServer_provisioning_is_atomic_and_writes_binary_outbox`、`MySql_provisioning_is_atomic_and_writes_binary_outbox` |
+| 四处 canonical 来源 | README、getting-started、CI 与 Skill delivery-map 已同步；`push main` 继续保持全量 **109** 项 |
+
+新鲜验证：按 PR filter 直接运行 `Full.NET.IntegrationTests.dll --minimum-expected-tests 8 --timeout 15m`，结果 **8/8** 通过，墙钟 **3m 42s**。本记录只证明 PR 快门禁组合稳定且满足 15 分钟目标，不把该结果表述为完整双库回归。
+
+## 增补（2026-07-23，Task 6 Outbox 最大重试 / 死信 / 版本共存）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **343 → 348** | 新增 `OutboxProcessorTests` 4 项（未知类型死信、坏载荷死信、最大尝试死信、Options 化领取）与 `IntegrationEventHandlerMatcherTests` 1 项（并行版本精确路由） |
+| Integration 门槛 **109 → 124** | 新增 `OutboxRecoveryTests` 6 项（双库未知版本死信、坏载荷死信、租约过期回收）与死信迁移/恢复相关 9 项；`--list-tests` 新鲜发现 **124** 项 |
+| 四处 canonical 门槛 | README、getting-started、CI 与 Skill delivery-map 已同步为 **348/7/36/124** |
+| 运维文档 | 新增 [Outbox Worker 运维说明](../operations/outbox-worker-topology.md)，记录默认数据库租约多副本模型、死信原因码与受控人工重放边界 |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| Unit 聚焦 | `OutboxProcessorTests|IntegrationEventHandlerMatcherTests`，`--minimum-expected-tests 11` | **11/11** 通过 |
+| Integration 聚焦 | `OutboxRecoveryTests|SqlServer_outbox_dead_letter_migration_recovers_partial_state|MySql_outbox_dead_letter_migration_recovers_partial_state|migration_is_idempotent_and_creates_binary_outbox_schema`，`--minimum-expected-tests 10` | **10/10** 通过，约 3m 09s |
+| Unit 全量 | `--minimum-expected-tests 348` | **348/348** 通过 |
+| Integration 发现 | `--list-tests` | **124** 项 |
+
+本增补只证明 Task 6 的代码、双库迁移、聚焦运行时恢复与门槛同步已完成；不把该结果表述为完整 Integration **124** 项或更高层能力整体 `Verified`。真实多副本压力基准、相邻版本升级链/版本退役扫描与受控人工重放自动化仍待后续任务补齐。
+
+## 增补（2026-07-23，Task 7 缓存一致性最小闭环）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **124 → 126** | 新增 `SqlServer_provisioning_clears_negative_domain_cache_before_outbox_processing` 与 `MySql_provisioning_clears_negative_domain_cache_before_outbox_processing` 2 项，锁定“先负缓存、再创建租户、主节点立即可见、第二节点在 Outbox 处理前仍陈旧”的双节点窗口 |
+| 四处 canonical 门槛 | README、getting-started、CI 与 Skill delivery-map 已同步为 **348/7/36/126** |
+| 能力状态 | `FusionCache + .AsHybridCache()` 已从 `Implemented` 提升为 `Build-verified`，但 Redis/Backplane 故障注入、延迟 Worker 与指标仍待补齐 |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| Integration 聚焦 | `FullyQualifiedName~CacheConsistencyTests`，`--minimum-expected-tests 2` | **2/2** 通过，约 1m 37s |
+| Integration 组合回归 | `FullyQualifiedName~TenantProvisioningTests|FullyQualifiedName~CacheConsistencyTests`，`--minimum-expected-tests 4` | **4/4** 通过，约 2m 25s |
+| Integration 发现 | `--list-tests` | **126** 项 |
+
+本增补只证明 Task 7 已完成“提交后本机同步失效 + Outbox 跨节点修复”的最小缓存一致性闭环与双库双节点聚焦验证；Redis/Backplane 中断、Redis 不可用/恢复、延迟 Worker、多实例指标和完整 S0/S1/S2 分级仍属后续任务，不把本记录表述为缓存能力整体 `Verified`。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

@@ -4,19 +4,15 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Caching.Fusion;
+using Full.NET.Composition;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.Hosting.Api;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
-using Full.NET.Modularity.Messaging;
-using Full.NET.Modularity.Modules;
-using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
-using Full.NET.Modules.Organization;
-using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
@@ -418,14 +414,11 @@ public sealed class DevelopmentSeedTests
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
-        services.AddFullNetModularity();
         services.AddFullNetDapper(configuration, environmentName);
         services.AddFullNetMessagePack();
         services.AddFullNetCaching(configuration, environmentName);
         services.AddFullNetSeeding(configuration);
-        services.AddFullNetModule<IdentityModule>(configuration);
-        services.AddFullNetModule<TenancyModule>(configuration);
-        services.AddFullNetModule<OrganizationModule>(configuration);
+        services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Migrator);
         configure?.Invoke(services);
 
         return services.BuildServiceProvider(new ServiceProviderOptions

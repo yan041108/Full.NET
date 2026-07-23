@@ -2,17 +2,18 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Microsoft.Extensions.Options;
+using global::MessagePack;
 
 namespace Full.NET.Host.Worker;
 
 internal sealed class OutboxProcessor(
     IServiceScopeFactory scopeFactory,
     IClock clock,
+    IOptions<OutboxWorkerOptions> options,
     ILogger<OutboxProcessor> logger) : BackgroundService
 {
-    private const int BatchSize = 20;
-    private static readonly TimeSpan LeaseDuration = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+    private readonly OutboxWorkerOptions _options = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -31,7 +32,10 @@ internal sealed class OutboxProcessor(
                 OutboxProcessorLog.BatchFailed(logger, exception);
             }
 
-            await Task.Delay(PollInterval, stoppingToken).ConfigureAwait(false);
+            await Task.Delay(
+                    TimeSpan.FromMilliseconds(_options.PollMilliseconds),
+                    stoppingToken)
+                .ConfigureAwait(false);
         }
     }
 
@@ -48,7 +52,10 @@ internal sealed class OutboxProcessor(
                 .GetServices<IIntegrationEventHandler>()
                 .ToArray();
             var messages = await store
-                .AcquireAsync(BatchSize, LeaseDuration, cancellationToken)
+                .AcquireAsync(
+                    _options.BatchSize,
+                    TimeSpan.FromSeconds(_options.LeaseSeconds),
+                    cancellationToken)
                 .ConfigureAwait(false);
             OutboxProcessorLog.MessagesLeased(logger, messages.Count);
 
@@ -81,7 +88,8 @@ internal sealed class OutboxProcessor(
                     "application/x-msgpack",
                     StringComparison.Ordinal))
             {
-                throw new InvalidOperationException(
+                throw new OutboxPermanentException(
+                    OutboxDeadLetterReasons.UnsupportedContentType,
                     $"Unsupported Outbox content type '{message.ContentType}'.");
             }
 
@@ -89,9 +97,17 @@ internal sealed class OutboxProcessor(
                 handlers,
                 message.MessageType,
                 message.SchemaVersion);
-            if (matchingHandlers.Count != 1)
+            if (matchingHandlers.Count == 0)
             {
-                throw new InvalidOperationException(
+                throw new OutboxPermanentException(
+                    OutboxDeadLetterReasons.HandlerNotFound,
+                    $"Expected one handler for '{message.MessageType}' schema {message.SchemaVersion}, but found none.");
+            }
+
+            if (matchingHandlers.Count > 1)
+            {
+                throw new OutboxPermanentException(
+                    OutboxDeadLetterReasons.AmbiguousHandler,
                     $"Expected one handler for '{message.MessageType}' schema {message.SchemaVersion}, "
                     + $"but found {matchingHandlers.Count}.");
             }
@@ -118,8 +134,32 @@ internal sealed class OutboxProcessor(
         }
         catch (Exception exception)
         {
-            var retryAt = clock.UtcNow.Add(CalculateBackoff(message.Attempts));
             var error = $"{exception.GetType().Name}: {exception.Message}";
+            if (TryGetDeadLetterReasonCode(message, exception, out var reasonCode))
+            {
+                var deadLetteredAt = clock.UtcNow;
+                await store
+                    .MarkDeadLetterAsync(
+                        message.Id,
+                        message.LockId,
+                        error,
+                        reasonCode,
+                        deadLetteredAt,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                OutboxProcessorLog.MessageDeadLettered(
+                    logger,
+                    exception,
+                    message.Id,
+                    message.MessageType,
+                    message.SchemaVersion,
+                    message.Attempts,
+                    reasonCode,
+                    deadLetteredAt);
+                return;
+            }
+
+            var retryAt = clock.UtcNow.Add(CalculateBackoff(message.Attempts));
             await store
                 .MarkFailedAsync(
                     message.Id,
@@ -137,6 +177,35 @@ internal sealed class OutboxProcessor(
                 message.Attempts,
                 retryAt);
         }
+    }
+
+    private bool TryGetDeadLetterReasonCode(
+        OutboxEnvelope message,
+        Exception exception,
+        out string reasonCode)
+    {
+        if (exception is OutboxPermanentException permanentException)
+        {
+            reasonCode = permanentException.ReasonCode;
+            return true;
+        }
+
+        if (exception is MessagePackSerializationException
+            || exception is FormatException
+            || exception is InvalidDataException)
+        {
+            reasonCode = OutboxDeadLetterReasons.InvalidPayload;
+            return true;
+        }
+
+        if (message.Attempts >= _options.MaxAttempts)
+        {
+            reasonCode = OutboxDeadLetterReasons.MaxAttemptsExceeded;
+            return true;
+        }
+
+        reasonCode = string.Empty;
+        return false;
     }
 
     private static TimeSpan CalculateBackoff(int attempts)
@@ -181,6 +250,26 @@ internal static partial class OutboxProcessorLog
     [LoggerMessage(
         EventId = 3003,
         Level = LogLevel.Error,
+        Message = "Dead-lettered Outbox message {MessageId} ({EventType} v{SchemaVersion}, attempt {Attempts}); reason {ReasonCode}, dead-lettered at {DeadLetteredAt}")]
+    public static partial void MessageDeadLettered(
+        ILogger logger,
+        Exception exception,
+        Guid messageId,
+        string eventType,
+        int schemaVersion,
+        int attempts,
+        string reasonCode,
+        DateTimeOffset deadLetteredAt);
+
+    [LoggerMessage(
+        EventId = 3004,
+        Level = LogLevel.Error,
         Message = "Outbox polling iteration failed")]
     public static partial void BatchFailed(ILogger logger, Exception exception);
+}
+
+internal sealed class OutboxPermanentException(string reasonCode, string message)
+    : InvalidOperationException(message)
+{
+    public string ReasonCode { get; } = reasonCode;
 }

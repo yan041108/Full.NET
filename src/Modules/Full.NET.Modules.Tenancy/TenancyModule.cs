@@ -3,17 +3,17 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
+using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.GetCurrentTenant;
 using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 using Full.NET.Modules.Tenancy.Persistence;
-using Full.NET.Modules.Tenancy.Serialization;
 using Full.NET.Modules.Tenancy.Resources;
 using Full.NET.Modules.Tenancy.Seeding;
+using Full.NET.Modules.Tenancy.Serialization;
 using Full.NET.Seeding.Abstractions;
-using Full.NET.Hosting.Api;
-using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Validation.FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -34,32 +34,18 @@ public sealed class TenancyModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        AddMigrationServices(services, configuration);
+
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             TenancyAuthorizationContributor>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             TenancyErrorResourceSource>());
-        services.AddOptions<TenancyOptions>()
-            .Bind(configuration.GetSection(TenancyOptions.SectionName));
-        services.AddFullNetFluentValidation();
-        services.TryAddScoped<
-            IValidator<ProvisionTenantCommand>,
-            ProvisionTenantCommandValidator>();
         AddBackgroundServices(services, configuration);
-        services.TryAddSingleton<IClock, SystemClock>();
-        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
-
-        services.AddScoped<
-            ICommandHandler<ProvisionTenantCommand, TenantSummary>,
-            Features.ProvisionTenant.Handler>();
         services.AddScoped<
             IQueryHandler<GetCurrentTenantQuery, TenantSummary>,
             Features.GetCurrentTenant.Handler>();
-        services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IDataSeedContributor,
-            LocalTenantSeedContributor>());
         services.AddScoped<ITenantResolver, TenantResolver>();
         services.AddScoped<
             IQueryHandler<
@@ -69,12 +55,33 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<
             ICommandHandler<
                 Features.ChangeTenantContext.Command,
-                Full.NET.Modules.Identity.Contracts.TenantContextTokenResponse>,
+                TenantContextTokenResponse>,
             Features.ChangeTenantContext.Handler>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 TenancyJsonSerializerContext.Default));
+    }
+
+    public void AddMigrationServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<TenancyOptions>()
+            .Bind(configuration.GetSection(TenancyOptions.SectionName));
+        services.AddFullNetFluentValidation();
+        services.TryAddScoped<
+            IValidator<ProvisionTenantCommand>,
+            ProvisionTenantCommandValidator>();
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.AddScoped<
+            ICommandHandler<ProvisionTenantCommand, TenantSummary>,
+            Features.ProvisionTenant.Handler>();
+        services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDataSeedContributor,
+            LocalTenantSeedContributor>());
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -86,7 +93,7 @@ public sealed class TenancyModule : IFullNetModule
     }
 
     /// <summary>
-    /// 注册 Worker 消费租户事件所需的最小后台能力；不引入 HTTP、认证与完整模块依赖图。
+    /// 注册 Worker 消费租户事件所需的最小后台能力；不引入额外的模块拆分来承载唯一后台消费者。
     /// </summary>
     public void AddBackgroundServices(
         IServiceCollection services,

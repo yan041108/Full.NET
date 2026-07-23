@@ -19,6 +19,17 @@ public interface IFullNetModule
 
     void AddServices(IServiceCollection services, IConfiguration configuration);
 
+    /// <summary>
+    /// 注册模块在 Migrator 等迁移/Seed 宿主中需要的最小闭包，只包含 Contributor 及其传递依赖。
+    /// </summary>
+    /// <remarks>
+    /// 默认没有迁移/Seed 专用注册。若模块存在真实 <c>IDataSeedContributor</c> 或迁移宿主依赖，
+    /// 必须显式实现该方法，避免 Migrator 复用完整 <see cref="AddServices"/> 装入 HTTP、认证与权限运行时。
+    /// </remarks>
+    void AddMigrationServices(IServiceCollection services, IConfiguration configuration)
+    {
+    }
+
     void MapEndpoints(IEndpointRouteBuilder endpoints);
 
     /// <summary>

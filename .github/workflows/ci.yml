@@ -199,7 +199,7 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 342
+          --minimum-expected-tests 348
 
       - name: Compatibility tests
         run: >-
@@ -213,17 +213,17 @@ jobs:
           dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 33
+          --minimum-expected-tests 36
 
-      # PR 快门禁：只跑双库冒烟，快速反馈；完整双库矩阵放到 push main。
+      # PR 快门禁：覆盖 Identity/Tenancy/Outbox 核心双库场景，完整双库矩阵放到 push main。
       - name: Integration smoke (dual-provider)
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         run: >-
           dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
           --no-ansi
           --progress off
-          --filter "migration_is_idempotent_and_creates_binary_outbox_schema"
-          --minimum-expected-tests 2
+          --filter "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox"
+          --minimum-expected-tests 8
           --timeout 15m
 
       # 完整双库集成矩阵：仅在 push main 执行，避免每个 PR 承担长墙钟。
@@ -233,7 +233,7 @@ jobs:
           dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 109
+          --minimum-expected-tests 126
           --timeout 90m
           --report-trx
           --report-trx-filename Full.NET.IntegrationTests.trx

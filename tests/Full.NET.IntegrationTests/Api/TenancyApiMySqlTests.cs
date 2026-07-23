@@ -6,7 +6,7 @@ namespace Full.NET.IntegrationTests.Api;
 public sealed class TenancyApiMySqlTests
 {
     [TestMethod]
-    public async Task Api_resolves_tenant_and_returns_standard_http_contract()
+    public async Task Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract()
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,

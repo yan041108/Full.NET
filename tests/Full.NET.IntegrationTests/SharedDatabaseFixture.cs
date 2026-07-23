@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using MySqlConnector;
 using Testcontainers.MsSql;
 using Testcontainers.MySql;
+using Testcontainers.Redis;
 
 namespace Full.NET.IntegrationTests;
 
@@ -18,6 +19,7 @@ public static class SharedDatabaseFixture
         "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04";
 
     private const string MySqlImage = "mysql:8.0";
+    private const string RedisImage = "redis:8.6";
 
     // SQL Server 的 sa 与 MySQL 的 root 均使用该口令；MySQL 应用账户与官方表命名保持一致。
     private const string Password = "FullNet_Test!123";
@@ -26,6 +28,7 @@ public static class SharedDatabaseFixture
 
     private static MsSqlContainer? _sqlServer;
     private static MySqlContainer? _mySql;
+    private static RedisContainer? _redis;
 
     private static MsSqlContainer SqlServerContainer =>
         _sqlServer ?? throw new InvalidOperationException(
@@ -34,6 +37,10 @@ public static class SharedDatabaseFixture
     private static MySqlContainer MySqlContainer =>
         _mySql ?? throw new InvalidOperationException(
             "共享 MySQL 容器尚未初始化。");
+
+    private static RedisContainer RedisContainer =>
+        _redis ?? throw new InvalidOperationException(
+            "共享 Redis 容器尚未初始化。");
 
     [AssemblyInitialize]
     public static async Task InitializeAsync(TestContext testContext)
@@ -48,16 +55,25 @@ public static class SharedDatabaseFixture
             .WithUsername(MySqlAppUser)
             .WithPassword(Password)
             .Build();
+        _redis = new RedisBuilder(RedisImage)
+            .Build();
 
-        // 两个数据库引擎的 boot 相互独立，并行启动进一步缩短程序集初始化时间。
+        // 两个数据库引擎与 Redis 的 boot 相互独立，并行启动进一步缩短程序集初始化时间。
         await Task.WhenAll(
             _sqlServer.StartAsync(),
-            _mySql.StartAsync());
+            _mySql.StartAsync(),
+            _redis.StartAsync());
     }
 
     [AssemblyCleanup]
     public static async Task CleanupAsync()
     {
+        if (_redis is not null)
+        {
+            await _redis.DisposeAsync();
+            _redis = null;
+        }
+
         if (_mySql is not null)
         {
             await _mySql.DisposeAsync();
@@ -117,6 +133,11 @@ public static class SharedDatabaseFixture
             Database = databaseName,
         }.ConnectionString;
     }
+
+    /// <summary>
+    /// 返回共享 Redis 容器的连接串，供需要 Backplane/分布式缓存的测试宿主复用。
+    /// </summary>
+    public static string GetRedisConnectionString() => RedisContainer.GetConnectionString();
 
     // 库名需短于 MySQL 的 64 字符上限并且是合法标识符；固定前缀 + N 格式 GUID 满足两库要求。
     private static string CreateDatabaseName() =>

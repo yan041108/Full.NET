@@ -5,6 +5,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Host.Worker;
 using Full.NET.Serialization.MessagePack;
+using Microsoft.Extensions.Options;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.AddFullNetServiceDefaults();
@@ -16,6 +17,12 @@ builder.Services.AddFullNetMessagePack();
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
+builder.Services.AddOptions<OutboxWorkerOptions>()
+    .Bind(builder.Configuration.GetSection(OutboxWorkerOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<
+    IValidateOptions<OutboxWorkerOptions>,
+    OutboxWorkerOptionsValidator>();
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Worker);

@@ -30,11 +30,19 @@ public static class FullNetModuleCatalog
         switch (profile)
         {
             case FullNetHostProfile.Api:
-            case FullNetHostProfile.Migrator:
                 services.AddFullNetModularity();
                 foreach (var module in CreateModules())
                 {
                     services.AddFullNetModule(module, configuration);
+                }
+
+                break;
+
+            case FullNetHostProfile.Migrator:
+                services.AddFullNetModularity();
+                foreach (var module in CreateModules())
+                {
+                    module.AddMigrationServices(services, configuration);
                 }
 
                 break;

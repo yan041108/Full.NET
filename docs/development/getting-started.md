@@ -18,28 +18,31 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 342
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 348
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 33
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 36
 ```
 
-集成测试按风险分三档（共享 SQL Server/MySQL 容器 + 每测独立库；墙钟瓶颈是全量 DbUp，不是容器启动）：
+集成测试默认按“日常 / PR / 发布”三档组织（共享 SQL Server/MySQL 容器 + 每测独立库；墙钟瓶颈是全量 DbUp，不是容器启动）：
 
 | 档位 | 何时用 | 命令要点 |
 | --- | --- | --- |
-| 日常 | 默认本地验证 | 双库冒烟 2 项，`--timeout 15m` |
-| 聚焦 | 改迁移 / Naming / UUID / Outbox SQL | `--filter` 只跑相关用例 |
-| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 109 --timeout 90m` |
+| 日常 | 默认本地验证 | 双库迁移 / Outbox schema 冒烟 2 项，`--timeout 15m` |
+| PR | 合入前快门禁、CI PR | Identity/Tenancy/Outbox 核心双库场景 8 项，`--timeout 15m` |
+| 发布 | 合入 `main`、发布候选 | 全量 `--minimum-expected-tests 126 --timeout 90m` |
 
 ```powershell
 # 日常：双库冒烟
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "migration_is_idempotent_and_creates_binary_outbox_schema" --minimum-expected-tests 2 --timeout 15m
 
-# 聚焦：命名 Expand/Contract（合并门禁后约 19 项）
+# PR：Identity/Tenancy/Outbox 核心双库快门禁
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox" --minimum-expected-tests 8 --timeout 15m
+
+# 聚焦补充：命名 Expand/Contract（合并门禁后约 19 项）
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery" --minimum-expected-tests 19 --timeout 45m
 
 # 发布：完整双库矩阵
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 109 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 126 --timeout 90m
 ```
 
 集成测试会通过 Testcontainers 启动真实 SQL Server 和 MySQL，因此 Docker 必须保持运行。
@@ -49,10 +52,10 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 ### 2.0 集成测试分层门禁说明
 
 - **分层只改变何时跑完整双库，不降低覆盖**：数据库行为变更在合入前仍须双库相关 filter 或全量全绿；禁止把「未执行」表述为「通过」。
-- CI：PR 当前只跑双库迁移冒烟 2 项；完整矩阵仅在 `push main` 执行（见 `.github/workflows/ci.yml`，超时 90m）。加宽 PR 冒烟至 Identity/Tenancy/Outbox 核心场景见[硬化计划 Task 13](../superpowers/plans/2026-07-18-architecture-hardening.md)，落地前不得宣称 PR 已覆盖业务集成回归。
+- CI：PR 当前已跑 Identity/Tenancy/Outbox 核心双库快门禁 8 项；完整矩阵仅在 `push main` 执行（见 `.github/workflows/ci.yml`，超时 90m）。数据库结构或 Outbox SQL 变更的 PR 仍须额外跑相关聚焦 filter 或全量，不能把快门禁当成完整双库回归。
 - 方法级并行 Worker 数在 `tests/Full.NET.IntegrationTests/MSTestSettings.cs`（默认 2）；本机验证稳定后再酌情上调。
 - Naming Contract 的 5 个维护门禁已合并为单测同库连试，避免 DataRow 重复 Through010 准备。
-- Worker/Outbox 多副本：领取依赖数据库租约而非默认 Leader Election；部署约束与压力验证见硬化计划 Task 6 扩展，运维文档待补。
+- Worker/Outbox 多副本：领取依赖数据库租约而非默认 Leader Election；部署约束、死信原因码和受控人工重放边界见 [Outbox Worker 运维说明](../operations/outbox-worker-topology.md)。
 
 ### 2.1 客户端工作区与双管理端
 
@@ -157,6 +160,14 @@ dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 3. API 和 Worker 启动；
 4. API 的 `/health/live`、`/health/ready`、`/health/startup` 返回健康状态。
 
+健康端点当前语义如下：
+
+- `/health/live`：只证明进程已启动并能响应，不检查数据库、Redis 或 Schema Contract。
+- `/health/ready`：检查当前数据库连通性；若已配置 Redis，还会追加 Redis ready 探针。任一依赖失败都返回非 2xx。
+- `/health/startup`：通过只读查询 `fn_uuid_contract_state` 证明当前数据库已经完成必须的 Schema Contract 迁移；缺表、缺记录或数据库不可达都返回非 2xx。
+
+`/health/ready` 与 `/health/startup` 不再接受空标签集合映射成 Healthy；若宿主没有真实检查，启动时映射端点会直接失败，避免把“空集合成功”误当成编排器可采用的成功信号。
+
 AppHost 默认使用 SQL Server。切换到 MySQL，可修改 `src/Hosts/Full.NET.AppHost/appsettings.json`：
 
 ```json
@@ -239,7 +250,11 @@ MySQL 运维排障时，可在只读会话用 `BIN_TO_UUID(column, 0)` 将 RFC 9
 
 FusionCache 是唯一缓存实现，业务代码可以依赖 `IFusionCache`，也可以依赖由 `.AsHybridCache()` 暴露的 Microsoft `HybridCache`；两者指向同一个底层实例。
 
+安全关键缓存不能只依赖异步 Outbox/Backplane 修复。本地写事务成功提交后，当前进程必须先同步清理自身缓存，再由 Outbox/Backplane 负责其他节点收敛；当前 Tenancy 域名解析缓存已按该边界实现最小闭环，并有双 API 节点 SQL Server/MySQL 集成测试锁定“主节点立即可见、第二节点在 Outbox 处理前仍陈旧”的窗口。
+
 没有 Redis 连接串时，框架退化为单进程内存缓存，适合单实例开发和轻量部署。多实例部署必须配置 `ConnectionStrings__redis` 或 `Cache__RedisConnectionString`，以启用分布式缓存和 Redis Backplane。租户缓存 key 必须通过 `CacheKeyBuilder` 构建，失效优先使用租户/域名 tag。
+
+一旦配置 Redis，`/health/ready` 会把 Redis 探针纳入就绪判断；因此编排器或反向代理不能只看 `live`，必须用 `ready` 判断当前实例是否可接收流量。
 
 ## 6. HTTP、JSON 与 Admin.NET 兼容
 
@@ -270,7 +285,7 @@ Validator 只放输入结构规则，例如必填、格式、范围和长度。�
 
 当前进程内调用使用强类型 Contracts。事务性集成事件写入 `fn_outbox_message`，payload 固定为 `application/x-msgpack`，并同时保存事件 `Type`、`SchemaVersion`、租户、trace 和发生时间。
 
-Worker 以租约方式批量获取消息，按 `(EventType, SchemaVersion)` 精确匹配唯一处理器。成功后才标记完成；失败会释放租约并指数退避。处理器必须幂等，因为至少一次投递允许重复执行。禁止为 Outbox 增加 JSON fallback、typeless 或 contractless MessagePack resolver；合约成员必须使用稳定、唯一的整数 key。
+Worker 以租约方式批量获取消息，按 `(EventType, SchemaVersion)` 精确匹配唯一处理器。成功后才标记完成；临时失败会释放租约并指数退避；不支持的线格式、缺失/歧义处理器、坏载荷以及达到 `OutboxWorker:MaxAttempts` 上限的消息会进入死信终态，并保留 `DeadLetteredAtUtc`、`DeadLetterReasonCode` 与错误摘要供审计和受控重放。默认多副本拓扑依赖数据库租约，运行时参数通过 `OutboxWorker` 配置节提供 `BatchSize`、`LeaseSeconds`、`PollMilliseconds` 与 `MaxAttempts`。禁止为 Outbox 增加 JSON fallback、typeless 或 contractless MessagePack resolver；合约成员必须使用稳定、唯一的整数 key。
 
 ## 9. 日志与可观测性
 

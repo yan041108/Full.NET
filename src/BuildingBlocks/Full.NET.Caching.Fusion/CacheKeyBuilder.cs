@@ -2,6 +2,26 @@ namespace Full.NET.Caching.Fusion;
 
 public static class CacheKeyBuilder
 {
+    public static string TenantResolutionByDomain(
+        string environment,
+        string domain) =>
+        ForGlobal(
+            environment,
+            "tenancy",
+            "domain",
+            NormalizeDomain(domain),
+            "v1");
+
+    public static string TenantResolutionById(
+        string environment,
+        Guid tenantId) =>
+        ForGlobal(
+            environment,
+            "tenancy",
+            "id",
+            tenantId.ToString("N"),
+            "v1");
+
     public static string ForTenant(
         string environment,
         Guid tenantId,
@@ -37,5 +57,11 @@ public static class CacheKeyBuilder
     }
 
     public static string DomainTag(string domain) =>
-        $"tenancy:domain:{domain.ToLowerInvariant()}";
+        $"tenancy:domain:{NormalizeDomain(domain)}";
+
+    private static string NormalizeDomain(string domain)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(domain);
+        return domain.Trim().TrimEnd('.').ToLowerInvariant();
+    }
 }

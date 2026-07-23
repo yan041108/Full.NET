@@ -19,12 +19,9 @@ internal sealed class TenantResolver(
         CancellationToken cancellationToken = default)
     {
         var normalizedDomain = NormalizeDomain(domain);
-        var cacheKey = CacheKeyBuilder.ForGlobal(
+        var cacheKey = CacheKeyBuilder.TenantResolutionByDomain(
             environment.EnvironmentName,
-            "tenancy",
-            "domain",
-            normalizedDomain,
-            "v1");
+            normalizedDomain);
         var domainTag = CacheKeyBuilder.DomainTag(normalizedDomain);
         var loaded = false;
 
@@ -72,12 +69,9 @@ internal sealed class TenantResolver(
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
-        var cacheKey = CacheKeyBuilder.ForGlobal(
+        var cacheKey = CacheKeyBuilder.TenantResolutionById(
             environment.EnvironmentName,
-            "tenancy",
-            "id",
-            tenantId.ToString("N"),
-            "v1");
+            tenantId);
         var loaded = false;
         var entry = await cache.GetOrCreateAsync(
                 cacheKey,

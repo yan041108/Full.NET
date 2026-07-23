@@ -147,13 +147,13 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
-    public void BusinessModuleCores_DoNotDependOnAspNetCore()
+    public void Standalone_contract_projects_do_not_depend_on_aspnetcore()
     {
-        // Core（业务逻辑与跨模块契约）必须可脱离 ASP.NET Core 运行，Web 面只允许存在于 .Http 承载程序集。
+        // 仅独立 Contracts 项目必须保持 web-free；当模块没有真实消费者支撑单独 .Http 时，主项目可以直接承载 Web 面。
         var coreAssemblies = new[]
         {
-            typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
             typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
+            typeof(Full.NET.Modules.Organization.Contracts.OrganizationErrorCodes).Assembly,
         };
 
         var offenders = coreAssemblies
@@ -171,31 +171,51 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
-    public void Tenancy_ExportsOnlyContractsAndCompositionEntryPoints()
+    public void Tenancy_ExportsOnlyContractsAndModuleEntryPoint_FromSingleModuleAssembly()
     {
-        // Core 仅对外暴露跨模块契约命名空间；业务实现（Handler、Resolver、Options 等）保持 internal。
-        var coreUnexpectedTypes = typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly
+        var exportedTypes = typeof(TenancyModule).Assembly
             .GetExportedTypes()
-            .Where(type => type.Namespace != "Full.NET.Modules.Tenancy.Contracts")
             .Select(type => type.FullName)
+            .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.HasCount(
-            0,
-            coreUnexpectedTypes,
-            string.Join(Environment.NewLine, coreUnexpectedTypes));
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                typeof(Full.NET.Modules.Tenancy.Contracts.ChangeTenantContextRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ITenantProvisioningService).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.ProvisionTenantRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenancyErrorCodes).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantContextSummary).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisionedIntegrationEvent).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).FullName,
+                typeof(TenancyModule).FullName,
+            },
+            exportedTypes);
+    }
 
-        // Http 承载程序集仅暴露模块入口 TenancyModule；Endpoint 与中间件保持 internal。
-        var httpUnexpectedTypes = typeof(TenancyModule).Assembly
-            .GetExportedTypes()
-            .Where(type => type != typeof(TenancyModule))
-            .Select(type => type.FullName)
+    [TestMethod]
+    public void Composition_uses_tenancy_core_project_instead_of_http_split_project()
+    {
+        var root = FindRepositoryRoot();
+        var compositionProjectPath = Path.Combine(
+            root,
+            "src",
+            "Composition",
+            "Full.NET.Composition",
+            "Full.NET.Composition.csproj");
+        var projectReferences = XDocument.Load(compositionProjectPath)
+            .Descendants()
+            .Where(element => element.Name.LocalName == "ProjectReference")
+            .Select(element => element.Attribute("Include")?.Value ?? string.Empty)
             .ToArray();
 
-        Assert.HasCount(
-            0,
-            httpUnexpectedTypes,
-            string.Join(Environment.NewLine, httpUnexpectedTypes));
+        CollectionAssert.Contains(
+            projectReferences,
+            @"..\..\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj");
+        CollectionAssert.DoesNotContain(
+            projectReferences,
+            @"..\..\Modules\Full.NET.Modules.Tenancy.Http\Full.NET.Modules.Tenancy.Http.csproj");
     }
 
     [TestMethod]

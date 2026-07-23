@@ -5,7 +5,9 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Host.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
+using global::MessagePack;
 
 namespace Full.NET.UnitTests.Outbox;
 
@@ -22,10 +24,7 @@ public sealed class OutboxProcessorTests
         var wrongVersion = new RecordingHandler(message.MessageType, message.SchemaVersion + 1);
         var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
         await using var provider = CreateProvider(store, matching, wrongType, wrongVersion);
-        var processor = new OutboxProcessor(
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            new FixedClock(now),
-            NullLogger<OutboxProcessor>.Instance);
+        var processor = CreateProcessor(provider, now);
 
         await processor.ProcessOnceAsync(CancellationToken.None);
 
@@ -43,6 +42,13 @@ public sealed class OutboxProcessorTests
             string.Empty,
             default,
             default);
+        await store.DidNotReceiveWithAnyArgs().MarkDeadLetterAsync(
+            default,
+            default,
+            string.Empty,
+            string.Empty,
+            default,
+            default);
     }
 
     [TestMethod]
@@ -53,10 +59,7 @@ public sealed class OutboxProcessorTests
         var handler = new ThrowingHandler(message.MessageType, message.SchemaVersion);
         var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
         await using var provider = CreateProvider(store, handler);
-        var processor = new OutboxProcessor(
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            new FixedClock(now),
-            NullLogger<OutboxProcessor>.Instance);
+        var processor = CreateProcessor(provider, now);
 
         await processor.ProcessOnceAsync(CancellationToken.None);
 
@@ -68,6 +71,13 @@ public sealed class OutboxProcessorTests
             Arg.Any<CancellationToken>());
         await store.DidNotReceiveWithAnyArgs().MarkProcessedAsync(
             default,
+            default,
+            default);
+        await store.DidNotReceiveWithAnyArgs().MarkDeadLetterAsync(
+            default,
+            default,
+            string.Empty,
+            string.Empty,
             default,
             default);
     }
@@ -84,10 +94,7 @@ public sealed class OutboxProcessorTests
         var handler = new LegacyAliasHandler(canonicalType, legacyType);
         var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
         await using var provider = CreateProvider(store, handler);
-        var processor = new OutboxProcessor(
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            new FixedClock(now),
-            NullLogger<OutboxProcessor>.Instance);
+        var processor = CreateProcessor(provider, now);
 
         await processor.ProcessOnceAsync(CancellationToken.None);
 
@@ -99,29 +106,123 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
-    public async Task ProcessOnceAsync_OnUnknownEventTypeMarksRetryWithFutureBackoff()
+    public async Task ProcessOnceAsync_OnUnknownEventTypeDeadLettersMessageAndContinuesBatch()
     {
-        var message = CreateMessage(attempts: 2, messageType: "fullnet.unknown.event");
-        var store = CreateStore(message);
-        var handler = new RecordingHandler("fullnet.test.event", 1);
+        var deadLetter = CreateMessage(attempts: 2, messageType: "fullnet.unknown.event");
+        var next = CreateMessage(attempts: 1);
+        var store = CreateStore(deadLetter, next);
+        var handler = new RecordingHandler(next.MessageType, next.SchemaVersion);
         var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
         await using var provider = CreateProvider(store, handler);
-        var processor = new OutboxProcessor(
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            new FixedClock(now),
-            NullLogger<OutboxProcessor>.Instance);
+        var processor = CreateProcessor(provider, now);
 
         await processor.ProcessOnceAsync(CancellationToken.None);
 
-        await store.Received(1).MarkFailedAsync(
+        await store.Received(1).MarkDeadLetterAsync(
+            deadLetter.Id,
+            deadLetter.LockId,
+            Arg.Is<string>(error => !string.IsNullOrWhiteSpace(error)),
+            OutboxDeadLetterReasons.HandlerNotFound,
+            Arg.Is<DateTimeOffset>(deadLetteredAt => deadLetteredAt == now),
+            Arg.Any<CancellationToken>());
+        await store.Received(1).MarkProcessedAsync(
+            next.Id,
+            next.LockId,
+            Arg.Any<CancellationToken>());
+        Assert.AreEqual(1, handler.HandledCount);
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_OnInvalidPayloadDeadLettersMessageImmediately()
+    {
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var handler = new PoisonPayloadHandler(message.MessageType, message.SchemaVersion);
+        var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = CreateProcessor(provider, now);
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        await store.Received(1).MarkDeadLetterAsync(
             message.Id,
             message.LockId,
             Arg.Is<string>(error => !string.IsNullOrWhiteSpace(error)),
-            Arg.Is<DateTimeOffset>(retryAt => retryAt > now),
+            OutboxDeadLetterReasons.InvalidPayload,
+            Arg.Is<DateTimeOffset>(deadLetteredAt => deadLetteredAt == now),
+            Arg.Any<CancellationToken>());
+        await store.DidNotReceiveWithAnyArgs().MarkFailedAsync(
+            default,
+            default,
+            string.Empty,
+            default,
+            default);
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_WhenMaxAttemptsReachedDeadLettersTransientFailure()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            MaxAttempts = 3,
+        };
+        var message = CreateMessage(attempts: options.MaxAttempts);
+        var store = CreateStore(message);
+        var handler = new ThrowingHandler(message.MessageType, message.SchemaVersion);
+        var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = CreateProcessor(provider, now, options);
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        await store.Received(1).MarkDeadLetterAsync(
+            message.Id,
+            message.LockId,
+            Arg.Is<string>(error => !string.IsNullOrWhiteSpace(error)),
+            OutboxDeadLetterReasons.MaxAttemptsExceeded,
+            Arg.Is<DateTimeOffset>(deadLetteredAt => deadLetteredAt == now),
+            Arg.Any<CancellationToken>());
+        await store.DidNotReceiveWithAnyArgs().MarkFailedAsync(
+            default,
+            default,
+            string.Empty,
+            default,
+            default);
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_UsesConfiguredBatchAndLeaseOptions()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            BatchSize = 7,
+            LeaseSeconds = 45,
+        };
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var handler = new RecordingHandler(message.MessageType, message.SchemaVersion);
+        var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = CreateProcessor(provider, now, options);
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        await store.Received(1).AcquireAsync(
+            options.BatchSize,
+            TimeSpan.FromSeconds(options.LeaseSeconds),
             Arg.Any<CancellationToken>());
     }
 
-    private static IOutboxStore CreateStore(OutboxEnvelope message)
+    private static OutboxProcessor CreateProcessor(
+        ServiceProvider provider,
+        DateTimeOffset now,
+        OutboxWorkerOptions? options = null) => new(
+        provider.GetRequiredService<IServiceScopeFactory>(),
+        new FixedClock(now),
+        Options.Create(options ?? new OutboxWorkerOptions()),
+        NullLogger<OutboxProcessor>.Instance);
+
+    private static IOutboxStore CreateStore(params OutboxEnvelope[] messages)
     {
         var store = Substitute.For<IOutboxStore>();
         store
@@ -129,7 +230,7 @@ public sealed class OutboxProcessorTests
                 Arg.Any<int>(),
                 Arg.Any<TimeSpan>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<OutboxEnvelope>>([message]));
+            .Returns(Task.FromResult<IReadOnlyList<OutboxEnvelope>>(messages));
         return store;
     }
 
@@ -150,12 +251,14 @@ public sealed class OutboxProcessorTests
 
     private static OutboxEnvelope CreateMessage(
         int attempts,
-        string messageType = "fullnet.test.event") => new(
+        string messageType = "fullnet.test.event",
+        int schemaVersion = 1,
+        string contentType = "application/x-msgpack") => new(
         Guid.CreateVersion7(),
         Guid.CreateVersion7(),
         messageType,
-        1,
-        "application/x-msgpack",
+        schemaVersion,
+        contentType,
         Guid.CreateVersion7(),
         "0123456789abcdef0123456789abcdef",
         [1, 2, 3, 4],
@@ -214,6 +317,19 @@ public sealed class OutboxProcessorTests
             ReadOnlyMemory<byte> payload,
             CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Handler failed.");
+    }
+
+    private sealed class PoisonPayloadHandler(string eventType, int schemaVersion)
+        : IIntegrationEventHandler
+    {
+        public string EventType => eventType;
+
+        public int SchemaVersion => schemaVersion;
+
+        public Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken) =>
+            throw new MessagePackSerializationException("Bad payload.");
     }
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock

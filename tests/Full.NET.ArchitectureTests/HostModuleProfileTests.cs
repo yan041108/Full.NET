@@ -59,6 +59,28 @@ public sealed class HostModuleProfileTests
         }
     }
 
+    [TestMethod]
+    public void Composition_catalog_uses_migration_registration_hook_for_migrator_profile()
+    {
+        var root = FindRepositoryRoot();
+        var source = File.ReadAllText(Path.Combine(
+            root,
+            "src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs".Replace(
+                '/',
+                Path.DirectorySeparatorChar)));
+
+        StringAssert.Contains(source, "case FullNetHostProfile.Migrator:");
+        StringAssert.Contains(source, "module.AddMigrationServices(services, configuration);");
+        Assert.IsFalse(
+            source.Contains(
+                "case FullNetHostProfile.Migrator:\r\n                services.AddFullNetModularity();\r\n                foreach (var module in CreateModules())\r\n                {\r\n                    services.AddFullNetModule(module, configuration);",
+                StringComparison.Ordinal)
+            || source.Contains(
+                "case FullNetHostProfile.Migrator:\n                services.AddFullNetModularity();\n                foreach (var module in CreateModules())\n                {\n                    services.AddFullNetModule(module, configuration);",
+                StringComparison.Ordinal),
+            "Migrator Profile 只能通过最小迁移/Seed 注册入口装配模块，不能继续复用完整模块 AddServices。");
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

@@ -231,6 +231,8 @@
 
 ### Task 4C: Migrator 建立最小 Migration/Seed Profile（2026-07-22 P1）
 
+**状态：已完成（2026-07-22）。** Migrator 已改为通过 `IFullNetModule.AddMigrationServices(...)` 只装配 Migration/Seed 最小闭包；Identity/Tenancy 将 Contributor 及其传递依赖从完整 HTTP/认证运行时中拆分，Organization 保持默认空实现。Unit **21/21**、Architecture **3/3**、Seeding SQL Server/MySQL Integration **6/6** 通过，模块与运行角色边界恢复 `Build-verified`。
+
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Modularity/Modules/IFullNetModule.cs`
 - Modify: `src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs`
@@ -244,23 +246,25 @@
 - Produces: `IFullNetModule.AddMigrationServices(IServiceCollection, IConfiguration)`；默认空实现，只由存在 Seed Contributor 的模块显式实现
 - Consumes: `FullNetHostProfile.Migrator` 调用每个模块的最小迁移注册入口
 
-- [ ] **Step 1: 建立服务集合 RED 快照**
+- [x] **Step 1: 建立服务集合 RED 快照**
 
   测试要求 Migrator 能解析所有 `IDataSeedContributor` 及其传递依赖，但不能注册认证 Scheme、动态权限 Provider、CORS、RateLimiter、HTTP JSON Resolver、Endpoint Handler 或后台 Outbox Consumer。现状必须因 Api/Migrator 共用 `AddServices` 而失败。
 
-- [ ] **Step 2: 分离每个模块的迁移注册闭包**
+- [x] **Step 2: 分离每个模块的迁移注册闭包**
 
   为当前确有 Contributor 的 Identity 与 Tenancy 提取 Contributor、Options、Validator、持久化服务和所需领域服务的最小闭包；`AddServices` 复用该闭包后再追加 HTTP/认证能力，`AddMigrationServices` 只调用闭包。Organization 当前没有 Contributor，保持默认空实现，未来只有新增真实 Seed 时才能加入。不得复制同一 ServiceDescriptor 清单。
 
-- [ ] **Step 3: 修改 Catalog 的 Migrator 分支**
+- [x] **Step 3: 修改 Catalog 的 Migrator 分支**
 
   Api 继续 `AddFullNetModule`，Worker 继续 `AddBackgroundServices`，Migrator 只执行 `AddFullNetModularity` 与 `AddMigrationServices`。Catalog 仍是唯一具体模块清单，不在 Migrator Program 恢复手写列表。
 
-- [ ] **Step 4: 双库验证 Contributor 完整性**
+- [x] **Step 4: 双库验证 Contributor 完整性**
 
   运行 Development/Test/Production Seed 的 SQL Server/MySQL Integration，覆盖首次、重复、失败重跑和 Production 拒绝；再运行服务集合快照，证明减少注册没有漏掉 Contributor 依赖，也没有重新装入 HTTP 服务。
 
 ### Task 4D: 健康端点提供真实就绪信号（2026-07-22 P1）
+
+**状态：已完成（2026-07-22）。** `/health/live` 继续只表达进程存活；`/health/ready` 现已检查数据库连通性和已配置 Redis；`/health/startup` 通过只读查询 `fn_uuid_contract_state` 验证当前 Schema Contract 已存在。空 `ready/startup` 标签集合在映射时直接失败，避免把空集合 Healthy 当成编排器成功信号。`HealthEndpointTests` 覆盖 SQL Server/MySQL 迁移后健康、数据库断连、缺少 Schema Contract、Redis 不可达与 live 保持 200，当前 **7/7** 通过。
 
 **Files:**
 - Create: `src/BuildingBlocks/Full.NET.Data.Dapper/Health/DatabaseConnectivityHealthCheck.cs`
@@ -278,23 +282,25 @@
 - Produces: `live` 只证明进程存活；`ready` 检查当前数据库及已配置的 Redis；`startup` 通过只读 Schema Contract 查询证明所需迁移已经完成
 - Consumes: Data.Dapper 内部连接工厂、配置存在时的 `IDistributedCache`；Hosting 只负责端点分组，不反向依赖 Data/Caching
 
-- [ ] **Step 1: 写入空集合和依赖失败 RED**
+- [x] **Step 1: 写入空集合和依赖失败 RED**
 
   测试分别覆盖：空 `ready`/`startup` 注册在映射端点时失败；数据库断开时 `/health/ready` 非 2xx；配置 Redis 但不可达时非 2xx；缺少当前 Schema Contract 时 `/health/startup` 非 2xx；live 在上述依赖失败时仍可返回 200。
 
-- [ ] **Step 2: 注册稳定标签和真实检查**
+- [x] **Step 2: 注册稳定标签和真实检查**
 
   Data.Dapper 注册只读 `SELECT 1` 的 ready 检查和读取 `fn_uuid_contract_state` 当前契约状态的 startup 检查；Caching 仅在 Redis 已配置时注册对固定不存在键执行 `GetAsync` 的 ready 探针。标签只使用 `ready`、`startup`，同一检查可同时属于两组；API Program 在 Data/Caching 注册完成后映射端点。
 
-- [ ] **Step 3: 防止健康检查泄密和放大故障**
+- [x] **Step 3: 防止健康检查泄密和放大故障**
 
   HTTP 响应不返回连接字符串、SQL、异常堆栈或内部类型；检查使用短超时且不重试，不在健康请求中执行迁移、Seed、缓存写入或 Outbox 消费。Hosting 项目不得为实现健康检查新增对 Data.Dapper 或 Caching 的项目引用。
 
-- [ ] **Step 4: 运行 API 集成与故障注入**
+- [x] **Step 4: 运行 API 集成与故障注入**
 
   在 SQL Server/MySQL 分别验证 ready/startup 正常与断连；Redis 场景验证正常、断连、恢复。更新 getting-started 中三类端点的编排器用途和“空集合不得作为成功证据”说明。
 
 ### Task 4E: Endpoint 显式声明安全意图（2026-07-22 P2）
+
+**状态：已完成（2026-07-23）。** `/api/v1/tenancy/current` 已显式声明 `AllowAnonymous()`；运行时元数据门禁证明当前 `/api/v1/**` 路由全部显式声明认证或匿名意图。Tenancy API 双库集成进一步锁定匿名已知域返回最小 `TenantSummary` 字段集合、未知域返回标准 ProblemDetails，且响应不泄露账号、角色、权限、连接信息或内部配置。Architecture **1/1**、Tenancy API SQL Server/MySQL Integration **2/2**、`pnpm test:openapi` **14/14** 通过。
 
 **Files:**
 - Modify: `src/Modules/Full.NET.Modules.Tenancy.Http/Features/GetCurrentTenant/Endpoint.cs`
@@ -306,46 +312,45 @@
 **Interfaces:**
 - Produces: `/api/v1/tenancy/current` 显式 `AllowAnonymous()`；所有 Endpoint 必须显式认证或匿名
 
-- [ ] **Step 1: 写入 Endpoint 授权意图 RED**
+- [x] **Step 1: 写入 Endpoint 授权意图 RED**
 
   架构测试扫描 Endpoint 映射，要求每条路由最终声明 `RequireAuthorization`/权限策略或 `AllowAnonymous`；现状必须只报告 `tenancy/current`。若静态扫描不能可靠理解路由组元数据，改用测试宿主枚举 `EndpointDataSource` 的授权元数据，禁止字符串猜测。
 
-- [ ] **Step 2: 固定匿名租户发现契约**
+- [x] **Step 2: 固定匿名租户发现契约**
 
   在 current Endpoint 显式调用 `AllowAnonymous()`；API 测试锁定匿名已知域返回的最小 `TenantSummary` 字段、未知域的标准 ProblemDetails，以及响应不包含账号、角色、权限、连接信息或内部配置。
 
-- [ ] **Step 3: 验证全路由与 OpenAPI**
+- [x] **Step 3: 验证全路由与 OpenAPI**
 
   运行 Architecture、SQL Server/MySQL Tenancy API Integration 和 `pnpm test:openapi`；在验证记录说明匿名是既有行为显式化，不是放宽授权。当前没有 tenancy/current 的独立 OpenAPI 基线，不得顺手创建与本任务无关的全局快照。
 
 ### Task 4F: Tenancy 存量 Core/Http 拓扑评估与合并（2026-07-22 P2）
 
-**状态：Planned；必须作为独立任务执行，不回填到 Task 4A。** 当前 Worker 是 Core 事件处理器的真实非 HTTP 消费者，但注册入口位于 `.Http`，Worker/Migrator 仍装载 `.Http` 发布依赖；现有拆分未证明依赖或打包隔离收益，且不得作为新模块模板。
+**状态：已完成（2026-07-23）。** 复核确认 Worker 的真实非 HTTP 消费者只有 Core 内的 `TenantProvisionedCacheInvalidationHandler`，而 `AddBackgroundServices`、中间件与 Endpoint 映射却挂在 `Full.NET.Modules.Tenancy.Http`，未形成可验证的依赖或打包隔离收益。本任务已将 `TenancyModule`、`TenantResolutionMiddleware` 与三个 Tenancy Endpoint 合并回 `Full.NET.Modules.Tenancy` 主项目，组合根改为直接引用主项目，历史 `.Http` 项目与相关测试引用已删除，并补齐“宿主不得再通过 Web 拆分项目获取后台能力”的架构门禁。新鲜验证为：Architecture **36/36**、Unit **343/343**、Tenancy API + TenantProvisioning SQL Server/MySQL Integration **4/4**、Development/Production Seed SQL Server/MySQL Integration **4/4**、`pnpm test:openapi` **14/14** 通过；Api/Worker/Migrator Release 发布物扫描 `Full.NET.Modules.Tenancy.Http` 为 **0** 命中。
 
 **Files:**
 - Modify: `src/Modules/Full.NET.Modules.Tenancy/**`
-- Modify/Delete: `src/Modules/Full.NET.Modules.Tenancy.Http/**`
-- Modify: `src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs`
-- Modify: `src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj`
-- Modify: `src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj`
-- Modify: `src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj`
-- Test: `tests/Full.NET.ArchitectureTests/*`
-- Test: `tests/Full.NET.UnitTests/Modularity/*`
-- Test: `tests/Full.NET.IntegrationTests/Api/*`
+- Delete: `src/Modules/Full.NET.Modules.Tenancy.Http/**`
+- Modify: `src/Composition/Full.NET.Composition/Full.NET.Composition.csproj`
+- Modify: `tests/Full.NET.ArchitectureTests/*`
+- Modify: `tests/Full.NET.UnitTests/*`
+- Modify: `tests/Full.NET.IntegrationTests/Api/*`
+- Modify: `tests/Full.NET.IntegrationTests/Seeding/*`
+- Modify: `.agents/skills/fullnet-module-delivery/references/delivery-map.md`
 
-- [ ] **Step 1: 以发布物与依赖图建立 RED**
+- [x] **Step 1: 以发布物与依赖图建立 RED**
 
   锁定 Api/Worker/Migrator 的项目依赖和发布物清单，证明 Worker 只需要 Core 事件处理器却因组合入口装载 `.Http`；测试必须区分“真实非 HTTP 消费者存在”和“独立 `.Http` 项目有隔离收益”。
 
-- [ ] **Step 2: 选择并记录最小拓扑**
+- [x] **Step 2: 选择并记录最小拓扑**
 
   优先评估把现有 Tenancy Core/Http 合并为一个主项目；只有量化发布隔离、许可或独立消费者证据满足项目拆分门禁时才保留双项目。不得新增第三个项目或借机改变 Endpoint、Contracts、权限码和序列化契约。
 
-- [ ] **Step 3: 实施并收紧回归门禁**
+- [x] **Step 3: 实施并收紧回归门禁**
 
   迁移组合入口和项目引用，删除失去消费者的项目边界；Architecture Tests 阻止宿主重新通过 Web 项目获取后台能力，也阻止其他模块复制该历史拓扑。
 
-- [ ] **Step 4: 验证宿主与双库行为**
+- [x] **Step 4: 验证宿主与双库行为**
 
   运行 Release build、Architecture/Unit、SQL Server/MySQL Tenancy API、TenantProvisioning、Seed、Worker Outbox 与 OpenAPI 门禁，并扫描三宿主发布物；任何公开 API 或后台事件行为变化都必须停止并拆成独立契约任务。
 
@@ -370,14 +375,18 @@
 
 ### Task 6: Outbox 多版本、最大重试与死信
 
+**状态：已完成（2026-07-23）。** 当前实现采用“并行版本 Handler + 精确 `SchemaVersion` 路由”的最小闭环，而不额外引入升级链；`OutboxWorker` 已参数化 `BatchSize`/`LeaseSeconds`/`PollMilliseconds`/`MaxAttempts`，永久失败与超过最大尝试次数的消息会写入死信终态并保留稳定原因码。新鲜验证为：`OutboxProcessorTests` + `IntegrationEventHandlerMatcherTests` **11/11**、`OutboxRecoveryTests` 与死信迁移恢复聚焦双库 Integration **10/10**、完整 Unit **348/348**、Integration 发现数 **124**；运维边界见 [`docs/operations/outbox-worker-topology.md`](../../operations/outbox-worker-topology.md)。
+
 **Files:**
-- Modify: `src/BuildingBlocks/Full.NET.Modularity/Messaging`
+- Modify: `src/BuildingBlocks/Full.NET.Abstractions/Messaging`
 - Modify: `src/BuildingBlocks/Full.NET.Data.Abstractions`
 - Modify: `src/BuildingBlocks/Full.NET.Data.Dapper`
 - Modify: `src/Hosts/Full.NET.Host.Worker/OutboxProcessor.cs`
+- Create: `src/Hosts/Full.NET.Host.Worker/OutboxWorkerOptions.cs`
 - Add: SQL Server/MySQL forward-only migrations
 - Create: `docs/operations/outbox-worker-topology.md`（或写入 getting-started 运维小节）
-- Test: `tests/Full.NET.UnitTests/Messaging/OutboxVersioningTests.cs`
+- Test: `tests/Full.NET.UnitTests/Messaging/IntegrationEventHandlerMatcherTests.cs`
+- Test: `tests/Full.NET.UnitTests/Outbox/OutboxProcessorTests.cs`
 - Test: `tests/Full.NET.IntegrationTests/Messaging/OutboxRecoveryTests.cs`
 
 1. 先建立 V1 旧载荷、V2 当前载荷、未知版本、不可信载荷和缺 Handler 的失败样例。
@@ -388,6 +397,8 @@
 6. **部署拓扑（2026-07-21 吸收）**：书面明确默认依赖数据库租约的多副本安全模型；BatchSize/Lease/Poll 改为 Options；在证明租约压力场景前，**禁止**把“必须上 Redis Leader Election”写成唯一解。若生产强制单副本，必须在运维文档与 Compose/Helm 示例中写死 `replicas: 1` 及风险说明。
 
 ### Task 7: 缓存一致性等级与故障注入
+
+**状态：最小闭环已完成（2026-07-23）。** Tenancy 域名解析缓存已按规则实现“提交后本机同步失效 + Outbox 跨节点修复”的最小安全边界：`TenantProvisioningService` 在事务命令成功返回后立即清理当前进程的租户/域名 tag，Worker 继续通过 `TenantProvisionedCacheInvalidationHandler` 负责其他节点的异步收敛。新鲜验证为：`CacheConsistencyTests` 使用两个隔离 API 工厂先制造同域名负缓存，再在主节点提交租户创建，锁定“主节点立即可见、第二节点在 Outbox 处理前仍陈旧”的窗口，SQL Server/MySQL 聚焦 Integration **2/2** 通过；与现有 `TenantProvisioningTests` 组合运行 **4/4** 通过。Redis/Backplane 中断、Redis 不可用/恢复、延迟 Worker 与指标暴露仍待后续步骤补齐，因此本任务尚不能标记为 `Verified`。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Caching.Fusion`
@@ -481,9 +492,13 @@ Vue 壳层迁移按 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue
 
 ### Task 13: PR 集成冒烟加宽（2026-07-21 吸收）
 
+**状态：已完成（2026-07-23）。** PR 快门禁已从单纯双库迁移 2 项冒烟扩展为 Identity/Tenancy/Outbox 核心双库组合：迁移 Outbox schema、登录契约、匿名租户发现与 TenantProvisioning 写 Outbox。当前稳定 filter 新鲜运行 **8/8** 通过，墙钟 **3m 42s**，继续保持 `push main` 执行全量 Integration **126** 项与 90m 超时不变。
+
 **Files:**
 - Modify: `.github/workflows/ci.yml`
 - Modify: `docs/development/getting-started.md`
+- Modify: `README.md`
+- Modify: `.agents/skills/fullnet-module-delivery/references/delivery-map.md`
 - Modify: `docs/verification/test-threshold-audit-2026-07-19.md`
 - Test: 现有 Integration 用例的稳定 filter 组合（不新建慢套件）
 

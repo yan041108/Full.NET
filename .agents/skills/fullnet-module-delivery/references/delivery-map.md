@@ -17,7 +17,7 @@
 | `packages/client-contracts` | ProblemDetails/身份/租户/权限契约解析，以及无框架 headless 层（`createHttpClient`、`createIdentitySession`、`createAdminNavigationCatalog`）；Vue/Layui 只做渲染适配 |
 | `src/Modules/Full.NET.Modules.*`（主项目） | 每个内聚业务模块默认只有一个主项目，按 Contracts、Domain、Features、Persistence、Serialization 组织；CRUD、菜单、实体、用例与 Endpoint 不单独建项目 |
 | `src/Modules/Full.NET.Modules.*.Contracts`（可选） | 只有存在真实跨模块或外部编译期消费者且需要稳定契约程序集隔离时创建；否则使用主项目内 `Contracts/` |
-| `src/Modules/Full.NET.Modules.*.Http`（可选） | 只有同一 web-free Core 被非 HTTP 宿主真实复用且能证明独立传输适配收益时创建；Tenancy 是存量参考而非新模块模板 |
+| `src/Modules/Full.NET.Modules.*.Http`（可选） | 只有同一 web-free Core 被非 HTTP 宿主真实复用且能证明独立传输适配收益时创建；Tenancy 历史 `.Http` 拆分已合并回主项目，不再作为新模块模板 |
 | `src/Modules/Full.NET.Modules.Identity.Contracts` | Identity 跨模块契约（Claim 类型、会话上下文、导航/权限定义等），web-free，供其他模块 Core 引用而不拖入 ASP.NET Core |
 | `src/Hosts/Full.NET.Host.Api` | HTTP Host 与模块装配 |
 | `src/Hosts/Full.NET.Host.Worker` | Outbox、通知和后台处理 |
@@ -27,8 +27,8 @@
 
 读取以下文件以观察当前约定，不要机械复制不适用部分：
 
-- `src/Modules/Full.NET.Modules.Tenancy.Http/TenancyModule.cs`：模块服务注册、后台能力（`AddBackgroundServices`）与中间件贡献（`UseModuleMiddleware`）；宿主通过 `UseFullNetModuleMiddleware(stage)` 统一应用，禁止在宿主直接引用模块或手写 `UseXxx`；Web 面（Endpoint、`TenantResolutionMiddleware`）均在 `.Http` 项目；
-- `src/Modules/Full.NET.Modules.Tenancy/Features/ProvisionTenant/`：Core 中的 Command、Validator、Handler 与服务（Endpoint 位于 `.Http` 的同名 Feature 目录）；
+- `src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs`：模块服务注册、后台能力（`AddBackgroundServices`）与中间件贡献（`UseModuleMiddleware`）；宿主通过 `UseFullNetModuleMiddleware(stage)` 统一应用，禁止在宿主直接引用模块或手写 `UseXxx`；
+- `src/Modules/Full.NET.Modules.Tenancy/Features/`：同一主项目内同时承载 Command、Validator、Handler、Endpoint 与服务；只有满足项目拓扑门禁时才允许把 Web 面拆到独立 `.Http`；
 - `src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs`：显式 SQL；
 - `src/Modules/Full.NET.Modules.Tenancy/Serialization/`：JSON 源生成与 MessagePack Resolver；
 - `tests/Full.NET.IntegrationTests/Tenancy/TenantProvisioningTests.cs`：双数据库事务与 Outbox；
@@ -62,10 +62,16 @@ dotnet build Full.NET.slnx -c Release
 直接运行 Microsoft Testing Platform 程序集：
 
 ```powershell
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 342
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 348
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 33
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 109 --timeout 90m
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 36
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 126 --timeout 90m
+```
+
+PR 双库快门禁使用当前稳定 filter：
+
+```powershell
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --filter "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox" --minimum-expected-tests 8 --timeout 15m
 ```
 
 增删测试时同步更新：

@@ -8,6 +8,8 @@ using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.UnitTests.Tenancy;
@@ -21,6 +23,8 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddFusionCache().AsHybridCache();
+        services.AddSingleton<IHostEnvironment>(
+            new TestHostEnvironment("Testing"));
         services.AddSingleton<IIntegrationEventSerializer,
             MessagePackIntegrationEventSerializer>();
 
@@ -59,23 +63,30 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         services.AddLogging();
         services.AddFusionCache().AsHybridCache();
         await using var provider = services.BuildServiceProvider();
-        var cache = provider.GetRequiredService<HybridCache>();
+        var fusionCache = provider.GetRequiredService<IFusionCache>();
+        var hybridCache = provider.GetRequiredService<HybridCache>();
         var serializer = new MessagePackIntegrationEventSerializer();
         var tenantId = Guid.CreateVersion7();
         const string domain = "acme.localhost";
-        const string tenantKey = "test:tenant";
-        const string domainKey = "test:domain";
-        await cache.SetAsync(
+        const string environmentName = "Testing";
+        var tenantKey = CacheKeyBuilder.TenantResolutionById(
+            environmentName,
+            tenantId);
+        var domainKey = CacheKeyBuilder.TenantResolutionByDomain(
+            environmentName,
+            domain);
+        await hybridCache.SetAsync(
             tenantKey,
             "stale-tenant",
             tags: [CacheKeyBuilder.TenantTag(tenantId)]);
-        await cache.SetAsync(
+        await hybridCache.SetAsync(
             domainKey,
             "stale-domain",
             tags: [CacheKeyBuilder.DomainTag(domain)]);
         var handler = new TenantProvisionedCacheInvalidationHandler(
             serializer,
-            cache);
+            fusionCache,
+            new TestHostEnvironment(environmentName));
         var payload = serializer.Serialize(new TenantProvisionedIntegrationEvent(
             tenantId,
             "acme",
@@ -83,13 +94,25 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
 
         await handler.HandleAsync(payload, CancellationToken.None);
 
-        var tenantValue = await cache.GetOrCreateAsync(
+        var tenantValue = await hybridCache.GetOrCreateAsync(
             tenantKey,
             _ => ValueTask.FromResult("fresh-tenant"));
-        var domainValue = await cache.GetOrCreateAsync(
+        var domainValue = await hybridCache.GetOrCreateAsync(
             domainKey,
             _ => ValueTask.FromResult("fresh-domain"));
         Assert.AreEqual("fresh-tenant", tenantValue);
         Assert.AreEqual("fresh-domain", domainValue);
+    }
+
+    private sealed class TestHostEnvironment(string environmentName) : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = environmentName;
+
+        public string ApplicationName { get; set; } = "Full.NET.UnitTests";
+
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+
+        public IFileProvider ContentRootFileProvider { get; set; } =
+            new NullFileProvider();
     }
 }

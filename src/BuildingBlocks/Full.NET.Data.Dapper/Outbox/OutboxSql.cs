@@ -12,6 +12,7 @@ internal static class OutboxSql
             SELECT TOP (@BatchSize) *
             FROM fn_outbox_message WITH (UPDLOCK, READPAST, ROWLOCK)
             WHERE ProcessedAtUtc IS NULL
+              AND DeadLetteredAtUtc IS NULL
               AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
               AND (LockedUntilUtc IS NULL OR LockedUntilUtc <= @Now)
             ORDER BY OccurredAtUtc
@@ -41,6 +42,7 @@ internal static class OutboxSql
             LockedUntilUtc = @LockedUntil,
             Attempts = Attempts + 1
         WHERE ProcessedAtUtc IS NULL
+          AND DeadLetteredAtUtc IS NULL
           AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
           AND (LockedUntilUtc IS NULL OR LockedUntilUtc <= @Now)
         ORDER BY OccurredAtUtc
@@ -72,12 +74,16 @@ internal static class OutboxSql
         """
         UPDATE fn_outbox_message
         SET ProcessedAtUtc = @Now,
+            NextAttemptAtUtc = NULL,
             LockId = NULL,
             LockedUntilUtc = NULL,
-            Error = NULL
+            Error = NULL,
+            DeadLetteredAtUtc = NULL,
+            DeadLetterReasonCode = NULL
         WHERE Id = @Id
           AND LockId = @LockId
-          AND ProcessedAtUtc IS NULL;
+          AND ProcessedAtUtc IS NULL
+          AND DeadLetteredAtUtc IS NULL;
         """,
         SqlDataScope.HostOnly);
 
@@ -91,7 +97,25 @@ internal static class OutboxSql
             Error = @Error
         WHERE Id = @Id
           AND LockId = @LockId
-          AND ProcessedAtUtc IS NULL;
+          AND ProcessedAtUtc IS NULL
+          AND DeadLetteredAtUtc IS NULL;
+    """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement MarkDeadLetter = new(
+        "outbox.mark_dead_letter",
+        """
+        UPDATE fn_outbox_message
+        SET DeadLetteredAtUtc = @DeadLetteredAt,
+            DeadLetterReasonCode = @DeadLetterReasonCode,
+            NextAttemptAtUtc = NULL,
+            LockId = NULL,
+            LockedUntilUtc = NULL,
+            Error = @Error
+        WHERE Id = @Id
+          AND LockId = @LockId
+          AND ProcessedAtUtc IS NULL
+          AND DeadLetteredAtUtc IS NULL;
         """,
         SqlDataScope.HostOnly);
 }
