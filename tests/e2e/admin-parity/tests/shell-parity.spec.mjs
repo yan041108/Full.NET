@@ -253,6 +253,109 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
   await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
 });
 
+test('租户列表、开通与禁用在两端保持一致', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await mockAuthenticatedSession(page);
+  const operations = [];
+  const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf295';
+  const state = { hasTenant: false, disabled: false };
+  const listBody = () => {
+    if (!state.hasTenant) {
+      return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
+    }
+
+    return JSON.stringify({
+      items: [{
+        id: tenantId,
+        identifier: 'parity',
+        name: '对等租户',
+        domain: 'parity.localhost',
+        isActive: !state.disabled,
+        version: state.disabled ? 2 : 1,
+        defaultLocale: 'zh-CN'
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+  };
+
+  await page.route('**/api/v1/tenancy/tenants?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: listBody()
+  }));
+  await page.route('**/api/v1/tenancy/tenants', async route => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    operations.push({ type: 'create', body: route.request().postDataJSON() });
+    state.hasTenant = true;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: tenantId,
+        identifier: 'parity',
+        name: '对等租户',
+        domain: 'parity.localhost',
+        isActive: true,
+        version: 1,
+        defaultLocale: 'zh-CN'
+      })
+    });
+  });
+  await page.route(`**/api/v1/tenancy/tenants/${tenantId}/disable`, async route => {
+    operations.push({ type: 'disable' });
+    state.disabled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: tenantId,
+        identifier: 'parity',
+        name: '对等租户',
+        domain: 'parity.localhost',
+        isActive: false,
+        version: 2,
+        defaultLocale: 'zh-CN'
+      })
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /租户管理/ }).click();
+  await expect(page.getByRole('heading', { name: '租户管理', exact: true })).toBeVisible();
+  await expect(page.getByText('尚无租户', { exact: true })).toBeVisible();
+
+  const tenantsView = routeView(page, clientKind, 'tenants', '.tenants-view');
+  await tenantsView.getByLabel('租户标识', { exact: true }).fill('parity');
+  await tenantsView.getByLabel('显示名称', { exact: true }).fill('对等租户');
+  await tenantsView.getByLabel('访问域名', { exact: true }).fill('parity.localhost');
+  await tenantsView.getByRole('button', { name: '开通租户' }).click();
+  await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
+    type: 'create',
+    body: {
+      identifier: 'parity',
+      name: '对等租户',
+      domain: 'parity.localhost'
+    }
+  }]);
+  await expect(page.getByText('对等租户', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
+      .evaluate(button => button.click());
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
+  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+});
+
 test('角色列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page);
@@ -1017,7 +1120,9 @@ function currentUserResponse(activeTenantId = null) {
       'identity.users.write',
       'platform.dashboard.read',
       'tenancy.tenants.read',
+      'tenancy.host_tenants.read',
       'tenancy.tenants.switch',
+      'tenancy.tenants.write',
       ...(activeTenantId
         ? [
             'organization.units.read',
@@ -1046,6 +1151,12 @@ function navigationResponse(unknownComponent = false, activeTenantId = null) {
       path: '/tenant-context', componentKey: 'tenant-context',
       title: '租户上下文', caption: '进入租户或返回 Host', icon: 'building',
       order: 20, requiredPermission: 'tenancy.tenants.read', children: []
+    },
+    {
+      id: 'tenant-management', parentId: null, routeName: 'tenant-management',
+      path: '/tenants', componentKey: 'tenants',
+      title: '租户管理', caption: 'Host 作用域租户目录', icon: 'grid',
+      order: 22, requiredPermission: 'tenancy.host_tenants.read', children: []
     },
     {
       id: 'users', parentId: null, routeName: 'users', path: '/identity/users',

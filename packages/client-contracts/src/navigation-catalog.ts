@@ -20,6 +20,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/tenant-context'
   },
   {
+    componentKey: 'tenants',
+    routeName: 'tenant-management',
+    path: '/tenants'
+  },
+  {
     componentKey: 'users',
     routeName: 'users',
     path: '/identity/users'

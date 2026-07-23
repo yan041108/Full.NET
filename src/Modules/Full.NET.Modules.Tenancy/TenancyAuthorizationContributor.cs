@@ -1,24 +1,33 @@
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.Modules.Tenancy;
 
 internal sealed class TenancyAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
-    internal const string TenantsRead = "tenancy.tenants.read";
-    internal const string TenantsSwitch = "tenancy.tenants.switch";
-
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(
-            TenantsRead,
+            TenancyTenantManagementPermissions.Read,
             "读取可用租户",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            TenancyTenantManagementPermissions.HostTenantsRead,
+            "查询租户目录",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantManagementPermissions.Write,
+            "管理租户",
+            AuthorizationScope.Host),
         new PermissionDefinition(
             TenantsSwitch,
             "切换租户上下文",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
     ];
+
+    internal const string TenantsRead = TenancyTenantManagementPermissions.Read;
+    internal const string TenantsSwitch = "tenancy.tenants.switch";
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
     [
@@ -32,6 +41,17 @@ internal sealed class TenancyAuthorizationContributor
             "Tenant Context",
             "office-building",
             20,
-            TenantsRead),
+            TenancyTenantManagementPermissions.Read),
+        new NavigationDefinition(
+            "tenant-management",
+            null,
+            "tenant-management",
+            "/tenants",
+            "tenants",
+            "租户管理",
+            "Tenant Management",
+            "grid",
+            21,
+            TenancyTenantManagementPermissions.HostTenantsRead),
     ];
 }

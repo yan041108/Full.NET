@@ -186,9 +186,11 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.ITenantProvisioningService).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ProvisionTenantRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyErrorCodes).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantManagementPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantContextSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisionedIntegrationEvent).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantRequest).FullName,
                 typeof(TenancyModule).FullName,
             },
             exportedTypes);

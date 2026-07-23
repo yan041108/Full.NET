@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Composition;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
@@ -84,6 +85,23 @@ public sealed class FullNetModuleCatalogTests
             descriptor.ServiceType == typeof(IIntegrationEventHandler)));
         Assert.IsFalse(services.Any(descriptor =>
             descriptor.ServiceType == typeof(Full.NET.Abstractions.Messaging.ICommandHandler<Command, LoginSessionResult>)));
+    }
+
+    [TestMethod]
+    public void Migrator_profile_registers_tenant_context_for_seed_and_outbox()
+    {
+        var services = CreateServices();
+
+        services.AddFullNetApplicationModules(
+            CreateConfiguration(),
+            FullNetHostProfile.Migrator);
+
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(ICurrentTenant)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(CurrentTenantAccessor)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
     }
 
     private static ServiceCollection CreateServices() => new();

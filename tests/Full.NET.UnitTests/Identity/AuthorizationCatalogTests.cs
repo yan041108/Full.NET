@@ -27,8 +27,10 @@ public sealed class AuthorizationCatalogTests
                 "identity.users.read",
                 "identity.users.write",
                 "platform.dashboard.read",
+                "tenancy.host_tenants.read",
                 "tenancy.tenants.read",
                 "tenancy.tenants.switch",
+                "tenancy.tenants.write",
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
     }

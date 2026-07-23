@@ -10,4 +10,6 @@
   <data name="tenancy.host_not_found" xml:space="preserve"><value>当前主机未配置可用租户。</value></data>
   <data name="tenancy.identifier_exists" xml:space="preserve"><value>已存在使用该标识的租户。</value></data>
   <data name="tenancy.not_found" xml:space="preserve"><value>未找到当前租户。</value></data>
+  <data name="tenancy.tenant.last_remaining" xml:space="preserve"><value>不能禁用最后一个仍处于活动状态的租户。</value></data>
+  <data name="tenancy.tenant.version_conflict" xml:space="preserve"><value>租户记录已被其他操作更新，请刷新后重试。</value></data>
 </root>

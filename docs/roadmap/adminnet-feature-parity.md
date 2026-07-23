@@ -41,6 +41,7 @@
 | 默认超级管理员、未来权限自动获得与最后一名保护 | Identity + 双管理端 | Core + Client | M2 | Implementing |
 | 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | Mapped |
 | 用户管理 | Identity | Core | M2 | Implementing（Host 列表/创建/禁用已交付；[验证记录](../verification/identity-user-management-2026-07-21.md)） |
+| 租户管理 | Tenancy | Core | M2 | **Build-verified**（Host 列表/开通/更新/禁用；[验证记录](../verification/tenancy-host-tenant-management-2026-07-23.md)） |
 | 机构管理 | Organization | Core | M2 | **Build-verified**（租户机构树 CRUD；见[验证记录](../verification/organization-unit-management-2026-07-21.md)） |
 | 职位管理 | Organization | Core | M2 | Mapped |
 | 菜单与按钮权限管理 | Identity | Core | M2 | Build-verified（[菜单验证](../verification/identity-menu-management-2026-07-21.md)；按钮权限仍非目标） |

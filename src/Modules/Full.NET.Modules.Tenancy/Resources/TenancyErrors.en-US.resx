@@ -10,4 +10,6 @@
   <data name="tenancy.host_not_found" xml:space="preserve"><value>No active tenant is configured for this host.</value></data>
   <data name="tenancy.identifier_exists" xml:space="preserve"><value>A tenant with this identifier already exists.</value></data>
   <data name="tenancy.not_found" xml:space="preserve"><value>The current tenant was not found.</value></data>
+  <data name="tenancy.tenant.last_remaining" xml:space="preserve"><value>The last active tenant cannot be disabled.</value></data>
+  <data name="tenancy.tenant.version_conflict" xml:space="preserve"><value>The tenant record was updated concurrently.</value></data>
 </root>

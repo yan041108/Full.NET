@@ -117,6 +117,20 @@ export type {
 } from './host-users.js';
 
 export {
+  isCreateHostTenantRequest,
+  isHostTenant,
+  isHostTenantPage,
+  isUpdateHostTenantRequest
+} from './host-tenants.js';
+
+export type {
+  CreateHostTenantRequest,
+  HostTenant,
+  HostTenantPage,
+  UpdateHostTenantRequest
+} from './host-tenants.js';
+
+export {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
   ROLE_DATA_SCOPE_KINDS,
   isHostRole,

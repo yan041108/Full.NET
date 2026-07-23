@@ -1,0 +1,89 @@
+{
+  "id": "tenancy-host-tenants-v1",
+  "version": 1,
+  "description": "Host 租户管理 HTTP 契约冻结夹具；与 TenancyTenantManagementContracts 和 ManageHostTenants.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/tenancy/tenants",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "tenancy.host_tenants.read",
+          "successStatus": 200,
+          "responseSchema": "TenantSummaryPage"
+        },
+        {
+          "method": "POST",
+          "permission": "tenancy.tenants.write",
+          "successStatus": 201,
+          "requestSchema": "ProvisionTenantRequest",
+          "responseSchema": "TenantSummary"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/tenancy/tenants/{tenantId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "tenancy.host_tenants.read",
+          "successStatus": 200,
+          "responseSchema": "TenantSummary"
+        },
+        {
+          "method": "PUT",
+          "permission": "tenancy.tenants.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostTenantRequest",
+          "responseSchema": "TenantSummary"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/tenancy/tenants/{tenantId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "tenancy.tenants.write",
+          "successStatus": 200,
+          "responseSchema": "TenantSummary"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "TenantSummary": {
+      "properties": [
+        "id",
+        "identifier",
+        "name",
+        "domain",
+        "isActive",
+        "version",
+        "defaultLocale"
+      ]
+    },
+    "ProvisionTenantRequest": {
+      "properties": [
+        "identifier",
+        "name",
+        "domain"
+      ]
+    },
+    "UpdateHostTenantRequest": {
+      "properties": [
+        "name",
+        "version"
+      ]
+    },
+    "TenantSummaryPage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "TenantSummary"
+    }
+  }
+}

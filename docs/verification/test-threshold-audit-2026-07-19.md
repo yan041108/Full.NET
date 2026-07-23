@@ -327,6 +327,47 @@ Tenancy API + TenantProvisioning SQL Server/MySQL 聚焦 Integration **4/4**、D
 
 本增补只证明 Task 7 已完成“提交后本机同步失效 + Outbox 跨节点修复”的最小缓存一致性闭环与双库双节点聚焦验证；Redis/Backplane 中断、Redis 不可用/恢复、延迟 Worker、多实例指标和完整 S0/S1/S2 分级仍属后续任务，不把本记录表述为缓存能力整体 `Verified`。
 
+## 增补（2026-07-23，Tenancy Host 租户管理纵向切片）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **126 → 128** | 新增 `Host_tenant_management_returns_standard_contract`（SQL Server + MySQL），含 OpenAPI 运行时断言 |
+| 四处 canonical 门槛 | README、getting-started、CI 与 Skill delivery-map 已同步为 **348/7/36/128** |
+| OpenAPI 静态夹具 | **14 → 16**（`tenancy-host-tenants-v1.json` + node 合同测试 2 项） |
+| Mock parity E2E | **40 → 42**（新增「租户列表、开通与禁用」× 双端） |
+| 真实栈 E2E | **38 → 42**（新增 `host-tenants.spec.mjs` 2 场景 × 双端） |
+| 客户端单测 | 管理端与共享包 **158 → 165**（`host-tenants` 契约 +1、Vue `tenants` +3、Layui `tenants` +1） |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| Integration 聚焦 | `FullyQualifiedName~Host_tenant_management`，`--minimum-expected-tests 2` | **2/2** 通过，约 2m 10s |
+| Parity E2E 聚焦 | `playwright test -g '租户列表、开通与禁用'` | **2/2** 通过 |
+| `pnpm test:openapi` | 全量 | **16/16** 通过 |
+| Unit 全量 | `--minimum-expected-tests 348` | **348/348** 通过 |
+
+本增补只证明 Tenancy Host 租户管理切片已完成；不把该结果表述为完整 Integration **128** 项或租户能力整体 `Verified`。
+
+## 增补（2026-07-23，Migrator 租户上下文 DI 修复）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit 门槛 **348 → 349** | 新增 `Migrator_profile_registers_tenant_context_for_seed_and_outbox`，锁定 Tenancy `AddMigrationServices` 必须注册 `ICurrentTenant`，否则 Migrator Seed/Outbox 在 `ValidateOnBuild` 阶段失败 |
+| 四处 canonical 门槛 | README、getting-started、CI 与 Skill delivery-map 已同步为 **349/7/36/128** |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| Unit 聚焦 | `FullyQualifiedName~FullNetModuleCatalogTests`，`--minimum-expected-tests 4` | **4/4** 通过 |
+| Architecture 全量 | `--minimum-expected-tests 36` | **36/36** 通过 |
+| Integration 聚焦 | `FullyQualifiedName~Host_tenant_management`，`--minimum-expected-tests 2` | **2/2** 通过 |
+| 真实栈 SQL Server 全量 | `pnpm test:e2e:real` | **42/42** 通过 |
+
+## 增补（2026-07-23，Host 租户目录权限三段式命名）
+
+| 变更 | 说明 |
+| --- | --- |
+| 权限码 | `tenancy.tenants.manage.read`（四段，违规）→ **`tenancy.host_tenants.read`**（符合 `{module}.{plural_resource}.{action}`） |
+| 语义 | `tenancy.tenants.read` 保留给 `/available` 与租户上下文；`tenancy.host_tenants.read` 专用于 Host 目录 API 与「租户管理」导航 |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

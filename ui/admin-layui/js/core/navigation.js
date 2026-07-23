@@ -15,6 +15,12 @@ const presentation = new Map([
     titleKey: 'navigation.tenantContext.title',
     captionKey: 'navigation.tenantContext.caption'
   }],
+  ['tenants', {
+    view: 'tenants',
+    iconClass: 'layui-icon-app',
+    titleKey: 'navigation.tenants.title',
+    captionKey: 'navigation.tenants.caption'
+  }],
   ['users', {
     view: 'users',
     iconClass: 'layui-icon-user',

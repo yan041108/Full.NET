@@ -57,6 +57,8 @@ public sealed class TenancyModule : IFullNetModule
                 Features.ChangeTenantContext.Command,
                 TenantContextTokenResponse>,
             Features.ChangeTenantContext.Handler>();
+        services.AddScoped<Features.ManageHostTenants.HostTenantQueryService>();
+        services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -67,6 +69,7 @@ public sealed class TenancyModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        AddTenantContextAccessor(services);
         services.AddOptions<TenancyOptions>()
             .Bind(configuration.GetSection(TenancyOptions.SectionName));
         services.AddFullNetFluentValidation();
@@ -90,6 +93,7 @@ public sealed class TenancyModule : IFullNetModule
         Features.GetCurrentTenant.Endpoint.Map(group);
         Features.GetAvailableTenants.Endpoint.Map(group);
         Features.ChangeTenantContext.Endpoint.Map(group);
+        Features.ManageHostTenants.Endpoint.Map(endpoints);
     }
 
     /// <summary>
@@ -99,12 +103,20 @@ public sealed class TenancyModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
-        services.TryAddScoped<CurrentTenantAccessor>();
-        services.TryAddScoped<ICurrentTenant>(provider =>
-            provider.GetRequiredService<CurrentTenantAccessor>());
+        AddTenantContextAccessor(services);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             TenantProvisionedCacheInvalidationHandler>());
+    }
+
+    /// <summary>
+    /// Migrator Seed/开通与 Outbox 写入都依赖宿主租户上下文；必须在迁移闭包中注册，不能仅留在 Worker 后台能力里。
+    /// </summary>
+    private static void AddTenantContextAccessor(IServiceCollection services)
+    {
+        services.TryAddScoped<CurrentTenantAccessor>();
+        services.TryAddScoped<ICurrentTenant>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
     }
 
     /// <summary>

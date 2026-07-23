@@ -10,6 +10,7 @@ import {
   renderNavigation
 } from './core/navigation.js';
 import { createSuperAdministratorController } from './core/super-administrators.js';
+import { createTenantsController } from './core/tenants.js';
 import { createUsersController } from './core/users.js';
 import { createRolesController } from './core/roles.js';
 import { createMenusController } from './core/menus.js';
@@ -17,7 +18,7 @@ import { createOrgUnitsController } from './core/org-units.js';
 import { createOrgUserUnitsController } from './core/org-user-units.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/identity/super-administrators']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/tenants', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/identity/super-administrators']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -67,6 +68,10 @@ export function initializeAdminApp(root = document, options = {}) {
     request,
     translation: () => translation
   });
+  const tenants = createTenantsController(root, {
+    request,
+    translation: () => translation
+  });
   const users = createUsersController(root, {
     request,
     translation: () => translation
@@ -93,6 +98,10 @@ export function initializeAdminApp(root = document, options = {}) {
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/identity/super-administrators') {
       void superAdministrators.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/tenants') {
+      void tenants.load();
     }
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/identity/users') {
@@ -265,6 +274,10 @@ export function initializeAdminApp(root = document, options = {}) {
       void superAdministrators.load();
     }
     if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/tenants') {
+      void tenants.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/identity/users') {
       void users.load();
     }
@@ -343,6 +356,7 @@ export function initializeAdminApp(root = document, options = {}) {
       });
       tenantDirectory?.removeEventListener('click', onTenantAction);
       superAdministrators.dispose();
+      tenants.dispose();
       users.dispose();
       roles.dispose();
       menus.dispose();

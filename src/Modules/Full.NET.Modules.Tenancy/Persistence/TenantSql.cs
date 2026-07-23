@@ -79,4 +79,65 @@ internal static class TenantSql
         WHERE Id = @TenantId AND IsActive = 1
         """,
         SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement CountHostTenants = new(
+        "tenancy.count_host_tenants",
+        """
+        SELECT COUNT(1)
+        FROM fn_tenancy_tenant
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostTenantsSqlServer = new(
+        "tenancy.list_host_tenants.sql_server",
+        """
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
+        FROM fn_tenancy_tenant
+        ORDER BY Name, Identifier, Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostTenantsMySql = new(
+        "tenancy.list_host_tenants.mysql",
+        """
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
+        FROM fn_tenancy_tenant
+        ORDER BY Name, Identifier, Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountActiveTenants = new(
+        "tenancy.count_active_tenants",
+        """
+        SELECT COUNT(1)
+        FROM fn_tenancy_tenant
+        WHERE IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateHostTenantName = new(
+        "tenancy.update_host_tenant_name",
+        """
+        UPDATE fn_tenancy_tenant
+        SET Name = @Name,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DisableHostTenant = new(
+        "tenancy.disable_host_tenant",
+        """
+        UPDATE fn_tenancy_tenant
+        SET IsActive = 0,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
 }

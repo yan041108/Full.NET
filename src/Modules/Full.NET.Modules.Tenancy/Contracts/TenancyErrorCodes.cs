@@ -28,6 +28,12 @@ public static class TenancyErrorCodes
     /// <summary>当前租户不存在。</summary>
     public const string NotFound = "tenancy.not_found";
 
+    /// <summary>不能禁用最后一个仍处于活动状态的租户。</summary>
+    public const string LastActiveTenant = "tenancy.tenant.last_remaining";
+
+    /// <summary>租户记录版本冲突。</summary>
+    public const string VersionConflict = "tenancy.tenant.version_conflict";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -38,6 +44,8 @@ public static class TenancyErrorCodes
         DomainExists,
         HostNotFound,
         IdentifierExists,
+        LastActiveTenant,
         NotFound,
+        VersionConflict,
     ]);
 }

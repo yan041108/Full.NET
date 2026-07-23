@@ -10,6 +10,7 @@ import OverviewView from '../views/OverviewView.vue';
 import StatusView from '../views/StatusView.vue';
 import TenantContextView from '../views/TenantContextView.vue';
 import SuperAdministratorsView from '../views/SuperAdministratorsView.vue';
+import TenantsView from '../views/TenantsView.vue';
 import UsersView from '../views/UsersView.vue';
 import RolesView from '../views/RolesView.vue';
 import MenusView from '../views/MenusView.vue';
@@ -30,6 +31,11 @@ export function createAppRouter(
         name: 'tenant-context',
         path: '/tenant-context',
         component: TenantContextView
+      },
+      {
+        name: 'tenant-management',
+        path: '/tenants',
+        component: TenantsView
       },
       {
         name: 'users',
