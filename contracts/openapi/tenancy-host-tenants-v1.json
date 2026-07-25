@@ -49,6 +49,18 @@
           "responseSchema": "TenantSummary"
         }
       ]
+    },
+    {
+      "path": "/api/v1/tenancy/tenants/{tenantId}/package",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "tenancy.tenants.write",
+          "successStatus": 200,
+          "requestSchema": "AssignHostTenantPackageRequest",
+          "responseSchema": "TenantSummary"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -60,19 +72,29 @@
         "domain",
         "isActive",
         "version",
-        "defaultLocale"
+        "defaultLocale",
+        "tenantPackageId",
+        "tenantPackageCode",
+        "tenantPackageName"
       ]
     },
     "ProvisionTenantRequest": {
       "properties": [
         "identifier",
         "name",
-        "domain"
+        "domain",
+        "tenantPackageId"
       ]
     },
     "UpdateHostTenantRequest": {
       "properties": [
         "name",
+        "version"
+      ]
+    },
+    "AssignHostTenantPackageRequest": {
+      "properties": [
+        "tenantPackageId",
         "version"
       ]
     },

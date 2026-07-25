@@ -12,4 +12,9 @@
   <data name="tenancy.not_found" xml:space="preserve"><value>未找到当前租户。</value></data>
   <data name="tenancy.tenant.last_remaining" xml:space="preserve"><value>不能禁用最后一个仍处于活动状态的租户。</value></data>
   <data name="tenancy.tenant.version_conflict" xml:space="preserve"><value>租户记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="tenancy.tenant_package.not_found" xml:space="preserve"><value>未找到该租户套餐。</value></data>
+  <data name="tenancy.tenant_package.code_exists" xml:space="preserve"><value>已存在使用该编码的租户套餐。</value></data>
+  <data name="tenancy.tenant_package.version_conflict" xml:space="preserve"><value>租户套餐记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="tenancy.tenant_package.inactive" xml:space="preserve"><value>不能为租户分配已禁用的套餐。</value></data>
+  <data name="tenancy.tenant_package.in_use" xml:space="preserve"><value>仍有租户绑定该套餐，请先解除绑定后再禁用。</value></data>
 </root>

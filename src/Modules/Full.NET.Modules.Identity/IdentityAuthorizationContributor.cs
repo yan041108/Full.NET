@@ -54,6 +54,22 @@ internal sealed class IdentityAuthorizationContributor
             IdentityMenuManagementPermissions.Write,
             "管理 Host 菜单",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentitySessionManagementPermissions.Read,
+            "查看 Host 在线会话",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentitySessionManagementPermissions.Write,
+            "强制下线 Host 在线会话",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityApiKeyManagementPermissions.Read,
+            "查看 Host API Key",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityApiKeyManagementPermissions.Write,
+            "管理 Host API Key",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -80,6 +96,17 @@ internal sealed class IdentityAuthorizationContributor
             "user",
             35,
             IdentityUserManagementPermissions.Read),
+        new NavigationDefinition(
+            "online-sessions",
+            null,
+            "online-sessions",
+            "/identity/online-sessions",
+            "online-sessions",
+            "在线用户",
+            "Online Sessions",
+            "monitor",
+            35,
+            IdentitySessionManagementPermissions.Read),
         new NavigationDefinition(
             "roles",
             null,

@@ -12,4 +12,8 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 [JsonSerializable(typeof(TenantContextTokenResponse))]
 [JsonSerializable(typeof(ProvisionTenantRequest))]
 [JsonSerializable(typeof(UpdateHostTenantRequest))]
+[JsonSerializable(typeof(AssignHostTenantPackageRequest))]
+[JsonSerializable(typeof(TenantPackageSummary))]
+[JsonSerializable(typeof(CreateHostTenantPackageRequest))]
+[JsonSerializable(typeof(UpdateHostTenantPackageRequest))]
 internal partial class TenancyJsonSerializerContext : JsonSerializerContext;

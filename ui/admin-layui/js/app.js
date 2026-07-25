@@ -6,19 +6,42 @@ import {
   applyPermissionVisibility,
   findNavigationByPath,
   localNavigationFor,
-  localViewFor,
-  renderNavigation
+  localViewFor
 } from './core/navigation.js';
+import { createShellLayoutController } from './core/shell-layout.js';
+import { createShellChatDrawer } from './core/shell-chat-drawer.js';
+import { createShellNotificationPanel } from './core/shell-notification-panel.js';
+import { createShellGlobalSearch } from './core/shell-global-search.js';
+import { bindShellTopbar } from './core/shell-topbar.js';
+import { createShellTabsController } from './core/shell-tabs.js';
+import { applyShellChrome } from './core/shell-chrome.js';
+import { applyShellSettingsToDocument, readShellSettings } from './core/shell-art-settings.js';
+import { bindShellSettings } from './core/shell-settings.js';
 import { createSuperAdministratorController } from './core/super-administrators.js';
 import { createTenantsController } from './core/tenants.js';
+import { createTenantPackagesController } from './core/tenant-packages.js';
+import { createDictTypesController } from './core/dict-types.js';
+import { createConfigEntriesController } from './core/config-entries.js';
+import { createEnumCatalogsController } from './core/enum-catalogs.js';
+import { createHostFilesController } from './core/host-files.js';
+import { createHostAnnouncementsController } from './core/host-announcements.js';
+import { createInboxMessagesController } from './core/inbox-messages.js';
+import { createHostJobsController } from './core/host-jobs.js';
+import { createOverviewDashboardController } from './core/overview-dashboard.js';
+import { createAccessLogsController } from './core/access-logs.js';
+import { createOnlineSessionsController } from './core/online-sessions.js';
+import { createOperationLogsController } from './core/operation-logs.js';
+import { createExceptionLogsController } from './core/exception-logs.js';
 import { createUsersController } from './core/users.js';
 import { createRolesController } from './core/roles.js';
 import { createMenusController } from './core/menus.js';
 import { createOrgUnitsController } from './core/org-units.js';
 import { createOrgUserUnitsController } from './core/org-user-units.js';
+import { createOrgUserPositionsController } from './core/org-user-positions.js';
+import { createOrgPositionsController } from './core/org-positions.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context', '/tenants', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/identity/super-administrators']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/tenants', '/tenant-packages', '/identity/users', '/identity/online-sessions', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/organization/positions', '/identity/super-administrators', '/settings/dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/files/host-files', '/notifications/host-announcements', '/notifications/inbox-messages', '/jobs/host-definitions', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -72,6 +95,58 @@ export function initializeAdminApp(root = document, options = {}) {
     request,
     translation: () => translation
   });
+  const tenantPackages = createTenantPackagesController(root, {
+    request,
+    translation: () => translation
+  });
+  const dictTypes = createDictTypesController(root, {
+    request,
+    translation: () => translation
+  });
+  const configEntries = createConfigEntriesController(root, {
+    request,
+    translation: () => translation
+  });
+  const enumCatalogs = createEnumCatalogsController(root, {
+    request,
+    translation: () => translation
+  });
+  const hostFiles = createHostFilesController(root, {
+    request,
+    translation: () => translation
+  });
+  const hostAnnouncements = createHostAnnouncementsController(root, {
+    request,
+    translation: () => translation
+  });
+  const inboxMessages = createInboxMessagesController(root, {
+    request,
+    translation: () => translation
+  });
+  const hostJobs = createHostJobsController(root, {
+    request,
+    translation: () => translation
+  });
+  const overviewDashboard = createOverviewDashboardController(root, {
+    request,
+    translation: () => translation
+  });
+  const accessLogs = createAccessLogsController(root, {
+    request,
+    translation: () => translation
+  });
+  const operationLogs = createOperationLogsController(root, {
+    request,
+    translation: () => translation
+  });
+  const exceptionLogs = createExceptionLogsController(root, {
+    request,
+    translation: () => translation
+  });
+  const onlineSessions = createOnlineSessionsController(root, {
+    request,
+    translation: () => translation
+  });
   const users = createUsersController(root, {
     request,
     translation: () => translation
@@ -92,37 +167,138 @@ export function initializeAdminApp(root = document, options = {}) {
     request,
     translation: () => translation
   });
+  const orgUserPositions = createOrgUserPositionsController(root, {
+    request,
+    translation: () => translation
+  });
+  const orgPositions = createOrgPositionsController(root, {
+    request,
+    translation: () => translation
+  });
+  const shellTabs = createShellTabsController(root, {
+    getActivePath: () => currentRoute(),
+    onNavigate: path => {
+      window.location.hash = path;
+    }
+  });
+  applyShellSettingsToDocument(readShellSettings());
+  const shellLayout = createShellLayoutController(root, {
+    getNavigation: () => latestSnapshot.navigation,
+    getActivePath: () => currentRoute(),
+    onSettingsChange: settings => {
+      applyShellChrome(root, settings);
+      shellTopbar.render(translation.t, settings);
+      shellGlobalSearch.render(translation.t);
+      shellTabs.render({
+        navigation: latestSnapshot.navigation,
+        activePath: currentRoute(),
+        t: translation.t,
+        settings
+      });
+    }
+  });
+  const shellSettings = bindShellSettings(root, {
+    getSettings: () => shellLayout.getSettings(),
+    updateSettings: partial => shellLayout.updatePreferences(partial)
+  });
+  const loadActiveRouteData = () => {
+    if (latestSnapshot.state !== 'authenticated') {
+      return;
+    }
 
-  const onRouteChange = () => {
-    renderRoute(root, latestSnapshot, translation, { focusHeading: true });
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/identity/super-administrators') {
+    const route = currentRoute();
+    if (route === '/' || route === '') {
+      void overviewDashboard.load();
+    }
+    if (route === '/identity/super-administrators') {
       void superAdministrators.load();
     }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/tenants') {
+    if (route === '/tenants') {
       void tenants.load();
     }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/identity/users') {
+    if (route === '/tenant-packages') {
+      void tenantPackages.load();
+    }
+    if (route === '/settings/dict-types') {
+      void dictTypes.load();
+    }
+    if (route === '/settings/config-entries') {
+      void configEntries.load();
+    }
+    if (route === '/settings/enum-catalogs') {
+      void enumCatalogs.load();
+    }
+    if (route === '/files/host-files') {
+      void hostFiles.load();
+    }
+    if (route === '/notifications/host-announcements') {
+      void hostAnnouncements.load();
+    }
+    if (route === '/notifications/inbox-messages') {
+      void inboxMessages.load();
+    }
+    if (route === '/jobs/host-definitions') {
+      void hostJobs.load();
+    }
+    if (route === '/auditing/access-logs') {
+      void accessLogs.load();
+    }
+    if (route === '/auditing/operation-logs') {
+      void operationLogs.load();
+    }
+    if (route === '/auditing/exception-logs') {
+      void exceptionLogs.load();
+    }
+    if (route === '/identity/online-sessions') {
+      void onlineSessions.load();
+    }
+    if (route === '/identity/users') {
       void users.load();
     }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/identity/roles') {
+    if (route === '/identity/roles') {
       void roles.load();
     }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/identity/menus') {
+    if (route === '/identity/menus') {
       void menus.load();
     }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/organization/units') {
+    if (route === '/organization/units') {
       void orgUnits.load();
     }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/organization/user-units') {
+    if (route === '/organization/positions') {
+      void orgPositions.load();
+    }
+    if (route === '/organization/user-units') {
       void orgUserUnits.load();
     }
+    if (route === '/organization/user-positions') {
+      void orgUserPositions.load();
+    }
+  };
+  const shellTopbar = bindShellTopbar(root, {
+    getSettings: () => shellLayout.getSettings(),
+    onSettingsChange: partial => shellLayout.updatePreferences(partial),
+    onRefresh: () => {
+      renderRoute(root, latestSnapshot, translation, shellLayout, shellTabs);
+      loadActiveRouteData();
+    }
+  });
+  const shellGlobalSearch = createShellGlobalSearch(root, {
+    getNavigation: () => latestSnapshot.navigation,
+    onNavigate: path => {
+      window.location.hash = path;
+    }
+  });
+  const shellNotifications = createShellNotificationPanel(root);
+  const shellChat = createShellChatDrawer(root);
+  applyShellChrome(root, readShellSettings());
+  shellTopbar.render(translation.t, readShellSettings());
+  shellGlobalSearch.render(translation.t);
+  shellNotifications.render(translation.t);
+  shellChat.render(translation.t);
+
+  const onRouteChange = () => {
+    renderRoute(root, latestSnapshot, translation, shellLayout, shellTabs, { focusHeading: true });
+    loadActiveRouteData();
   };
   const onProbe = async () => {
     if (isProbing) {
@@ -268,7 +444,7 @@ export function initializeAdminApp(root = document, options = {}) {
   };
   const unsubscribeSession = session.subscribe((snapshot) => {
     latestSnapshot = normalizeSnapshot(snapshot);
-    renderSession(root, latestSnapshot, translation);
+    renderSession(root, latestSnapshot, translation, shellLayout, shellSettings, shellTabs, shellTopbar, shellGlobalSearch, shellNotifications, shellChat);
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/identity/super-administrators') {
       void superAdministrators.load();
@@ -276,6 +452,34 @@ export function initializeAdminApp(root = document, options = {}) {
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/tenants') {
       void tenants.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/tenant-packages') {
+      void tenantPackages.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/settings/dict-types') {
+      void dictTypes.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/settings/config-entries') {
+      void configEntries.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/settings/enum-catalogs') {
+      void enumCatalogs.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/auditing/access-logs') {
+      void accessLogs.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/auditing/operation-logs') {
+      void operationLogs.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/auditing/exception-logs') {
+      void exceptionLogs.load();
     }
     if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/identity/users') {
@@ -294,8 +498,16 @@ export function initializeAdminApp(root = document, options = {}) {
       void orgUnits.load();
     }
     if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/organization/positions') {
+      void orgPositions.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
       && currentRoute() === '/organization/user-units') {
       void orgUserUnits.load();
+    }
+    if (latestSnapshot.state === 'authenticated'
+      && currentRoute() === '/organization/user-positions') {
+      void orgUserPositions.load();
     }
   });
   const unsubscribeI18n = i18n.subscribe((snapshot) => {
@@ -316,7 +528,7 @@ export function initializeAdminApp(root = document, options = {}) {
         translation.t('auth.submitting')
       );
     }
-    renderSession(root, latestSnapshot, translation);
+    renderSession(root, latestSnapshot, translation, shellLayout, shellSettings, shellTabs, shellTopbar, shellGlobalSearch, shellNotifications, shellChat);
   });
 
   window.addEventListener('hashchange', onRouteChange);
@@ -330,7 +542,7 @@ export function initializeAdminApp(root = document, options = {}) {
   });
   tenantDirectory?.addEventListener('click', onTenantAction);
   i18n.applyBindings(root);
-  renderRoute(root, latestSnapshot, translation);
+  renderRoute(root, latestSnapshot, translation, shellLayout, shellTabs);
 
   const ready = autoRestore
     ? Promise.resolve(session.restore())
@@ -357,24 +569,42 @@ export function initializeAdminApp(root = document, options = {}) {
       tenantDirectory?.removeEventListener('click', onTenantAction);
       superAdministrators.dispose();
       tenants.dispose();
+      tenantPackages.dispose();
+      dictTypes.dispose();
+      configEntries.dispose();
+      enumCatalogs.dispose();
+      accessLogs.dispose();
+      operationLogs.dispose();
+      exceptionLogs.dispose();
+      onlineSessions.dispose();
       users.dispose();
       roles.dispose();
       menus.dispose();
       orgUnits.dispose();
+      orgPositions.dispose();
       orgUserUnits.dispose();
+      orgUserPositions.dispose();
+      shellSettings.dispose();
+      shellTopbar.dispose();
+      shellGlobalSearch.dispose();
+      shellNotifications.dispose();
+      shellChat.dispose();
       unsubscribeSession();
       unsubscribeI18n();
     }
   };
 }
 
-function renderSession(root, snapshot, translation) {
+function renderSession(root, snapshot, translation, shellLayout, shellSettings, shellTabs, shellTopbar, shellGlobalSearch, shellNotifications, shellChat) {
   const boot = root.querySelector('[data-session-boot]');
   const login = root.querySelector('[data-login-view]');
   const shell = root.querySelector('[data-session-shell]');
   if (boot) boot.hidden = snapshot.state !== 'initializing';
   if (login) login.hidden = snapshot.state !== 'anonymous';
   if (shell) shell.hidden = snapshot.state !== 'authenticated';
+  if (snapshot.state !== 'authenticated') {
+    shellTabs?.reset();
+  }
 
   const currentUser = root.querySelector('[data-current-user]');
   const currentScope = root.querySelector('[data-current-scope]');
@@ -393,15 +623,16 @@ function renderSession(root, snapshot, translation) {
     element.textContent = snapshot.currentUser?.scope ?? '';
   });
 
-  const navigationContainer = root.querySelector('[data-navigation]');
-  if (navigationContainer) {
-    renderNavigation(
-      navigationContainer,
-      snapshot.navigation,
-      currentRoute(),
-      translation.t
-    );
-  }
+  shellLayout?.render({
+    navigation: snapshot.navigation,
+    activePath: currentRoute(),
+    t: translation.t
+  });
+  shellSettings?.render(translation.t);
+  shellTopbar?.render(translation.t, shellLayout?.getSettings() ?? readShellSettings());
+  shellGlobalSearch?.render(translation.t);
+  shellNotifications?.render(translation.t);
+  shellChat?.render(translation.t);
 
   renderContextSelector(
     root.querySelector('[data-context-select]'),
@@ -414,10 +645,11 @@ function renderSession(root, snapshot, translation) {
     translation
   );
   applyPermissionVisibility(root, snapshot.currentUser?.permissions ?? []);
-  renderRoute(root, snapshot, translation);
+  renderRoute(root, snapshot, translation, shellLayout, shellTabs);
+  applyShellChrome(root, shellLayout?.getSettings() ?? readShellSettings());
 }
 
-function renderRoute(root, snapshot, translation, options = {}) {
+function renderRoute(root, snapshot, translation, shellLayout, shellTabs, options = {}) {
   const route = currentRoute();
   const navigation = findNavigationByPath(snapshot.navigation, route);
   const status = statusRoutes[route]
@@ -443,19 +675,17 @@ function renderRoute(root, snapshot, translation, options = {}) {
     );
   }
 
-  const navigationContainer = root.querySelector('[data-navigation]');
-  if (navigationContainer) {
-    renderNavigation(
-      navigationContainer,
-      snapshot.navigation,
-      route,
-      translation.t
-    );
-  } else {
-    root.querySelectorAll('[data-route]').forEach((link) => {
-      link.classList.toggle('is-active', link.dataset.route === route);
-    });
-  }
+  shellLayout?.render({
+    navigation: snapshot.navigation,
+    activePath: route,
+    t: translation.t
+  });
+  shellTabs?.render({
+    navigation: snapshot.navigation,
+    activePath: route,
+    t: translation.t,
+    settings: shellLayout?.getSettings() ?? readShellSettings()
+  });
 
   const local = navigation
     ? localNavigationFor(navigation.componentKey)

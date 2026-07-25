@@ -20,6 +20,10 @@ export interface UpdateHostUserRequest {
   version: number;
 }
 
+export interface ResetHostUserPasswordRequest {
+  password: string;
+}
+
 export interface HostUserRoles {
   userId: string;
   roleIds: string[];
@@ -29,6 +33,13 @@ export interface HostUserRoles {
 export interface ReplaceHostUserRolesRequest {
   roleIds: string[];
   version: number;
+}
+
+/** 校验不可信 JSON 是否为 Host 用户密码重置请求。 */
+export function isResetHostUserPasswordRequest(
+  value: unknown
+): value is ResetHostUserPasswordRequest {
+  return isRecord(value) && typeof value.password === 'string' && value.password.length > 0;
 }
 
 /** 校验不可信 JSON 是否为 Host 用户更新请求。 */

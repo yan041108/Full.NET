@@ -18,4 +18,6 @@ internal static class IdentityClaimTypes
 
     public const string SuperAdministrator =
         FullNetIdentityClaimTypes.SuperAdministrator;
+
+    public const string ApiKeyId = FullNetIdentityClaimTypes.ApiKeyId;
 }

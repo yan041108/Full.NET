@@ -1,0 +1,89 @@
+{
+  "id": "tenancy-host-tenant-packages-v1",
+  "version": 1,
+  "description": "Host 租户套餐目录 HTTP 契约冻结夹具；与 TenancyTenantPackageContracts 和 ManageHostTenantPackages.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/tenancy/tenant-packages",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "tenancy.tenant_packages.read",
+          "successStatus": 200,
+          "responseSchema": "TenantPackageSummaryPage"
+        },
+        {
+          "method": "POST",
+          "permission": "tenancy.tenant_packages.write",
+          "successStatus": 201,
+          "requestSchema": "CreateHostTenantPackageRequest",
+          "responseSchema": "TenantPackageSummary"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/tenancy/tenant-packages/{packageId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "tenancy.tenant_packages.read",
+          "successStatus": 200,
+          "responseSchema": "TenantPackageSummary"
+        },
+        {
+          "method": "PUT",
+          "permission": "tenancy.tenant_packages.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostTenantPackageRequest",
+          "responseSchema": "TenantPackageSummary"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/tenancy/tenant-packages/{packageId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "tenancy.tenant_packages.write",
+          "successStatus": 200,
+          "responseSchema": "TenantPackageSummary"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "TenantPackageSummary": {
+      "properties": [
+        "id",
+        "code",
+        "name",
+        "description",
+        "isActive",
+        "version",
+        "assignedTenantCount"
+      ]
+    },
+    "CreateHostTenantPackageRequest": {
+      "properties": [
+        "code",
+        "name",
+        "description"
+      ]
+    },
+    "UpdateHostTenantPackageRequest": {
+      "properties": [
+        "name",
+        "description",
+        "version"
+      ]
+    },
+    "TenantPackageSummaryPage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

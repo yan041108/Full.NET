@@ -105,6 +105,7 @@ export {
   isHostUserPage,
   isHostUserRoles,
   isReplaceHostUserRolesRequest,
+  isResetHostUserPasswordRequest,
   isUpdateHostUserRequest
 } from './host-users.js';
 
@@ -113,22 +114,226 @@ export type {
   HostUserPage,
   HostUserRoles,
   ReplaceHostUserRolesRequest,
+  ResetHostUserPasswordRequest,
   UpdateHostUserRequest
 } from './host-users.js';
+
+export {
+  isHostOnlineSession,
+  isHostOnlineSessionPage
+} from './host-online-sessions.js';
+
+export type {
+  HostOnlineSession,
+  HostOnlineSessionPage
+} from './host-online-sessions.js';
+
+export {
+  isCreateHostApiKeyResult,
+  isHostApiKey,
+  isHostApiKeyPage
+} from './host-api-keys.js';
+
+export type {
+  CreateHostApiKeyResult,
+  HostApiKey,
+  HostApiKeyPage
+} from './host-api-keys.js';
+
+export {
+  isHostFile,
+  isHostFilePage
+} from './host-files.js';
+
+export type {
+  HostFile,
+  HostFilePage
+} from './host-files.js';
+
+export {
+  isHostDashboardActivity,
+  isHostDashboardSummary
+} from './platform-dashboard.js';
+
+export type {
+  HostDashboardActivity,
+  HostDashboardSummary
+} from './platform-dashboard.js';
+
+export {
+  FULLNET_API_TITLE,
+  FULLNET_OPENAPI_DOCUMENT_NAME,
+  FULLNET_OPENAPI_JSON_PATH,
+  FULLNET_SCALAR_UI_PATH,
+  isPlatformApiDocumentationCatalog,
+  resolveFullNetApiUrl
+} from './platform-api-documentation.js';
+
+export type {
+  PlatformApiDocumentationCatalog
+} from './platform-api-documentation.js';
+
+export {
+  isCreateHostAnnouncementRequest,
+  isHostAnnouncement,
+  isHostAnnouncementPage,
+  isPublishHostAnnouncementRequest,
+  isUpdateHostAnnouncementRequest
+} from './host-announcements.js';
+
+export type {
+  CreateHostAnnouncementRequest,
+  HostAnnouncement,
+  HostAnnouncementPage,
+  PublishHostAnnouncementRequest,
+  UpdateHostAnnouncementRequest
+} from './host-announcements.js';
+
+export {
+  JOBS_WELL_KNOWN_KEYS,
+  isCreateHostJobDefinitionRequest,
+  isDisableHostJobDefinitionRequest,
+  isHostJobDefinition,
+  isHostJobDefinitionPage,
+  isHostJobExecution,
+  isHostJobExecutionPage,
+  isUpdateHostJobDefinitionRequest
+} from './host-jobs.js';
+
+export type {
+  CreateHostJobDefinitionRequest,
+  DisableHostJobDefinitionRequest,
+  HostJobDefinition,
+  HostJobDefinitionPage,
+  HostJobExecution,
+  HostJobExecutionPage,
+  UpdateHostJobDefinitionRequest
+} from './host-jobs.js';
+
+export {
+  isInboxMessage,
+  isInboxMessagePage,
+  isInboxUnreadCount,
+  isSendHostInboxMessageRequest
+} from './inbox-messages.js';
+
+export type {
+  InboxMessage,
+  InboxMessagePage,
+  InboxUnreadCount,
+  SendHostInboxMessageRequest
+} from './inbox-messages.js';
 
 export {
   isCreateHostTenantRequest,
   isHostTenant,
   isHostTenantPage,
-  isUpdateHostTenantRequest
+  isUpdateHostTenantRequest,
+  isAssignHostTenantPackageRequest
 } from './host-tenants.js';
 
 export type {
   CreateHostTenantRequest,
   HostTenant,
   HostTenantPage,
-  UpdateHostTenantRequest
+  UpdateHostTenantRequest,
+  AssignHostTenantPackageRequest
 } from './host-tenants.js';
+
+export {
+  isCreateHostTenantPackageRequest,
+  isHostTenantPackage,
+  isHostTenantPackagePage,
+  isUpdateHostTenantPackageRequest
+} from './host-tenant-packages.js';
+
+export type {
+  CreateHostTenantPackageRequest,
+  HostTenantPackage,
+  HostTenantPackagePage,
+  UpdateHostTenantPackageRequest
+} from './host-tenant-packages.js';
+
+export {
+  isCreateSettingsDictItemRequest,
+  isCreateSettingsDictTypeRequest,
+  isSettingsDictItem,
+  isSettingsDictItemPage,
+  isSettingsDictType,
+  isSettingsDictTypePage,
+  isUpdateSettingsDictItemRequest,
+  isUpdateSettingsDictTypeRequest
+} from './settings-dict-types.js';
+
+export type {
+  CreateSettingsDictItemRequest,
+  CreateSettingsDictTypeRequest,
+  SettingsDictItem,
+  SettingsDictItemPage,
+  SettingsDictType,
+  SettingsDictTypePage,
+  UpdateSettingsDictItemRequest,
+  UpdateSettingsDictTypeRequest
+} from './settings-dict-types.js';
+
+export {
+  SETTINGS_CONFIG_VALUE_KINDS,
+  isCreateSettingsConfigEntryRequest,
+  isSettingsConfigEntry,
+  isSettingsConfigEntryPage,
+  isSettingsConfigValueKind,
+  isUpdateSettingsConfigEntryRequest
+} from './settings-config-entries.js';
+
+export type {
+  CreateSettingsConfigEntryRequest,
+  SettingsConfigEntry,
+  SettingsConfigEntryPage,
+  SettingsConfigValueKind,
+  UpdateSettingsConfigEntryRequest
+} from './settings-config-entries.js';
+
+export {
+  isSettingsEnumCatalogDetail,
+  isSettingsEnumCatalogMember,
+  isSettingsEnumCatalogSummary
+} from './settings-enum-catalogs.js';
+
+export type {
+  SettingsEnumCatalogDetail,
+  SettingsEnumCatalogMember,
+  SettingsEnumCatalogSummary
+} from './settings-enum-catalogs.js';
+
+export {
+  isAuditingAccessLog,
+  isAuditingAccessLogPage
+} from './auditing-access-logs.js';
+
+export type {
+  AuditingAccessLog,
+  AuditingAccessLogPage
+} from './auditing-access-logs.js';
+
+export {
+  isAuditingOperationLog,
+  isAuditingOperationLogPage
+} from './auditing-operation-logs.js';
+
+export type {
+  AuditingOperationLog,
+  AuditingOperationLogPage
+} from './auditing-operation-logs.js';
+
+export {
+  isAuditingExceptionLog,
+  isAuditingExceptionLogPage
+} from './auditing-exception-logs.js';
+
+export type {
+  AuditingExceptionLog,
+  AuditingExceptionLogPage
+} from './auditing-exception-logs.js';
 
 export {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
@@ -193,6 +398,32 @@ export type {
   CreateOrganizationUserUnitRequest,
   UpdateOrganizationUserUnitRequest
 } from './tenant-user-units.js';
+
+export {
+  isOrganizationUserPosition,
+  isOrganizationUserPositionPage,
+  isUpdateOrganizationUserPositionRequest
+} from './tenant-user-positions.js';
+
+export type {
+  OrganizationUserPosition,
+  OrganizationUserPositionPage,
+  CreateOrganizationUserPositionRequest,
+  UpdateOrganizationUserPositionRequest
+} from './tenant-user-positions.js';
+
+export {
+  isOrganizationPosition,
+  isOrganizationPositionPage,
+  isUpdateOrganizationPositionRequest
+} from './tenant-org-positions.js';
+
+export type {
+  OrganizationPosition,
+  OrganizationPositionPage,
+  CreateOrganizationPositionRequest,
+  UpdateOrganizationPositionRequest
+} from './tenant-org-positions.js';
 
 export type {
   TenantContextDescriptor,

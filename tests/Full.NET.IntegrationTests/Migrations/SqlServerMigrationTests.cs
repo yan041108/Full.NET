@@ -45,6 +45,7 @@ public sealed class SqlServerMigrationTests
             .ToArray();
 
         AssertContainsIgnoreCase(tables, "fn_tenancy_tenant");
+        AssertContainsIgnoreCase(tables, "fn_tenancy_tenant_package");
         Assert.IsFalse(tables.Contains("fn_tenant_tenant", StringComparer.OrdinalIgnoreCase));
         AssertContainsIgnoreCase(tables, "fn_outbox_message");
         AssertContainsIgnoreCase(tables, "fn_identity_user");

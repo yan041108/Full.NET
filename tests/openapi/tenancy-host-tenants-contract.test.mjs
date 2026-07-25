@@ -63,6 +63,7 @@ test('Host 租户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
 
   assert.match(contractsSource, /record UpdateHostTenantRequest/u);
+  assert.match(contractsSource, /record AssignHostTenantPackageRequest/u);
   assert.match(contractsSource, /tenancy\.tenants\.read/u);
   assert.match(contractsSource, /tenancy\.tenants\.write/u);
   assert.match(provisionSource, /record ProvisionTenantRequest/u);
@@ -81,6 +82,9 @@ test('Host 租户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ])],
     ['/api/v1/tenancy/tenants/{tenantId}/disable', new Map([
       ['POST', 'MapPost("/{tenantId:guid}/disable",']
+    ])],
+    ['/api/v1/tenancy/tenants/{tenantId}/package', new Map([
+      ['POST', 'MapPost("/{tenantId:guid}/package",']
     ])]
   ]);
 

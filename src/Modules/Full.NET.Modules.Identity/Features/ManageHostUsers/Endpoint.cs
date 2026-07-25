@@ -91,6 +91,33 @@ internal static class Endpoint
         })
         .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
 
+        group.MapPost("/{userId:guid}/enable", async (
+            Guid userId,
+            HostUserManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.EnableAsync(userId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+
+        group.MapPost("/{userId:guid}/reset-password", async (
+            Guid userId,
+            ResetHostUserPasswordRequest request,
+            HostUserManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ResetPasswordAsync(userId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+
         group.MapGet("/{userId:guid}/roles", async (
             Guid userId,
             HostUserRolesService service,

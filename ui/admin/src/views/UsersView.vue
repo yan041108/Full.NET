@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   ElButton,
+  ElCard,
   ElCheckbox,
   ElCheckboxGroup,
   ElDialog,
@@ -14,7 +15,7 @@ import type { FullNetProblemDetails, HostRole, HostUser } from '@fullnet/client-
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { createHostUser, disableHostUser, getHostUserRoles, listHostUsers, replaceHostUserRoles, updateHostUser } from '../api/users';
+import { createHostUser, disableHostUser, enableHostUser, getHostUserRoles, listHostUsers, replaceHostUserRoles, resetHostUserPassword, updateHostUser } from '../api/users';
 import { listHostRoles } from '../api/roles';
 
 const session = useSessionStore();
@@ -96,6 +97,30 @@ async function edit(user: HostUser): Promise<void> {
   }
 }
 
+async function resetPassword(user: HostUser): Promise<void> {
+  if (changing.value || !user.isActive) return;
+  try {
+    const result = await ElMessageBox.prompt(
+      t('users.resetPasswordTitle'),
+      t('users.resetPassword'),
+      {
+        inputType: 'password',
+        inputPattern: /.{8,}/,
+        inputErrorMessage: t('users.passwordPlaceholder'),
+        showCancelButton: true
+      }
+    );
+    changing.value = true;
+    await resetHostUserPassword(user.id, result.value);
+    ElMessage.success(t('users.resetPasswordSuccess'));
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') return;
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 async function disable(user: HostUser): Promise<void> {
   if (changing.value || !user.isActive) return;
   try {
@@ -107,6 +132,26 @@ async function disable(user: HostUser): Promise<void> {
     changing.value = true;
     await disableHostUser(user.id);
     ElMessage.success(t('users.disableSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') return;
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function enable(user: HostUser): Promise<void> {
+  if (changing.value || user.isActive) return;
+  try {
+    await ElMessageBox.confirm(
+      t('users.confirmEnable', { name: user.username }),
+      t('users.enable'),
+      { type: 'warning', confirmButtonText: t('users.enable'), cancelButtonText: t('status.back') }
+    );
+    changing.value = true;
+    await enableHostUser(user.id);
+    ElMessage.success(t('users.enableSuccess'));
     await load();
   } catch (error: unknown) {
     if (error === 'cancel' || error === 'close') return;
@@ -172,59 +217,61 @@ function toProblem(
 </script>
 
 <template>
-  <section class="users-view" :aria-busy="loading">
-    <header class="users-heading">
-      <div>
-        <p>{{ t('users.eyebrow') }}</p>
-        <h1 data-route-heading tabindex="-1">{{ t('users.title') }}</h1>
-        <span>{{ t('users.description') }}</span>
-      </div>
-    </header>
+  <section class="users-view art-page-stack art-full-height" :aria-busy="loading">
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('users.title') }}</h1>
 
-    <div v-if="problem" class="users-problem" role="alert">
-      <strong translate="no">{{ problem.code }}</strong><span>{{ problem.title }}</span>
+    <div v-if="problem" class="art-inline-alert" role="alert">
+      <strong translate="no">{{ problem.code }}</strong>
+      <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <section v-if="canWrite" class="create-strip" aria-labelledby="create-title">
-      <div><small>01</small><h2 id="create-title">{{ t('users.createTitle') }}</h2></div>
-      <label>
-        <span>{{ t('users.username') }}</span>
-        <el-input v-model="username" :placeholder="t('users.usernamePlaceholder')" />
-      </label>
-      <label>
-        <span>{{ t('users.displayName') }}</span>
-        <el-input v-model="displayName" :placeholder="t('users.displayNamePlaceholder')" />
-      </label>
-      <label>
-        <span>{{ t('users.password') }}</span>
-        <el-input
-          v-model="password"
-          type="password"
-          show-password
-          :placeholder="t('users.passwordPlaceholder')"
-          @keyup.enter="create"
-        />
-      </label>
-      <el-button type="primary" :loading="changing" @click="create">{{ t('users.create') }}</el-button>
-    </section>
-
-    <section class="identity-ledger">
-      <header>
-        <div><small>02</small><h2>{{ t('users.directoryTitle') }}</h2></div>
-        <b>{{ users.length }}</b>
-      </header>
-      <p v-if="users.length === 0" class="users-empty">{{ t('users.emptyDirectory') }}</p>
-      <article v-for="user in users" :key="user.id">
-        <span class="identity-mark">{{ user.username.slice(0, 2).toUpperCase() }}</span>
+    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+      <div class="art-form-grid" aria-labelledby="create-title">
         <div>
+          <h2 id="create-title">{{ t('users.createTitle') }}</h2>
+        </div>
+        <label>
+          <span>{{ t('users.username') }}</span>
+          <el-input v-model="username" :placeholder="t('users.usernamePlaceholder')" />
+        </label>
+        <label>
+          <span>{{ t('users.displayName') }}</span>
+          <el-input v-model="displayName" :placeholder="t('users.displayNamePlaceholder')" />
+        </label>
+        <label>
+          <span>{{ t('users.password') }}</span>
+          <el-input
+            v-model="password"
+            type="password"
+            show-password
+            :placeholder="t('users.passwordPlaceholder')"
+            @keyup.enter="create"
+          />
+        </label>
+        <el-button type="primary" :loading="changing" @click="create">{{ t('users.create') }}</el-button>
+      </div>
+    </el-card>
+
+    <el-card class="art-table-card" shadow="never">
+      <template #header>
+        <div class="art-table-card__header">
+          <h2>{{ t('users.directoryTitle') }}</h2>
+          <span class="art-table-card__count">{{ users.length }}</span>
+        </div>
+      </template>
+
+      <p v-if="users.length === 0" class="users-empty">{{ t('users.emptyDirectory') }}</p>
+      <article v-for="user in users" :key="user.id" class="art-data-row">
+        <span class="art-data-row__avatar">{{ user.username.slice(0, 2).toUpperCase() }}</span>
+        <div class="art-data-row__main">
           <strong translate="no">{{ user.displayName }}</strong>
           <code translate="no">{{ user.username }}</code>
         </div>
         <el-tag :type="user.isActive ? 'success' : 'info'">
           {{ t(user.isActive ? 'users.active' : 'users.inactive') }}
         </el-tag>
-        <div class="users-actions">
+        <div class="art-data-row__actions">
           <el-button
             v-if="canWrite"
             plain
@@ -243,6 +290,14 @@ function toProblem(
           </el-button>
           <el-button
             v-if="canWrite && user.isActive"
+            plain
+            :disabled="changing"
+            @click="resetPassword(user)"
+          >
+            {{ t('users.resetPassword') }}
+          </el-button>
+          <el-button
+            v-if="canWrite && user.isActive"
             type="danger"
             plain
             :disabled="changing"
@@ -250,9 +305,18 @@ function toProblem(
           >
             {{ t('users.disable') }}
           </el-button>
+          <el-button
+            v-if="canWrite && !user.isActive"
+            type="success"
+            plain
+            :disabled="changing"
+            @click="enable(user)"
+          >
+            {{ t('users.enable') }}
+          </el-button>
         </div>
       </article>
-    </section>
+    </el-card>
 
     <el-dialog
       v-model="rolesVisible"
@@ -280,32 +344,21 @@ function toProblem(
 </template>
 
 <style scoped>
-.users-view { display: grid; gap: 18px; }
-.users-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 8px 2px; }
-.users-heading p { margin: 0 0 10px; color: var(--fullnet-color-accent); font-family: var(--fullnet-font-display); font-size: 10px; font-weight: 700; letter-spacing: .2em; }
-.users-heading h1 { margin: 0; font-family: var(--fullnet-font-display); font-size: clamp(30px, 4vw, 48px); font-weight: 500; letter-spacing: -.05em; }
-.users-heading span { display: block; margin-top: 10px; color: var(--fullnet-color-ink-muted); font-size: 13px; }
-.users-problem { display: flex; gap: 14px; padding: 13px 16px; border-left: 3px solid var(--fullnet-color-danger); background: rgb(201 74 74 / 8%); }
-.users-problem code { margin-left: auto; }
-.create-strip { display: grid; grid-template-columns: minmax(160px, .7fr) repeat(3, minmax(180px, 1fr)) auto; align-items: end; gap: 16px; padding: 20px; border-radius: var(--fullnet-radius-md); background: var(--fullnet-color-sidebar); color: #fff; }
-.create-strip > div { align-self: center; }
-.create-strip small, .identity-ledger small { color: var(--fullnet-color-accent-bright); font-family: var(--fullnet-font-display); }
-.create-strip h2, .identity-ledger h2 { margin: 4px 0 0; font-size: 17px; }
-.create-strip label span { display: block; margin-bottom: 7px; color: #aeb8b9; font-size: 11px; }
-.identity-ledger { overflow: hidden; border: 1px solid var(--fullnet-color-line); border-radius: var(--fullnet-radius-md); background: var(--fullnet-color-panel); box-shadow: var(--fullnet-shadow-panel); }
-.identity-ledger > header { display: flex; min-height: 66px; align-items: center; justify-content: space-between; padding: 0 22px; border-bottom: 1px solid var(--fullnet-color-line); }
-.identity-ledger header div { gap: 12px; }
-.identity-ledger article { display: grid; grid-template-columns: 44px minmax(180px, 1fr) auto auto; align-items: center; gap: 16px; padding: 15px 22px; border-bottom: 1px solid var(--fullnet-color-line); }
-.users-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.identity-mark { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: var(--fullnet-color-ink); color: #fff; font-weight: 700; }
-.identity-ledger article div { display: grid; gap: 4px; }
-.identity-ledger code { color: var(--fullnet-color-ink-muted); font-size: 11px; }
-.users-empty { padding: 28px; margin: 0; text-align: center; color: var(--fullnet-color-ink-muted); }
-.users-roles { display: grid; gap: 10px; }
-.users-roles code { margin-left: 8px; color: var(--fullnet-color-ink-muted); font-size: 11px; }
-@media (max-width: 1080px) {
-  .create-strip { grid-template-columns: 1fr; }
-  .identity-ledger article { grid-template-columns: 44px 1fr auto; }
-  .identity-ledger article .el-button { grid-column: 2 / -1; }
+.users-empty {
+  margin: 0;
+  padding: 28px 20px;
+  color: var(--art-gray-600);
+  text-align: center;
+}
+
+.users-roles {
+  display: grid;
+  gap: 10px;
+}
+
+.users-roles code {
+  margin-left: 8px;
+  color: var(--art-gray-600);
+  font-size: 11px;
 }
 </style>

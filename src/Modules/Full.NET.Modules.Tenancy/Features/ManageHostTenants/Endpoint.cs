@@ -95,5 +95,20 @@ internal static class Endpoint
         })
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantManagementPermissions.Write));
+
+        group.MapPost("/{tenantId:guid}/package", async (
+            Guid tenantId,
+            AssignHostTenantPackageRequest request,
+            HostTenantManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.AssignPackageAsync(tenantId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            TenancyTenantManagementPermissions.Write));
     }
 }

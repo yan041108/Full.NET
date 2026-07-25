@@ -13,13 +13,26 @@ internal static class AdminNavigationWhitelist
             ["overview"] = new("overview", "/"),
             ["tenant-context"] = new("tenant-context", "/tenant-context"),
             ["users"] = new("users", "/identity/users"),
+            ["online-sessions"] = new("online-sessions", "/identity/online-sessions"),
             ["roles"] = new("roles", "/identity/roles"),
             ["menus"] = new("menus", "/identity/menus"),
             ["org-units"] = new("org-units", "/organization/units"),
             ["org-user-units"] = new("org-user-units", "/organization/user-units"),
+            ["org-positions"] = new("org-positions", "/organization/positions"),
+            ["org-user-positions"] = new("org-user-positions", "/organization/user-positions"),
             ["super-administrators"] = new(
                 "super-administrators",
                 "/identity/super-administrators"),
+            ["dict-types"] = new("dict-types", "/settings/dict-types"),
+            ["config-entries"] = new("config-entries", "/settings/config-entries"),
+            ["enum-catalogs"] = new("enum-catalogs", "/settings/enum-catalogs"),
+            ["access-logs"] = new("access-logs", "/auditing/access-logs"),
+            ["operation-logs"] = new("operation-logs", "/auditing/operation-logs"),
+            ["exception-logs"] = new("exception-logs", "/auditing/exception-logs"),
+            ["host-files"] = new("host-files", "/files/host-files"),
+            ["host-announcements"] = new("host-announcements", "/notifications/host-announcements"),
+            ["inbox-messages"] = new("inbox-messages", "/notifications/inbox-messages"),
+            ["host-jobs"] = new("host-jobs", "/jobs/host-definitions"),
         };
 
     public static bool TryGetEntry(string componentKey, out Entry entry) =>

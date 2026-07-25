@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   ElButton,
+  ElCard,
   ElCheckbox,
   ElCheckboxGroup,
   ElDialog,
@@ -245,74 +246,61 @@ function toProblem(
 </script>
 
 <template>
-  <section class="roles-view" :aria-busy="loading">
-    <header class="roles-heading">
-      <div>
-        <p>{{ t('roles.eyebrow') }}</p>
-        <h1 data-route-heading tabindex="-1">{{ t('roles.title') }}</h1>
-        <span>{{ t('roles.description') }}</span>
-      </div>
-    </header>
+  <section class="roles-view art-page-stack art-full-height" :aria-busy="loading">
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('roles.title') }}</h1>
 
-    <div v-if="problem" class="roles-problem" role="alert">
-      <strong translate="no">{{ problem.code }}</strong><span>{{ problem.title }}</span>
+    <div v-if="problem" class="art-inline-alert" role="alert">
+      <strong translate="no">{{ problem.code }}</strong>
+      <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <section v-if="canWrite" class="create-strip" aria-labelledby="create-title">
-      <div><small>01</small><h2 id="create-title">{{ t('roles.createTitle') }}</h2></div>
-      <label>
-        <span>{{ t('roles.code') }}</span>
-        <el-input v-model="code" :placeholder="t('roles.codePlaceholder')" />
-      </label>
-      <label>
-        <span>{{ t('roles.name') }}</span>
-        <el-input v-model="name" :placeholder="t('roles.namePlaceholder')" @keyup.enter="create" />
-      </label>
-      <el-button type="primary" :loading="changing" @click="create">{{ t('roles.create') }}</el-button>
-    </section>
-
-    <section class="identity-ledger">
-      <header>
-        <div><small>02</small><h2>{{ t('roles.directoryTitle') }}</h2></div>
-        <b>{{ roles.length }}</b>
-      </header>
-      <p v-if="roles.length === 0" class="roles-empty">{{ t('roles.emptyDirectory') }}</p>
-      <article v-for="role in roles" :key="role.id">
-        <span class="identity-mark">{{ role.code.slice(0, 2).toUpperCase() }}</span>
+    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+      <div class="art-form-grid art-form-grid--cols-2" aria-labelledby="create-title">
         <div>
+          <h2 id="create-title">{{ t('roles.createTitle') }}</h2>
+        </div>
+        <label>
+          <span>{{ t('roles.code') }}</span>
+          <el-input v-model="code" :placeholder="t('roles.codePlaceholder')" />
+        </label>
+        <label>
+          <span>{{ t('roles.name') }}</span>
+          <el-input v-model="name" :placeholder="t('roles.namePlaceholder')" @keyup.enter="create" />
+        </label>
+        <el-button type="primary" :loading="changing" @click="create">{{ t('roles.create') }}</el-button>
+      </div>
+    </el-card>
+
+    <el-card class="art-table-card" shadow="never">
+      <template #header>
+        <div class="art-table-card__header">
+          <h2>{{ t('roles.directoryTitle') }}</h2>
+          <span class="art-table-card__count">{{ roles.length }}</span>
+        </div>
+      </template>
+
+      <p v-if="roles.length === 0" class="art-empty-state">{{ t('roles.emptyDirectory') }}</p>
+      <article v-for="role in roles" :key="role.id" class="art-data-row">
+        <span class="art-data-row__avatar">{{ role.code.slice(0, 2).toUpperCase() }}</span>
+        <div class="art-data-row__main">
           <strong translate="no">{{ role.name }}</strong>
           <code translate="no">{{ role.code }}</code>
         </div>
-        <div class="roles-tags">
+        <div class="art-tag-group">
           <el-tag v-if="role.isSystem" type="warning">{{ t('roles.system') }}</el-tag>
           <el-tag :type="role.isActive ? 'success' : 'info'">
             {{ t(role.isActive ? 'roles.active' : 'roles.inactive') }}
           </el-tag>
         </div>
-        <div class="roles-actions">
-          <el-button
-            v-if="canWrite && !role.isSystem"
-            plain
-            :disabled="changing"
-            @click="edit(role)"
-          >
+        <div class="art-data-row__actions">
+          <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="edit(role)">
             {{ t('roles.edit') }}
           </el-button>
-          <el-button
-            v-if="canWrite && !role.isSystem"
-            plain
-            :disabled="changing"
-            @click="openPermissions(role)"
-          >
+          <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="openPermissions(role)">
             {{ t('roles.permissions') }}
           </el-button>
-          <el-button
-            v-if="canWrite && !role.isSystem"
-            plain
-            :disabled="changing"
-            @click="openDataScope(role)"
-          >
+          <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="openDataScope(role)">
             {{ t('roles.dataScope') }}
           </el-button>
           <el-button
@@ -326,67 +314,34 @@ function toProblem(
           </el-button>
         </div>
       </article>
-    </section>
+    </el-card>
 
-    <el-dialog
-      v-model="permissionsVisible"
-      :title="t('roles.permissionsTitle')"
-      width="520px"
-    >
-      <el-checkbox-group v-model="selectedPermissions" class="roles-permissions">
-        <el-checkbox
-          v-for="permission in assignablePermissions"
-          :key="permission"
-          :label="permission"
-          translate="no"
-        >
+    <el-dialog v-model="permissionsVisible" :title="t('roles.permissionsTitle')" width="520px">
+      <el-checkbox-group v-model="selectedPermissions" class="art-dialog-grid">
+        <el-checkbox v-for="permission in assignablePermissions" :key="permission" :label="permission" translate="no">
           {{ permission }}
         </el-checkbox>
       </el-checkbox-group>
       <template #footer>
         <el-button @click="permissionsVisible = false">{{ t('status.back') }}</el-button>
-        <el-button type="primary" :loading="changing" @click="savePermissions">
-          {{ t('roles.savePermissions') }}
-        </el-button>
+        <el-button type="primary" :loading="changing" @click="savePermissions">{{ t('roles.savePermissions') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog
-      v-model="dataScopeVisible"
-      :title="t('roles.dataScopeTitle')"
-      width="560px"
-    >
-      <label class="roles-data-scope-kind">
+    <el-dialog v-model="dataScopeVisible" :title="t('roles.dataScopeTitle')" width="560px">
+      <label class="art-dialog-field">
         <span>{{ t('roles.dataScopeKind') }}</span>
-        <el-select
-          :model-value="selectedDataScopeKind"
-          @update:model-value="onDataScopeKindChange"
-        >
-          <el-option
-            v-for="kind in dataScopeKinds"
-            :key="kind"
-            :label="dataScopeKindLabel(kind)"
-            :value="kind"
-          />
+        <el-select :model-value="selectedDataScopeKind" @update:model-value="onDataScopeKindChange">
+          <el-option v-for="kind in dataScopeKinds" :key="kind" :label="dataScopeKindLabel(kind)" :value="kind" />
         </el-select>
       </label>
-      <p
-        v-if="selectedDataScopeKind === 'identity.data_scope.custom' && !inTenantContext"
-        class="roles-data-scope-hint"
-      >
+      <p v-if="selectedDataScopeKind === 'identity.data_scope.custom' && !inTenantContext" class="art-dialog-hint">
         {{ t('roles.dataScopeTenantRequired') }}
       </p>
-      <section
-        v-if="selectedDataScopeKind === 'identity.data_scope.custom' && inTenantContext"
-        class="roles-data-scope-units"
-      >
+      <section v-if="selectedDataScopeKind === 'identity.data_scope.custom' && inTenantContext" class="art-dialog-grid">
         <span>{{ t('roles.dataScopeUnits') }}</span>
         <el-checkbox-group v-model="selectedUnitIds">
-          <el-checkbox
-            v-for="unit in orgUnits"
-            :key="unit.id"
-            :label="unit.id"
-          >
+          <el-checkbox v-for="unit in orgUnits" :key="unit.id" :label="unit.id">
             <span translate="no">{{ unit.name }}</span>
             <code translate="no">{{ unit.code }}</code>
           </el-checkbox>
@@ -394,45 +349,8 @@ function toProblem(
       </section>
       <template #footer>
         <el-button @click="dataScopeVisible = false">{{ t('status.back') }}</el-button>
-        <el-button type="primary" :loading="changing" @click="saveDataScope">
-          {{ t('roles.saveDataScope') }}
-        </el-button>
+        <el-button type="primary" :loading="changing" @click="saveDataScope">{{ t('roles.saveDataScope') }}</el-button>
       </template>
     </el-dialog>
   </section>
 </template>
-
-<style scoped>
-.roles-view { display: grid; gap: 18px; }
-.roles-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 8px 2px; }
-.roles-heading p { margin: 0 0 10px; color: var(--fullnet-color-accent); font-family: var(--fullnet-font-display); font-size: 10px; font-weight: 700; letter-spacing: .2em; }
-.roles-heading h1 { margin: 0; font-family: var(--fullnet-font-display); font-size: clamp(30px, 4vw, 48px); font-weight: 500; letter-spacing: -.05em; }
-.roles-heading span { display: block; margin-top: 10px; color: var(--fullnet-color-ink-muted); font-size: 13px; }
-.roles-problem { display: flex; gap: 14px; padding: 13px 16px; border-left: 3px solid var(--fullnet-color-danger); background: rgb(201 74 74 / 8%); }
-.roles-problem code { margin-left: auto; }
-.create-strip { display: grid; grid-template-columns: minmax(160px, .7fr) repeat(2, minmax(180px, 1fr)) auto; align-items: end; gap: 16px; padding: 20px; border-radius: var(--fullnet-radius-md); background: var(--fullnet-color-sidebar); color: #fff; }
-.create-strip > div { align-self: center; }
-.create-strip small, .identity-ledger small { color: var(--fullnet-color-accent-bright); font-family: var(--fullnet-font-display); }
-.create-strip h2, .identity-ledger h2 { margin: 4px 0 0; font-size: 17px; }
-.create-strip label span { display: block; margin-bottom: 7px; color: #aeb8b9; font-size: 11px; }
-.identity-ledger { overflow: hidden; border: 1px solid var(--fullnet-color-line); border-radius: var(--fullnet-radius-md); background: var(--fullnet-color-panel); box-shadow: var(--fullnet-shadow-panel); }
-.identity-ledger > header { display: flex; min-height: 66px; align-items: center; justify-content: space-between; padding: 0 22px; border-bottom: 1px solid var(--fullnet-color-line); }
-.identity-ledger article { display: grid; grid-template-columns: 44px minmax(180px, 1fr) auto auto; align-items: center; gap: 16px; padding: 15px 22px; border-bottom: 1px solid var(--fullnet-color-line); }
-.roles-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-.roles-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-.identity-mark { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: var(--fullnet-color-ink); color: #fff; font-weight: 700; }
-.identity-ledger article div { display: grid; gap: 4px; }
-.identity-ledger code { color: var(--fullnet-color-ink-muted); font-size: 11px; }
-.roles-empty { padding: 28px; margin: 0; text-align: center; color: var(--fullnet-color-ink-muted); }
-.roles-permissions { display: grid; gap: 10px; }
-.roles-data-scope-kind { display: grid; gap: 8px; margin-bottom: 16px; }
-.roles-data-scope-kind span { font-size: 12px; color: var(--fullnet-color-ink-muted); }
-.roles-data-scope-hint { margin: 0 0 12px; color: var(--fullnet-color-danger); font-size: 13px; }
-.roles-data-scope-units { display: grid; gap: 10px; }
-.roles-data-scope-units code { margin-left: 8px; color: var(--fullnet-color-ink-muted); font-size: 11px; }
-@media (max-width: 1080px) {
-  .create-strip { grid-template-columns: 1fr; }
-  .identity-ledger article { grid-template-columns: 44px 1fr auto; }
-  .identity-ledger article .roles-actions { grid-column: 2 / -1; }
-}
-</style>

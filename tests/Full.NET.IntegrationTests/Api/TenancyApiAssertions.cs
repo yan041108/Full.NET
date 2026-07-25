@@ -60,6 +60,9 @@ internal static class TenancyApiAssertions
                 "isActive",
                 "version",
                 "defaultLocale",
+                "tenantPackageId",
+                "tenantPackageCode",
+                "tenantPackageName",
             },
             actualProperties);
 

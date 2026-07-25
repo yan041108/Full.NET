@@ -9,4 +9,7 @@ public sealed record TenantSummary(
     string Domain,
     bool IsActive,
     int Version,
-    string DefaultLocale = LocaleCatalog.DefaultLocale);
+    string DefaultLocale = LocaleCatalog.DefaultLocale,
+    Guid? TenantPackageId = null,
+    string? TenantPackageCode = null,
+    string? TenantPackageName = null);

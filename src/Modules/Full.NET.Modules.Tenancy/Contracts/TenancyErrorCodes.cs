@@ -34,6 +34,21 @@ public static class TenancyErrorCodes
     /// <summary>租户记录版本冲突。</summary>
     public const string VersionConflict = "tenancy.tenant.version_conflict";
 
+    /// <summary>租户套餐不存在。</summary>
+    public const string PackageNotFound = "tenancy.tenant_package.not_found";
+
+    /// <summary>租户套餐编码已被占用。</summary>
+    public const string PackageCodeExists = "tenancy.tenant_package.code_exists";
+
+    /// <summary>租户套餐记录版本冲突。</summary>
+    public const string PackageVersionConflict = "tenancy.tenant_package.version_conflict";
+
+    /// <summary>不能为租户分配已禁用的套餐。</summary>
+    public const string PackageInactive = "tenancy.tenant_package.inactive";
+
+    /// <summary>仍有租户绑定该套餐时不能禁用。</summary>
+    public const string PackageInUse = "tenancy.tenant_package.in_use";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -47,5 +62,10 @@ public static class TenancyErrorCodes
         LastActiveTenant,
         NotFound,
         VersionConflict,
+        PackageNotFound,
+        PackageCodeExists,
+        PackageVersionConflict,
+        PackageInactive,
+        PackageInUse,
     ]);
 }

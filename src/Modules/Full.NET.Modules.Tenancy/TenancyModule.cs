@@ -59,6 +59,8 @@ public sealed class TenancyModule : IFullNetModule
             Features.ChangeTenantContext.Handler>();
         services.AddScoped<Features.ManageHostTenants.HostTenantQueryService>();
         services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
+        services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();
+        services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -94,6 +96,7 @@ public sealed class TenancyModule : IFullNetModule
         Features.GetAvailableTenants.Endpoint.Map(group);
         Features.ChangeTenantContext.Endpoint.Map(group);
         Features.ManageHostTenants.Endpoint.Map(endpoints);
+        Features.ManageHostTenantPackages.Endpoint.Map(endpoints);
     }
 
     /// <summary>

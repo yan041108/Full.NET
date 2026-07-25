@@ -15,20 +15,14 @@ public sealed class TenantResolverTests
     [TestMethod]
     public async Task ResolveByDomainAsync_NormalizesAndCachesActiveTenant()
     {
-        var expected = new TenantSummary(
-            Guid.CreateVersion7(),
-            "acme",
-            "Acme",
-            "acme.localhost",
-            true,
-            1);
+        var expected = CreateSummary();
         var executor = Substitute.For<IQueryExecutor>();
         executor
-            .QuerySingleOrDefaultAsync<TenantSummary>(
+            .QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 Arg.Any<SqlStatement>(),
                 Arg.Any<object>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<TenantSummary?>(expected));
+            .Returns(Task.FromResult<TenantResolutionRecord?>(ToRecord(expected)));
 
         await using var provider = CreateCacheProvider();
         var resolver = new TenantResolver(
@@ -41,7 +35,7 @@ public sealed class TenantResolverTests
 
         Assert.AreEqual(expected, first);
         Assert.AreEqual(expected.Id, second?.Id);
-        await executor.Received(1).QuerySingleOrDefaultAsync<TenantSummary>(
+        await executor.Received(1).QuerySingleOrDefaultAsync<TenantResolutionRecord>(
             Arg.Is<SqlStatement>(statement =>
                 statement != null && statement.Name == "tenancy.find_by_domain"),
             Arg.Is<object>(parameters =>
@@ -54,11 +48,11 @@ public sealed class TenantResolverTests
     {
         var executor = Substitute.For<IQueryExecutor>();
         executor
-            .QuerySingleOrDefaultAsync<TenantSummary>(
+            .QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 Arg.Any<SqlStatement>(),
                 Arg.Any<object>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<TenantSummary?>(null));
+            .Returns(Task.FromResult<TenantResolutionRecord?>(null));
 
         await using var provider = CreateCacheProvider();
         var resolver = new TenantResolver(
@@ -69,7 +63,7 @@ public sealed class TenantResolverTests
         Assert.IsNull(await resolver.ResolveByDomainAsync("missing.localhost"));
         Assert.IsNull(await resolver.ResolveByDomainAsync("MISSING.LOCALHOST"));
         Assert.AreEqual(TimeSpan.FromMinutes(1), TenantResolver.MissingTenantDuration);
-        await executor.Received(1).QuerySingleOrDefaultAsync<TenantSummary>(
+        await executor.Received(1).QuerySingleOrDefaultAsync<TenantResolutionRecord>(
             Arg.Any<SqlStatement>(),
             Arg.Any<object>(),
             Arg.Any<CancellationToken>());
@@ -78,19 +72,13 @@ public sealed class TenantResolverTests
     [TestMethod]
     public async Task ResolveByIdAsync_uses_the_explicit_global_id_query()
     {
-        var expected = new TenantSummary(
-            Guid.CreateVersion7(),
-            "acme",
-            "Acme",
-            "acme.localhost",
-            true,
-            1);
+        var expected = CreateSummary();
         var executor = Substitute.For<IQueryExecutor>();
-        executor.QuerySingleOrDefaultAsync<TenantSummary>(
+        executor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
                 Arg.Any<object>(),
                 Arg.Any<CancellationToken>())
-            .Returns(expected);
+            .Returns(ToRecord(expected));
         await using var provider = CreateCacheProvider();
         var resolver = new TenantResolver(
             executor,
@@ -100,7 +88,7 @@ public sealed class TenantResolverTests
         var result = await resolver.ResolveByIdAsync(expected.Id);
 
         Assert.AreEqual(expected, result);
-        await executor.Received(1).QuerySingleOrDefaultAsync<TenantSummary>(
+        await executor.Received(1).QuerySingleOrDefaultAsync<TenantResolutionRecord>(
             TenantSql.FindById,
             Arg.Any<object>(),
             Arg.Any<CancellationToken>());
@@ -110,11 +98,11 @@ public sealed class TenantResolverTests
     public async Task GetAvailableAsync_returns_the_stably_ordered_global_query()
     {
         var executor = Substitute.For<IQueryExecutor>();
-        executor.QueryAsync<TenantSummary>(
+        executor.QueryAsync<TenantResolutionRecord>(
                 TenantSql.GetAvailable,
-                null,
-                Arg.Any<CancellationToken>())
-            .Returns([]);
+                cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlyList<TenantResolutionRecord>>(
+                Array.Empty<TenantResolutionRecord>()));
         await using var provider = CreateCacheProvider();
         var resolver = new TenantResolver(
             executor,
@@ -124,11 +112,27 @@ public sealed class TenantResolverTests
         var result = await resolver.GetAvailableAsync();
 
         Assert.HasCount(0, result);
-        await executor.Received(1).QueryAsync<TenantSummary>(
+        await executor.Received(1).QueryAsync<TenantResolutionRecord>(
             TenantSql.GetAvailable,
-            null,
-            Arg.Any<CancellationToken>());
+            cancellationToken: Arg.Any<CancellationToken>());
     }
+
+    private static TenantSummary CreateSummary() => new(
+        Guid.CreateVersion7(),
+        "acme",
+        "Acme",
+        "acme.localhost",
+        true,
+        1);
+
+    private static TenantResolutionRecord ToRecord(TenantSummary summary) => new(
+        summary.Id,
+        summary.Identifier,
+        summary.Name,
+        summary.Domain,
+        summary.IsActive,
+        summary.Version,
+        summary.DefaultLocale);
 
     private static ServiceProvider CreateCacheProvider()
     {

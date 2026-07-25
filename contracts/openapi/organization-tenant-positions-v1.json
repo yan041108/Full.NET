@@ -1,0 +1,90 @@
+{
+  "id": "organization-tenant-positions-v1",
+  "version": 1,
+  "description": "租户职位管理 HTTP 契约冻结夹具；与 OrganizationPositionManagementContracts 和 ManageTenantPositions.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/organization/positions",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.positions.read",
+          "successStatus": 200,
+          "responseSchema": "OrganizationPositionResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "organization.positions.write",
+          "successStatus": 201,
+          "requestSchema": "CreateOrganizationPositionRequest",
+          "responseSchema": "OrganizationPositionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/positions/{positionId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.positions.read",
+          "successStatus": 200,
+          "responseSchema": "OrganizationPositionResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "organization.positions.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateOrganizationPositionRequest",
+          "responseSchema": "OrganizationPositionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/positions/{positionId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "organization.positions.write",
+          "successStatus": 200,
+          "responseSchema": "OrganizationPositionResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OrganizationPositionResponse": {
+      "properties": [
+        "id",
+        "code",
+        "name",
+        "displayOrder",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateOrganizationPositionRequest": {
+      "properties": [
+        "code",
+        "name",
+        "displayOrder"
+      ]
+    },
+    "UpdateOrganizationPositionRequest": {
+      "properties": [
+        "name",
+        "displayOrder",
+        "version"
+      ]
+    },
+    "OrganizationPositionResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

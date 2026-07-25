@@ -49,6 +49,29 @@
           "responseSchema": "HostUserResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/identity/users/{userId}/enable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.users.write",
+          "successStatus": 200,
+          "responseSchema": "HostUserResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/users/{userId}/reset-password",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.users.write",
+          "successStatus": 200,
+          "requestSchema": "ResetHostUserPasswordRequest",
+          "responseSchema": "HostUserResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -74,6 +97,11 @@
       "properties": [
         "displayName",
         "version"
+      ]
+    },
+    "ResetHostUserPasswordRequest": {
+      "properties": [
+        "password"
       ]
     },
     "HostUserResponsePage": {

@@ -1,0 +1,46 @@
+{
+  "id": "auditing-exception-logs-v1",
+  "version": 1,
+  "description": "Host 异常日志查询 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/auditing/exception-logs",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.exceptions.read",
+          "successStatus": 200,
+          "responseSchema": "ExceptionLogResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/exception-logs/{exceptionLogId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.exceptions.read",
+          "successStatus": 200,
+          "responseSchema": "ExceptionLogResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "ExceptionLogResponse": {
+      "properties": [
+        "id",
+        "occurredAtUtc",
+        "exceptionType",
+        "message",
+        "stackTrace",
+        "httpMethod",
+        "requestPath",
+        "userId",
+        "tenantId",
+        "traceId",
+        "clientIpFingerprint"
+      ]
+    }
+  }
+}

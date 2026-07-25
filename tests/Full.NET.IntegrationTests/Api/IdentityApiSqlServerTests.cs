@@ -95,4 +95,24 @@ public sealed class IdentityApiSqlServerTests
 
         await IdentityMenuManagementAssertions.VerifyHostMenuManagementContractAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_online_sessions_follow_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await IdentityOnlineSessionAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Host_api_keys_follow_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await IdentityApiKeyAssertions.VerifyAsync(factory);
+    }
 }

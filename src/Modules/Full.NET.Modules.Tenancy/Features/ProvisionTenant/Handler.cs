@@ -3,10 +3,11 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Localization;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Domain;
+using Full.NET.Modules.Tenancy.Features.ManageHostTenantPackages;
 using Full.NET.Modules.Tenancy.Persistence;
-using Full.NET.Localization;
 
 namespace Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 
@@ -54,6 +55,29 @@ internal sealed class Handler(
                 "A tenant with this domain already exists.");
         }
 
+        string? packageCode = null;
+        string? packageName = null;
+        if (command.TenantPackageId is Guid packageId)
+        {
+            var package = await queryExecutor.QuerySingleOrDefaultAsync<TenantPackageIdentityRecord>(
+                    TenantPackageSql.FindPackageById,
+                    new { PackageId = packageId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (package is null)
+            {
+                return NotFoundPackage();
+            }
+
+            if (!package.IsActive)
+            {
+                return PackageInactive();
+            }
+
+            packageCode = package.Code;
+            packageName = package.Name;
+        }
+
         var tenant = new Tenant(
             idGenerator.NewId(),
             identifier,
@@ -64,7 +88,21 @@ internal sealed class Handler(
             1,
             LocaleCatalog.DefaultLocale);
         var affectedRows = await commandExecutor
-            .ExecuteAsync(TenantSql.Insert, tenant, cancellationToken)
+            .ExecuteAsync(
+                TenantSql.Insert,
+                new
+                {
+                    tenant.Id,
+                    tenant.Identifier,
+                    tenant.Name,
+                    tenant.Domain,
+                    tenant.IsActive,
+                    tenant.CreatedAtUtc,
+                    tenant.Version,
+                    tenant.DefaultLocale,
+                    TenantPackageId = command.TenantPackageId,
+                },
+                cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
@@ -89,7 +127,10 @@ internal sealed class Handler(
             tenant.Domain,
             tenant.IsActive,
             tenant.Version,
-            tenant.DefaultLocale));
+            tenant.DefaultLocale,
+            command.TenantPackageId,
+            packageCode,
+            packageName));
     }
 
     private static Result<TenantSummary> Conflict(string code, string message) =>
@@ -97,4 +138,16 @@ internal sealed class Handler(
             Code: code,
             Message: message,
             Type: ErrorType.Conflict));
+
+    private static Result<TenantSummary> NotFoundPackage() =>
+        Result<TenantSummary>.Failure(new Error(
+            TenancyErrorCodes.PackageNotFound,
+            "The tenant package was not found.",
+            ErrorType.NotFound));
+
+    private static Result<TenantSummary> PackageInactive() =>
+        Result<TenantSummary>.Failure(new Error(
+            TenancyErrorCodes.PackageInactive,
+            "The tenant package is not active.",
+            ErrorType.BusinessRule));
 }

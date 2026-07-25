@@ -78,6 +78,184 @@ export async function createHostUserViaApi(request, clientKind, options) {
   return { id: body.id, username: body.username };
 }
 
+/**
+ * 经真实 API 创建 Host 租户套餐，供真实栈写路径准备数据。
+ * @returns {Promise<{ id: string, code: string, name: string, version: number }>}
+ */
+export async function createTenantPackageViaApi(request, clientKind, options) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.post(`${apiBaseUrl}/api/v1/tenancy/tenant-packages`, {
+    data: {
+      code: options.code,
+      name: options.name,
+      description: options.description ?? null
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.code).toBe(options.code);
+  expect(body.name).toBe(options.name);
+  return { id: body.id, code: body.code, name: body.name, version: body.version };
+}
+
+/**
+ * 经真实 API 创建 Host 字典类型，供真实栈准备数据或断言写路径。
+ * @returns {Promise<{ id: string, code: string, name: string, version: number }>}
+ */
+export async function createSettingsDictTypeViaApi(request, clientKind, options) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.post(`${apiBaseUrl}/api/v1/settings/dict-types`, {
+    data: {
+      code: options.code,
+      name: options.name,
+      description: options.description ?? null,
+      displayOrder: options.displayOrder ?? 0
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.code).toBe(options.code);
+  expect(body.name).toBe(options.name);
+  return { id: body.id, code: body.code, name: body.name, version: body.version };
+}
+
+/**
+ * 经真实 API 在指定字典类型下创建字典项。
+ * @returns {Promise<{ id: string, value: string, label: string, version: number }>}
+ */
+export async function createSettingsDictItemViaApi(request, clientKind, dictTypeId, options) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.post(
+    `${apiBaseUrl}/api/v1/settings/dict-types/${encodeURIComponent(dictTypeId)}/items`,
+    {
+      data: {
+        label: options.label,
+        value: options.value,
+        color: options.color ?? null,
+        displayOrder: options.displayOrder ?? 0
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.value).toBe(options.value);
+  expect(body.label).toBe(options.label);
+  return { id: body.id, value: body.value, label: body.label, version: body.version };
+}
+
+/**
+ * 经真实 API 创建 Host 系统配置项。
+ * @returns {Promise<{ id: string, configKey: string, displayName: string, version: number }>}
+ */
+export async function createSettingsConfigEntryViaApi(request, clientKind, options) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.post(`${apiBaseUrl}/api/v1/settings/config-entries`, {
+    data: {
+      configKey: options.configKey,
+      displayName: options.displayName,
+      description: options.description ?? null,
+      valueKind: options.valueKind ?? 'string',
+      value: options.value ?? '',
+      displayOrder: options.displayOrder ?? 0
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.configKey).toBe(options.configKey);
+  expect(body.displayName).toBe(options.displayName);
+  return {
+    id: body.id,
+    configKey: body.configKey,
+    displayName: body.displayName,
+    version: body.version
+  };
+}
+
+/**
+ * 经真实 API 上传 Host 文件，供真实栈准备数据或断言写路径。
+ * @returns {Promise<{ id: string, originalFileName: string, sizeBytes: number }>}
+ */
+export async function uploadHostFileViaApi(request, clientKind, options) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.post(`${apiBaseUrl}/api/v1/files/host-files`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin
+    },
+    multipart: {
+      file: {
+        name: options.fileName,
+        mimeType: options.contentType ?? 'text/plain',
+        buffer: Buffer.from(options.content ?? 'real-stack')
+      }
+    }
+  });
+  expect(response.status()).toBe(201);
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.originalFileName).toBe(options.fileName);
+  return {
+    id: body.id,
+    originalFileName: body.originalFileName,
+    sizeBytes: body.sizeBytes
+  };
+}
+
+/**
+ * 从 Host 租户目录查找种子租户，供真实栈分配套餐等写路径使用。
+ * @returns {Promise<{ id: string, identifier: string, name: string, version: number }>}
+ */
+export async function findSeedTenantViaApi(request, clientKind, identifier = 'local') {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.get(`${apiBaseUrl}/api/v1/tenancy/tenants?page=1&pageSize=50`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  const tenant = body.items?.find(entry => entry.identifier === identifier);
+  expect(tenant?.id).toBeTruthy();
+  return tenant;
+}
+
 async function loginWithPassword(request, clientKind, loginUsername, loginPassword) {
   const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   const origin = adminOrigin(clientKind);

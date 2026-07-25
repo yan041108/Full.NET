@@ -11,6 +11,54 @@ const wcagTags = [
   'wcag22aa'
 ];
 
+async function isVueAdminProject(testInfo) {
+  return testInfo.project.name === 'vue-admin';
+}
+
+async function selectShellLocale(page, locale, testInfo) {
+  if (await isVueAdminProject(testInfo)) {
+    await page.getByTestId('shell-locale-trigger').click();
+    const label = locale === 'en-US' ? 'English' : '简体中文';
+    await page.getByRole('menuitem', { name: label }).click();
+    return;
+  }
+
+  await page.locator('select[name="locale"]:visible').selectOption(locale);
+}
+
+async function expectShellLocale(page, locale, testInfo) {
+  if (await isVueAdminProject(testInfo)) {
+    await expect(page.getByTestId('shell-locale-trigger')).toHaveAttribute(
+      'data-active-locale',
+      locale
+    );
+    return;
+  }
+
+  await expect(page.locator('select[name="locale"]:visible')).toHaveValue(locale);
+}
+
+async function expectShellHostContextVisible(page, testInfo) {
+  if (await isVueAdminProject(testInfo)) {
+    await page.getByRole('button', { name: '系统管理员' }).click();
+    await expect(page.getByTestId('shell-tenant-select')).toBeVisible();
+    await expect(page.getByTestId('shell-tenant-select')).toContainText('Full.NET Host');
+    await page.keyboard.press('Escape');
+    return;
+  }
+
+  await expect(page.getByText('Full.NET Host', { exact: true }).first()).toBeVisible();
+}
+
+async function expectShellLocaleControlVisible(page, testInfo) {
+  if (await isVueAdminProject(testInfo)) {
+    await expect(page.getByTestId('shell-locale-trigger')).toBeVisible();
+    return;
+  }
+
+  await expect(page.locator('select[name="locale"]:visible')).toBeVisible();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     if (localStorage.getItem('fullnet.admin.locale') === null) {
@@ -50,9 +98,7 @@ test('认证壳层、租户和状态页通过 WCAG 2.2 A/AA 自动检查', async
 test('英文选择同步文档语义并在刷新后保持', async ({ page }, testInfo) => {
   const server = await mockAuthenticatedSession(page);
   await page.goto('/?component-locale-fixture=1');
-  const locale = page.locator('select[name="locale"]:visible');
-
-  await locale.selectOption('en-US');
+  await selectShellLocale(page, 'en-US', testInfo);
 
   await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
   await expect(page).toHaveTitle('Overview · Full.NET');
@@ -62,7 +108,7 @@ test('英文选择同步文档语义并在刷新后保持', async ({ page }, tes
     name: 'Good morning, administrator'
   })).toBeVisible();
   if (testInfo.project.name === 'vue-admin') {
-    await expect(page.locator('.admin-shell'))
+    await expect(page.locator('.art-admin-shell'))
       .toHaveAttribute('data-component-locale', 'en');
     await expect(page.locator('[data-component-locale-fixture]'))
       .toBeVisible();
@@ -83,8 +129,7 @@ test('英文选择同步文档语义并在刷新后保持', async ({ page }, tes
 
   await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
   await expect(page).toHaveTitle('Overview · Full.NET');
-  await expect(page.locator('select[name="locale"]:visible'))
-    .toHaveValue('en-US');
+  await expectShellLocale(page, 'en-US', testInfo);
   expect(server.requests.some(request =>
     request.method === 'GET' && request.locale === 'en-US'
   )).toBe(true);
@@ -92,17 +137,16 @@ test('英文选择同步文档语义并在刷新后保持', async ({ page }, tes
     .toBe('zh-CN');
 });
 
-test('语言偏好保存失败时保留登录、租户和原语言', async ({ page }) => {
+test('语言偏好保存失败时保留登录、租户和原语言', async ({ page }, testInfo) => {
   await mockAuthenticatedSession(page, { failLocaleSave: true });
   await page.goto('/');
-  const selector = page.locator('select[name="locale"]:visible');
 
-  await selector.selectOption('en-US');
+  await selectShellLocale(page, 'en-US', testInfo);
 
-  await expect(selector).toHaveValue('zh-CN');
+  await expectShellLocale(page, 'zh-CN', testInfo);
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-  await expect(page.locator('[data-session-shell], .admin-shell')).toBeVisible();
-  await expect(page.getByText('Full.NET Host').first()).toBeVisible();
+  await expect(page.locator('[data-session-shell], .art-admin-shell')).toBeVisible();
+  await expectShellHostContextVisible(page, testInfo);
   const alert = page.getByRole('alert').filter({
     hasText: '语言偏好保存失败，已保留原语言'
   });
@@ -112,7 +156,7 @@ test('语言偏好保存失败时保留登录、租户和原语言', async ({ pa
   expect(alertBox?.height).toBeGreaterThan(16);
 });
 
-test('切换语言不改变服务端 403 状态和稳定错误码', async ({ page }) => {
+test('切换语言不改变服务端 403 状态和稳定错误码', async ({ page }, testInfo) => {
   const server = await mockAuthenticatedSession(page);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '早上好，系统管理员' }))
@@ -122,7 +166,7 @@ test('切换语言不改变服务端 403 状态和稳定错误码', async ({ pag
   await page.getByTestId('load-current-user').click();
   await expect(page.getByTestId('error-code')).toHaveText('authorization.denied');
 
-  await page.locator('select[name="locale"]:visible').selectOption('en-US');
+  await selectShellLocale(page, 'en-US', testInfo);
   server.failNextMe = true;
   await page.getByTestId('load-current-user').click();
   await expect(page.getByTestId('error-code')).toHaveText('authorization.denied');
@@ -159,7 +203,7 @@ test('跳转链接和路由切换保持可见焦点', async ({ page }) => {
     .toBeFocused();
 });
 
-test('320 CSS px 下不产生页面级水平溢出', async ({ page }) => {
+test('320 CSS px 下不产生页面级水平溢出', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await mockAuthenticatedSession(page);
   await page.goto('/');
@@ -183,7 +227,10 @@ test('320 CSS px 下不产生页面级水平溢出', async ({ page }) => {
     layout.scrollWidth,
     `页面级水平溢出元素：${JSON.stringify(layout.offenders)}`
   ).toBeLessThanOrEqual(layout.clientWidth);
-  await expect(page.locator('select[name="locale"]:visible')).toBeVisible();
+  await expectShellLocaleControlVisible(page, testInfo);
+  if (await isVueAdminProject(testInfo)) {
+    await page.getByRole('button', { name: '系统管理员' }).click();
+  }
   await expect(page.getByRole('button', { name: '退出登录' })).toBeVisible();
 });
 
@@ -197,6 +244,69 @@ test('减弱动画偏好禁用非必要过渡', async ({ page }) => {
     Number.parseFloat(getComputedStyle(element).transitionDuration)
   );
   expect(duration).toBeLessThanOrEqual(.001);
+});
+
+test('壳层全局搜索、主题与移动导航可键盘操作', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+
+  await mockAuthenticatedSession(page);
+  await page.goto('/');
+
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('heading', { name: '早上好，系统管理员' }))
+      .toBeVisible();
+
+    await page.keyboard.press('Control+K');
+    const searchDialog = page.getByRole('dialog', { name: '全局搜索' });
+    await expect(searchDialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(searchDialog).toBeHidden();
+
+    const themeToggle = page.getByRole('button', { name: '切换为深色主题' });
+    await themeToggle.click();
+    await expect(page.locator('html')).toHaveAttribute('data-art-theme', 'dark');
+    await expect(page.getByRole('button', { name: '切换为浅色主题' })).toBeVisible();
+
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.reload();
+    await expect(page.getByRole('heading', { name: '早上好，系统管理员' }))
+      .toBeVisible();
+    await page.getByRole('button', { name: '打开主导航' }).click();
+    await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    return;
+  }
+
+  await page.keyboard.press('Control+K');
+  await expect(page.locator('[data-shell-search]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-shell-search]')).toBeHidden();
+
+  await page.locator('[data-shell-theme-toggle]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-art-theme', 'dark');
+});
+
+test('双端标签页可切换并保持可访问性', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+
+  await mockAuthenticatedSession(page);
+  await page.goto('/');
+
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('tablist', { name: '已打开页面' })).toBeVisible();
+    await page.getByRole('link', { name: /租户上下文/ }).click();
+    await expect(page.getByRole('heading', { name: '租户上下文' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /租户上下文/ })).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('tab', { name: /工作台/ }).click();
+    await expect(page.getByRole('heading', { name: '早上好，系统管理员' })).toBeVisible();
+    return;
+  }
+
+  await expect(page.locator('[data-page-tabs]')).toBeVisible();
+  await page.getByRole('link', { name: /租户上下文/ }).click();
+  await expect(page.locator('[data-page-tabs] .fn-page-tabs__item.is-active')).toContainText('租户');
+  await page.locator('[data-page-tabs] .fn-page-tabs__item').filter({ hasText: '工作台' }).click();
+  await expect(page.locator('[data-page-tabs] .fn-page-tabs__item.is-active')).toContainText('工作台');
 });
 
 async function expectNoWcagViolations(page) {

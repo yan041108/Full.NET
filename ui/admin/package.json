@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5173",
+    "dev": "vite --host localhost --port 5173",
     "build": "pnpm typecheck && vite build",
     "test": "vitest run",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json"
@@ -15,6 +15,7 @@
     "@fullnet/client-contracts": "workspace:*",
     "@fullnet/design-tokens": "workspace:*",
     "dayjs": "1.11.21",
+    "echarts": "6.1.0",
     "element-plus": "2.14.3",
     "pinia": "4.0.2",
     "vue": "3.5.40",

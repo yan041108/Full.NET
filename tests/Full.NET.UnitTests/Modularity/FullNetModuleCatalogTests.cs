@@ -2,9 +2,14 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Composition;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Files;
+using Full.NET.Modules.Notifications;
+using Full.NET.Modules.Jobs;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Organization;
+using Full.NET.Modules.Settings;
+using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Seeding.Abstractions;
 using Microsoft.AspNetCore.Authentication;
@@ -34,7 +39,17 @@ public sealed class FullNetModuleCatalogTests
             .Select(module => module.GetType())
             .ToArray();
         CollectionAssert.AreEqual(
-            new[] { typeof(IdentityModule), typeof(TenancyModule), typeof(OrganizationModule) },
+            new[]
+            {
+                typeof(IdentityModule),
+                typeof(AuditingModule),
+                typeof(FilesModule),
+                typeof(JobsModule),
+                typeof(NotificationsModule),
+                typeof(TenancyModule),
+                typeof(OrganizationModule),
+                typeof(SettingsModule),
+            },
             modules);
     }
 

@@ -12,4 +12,9 @@
   <data name="tenancy.not_found" xml:space="preserve"><value>The current tenant was not found.</value></data>
   <data name="tenancy.tenant.last_remaining" xml:space="preserve"><value>The last active tenant cannot be disabled.</value></data>
   <data name="tenancy.tenant.version_conflict" xml:space="preserve"><value>The tenant record was updated concurrently.</value></data>
+  <data name="tenancy.tenant_package.not_found" xml:space="preserve"><value>The tenant package was not found.</value></data>
+  <data name="tenancy.tenant_package.code_exists" xml:space="preserve"><value>A tenant package with this code already exists.</value></data>
+  <data name="tenancy.tenant_package.version_conflict" xml:space="preserve"><value>The tenant package record was updated concurrently.</value></data>
+  <data name="tenancy.tenant_package.inactive" xml:space="preserve"><value>An inactive tenant package cannot be assigned.</value></data>
+  <data name="tenancy.tenant_package.in_use" xml:space="preserve"><value>The tenant package is still assigned to one or more tenants.</value></data>
 </root>

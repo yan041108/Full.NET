@@ -59,8 +59,13 @@
       </section>
     </main>
 
-    <div class="fn-shell" data-client-kind="layui" data-session-shell hidden>
-      <aside class="fn-sidebar">
+    <div class="fn-shell fn-shell--layout-left" data-client-kind="layui" data-session-shell hidden>
+      <aside class="fn-dual-rail" data-dual-rail hidden data-i18n-aria-label="shell.mainNavigation">
+        <a class="fn-dual-rail__brand" href="#/" data-i18n-aria-label="shell.brandAria"><span aria-hidden="true">F</span></a>
+        <div class="fn-dual-rail__nav" data-dual-rail-nav></div>
+      </aside>
+
+      <aside class="fn-sidebar" data-primary-sidebar>
         <a class="fn-brand" href="#/" data-i18n-aria-label="shell.brandAria">
           <span class="fn-brand__mark">F</span>
           <span><strong>Full.NET</strong><small>ADMIN CONSOLE</small></span>
@@ -83,7 +88,11 @@
 
       <section class="fn-stage">
         <header class="fn-topbar">
-          <div class="fn-topbar__context"><span data-i18n="shell.controlPlane"></span><i>/</i><strong data-route-title></strong></div>
+          <div class="fn-topbar__left">
+            <button type="button" class="fn-topbar__icon-btn" data-shell-chrome="menu-button" data-shell-menu-toggle data-i18n-aria-label="shell.collapseMenu"><i class="layui-icon layui-icon-shrink-right" aria-hidden="true"></i></button>
+            <button type="button" class="fn-topbar__icon-btn" data-shell-chrome="refresh-button" data-shell-refresh data-i18n-aria-label="shell.refresh"><i class="layui-icon layui-icon-refresh" aria-hidden="true"></i></button>
+            <div class="fn-topbar__context" data-shell-chrome="breadcrumb"><span data-i18n="shell.controlPlane"></span><i>/</i><strong data-route-title></strong></div>
+          </div>
           <div class="fn-topbar__actions">
             <label
               class="fn-context-selector"
@@ -93,12 +102,20 @@
                <span data-i18n="shell.tenantSelector"></span>
                <select data-context-select data-i18n-aria-label="shell.tenantSelector"></select>
              </label>
-             <label class="fn-locale" for="shell-locale"><span data-i18n="locale.label"></span><select id="shell-locale" name="locale" data-locale-select><option value="zh-CN" data-i18n="locale.zhCN"></option><option value="en-US" data-i18n="locale.enUS"></option></select></label>
-             <button type="button" data-i18n-aria-label="shell.search"><i class="layui-icon layui-icon-search" aria-hidden="true"></i></button>
-             <button type="button" data-i18n-aria-label="shell.notifications" class="has-signal"><i class="layui-icon layui-icon-notice" aria-hidden="true"></i></button>
+             <label class="fn-locale" data-shell-chrome="language"><span data-i18n="locale.label"></span><select id="shell-locale" name="locale" data-locale-select><option value="zh-CN" data-i18n="locale.zhCN"></option><option value="en-US" data-i18n="locale.enUS"></option></select></label>
+             <button type="button" class="fn-topbar__icon-btn" data-shell-chrome="search" data-shell-search-open data-i18n-aria-label="shell.search"><i class="layui-icon layui-icon-search" aria-hidden="true"></i></button>
+             <button type="button" class="fn-topbar__icon-btn" data-shell-theme-toggle data-i18n-aria-label="shell.themeDark"><i class="layui-icon layui-icon-moon" aria-hidden="true"></i></button>
+             <button type="button" class="fn-topbar__icon-btn" data-shell-chrome="fullscreen" data-shell-fullscreen data-i18n-aria-label="shell.fullscreenEnter"><i class="layui-icon layui-icon-screen-full" aria-hidden="true"></i></button>
+             <button type="button" data-shell-settings-open data-i18n-aria-label="shell.settingsTitle"><i class="layui-icon layui-icon-set" aria-hidden="true"></i></button>
+             <button type="button" class="fn-topbar__icon-btn has-signal is-success" data-shell-chrome="chat" data-shell-chat-open data-i18n-aria-label="shell.chat"><i class="layui-icon layui-icon-dialogue" aria-hidden="true"></i></button>
+             <button type="button" class="fn-topbar__icon-btn has-signal" data-shell-chrome="notifications" data-shell-notifications-open data-i18n-aria-label="shell.notifications"><i class="layui-icon layui-icon-notice" aria-hidden="true"></i></button>
              <span class="fn-clock"><small data-i18n="shell.systemTime"></small><strong translate="no">UTC +08:00</strong></span>
           </div>
         </header>
+
+        <nav class="fn-horizontal-menu" data-horizontal-menu hidden data-i18n-aria-label="shell.mainNavigation"></nav>
+        <nav class="fn-mixed-menu" data-mixed-menu hidden data-i18n-aria-label="shell.mainNavigation"></nav>
+        <nav class="fn-page-tabs" data-page-tabs hidden></nav>
 
         <div class="fn-context-problem" data-context-problem role="alert" hidden>
           <strong data-context-error-code translate="no"></strong>
@@ -115,17 +132,29 @@
               </div>
               <div class="fn-heading__actions">
                 <span class="fn-live"><i aria-hidden="true"></i><span data-i18n="overview.live"></span></span>
+                <a
+                  class="fn-docs-link"
+                  data-testid="open-api-docs"
+                  data-api-docs-link
+                  href="/scalar/v1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-i18n="overview.apiDocs"
+                ></a>
                 <button class="layui-btn fn-probe" type="button" data-testid="load-current-user">
                   <i class="layui-icon layui-icon-vercode" aria-hidden="true"></i><span data-i18n="overview.probe"></span>
                 </button>
               </div>
             </section>
 
-            <section class="fn-metrics" data-i18n-aria-label="overview.metricsLabel">
-              <article data-tone="jade"><span data-i18n="overview.metric.activeTenants"></span><strong>128</strong><em>+12.4% <small data-i18n="overview.comparedYesterday"></small></em></article>
-              <article data-tone="cyan"><span data-i18n="overview.metric.onlineUsers"></span><strong>2,406</strong><em>+8.1% <small data-i18n="overview.comparedYesterday"></small></em></article>
-              <article data-tone="amber"><span data-i18n="overview.metric.todayRequests"></span><strong>86.2k</strong><em>+18.7% <small data-i18n="overview.comparedYesterday"></small></em></article>
-              <article data-tone="rose"><span data-i18n="overview.metric.errorRate"></span><strong>0.08%</strong><em>-0.03% <small data-i18n="overview.comparedYesterday"></small></em></article>
+            <div class="fn-context-problem" data-overview-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <section class="fn-metrics" data-overview-metrics data-i18n-aria-label="overview.metricsLabel">
+              <article data-overview-metric data-tone="jade"><span data-i18n="overview.metric.activeTenants"></span><strong>0</strong><em hidden></em></article>
+              <article data-overview-metric data-tone="cyan"><span data-i18n="overview.metric.onlineUsers"></span><strong>0</strong><em hidden></em></article>
+              <article data-overview-metric data-tone="amber"><span data-i18n="overview.metric.todayRequests"></span><strong>0</strong><em hidden></em></article>
+              <article data-overview-metric data-tone="rose"><span data-i18n="overview.metric.errorRate"></span><strong>0%</strong><em hidden></em></article>
             </section>
 
             <section class="fn-contract" data-contract-result hidden>
@@ -162,12 +191,7 @@
 
               <article class="fn-panel fn-activity">
                 <header><div><b>03</b><h2 data-i18n="overview.activityTitle"></h2></div><button type="button" data-i18n="overview.viewAll"></button></header>
-                <ol>
-                  <li><span>01</span><div><strong data-i18n="overview.activity.tenantInitialized"></strong><small data-i18n="overview.activity.twoMinutes"></small></div><em data-i18n="overview.status.success"></em></li>
-                  <li><span>02</span><div><strong data-i18n="overview.activity.policySynced"></strong><small data-i18n="overview.activity.eighteenMinutes"></small></div><em data-i18n="overview.status.synced"></em></li>
-                  <li><span>03</span><div><strong data-i18n="overview.activity.sqlServerVerified"></strong><small data-i18n="overview.activity.fortyOneMinutes"></small></div><em data-i18n="overview.status.passed"></em></li>
-                  <li><span>04</span><div><strong data-i18n="overview.activity.mysqlInspection"></strong><small data-i18n="overview.activity.oneHour"></small></div><em data-i18n="overview.status.running"></em></li>
-                </ol>
+                <div data-overview-activities></div>
               </article>
 
               <article class="fn-panel fn-todo">
@@ -231,11 +255,420 @@
                 <span data-i18n="tenants.domain"></span>
                 <input class="layui-input" name="domain" autocomplete="off" required data-i18n-placeholder="tenants.domainPlaceholder">
               </label>
+              <label>
+                <span data-i18n="tenants.packageLabel"></span>
+                <select class="layui-input" name="tenantPackageId" data-tenants-create-package>
+                  <option value="" data-i18n="tenants.packageUnassigned"></option>
+                </select>
+              </label>
               <button class="layui-btn" type="submit" data-i18n="tenants.create"></button>
             </form>
             <section class="fn-tenants__ledger">
               <header><div><small>02</small><h2 data-i18n="tenants.directoryTitle"></h2></div></header>
               <div data-tenants-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="tenant-packages" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="tenantPackages.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="tenantPackages.title"></h1>
+                <span data-i18n="tenantPackages.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-tenant-packages-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-tenants__create"
+              data-tenant-packages-create-form
+              data-permission="tenancy.tenant_packages.write"
+            >
+              <div><small>01</small><h2 data-i18n="tenantPackages.createTitle"></h2></div>
+              <label>
+                <span data-i18n="tenantPackages.code"></span>
+                <input class="layui-input" name="code" autocomplete="off" required data-i18n-placeholder="tenantPackages.codePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="tenantPackages.name"></span>
+                <input class="layui-input" name="name" autocomplete="off" required data-i18n-placeholder="tenantPackages.namePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="tenantPackages.descriptionLabel"></span>
+                <input class="layui-input" name="description" autocomplete="off" data-i18n-placeholder="tenantPackages.descriptionPlaceholder">
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="tenantPackages.create"></button>
+            </form>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="tenantPackages.directoryTitle"></h2></div></header>
+              <div data-tenant-packages-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="dict-types" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="dictTypes.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="dictTypes.title"></h1>
+                <span data-i18n="dictTypes.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-dict-types-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-tenants__create"
+              data-dict-types-create-form
+              data-permission="settings.dict_types.write"
+            >
+              <div><small>01</small><h2 data-i18n="dictTypes.createTitle"></h2></div>
+              <label>
+                <span data-i18n="dictTypes.code"></span>
+                <input class="layui-input" name="code" autocomplete="off" required data-i18n-placeholder="dictTypes.codePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="dictTypes.name"></span>
+                <input class="layui-input" name="name" autocomplete="off" required data-i18n-placeholder="dictTypes.namePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="dictTypes.descriptionLabel"></span>
+                <input class="layui-input" name="description" autocomplete="off" data-i18n-placeholder="dictTypes.descriptionPlaceholder">
+              </label>
+              <label>
+                <span data-i18n="dictTypes.displayOrder"></span>
+                <input class="layui-input" name="displayOrder" type="number" value="0" autocomplete="off">
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="dictTypes.create"></button>
+            </form>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="dictTypes.directoryTitle"></h2></div></header>
+              <div data-dict-types-directory></div>
+            </section>
+            <section class="fn-tenants__ledger" data-dict-items-panel hidden>
+              <header>
+                <div>
+                  <small>03</small>
+                  <h2 data-dict-items-panel-title data-i18n="dictItems.directoryTitle"></h2>
+                </div>
+                <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" data-dict-items-close data-i18n="dictItems.close"></button>
+              </header>
+              <form
+                class="fn-tenants__create"
+                data-dict-items-create-form
+                data-permission="settings.dict_types.write"
+                hidden
+              >
+                <div><small>01</small><h3 data-i18n="dictItems.createTitle"></h3></div>
+                <label>
+                  <span data-i18n="dictItems.label"></span>
+                  <input class="layui-input" name="label" autocomplete="off" required data-i18n-placeholder="dictItems.labelPlaceholder">
+                </label>
+                <label>
+                  <span data-i18n="dictItems.value"></span>
+                  <input class="layui-input" name="value" autocomplete="off" required data-i18n-placeholder="dictItems.valuePlaceholder">
+                </label>
+                <label>
+                  <span data-i18n="dictItems.color"></span>
+                  <input class="layui-input" name="color" autocomplete="off" data-i18n-placeholder="dictItems.colorPlaceholder">
+                </label>
+                <label>
+                  <span data-i18n="dictItems.displayOrder"></span>
+                  <input class="layui-input" name="displayOrder" type="number" value="0" autocomplete="off">
+                </label>
+                <button class="layui-btn" type="submit" data-i18n="dictItems.create"></button>
+              </form>
+              <div data-dict-items-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="config-entries" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="configEntries.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="configEntries.title"></h1>
+                <span data-i18n="configEntries.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-config-entries-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-tenants__create"
+              data-config-entries-create-form
+              data-permission="settings.config.write"
+            >
+              <div><small>01</small><h2 data-i18n="configEntries.createTitle"></h2></div>
+              <label>
+                <span data-i18n="configEntries.configKey"></span>
+                <input class="layui-input" name="configKey" autocomplete="off" required data-i18n-placeholder="configEntries.configKeyPlaceholder">
+              </label>
+              <label>
+                <span data-i18n="configEntries.displayName"></span>
+                <input class="layui-input" name="displayName" autocomplete="off" required data-i18n-placeholder="configEntries.displayNamePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="configEntries.descriptionLabel"></span>
+                <input class="layui-input" name="description" autocomplete="off" data-i18n-placeholder="configEntries.descriptionPlaceholder">
+              </label>
+              <label>
+                <span data-i18n="configEntries.valueKind"></span>
+                <select class="layui-input" name="valueKind">
+                  <option value="string" selected>string</option>
+                  <option value="boolean">boolean</option>
+                  <option value="integer">integer</option>
+                  <option value="decimal">decimal</option>
+                  <option value="json">json</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="configEntries.value"></span>
+                <input class="layui-input" name="value" autocomplete="off" data-i18n-placeholder="configEntries.valuePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="configEntries.displayOrder"></span>
+                <input class="layui-input" name="displayOrder" type="number" value="0" autocomplete="off">
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="configEntries.create"></button>
+            </form>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="configEntries.directoryTitle"></h2></div></header>
+              <div data-config-entries-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="host-files" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="hostFiles.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="hostFiles.title"></h1>
+                <span data-i18n="hostFiles.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-host-files-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-tenants__create"
+              data-host-files-upload-form
+              data-permission="files.files.write"
+            >
+              <div><small>01</small><h2 data-i18n="hostFiles.uploadTitle"></h2></div>
+              <label>
+                <span data-i18n="hostFiles.chooseFile"></span>
+                <input type="file" name="file" required />
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="hostFiles.upload"></button>
+            </form>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="hostFiles.directoryTitle"></h2></div></header>
+              <div data-host-files-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="host-announcements" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="hostAnnouncements.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="hostAnnouncements.title"></h1>
+                <span data-i18n="hostAnnouncements.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-host-announcements-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-tenants__create"
+              data-host-announcements-form
+              data-permission="notifications.announcements.write"
+            >
+              <div><small>01</small><h2 data-i18n="hostAnnouncements.createTitle"></h2></div>
+              <label>
+                <span data-i18n="hostAnnouncements.fieldTitle"></span>
+                <input type="text" name="title" maxlength="200" required />
+              </label>
+              <label>
+                <span data-i18n="hostAnnouncements.fieldContent"></span>
+                <textarea name="content" rows="4" maxlength="4000" required></textarea>
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="hostAnnouncements.create"></button>
+            </form>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="hostAnnouncements.listTitle"></h2></div></header>
+              <div data-host-announcements-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="inbox-messages" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="inboxMessages.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="inboxMessages.title"></h1>
+                <span data-i18n="inboxMessages.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-inbox-messages-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-tenants__create"
+              data-inbox-messages-send-form
+              data-permission="notifications.inbox.write"
+            >
+              <div><small>01</small><h2 data-i18n="inboxMessages.sendTitle"></h2></div>
+              <label>
+                <span data-i18n="inboxMessages.recipientUserId"></span>
+                <input type="text" name="recipientUserId" required />
+              </label>
+              <label>
+                <span data-i18n="inboxMessages.fieldTitle"></span>
+                <input type="text" name="title" maxlength="200" required />
+              </label>
+              <label>
+                <span data-i18n="inboxMessages.fieldContent"></span>
+                <textarea name="content" rows="3" maxlength="4000" required></textarea>
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="inboxMessages.send"></button>
+            </form>
+            <section class="fn-tenants__ledger">
+              <header>
+                <div>
+                  <small>02</small>
+                  <h2 data-i18n="inboxMessages.listTitle"></h2>
+                  <span data-inbox-messages-unread-count>0</span>
+                </div>
+                <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" data-inbox-messages-mark-all data-i18n="inboxMessages.markAllRead"></button>
+              </header>
+              <div data-inbox-messages-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="enum-catalogs" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="enumCatalogs.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="enumCatalogs.title"></h1>
+                <span data-i18n="enumCatalogs.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-enum-catalogs-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <section class="fn-tenants__ledger">
+              <header><div><small>01</small><h2 data-i18n="enumCatalogs.directoryTitle"></h2></div></header>
+              <div data-enum-catalogs-directory></div>
+            </section>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="enumCatalogs.membersTitle"></h2></div></header>
+              <div data-enum-catalogs-members></div>
+            </section>
+          </main>
+
+          <main data-route-view="host-jobs" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="hostJobs.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="hostJobs.title"></h1>
+                <span data-i18n="hostJobs.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-host-jobs-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-tenants__create"
+              data-host-jobs-form
+              data-permission="jobs.definitions.write"
+            >
+              <div><small>01</small><h2 data-i18n="hostJobs.createTitle"></h2></div>
+              <label>
+                <span data-i18n="hostJobs.fieldJobKey"></span>
+                <select name="jobKey">
+                  <option value="jobs.ping">jobs.ping</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="hostJobs.fieldDisplayName"></span>
+                <input type="text" name="displayName" maxlength="200" required />
+              </label>
+              <label>
+                <span data-i18n="hostJobs.fieldDescription"></span>
+                <textarea name="description" rows="3" maxlength="500"></textarea>
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="hostJobs.create"></button>
+            </form>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="hostJobs.listTitle"></h2></div></header>
+              <div data-host-jobs-directory></div>
+            </section>
+            <section class="fn-tenants__ledger" data-permission="jobs.executions.read">
+              <div data-host-jobs-executions></div>
+            </section>
+          </main>
+
+          <main data-route-view="access-logs" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="accessLogs.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="accessLogs.title"></h1>
+                <span data-i18n="accessLogs.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-access-logs-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <section class="fn-tenants__ledger">
+              <header><div><small>01</small><h2 data-i18n="accessLogs.directoryTitle"></h2></div></header>
+              <div data-access-logs-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="operation-logs" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="operationLogs.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="operationLogs.title"></h1>
+                <span data-i18n="operationLogs.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-operation-logs-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <section class="fn-tenants__ledger">
+              <header><div><small>01</small><h2 data-i18n="operationLogs.directoryTitle"></h2></div></header>
+              <div data-operation-logs-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="exception-logs" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="exceptionLogs.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="exceptionLogs.title"></h1>
+                <span data-i18n="exceptionLogs.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-exception-logs-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <section class="fn-tenants__ledger">
+              <header><div><small>01</small><h2 data-i18n="exceptionLogs.directoryTitle"></h2></div></header>
+              <div data-exception-logs-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="online-sessions" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <h1 data-route-heading tabindex="-1" data-i18n="onlineSessions.title"></h1>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-online-sessions-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <section class="fn-tenants__ledger">
+              <header><div><small>01</small><h2 data-i18n="onlineSessions.directoryTitle"></h2></div></header>
+              <div data-online-sessions-directory></div>
             </section>
           </main>
 
@@ -391,6 +824,39 @@
             </section>
           </main>
 
+          <main data-route-view="org-positions" class="fn-org-units" hidden>
+            <section class="fn-org-units__heading">
+              <div>
+                <p data-i18n="orgPositions.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="orgPositions.title"></h1>
+                <span data-i18n="orgPositions.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-org-positions-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-org-units__create"
+              data-org-positions-create-form
+              data-permission="organization.positions.write"
+            >
+              <div><small>01</small><h2 data-i18n="orgPositions.createTitle"></h2></div>
+              <label>
+                <span data-i18n="orgPositions.code"></span>
+                <input class="layui-input" name="code" autocomplete="off" required data-i18n-placeholder="orgPositions.codePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="orgPositions.name"></span>
+                <input class="layui-input" name="name" autocomplete="off" required data-i18n-placeholder="orgPositions.namePlaceholder">
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="orgPositions.create"></button>
+            </form>
+            <section class="fn-org-units__ledger">
+              <header><div><small>02</small><h2 data-i18n="orgPositions.directoryTitle"></h2></div></header>
+              <div data-org-positions-directory></div>
+            </section>
+          </main>
+
           <main data-route-view="org-user-units" class="fn-org-user-units" hidden>
             <section class="fn-org-user-units__heading">
               <div>
@@ -425,6 +891,43 @@
             <section class="fn-org-user-units__ledger">
               <header><div><small>02</small><h2 data-i18n="orgUserUnits.directoryTitle"></h2></div></header>
               <div data-org-user-units-directory></div>
+            </section>
+          </main>
+
+          <main data-route-view="org-user-positions" class="fn-org-user-positions" hidden>
+            <section class="fn-org-user-positions__heading">
+              <div>
+                <p data-i18n="orgUserPositions.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="orgUserPositions.title"></h1>
+                <span data-i18n="orgUserPositions.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-org-user-positions-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-org-user-positions__create"
+              data-org-user-positions-create-form
+              data-permission="organization.user_positions.write"
+            >
+              <div><small>01</small><h2 data-i18n="orgUserPositions.createTitle"></h2></div>
+              <label>
+                <span data-i18n="orgUserPositions.user"></span>
+                <select class="layui-input" name="userId" data-org-user-positions-user required></select>
+              </label>
+              <label>
+                <span data-i18n="orgUserPositions.position"></span>
+                <select class="layui-input" name="positionId" data-org-user-positions-position required></select>
+              </label>
+              <label>
+                <input type="checkbox" name="isPrimary">
+                <span data-i18n="orgUserPositions.isPrimary"></span>
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="orgUserPositions.create"></button>
+            </form>
+            <section class="fn-org-user-positions__ledger">
+              <header><div><small>02</small><h2 data-i18n="orgUserPositions.directoryTitle"></h2></div></header>
+              <div data-org-user-positions-directory></div>
             </section>
           </main>
 
@@ -464,6 +967,69 @@
           </main>
         </div>
       </section>
+
+      <button type="button" class="fn-settings-backdrop" data-shell-settings-backdrop hidden aria-hidden="true"></button>
+      <aside class="fn-settings-drawer" data-shell-settings hidden aria-labelledby="fn-settings-title">
+        <header class="fn-settings-drawer__header">
+          <h2 id="fn-settings-title" data-i18n="shell.settingsTitle"></h2>
+          <button type="button" data-shell-settings-close data-i18n-aria-label="shell.settingsClose"><i class="layui-icon layui-icon-close" aria-hidden="true"></i></button>
+        </header>
+        <div class="fn-settings-drawer__body" data-shell-settings-body></div>
+        <p class="fn-settings-drawer__status" data-shell-settings-status hidden role="status"></p>
+      </aside>
+
+      <div class="fn-search-modal" data-shell-search hidden role="dialog" aria-modal="true" aria-labelledby="fn-search-title">
+        <button type="button" class="fn-search-modal__backdrop" data-shell-search-backdrop aria-hidden="true"></button>
+        <div class="fn-search-modal__panel">
+          <h2 id="fn-search-title" class="fn-search-modal__title" data-shell-search-title></h2>
+          <input class="fn-search-modal__input" type="search" data-shell-search-input autocomplete="off" spellcheck="false">
+          <p class="fn-search-modal__hint" data-shell-search-hint></p>
+          <div class="fn-search-modal__results" data-shell-search-results role="listbox"></div>
+          <p class="fn-search-modal__empty" data-shell-search-empty hidden></p>
+        </div>
+      </div>
+
+      <div class="fn-chat-drawer" data-shell-chat hidden role="dialog" aria-modal="true" aria-labelledby="fn-chat-title">
+        <button type="button" class="fn-chat-drawer__backdrop" data-shell-chat-backdrop aria-hidden="true"></button>
+        <aside class="fn-chat-drawer__panel" data-shell-chat-panel>
+          <header class="fn-chat-drawer__header">
+            <div>
+              <strong id="fn-chat-title" data-shell-chat-title></strong>
+              <div class="fn-chat-drawer__status">
+                <span class="is-online" aria-hidden="true"></span>
+                <small data-shell-chat-status></small>
+              </div>
+            </div>
+            <button type="button" class="fn-chat-drawer__close" data-shell-chat-close><i class="layui-icon layui-icon-close" aria-hidden="true"></i></button>
+          </header>
+          <div class="fn-chat-drawer__body">
+            <div class="fn-chat-drawer__messages" data-shell-chat-messages></div>
+            <div class="fn-chat-drawer__composer">
+              <textarea class="fn-chat-drawer__input" rows="3" data-shell-chat-input></textarea>
+              <div class="fn-chat-drawer__actions">
+                <div class="fn-chat-drawer__tools">
+                  <button type="button" class="fn-chat-drawer__tool" disabled aria-hidden="true"><i class="layui-icon layui-icon-file"></i></button>
+                  <button type="button" class="fn-chat-drawer__tool" disabled aria-hidden="true"><i class="layui-icon layui-icon-picture"></i></button>
+                </div>
+                <button type="button" class="layui-btn" data-shell-chat-send></button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <aside class="fn-notice-panel" data-shell-notifications hidden role="dialog" aria-labelledby="fn-notice-title">
+        <div class="fn-notice-panel__header">
+          <span id="fn-notice-title" class="fn-notice-panel__title" data-shell-notifications-title></span>
+          <button type="button" class="fn-notice-panel__mark-read" data-shell-notifications-mark-read></button>
+        </div>
+        <ul class="fn-notice-panel__tabs" data-shell-notifications-tabs></ul>
+        <div class="fn-notice-panel__body">
+          <div class="fn-notice-panel__scroll" data-shell-notifications-body></div>
+          <p class="fn-notice-panel__empty" data-shell-notifications-empty hidden></p>
+          <button type="button" class="layui-btn fn-notice-panel__view-all" data-shell-notifications-view-all></button>
+        </div>
+      </aside>
     </div>
     <section
       class="fn-component-locale-fixture"

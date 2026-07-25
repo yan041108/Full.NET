@@ -48,12 +48,12 @@ describe('Vue 登录页', () => {
     const wrapper = mount(LoginView, { global: { plugins: [pinia] } });
 
     expect(wrapper.get('label[for="login-username"]').text()).toBe('账号');
-    expect(wrapper.get('#login-username').attributes()).toMatchObject({
+    expect(wrapper.get('input[name="username"]').attributes()).toMatchObject({
       name: 'username',
       autocomplete: 'username',
       spellcheck: 'false'
     });
-    expect(wrapper.get('#login-password').attributes('autocomplete'))
+    expect(wrapper.get('input[name="password"]').attributes('autocomplete'))
       .toBe('current-password');
 
     await wrapper.get('select[name="locale"]').setValue('en-US');

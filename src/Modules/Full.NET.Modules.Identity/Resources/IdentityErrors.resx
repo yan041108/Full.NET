@@ -20,6 +20,7 @@
   <data name="identity.refresh_token_reuse_detected" xml:space="preserve"><value>检测到刷新令牌被重复使用，当前会话已撤销。</value></data>
   <data name="identity.session_context_conflict" xml:space="preserve"><value>会话上下文已被并发修改。</value></data>
   <data name="identity.session_not_active" xml:space="preserve"><value>当前会话已失效。</value></data>
+  <data name="identity.online_session_not_found" xml:space="preserve"><value>在线会话不存在或已下线。</value></data>
   <data name="identity.authentication.rate_limited" xml:space="preserve"><value>认证会话请求过于频繁，请稍后重试。</value></data>
   <data name="identity.super_administrator.remote_management_disabled" xml:space="preserve"><value>超级管理员远程写操作当前未启用。</value></data>
   <data name="identity.super_administrator.reauthentication_failed" xml:space="preserve"><value>当前密码重认证失败。</value></data>
@@ -43,4 +44,8 @@
   <data name="identity.menus.route_name_exists" xml:space="preserve"><value>该 Host 菜单路由名已存在。</value></data>
   <data name="identity.menus.not_found" xml:space="preserve"><value>未找到指定的 Host 菜单。</value></data>
   <data name="identity.menus.system_locked" xml:space="preserve"><value>系统菜单受保护，禁止变更。</value></data>
+  <data name="identity.api_keys.not_found" xml:space="preserve"><value>API Key 不存在或已禁用。</value></data>
+  <data name="identity.api_keys.invalid_permissions" xml:space="preserve"><value>API Key 权限列表无效。</value></data>
+  <data name="identity.api_keys.user_not_found" xml:space="preserve"><value>API Key 绑定的 Host 用户不存在。</value></data>
+  <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>API Key 绑定的 Host 用户已禁用。</value></data>
 </root>

@@ -1,0 +1,54 @@
+{
+  "id": "settings-enum-catalogs-v1",
+  "version": 1,
+  "description": "Host 枚举/常量元数据目录 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/settings/enum-catalogs",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.enums.read",
+          "successStatus": 200,
+          "responseSchema": "EnumCatalogSummary"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/enum-catalogs/{catalogKey}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.enums.read",
+          "successStatus": 200,
+          "responseSchema": "EnumCatalogDetail"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "EnumCatalogSummary": {
+      "properties": [
+        "key",
+        "displayName",
+        "description",
+        "memberCount"
+      ]
+    },
+    "EnumCatalogDetail": {
+      "properties": [
+        "key",
+        "displayName",
+        "description",
+        "members"
+      ]
+    },
+    "EnumCatalogMember": {
+      "properties": [
+        "code",
+        "label",
+        "displayOrder"
+      ]
+    }
+  }
+}

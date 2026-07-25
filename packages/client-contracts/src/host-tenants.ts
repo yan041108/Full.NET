@@ -6,6 +6,9 @@ export interface HostTenant {
   isActive: boolean;
   version: number;
   defaultLocale: string;
+  tenantPackageId?: string | null;
+  tenantPackageCode?: string | null;
+  tenantPackageName?: string | null;
 }
 
 export interface HostTenantPage {
@@ -19,10 +22,16 @@ export interface CreateHostTenantRequest {
   identifier: string;
   name: string;
   domain: string;
+  tenantPackageId?: string | null;
 }
 
 export interface UpdateHostTenantRequest {
   name: string;
+  version: number;
+}
+
+export interface AssignHostTenantPackageRequest {
+  tenantPackageId: string | null;
   version: number;
 }
 
@@ -40,7 +49,10 @@ export function isHostTenant(value: unknown): value is HostTenant {
     && typeof value.version === 'number'
     && Number.isInteger(value.version)
     && typeof value.defaultLocale === 'string'
-    && value.defaultLocale.length > 0;
+    && value.defaultLocale.length > 0
+    && optionalGuidOrNull(value.tenantPackageId)
+    && optionalStringOrNull(value.tenantPackageCode)
+    && optionalStringOrNull(value.tenantPackageName);
 }
 
 export function isHostTenantPage(value: unknown): value is HostTenantPage {
@@ -59,7 +71,8 @@ export function isCreateHostTenantRequest(
     && typeof value.identifier === 'string'
     && identifierPattern.test(value.identifier)
     && isNonEmptyString(value.name)
-    && isNonEmptyString(value.domain);
+    && isNonEmptyString(value.domain)
+    && optionalGuidOrNull(value.tenantPackageId);
 }
 
 export function isUpdateHostTenantRequest(
@@ -69,6 +82,27 @@ export function isUpdateHostTenantRequest(
     && isNonEmptyString(value.name)
     && typeof value.version === 'number'
     && Number.isInteger(value.version);
+}
+
+export function isAssignHostTenantPackageRequest(
+  value: unknown
+): value is AssignHostTenantPackageRequest {
+  return isRecord(value)
+    && optionalGuidOrNull(value.tenantPackageId)
+    && typeof value.version === 'number'
+    && Number.isInteger(value.version);
+}
+
+function optionalGuidOrNull(value: unknown): boolean {
+  return value === undefined
+    || value === null
+    || isGuid(value);
+}
+
+function optionalStringOrNull(value: unknown): boolean {
+  return value === undefined
+    || value === null
+    || typeof value === 'string';
 }
 
 function isGuid(value: unknown): value is string {

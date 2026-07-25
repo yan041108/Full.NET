@@ -26,8 +26,13 @@ public static class CommonErrorCodes
     public const string PermissionDenied = "authorization.permission_denied";
 
     /// <summary>
+    /// Host API 全局限流触发。
+    /// </summary>
+    public const string RateLimited = "hosting.rate_limited";
+
+    /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
     public static IReadOnlyList<string> All { get; } =
-        Array.AsReadOnly([Unexpected, PermissionDenied]);
+        Array.AsReadOnly([Unexpected, PermissionDenied, RateLimited]);
 }

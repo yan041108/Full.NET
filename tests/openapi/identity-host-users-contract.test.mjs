@@ -54,6 +54,7 @@ test('Host 用户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
 
   assert.match(contractsSource, /record CreateHostUserRequest/u);
   assert.match(contractsSource, /record UpdateHostUserRequest/u);
+  assert.match(contractsSource, /record ResetHostUserPasswordRequest/u);
   assert.match(contractsSource, /record HostUserResponse/u);
   assert.match(contractsSource, /identity\.users\.read/u);
   assert.match(contractsSource, /identity\.users\.write/u);
@@ -71,6 +72,12 @@ test('Host 用户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ])],
     ['/api/v1/identity/users/{userId}/disable', new Map([
       ['POST', 'MapPost("/{userId:guid}/disable",']
+    ])],
+    ['/api/v1/identity/users/{userId}/enable', new Map([
+      ['POST', 'MapPost("/{userId:guid}/enable",']
+    ])],
+    ['/api/v1/identity/users/{userId}/reset-password', new Map([
+      ['POST', 'MapPost("/{userId:guid}/reset-password",']
     ])]
   ]);
 

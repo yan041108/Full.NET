@@ -42,6 +42,15 @@ export async function disableHostUser(id: string): Promise<HostUser> {
   return value;
 }
 
+export async function enableHostUser(id: string): Promise<HostUser> {
+  const value = await request<unknown>(
+    `/api/v1/identity/users/${encodeURIComponent(id)}/enable`,
+    { method: 'POST' }
+  );
+  if (!isHostUser(value)) throw new Error('client.invalid_host_user');
+  return value;
+}
+
 export async function updateHostUser(
   id: string,
   displayName: string,
@@ -53,6 +62,22 @@ export async function updateHostUser(
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ displayName, version })
+    }
+  );
+  if (!isHostUser(value)) throw new Error('client.invalid_host_user');
+  return value;
+}
+
+export async function resetHostUserPassword(
+  id: string,
+  password: string
+): Promise<HostUser> {
+  const value = await request<unknown>(
+    `/api/v1/identity/users/${encodeURIComponent(id)}/reset-password`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password })
     }
   );
   if (!isHostUser(value)) throw new Error('client.invalid_host_user');

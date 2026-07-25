@@ -11,7 +11,7 @@ using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostUsers;
 
-/// <summary>Host 用户创建与禁用；禁用超级管理员时沿用最后一名保护。</summary>
+/// <summary>Host 用户创建、禁用与启用；禁用超级管理员时沿用最后一名保护。</summary>
 internal sealed class HostUserManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -36,12 +36,27 @@ internal sealed class HostUserManagementService(
             token => DisableCoreAsync(userId, token),
             cancellationToken);
 
+    public Task<Result<HostUserResponse>> EnableAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => EnableCoreAsync(userId, token),
+            cancellationToken);
+
     public Task<Result<HostUserResponse>> UpdateAsync(
         Guid userId,
         UpdateHostUserRequest request,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
             token => UpdateCoreAsync(userId, request, token),
+            cancellationToken);
+
+    public Task<Result<HostUserResponse>> ResetPasswordAsync(
+        Guid userId,
+        ResetHostUserPasswordRequest request,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => ResetPasswordCoreAsync(userId, request, token),
             cancellationToken);
 
     private async Task<Result<HostUserResponse>> CreateCoreAsync(
@@ -205,6 +220,56 @@ internal sealed class HostUserManagementService(
                 updated.Version));
     }
 
+    private async Task<Result<HostUserResponse>> EnableCoreAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                new { UserId = userId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null || record.IsActive)
+        {
+            return NotFound();
+        }
+
+        var now = clock.UtcNow;
+        var enabledRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.EnableHostUser,
+                new
+                {
+                    UserId = userId,
+                    UpdatedAtUtc = now,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (enabledRows != 1)
+        {
+            return NotFound();
+        }
+
+        var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                new { UserId = userId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (updated is null)
+        {
+            return NotFound();
+        }
+
+        return Result<HostUserResponse>.Success(
+            new HostUserResponse(
+                updated.Id,
+                updated.Username,
+                updated.DisplayName,
+                updated.IsActive,
+                updated.CreatedAtUtc,
+                updated.UpdatedAtUtc,
+                updated.Version));
+    }
+
     private async Task<Result<HostUserResponse>> UpdateCoreAsync(
         Guid userId,
         UpdateHostUserRequest request,
@@ -245,6 +310,89 @@ internal sealed class HostUserManagementService(
 
             return VersionConflict();
         }
+
+        var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                new { UserId = userId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (updated is null)
+        {
+            return NotFound();
+        }
+
+        return Result<HostUserResponse>.Success(
+            new HostUserResponse(
+                updated.Id,
+                updated.Username,
+                updated.DisplayName,
+                updated.IsActive,
+                updated.CreatedAtUtc,
+                updated.UpdatedAtUtc,
+                updated.Version));
+    }
+
+    private async Task<Result<HostUserResponse>> ResetPasswordCoreAsync(
+        Guid userId,
+        ResetHostUserPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var password = request.Password ?? string.Empty;
+        var passwordViolations = IdentityPasswordPolicy.Validate(password);
+        if (passwordViolations.Count > 0)
+        {
+            return ValidationFailure(passwordViolations);
+        }
+
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                new { UserId = userId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null || !record.IsActive)
+        {
+            return NotFound();
+        }
+
+        var user = new IdentityUser(
+            record.Id,
+            record.TenantId,
+            record.ScopeKey,
+            record.Username,
+            record.NormalizedUsername,
+            record.DisplayName,
+            record.PasswordHash,
+            record.IsActive,
+            record.FailedLoginCount,
+            record.LockoutEndUtc,
+            record.SecurityStamp,
+            record.CreatedAtUtc,
+            record.UpdatedAtUtc,
+            record.Version);
+        var passwordHash = passwordHasher.HashPassword(user, password);
+        var securityStamp = idGenerator.NewId().ToString("N");
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.ResetHostUserPassword,
+                new
+                {
+                    UserId = userId,
+                    PasswordHash = passwordHash,
+                    SecurityStamp = securityStamp,
+                    UpdatedAtUtc = now,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return NotFound();
+        }
+
+        await commandExecutor.ExecuteAsync(
+                IdentitySql.RevokeAllUserSessions,
+                new { UserId = userId, RevokedAtUtc = now },
+                cancellationToken)
+            .ConfigureAwait(false);
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,

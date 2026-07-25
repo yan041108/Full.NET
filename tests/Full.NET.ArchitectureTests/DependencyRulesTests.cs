@@ -3,6 +3,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Settings;
+using Full.NET.Modules.Auditing;
+using Full.NET.Modules.Files;
 using Full.NET.Modules.Tenancy;
 using NetArchTest.Rules;
 
@@ -23,6 +26,8 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Localization.ILocaleNormalizer).Assembly,
         typeof(Full.NET.Migrations.DbUp.IDatabaseMigrationRunner).Assembly,
         typeof(Full.NET.Modularity.Modules.IFullNetModule).Assembly,
+        typeof(Full.NET.Realtime.IRealtimePublisher).Assembly,
+        typeof(Full.NET.Realtime.SignalR.RealtimeOptions).Assembly,
         typeof(Full.NET.Serialization.MessagePack.MessagePackIntegrationEventSerializer).Assembly,
         typeof(Full.NET.Seeding.Abstractions.SeedProfile).Assembly,
         typeof(Full.NET.Seeding.Dapper.SeedCommandLine).Assembly,
@@ -38,6 +43,10 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
         typeof(Full.NET.Modules.Organization.OrganizationModule).Assembly,
         typeof(Full.NET.Modules.Organization.Contracts.OrganizationErrorCodes).Assembly,
+        typeof(SettingsModule).Assembly,
+        typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
+        typeof(AuditingModule).Assembly,
+        typeof(FilesModule).Assembly,
     ];
 
     [TestMethod]
@@ -154,6 +163,7 @@ public sealed class DependencyRulesTests
         {
             typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
             typeof(Full.NET.Modules.Organization.Contracts.OrganizationErrorCodes).Assembly,
+            typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
         };
 
         var offenders = coreAssemblies
@@ -182,14 +192,19 @@ public sealed class DependencyRulesTests
         CollectionAssert.AreEqual(
             new[]
             {
+                typeof(Full.NET.Modules.Tenancy.Contracts.AssignHostTenantPackageRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ChangeTenantContextRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.CreateHostTenantPackageRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ITenantProvisioningService).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ProvisionTenantRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyErrorCodes).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantManagementPermissions).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantPackagePermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantContextSummary).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantPackageSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisionedIntegrationEvent).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantPackageRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantRequest).FullName,
                 typeof(TenancyModule).FullName,
             },
@@ -235,6 +250,21 @@ public sealed class DependencyRulesTests
         Assert.IsTrue(
             result.IsSuccessful,
             $"Identity dependency violations: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void BusinessModules_DoNotDependOnSignalRHubContext()
+    {
+        var result = Types.InAssemblies(BusinessModuleAssemblies)
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                "Microsoft.AspNetCore.SignalR",
+                "Microsoft.AspNetCore.SignalR.Core")
+            .GetResult();
+
+        Assert.IsTrue(
+            result.IsSuccessful,
+            $"Business modules must use IRealtimePublisher instead of SignalR: {string.Join(", ", result.FailingTypeNames ?? [])}");
     }
 
     [TestMethod]
@@ -655,6 +685,36 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Settings_declares_identity_as_an_explicit_module_dependency()
+    {
+        var module = new SettingsModule();
+
+        CollectionAssert.Contains(
+            module.Dependencies.ToArray(),
+            "Identity");
+    }
+
+    [TestMethod]
+    public void Auditing_declares_identity_as_an_explicit_module_dependency()
+    {
+        var module = new AuditingModule();
+
+        CollectionAssert.Contains(
+            module.Dependencies.ToArray(),
+            "Identity");
+    }
+
+    [TestMethod]
+    public void Files_declares_identity_as_an_explicit_module_dependency()
+    {
+        var module = new FilesModule();
+
+        CollectionAssert.Contains(
+            module.Dependencies.ToArray(),
+            "Identity");
+    }
+
+    [TestMethod]
     public void ProductionTypes_DoNotExposeServiceLocatorMembers()
     {
         var allowedTypes = new HashSet<Type>
@@ -952,6 +1012,8 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Localization.ILocaleNormalizer).Assembly,
         typeof(Full.NET.Migrations.DbUp.IDatabaseMigrationRunner).Assembly,
         typeof(Full.NET.Modularity.Modules.IFullNetModule).Assembly,
+        typeof(Full.NET.Realtime.IRealtimePublisher).Assembly,
+        typeof(Full.NET.Realtime.SignalR.RealtimeOptions).Assembly,
         typeof(Full.NET.Serialization.MessagePack.MessagePackIntegrationEventSerializer).Assembly,
         typeof(Full.NET.Seeding.Abstractions.SeedProfile).Assembly,
         SeedingDapper,
@@ -964,6 +1026,10 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
         typeof(Full.NET.Modules.Organization.OrganizationModule).Assembly,
         typeof(Full.NET.Modules.Organization.Contracts.OrganizationErrorCodes).Assembly,
+        typeof(SettingsModule).Assembly,
+        typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
+        typeof(AuditingModule).Assembly,
+        typeof(FilesModule).Assembly,
         HostApi,
         HostMigrator,
         HostWorker,

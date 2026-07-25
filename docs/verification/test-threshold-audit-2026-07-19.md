@@ -368,6 +368,335 @@ Tenancy API + TenantProvisioning SQL Server/MySQL 聚焦 Integration **4/4**、D
 | 权限码 | `tenancy.tenants.manage.read`（四段，违规）→ **`tenancy.host_tenants.read`**（符合 `{module}.{plural_resource}.{action}`） |
 | 语义 | `tenancy.tenants.read` 保留给 `/available` 与租户上下文；`tenancy.host_tenants.read` 专用于 Host 目录 API 与「租户管理」导航 |
 
+## 增补（2026-07-23，Tenancy Host 租户套餐目录 API）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration 门槛 **128 → 130** | 新增 `Host_tenant_package_management_returns_standard_contract`（SQL Server + MySQL） |
+| 四处 canonical 门槛 | README、getting-started、CI 与 Skill delivery-map 已同步为 **349/7/36/130** |
+| 迁移 | `018_TenancyTenantPackage.sql` 新增 `fn_tenancy_tenant_package` |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| Integration 聚焦 | `FullyQualifiedName~Host_tenant_package`，`--minimum-expected-tests 2` | **2/2** 通过 |
+| Architecture 全量 | `--minimum-expected-tests 36` | **36/36** 通过 |
+| Release 构建 | `dotnet build -c Release` | 0 警告 / 0 错误 |
+
+本增补只证明 Host 租户套餐目录 API 与双库迁移已完成；双端 UI、OpenAPI 夹具与 E2E 仍属同一纵向切片后续 Task，不把 C2.1 套餐能力标为 `Verified`。
+
+## 增补（2026-07-23，Tenancy Host 租户套餐双端 UI）
+
+| 变更 | 说明 |
+| --- | --- |
+| OpenAPI 夹具 | **16 → 18**（`tenancy-host-tenant-packages-v1.json` + node 合同测试 2 项） |
+| Mock parity E2E | **42 → 44**（新增「套餐列表、创建与禁用」× 双端） |
+| 真实栈 E2E | **42 → 44**（新增 `host-tenant-packages.spec.mjs` 2 场景 × 双端） |
+| 客户端单测 | 管理端与共享包 **165 → 170**（`host-tenant-packages` 契约 +1、Vue `tenant-packages` +3、Layui `tenant-packages` +1） |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| `pnpm test:openapi` | 全量 | **18/18** 通过 |
+| `pnpm test:clients` | 全量 | 通过（管理端 **170**） |
+| Parity E2E 聚焦 | `playwright test -g '套餐列表、创建与禁用'` | **2/2** 通过 |
+| Integration 聚焦 | `FullyQualifiedName~Host_tenant_package` | **2/2** 通过（含 OpenAPI 运行时断言） |
+
+验证记录：[`tenancy-host-tenant-package-management-2026-07-23.md`](tenancy-host-tenant-package-management-2026-07-23.md)
+
+## 增补（2026-07-24，Tenancy 套餐 Mock Parity E2E）
+
+| 变更 | 说明 |
+| --- | --- |
+| Mock parity E2E | **44 → 48**（新增「租户开通可选套餐」「套餐仍被引用时禁用失败」× 双端） |
+| 既有套餐 parity 夹具 | 补全 `assignedTenantCount` |
+| Parity E2E 聚焦 | `playwright test -g '租户开通可选套餐|套餐仍被引用时禁用失败'` | **4/4** 通过 |
+
+验证记录：[`2026-07-24-tenancy-package-parity-e2e-vertical-slice.md`](../superpowers/plans/2026-07-24-tenancy-package-parity-e2e-vertical-slice.md)
+
+## 增补（2026-07-24，Tenancy 租户列表分配套餐 Mock Parity E2E）
+
+| 变更 | 说明 |
+| --- | --- |
+| Mock parity E2E | **48 → 50**（新增「租户列表内分配套餐」× 双端） |
+
+验证记录：[`tenancy-host-tenant-package-assignment-2026-07-23.md`](tenancy-host-tenant-package-assignment-2026-07-23.md)
+
+## 增补（2026-07-24，Tenancy 租户分配套餐真实栈 E2E）
+
+| 变更 | 说明 |
+| --- | --- |
+| 真实栈 E2E | **44 → 46**（新增 `host-tenants.spec.mjs`「Host 管理员可为种子租户分配套餐」× 双端） |
+| 辅助函数 | `createTenantPackageViaApi`、`findSeedTenantViaApi` |
+
+验证记录：[`2026-07-24-tenancy-tenant-package-assignment-real-stack-e2e-vertical-slice.md`](../superpowers/plans/2026-07-24-tenancy-tenant-package-assignment-real-stack-e2e-vertical-slice.md)
+
+## 增补（2026-07-25，Settings Host 数据字典纵向切片）
+
+| 变更 | 说明 |
+| --- | --- |
+| Architecture | **36 → 37**（Settings 显式声明 Identity 模块依赖） |
+| Integration | **134 → 136**（`SettingsApiSqlServerTests` / `SettingsApiMySqlTests` 各 1 项，含 403、重复编码、乐观锁、禁用含启用项、字典项生命周期与 OpenAPI 运行时断言） |
+| OpenAPI 夹具 | **18 → 20**（`settings-dict-types-v1.json` + node 合同测试 2 项） |
+| Mock parity E2E | `shell-parity.spec.mjs` **34 → 36**（新增「字典类型列表、创建与禁用」× 双端） |
+| 客户端单测 | contracts **37 → 39**、Vue **135 → 138**、Layui **79 → 80**（admin-i18n 保持 **8**） |
+| 四处 canonical 门槛 | **349/7/37/136**，已同步 README、getting-started、CI 与 Skill delivery-map |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| Release 构建 | `dotnet build Full.NET.slnx -c Release` | 0 警告 / 0 错误 |
+| Unit 全量 | `--minimum-expected-tests 349` | **349/349** 通过（先暴露 1 项既有失败并修复） |
+| Architecture 全量 | `--minimum-expected-tests 37` | **37/37** 通过 |
+| Compatibility 全量 | `--minimum-expected-tests 7` | **7/7** 通过 |
+| `pnpm test:openapi` | 全量 | **20/20** 通过 |
+| Parity E2E 全量 | `pnpm test:e2e` | **76** 项：**71** 通过 / **5** 按客户端专属跳过 |
+| `pnpm test:naming` | 全量 | **23/23** 通过（先暴露 8 处未登记 `dynamic_sql`，补登债务 **85 → 87** 后转绿） |
+| `pnpm test:governance` / `pnpm test:skills` | 全量 | **7/7** / **52** 项契约检查通过 |
+| Integration 双库 | — | **未执行**：本机缺容器运行时，由 CI 矩阵覆盖 |
+
+Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_publish_the_initial_permission_set` 失败：2026-07-23 套餐切片新增的 `tenancy.tenant_packages.read` / `.write` 未登记到内置权限断言。已补齐期望列表。**门槛纪律**：filter 聚焦运行被 `--minimum-expected-tests` 拒绝时必须补跑一次全量，不得将聚焦结果表述为全量通过。
+
+验证记录：[`settings-dictionary-2026-07-25.md`](settings-dictionary-2026-07-25.md)
+
+## 增补（2026-07-25，Settings 字典项双端 UI）
+
+| 变更 | 说明 |
+| --- | --- |
+| Mock parity E2E | `shell-parity.spec.mjs` **36 → 38**（新增「字典项列表、创建与禁用」× 双端） |
+| 客户端单测 | contracts **39 → 40**、Vue **138 → 140**、Layui **80 → 81** |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| contracts / i18n / Vue dict-types / Layui dict-types | 聚焦 | **40/40**、**8/8**、**7/7**、**2/2** |
+| Parity E2E 聚焦 | `playwright test -g '字典项列表、创建与禁用'` | **2/2** 通过 |
+| `vue-tsc --noEmit` | Vue 管理端 | 通过 |
+
+验证记录增补见 [`settings-dictionary-2026-07-25.md`](settings-dictionary-2026-07-25.md)。
+
+## 增补（2026-07-25，Settings 数据字典真实栈 E2E）
+
+| 变更 | 说明 |
+| --- | --- |
+| 真实栈 E2E | **46 → 50**（新增 `host-dict-types.spec.mjs`：管理员加载/创建类型与项 + 受限账号 403 × 双端） |
+| 辅助函数 | `createSettingsDictTypeViaApi`、`createSettingsDictItemViaApi` |
+
+| 验证 | 命令要点 | 结果 |
+| --- | --- | --- |
+| 真实栈聚焦（SqlServer） | `playwright test host-dict-types` | **4/4** 通过 |
+| 真实栈聚焦（MySql） | `FULLNET_E2E_DATABASE_PROVIDER=MySql` + 同上 | **4/4** 通过 |
+| Integration 聚焦 | `FullyQualifiedName~SettingsApi`，`--minimum-expected-tests 2` | **2/2** 通过 |
+
+本机已实跑双库 Integration 与双库真实栈聚焦；全量真实栈矩阵仍由 CI `real-stack-e2e` / `real-stack-e2e-mysql` 覆盖。
+
+计划：[`2026-07-25-settings-dict-real-stack-e2e-vertical-slice.md`](../superpowers/plans/2026-07-25-settings-dict-real-stack-e2e-vertical-slice.md)
+
+验证记录增补见 [`settings-dictionary-2026-07-25.md`](settings-dictionary-2026-07-25.md)。
+
+## 增补（2026-07-25，Settings Host 系统配置 Task 1）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **136 → 138**（`Host_config_entry_management` SQL Server/MySQL 各 1 项，列表 403 RED） |
+| 迁移 | `021_SettingsConfigEntry.sql` 双库 |
+| 四处 canonical 门槛 | **349/7/37/138** |
+
+计划：[`2026-07-25-settings-system-config-vertical-slice.md`](../superpowers/plans/2026-07-25-settings-system-config-vertical-slice.md)
+
+## 增补（2026-07-25，Settings Host 系统配置 Task 4–5）
+
+| 变更 | 说明 |
+| --- | --- |
+| Mock parity | `shell-parity` **38 → 40**（系统配置创建/禁用 × 双端） |
+| 真实栈 E2E | **50 → 54**（`host-config-entries.spec.mjs` × 双端） |
+| 验证记录 | [`settings-system-config-2026-07-25.md`](settings-system-config-2026-07-25.md) |
+
+## 增补（2026-07-25，Settings Host 枚举/常量元数据）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **138 → 140**（`Host_enum_catalog_query` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **40 → 42** |
+| 真实栈 E2E | **54 → 58** |
+| 四处 canonical 门槛 | **349/7/37/140** |
+| 验证记录 | [`settings-enum-catalog-2026-07-25.md`](settings-enum-catalog-2026-07-25.md) |
+
+## 增补（2026-07-25，Auditing Host 访问日志）
+
+| 变更 | 说明 |
+| --- | --- |
+| Architecture | **37 → 38**（`Auditing_declares_identity_as_an_explicit_module_dependency`） |
+| Integration | **140 → 142**（`Host_access_log_query` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **42 → 44** |
+| 真实栈 E2E | **58 → 62** |
+| 四处 canonical 门槛 | **349/7/38/142** |
+| 验证记录 | [`auditing-access-log-2026-07-25.md`](auditing-access-log-2026-07-25.md) |
+
+## 增补（2026-07-25，Auditing Host 操作日志）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **142 → 144**（`Host_operation_log_query` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **44 → 46** |
+| 真实栈 E2E | **62 → 66** |
+| 四处 canonical 门槛 | **349/7/38/144** |
+| 验证记录 | [`auditing-operation-log-2026-07-25.md`](auditing-operation-log-2026-07-25.md) |
+
+## 增补（2026-07-25，Auditing Host 异常日志）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **144 → 146**（`Host_exception_log_query` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **46 → 48** |
+| 真实栈 E2E | **66 → 70** |
+| 四处 canonical 门槛 | **349/7/38/146** |
+| 验证记录 | [`auditing-exception-log-2026-07-25.md`](auditing-exception-log-2026-07-25.md) |
+
+## 增补（2026-07-25，Organization 职位管理）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **146 → 148**（`Tenant_position_management` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **48 → 50** |
+| 真实栈 E2E | **70 → 74** |
+| 四处 canonical 门槛 | **349/7/38/148** |
+| 验证记录 | [`organization-position-2026-07-25.md`](organization-position-2026-07-25.md) |
+
+## 增补（2026-07-25，Organization 用户-职位隶属）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **148 → 150**（`Tenant_user_position_management` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **50 → 52** |
+| 真实栈 E2E | **74 → 76** |
+| 四处 canonical 门槛 | **349/7/38/150** |
+| 验证记录 | [`organization-user-position-assignment-2026-07-25.md`](organization-user-position-assignment-2026-07-25.md) |
+
+## 增补（2026-07-25，Identity Host 用户重置密码）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **150 → 152**（`VerifyResetPasswordInvalidatesOldCredentialsAsync` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **52** 不变（扩展现有用户管理场景） |
+| 四处 canonical 门槛 | **349/7/38/152** |
+| 验证记录 | [`identity-host-user-reset-password-2026-07-25.md`](identity-host-user-reset-password-2026-07-25.md) |
+
+## 增补（2026-07-25，Identity Host 用户启用）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | 门槛 **152** 不变（`VerifyEnableUserRestoresLoginAsync` 纳入既有 `Host_user_management`） |
+| Mock parity | `shell-parity` **52** 不变（扩展现有用户管理场景） |
+| 验证记录 | [`identity-host-user-enable-2026-07-25.md`](identity-host-user-enable-2026-07-25.md) |
+
+## 增补（2026-07-26，Identity Host 在线用户与强制下线）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **152 → 154**（`Host_online_sessions` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **52 → 54**（「在线用户列表与强制下线」× 双端） |
+| 四处 canonical 门槛 | **349/7/38/154** |
+| 验证记录 | [`identity-host-online-sessions-2026-07-26.md`](identity-host-online-sessions-2026-07-26.md) |
+
+## 增补（2026-07-26，Files Host 文件元数据）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **154 → 156**（`Host_file_management` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **54 → 56**（「Host 文件列表与上传删除」× 双端） |
+| 四处 canonical 门槛 | **349/7/38/156** |
+| 验证记录 | [`files-host-file-metadata-2026-07-26.md`](files-host-file-metadata-2026-07-26.md) |
+
+## 增补（2026-07-26，Files Host 文件真实栈 E2E）
+
+| 变更 | 说明 |
+| --- | --- |
+| 真实栈 E2E | **76 → 80**（`host-files.spec.mjs` 2 场景 × 双端） |
+| 验证记录 | [`files-host-file-metadata-2026-07-26.md`](files-host-file-metadata-2026-07-26.md) 增补节 |
+
+## 增补（2026-07-26，Identity Host 在线用户真实栈 E2E）
+
+| 变更 | 说明 |
+| --- | --- |
+| 真实栈 E2E | **80 → 84**（`host-online-sessions.spec.mjs` 2 场景 × 双端） |
+| 验证记录 | [`identity-host-online-sessions-2026-07-26.md`](identity-host-online-sessions-2026-07-26.md) 增补节 |
+
+## 增补（2026-07-26，Realtime SignalR 基础）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit | **349 → 351**（`RealtimeGroupsTests`） |
+| Architecture | **38 → 40**（`BusinessModules_DoNotDependOnSignalRHubContext`） |
+| Integration | **156 → 158**（`Realtime_hub_and_probe` SQL Server/MySQL） |
+| 四处 canonical 门槛 | **351/7/40/158** |
+
+## 增补（2026-07-26，Notifications Host 公告）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **158 → 160**（`Host_announcement_management` SQL Server/MySQL） |
+| Mock parity | `shell-parity` **56 → 58**（「Host 公告列表与创建发布」× 双端） |
+| 四处 canonical 门槛 | **351/7/40/160** |
+| 验证记录 | [`notifications-host-announcement-2026-07-26.md`](notifications-host-announcement-2026-07-26.md) |
+
+## 增补（2026-07-26，Notifications 站内信收件箱）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | 扩展现有双库 Notifications 用例（门槛 **160** 不变） |
+| Mock parity | `shell-parity` **58 → 60**（「消息中心列表与发信」× 双端） |
+| 验证记录 | [`notifications-inbox-message-2026-07-26.md`](notifications-inbox-message-2026-07-26.md) |
+| 验证记录 | [`realtime-signalr-foundation-2026-07-26.md`](realtime-signalr-foundation-2026-07-26.md) |
+
+## 增补（2026-07-26，Jobs Host 任务定义）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **160 → 162**（`Host_job_definition_and_trigger` SQL Server/MySQL 各 1） |
+| Mock parity | `shell-parity` **60 → 62**（「任务调度列表与触发」× 双端） |
+| 四处 canonical 门槛 | **351/7/40/162** |
+| 验证记录 | [`jobs-host-definitions-2026-07-26.md`](jobs-host-definitions-2026-07-26.md) |
+
+## 增补（2026-07-26，Platform Host 工作台汇总）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **162 → 164**（`Host_dashboard_summary` SQL Server/MySQL 各 1） |
+| Mock parity | 扩展现有 Overview 场景 mock（门槛 **62** 不变） |
+| 四处 canonical 门槛 | **351/7/40/164** |
+| 验证记录 | [`platform-host-dashboard-2026-07-26.md`](platform-host-dashboard-2026-07-26.md) |
+
+## 增补（2026-07-26，OpenAPI 与 Scalar 接口文档）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **164 → 166**（`OpenApi_documentation` SQL Server/MySQL 各 1） |
+| 四处 canonical 门槛 | **351/7/40/166** |
+| 验证记录 | [`platform-openapi-documentation-2026-07-26.md`](platform-openapi-documentation-2026-07-26.md) |
+
+## 增补（2026-07-26，Host 全局限流）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **166 → 168**（`Global_api_rate_limit` SQL Server/MySQL 各 1） |
+| Unit | **351 → 352**（`RateLimitPolicyErrorCodes`） |
+| 四处 canonical 门槛 | **352/7/40/168** |
+| 验证记录 | [`hosting-global-api-rate-limit-2026-07-26.md`](hosting-global-api-rate-limit-2026-07-26.md) |
+
+## 增补（2026-07-26，角色与数据授权对标收口）
+
+| 变更 | 说明 |
+| --- | --- |
+| 对标矩阵 | `角色与数据授权` **Mapped → Build-verified**（汇总既有切片，无新增测试） |
+| 四处 canonical 门槛 | **352/7/40/168**（不变） |
+| 验证记录 | [`identity-role-data-authorization-2026-07-26.md`](identity-role-data-authorization-2026-07-26.md) |
+
+## 增补（2026-07-26，API Key 认证）
+
+| 变更 | 说明 |
+| --- | --- |
+| Integration | **168 → 170**（`Host_api_keys_follow_contract` SQL Server/MySQL 各 1） |
+| client-contracts Vitest | **68 → 69**（`host-api-keys.test.ts`） |
+| 四处 canonical 门槛 | **352/7/40/170** |
+| 验证记录 | [`identity-api-key-2026-07-26.md`](identity-api-key-2026-07-26.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

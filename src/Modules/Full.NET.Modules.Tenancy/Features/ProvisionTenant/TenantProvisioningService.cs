@@ -23,7 +23,8 @@ internal sealed class TenantProvisioningService(
                 new ProvisionTenantCommand(
                     request.Identifier,
                     request.Name,
-                    request.Domain),
+                    request.Domain,
+                    request.TenantPackageId),
                 cancellationToken)
             .ConfigureAwait(false);
 

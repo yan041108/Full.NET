@@ -64,6 +64,10 @@ internal sealed class FullNetApiFactory(
             ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
             ["Identity:AllowedOrigins:0"] = "http://localhost",
             ["Tenancy:HostDomains:0"] = "localhost",
+            ["Files:Local:RootPath"] = Path.Combine(
+                Path.GetTempPath(),
+                "fullnet-files-integration",
+                _cacheInstanceId),
         };
 
         if (settingsOverrides is null)

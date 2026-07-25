@@ -48,6 +48,10 @@ the complete license texts.
   https://github.com/vuejs/pinia
 - Element Plus and Element Plus Icons — MIT
   https://github.com/element-plus
+- Apache ECharts — Apache-2.0
+  https://github.com/apache/echarts
+- Art Design Pro (selective shell/theme source in ui/admin/src/framework/art-design) — MIT
+  https://github.com/Daymychen/art-design-pro @ f3aaf58eec1a0e988f162352c33862327a484f95
 - Vite — MIT
   https://github.com/vitejs/vite
 - Vitest — MIT

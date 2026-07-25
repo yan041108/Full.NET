@@ -255,4 +255,151 @@ internal static class OrganizationSql
           AND IsActive = 1
         """,
         SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement CountUserPositions = new(
+        "organization.count_user_positions",
+        """
+        SELECT COUNT(1)
+        FROM fn_organization_user_position AS assignment
+        INNER JOIN fn_organization_position AS positionObject
+            ON positionObject.Id = assignment.PositionId
+           AND positionObject.TenantId = assignment.TenantId
+        WHERE assignment.TenantId = @TenantId
+          AND (@UserId IS NULL OR assignment.UserId = @UserId)
+          AND (@PositionId IS NULL OR assignment.PositionId = @PositionId)
+        """,
+        SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement ListUserPositionsSqlServer = new(
+        "organization.list_user_positions.sql_server",
+        """
+        SELECT assignment.Id, assignment.UserId, userObject.Username, userObject.DisplayName,
+               assignment.PositionId, positionObject.Code AS PositionCode, positionObject.Name AS PositionName,
+               assignment.IsPrimary, assignment.IsActive,
+               assignment.CreatedAtUtc, assignment.UpdatedAtUtc, assignment.Version
+        FROM fn_organization_user_position AS assignment
+        INNER JOIN fn_identity_user AS userObject
+            ON userObject.Id = assignment.UserId
+           AND userObject.ScopeKey = 'host'
+           AND userObject.TenantId IS NULL
+        INNER JOIN fn_organization_position AS positionObject
+            ON positionObject.Id = assignment.PositionId
+           AND positionObject.TenantId = assignment.TenantId
+        WHERE assignment.TenantId = @TenantId
+          AND (@UserId IS NULL OR assignment.UserId = @UserId)
+          AND (@PositionId IS NULL OR assignment.PositionId = @PositionId)
+        ORDER BY assignment.IsPrimary DESC, positionObject.DisplayOrder, positionObject.Code
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement ListUserPositionsMySql = new(
+        "organization.list_user_positions.mysql",
+        """
+        SELECT assignment.Id, assignment.UserId, userObject.Username, userObject.DisplayName,
+               assignment.PositionId, positionObject.Code AS PositionCode, positionObject.Name AS PositionName,
+               assignment.IsPrimary, assignment.IsActive,
+               assignment.CreatedAtUtc, assignment.UpdatedAtUtc, assignment.Version
+        FROM fn_organization_user_position AS assignment
+        INNER JOIN fn_identity_user AS userObject
+            ON userObject.Id = assignment.UserId
+           AND userObject.ScopeKey = 'host'
+           AND userObject.TenantId IS NULL
+        INNER JOIN fn_organization_position AS positionObject
+            ON positionObject.Id = assignment.PositionId
+           AND positionObject.TenantId = assignment.TenantId
+        WHERE assignment.TenantId = @TenantId
+          AND (@UserId IS NULL OR assignment.UserId = @UserId)
+          AND (@PositionId IS NULL OR assignment.PositionId = @PositionId)
+        ORDER BY assignment.IsPrimary DESC, positionObject.DisplayOrder, positionObject.Code
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement FindUserPositionById = new(
+        "organization.find_user_position_by_id",
+        """
+        SELECT assignment.Id, assignment.UserId, userObject.Username, userObject.DisplayName,
+               assignment.PositionId, positionObject.Code AS PositionCode, positionObject.Name AS PositionName,
+               assignment.IsPrimary, assignment.IsActive,
+               assignment.CreatedAtUtc, assignment.UpdatedAtUtc, assignment.Version
+        FROM fn_organization_user_position AS assignment
+        INNER JOIN fn_identity_user AS userObject
+            ON userObject.Id = assignment.UserId
+           AND userObject.ScopeKey = 'host'
+           AND userObject.TenantId IS NULL
+        INNER JOIN fn_organization_position AS positionObject
+            ON positionObject.Id = assignment.PositionId
+           AND positionObject.TenantId = assignment.TenantId
+        WHERE assignment.Id = @AssignmentId
+          AND assignment.TenantId = @TenantId
+        """,
+        SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement FindUserPositionByTenantUserAndPosition = new(
+        "organization.find_user_position_by_tenant_user_and_position",
+        """
+        SELECT Id, TenantId, UserId, PositionId, IsPrimary, IsActive,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_organization_user_position
+        WHERE TenantId = @TenantId
+          AND UserId = @UserId
+          AND PositionId = @PositionId
+        """,
+        SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement InsertUserPosition = new(
+        "organization.insert_user_position",
+        """
+        INSERT INTO fn_organization_user_position
+            (Id, TenantId, UserId, PositionId, IsPrimary, IsActive,
+             CreatedAtUtc, UpdatedAtUtc, Version)
+        VALUES
+            (@Id, @TenantId, @UserId, @PositionId, @IsPrimary, @IsActive,
+             @CreatedAtUtc, @UpdatedAtUtc, @Version)
+        """,
+        SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement ClearPrimaryUserPositions = new(
+        "organization.clear_primary_user_positions",
+        """
+        UPDATE fn_organization_user_position
+        SET IsPrimary = 0,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE TenantId = @TenantId
+          AND UserId = @UserId
+          AND IsPrimary = 1
+          AND IsActive = 1
+          AND Id <> @AssignmentId
+        """,
+        SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement UpdateUserPositionPrimary = new(
+        "organization.update_user_position_primary",
+        """
+        UPDATE fn_organization_user_position
+        SET IsPrimary = @IsPrimary,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @AssignmentId
+          AND TenantId = @TenantId
+          AND Version = @Version
+          AND IsActive = 1
+        """,
+        SqlDataScope.TenantRequired);
+
+    public static readonly SqlStatement DisableUserPosition = new(
+        "organization.disable_user_position",
+        """
+        UPDATE fn_organization_user_position
+        SET IsActive = 0,
+            IsPrimary = 0,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @AssignmentId
+          AND TenantId = @TenantId
+          AND IsActive = 1
+        """,
+        SqlDataScope.TenantRequired);
 }

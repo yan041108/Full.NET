@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  createTenantPackageViaApi,
+  findSeedTenantViaApi,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -30,6 +32,42 @@ test('Host 管理员可从真实 API 加载租户列表', async ({ page }, testI
   await expect(tenantsView.getByRole('heading', { name: '租户管理', exact: true })).toBeVisible();
   await expect(tenantsView.getByText('Full.NET Local', { exact: true })).toBeVisible();
   await expect(tenantsView.getByText(/local · localhost/u)).toBeVisible();
+});
+
+test('Host 管理员可为种子租户分配套餐', async ({ page, request }, testInfo) => {
+  test.setTimeout(60_000);
+  const clientKind = testInfo.project.metadata.clientKind;
+  const packageCode = `e2e-rs-${Date.now().toString(36)}`;
+  const packageName = '真实栈分配套餐';
+  const createdPackage = await createTenantPackageViaApi(request, clientKind, {
+    code: packageCode,
+    name: packageName
+  });
+  const localTenant = await findSeedTenantViaApi(request, clientKind);
+
+  await loginAsHostAdmin(page);
+
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  await navigation.getByRole('link', { name: /租户管理/ }).click();
+
+  const tenantsView = clientKind === 'layui'
+    ? page.locator('[data-route-view="tenants"]')
+    : page.locator('.tenants-view');
+  const tenantRow = tenantsView.locator('article').filter({
+    has: page.getByText('Full.NET Local', { exact: true })
+  });
+  await expect(tenantRow).toBeVisible();
+
+  if (clientKind === 'vue') {
+    await tenantRow.locator('.el-select').click();
+    await page.getByRole('option', { name: packageName }).click();
+  } else {
+    await tenantRow.locator(`select[data-tenants-package="${localTenant.id}"]`)
+      .selectOption(createdPackage.id);
+  }
+
+  await expect(tenantRow.getByText(`套餐: ${packageName}`, { exact: true }))
+    .toBeVisible({ timeout: 15_000 });
 });
 
 test('受限 Host 账号访问租户 API 被拒绝且导航裁剪', async ({

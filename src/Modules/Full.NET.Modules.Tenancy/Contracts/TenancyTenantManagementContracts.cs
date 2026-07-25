@@ -19,3 +19,8 @@ public static class TenancyTenantManagementPermissions
 public sealed record UpdateHostTenantRequest(
     string Name,
     int Version);
+
+/// <summary>为 Host 租户分配或解除套餐绑定；null 表示解除。</summary>
+public sealed record AssignHostTenantPackageRequest(
+    Guid? TenantPackageId,
+    int Version);

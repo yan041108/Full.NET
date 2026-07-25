@@ -6,4 +6,5 @@ namespace Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 internal sealed record ProvisionTenantCommand(
     string Identifier,
     string Name,
-    string Domain) : ITransactionalCommand<TenantSummary>;
+    string Domain,
+    Guid? TenantPackageId = null) : ITransactionalCommand<TenantSummary>;

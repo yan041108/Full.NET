@@ -26,9 +26,17 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.tenants.title',
     captionKey: 'navigation.tenants.caption'
   }],
+  ['tenant-packages', {
+    titleKey: 'navigation.tenantPackages.title',
+    captionKey: 'navigation.tenantPackages.caption'
+  }],
   ['users', {
     titleKey: 'navigation.users.title',
     captionKey: 'navigation.users.caption'
+  }],
+  ['online-sessions', {
+    titleKey: 'navigation.onlineSessions.title',
+    captionKey: 'navigation.onlineSessions.caption'
   }],
   ['roles', {
     titleKey: 'navigation.roles.title',
@@ -46,9 +54,57 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.orgUserUnits.title',
     captionKey: 'navigation.orgUserUnits.caption'
   }],
+  ['org-positions', {
+    titleKey: 'navigation.orgPositions.title',
+    captionKey: 'navigation.orgPositions.caption'
+  }],
+  ['org-user-positions', {
+    titleKey: 'navigation.orgUserPositions.title',
+    captionKey: 'navigation.orgUserPositions.caption'
+  }],
   ['super-administrators', {
     titleKey: 'navigation.superAdministrators.title',
     captionKey: 'navigation.superAdministrators.caption'
+  }],
+  ['dict-types', {
+    titleKey: 'navigation.dictTypes.title',
+    captionKey: 'navigation.dictTypes.caption'
+  }],
+  ['config-entries', {
+    titleKey: 'navigation.configEntries.title',
+    captionKey: 'navigation.configEntries.caption'
+  }],
+  ['enum-catalogs', {
+    titleKey: 'navigation.enumCatalogs.title',
+    captionKey: 'navigation.enumCatalogs.caption'
+  }],
+  ['host-files', {
+    titleKey: 'navigation.hostFiles.title',
+    captionKey: 'navigation.hostFiles.caption'
+  }],
+  ['host-announcements', {
+    titleKey: 'navigation.hostAnnouncements.title',
+    captionKey: 'navigation.hostAnnouncements.caption'
+  }],
+  ['inbox-messages', {
+    titleKey: 'navigation.inboxMessages.title',
+    captionKey: 'navigation.inboxMessages.caption'
+  }],
+  ['host-jobs', {
+    titleKey: 'navigation.hostJobs.title',
+    captionKey: 'navigation.hostJobs.caption'
+  }],
+  ['access-logs', {
+    titleKey: 'navigation.accessLogs.title',
+    captionKey: 'navigation.accessLogs.caption'
+  }],
+  ['operation-logs', {
+    titleKey: 'navigation.operationLogs.title',
+    captionKey: 'navigation.operationLogs.caption'
+  }],
+  ['exception-logs', {
+    titleKey: 'navigation.exceptionLogs.title',
+    captionKey: 'navigation.exceptionLogs.caption'
   }]
 ]);
 

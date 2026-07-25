@@ -17,17 +17,23 @@ public sealed class AuthorizationCatalogTests
         CollectionAssert.AreEqual(
             new[]
             {
+                "identity.api_keys.read",
+                "identity.api_keys.write",
                 "identity.menus.read",
                 "identity.menus.write",
                 "identity.navigation.read",
                 "identity.roles.read",
                 "identity.roles.write",
+                "identity.sessions.read",
+                "identity.sessions.write",
                 "identity.super_administrators.manage",
                 "identity.super_administrators.read",
                 "identity.users.read",
                 "identity.users.write",
                 "platform.dashboard.read",
                 "tenancy.host_tenants.read",
+                "tenancy.tenant_packages.read",
+                "tenancy.tenant_packages.write",
                 "tenancy.tenants.read",
                 "tenancy.tenants.switch",
                 "tenancy.tenants.write",

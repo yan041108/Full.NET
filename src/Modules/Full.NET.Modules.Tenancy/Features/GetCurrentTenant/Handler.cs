@@ -14,7 +14,7 @@ internal sealed class Handler(IQueryExecutor queryExecutor)
         CancellationToken cancellationToken)
     {
         var tenant = await queryExecutor
-            .QuerySingleOrDefaultAsync<TenantSummary>(
+            .QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.GetCurrent,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
@@ -24,6 +24,6 @@ internal sealed class Handler(IQueryExecutor queryExecutor)
                 Code: TenancyErrorCodes.NotFound,
                 Message: "The current tenant was not found.",
                 Type: ErrorType.NotFound))
-            : Result<TenantSummary>.Success(tenant);
+            : Result<TenantSummary>.Success(tenant.ToSummary());
     }
 }

@@ -1,0 +1,106 @@
+/* Art Design Pro 壳层主题桥接
+ * 来源：art-design-pro @ f3aaf58 — src/assets/styles/core/el-ui.scss、tailwind.css
+ * 修改：去除 Tailwind；变量映射 @fullnet/design-tokens；浅色侧栏为默认
+ */
+
+:root,
+[data-art-theme='light'] {
+  --art-theme-color: #409eff;
+  --art-theme-text: #0d47a1;
+  --el-color-primary: #0d47a1;
+  --el-color-primary-light-3: #1565c0;
+  --el-color-primary-light-5: #1976d2;
+  --el-color-primary-light-7: #1e88e5;
+  --el-color-primary-light-8: #42a5f5;
+  --el-color-primary-light-9: #e3f2fd;
+  --el-color-primary-dark-2: #0a3d87;
+  --art-default-bg-color: #fafbfc;
+  --art-default-box-color: #ffffff;
+  --art-card-border: rgb(0 0 0 / 8%);
+  --art-header-bg: #ffffff;
+  --art-header-border: var(--art-card-border);
+  --art-breadcrumb-text: #6b7684;
+  --art-tab-text: #6b7684;
+  --art-tab-active-text: var(--art-theme-text);
+  --art-tab-bg: transparent;
+  --art-active-color: rgb(64 158 255 / 10%);
+  --art-tab-active-bg: #ffffff;
+  --art-radius: var(--fullnet-radius-sm);
+  --art-shadow-soft: 0 10px 30px rgb(23 32 39 / 6%);
+}
+
+[data-art-theme='dark'] {
+  --el-color-primary: #79bbff;
+  --el-color-primary-dark-2: #5c9fd9;
+  --art-default-bg-color: #070707;
+  --art-default-box-color: #141414;
+  --art-card-border: rgb(255 255 255 / 8%);
+  --art-header-bg: #141414;
+  --art-header-border: rgb(255 255 255 / 8%);
+  --art-breadcrumb-text: #9aa7aa;
+  --art-tab-text: #9aa7aa;
+  --art-tab-active-text: #79bbff;
+  --art-tab-bg: transparent;
+  --art-tab-active-bg: rgb(64 158 255 / 16%);
+  --art-shadow-soft: 0 12px 36px rgb(0 0 0 / 28%);
+  color-scheme: dark;
+}
+
+.art-admin-shell {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: clip;
+  background: var(--art-default-bg-color);
+  color: var(--fullnet-color-ink);
+}
+
+.art-admin-shell__sidebar {
+  flex-shrink: 0;
+}
+
+.art-admin-shell__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  overflow: auto;
+}
+
+.art-admin-shell__header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-shrink: 0;
+}
+
+.art-admin-shell__content {
+  flex: 1;
+}
+
+.art-admin-shell .el-select__wrapper {
+  min-height: 32px;
+  border-radius: calc(var(--art-custom-radius) / 2);
+}
+
+.art-admin-shell .locale-selector select {
+  min-height: 34px;
+  border-color: var(--art-card-border);
+  border-radius: 8px;
+}
+
+@media (max-width: 820px) {
+  .art-admin-shell__sidebar {
+    width: 0;
+    min-width: 0;
+    overflow: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-admin-shell * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

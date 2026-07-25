@@ -9,4 +9,9 @@
   <data name="organization.user_units.already_assigned" xml:space="preserve"><value>The user is already assigned to this organization unit.</value></data>
   <data name="organization.user_units.not_found" xml:space="preserve"><value>The organization user assignment was not found.</value></data>
   <data name="organization.user_units.user_not_found" xml:space="preserve"><value>The host user was not found.</value></data>
+  <data name="organization.user_positions.already_assigned" xml:space="preserve"><value>The user is already assigned to this position.</value></data>
+  <data name="organization.user_positions.not_found" xml:space="preserve"><value>The organization user position assignment was not found.</value></data>
+  <data name="organization.user_positions.user_not_found" xml:space="preserve"><value>The host user was not found.</value></data>
+  <data name="organization.positions.code_exists" xml:space="preserve"><value>An organization position with this code already exists.</value></data>
+  <data name="organization.positions.not_found" xml:space="preserve"><value>The organization position was not found.</value></data>
 </root>

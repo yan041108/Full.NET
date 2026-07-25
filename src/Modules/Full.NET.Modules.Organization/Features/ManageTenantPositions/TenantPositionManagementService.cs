@@ -1,0 +1,238 @@
+using System.Text.RegularExpressions;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Organization.Persistence;
+
+namespace Full.NET.Modules.Organization.Features.ManageTenantPositions;
+
+/// <summary>租户职位创建、更新与禁用。</summary>
+internal sealed class TenantPositionManagementService(
+    IQueryExecutor queryExecutor,
+    ICommandExecutor commandExecutor,
+    ICommandTransaction transaction,
+    TenantPositionQueryService positionQueries,
+    ICurrentTenant currentTenant,
+    IClock clock,
+    IIdGenerator idGenerator)
+{
+    private static readonly Regex CodePattern = new(
+        "^[a-z][a-z0-9-]{2,63}$",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    public Task<Result<OrganizationPositionResponse>> CreateAsync(
+        CreateOrganizationPositionRequest request,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => CreateCoreAsync(request, token),
+            cancellationToken);
+
+    public Task<Result<OrganizationPositionResponse>> UpdateAsync(
+        Guid positionId,
+        UpdateOrganizationPositionRequest request,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => UpdateCoreAsync(positionId, request, token),
+            cancellationToken);
+
+    public Task<Result<OrganizationPositionResponse>> DisableAsync(
+        Guid positionId,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => DisableCoreAsync(positionId, token),
+            cancellationToken);
+
+    private async Task<Result<OrganizationPositionResponse>> CreateCoreAsync(
+        CreateOrganizationPositionRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureTenantContext();
+        var validationError = ValidateWriteRequest(request.Code, request.Name);
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
+        var code = request.Code.Trim();
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
+                PositionSql.FindByTenantAndCode,
+                new { Code = code },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is not null)
+        {
+            return CodeConflict();
+        }
+
+        var now = clock.UtcNow;
+        var positionId = idGenerator.NewId();
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                PositionSql.Insert,
+                new InsertOrganizationPosition(
+                    positionId,
+                    code,
+                    request.Name.Trim(),
+                    request.DisplayOrder,
+                    true,
+                    now,
+                    null,
+                    1),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            throw new InvalidOperationException(
+                $"Organization position insert affected {affectedRows} rows instead of one.");
+        }
+
+        return await positionQueries.FindByIdAsync(positionId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<OrganizationPositionResponse>> UpdateCoreAsync(
+        Guid positionId,
+        UpdateOrganizationPositionRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureTenantContext();
+        var validationError = ValidateWriteRequest(code: null, request.Name);
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
+                PositionSql.FindById,
+                new { PositionId = positionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null)
+        {
+            return NotFound();
+        }
+
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                PositionSql.Update,
+                new
+                {
+                    PositionId = positionId,
+                    Name = request.Name.Trim(),
+                    DisplayOrder = request.DisplayOrder,
+                    UpdatedAtUtc = now,
+                    request.Version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return await ResolveUpdateFailureAsync(positionId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await positionQueries.FindByIdAsync(positionId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<OrganizationPositionResponse>> DisableCoreAsync(
+        Guid positionId,
+        CancellationToken cancellationToken)
+    {
+        EnsureTenantContext();
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
+                PositionSql.FindById,
+                new { PositionId = positionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null || !record.IsActive)
+        {
+            return NotFound();
+        }
+
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                PositionSql.Disable,
+                new { PositionId = positionId, UpdatedAtUtc = now },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return NotFound();
+        }
+
+        return await positionQueries.FindByIdAsync(positionId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<OrganizationPositionResponse>> ResolveUpdateFailureAsync(
+        Guid positionId,
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
+                PositionSql.FindById,
+                new { PositionId = positionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null)
+        {
+            return NotFound();
+        }
+
+        return VersionConflict();
+    }
+
+    private void EnsureTenantContext()
+    {
+        if (!currentTenant.IsAvailable || currentTenant.IsHost || currentTenant.Id is null)
+        {
+            throw new TenantContextMissingException("organization.tenant_context_required");
+        }
+    }
+
+    private static Result<OrganizationPositionResponse>? ValidateWriteRequest(
+        string? code,
+        string name)
+    {
+        if (code is not null && !CodePattern.IsMatch(code.Trim()))
+        {
+            return ValidationFailure("Position code is invalid.");
+        }
+
+        var normalizedName = name?.Trim() ?? string.Empty;
+        if (normalizedName.Length is < 1 or > 128)
+        {
+            return ValidationFailure("Position name is invalid.");
+        }
+
+        return null;
+    }
+
+    private static Result<OrganizationPositionResponse> CodeConflict() =>
+        Result<OrganizationPositionResponse>.Failure(new Error(
+            OrganizationErrorCodes.PositionCodeExists,
+            "An organization position with this code already exists.",
+            ErrorType.Conflict));
+
+    private static Result<OrganizationPositionResponse> NotFound() =>
+        Result<OrganizationPositionResponse>.Failure(new Error(
+            OrganizationErrorCodes.PositionNotFound,
+            "The organization position was not found.",
+            ErrorType.NotFound));
+
+    private static Result<OrganizationPositionResponse> VersionConflict() =>
+        Result<OrganizationPositionResponse>.Failure(new Error(
+            IdentityErrorCodes.ProfileVersionConflict,
+            "The organization position was updated concurrently.",
+            ErrorType.Conflict));
+
+    private static Result<OrganizationPositionResponse> ValidationFailure(string message) =>
+        Result<OrganizationPositionResponse>.Failure(new Error(
+            ValidationErrorCodes.Failed,
+            message,
+            ErrorType.Validation));
+}

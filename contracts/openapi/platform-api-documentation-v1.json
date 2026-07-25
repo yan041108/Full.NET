@@ -1,0 +1,9 @@
+{
+  "apiTitle": "Full.NET API",
+  "documentName": "v1",
+  "openApiJsonPath": "/openapi/v1.json",
+  "scalarUiPath": "/scalar/v1",
+  "securitySchemeName": "Bearer",
+  "securitySchemeType": "http",
+  "securitySchemeScheme": "bearer"
+}

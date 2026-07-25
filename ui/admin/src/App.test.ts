@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { createMemoryHistory } from 'vue-router';
 import { createPinia, setActivePinia } from 'pinia';
 import { ElConfigProvider, ElOption } from 'element-plus';
@@ -64,13 +65,15 @@ describe('Vue 管理端壳层', () => {
 
     expect(wrapper.findComponent(ElConfigProvider).exists()).toBe(true);
     expect(wrapper.text()).toContain('Full.NET');
-    expect(wrapper.text()).toContain('Full.NET Host');
+    expect(wrapper.findAllComponents(ElOption).some(option =>
+      option.props('label') === 'Full.NET Host'
+    )).toBe(true);
     expect(wrapper.findAllComponents(ElOption).some(option =>
       option.props('label') === 'Acme Corporation'
     )).toBe(true);
     expect(wrapper.text()).toContain('工作台');
     expect(wrapper.text()).toContain('租户上下文');
-    expect(wrapper.text()).toContain('超级管理员');
+    expect(wrapper.text()).toContain('系统管理员');
     expect(wrapper.text()).not.toContain('身份权限');
   });
 
@@ -103,11 +106,15 @@ describe('Vue 管理端壳层', () => {
     });
 
     expect(wrapper.get('.skip-link').attributes('href')).toBe('#main-content');
-    expect(wrapper.get('nav a[href="/"]').attributes('aria-current'))
-      .toBe('page');
+    expect(wrapper.get('nav .art-sidebar__link.is-active').text()).toContain('工作台');
     expect(wrapper.get('[data-route-heading]').attributes('tabindex')).toBe('-1');
 
-    await wrapper.get('select[name="locale"]').setValue('en-US');
+    await wrapper.get('[data-testid="shell-locale-trigger"]').trigger('click');
+    await nextTick();
+    const englishItem = [...document.querySelectorAll('.el-dropdown-menu__item')]
+      .find(item => item.textContent?.includes('English'));
+    expect(englishItem).toBeTruthy();
+    await (englishItem as HTMLElement).click();
     await vi.waitFor(() => expect(useAdminI18n().locale.value).toBe('en-US'));
 
     expect(wrapper.text()).toContain('Overview');

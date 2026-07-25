@@ -1,0 +1,96 @@
+{
+  "id": "notifications-inbox-messages-v1",
+  "version": 1,
+  "description": "站内信收件箱 HTTP 契约冻结夹具；与 Notifications 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/notifications/my-inbox-messages",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.inbox.read",
+          "successStatus": 200,
+          "responseSchema": "InboxMessageResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/my-inbox-messages/unread-count",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.inbox.read",
+          "successStatus": 200,
+          "responseSchema": "InboxUnreadCountResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/my-inbox-messages/{messageId}/read",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.inbox.read",
+          "successStatus": 200,
+          "responseSchema": "InboxMessageResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/my-inbox-messages/read-all",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.inbox.read",
+          "successStatus": 200,
+          "responseSchema": "InboxUnreadCountResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/host-inbox-messages",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.inbox.write",
+          "successStatus": 201,
+          "requestSchema": "SendHostInboxMessageRequest",
+          "responseSchema": "InboxMessageResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "InboxMessageResponse": {
+      "properties": [
+        "id",
+        "title",
+        "content",
+        "status",
+        "readAtUtc",
+        "createdAtUtc",
+        "createdByUserId"
+      ]
+    },
+    "InboxMessageResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "InboxUnreadCountResponse": {
+      "properties": [
+        "unreadCount"
+      ]
+    },
+    "SendHostInboxMessageRequest": {
+      "properties": [
+        "recipientUserId",
+        "title",
+        "content"
+      ]
+    }
+  }
+}

@@ -9,4 +9,9 @@
   <data name="organization.user_units.already_assigned" xml:space="preserve"><value>该用户已隶属此机构。</value></data>
   <data name="organization.user_units.not_found" xml:space="preserve"><value>未找到指定的用户机构隶属。</value></data>
   <data name="organization.user_units.user_not_found" xml:space="preserve"><value>未找到指定的 Host 用户。</value></data>
+  <data name="organization.user_positions.already_assigned" xml:space="preserve"><value>该用户已拥有此职位。</value></data>
+  <data name="organization.user_positions.not_found" xml:space="preserve"><value>未找到指定的用户职位隶属。</value></data>
+  <data name="organization.user_positions.user_not_found" xml:space="preserve"><value>未找到指定的 Host 用户。</value></data>
+  <data name="organization.positions.code_exists" xml:space="preserve"><value>该租户职位编码已存在。</value></data>
+  <data name="organization.positions.not_found" xml:space="preserve"><value>未找到指定的职位。</value></data>
 </root>

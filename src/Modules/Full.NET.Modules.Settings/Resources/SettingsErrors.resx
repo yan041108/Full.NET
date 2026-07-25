@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="settings.dict_type.code_exists" xml:space="preserve"><value>已存在使用该编码的数据字典类型。</value></data>
+  <data name="settings.dict_type.not_found" xml:space="preserve"><value>未找到该数据字典类型。</value></data>
+  <data name="settings.dict_type.version_conflict" xml:space="preserve"><value>数据字典类型记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="settings.dict_type.items_active" xml:space="preserve"><value>仍有启用中的字典项，请先禁用全部字典项后再禁用类型。</value></data>
+  <data name="settings.dict_item.value_exists" xml:space="preserve"><value>该字典类型下已存在相同稳定值的字典项。</value></data>
+  <data name="settings.dict_item.not_found" xml:space="preserve"><value>未找到该字典项。</value></data>
+  <data name="settings.dict_item.version_conflict" xml:space="preserve"><value>字典项记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="settings.config_entry.key_exists" xml:space="preserve"><value>已存在使用该键的系统配置项。</value></data>
+  <data name="settings.config_entry.not_found" xml:space="preserve"><value>未找到该系统配置项。</value></data>
+  <data name="settings.config_entry.version_conflict" xml:space="preserve"><value>系统配置项记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="settings.enum_catalog.not_found" xml:space="preserve"><value>未找到该枚举或常量目录。</value></data>
+</root>

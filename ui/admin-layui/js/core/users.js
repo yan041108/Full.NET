@@ -104,34 +104,87 @@ export function createUsersController(root, options) {
       return;
     }
 
-    const rolesButton = event.target instanceof Element
-      ? event.target.closest('[data-users-roles]')
+    const enableButton = event.target instanceof Element
+      ? event.target.closest('[data-users-enable]')
       : undefined;
-    if (!rolesButton || changing) return;
-    void openRolesDialog(
-      rolesButton.dataset.usersRoles,
-      translation(),
-      request,
-      async (roleIds, version) => {
+    if (enableButton && !changing) {
+      const userId = enableButton.dataset.usersEnable;
+      const username = enableButton.dataset.username ?? '';
+      const message = translation().t('users.confirmEnable', { name: username });
+      confirmAction(message, async () => {
         changing = true;
         try {
           await request(
-            `/api/v1/identity/users/${encodeURIComponent(rolesButton.dataset.usersRoles)}/roles`,
-            {
-              method: 'PUT',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ roleIds, version })
-            }
+            `/api/v1/identity/users/${encodeURIComponent(userId)}/enable`,
+            { method: 'POST' }
           );
-          notify(translation().t('users.rolesSuccess'), 1);
+          notify(translation().t('users.enableSuccess'), 1);
           await load();
         } catch (problem) {
           showProblem(root, problem, translation().t('users.operationFailed'));
         } finally {
           changing = false;
         }
-      }
-    );
+      });
+      return;
+    }
+
+    const rolesButton = event.target instanceof Element
+      ? event.target.closest('[data-users-roles]')
+      : undefined;
+    if (rolesButton && !changing) {
+      void openRolesDialog(
+        rolesButton.dataset.usersRoles,
+        translation(),
+        request,
+        async (roleIds, version) => {
+          changing = true;
+          try {
+            await request(
+              `/api/v1/identity/users/${encodeURIComponent(rolesButton.dataset.usersRoles)}/roles`,
+              {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ roleIds, version })
+              }
+            );
+            notify(translation().t('users.rolesSuccess'), 1);
+            await load();
+          } catch (problem) {
+            showProblem(root, problem, translation().t('users.operationFailed'));
+          } finally {
+            changing = false;
+          }
+        }
+      );
+      return;
+    }
+
+    const resetButton = event.target instanceof Element
+      ? event.target.closest('[data-users-reset-password]')
+      : undefined;
+    if (resetButton && !changing) {
+      const userId = resetButton.dataset.usersResetPassword;
+      promptPassword(translation().t('users.resetPasswordTitle'), async password => {
+        if (!password) return;
+        changing = true;
+        try {
+          await request(
+            `/api/v1/identity/users/${encodeURIComponent(userId)}/reset-password`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ password })
+            }
+          );
+          notify(translation().t('users.resetPasswordSuccess'), 1);
+        } catch (problem) {
+          showProblem(root, problem, translation().t('users.operationFailed'));
+        } finally {
+          changing = false;
+        }
+      });
+    }
   };
 
   form?.addEventListener('submit', onCreate);
@@ -194,6 +247,12 @@ function renderDirectory(container, users, translation) {
     roles.textContent = translation.t('users.roles');
     actions.append(roles, edit);
     if (user.isActive) {
+      const resetPassword = container.ownerDocument.createElement('button');
+      resetPassword.type = 'button';
+      resetPassword.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      resetPassword.dataset.usersResetPassword = user.id;
+      resetPassword.textContent = translation.t('users.resetPassword');
+      actions.append(resetPassword);
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
@@ -201,6 +260,14 @@ function renderDirectory(container, users, translation) {
       disable.dataset.username = user.username;
       disable.textContent = translation.t('users.disable');
       actions.append(disable);
+    } else {
+      const enable = container.ownerDocument.createElement('button');
+      enable.type = 'button';
+      enable.className = 'layui-btn layui-btn-normal layui-btn-primary layui-btn-sm';
+      enable.dataset.usersEnable = user.id;
+      enable.dataset.username = user.username;
+      enable.textContent = translation.t('users.enable');
+      actions.append(enable);
     }
     article.append(mark, identity, state, actions);
     fragment.append(article);
@@ -219,6 +286,18 @@ function confirmAction(message, confirm) {
   if (globalThis.confirm(message)) {
     void confirm();
   }
+}
+
+function promptPassword(title, confirm) {
+  if (globalThis.layui?.layer?.prompt) {
+    globalThis.layui.layer.prompt({ title, formType: 1 }, (input, index) => {
+      globalThis.layui.layer.close(index);
+      if (input) void confirm(input);
+    });
+    return;
+  }
+  const input = globalThis.prompt(title);
+  if (input) void confirm(input);
 }
 
 function promptText(title, value, confirm) {

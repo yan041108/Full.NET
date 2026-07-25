@@ -3,6 +3,7 @@ using Full.NET.Composition;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modularity.Modules;
+using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MessagePack;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
@@ -40,12 +41,16 @@ public sealed class EndpointAuthorizationTests
         builder.Services.AddFullNetDatabaseSchemaModeGuard();
         builder.Services.AddFullNetMessagePack();
         builder.Services.AddFullNetCaching(builder.Configuration, builder.Environment.EnvironmentName);
+        builder.Services.AddFullNetRealtimeSignalR(
+            builder.Configuration,
+            builder.Environment.EnvironmentName);
         builder.Services.AddFullNetApplicationModules(
             builder.Configuration,
             FullNetHostProfile.Api);
 
         var app = builder.Build();
         app.MapFullNetHealthEndpoints();
+        app.MapFullNetRealtime();
         app.MapFullNetModules();
 
         var missingIntentEndpoints = ((IEndpointRouteBuilder)app).DataSources

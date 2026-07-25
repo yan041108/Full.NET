@@ -3,6 +3,11 @@ using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Organization;
+using Full.NET.Modules.Settings;
+using Full.NET.Modules.Auditing;
+using Full.NET.Modules.Files;
+using Full.NET.Modules.Notifications;
+using Full.NET.Modules.Jobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -72,7 +77,12 @@ public static class FullNetModuleCatalog
     private static IReadOnlyList<IFullNetModule> CreateModules() =>
     [
         new IdentityModule(),
+        new AuditingModule(),
+        new FilesModule(),
+        new NotificationsModule(),
+        new JobsModule(),
         new TenancyModule(),
         new OrganizationModule(),
+        new SettingsModule(),
     ];
 }

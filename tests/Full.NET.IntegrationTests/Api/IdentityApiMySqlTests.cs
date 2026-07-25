@@ -95,4 +95,24 @@ public sealed class IdentityApiMySqlTests
 
         await IdentityMenuManagementAssertions.VerifyHostMenuManagementContractAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_online_sessions_follow_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await IdentityOnlineSessionAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Host_api_keys_follow_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await IdentityApiKeyAssertions.VerifyAsync(factory);
+    }
 }

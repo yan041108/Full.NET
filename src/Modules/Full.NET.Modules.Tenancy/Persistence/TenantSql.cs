@@ -65,9 +65,9 @@ internal static class TenantSql
         "tenancy.insert",
         """
         INSERT INTO fn_tenancy_tenant
-            (Id, Identifier, Name, Domain, IsActive, CreatedAtUtc, Version, DefaultLocale)
+            (Id, Identifier, Name, Domain, IsActive, CreatedAtUtc, Version, DefaultLocale, TenantPackageId)
         VALUES
-            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAtUtc, @Version, @DefaultLocale)
+            (@Id, @Identifier, @Name, @Domain, @IsActive, @CreatedAtUtc, @Version, @DefaultLocale, @TenantPackageId)
         """,
         SqlDataScope.HostOnly);
 
@@ -91,9 +91,20 @@ internal static class TenantSql
     public static readonly SqlStatement ListHostTenantsSqlServer = new(
         "tenancy.list_host_tenants.sql_server",
         """
-        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
-        FROM fn_tenancy_tenant
-        ORDER BY Name, Identifier, Id
+        SELECT tenant.Id,
+               tenant.Identifier,
+               tenant.Name,
+               tenant.Domain,
+               tenant.IsActive,
+               tenant.Version,
+               tenant.DefaultLocale,
+               tenant.TenantPackageId,
+               package.Code AS TenantPackageCode,
+               package.Name AS TenantPackageName
+        FROM fn_tenancy_tenant AS tenant
+        LEFT JOIN fn_tenancy_tenant_package AS package
+            ON package.Id = tenant.TenantPackageId
+        ORDER BY tenant.Name, tenant.Identifier, tenant.Id
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
         SqlDataScope.HostOnly);
@@ -101,10 +112,53 @@ internal static class TenantSql
     public static readonly SqlStatement ListHostTenantsMySql = new(
         "tenancy.list_host_tenants.mysql",
         """
-        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
-        FROM fn_tenancy_tenant
-        ORDER BY Name, Identifier, Id
+        SELECT tenant.Id,
+               tenant.Identifier,
+               tenant.Name,
+               tenant.Domain,
+               tenant.IsActive,
+               tenant.Version,
+               tenant.DefaultLocale,
+               tenant.TenantPackageId,
+               package.Code AS TenantPackageCode,
+               package.Name AS TenantPackageName
+        FROM fn_tenancy_tenant AS tenant
+        LEFT JOIN fn_tenancy_tenant_package AS package
+            ON package.Id = tenant.TenantPackageId
+        ORDER BY tenant.Name, tenant.Identifier, tenant.Id
         LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindHostTenantById = new(
+        "tenancy.find_host_tenant_by_id",
+        """
+        SELECT tenant.Id,
+               tenant.Identifier,
+               tenant.Name,
+               tenant.Domain,
+               tenant.IsActive,
+               tenant.Version,
+               tenant.DefaultLocale,
+               tenant.TenantPackageId,
+               package.Code AS TenantPackageCode,
+               package.Name AS TenantPackageName
+        FROM fn_tenancy_tenant AS tenant
+        LEFT JOIN fn_tenancy_tenant_package AS package
+            ON package.Id = tenant.TenantPackageId
+        WHERE tenant.Id = @TenantId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement AssignHostTenantPackage = new(
+        "tenancy.assign_host_tenant_package",
+        """
+        UPDATE fn_tenancy_tenant
+        SET TenantPackageId = @TenantPackageId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 

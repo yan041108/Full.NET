@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="jobs.definition_not_found" xml:space="preserve"><value>未找到该任务定义。</value></data>
+  <data name="jobs.definition_concurrency_conflict" xml:space="preserve"><value>任务定义已被其他操作更新，请刷新后重试。</value></data>
+  <data name="jobs.definition_job_key_exists" xml:space="preserve"><value>任务键已存在。</value></data>
+  <data name="jobs.definition_validation_failed" xml:space="preserve"><value>任务定义无效或任务键未注册。</value></data>
+  <data name="jobs.definition_disabled" xml:space="preserve"><value>任务定义已禁用。</value></data>
+  <data name="jobs.handler_not_found" xml:space="preserve"><value>未找到任务处理器。</value></data>
+  <data name="jobs.execution_not_found" xml:space="preserve"><value>未找到任务执行记录。</value></data>
+</root>

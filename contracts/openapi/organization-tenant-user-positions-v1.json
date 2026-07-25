@@ -1,0 +1,87 @@
+{
+  "id": "organization-tenant-user-positions-v1",
+  "version": 1,
+  "description": "租户用户-职位隶属 HTTP 契约冻结夹具；与 OrganizationUserPositionManagementContracts 和 ManageTenantUserPositions.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/organization/user-positions",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.user_positions.read",
+          "successStatus": 200,
+          "responseSchema": "OrganizationUserPositionResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "organization.user_positions.write",
+          "successStatus": 201,
+          "requestSchema": "CreateOrganizationUserPositionRequest",
+          "responseSchema": "OrganizationUserPositionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/user-positions/{assignmentId}",
+      "operations": [
+        {
+          "method": "PUT",
+          "permission": "organization.user_positions.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateOrganizationUserPositionRequest",
+          "responseSchema": "OrganizationUserPositionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/user-positions/{assignmentId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "organization.user_positions.write",
+          "successStatus": 200,
+          "responseSchema": "OrganizationUserPositionResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OrganizationUserPositionResponse": {
+      "properties": [
+        "id",
+        "userId",
+        "username",
+        "displayName",
+        "positionId",
+        "positionCode",
+        "positionName",
+        "isPrimary",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateOrganizationUserPositionRequest": {
+      "properties": [
+        "userId",
+        "positionId",
+        "isPrimary"
+      ]
+    },
+    "UpdateOrganizationUserPositionRequest": {
+      "properties": [
+        "isPrimary",
+        "version"
+      ]
+    },
+    "OrganizationUserPositionResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

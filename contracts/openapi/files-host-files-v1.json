@@ -1,0 +1,77 @@
+{
+  "id": "files-host-files-v1",
+  "version": 1,
+  "description": "Host 文件元数据 HTTP 契约冻结夹具；与 Files 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/files/host-files",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "files.files.read",
+          "successStatus": 200,
+          "responseSchema": "HostFileResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "files.files.write",
+          "successStatus": 201,
+          "responseSchema": "HostFileResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-files/{fileId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "files.files.read",
+          "successStatus": 200,
+          "responseSchema": "HostFileResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-files/{fileId}/content",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "files.files.read",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-files/{fileId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "files.files.write",
+          "successStatus": 200,
+          "responseSchema": "HostFileResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostFileResponse": {
+      "properties": [
+        "id",
+        "originalFileName",
+        "contentType",
+        "sizeBytes",
+        "contentHash",
+        "createdAtUtc",
+        "createdByUserId"
+      ]
+    },
+    "HostFileResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

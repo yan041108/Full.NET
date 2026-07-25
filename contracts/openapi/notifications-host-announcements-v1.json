@@ -1,0 +1,95 @@
+{
+  "id": "notifications-host-announcements-v1",
+  "version": 1,
+  "description": "Host 公告 HTTP 契约冻结夹具；与 Notifications 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/notifications/host-announcements",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.announcements.read",
+          "successStatus": 200,
+          "responseSchema": "HostAnnouncementResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "notifications.announcements.write",
+          "successStatus": 201,
+          "requestSchema": "CreateHostAnnouncementRequest",
+          "responseSchema": "HostAnnouncementResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/host-announcements/{announcementId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.announcements.read",
+          "successStatus": 200,
+          "responseSchema": "HostAnnouncementResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "notifications.announcements.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostAnnouncementRequest",
+          "responseSchema": "HostAnnouncementResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/host-announcements/{announcementId}/publish",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.announcements.write",
+          "successStatus": 200,
+          "requestSchema": "PublishHostAnnouncementRequest",
+          "responseSchema": "HostAnnouncementResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostAnnouncementResponse": {
+      "properties": [
+        "id",
+        "title",
+        "content",
+        "status",
+        "publishedAtUtc",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "HostAnnouncementResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreateHostAnnouncementRequest": {
+      "properties": [
+        "title",
+        "content"
+      ]
+    },
+    "UpdateHostAnnouncementRequest": {
+      "properties": [
+        "title",
+        "content",
+        "version"
+      ]
+    },
+    "PublishHostAnnouncementRequest": {
+      "properties": [
+        "version"
+      ]
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "auditing-operation-logs-v1",
+  "version": 1,
+  "description": "Host 操作日志查询 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/auditing/operation-logs",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.operations.read",
+          "successStatus": 200,
+          "responseSchema": "OperationLogResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/operation-logs/{operationLogId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.operations.read",
+          "successStatus": 200,
+          "responseSchema": "OperationLogResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OperationLogResponse": {
+      "properties": [
+        "id",
+        "occurredAtUtc",
+        "actionKey",
+        "httpMethod",
+        "requestPath",
+        "statusCode",
+        "durationMs",
+        "succeeded",
+        "userId",
+        "tenantId",
+        "traceId",
+        "clientIpFingerprint",
+        "permissionCode"
+      ]
+    }
+  }
+}

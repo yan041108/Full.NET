@@ -1,0 +1,38 @@
+{
+  "id": "platform-host-dashboard-v1",
+  "version": 1,
+  "description": "Host 工作台汇总 HTTP 契约冻结夹具；与 Identity Platform 端点对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/platform/host-dashboard-summary",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "platform.dashboard.read",
+          "successStatus": 200,
+          "responseSchema": "HostDashboardSummaryResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostDashboardSummaryResponse": {
+      "properties": [
+        "activeTenantCount",
+        "onlineSessionCount",
+        "todayRequestCount",
+        "todayErrorRate",
+        "recentActivities"
+      ]
+    },
+    "HostDashboardActivityResponse": {
+      "properties": [
+        "actionKey",
+        "httpMethod",
+        "requestPath",
+        "succeeded",
+        "occurredAtUtc"
+      ]
+    }
+  }
+}

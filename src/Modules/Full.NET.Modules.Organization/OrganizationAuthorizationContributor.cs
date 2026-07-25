@@ -24,6 +24,22 @@ internal sealed class OrganizationAuthorizationContributor
             OrganizationUserUnitManagementPermissions.Write,
             "管理用户机构隶属",
             AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionManagementPermissions.Read,
+            "查看职位",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionManagementPermissions.Write,
+            "管理职位",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationUserPositionManagementPermissions.Read,
+            "查看用户职位隶属",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationUserPositionManagementPermissions.Write,
+            "管理用户职位隶属",
+            AuthorizationScope.Tenant),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -50,5 +66,27 @@ internal sealed class OrganizationAuthorizationContributor
             "user",
             46,
             OrganizationUserUnitManagementPermissions.Read),
+        new NavigationDefinition(
+            "org-positions",
+            null,
+            "org-positions",
+            "/organization/positions",
+            "org-positions",
+            "职位管理",
+            "Positions",
+            "postcard",
+            47,
+            OrganizationPositionManagementPermissions.Read),
+        new NavigationDefinition(
+            "org-user-positions",
+            null,
+            "org-user-positions",
+            "/organization/user-positions",
+            "org-user-positions",
+            "用户职位隶属",
+            "Organization",
+            "user",
+            48,
+            OrganizationUserPositionManagementPermissions.Read),
     ];
 }

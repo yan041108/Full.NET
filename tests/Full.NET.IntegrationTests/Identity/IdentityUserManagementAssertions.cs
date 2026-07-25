@@ -38,6 +38,12 @@ internal static class IdentityUserManagementAssertions
         await VerifyUpdateDisplayNameWithOptimisticVersionAsync(
             client,
             cancellationToken);
+        await VerifyResetPasswordInvalidatesOldCredentialsAsync(
+            client,
+            cancellationToken);
+        await VerifyEnableUserRestoresLoginAsync(
+            client,
+            cancellationToken);
         await OpenApiHostUsersContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -240,6 +246,130 @@ internal static class IdentityUserManagementAssertions
         Assert.AreEqual(
             IdentityErrorCodes.ProfileVersionConflict,
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyResetPasswordInvalidatesOldCredentialsAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var username = $"reset-{Guid.NewGuid():N}";
+        const string originalPassword = "FullNet!2026Secure";
+        const string newPassword = "FullNet!2026Rotate";
+
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(username, "重置密码测试", originalPassword));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+
+        using var loginBeforeRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, originalPassword)),
+        };
+        loginBeforeRequest.Headers.Add("Origin", "http://localhost");
+        using var loginBeforeResponse = await client.SendAsync(loginBeforeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, loginBeforeResponse.StatusCode);
+
+        using var resetRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{created.Id:D}/reset-password",
+            adminToken,
+            new ResetHostUserPasswordRequest(newPassword));
+        using var resetResponse = await client.SendAsync(resetRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, resetResponse.StatusCode);
+
+        using var oldLoginRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, originalPassword)),
+        };
+        oldLoginRequest.Headers.Add("Origin", "http://localhost");
+        using var oldLoginResponse = await client.SendAsync(oldLoginRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, oldLoginResponse.StatusCode);
+
+        using var newLoginRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, newPassword)),
+        };
+        newLoginRequest.Headers.Add("Origin", "http://localhost");
+        using var newLoginResponse = await client.SendAsync(newLoginRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, newLoginResponse.StatusCode);
+    }
+
+    private static async Task VerifyEnableUserRestoresLoginAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var username = $"enabled-{Guid.NewGuid():N}";
+        var password = Api.FullNetApiFactory.TestPassword;
+
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(username, "启用测试", password));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+
+        using var disableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{created.Id:D}/disable",
+            adminToken,
+            new { });
+        using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode);
+
+        using var loginWhileDisabledRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, password)),
+        };
+        loginWhileDisabledRequest.Headers.Add("Origin", "http://localhost");
+        using var loginWhileDisabledResponse = await client.SendAsync(
+            loginWhileDisabledRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, loginWhileDisabledResponse.StatusCode);
+
+        using var enableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{created.Id:D}/enable",
+            adminToken,
+            new { });
+        using var enableResponse = await client.SendAsync(enableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, enableResponse.StatusCode);
+        var enabled = await enableResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(enabled);
+        Assert.IsTrue(enabled.IsActive);
+        Assert.AreEqual(created.Version + 2, enabled.Version);
+
+        using var loginAfterEnableRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, password)),
+        };
+        loginAfterEnableRequest.Headers.Add("Origin", "http://localhost");
+        using var loginAfterEnableResponse = await client.SendAsync(
+            loginAfterEnableRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, loginAfterEnableResponse.StatusCode);
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

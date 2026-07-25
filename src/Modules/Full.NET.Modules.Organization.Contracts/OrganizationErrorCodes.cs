@@ -20,6 +20,21 @@ public static class OrganizationErrorCodes
     /// <summary>目标 Host 用户不存在或已禁用。</summary>
     public const string UserUnitUserNotFound = "organization.user_units.user_not_found";
 
+    /// <summary>职位编码在租户内已存在。</summary>
+    public const string PositionCodeExists = "organization.positions.code_exists";
+
+    /// <summary>目标职位不存在或不属于当前租户。</summary>
+    public const string PositionNotFound = "organization.positions.not_found";
+
+    /// <summary>用户-职位隶属已存在。</summary>
+    public const string UserPositionAlreadyAssigned = "organization.user_positions.already_assigned";
+
+    /// <summary>目标隶属记录不存在。</summary>
+    public const string UserPositionNotFound = "organization.user_positions.not_found";
+
+    /// <summary>目标 Host 用户不存在或已禁用。</summary>
+    public const string UserPositionUserNotFound = "organization.user_positions.user_not_found";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -30,5 +45,10 @@ public static class OrganizationErrorCodes
         UserUnitAlreadyAssigned,
         UserUnitNotFound,
         UserUnitUserNotFound,
+        PositionCodeExists,
+        PositionNotFound,
+        UserPositionAlreadyAssigned,
+        UserPositionNotFound,
+        UserPositionUserNotFound,
     ]);
 }

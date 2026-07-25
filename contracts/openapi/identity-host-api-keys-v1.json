@@ -1,0 +1,66 @@
+{
+  "id": "identity-host-api-keys-v1",
+  "version": 1,
+  "description": "Host API Key HTTP 契约冻结夹具；与 IdentityApiKeyManagementContracts 和 ManageHostApiKeys.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/api-keys",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.api_keys.read",
+          "successStatus": 200,
+          "responseSchema": "HostApiKeyResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.api_keys.write",
+          "successStatus": 201,
+          "responseSchema": "CreateHostApiKeyResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/api-keys/{apiKeyId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.api_keys.write",
+          "successStatus": 200,
+          "responseSchema": "HostApiKeyResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostApiKeyResponse": {
+      "properties": [
+        "id",
+        "userId",
+        "username",
+        "displayName",
+        "keyPrefix",
+        "permissions",
+        "expiresAtUtc",
+        "isActive",
+        "lastUsedAtUtc",
+        "createdAtUtc"
+      ]
+    },
+    "CreateHostApiKeyResponse": {
+      "properties": [
+        "key",
+        "secret"
+      ]
+    },
+    "HostApiKeyResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostApiKeyResponse"
+    }
+  }
+}

@@ -21,11 +21,23 @@ const presentation = new Map([
     titleKey: 'navigation.tenants.title',
     captionKey: 'navigation.tenants.caption'
   }],
+  ['tenant-packages', {
+    view: 'tenant-packages',
+    iconClass: 'layui-icon-template-1',
+    titleKey: 'navigation.tenantPackages.title',
+    captionKey: 'navigation.tenantPackages.caption'
+  }],
   ['users', {
     view: 'users',
     iconClass: 'layui-icon-user',
     titleKey: 'navigation.users.title',
     captionKey: 'navigation.users.caption'
+  }],
+  ['online-sessions', {
+    view: 'online-sessions',
+    iconClass: 'layui-icon-log',
+    titleKey: 'navigation.onlineSessions.title',
+    captionKey: 'navigation.onlineSessions.caption'
   }],
   ['roles', {
     view: 'roles',
@@ -51,11 +63,83 @@ const presentation = new Map([
     titleKey: 'navigation.orgUserUnits.title',
     captionKey: 'navigation.orgUserUnits.caption'
   }],
+  ['org-positions', {
+    view: 'org-positions',
+    iconClass: 'layui-icon-username',
+    titleKey: 'navigation.orgPositions.title',
+    captionKey: 'navigation.orgPositions.caption'
+  }],
+  ['org-user-positions', {
+    view: 'org-user-positions',
+    iconClass: 'layui-icon-user',
+    titleKey: 'navigation.orgUserPositions.title',
+    captionKey: 'navigation.orgUserPositions.caption'
+  }],
   ['super-administrators', {
     view: 'super-administrators',
     iconClass: 'layui-icon-auz',
     titleKey: 'navigation.superAdministrators.title',
     captionKey: 'navigation.superAdministrators.caption'
+  }],
+  ['dict-types', {
+    view: 'dict-types',
+    iconClass: 'layui-icon-read',
+    titleKey: 'navigation.dictTypes.title',
+    captionKey: 'navigation.dictTypes.caption'
+  }],
+  ['config-entries', {
+    view: 'config-entries',
+    iconClass: 'layui-icon-set',
+    titleKey: 'navigation.configEntries.title',
+    captionKey: 'navigation.configEntries.caption'
+  }],
+  ['enum-catalogs', {
+    view: 'enum-catalogs',
+    iconClass: 'layui-icon-template',
+    titleKey: 'navigation.enumCatalogs.title',
+    captionKey: 'navigation.enumCatalogs.caption'
+  }],
+  ['host-files', {
+    view: 'host-files',
+    iconClass: 'layui-icon-file',
+    titleKey: 'navigation.hostFiles.title',
+    captionKey: 'navigation.hostFiles.caption'
+  }],
+  ['host-announcements', {
+    view: 'host-announcements',
+    iconClass: 'layui-icon-notice',
+    titleKey: 'navigation.hostAnnouncements.title',
+    captionKey: 'navigation.hostAnnouncements.caption'
+  }],
+  ['inbox-messages', {
+    view: 'inbox-messages',
+    iconClass: 'layui-icon-dialogue',
+    titleKey: 'navigation.inboxMessages.title',
+    captionKey: 'navigation.inboxMessages.caption'
+  }],
+  ['host-jobs', {
+    view: 'host-jobs',
+    iconClass: 'layui-icon-time',
+    titleKey: 'navigation.hostJobs.title',
+    captionKey: 'navigation.hostJobs.caption'
+  }],
+  ['access-logs', {
+    view: 'access-logs',
+    iconClass: 'layui-icon-file',
+    titleKey: 'navigation.accessLogs.title',
+    captionKey: 'navigation.accessLogs.caption'
+  }],
+  ['operation-logs', {
+    view: 'operation-logs',
+    iconClass: 'layui-icon-edit',
+    titleKey: 'navigation.operationLogs.title',
+    captionKey: 'navigation.operationLogs.caption'
+  }],
+  ['exception-logs', {
+    view: 'exception-logs',
+    iconClass: 'layui-icon-close',
+    titleKey: 'navigation.exceptionLogs.title',
+    captionKey: 'navigation.exceptionLogs.caption'
   }]
 ]);
 

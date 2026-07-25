@@ -25,9 +25,19 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/tenants'
   },
   {
+    componentKey: 'tenant-packages',
+    routeName: 'tenant-packages',
+    path: '/tenant-packages'
+  },
+  {
     componentKey: 'users',
     routeName: 'users',
     path: '/identity/users'
+  },
+  {
+    componentKey: 'online-sessions',
+    routeName: 'online-sessions',
+    path: '/identity/online-sessions'
   },
   {
     componentKey: 'roles',
@@ -50,9 +60,69 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/organization/user-units'
   },
   {
+    componentKey: 'org-positions',
+    routeName: 'org-positions',
+    path: '/organization/positions'
+  },
+  {
+    componentKey: 'org-user-positions',
+    routeName: 'org-user-positions',
+    path: '/organization/user-positions'
+  },
+  {
     componentKey: 'super-administrators',
     routeName: 'super-administrators',
     path: '/identity/super-administrators'
+  },
+  {
+    componentKey: 'dict-types',
+    routeName: 'dict-types',
+    path: '/settings/dict-types'
+  },
+  {
+    componentKey: 'config-entries',
+    routeName: 'config-entries',
+    path: '/settings/config-entries'
+  },
+  {
+    componentKey: 'enum-catalogs',
+    routeName: 'enum-catalogs',
+    path: '/settings/enum-catalogs'
+  },
+  {
+    componentKey: 'host-files',
+    routeName: 'host-files',
+    path: '/files/host-files'
+  },
+  {
+    componentKey: 'host-announcements',
+    routeName: 'host-announcements',
+    path: '/notifications/host-announcements'
+  },
+  {
+    componentKey: 'inbox-messages',
+    routeName: 'inbox-messages',
+    path: '/notifications/inbox-messages'
+  },
+  {
+    componentKey: 'host-jobs',
+    routeName: 'host-jobs',
+    path: '/jobs/host-definitions'
+  },
+  {
+    componentKey: 'access-logs',
+    routeName: 'access-logs',
+    path: '/auditing/access-logs'
+  },
+  {
+    componentKey: 'operation-logs',
+    routeName: 'operation-logs',
+    path: '/auditing/operation-logs'
+  },
+  {
+    componentKey: 'exception-logs',
+    routeName: 'exception-logs',
+    path: '/auditing/exception-logs'
   }
 ] as const;
 

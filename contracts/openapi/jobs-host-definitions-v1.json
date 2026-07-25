@@ -1,0 +1,139 @@
+{
+  "id": "jobs-host-definitions-v1",
+  "version": 1,
+  "description": "Host 任务定义与执行 HTTP 契约冻结夹具；与 Jobs 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/jobs/host-definitions",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "jobs.definitions.read",
+          "successStatus": 200,
+          "responseSchema": "HostJobDefinitionResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "jobs.definitions.write",
+          "successStatus": 201,
+          "requestSchema": "CreateHostJobDefinitionRequest",
+          "responseSchema": "HostJobDefinitionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-definitions/{definitionId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "jobs.definitions.read",
+          "successStatus": 200,
+          "responseSchema": "HostJobDefinitionResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "jobs.definitions.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostJobDefinitionRequest",
+          "responseSchema": "HostJobDefinitionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-definitions/{definitionId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.definitions.write",
+          "successStatus": 200,
+          "requestSchema": "DisableHostJobDefinitionRequest",
+          "responseSchema": "HostJobDefinitionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-definitions/{definitionId}/trigger",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.definitions.write",
+          "successStatus": 201,
+          "responseSchema": "HostJobExecutionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-executions",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "jobs.executions.read",
+          "successStatus": 200,
+          "responseSchema": "HostJobExecutionResponsePage"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostJobDefinitionResponse": {
+      "properties": [
+        "id",
+        "jobKey",
+        "displayName",
+        "description",
+        "isEnabled",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "HostJobDefinitionResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreateHostJobDefinitionRequest": {
+      "properties": [
+        "jobKey",
+        "displayName",
+        "description"
+      ]
+    },
+    "UpdateHostJobDefinitionRequest": {
+      "properties": [
+        "displayName",
+        "description",
+        "version"
+      ]
+    },
+    "DisableHostJobDefinitionRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "HostJobExecutionResponse": {
+      "properties": [
+        "id",
+        "jobDefinitionId",
+        "status",
+        "triggerKind",
+        "errorMessage",
+        "startedAtUtc",
+        "finishedAtUtc",
+        "attemptCount",
+        "createdAtUtc"
+      ]
+    },
+    "HostJobExecutionResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

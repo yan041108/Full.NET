@@ -61,6 +61,9 @@ public static class IdentityErrorCodes
     /// <summary>当前会话已失效。</summary>
     public const string SessionNotActive = "identity.session_not_active";
 
+    /// <summary>目标在线会话不存在或已下线。</summary>
+    public const string OnlineSessionNotFound = "identity.online_session_not_found";
+
     /// <summary>认证会话写请求超过允许速率。</summary>
     public const string AuthenticationRateLimited = "identity.authentication.rate_limited";
 
@@ -135,6 +138,18 @@ public static class IdentityErrorCodes
     /// <summary>系统菜单受保护，禁止变更。</summary>
     public const string MenuSystemLocked = "identity.menus.system_locked";
 
+    /// <summary>目标 API Key 不存在或已禁用。</summary>
+    public const string ApiKeyNotFound = "identity.api_keys.not_found";
+
+    /// <summary>API Key 权限列表无效。</summary>
+    public const string ApiKeyInvalidPermissions = "identity.api_keys.invalid_permissions";
+
+    /// <summary>API Key 绑定的 Host 用户不存在。</summary>
+    public const string ApiKeyUserNotFound = "identity.api_keys.user_not_found";
+
+    /// <summary>API Key 绑定的 Host 用户已禁用。</summary>
+    public const string ApiKeyUserInactive = "identity.api_keys.user_inactive";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -179,5 +194,9 @@ public static class IdentityErrorCodes
         MenuRouteNameExists,
         MenuNotFound,
         MenuSystemLocked,
+        ApiKeyNotFound,
+        ApiKeyInvalidPermissions,
+        ApiKeyUserNotFound,
+        ApiKeyUserInactive,
     ]);
 }

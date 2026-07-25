@@ -420,11 +420,16 @@ function renderDynamicFixture() {
     <section data-session-boot></section>
     <section data-login-view hidden></section>
     <div data-session-shell hidden>
+      <aside data-dual-rail hidden><div data-dual-rail-nav></div></aside>
+      <aside data-primary-sidebar>
       <strong data-current-user></strong>
       <small data-current-scope></small>
       <strong data-current-context></strong>
       <small data-current-context-scope></small>
       <nav data-navigation></nav>
+      </aside>
+      <nav data-horizontal-menu hidden></nav>
+      <nav data-mixed-menu hidden></nav>
       <label data-context-selector data-permission="tenancy.tenants.switch">
         <select data-context-select></select>
       </label>
@@ -435,6 +440,7 @@ function renderDynamicFixture() {
       <div data-locale-problem role="alert" hidden></div>
       <div data-tenant-directory></div>
       <button data-session-logout></button>
+      <aside data-shell-settings hidden><div data-shell-settings-body></div></aside>
       <main data-route-view="overview">工作台</main>
       <main data-route-view="tenant-context" hidden>租户上下文</main>
       <main data-route-view="status" hidden>

@@ -91,6 +91,20 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement EnableHostUser = new(
+        "identity.enable_host_user",
+        """
+        UPDATE fn_identity_user
+        SET IsActive = 1,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 0
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement UpdateHostUserDisplayName = new(
         "identity.update_host_user_display_name",
         """
@@ -102,6 +116,23 @@ internal static class IdentitySql
           AND ScopeKey = 'host'
           AND TenantId IS NULL
           AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ResetHostUserPassword = new(
+        "identity.reset_host_user_password",
+        """
+        UPDATE fn_identity_user
+        SET PasswordHash = @PasswordHash,
+            SecurityStamp = @SecurityStamp,
+            FailedLoginCount = 0,
+            LockoutEndUtc = NULL,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
         """,
         SqlDataScope.HostOnly);
 

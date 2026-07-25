@@ -5,7 +5,9 @@ using Full.NET.Localization;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Organization.Features.ManageTenantPositions;
 using Full.NET.Modules.Organization.Features.ManageTenantUnits;
+using Full.NET.Modules.Organization.Features.ManageTenantUserPositions;
 using Full.NET.Modules.Organization.Features.ManageTenantUserUnits;
 using Full.NET.Modules.Organization.Resources;
 using Full.NET.Modules.Organization.Serialization;
@@ -44,6 +46,10 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantUnitManagementService>();
         services.TryAddScoped<TenantUserUnitQueryService>();
         services.TryAddScoped<TenantUserUnitManagementService>();
+        services.TryAddScoped<TenantUserPositionQueryService>();
+        services.TryAddScoped<TenantUserPositionManagementService>();
+        services.TryAddScoped<TenantPositionQueryService>();
+        services.TryAddScoped<TenantPositionManagementService>();
         services.TryAddScoped<ITenantOrganizationUnitDirectory, TenantUnits.TenantOrganizationUnitDirectory>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
@@ -55,5 +61,7 @@ public sealed class OrganizationModule : IFullNetModule
     {
         Features.ManageTenantUnits.Endpoint.Map(endpoints);
         Features.ManageTenantUserUnits.Endpoint.Map(endpoints);
+        Features.ManageTenantPositions.Endpoint.Map(endpoints);
+        Features.ManageTenantUserPositions.Endpoint.Map(endpoints);
     }
 }

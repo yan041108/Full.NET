@@ -5,7 +5,8 @@ namespace Full.NET.Modules.Tenancy.Contracts;
 public sealed record ProvisionTenantRequest(
     string Identifier,
     string Name,
-    string Domain);
+    string Domain,
+    Guid? TenantPackageId = null);
 
 public interface ITenantProvisioningService
 {

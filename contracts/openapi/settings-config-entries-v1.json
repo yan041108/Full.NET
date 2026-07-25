@@ -1,0 +1,109 @@
+{
+  "id": "settings-config-entries-v1",
+  "version": 1,
+  "description": "Host 系统配置项 HTTP 契约冻结夹具；与 Settings 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/settings/config-entries",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.config.read",
+          "successStatus": 200,
+          "responseSchema": "ConfigEntryResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "settings.config.write",
+          "successStatus": 201,
+          "requestSchema": "CreateConfigEntryRequest",
+          "responseSchema": "ConfigEntryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/config-entries/by-key/{configKey}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.config.read",
+          "successStatus": 200,
+          "responseSchema": "ConfigEntryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/config-entries/{configEntryId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.config.read",
+          "successStatus": 200,
+          "responseSchema": "ConfigEntryResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "settings.config.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateConfigEntryRequest",
+          "responseSchema": "ConfigEntryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/config-entries/{configEntryId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "settings.config.write",
+          "successStatus": 200,
+          "responseSchema": "ConfigEntryResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "ConfigEntryResponse": {
+      "properties": [
+        "id",
+        "configKey",
+        "displayName",
+        "description",
+        "valueKind",
+        "value",
+        "displayOrder",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateConfigEntryRequest": {
+      "properties": [
+        "configKey",
+        "displayName",
+        "description",
+        "valueKind",
+        "value",
+        "displayOrder"
+      ]
+    },
+    "UpdateConfigEntryRequest": {
+      "properties": [
+        "displayName",
+        "description",
+        "value",
+        "displayOrder",
+        "version"
+      ]
+    },
+    "ConfigEntryResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

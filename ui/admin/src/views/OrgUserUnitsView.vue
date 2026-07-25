@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   ElButton,
+  ElCard,
   ElCheckbox,
   ElMessage,
   ElMessageBox,
@@ -145,77 +146,69 @@ function toProblem(
 </script>
 
 <template>
-  <section class="org-user-units-view" :aria-busy="loading">
-    <header class="org-user-units-heading">
-      <div>
-        <p>{{ t('orgUserUnits.eyebrow') }}</p>
-        <h1 data-route-heading tabindex="-1">{{ t('orgUserUnits.title') }}</h1>
-        <span>{{ t('orgUserUnits.description') }}</span>
-      </div>
-    </header>
+  <section class="org-user-units-view art-page-stack art-full-height" :aria-busy="loading">
+    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('orgUserUnits.title') }}</h1>
 
-    <div v-if="problem" class="org-user-units-problem" role="alert">
-      <strong translate="no">{{ problem.code }}</strong><span>{{ problem.title }}</span>
+    <div v-if="problem" class="art-inline-alert" role="alert">
+      <strong translate="no">{{ problem.code }}</strong>
+      <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <section v-if="canWrite" class="create-strip" aria-labelledby="create-title">
-      <div><small>01</small><h2 id="create-title">{{ t('orgUserUnits.createTitle') }}</h2></div>
-      <label>
-        <span>{{ t('orgUserUnits.user') }}</span>
-        <el-select v-model="selectedUserId" :placeholder="t('orgUserUnits.userPlaceholder')">
-          <el-option
-            v-for="user in users"
-            :key="user.id"
-            :label="`${user.displayName} (${user.username})`"
-            :value="user.id"
-          />
-        </el-select>
-      </label>
-      <label>
-        <span>{{ t('orgUserUnits.unit') }}</span>
-        <el-select v-model="selectedUnitId" :placeholder="t('orgUserUnits.unitPlaceholder')">
-          <el-option
-            v-for="unit in units"
-            :key="unit.id"
-            :label="`${unit.name} (${unit.code})`"
-            :value="unit.id"
-          />
-        </el-select>
-      </label>
-      <label class="org-user-units-primary">
-        <el-checkbox v-model="isPrimary">{{ t('orgUserUnits.isPrimary') }}</el-checkbox>
-      </label>
-      <el-button type="primary" :loading="changing" @click="create">
-        {{ t('orgUserUnits.create') }}
-      </el-button>
-    </section>
+    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+      <div class="art-form-grid art-form-grid--cols-2 art-form-grid--align-center" aria-labelledby="create-title">
+        <div><h2 id="create-title">{{ t('orgUserUnits.createTitle') }}</h2></div>
+        <label>
+          <span>{{ t('orgUserUnits.user') }}</span>
+          <el-select v-model="selectedUserId" :placeholder="t('orgUserUnits.userPlaceholder')">
+            <el-option
+              v-for="user in users"
+              :key="user.id"
+              :label="`${user.displayName} (${user.username})`"
+              :value="user.id"
+            />
+          </el-select>
+        </label>
+        <label>
+          <span>{{ t('orgUserUnits.unit') }}</span>
+          <el-select v-model="selectedUnitId" :placeholder="t('orgUserUnits.unitPlaceholder')">
+            <el-option
+              v-for="unit in units"
+              :key="unit.id"
+              :label="`${unit.name} (${unit.code})`"
+              :value="unit.id"
+            />
+          </el-select>
+        </label>
+        <label>
+          <el-checkbox v-model="isPrimary">{{ t('orgUserUnits.isPrimary') }}</el-checkbox>
+        </label>
+        <el-button type="primary" :loading="changing" @click="create">{{ t('orgUserUnits.create') }}</el-button>
+      </div>
+    </el-card>
 
-    <section class="identity-ledger">
-      <header>
-        <div><small>02</small><h2>{{ t('orgUserUnits.directoryTitle') }}</h2></div>
-        <b>{{ assignments.length }}</b>
-      </header>
-      <p v-if="assignments.length === 0" class="org-user-units-empty">
-        {{ t('orgUserUnits.emptyDirectory') }}
-      </p>
-      <article v-for="assignment in assignments" :key="assignment.id">
-        <span class="identity-mark">
-          {{ assignment.unitCode.slice(0, 2).toUpperCase() }}
-        </span>
-        <div>
+    <el-card class="art-table-card" shadow="never">
+      <template #header>
+        <div class="art-table-card__header">
+          <h2>{{ t('orgUserUnits.directoryTitle') }}</h2>
+          <span class="art-table-card__count">{{ assignments.length }}</span>
+        </div>
+      </template>
+
+      <p v-if="assignments.length === 0" class="art-empty-state">{{ t('orgUserUnits.emptyDirectory') }}</p>
+      <article v-for="assignment in assignments" :key="assignment.id" class="art-data-row">
+        <span class="art-data-row__avatar">{{ assignment.unitCode.slice(0, 2).toUpperCase() }}</span>
+        <div class="art-data-row__main">
           <strong translate="no">{{ assignment.displayName }}</strong>
           <code translate="no">{{ assignment.username }} · {{ assignment.unitName }}</code>
         </div>
-        <div class="org-user-units-tags">
-          <el-tag v-if="assignment.isPrimary" type="warning">
-            {{ t('orgUserUnits.primary') }}
-          </el-tag>
+        <div class="art-tag-group">
+          <el-tag v-if="assignment.isPrimary" type="warning">{{ t('orgUserUnits.primary') }}</el-tag>
           <el-tag :type="assignment.isActive ? 'success' : 'info'">
             {{ t(assignment.isActive ? 'orgUserUnits.active' : 'orgUserUnits.inactive') }}
           </el-tag>
         </div>
-        <div class="org-user-units-actions">
+        <div class="art-data-row__actions">
           <el-button
             v-if="canWrite && assignment.isActive && !assignment.isPrimary"
             plain
@@ -235,23 +228,6 @@ function toProblem(
           </el-button>
         </div>
       </article>
-    </section>
+    </el-card>
   </section>
 </template>
-
-<style scoped>
-.org-user-units-view { display: grid; gap: 18px; }
-.org-user-units-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 8px 2px; }
-.org-user-units-heading p { margin: 0 0 10px; color: var(--fullnet-color-accent); font-family: var(--fullnet-font-display); font-size: 10px; font-weight: 700; letter-spacing: .2em; }
-.org-user-units-heading h1 { margin: 0; font-family: var(--fullnet-font-display); font-size: clamp(30px, 4vw, 48px); font-weight: 500; letter-spacing: -.05em; }
-.org-user-units-heading span { display: block; margin-top: 10px; color: var(--fullnet-color-ink-muted); font-size: 13px; }
-.org-user-units-problem { display: flex; gap: 14px; padding: 13px 16px; border-left: 3px solid var(--fullnet-color-danger); background: rgb(201 74 74 / 8%); }
-.org-user-units-problem code { margin-left: auto; }
-.org-user-units-primary { display: flex; align-items: center; }
-.org-user-units-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-.org-user-units-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-.org-user-units-empty { padding: 28px; margin: 0; text-align: center; color: var(--fullnet-color-ink-muted); }
-@media (min-width: 960px) {
-  .identity-ledger article .org-user-units-actions { grid-column: 2 / -1; }
-}
-</style>

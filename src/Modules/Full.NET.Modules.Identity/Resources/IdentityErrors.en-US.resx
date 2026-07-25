@@ -20,6 +20,7 @@
   <data name="identity.refresh_token_reuse_detected" xml:space="preserve"><value>Refresh token reuse was detected and the session was revoked.</value></data>
   <data name="identity.session_context_conflict" xml:space="preserve"><value>The session context changed concurrently.</value></data>
   <data name="identity.session_not_active" xml:space="preserve"><value>The current session is no longer active.</value></data>
+  <data name="identity.online_session_not_found" xml:space="preserve"><value>The online session was not found or is no longer active.</value></data>
   <data name="identity.authentication.rate_limited" xml:space="preserve"><value>Too many authentication session requests. Try again later.</value></data>
   <data name="identity.super_administrator.remote_management_disabled" xml:space="preserve"><value>Remote super-administrator write operations are disabled.</value></data>
   <data name="identity.super_administrator.reauthentication_failed" xml:space="preserve"><value>Current password reauthentication failed.</value></data>
@@ -43,4 +44,8 @@
   <data name="identity.menus.route_name_exists" xml:space="preserve"><value>A host menu with this route name already exists.</value></data>
   <data name="identity.menus.not_found" xml:space="preserve"><value>The host menu was not found.</value></data>
   <data name="identity.menus.system_locked" xml:space="preserve"><value>System menus are protected and cannot be changed.</value></data>
+  <data name="identity.api_keys.not_found" xml:space="preserve"><value>The API key was not found or is disabled.</value></data>
+  <data name="identity.api_keys.invalid_permissions" xml:space="preserve"><value>The API key permission list is invalid.</value></data>
+  <data name="identity.api_keys.user_not_found" xml:space="preserve"><value>The host user bound to the API key was not found.</value></data>
+  <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>The host user bound to the API key is inactive.</value></data>
 </root>

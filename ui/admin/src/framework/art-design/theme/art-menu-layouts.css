@@ -1,0 +1,42 @@
+/* Art Design Pro 菜单布局变体
+ * 来源：art-design-pro @ f3aaf58 — 顶部/混合/双栏菜单布局
+ * 修改：映射 Full.NET 壳层结构，移动端统一回退左侧抽屉
+ */
+
+:root {
+  --art-dual-rail-width: 64px;
+}
+
+html[data-art-dual-menu-show-text='true'] {
+  --art-dual-rail-width: 88px;
+}
+
+.art-admin-shell--layout-top .art-admin-shell__sidebar {
+  display: none;
+}
+
+.art-admin-shell--layout-top-left .art-admin-shell__sidebar .art-sidebar__brand {
+  display: none;
+}
+
+.art-admin-shell--layout-dual-menu .art-admin-shell__sidebar .art-sidebar__brand {
+  display: none;
+}
+
+.art-admin-shell--layout-dual-menu .art-admin-shell__sidebar .art-sidebar {
+  border-left: 0;
+}
+
+@media (max-width: 820px) {
+  .art-admin-shell--layout-top .art-admin-shell__sidebar,
+  .art-admin-shell--layout-top-left .art-admin-shell__sidebar,
+  .art-admin-shell--layout-dual-menu .art-admin-shell__sidebar {
+    display: block;
+  }
+
+  .art-admin-shell--layout-top .art-horizontal-menu,
+  .art-admin-shell--layout-top-left .art-mixed-menu,
+  .art-admin-shell--layout-dual-menu .art-dual-rail {
+    display: none;
+  }
+}

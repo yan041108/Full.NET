@@ -241,6 +241,20 @@
       "removalMilestone": "M1.0"
     },
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/017_OutboxDeadLetter.sql",
+      "reason": "MySQL 无 ADD COLUMN IF NOT EXISTS，追加 Outbox 死信列沿用 INFORMATION_SCHEMA + PREPARE 的可重入模式；DDL 常量在脚本内固定，已人工审查无外部输入。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/019_TenancyTenantPackageAssignment.sql",
+      "reason": "MySQL 无 ADD COLUMN/CONSTRAINT IF NOT EXISTS，租户套餐外键列沿用 INFORMATION_SCHEMA + PREPARE 的可重入模式；DDL 常量在脚本内固定，已人工审查无外部输入。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "message_type",
       "value": "fullnet.tenancy.tenant-provisioned",
       "file": "src/Modules/Full.NET.Modules.Tenancy/TenantProvisionedCacheInvalidationHandler.cs",

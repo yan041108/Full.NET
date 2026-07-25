@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Api;
+using Full.NET.Hosting.RateLimiting;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
@@ -9,7 +10,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -33,9 +36,15 @@ public sealed class IdentityEndpointSecurityTests
     public async Task Refresh_and_logout_endpoints_require_session_mutation_rate_limiting()
     {
         var builder = WebApplication.CreateBuilder();
+        builder.Environment.EnvironmentName = Environments.Development;
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
+        });
         builder.Services.AddSingleton(Substitute.For<IApiResultMapper>());
         builder.Services.AddSingleton(Substitute.For<IQueryExecutor>());
         builder.Services.AddFullNetModularity();
+        builder.Services.AddFullNetRateLimiter(builder.Configuration);
         builder.Services.AddFullNetModule<IdentityModule>(builder.Configuration);
         await using var app = builder.Build();
         app.MapFullNetModules();

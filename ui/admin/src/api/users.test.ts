@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { request } from './http';
-import { createHostUser, disableHostUser, getHostUserRoles, listHostUsers, replaceHostUserRoles, updateHostUser } from './users';
+import { createHostUser, disableHostUser, enableHostUser, getHostUserRoles, listHostUsers, replaceHostUserRoles, resetHostUserPassword, updateHostUser } from './users';
 
 vi.mock('./http', () => ({ request: vi.fn() }));
 const requestMock = vi.mocked(request);
@@ -30,13 +30,15 @@ describe('Vue Host 用户 API', () => {
     expect(requestMock).toHaveBeenCalledWith('/api/v1/identity/users?page=1&pageSize=20');
   });
 
-  it('通过 JSON 正文创建并禁用用户', async () => {
+  it('通过 JSON 正文创建、禁用并启用用户', async () => {
     requestMock
       .mockResolvedValueOnce(sampleUser)
-      .mockResolvedValueOnce({ ...sampleUser, isActive: false });
+      .mockResolvedValueOnce({ ...sampleUser, isActive: false })
+      .mockResolvedValueOnce({ ...sampleUser, isActive: true, version: 2 });
 
     await createHostUser('operator', '运维账号', 'FullNet!2026Secure');
     await disableHostUser('user-id');
+    await enableHostUser('user-id');
 
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
@@ -55,6 +57,11 @@ describe('Vue Host 用户 API', () => {
       '/api/v1/identity/users/user-id/disable',
       expect.objectContaining({ method: 'POST' })
     );
+    expect(requestMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/identity/users/user-id/enable',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   it('通过 JSON 正文更新显示名称与乐观版本', async () => {
@@ -71,6 +78,20 @@ describe('Vue Host 用户 API', () => {
       expect.objectContaining({
         method: 'PUT',
         body: JSON.stringify({ displayName: '新名称', version: 1 })
+      })
+    );
+  });
+
+  it('通过 JSON 正文重置用户密码', async () => {
+    requestMock.mockResolvedValueOnce({ ...sampleUser, version: 2 });
+
+    await resetHostUserPassword('user-id', 'FullNet!2026Rotate');
+
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/identity/users/user-id/reset-password',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ password: 'FullNet!2026Rotate' })
       })
     );
   });

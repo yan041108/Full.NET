@@ -1,0 +1,254 @@
+/* Art Design Pro 登录页布局
+ * 来源：art-design-pro @ f3aaf58 — auth/login、LoginLeftView、style.css
+ * 修改：去除 Tailwind/SVG 资产；保留几何装饰与左右分栏
+ */
+
+.art-login-page {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--art-default-bg-color);
+  color: var(--art-gray-800);
+}
+
+.art-login-left {
+  position: relative;
+  box-sizing: border-box;
+  width: min(65vw, 920px);
+  min-height: 100vh;
+  padding: 24px;
+  overflow: hidden;
+  background: color-mix(in srgb, rgb(64 158 255 / 12%) 100%, var(--art-default-box-color));
+}
+
+.art-login-left__logo {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.art-login-left__mark {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--art-theme-color), #79bbff);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.art-login-left__logo strong {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.art-login-left__hero {
+  position: absolute;
+  right: 0;
+  bottom: 80px;
+  left: 0;
+  z-index: 2;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.art-login-left__hero h1 {
+  margin: 0;
+  color: var(--art-gray-800);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.art-login-left__hero h1 em {
+  color: var(--art-theme-text);
+  font-style: normal;
+}
+
+.art-login-left__hero p {
+  margin: 10px 0 0;
+  color: var(--art-gray-700);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.art-login-left__visual {
+  position: absolute;
+  inset: 12% 0 18%;
+  z-index: 1;
+  width: 42%;
+  margin: auto;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 30% 30%, rgb(64 158 255 / 18%), transparent 55%),
+    linear-gradient(145deg, rgb(64 158 255 / 10%), rgb(64 158 255 / 4%));
+  border: 1px solid rgb(64 158 255 / 12%);
+}
+
+.art-login-left__decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.art-login-left__decor span {
+  position: absolute;
+  border-radius: 50%;
+  background: rgb(64 158 255 / 12%);
+}
+
+.art-login-left__decor span:nth-child(1) {
+  top: 10%;
+  left: 24%;
+  width: 42px;
+  height: 42px;
+  border: 2px solid rgb(64 158 255 / 22%);
+  background: transparent;
+}
+
+.art-login-left__decor span:nth-child(2) {
+  top: 48%;
+  left: 16%;
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  transform: rotate(-25deg);
+}
+
+.art-login-left__decor span:nth-child(3) {
+  right: 8%;
+  bottom: 12%;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  transform: rotate(45deg);
+}
+
+.art-login-left__decor span:nth-child(4) {
+  top: -80px;
+  right: -80px;
+  width: 280px;
+  height: 280px;
+}
+
+.art-login-page__main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.art-login-page__topbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px 24px 0;
+}
+
+.art-login-page__form-wrap {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 24px;
+}
+
+.art-login-form {
+  width: min(100%, 440px);
+  animation: art-login-slide-in 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.art-login-form__title {
+  margin: 0;
+  color: var(--art-gray-800);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.art-login-form__subtitle {
+  margin: 10px 0 24px;
+  color: var(--art-gray-700);
+  font-size: 14px;
+}
+
+.art-login-form__field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.art-login-form__field label {
+  color: var(--art-gray-700);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.art-login-form__field .el-input {
+  --el-input-height: 40px;
+}
+
+.art-login-form__submit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.art-login-form__footnote {
+  display: block;
+  margin-top: 14px;
+  color: var(--art-gray-700);
+  font-size: 12px;
+  text-align: center;
+}
+
+@keyframes art-login-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 1180px) {
+  .art-login-left {
+    width: auto;
+    min-height: auto;
+    padding: 0;
+    background: transparent;
+  }
+
+  .art-login-left__hero,
+  .art-login-left__visual,
+  .art-login-left__decor {
+    display: none;
+  }
+
+  .art-login-left__logo {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .art-login-form__title {
+    font-size: 28px;
+  }
+
+  .art-login-page__form-wrap {
+    align-items: start;
+    padding-top: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-login-form {
+    animation: none;
+  }
+}

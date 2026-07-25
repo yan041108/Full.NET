@@ -33,9 +33,9 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 349
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 352
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 36
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 40
 # 日常：仅验证双库迁移/outbox schema 冒烟
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "migration_is_idempotent_and_creates_binary_outbox_schema" --minimum-expected-tests 2 --timeout 15m
 # PR / 合入前快门禁：Identity/Tenancy/Outbox 核心双库场景（当前 8 项，约 4 分钟）
@@ -43,7 +43,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 # 改迁移/SQL/Outbox/UUID 时追加聚焦相关用例，例如：
 # dotnet tests/.../Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery|UuidBinary" --minimum-expected-tests 1 --timeout 45m
 # 发布 / push main：完整双库矩阵（约 1 小时级，勿当日常命令）
-# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 128 --timeout 90m
+# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 170 --timeout 90m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
@@ -68,7 +68,7 @@ pnpm test:e2e:uniapp
 
 ## 客户端规划
 
-- `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus 主管理端；后续按独立迁移计划采用 MIT Art Design Pro 管理壳层、ECharts 图表与 Tiptap Core 富文本基线，保留 Full.NET 自有认证、租户、权限和 API 契约；
+- `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus 主管理端；已迁入 MIT Art Design Pro 管理壳层（见 `docs/verification/admin-art-design-pro.md`），ECharts 图表与 Tiptap Core 富文本基线按独立计划推进，保留 Full.NET 自有认证、租户、权限和 API 契约；
 - `ui/admin-layui`：基于 MIT Layui 2 独立实现的 HTML/CSS/原生 JavaScript 管理端，与 Vue 覆盖相同后台功能并同步验收；layuiAdmin 仅作交互参考，不复制其非 MIT 主题资产；
 - `clients/uniapp`：一套代码覆盖 H5、微信小程序和支付宝小程序，默认采用官方 uni-ui；当前尚未引入组件包；
 - `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端，采用 Flutter 3.44 Material 3 + Cupertino；当前尚未创建工程；

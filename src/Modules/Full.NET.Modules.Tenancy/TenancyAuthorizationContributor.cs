@@ -21,6 +21,14 @@ internal sealed class TenancyAuthorizationContributor
             "管理租户",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            TenancyTenantPackagePermissions.Read,
+            "查询租户套餐",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantPackagePermissions.Write,
+            "管理租户套餐",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             TenantsSwitch,
             "切换租户上下文",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
@@ -53,5 +61,16 @@ internal sealed class TenancyAuthorizationContributor
             "grid",
             21,
             TenancyTenantManagementPermissions.HostTenantsRead),
+        new NavigationDefinition(
+            "tenant-packages",
+            null,
+            "tenant-packages",
+            "/tenant-packages",
+            "tenant-packages",
+            "租户套餐",
+            "Tenant Packages",
+            "collection",
+            22,
+            TenancyTenantPackagePermissions.Read),
     ];
 }

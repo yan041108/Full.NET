@@ -31,12 +31,12 @@ internal sealed class TenantResolver(
                 {
                     loaded = true;
                     var tenant = await queryExecutor
-                        .QuerySingleOrDefaultAsync<TenantSummary>(
+                        .QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                             TenantSql.FindByDomain,
                             new { Domain = normalizedDomain },
                             token)
                         .ConfigureAwait(false);
-                    return new CachedTenantResolution(tenant);
+                    return new CachedTenantResolution(tenant?.ToSummary());
                 },
                 new HybridCacheEntryOptions
                 {
@@ -79,11 +79,11 @@ internal sealed class TenantResolver(
                 {
                     loaded = true;
                     return new CachedTenantResolution(
-                        await queryExecutor.QuerySingleOrDefaultAsync<TenantSummary>(
+                        (await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                             TenantSql.FindById,
                             new { TenantId = tenantId },
                             token)
-                        .ConfigureAwait(false));
+                        .ConfigureAwait(false))?.ToSummary());
                 },
                 new HybridCacheEntryOptions
                 {
@@ -111,11 +111,14 @@ internal sealed class TenantResolver(
         return entry.Tenant;
     }
 
-    public Task<IReadOnlyList<TenantSummary>> GetAvailableAsync(
-        CancellationToken cancellationToken = default) =>
-        queryExecutor.QueryAsync<TenantSummary>(
+    public async Task<IReadOnlyList<TenantSummary>> GetAvailableAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await queryExecutor.QueryAsync<TenantResolutionRecord>(
             TenantSql.GetAvailable,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return rows.Select(row => row.ToSummary()).ToArray();
+    }
 
     private static string NormalizeDomain(string domain)
     {

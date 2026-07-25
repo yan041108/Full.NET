@@ -1,0 +1,46 @@
+{
+  "id": "auditing-access-logs-v1",
+  "version": 1,
+  "description": "Host HTTP 访问日志查询 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/auditing/access-logs",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.access.read",
+          "successStatus": 200,
+          "responseSchema": "AccessLogResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/access-logs/{accessLogId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.access.read",
+          "successStatus": 200,
+          "responseSchema": "AccessLogResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "AccessLogResponse": {
+      "properties": [
+        "id",
+        "occurredAtUtc",
+        "httpMethod",
+        "requestPath",
+        "statusCode",
+        "durationMs",
+        "userId",
+        "tenantId",
+        "traceId",
+        "clientIpFingerprint",
+        "isAuthenticated"
+      ]
+    }
+  }
+}

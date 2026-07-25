@@ -102,6 +102,16 @@
       ]
     },
     {
+      "name": "对外 HTTP 契约冻结",
+      "prompt": "新增一组对外 HTTP 端点并冻结其契约。",
+      "required_terms": [
+        "contracts/openapi",
+        "tests/openapi",
+        "pnpm test:openapi",
+        "运行时断言"
+      ]
+    },
+    {
       "name": "模块项目拓扑",
       "prompt": "新增一个包含多个 CRUD 和 HTTP Endpoint 的大业务模块。",
       "required_terms": [

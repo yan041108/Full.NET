@@ -8,7 +8,7 @@ public static class IdentityUserManagementPermissions
     /// <summary>分页查询 Host 用户列表与详情。</summary>
     public const string Read = "identity.users.read";
 
-    /// <summary>创建、更新与禁用 Host 用户。</summary>
+    /// <summary>创建、更新、禁用与启用 Host 用户。</summary>
     public const string Write = "identity.users.write";
 }
 
@@ -22,6 +22,10 @@ public sealed record CreateHostUserRequest(
 public sealed record UpdateHostUserRequest(
     string DisplayName,
     int Version);
+
+/// <summary>管理员重置 Host 用户密码请求。</summary>
+public sealed record ResetHostUserPasswordRequest(
+    string Password);
 
 /// <summary>Host 用户列表项与详情响应。</summary>
 public sealed record HostUserResponse(

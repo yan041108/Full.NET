@@ -35,6 +35,78 @@ internal sealed class HostTenantManagementService(
             token => DisableCoreAsync(tenantId, token),
             cancellationToken);
 
+    public Task<Result<TenantSummary>> AssignPackageAsync(
+        Guid tenantId,
+        AssignHostTenantPackageRequest request,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => AssignPackageCoreAsync(tenantId, request, token),
+            cancellationToken);
+
+    private async Task<Result<TenantSummary>> AssignPackageCoreAsync(
+        Guid tenantId,
+        AssignHostTenantPackageRequest request,
+        CancellationToken cancellationToken)
+    {
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
+                TenantSql.FindById,
+                new { TenantId = tenantId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        if (request.TenantPackageId is Guid packageId)
+        {
+            var package = await queryExecutor.QuerySingleOrDefaultAsync<Features.ManageHostTenantPackages.TenantPackageIdentityRecord>(
+                    TenantPackageSql.FindPackageById,
+                    new { PackageId = packageId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (package is null)
+            {
+                return PackageNotFound();
+            }
+
+            if (!package.IsActive)
+            {
+                return PackageInactive();
+            }
+        }
+
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                TenantSql.AssignHostTenantPackage,
+                new
+                {
+                    TenantId = tenantId,
+                    request.TenantPackageId,
+                    UpdatedAtUtc = now,
+                    request.Version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            var stillExists = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
+                    TenantSql.FindById,
+                    new { TenantId = tenantId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (stillExists is null)
+            {
+                return NotFound();
+            }
+
+            return VersionConflict();
+        }
+
+        return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private async Task<Result<TenantSummary>> UpdateCoreAsync(
         Guid tenantId,
         UpdateHostTenantRequest request,
@@ -49,7 +121,7 @@ internal sealed class HostTenantManagementService(
                 ErrorType.Validation));
         }
 
-        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantRecord>(
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
                 new { TenantId = tenantId },
                 cancellationToken)
@@ -73,7 +145,7 @@ internal sealed class HostTenantManagementService(
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
-            var stillExists = await queryExecutor.QuerySingleOrDefaultAsync<TenantRecord>(
+            var stillExists = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                     TenantSql.FindById,
                     new { TenantId = tenantId },
                     cancellationToken)
@@ -94,7 +166,7 @@ internal sealed class HostTenantManagementService(
         Guid tenantId,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantRecord>(
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
                 new { TenantId = tenantId },
                 cancellationToken)
@@ -143,7 +215,7 @@ internal sealed class HostTenantManagementService(
     }
 
     private async Task InvalidateTenantCacheAsync(
-        TenantRecord tenant,
+        TenantResolutionRecord tenant,
         CancellationToken cancellationToken)
     {
         await cache.RemoveAsync(
@@ -179,4 +251,16 @@ internal sealed class HostTenantManagementService(
             TenancyErrorCodes.VersionConflict,
             "The tenant record was updated concurrently.",
             ErrorType.Conflict));
+
+    private static Result<TenantSummary> PackageNotFound() =>
+        Result<TenantSummary>.Failure(new Error(
+            TenancyErrorCodes.PackageNotFound,
+            "The tenant package was not found.",
+            ErrorType.NotFound));
+
+    private static Result<TenantSummary> PackageInactive() =>
+        Result<TenantSummary>.Failure(new Error(
+            TenancyErrorCodes.PackageInactive,
+            "The tenant package is not active.",
+            ErrorType.BusinessRule));
 }

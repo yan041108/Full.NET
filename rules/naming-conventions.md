@@ -216,7 +216,8 @@ Provider 物理类型固定如下：
 3. 当前已确认的 1.0 前债务包括：`fn_tenant_tenant` 所有权段错误；Foundation Tenancy/Outbox 的 UTC 时间列缺少 `Utc`；Outbox `Type` 未表达 `MessageType`；错误码、审计码、Statement 标识和事件类型混用连字符/下划线；部分主键、外键和索引未遵循本规范的显式名称；MySQL 001-007 的 UUID 主键、外键、租约和 Seed 执行标识仍使用 `char(36)`，尚未迁移为统一 RFC 字节序的 `BINARY(16)`。
 4. 上述债务只表示已识别，不表示已经修复。新增代码不得复制债务形式；触碰对应模块时必须更新技术债清单或执行已批准迁移计划。
 5. 第三方数据库若无法改名，必须在独立 Compatibility/Provider 层使用显式映射，并记录来源和退出条件；不得放宽 Full.NET 自有表规范。
-6. 偏离本文需要 ADR，说明范围、兼容影响、两库验证、代码生成器行为和恢复方式。`sys_`、运行时动态表前缀及隐式全局 snake_case 映射没有默认例外。
+6. MySQL 缺少 `ADD COLUMN/CONSTRAINT IF NOT EXISTS`，可重入列或约束追加允许沿用 `INFORMATION_SCHEMA` + `PREPARE/EXECUTE` 模式，但静态门禁无法解析动态 SQL：新增此类脚本必须在同一变更内向 `contracts/naming/naming-debt.json` 登记精确 `dynamic_sql` 条目（文件级、含原因与最晚移除里程碑），并运行 `pnpm test:naming` 确认为绿。漏登记会让该门禁在主干长期红灯（2026-07-25 于 `017_OutboxDeadLetter`、`019_TenancyTenantPackageAssignment` 各出现一次）。
+7. 偏离本文需要 ADR，说明范围、兼容影响、两库验证、代码生成器行为和恢复方式。`sys_`、运行时动态表前缀及隐式全局 snake_case 映射没有默认例外。
 
 ## 11. 验证
 

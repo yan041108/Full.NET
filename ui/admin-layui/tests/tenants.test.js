@@ -12,6 +12,7 @@ describe('Layui Host 租户控制器', () => {
       <div data-tenants-problem hidden><strong></strong><span></span></div>
       <div data-tenants-directory></div>`;
     const request = vi.fn()
+      .mockResolvedValueOnce({ items: [], page: 1, pageSize: 100, total: 0 })
       .mockResolvedValueOnce({
         items: [{
           id: 'tenant-1',
@@ -48,6 +49,21 @@ describe('Layui Host 租户控制器', () => {
         page: 1,
         pageSize: 20,
         total: 1
+      })
+      .mockResolvedValueOnce({ items: [], page: 1, pageSize: 100, total: 0 })
+      .mockResolvedValueOnce({
+        items: [{
+          id: 'tenant-2',
+          identifier: 'parity',
+          name: '对等租户',
+          domain: 'parity.localhost',
+          isActive: true,
+          version: 1,
+          defaultLocale: 'zh-CN'
+        }],
+        page: 1,
+        pageSize: 20,
+        total: 1
       });
     const controller = createTenantsController(document, {
       request,
@@ -58,14 +74,18 @@ describe('Layui Host 租户控制器', () => {
     document.querySelector('[name="domain"]').value = 'parity.localhost';
 
     await controller.load();
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/tenancy/tenant-packages?page=1&pageSize=100'
+    );
     expect(document.querySelector('[data-tenants-directory] code')?.textContent)
       .toContain('acme.localhost');
 
     document.querySelector('[data-tenants-create-form]')
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(5));
     expect(request).toHaveBeenNthCalledWith(
-      2,
+      3,
       '/api/v1/tenancy/tenants',
       expect.objectContaining({
         method: 'POST',

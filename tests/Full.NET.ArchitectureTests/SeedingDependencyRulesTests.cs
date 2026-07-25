@@ -4,6 +4,10 @@ using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Settings;
+using Full.NET.Modules.Settings.Contracts;
+using Full.NET.Modules.Auditing;
+using Full.NET.Modules.Files;
 using Full.NET.Modules.Tenancy;
 using NetArchTest.Rules;
 using System.Reflection;
@@ -21,6 +25,10 @@ public sealed class SeedingDependencyRulesTests
         typeof(TenancyModule).Assembly,
         typeof(OrganizationModule).Assembly,
         typeof(OrganizationUnitResponse).Assembly,
+        typeof(SettingsModule).Assembly,
+        typeof(DictTypeResponse).Assembly,
+        typeof(AuditingModule).Assembly,
+        typeof(FilesModule).Assembly,
         ProductionAssemblies.HostApi,
         ProductionAssemblies.HostWorker,
         ProductionAssemblies.HostMigrator,
@@ -49,10 +57,14 @@ public sealed class SeedingDependencyRulesTests
     {
         string[] expectedModuleAssemblies =
         [
+            "Full.NET.Modules.Auditing",
+            "Full.NET.Modules.Files",
             "Full.NET.Modules.Identity",
             "Full.NET.Modules.Identity.Contracts",
             "Full.NET.Modules.Organization",
             "Full.NET.Modules.Organization.Contracts",
+            "Full.NET.Modules.Settings",
+            "Full.NET.Modules.Settings.Contracts",
             "Full.NET.Modules.Tenancy",
         ];
         var actualModuleAssemblies = PublishedAssemblies

@@ -39,29 +39,30 @@
 | 管理端登录、刷新会话、退出与当前用户 | Identity + `ui/admin` + `ui/admin-layui` | Core + Client | M2 | Implemented |
 | 最小 RBAC、可信租户上下文与动态权限导航 | Identity + Tenancy + 双管理端 | Core + Client | M2 | Implemented |
 | 默认超级管理员、未来权限自动获得与最后一名保护 | Identity + 双管理端 | Core + Client | M2 | Implementing |
-| 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | Mapped |
-| 用户管理 | Identity | Core | M2 | Implementing（Host 列表/创建/禁用已交付；[验证记录](../verification/identity-user-management-2026-07-21.md)） |
+| 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | **Build-verified**（Host 工作台汇总 API + 双端 Overview 真实指标；[验证记录](../verification/platform-host-dashboard-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-platform-host-dashboard-vertical-slice.md)） |
+| 用户管理 | Identity | Core | M2 | Implementing（Host 列表/创建/禁用/启用/重置密码已交付；[验证记录](../verification/identity-user-management-2026-07-21.md)、[重置密码](../verification/identity-host-user-reset-password-2026-07-25.md)、[启用](../verification/identity-host-user-enable-2026-07-25.md)） |
 | 租户管理 | Tenancy | Core | M2 | **Build-verified**（Host 列表/开通/更新/禁用；[验证记录](../verification/tenancy-host-tenant-management-2026-07-23.md)） |
 | 机构管理 | Organization | Core | M2 | **Build-verified**（租户机构树 CRUD；见[验证记录](../verification/organization-unit-management-2026-07-21.md)） |
-| 职位管理 | Organization | Core | M2 | Mapped |
+| 职位管理 | Organization | Core | M2 | **Build-verified**（租户职位 CRUD；见[验证记录](../verification/organization-position-2026-07-25.md)） |
+| 用户职位隶属 | Organization | Core | M2 | **Build-verified**（租户用户-职位分配；见[验证记录](../verification/organization-user-position-assignment-2026-07-25.md)） |
 | 菜单与按钮权限管理 | Identity | Core | M2 | Build-verified（[菜单验证](../verification/identity-menu-management-2026-07-21.md)；按钮权限仍非目标） |
-| 角色与数据授权 | Identity + Organization | Core | M2 | Mapped |
-| 字典管理 | Settings | Core | M3 | Mapped |
-| 访问日志 | Auditing | Core | M3 | Mapped |
-| 操作与异常日志 | Auditing | Core | M3 | Mapped |
+| 角色与数据授权 | Identity + Organization | Core | M2 | **Build-verified**（Host 角色/权限/数据范围、用户-角色分配与运行时机构过滤；[验证记录](../verification/identity-role-data-authorization-2026-07-26.md)、[收口计划](../superpowers/plans/2026-07-26-identity-role-data-authorization-parity-closure.md)） |
+| 字典管理 | Settings | Core | M3 | **Build-verified**（字典类型 + 字典项 Host CRUD 与双端 UI；见[验证记录](../verification/settings-dictionary-2026-07-25.md)、[类型切片](../superpowers/plans/2026-07-25-settings-dictionary-vertical-slice.md)、[项 UI 切片](../superpowers/plans/2026-07-25-settings-dict-items-ui-vertical-slice.md)） |
+| 访问日志 | Auditing | Core | M3 | Build-verified |
+| 操作与异常日志 | Auditing | Core | M3 | Build-verified |
 | 服务监控 | Observability Admin | Official Module | M5+ | Mapped |
-| 在线用户与强制下线 | Identity + Notifications | Core | M2 | Mapped |
-| 公告与 SignalR 通知 | Realtime + Notifications | Core | M2/M3 | Mapped |
-| 文件与对象存储 | Files + Storage Providers | Core + Provider | M3/M5+ | Mapped |
-| 任务调度 | Jobs | Core | M3 | Mapped |
-| 系统配置 | Settings | Core | M3 | Mapped |
+| 在线用户与强制下线 | Identity + Notifications | Core | M2 | **Build-verified**（Host 在线会话列表与强制下线；[验证记录](../verification/identity-host-online-sessions-2026-07-26.md)） |
+| 公告与 SignalR 通知 | Realtime + Notifications | Core | M2/M3 | **Build-verified**（Host 公告草稿/发布 + `IRealtimePublisher` 广播；[验证记录](../verification/notifications-host-announcement-2026-07-26.md)） |
+| 文件与对象存储 | Files + Storage Providers | Core + Provider | M3/M5+ | **Build-verified**（Host 文件元数据上传/列表/下载/删除与本地存储；[验证记录](../verification/files-host-file-metadata-2026-07-26.md)） |
+| 任务调度 | Jobs | Core | M3 | **Build-verified**（Host 任务定义 CRUD、手动触发、`jobs.ping` 处理器与 Worker 轮询；[验证记录](../verification/jobs-host-definitions-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-jobs-host-definitions-vertical-slice.md)） |
+| 系统配置 | Settings | Core | M3 | **Build-verified**（Host 配置项 CRUD 与双端 UI；见[验证记录](../verification/settings-system-config-2026-07-25.md)、[实施计划](../superpowers/plans/2026-07-25-settings-system-config-vertical-slice.md)） |
 | 邮件与短信 | Notifications Providers | Provider | M5+ | Mapped |
-| Swagger、OpenAPI 和接口文档 | Hosting | Core | M1 | Mapped |
+| Swagger、OpenAPI 和接口文档 | Hosting | Core | M1 | **Build-verified**（OpenAPI 元数据、Bearer JWT、Scalar UI 与双端入口；[验证记录](../verification/platform-openapi-documentation-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-platform-openapi-documentation-vertical-slice.md)） |
 | 前后端代码生成 | CodeGeneration | Core | P0 Naming Profile/命名内核；M3 首个纵向样例 | Implementing |
 | 在线表单构建器 | FormBuilder | Official Module | M5+ | Mapped |
 | 微信小程序与微信支付 | WeChat + Payments | Official Module + Provider | M5+ | Mapped |
 | Excel 导入导出、HTML/PDF 报告 | ImportExport + Reporting | Official Module + Provider | M5+ | Mapped |
-| 接口限流 | Hosting | Core | M1 | Mapped |
+| 接口限流 | Hosting | Core | M1 | **Build-verified**（全局限流配置、`hosting.rate_limited` 与 Identity 端点策略；[验证记录](../verification/hosting-global-api-rate-limit-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-hosting-global-api-rate-limit-vertical-slice.md)） |
 | Elasticsearch 日志 | Elasticsearch Observability | Provider | M5+ | Mapped |
 | OAuth 2.0 外部登录 | Identity OAuth Providers | Provider | M5+ | Mapped |
 | APIJSON 零代码查询 | APIJSON Compatibility | Compatibility | M5+ | Mapped |
@@ -71,15 +72,15 @@
 
 | Admin.NET.Pro 能力 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| API Key 认证 | Identity | Core | M2 | Mapped |
+| API Key 认证 | Identity | Core | M2 | Build-verified |
 | 请求签名认证 | Identity Signature Auth | Official Module | M5+ | Mapped |
 | 缓存管理 | Caching Admin | Official Module | M5+ | Mapped |
 | 列显示个性化 | Settings + Client Preferences | Core | M3 | Mapped |
 | 全栈多语言、时区与用户语言偏好 | Localization + Identity + Tenancy + Clients | Core + Client | M2-M5+ | Implementing |
 | 模块化开发/演示种子数据与执行审计 | Seeding + Migrator + Module Contributors | Core | M2 | Build-verified（双库契约见[验证记录](../verification/seed-dual-database-contract-2026-07-21.md)） |
 | 数据库管理 | DatabaseTools | Official Module | M5+ | Mapped |
-| 枚举、常量查询 | Settings Metadata | Core | M3 | Mapped |
-| 消息中心 | Notifications | Core | M3 | Mapped |
+| 枚举、常量查询 | Settings Metadata | Core | M3 | **Build-verified**（只读枚举目录 API 与双端 UI；见[验证记录](../verification/settings-enum-catalog-2026-07-25.md)、[实施计划](../superpowers/plans/2026-07-25-settings-enum-catalog-vertical-slice.md)） |
+| 消息中心 | Notifications | Core | M3 | **Build-verified**（Host 发信 + 个人收件箱/未读/已读；[验证记录](../verification/notifications-inbox-message-2026-07-26.md)） |
 | MQTT | MQTT Provider | Provider | M5+ | Mapped |
 | 开放接口访问 | OpenAccess | Official Module | M5+ | Mapped |
 | 插件管理 | Modularity Admin | Official Module | M5+ | Mapped |
@@ -97,7 +98,7 @@
 | System.Text.Json 源生成与序列化基准 | Serialization | Core | M0-M1 | Implemented |
 | MessagePack 可靠事件载荷 | Messaging + Outbox | Core | M1 | Implemented |
 | gRPC/Protobuf 跨进程同步通信 | ServiceCommunication.Grpc | Provider/Template | 首次服务拆分时 | Mapped |
-| SignalR、MessagePack Hub 和 Redis Backplane | Realtime | Core + Provider | M2 | Mapped |
+| SignalR、MessagePack Hub 和 Redis Backplane | Realtime | Core + Provider | M2 | **Build-verified**（`IRealtimePublisher` + Hub + JWT 分组；[验证记录](../verification/realtime-signalr-foundation-2026-07-26.md)） |
 | 模型供应商中立 AI 抽象 | AI.Abstractions | Official Module | M5+ | Mapped |
 | Agent、MCP 与 Agentic Web | Agents + AgenticWeb | Official Module + Protocol Adapter | M5+ | Mapped |
 
@@ -126,8 +127,8 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 
 | Admin.NET.Pro 资产/交付需求 | Full.NET 对标 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus；按计划迁入 MIT Art Design Pro 壳层基线 | Client | M2-M4 | Implementing |
-| JS/HTML 完整管理端 | `ui/admin-layui`：Layui 2 + HTML/CSS/原生 JavaScript | Client | M2-M4，与 Vue 同步 | Implementing |
+| `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus；Art Design Pro 壳层已迁入（见[验证](../verification/admin-art-design-pro.md)） | Client | M2-M4 | Build-verified |
+| JS/HTML 完整管理端 | `ui/admin-layui`：Layui 2 + HTML/CSS/原生 JavaScript；Art 对等壳层 | Client | M2-M4，与 Vue 同步 | Build-verified |
 | `App` H5/小程序资产 | `clients/uniapp`：H5、微信小程序、支付宝小程序；默认 uni-ui | Client | M3-M4 | Implementing |
 | 原生移动端 | `clients/flutter`：Flutter 3.44 Material 3 + Cupertino；Android、iOS | Client | M5+ | Designing |
 | `Web_Desktop`/PC 桌面需求 | `clients/flutter`：Flutter 3.44 Material 3 + Cupertino；Windows、macOS、Linux | Client | M5+ | Designing |

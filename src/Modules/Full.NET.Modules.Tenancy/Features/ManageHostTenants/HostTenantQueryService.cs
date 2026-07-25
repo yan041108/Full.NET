@@ -30,7 +30,7 @@ internal sealed class HostTenantQueryService(
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
-        var rows = await queryExecutor.QueryAsync<TenantRecord>(
+        var rows = await queryExecutor.QueryAsync<HostTenantRecord>(
                 statement,
                 new { Offset = offset, PageSize = pageSize },
                 cancellationToken)
@@ -44,8 +44,8 @@ internal sealed class HostTenantQueryService(
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
-        var record = await queryExecutor.QuerySingleOrDefaultAsync<TenantRecord>(
-                TenantSql.FindById,
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<HostTenantRecord>(
+                TenantSql.FindHostTenantById,
                 new { TenantId = tenantId },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -57,7 +57,7 @@ internal sealed class HostTenantQueryService(
         return Result<TenantSummary>.Success(Map(record));
     }
 
-    private static TenantSummary Map(TenantRecord record) =>
+    private static TenantSummary Map(HostTenantRecord record) =>
         new(
             record.Id,
             record.Identifier,
@@ -65,7 +65,10 @@ internal sealed class HostTenantQueryService(
             record.Domain,
             record.IsActive,
             record.Version,
-            record.DefaultLocale);
+            record.DefaultLocale,
+            record.TenantPackageId,
+            record.TenantPackageCode,
+            record.TenantPackageName);
 
     private static Result<TenantSummary> NotFound() =>
         Result<TenantSummary>.Failure(new Error(
@@ -74,11 +77,14 @@ internal sealed class HostTenantQueryService(
             ErrorType.NotFound));
 }
 
-internal sealed record TenantRecord(
+internal sealed record HostTenantRecord(
     Guid Id,
     string Identifier,
     string Name,
     string Domain,
     bool IsActive,
     int Version,
-    string DefaultLocale);
+    string DefaultLocale,
+    Guid? TenantPackageId,
+    string? TenantPackageCode,
+    string? TenantPackageName);

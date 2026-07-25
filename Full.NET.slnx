@@ -14,6 +14,8 @@
     <Project Path="src/BuildingBlocks/Full.NET.Localization/Full.NET.Localization.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Migrations.DbUp/Full.NET.Migrations.DbUp.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Realtime.Abstractions/Full.NET.Realtime.Abstractions.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Realtime.SignalR/Full.NET.Realtime.SignalR.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Serialization.MessagePack/Full.NET.Serialization.MessagePack.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Seeding.Abstractions/Full.NET.Seeding.Abstractions.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Seeding.Dapper/Full.NET.Seeding.Dapper.csproj" />
@@ -37,6 +39,12 @@
     <Project Path="src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Organization/Full.NET.Modules.Organization.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Organization.Contracts/Full.NET.Modules.Organization.Contracts.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Settings/Full.NET.Modules.Settings.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Settings.Contracts/Full.NET.Modules.Settings.Contracts.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Auditing/Full.NET.Modules.Auditing.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Files/Full.NET.Modules.Files.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Notifications/Full.NET.Modules.Notifications.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Jobs/Full.NET.Modules.Jobs.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj" />

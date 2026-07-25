@@ -19,9 +19,11 @@ Host 作用域用户：分页列表、详情、创建、更新资料、禁用；
 | `GET /api/v1/identity/users/{id}` | `identity.users.read` | 200 |
 | `POST /api/v1/identity/users` | `identity.users.write` | 201 |
 | `POST /api/v1/identity/users/{id}/disable` | `identity.users.write` | 200 |
+| `POST /api/v1/identity/users/{id}/enable` | `identity.users.write` | 200 |
 | `PUT /api/v1/identity/users/{id}` | `identity.users.write` | 200（乐观 `Version`；冲突 `identity.profile_version_conflict` 409） |
+| `POST /api/v1/identity/users/{id}/reset-password` | `identity.users.write` | 200（撤销全部会话；旧凭据失效） |
 
-集成测试：`Host_user_management_*`（SQL Server + MySQL；含更新资料乐观版本冲突）。
+集成测试：`Host_user_management_*`（SQL Server + MySQL；含更新资料乐观版本冲突、重置密码后会话失效）。
 
 ## 客户端
 

@@ -48,4 +48,9 @@ public static class FullNetIdentityClaimTypes
     /// 获取受保护超级管理员标记 Claim 名称。
     /// </summary>
     public const string SuperAdministrator = "fullnet_super_administrator";
+
+    /// <summary>
+    /// 获取 API Key 凭据标识 Claim 名称；仅由 API Key 认证中间件写入。
+    /// </summary>
+    public const string ApiKeyId = "fullnet_api_key_id";
 }

@@ -96,6 +96,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fn-topbar__actions button { position: relative; width: 34px; height: 34px; border: 1px solid transparent; border-radius: 6px; }
 .fn-topbar__actions button:hover { border-color: var(--fullnet-color-line); background: #fff; color: var(--fullnet-color-accent); }
 .fn-topbar__actions .has-signal::after { position: absolute; top: 6px; right: 7px; width: 5px; height: 5px; border: 2px solid var(--fullnet-color-canvas); border-radius: 50%; background: var(--fullnet-color-danger); content: ""; }
+.fn-topbar__actions .has-signal.is-success::after { background: var(--fullnet-color-success); }
 .fn-clock { display: grid; gap: 3px; margin-left: 12px; padding-left: 18px; border-left: 1px solid var(--fullnet-color-line); }
 .fn-clock small { color: var(--fullnet-color-ink-muted); font-size: 8px; }
 .fn-clock strong { font: 600 10px/1 var(--fullnet-font-display); }
@@ -109,6 +110,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fn-heading h1, .fn-status h1 { margin: 0; color: var(--fullnet-color-ink); font: 520 clamp(28px, 3.2vw, 43px)/1.1 var(--fullnet-font-display); letter-spacing: -.045em; }
 .fn-heading > div > span { display: block; margin-top: 10px; color: var(--fullnet-color-ink-muted); font-size: 13px; }
 .fn-heading__actions { display: flex; align-items: center; gap: 13px; }
+.fn-docs-link { color: var(--fullnet-color-accent); font-size: 12px; font-weight: 600; text-decoration: none; }
+.fn-docs-link:hover { text-decoration: underline; }
 .fn-live { display: flex; align-items: center; gap: 8px; color: var(--fullnet-color-success); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .fn-live i, .fn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fullnet-color-accent-bright); box-shadow: 0 0 0 5px rgb(66 185 166 / 13%); }
 .fn-probe.layui-btn { height: 40px; padding: 0 18px; border-radius: var(--fullnet-radius-sm); background: var(--fullnet-color-ink); font-size: 12px; line-height: 40px; }

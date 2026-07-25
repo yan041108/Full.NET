@@ -16,9 +16,13 @@ using Full.NET.Modules.Identity.Features.ManageTotp;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
+using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
+using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Serialization;
+using Full.NET.Hosting.RateLimiting;
+using Full.NET.Modules.Identity.RateLimiting;
 using Full.NET.Modules.Identity.Resources;
 using Full.NET.Modules.Identity.Seeding;
 using Full.NET.Hosting.Api;
@@ -26,6 +30,7 @@ using Full.NET.Localization;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Validation.FluentValidation;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
@@ -125,6 +130,12 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<HostRoleDataScopeService>();
         services.TryAddScoped<HostMenuQueryService>();
         services.TryAddScoped<HostMenuManagementService>();
+        services.TryAddScoped<HostOnlineSessionQueryService>();
+        services.TryAddScoped<HostOnlineSessionManagementService>();
+        services.TryAddScoped<HostApiKeyQueryService>();
+        services.TryAddScoped<HostApiKeyManagementService>();
+        services.TryAddScoped<ApiKeyAuthenticationService>();
+        services.TryAddScoped<Features.GetHostDashboardSummary.HostDashboardQueryService>();
         services.TryAddScoped<IHostUserDirectory, HostUsers.HostUserDirectory>();
         services.TryAddScoped<HostNavigationDefinitionLoader>();
         services.AddFullNetFluentValidation();
@@ -154,8 +165,30 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddSingleton<IRandomTokenGenerator, CryptographicTokenGenerator>();
         services.TryAddSingleton<AllowedOriginValidator>();
         services.TryAddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options => options.MapInboundClaims = false);
+        services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = SmartAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddPolicyScheme(
+                SmartAuthenticationDefaults.AuthenticationScheme,
+                "Authorization Bearer or ApiKey",
+                options =>
+                {
+                    options.ForwardDefaultSelector = context =>
+                    {
+                        var authorization = context.Request.Headers.Authorization.ToString();
+                        return authorization.StartsWith(
+                                "ApiKey ",
+                                StringComparison.OrdinalIgnoreCase)
+                            ? ApiKeyAuthenticationDefaults.AuthenticationScheme
+                            : JwtBearerDefaults.AuthenticationScheme;
+                    };
+                })
+            .AddJwtBearer(options => options.MapInboundClaims = false)
+            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+                ApiKeyAuthenticationDefaults.AuthenticationScheme,
+                _ => { });
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<RsaSigningKeyRing, IOptions<IdentityOptions>>(
                 (jwt, keyRing, identityOptions) =>
@@ -203,58 +236,12 @@ public sealed class IdentityModule : IFullNetModule
 
                 cors.AddPolicy(BrowserCorsPolicy, policy.Build());
             });
-        var identityRateLimits = configuration
-            .GetSection(IdentityOptions.SectionName)
-            .Get<IdentityOptions>() ?? new IdentityOptions();
-        services.AddRateLimiter(rateLimiter =>
-        {
-            rateLimiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            rateLimiter.OnRejected = async (context, _) =>
-            {
-                var mapper = context.HttpContext.RequestServices
-                    .GetRequiredService<IApiResultMapper>();
-                var problem = mapper.Map(
-                    Result<object?>.Failure(new Error(
-                        Code: IdentityErrorCodes.AuthenticationRateLimited,
-                        Message: "Too many authentication session requests.",
-                        Type: ErrorType.RateLimited)),
-                    context.HttpContext);
-                await problem.ExecuteAsync(context.HttpContext).ConfigureAwait(false);
-            };
-            rateLimiter.AddPolicy("identity-login", httpContext =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = identityRateLimits.LoginRateLimitPermitLimitPerMinute,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0,
-                        AutoReplenishment = true,
-                    }));
-            rateLimiter.AddPolicy(SessionMutationRateLimitPolicy, httpContext =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = identityRateLimits.SessionMutationRateLimitPermitLimitPerMinute,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0,
-                        AutoReplenishment = true,
-                    }));
-            rateLimiter.AddPolicy(
-                "identity-super-administrator-write",
-                httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                    httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)
-                        ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                        ?? "unknown",
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 5,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0,
-                        AutoReplenishment = true,
-                    }));
-        });
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IConfigureOptions<RateLimiterOptions>,
+            IdentityRateLimiterPolicyConfigurator>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IConfigureOptions<RateLimitPolicyErrorCodes>,
+            IdentityRateLimiterPolicyConfigurator>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -271,7 +258,7 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<IdentityOptions>,
             IdentityOptionsValidator>());
-        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IClock, Abstractions.Time.SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<
             Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>,
@@ -296,5 +283,8 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageHostUsers.Endpoint.Map(endpoints);
         Features.ManageHostRoles.Endpoint.Map(endpoints);
         Features.ManageHostMenus.Endpoint.Map(endpoints);
+        Features.ManageHostOnlineSessions.Endpoint.Map(endpoints);
+        Features.ManageHostApiKeys.Endpoint.Map(endpoints);
+        Features.GetHostDashboardSummary.Endpoint.Map(endpoints);
     }
 }
