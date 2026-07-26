@@ -9,7 +9,7 @@
 | OpenAPI | `GET /openapi/v1.json`（标题、Bearer scheme、`/api/v1/**` 路径） |
 | Scalar UI | `GET /scalar/v1`（HTML 200） |
 | Integration 双库 | `OpenApi_documentation` SQL Server/MySQL **2/2** → **164 → 166** |
-| 契约夹具 | `platform-api-documentation-v1.json` |
+| 契约夹具 | `platform-api-documentation-v1.json`；离线契约 **2/2** |
 | client-contracts | `platform-api-documentation.ts` + Vitest **68/68** |
 | 双端 UI | `OverviewView.vue` + Layui `overview-dashboard.js` |
 | 四处 canonical 门槛 | **351/7/40/166** |

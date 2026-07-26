@@ -9,7 +9,7 @@
 | API | `GET /api/v1/platform/host-dashboard-summary` |
 | 权限 | `platform.dashboard.read` |
 | Integration 双库 | `Host_dashboard_summary` SQL Server/MySQL **2/2** → **162 → 164** |
-| OpenAPI | `platform-host-dashboard-v1.json` |
+| OpenAPI | `platform-host-dashboard-v1.json`；离线契约 **2/2** |
 | client-contracts | `platform-dashboard.ts` + Vitest |
 | 双端 UI | `OverviewView.vue` + `overview-dashboard.js` |
 | 四处 canonical 门槛 | **351/7/40/164** |

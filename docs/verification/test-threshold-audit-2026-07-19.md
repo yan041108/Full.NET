@@ -847,6 +847,16 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **386/7/49/184** |
 | 验证记录 | [`high-priority-logging-channel-2026-07-26.md`](high-priority-logging-channel-2026-07-26.md) |
 
+## 增补（2026-07-26，OpenAPI 离线夹具覆盖收口）
+
+| 项目 | 结果 |
+| --- | --- |
+| OpenAPI 离线门槛 **41 → 50** | API Key、Jobs、平台工作台、平台接口文档各新增结构与源码对齐 2 项，并增加全夹具覆盖守卫 1 项 |
+| RED | 覆盖守卫准确列出 4 个已有夹具未进入 `pnpm test:openapi` |
+| GREEN | 聚焦 **9/9**、OpenAPI 全量 **50/50** |
+| .NET canonical 门槛 | 不变；本次未修改 C# 运行时或 Integration 测试 |
+| 验证记录 | [`openapi-offline-fixture-coverage-2026-07-26.md`](openapi-offline-fixture-coverage-2026-07-26.md) |
+
 ## 增补（2026-07-26，Outbox 积压指标）
 
 | 项目 | 结果 |
