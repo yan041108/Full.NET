@@ -46,8 +46,9 @@ WHERE TenantId IS NULL
    而编译失败；实现后阻塞 Handler 会等待首次续租，再允许任务成功完成。
 3. 所有权丢失 RED 暂时没有“UPDATE 0 即失败”分支时，在 3 秒测试上限内超时；
    恢复最小分支后，Handler 收到取消且 Runner 抛出稳定的所有权丢失异常。
-4. 终态竞态 RED 用可控 Command Executor 让最后一个 Handler 成功写入终态后，续租返回 0；
-   修正前 Runner 误抛所有权丢失，修正后返回已处理 1 条且不写入失败终态。
+4. 终态竞态用例让最后一个 Handler 成功写入终态后，续租返回 0；初版夹具仍依赖
+   两个任务继续体的调度先后，因此单独运行通常通过，在 20-worker 全量中可能误抛
+   所有权丢失。
 
 ## 隔离分支非 Docker 预验证
 
@@ -90,6 +91,22 @@ Release 编译 **0 warning / 0 error**。测试退出后 Docker 容器为 0。
 Integration 与 Unit 项目均为 **0 warning / 0 error**，Unit **404/404**、Jobs SQL
 Server/MySQL **2/2**（失败 0、跳过 0，**1m31s**）、Governance **11/11** 再次通过。
 测试退出后 Docker 容器为 0；本记录提交后删除功能分支、Git worktree 注册与物理目录。
+
+## 终态竞态回归稳定化（2026-07-27）
+
+Logging 后续切片在 `main@eb611aa06deab75baef547097c7998d97097d65b` 的
+20-worker Unit 全量中捕获到一次非确定性失败：续租任务先返回 0 时，Handler 尚未完成；
+Runner 取消 linked token 后，Handler 正常收尾并写入成功终态，但控制流仍继续抛出
+“lease is no longer owned”。
+
+本次把同一测试方法改为确定性调度合同：Handler 只在收到取消后正常返回，Command
+Executor 对续租稳定返回 0、对成功终态写入返回 1。旧实现聚焦 **1/1 稳定 RED**；
+Runner 改为在取消后直接返回成功的 `processingTask` 结果后，聚焦单次 GREEN，并在
+20-worker 测试平台连续 **10/10** 通过。Jobs 聚焦 **7/7**、Unit 全量 **404/404**，
+失败 0、跳过 0；测试数量和 canonical **404/7/49/189** 均不变。
+
+该修复只调整进程内任务竞争的完成判定，不改 SQL、租约参数、数据库对象或公开契约，
+因此不启动 Docker，也不重复执行已经通过的 SQL Server/MySQL Jobs 2/2。
 
 ## 规则与 Skills 复盘
 
