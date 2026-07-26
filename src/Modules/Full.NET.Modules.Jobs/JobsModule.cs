@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Jobs;
 
@@ -54,6 +55,13 @@ public sealed class JobsModule : IFullNetModule
         IConfiguration configuration)
     {
         RegisterExecutionCore(services);
+        services.AddOptions<JobsWorkerOptions>()
+            .Bind(configuration.GetSection(JobsWorkerOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<
+                IValidateOptions<JobsWorkerOptions>,
+                JobsWorkerOptionsValidator>());
         services.AddHostedService<JobExecutionHostedProcessor>();
     }
 
