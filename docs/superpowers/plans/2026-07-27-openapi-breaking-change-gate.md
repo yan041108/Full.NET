@@ -30,17 +30,17 @@
 - Consumes: CLI `node scripts/openapi/check-openapi-breaking-changes.mjs --baseline-directory <path> --current-directory <path>`
 - Produces: 兼容变化退出码 `0`；破坏变化退出码 `1`；stderr 包含稳定诊断
 
-- [ ] **Step 1: 写目录夹具与 CLI 测试辅助函数**
+- [x] **Step 1: 写目录夹具与 CLI 测试辅助函数**
 
   在临时目录分别创建 `baseline` 与 `current`，写入最小 JSON 夹具；使用
   `spawnSync(process.execPath, [scriptPath, ...args])` 调用真实 CLI，并在测试结束后删除临时目录。
 
-- [ ] **Step 2: 写兼容变化 RED**
+- [x] **Step 2: 写兼容变化 RED**
 
   覆盖新增文件、路径、操作、schema、属性，以及 description/数组顺序变化；期望退出码 `0`，
   stdout 包含 `OpenAPI compatibility check passed`。
 
-- [ ] **Step 3: 写破坏变化 RED**
+- [x] **Step 3: 写破坏变化 RED**
 
   分别覆盖以下输入并断言退出码 `1` 与精确诊断：
 
@@ -55,7 +55,7 @@
   stable setting changed: platform-api-documentation-v1.json securitySchemeScheme
   ```
 
-- [ ] **Step 4: 运行 RED**
+- [x] **Step 4: 运行 RED**
 
   Run: `node --test tests/openapi/openapi-breaking-change-gate.test.mjs`
 
@@ -74,12 +74,12 @@
 - Produces: `loadContractsAtGitRef(repositoryRoot, baseRef): Map<string, object>`
 - Consumes: `--baseline-directory` + `--current-directory`，或 `--base-ref` + 可选 `--repository-root`
 
-- [ ] **Step 1: 实现规范化与稳定索引**
+- [x] **Step 1: 实现规范化与稳定索引**
 
   使用文件名作为版本化契约身份；常规夹具按 `path + method`、schema 名、property 名建立 Map/Set。
   忽略 `description` 和数组顺序，不改变原始夹具。
 
-- [ ] **Step 2: 实现破坏变化比较**
+- [x] **Step 2: 实现破坏变化比较**
 
   对基线中的每个文件、路径、操作、schema、property 和 `itemSchema` 做单向包含检查；
   操作字段比较固定为：
@@ -96,7 +96,7 @@
   `platform-api-documentation-v1.json` 等无 `id/version/schemas` 的稳定配置夹具，对除说明文本外的
   基线字段做深相等比较。
 
-- [ ] **Step 3: 实现目录和 Git ref 加载**
+- [x] **Step 3: 实现目录和 Git ref 加载**
 
   当前目录通过 `fs.readdir/readFile` 加载；Git ref 通过参数数组调用：
 
@@ -107,18 +107,18 @@
 
   禁止拼接 shell 字符串；ref 无效、JSON 无效或目录缺失时退出码 `2` 并输出明确错误。
 
-- [ ] **Step 4: 实现 CLI 输出与退出码**
+- [x] **Step 4: 实现 CLI 输出与退出码**
 
   无破坏变化时输出已比较的基线/当前夹具数量并退出 `0`；存在破坏变化时稳定排序、逐行输出并退出
   `1`；使用错误退出 `2`。
 
-- [ ] **Step 5: 运行 GREEN**
+- [x] **Step 5: 运行 GREEN**
 
   Run: `node --test tests/openapi/openapi-breaking-change-gate.test.mjs`
 
   Expected: 全部 PASS，失败变化均由正确诊断捕获。
 
-- [ ] **Step 6: 运行现有 OpenAPI 回归**
+- [x] **Step 6: 运行现有 OpenAPI 回归**
 
   Run: `pnpm test:openapi`
 
@@ -135,7 +135,7 @@
 - Produces: `pnpm test:openapi:breaking -- --base-ref <git-ref>`
 - Produces: PR `client-build-test` 中基于 `${{ github.event.pull_request.base.sha }}` 的离线门禁
 
-- [ ] **Step 1: 写 CI wiring RED**
+- [x] **Step 1: 写 CI wiring RED**
 
   测试读取 `package.json` 和 `.github/workflows/ci.yml`，断言：
 
@@ -145,13 +145,13 @@
   PR step passes github.event.pull_request.base.sha as --base-ref
   ```
 
-- [ ] **Step 2: 运行 wiring RED**
+- [x] **Step 2: 运行 wiring RED**
 
   Run: `node --test tests/openapi/openapi-breaking-change-ci-contract.test.mjs`
 
   Expected: FAIL；package script 与 CI step 尚不存在。
 
-- [ ] **Step 3: 增加 package script**
+- [x] **Step 3: 增加 package script**
 
   在 `package.json` 增加：
 
@@ -159,12 +159,12 @@
   "test:openapi:breaking": "node scripts/openapi/check-openapi-breaking-changes.mjs"
   ```
 
-- [ ] **Step 4: 增加 PR CI 门禁**
+- [x] **Step 4: 增加 PR CI 门禁**
 
   `client-build-test` 的 checkout 设置 `fetch-depth: 0`；在现有 `pnpm test:openapi` 后增加仅 PR 执行的
   `Verify OpenAPI backward compatibility` step，并传递 pull request base SHA。
 
-- [ ] **Step 5: 运行 wiring GREEN 与真实 Git 基线**
+- [x] **Step 5: 运行 wiring GREEN 与真实 Git 基线**
 
   Run:
 
@@ -179,8 +179,10 @@
 
 **Files:**
 - Modify: `README.md`
+- Modify: `docs/development/getting-started.md`
 - Modify: `docs/roadmap/capability-status.md`
 - Modify: `docs/verification/test-threshold-audit-2026-07-19.md`
+- Modify: `rules/skill-evolution.md`
 - Create: `docs/verification/openapi-breaking-change-gate-2026-07-27.md`
 - Modify: `docs/superpowers/plans/2026-07-27-openapi-breaking-change-gate.md`
 
@@ -188,17 +190,17 @@
 - Consumes: Tasks 1–3 的 CLI、测试与 CI 入口
 - Produces: 使用方法、兼容/破坏语义、最新 OpenAPI 测试数和可定位验证证据
 
-- [ ] **Step 1: 更新开发入口与能力状态**
+- [x] **Step 1: 更新开发入口与能力状态**
 
   README 记录本地命令和 base ref 用法；能力矩阵将“OpenAPI 破坏性变更门禁待补”更新为已有离线
   PR 门禁，同时保留多客户端生成缺口。
 
-- [ ] **Step 2: 写验证记录并同步门槛**
+- [x] **Step 2: 写验证记录并同步门槛**
 
   记录 RED/GREEN、破坏/兼容样例、CI 基线来源、OpenAPI 新总数；同步测试门槛审计，明确不改变
   .NET canonical 门槛。
 
-- [ ] **Step 3: 执行完整非 Docker 门槛**
+- [x] **Step 3: 执行完整非 Docker 门槛**
 
   Run:
 
@@ -213,7 +215,7 @@
 
   Expected: 全部 PASS；无 warning/error；不启动 Docker。
 
-- [ ] **Step 4: 执行规则与 Skill 演进复盘**
+- [x] **Step 4: 执行规则与 Skill 演进复盘**
 
   按 `rules/rule-evolution.md` 和 `rules/skill-evolution.md` 判断是否出现第二次可泛化遗漏。
   未达到门槛时在验证记录写明“不演进”，不得新增近义规则。
