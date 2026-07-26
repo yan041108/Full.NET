@@ -83,6 +83,37 @@ describe('uni-app workspace contract', () => {
     expect(notices).toMatch(/Vue I18n[^\n]*MIT/i);
   });
 
+  it('pins official uni-ui and exposes one safe easycom mapping', async () => {
+    const [packageDefinition, pages, notices] = await Promise.all([
+      readPackageDefinition(),
+      readFile(new URL('../src/pages.json', import.meta.url), 'utf8'),
+      readFile(new URL('../../../THIRD-PARTY-NOTICES', import.meta.url), 'utf8')
+    ]);
+    const pagesDefinition = JSON.parse(pages) as {
+      readonly easycom?: {
+        readonly autoscan?: boolean;
+        readonly custom?: Record<string, string>;
+      };
+    };
+    const allDependencies = {
+      ...packageDefinition.dependencies,
+      ...packageDefinition.devDependencies
+    };
+
+    expect(packageDefinition.dependencies['@dcloudio/uni-ui']).toBe('1.5.12');
+    expect(packageDefinition.devDependencies['sass-embedded']).toBe('1.100.0');
+    expect(allDependencies).not.toHaveProperty('uview-ui');
+    expect(allDependencies).not.toHaveProperty('uview-plus');
+    expect(pagesDefinition.easycom).toEqual({
+      autoscan: true,
+      custom: {
+        '^uni-(.*)': '@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue'
+      }
+    });
+    expect(notices).toMatch(/uni-ui[^\n]*1\.5\.12[^\n]*Apache-2\.0/i);
+    expect(notices).toMatch(/Sass Embedded[^\n]*1\.100\.0[^\n]*MIT/i);
+  });
+
   it('pins a Vue 3.4-compatible VueUse resolution and records its license', async () => {
     const [packageDefinition, resolvedVueUse, notices] = await Promise.all([
       readPackageDefinition(),

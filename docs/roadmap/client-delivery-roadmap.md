@@ -32,7 +32,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单、全仓库语言治理清单、服务端资源本地化 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
 | C1 双管理端壳层 | Build-verified | Art Design Pro 已迁入 Vue；Layui clean-room 对等壳层（布局/设置/标签/搜索/通知/聊天演示）；登录/刷新/退出、租户、权限导航、ProblemDetails、双端 E2E **76** 项执行（**38** 唯一场景 × Vue/Layui）；Layui 单测 **80/80**、Vue **135/135**；见[迁移验收](../verification/admin-art-design-pro.md) | NVDA、200% 缩放、强制颜色人工验收；通知/聊天真实 API；Tiptap 富文本 |
 | C2 业务模块 | Designing（已批准） | 功能波次和双端同步门禁；[用户管理纵向切片计划](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md) 已获所有者批准 | 首刀为 Identity **用户管理**（列表/详情/创建/更新/禁用）；角色/菜单/Organization 排在其后；Layui **长期并行**，切片必须双端同步 |
-| C3 uni-app 基础客户端 | Implementing / Build-verified | Vue 3/TypeScript、Vue I18n、规范语言适配、pages/manifest、本地资源、HTTP/ProblemDetails、账号偏好原子提交、96 项单测、类型检查、三目标 CLI 构建和 5 项 H5 E2E | uni-ui 已选定但未引入；微信/支付宝开发者工具、真机、真实登录/租户/会话流程和平台发布清单 |
+| C3 uni-app 基础客户端 | Implementing / Build-verified | Vue 3/TypeScript、Vue I18n、规范语言适配、pages/manifest、本地资源、HTTP/ProblemDetails、账号偏好原子提交、uni-ui/easycom/主题令牌、真实设置页迁移、103 项单测、类型检查、三目标 CLI 构建和 6 项 H5 E2E | 微信/支付宝开发者工具、真机、真实登录/租户/会话流程和平台发布清单 |
 | C4 Flutter 业务客户端 | Designing | Flutter 3.44、Material 3 + Cupertino、平台边界和多语言统一设计 | Flutter 工程、设计令牌、原生资源与平台构建验证 |
 
 “C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的 Art 壳层对等、真实认证、租户、权限、管理端自有及组件文案、HTTP 协商、账号偏好、服务端错误本地化与自动可访问性流程已经通过验证；真实辅助技术、200% 缩放和强制颜色仍待完成，因此保持 `Build-verified`，不提前标记为 `Verified`。
@@ -46,7 +46,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | L0 统一语言治理 | Implemented | 已实现 BCP 47 清单、平台映射、术语、资源 Schema 与缺键门禁 |
 | L1 ASP.NET Core | Implemented | 已实现 Accept-Language、规范别名、CultureScope、模块 .resx、响应头、本地化 ProblemDetails、结构化 violations 与 Admin.NET 兼容映射 |
 | L2 双管理端补齐 | Implemented | Element Plus/Day.js、Layui 公开 i18n、逐请求 Accept-Language、账号偏好与租户默认语言、双端保存失败回滚及 E2E |
-| L3 uni-app | Implementing / Build-verified | Vue I18n、zh-CN↔zh-Hans 映射、pages/manifest、H5/微信/支付宝 CLI 构建与 H5 浏览器冒烟；两个小程序开发者工具未执行 |
+| L3 uni-app | Implementing / Build-verified | Vue I18n、zh-CN↔zh-Hans 映射、pages/manifest、uni-ui 设置页、H5/微信/支付宝 CLI 构建与 6 项 H5 浏览器冒烟；两个小程序开发者工具未执行 |
 | L4 Flutter | Designing | gen_l10n/ARB、请求语言、平台资源、移动/桌面构建 |
 | L5 业务内容与异步 | Mapped | 翻译表、通知/报表、Realtime、AI 输出语言 |
 | L6 MAUI | Decision Gate | 命中既有门禁后使用 .resx 和平台资源 |
@@ -264,7 +264,7 @@ Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前�
 4. 执行 [Vue Art Design Pro 迁移计划](../superpowers/plans/2026-07-18-vue-art-design-pro-adoption.md)，先锁住 Full.NET 安全契约，再迁入壳层和 ECharts 图表层；
 5. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
 6. Identity 用户/角色/菜单、Tenancy **Host 租户管理**（见[验证记录](../verification/tenancy-host-tenant-management-2026-07-23.md)）与 **Host 租户套餐目录**（见[验证记录](../verification/tenancy-host-tenant-package-management-2026-07-23.md)）及 Organization 机构切片已按双管理端纵向交付；不得把完整 C2.1 误标为 `Verified`；
-7. 执行 [uni-app uni-ui 引入计划](../superpowers/plans/2026-07-18-uniapp-uni-ui-adoption.md)，完成三目标组件冒烟后再扩展业务页面；
+7. **已完成 Build-verified：** [uni-app uni-ui 引入计划](../superpowers/plans/2026-07-18-uniapp-uni-ui-adoption.md)已交付 easycom、主题令牌、三目标组件冒烟和首个真实设置页；平台工具验收仍归入下一项；
 8. 继续执行 L3 uni-app 平台验收：在微信与支付宝开发者工具完成真实登录/API/错误/会话冒烟；当前仅为 `Implementing / Build-verified`；
 9. Files 与 Notifications 进入公告/站内通知纵向切片时执行[富文本基础计划](../superpowers/plans/2026-07-18-rich-text-editor-foundation.md)，同步完成服务端净化、媒体引用及 Vue/Layui 双端闭环；
 10. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 [Flutter UI 基础计划](../superpowers/plans/2026-07-18-flutter-ui-foundation.md)；

@@ -102,6 +102,34 @@ describe('locale settings model', () => {
     expect(harness.model.state.feedback).toBe('success');
   });
 
+  it('coalesces concurrent save attempts before the controller publishes its busy snapshot', async () => {
+    const harness = createHarness(authenticatedSnapshot);
+    const committed: LocaleSnapshot = {
+      ...authenticatedSnapshot,
+      preferredLocale: 'en-US',
+      profileVersion: 6
+    };
+    let resolveSave: ((snapshot: LocaleSnapshot) => void) | undefined;
+    harness.setActiveLocale.mockImplementation(() =>
+      new Promise(resolve => {
+        resolveSave = resolve;
+      })
+    );
+    harness.model.selectLocale('en-US');
+
+    const firstSave = harness.model.saveSelection();
+    const concurrentSave = harness.model.saveSelection();
+
+    expect(harness.setActiveLocale).toHaveBeenCalledTimes(1);
+    expect(harness.model.isBusy).toBe(true);
+    expect(harness.model.isSubmitDisabled).toBe(true);
+
+    harness.publish(committed);
+    resolveSave?.(committed);
+    await Promise.all([firstSave, concurrentSave]);
+    expect(harness.model.state.feedback).toBe('success');
+  });
+
   it('rolls selected and current locale back to the committed snapshot after a save failure', async () => {
     const harness = createHarness(authenticatedSnapshot);
     harness.setActiveLocale.mockImplementation(async () => {

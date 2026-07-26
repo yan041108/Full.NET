@@ -10,6 +10,7 @@ import {
   synchronizeNavigationTitle
 } from '../../i18n';
 import type { CanonicalLocale } from '../../i18n/locale-adapter';
+import { fullNetUiContract as ui } from '../../ui/fullnet-ui-contract';
 import { createLocaleSettingsModel } from './locale-settings-model';
 
 interface LocaleOption {
@@ -99,57 +100,65 @@ function activateSave(): void {
         </view>
       </header>
 
-      <section class="status-strip" aria-live="polite">
-        <view class="status-item">
-          <text class="status-label">{{ t('settings.locale.current') }}</text>
-          <text class="status-value">{{ localeName(state.snapshot.preferredLocale) }}</text>
-        </view>
-        <view class="status-rule" aria-hidden="true" />
-        <view class="status-item status-item--end">
-          <text class="status-label">{{ statusText }}</text>
-          <text class="status-value status-value--accent">
-            {{ localeName(state.selectedLocale) }}
-          </text>
-        </view>
-      </section>
-
-      <section class="mode-card">
-        <view class="mode-indicator" aria-hidden="true" />
-        <view class="mode-copy">
-          <text class="mode-title">
-            {{ state.snapshot.authenticated
+      <uni-section
+        class="status-section"
+        :title="t('settings.locale.current')"
+        type="line"
+        aria-live="polite"
+      >
+        <uni-list :border="true">
+          <uni-list-item
+            :title="t('settings.locale.current')"
+            :right-text="localeName(state.snapshot.preferredLocale)"
+          />
+          <uni-list-item
+            :title="statusText"
+            :right-text="localeName(state.selectedLocale)"
+          />
+          <uni-list-item
+            :title="state.snapshot.authenticated
               ? t('settings.locale.authenticated')
-              : t('settings.locale.anonymous') }}
-          </text>
-          <text v-if="state.snapshot.authenticated" class="mode-version">
-            {{ t('settings.locale.profileVersion', { version: state.snapshot.profileVersion }) }}
-          </text>
-        </view>
-      </section>
+              : t('settings.locale.anonymous')"
+            :note="state.snapshot.authenticated
+              ? t('settings.locale.profileVersion', { version: state.snapshot.profileVersion })
+              : ''"
+          />
+        </uni-list>
+      </uni-section>
 
       <form class="locale-form" @submit.prevent="saveSelection">
-        <radio-group class="language-grid" @change="selectLocale">
-          <label
-            v-for="option in localeOptions"
-            :key="option.value"
-            class="language-card"
-            :class="{ 'language-card--selected': state.selectedLocale === option.value }"
+        <uni-forms
+          :model-value="{ locale: state.selectedLocale }"
+          label-position="top"
+        >
+          <uni-forms-item
+            name="locale"
+            :label="t('settings.language')"
           >
-            <radio
-              class="language-radio"
-              :value="option.value"
-              :checked="state.selectedLocale === option.value"
-              :disabled="state.isBusy"
-              color="#38d4b2"
-            />
-            <view class="option-copy">
-              <text class="option-code">{{ option.code }}</text>
-              <text class="option-name">{{ t(option.labelKey) }}</text>
-              <text class="option-detail">{{ t(option.detailKey) }}</text>
-            </view>
-            <view class="selection-dot" aria-hidden="true" />
-          </label>
-        </radio-group>
+            <radio-group class="language-grid" @change="selectLocale">
+              <label
+                v-for="option in localeOptions"
+                :key="option.value"
+                class="language-card"
+                :class="{ 'language-card--selected': state.selectedLocale === option.value }"
+              >
+                <radio
+                  class="language-radio"
+                  :value="option.value"
+                  :checked="state.selectedLocale === option.value"
+                  :disabled="state.isBusy"
+                  color="#38d4b2"
+                />
+                <view class="option-copy">
+                  <text class="option-code">{{ option.code }}</text>
+                  <text class="option-name">{{ t(option.labelKey) }}</text>
+                  <text class="option-detail">{{ t(option.detailKey) }}</text>
+                </view>
+                <view class="selection-dot" aria-hidden="true" />
+              </label>
+            </radio-group>
+          </uni-forms-item>
+        </uni-forms>
 
         <button
           class="save-button"
@@ -169,19 +178,30 @@ function activateSave(): void {
         </button>
       </form>
 
-      <view v-if="state.feedback === 'success'" class="feedback feedback--success" role="status">
-        <text class="feedback-mark" aria-hidden="true">✓</text>
-        <text>{{ t('settings.save.success') }}</text>
-      </view>
+      <uni-notice-bar
+        v-if="state.feedback === 'success'"
+        class="feedback"
+        role="status"
+        show-icon
+        :text="t('settings.save.success')"
+        :color="ui.colors.success"
+        :background-color="ui.colors.panel"
+      />
 
-      <view v-else-if="state.feedback === 'error' && state.errorFeedback" class="feedback feedback--error" role="alert">
-        <text class="feedback-mark" aria-hidden="true">!</text>
-        <view class="feedback-copy">
-          <text>{{ state.errorFeedback.message }}</text>
-          <text v-if="state.errorFeedback.traceId" class="trace-id">
-            {{ t('traceId.label') }}: {{ state.errorFeedback.traceId }}
-          </text>
-        </view>
+      <view
+        v-else-if="state.feedback === 'error' && state.errorFeedback"
+        class="feedback"
+        role="alert"
+      >
+        <uni-notice-bar
+          show-icon
+          :text="state.errorFeedback.message"
+          :color="ui.colors.error"
+          :background-color="ui.colors.panel"
+        />
+        <text v-if="state.errorFeedback.traceId" class="trace-id">
+          {{ t('traceId.label') }}: {{ state.errorFeedback.traceId }}
+        </text>
       </view>
 
       <footer class="panel-footer">
