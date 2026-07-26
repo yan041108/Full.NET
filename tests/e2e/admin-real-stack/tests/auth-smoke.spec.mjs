@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
-import { loginAsHostAdmin } from './support/real-stack-auth.mjs';
+import {
+  expectVisibleCurrentContext,
+  loginAsHostAdmin
+} from './support/real-stack-auth.mjs';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -17,7 +20,7 @@ test.describe('匿名登录流', () => {
     const navigation = page.getByRole('navigation', { name: '主导航' });
     await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
     await expect(navigation.getByRole('link', { name: /租户上下文/ })).toBeVisible();
-    await expect(page.getByText('Full.NET Host', { exact: true }).first()).toBeVisible();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
     await expect(page.locator(`[data-client-kind="${clientKind}"]`)).toBeVisible();
   });
 });
