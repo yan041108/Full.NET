@@ -2,7 +2,7 @@
 
 - 范围：`Realtime:HubPath` 启动配置校验、聚焦 Unit 回归。
 - 状态：**Build-verified**
-- 基线：`main@aff0216648e463bfca940c0deebe11e8d6eb5869`
+- 最终同步基线：`main@b837747e0d2a301747947a229468725690562826`
 
 ## 行为合同
 
@@ -26,9 +26,28 @@
 数据库、SQL、Integration 用例或 Docker 编排；Redis 可达性和跨节点投递继续由
 既有 Realtime Integration 与故障恢复验证负责。
 
-## 完成门槛
+## 最终验证
 
-- 同步既定队列完成后的最新 `main`。
-- 复跑 Release 构建、Unit、Compatibility、Architecture、Integration 分片发现、
-  Governance、Skill、workspace 与 `git diff --check`。
-- 按最新测试事实更新 canonical 门槛后合并到 `main`，删除功能分支和工作树。
+| 门槛 | 新鲜结果 |
+| --- | --- |
+| `Full.NET.slnx` Release | **0 warning / 0 error** |
+| Unit / Compatibility / Architecture | **407/407** / **7/7** / **49/49**，失败 0、跳过 0 |
+| Realtime 注册聚焦 | `RealtimeBackplaneRegistrationTests` **3/3** |
+| Realtime SQL Server/MySQL | **2/2**，失败 0、跳过 0，**1m36s** |
+| Integration 分片发现 | API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** = **189** |
+| Governance / Project Skill / Workspace | **11/11** / **52** 项 / 通过 |
+| `git diff --check` | 通过 |
+
+前序 Logging 在包含全部服务端前置变更的最终树上完成完整 Integration
+**189/189**（失败 0、跳过 0，**31m23s**，stderr 0）。其后合入的
+BroadcastChannel 与 admin-real-stack locator 契约仅涉及 TypeScript、Node
+静态测试和文档；本切片再用最终 Realtime 服务端实现完成双库 **2/2** 聚焦。
+测试退出后 Docker 容器为 0。
+
+最终 canonical 为 **407/7/49/189**。四处门槛、审计记录与能力状态已同步。
+
+## 规则与 Skills 复盘
+
+本次是单一 Realtime 配置边界遗漏，已由启动期回归测试稳定阻断；没有形成跨模块
+重复模式或新的高风险架构决策，因此不新增或修改强制规则。现有项目 Skill 能完整
+覆盖同步、验证与合并流程，本次无 Skill 变化。

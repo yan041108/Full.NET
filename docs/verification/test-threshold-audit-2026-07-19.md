@@ -998,6 +998,18 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 规则 / Skills 复盘 | 未发现需要升级的新规则或重复稳定工作流，本次无规则和 Skill 变化 |
 | 验证记录 | [`logging-sink-failure-isolation-2026-07-27.md`](logging-sink-failure-isolation-2026-07-27.md) |
 
+## 增补（2026-07-27，Realtime HubPath 启动校验）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **406 → 407** | 新增启用 Realtime 时拒绝空值、相对路径、空白、查询字符串与片段的 1 项注册期回归测试 |
+| RED / GREEN | 旧实现对非法 HubPath 不抛异常；最小启动校验后 `RealtimeBackplaneRegistrationTests` **3/3** 通过，并保留合法自定义路径原值 |
+| 停用边界 | `Realtime:Enabled=false` 时跳过 HubPath 校验，使应急关闭配置仍可启动；停用状态不映射 Hub |
+| Integration 门槛与分片 | 保持 **189**；API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** |
+| 四处 canonical 门槛 | **407/7/49/189** |
+| 规则 / Skills 复盘 | 未发现需要升级的新规则或重复稳定工作流，本次无规则和 Skill 变化 |
+| 验证记录 | [`realtime-hub-path-validation-2026-07-27.md`](realtime-hub-path-validation-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
