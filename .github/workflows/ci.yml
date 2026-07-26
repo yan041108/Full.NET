@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -53,6 +55,10 @@ jobs:
           pnpm test:localization
           pnpm test:openapi
           pnpm --filter @fullnet/admin-i18n --filter @fullnet/admin --filter @fullnet/admin-layui test
+
+      - name: Verify OpenAPI backward compatibility
+        if: github.event_name == 'pull_request'
+        run: pnpm test:openapi:breaking -- --base-ref "${{ github.event.pull_request.base.sha }}"
 
       - name: Verify uni-app targets
         run: |
