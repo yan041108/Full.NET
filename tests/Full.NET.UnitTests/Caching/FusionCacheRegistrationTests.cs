@@ -2,6 +2,7 @@ using Full.NET.Caching.Fusion;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.MicrosoftHybridCache;
 
@@ -25,5 +26,27 @@ public sealed class FusionCacheRegistrationTests
         var adapter = (FusionHybridCache)hybrid;
 
         Assert.AreSame(fusion, adapter.InnerFusionCache);
+    }
+
+    [TestMethod]
+    public void AddFullNetCaching_RejectsMalformedRedisConnectionStringWithoutEchoingSecret()
+    {
+        const string malformedConnectionString =
+            "localhost,abortConnect=not-a-bool,password=cache-secret-value";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cache:RedisConnectionString"] = malformedConnectionString,
+            })
+            .Build();
+
+        var exception = Assert.ThrowsExactly<OptionsValidationException>(() =>
+            new ServiceCollection().AddFullNetCaching(configuration, "Development"));
+
+        StringAssert.Contains(exception.Message, "Cache:RedisConnectionString");
+        Assert.IsFalse(
+            exception.Message.Contains(
+                "cache-secret-value",
+                StringComparison.Ordinal));
     }
 }

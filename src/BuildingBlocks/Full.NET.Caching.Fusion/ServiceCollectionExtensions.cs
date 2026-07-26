@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using StackExchange.Redis;
 using ZiggyCreatures.Caching.Fusion;
 using Full.NET.Caching.Fusion.Health;
 
@@ -103,6 +104,24 @@ public static class ServiceCollectionExtensions
                 CacheOptions.SectionName,
                 typeof(CacheOptions),
                 ["Cache:Jitter cannot be negative."]);
+        }
+
+        if (options.RedisConnectionString is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = ConfigurationOptions.Parse(options.RedisConnectionString);
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or FormatException)
+        {
+            throw new OptionsValidationException(
+                CacheOptions.SectionName,
+                typeof(CacheOptions),
+                ["Cache:RedisConnectionString has an invalid format."]);
         }
     }
 }

@@ -1050,3 +1050,14 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 - [当前能力状态矩阵](../roadmap/capability-status.md)
 - [本地开发与运行指南](../development/getting-started.md)
 - [外部全面分析复核与吸收记录（2026-07-21）](external-review-2026-07-21.md)
+
+## 增补：2026-07-27，Cache Redis 连接串启动校验
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **410 → 411** | 新增 1 项 Caching 注册回归，畸形 Redis 连接串在服务注册阶段以脱敏配置异常失败 |
+| RED / GREEN | 旧实现未抛出异常；接入 StackExchange.Redis 官方解析器后聚焦 **2/2** |
+| Compatibility / Architecture / Integration | 保持 **7/49/189**；紧邻 DatabaseOptions 完整 Integration **189/189** |
+| 四处 canonical 门槛 | **411/7/49/189** |
+| 规则 / Skills 复盘 | 单次局部配置遗漏已由自动回归阻断，本次无规则和 Skill 变化 |
+| 验证记录 | [`cache-redis-connection-validation-2026-07-27.md`](cache-redis-connection-validation-2026-07-27.md) |
