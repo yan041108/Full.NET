@@ -35,11 +35,11 @@ interface StorageLockRecord {
 }
 
 function readStorageLock(): StorageLockRecord | undefined {
-  if (typeof sessionStorage === 'undefined') {
+  if (typeof localStorage === 'undefined') {
     return undefined;
   }
 
-  const raw = sessionStorage.getItem(storageLockKey);
+  const raw = localStorage.getItem(storageLockKey);
   if (!raw) {
     return undefined;
   }
@@ -47,30 +47,30 @@ function readStorageLock(): StorageLockRecord | undefined {
   try {
     return JSON.parse(raw) as StorageLockRecord;
   } catch {
-    sessionStorage.removeItem(storageLockKey);
+    localStorage.removeItem(storageLockKey);
     return undefined;
   }
 }
 
 function writeStorageLock(owner: string): void {
-  if (typeof sessionStorage === 'undefined') {
+  if (typeof localStorage === 'undefined') {
     return;
   }
 
-  sessionStorage.setItem(storageLockKey, JSON.stringify({
+  localStorage.setItem(storageLockKey, JSON.stringify({
     owner,
     expiresAt: Date.now() + storageLockTtlMs
   } satisfies StorageLockRecord));
 }
 
 function clearStorageLock(owner: string): void {
-  if (typeof sessionStorage === 'undefined') {
+  if (typeof localStorage === 'undefined') {
     return;
   }
 
   const current = readStorageLock();
   if (current?.owner === owner) {
-    sessionStorage.removeItem(storageLockKey);
+    localStorage.removeItem(storageLockKey);
   }
 }
 
@@ -106,7 +106,10 @@ function createTabId(): string {
   return `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-/** 浏览器跨 Tab 会话刷新协调器：优先 Web Locks，BroadcastChannel 传播退出与完成信号。 */
+/**
+ * 浏览器跨 Tab 会话刷新协调器：优先使用 Web Locks；不支持时用 localStorage
+ * 共享短租约，BroadcastChannel 只负责传播退出与完成信号。
+ */
 export function createSessionRefreshCoordinator(
   options: SessionRefreshCoordinatorOptions = {}
 ): SessionRefreshCoordinator {
@@ -164,7 +167,7 @@ export function createSessionRefreshCoordinator(
       return navigator.locks.request(lockName, execute);
     }
 
-    if (typeof sessionStorage !== 'undefined') {
+    if (typeof localStorage !== 'undefined') {
       return withStorageLock(tabId, execute);
     }
 
