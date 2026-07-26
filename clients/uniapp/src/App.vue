@@ -8,7 +8,9 @@ onLaunch(() => {
 });
 </script>
 
-<style>
+<style lang="scss">
+@use "./styles/fullnet-uni-ui.scss";
+
 page {
   min-height: 100%;
   background: #071421;

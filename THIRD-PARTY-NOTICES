@@ -40,6 +40,11 @@ the complete license texts.
   https://github.com/vuejs
 - uni-app/DCloud — Apache-2.0
   https://github.com/dcloudio/uni-app
+- uni-ui 1.5.12 — Apache-2.0
+  https://github.com/dcloudio/uni-ui
+
+- Sass Embedded 1.100.0 — MIT
+  https://github.com/sass/embedded-host-node
 - Vue I18n — MIT
   https://github.com/intlify/vue-i18n
 - VueUse — MIT

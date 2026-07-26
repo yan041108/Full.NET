@@ -37,6 +37,24 @@
       "failure": "保存失败，请稍后重试"
     }
   },
+  "ui": {
+    "smoke": {
+      "title": "uni-ui 组件验证",
+      "intro": "此页面只用于开发和测试环境的跨平台组件验收。",
+      "listTitle": "组件主题",
+      "listNote": "颜色、边框与圆角来自 Full.NET 设计令牌。",
+      "inputLabel": "验证名称",
+      "inputPlaceholder": "请输入验证名称",
+      "required": "请输入验证名称",
+      "submit": "验证输入",
+      "valid": "输入验证通过",
+      "openPopup": "打开弹层",
+      "popupTitle": "弹层验证",
+      "popupBody": "键盘焦点、遮罩和关闭操作均可用。",
+      "closePopup": "关闭弹层",
+      "unavailable": "组件验证页仅在开发和测试环境开放。"
+    }
+  },
   "errors": {
     "localization": {
       "unsupported_locale": "不支持的语言设置"

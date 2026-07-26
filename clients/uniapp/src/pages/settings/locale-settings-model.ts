@@ -56,6 +56,7 @@ export function createLocaleSettingsModel(
 ): LocaleSettingsModel {
   const listeners = new Set<(state: LocaleSettingsState) => void>();
   let disposed = false;
+  let isSubmitting = false;
   const initialSnapshot = dependencies.initialize();
   let state: InternalState = {
     snapshot: initialSnapshot,
@@ -71,8 +72,8 @@ export function createLocaleSettingsModel(
       feedback: state.feedback,
       errorFeedback: state.errorFeedback ? { ...state.errorFeedback } : undefined,
       hasPendingChange,
-      isBusy: snapshot.saving,
-      isSubmitDisabled: !hasPendingChange || snapshot.saving
+      isBusy: snapshot.saving || isSubmitting,
+      isSubmitDisabled: !hasPendingChange || snapshot.saving || isSubmitting
     };
   };
 
@@ -127,13 +128,13 @@ export function createLocaleSettingsModel(
         return;
       }
 
+      isSubmitting = true;
       state = { ...state, feedback: undefined, errorFeedback: undefined };
       notify();
       try {
         await dependencies.setActiveLocale(state.selectedLocale);
         if (!disposed) {
           state = { ...state, feedback: 'success' };
-          notify();
         }
       } catch (error) {
         if (!disposed) {
@@ -142,6 +143,10 @@ export function createLocaleSettingsModel(
             feedback: 'error',
             errorFeedback: presentError(error, dependencies)
           };
+        }
+      } finally {
+        isSubmitting = false;
+        if (!disposed) {
           notify();
         }
       }

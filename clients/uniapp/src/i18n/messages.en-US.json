@@ -37,6 +37,24 @@
       "failure": "Could not save your changes. Please try again."
     }
   },
+  "ui": {
+    "smoke": {
+      "title": "uni-ui component check",
+      "intro": "This page is available only for cross-platform component checks in development and test environments.",
+      "listTitle": "Component theme",
+      "listNote": "Colors, borders, and radii come from Full.NET design tokens.",
+      "inputLabel": "Check name",
+      "inputPlaceholder": "Enter a check name",
+      "required": "Enter a check name.",
+      "submit": "Validate input",
+      "valid": "Input validation passed.",
+      "openPopup": "Open dialog",
+      "popupTitle": "Dialog check",
+      "popupBody": "Keyboard focus, the overlay, and the close action are available.",
+      "closePopup": "Close dialog",
+      "unavailable": "The component check is available only in development and test environments."
+    }
+  },
   "errors": {
     "localization": {
       "unsupported_locale": "The selected language is not supported."

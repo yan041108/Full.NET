@@ -149,6 +149,35 @@ test('uses a safe server title and trace id for an unknown 409 code', async ({ p
   await expect(page.getByText('跟踪 ID: trace-unknown-e2e', { exact: true })).toBeVisible();
 });
 
+test('renders the uni-ui smoke page in both locales with accessible narrow-screen interactions', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto('/#/pages/ui/component-smoke');
+
+  await expect(page.getByRole('main').getByText('uni-ui 组件验证', { exact: true })).toBeVisible();
+  await expect(page.getByText('请输入验证名称', { exact: true })).toBeVisible();
+  const input = page.getByRole('textbox');
+  await input.focus();
+  await expect(input).toBeFocused();
+
+  await page.getByRole('button', { name: '验证输入' }).click();
+  await expect(page.locator('span').filter({ hasText: /^请输入验证名称$/u })).toBeVisible();
+
+  await page.getByRole('button', { name: '打开弹层' }).click();
+  const dialog = page.getByRole('dialog', { name: '弹层验证' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '关闭弹层' }).click();
+  await expect(dialog).toBeHidden();
+
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+
+  await page.goto('/');
+  await chooseLocale(page, 'English (US)');
+  await submitLocale(page, '应用到此设备');
+  await page.goto('/#/pages/ui/component-smoke');
+  await expect(page.getByRole('main').getByText('uni-ui component check', { exact: true })).toBeVisible();
+  await expect(page.getByText('Enter a check name', { exact: true })).toBeVisible();
+});
+
 test('does not ship the development bridge in the production H5 artifact', async () => {
   const outputDirectory = resolve(import.meta.dirname, '../../../../clients/uniapp/dist/build/h5');
   const files = await collectFiles(outputDirectory);

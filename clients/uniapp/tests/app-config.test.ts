@@ -20,14 +20,24 @@ function collectKeys(value: unknown, path = ''): string[] {
 }
 
 describe('uni-app application configuration', () => {
-  it('uses the locale settings page as the sole startup page without a native tab bar', async () => {
+  it('keeps locale settings as the startup page and excludes native tab navigation', async () => {
     const pages = await readJson('../src/pages.json');
+    const pageDefinitions = pages.pages as readonly {
+      readonly path: string;
+      readonly style: { readonly navigationBarTitleText: string };
+    }[];
 
     expect(pages.locale).toBe('zh-Hans');
-    expect(pages.pages).toEqual([{
+    expect(pageDefinitions[0]).toEqual({
       path: 'pages/settings/locale',
       style: {
         navigationBarTitleText: '%settings.title%'
+      }
+    });
+    expect(pageDefinitions.slice(1)).toEqual([{
+      path: 'pages/ui/component-smoke',
+      style: {
+        navigationBarTitleText: '%ui.smoke.title%'
       }
     }]);
     expect(pages).not.toHaveProperty('tabBar');
@@ -46,7 +56,7 @@ describe('uni-app application configuration', () => {
       'application',
       '../src/locale/zh-Hans.json',
       '../src/locale/en.json',
-      ['app.name', 'settings.title']
+      ['app.name', 'settings.title', 'ui.smoke.title']
     ],
     [
       'platform',
