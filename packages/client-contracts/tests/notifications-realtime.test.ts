@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   NOTIFICATIONS_REALTIME_CODES,
   createNotificationsRealtimeController,
@@ -8,6 +8,10 @@ import {
 } from '../src/index';
 
 describe('Notifications 实时客户端', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('只接受稳定机器码和结构化数据', () => {
     expect(isRealtimeMessage({
       code: NOTIFICATIONS_REALTIME_CODES.inboxUnreadCountChanged,
@@ -81,6 +85,94 @@ describe('Notifications 实时客户端', () => {
 
     await expect(controller.whenSettled()).resolves.toBeUndefined();
     await controller.dispose();
+  });
+
+  it('首次连接失败后按退避重新创建连接并恢复', async () => {
+    vi.useFakeTimers();
+    const session = createSession();
+    const first = createConnection();
+    const second = createConnection();
+    first.start.mockRejectedValueOnce(new Error('offline'));
+    const connections = [first, second];
+    const connectionFactory = vi.fn(options => {
+      const connection = connections.shift()!;
+      connection.configure(options.accessTokenFactory);
+      return connection;
+    });
+    const controller = createNotificationsRealtimeController({
+      session,
+      onMessage: vi.fn(),
+      connectionFactory
+    });
+
+    session.publish(authenticatedSnapshot(null));
+    await controller.whenSettled();
+    expect(first.start).toHaveBeenCalledOnce();
+    expect(connectionFactory).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(0);
+    await controller.whenSettled();
+
+    expect(second.start).toHaveBeenCalledOnce();
+    expect(connectionFactory).toHaveBeenCalledTimes(2);
+    await controller.dispose();
+  });
+
+  it('切换上下文会取消旧连接重试并立即连接新上下文', async () => {
+    vi.useFakeTimers();
+    const session = createSession();
+    const failed = createConnection();
+    const tenant = createConnection();
+    failed.start.mockRejectedValueOnce(new Error('offline'));
+    const connections = [failed, tenant];
+    const connectionFactory = vi.fn(options => {
+      const connection = connections.shift()!;
+      connection.configure(options.accessTokenFactory);
+      return connection;
+    });
+    const controller = createNotificationsRealtimeController({
+      session,
+      onMessage: vi.fn(),
+      connectionFactory
+    });
+
+    session.publish(authenticatedSnapshot(null));
+    await controller.whenSettled();
+    expect(vi.getTimerCount()).toBe(1);
+    session.token = 'tenant-token';
+    session.publish(authenticatedSnapshot('tenant-id'));
+    await controller.whenSettled();
+
+    expect(tenant.start).toHaveBeenCalledOnce();
+    expect(tenant.readAccessToken()).toBe('tenant-token');
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(connectionFactory).toHaveBeenCalledTimes(2);
+    await controller.dispose();
+  });
+
+  it('匿名化或销毁后不再执行待处理的首次连接重试', async () => {
+    vi.useFakeTimers();
+    const session = createSession();
+    const connection = createConnection();
+    connection.start.mockRejectedValueOnce(new Error('offline'));
+    const connectionFactory = vi.fn(() => connection);
+    const controller = createNotificationsRealtimeController({
+      session,
+      onMessage: vi.fn(),
+      connectionFactory
+    });
+
+    session.publish(authenticatedSnapshot(null));
+    await controller.whenSettled();
+    expect(vi.getTimerCount()).toBe(1);
+    session.publish(anonymousSnapshot());
+    await controller.whenSettled();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(connectionFactory).toHaveBeenCalledOnce();
+
+    await controller.dispose();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(connectionFactory).toHaveBeenCalledOnce();
   });
 });
 
