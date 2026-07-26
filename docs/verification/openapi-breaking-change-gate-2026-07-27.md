@@ -13,7 +13,7 @@ API、数据库或 Docker，也不依赖外部服务。
 
 允许：
 
-- 新增 `id + version` 唯一的版本化夹具、路径、操作、schema 或属性；
+- 新增身份、文件名与版本一致且 `id + version` 唯一的版本化夹具、路径、操作、schema 或属性；
 - 修改说明文本；
 - 调整路径、操作和属性的数组顺序。
 
@@ -21,6 +21,7 @@ API、数据库或 Docker，也不依赖外部服务。
 
 - 删除既有夹具、路径、HTTP 方法、schema 或属性；
 - 版本化夹具使用空 `id` 或非正整数 `version`；
+- 版本化夹具文件名不等于 `<id>.json`，或 `id` 的 `-vN` 后缀与 `version` 不一致；
 - 新增与现有夹具重复的 `id + version` 契约身份；
 - 改变既有操作的权限码、成功状态码、请求 schema 或响应 schema；
 - 改变分页/集合 schema 的 `itemSchema`；
@@ -37,7 +38,7 @@ API、数据库或 Docker，也不依赖外部服务。
 | 行为 GREEN | 目录比较、稳定诊断与 Git ref 加载聚焦 **7/7** |
 | CI RED | `package.json` 缺少入口，PR workflow 未传 base SHA，聚焦 **0/1** |
 | CI GREEN | package/checkout 完整历史/PR base SHA/main push before SHA wiring **1/1** |
-| 身份合法性与唯一性 RED / GREEN | 重复 `id + version`、字符串版 `"1"` 最初均被误判兼容；加入类型校验和全局身份索引后聚焦 **1/1** |
+| 身份、文件与版本 RED / GREEN | 重复 `id + version`、字符串版 `"1"`、错名文件及 `-vN`/`version` 漂移最初均可被误判兼容；加入格式、文件名、后缀和全局身份索引后聚焦 **1/1** |
 | 真实基线 | `pnpm test:openapi:breaking -- --base-ref HEAD` 比较 **25/25** 个夹具，无破坏变化 |
 
 OpenAPI 离线测试发现数由 **50 → 58**；.NET canonical 门槛保持
@@ -50,7 +51,7 @@ OpenAPI 离线测试发现数由 **50 → 58**；.NET canonical 门槛保持
 - 本地入口：`pnpm test:openapi:breaking -- --base-ref <git-ref>`
 - PR 基线：`${{ github.event.pull_request.base.sha }}`
 - `main` 推送基线：`${{ github.event.before }}`；全零 SHA 表示新建引用，不执行比较
-- 版本化夹具身份：`id` 必须为非空字符串，`version` 必须为正整数，且二者组合在当前契约集合内全局唯一，避免同一 v1 被不同文件名或不同 JSON 类型重复定义
+- 版本化夹具身份：`id` 必须为非空字符串，`version` 必须为正整数，文件名必须为 `<id>.json`，`id` 的 `-vN` 必须匹配 `version`，且二者组合在当前契约集合内全局唯一
 - 诊断按英文稳定键排序，包含夹具文件、路径/方法或 schema 精确位置。
 
 ## 完整非 Docker 验证

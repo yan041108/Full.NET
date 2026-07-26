@@ -122,7 +122,7 @@ async function compareDirectories(baseline, current) {
   }
 }
 
-test('新增唯一版本契约保持兼容，重复 id/version 会失败', async () => {
+test('新增规范版本契约保持兼容，身份、文件名或版本漂移会失败', async () => {
   const currentContract = clone(baselineContract);
   currentContract.description = '新的说明不影响机器契约';
   currentContract.paths.reverse();
@@ -188,6 +188,40 @@ test('新增唯一版本契约保持兼容，重复 id/version 会失败', async
   assert.match(
     invalidIdentityResult.stderr,
     /invalid contract identity: sample-invalid-version\.json requires a non-empty string id and positive integer version/
+  );
+
+  const misnamedContract = clone(currentContract);
+  misnamedContract.id = 'sample-v3';
+  misnamedContract.version = 3;
+  const misnamedResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {
+      ...currentContracts,
+      'sample-misnamed.json': misnamedContract
+    }
+  );
+
+  assert.equal(misnamedResult.status, 1);
+  assert.match(
+    misnamedResult.stderr,
+    /contract identity mismatch: sample-misnamed\.json must be named sample-v3\.json/
+  );
+
+  const mismatchedVersionContract = clone(currentContract);
+  mismatchedVersionContract.id = 'sample-v4';
+  mismatchedVersionContract.version = 3;
+  const mismatchedVersionResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {
+      ...currentContracts,
+      'sample-v4.json': mismatchedVersionContract
+    }
+  );
+
+  assert.equal(mismatchedVersionResult.status, 1);
+  assert.match(
+    mismatchedVersionResult.stderr,
+    /contract version mismatch: sample-v4\.json id suffix v4 does not match version=3/
   );
 });
 
