@@ -93,6 +93,7 @@ function validateContractIdentities(contracts, changes) {
 function validateStructuredContractKeys(contracts, changes) {
   for (const [fileName, contract] of contracts) {
     const paths = Array.isArray(contract.paths) ? contract.paths : [];
+    const schemas = contract.schemas ?? {};
     const seenPaths = new Set();
 
     for (const pathEntry of paths) {
@@ -117,6 +118,40 @@ function validateStructuredContractKeys(contracts, changes) {
         }
 
         seenMethods.add(method);
+        for (const fieldName of ['requestSchema', 'responseSchema']) {
+          const schemaName = operation[fieldName];
+          if (schemaName && !Object.hasOwn(schemas, schemaName)) {
+            changes.push(
+              `unknown schema reference: ${fileName} ${method} ` +
+                `${pathEntry.path} ${fieldName}=${schemaName}`
+            );
+          }
+        }
+      }
+    }
+
+    for (const [schemaName, schema] of Object.entries(schemas)) {
+      const seenProperties = new Set();
+      const properties = Array.isArray(schema.properties)
+        ? schema.properties
+        : [];
+      for (const propertyName of properties) {
+        if (seenProperties.has(propertyName)) {
+          changes.push(
+            `duplicate schema property: ${fileName} ` +
+              `${schemaName}.${propertyName}`
+          );
+          continue;
+        }
+
+        seenProperties.add(propertyName);
+      }
+
+      if (schema.itemSchema && !Object.hasOwn(schemas, schema.itemSchema)) {
+        changes.push(
+          `unknown schema reference: ${fileName} ${schemaName} ` +
+            `itemSchema=${schema.itemSchema}`
+        );
       }
     }
   }
