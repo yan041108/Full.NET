@@ -934,6 +934,18 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **395/7/49/189** |
 | 验证记录 | [`bounded-logging-shutdown-2026-07-26.md`](bounded-logging-shutdown-2026-07-26.md) |
 
+## 增补（2026-07-27，Jobs 取消传播与批次故障隔离）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **395 → 396** | 新增宿主取消向上传播且不写业务失败状态的 Runner 回归测试 |
+| RED / GREEN | 生产实现未修改时取消测试因“未抛异常”失败；最小修复后聚焦 **1/1** 通过 |
+| Jobs SQL Server/MySQL 聚焦 | 既有两项用例内嵌同批缺失 Handler/健康任务隔离场景，**2/2** 通过，失败 0、跳过 0，约 **60s** |
+| Integration 门槛与分片 | 保持 **189**；API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** |
+| 最终静态门禁 | Release **0 warning / 0 error**；Unit/Compatibility/Architecture **396/7/49**；Governance **11/11**；Skill **52**；workspace 通过 |
+| 四处 canonical 门槛 | **396/7/49/189** |
+| 验证记录 | [`jobs-cancellation-batch-failure-isolation-2026-07-27.md`](jobs-cancellation-batch-failure-isolation-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
