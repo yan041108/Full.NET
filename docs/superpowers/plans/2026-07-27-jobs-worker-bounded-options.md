@@ -217,7 +217,7 @@
   Architecture **49/49**；Integration 发现 **35/35/62/57 = 189**；Governance **11/11**；
   Skill **52**；workspace 与 diff check 通过。
 
-- [ ] **Step 4: 规则、Skill、提交和清理**
+- [x] **Step 4: 规则、Skill、提交和清理**
 
   读取并执行 `rules/rule-evolution.md`、`rules/skill-evolution.md`；若仅命中一次 Jobs 配置硬编码且已有 Options/启动校验规则覆盖，则结论为无新增规则/Skill。提交
   `feat(jobs): bound worker polling options`，fast-forward 合入 main，在 main 重跑 Unit/Jobs 聚焦与静态门禁后删除
