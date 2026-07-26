@@ -90,6 +90,38 @@ function validateContractIdentities(contracts, changes) {
   }
 }
 
+function validateStructuredContractKeys(contracts, changes) {
+  for (const [fileName, contract] of contracts) {
+    const paths = Array.isArray(contract.paths) ? contract.paths : [];
+    const seenPaths = new Set();
+
+    for (const pathEntry of paths) {
+      if (seenPaths.has(pathEntry.path)) {
+        changes.push(`duplicate contract path: ${fileName} ${pathEntry.path}`);
+        continue;
+      }
+
+      seenPaths.add(pathEntry.path);
+      const seenMethods = new Set();
+      const operations = Array.isArray(pathEntry.operations)
+        ? pathEntry.operations
+        : [];
+      for (const operation of operations) {
+        const method = String(operation.method).toUpperCase();
+        if (seenMethods.has(method)) {
+          changes.push(
+            `duplicate contract operation: ${fileName} ${method} ` +
+              pathEntry.path
+          );
+          continue;
+        }
+
+        seenMethods.add(method);
+      }
+    }
+  }
+}
+
 function compareStructuredContract(fileName, baseline, current, changes) {
   for (const fieldName of Object.keys(baseline)) {
     if (
@@ -202,6 +234,7 @@ export function compareContractSets(baselineContracts, currentContracts) {
   const changes = [];
 
   validateContractIdentities(currentContracts, changes);
+  validateStructuredContractKeys(currentContracts, changes);
 
   for (const [fileName, baseline] of baselineContracts) {
     const current = currentContracts.get(fileName);

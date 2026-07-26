@@ -24,12 +24,21 @@ internal static class JobsHostDefinitionAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
-        var definitionId = await VerifyCreateTriggerAndExecutionLifecycleAsync(
+        var definition = await VerifyCreateTriggerAndExecutionLifecycleAsync(
             client,
+            cancellationToken);
+        await JobsMultiWorkerClaimAssertions.VerifyAsync(
+            factory,
+            definition.Id,
+            cancellationToken);
+        await VerifyDisableAsync(
+            client,
+            definition.Id,
+            definition.Version,
             cancellationToken);
         await VerifyExpiredRunningExecutionIsReclaimedAsync(
             factory,
-            definitionId,
+            definition.Id,
             cancellationToken);
         await OpenApiJobsHostDefinitionsContractAssertions.VerifyAsync(client, cancellationToken);
     }
@@ -51,7 +60,7 @@ internal static class JobsHostDefinitionAssertions
         Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    private static async Task<Guid> VerifyCreateTriggerAndExecutionLifecycleAsync(
+    private static async Task<HostJobDefinitionResponse> VerifyCreateTriggerAndExecutionLifecycleAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -130,11 +139,21 @@ internal static class JobsHostDefinitionAssertions
             JobsErrorCodes.DefinitionValidationFailed,
             invalidKeyProblem.RootElement.GetProperty("code").GetString());
 
+        return updated;
+    }
+
+    private static async Task VerifyDisableAsync(
+        HttpClient client,
+        Guid definitionId,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
         using var disableRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
-            $"/api/v1/jobs/host-definitions/{created.Id:D}/disable",
+            $"/api/v1/jobs/host-definitions/{definitionId:D}/disable",
             adminToken,
-            new DisableHostJobDefinitionRequest(updated.Version));
+            new DisableHostJobDefinitionRequest(version));
         using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode);
         var disabled = await disableResponse.Content.ReadFromJsonAsync<HostJobDefinitionResponse>(
@@ -144,15 +163,13 @@ internal static class JobsHostDefinitionAssertions
 
         using var disabledTriggerRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
-            $"/api/v1/jobs/host-definitions/{created.Id:D}/trigger",
+            $"/api/v1/jobs/host-definitions/{definitionId:D}/trigger",
             adminToken,
             new { });
         using var disabledTriggerResponse = await client.SendAsync(
             disabledTriggerRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.BadRequest, disabledTriggerResponse.StatusCode);
-
-        return created.Id;
     }
 
     private sealed record PagedHostJobExecutionResponses(

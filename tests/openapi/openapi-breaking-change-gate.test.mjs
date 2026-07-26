@@ -122,7 +122,7 @@ async function compareDirectories(baseline, current) {
   }
 }
 
-test('新增规范版本契约保持兼容，身份、文件名或版本漂移会失败', async () => {
+test('新增规范版本契约保持兼容，身份或路由键冲突会失败', async () => {
   const currentContract = clone(baselineContract);
   currentContract.description = '新的说明不影响机器契约';
   currentContract.paths.reverse();
@@ -222,6 +222,34 @@ test('新增规范版本契约保持兼容，身份、文件名或版本漂移�
   assert.match(
     mismatchedVersionResult.stderr,
     /contract version mismatch: sample-v4\.json id suffix v4 does not match version=3/
+  );
+
+  const duplicatePathContract = clone(baselineContract);
+  duplicatePathContract.paths.push(clone(duplicatePathContract.paths[0]));
+  const duplicatePathResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    { 'sample-v1.json': duplicatePathContract }
+  );
+
+  assert.equal(duplicatePathResult.status, 1);
+  assert.match(
+    duplicatePathResult.stderr,
+    /duplicate contract path: sample-v1\.json \/api\/v1\/samples/
+  );
+
+  const duplicateOperationContract = clone(baselineContract);
+  duplicateOperationContract.paths[0].operations.push(
+    clone(duplicateOperationContract.paths[0].operations[0])
+  );
+  const duplicateOperationResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    { 'sample-v1.json': duplicateOperationContract }
+  );
+
+  assert.equal(duplicateOperationResult.status, 1);
+  assert.match(
+    duplicateOperationResult.stderr,
+    /duplicate contract operation: sample-v1\.json GET \/api\/v1\/samples/
   );
 });
 
