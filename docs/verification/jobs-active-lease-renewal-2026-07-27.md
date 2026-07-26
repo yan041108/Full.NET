@@ -85,8 +85,11 @@ Release 编译 **0 warning / 0 error**。测试退出后 Docker 容器为 0。
 | Naming / Governance / Project Skill / Workspace | **23/23** / **11/11** / **52** 项 / 通过 |
 | `git diff --check` | 通过 |
 
-最终 canonical 为 **404/7/49/189**。合并提交、main 轻量复验以及分支/工作树清理状态
-在完成 fast-forward 后补录。
+最终 canonical 为 **404/7/49/189**。功能分支已 fast-forward 合入
+`main@f10b02c440391cd4923968725e5feec794563a1e`；main 自有输出目录重新构建
+Integration 与 Unit 项目均为 **0 warning / 0 error**，Unit **404/404**、Jobs SQL
+Server/MySQL **2/2**（失败 0、跳过 0，**1m31s**）、Governance **11/11** 再次通过。
+测试退出后 Docker 容器为 0；本记录提交后删除功能分支、Git worktree 注册与物理目录。
 
 ## 规则与 Skills 复盘
 

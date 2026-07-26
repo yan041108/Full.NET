@@ -155,7 +155,7 @@
 
   读取并执行 `rules/rule-evolution.md`、`rules/skill-evolution.md`；只有形成跨任务重复模式并达到门槛时才更新规则或项目 Skill。
 
-- [ ] **Step 5: 提交、合并和清理**
+- [x] **Step 5: 提交、合并和清理**
 
   精确暂存 owned 文件，提交 Jobs 切片；在最新 main 验证后合并到 main，删除 `codex/jobs-active-lease-renewal` 分支与工作树，并确认 Docker/Integration 进程已释放。
 
