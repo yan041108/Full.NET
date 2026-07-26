@@ -35,6 +35,9 @@ internal static class JobsHostDefinitionAssertions
             factory,
             definition.Id,
             cancellationToken);
+        await JobsActiveLeaseRenewalAssertions.VerifyAsync(
+            factory,
+            cancellationToken);
         await VerifyDisableAsync(
             client,
             definition.Id,

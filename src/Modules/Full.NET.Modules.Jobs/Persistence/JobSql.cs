@@ -246,6 +246,18 @@ internal static class JobSql
             """,
             SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement RenewExecutionLease =
+        new(
+            "jobs.renew_host_execution_lease",
+            """
+            UPDATE fn_jobs_execution
+            SET LeaseExpiresAtUtc = @LeaseExpiresAtUtc
+            WHERE TenantId IS NULL
+              AND LeaseId = @LeaseId
+              AND Status = @RunningStatus
+            """,
+            SqlDataScope.HostOnly);
+
     public static readonly SqlStatement MarkExecutionSucceeded =
         new(
             "jobs.mark_host_execution_succeeded",

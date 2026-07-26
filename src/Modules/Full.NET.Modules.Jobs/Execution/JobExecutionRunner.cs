@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -17,8 +18,11 @@ internal sealed class JobExecutionRunner(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
+    IOptions<JobsWorkerOptions> workerOptions,
     ILogger<JobExecutionRunner> logger)
 {
+    private readonly JobsWorkerOptions _workerOptions = workerOptions.Value;
+
     public async Task<int> ProcessPendingAsync(
         int batchSize = 10,
         CancellationToken cancellationToken = default)
@@ -26,7 +30,7 @@ internal sealed class JobExecutionRunner(
         batchSize = Math.Clamp(batchSize, 1, 50);
         var leaseId = idGenerator.NewId();
         var now = clock.UtcNow;
-        var leaseExpiresAt = now.AddMinutes(5);
+        var leaseExpiresAt = now.AddSeconds(_workerOptions.LeaseSeconds);
         var acquired = await AcquireAsync(
                 batchSize,
                 leaseId,
@@ -34,6 +38,78 @@ internal sealed class JobExecutionRunner(
                 leaseExpiresAt,
                 cancellationToken)
             .ConfigureAwait(false);
+        if (acquired.Count == 0)
+        {
+            return 0;
+        }
+
+        using var leaseCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var processingTask = ProcessBatchAsync(
+            acquired,
+            leaseId,
+            leaseCancellation.Token);
+        var renewalTask = RenewLeaseUntilCanceledAsync(
+            leaseId,
+            leaseCancellation.Token);
+        var completedTask = await Task.WhenAny(processingTask, renewalTask)
+            .ConfigureAwait(false);
+        if (completedTask == renewalTask)
+        {
+            Exception? renewalFailure = null;
+            try
+            {
+                await renewalTask.ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                renewalFailure = exception;
+            }
+
+            leaseCancellation.Cancel();
+            try
+            {
+                await processingTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (leaseCancellation.IsCancellationRequested)
+            {
+                // 续租失败后先等待协作式 Handler 退出，再传播原始租约故障。
+            }
+
+            if (renewalFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(renewalFailure).Throw();
+            }
+
+            throw new InvalidOperationException(
+                $"Job execution lease '{leaseId:D}' renewal stopped unexpectedly.");
+        }
+
+        try
+        {
+            return await processingTask.ConfigureAwait(false);
+        }
+        finally
+        {
+            leaseCancellation.Cancel();
+            try
+            {
+                await renewalTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (leaseCancellation.IsCancellationRequested)
+            {
+                // 批次已经结束或宿主正在退出，续租循环应随 linked token 有界停止。
+            }
+        }
+    }
+
+    private async Task<int> ProcessBatchAsync(
+        IReadOnlyList<JobExecutionRecord> acquired,
+        Guid leaseId,
+        CancellationToken cancellationToken)
+    {
         var processed = 0;
         foreach (var execution in acquired)
         {
@@ -43,6 +119,35 @@ internal sealed class JobExecutionRunner(
         }
 
         return processed;
+    }
+
+    private async Task RenewLeaseUntilCanceledAsync(
+        Guid leaseId,
+        CancellationToken cancellationToken)
+    {
+        var renewalInterval = TimeSpan.FromSeconds(
+            _workerOptions.LeaseRenewalSeconds);
+        var leaseDuration = TimeSpan.FromSeconds(_workerOptions.LeaseSeconds);
+        while (true)
+        {
+            await Task.Delay(renewalInterval, cancellationToken)
+                .ConfigureAwait(false);
+            var renewed = await commandExecutor.ExecuteAsync(
+                    JobSql.RenewExecutionLease,
+                    new
+                    {
+                        LeaseId = leaseId,
+                        LeaseExpiresAtUtc = clock.UtcNow.Add(leaseDuration),
+                        RunningStatus = JobExecutionStatuses.Running,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (renewed == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Job execution lease '{leaseId:D}' is no longer owned.");
+            }
+        }
     }
 
     private async Task ProcessOneAsync(

@@ -13,6 +13,12 @@ internal sealed class JobsWorkerOptions
 
     /// <summary>获取或设置两次轮询之间的等待毫秒数。</summary>
     public int PollMilliseconds { get; set; } = 2000;
+
+    /// <summary>获取或设置单次领取后租约的有效秒数。</summary>
+    public int LeaseSeconds { get; set; } = 300;
+
+    /// <summary>获取或设置执行期间延长租约的间隔秒数。</summary>
+    public int LeaseRenewalSeconds { get; set; } = 60;
 }
 
 internal sealed class JobsWorkerOptionsValidator : IValidateOptions<JobsWorkerOptions>
@@ -29,6 +35,24 @@ internal sealed class JobsWorkerOptionsValidator : IValidateOptions<JobsWorkerOp
         {
             failures.Add(
                 "Jobs:Worker:PollMilliseconds must be between 100 and 60000.");
+        }
+
+        if (options.LeaseSeconds is < 30 or > 3600)
+        {
+            failures.Add(
+                "Jobs:Worker:LeaseSeconds must be between 30 and 3600.");
+        }
+
+        if (options.LeaseRenewalSeconds is < 5 or > 1200)
+        {
+            failures.Add(
+                "Jobs:Worker:LeaseRenewalSeconds must be between 5 and 1200.");
+        }
+
+        if (options.LeaseRenewalSeconds > options.LeaseSeconds / 2)
+        {
+            failures.Add(
+                "Jobs:Worker:LeaseRenewalSeconds must not exceed half of LeaseSeconds.");
         }
 
         return failures.Count == 0
