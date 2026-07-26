@@ -41,6 +41,7 @@ class MockBroadcastChannel {
 
 afterEach(() => {
   MockBroadcastChannel.channels.clear();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -145,5 +146,37 @@ describe('session refresh coordinator', () => {
     await expect(coordinator.runExclusive(operation)).resolves.toBe(true);
 
     expect(operation).toHaveBeenCalledOnce();
+  });
+
+  it('共享存储中的锁记录损坏时清理记录并继续刷新', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('navigator', {});
+    vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
+    const storage = new Map<string, string>([
+      [
+        'fullnet.session.refresh.lock',
+        JSON.stringify({ owner: 42, expiresAt: 'invalid' })
+      ]
+    ]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      }
+    });
+    const operation = vi.fn().mockResolvedValue(true);
+    const coordinator = createSessionRefreshCoordinator({
+      tabId: 'recovery-tab'
+    });
+
+    const result = coordinator.runExclusive(operation);
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toBe(true);
+    expect(operation).toHaveBeenCalledOnce();
+    expect(storage.has('fullnet.session.refresh.lock')).toBe(false);
   });
 });

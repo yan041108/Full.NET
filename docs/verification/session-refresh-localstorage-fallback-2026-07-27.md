@@ -18,6 +18,8 @@
   `localStorage`。
 - 浏览器暴露 `localStorage` 但因隐私或安全策略拒绝读写时，把该异常视为
   存储能力不可用并执行既有无锁降级，不让客户端存储策略阻断会话恢复。
+- `localStorage` 中的租约属于非可信持久化输入；JSON 虽可解析但 owner 或
+  到期时间结构无效时，清理损坏记录并重新竞争租约，避免空等 30 秒。
 - Access Token、Refresh Token、用户资料和权限快照均未写入浏览器存储；
   `localStorage` 只保存随机 Tab owner 与租约到期时间。
 - 无 Web Locks 且无 `localStorage` 时继续执行既有无锁降级，不新增服务端
@@ -36,11 +38,16 @@ GREEN 将租约读、写和 owner 校验统一改为 `localStorage`。同一测�
 尚未执行便直接失败。GREEN 对存储获取、读、写和清理建立异常边界：写锁
 失败时立即降级执行刷新，聚焦测试 4/4 通过。
 
+第三轮 RED 写入可解析但字段类型错误的租约记录；修复前该记录既无法判定
+过期，也不会被接管，虚拟时间推进到 30 秒后准确失败于锁超时。GREEN 在
+解析边界验证 owner 与有限数值到期时间，损坏记录被清理后刷新立即执行，
+聚焦测试 5/5 通过。
+
 ## 完整验证
 
-- `pnpm --filter @fullnet/client-contracts test`：76/76。
+- `pnpm --filter @fullnet/client-contracts test`：77/77。
 - `pnpm --filter @fullnet/client-contracts build`：通过。
-- `pnpm test:clients`：client-contracts 76/76、Vue 201/201、Layui 95/95、
+- `pnpm test:clients`：client-contracts 77/77、Vue 202/202、Layui 95/95、
   admin-i18n 8/8、uni-app 103/103。
 - `pnpm test:governance`：11/11。
 - `pnpm test:skills`：52 项契约检查通过。
