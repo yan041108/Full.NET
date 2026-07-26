@@ -122,7 +122,7 @@ async function compareDirectories(baseline, current) {
   }
 }
 
-test('新增契约元素、描述和数组顺序变化保持向后兼容', async () => {
+test('新增唯一版本契约保持兼容，重复 id/version 会失败', async () => {
   const currentContract = clone(baselineContract);
   currentContract.description = '新的说明不影响机器契约';
   currentContract.paths.reverse();
@@ -143,21 +143,52 @@ test('新增契约元素、描述和数组顺序变化保持向后兼容', async
     ]
   });
 
+  const currentContracts = {
+    'sample-v1.json': currentContract,
+    'sample-v2.json': {
+      id: 'sample-v2',
+      version: 2,
+      paths: [],
+      schemas: {}
+    }
+  };
   const result = await compareDirectories(
     { 'sample-v1.json': baselineContract },
-    {
-      'sample-v1.json': currentContract,
-      'sample-v2.json': {
-        id: 'sample-v2',
-        version: 2,
-        paths: [],
-        schemas: {}
-      }
-    }
+    currentContracts
   );
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /OpenAPI compatibility check passed/);
+
+  const duplicateResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {
+      ...currentContracts,
+      'sample-v1-copy.json': clone(currentContract)
+    }
+  );
+
+  assert.equal(duplicateResult.status, 1);
+  assert.match(
+    duplicateResult.stderr,
+    /duplicate contract identity: sample-v1-copy\.json and sample-v1\.json use id=sample-v1, version=1/
+  );
+
+  const invalidIdentityContract = clone(currentContract);
+  invalidIdentityContract.version = '1';
+  const invalidIdentityResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {
+      ...currentContracts,
+      'sample-invalid-version.json': invalidIdentityContract
+    }
+  );
+
+  assert.equal(invalidIdentityResult.status, 1);
+  assert.match(
+    invalidIdentityResult.stderr,
+    /invalid contract identity: sample-invalid-version\.json requires a non-empty string id and positive integer version/
+  );
 });
 
 test('删除版本化契约文件会失败', async () => {
