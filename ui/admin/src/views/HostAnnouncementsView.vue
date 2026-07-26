@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -18,6 +18,7 @@ import {
   publishHostAnnouncement,
   updateHostAnnouncement
 } from '../api/host-announcements';
+import { useNotificationsRealtime } from '../notifications/realtime';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -29,8 +30,12 @@ const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const editingId = ref<string>();
 const canWrite = computed(() => session.can('notifications.announcements.write'));
+const notificationsRealtime = useNotificationsRealtime();
 
 onMounted(load);
+watch(notificationsRealtime.announcementRevision, () => {
+  void load();
+});
 
 async function load(): Promise<void> {
   loading.value = true;

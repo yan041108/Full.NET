@@ -43,6 +43,7 @@ const props = defineProps<{
   displayName: string;
   roleLabel: string;
   availableTenants: Array<{ id: string; name: string }>;
+  notificationUnreadCount: number;
   contextProblem?: FullNetProblemDetails;
   labels: {
     brandAria: string;
@@ -321,6 +322,7 @@ watch(navigationGroups, () => {
           :menu-collapsed="sidebarCollapsed"
           :tenant-selector-label="labels.tenantSelectorLabel"
           :notifications-label="labels.notificationsLabel"
+          :notification-unread-count="notificationUnreadCount"
           :chat-label="labels.chatLabel"
           :language-label="labels.languageLabel"
           :notice-title="labels.noticeTitle"

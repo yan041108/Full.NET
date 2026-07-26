@@ -4,6 +4,8 @@ import {
   defineAsyncComponent,
   nextTick,
   onMounted,
+  onUnmounted,
+  provide,
   ref,
   watch
 } from 'vue';
@@ -21,6 +23,10 @@ import { useAdminI18n } from './i18n/adminI18n';
 import ArtAdminShell from './framework/art-design/layout/ArtAdminShell.vue';
 import { buildShellNavigation } from './framework/art-design/adapters/fullNetShellAdapter';
 import { localNavigationFor } from './navigation/catalog';
+import {
+  createVueNotificationsRealtime,
+  notificationsRealtimeKey
+} from './notifications/realtime';
 import './framework/art-design/theme/art-theme.css';
 import './framework/art-design/theme/art-layout.css';
 import './framework/art-design/theme/art-menu-layouts.css';
@@ -30,6 +36,11 @@ import './framework/art-design/auth/art-login.css';
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
+const notificationsRealtime = createVueNotificationsRealtime({
+  session,
+  enabled: import.meta.env.VITE_REALTIME_ENABLED !== 'false'
+});
+provide(notificationsRealtimeKey, notificationsRealtime);
 const pageRefreshKey = ref(0);
 const { locale, setLocale, setPageTitle, t } = useAdminI18n();
 const elementLocaleController = createElementLocaleController({
@@ -55,6 +66,10 @@ onMounted(() => {
   if (session.state === 'initializing') {
     void session.restore();
   }
+});
+
+onUnmounted(() => {
+  void notificationsRealtime.dispose();
 });
 
 const selectedContext = computed(() =>
@@ -211,6 +226,7 @@ watch(
       :display-name="session.currentUser?.displayName ?? ''"
       :role-label="roleLabel"
       :available-tenants="session.availableTenants"
+      :notification-unread-count="notificationsRealtime.unreadCount.value"
       :context-problem="contextProblem"
       :labels="shellLabels"
       @switch-tenant="switchFromSelector"

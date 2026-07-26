@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { ElButton, ElCard, ElInput, ElMessage, ElTag } from 'element-plus';
 import type { FullNetProblemDetails, InboxMessage } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
@@ -12,6 +12,7 @@ import {
   markInboxMessageRead,
   sendHostInboxMessage
 } from '../api/inbox-messages';
+import { useNotificationsRealtime } from '../notifications/realtime';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -24,8 +25,12 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const canWrite = computed(() => session.can('notifications.inbox.write'));
+const notificationsRealtime = useNotificationsRealtime();
 
 onMounted(load);
+watch(notificationsRealtime.inboxRevision, () => {
+  void load();
+});
 
 async function load(): Promise<void> {
   loading.value = true;

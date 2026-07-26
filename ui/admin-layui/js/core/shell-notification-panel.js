@@ -34,6 +34,7 @@ export function createShellNotificationPanel(root, options = {}) {
   let translate = key => key;
   let activeTab = 0;
   let isOpen = false;
+  let unreadCount = 0;
 
   function lists() {
     return [noticeItems, messageItems, pendingItems];
@@ -132,6 +133,7 @@ export function createShellNotificationPanel(root, options = {}) {
     if (viewAllButton) {
       viewAllButton.textContent = translate('shell.noticeViewAll');
     }
+    renderUnreadCount();
 
     renderTabs();
     renderBody();
@@ -152,6 +154,29 @@ export function createShellNotificationPanel(root, options = {}) {
       panel.classList.remove('is-open');
       panel.hidden = true;
     }
+  }
+
+  function renderUnreadCount() {
+    if (!openButton) {
+      return;
+    }
+
+    let badge = openButton.querySelector('[data-shell-notifications-unread]');
+    if (!badge) {
+      badge = openButton.ownerDocument.createElement('span');
+      badge.className = 'fn-topbar__unread-badge';
+      badge.dataset.shellNotificationsUnread = '';
+      badge.setAttribute('aria-hidden', 'true');
+      openButton.append(badge);
+    }
+
+    badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+    badge.hidden = unreadCount === 0;
+    const label = translate('shell.notifications');
+    openButton.setAttribute(
+      'aria-label',
+      unreadCount > 0 ? `${label} (${unreadCount})` : label
+    );
   }
 
   function onDocumentClick(event) {
@@ -186,6 +211,10 @@ export function createShellNotificationPanel(root, options = {}) {
   return {
     render,
     close,
+    setUnreadCount(value) {
+      unreadCount = Number.isSafeInteger(value) && value >= 0 ? value : 0;
+      renderUnreadCount();
+    },
     dispose() {
       openButton?.removeEventListener('click', onToggle);
       document.removeEventListener('click', onDocumentClick);

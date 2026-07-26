@@ -869,6 +869,18 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **390/7/49/186** |
 | 验证记录 | [`outbox-backlog-telemetry-2026-07-26.md`](outbox-backlog-telemetry-2026-07-26.md) |
 
+## 增补（2026-07-27，Notifications 双管理端实时客户端）
+
+| 项目 | 结果 |
+| --- | --- |
+| client-contracts Vitest | **69 → 72**（稳定消息守卫、认证连接/切上下文重连、连接失败降级） |
+| Vue Vitest | **191 → 197**（实时状态、旧会话查询隔离、显式禁用及 App 快照订阅回归） |
+| Layui Vitest | **91 → 95**（实时状态、显式禁用、应用装配/卸载；通知面板既有测试扩展动态未读徽标） |
+| Mock parity | **99/99** 通过，按双项目矩阵跳过 **5**；Mock web server 显式关闭 Realtime，真实环境默认启用 |
+| 客户端生产构建 | `@fullnet/client-contracts`、Vue、Layui 全部退出 0 |
+| .NET canonical 门槛 | 不变；本次未修改 C# 运行时或 Integration 测试 |
+| 验证记录 | [`realtime-signalr-foundation-2026-07-26.md`](realtime-signalr-foundation-2026-07-26.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

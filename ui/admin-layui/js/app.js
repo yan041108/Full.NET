@@ -11,6 +11,7 @@ import {
 import { createShellLayoutController } from './core/shell-layout.js';
 import { createShellChatDrawer } from './core/shell-chat-drawer.js';
 import { createShellNotificationPanel } from './core/shell-notification-panel.js';
+import { createLayuiNotificationsRealtime } from './core/realtime-notifications.js';
 import { createShellGlobalSearch } from './core/shell-global-search.js';
 import { bindShellTopbar } from './core/shell-topbar.js';
 import { createShellTabsController } from './core/shell-tabs.js';
@@ -300,6 +301,33 @@ export function initializeAdminApp(root = document, options = {}) {
     }
   });
   const shellNotifications = createShellNotificationPanel(root);
+  const realtimeNotificationsFactory = options.realtimeNotificationsFactory
+    ?? createLayuiNotificationsRealtime;
+  const realtimeEnabled = globalThis.FULLNET_CONFIG?.realtimeEnabled
+    ?? import.meta.env.VITE_REALTIME_ENABLED;
+  const realtimeNotifications = typeof session.readAccessToken === 'function'
+    ? realtimeNotificationsFactory({
+        session,
+        enabled: realtimeEnabled !== false && realtimeEnabled !== 'false',
+        request,
+        onUnreadCount: count => shellNotifications.setUnreadCount(count),
+        onInboxChanged: () => {
+          if (latestSnapshot.state === 'authenticated'
+            && currentRoute() === '/notifications/inbox-messages') {
+            void inboxMessages.load();
+          }
+        },
+        onAnnouncementChanged: () => {
+          if (latestSnapshot.state === 'authenticated'
+            && currentRoute() === '/notifications/host-announcements') {
+            void hostAnnouncements.load();
+          }
+        }
+      })
+    : {
+        whenSettled: async () => undefined,
+        dispose: async () => undefined
+      };
   const shellChat = createShellChatDrawer(root);
   applyShellChrome(root, readShellSettings());
   shellTopbar.render(translation.t, readShellSettings());
@@ -600,6 +628,7 @@ export function initializeAdminApp(root = document, options = {}) {
       shellTopbar.dispose();
       shellGlobalSearch.dispose();
       shellNotifications.dispose();
+      void realtimeNotifications.dispose();
       shellChat.dispose();
       unsubscribeSession();
       unsubscribeI18n();

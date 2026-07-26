@@ -54,6 +54,22 @@ export type {
 } from './identity-session.js';
 
 export {
+  NOTIFICATIONS_REALTIME_CODES,
+  createNotificationsRealtimeController,
+  isRealtimeMessage
+} from './notifications-realtime.js';
+
+export type {
+  NotificationsHubConnection,
+  NotificationsHubConnectionOptions,
+  NotificationsRealtimeCode,
+  NotificationsRealtimeController,
+  NotificationsRealtimeOptions,
+  NotificationsRealtimeSession,
+  RealtimeMessage
+} from './notifications-realtime.js';
+
+export {
   isCurrentUserResponse,
   isLocalePreferenceResponse,
   isTokenResponse

@@ -27,6 +27,33 @@ function renderFixture() {
 }
 
 describe('Layui 管理端应用', () => {
+  it('为真实会话装配实时通知并在应用卸载时释放', async () => {
+    renderDynamicFixture();
+    const session = createSessionStub(authorizedSnapshot());
+    session.readAccessToken = vi.fn(() => 'access-token');
+    const dispose = vi.fn().mockResolvedValue(undefined);
+    const realtimeNotificationsFactory = vi.fn(() => ({
+      whenSettled: async () => undefined,
+      dispose
+    }));
+
+    const app = initializeAdminApp(document, {
+      session,
+      autoRestore: false,
+      realtimeNotificationsFactory
+    });
+
+    expect(realtimeNotificationsFactory).toHaveBeenCalledWith(expect.objectContaining({
+      session,
+      request: expect.any(Function),
+      onUnreadCount: expect.any(Function),
+      onInboxChanged: expect.any(Function),
+      onAnnouncementChanged: expect.any(Function)
+    }));
+    app.dispose();
+    await vi.waitFor(() => expect(dispose).toHaveBeenCalledOnce());
+  });
+
   it('在任何组件首次 use 和 render 前应用公开组件语言', () => {
     renderDynamicFixture();
     const calls = [];
