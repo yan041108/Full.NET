@@ -2,6 +2,7 @@
 
 - 日期：2026-07-27
 - 开发基线：`main@191b536`
+- 最终同步基线：`main@a3b8844`
 - 范围：`session-cross-tab.spec.mjs`、`session-restore.spec.mjs`
 - 数据库：SQL Server Testcontainer
 
@@ -39,8 +40,10 @@ pnpm --dir tests/e2e/admin-real-stack exec playwright test `
 
 运行期间浏览器控制台仍记录既有 Notifications SignalR negotiate `404` 噪声；该连接不属于本切片断言范围，四项用例均正常完成。
 
+同步最终主线后的第一次复验为 `3/4`：Layui 第二个 Tab 已显示“正在恢复安全会话”，导航容器出现后，工作台链接在默认 `5s` 内尚未渲染。该失败与上下文定位器无关；用例把最终工作台可见性断言调整为与导航一致的 `30s` 恢复窗口后，同一命令新鲜复验 `4/4`，耗时 `59.3s`。断言仍要求真实工作台链接最终出现，不使用固定等待、重试或弱化结果。
+
 ## 结论与未验证项
 
 两个会话用例现在按实际可见的当前上下文断言，不再依赖隐藏选项或 DOM 文本顺序，并保持 Vue/Layui 同一测试语义。
 
-未重跑 MySQL 和真实栈全量：本次不改数据库、API 或会话协调逻辑，SQL Server 双端聚焦已覆盖定位器的客户端分支。合入前仍需同步最新 `main`，重新执行同一聚焦命令及仓库静态门禁。
+未重跑 MySQL 和真实栈全量：本次不改数据库、API 或会话协调逻辑，SQL Server 双端聚焦已覆盖定位器与恢复窗口的客户端分支。最终同步后 Governance `11/11`、项目 Skill `52`、workspace 和 `git diff --check` 均需保持通过。
