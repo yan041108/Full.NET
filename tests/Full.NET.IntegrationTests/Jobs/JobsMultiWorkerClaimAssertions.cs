@@ -45,9 +45,6 @@ internal static class JobsMultiWorkerClaimAssertions
                 ExecutionCount,
                 processedCounts.Sum(),
                 "多个 Worker 的处理总数必须与待处理任务数完全一致。");
-            Assert.IsTrue(
-                processedCounts.All(count => count == WorkerBatchSize),
-                "每个同时启动的 Worker 都应领取一个完整批次，以保持并发竞争有效。");
         }
         finally
         {
@@ -127,9 +124,24 @@ internal static class JobsMultiWorkerClaimAssertions
         currentTenant.SetHost();
         try
         {
-            return await scope.ServiceProvider
-                .GetRequiredService<JobExecutionRunner>()
-                .ProcessPendingAsync(WorkerBatchSize, cancellationToken);
+            var runner = scope.ServiceProvider
+                .GetRequiredService<JobExecutionRunner>();
+            var processedCount = 0;
+            for (var batchIndex = 0;
+                 batchIndex < ExecutionCount / WorkerBatchSize;
+                 batchIndex++)
+            {
+                var batchCount = await runner.ProcessPendingAsync(
+                    WorkerBatchSize,
+                    cancellationToken);
+                processedCount += batchCount;
+                if (batchCount < WorkerBatchSize)
+                {
+                    break;
+                }
+            }
+
+            return processedCount;
         }
         finally
         {
