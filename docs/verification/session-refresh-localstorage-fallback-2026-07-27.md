@@ -1,0 +1,49 @@
+# 浏览器会话刷新跨 Tab 存储回退验证
+
+- 日期：2026-07-27
+- 状态：Build-verified
+- 范围：`packages/client-contracts` 的无 Web Locks 会话刷新协调
+
+## 缺口
+
+原回退路径把刷新租约写入 `sessionStorage`。该存储按浏览器 Tab 隔离，
+所以不同 Tab 会各自认为自己持有锁，无法提供代码声明的跨 Tab 互斥。
+`BroadcastChannel` 只传播刷新完成与会话清空事件，不会在刷新开始前阻止
+两个 Tab 同时调用服务端 Refresh。
+
+## 修复边界
+
+- 支持 Web Locks 时继续使用浏览器原生锁，不改变主路径。
+- 无 Web Locks 时把既有 30 秒、带 owner 的短租约移到同源 Tab 共享的
+  `localStorage`。
+- Access Token、Refresh Token、用户资料和权限快照均未写入浏览器存储；
+  `localStorage` 只保存随机 Tab owner 与租约到期时间。
+- 无 Web Locks 且无 `localStorage` 时继续执行既有无锁降级，不新增服务端
+  Refresh Token 重用宽限。
+
+## TDD 证据
+
+RED 使用两个协调器模拟两个 Tab，并让 `sessionStorage` 在读取时抛出
+“Tab 私有存储不可用于跨 Tab 锁”的错误。修复前聚焦测试准确失败于
+`readStorageLock` 读取 `sessionStorage`。
+
+GREEN 将租约读、写和 owner 校验统一改为 `localStorage`。同一测试中的两个
+协调器共享存储，并发刷新期间最大活动操作数为 1；聚焦测试 3/3 通过。
+
+## 完整验证
+
+- `pnpm --filter @fullnet/client-contracts test`：75/75。
+- `pnpm --filter @fullnet/client-contracts build`：通过。
+- `pnpm test:clients`：client-contracts 75/75、Vue 200/200、Layui 95/95、
+  admin-i18n 8/8、uni-app 103/103。
+- `pnpm test:governance`：11/11。
+- `pnpm test:skills`：52 项契约检查通过。
+- `pnpm test:workspace`：通过。
+- `pnpm audit:clients`：无未复核的 high/critical 风险。
+- `git diff --check`：通过。
+
+## 未关闭范围
+
+本切片是确定性单元测试和共享客户端包修复，不代表硬化 Task 9 已完整完成。
+仍需真实浏览器多 Context/Page、共享 Cookie、网络故障和服务端 Refresh
+重用检测共同参与的端到端故障注入，完成前能力状态保持 `Build-verified`。
