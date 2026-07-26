@@ -33,7 +33,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 390
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 392
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 # 日常按风险选择：冒烟、单提供程序 API、迁移或其他基础设施
@@ -44,11 +44,11 @@ pnpm test:integration:migrations
 pnpm test:integration:infrastructure
 # 快速校验四分片发现数、重复和遗漏
 pnpm test:integration:partitions
-# 共享基础设施、发布 / push main：完整 186 项并生成 TRX
+# 共享基础设施、发布 / push main：完整 189 项并生成 TRX
 pnpm test:integration:full
 pnpm test:integration:durations
 # canonical 全量命令：
-# dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 186 --timeout 90m
+# dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 189 --timeout 90m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
@@ -90,4 +90,4 @@ Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新�
 
 ## 当前边界
 
-M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、MessagePack、可选 Redis Backplane，以及 Vue/Layui 管理端认证连接、切租户重连、未读徽标和当前通知页刷新已达 `Build-verified`；多实例真实栈与 Outbox 修复推送仍未完成。真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。
+M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、MessagePack、可选 Redis Backplane、专用 ready 探针、SQL Server/MySQL 双 API 节点 stop/start 故障恢复，以及 Vue/Layui 管理端认证连接、切租户重连、未读徽标和当前通知页刷新已达 `Build-verified`；生产多副本编排/告警、Redis Cluster/Sentinel、浏览器真实后端断网恢复 E2E 与 Outbox 修复推送仍未完成。真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。

@@ -892,6 +892,17 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | .NET canonical 门槛 | **390/7/49/186**（不变；本次未修改 C#、数据库或 Integration 测试） |
 | 验证记录 | [`openapi-breaking-change-gate-2026-07-27.md`](openapi-breaking-change-gate-2026-07-27.md) |
 
+## 增补（2026-07-26，Realtime Redis Backplane 故障恢复）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **390 → 392** | 新增运行连接重连/Channel Prefix 与专用 ready 注册合同 2 项 |
+| Integration 门槛 **186 → 189** | 新增专用 Backplane 不可达健康合同 1 项，以及 SQL Server/MySQL 双 API 节点 Redis stop/start 恢复各 1 项 |
+| Integration 四分片 | API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** = **189** |
+| 完整门禁 | **189/189**，失败 **0**、跳过 **0**，**50m49s**，stderr 为 0 |
+| 四处 canonical 门槛 | **392/7/49/189** |
+| 验证记录 | [`realtime-redis-backplane-recovery-2026-07-26.md`](realtime-redis-backplane-recovery-2026-07-26.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

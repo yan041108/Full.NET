@@ -1,7 +1,8 @@
 # Realtime SignalR 基础验证记录（2026-07-26）
 
-- 范围：`IRealtimePublisher`、通知 Hub、JWT 鉴权、用户/租户分组、MessagePack、Testing 探针、Vue/Layui 管理端实时客户端
+- 范围：`IRealtimePublisher`、通知 Hub、JWT 鉴权、用户/租户分组、MessagePack、专用 Redis ready、双节点故障恢复与 Vue/Layui 管理端实时客户端
 - 计划：[实施计划](../superpowers/plans/2026-07-26-realtime-signalr-foundation-vertical-slice.md)
+- 故障恢复：[验证记录](realtime-redis-backplane-recovery-2026-07-26.md)
 - 状态：**Build-verified**
 
 ## 自动化证据
@@ -11,7 +12,8 @@
 | Unit | `RealtimeGroupsTests` **2/2** → **349 → 351** |
 | Architecture | `BusinessModules_DoNotDependOnSignalRHubContext` 等 **40/40** → **38 → 40** |
 | Integration 双库 | `Realtime_hub_and_probe` SQL Server/MySQL **2/2** → **156 → 158** |
-| 四处 canonical 门槛 | **359/7/40/172** |
+| Redis 故障恢复 | SQL Server/MySQL 双 API 节点 **2/2**；`HealthEndpointTests` **8/8** |
+| 当前 canonical 门槛 | **392/7/49/189** |
 | 浏览器共享契约 | `@fullnet/client-contracts` **72/72** |
 | Vue / Layui | **197/197** / **95/95** |
 | Mock parity | **99/99** 通过，按项目矩阵跳过 **5** |
@@ -23,13 +25,16 @@
 - 浏览器客户端可通过 `?access_token=` 传递 JWT（与 Identity 会话校验链兼容）
 - `Realtime:Enabled=false` 时注入 `NullRealtimePublisher`
 - Redis Backplane：配置 `Realtime:RedisBackplaneConnectionString` 或复用 `ConnectionStrings:redis`
+- 配置 Backplane 后注册 `realtime-backplane` ready 探针；中断不影响 live/startup
+- 运行连接保留后台重连并使用 `fullnet:{environment}:signalr:` Channel Prefix
+- 固定 Redis 端点 stop/start 后，无需重启两个 API 宿主或 SignalR 客户端即可恢复跨节点投递
 - 管理端：认证后连接 `/hubs/notifications`；Access Token 仅由内存会话闭包按需提供；切换 Host/租户上下文时先断开旧连接再重连，匿名、退出和卸载时断开
 - 通知消费：只接受已登记稳定机器码；Vue/Layui 同步真实未读徽标，并在当前站内信或公告页收到对应事件时刷新 HTTP 数据
 - 降级：初始连接失败或断开失败不破坏登录、退出、租户切换与通知页面 HTTP 主流程
 
 ## 非目标
 
-- 多实例 Backplane 真实栈、Outbox 修复推送、浏览器真实后端断网/恢复 E2E、非浏览器客户端
+- 生产多副本编排/告警、Redis Cluster/Sentinel、Outbox 修复推送、浏览器真实后端断网/恢复 E2E、非浏览器客户端
 
 ## 管理端客户端增补（2026-07-27）
 
