@@ -8,9 +8,8 @@ using Testcontainers.Redis;
 namespace Full.NET.IntegrationTests;
 
 /// <summary>
-/// 整个测试程序集只启动一个 SQL Server 和一个 MySQL 容器，每个测试在共享实例上创建独立数据库。
-/// 集成测试的墙钟瓶颈是容器启动而非 SQL 执行；共享容器把「每测一容器」降为「每测一库」，
-/// 在保持数据库级隔离的同时消除绝大部分容器 boot 开销。
+/// 整个测试程序集按需启动并复用 SQL Server、MySQL 和 Redis 容器，
+/// 每个测试仍在共享数据库实例上创建独立数据库，避免聚焦运行承担无关容器的启动成本。
 /// </summary>
 [TestClass]
 public static class SharedDatabaseFixture
@@ -29,40 +28,15 @@ public static class SharedDatabaseFixture
     private static MsSqlContainer? _sqlServer;
     private static MySqlContainer? _mySql;
     private static RedisContainer? _redis;
-
-    private static MsSqlContainer SqlServerContainer =>
-        _sqlServer ?? throw new InvalidOperationException(
-            "共享 SQL Server 容器尚未初始化。");
-
-    private static MySqlContainer MySqlContainer =>
-        _mySql ?? throw new InvalidOperationException(
-            "共享 MySQL 容器尚未初始化。");
-
-    private static RedisContainer RedisContainer =>
-        _redis ?? throw new InvalidOperationException(
-            "共享 Redis 容器尚未初始化。");
+    private static readonly SemaphoreSlim SqlServerStartLock = new(1, 1);
+    private static readonly SemaphoreSlim MySqlStartLock = new(1, 1);
+    private static readonly SemaphoreSlim RedisStartLock = new(1, 1);
 
     [AssemblyInitialize]
-    public static async Task InitializeAsync(TestContext testContext)
+    public static void Initialize(TestContext testContext)
     {
+        // 仅保留程序集级清理生命周期；具体依赖由首个消费者异步启动。
         _ = testContext;
-        _sqlServer = new MsSqlBuilder(SqlServerImage)
-            .WithPassword(Password)
-            .Build();
-        _mySql = new MySqlBuilder(MySqlImage)
-            .WithCommand("--log-bin-trust-function-creators=1")
-            .WithDatabase("fullnet")
-            .WithUsername(MySqlAppUser)
-            .WithPassword(Password)
-            .Build();
-        _redis = new RedisBuilder(RedisImage)
-            .Build();
-
-        // 两个数据库引擎与 Redis 的 boot 相互独立，并行启动进一步缩短程序集初始化时间。
-        await Task.WhenAll(
-            _sqlServer.StartAsync(),
-            _mySql.StartAsync(),
-            _redis.StartAsync());
     }
 
     [AssemblyCleanup]
@@ -92,7 +66,8 @@ public static class SharedDatabaseFixture
     /// </summary>
     public static async Task<string> CreateSqlServerDatabaseAsync()
     {
-        var baseConnectionString = SqlServerContainer.GetConnectionString();
+        var container = await GetOrStartSqlServerAsync();
+        var baseConnectionString = container.GetConnectionString();
         var databaseName = CreateDatabaseName();
         await using (var admin = new SqlConnection(baseConnectionString))
         {
@@ -110,7 +85,8 @@ public static class SharedDatabaseFixture
     /// </summary>
     public static async Task<string> CreateMySqlDatabaseAsync()
     {
-        var appConnectionString = MySqlContainer.GetConnectionString();
+        var container = await GetOrStartMySqlAsync();
+        var appConnectionString = container.GetConnectionString();
         var databaseName = CreateDatabaseName();
 
         // 官方 mysql 镜像只授予应用账户其初始库的权限；建库与授权必须由 root 完成。
@@ -137,7 +113,120 @@ public static class SharedDatabaseFixture
     /// <summary>
     /// 返回共享 Redis 容器的连接串，供需要 Backplane/分布式缓存的测试宿主复用。
     /// </summary>
-    public static string GetRedisConnectionString() => RedisContainer.GetConnectionString();
+    public static async Task<string> GetRedisConnectionStringAsync()
+    {
+        var container = await GetOrStartRedisAsync();
+        return container.GetConnectionString();
+    }
+
+    private static async Task<MsSqlContainer> GetOrStartSqlServerAsync()
+    {
+        if (_sqlServer is not null)
+        {
+            return _sqlServer;
+        }
+
+        await SqlServerStartLock.WaitAsync();
+        try
+        {
+            if (_sqlServer is not null)
+            {
+                return _sqlServer;
+            }
+
+            var container = new MsSqlBuilder(SqlServerImage)
+                .WithPassword(Password)
+                .Build();
+            try
+            {
+                await container.StartAsync();
+                _sqlServer = container;
+                return container;
+            }
+            catch
+            {
+                await container.DisposeAsync();
+                throw;
+            }
+        }
+        finally
+        {
+            SqlServerStartLock.Release();
+        }
+    }
+
+    private static async Task<MySqlContainer> GetOrStartMySqlAsync()
+    {
+        if (_mySql is not null)
+        {
+            return _mySql;
+        }
+
+        await MySqlStartLock.WaitAsync();
+        try
+        {
+            if (_mySql is not null)
+            {
+                return _mySql;
+            }
+
+            var container = new MySqlBuilder(MySqlImage)
+                .WithCommand("--log-bin-trust-function-creators=1")
+                .WithDatabase("fullnet")
+                .WithUsername(MySqlAppUser)
+                .WithPassword(Password)
+                .Build();
+            try
+            {
+                await container.StartAsync();
+                _mySql = container;
+                return container;
+            }
+            catch
+            {
+                await container.DisposeAsync();
+                throw;
+            }
+        }
+        finally
+        {
+            MySqlStartLock.Release();
+        }
+    }
+
+    private static async Task<RedisContainer> GetOrStartRedisAsync()
+    {
+        if (_redis is not null)
+        {
+            return _redis;
+        }
+
+        await RedisStartLock.WaitAsync();
+        try
+        {
+            if (_redis is not null)
+            {
+                return _redis;
+            }
+
+            var container = new RedisBuilder(RedisImage).Build();
+            try
+            {
+                await container.StartAsync();
+                _redis = container;
+                return container;
+            }
+            catch
+            {
+                await container.DisposeAsync();
+                throw;
+            }
+        }
+        finally
+        {
+            RedisStartLock.Release();
+        }
+    }
 
     // 库名需短于 MySQL 的 64 字符上限并且是合法标识符；固定前缀 + N 格式 GUID 满足两库要求。
     private static string CreateDatabaseName() =>

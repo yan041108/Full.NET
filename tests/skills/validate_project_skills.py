@@ -81,6 +81,12 @@ def main() -> int:
         if term not in combined_text:
             errors.append(f"Missing contract term: {term}")
 
+    # 模块交付 Skill 必须把验证成本按风险分层，避免后续会话恢复为
+    # “任意局部改动都先跑 172 项 Integration”的低反馈效率路径。
+    for term in ("变更风险分层", "全量触发条件", "test:integration:full"):
+        if term not in combined_text:
+            errors.append(f"Missing layered verification term: {term}")
+
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1

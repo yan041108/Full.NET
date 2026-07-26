@@ -69,11 +69,20 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 172 --timeout 90m
 ```
 
-PR ????????????filter??
+Integration 按变更风险分层，优先使用仓库标准入口：
 
 ```powershell
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --filter "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox" --minimum-expected-tests 8 --timeout 15m
+pnpm test:integration:smoke
+pnpm test:integration:api:sqlserver
+pnpm test:integration:api:mysql
+pnpm test:integration:migrations
+pnpm test:integration:infrastructure
+pnpm test:integration:partitions
+pnpm test:integration:full
+pnpm test:integration:durations
 ```
+
+普通模块切片运行受影响用例；SQL、事务、租户过滤和迁移必须成对覆盖 SQL Server/MySQL。全量触发条件为共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、Integration 测试基础设施、发布或 main 门禁变化。
 
 ??????????
 

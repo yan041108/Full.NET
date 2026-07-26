@@ -133,7 +133,8 @@ public sealed class CacheConsistencyTests
         DatabaseProvider databaseProvider,
         string connectionString)
     {
-        var redisConnectionString = SharedDatabaseFixture.GetRedisConnectionString();
+        var redisConnectionString =
+            await SharedDatabaseFixture.GetRedisConnectionStringAsync();
         var suffix = Guid.NewGuid().ToString("N")[..12];
         var identifier = $"redis-{suffix}";
         var domain = $"{identifier}.localhost";

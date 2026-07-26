@@ -98,13 +98,15 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 ## 7. 完成验证
 
-1. 先运行受影响测试和 `pnpm test:naming`，再运行 Release 构建和四套测试程序集；命令见交付地图。
+1. 按变更风险分层运行受影响测试和 `pnpm test:naming`，再运行 Release 构建；Integration 的标准命令与全量触发条件见交付地图，不得把任意局部切片机械升级为全量回归。
 2. 使用 `--minimum-expected-tests` 防止零测试假通过；增删测试后同步 README、开发文档和 CI 的测试数量。
 3. 数据变更必须实际运行 SQL Server/MySQL 集成测试。依赖不可用时报告未验证项，不得写成通过。
 4. 检查 `git diff --check`、架构依赖、UTF-8、许可证和工作区状态。
 5. 更新功能对标状态时严格区分 Mapped、Implementing、Implemented 与 Verified。
 6. 执行 rules 复盘，再执行 Skills 复盘；达到门槛时在同一任务更新相应治理文件。
 7. 存量不兼容名称只可在 `contracts/naming/naming-debt.json` 按类型、值和文件精确登记，并给出移除里程碑；禁止通配、目录豁免或让新生成代码继承债务。
+
+全量触发条件：共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、Integration 测试基础设施、发布或 main 门禁发生变化时，运行 `pnpm test:integration:full`；普通数据库切片只需执行受影响场景的 SQL Server/MySQL 成对聚焦测试。
 
 ## 按需决策速查
 

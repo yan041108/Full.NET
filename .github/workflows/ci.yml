@@ -185,6 +185,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - name: Restore
         run: dotnet restore Full.NET.slnx
 
@@ -193,6 +197,9 @@ jobs:
 
       - name: Build
         run: dotnet build Full.NET.slnx --configuration Release --no-restore
+
+      - name: Verify Integration shard discovery
+        run: node scripts/testing/verify-integration-shards.mjs
 
       - name: Unit tests
         run: >-
@@ -218,25 +225,10 @@ jobs:
       # PR ?????? Identity/Tenancy/Outbox ??????????????�?push main�?
       - name: Integration smoke (dual-provider)
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
-        run: >-
-          dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
-          --no-ansi
-          --progress off
-          --filter "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox"
-          --minimum-expected-tests 8
-          --timeout 15m
+        run: node scripts/testing/run-integration-shard.mjs smoke
 
-      # ??????????�?push main ??????�?PR ?????�?
-      - name: SQL Server and MySQL integration tests
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: >-
-          dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll
-          --no-ansi
-          --progress off
-          --minimum-expected-tests 172
-          --timeout 90m
-          --report-trx
-          --report-trx-filename Full.NET.IntegrationTests.trx
+      # canonical 本地全量回退：
+      # dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 172 --timeout 90m
 
       - name: Serialization baseline
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -258,3 +250,58 @@ jobs:
             tests/Full.NET.IntegrationTests/bin/Release/net10.0/TestResults/**/*.trx
             BenchmarkDotNet.Artifacts/results/**
           if-no-files-found: warn
+
+  integration-shard:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 105
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [api-sqlserver, api-mysql, migrations, infrastructure]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj
+
+      - name: Build Integration tests
+        run: >-
+          dotnet build
+          tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj
+          --configuration Release
+          --no-restore
+
+      - name: Run Integration shard
+        run: node scripts/testing/run-integration-shard.mjs ${{ matrix.shard }}
+
+      - name: Summarize Integration durations
+        if: always()
+        run: node scripts/testing/analyze-trx-durations.mjs
+
+      - name: Upload Integration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-integration-${{ matrix.shard }}
+          path: tests/Full.NET.IntegrationTests/bin/Release/net10.0/TestResults/**/*.trx
+          if-no-files-found: warn
+
+  integration-gate:
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-test, integration-shard]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm all Integration shards
+        run: |
+          test "${{ needs.build-test.result }}" = "success"
+          test "${{ needs.integration-shard.result }}" = "success"
+          echo "All 172 Integration tests passed across four isolated shards."

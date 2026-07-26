@@ -216,11 +216,25 @@
 1. 新行为和缺陷修复必须先建立能失败的测试或可复现实验；文档和纯机械变更可用结构化检查代替行为测试。
 2. 至少覆盖成功、验证失败、权限失败、取消、并发、重复请求和依赖故障中与变更相关的路径。
 3. 数据层变更必须运行 SQL Server 与 MySQL 集成测试。Docker 或外部依赖不可用时，必须报告未验证项，禁止静默跳过后宣称通过。
-4. Full.NET 使用 Microsoft Testing Platform；必须按 README 直接执行测试程序集并保留 `--minimum-expected-tests` 门槛，不能只看到构建成功就认为测试已执行。聚焦运行（`--filter` / `-g`）只能作为迭代手段：一旦聚焦运行因少于门槛而被拒绝或报“最低预期测试策略冲突”，必须在完成前补跑一次不带过滤的全量套件；禁止把聚焦结果、被门槛拒绝的运行或降低后的门槛表述为全量通过。
+4. Full.NET 使用 Microsoft Testing Platform；必须按 README 直接执行测试程序集并保留 `--minimum-expected-tests` 门槛，不能只看到构建成功就认为测试已执行。Integration 验证必须按变更风险分层：模块局部逻辑运行受影响测试；SQL、事务、租户过滤和迁移变更必须覆盖 SQL Server 与 MySQL；共享基础设施与发布门禁运行全量。聚焦结果只能表述为聚焦通过，被门槛拒绝、零发现或降低门槛的运行不得作为完成证据。
 5. 增删测试后必须同步 `README.md`、`docs/development/getting-started.md`、CI 与 `fullnet-module-delivery` delivery-map 中的最小测试数量，并在最新 `docs/verification/test-threshold-audit-*.md` 增补当前门槛和新鲜验证；`pnpm test:governance` 必须阻止四个 canonical 来源与最新审计记录漂移，防止过滤或发现失败造成“零测试通过”。
 6. 架构、兼容性和序列化契约必须有专门测试；不能只依赖端到端测试偶然覆盖。
 7. 完成前必须运行 Release 构建、相关测试和 `git diff --check`；报告测试总数、失败数和任何跳过项。
 8. 验证命令必须在最终代码状态下重新运行，禁止复用变更前的结果作为完成证据。凡测试会扫描或执行构建产物，测试入口必须在同一命令链先生成当前源码的新产物；禁止依赖工作区遗留产物产生假通过。
+
+### 11.1 Integration 变更风险分层
+
+| 变更范围 | 最低 Integration 验证 |
+| --- | --- |
+| 文档、纯客户端或不接触服务端行为 | 不强制运行 Integration；执行直接相关的治理、客户端或契约测试 |
+| 单模块且不改变 SQL、事务、租户、认证授权或共享宿主 | 运行受影响 Endpoint/用例的聚焦测试，并设置与发现结果一致的最低数量 |
+| SQL、Dapper 映射、事务、租户数据过滤或数据库行为 | 运行同一场景的 SQL Server 与 MySQL 聚焦测试 |
+| 新增或修改迁移 | 运行受影响迁移阶段的双库恢复测试，以及受影响模块的双库聚焦测试 |
+| 共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition 或 Integration 测试基础设施 | 运行全量 Integration |
+
+全量触发条件还包括：准备发布、`push main` 的持续集成门禁、分片发现数量之和不等于 canonical 全量门槛、无法证明变更只影响局部切片，或聚焦测试暴露跨模块/共享状态回归。main 可以把全量套件拆成互斥且穷尽的并行分片，但所有分片必须分别保留最低数量门槛，并由汇总门禁确认全部成功。
+
+本地标准入口为 `pnpm test:integration:*`。`test:integration:full` 生成 TRX；完成耗时基线或排查慢测时必须运行 `pnpm test:integration:durations`，不得只凭单次墙钟时间修改并行度、共享数据库或测试隔离策略。
 
 ## 12. 文档、依赖与发布许可
 

@@ -732,6 +732,17 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **359/7/40/172** |
 | 验证记录 | [`main-baseline-correctness-recovery-2026-07-26.md`](main-baseline-correctness-recovery-2026-07-26.md) |
 
+## 2026-07-26 Integration 反馈分层与 CI 分片增补
+
+| 项目 | 结果 |
+| --- | --- |
+| 四处 canonical 门槛 | **359/7/40/172**，测试发现数量不变 |
+| main Integration 分片 | API SQL Server **34** + API MySQL **34** + Migrations **62** + Infrastructure **42** = **172** |
+| 新鲜运行 | 四分片分别 **34/34、34/34、62/62、42/42**，合计 **172/172**，失败 **0**、跳过 **0** |
+| PR smoke | **8/8**，墙钟 **2分13秒**，按需启动路径未启动 Redis |
+
+本增补只改变验证反馈路径和 CI 调度，不增删 .NET 测试发现项。详细耗时、按需容器证据与仍待解决的 MySQL/Factory 成本见 [`integration-test-feedback-2026-07-26.md`](integration-test-feedback-2026-07-26.md)。
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

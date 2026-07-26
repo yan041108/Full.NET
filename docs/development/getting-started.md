@@ -32,18 +32,23 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | ?? | ?? `main`??????| ?? `--minimum-expected-tests 172 --timeout 90m` |
 
 ```powershell
-# ????????
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "migration_is_idempotent_and_creates_binary_outbox_schema" --minimum-expected-tests 2 --timeout 15m
+# 日常按风险选择标准入口
+pnpm test:integration:smoke
+pnpm test:integration:api:sqlserver
+pnpm test:integration:api:mysql
+pnpm test:integration:migrations
+pnpm test:integration:infrastructure
+pnpm test:integration:partitions
 
-# PR?Identity/Tenancy/Outbox ????????
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox" --minimum-expected-tests 8 --timeout 15m
+# 共享基础设施、发布和 main 门禁
+pnpm test:integration:full
+pnpm test:integration:durations
 
-# ????????Expand/Contract????????19 ??
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery" --minimum-expected-tests 19 --timeout 45m
-
-# ??????????
+# canonical 全量命令
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 172 --timeout 90m
 ```
+
+Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。SQL、事务、租户过滤和迁移变更必须成对覆盖 SQL Server/MySQL；共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、测试基础设施、发布或 main 门禁必须运行全量。
 
 ??????? Testcontainers ???? SQL Server ??MySQL????Docker ????????
 
