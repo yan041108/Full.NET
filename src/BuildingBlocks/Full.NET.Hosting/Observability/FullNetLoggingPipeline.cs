@@ -1,5 +1,6 @@
 using Serilog;
 using Serilog.Configuration;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace Full.NET.Hosting.Observability;
@@ -18,23 +19,38 @@ internal static class FullNetLoggingPipeline
             .MinimumLevel.Information()
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
             .Enrich.FromLogContext()
-            .Enrich.WithProperty("Application", applicationName)
-            .WriteTo.Logger(general => general
-                .Filter.ByExcluding(
-                    logEvent => logEvent.Level >= LogEventLevel.Error)
-                .WriteTo.Async(
-                    configureGeneralSink,
-                    bufferSize: options.AsyncBufferSize,
-                    blockWhenFull: false,
-                    monitor: monitors.General))
-            .WriteTo.Logger(highPriority => highPriority
-                .MinimumLevel.Error()
-                .WriteTo.Async(
-                    configureHighPrioritySink,
-                    bufferSize: options.HighPriorityAsyncBufferSize,
-                    blockWhenFull: false,
-                    monitor: monitors.HighPriority));
+            .Enrich.WithProperty("Application", applicationName);
+
+        var generalSink = CreateSink(configureGeneralSink);
+        try
+        {
+            var highPrioritySink = CreateSink(configureHighPrioritySink);
+            configuration.WriteTo.Sink(
+                new FullNetLoggingPipelineSink(
+                    generalSink,
+                    highPrioritySink,
+                    options,
+                    monitors));
+        }
+        catch
+        {
+            if (generalSink is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            throw;
+        }
 
         return configuration;
+    }
+
+    private static ILogEventSink CreateSink(
+        Action<LoggerSinkConfiguration> configureSink)
+    {
+        var configuration = new LoggerConfiguration()
+            .MinimumLevel.Verbose();
+        configureSink(configuration.WriteTo);
+        return configuration.CreateLogger();
     }
 }

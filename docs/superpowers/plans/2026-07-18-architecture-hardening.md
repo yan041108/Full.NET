@@ -416,9 +416,11 @@
 
 ### Task 8: 日志高优先级通道与降级演练
 
-**状态：Task 8A 已于 2026-07-26 完成。** 普通日志与 `Error/Critical` 已使用独立有界异步队列，高优先级通道固定非阻塞并提供独立队列深度、容量、丢弃指标与 ready 降级检查；共享队列过载和高优先级慢 Sink 已由聚焦 Unit 锁定。审计仍由业务数据库事务或 Outbox 持久化，不进入日志队列。磁盘 Spool、外部可靠 Sink、磁盘满/平台不可用与进程退出有界刷新属于 Task 8B，因此完整 Task 8 尚未完成。
+**状态：Task 8A 与 Task 8B1 已于 2026-07-26 完成。** 普通日志与 `Error/Critical` 已使用独立有界异步队列，高优先级通道固定非阻塞并提供独立队列深度、容量、丢弃指标与 ready 降级检查；两条 Worker 在退出时并行排空并共享一个 5 秒默认总预算，高优先级先获得等待权，超时不会把宿主退出拖成每通道各等待一次。共享队列过载、高优先级慢 Sink、正常排空与双 Sink 同时阻塞已由聚焦 Unit 锁定。审计仍由业务数据库事务或 Outbox 持久化，不进入日志队列。磁盘 Spool、外部可靠 Sink、磁盘满/平台不可用、跨重启重放与投递确认仍属于后续 Task 8B，因此完整 Task 8 尚未完成。
 
 **Task 8A 详细计划：** [`2026-07-26-high-priority-logging-channel.md`](2026-07-26-high-priority-logging-channel.md)
+
+**Task 8B1 详细计划：** [`2026-07-26-bounded-logging-shutdown.md`](2026-07-26-bounded-logging-shutdown.md)
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Hosting/Observability`
