@@ -4,6 +4,28 @@ namespace Full.NET.Data.Dapper.Outbox;
 
 internal static class OutboxSql
 {
+    public static readonly SqlStatement ReadBacklogSqlServer = new(
+        "outbox.read_backlog.sql_server",
+        """
+        SELECT COUNT_BIG(*) AS PendingCount,
+               MIN(OccurredAtUtc) AS OldestOccurredAtUtc
+        FROM fn_outbox_message
+        WHERE ProcessedAtUtc IS NULL
+          AND DeadLetteredAtUtc IS NULL;
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ReadBacklogMySql = new(
+        "outbox.read_backlog.my_sql",
+        """
+        SELECT COUNT(*) AS PendingCount,
+               MIN(OccurredAtUtc) AS OldestOccurredAtUtc
+        FROM fn_outbox_message
+        WHERE ProcessedAtUtc IS NULL
+          AND DeadLetteredAtUtc IS NULL;
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement AcquireSqlServer = new(
         "outbox.acquire.sql_server",
         """

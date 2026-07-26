@@ -14,6 +14,7 @@ internal sealed class OutboxProcessor(
     ILogger<OutboxProcessor> logger) : BackgroundService
 {
     private readonly OutboxWorkerOptions _options = options.Value;
+    private DateTimeOffset _nextBacklogSampleAtUtc = DateTimeOffset.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -48,9 +49,13 @@ internal sealed class OutboxProcessor(
         try
         {
             var store = services.GetRequiredService<IOutboxStore>();
+            var backlogReader =
+                services.GetRequiredService<IOutboxBacklogReader>();
             var handlers = services
                 .GetServices<IIntegrationEventHandler>()
                 .ToArray();
+            await RecordBacklogAsync(backlogReader, cancellationToken)
+                .ConfigureAwait(false);
             var messages = await store
                 .AcquireAsync(
                     _options.BatchSize,
@@ -72,6 +77,36 @@ internal sealed class OutboxProcessor(
         finally
         {
             currentTenant.Clear();
+        }
+    }
+
+    private async Task RecordBacklogAsync(
+        IOutboxBacklogReader backlogReader,
+        CancellationToken cancellationToken)
+    {
+        var observedAtUtc = clock.UtcNow;
+        if (observedAtUtc < _nextBacklogSampleAtUtc)
+        {
+            return;
+        }
+
+        // 先推进下一采样点，避免数据库或指标平台故障时每个轮询周期重复施压。
+        _nextBacklogSampleAtUtc = observedAtUtc.AddSeconds(
+            _options.BacklogSampleSeconds);
+        try
+        {
+            var snapshot = await backlogReader
+                .ReadBacklogAsync(cancellationToken)
+                .ConfigureAwait(false);
+            OutboxBacklogTelemetry.Record(snapshot, observedAtUtc);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            OutboxProcessorLog.BacklogSamplingFailed(logger, exception);
         }
     }
 
@@ -266,6 +301,14 @@ internal static partial class OutboxProcessorLog
         Level = LogLevel.Error,
         Message = "Outbox polling iteration failed")]
     public static partial void BatchFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
+        EventId = 3005,
+        Level = LogLevel.Warning,
+        Message = "Outbox backlog sampling failed; message processing will continue")]
+    public static partial void BacklogSamplingFailed(
+        ILogger logger,
+        Exception exception);
 }
 
 internal sealed class OutboxPermanentException(string reasonCode, string message)

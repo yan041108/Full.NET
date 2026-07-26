@@ -6,6 +6,7 @@ using Full.NET.Hosting.Observability;
 using Full.NET.Host.Worker;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.AddFullNetServiceDefaults();
@@ -14,6 +15,9 @@ builder.Services.AddFullNetDapper(
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetDatabaseSchemaModeGuard();
 builder.Services.AddFullNetMessagePack();
+builder.Services
+    .AddOpenTelemetry()
+    .WithMetrics(metrics => metrics.AddMeter(OutboxBacklogTelemetry.MeterName));
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);

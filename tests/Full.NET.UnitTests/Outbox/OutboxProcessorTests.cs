@@ -12,6 +12,7 @@ using global::MessagePack;
 namespace Full.NET.UnitTests.Outbox;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class OutboxProcessorTests
 {
     [TestMethod]
@@ -213,6 +214,108 @@ public sealed class OutboxProcessorTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task ProcessOnceAsync_RecordsPendingCountAndOldestMessageAge()
+    {
+        var now = new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero);
+        var store = CreateStore();
+        BacklogReader(store)
+            .ReadBacklogAsync(Arg.Any<CancellationToken>())
+            .Returns(new OutboxBacklogSnapshot(2, now.AddSeconds(-90)));
+        var measurements = new List<(string Name, double Value)>();
+        using var listener = new System.Diagnostics.Metrics.MeterListener
+        {
+            InstrumentPublished = (instrument, currentListener) =>
+            {
+                if (instrument.Meter.Name == OutboxBacklogTelemetry.MeterName)
+                {
+                    currentListener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<long>(
+            (instrument, measurement, _, _) =>
+                measurements.Add((instrument.Name, measurement)));
+        listener.SetMeasurementEventCallback<double>(
+            (instrument, measurement, _, _) =>
+                measurements.Add((instrument.Name, measurement)));
+        listener.Start();
+        await using var provider = CreateProvider(store);
+        var processor = CreateProcessor(provider, now);
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.backlog.messages", 2d));
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.backlog.oldest_age", 90d));
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_WhenBacklogSamplingFailsStillProcessesMessages()
+    {
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        BacklogReader(store)
+            .ReadBacklogAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<OutboxBacklogSnapshot>(
+                new InvalidOperationException("Backlog sampling failed.")));
+        var handler = new RecordingHandler(message.MessageType, message.SchemaVersion);
+        var now = new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = CreateProcessor(provider, now);
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, handler.HandledCount);
+        await store.Received(1).MarkProcessedAsync(
+            message.Id,
+            message.LockId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_WithinBacklogSampleIntervalReadsSnapshotOnlyOnce()
+    {
+        var now = new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero);
+        var store = CreateStore();
+        var options = new OutboxWorkerOptions
+        {
+            BacklogSampleSeconds = 60,
+        };
+        await using var provider = CreateProvider(store);
+        var processor = CreateProcessor(provider, now, options);
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        await BacklogReader(store).Received(1).ReadBacklogAsync(
+            Arg.Any<CancellationToken>());
+        await store.Received(2).AcquireAsync(
+            options.BatchSize,
+            TimeSpan.FromSeconds(options.LeaseSeconds),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public void OutboxWorkerOptionsValidator_RejectsUnsafeBacklogSampleInterval()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            BacklogSampleSeconds = 4,
+        };
+        var validator = new OutboxWorkerOptionsValidator();
+
+        var result = validator.Validate(Options.DefaultName, options);
+
+        Assert.IsFalse(result.Succeeded);
+        CollectionAssert.Contains(
+            (result.Failures ?? []).ToArray(),
+            "OutboxWorker:BacklogSampleSeconds must be between 5 and 3600.");
+    }
+
     private static OutboxProcessor CreateProcessor(
         ServiceProvider provider,
         DateTimeOffset now,
@@ -224,13 +327,16 @@ public sealed class OutboxProcessorTests
 
     private static IOutboxStore CreateStore(params OutboxEnvelope[] messages)
     {
-        var store = Substitute.For<IOutboxStore>();
+        var store = Substitute.For<IOutboxStore, IOutboxBacklogReader>();
         store
             .AcquireAsync(
                 Arg.Any<int>(),
                 Arg.Any<TimeSpan>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<OutboxEnvelope>>(messages));
+        BacklogReader(store)
+            .ReadBacklogAsync(Arg.Any<CancellationToken>())
+            .Returns(new OutboxBacklogSnapshot(0, null));
         return store;
     }
 
@@ -241,6 +347,7 @@ public sealed class OutboxProcessorTests
         var services = new ServiceCollection();
         services.AddScoped<CurrentTenantAccessor>();
         services.AddSingleton(store);
+        services.AddSingleton(BacklogReader(store));
         foreach (var handler in handlers)
         {
             services.AddSingleton(handler);
@@ -248,6 +355,9 @@ public sealed class OutboxProcessorTests
 
         return services.BuildServiceProvider();
     }
+
+    private static IOutboxBacklogReader BacklogReader(IOutboxStore store) =>
+        (IOutboxBacklogReader)store;
 
     private static OutboxEnvelope CreateMessage(
         int attempts,
