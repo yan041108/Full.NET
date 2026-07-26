@@ -136,19 +136,41 @@ public sealed class MySqlConnectionStringPolicyTests
     }
 
     [TestMethod]
-    public void Production_requires_explicit_storage_mode_configuration()
+    public void Production_rejects_invalid_database_configuration()
     {
         var configuration = CreateConfiguration(includeStorageMode: false);
         using var provider = new ServiceCollection()
             .AddFullNetDapper(configuration, Environments.Production)
             .BuildServiceProvider();
 
-        var exception = Assert.ThrowsExactly<OptionsValidationException>(() =>
+        var missingStorageModeException =
+            Assert.ThrowsExactly<OptionsValidationException>(() =>
             _ = provider.GetRequiredService<IOptions<DatabaseOptions>>().Value);
 
         Assert.Contains(
             "MySqlGuidStorageMode",
-            exception.Message,
+            missingStorageModeException.Message,
+            StringComparison.Ordinal);
+
+        var invalidProviderConfiguration = CreateConfiguration(
+            includeStorageMode: true,
+            storageMode: MySqlGuidStorageMode.Binary16,
+            provider: (DatabaseProvider)int.MaxValue);
+        using var invalidProvider = new ServiceCollection()
+            .AddFullNetDapper(
+                invalidProviderConfiguration,
+                Environments.Production)
+            .BuildServiceProvider();
+
+        var invalidProviderException =
+            Assert.ThrowsExactly<OptionsValidationException>(() =>
+                _ = invalidProvider
+                    .GetRequiredService<IOptions<DatabaseOptions>>()
+                    .Value);
+
+        Assert.Contains(
+            "Provider",
+            invalidProviderException.Message,
             StringComparison.Ordinal);
     }
 
@@ -211,11 +233,12 @@ public sealed class MySqlConnectionStringPolicyTests
     private static IConfiguration CreateConfiguration(
         bool includeStorageMode,
         string? environmentName = null,
-        MySqlGuidStorageMode storageMode = MySqlGuidStorageMode.LegacyChar36)
+        MySqlGuidStorageMode storageMode = MySqlGuidStorageMode.LegacyChar36,
+        DatabaseProvider provider = DatabaseProvider.MySql)
     {
         var values = new Dictionary<string, string?>
         {
-            [$"{DatabaseOptions.SectionName}:Provider"] = DatabaseProvider.MySql.ToString(),
+            [$"{DatabaseOptions.SectionName}:Provider"] = provider.ToString(),
             [$"{DatabaseOptions.SectionName}:ConnectionString"] = ConnectionString,
             [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
         };

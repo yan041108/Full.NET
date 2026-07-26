@@ -77,6 +77,9 @@ public static class ServiceCollectionExtensions
                 options => options.CommandTimeoutSeconds > 0,
                 "CommandTimeoutSeconds must be greater than zero.")
             .Validate(
+                options => Enum.IsDefined(options.Provider),
+                "Provider must be a supported value.")
+            .Validate(
                 options => Enum.IsDefined(options.MySqlGuidStorageMode),
                 "MySqlGuidStorageMode must be a supported value.")
             .Validate(
