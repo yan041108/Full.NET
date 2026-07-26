@@ -11,7 +11,19 @@ public sealed class RateLimitPolicyErrorCodes
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
         ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
-        _policyCodes[policyName] = errorCode;
+        if (_policyCodes.TryGetValue(policyName, out var registeredErrorCode))
+        {
+            if (!string.Equals(registeredErrorCode, errorCode, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Rate limit policy '{policyName}' is already mapped to "
+                    + $"'{registeredErrorCode}' and cannot be remapped to '{errorCode}'.");
+            }
+
+            return;
+        }
+
+        _policyCodes.Add(policyName, errorCode);
     }
 
     public string Resolve(string? policyName, string fallbackErrorCode)
