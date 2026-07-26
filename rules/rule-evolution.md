@@ -92,6 +92,7 @@
 | --- | --- | --- | ---: | --- | --- |
 | C-20260723-migrator-tenant-context-closure | 模块在 `AddMigrationServices` 注册 `ITenantProvisioningService`、Outbox 写入或 Seed Contributor 时，必须同闭包注册 `ICurrentTenant`；仅放在 `AddBackgroundServices` 会导致 Migrator `ValidateOnBuild` 失败 | 2026-07-23 Tenancy Host 租户切片真实栈 E2E：Migrator Seed 启动失败 | 1 | 同左；`FullNetModuleCatalogTests.Migrator_profile_registers_tenant_context_for_seed_and_outbox` 已锁定 | 若再次出现同类失败，在 `development-quality.md` 固化 Migrator 最小闭包检查清单 |
 | C-20260726-repository-scan-worktree-isolation | 从仓库根递归扫描源码或项目时必须隔离 Git 嵌套工作树，否则其他任务的副本会形成重复项或假阳性 | 2026-07-26 提交前 Architecture 门禁因 `.worktrees/uniapp-uni-ui-adoption` 出现 3 项假阳性 | 1 | 同左；`Repository_file_scans_exclude_nested_worktrees_and_build_outputs` 已锁定 | 若其他扫描器再次误入 `.worktrees`，升级为统一仓库扫描强制规则或共享测试辅助能力 |
+| C-20260726-testcontainer-restart-port-stability | 依赖固定服务端点语义的 Testcontainers stop/start 恢复测试不能使用会在重启时重新分配的随机宿主端口，否则会把夹具端点漂移误判为生产重连失败 | 2026-07-26 Realtime 双节点 Redis 恢复测试：同一容器宿主端口从 `32796` 变为 `32797`，容器内已 `PONG` 而 API 仍连接旧端点 | 1 | 同左；恢复夹具已预留固定宿主端口并断言重启前后连接字符串不变 | 若第二个容器恢复场景再次命中，固化为 Integration 夹具规则或共享稳定端点辅助能力 |
 
 ## 8. 防止规则失控
 

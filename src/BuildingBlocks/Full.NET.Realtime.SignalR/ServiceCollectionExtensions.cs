@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
-using StackExchange.Redis;
+using Full.NET.Realtime.SignalR.Health;
 
 namespace Full.NET.Realtime.SignalR;
 
@@ -40,11 +40,14 @@ public static class ServiceCollectionExtensions
 
         if (!string.IsNullOrWhiteSpace(options.RedisBackplaneConnectionString))
         {
-            signalRBuilder.AddStackExchangeRedis(options.RedisBackplaneConnectionString, redisOptions =>
-            {
-                redisOptions.Configuration.ChannelPrefix =
-                    RedisChannel.Literal($"fullnet:{environmentName.ToLowerInvariant()}:signalr:");
-            });
+            signalRBuilder.AddStackExchangeRedis(redisOptions =>
+                redisOptions.Configuration = RealtimeRedisConfiguration.Create(
+                    options.RedisBackplaneConnectionString,
+                    environmentName));
+            services.AddHealthChecks()
+                .AddCheck<RealtimeBackplaneHealthCheck>(
+                    "realtime-backplane",
+                    tags: ["ready"]);
         }
 
         services.AddSingleton<IRealtimePublisher, SignalRRealtimePublisher>();
