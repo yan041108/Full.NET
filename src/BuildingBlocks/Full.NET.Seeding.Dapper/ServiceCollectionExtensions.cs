@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Seeding.Abstractions;
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -28,7 +29,7 @@ public static class ServiceCollectionExtensions
         services.AddOptions<SeedOptions>()
             .Bind(configuration.GetSection(SeedOptions.SectionName))
             .Validate(
-                options => !string.IsNullOrWhiteSpace(options.DefaultLocale)
+                options => IsValidLocale(options.DefaultLocale)
                     && options.LockTimeoutSeconds is >= 1 and <= 300,
                 SeedErrorCodes.OptionsInvalid)
             .ValidateOnStart();
@@ -38,5 +39,23 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ISeedExecutionStore, SeedExecutionStore>();
         services.TryAddScoped<ISeedOrchestrator, SeedOrchestrator>();
         return services;
+    }
+
+    private static bool IsValidLocale(string? locale)
+    {
+        if (string.IsNullOrWhiteSpace(locale))
+        {
+            return false;
+        }
+
+        try
+        {
+            _ = CultureInfo.GetCultureInfo(locale.Trim());
+            return true;
+        }
+        catch (CultureNotFoundException)
+        {
+            return false;
+        }
     }
 }
