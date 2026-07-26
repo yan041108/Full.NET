@@ -205,7 +205,7 @@
   `rules/skill-evolution.md` 判断是否需要演进项目 Skill。未达到门槛时只在验证记录写明
   结论，不新增近义规则。
 
-- [ ] **Step 5: 提交、合并并清理**
+- [x] **Step 5: 提交、合并并清理**
 
   在隔离分支生成一个聚焦提交；切回主工作区确认日志任务已提交且 `main` 无受保护改动后，
   将 `codex/outbox-backlog-telemetry` 合并到 `main`。合并成功后删除工作树和已合并分支，
