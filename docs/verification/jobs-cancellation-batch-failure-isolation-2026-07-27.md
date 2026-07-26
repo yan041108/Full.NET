@@ -39,6 +39,10 @@
 | Docker | SQL Server/MySQL 测试容器与 Ryuk 已退出 |
 | canonical | Unit **395 → 396**；Compatibility/Architecture/Integration 保持 **7/49/189** |
 
+合并到 `main` 后再次运行 Release、Unit 与 Jobs 双库聚焦门禁：Release 保持
+**0 warning / 0 error**，Unit **396/396**，Jobs SQL Server/MySQL **2/2**（约 **52s**）；
+随后确认 Integration 与 Docker 进程均已退出，并删除功能工作树和分支。
+
 规则复盘没有达到新增规则门槛：现有后台取消、租约恢复和坏消息批次隔离规则已经覆盖本次缺陷。
 Skills 复盘也没有发现项目 Skill 缺口；本次只是一次 Jobs Runner 局部修复，机械门槛同步已更新既有
 `fullnet-module-delivery` reference。

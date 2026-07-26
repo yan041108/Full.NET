@@ -138,7 +138,7 @@
 
   读取 `rules/rule-evolution.md` 与 `rules/skill-evolution.md`。若只命中单次 Jobs 取消缺陷且现有并发/取消规则已覆盖，则记录无需新增规则或 Skill。
 
-- [ ] **Step 5: 提交、合并并清理**
+- [x] **Step 5: 提交、合并并清理**
 
   精确暂存本计划列出的 owned 文件，提交 `fix(jobs): preserve cancellation and isolate batch failures`；同步最新 main 后重新运行受影响门槛，快进合并到 main，删除 `codex/jobs-batch-failure-isolation` 工作树与分支，并确认 Docker/Integration 进程已释放。
 
