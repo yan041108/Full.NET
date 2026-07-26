@@ -64,6 +64,11 @@
 清理强断言保持不变；生产 Runner 与领取 SQL 未修改。详细过程见
 [多 Worker 原子领取验证](jobs-multi-worker-claim-2026-07-27.md)。
 
+功能分支已 fast-forward 合入 main。合并后 Release 仍为 **0 warning / 0 error**，
+Unit/Compatibility/Architecture 再次为 **400/400** / **7/7** / **49/49**，
+Jobs SQL Server/MySQL 聚焦再次 **2/2** 通过；功能 worktree、Git 注册和分支均已删除，
+Docker 容器为 0。
+
 ## 保持不变的边界
 
 - 默认行为仍为单轮最多领取 10 条、每轮间隔 2 秒。
