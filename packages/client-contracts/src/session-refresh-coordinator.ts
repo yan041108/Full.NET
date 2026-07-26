@@ -34,43 +34,68 @@ interface StorageLockRecord {
   expiresAt: number;
 }
 
-function readStorageLock(): StorageLockRecord | undefined {
-  if (typeof localStorage === 'undefined') {
+function readSharedStorage(): Storage | undefined {
+  try {
+    return typeof localStorage === 'undefined' ? undefined : localStorage;
+  } catch {
     return undefined;
   }
+}
 
-  const raw = localStorage.getItem(storageLockKey);
-  if (!raw) {
+function readStorageLock(): StorageLockRecord | undefined {
+  const storage = readSharedStorage();
+  if (storage === undefined) {
     return undefined;
   }
 
   try {
+    const raw = storage.getItem(storageLockKey);
+    if (!raw) {
+      return undefined;
+    }
+
     return JSON.parse(raw) as StorageLockRecord;
   } catch {
-    localStorage.removeItem(storageLockKey);
+    try {
+      storage.removeItem(storageLockKey);
+    } catch {
+      // 浏览器拒绝存储访问等同于回退能力不可用，不得阻断会话恢复。
+    }
+
     return undefined;
   }
 }
 
-function writeStorageLock(owner: string): void {
-  if (typeof localStorage === 'undefined') {
-    return;
+function writeStorageLock(owner: string): boolean {
+  const storage = readSharedStorage();
+  if (storage === undefined) {
+    return false;
   }
 
-  localStorage.setItem(storageLockKey, JSON.stringify({
-    owner,
-    expiresAt: Date.now() + storageLockTtlMs
-  } satisfies StorageLockRecord));
+  try {
+    storage.setItem(storageLockKey, JSON.stringify({
+      owner,
+      expiresAt: Date.now() + storageLockTtlMs
+    } satisfies StorageLockRecord));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function clearStorageLock(owner: string): void {
-  if (typeof localStorage === 'undefined') {
+  const storage = readSharedStorage();
+  if (storage === undefined) {
     return;
   }
 
   const current = readStorageLock();
   if (current?.owner === owner) {
-    localStorage.removeItem(storageLockKey);
+    try {
+      storage.removeItem(storageLockKey);
+    } catch {
+      // 租约自带过期时间，清理被拒绝时由后续调用安全接管。
+    }
   }
 }
 
@@ -82,7 +107,10 @@ async function withStorageLock<T>(
   while (Date.now() < deadline) {
     const current = readStorageLock();
     if (!current || current.expiresAt <= Date.now()) {
-      writeStorageLock(owner);
+      if (!writeStorageLock(owner)) {
+        return operation();
+      }
+
       if (readStorageLock()?.owner === owner) {
         try {
           return await operation();
@@ -167,7 +195,7 @@ export function createSessionRefreshCoordinator(
       return navigator.locks.request(lockName, execute);
     }
 
-    if (typeof localStorage !== 'undefined') {
+    if (readSharedStorage() !== undefined) {
       return withStorageLock(tabId, execute);
     }
 

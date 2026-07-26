@@ -913,6 +913,16 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | .NET canonical 门槛 | **395/7/49/189**（不变；本次未修改 C#、数据库或 Integration 测试） |
 | 验证记录 | [`realtime-signalr-foundation-2026-07-26.md`](realtime-signalr-foundation-2026-07-26.md) |
 
+## 增补（2026-07-27，会话刷新存储回退）
+
+| 项目 | 结果 |
+| --- | --- |
+| client-contracts Vitest **75 → 76** | 无 Web Locks 时使用 `localStorage` 跨 Tab 短租约；存储策略抛出 `SecurityError` 时降级执行刷新 |
+| RED / GREEN | 存储拒绝场景由聚焦 **1/4** 失败转为 **4/4**；共享契约全量 **76/76**，TypeScript 构建通过 |
+| Vue / Layui | **201/201** / **95/95**（Vue 聚合门槛随 workspace 链接中的共享测试增加 1 项） |
+| .NET canonical 门槛 | **395/7/49/189**（不变；本次未修改 C#、数据库或 Integration 测试） |
+| 验证记录 | [`session-refresh-localstorage-fallback-2026-07-27.md`](session-refresh-localstorage-fallback-2026-07-27.md) |
+
 ## 增补（2026-07-26，日志退出共享预算）
 
 | 项目 | 结果 |
@@ -923,6 +933,31 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | Compatibility / Architecture / Integration 门槛 | **7 / 49 / 189**（不变） |
 | 四处 canonical 门槛 | **395/7/49/189** |
 | 验证记录 | [`bounded-logging-shutdown-2026-07-26.md`](bounded-logging-shutdown-2026-07-26.md) |
+
+## 增补（2026-07-27，Jobs 取消传播与批次故障隔离）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **395 → 396** | 新增宿主取消向上传播且不写业务失败状态的 Runner 回归测试 |
+| RED / GREEN | 生产实现未修改时取消测试因“未抛异常”失败；最小修复后聚焦 **1/1** 通过 |
+| Jobs SQL Server/MySQL 聚焦 | 既有两项用例内嵌同批缺失 Handler/健康任务隔离场景，**2/2** 通过，失败 0、跳过 0，约 **60s** |
+| Integration 门槛与分片 | 保持 **189**；API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** |
+| 最终静态门禁 | Release **0 warning / 0 error**；Unit/Compatibility/Architecture **396/7/49**；Governance **11/11**；Skill **52**；workspace 通过 |
+| 四处 canonical 门槛 | **396/7/49/189** |
+| 验证记录 | [`jobs-cancellation-batch-failure-isolation-2026-07-27.md`](jobs-cancellation-batch-failure-isolation-2026-07-27.md) |
+
+## 增补（2026-07-27，Identity 组合根职责拆分）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **396 → 398** | 新增组合根委托等价与重复注册关键契约 2 项；冻结 Identity 自有描述符顺序、实现类型与生命周期 |
+| RED / GREEN | 四个内部注册扩展缺失时编译失败；重复 Scheme、授权有效描述符顺序等中间回归被测试捕获，最小修复后 Identity 聚焦 **122/122** |
+| Release / canonical | Release **0 warning / 0 error**；Unit/Compatibility/Architecture **398/7/49**，失败 0、跳过 0 |
+| 静态门禁 | OpenAPI **58/58**、breaking **25/25**、Governance **11/11**、Skill **52**、workspace 通过 |
+| 客户端事实 | client-contracts **76**、Vue **201**、Layui **95**；本次未修改客户端，保留 `localStorage` 跨 Tab 短租约及 `SecurityError` 降级事实 |
+| Integration 门槛 | 保持 **189**；SQL Server/MySQL Identity 登录、刷新、权限与 Seed 聚焦 **8/8**，Vue/Layui 真实栈登录 **2/2** |
+| 四处 canonical 门槛 | **398/7/49/189** |
+| 验证记录 | [`identity-module-registration-split-2026-07-27.md`](identity-module-registration-split-2026-07-27.md) |
 
 ## 关联文档
 

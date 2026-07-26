@@ -74,6 +74,12 @@ internal sealed class JobExecutionRunner(
             await MarkSucceededAsync(execution.Id, leaseId, cancellationToken)
                 .ConfigureAwait(false);
         }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            // 宿主取消不属于业务失败；保留当前租约，由过期恢复路径重新领取未完成任务。
+            throw;
+        }
         catch (Exception exception)
         {
             JobExecutionRunnerLog.ExecutionFailed(

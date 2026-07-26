@@ -130,4 +130,20 @@ describe('session refresh coordinator', () => {
 
     expect(maxActive).toBe(1);
   });
+
+  it('共享存储被浏览器策略拒绝时降级执行刷新', async () => {
+    vi.stubGlobal('navigator', {});
+    vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new DOMException('Storage access denied', 'SecurityError');
+      }
+    });
+    const operation = vi.fn().mockResolvedValue(true);
+    const coordinator = createSessionRefreshCoordinator({ tabId: 'denied-tab' });
+
+    await expect(coordinator.runExclusive(operation)).resolves.toBe(true);
+
+    expect(operation).toHaveBeenCalledOnce();
+  });
 });

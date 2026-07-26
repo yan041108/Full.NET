@@ -313,10 +313,18 @@ export async function enterDevelopmentTenant(page, tenantName = 'Full.NET Local'
   await expectVisibleCurrentContext(page, tenantName);
 }
 
-/** 断言侧栏当前上下文名称（避开 el-select/option 等 hidden 文本）。 */
+/** 断言当前上下文名称（避开 el-select/option 等 hidden 文本）。 */
 export async function expectVisibleCurrentContext(page, name) {
-  const vueContext = page.locator('.tenant-card > strong');
+  const vueShell = page.locator('[data-client-kind="vue"]');
+  if ((await vueShell.count()) > 0) {
+    await page.locator('.art-user-menu__trigger').click();
+    const selector = page.getByTestId('shell-tenant-select');
+    await expect(selector.getByText(name, { exact: true })).toBeVisible({
+      timeout: 15_000
+    });
+    return;
+  }
+
   const layuiContext = page.locator('.fn-tenant > [data-current-context]');
-  const target = (await vueContext.count()) > 0 ? vueContext : layuiContext;
-  await expect(target).toHaveText(name, { timeout: 15_000 });
+  await expect(layuiContext).toHaveText(name, { timeout: 15_000 });
 }
