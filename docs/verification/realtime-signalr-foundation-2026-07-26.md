@@ -15,7 +15,7 @@
 | Redis 故障恢复 | SQL Server/MySQL 双 API 节点 **2/2**；`HealthEndpointTests` **8/8** |
 | 当前 canonical 门槛 | **392/7/49/189** |
 | 浏览器共享契约 | `@fullnet/client-contracts` **75/75** |
-| Vue / Layui | **197/197** / **95/95** |
+| Vue / Layui | **200/200** / **95/95** |
 | Mock parity | **99/99** 通过，按项目矩阵跳过 **5** |
 
 ## 行为摘要
@@ -49,5 +49,5 @@
 
 - RED：首次 `start()` 失败后不会创建第二个连接，也不存在可由租户切换、匿名化或销毁取消的重试计时器，聚焦 **3/6** 失败
 - GREEN：首次失败使用与 SignalR 自动重连一致的 **0/2s/10s/30s** 退避并在上限保持 30 秒；计时器绑定 `sessionId + tenantId`，旧上下文不会在切换后恢复连接
-- 验证：`@fullnet/client-contracts` **75/75**，TypeScript 构建通过；Vue/Layui 适配器继续消费同一共享控制器，无需双端复制重试状态机
+- 验证：`@fullnet/client-contracts` **75/75**、Vue 聚合 **200/200**、Layui **95/95**，TypeScript 构建通过；Vue/Layui 适配器继续消费同一共享控制器，无需双端复制重试状态机
 - 状态仍为 `Build-verified`：单元测试锁定调度和取消语义，但浏览器真实后端断网/恢复 E2E 仍未执行
