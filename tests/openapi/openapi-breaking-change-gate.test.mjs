@@ -1,0 +1,361 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const repositoryRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../..'
+);
+const scriptPath = path.join(
+  repositoryRoot,
+  'scripts/openapi/check-openapi-breaking-changes.mjs'
+);
+
+const baselineContract = {
+  id: 'sample-v1',
+  version: 1,
+  description: '基线说明',
+  paths: [
+    {
+      path: '/api/v1/samples',
+      operations: [
+        {
+          method: 'GET',
+          permission: 'samples.read',
+          successStatus: 200,
+          responseSchema: 'SampleResponsePage'
+        },
+        {
+          method: 'POST',
+          permission: 'samples.write',
+          successStatus: 201,
+          requestSchema: 'CreateSampleRequest',
+          responseSchema: 'SampleResponse'
+        }
+      ]
+    },
+    {
+      path: '/api/v1/samples/{sampleId}',
+      operations: [
+        {
+          method: 'GET',
+          permission: 'samples.read',
+          successStatus: 200,
+          responseSchema: 'SampleResponse'
+        }
+      ]
+    }
+  ],
+  schemas: {
+    SampleResponse: {
+      properties: ['id', 'name']
+    },
+    SampleResponsePage: {
+      properties: ['items', 'page', 'pageSize', 'total'],
+      itemSchema: 'SampleResponse'
+    },
+    CreateSampleRequest: {
+      properties: ['name']
+    }
+  }
+};
+
+const platformContract = {
+  apiTitle: 'Full.NET API',
+  documentName: 'v1',
+  openApiJsonPath: '/openapi/v1.json',
+  scalarUiPath: '/scalar/v1',
+  securitySchemeName: 'Bearer',
+  securitySchemeType: 'http',
+  securitySchemeScheme: 'bearer'
+};
+
+function clone(value) {
+  return structuredClone(value);
+}
+
+async function writeContractSet(directoryPath, contracts) {
+  await mkdir(directoryPath, { recursive: true });
+
+  await Promise.all(
+    Object.entries(contracts).map(([fileName, contract]) =>
+      writeFile(
+        path.join(directoryPath, fileName),
+        `${JSON.stringify(contract, null, 2)}\n`,
+        'utf8'
+      )
+    )
+  );
+}
+
+async function compareDirectories(baseline, current) {
+  const temporaryRoot = await mkdtemp(
+    path.join(os.tmpdir(), 'fullnet-openapi-compatibility-')
+  );
+  const baselineDirectory = path.join(temporaryRoot, 'baseline');
+  const currentDirectory = path.join(temporaryRoot, 'current');
+
+  try {
+    await writeContractSet(baselineDirectory, baseline);
+    await writeContractSet(currentDirectory, current);
+
+    return spawnSync(
+      process.execPath,
+      [
+        scriptPath,
+        '--baseline-directory',
+        baselineDirectory,
+        '--current-directory',
+        currentDirectory
+      ],
+      {
+        cwd: repositoryRoot,
+        encoding: 'utf8'
+      }
+    );
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+}
+
+test('新增规范版本契约保持兼容，身份、文件名或版本漂移会失败', async () => {
+  const currentContract = clone(baselineContract);
+  currentContract.description = '新的说明不影响机器契约';
+  currentContract.paths.reverse();
+  currentContract.paths
+    .find(({ path: contractPath }) => contractPath === '/api/v1/samples')
+    .operations.reverse();
+  currentContract.schemas.SampleResponse.properties = ['displayName', 'name', 'id'];
+  currentContract.schemas.NewResponse = { properties: ['value'] };
+  currentContract.paths.push({
+    path: '/api/v1/samples/search',
+    operations: [
+      {
+        method: 'GET',
+        permission: 'samples.read',
+        successStatus: 200,
+        responseSchema: 'SampleResponsePage'
+      }
+    ]
+  });
+
+  const currentContracts = {
+    'sample-v1.json': currentContract,
+    'sample-v2.json': {
+      id: 'sample-v2',
+      version: 2,
+      paths: [],
+      schemas: {}
+    }
+  };
+  const result = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    currentContracts
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /OpenAPI compatibility check passed/);
+
+  const duplicateResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {
+      ...currentContracts,
+      'sample-v1-copy.json': clone(currentContract)
+    }
+  );
+
+  assert.equal(duplicateResult.status, 1);
+  assert.match(
+    duplicateResult.stderr,
+    /duplicate contract identity: sample-v1-copy\.json and sample-v1\.json use id=sample-v1, version=1/
+  );
+
+  const invalidIdentityContract = clone(currentContract);
+  invalidIdentityContract.version = '1';
+  const invalidIdentityResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {
+      ...currentContracts,
+      'sample-invalid-version.json': invalidIdentityContract
+    }
+  );
+
+  assert.equal(invalidIdentityResult.status, 1);
+  assert.match(
+    invalidIdentityResult.stderr,
+    /invalid contract identity: sample-invalid-version\.json requires a non-empty string id and positive integer version/
+  );
+
+  const misnamedContract = clone(currentContract);
+  misnamedContract.id = 'sample-v3';
+  misnamedContract.version = 3;
+  const misnamedResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {
+      ...currentContracts,
+      'sample-misnamed.json': misnamedContract
+    }
+  );
+
+  assert.equal(misnamedResult.status, 1);
+  assert.match(
+    misnamedResult.stderr,
+    /contract identity mismatch: sample-misnamed\.json must be named sample-v3\.json/
+  );
+
+  const mismatchedVersionContract = clone(currentContract);
+  mismatchedVersionContract.id = 'sample-v4';
+  mismatchedVersionContract.version = 3;
+  const mismatchedVersionResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {
+      ...currentContracts,
+      'sample-v4.json': mismatchedVersionContract
+    }
+  );
+
+  assert.equal(mismatchedVersionResult.status, 1);
+  assert.match(
+    mismatchedVersionResult.stderr,
+    /contract version mismatch: sample-v4\.json id suffix v4 does not match version=3/
+  );
+});
+
+test('删除版本化契约文件会失败', async () => {
+  const result = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    {}
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /contract removed: sample-v1\.json/);
+});
+
+test('删除路径或操作以及改变稳定操作字段会失败', async () => {
+  const currentContract = clone(baselineContract);
+  currentContract.paths = currentContract.paths.filter(
+    ({ path: contractPath }) =>
+      contractPath !== '/api/v1/samples/{sampleId}'
+  );
+  const collectionPath = currentContract.paths[0];
+  collectionPath.operations = collectionPath.operations.filter(
+    ({ method }) => method !== 'GET'
+  );
+  const createOperation = collectionPath.operations[0];
+  createOperation.permission = 'samples.admin';
+  createOperation.successStatus = 200;
+  createOperation.requestSchema = 'ReplaceSampleRequest';
+  createOperation.responseSchema = 'NewResponse';
+
+  const result = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    { 'sample-v1.json': currentContract }
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /path removed: sample-v1\.json \/api\/v1\/samples\/\{sampleId\}/
+  );
+  assert.match(
+    result.stderr,
+    /operation removed: sample-v1\.json GET \/api\/v1\/samples/
+  );
+  assert.match(
+    result.stderr,
+    /operation changed: sample-v1\.json POST \/api\/v1\/samples permission/
+  );
+  assert.match(
+    result.stderr,
+    /operation changed: sample-v1\.json POST \/api\/v1\/samples successStatus/
+  );
+  assert.match(
+    result.stderr,
+    /operation changed: sample-v1\.json POST \/api\/v1\/samples requestSchema/
+  );
+  assert.match(
+    result.stderr,
+    /operation changed: sample-v1\.json POST \/api\/v1\/samples responseSchema/
+  );
+});
+
+test('删除 schema、删除属性或改变 itemSchema 会失败', async () => {
+  const currentContract = clone(baselineContract);
+  delete currentContract.schemas.CreateSampleRequest;
+  currentContract.schemas.SampleResponse.properties = ['name'];
+  currentContract.schemas.SampleResponsePage.itemSchema = 'NewResponse';
+
+  const result = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    { 'sample-v1.json': currentContract }
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /schema removed: sample-v1\.json CreateSampleRequest/
+  );
+  assert.match(
+    result.stderr,
+    /schema property removed: sample-v1\.json SampleResponse\.id/
+  );
+  assert.match(
+    result.stderr,
+    /schema itemSchema changed: sample-v1\.json SampleResponsePage/
+  );
+});
+
+test('改变平台 OpenAPI 稳定配置会失败', async () => {
+  const currentContract = clone(platformContract);
+  currentContract.description = '说明字段允许变化';
+  currentContract.securitySchemeScheme = 'basic';
+
+  const result = await compareDirectories(
+    { 'platform-api-documentation-v1.json': platformContract },
+    { 'platform-api-documentation-v1.json': currentContract }
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /stable setting changed: platform-api-documentation-v1\.json securitySchemeScheme/
+  );
+});
+
+test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () => {
+  const result = spawnSync(
+    process.execPath,
+    [scriptPath, '--base-ref', 'HEAD', '--repository-root', repositoryRoot],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /OpenAPI compatibility check passed/);
+});
+
+test('无效 Git ref 返回使用错误而不是兼容结果', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      scriptPath,
+      '--base-ref',
+      'refs/heads/does-not-exist',
+      '--repository-root',
+      repositoryRoot
+    ],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8'
+    }
+  );
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Unable to load OpenAPI baseline from Git ref/);
+});

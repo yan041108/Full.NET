@@ -323,7 +323,8 @@
 
   已先读 `rules/rule-evolution.md`，再读 `rules/skill-evolution.md`。本轮把容器
   stop/start 随机宿主端口漂移登记为首次候选经验；`fullnet-realtime-feature`
-  候选次数更新为 2，但尚缺第二类业务消费者或生产编排流程，不创建新 Skill。
+  候选在本任务中由 1 更新为 2；同步 Notifications 管理端客户端后，仓库聚合证据为
+  3。当前仍缺第二类业务消费者或完整生产编排流程，创建新 Skill 会扩大任务范围。
 
 - [ ] **Step 5: 提交、同步并回到 main**
 
@@ -333,6 +334,6 @@
 
 ## Self-Review
 
-- Spec coverage：覆盖 dedicated Redis ready、双节点交付、故障可见、自动恢复、双库、运维和状态；明确不做客户端、业务通知和 Outbox 推送。
+- Spec coverage：覆盖 dedicated Redis ready、双节点交付、故障可见、自动恢复、双库、运维和状态；客户端由前序 Notifications 切片独立交付，本任务不改其行为；明确不做业务通知和 Outbox 推送。
 - Placeholder scan：无 `TBD`、`TODO`、泛化“适当处理”或未定义类型。
 - Type consistency：`RealtimeRedisConfiguration.Create`、`RealtimeBackplaneHealthCheck`、健康检查名与测试筛选在全部 Task 中一致。

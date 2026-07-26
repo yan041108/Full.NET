@@ -21,6 +21,7 @@ describe('headless 身份会话', () => {
     await session.login('admin', 'FullNet!2026Secure');
 
     expect(session.snapshot().state).toBe('authenticated');
+    expect(session.readAccessToken()).toBe('access-token');
     expect(session.snapshot().navigation).toHaveLength(2);
     expect(session.snapshot().availableTenants).toHaveLength(1);
     expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
@@ -31,6 +32,7 @@ describe('headless 身份会话', () => {
     ]);
     expect(storage.getItem(localeStorageKey)).toBe('zh-CN');
     session.dispose();
+    expect(session.readAccessToken()).toBeUndefined();
   });
 
   it('权限判断精确匹配完整编码', async () => {

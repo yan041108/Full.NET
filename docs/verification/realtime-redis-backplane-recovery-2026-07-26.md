@@ -38,8 +38,9 @@
 - 健康结果不包含连接字符串、异常堆栈或 Redis 内部类型。
 - Channel Prefix 不包含租户、用户、连接或消息机器码。
 - 即时下行仍是尽力交付；需要可靠传播的业务状态继续使用事务 Outbox。
-- 当前未验证生产多副本编排、Redis Cluster/Sentinel、TLS、指标告警和 Vue/Layui
-  SignalR 客户端，因此能力不提升为 `Verified`。
+- Vue/Layui SignalR 客户端已通过共享契约、双端单测、Mock parity 与生产构建；
+  当前仍未验证生产多副本编排、Redis Cluster/Sentinel、TLS、指标告警和浏览器真实
+  后端断网恢复 E2E，因此能力不提升为 `Verified`。
 
 ## 最终门槛
 

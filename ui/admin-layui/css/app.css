@@ -97,6 +97,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .fn-topbar__actions button:hover { border-color: var(--fullnet-color-line); background: #fff; color: var(--fullnet-color-accent); }
 .fn-topbar__actions .has-signal::after { position: absolute; top: 6px; right: 7px; width: 5px; height: 5px; border: 2px solid var(--fullnet-color-canvas); border-radius: 50%; background: var(--fullnet-color-danger); content: ""; }
 .fn-topbar__actions .has-signal.is-success::after { background: var(--fullnet-color-success); }
+.fn-topbar__unread-badge { position: absolute; top: 1px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--fullnet-color-danger); color: #fff; font-size: 9px; font-weight: 700; line-height: 16px; text-align: center; pointer-events: none; }
 .fn-clock { display: grid; gap: 3px; margin-left: 12px; padding-left: 18px; border-left: 1px solid var(--fullnet-color-line); }
 .fn-clock small { color: var(--fullnet-color-ink-muted); font-size: 8px; }
 .fn-clock strong { font: 600 10px/1 var(--fullnet-font-display); }

@@ -1,9 +1,10 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import {
   createIdentitySession,
   type CurrentUserResponse,
   type IdentitySessionController,
+  type IdentitySessionSnapshot,
   type NavigationNode,
   type SessionState,
   type TenantContextSummary
@@ -78,6 +79,41 @@ export const useSessionStore = defineStore('identity-session', () => {
     await getController().logout();
   }
 
+  function snapshot(): IdentitySessionSnapshot {
+    return {
+      state: state.value,
+      currentUser: currentUser.value,
+      navigation: navigation.value,
+      availableTenants: availableTenants.value,
+      switching: switching.value,
+      savingLocale: savingLocale.value,
+      currentContextName: currentContextName.value
+    };
+  }
+
+  function subscribe(
+    listener: Parameters<IdentitySessionController['subscribe']>[0]
+  ): () => void {
+    listener(snapshot());
+    return watch(
+      [
+        state,
+        currentUser,
+        navigation,
+        availableTenants,
+        switching,
+        savingLocale,
+        currentContextName
+      ],
+      () => listener(snapshot()),
+      { deep: true }
+    );
+  }
+
+  function readAccessToken(): string | undefined {
+    return controller?.readAccessToken();
+  }
+
   return {
     state,
     currentUser,
@@ -92,6 +128,9 @@ export const useSessionStore = defineStore('identity-session', () => {
     restore,
     switchTenant,
     changeLocale,
-    logout
+    logout,
+    snapshot,
+    subscribe,
+    readAccessToken
   };
 });

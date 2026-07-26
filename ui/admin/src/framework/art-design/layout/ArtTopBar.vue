@@ -29,6 +29,7 @@ const props = defineProps<{
   menuCollapsed: boolean;
   tenantSelectorLabel: string;
   notificationsLabel: string;
+  notificationUnreadCount: number;
   chatLabel: string;
   languageLabel: string;
   logoutLabel: string;
@@ -85,6 +86,14 @@ const fullscreenLabel = computed(() =>
 const fullscreenIcon = computed(() => FullScreen);
 const fullscreenButtonClass = computed(() =>
   isFullscreen.value ? 'art-header__exit-fullscreen-btn' : 'art-header__fullscreen-btn'
+);
+const notificationButtonLabel = computed(() =>
+  props.notificationUnreadCount > 0
+    ? `${props.notificationsLabel} (${props.notificationUnreadCount})`
+    : props.notificationsLabel
+);
+const notificationBadge = computed(() =>
+  props.notificationUnreadCount > 99 ? '99+' : String(props.notificationUnreadCount)
 );
 
 function toggleFullscreen(): void {
@@ -186,10 +195,16 @@ onUnmounted(() => {
         <ArtIconButton
           class="art-header__notice-btn"
           :icon="Bell"
-          :label="notificationsLabel"
+          :label="notificationButtonLabel"
           @click.stop="toggleNotice"
         >
-          <span class="art-header__badge art-header__badge--danger" aria-hidden="true" />
+          <span
+            v-if="notificationUnreadCount > 0"
+            class="art-header__badge art-header__badge--danger"
+            aria-hidden="true"
+          >
+            {{ notificationBadge }}
+          </span>
         </ArtIconButton>
 
         <ArtIconButton
@@ -324,11 +339,17 @@ onUnmounted(() => {
 
 .art-header__badge {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+  top: 2px;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
   pointer-events: none;
 }
 

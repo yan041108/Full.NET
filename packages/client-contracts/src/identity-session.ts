@@ -37,6 +37,7 @@ export interface IdentitySessionController {
   changeLocale(locale: SupportedLocale): Promise<void>;
   logout(): Promise<void>;
   can(permission: string): boolean;
+  readAccessToken(): string | undefined;
   snapshot(): IdentitySessionSnapshot;
   subscribe(listener: (snapshot: IdentitySessionSnapshot) => void): () => void;
   dispose(): void;
@@ -360,6 +361,13 @@ export function createIdentitySession(
     return currentUser?.permissions.includes(permission) === true;
   }
 
+  /**
+   * 仅供认证传输适配器按需读取内存令牌；不得写入快照、DOM 或持久化存储。
+   */
+  function readAccessToken(): string | undefined {
+    return token?.accessToken;
+  }
+
   function clearLocal(): void {
     sessionGeneration++;
     token = undefined;
@@ -424,6 +432,7 @@ export function createIdentitySession(
     changeLocale,
     logout,
     can,
+    readAccessToken,
     snapshot,
     subscribe,
     dispose

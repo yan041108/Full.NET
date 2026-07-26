@@ -66,6 +66,9 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运�
 corepack enable
 pnpm install --frozen-lockfile
 pnpm test:naming
+pnpm test:openapi
+# 分支开发时，将 main 替换为实际 PR 基线 ref
+pnpm test:openapi:breaking -- --base-ref main
 pnpm test:workspace
 pnpm test:clients
 pnpm build:clients
@@ -87,4 +90,4 @@ Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新�
 
 ## 当前边界
 
-M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、MessagePack 与可选 Redis Backplane 已达 `Build-verified`；专用 ready 探针和 SQL Server/MySQL 双 API 节点 stop/start 故障恢复已自动化验证，但管理端实时客户端、生产多副本编排与告警仍未完成；真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。
+M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、MessagePack、可选 Redis Backplane、专用 ready 探针、SQL Server/MySQL 双 API 节点 stop/start 故障恢复，以及 Vue/Layui 管理端认证连接、切租户重连、未读徽标和当前通知页刷新已达 `Build-verified`；生产多副本编排/告警、Redis Cluster/Sentinel、浏览器真实后端断网恢复 E2E 与 Outbox 修复推送仍未完成。真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。
