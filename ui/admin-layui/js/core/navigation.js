@@ -39,6 +39,12 @@ const presentation = new Map([
     titleKey: 'navigation.onlineSessions.title',
     captionKey: 'navigation.onlineSessions.caption'
   }],
+  ['api-keys', {
+    view: 'api-keys',
+    iconClass: 'layui-icon-password',
+    titleKey: 'navigation.apiKeys.title',
+    captionKey: 'navigation.apiKeys.caption'
+  }],
   ['roles', {
     view: 'roles',
     iconClass: 'layui-icon-group',

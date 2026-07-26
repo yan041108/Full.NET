@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenTelemetry;
@@ -32,19 +33,35 @@ public static class ServiceDefaultsExtensions
                 ["AsyncBufferSize must be greater than zero."]);
         }
 
-        var logMonitor = new FullNetAsyncLogMonitor();
-        builder.Services.AddSingleton(logMonitor);
-        builder.Services.AddSerilog((services, configuration) => configuration
-            .MinimumLevel.Information()
-            .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
-            .ReadFrom.Services(services)
-            .Enrich.FromLogContext()
-            .Enrich.WithProperty("Application", builder.Environment.ApplicationName)
-            .WriteTo.Async(
+        if (loggingOptions.HighPriorityAsyncBufferSize <= 0)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["HighPriorityAsyncBufferSize must be greater than zero."]);
+        }
+
+        if (loggingOptions.BlockWhenFull)
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["BlockWhenFull must remain false to protect request threads."]);
+        }
+
+        var loggingMonitors = new FullNetLoggingMonitors();
+        builder.Services.AddSingleton(loggingMonitors);
+        builder.Services.AddSerilog((services, configuration) =>
+        {
+            configuration.ReadFrom.Services(services);
+            FullNetLoggingPipeline.Configure(
+                configuration,
+                builder.Environment.ApplicationName,
+                loggingOptions,
+                loggingMonitors,
                 sink => sink.Console(new CompactJsonFormatter()),
-                bufferSize: loggingOptions.AsyncBufferSize,
-                blockWhenFull: loggingOptions.BlockWhenFull,
-                monitor: logMonitor));
+                sink => sink.Console(new CompactJsonFormatter()));
+        });
 
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<FullNetExceptionHandler>();
@@ -69,11 +86,15 @@ public static class ServiceDefaultsExtensions
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             LocalizationErrorResourceSource>());
-        builder.Services.AddHealthChecks();
+        builder.Services.AddHealthChecks()
+            .AddCheck<HighPriorityLoggingHealthCheck>(
+                "high_priority_logging",
+                failureStatus: HealthStatus.Degraded,
+                tags: ["ready"]);
 
         var openTelemetry = builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("Full.NET.Logging")
+                .AddMeter(FullNetAsyncLogMonitor.MeterName)
                 .AddMeter(ResourceErrorMessageLocalizer.MeterName)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()

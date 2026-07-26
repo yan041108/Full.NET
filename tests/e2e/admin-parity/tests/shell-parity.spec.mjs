@@ -1276,6 +1276,101 @@ test('在线用户列表与强制下线在两端保持一致', async ({ page }, 
   await expect.poll(() => operations.some(operation => operation.type === 'revoke')).toBe(true);
 });
 
+test('API Key 创建、一次性明文与禁用在两端保持一致', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await mockAuthenticatedSession(page);
+  const keyId = '01912345-6789-7abc-8def-0123456789b8';
+  const userId = '01912345-6789-7abc-8def-0123456789ac';
+  const state = { created: false, active: true };
+  const operations = [];
+  const apiKey = () => ({
+    id: keyId,
+    userId,
+    username: 'parity-automation',
+    displayName: '对等流水线',
+    keyPrefix: 'fn_live_parity',
+    permissions: ['platform.dashboard.read'],
+    expiresAtUtc: null,
+    isActive: state.active,
+    lastUsedAtUtc: null,
+    createdAtUtc: '2026-07-26T00:00:00Z'
+  });
+
+  await page.route('**/api/v1/identity/api-keys**', async route => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: state.created ? [apiKey()] : [],
+          page: 1,
+          pageSize: 20,
+          total: state.created ? 1 : 0
+        })
+      });
+      return;
+    }
+    if (method === 'POST' && route.request().url().endsWith('/api/v1/identity/api-keys')) {
+      operations.push({ type: 'create', body: route.request().postDataJSON() });
+      state.created = true;
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ key: apiKey(), secret: 'fn_live_once_only' })
+      });
+      return;
+    }
+    if (method === 'POST' && route.request().url().includes(`/${keyId}/disable`)) {
+      operations.push({ type: 'disable' });
+      state.active = false;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(apiKey())
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /API Key/i }).click();
+  await expect(page.getByRole('heading', { name: 'API Key', exact: true })).toBeVisible();
+
+  const apiKeysView = routeView(page, clientKind, 'api-keys', '.api-keys-view');
+  await apiKeysView.getByLabel('用户 ID').fill(userId);
+  await apiKeysView.getByLabel('显示名称').fill('对等流水线');
+  await apiKeysView.getByLabel('权限代码').fill(
+    'platform.dashboard.read,\nplatform.dashboard.read'
+  );
+  await apiKeysView.getByRole('button', { name: '创建', exact: true }).click();
+
+  await expect(apiKeysView.getByText('fn_live_once_only', { exact: true })).toBeVisible();
+  await expect.poll(() => operations.find(operation => operation.type === 'create')?.body)
+    .toEqual({
+      userId,
+      displayName: '对等流水线',
+      permissions: ['platform.dashboard.read'],
+      expiresAtUtc: null
+    });
+  expect(await page.evaluate(secret => ({
+    local: Object.values(localStorage).includes(secret),
+    session: Object.values(sessionStorage).includes(secret)
+  }), 'fn_live_once_only')).toEqual({ local: false, session: false });
+
+  await apiKeysView.getByRole('button', { name: '禁用', exact: true }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
+      .evaluate(button => button.click());
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
+  await expect(apiKeysView.getByText('已禁用', { exact: true })).toBeVisible();
+});
+
 test('Host 文件列表与上传删除在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page);
@@ -2923,6 +3018,12 @@ function navigationResponse(unknownComponent = false, activeTenantId = null) {
       path: '/identity/online-sessions', componentKey: 'online-sessions',
       title: '在线用户', caption: 'Host 在线会话与强制下线',
       icon: 'monitor', order: 35, requiredPermission: 'identity.sessions.read', children: []
+    },
+    {
+      id: 'api-keys', parentId: null, routeName: 'api-keys',
+      path: '/identity/api-keys', componentKey: 'api-keys',
+      title: 'API Key', caption: 'Host API Key 与自动化访问',
+      icon: 'key', order: 36, requiredPermission: 'identity.api_keys.read', children: []
     },
     {
       id: 'roles', parentId: null, routeName: 'roles', path: '/identity/roles',

@@ -72,7 +72,7 @@
 
 | Admin.NET.Pro 能力 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| API Key 认证 | Identity | Core | M2 | Build-verified |
+| API Key 认证 | Identity | Core | M2 | **Build-verified**（Host 创建/列表/禁用与认证、Vue/Layui 双管理端、Mock parity 2/2；轮换、使用审计与真实后端浏览器链路仍待补；见[验证记录](../verification/identity-api-key-2026-07-26.md)） |
 | 请求签名认证 | Identity Signature Auth | Official Module | M5+ | Mapped |
 | 缓存管理 | Caching Admin | Official Module | M5+ | Mapped |
 | 列显示个性化 | Settings + Client Preferences | Core | M3 | Mapped |

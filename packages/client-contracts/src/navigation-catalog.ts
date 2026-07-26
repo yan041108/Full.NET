@@ -40,6 +40,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/identity/online-sessions'
   },
   {
+    componentKey: 'api-keys',
+    routeName: 'api-keys',
+    path: '/identity/api-keys'
+  },
+  {
     componentKey: 'roles',
     routeName: 'roles',
     path: '/identity/roles'
