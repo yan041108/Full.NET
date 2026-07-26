@@ -103,6 +103,17 @@ test('分片集合拒绝重复和遗漏', () => {
     })
   );
   assert.throws(
+    () =>
+      verifyPartitionSets(
+        [
+          full[0],
+          { uid: full[0].uid, displayName: 'One duplicate' }
+        ],
+        { left: [full[0]] }
+      ),
+    /全量测试 UID 重复/
+  );
+  assert.throws(
     () => verifyPartitionSets(full, { left: [full[0]], right: [full[0]] }),
     /同时落入/
   );
