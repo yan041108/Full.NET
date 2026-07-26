@@ -18,7 +18,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 392
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 395
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 ```
@@ -357,7 +357,8 @@ Outbox Worker 还会通过 `Full.NET.Outbox` Meter 暴露无标签的
     "Logging": {
       "AsyncBufferSize": 10000,
       "HighPriorityAsyncBufferSize": 1000,
-      "BlockWhenFull": false
+      "BlockWhenFull": false,
+      "ShutdownFlushTimeout": "00:00:05"
     }
   }
 }
@@ -365,7 +366,9 @@ Outbox Worker 还会通过 `Full.NET.Outbox` Meter 暴露无标签的
 
 `Information/Warning` 与 `Error/Critical` 使用独立有界异步队列；高优先级通道固定非阻塞，`BlockWhenFull=true` 会在启动时被拒绝。`fullnet.logging.queue.depth`、`fullnet.logging.queue.capacity`、`fullnet.logging.events.dropped` 均使用固定 `channel=general|high_priority` 标签；高优先级队列达到 90% 时，`high_priority_logging` 就绪检查返回 `Degraded`。告警与故障处置见[日志降级运维说明](../operations/logging-degraded-mode.md)。
 
-日志指标不能替代审计：认证、超级管理员、Seed 等审计仍由数据库事务或 Outbox 持久化，不进入 Serilog 队列。本地磁盘 Spool、外部可靠 Sink 与进程退出有界刷新仍属于后续 Task 8B。
+`ShutdownFlushTimeout` 是两条通道共享的总退出预算，默认 5 秒且只允许 `(0, 30s]`。退出时两个 Worker 并行排空，高优先级先获得剩余等待时间；到期只放弃尚未进入 Sink 的内存事件，不在退出线程同步等待阻塞的磁盘或网络 Sink。
+
+日志指标不能替代审计：认证、超级管理员、Seed 等审计仍由数据库事务或 Outbox 持久化，不进入 Serilog 队列。本地磁盘 Spool、外部可靠 Sink、跨重启重放与投递确认仍属于后续 Task 8B。
 
 ## 10. ???????
 

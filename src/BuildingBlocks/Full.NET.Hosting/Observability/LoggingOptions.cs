@@ -27,4 +27,12 @@ public sealed class LoggingOptions
     /// Full.NET 禁止启用该兼容配置；属性仅用于在启动时给出明确校验错误。
     /// </remarks>
     public bool BlockWhenFull { get; set; }
+
+    /// <summary>
+    /// 获取或设置两条日志通道在宿主退出时共享的最大排空时间。
+    /// </summary>
+    /// <remarks>
+    /// 该预算只约束进程退出等待，不允许日志调用方在运行期间同步等待 Sink。
+    /// </remarks>
+    public TimeSpan ShutdownFlushTimeout { get; set; } = TimeSpan.FromSeconds(5);
 }

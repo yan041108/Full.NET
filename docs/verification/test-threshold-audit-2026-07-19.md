@@ -903,6 +903,17 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **392/7/49/189** |
 | 验证记录 | [`realtime-redis-backplane-recovery-2026-07-26.md`](realtime-redis-backplane-recovery-2026-07-26.md) |
 
+## 增补（2026-07-26，日志退出共享预算）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **392 → 395** | 新增双阻塞 Sink 共享总预算、正常退出双通道完整排空、退出预算范围校验 |
+| RED / GREEN | 配置契约缺失时聚焦编译失败；补齐契约后旧 Async 实现的双阻塞退出测试准确超时；自有双通道调度器实现后日志聚焦与 Monitor 回归 **10/10** 通过 |
+| 故障注入 | 普通与高优先级 Sink 同时阻塞、总预算 100ms 时 Logger 释放在单一预算边界后返回；可用 Sink 在预算内完整接收两条通道事件 |
+| Compatibility / Architecture / Integration 门槛 | **7 / 49 / 189**（不变） |
+| 四处 canonical 门槛 | **395/7/49/189** |
+| 验证记录 | [`bounded-logging-shutdown-2026-07-26.md`](bounded-logging-shutdown-2026-07-26.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
