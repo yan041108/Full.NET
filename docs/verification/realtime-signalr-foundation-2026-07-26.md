@@ -14,8 +14,8 @@
 | Integration 双库 | `Realtime_hub_and_probe` SQL Server/MySQL **2/2** → **156 → 158** |
 | Redis 故障恢复 | SQL Server/MySQL 双 API 节点 **2/2**；`HealthEndpointTests` **8/8** |
 | 当前 canonical 门槛 | **392/7/49/189** |
-| 浏览器共享契约 | `@fullnet/client-contracts` **72/72** |
-| Vue / Layui | **197/197** / **95/95** |
+| 浏览器共享契约 | `@fullnet/client-contracts` **75/75** |
+| Vue / Layui | **200/200** / **95/95** |
 | Mock parity | **99/99** 通过，按项目矩阵跳过 **5** |
 
 ## 行为摘要
@@ -28,9 +28,9 @@
 - 配置 Backplane 后注册 `realtime-backplane` ready 探针；中断不影响 live/startup
 - 运行连接保留后台重连并使用 `fullnet:{environment}:signalr:` Channel Prefix
 - 固定 Redis 端点 stop/start 后，无需重启两个 API 宿主或 SignalR 客户端即可恢复跨节点投递
-- 管理端：认证后连接 `/hubs/notifications`；Access Token 仅由内存会话闭包按需提供；切换 Host/租户上下文时先断开旧连接再重连，匿名、退出和卸载时断开
+- 管理端：认证后连接 `/hubs/notifications`；Access Token 仅由内存会话闭包按需提供；首次 `start()` 失败后按 **0/2s/10s/30s** 退避重建连接；切换 Host/租户上下文时取消旧重试并连接新上下文，匿名、退出和卸载时断开
 - 通知消费：只接受已登记稳定机器码；Vue/Layui 同步真实未读徽标，并在当前站内信或公告页收到对应事件时刷新 HTTP 数据
-- 降级：初始连接失败或断开失败不破坏登录、退出、租户切换与通知页面 HTTP 主流程
+- 降级：初始连接失败会在后台自恢复，重试或断开失败均不破坏登录、退出、租户切换与通知页面 HTTP 主流程
 
 ## 非目标
 
@@ -44,3 +44,10 @@
 - GREEN：共享契约 **72/72**、Vue **197/197**、Layui **95/95**；Mock parity **99/99**（按矩阵跳过 **5**）；Vue/Layui/共享包生产构建通过
 - Mock 边界：纯 Mock web server 通过 `VITE_REALTIME_ENABLED=false` 显式关闭 Hub 和初始未读查询；真实开发与真实栈默认启用，不以 404 探测能力
 - 状态仍为 `Build-verified`：本切片不把 Mock/单元/构建证据提升为真实多实例或浏览器断网恢复验证
+
+## 管理端首次连接恢复增补（2026-07-27）
+
+- RED：首次 `start()` 失败后不会创建第二个连接，也不存在可由租户切换、匿名化或销毁取消的重试计时器，聚焦 **3/6** 失败
+- GREEN：首次失败使用与 SignalR 自动重连一致的 **0/2s/10s/30s** 退避并在上限保持 30 秒；计时器绑定 `sessionId + tenantId`，旧上下文不会在切换后恢复连接
+- 验证：`@fullnet/client-contracts` **75/75**、Vue 聚合 **200/200**、Layui **95/95**，TypeScript 构建通过；Vue/Layui 适配器继续消费同一共享控制器，无需双端复制重试状态机
+- 状态仍为 `Build-verified`：单元测试锁定调度和取消语义，但浏览器真实后端断网/恢复 E2E 仍未执行

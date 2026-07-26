@@ -903,6 +903,16 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **392/7/49/189** |
 | 验证记录 | [`realtime-redis-backplane-recovery-2026-07-26.md`](realtime-redis-backplane-recovery-2026-07-26.md) |
 
+## 增补（2026-07-27，Notifications 首次连接失败恢复）
+
+| 项目 | 结果 |
+| --- | --- |
+| client-contracts Vitest **72 → 75** | 新增首次 `start()` 失败退避恢复、切上下文取消旧重试、匿名化/销毁取消重试 3 项 |
+| RED / GREEN | 聚焦测试由 **3/6** 失败转为 **6/6**；共享契约全量 **75/75**，TypeScript 构建通过 |
+| Vue / Layui / Mock parity | **200/200** / **95/95** / **99/99**（Vue 聚合门槛随 workspace 链接中的共享测试增加 3 项；两端继续消费共享控制器） |
+| .NET canonical 门槛 | **395/7/49/189**（不变；本次未修改 C#、数据库或 Integration 测试） |
+| 验证记录 | [`realtime-signalr-foundation-2026-07-26.md`](realtime-signalr-foundation-2026-07-26.md) |
+
 ## 增补（2026-07-26，日志退出共享预算）
 
 | 项目 | 结果 |
