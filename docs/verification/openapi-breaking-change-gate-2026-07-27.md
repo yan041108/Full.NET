@@ -4,9 +4,10 @@
 
 ## 摘要
 
-为 `contracts/openapi/*.json` 增加纯离线向后兼容比较器。Pull request 现在以
-`github.event.pull_request.base.sha` 为基线，比较当前工作树中的全部冻结夹具；无需启动 API、
-数据库或 Docker，也不依赖外部服务。
+为 `contracts/openapi/*.json` 增加纯离线向后兼容比较器。Pull request 以
+`github.event.pull_request.base.sha` 为基线，`main` 推送以 `github.event.before` 为基线，
+比较当前工作树中的全部冻结夹具；新建引用的全零 before SHA 会安全跳过。整个门禁无需启动
+API、数据库或 Docker，也不依赖外部服务。
 
 ## 兼容边界
 
@@ -33,7 +34,7 @@
 | 行为 RED | CLI 尚不存在时，兼容变化、破坏变化、Git ref 和错误退出码聚焦 **0/7** |
 | 行为 GREEN | 目录比较、稳定诊断与 Git ref 加载聚焦 **7/7** |
 | CI RED | `package.json` 缺少入口，PR workflow 未传 base SHA，聚焦 **0/1** |
-| CI GREEN | package/checkout 完整历史/PR base SHA wiring **1/1** |
+| CI GREEN | package/checkout 完整历史/PR base SHA/main push before SHA wiring **1/1** |
 | 真实基线 | `pnpm test:openapi:breaking -- --base-ref HEAD` 比较 **25/25** 个夹具，无破坏变化 |
 
 OpenAPI 离线测试发现数由 **50 → 58**；.NET canonical 门槛保持
@@ -45,6 +46,7 @@ OpenAPI 离线测试发现数由 **50 → 58**；.NET canonical 门槛保持
 - CLI：`scripts/openapi/check-openapi-breaking-changes.mjs`
 - 本地入口：`pnpm test:openapi:breaking -- --base-ref <git-ref>`
 - PR 基线：`${{ github.event.pull_request.base.sha }}`
+- `main` 推送基线：`${{ github.event.before }}`；全零 SHA 表示新建引用，不执行比较
 - 诊断按英文稳定键排序，包含夹具文件、路径/方法或 schema 精确位置。
 
 ## 完整非 Docker 验证
