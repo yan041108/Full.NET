@@ -31,6 +31,43 @@ function indexOperations(pathEntry) {
   );
 }
 
+function validateContractIdentities(contracts, changes) {
+  const identities = new Map();
+
+  for (const [fileName, contract] of contracts) {
+    const hasId = Object.hasOwn(contract, 'id');
+    const hasVersion = Object.hasOwn(contract, 'version');
+    if (!hasId && !hasVersion) {
+      continue;
+    }
+
+    if (
+      typeof contract.id !== 'string' ||
+      contract.id.trim().length === 0 ||
+      !Number.isInteger(contract.version) ||
+      contract.version < 1
+    ) {
+      changes.push(
+        `invalid contract identity: ${fileName} requires a non-empty ` +
+          'string id and positive integer version'
+      );
+      continue;
+    }
+
+    const identityKey = JSON.stringify([contract.id, contract.version]);
+    const existingFileName = identities.get(identityKey);
+    if (existingFileName) {
+      changes.push(
+        `duplicate contract identity: ${existingFileName} and ${fileName} ` +
+          `use id=${String(contract.id)}, version=${String(contract.version)}`
+      );
+      continue;
+    }
+
+    identities.set(identityKey, fileName);
+  }
+}
+
 function compareStructuredContract(fileName, baseline, current, changes) {
   for (const fieldName of Object.keys(baseline)) {
     if (
@@ -141,6 +178,8 @@ function compareStableSettings(fileName, baseline, current, changes) {
 
 export function compareContractSets(baselineContracts, currentContracts) {
   const changes = [];
+
+  validateContractIdentities(currentContracts, changes);
 
   for (const [fileName, baseline] of baselineContracts) {
     const current = currentContracts.get(fileName);
