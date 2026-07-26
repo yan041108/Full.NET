@@ -140,7 +140,7 @@
 **Files:**
 - Modify: `THIRD-PARTY-NOTICES`
 - Modify: `docs/verification/realtime-signalr-foundation-2026-07-26.md`
-- Modify: `docs/verification/capability-status.md`
+- Modify: `docs/roadmap/capability-status.md`
 - Modify if discovered counts change: `docs/verification/test-threshold-audit-2026-07-19.md`
 
 **Interfaces:**
@@ -167,9 +167,9 @@
 
   Expected: governance and Skill checks pass; diff check is silent; status contains only this slice.
 
-- [ ] **Step 5: Synchronize and integrate**
+- [x] **Step 5: Synchronize and verify integration readiness**
 
-  Rebase or merge the latest local `main` after Realtime and bounded logging finish, rerun affected gates, commit the closed slice, merge it into local `main`, then remove `codex/notifications-realtime-admin-client` and its worktree.
+  Merge the latest coordinated local `main`, resolve shared verification records, rerun affected gates, and commit the closed slice. The user-selected branch-finishing path then merges it into local `main` and removes `codex/notifications-realtime-admin-client` with its owned worktree.
 
 ## Self-Review
 
