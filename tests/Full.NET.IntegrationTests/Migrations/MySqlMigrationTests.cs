@@ -20,6 +20,32 @@ public sealed class MySqlMigrationTests
     [TestMethod]
     public async Task MySql_migration_is_idempotent_and_creates_binary_outbox_schema()
     {
+        await AuditingSanitizationTestMigrationRunner.MigrateMySqlThrough031Async(
+            _connectionString);
+        var legacyExceptionLogId = Guid.CreateVersion7();
+        await using (var legacyConnection = CreateConnection())
+        {
+            await legacyConnection.ExecuteAsync(
+                """
+                INSERT INTO fn_auditing_exception_log
+                    (Id, OccurredAtUtc, ExceptionType, Message, StackTrace,
+                     HttpMethod, RequestPath, UserId, TenantId, TraceId,
+                     ClientIpFingerprint)
+                VALUES
+                    (UNHEX(@IdHex), @OccurredAtUtc, 'System.InvalidOperationException',
+                     @Message, @StackTrace, 'GET', '/legacy', NULL, NULL,
+                     'legacy-trace', NULL)
+                """,
+                new
+                {
+                    IdHex = Convert.ToHexString(
+                        legacyExceptionLogId.ToByteArray(bigEndian: true)),
+                    OccurredAtUtc = DateTimeOffset.UtcNow,
+                    Message = "database-password=legacy-secret",
+                    StackTrace = "at Legacy(database-password=legacy-secret)",
+                });
+        }
+
         var runner = new DbUpMigrationRunner(
             Options.Create(new DatabaseOptions
             {
@@ -36,11 +62,25 @@ public sealed class MySqlMigrationTests
         var second = await runner.MigrateAsync();
 
         Assert.IsTrue(first.Successful);
-        Assert.IsTrue(first.ExecutedScriptCount > 0);
+        Assert.AreEqual(1, first.ExecutedScriptCount);
         Assert.IsTrue(second.Successful);
         Assert.AreEqual(0, second.ExecutedScriptCount);
 
         await using var connection = CreateConnection();
+        var sanitized = await connection.QuerySingleAsync<SanitizedExceptionLog>(
+            """
+            SELECT Message, StackTrace
+            FROM fn_auditing_exception_log
+            WHERE Id = UNHEX(@IdHex)
+            """,
+            new
+            {
+                IdHex = Convert.ToHexString(
+                    legacyExceptionLogId.ToByteArray(bigEndian: true)),
+            });
+        Assert.AreEqual("Unhandled application exception.", sanitized.Message);
+        Assert.IsNull(sanitized.StackTrace);
+
         var tables = (await connection.QueryAsync<string>(
             "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE()"))
             .ToArray();
@@ -515,4 +555,6 @@ public sealed class MySqlMigrationTests
         string PreferredLocale,
         int ProfileVersion,
         string DefaultLocale);
+
+    private sealed record SanitizedExceptionLog(string Message, string? StackTrace);
 }

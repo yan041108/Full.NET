@@ -35,6 +35,14 @@ internal sealed class FullNetApiFactory(
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        var settings = BuildSettings();
+        foreach (var pair in settings.Where(pair => pair.Value is not null))
+        {
+            // Minimal Hosting 会在 ConfigureAppConfiguration 回调前执行部分即时配置读取；
+            // WebHost setting 确保 Redis 等启动期依赖在模块注册时已经可见。
+            builder.UseSetting(pair.Key, pair.Value);
+        }
+
         builder.UseEnvironment("Testing");
         builder.UseContentRoot(Path.Combine(
             FindRepositoryRoot(),
@@ -42,7 +50,7 @@ internal sealed class FullNetApiFactory(
             "Hosts",
             "Full.NET.Host.Api"));
         builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(BuildSettings()));
+            configuration.AddInMemoryCollection(settings));
         builder.ConfigureServices(services =>
             services.PostConfigure<FusionCacheOptions>(options =>
             {
@@ -62,6 +70,8 @@ internal sealed class FullNetApiFactory(
             [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] = "Binary16",
             ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
             ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
+            // 一般 API 契约场景会多次登录不同用户；登录限流语义由专用测试显式覆盖。
+            ["Identity:LoginRateLimitPermitLimitPerMinute"] = "1000",
             ["Identity:AllowedOrigins:0"] = "http://localhost",
             ["Tenancy:HostDomains:0"] = "localhost",
             ["Files:Local:RootPath"] = Path.Combine(

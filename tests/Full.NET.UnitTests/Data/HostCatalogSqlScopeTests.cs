@@ -29,4 +29,29 @@ public sealed class HostCatalogSqlScopeTests
         accessor.SetTenant(new TenantContext(Guid.CreateVersion7(), "local", "Full.NET Local"));
         SqlScopeGuard.Validate(IdentitySql.FindHostUserById, accessor);
     }
+
+    [TestMethod]
+    public void Active_role_data_scopes_are_global_so_tenant_queries_can_resolve_host_roles()
+    {
+        // 数据范围在租户业务查询中解析，但角色目录属于 Host；SQL 必须显式限定 Host 行并允许租户上下文读取。
+        Assert.AreEqual(SqlDataScope.Global, IdentitySql.GetUserActiveRoleDataScopes.Scope);
+        StringAssert.Contains(IdentitySql.GetUserActiveRoleDataScopes.Text, "roleObject.ScopeKey = 'host'");
+        StringAssert.Contains(IdentitySql.GetUserActiveRoleDataScopes.Text, "roleObject.TenantId IS NULL");
+
+        var accessor = new CurrentTenantAccessor();
+        accessor.SetTenant(new TenantContext(Guid.CreateVersion7(), "local", "Full.NET Local"));
+        SqlScopeGuard.Validate(IdentitySql.GetUserActiveRoleDataScopes, accessor);
+    }
+
+    [TestMethod]
+    public void Api_key_authentication_statements_are_global_and_keep_explicit_host_filters()
+    {
+        // API Key 查询发生在认证主体建立之前，必须依靠 SQL 行过滤表达 Host 边界，不能依赖尚不存在的 Host 上下文。
+        Assert.AreEqual(SqlDataScope.Global, ApiKeySql.FindForAuthentication.Scope);
+        Assert.AreEqual(SqlDataScope.Global, ApiKeySql.TouchLastUsed.Scope);
+        StringAssert.Contains(ApiKeySql.FindForAuthentication.Text, "identityUser.ScopeKey = 'host'");
+        StringAssert.Contains(ApiKeySql.FindForAuthentication.Text, "identityUser.TenantId IS NULL");
+        StringAssert.Contains(ApiKeySql.TouchLastUsed.Text, "identityUser.ScopeKey = 'host'");
+        StringAssert.Contains(ApiKeySql.TouchLastUsed.Text, "identityUser.TenantId IS NULL");
+    }
 }

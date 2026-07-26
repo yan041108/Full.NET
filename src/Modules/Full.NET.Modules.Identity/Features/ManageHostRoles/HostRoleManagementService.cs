@@ -323,7 +323,6 @@ internal sealed class HostRoleManagementService(
         IReadOnlyList<string> permissionCodes)
     {
         var knownCodes = authorizationCatalog.Permissions
-            .Where(permission => permission.Scope.HasFlag(AuthorizationScope.Host))
             .Select(permission => permission.Code)
             .ToHashSet(StringComparer.Ordinal);
         foreach (var code in permissionCodes)

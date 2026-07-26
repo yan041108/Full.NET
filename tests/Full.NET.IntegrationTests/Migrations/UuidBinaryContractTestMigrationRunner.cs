@@ -2,8 +2,6 @@ using DbUp;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.Migrations.DbUp;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Migrations;
 
@@ -14,7 +12,12 @@ internal static class UuidBinaryContractTestMigrationRunner
 {
     private const string ApprovalId = "test-uuid-contract-009";
 
-    public static Task<MigrationResult> MigrateMySqlThrough009Async(string connectionString)
+    public static Task<MigrationResult> MigrateMySqlThrough009Async(
+        string connectionString,
+        bool maintenanceMode = true,
+        bool backupVerified = true,
+        bool legacyWritersStopped = true,
+        string approvalId = ApprovalId)
     {
         var result = DeployChanges.To.MySqlDatabase(
                 MySqlConnectionStringPolicy.Create(
@@ -24,12 +27,11 @@ internal static class UuidBinaryContractTestMigrationRunner
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
-            .WithVariable("UuidContractMaintenanceMode", "1")
-            .WithVariable("UuidContractBackupVerified", "1")
-            .WithVariable("UuidContractLegacyWritersStopped", "1")
-            .WithVariable("UuidContractDestructiveDdlApprovalId", ApprovalId)
+                    && NamingExpandTestMigrationRunner.IsThroughMigration(name, 9))
+            .WithVariable("UuidContractMaintenanceMode", maintenanceMode ? "1" : "0")
+            .WithVariable("UuidContractBackupVerified", backupVerified ? "1" : "0")
+            .WithVariable("UuidContractLegacyWritersStopped", legacyWritersStopped ? "1" : "0")
+            .WithVariable("UuidContractDestructiveDdlApprovalId", approvalId)
             .WithExecutionTimeout(TimeSpan.FromSeconds(300))
             .Build()
             .PerformUpgrade();
@@ -47,8 +49,7 @@ internal static class UuidBinaryContractTestMigrationRunner
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.SqlServer.", StringComparison.Ordinal)
-                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && NamingExpandTestMigrationRunner.IsThroughMigration(name, 9))
             .WithVariable("UuidContractMaintenanceMode", "1")
             .WithVariable("UuidContractBackupVerified", "1")
             .WithVariable("UuidContractLegacyWritersStopped", "1")
@@ -64,21 +65,38 @@ internal static class UuidBinaryContractTestMigrationRunner
         return Task.FromResult(new MigrationResult(true, result.Scripts.Count()));
     }
 
-    public static DbUpMigrationRunner CreateMySqlRunner(string connectionString) => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.MySql,
-            ConnectionString = connectionString,
-            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = true,
-            BackupVerified = true,
-            LegacyWritersStopped = true,
-            DestructiveDdlApprovalId = ApprovalId,
-        }),
-        MigrationContractOptionFactory.NamingOptions());
+    public static IDatabaseMigrationRunner CreateMySqlRunner(
+        string connectionString,
+        bool maintenanceMode = true,
+        bool backupVerified = true,
+        bool legacyWritersStopped = true,
+        string approvalId = ApprovalId) =>
+        new Through009MigrationRunner(
+            cancellationToken =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return MigrateMySqlThrough009Async(
+                    connectionString,
+                    maintenanceMode,
+                    backupVerified,
+                    legacyWritersStopped,
+                    approvalId);
+            });
+
+    public static IDatabaseMigrationRunner CreateSqlServerRunner(string connectionString) =>
+        new Through009MigrationRunner(
+            cancellationToken =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return MigrateSqlServerThrough009Async(connectionString);
+            });
+
+    private sealed class Through009MigrationRunner(
+        Func<CancellationToken, Task<MigrationResult>> migrate)
+        : IDatabaseMigrationRunner
+    {
+        public Task<MigrationResult> MigrateAsync(
+            CancellationToken cancellationToken = default) =>
+            migrate(cancellationToken);
+    }
 }

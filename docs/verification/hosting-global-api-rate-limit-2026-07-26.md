@@ -7,7 +7,7 @@
 | 维度 | 结果 |
 | --- | --- |
 | 配置 | `RateLimiting:EnableGlobalApiLimit`、`GlobalApiPermitLimitPerMinute` |
-| 错误码 | `hosting.rate_limited`（端点级策略仍映射模块错误码） |
+| 错误码 | `hosting.rate_limit.exceeded`（端点级策略仍映射模块错误码） |
 | Integration 双库 | `Global_api_rate_limit` SQL Server/MySQL **2/2** → **166 → 168** |
 | Unit | `RateLimitPolicyErrorCodes` **1/1** → **351 → 352** |
 | 四处 canonical 门槛 | **352/7/40/168** |

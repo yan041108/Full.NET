@@ -33,7 +33,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 352
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 359
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 40
 # 日常：仅验证双库迁移/outbox schema 冒烟
@@ -43,7 +43,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 # 改迁移/SQL/Outbox/UUID 时追加聚焦相关用例，例如：
 # dotnet tests/.../Full.NET.IntegrationTests.dll --filter "NamingExpand|NamingContract|NamingPartialRecovery|UuidBinary" --minimum-expected-tests 1 --timeout 45m
 # 发布 / push main：完整双库矩阵（约 1 小时级，勿当日常命令）
-# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 170 --timeout 90m
+# dotnet tests/.../Full.NET.IntegrationTests.dll --minimum-expected-tests 172 --timeout 90m
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
@@ -80,4 +80,4 @@ Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新�
 
 ## 当前边界
 
-M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、最小 RBAC 授权上下文和双端权限导航。当前能力仍不等于完整后台 RBAC：用户与租户账号 CRUD、角色授权、菜单管理、组织数据范围和强制下线仍属于后续切片。SignalR/Realtime 在 M2 后续迭代中引入；真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。
+M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、MessagePack 与可选 Redis Backplane 已达 `Build-verified`，但管理端实时客户端和多实例真实栈仍未完成；真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。

@@ -153,7 +153,8 @@ export function initializeAdminApp(root = document, options = {}) {
   });
   const roles = createRolesController(root, {
     request,
-    translation: () => translation
+    translation: () => translation,
+    getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null
   });
   const menus = createMenusController(root, {
     request,

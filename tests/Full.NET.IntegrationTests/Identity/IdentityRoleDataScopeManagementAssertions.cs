@@ -67,7 +67,6 @@ internal static class IdentityRoleDataScopeManagementAssertions
         CancellationToken cancellationToken)
     {
         var hostToken = await LoginAsHostAdminAsync(client, cancellationToken);
-        var tenantToken = await EnterAcmeTenantAsync(client, hostToken, cancellationToken);
         var code = $"role-{Guid.NewGuid():N}".ToLowerInvariant();
 
         using var createRoleRequest = CreateBearerJsonRequest(
@@ -92,11 +91,13 @@ internal static class IdentityRoleDataScopeManagementAssertions
         Assert.IsNotNull(defaultScope);
         Assert.AreEqual(RoleDataScopeKinds.All, defaultScope.DataScopeKind);
 
+        // 使用独立会话进入租户，避免推进 Host 管理会话版本。
+        var tenantContext = await LoginAndEnterAcmeTenantAsync(client, cancellationToken);
         var unitCode = $"unit-{Guid.NewGuid():N}".ToLowerInvariant();
         using var createUnitRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/organization/units",
-            tenantToken,
+            tenantContext.AccessToken,
             new CreateOrganizationUnitRequest(null, unitCode, "数据范围机构", 10));
         using var createUnitResponse = await client.SendAsync(createUnitRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, createUnitResponse.StatusCode);
@@ -104,14 +105,16 @@ internal static class IdentityRoleDataScopeManagementAssertions
             cancellationToken);
         Assert.IsNotNull(unit);
 
+        hostToken = await LoginAsHostAdminAsync(client, cancellationToken);
         using var updateScopeRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/roles/{createdRole.Id:D}/data-scope",
-            tenantToken,
+            hostToken,
             new UpdateHostRoleDataScopeRequest(
                 RoleDataScopeKinds.Custom,
                 [unit.Id],
-                defaultScope.Version));
+                defaultScope.Version,
+                tenantContext.TenantId));
         using var updateScopeResponse = await client.SendAsync(updateScopeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, updateScopeResponse.StatusCode);
         var updatedScope = await updateScopeResponse.Content
@@ -142,7 +145,15 @@ internal static class IdentityRoleDataScopeManagementAssertions
         return loginToken.AccessToken;
     }
 
-    private static async Task<string> EnterAcmeTenantAsync(
+    private static async Task<TenantSession> LoginAndEnterAcmeTenantAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var hostAccessToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        return await EnterAcmeTenantAsync(client, hostAccessToken, cancellationToken);
+    }
+
+    private static async Task<TenantSession> EnterAcmeTenantAsync(
         HttpClient client,
         string hostAccessToken,
         CancellationToken cancellationToken)
@@ -174,7 +185,7 @@ internal static class IdentityRoleDataScopeManagementAssertions
         var entered = await enterResponse.Content
             .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken);
         Assert.IsNotNull(entered);
-        return entered.AccessToken;
+        return new TenantSession(acme.Id, entered.AccessToken);
     }
 
     private static HttpRequestMessage CreateBearerJsonRequest<TRequest>(
@@ -194,4 +205,6 @@ internal static class IdentityRoleDataScopeManagementAssertions
             accessToken);
         return request;
     }
+
+    private sealed record TenantSession(Guid TenantId, string AccessToken);
 }

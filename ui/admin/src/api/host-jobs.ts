@@ -30,7 +30,7 @@ export async function createHostJobDefinition(
 ): Promise<HostJobDefinition> {
   const value = await request<unknown>('/api/v1/jobs/host-definitions', {
     method: 'POST',
-    body: { jobKey, displayName, description: description ?? null }
+    body: JSON.stringify({ jobKey, displayName, description: description ?? null })
   });
   if (!isHostJobDefinition(value)) {
     throw new Error('Invalid host job definition payload.');
@@ -48,7 +48,7 @@ export async function updateHostJobDefinition(
     `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}`,
     {
       method: 'PUT',
-      body: { displayName, description, version }
+      body: JSON.stringify({ displayName, description, version })
     }
   );
   if (!isHostJobDefinition(value)) {
@@ -65,7 +65,7 @@ export async function disableHostJobDefinition(
     `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}/disable`,
     {
       method: 'POST',
-      body: { version }
+      body: JSON.stringify({ version })
     }
   );
   if (!isHostJobDefinition(value)) {
@@ -79,7 +79,7 @@ export async function triggerHostJobDefinition(
 ): Promise<HostJobExecution> {
   const value = await request<unknown>(
     `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}/trigger`,
-    { method: 'POST', body: {} }
+    { method: 'POST' }
   );
   if (!isHostJobExecution(value)) {
     throw new Error('Invalid host job execution payload.');

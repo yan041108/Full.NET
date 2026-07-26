@@ -2,10 +2,14 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Results;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Jobs.Contracts;
+using Full.NET.Modules.Jobs.Execution;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Jobs;
 
@@ -20,7 +24,13 @@ internal static class JobsHostDefinitionAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
-        await VerifyCreateTriggerAndExecutionLifecycleAsync(client, cancellationToken);
+        var definitionId = await VerifyCreateTriggerAndExecutionLifecycleAsync(
+            client,
+            cancellationToken);
+        await VerifyExpiredRunningExecutionIsReclaimedAsync(
+            factory,
+            definitionId,
+            cancellationToken);
         await OpenApiJobsHostDefinitionsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -41,7 +51,7 @@ internal static class JobsHostDefinitionAssertions
         Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    private static async Task VerifyCreateTriggerAndExecutionLifecycleAsync(
+    private static async Task<Guid> VerifyCreateTriggerAndExecutionLifecycleAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -141,6 +151,8 @@ internal static class JobsHostDefinitionAssertions
             disabledTriggerRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.BadRequest, disabledTriggerResponse.StatusCode);
+
+        return created.Id;
     }
 
     private sealed record PagedHostJobExecutionResponses(
@@ -148,6 +160,125 @@ internal static class JobsHostDefinitionAssertions
         int Page,
         int PageSize,
         long Total);
+
+    private static async Task VerifyExpiredRunningExecutionIsReclaimedAsync(
+        FullNetApiFactory factory,
+        Guid definitionId,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        var query = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+        var executionId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+
+        await command.ExecuteAsync(
+            new SqlStatement(
+                "test.insert_expired_running_job_execution",
+                """
+                INSERT INTO fn_jobs_execution
+                    (Id, TenantId, JobDefinitionId, Status, TriggerKind,
+                     ErrorMessage, StartedAtUtc, FinishedAtUtc,
+                     LeaseId, LeaseExpiresAtUtc, AttemptCount, CreatedAtUtc)
+                VALUES
+                    (@Id, NULL, @JobDefinitionId, @Status, @TriggerKind,
+                     NULL, @StartedAtUtc, NULL,
+                     @LeaseId, @LeaseExpiresAtUtc, 1, @CreatedAtUtc)
+                """,
+                SqlDataScope.HostOnly),
+            new
+            {
+                Id = executionId,
+                JobDefinitionId = definitionId,
+                Status = JobExecutionStatuses.Running,
+                TriggerKind = JobTriggerKinds.Manual,
+                StartedAtUtc = now.AddMinutes(-10),
+                LeaseId = Guid.CreateVersion7(),
+                LeaseExpiresAtUtc = now.AddMinutes(-5),
+                CreatedAtUtc = now.AddMinutes(-10),
+            },
+            cancellationToken);
+
+        var processed = await scope.ServiceProvider
+            .GetRequiredService<JobExecutionRunner>()
+            .ProcessPendingAsync(1, cancellationToken);
+        var recovered = await query.QuerySingleOrDefaultAsync<RecoveredExecution>(
+            new SqlStatement(
+                "test.find_recovered_job_execution",
+                """
+                SELECT Status, AttemptCount, FinishedAtUtc
+                FROM fn_jobs_execution
+                WHERE Id = @Id AND TenantId IS NULL
+                """,
+                SqlDataScope.HostOnly),
+            new { Id = executionId },
+            cancellationToken);
+
+        Assert.AreEqual(1, processed);
+        Assert.IsNotNull(recovered);
+        Assert.AreEqual(JobExecutionStatuses.Succeeded, recovered.Status);
+        Assert.AreEqual(2, recovered.AttemptCount);
+        Assert.IsNotNull(recovered.FinishedAtUtc);
+
+        var activeLeaseExecutionId = Guid.CreateVersion7();
+        await command.ExecuteAsync(
+            new SqlStatement(
+                "test.insert_active_running_job_execution",
+                """
+                INSERT INTO fn_jobs_execution
+                    (Id, TenantId, JobDefinitionId, Status, TriggerKind,
+                     ErrorMessage, StartedAtUtc, FinishedAtUtc,
+                     LeaseId, LeaseExpiresAtUtc, AttemptCount, CreatedAtUtc)
+                VALUES
+                    (@Id, NULL, @JobDefinitionId, @Status, @TriggerKind,
+                     NULL, @StartedAtUtc, NULL,
+                     @LeaseId, @LeaseExpiresAtUtc, 1, @CreatedAtUtc)
+                """,
+                SqlDataScope.HostOnly),
+            new
+            {
+                Id = activeLeaseExecutionId,
+                JobDefinitionId = definitionId,
+                Status = JobExecutionStatuses.Running,
+                TriggerKind = JobTriggerKinds.Manual,
+                StartedAtUtc = now,
+                LeaseId = Guid.CreateVersion7(),
+                LeaseExpiresAtUtc = now.AddMinutes(5),
+                CreatedAtUtc = now,
+            },
+            cancellationToken);
+
+        var activeLeaseProcessed = await scope.ServiceProvider
+            .GetRequiredService<JobExecutionRunner>()
+            .ProcessPendingAsync(1, cancellationToken);
+        var activeLease = await query.QuerySingleOrDefaultAsync<RecoveredExecution>(
+            new SqlStatement(
+                "test.find_active_job_execution",
+                """
+                SELECT Status, AttemptCount, FinishedAtUtc
+                FROM fn_jobs_execution
+                WHERE Id = @Id AND TenantId IS NULL
+                """,
+                SqlDataScope.HostOnly),
+            new { Id = activeLeaseExecutionId },
+            cancellationToken);
+
+        Assert.AreEqual(0, activeLeaseProcessed);
+        Assert.IsNotNull(activeLease);
+        Assert.AreEqual(JobExecutionStatuses.Running, activeLease.Status);
+        Assert.AreEqual(1, activeLease.AttemptCount);
+        Assert.IsNull(activeLease.FinishedAtUtc);
+    }
+
+    private sealed class RecoveredExecution
+    {
+        public string Status { get; set; } = string.Empty;
+
+        public int AttemptCount { get; set; }
+
+        public DateTimeOffset? FinishedAtUtc { get; set; }
+    }
 
     private static async Task<string> LoginAsHostAdminAsync(
         HttpClient client,

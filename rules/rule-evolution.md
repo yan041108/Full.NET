@@ -90,8 +90,6 @@
 
 | 标识 | 候选经验 | 首次证据 | 次数 | 最近证据 | 建议防护 |
 | --- | --- | --- | ---: | --- | --- |
-| C-20260721-migration-recovery-boundary | 对已 DROP 的 legacy 表做恢复断言时，测试迁移必须停在破坏性后续脚本之前（如 004 停在 008、009 恢复排除 010/011） | 2026-07-21 全量 Integration：localization / UuidBinaryContractRecovery 因跑穿 011 DROP `fn_tenant_tenant` 失败 | 1 | 2026-07-21 Through008/Through009 边界 runner 修复后 85/85 通过 | 若再次出现同类失败，在 `development-quality.md` 固化“恢复用例边界 runner”强制条，并在 Naming/UUID 测试模板中默认排除后续 Contract |
-| C-20260721-host-catalog-sql-scope | 租户请求路径仍会读取的 Host 目录 SQL（导航菜单、`IHostUserDirectory` 等）若标 `HostOnly`，会在进入租户后抛 `HostContextRequiredException`；应标 `Global` 并由 SQL 行过滤限定 Host 行 | 2026-07-21 租户上下文后 `/api/v1/navigation` 500；`ListActiveHostMenus`/`FindHostUserById` 修复见 verification | 1 | 同左；已用 `HostCatalogSqlScopeTests` + real-stack 10/10 锁定 | 若再出现同类 Host 目录误标，在 `development-quality.md` 固化“跨上下文 Host 目录只读语句必须 Global + 行过滤”并扩展 Architecture/Unit 扫描 |
 | C-20260723-migrator-tenant-context-closure | 模块在 `AddMigrationServices` 注册 `ITenantProvisioningService`、Outbox 写入或 Seed Contributor 时，必须同闭包注册 `ICurrentTenant`；仅放在 `AddBackgroundServices` 会导致 Migrator `ValidateOnBuild` 失败 | 2026-07-23 Tenancy Host 租户切片真实栈 E2E：Migrator Seed 启动失败 | 1 | 同左；`FullNetModuleCatalogTests.Migrator_profile_registers_tenant_context_for_seed_and_outbox` 已锁定 | 若再次出现同类失败，在 `development-quality.md` 固化 Migrator 最小闭包检查清单 |
 
 ## 8. 防止规则失控

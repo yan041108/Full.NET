@@ -49,6 +49,15 @@ internal static class PlatformHostDashboardAssertions
         using var probeResponse = await client.SendAsync(probeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, probeResponse.StatusCode);
 
+        using var activityRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/identity/roles/{Guid.CreateVersion7():D}/disable");
+        activityRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var activityResponse = await client.SendAsync(activityRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, activityResponse.StatusCode);
+
         using var summaryRequest = new HttpRequestMessage(
             HttpMethod.Get,
             "/api/v1/platform/host-dashboard-summary");

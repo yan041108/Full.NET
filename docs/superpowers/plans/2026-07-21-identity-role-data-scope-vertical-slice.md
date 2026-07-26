@@ -8,7 +8,7 @@
   - [`capability-status.md`](../../roadmap/capability-status.md) P0：Identity 数据范围
   - [`2026-07-17-fullnet-architecture-design.md`](../specs/2026-07-17-fullnet-architecture-design.md) §10.2
 
-**Goal:** Host 角色可配置数据范围种类；`custom` 时在租户上下文中绑定机构单元；提供参数化 SQL 投影基础供后续查询过滤。
+**Goal:** Host 角色可配置数据范围种类；`custom` 时由 Host 管理请求显式指定目标租户并绑定该租户机构单元；提供参数化 SQL 投影基础供后续查询过滤。
 
 **Architecture:** `fn_identity_role.DataScopeKind` + `fn_identity_role_data_scope_unit`；`identity.data_scope.*` 稳定机器码；`GET/PUT /api/v1/identity/roles/{id}/data-scope`；`RoleDataScopeProjection` 单元测试。
 
@@ -22,7 +22,7 @@
 | `identity.data_scope.org` | 当前主部门 |
 | `identity.data_scope.org_subtree` | 主部门及下级 |
 | `identity.data_scope.self` | 本人 |
-| `identity.data_scope.custom` | 自定义机构集合（租户上下文写入） |
+| `identity.data_scope.custom` | 自定义机构集合（Host 管理请求显式指定目标租户） |
 
 ## 附录 B：验收表
 

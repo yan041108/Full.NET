@@ -4,6 +4,8 @@ using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostApiKeys;
 
@@ -38,11 +40,16 @@ internal static class Endpoint
         group.MapPost("/", async (
             CreateHostApiKeyRequest request,
             HostApiKeyManagementService service,
+            PermissionClaimEvaluator permissionClaims,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.CreateAsync(request, cancellationToken)
+            var result = await service.CreateAsync(
+                    ResolveUserId(httpContext.User),
+                    permissionClaims.ResolvePermissions(httpContext.User),
+                    request,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
@@ -68,4 +75,11 @@ internal static class Endpoint
         })
         .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Write);
     }
+
+    private static Guid ResolveUserId(System.Security.Claims.ClaimsPrincipal principal) =>
+        Guid.TryParse(
+            principal.FindFirstValue(JwtRegisteredClaimNames.Sub),
+            out var userId)
+            ? userId
+            : Guid.Empty;
 }

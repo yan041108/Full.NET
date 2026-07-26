@@ -37,7 +37,7 @@
   <data name="identity.roles.system_locked" xml:space="preserve"><value>系统角色受保护，禁止变更。</value></data>
   <data name="identity.data_scope.invalid_kind" xml:space="preserve"><value>数据范围种类无效。</value></data>
   <data name="identity.data_scope.custom_units_required" xml:space="preserve"><value>自定义数据范围至少需要一个机构单元。</value></data>
-  <data name="identity.data_scope.tenant_context_required" xml:space="preserve"><value>自定义数据范围需要有效的租户上下文。</value></data>
+  <data name="identity.data_scope.tenant_context_required" xml:space="preserve"><value>自定义数据范围需要显式指定目标租户。</value></data>
   <data name="identity.data_scope.unit_not_found" xml:space="preserve"><value>未找到指定的机构单元。</value></data>
   <data name="identity.user_roles.role_not_found" xml:space="preserve"><value>未找到指定的 Host 角色。</value></data>
   <data name="identity.user_roles.role_not_assignable" xml:space="preserve"><value>该角色不能通过用户角色管理分配。</value></data>

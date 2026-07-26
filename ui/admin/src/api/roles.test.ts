@@ -127,7 +127,8 @@ describe('Vue Host 角色 API', () => {
         body: JSON.stringify({
           dataScopeKind: 'identity.data_scope.self',
           unitIds: null,
-          version: 1
+          version: 1,
+          tenantId: null
         })
       })
     );

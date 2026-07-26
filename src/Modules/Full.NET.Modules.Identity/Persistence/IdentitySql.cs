@@ -532,7 +532,7 @@ internal static class IdentitySql
           AND roleObject.TenantId IS NULL
           AND roleObject.IsActive = 1
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement DeleteUserAssignableRoles = new(
         "identity.delete_user_assignable_roles",

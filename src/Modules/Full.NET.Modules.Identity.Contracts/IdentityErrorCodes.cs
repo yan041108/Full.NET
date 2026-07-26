@@ -117,7 +117,7 @@ public static class IdentityErrorCodes
     /// <summary>自定义数据范围缺少机构单元。</summary>
     public const string DataScopeCustomUnitsRequired = "identity.data_scope.custom_units_required";
 
-    /// <summary>自定义数据范围需要租户上下文。</summary>
+    /// <summary>自定义数据范围缺少显式目标租户。</summary>
     public const string DataScopeTenantContextRequired = "identity.data_scope.tenant_context_required";
 
     /// <summary>数据范围引用的机构单元不存在。</summary>

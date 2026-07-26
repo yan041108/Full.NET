@@ -59,7 +59,7 @@ internal static class ApiKeySql
           AND identityUser.ScopeKey = 'host'
           AND identityUser.TenantId IS NULL
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement TouchLastUsed = new(
         "identity.touch_api_key_last_used",
@@ -69,8 +69,15 @@ internal static class ApiKeySql
             UpdatedAtUtc = @LastUsedAtUtc
         WHERE Id = @ApiKeyId
           AND IsActive = 1
+          AND EXISTS (
+              SELECT 1
+              FROM fn_identity_user AS identityUser
+              WHERE identityUser.Id = fn_identity_api_key.UserId
+                AND identityUser.ScopeKey = 'host'
+                AND identityUser.TenantId IS NULL
+          )
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement Disable = new(
         "identity.disable_api_key",

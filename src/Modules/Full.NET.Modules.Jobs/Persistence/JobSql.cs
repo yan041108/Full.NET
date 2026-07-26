@@ -189,8 +189,11 @@ internal static class JobSql
                 SELECT TOP (@BatchSize) e.*
                 FROM fn_jobs_execution e WITH (UPDLOCK, READPAST, ROWLOCK)
                 WHERE e.TenantId IS NULL
-                  AND e.Status = @PendingStatus
-                  AND (e.LeaseExpiresAtUtc IS NULL OR e.LeaseExpiresAtUtc <= @Now)
+                  AND (
+                      (e.Status = @PendingStatus
+                       AND (e.LeaseExpiresAtUtc IS NULL OR e.LeaseExpiresAtUtc <= @Now))
+                      OR (e.Status = @RunningStatus AND e.LeaseExpiresAtUtc <= @Now)
+                  )
                 ORDER BY e.CreatedAtUtc, e.Id
             )
             UPDATE Pending
@@ -218,8 +221,11 @@ internal static class JobSql
                 StartedAtUtc = COALESCE(StartedAtUtc, @Now),
                 AttemptCount = AttemptCount + 1
             WHERE TenantId IS NULL
-              AND Status = @PendingStatus
-              AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
+              AND (
+                  (Status = @PendingStatus
+                   AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now))
+                  OR (Status = @RunningStatus AND LeaseExpiresAtUtc <= @Now)
+              )
             ORDER BY CreatedAtUtc, Id
             LIMIT @BatchSize
             """,

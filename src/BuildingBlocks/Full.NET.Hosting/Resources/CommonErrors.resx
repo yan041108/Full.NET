@@ -6,7 +6,7 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="common.unexpected" xml:space="preserve"><value>发生了未预期的错误。</value></data>
   <data name="authorization.permission_denied" xml:space="preserve"><value>当前身份没有所需权限。</value></data>
-  <data name="hosting.rate_limited" xml:space="preserve"><value>请求过于频繁，请稍后再试。</value></data>
+  <data name="hosting.rate_limit.exceeded" xml:space="preserve"><value>请求过于频繁，请稍后再试。</value></data>
   <data name="validation.failed" xml:space="preserve"><value>一个或多个字段验证失败。</value></data>
   <data name="validation.required" xml:space="preserve"><value>该字段为必填项。</value></data>
   <data name="validation.maximum_length" xml:space="preserve"><value>长度不能超过 {MaxLength} 个字符。</value></data>

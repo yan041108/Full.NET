@@ -11,6 +11,8 @@ internal sealed class HostExceptionLogQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    private const string SafeExceptionMessage = "Unhandled application exception.";
+
     public async Task<Result<PagedResult<ExceptionLogResponse>>> ListAsync(
         int page,
         int pageSize,
@@ -115,8 +117,8 @@ internal sealed class HostExceptionLogQueryService(
             record.Id,
             record.OccurredAtUtc,
             record.ExceptionType,
-            record.Message,
-            record.StackTrace,
+            SafeExceptionMessage,
+            null,
             record.HttpMethod,
             record.RequestPath,
             record.UserId,

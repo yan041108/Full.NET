@@ -25,7 +25,7 @@ export async function createHostAnnouncement(
 ): Promise<HostAnnouncement> {
   const value = await request<unknown>('/api/v1/notifications/host-announcements', {
     method: 'POST',
-    body: { title, content }
+    body: JSON.stringify({ title, content })
   });
   if (!isHostAnnouncement(value)) {
     throw new Error('Invalid host announcement payload.');
@@ -43,7 +43,7 @@ export async function updateHostAnnouncement(
     `/api/v1/notifications/host-announcements/${encodeURIComponent(id)}`,
     {
       method: 'PUT',
-      body: { title, content, version }
+      body: JSON.stringify({ title, content, version })
     }
   );
   if (!isHostAnnouncement(value)) {
@@ -60,7 +60,7 @@ export async function publishHostAnnouncement(
     `/api/v1/notifications/host-announcements/${encodeURIComponent(id)}/publish`,
     {
       method: 'POST',
-      body: { version }
+      body: JSON.stringify({ version })
     }
   );
   if (!isHostAnnouncement(value)) {

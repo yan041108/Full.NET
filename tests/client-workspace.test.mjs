@@ -62,6 +62,7 @@ assert.deepEqual(packageDefinition.pnpm.overrides, {
   '@jimp/jpeg>jpeg-js': '0.4.4',
   '@dcloudio/uni-mp-weixin>ws': '8.21.0',
   '@dcloudio/uni-cli-shared>adm-zip': '0.6.0',
+  '@dcloudio/uni-nvue-styler>postcss': '8.5.19',
   'express@4.20.0>path-to-regexp': '0.1.13'
 });
 assert.deepEqual(packageDefinition.pnpm.peerDependencyRules, {

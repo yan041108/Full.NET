@@ -4,8 +4,6 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.Migrations.DbUp;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Migrations;
@@ -69,7 +67,7 @@ public sealed class UuidBinaryContractMigrationTests
             SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
             WHERE CONSTRAINT_SCHEMA = DATABASE()
               AND TABLE_NAME IN
-                  ('fn_tenancy_tenant', 'fn_outbox_message', 'fn_identity_user',
+                  ('fn_tenant_tenant', 'fn_outbox_message', 'fn_identity_user',
                    'fn_identity_refresh_session', 'fn_identity_auth_audit', 'fn_identity_role',
                    'fn_identity_user_role', 'fn_identity_role_permission',
                    'fn_seed_run', 'fn_seed_run_item')
@@ -257,33 +255,23 @@ public sealed class UuidBinaryContractMigrationTests
             """
             SELECT COUNT(*) FROM sys.indexes
             WHERE name IN
-                  ('IX_fn_outbox_message_OccurredAtUtc_Id',
+                  ('IX_fn_outbox_message_OccurredAt_Id',
                    'IX_fn_identity_auth_audit_OccurredAtUtc_Id')
               AND type_desc = 'CLUSTERED'
             """));
     }
 
-    private DbUpMigrationRunner CreateRunner(
+    private IDatabaseMigrationRunner CreateRunner(
         bool maintenanceMode = true,
         bool backupVerified = true,
         bool legacyWritersStopped = true,
-        string approvalId = "test-uuid-contract-009") => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.MySql,
-            ConnectionString = _connectionString,
-            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = maintenanceMode,
-            BackupVerified = backupVerified,
-            LegacyWritersStopped = legacyWritersStopped,
-            DestructiveDdlApprovalId = approvalId,
-        }),
-        MigrationContractOptionFactory.NamingOptions());
+        string approvalId = "test-uuid-contract-009") =>
+        UuidBinaryContractTestMigrationRunner.CreateMySqlRunner(
+            _connectionString,
+            maintenanceMode,
+            backupVerified,
+            legacyWritersStopped,
+            approvalId);
 
     private async Task ApplyExpandAsync()
     {
@@ -295,29 +283,13 @@ public sealed class UuidBinaryContractMigrationTests
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && NamingExpandTestMigrationRunner.IsThroughMigration(name, 8))
             .Build()
             .PerformUpgrade();
         Assert.IsTrue(result.Successful, result.Error?.ToString());
         await Task.CompletedTask;
     }
 
-    private static DbUpMigrationRunner CreateSqlServerRunner(string connectionString) => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.SqlServer,
-            ConnectionString = connectionString,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = true,
-            BackupVerified = true,
-            LegacyWritersStopped = true,
-            DestructiveDdlApprovalId = "test-uuid-contract-009",
-        }),
-        MigrationContractOptionFactory.NamingOptions());
+    private static IDatabaseMigrationRunner CreateSqlServerRunner(string connectionString) =>
+        UuidBinaryContractTestMigrationRunner.CreateSqlServerRunner(connectionString);
 }

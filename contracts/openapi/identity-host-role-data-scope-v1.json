@@ -35,7 +35,8 @@
       "properties": [
         "dataScopeKind",
         "unitIds",
-        "version"
+        "version",
+        "tenantId"
       ]
     }
   }

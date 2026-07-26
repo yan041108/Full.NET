@@ -8,7 +8,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
 
@@ -166,37 +165,11 @@ public sealed class UuidBinaryContractRecoveryTests
             "LegacyChar36 is not permitted in Production");
     }
 
-    private DbUpMigrationRunner CreateMySqlRunner() => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.MySql,
-            ConnectionString = _connectionString,
-            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        ContractOptions(),
-        MigrationContractOptionFactory.NamingOptions());
+    private IDatabaseMigrationRunner CreateMySqlRunner() =>
+        UuidBinaryContractTestMigrationRunner.CreateMySqlRunner(_connectionString);
 
-    private static DbUpMigrationRunner CreateSqlServerRunner(string connectionString) => new(
-        Options.Create(new DatabaseOptions
-        {
-            Provider = DatabaseProvider.SqlServer,
-            ConnectionString = connectionString,
-            CommandTimeoutSeconds = 300,
-        }),
-        NullLoggerFactory.Instance,
-        ContractOptions(),
-        MigrationContractOptionFactory.NamingOptions());
-
-    private static IOptions<UuidBinaryContractOptions> ContractOptions() =>
-        Options.Create(new UuidBinaryContractOptions
-        {
-            MaintenanceMode = true,
-            BackupVerified = true,
-            LegacyWritersStopped = true,
-            DestructiveDdlApprovalId = "test-uuid-contract-009",
-        });
+    private static IDatabaseMigrationRunner CreateSqlServerRunner(string connectionString) =>
+        UuidBinaryContractTestMigrationRunner.CreateSqlServerRunner(connectionString);
 
     private async Task ApplyExpandAsync()
     {
@@ -208,9 +181,7 @@ public sealed class UuidBinaryContractRecoveryTests
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && NamingExpandTestMigrationRunner.IsThroughMigration(name, 8))
             .Build()
             .PerformUpgrade();
         Assert.IsTrue(result.Successful, result.Error?.ToString());

@@ -202,7 +202,8 @@ async function saveDataScope(): Promise<void> {
       role.id,
       selectedDataScopeKind.value,
       unitIds,
-      dataScopeVersion.value
+      dataScopeVersion.value,
+      session.currentUser?.tenantId ?? null
     );
     dataScopeVisible.value = false;
     editingRole.value = undefined;

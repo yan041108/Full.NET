@@ -11,7 +11,7 @@
 | Unit | `RealtimeGroupsTests` **2/2** → **349 → 351** |
 | Architecture | `BusinessModules_DoNotDependOnSignalRHubContext` 等 **40/40** → **38 → 40** |
 | Integration 双库 | `Realtime_hub_and_probe` SQL Server/MySQL **2/2** → **156 → 158** |
-| 四处 canonical 门槛 | **351/7/40/158** |
+| 四处 canonical 门槛 | **359/7/40/172** |
 
 ## 行为摘要
 
@@ -23,4 +23,4 @@
 
 ## 非目标
 
-- 管理端 SignalR 客户端、Notifications 业务模块、多实例 Backplane 真实栈、Outbox 驱动推送
+- 管理端 SignalR 客户端、多实例 Backplane 真实栈、Outbox 驱动推送

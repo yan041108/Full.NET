@@ -22,6 +22,9 @@ internal static class IdentityApiKeyAssertions
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyCreateAuthenticateAndDisableAsync(client, cancellationToken);
+        await VerifyDelegatedManagerCannotExceedEffectivePermissionsAsync(
+            client,
+            cancellationToken);
         await OpenApiIdentityApiKeysContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -131,6 +134,127 @@ internal static class IdentityApiKeyAssertions
             created.Secret);
         using var revokedResponse = await client.SendAsync(revokedRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Unauthorized, revokedResponse.StatusCode);
+    }
+
+    private static async Task VerifyDelegatedManagerCannotExceedEffectivePermissionsAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var adminUserId = await ResolveAdminUserIdAsync(
+            client,
+            adminToken,
+            cancellationToken);
+        var username = $"api-key-manager-{Guid.NewGuid():N}".ToLowerInvariant();
+
+        using var createUserRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                username,
+                "API Key 委派管理员",
+                FullNetApiFactory.TestPassword));
+        using var createUserResponse = await client.SendAsync(
+            createUserRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createUserResponse.StatusCode);
+        var user = await createUserResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(user);
+
+        using var createRoleRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            adminToken,
+            new CreateHostRoleRequest(
+                $"api-key-manager-{Guid.NewGuid():N}".ToLowerInvariant(),
+                "API Key 委派角色"));
+        using var createRoleResponse = await client.SendAsync(
+            createRoleRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createRoleResponse.StatusCode);
+        var role = await createRoleResponse.Content.ReadFromJsonAsync<HostRoleResponse>(
+            cancellationToken);
+        Assert.IsNotNull(role);
+
+        using var grantPermissionRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{role.Id:D}/permissions",
+            adminToken,
+            new ReplaceHostRolePermissionsRequest(
+                [
+                    IdentityApiKeyManagementPermissions.Write,
+                    IdentityUserManagementPermissions.Write,
+                ],
+                role.Version));
+        using var grantPermissionResponse = await client.SendAsync(
+            grantPermissionRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, grantPermissionResponse.StatusCode);
+        var grantedRole = await grantPermissionResponse.Content
+            .ReadFromJsonAsync<HostRoleResponse>(cancellationToken);
+        Assert.IsNotNull(grantedRole);
+
+        using var currentRolesRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/users/{user.Id:D}/roles");
+        currentRolesRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var currentRolesResponse = await client.SendAsync(
+            currentRolesRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, currentRolesResponse.StatusCode);
+        var currentRoles = await currentRolesResponse.Content
+            .ReadFromJsonAsync<HostUserRolesResponse>(cancellationToken);
+        Assert.IsNotNull(currentRoles);
+
+        using var assignRoleRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{user.Id:D}/roles",
+            adminToken,
+            new ReplaceHostUserRolesRequest([role.Id], currentRoles.Version));
+        using var assignRoleResponse = await client.SendAsync(
+            assignRoleRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, assignRoleResponse.StatusCode);
+
+        var delegatedToken = await LoginAsync(
+            client,
+            username,
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        using var revokePermissionRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{role.Id:D}/permissions",
+            adminToken,
+            new ReplaceHostRolePermissionsRequest(
+                [IdentityApiKeyManagementPermissions.Write],
+                grantedRole.Version));
+        using var revokePermissionResponse = await client.SendAsync(
+            revokePermissionRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, revokePermissionResponse.StatusCode);
+
+        using var escalationRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/api-keys",
+            delegatedToken,
+            new CreateHostApiKeyRequest(
+                adminUserId,
+                "越权密钥",
+                [IdentityUserManagementPermissions.Write],
+                null));
+        using var escalationResponse = await client.SendAsync(
+            escalationRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, escalationResponse.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await escalationResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            CommonErrorCodes.PermissionDenied,
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task<Guid> ResolveAdminUserIdAsync(

@@ -46,7 +46,8 @@ describe('Host 角色客户端契约', () => {
     expect(isUpdateHostRoleDataScopeRequest({
       dataScopeKind: 'identity.data_scope.self',
       unitIds: null,
-      version: 2
+      version: 2,
+      tenantId: null
     })).toBe(true);
     expect(ROLE_DATA_SCOPE_KINDS).toContain('identity.data_scope.custom');
     expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).toContain('identity.roles.write');

@@ -52,11 +52,21 @@ if (typeof evaluateAuditReport === 'function') {
     assert.equal(policy.version, 1);
     assert.equal(policy.registry, 'https://registry.npmjs.org');
     assert.equal(policy.minimumSeverity, 'high');
-    assert.deepEqual(policy.exceptions.map(exception => exception.ghsa), ['GHSA-fx2h-pf6j-xcff']);
+    assert.deepEqual(
+      policy.exceptions.map(exception => exception.ghsa),
+      ['GHSA-fx2h-pf6j-xcff', 'GHSA-mh99-v99m-4gvg']
+    );
     assert.equal(policy.exceptions[0].package, 'vite');
     assert.equal(policy.exceptions[0].upstreamPeerEvidence.vite, '5.2.8');
     assert.equal(policy.exceptions[0].reviewBy, '2026-10-18');
     assert.equal(policy.exceptions[0].mitigations.length, 3);
+    assert.equal(policy.exceptions[1].package, 'brace-expansion');
+    assert.deepEqual(
+      policy.exceptions[1].allowedPaths,
+      ['clients__uniapp>vue-tsc>@vue/language-core>minimatch>brace-expansion']
+    );
+    assert.equal(policy.exceptions[1].reviewBy, '2026-09-26');
+    assert.equal(policy.exceptions[1].mitigations.length, 3);
   });
 
   test('accepts only the reviewed Vite advisory on exact uni-app toolchain paths', () => {

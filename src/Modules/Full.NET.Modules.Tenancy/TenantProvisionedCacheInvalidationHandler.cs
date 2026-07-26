@@ -27,11 +27,17 @@ internal sealed class TenantProvisionedCacheInvalidationHandler(
     {
         var integrationEvent = serializer
             .Deserialize<TenantProvisionedIntegrationEvent>(payload);
+        var invalidationOptions = cache.DefaultEntryOptions.Duplicate();
+        // Outbox 只有在跨节点失效广播已经完成后才能确认消息；否则 Worker 退出或作用域释放会丢失后台广播。
+        invalidationOptions.AllowBackgroundBackplaneOperations = false;
+        // 可靠消费者必须感知广播失败，交给 Outbox 释放租约并安排重试，禁止把远端未失效误记为已处理。
+        invalidationOptions.ReThrowBackplaneExceptions = true;
         await cache
             .RemoveAsync(
                 CacheKeyBuilder.TenantResolutionById(
                     environment.EnvironmentName,
                     integrationEvent.TenantId),
+                invalidationOptions,
                 token: cancellationToken)
             .ConfigureAwait(false);
         await cache
@@ -39,16 +45,19 @@ internal sealed class TenantProvisionedCacheInvalidationHandler(
                 CacheKeyBuilder.TenantResolutionByDomain(
                     environment.EnvironmentName,
                     integrationEvent.Domain),
+                invalidationOptions,
                 token: cancellationToken)
             .ConfigureAwait(false);
         await cache
             .RemoveByTagAsync(
                 CacheKeyBuilder.TenantTag(integrationEvent.TenantId),
+                invalidationOptions,
                 token: cancellationToken)
             .ConfigureAwait(false);
         await cache
             .RemoveByTagAsync(
                 CacheKeyBuilder.DomainTag(integrationEvent.Domain),
+                invalidationOptions,
                 token: cancellationToken)
             .ConfigureAwait(false);
     }

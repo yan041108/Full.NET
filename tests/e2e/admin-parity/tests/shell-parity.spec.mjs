@@ -292,6 +292,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
     await expect(passwordBox.locator('input')).toBeVisible();
     await passwordBox.locator('input').fill('FullNet!2026Rotate');
     await passwordBox.locator('input').press('Enter');
+    await expect(passwordBox).toBeHidden();
   } else {
     const passwordLayer = page.locator('.layui-layer').last();
     await expect(passwordLayer.locator('.layui-layer-input')).toBeVisible();
@@ -835,7 +836,7 @@ test('字典类型列表、创建与禁用在两端保持一致', async ({ page 
   await dictTypesView.getByLabel('字典编码', { exact: true }).fill('parity_status');
   await dictTypesView.getByLabel('显示名称', { exact: true }).fill('对等状态');
   await dictTypesView.getByLabel('说明', { exact: true }).fill('说明');
-  await dictTypesView.getByLabel('显示顺序', { exact: true }).fill('10');
+  await dictTypesView.getByLabel('显示顺序', { exact: true }).first().fill('10');
   await dictTypesView.getByRole('button', { name: '创建字典类型' }).click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
@@ -1686,7 +1687,7 @@ test('任务调度列表在两端保持一致', async ({ page }, testInfo) => {
   await expect(page.getByText('尚无任务定义', { exact: true })).toBeVisible();
 
   const jobsView = routeView(page, clientKind, 'host-jobs', '.host-jobs-view');
-  await jobsView.locator('input').fill('parity-job');
+  await jobsView.getByLabel('显示名称', { exact: true }).fill('parity-job');
   await jobsView.getByRole('button', { name: '创建任务' }).click();
   await expect.poll(() => operations.some(operation => operation.type === 'create')).toBe(true);
   await expect(jobsView.getByText('parity-job', { exact: true })).toBeVisible();
@@ -1754,8 +1755,8 @@ test('异常日志列表在两端保持一致', async ({ page }, testInfo) => {
           id: '01912345-6789-7abc-8def-0123456789ae',
           occurredAtUtc: '2026-07-25T08:10:00.000Z',
           exceptionType: 'System.InvalidOperationException',
-          message: 'auditing.exception_probe',
-          stackTrace: 'at Probe()',
+          message: 'Unhandled application exception.',
+          stackTrace: null,
           httpMethod: 'POST',
           requestPath: '/api/v1/auditing/exception-probes',
           userId: '01912345-6789-7abc-8def-0123456789ac',
@@ -1776,7 +1777,7 @@ test('异常日志列表在两端保持一致', async ({ page }, testInfo) => {
 
   const exceptionLogsView = routeView(page, clientKind, 'exception-logs', '.exception-logs-view');
   await expect(exceptionLogsView.getByText('System.InvalidOperationException')).toBeVisible();
-  await expect(exceptionLogsView.getByText('auditing.exception_probe', { exact: false })).toBeVisible();
+  await expect(exceptionLogsView.getByText('Unhandled application exception.', { exact: false })).toBeVisible();
 });
 
 test('角色列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
@@ -2841,6 +2842,8 @@ function currentUserResponse(activeTenantId = null) {
       'identity.users.write',
       'identity.sessions.read',
       'identity.sessions.write',
+      'identity.api_keys.read',
+      'identity.api_keys.write',
       'platform.dashboard.read',
       'tenancy.tenants.read',
       'tenancy.host_tenants.read',
@@ -2855,6 +2858,16 @@ function currentUserResponse(activeTenantId = null) {
       'settings.enums.read',
       'files.files.read',
       'files.files.write',
+      'notifications.announcements.read',
+      'notifications.announcements.write',
+      'notifications.inbox.read',
+      'notifications.inbox.write',
+      'jobs.definitions.read',
+      'jobs.definitions.write',
+      'jobs.executions.read',
+      'auditing.access.read',
+      'auditing.operations.read',
+      'auditing.exceptions.read',
       ...(activeTenantId
         ? [
             'organization.units.read',

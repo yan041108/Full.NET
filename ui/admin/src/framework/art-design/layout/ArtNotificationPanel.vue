@@ -27,6 +27,7 @@ const open = defineModel<boolean>('open', { default: false });
 const show = ref(false);
 const visible = ref(false);
 const barActiveIndex = ref(0);
+let visibilityTimer: number | undefined;
 
 type NoticeType = 'email' | 'message' | 'collection' | 'user' | 'notice';
 
@@ -92,17 +93,21 @@ function getNoticeStyle(type: NoticeType) {
 }
 
 function animateOpen(value: boolean): void {
+  if (visibilityTimer !== undefined) {
+    window.clearTimeout(visibilityTimer);
+    visibilityTimer = undefined;
+  }
+
   if (value) {
     visible.value = true;
-    window.setTimeout(() => {
-      show.value = true;
-    }, 5);
+    show.value = true;
     return;
   }
 
   show.value = false;
-  window.setTimeout(() => {
+  visibilityTimer = window.setTimeout(() => {
     visible.value = false;
+    visibilityTimer = undefined;
   }, 350);
 }
 

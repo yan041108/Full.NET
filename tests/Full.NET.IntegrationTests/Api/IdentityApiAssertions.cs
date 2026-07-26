@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Security;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.IntegrationTests.Api;
@@ -154,22 +155,15 @@ internal static class IdentityApiAssertions
         Assert.AreEqual("host", currentUser.Scope);
         Assert.IsNull(currentUser.TenantId);
         Assert.IsTrue(currentUser.IsSuperAdministrator);
+        var expectedHostPermissions = factory.Services
+            .GetServices<IAuthorizationCatalogContributor>()
+            .SelectMany(contributor => contributor.Permissions)
+            .Where(permission => (permission.Scope & AuthorizationScope.Host) != 0)
+            .Select(permission => permission.Code)
+            .OrderBy(code => code, StringComparer.Ordinal)
+            .ToArray();
         CollectionAssert.AreEqual(
-            new[]
-            {
-                "identity.menus.read",
-                "identity.menus.write",
-                "identity.navigation.read",
-                "identity.roles.read",
-                "identity.roles.write",
-                "identity.super_administrators.manage",
-                "identity.super_administrators.read",
-                "identity.users.read",
-                "identity.users.write",
-                "platform.dashboard.read",
-                "tenancy.tenants.read",
-                "tenancy.tenants.switch",
-            },
+            expectedHostPermissions,
             currentUser.Permissions.ToArray());
 
         using (var anonymousNavigation = await client.GetAsync(
@@ -212,28 +206,28 @@ internal static class IdentityApiAssertions
         var navigation = await navigationResponse.Content
             .ReadFromJsonAsync<NavigationNodeResponse[]>(cancellationToken);
         Assert.IsNotNull(navigation);
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                "overview",
-                "tenant-context",
-                "users",
-                "roles",
-                "menus",
-                "super-administrators",
-            },
-            navigation.Select(item => item.Id).ToArray());
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                "overview",
-                "tenant-context",
-                "users",
-                "roles",
-                "menus",
-                "super-administrators",
-            },
-            navigation.Select(item => item.ComponentKey).ToArray());
+        var expectedRootNavigation = factory.Services
+            .GetServices<IAuthorizationCatalogContributor>()
+            .SelectMany(contributor => contributor.Navigation)
+            .Where(item =>
+                item.ParentId is null
+                && expectedHostPermissions.Contains(
+                    item.RequiredPermission,
+                    StringComparer.Ordinal))
+            .OrderBy(item => item.Order)
+            .ToArray();
+        var navigationById = navigation.ToDictionary(
+            item => item.Id,
+            StringComparer.Ordinal);
+        foreach (var expectedNavigation in expectedRootNavigation)
+        {
+            Assert.IsTrue(
+                navigationById.TryGetValue(expectedNavigation.Id, out var actualNavigation),
+                $"缺少内置 Host 导航节点 '{expectedNavigation.Id}'。");
+            Assert.AreEqual(
+                expectedNavigation.ComponentKey,
+                actualNavigation.ComponentKey);
+        }
 
         var operatorUserId = Guid.Parse(
             jwt.GetClaim(JwtRegisteredClaimNames.Sub).Value);

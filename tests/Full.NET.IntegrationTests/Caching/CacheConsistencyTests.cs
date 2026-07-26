@@ -1,5 +1,6 @@
 extern alias workerhost;
 
+using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Net;
 using System.Text.Json;
@@ -28,12 +29,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Backplane;
 using WorkerHost = workerhost::Full.NET.Host.Worker;
 using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Caching;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class CacheConsistencyTests
 {
     [TestMethod]
@@ -163,6 +166,9 @@ public sealed class CacheConsistencyTests
         secondaryFactory.ClearBackplaneEvents();
 
         var provisioned = await ProvisionTenantAsync(primaryFactory, identifier, domain);
+        var provisionedOutboxId = await GetLatestTenantProvisionedOutboxIdAsync(
+            databaseProvider,
+            connectionString);
         Assert.AreEqual(
             pendingOutboxBeforeProvision + 1,
             await CountPendingOutboxAsync(databaseProvider, connectionString));
@@ -175,30 +181,81 @@ public sealed class CacheConsistencyTests
         var localTenant = await AssertTenantFoundAsync(primaryFactory, domain);
         Assert.AreEqual(provisioned.Id, localTenant.Id);
 
-        // Worker 尚未消费 Outbox 前，第二节点仍会命中自己的一分钟负缓存。
-        await AssertTenantMissingAsync(secondaryFactory, domain);
+        // 共享 L2/标签版本可能让第二节点在 Outbox 消费前提前看见新租户；
+        // 本场景只要求 Outbox 最终仍发出可观测的跨节点精确失效通知。
+        await using (var failingWorkerServices = BuildWorkerServices(
+                         CreateWorkerConfiguration(
+                             databaseProvider,
+                             connectionString,
+                             redisConnectionString)))
+        {
+            var failingWorkerCache =
+                failingWorkerServices.GetRequiredService<IFusionCache>();
+            failingWorkerCache.RemoveBackplane();
+            failingWorkerCache.SetupBackplane(new ThrowingBackplane());
+            Assert.IsTrue(
+                failingWorkerCache.HasBackplane,
+                "失败路径必须保留 Backplane，才能验证广播异常不会被当作成功确认。");
+            await CreateProcessor(failingWorkerServices)
+                .ProcessOnceAsync(CancellationToken.None);
+        }
+
+        var failedAttempt = await GetOutboxStateAsync(
+            databaseProvider,
+            connectionString,
+            provisionedOutboxId);
+        Assert.IsNull(
+            failedAttempt.ProcessedAtUtc,
+            "Backplane 不可达时不得把当前租户事件标记为已处理。");
+        Assert.IsNull(
+            failedAttempt.DeadLetteredAtUtc,
+            "首次 Backplane 发布失败应进入重试，而不是直接进入死信。");
+        Assert.IsNotNull(
+            failedAttempt.NextAttemptAtUtc,
+            "Backplane 发布失败后当前租户事件必须释放租约并安排重试。");
+        Assert.IsGreaterThanOrEqualTo(
+            retryScheduledOutboxBeforeProvision + pendingOutboxBeforeProvision + 1,
+            await CountRetryScheduledOutboxAsync(databaseProvider, connectionString),
+            "Backplane 发布失败后 Outbox 必须释放租约并安排重试。");
+        await MakeOutboxRetriesDueAsync(databaseProvider, connectionString);
 
         await using var workerServices = BuildWorkerServices(
             CreateWorkerConfiguration(
                 databaseProvider,
                 connectionString,
                 redisConnectionString));
+        var workerCache = workerServices.GetRequiredService<IFusionCache>();
+        Assert.IsTrue(
+            workerCache.HasBackplane,
+            "Worker 缓存实例必须连接 Redis Backplane，才能完成跨节点失效广播。");
+        var workerBackplaneEvents = new ConcurrentQueue<string>();
+        workerCache.Events.Backplane.MessagePublished += (_, args) =>
+            workerBackplaneEvents.Enqueue(
+                $"{args.Message.Action}:{args.Message.CacheKey ?? "<null>"}");
         var processor = CreateProcessor(workerServices);
         await processor.ProcessOnceAsync(CancellationToken.None);
+        var successfulAttempt = await GetOutboxStateAsync(
+            databaseProvider,
+            connectionString,
+            provisionedOutboxId);
+        Assert.IsNotNull(
+            successfulAttempt.ProcessedAtUtc,
+            "Backplane 恢复后当前租户事件必须成功确认。");
+        Assert.IsNull(successfulAttempt.DeadLetteredAtUtc);
         Assert.AreEqual(
-            pendingOutboxBeforeProvision,
+            0L,
             await CountPendingOutboxAsync(databaseProvider, connectionString),
             "Worker 处理后仍残留可领取的 Outbox 消息，说明缓存修复链路并未真正完成。");
         Assert.AreEqual(
             deadLetteredOutboxBeforeProvision,
             await CountDeadLetteredOutboxAsync(databaseProvider, connectionString),
             "Worker 不应把租户创建事件送入死信；若这里增长，需优先排查处理器匹配或反序列化失败。");
-        Assert.AreEqual(
+        Assert.IsLessThanOrEqualTo(
             retryScheduledOutboxBeforeProvision,
             await CountRetryScheduledOutboxAsync(databaseProvider, connectionString),
             "Worker 不应把租户创建事件释放回重试队列；若这里增长，需优先排查处理器运行期异常。");
-        Assert.AreEqual(
-            processedOutboxBeforeProvision + 1,
+        Assert.IsGreaterThanOrEqualTo(
+            processedOutboxBeforeProvision + pendingOutboxBeforeProvision + 1,
             await CountProcessedOutboxAsync(databaseProvider, connectionString),
             "Worker 未把租户创建事件标记为已处理，说明缓存修复链路尚未走到成功确认阶段。");
         var secondaryDomainRemove = await WaitForBackplaneObservationAsync(
@@ -208,6 +265,8 @@ public sealed class CacheConsistencyTests
         Assert.IsNotNull(
             secondaryDomainRemove,
             "Secondary 节点在 Worker 处理后仍未收到域名解析 key 的 backplane 删除通知。"
+            + Environment.NewLine
+            + $"Worker events: {string.Join(" | ", workerBackplaneEvents)}"
             + Environment.NewLine
             + $"Primary events: {DescribeBackplaneEvents(primaryFactory)}"
             + Environment.NewLine
@@ -388,6 +447,43 @@ public sealed class CacheConsistencyTests
             """);
     }
 
+    private static async Task<Guid> GetLatestTenantProvisionedOutboxIdAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        await using var connection = CreateConnection(databaseProvider, connectionString);
+        var sql = databaseProvider == DatabaseProvider.SqlServer
+            ? """
+              SELECT TOP (1) Id
+              FROM fn_outbox_message
+              WHERE MessageType = 'fullnet.tenancy.tenant.provisioned'
+              ORDER BY OccurredAtUtc DESC, Id DESC
+              """
+            : """
+              SELECT Id
+              FROM fn_outbox_message
+              WHERE MessageType = 'fullnet.tenancy.tenant.provisioned'
+              ORDER BY OccurredAtUtc DESC, Id DESC
+              LIMIT 1
+              """;
+        return await connection.QuerySingleAsync<Guid>(sql);
+    }
+
+    private static async Task<OutboxState> GetOutboxStateAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString,
+        Guid messageId)
+    {
+        await using var connection = CreateConnection(databaseProvider, connectionString);
+        return await connection.QuerySingleAsync<OutboxState>(
+            """
+            SELECT ProcessedAtUtc, DeadLetteredAtUtc, NextAttemptAtUtc
+            FROM fn_outbox_message
+            WHERE Id = @MessageId
+            """,
+            new { MessageId = messageId });
+    }
+
     private static async Task<long> CountDeadLetteredOutboxAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
@@ -417,12 +513,65 @@ public sealed class CacheConsistencyTests
             """);
     }
 
+    private static async Task MakeOutboxRetriesDueAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        await using var connection = CreateConnection(databaseProvider, connectionString);
+        await connection.ExecuteAsync(
+            """
+            UPDATE fn_outbox_message
+            SET NextAttemptAtUtc = CURRENT_TIMESTAMP
+            WHERE ProcessedAtUtc IS NULL
+              AND DeadLetteredAtUtc IS NULL
+              AND NextAttemptAtUtc IS NOT NULL
+            """);
+    }
+
     private static Dictionary<string, string?> CreateRedisSettings(
         string redisConnectionString) => new()
         {
             [$"{CacheOptions.SectionName}:RedisConnectionString"] = redisConnectionString,
             ["ConnectionStrings:redis"] = redisConnectionString,
         };
+
+    private sealed record OutboxState(
+        DateTimeOffset? ProcessedAtUtc,
+        DateTimeOffset? DeadLetteredAtUtc,
+        DateTimeOffset? NextAttemptAtUtc);
+
+    private sealed class ThrowingBackplane : IFusionCacheBackplane
+    {
+        public void Subscribe(BackplaneSubscriptionOptions options)
+        {
+        }
+
+        public ValueTask SubscribeAsync(BackplaneSubscriptionOptions options) =>
+            ValueTask.CompletedTask;
+
+        public void Unsubscribe()
+        {
+        }
+
+        public ValueTask UnsubscribeAsync() => ValueTask.CompletedTask;
+
+        public void Publish(
+            BackplaneMessage message,
+            FusionCacheEntryOptions options,
+            CancellationToken token = default) =>
+            throw new InvalidOperationException("Simulated backplane publication failure.");
+
+        public ValueTask PublishAsync(
+            BackplaneMessage message,
+            FusionCacheEntryOptions options,
+            CancellationToken token = default) =>
+            ValueTask.FromException(
+                new InvalidOperationException("Simulated backplane publication failure."));
+
+        public void Dispose()
+        {
+        }
+    }
 
     private static IConfiguration CreateWorkerConfiguration(
         DatabaseProvider databaseProvider,

@@ -7,6 +7,7 @@ using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Realtime;
+using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.SendHostInboxMessages;
 
@@ -17,15 +18,29 @@ internal sealed class HostInboxMessageService(
     ICommandTransaction transaction,
     IRealtimePublisher realtimePublisher,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ILogger<HostInboxMessageService> logger)
 {
-    public Task<Result<InboxMessageResponse>> SendAsync(
+    public async Task<Result<InboxMessageResponse>> SendAsync(
         Guid actorUserId,
         SendHostInboxMessageRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => SendCoreAsync(actorUserId, request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var result = await transaction.ExecuteAsync(
+                token => SendCoreAsync(actorUserId, request, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result.IsSuccess)
+        {
+            await TryPublishMessageAsync(
+                    request.RecipientUserId,
+                    result.Value!,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+
+        return result;
+    }
 
     private async Task<Result<InboxMessageResponse>> SendCoreAsync(
         Guid actorUserId,
@@ -75,40 +90,55 @@ internal sealed class HostInboxMessageService(
             return NotFound();
         }
 
-        var response = MyInboxQueryService.Map(record);
-        await realtimePublisher.PublishToUserAsync(
-                request.RecipientUserId,
-                new RealtimeMessage(
-                    RealtimeMessageCodes.InboxMessageReceived,
-                    new Dictionary<string, object?>
-                    {
-                        ["messageId"] = messageId,
-                        ["title"] = response.Title,
-                    }),
-                cancellationToken)
-            .ConfigureAwait(false);
+        return Result<InboxMessageResponse>.Success(MyInboxQueryService.Map(record));
+    }
 
-        var unreadCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                InboxMessageSql.CountUnreadForRecipient,
-                new
-                {
-                    RecipientUserId = request.RecipientUserId,
-                    UnreadStatus = InboxMessageStatuses.Unread,
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
-        await realtimePublisher.PublishToUserAsync(
-                request.RecipientUserId,
-                new RealtimeMessage(
-                    RealtimeMessageCodes.InboxUnreadCountChanged,
-                    new Dictionary<string, object?>
-                    {
-                        ["unreadCount"] = unreadCount,
-                    }),
-                cancellationToken)
-            .ConfigureAwait(false);
+    private async Task TryPublishMessageAsync(
+        Guid recipientUserId,
+        InboxMessageResponse response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await realtimePublisher.PublishToUserAsync(
+                    recipientUserId,
+                    new RealtimeMessage(
+                        RealtimeMessageCodes.InboxMessageReceived,
+                        new Dictionary<string, object?>
+                        {
+                            ["messageId"] = response.Id,
+                            ["title"] = response.Title,
+                        }),
+                    cancellationToken)
+                .ConfigureAwait(false);
 
-        return Result<InboxMessageResponse>.Success(response);
+            var unreadCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                    InboxMessageSql.CountUnreadForRecipient,
+                    new
+                    {
+                        RecipientUserId = recipientUserId,
+                        UnreadStatus = InboxMessageStatuses.Unread,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await realtimePublisher.PublishToUserAsync(
+                    recipientUserId,
+                    new RealtimeMessage(
+                        RealtimeMessageCodes.InboxUnreadCountChanged,
+                        new Dictionary<string, object?>
+                        {
+                            ["unreadCount"] = unreadCount,
+                        }),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to publish inbox message {MessageId} after the database commit.",
+                response.Id);
+        }
     }
 
     private static Result<InboxMessageResponse>? ValidateContent(string title, string content)

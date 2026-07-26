@@ -1,9 +1,11 @@
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
@@ -104,6 +106,59 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         Assert.AreEqual("fresh-domain", domainValue);
     }
 
+    [TestMethod]
+    public async Task ProvisionAsync_DoesNotExposeRequestCancellationAfterCommit()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFusionCache().AsHybridCache();
+        await using var provider = services.BuildServiceProvider();
+        var fusionCache = provider.GetRequiredService<IFusionCache>();
+        var hybridCache = provider.GetRequiredService<HybridCache>();
+        using var requestCancellation = new CancellationTokenSource();
+        var tenant = new TenantSummary(
+            Guid.CreateVersion7(),
+            "acme",
+            "Acme",
+            "acme.localhost",
+            true,
+            1);
+        const string environmentName = "Testing";
+        var tenantKey = CacheKeyBuilder.TenantResolutionById(
+            environmentName,
+            tenant.Id);
+        var domainKey = CacheKeyBuilder.TenantResolutionByDomain(
+            environmentName,
+            tenant.Domain);
+        await hybridCache.SetAsync(tenantKey, "stale-tenant");
+        await hybridCache.SetAsync(domainKey, "stale-domain");
+        var service = new TenantProvisioningService(
+            new CancellingCommandDispatcher(requestCancellation, tenant),
+            fusionCache,
+            new TestHostEnvironment(environmentName));
+
+        var result = await service.ProvisionAsync(
+            new ProvisionTenantRequest(
+                tenant.Identifier,
+                tenant.Name,
+                tenant.Domain),
+            requestCancellation.Token);
+
+        Assert.IsTrue(requestCancellation.IsCancellationRequested);
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(tenant.Id, result.Value!.Id);
+        Assert.AreEqual(
+            "fresh-tenant",
+            await hybridCache.GetOrCreateAsync(
+                tenantKey,
+                _ => ValueTask.FromResult("fresh-tenant")));
+        Assert.AreEqual(
+            "fresh-domain",
+            await hybridCache.GetOrCreateAsync(
+                domainKey,
+                _ => ValueTask.FromResult("fresh-domain")));
+    }
+
     private sealed class TestHostEnvironment(string environmentName) : IHostEnvironment
     {
         public string EnvironmentName { get; set; } = environmentName;
@@ -114,5 +169,21 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
 
         public IFileProvider ContentRootFileProvider { get; set; } =
             new NullFileProvider();
+    }
+
+    private sealed class CancellingCommandDispatcher(
+        CancellationTokenSource requestCancellation,
+        TenantSummary tenant) : ICommandDispatcher
+    {
+        public Task<Result<TResult>> SendAsync<TCommand, TResult>(
+            TCommand command,
+            CancellationToken cancellationToken = default)
+            where TCommand : ICommand<TResult>
+        {
+            Assert.IsFalse(cancellationToken.IsCancellationRequested);
+            requestCancellation.Cancel();
+            return Task.FromResult(
+                (Result<TResult>)(object)Result<TenantSummary>.Success(tenant));
+        }
     }
 }

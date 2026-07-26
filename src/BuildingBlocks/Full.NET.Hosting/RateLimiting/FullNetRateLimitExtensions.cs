@@ -25,7 +25,11 @@ public static class FullNetRateLimitExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<RateLimitingOptions>,
             RateLimitingOptionsValidator>());
-        services.TryAddSingleton<RateLimitPolicyErrorCodes>();
+        services.AddOptions<RateLimitPolicyErrorCodes>();
+        services.TryAddSingleton(static serviceProvider =>
+            serviceProvider
+                .GetRequiredService<IOptions<RateLimitPolicyErrorCodes>>()
+                .Value);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IConfigureOptions<RateLimiterOptions>,
             GlobalApiRateLimiterConfigurator>());

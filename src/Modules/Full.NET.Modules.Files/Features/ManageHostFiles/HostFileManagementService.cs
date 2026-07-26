@@ -110,14 +110,24 @@ internal sealed class HostFileManagementService(
         }
     }
 
-    public Task<Result<HostFileResponse>> DeleteAsync(
+    public async Task<Result<HostFileResponse>> DeleteAsync(
         Guid fileId,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => DeleteCoreAsync(fileId, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var outcome = await transaction.ExecuteAsync(
+                token => DeleteCoreAsync(fileId, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (outcome.Result.IsSuccess && outcome.StorageKey is not null)
+        {
+            await TryDeleteBlobAsync(outcome.StorageKey, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
 
-    private async Task<Result<HostFileResponse>> DeleteCoreAsync(
+        return outcome.Result;
+    }
+
+    private async Task<DeleteOutcome> DeleteCoreAsync(
         Guid fileId,
         CancellationToken cancellationToken)
     {
@@ -125,7 +135,9 @@ internal sealed class HostFileManagementService(
             .ConfigureAwait(false);
         if (!detailResult.IsSuccess)
         {
-            return Result<HostFileResponse>.Failure(detailResult.Error!);
+            return new DeleteOutcome(
+                Result<HostFileResponse>.Failure(detailResult.Error!),
+                null);
         }
 
         var detail = detailResult.Value!;
@@ -137,14 +149,17 @@ internal sealed class HostFileManagementService(
             .ConfigureAwait(false);
         if (affected == 0)
         {
-            return Result<HostFileResponse>.Failure(new Error(
-                FilesErrorCodes.FileNotFound,
-                "The file was not found.",
-                ErrorType.NotFound));
+            return new DeleteOutcome(
+                Result<HostFileResponse>.Failure(new Error(
+                    FilesErrorCodes.FileNotFound,
+                    "The file was not found.",
+                    ErrorType.NotFound)),
+                null);
         }
 
-        await TryDeleteBlobAsync(detail.StorageKey, cancellationToken).ConfigureAwait(false);
-        return Result<HostFileResponse>.Success(HostFileQueryService.Map(detail));
+        return new DeleteOutcome(
+            Result<HostFileResponse>.Success(HostFileQueryService.Map(detail)),
+            detail.StorageKey);
     }
 
     private static string NormalizeFileName(string? originalFileName)
@@ -205,4 +220,8 @@ internal sealed class HostFileManagementService(
             FilesErrorCodes.InvalidUpload,
             message,
             ErrorType.Validation));
+
+    private sealed record DeleteOutcome(
+        Result<HostFileResponse> Result,
+        string? StorageKey);
 }

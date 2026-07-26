@@ -172,13 +172,16 @@ async function disable(item: HostJobDefinition): Promise<void> {
   }
 }
 
-function toProblem(error: unknown, fallbackKey?: string): FullNetProblemDetails {
+function toProblem(
+  error: unknown,
+  fallbackKey: 'hostJobs.loadFailed' | 'hostJobs.operationFailed' = 'hostJobs.operationFailed'
+): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
   }
   return {
     type: 'about:blank',
-    title: t(fallbackKey ?? 'status.error'),
+    title: t(fallbackKey),
     status: 500,
     code: 'client.unexpected_error'
   };
@@ -213,7 +216,7 @@ function toProblem(error: unknown, fallbackKey?: string): FullNetProblemDetails 
           <ElInput v-model="description" type="textarea" :rows="3" :disabled="changing" />
         </label>
         <div class="art-form-actions">
-          <ElButton v-if="editingId" @click="cancelEdit">{{ t('status.cancel') }}</ElButton>
+          <ElButton v-if="editingId" @click="cancelEdit">{{ t('hostJobs.cancel') }}</ElButton>
           <ElButton type="primary" native-type="submit" :loading="changing">
             {{ editingId ? t('hostJobs.save') : t('hostJobs.create') }}
           </ElButton>

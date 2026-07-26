@@ -23,6 +23,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 
 
@@ -62,9 +63,17 @@ public sealed class FilesModule : IFullNetModule
 
             FilesErrorResourceSource>());
 
-        services.Configure<LocalFileStorageOptions>(
+        services.AddOptions<LocalFileStorageOptions>()
 
-            configuration.GetSection(LocalFileStorageOptions.SectionName));
+            .Bind(configuration.GetSection(LocalFileStorageOptions.SectionName))
+
+            .ValidateOnStart();
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+
+            IValidateOptions<LocalFileStorageOptions>,
+
+            LocalFileStorageOptionsValidator>());
 
         services.TryAddSingleton<IClock, SystemClock>();
 

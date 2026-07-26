@@ -9,18 +9,19 @@
 | 迁移 | `030_JobsDefinitionAndExecution.sql` SQL Server + MySQL |
 | API | `/api/v1/jobs/host-definitions`、`/api/v1/jobs/host-executions` |
 | 权限 | `jobs.definitions.read/write`、`jobs.executions.read` |
-| Integration 双库 | `Host_job_definition_and_trigger` SQL Server/MySQL **2/2** → **160 → 162** |
+| Integration 双库 | `Host_job_definition_and_trigger` SQL Server/MySQL **2/2**，含过期 `Running` 租约恢复 |
 | OpenAPI | `jobs-host-definitions-v1.json` |
 | client-contracts | `host-jobs.ts` + Vitest |
 | Mock parity | 「任务调度列表与触发」× 双端 **2/2** → `shell-parity` **60 → 62** |
 | 双端 UI | `HostJobsView.vue` + `host-jobs.js` |
-| 四处 canonical 门槛 | **351/7/40/162** |
+| 四处 canonical 门槛 | **359/7/40/172** |
 
 ## 手动验证建议
 
 1. Migrator 应用 `030` 后，以 Host 管理员登录双管理端「任务调度」。
 2. 创建 `jobs.ping` 任务并「立即执行」，执行记录状态应为 `succeeded`。
 3. 禁用任务后再次触发应返回 `jobs.definition_disabled`。
+4. Worker 异常退出后，超过租约期限的 `running` 执行应由下一实例重新领取，且尝试次数递增。
 
 ## 关联
 

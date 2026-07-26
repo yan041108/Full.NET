@@ -17,6 +17,7 @@
 | 事务只覆盖业务表，Outbox、外部调用或失败路径遗漏 | 数据与消息不一致 | 第 5、6 节 |
 | SQL Server 完成后假设 MySQL 等价，或反之 | 迁移、锁和 SQL 在另一数据库失败 | 第 5、11 节 |
 | 只验证迁移日志幂等，未模拟未记账的部分 DDL | 非事务或隐式提交 DDL 失败后无法重跑，导致生产升级不可恢复 | 第 5、11 节 |
+| 恢复测试用排除未来脚本的黑名单表达迁移边界 | 新增迁移后旧恢复用例越界执行，产生与目标迁移无关的结构冲突 | R-20260726-migration-recovery-test-boundary |
 | 只看构建成功，未确认测试运行器和测试数量 | 零测试或漏测被误报为通过 | 第 11 节 |
 | 缓存、Worker、SignalR 只按单实例思考 | 横向扩展后重复处理或状态不一致 | 第 6、8 节 |
 | README 和路线图把计划能力写成已实现 | 使用者产生错误预期 | 第 12 节 |
@@ -30,6 +31,7 @@
 | 把框架、项目和数据库系统对象都命名为 `sys_*`，或在各模板重复实现命名转换 | 所有权混淆、跨库大小写故障、Dapper 隐式映射和生成漂移 | `naming-conventions.md` |
 | 用用户名、通配符或无条件授权实现超级管理员，或允许移除最后一名 | 权限绕过、租户泄漏和平台失去恢复入口 | R-20260718-super-administrator-boundary |
 | 在业务模块直接引入 Dapper 扩展、连接、事务或自动 CRUD | 绕过租户守卫、事务/Outbox 和 SQL 审查边界 | R-20260718-dapper-tooling-boundary |
+| 认证前或租户上下文内读取 Host 目录，却把 SQL 误标为 `HostOnly` | API Key 等认证入口不可用，或进入租户后 Host 目录查询异常 | R-20260726-host-catalog-sql-scope |
 | 把每个 CRUD、菜单、实体或用例拆成独立项目，或把 `Contracts`/`.Http` 当作模块标配 | 项目数量膨胀、构建与装配成本上升，并形成没有业务意义的物理边界 | 第 3 节 |
 
 ## 2. 任务开始与范围控制
@@ -99,6 +101,26 @@
 10. Provider 专有 SQL 必须按同一语义提供 SQL Server/MySQL 成对实现和真实测试。CTE、窗口、Upsert、锁、JSON 和日期函数不得以数据库分支散落在业务 Handler；JSON 聚合/变更默认在应用层完成。
 11. 新查询必须评估索引、排序稳定性、分页复杂度和最坏数据量。性能结论必须来自基准或执行计划，不得只凭 ORM 偏好判断。
 12. 新增或修改表、列、索引、约束、Statement 和生成模板必须遵守 [`naming-conventions.md`](naming-conventions.md)：表按冻结的 OwnerKey/ModuleKey/EntityKey 命名，列用 PascalCase 与 Dapper 投影直接映射；禁止 `sys` 项目 OwnerKey、运行时动态表前缀、全局 snake_case 映射和模板私有命名算法。
+
+### R-20260726-migration-recovery-test-boundary：恢复用例必须冻结目标迁移上界
+
+- 状态：强制
+- 来源：UUID/Naming 恢复测试先后两次因新增后续迁移而跑穿目标边界，导致已删除旧表或旧 UUID 类型与新外键冲突
+- 适用范围：模拟旧版本、部分 DDL、未记账脚本、Expand/Contract 中间态和发布候选升级的所有迁移测试 Runner
+- 风险：用“排除当前已知后续脚本”的黑名单会在新增迁移后自动放入未来脚本，使测试失败原因偏离目标恢复语义，并掩盖真实迁移可恢复性
+- 规则：测试 Runner 必须用明确的最后迁移编号或精确允许集合表达 `ThroughNNN` 上界；禁止仅排除当前后续文件名。新增迁移不得改变既有 `ThroughNNN` Runner 执行集合。需要执行后续脚本时必须新增或显式调整命名上界，并同步该阶段结构断言
+- 验证：Runner 应有脚本集合/执行数量断言；全量 SQL Server/MySQL Integration 必须覆盖旧结构、部分提交与恢复重跑。评审新增迁移时必须搜索所有 `Through` Runner，确认上界不漂移
+- 例外：无
+
+### R-20260726-host-catalog-sql-scope：跨上下文 Host 目录 SQL 必须显式过滤
+
+- 状态：强制
+- 来源：租户上下文导航查询与 API Key 认证先后两次因 Host 目录 SQL 误标 `HostOnly` 失效
+- 适用范围：认证主体或可信 Host 上下文建立前执行的 SQL，以及租户请求仍需读取的 Host 用户、菜单、凭据和其他 Host 目录
+- 风险：`HostOnly` 依赖一个尚未建立或已切换为租户的上下文，可能让认证入口全部失败，或使合法租户请求抛出 `HostContextRequiredException`
+- 规则：上述语句必须使用 `SqlDataScope.Global`，并在 SQL 自身通过不可变、可审查的行条件精确限制 Host 数据（例如 `TenantId IS NULL`、固定作用域键及必要关联过滤）。只有调用前已存在可信 Host 上下文、且语句不需要在租户或匿名认证路径执行时才可使用 `HostOnly`。禁止以 `Global` 代替行过滤，禁止依赖请求参数动态放宽 Host 目录范围
+- 验证：每个此类 Statement 必须有 Unit/Architecture 断言同时锁定 `Global` 和显式 Host 行过滤；认证入口与跨租户上下文消费者必须分别提供 SQL Server/MySQL 集成回归
+- 例外：无
 
 ### R-20260718-dapper-tooling-boundary：Dapper 辅助包不能绕过统一数据路径
 

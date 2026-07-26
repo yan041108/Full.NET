@@ -14,7 +14,7 @@ internal static class OperationLogSql
             (@Id, @OccurredAtUtc, @ActionKey, @HttpMethod, @RequestPath, @StatusCode, @DurationMs,
              @Succeeded, @UserId, @TenantId, @TraceId, @ClientIpFingerprint, @PermissionCode)
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement CountFilteredSqlServer = new(
         "auditing.count_operation_logs.sql_server",

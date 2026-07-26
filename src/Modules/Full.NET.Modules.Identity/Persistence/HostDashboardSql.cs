@@ -18,7 +18,7 @@ internal static class HostDashboardSql
             "platform.count_active_tenants",
             """
             SELECT COUNT(1)
-            FROM fn_tenant_tenant
+            FROM fn_tenancy_tenant
             WHERE IsActive = 1
             """,
             SqlDataScope.HostOnly);

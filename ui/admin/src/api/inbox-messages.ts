@@ -60,7 +60,7 @@ export async function sendHostInboxMessage(
 ): Promise<InboxMessage> {
   const value = await request<unknown>('/api/v1/notifications/host-inbox-messages', {
     method: 'POST',
-    body: { recipientUserId, title, content }
+    body: JSON.stringify({ recipientUserId, title, content })
   });
   if (!isInboxMessage(value)) {
     throw new Error('client.invalid_inbox_message');

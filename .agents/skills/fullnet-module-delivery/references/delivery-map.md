@@ -63,10 +63,10 @@ dotnet build Full.NET.slnx -c Release
 ???? Microsoft Testing Platform ????
 
 ```powershell
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 352
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 359
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 40
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 170 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 172 --timeout 90m
 ```
 
 PR ????????????filter??
@@ -91,3 +91,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 - ?????`AGENTS.md` ??`rules/`??
 
 ?????????????????????API ?????????????????????????`Verified`??
+
+## 配置与外部资源
+
+- 新增配置或外部资源边界时，必须同时提供启动期校验、失败路径测试和运行时断言，禁止把配置错误推迟到首个业务请求。

@@ -22,8 +22,7 @@ internal static class NamingExpandTestMigrationRunner
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && IsThroughMigration(name, 9))
             .WithVariable("UuidContractMaintenanceMode", "1")
             .WithVariable("UuidContractBackupVerified", "1")
             .WithVariable("UuidContractLegacyWritersStopped", "1")
@@ -48,8 +47,7 @@ internal static class NamingExpandTestMigrationRunner
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.SqlServer.", StringComparison.Ordinal)
-                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && IsThroughMigration(name, 9))
             .WithVariable("UuidContractMaintenanceMode", "1")
             .WithVariable("UuidContractBackupVerified", "1")
             .WithVariable("UuidContractLegacyWritersStopped", "1")
@@ -78,7 +76,7 @@ internal static class NamingExpandTestMigrationRunner
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && IsThroughMigration(name, 10))
             .WithVariable("UuidContractMaintenanceMode", "1")
             .WithVariable("UuidContractBackupVerified", "1")
             .WithVariable("UuidContractLegacyWritersStopped", "1")
@@ -110,7 +108,7 @@ internal static class NamingExpandTestMigrationRunner
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.SqlServer.", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && IsThroughMigration(name, 10))
             .WithVariable("UuidContractMaintenanceMode", "1")
             .WithVariable("UuidContractBackupVerified", "1")
             .WithVariable("UuidContractLegacyWritersStopped", "1")
@@ -132,4 +130,8 @@ internal static class NamingExpandTestMigrationRunner
 
         return Task.FromResult(new MigrationResult(true, result.Scripts.Count()));
     }
+
+    internal static bool IsThroughMigration(string resourceName, int lastMigration) =>
+        Enumerable.Range(1, lastMigration).Any(number =>
+            resourceName.Contains($".{number:000}_", StringComparison.Ordinal));
 }

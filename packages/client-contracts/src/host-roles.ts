@@ -71,6 +71,7 @@ export interface UpdateHostRoleDataScopeRequest {
   dataScopeKind: RoleDataScopeKind;
   unitIds: string[] | null;
   version: number;
+  tenantId: string | null;
 }
 
 /** 校验不可信 JSON 是否为 Host 角色更新请求。 */
@@ -114,7 +115,8 @@ export function isUpdateHostRoleDataScopeRequest(
     && (value.unitIds === null
       || (Array.isArray(value.unitIds)
         && value.unitIds.every(unitId => isText(unitId))))
-    && typeof value.version === 'number';
+    && typeof value.version === 'number'
+    && (value.tenantId === null || isText(value.tenantId));
 }
 
 /** 校验不可信 JSON 是否为 Host 角色分页结果。 */

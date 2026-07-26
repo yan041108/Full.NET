@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
@@ -29,6 +30,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .Produces<PagedResult<HostMenuResponse>>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
         group.MapGet("/{menuId:guid}", async (
@@ -42,6 +44,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .Produces<HostMenuResponse>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
         group.MapPost("/", async (
@@ -62,6 +65,7 @@ internal static class Endpoint
                 $"/api/v1/identity/menus/{result.Value!.Id:D}",
                 result.Value);
         })
+        .Produces<HostMenuResponse>(StatusCodes.Status201Created)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Write);
 
         group.MapPut("/{menuId:guid}", async (
@@ -76,6 +80,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .Produces<HostMenuResponse>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Write);
 
         group.MapPost("/{menuId:guid}/disable", async (
@@ -89,6 +94,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .Produces<HostMenuResponse>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Write);
     }
 }

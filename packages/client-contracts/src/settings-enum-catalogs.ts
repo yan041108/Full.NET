@@ -28,6 +28,7 @@ export function isSettingsEnumCatalogSummary(
     && catalogKeyPattern.test(value.key)
     && isNonEmptyString(value.displayName)
     && (value.description === null || typeof value.description === 'string')
+    && typeof value.memberCount === 'number'
     && Number.isInteger(value.memberCount)
     && value.memberCount >= 0;
 }

@@ -88,14 +88,15 @@ export async function updateHostRoleDataScope(
   id: string,
   dataScopeKind: RoleDataScopeKind,
   unitIds: string[] | null,
-  version: number
+  version: number,
+  tenantId: string | null = null
 ): Promise<HostRoleDataScope> {
   const value = await request<unknown>(
     `/api/v1/identity/roles/${encodeURIComponent(id)}/data-scope`,
     {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ dataScopeKind, unitIds, version })
+      body: JSON.stringify({ dataScopeKind, unitIds, version, tenantId })
     }
   );
   if (!isHostRoleDataScope(value)) throw new Error('client.invalid_host_role_data_scope');

@@ -116,7 +116,11 @@ public sealed class SeedingDependencyRulesTests
         Type type,
         IReadOnlyCollection<string> forbiddenTokens)
     {
-        if (forbiddenTokens.Any(token =>
+        // OpenAPI 源生成类型带内容哈希，哈希可能偶然包含 E2E；门禁只检查 Full.NET 自有类型。
+        var isFullNetType = type.Namespace?.StartsWith(
+            "Full.NET",
+            StringComparison.Ordinal) == true;
+        if (isFullNetType && forbiddenTokens.Any(token =>
                 type.FullName?.Contains(token, StringComparison.OrdinalIgnoreCase) == true))
         {
             yield return $"{type.Assembly.GetName().Name}:type:{type.FullName}";

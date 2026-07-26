@@ -14,7 +14,7 @@ internal static class ExceptionLogSql
             (@Id, @OccurredAtUtc, @ExceptionType, @Message, @StackTrace,
              @HttpMethod, @RequestPath, @UserId, @TenantId, @TraceId, @ClientIpFingerprint)
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement CountFilteredSqlServer = new(
         "auditing.count_exception_logs.sql_server",

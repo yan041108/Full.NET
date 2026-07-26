@@ -62,7 +62,7 @@
 | 在线表单构建器 | FormBuilder | Official Module | M5+ | Mapped |
 | 微信小程序与微信支付 | WeChat + Payments | Official Module + Provider | M5+ | Mapped |
 | Excel 导入导出、HTML/PDF 报告 | ImportExport + Reporting | Official Module + Provider | M5+ | Mapped |
-| 接口限流 | Hosting | Core | M1 | **Build-verified**（全局限流配置、`hosting.rate_limited` 与 Identity 端点策略；[验证记录](../verification/hosting-global-api-rate-limit-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-hosting-global-api-rate-limit-vertical-slice.md)） |
+| 接口限流 | Hosting | Core | M1 | **Build-verified**（全局限流配置、`hosting.rate_limit.exceeded` 与 Identity 端点策略；[验证记录](../verification/hosting-global-api-rate-limit-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-hosting-global-api-rate-limit-vertical-slice.md)） |
 | Elasticsearch 日志 | Elasticsearch Observability | Provider | M5+ | Mapped |
 | OAuth 2.0 外部登录 | Identity OAuth Providers | Provider | M5+ | Mapped |
 | APIJSON 零代码查询 | APIJSON Compatibility | Compatibility | M5+ | Mapped |

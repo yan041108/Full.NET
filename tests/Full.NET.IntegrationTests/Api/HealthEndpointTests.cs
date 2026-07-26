@@ -210,6 +210,10 @@ public sealed class HealthEndpointTests
                 ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
                 ["Identity:AllowedOrigins:0"] = "http://localhost",
                 ["Tenancy:HostDomains:0"] = "localhost",
+                ["Files:Local:RootPath"] = Path.Combine(
+                    Path.GetTempPath(),
+                    "fullnet-files-health",
+                    Guid.NewGuid().ToString("N")),
             };
             if (!string.IsNullOrWhiteSpace(redisConnectionString))
             {

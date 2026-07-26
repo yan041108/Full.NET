@@ -83,7 +83,7 @@ internal static class IdentityOnlineSessionAssertions
 
         using var protectedBeforeRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            "/api/v1/identity/users?page=1&pageSize=1");
+            "/api/v1/me");
         protectedBeforeRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             victimToken);
@@ -102,7 +102,7 @@ internal static class IdentityOnlineSessionAssertions
 
         using var protectedAfterRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            "/api/v1/identity/users?page=1&pageSize=1");
+            "/api/v1/me");
         protectedAfterRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             victimToken);

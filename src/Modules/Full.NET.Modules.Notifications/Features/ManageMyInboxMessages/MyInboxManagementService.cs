@@ -5,6 +5,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Realtime;
+using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 
@@ -15,22 +16,43 @@ internal sealed class MyInboxManagementService(
     ICommandTransaction transaction,
     MyInboxQueryService queries,
     IRealtimePublisher realtimePublisher,
-    IClock clock)
+    IClock clock,
+    ILogger<MyInboxManagementService> logger)
 {
-    public Task<Result<InboxMessageResponse>> MarkReadAsync(
+    public async Task<Result<InboxMessageResponse>> MarkReadAsync(
         Guid recipientUserId,
         Guid messageId,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => MarkReadCoreAsync(recipientUserId, messageId, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var result = await transaction.ExecuteAsync(
+                token => MarkReadCoreAsync(recipientUserId, messageId, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result.IsSuccess)
+        {
+            await TryPublishUnreadCountAsync(recipientUserId, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
 
-    public Task<Result<InboxUnreadCountResponse>> MarkAllReadAsync(
+        return result;
+    }
+
+    public async Task<Result<InboxUnreadCountResponse>> MarkAllReadAsync(
         Guid recipientUserId,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => MarkAllReadCoreAsync(recipientUserId, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var result = await transaction.ExecuteAsync(
+                token => MarkAllReadCoreAsync(recipientUserId, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result.IsSuccess)
+        {
+            await TryPublishUnreadCountAsync(recipientUserId, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+
+        return result;
+    }
 
     private async Task<Result<InboxMessageResponse>> MarkReadCoreAsync(
         Guid recipientUserId,
@@ -66,8 +88,6 @@ internal sealed class MyInboxManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        await PublishUnreadCountAsync(recipientUserId, cancellationToken).ConfigureAwait(false);
-
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
                 InboxMessageSql.FindForRecipientById,
                 new { Id = messageId, RecipientUserId = recipientUserId },
@@ -93,31 +113,38 @@ internal sealed class MyInboxManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return await PublishUnreadCountAsync(recipientUserId, cancellationToken)
-            .ConfigureAwait(false);
+        return Result<InboxUnreadCountResponse>.Success(new InboxUnreadCountResponse(0));
     }
 
-    private async Task<Result<InboxUnreadCountResponse>> PublishUnreadCountAsync(
+    private async Task TryPublishUnreadCountAsync(
         Guid recipientUserId,
         CancellationToken cancellationToken)
     {
-        var countResult = await queries.GetUnreadCountAsync(recipientUserId, cancellationToken)
-            .ConfigureAwait(false);
-        if (countResult.IsSuccess)
+        try
         {
-            await realtimePublisher.PublishToUserAsync(
-                    recipientUserId,
-                    new RealtimeMessage(
-                        RealtimeMessageCodes.InboxUnreadCountChanged,
-                        new Dictionary<string, object?>
-                        {
-                            ["unreadCount"] = countResult.Value!.UnreadCount,
-                        }),
-                    cancellationToken)
+            var countResult = await queries.GetUnreadCountAsync(recipientUserId, cancellationToken)
                 .ConfigureAwait(false);
+            if (countResult.IsSuccess)
+            {
+                await realtimePublisher.PublishToUserAsync(
+                        recipientUserId,
+                        new RealtimeMessage(
+                            RealtimeMessageCodes.InboxUnreadCountChanged,
+                            new Dictionary<string, object?>
+                            {
+                                ["unreadCount"] = countResult.Value!.UnreadCount,
+                            }),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
-
-        return countResult;
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to publish unread count for user {UserId} after the database commit.",
+                recipientUserId);
+        }
     }
 
     private static Result<InboxMessageResponse> NotFound() =>

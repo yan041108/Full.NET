@@ -20,6 +20,31 @@ public sealed class SqlServerMigrationTests
     [TestMethod]
     public async Task SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema()
     {
+        await AuditingSanitizationTestMigrationRunner.MigrateSqlServerThrough031Async(
+            _connectionString);
+        var legacyExceptionLogId = Guid.CreateVersion7();
+        await using (var legacyConnection = new SqlConnection(_connectionString))
+        {
+            await legacyConnection.ExecuteAsync(
+                """
+                INSERT INTO dbo.fn_auditing_exception_log
+                    (Id, OccurredAtUtc, ExceptionType, Message, StackTrace,
+                     HttpMethod, RequestPath, UserId, TenantId, TraceId,
+                     ClientIpFingerprint)
+                VALUES
+                    (@Id, @OccurredAtUtc, 'System.InvalidOperationException',
+                     @Message, @StackTrace, 'GET', '/legacy', NULL, NULL,
+                     'legacy-trace', NULL)
+                """,
+                new
+                {
+                    Id = legacyExceptionLogId,
+                    OccurredAtUtc = DateTimeOffset.UtcNow,
+                    Message = "database-password=legacy-secret",
+                    StackTrace = "at Legacy(database-password=legacy-secret)",
+                });
+        }
+
         var runner = new DbUpMigrationRunner(
             Options.Create(new DatabaseOptions
             {
@@ -35,11 +60,21 @@ public sealed class SqlServerMigrationTests
         var second = await runner.MigrateAsync();
 
         Assert.IsTrue(first.Successful);
-        Assert.IsTrue(first.ExecutedScriptCount > 0);
+        Assert.AreEqual(1, first.ExecutedScriptCount);
         Assert.IsTrue(second.Successful);
         Assert.AreEqual(0, second.ExecutedScriptCount);
 
         await using var connection = new SqlConnection(_connectionString);
+        var sanitized = await connection.QuerySingleAsync<SanitizedExceptionLog>(
+            """
+            SELECT Message, StackTrace
+            FROM dbo.fn_auditing_exception_log
+            WHERE Id = @Id
+            """,
+            new { Id = legacyExceptionLogId });
+        Assert.AreEqual("Unhandled application exception.", sanitized.Message);
+        Assert.IsNull(sanitized.StackTrace);
+
         var tables = (await connection.QueryAsync<string>(
             "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'dbo'"))
             .ToArray();
@@ -358,9 +393,7 @@ public sealed class SqlServerMigrationTests
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.SqlServer.", StringComparison.Ordinal)
-                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && UuidBinaryExpandTestMigrationRunner.IsThrough008Migration(name))
             .WithExecutionTimeout(TimeSpan.FromSeconds(300))
             .Build()
             .PerformUpgrade();
@@ -515,4 +548,6 @@ public sealed class SqlServerMigrationTests
         string PreferredLocale,
         int ProfileVersion,
         string DefaultLocale);
+
+    private sealed record SanitizedExceptionLog(string Message, string? StackTrace);
 }

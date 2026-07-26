@@ -14,7 +14,7 @@ internal static class AccessLogSql
             (@Id, @OccurredAtUtc, @HttpMethod, @RequestPath, @StatusCode, @DurationMs,
              @UserId, @TenantId, @TraceId, @ClientIpFingerprint, @IsAuthenticated)
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement CountFilteredSqlServer = new(
         "auditing.count_access_logs.sql_server",

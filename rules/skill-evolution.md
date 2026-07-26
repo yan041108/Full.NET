@@ -95,7 +95,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-api-compatibility` | 候选 / 4 | ProblemDetails、Admin.NET Mapper、保留 `WWW-Authenticate` 的本地化认证 Challenge，以及经同一 Mapper 返回的稳定本地化 429 均有真实 API 测试锁定 | 新增分页、文件或另一类兼容端点时评估升级 |
 | `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名/按 ID 租户解析缓存与 tag 失效已落地 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |
 | `fullnet-release-verification` | 自动化优先 / 10 | uni-app 三目标构建、fresh H5 E2E、许可与漏洞门禁已落地；双管理端验收已改用专用端口与有界 Worker 避免串台和不稳定 | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
-| `fullnet-realtime-feature` | 等待真实实现 / 0 | 只有 SignalR、MessagePack Hub、Redis Backplane 设计 | 首个 `IRealtimePublisher` 消费者验收后评估 |
+| `fullnet-realtime-feature` | 候选 / 1 | SignalR/MessagePack Hub、用户/租户分组、可选 Redis Backplane 已实现；Notifications 公告和站内信成为首批 `IRealtimePublisher` 消费者，并以提交后尽力推送边界通过双库验证 | 第二个独立业务模块消费实时发布，或多实例 Backplane 真实栈验收后评估升级 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 10 | Identity 会话、租户切换、权限导航、国际化/可访问性之外，租户套餐、Settings 与 Auditing 访问/操作日志均按同一“contracts 守卫 + admin-i18n 双语 + Vue/Layui 双实现 + shell-parity 双端场景”模式交付 | 首个含列表、表单、权限与租户边界的双端业务 CRUD 达到 `Verified` 后评估升级 |
 | `fullnet-localization-delivery` | 候选 / 5 | L0-L2 之上，L3 uni-app 已落地规范语言/别名、Vue I18n、偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具未安装，跨平台停止条件未闭合 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |

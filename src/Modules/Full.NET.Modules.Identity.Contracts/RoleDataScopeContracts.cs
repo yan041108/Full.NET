@@ -40,4 +40,5 @@ public sealed record HostRoleDataScopeResponse(
 public sealed record UpdateHostRoleDataScopeRequest(
     string DataScopeKind,
     IReadOnlyList<Guid>? UnitIds,
-    int Version);
+    int Version,
+    Guid? TenantId = null);

@@ -63,9 +63,19 @@ internal static class TenantScopedSqlComposer
         object source,
         IDictionary<string, object?> target)
     {
+        if (source is IEnumerable<KeyValuePair<string, object?>> pairs)
+        {
+            foreach (var pair in pairs)
+            {
+                target[pair.Key] = pair.Value;
+            }
+
+            return;
+        }
+
         foreach (var property in source.GetType().GetProperties())
         {
-            if (!property.CanRead)
+            if (!property.CanRead || property.GetIndexParameters().Length != 0)
             {
                 continue;
             }

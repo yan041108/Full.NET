@@ -9,11 +9,16 @@
 | 层 | 结果 |
 | --- | --- |
 | 双库迁移 | `029_NotificationsInboxMessage.sql` SQL Server/MySQL |
-| Integration 双库 | 扩展现有 `Host_announcement_and_inbox_management` 用例（**160** 门槛不变） |
+| Integration 双库 | 扩展现有 `Host_announcement_and_inbox_management` 用例，SQL Server/MySQL **2/2** |
 | OpenAPI 夹具 | `notifications-inbox-messages-v1.json` + Node 契约测试 |
 | client-contracts | `inbox-messages.ts` + Vitest |
 | Mock parity | 「消息中心列表与发信」× 双端 **2/2** → `shell-parity` **58 → 60** |
-| 四处 canonical 门槛 | **351/7/40/160** |
+| 四处 canonical 门槛 | **359/7/40/172** |
+
+## 一致性边界
+
+- 发信、标记已读和全部已读先提交数据库事务，再发布送达与未读数事件。
+- 实时推送属于尽力通知；失败只记录告警，不反转已提交业务结果。需要可靠传播的业务事实仍使用事务 Outbox。
 
 ## 关联
 

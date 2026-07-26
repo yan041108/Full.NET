@@ -22,6 +22,25 @@
         "Production artifacts do not include the Vite development server or its Node runtime package; only generated build helper identifiers may remain."
       ],
       "reviewBy": "2026-10-18"
+    },
+    {
+      "ghsa": "GHSA-mh99-v99m-4gvg",
+      "package": "brace-expansion",
+      "allowedPaths": [
+        "clients__uniapp>vue-tsc>@vue/language-core>minimatch>brace-expansion"
+      ],
+      "rationale": "The patched brace-expansion 5.x API is incompatible with minimatch 9.x, which declares brace-expansion ^2.0.1. The vulnerable package is confined to the pinned vue-tsc development toolchain, so a cross-major override would break fresh installs.",
+      "upstreamPeerEvidence": {
+        "package": "@vue/language-core",
+        "version": "2.2.12",
+        "minimatch": "9.0.9"
+      },
+      "mitigations": [
+        "The dependency executes only during repository-controlled type checking and is not shipped in client production artifacts.",
+        "Type-check inputs and glob patterns come from version-controlled workspace configuration rather than remote user input.",
+        "The exact dependency path is pinned and must be re-reviewed when vue-tsc or @vue/language-core is upgraded."
+      ],
+      "reviewBy": "2026-09-26"
     }
   ]
 }

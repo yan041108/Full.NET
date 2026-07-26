@@ -37,7 +37,7 @@
   <data name="identity.roles.system_locked" xml:space="preserve"><value>System roles are protected and cannot be changed.</value></data>
   <data name="identity.data_scope.invalid_kind" xml:space="preserve"><value>The data scope kind is invalid.</value></data>
   <data name="identity.data_scope.custom_units_required" xml:space="preserve"><value>Custom data scope requires at least one organization unit.</value></data>
-  <data name="identity.data_scope.tenant_context_required" xml:space="preserve"><value>Custom data scope requires an active tenant context.</value></data>
+  <data name="identity.data_scope.tenant_context_required" xml:space="preserve"><value>Custom data scope requires an explicit target tenant.</value></data>
   <data name="identity.data_scope.unit_not_found" xml:space="preserve"><value>One or more organization units were not found.</value></data>
   <data name="identity.user_roles.role_not_found" xml:space="preserve"><value>One or more host roles were not found.</value></data>
   <data name="identity.user_roles.role_not_assignable" xml:space="preserve"><value>One or more host roles cannot be assigned through user role management.</value></data>

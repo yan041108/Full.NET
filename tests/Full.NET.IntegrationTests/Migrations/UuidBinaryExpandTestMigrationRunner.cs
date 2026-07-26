@@ -19,9 +19,7 @@ internal sealed class UuidBinaryExpandTestMigrationRunner(string connectionStrin
             .WithScriptsEmbeddedInAssembly(
                 typeof(DbUpMigrationRunner).Assembly,
                 name => name.Contains(".Migrations.MySql.", StringComparison.Ordinal)
-                    && !name.EndsWith("009_UuidBinaryContract.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("010_NamingExpand.sql", StringComparison.Ordinal)
-                    && !name.EndsWith("011_NamingContract.sql", StringComparison.Ordinal))
+                    && IsThrough008Migration(name))
             .Build()
             .PerformUpgrade();
         if (!result.Successful)
@@ -31,4 +29,8 @@ internal sealed class UuidBinaryExpandTestMigrationRunner(string connectionStrin
 
         return Task.FromResult(new MigrationResult(true, result.Scripts.Count()));
     }
+
+    internal static bool IsThrough008Migration(string resourceName) =>
+        Enumerable.Range(1, 8).Any(number =>
+            resourceName.Contains($".{number:000}_", StringComparison.Ordinal));
 }

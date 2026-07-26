@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Realtime;
+using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.ManageHostAnnouncements;
 
@@ -17,7 +18,8 @@ internal sealed class HostAnnouncementManagementService(
     HostAnnouncementQueryService queries,
     IRealtimePublisher realtimePublisher,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ILogger<HostAnnouncementManagementService> logger)
 {
     public Task<Result<HostAnnouncementResponse>> CreateAsync(
         Guid actorUserId,
@@ -36,14 +38,24 @@ internal sealed class HostAnnouncementManagementService(
             token => UpdateCoreAsync(actorUserId, announcementId, request, token),
             cancellationToken);
 
-    public Task<Result<HostAnnouncementResponse>> PublishAsync(
+    public async Task<Result<HostAnnouncementResponse>> PublishAsync(
         Guid actorUserId,
         Guid announcementId,
         int version,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => PublishCoreAsync(actorUserId, announcementId, version, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var result = await transaction.ExecuteAsync(
+                token => PublishCoreAsync(actorUserId, announcementId, version, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result.IsSuccess)
+        {
+            await TryPublishAnnouncementAsync(result.Value!, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+
+        return result;
+    }
 
     private async Task<Result<HostAnnouncementResponse>> CreateCoreAsync(
         Guid actorUserId,
@@ -171,9 +183,15 @@ internal sealed class HostAnnouncementManagementService(
             return ConcurrencyConflict();
         }
 
-        var result = await queries.GetByIdAsync(announcementId, cancellationToken)
+        return await queries.GetByIdAsync(announcementId, cancellationToken)
             .ConfigureAwait(false);
-        if (result.IsSuccess)
+    }
+
+    private async Task TryPublishAnnouncementAsync(
+        HostAnnouncementResponse announcement,
+        CancellationToken cancellationToken)
+    {
+        try
         {
             await realtimePublisher.PublishToGroupAsync(
                     RealtimeGroups.HostBroadcast,
@@ -181,14 +199,19 @@ internal sealed class HostAnnouncementManagementService(
                         RealtimeMessageCodes.AnnouncementPublished,
                         new Dictionary<string, object?>
                         {
-                            ["announcementId"] = announcementId,
-                            ["title"] = result.Value!.Title,
+                            ["announcementId"] = announcement.Id,
+                            ["title"] = announcement.Title,
                         }),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
-
-        return result;
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to publish announcement {AnnouncementId} after the database commit.",
+                announcement.Id);
+        }
     }
 
     private static Result<HostAnnouncementResponse>? ValidateDraftContent(string title, string content)

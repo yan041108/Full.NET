@@ -398,7 +398,7 @@
 
 ### Task 7: 缓存一致性等级与故障注入
 
-**状态：最小闭环已完成（2026-07-23）。** Tenancy 域名解析缓存已按规则实现“提交后本机同步失效 + Outbox 跨节点修复”的最小安全边界：`TenantProvisioningService` 在事务命令成功返回后立即清理当前进程的租户/域名 tag，Worker 继续通过 `TenantProvisionedCacheInvalidationHandler` 负责其他节点的异步收敛。新鲜验证为：`CacheConsistencyTests` 使用两个隔离 API 工厂先制造同域名负缓存，再在主节点提交租户创建，锁定“主节点立即可见、第二节点在 Outbox 处理前仍陈旧”的窗口，SQL Server/MySQL 聚焦 Integration **2/2** 通过；与现有 `TenantProvisioningTests` 组合运行 **4/4** 通过。Redis/Backplane 中断、Redis 不可用/恢复、延迟 Worker 与指标暴露仍待后续步骤补齐，因此本任务尚不能标记为 `Verified`。
+**状态：最小闭环已完成并于 2026-07-26 复核。** Tenancy 域名解析缓存已按规则实现“提交后本机同步失效 + Outbox 跨节点修复”的最小安全边界：`TenantProvisioningService` 在事务命令成功返回后只修复当前请求节点，且提交后的本机清理不再受请求取消影响；该路径禁止承担 Backplane 可靠交付。Worker 通过 `TenantProvisionedCacheInvalidationHandler` 同步等待 Backplane 发布完成并让广播异常冒泡，只有发布成功才允许 Outbox 消息进入已处理状态，失败则释放租约并安排重试。`CacheConsistencyTests` 已覆盖 SQL Server/MySQL 的本机负缓存修复、两个 API 节点 + Redis + Worker 的可观测精确失效、Backplane 不可达时 Outbox 不确认并重试，以及 Redis 不可达时主节点提交后仍立即可见，聚焦 Integration **6/6** 通过。延迟 Worker、指标暴露与完整 S0/S1/S2 分级仍待后续步骤补齐，因此本任务尚不能标记为 `Verified`。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Caching.Fusion`

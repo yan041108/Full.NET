@@ -10,7 +10,7 @@ internal static class OrganizationSql
         SELECT Id, TenantId, ParentId, Code, Name, DisplayOrder,
                IsActive, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_organization_unit
-        WHERE Id = @UnitId AND TenantId = @TenantId
+        WHERE TenantId = @TenantId AND Id = @UnitId
         """,
         SqlDataScope.TenantRequired);
 

@@ -9,16 +9,16 @@
 | 层 | 结果 |
 | --- | --- |
 | 双库迁移 | `028_NotificationsAnnouncement.sql` SQL Server/MySQL |
-| Integration 双库 | `Host_announcement_management` SQL Server/MySQL **2/2** → **158 → 160** |
+| Integration 双库 | `Host_announcement_management` SQL Server/MySQL **2/2** |
 | OpenAPI 夹具 | `notifications-host-announcements-v1.json` + Node 契约测试 |
 | client-contracts | `host-announcements.ts` + Vitest |
 | Mock parity | 「Host 公告列表与创建发布」× 双端 **2/2** → `shell-parity` **56 → 58** |
-| 四处 canonical 门槛 | **351/7/40/160** |
+| 四处 canonical 门槛 | **359/7/40/172** |
 
 ## 说明
 
-- 发布路径调用 `IRealtimePublisher.PublishToGroupAsync(RealtimeGroups.HostBroadcast, ...)`；Hub 对无租户 Claim 的连接自动加入 `host:broadcast`。
-- 本地 Testcontainers 不可用时 Integration/真实栈依赖 CI 新鲜输出；本记录依据 Release 构建与静态契约测试。
+- 公告状态在数据库事务提交后，才调用 `IRealtimePublisher.PublishToGroupAsync(RealtimeGroups.HostBroadcast, ...)`；推送失败只记录告警，不反转已提交发布结果。
+- Hub 对无租户 Claim 的连接自动加入 `host:broadcast`。
 
 ## 关联
 

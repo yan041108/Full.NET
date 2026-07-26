@@ -8,7 +8,7 @@
 
 1. [x] `AddFullNetRateLimiter` + `RateLimiting` 配置节
 2. [x] 全局 `GlobalLimiter`（按用户 `sub` 或来源 IP 分区）
-3. [x] `hosting.rate_limited` 稳定错误码与 ProblemDetails 429
+3. [x] `hosting.rate_limit.exceeded` 稳定错误码与 ProblemDetails 429
 4. [x] Identity 策略迁移至 `IdentityRateLimiterPolicyConfigurator`
 5. [x] Integration **166 → 168**（SQL Server/MySQL）
 6. [x] Unit **351 → 352**

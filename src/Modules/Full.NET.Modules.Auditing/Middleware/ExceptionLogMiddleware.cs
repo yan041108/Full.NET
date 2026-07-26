@@ -14,9 +14,8 @@ internal sealed class ExceptionLogMiddleware(RequestDelegate next)
 {
     private const string TenantItemKey = "FullNet.TenantId";
     private const int MaxTypeLength = 256;
-    private const int MaxMessageLength = 1024;
-    private const int MaxStackLength = 4000;
     private const int MaxPathLength = 512;
+    private const string SafeExceptionMessage = "Unhandled application exception.";
 
     public async Task InvokeAsync(HttpContext httpContext, ExceptionLogWriter writer)
     {
@@ -59,18 +58,6 @@ internal sealed class ExceptionLogMiddleware(RequestDelegate next)
             exceptionType = exceptionType[..MaxTypeLength];
         }
 
-        var message = exception.Message ?? string.Empty;
-        if (message.Length > MaxMessageLength)
-        {
-            message = message[..MaxMessageLength];
-        }
-
-        var stack = exception.StackTrace;
-        if (stack is { Length: > MaxStackLength })
-        {
-            stack = stack[..MaxStackLength];
-        }
-
         var method = httpContext.Request.Method;
         if (method.Length > 16)
         {
@@ -92,8 +79,8 @@ internal sealed class ExceptionLogMiddleware(RequestDelegate next)
 
         return new ExceptionLogWriteModel(
             exceptionType,
-            message,
-            string.IsNullOrWhiteSpace(stack) ? null : stack,
+            SafeExceptionMessage,
+            null,
             method,
             path,
             userId,

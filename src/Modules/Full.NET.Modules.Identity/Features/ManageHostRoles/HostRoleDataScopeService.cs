@@ -1,6 +1,5 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
-using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
@@ -15,7 +14,6 @@ internal sealed class HostRoleDataScopeService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     ITenantOrganizationUnitDirectory organizationUnitDirectory,
-    ICurrentTenant currentTenant,
     IClock clock)
 {
     public async Task<Result<HostRoleDataScopeResponse>> GetAsync(
@@ -75,7 +73,7 @@ internal sealed class HostRoleDataScopeService(
             .ToArray();
         if (kind == RoleDataScopeKinds.Custom)
         {
-            if (!currentTenant.IsAvailable || currentTenant.IsHost || currentTenant.Id is null)
+            if (request.TenantId is null)
             {
                 return TenantContextRequired();
             }
@@ -88,7 +86,7 @@ internal sealed class HostRoleDataScopeService(
             foreach (var unitId in unitIds)
             {
                 var unit = await organizationUnitDirectory.FindActiveUnitAsync(
-                        currentTenant.Id.Value,
+                        request.TenantId.Value,
                         unitId,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -178,7 +176,7 @@ internal sealed class HostRoleDataScopeService(
     private static Result<HostRoleDataScopeResponse> TenantContextRequired() =>
         Result<HostRoleDataScopeResponse>.Failure(new Error(
             IdentityErrorCodes.DataScopeTenantContextRequired,
-            "Custom data scope requires an active tenant context.",
+            "Custom data scope requires an explicit target tenant.",
             ErrorType.Validation));
 
     private static Result<HostRoleDataScopeResponse> UnitNotFound() =>

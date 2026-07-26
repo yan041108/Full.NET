@@ -29,28 +29,30 @@ internal static class OrganizationDataScopeFilteringAssertions
         HttpClient client,
         CancellationToken cancellationToken)
     {
-        var adminTenantToken = await LoginAndEnterAcmeTenantAsync(client, cancellationToken);
+        var hostAdminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var adminTenant = await LoginAndEnterAcmeTenantAsync(client, cancellationToken);
         var visibleCode = $"scope-visible-{Guid.NewGuid():N}".ToLowerInvariant();
         var hiddenCode = $"scope-hidden-{Guid.NewGuid():N}".ToLowerInvariant();
 
         var visibleUnit = await CreateUnitAsync(
             client,
-            adminTenantToken,
+            adminTenant.AccessToken,
             visibleCode,
             "可见机构",
             cancellationToken);
         var hiddenUnit = await CreateUnitAsync(
             client,
-            adminTenantToken,
+            adminTenant.AccessToken,
             hiddenCode,
             "隐藏机构",
             cancellationToken);
+        hostAdminToken = await LoginAsHostAdminAsync(client, cancellationToken);
 
         var roleCode = $"scope-role-{Guid.NewGuid():N}".ToLowerInvariant();
         using var createRoleRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/identity/roles",
-            adminTenantToken,
+            hostAdminToken,
             new CreateHostRoleRequest(roleCode, "数据范围过滤角色"));
         using var createRoleResponse = await client.SendAsync(createRoleRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, createRoleResponse.StatusCode);
@@ -61,10 +63,11 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var updatePermissionsRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/roles/{createdRole.Id:D}/permissions",
-            adminTenantToken,
+            hostAdminToken,
             new ReplaceHostRolePermissionsRequest(
                 [
                     OrganizationUnitManagementPermissions.Read,
+                    TenancyTenantManagementPermissions.Read,
                     "tenancy.tenants.switch",
                     "platform.dashboard.read",
                 ],
@@ -80,11 +83,12 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var updateScopeRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/roles/{createdRole.Id:D}/data-scope",
-            adminTenantToken,
+            hostAdminToken,
             new UpdateHostRoleDataScopeRequest(
                 RoleDataScopeKinds.Custom,
                 [visibleUnit.Id],
-                roleWithPermissions.Version));
+                roleWithPermissions.Version,
+                adminTenant.TenantId));
         using var updateScopeResponse = await client.SendAsync(updateScopeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, updateScopeResponse.StatusCode);
 
@@ -92,7 +96,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var createUserRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/identity/users",
-            adminTenantToken,
+            hostAdminToken,
             new CreateHostUserRequest(
                 username,
                 "数据范围受限用户",
@@ -106,7 +110,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var getRolesRequest = new HttpRequestMessage(
             HttpMethod.Get,
             $"/api/v1/identity/users/{createdUser.Id:D}/roles");
-        getRolesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminTenantToken);
+        getRolesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", hostAdminToken);
         using var getRolesResponse = await client.SendAsync(getRolesRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, getRolesResponse.StatusCode);
         var userRoles = await getRolesResponse.Content
@@ -116,7 +120,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var assignRoleRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/users/{createdUser.Id:D}/roles",
-            adminTenantToken,
+            hostAdminToken,
             new ReplaceHostUserRolesRequest([createdRole.Id], userRoles.Version));
         using var assignRoleResponse = await client.SendAsync(assignRoleRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, assignRoleResponse.StatusCode);
@@ -133,7 +137,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
         Assert.IsNotNull(loginToken);
 
-        var scopedTenantToken = await EnterAcmeTenantAsync(
+        var scopedTenant = await EnterAcmeTenantAsync(
             client,
             loginToken.AccessToken,
             cancellationToken);
@@ -143,7 +147,7 @@ internal static class OrganizationDataScopeFilteringAssertions
             "/api/v1/organization/units?page=1&pageSize=20");
         listRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            scopedTenantToken);
+            scopedTenant.AccessToken);
         using var listResponse = await client.SendAsync(listRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
         var page = await listResponse.Content
@@ -158,7 +162,7 @@ internal static class OrganizationDataScopeFilteringAssertions
             $"/api/v1/organization/units/{hiddenUnit.Id:D}");
         hiddenRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            scopedTenantToken);
+            scopedTenant.AccessToken);
         using var hiddenResponse = await client.SendAsync(hiddenRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, hiddenResponse.StatusCode);
     }
@@ -167,26 +171,28 @@ internal static class OrganizationDataScopeFilteringAssertions
         HttpClient client,
         CancellationToken cancellationToken)
     {
-        var adminTenantToken = await LoginAndEnterAcmeTenantAsync(client, cancellationToken);
+        var hostAdminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var adminTenant = await LoginAndEnterAcmeTenantAsync(client, cancellationToken);
         var visibleCode = $"scope-u-visible-{Guid.NewGuid():N}".ToLowerInvariant();
         var hiddenCode = $"scope-u-hidden-{Guid.NewGuid():N}".ToLowerInvariant();
         var visibleUnit = await CreateUnitAsync(
             client,
-            adminTenantToken,
+            adminTenant.AccessToken,
             visibleCode,
             "隶属可见机构",
             cancellationToken);
         var hiddenUnit = await CreateUnitAsync(
             client,
-            adminTenantToken,
+            adminTenant.AccessToken,
             hiddenCode,
             "隶属隐藏机构",
             cancellationToken);
+        hostAdminToken = await LoginAsHostAdminAsync(client, cancellationToken);
 
         using var usersRequest = new HttpRequestMessage(
             HttpMethod.Get,
             "/api/v1/identity/users?page=1&pageSize=20");
-        usersRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminTenantToken);
+        usersRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", hostAdminToken);
         using var usersResponse = await client.SendAsync(usersRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, usersResponse.StatusCode);
         var usersPage = await usersResponse.Content
@@ -196,13 +202,13 @@ internal static class OrganizationDataScopeFilteringAssertions
 
         await CreateUserUnitAssignmentAsync(
             client,
-            adminTenantToken,
+            adminTenant.AccessToken,
             adminUser.Id,
             visibleUnit.Id,
             cancellationToken);
         await CreateUserUnitAssignmentAsync(
             client,
-            adminTenantToken,
+            adminTenant.AccessToken,
             adminUser.Id,
             hiddenUnit.Id,
             cancellationToken);
@@ -211,7 +217,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var createRoleRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/identity/roles",
-            adminTenantToken,
+            hostAdminToken,
             new CreateHostRoleRequest(roleCode, "隶属数据范围角色"));
         using var createRoleResponse = await client.SendAsync(createRoleRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, createRoleResponse.StatusCode);
@@ -222,10 +228,11 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var updatePermissionsRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/roles/{createdRole.Id:D}/permissions",
-            adminTenantToken,
+            hostAdminToken,
             new ReplaceHostRolePermissionsRequest(
                 [
                     OrganizationUserUnitManagementPermissions.Read,
+                    TenancyTenantManagementPermissions.Read,
                     "tenancy.tenants.switch",
                     "platform.dashboard.read",
                 ],
@@ -241,11 +248,12 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var updateScopeRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/roles/{createdRole.Id:D}/data-scope",
-            adminTenantToken,
+            hostAdminToken,
             new UpdateHostRoleDataScopeRequest(
                 RoleDataScopeKinds.Custom,
                 [visibleUnit.Id],
-                roleWithPermissions.Version));
+                roleWithPermissions.Version,
+                adminTenant.TenantId));
         using var updateScopeResponse = await client.SendAsync(updateScopeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, updateScopeResponse.StatusCode);
 
@@ -253,7 +261,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var createUserRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/identity/users",
-            adminTenantToken,
+            hostAdminToken,
             new CreateHostUserRequest(
                 username,
                 "隶属范围受限用户",
@@ -267,7 +275,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var getRolesRequest = new HttpRequestMessage(
             HttpMethod.Get,
             $"/api/v1/identity/users/{createdUser.Id:D}/roles");
-        getRolesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminTenantToken);
+        getRolesRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", hostAdminToken);
         using var getRolesResponse = await client.SendAsync(getRolesRequest, cancellationToken);
         var userRoles = await getRolesResponse.Content
             .ReadFromJsonAsync<HostUserRolesResponse>(cancellationToken);
@@ -276,7 +284,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         using var assignRoleRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/identity/users/{createdUser.Id:D}/roles",
-            adminTenantToken,
+            hostAdminToken,
             new ReplaceHostUserRolesRequest([createdRole.Id], userRoles.Version));
         using var assignRoleResponse = await client.SendAsync(assignRoleRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, assignRoleResponse.StatusCode);
@@ -292,7 +300,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
         Assert.IsNotNull(loginToken);
 
-        var scopedTenantToken = await EnterAcmeTenantAsync(
+        var scopedTenant = await EnterAcmeTenantAsync(
             client,
             loginToken.AccessToken,
             cancellationToken);
@@ -302,7 +310,7 @@ internal static class OrganizationDataScopeFilteringAssertions
             "/api/v1/organization/user-units?page=1&pageSize=20");
         listRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            scopedTenantToken);
+            scopedTenant.AccessToken);
         using var listResponse = await client.SendAsync(listRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
         var page = await listResponse.Content
@@ -348,7 +356,15 @@ internal static class OrganizationDataScopeFilteringAssertions
         return created;
     }
 
-    private static async Task<string> LoginAndEnterAcmeTenantAsync(
+    private static async Task<TenantSession> LoginAndEnterAcmeTenantAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var hostAccessToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        return await EnterAcmeTenantAsync(client, hostAccessToken, cancellationToken);
+    }
+
+    private static async Task<string> LoginAsHostAdminAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -365,10 +381,10 @@ internal static class OrganizationDataScopeFilteringAssertions
         var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(
             cancellationToken);
         Assert.IsNotNull(loginToken);
-        return await EnterAcmeTenantAsync(client, loginToken.AccessToken, cancellationToken);
+        return loginToken.AccessToken;
     }
 
-    private static async Task<string> EnterAcmeTenantAsync(
+    private static async Task<TenantSession> EnterAcmeTenantAsync(
         HttpClient client,
         string hostAccessToken,
         CancellationToken cancellationToken)
@@ -400,7 +416,7 @@ internal static class OrganizationDataScopeFilteringAssertions
         var entered = await enterResponse.Content
             .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken);
         Assert.IsNotNull(entered);
-        return entered.AccessToken;
+        return new TenantSession(acme.Id, entered.AccessToken);
     }
 
     private static HttpRequestMessage CreateBearerJsonRequest<TRequest>(
@@ -418,4 +434,6 @@ internal static class OrganizationDataScopeFilteringAssertions
             accessToken);
         return request;
     }
+
+    private sealed record TenantSession(Guid TenantId, string AccessToken);
 }

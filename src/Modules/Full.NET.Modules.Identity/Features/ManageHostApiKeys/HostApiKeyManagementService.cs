@@ -16,6 +16,7 @@ internal sealed class HostApiKeyManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     AuthorizationCatalog catalog,
+    IPermissionSnapshotReader permissionSnapshots,
     IRandomTokenGenerator tokenGenerator,
     IClock clock,
     IIdGenerator idGenerator)
@@ -23,10 +24,16 @@ internal sealed class HostApiKeyManagementService(
     private const string KeyPrefix = "fnk_";
 
     public Task<Result<CreateHostApiKeyResponse>> CreateAsync(
+        Guid operatorUserId,
+        IReadOnlyCollection<string> credentialPermissions,
         CreateHostApiKeyRequest request,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
-            token => CreateCoreAsync(request, token),
+            token => CreateCoreAsync(
+                operatorUserId,
+                credentialPermissions,
+                request,
+                token),
             cancellationToken);
 
     public Task<Result<HostApiKeyResponse>> DisableAsync(
@@ -37,6 +44,8 @@ internal sealed class HostApiKeyManagementService(
             cancellationToken);
 
     private async Task<Result<CreateHostApiKeyResponse>> CreateCoreAsync(
+        Guid operatorUserId,
+        IReadOnlyCollection<string> credentialPermissions,
         CreateHostApiKeyRequest request,
         CancellationToken cancellationToken)
     {
@@ -71,6 +80,32 @@ internal sealed class HostApiKeyManagementService(
                 IdentityErrorCodes.ApiKeyUserInactive,
                 "The host user is inactive.",
                 ErrorType.Conflict));
+        }
+
+        var operatorSnapshot = await permissionSnapshots.ReadAsync(
+                operatorUserId,
+                "host",
+                null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var targetSnapshot = operatorUserId == request.UserId
+            ? operatorSnapshot
+            : await permissionSnapshots.ReadAsync(
+                request.UserId,
+                "host",
+                null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!HasPermissionCeiling(
+                permissionResult.Value!,
+                credentialPermissions,
+                operatorSnapshot.Permissions,
+                targetSnapshot.Permissions))
+        {
+            return Result<CreateHostApiKeyResponse>.Failure(new Error(
+                CommonErrorCodes.PermissionDenied,
+                "API key permissions cannot exceed the operator or target user permissions.",
+                ErrorType.Forbidden));
         }
 
         if (request.ExpiresAtUtc.HasValue && request.ExpiresAtUtc <= clock.UtcNow)
@@ -189,6 +224,21 @@ internal sealed class HostApiKeyManagementService(
         }
 
         return Result<IReadOnlyList<string>>.Success(normalized);
+    }
+
+    private static bool HasPermissionCeiling(
+        IReadOnlyCollection<string> requestedPermissions,
+        IReadOnlyCollection<string> credentialPermissions,
+        IReadOnlyCollection<string> currentOperatorPermissions,
+        IReadOnlyCollection<string> targetPermissions)
+    {
+        var credentialCodes = credentialPermissions.ToHashSet(StringComparer.Ordinal);
+        var operatorCodes = currentOperatorPermissions.ToHashSet(StringComparer.Ordinal);
+        var targetCodes = targetPermissions.ToHashSet(StringComparer.Ordinal);
+        return requestedPermissions.All(code =>
+            credentialCodes.Contains(code)
+            && operatorCodes.Contains(code)
+            && targetCodes.Contains(code));
     }
 
     private static Result<CreateHostApiKeyResponse> ValidationFailure(string message) =>

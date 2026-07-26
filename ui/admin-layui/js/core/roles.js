@@ -134,7 +134,8 @@ export function createRolesController(root, options) {
                 body: JSON.stringify({
                   dataScopeKind,
                   unitIds,
-                  version
+                  version,
+                  tenantId: options.getTenantId?.() ?? null
                 })
               }
             );

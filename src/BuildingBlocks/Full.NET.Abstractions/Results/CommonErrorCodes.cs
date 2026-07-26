@@ -28,7 +28,7 @@ public static class CommonErrorCodes
     /// <summary>
     /// Host API 全局限流触发。
     /// </summary>
-    public const string RateLimited = "hosting.rate_limited";
+    public const string RateLimited = "hosting.rate_limit.exceeded";
 
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。

@@ -327,6 +327,16 @@ Tenancy API + TenantProvisioning SQL Server/MySQL 聚焦 Integration **4/4**、D
 
 本增补只证明 Task 7 已完成“提交后本机同步失效 + Outbox 跨节点修复”的最小缓存一致性闭环与双库双节点聚焦验证；Redis/Backplane 中断、Redis 不可用/恢复、延迟 Worker、多实例指标和完整 S0/S1/S2 分级仍属后续任务，不把本记录表述为缓存能力整体 `Verified`。
 
+## 增补（2026-07-26，缓存一致性闭环复核）
+
+| 验证 | 结果 |
+| --- | --- |
+| `CacheConsistencyTests` | **6/6** 通过；覆盖 SQL Server/MySQL 本机负缓存修复、双 API 节点 + Redis + Worker Backplane 精确失效，以及 Redis 不可达时主节点写后可见 |
+| Outbox/Backplane 确认边界 | Worker 对安全关键租户失效同步等待 Backplane 发布完成后再确认 Outbox；请求节点本机修复不替代可靠消费者 |
+| 测试宿主启动配置 | Redis 连接在 Minimal Hosting 模块注册前注入，避免只在晚期 `ConfigureAppConfiguration` 生效而产生“假多节点”测试 |
+
+本次复核不改变 canonical 测试总数；Redis 中断后恢复、长时间延迟 Worker、积压指标与真实编排环境证据仍保持开放。
+
 ## 增补（2026-07-23，Tenancy Host 租户管理纵向切片）
 
 | 变更 | 说明 |
@@ -696,6 +706,31 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | client-contracts Vitest | **68 → 69**（`host-api-keys.test.ts`） |
 | 四处 canonical 门槛 | **352/7/40/170** |
 | 验证记录 | [`identity-api-key-2026-07-26.md`](identity-api-key-2026-07-26.md) |
+
+## 增补（2026-07-26，主干基线正确性恢复）
+
+| 变更 | 说明 |
+| --- | --- |
+| Unit | **352 → 356**（Host 目录 SQL 作用域、Files 启动配置校验、通知提交后发布失败隔离、租户提交后取消隔离） |
+| Integration | 重新发现当前程序集为 **172**，修正此前 canonical **170** 的漂移 |
+| Compatibility / Architecture | **7 / 40**（不变） |
+| 四处 canonical 门槛 | **356/7/40/172** |
+
+## 增补（2026-07-26，审计跨上下文写入）
+
+| 项目 | 结果 |
+|---|---|
+| Unit 门槛 **356 → 358** | 新增 `AuditingSqlScopeTests` 2 项，锁定审计写入允许 Host、租户与匿名请求上下文，同时查询继续保持 Host-only |
+| 四处 canonical 门槛 | **358/7/40/172** |
+| 验证记录 | [`main-baseline-correctness-recovery-2026-07-26.md`](main-baseline-correctness-recovery-2026-07-26.md) |
+
+## 增补（2026-07-26，租户数据范围 SQL 作用域）
+
+| 项目 | 结果 |
+|---|---|
+| Unit 门槛 **358 → 359** | 新增 Host 角色数据范围 SQL 作用域回归，锁定租户业务查询可在显式 Host 行过滤下解析角色范围 |
+| 四处 canonical 门槛 | **359/7/40/172** |
+| 验证记录 | [`main-baseline-correctness-recovery-2026-07-26.md`](main-baseline-correctness-recovery-2026-07-26.md) |
 
 ## 关联文档
 

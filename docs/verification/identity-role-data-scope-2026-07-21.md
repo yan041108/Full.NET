@@ -14,6 +14,14 @@
 | 前端 | Vue `RolesView`、Layui `roles.js`、i18n、`client-contracts` |
 | 测试 | 单元 4 项、Integration +2（双库）、OpenAPI +2、客户端/E2E 扩展 |
 
+## 2026-07-26 权限边界复核
+
+- `PUT .../data-scope` 继续要求 Host 级 `identity.roles.write`，禁止租户令牌修改全局角色。
+- `custom` 请求通过新增的可空 `tenantId` 显式指定目标租户；服务端使用该受审计参数校验机构单元，缺失时返回既有稳定机器码 `identity.data_scope.tenant_context_required`。
+- SQL Server/MySQL 集成用例分别持有租户会话创建机构，并重新签发 Host 会话完成全局角色更新，锁定“租户数据校验不等于放宽 Host 管理权限”。
+- 租户业务查询解析 Host 角色范围时，Identity SQL 使用 `Global` 并显式限定 `ScopeKey='host'`、`TenantId IS NULL`；参数合并器支持字典参数，按 ID 查询保持可注入的数据范围锚点。完整双库回归 **2/2**。
+- Vue/Layui 当前尚未提供 Host 侧目标租户机构选择器；`custom` 的真实后端 UI 闭环仍开放，现阶段不能把 Mock 保存场景视为该闭环已验证。
+
 ## 门槛（本切片后）
 
 | 套件 | 数量 |
