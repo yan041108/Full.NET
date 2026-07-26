@@ -959,6 +959,20 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **398/7/49/189** |
 | 验证记录 | [`identity-module-registration-split-2026-07-27.md`](identity-module-registration-split-2026-07-27.md) |
 
+## 增补（2026-07-27，Jobs Worker 有界配置）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **398 → 400** | 新增 Worker Options 绑定/启动校验，以及 Processor 消费批大小与轮询间隔 2 项回归 |
+| RED / GREEN | 缺少 Options 类型时编译失败；移除 DI 绑定后解析 `IOptions<JobsWorkerOptions>` 失败；Processor 未消费配置时因缺少构造参数与测试边界编译失败；最小实现后聚焦 **2/2** 通过 |
+| 配置边界 | `BatchSize` 默认 `10`、范围 `1..50`；`PollMilliseconds` 默认 `2000`、范围 `100..60000`；越界配置在宿主启动期失败 |
+| Release / canonical | Release **0 warning / 0 error**；Unit/Compatibility/Architecture **400/7/49**，失败 0、跳过 0 |
+| Integration 门槛与分片 | 保持 **189**；API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** |
+| Jobs 双库 / Integration 全量 | SQL Server/MySQL 聚焦 **2/2**；完整 **189/189**，失败 0、跳过 0，**27m16.8s**，stderr 0 |
+| 并发夹具校正 | 首轮完整运行暴露 SQL Server `READPAST` 单轮只处理 24/32；夹具改为按批大小 8 有界重复轮询后通过，生产 Runner 与领取 SQL 未修改 |
+| 四处 canonical 门槛 | **400/7/49/189** |
+| 验证记录 | [`jobs-worker-bounded-options-2026-07-27.md`](jobs-worker-bounded-options-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

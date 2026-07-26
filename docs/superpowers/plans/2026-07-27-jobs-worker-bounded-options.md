@@ -195,11 +195,11 @@
 
   验证记录必须列出默认值、合法范围、启动失败语义、API Profile 不注册 Hosted Service，以及未改变的领取 SQL、租约和双库行为。能力矩阵只增加配置事实，不提升 `Build-verified` 状态。
 
-- [ ] **Step 2: 等待并同步既定合并队列**
+- [x] **Step 2: 等待并同步既定合并队列**
 
   顺序固定为 Task15 → OpenAPI schema → 客户端损坏锁记录 → 本任务。收到客户端最终 main HEAD 后，在隔离分支合并最新 main，解决共享审计/门槛文档差异，再以实际测试发现数更新四处 canonical。
 
-- [ ] **Step 3: 执行最终非 Docker 门禁**
+- [x] **Step 3: 执行最终非 Docker 门禁**
 
   ```powershell
   dotnet build Full.NET.slnx -c Release --no-restore --nologo
