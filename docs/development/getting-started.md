@@ -18,7 +18,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 380
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 386
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 ```
@@ -337,13 +337,16 @@ Worker ??????????????`(EventType, SchemaVersion)` ??????????????????????????????
   "FullNet": {
     "Logging": {
       "AsyncBufferSize": 10000,
+      "HighPriorityAsyncBufferSize": 1000,
       "BlockWhenFull": false
     }
   }
 }
 ```
 
-????`fullnet.logging.queue.depth`?`fullnet.logging.queue.capacity`?`fullnet.logging.events.dropped` ??`fullnet.localization.error.fallbacks`??????????????`code/locale` ?????????????????????????????????????????????????????????????????Cookie?Authorization????????payload??
+`Information/Warning` 与 `Error/Critical` 使用独立有界异步队列；高优先级通道固定非阻塞，`BlockWhenFull=true` 会在启动时被拒绝。`fullnet.logging.queue.depth`、`fullnet.logging.queue.capacity`、`fullnet.logging.events.dropped` 均使用固定 `channel=general|high_priority` 标签；高优先级队列达到 90% 时，`high_priority_logging` 就绪检查返回 `Degraded`。告警与故障处置见[日志降级运维说明](../operations/logging-degraded-mode.md)。
+
+日志指标不能替代审计：认证、超级管理员、Seed 等审计仍由数据库事务或 Outbox 持久化，不进入 Serilog 队列。本地磁盘 Spool、外部可靠 Sink 与进程退出有界刷新仍属于后续 Task 8B。
 
 ## 10. ???????
 

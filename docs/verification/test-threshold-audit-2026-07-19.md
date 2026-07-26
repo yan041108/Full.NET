@@ -836,6 +836,17 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **380/7/49/184** |
 | 验证记录 | [`cache-reliability-telemetry-2026-07-26.md`](cache-reliability-telemetry-2026-07-26.md) |
 
+## 增补（2026-07-26，日志高优先级独立通道）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **380 → 386** | 新增普通队列过载隔离、高优先级固定非阻塞、固定通道指标、健康降级、非法容量与 Service Defaults 注册合同 |
+| RED / GREEN | 双通道类型缺失时聚焦编译失败；实现后高优先级日志聚焦 **6/6**、连同既有 Monitor 回归 **7/7** 通过 |
+| 故障注入 | 阻塞普通 Sink 并填满队列时 Error 仍独立交付；阻塞高优先级 Sink 并填满队列时调用方仍在有界时间返回且累计丢弃 |
+| Compatibility / Architecture / Integration 门槛 | **7 / 49 / 184**（不变） |
+| 四处 canonical 门槛 | **386/7/49/184** |
+| 验证记录 | [`high-priority-logging-channel-2026-07-26.md`](high-priority-logging-channel-2026-07-26.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
