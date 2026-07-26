@@ -162,7 +162,7 @@
 
   Actual: 所有命令退出码 0；Release 0 warning/0 error；Unit / Compatibility / Architecture 为 **406/7/49**，Logging 聚焦 **11/11**；完整 Integration **189/189**，失败 0、跳过 0、stderr 0，耗时 **31m23s**。Hosting 是共享基础设施，因此完整 Integration 已顺序独占 Docker 执行，结束后容器自动归零。
 
-- [ ] **Step 4: 规则与 Skill 复盘、提交、合并清理**
+- [x] **Step 4: 规则与 Skill 复盘、提交、合并清理**
 
   读取并执行 `rules/rule-evolution.md` 与 `rules/skill-evolution.md`。确认只暂存本切片 owned 文件，提交：
 
@@ -171,6 +171,8 @@
   ```
 
   在主工作树确认 `main` 未漂移后合并；合并后重跑聚焦 11 项与 Governance/Skill/workspace/diff check，最后删除 `codex/logging-sink-failure-isolation` 分支、Git worktree 注册和物理目录。
+
+  Actual: 功能与验证提交已 fast-forward 到 `main@867f0d1`；main 输出目录的 Unit 项目构建 0 warning/0 error、Logging 聚焦 **11/11**、Governance **11/11**、Skill **52 checks**、workspace 与 diff check 均通过。功能分支、Git worktree 注册和物理目录均已删除，Docker 容器为 0。
 
 ## Self-Review
 

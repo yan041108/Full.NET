@@ -44,6 +44,10 @@
 
 本次新证据只证明一次性的 Serilog 子 Logger 异常可观测性缺口，两个通道的回归测试已形成机械防护；没有出现第二次同类遗漏、高风险规则歧义或需要跨模块复用的稳定工程判断流程。因此不新增或修改强制规则，不登记候选经验，也不新增、修改项目 Skill。
 
+## 合并与清理
+
+功能与验证提交已 fast-forward 合入 `main@867f0d1`。main 自身输出目录的 Unit 项目构建为 0 warning / 0 error，Logging 聚焦 **11/11**，Governance **11/11**、Skill **52 checks**、workspace 与 `git diff --check` 均通过。`codex/logging-sink-failure-isolation` 分支、Git worktree 注册及 `.worktrees/logging-local-spool` 物理目录均已删除；用户既有 `.cache/` 与 `.tmp/art-design-pro/` 未触碰，Docker 容器为 0。
+
 ## 未完成项
 
 本切片不提供磁盘 Spool、容量/保留/加密、连续平台不可用持久化、磁盘满处置、跨重启重放或外部投递确认。后续 Task 8B 必须明确至少一次语义及重复事件处理，不能把本次“Worker 继续运行”描述成日志已经可靠交付。
