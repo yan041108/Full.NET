@@ -1,5 +1,7 @@
 # OpenAPI 破坏性变更门禁验证（2026-07-27）
 
+- 状态：已合入 `main`，隔离分支、工作树注册与物理残留均已清理
+
 ## 摘要
 
 为 `contracts/openapi/*.json` 增加纯离线向后兼容比较器。Pull request 现在以

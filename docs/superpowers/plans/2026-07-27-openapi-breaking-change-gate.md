@@ -220,7 +220,7 @@
   按 `rules/rule-evolution.md` 和 `rules/skill-evolution.md` 判断是否出现第二次可泛化遗漏。
   未达到门槛时在验证记录写明“不演进”，不得新增近义规则。
 
-- [ ] **Step 5: 提交、同步 main、合并并清理**
+- [x] **Step 5: 提交、同步 main、合并并清理**
 
   在隔离分支提交聚焦变更；等待当前优先任务合并窗口，合并前同步最新 `main` 并重跑受影响门槛。
   使用 `--no-ff` 合并到 `main`，删除 `codex/openapi-breaking-change-gate` 分支和工作树，最后检查
