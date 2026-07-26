@@ -12,9 +12,9 @@
 
 - 不修改 C#、业务模块、数据库、Realtime、Outbox 或日志代码。
 - 不新增 npm 依赖；比较器只使用 Node.js 标准库。
-- v1 夹具不可通过修改同一文件中的 `version` 绕过门禁；新版本必须使用新的夹具文件。
-- 破坏性变化包括：删除夹具、路径、操作、schema 或属性；改变操作权限、成功状态码、请求/响应 schema；改变分页 `itemSchema`；改变平台 OpenAPI/Scalar 与安全方案稳定配置；版本化夹具使用空 `id`、非正整数 `version`，或新增与现有夹具重复的 `id + version` 身份。
-- 兼容变化包括：新增 `id + version` 唯一的夹具、路径、操作、schema 或属性；描述文本和数组顺序变化。
+- v1 夹具不可通过修改同一文件中的 `version` 绕过门禁；新版本必须使用与 `id` 同名的新夹具文件，且 `id` 的 `-vN` 后缀必须匹配整数 `version`。
+- 破坏性变化包括：删除夹具、路径、操作、schema 或属性；改变操作权限、成功状态码、请求/响应 schema；改变分页 `itemSchema`；改变平台 OpenAPI/Scalar 与安全方案稳定配置；版本化夹具使用空 `id`、非正整数 `version`、文件名与 `id` 不一致、`-vN` 与 `version` 不一致，或新增重复的 `id + version` 身份。
+- 兼容变化包括：新增身份、文件名与版本一致且 `id + version` 唯一的夹具、路径、操作、schema 或属性；描述文本和数组顺序变化。
 - 诊断必须稳定排序并包含夹具名与精确位置，便于 CI 定位。
 - 当前 OpenAPI 离线基线为 50 项；本切片不改变 .NET canonical 门槛。
 
@@ -76,7 +76,7 @@
 
 - [x] **Step 1: 实现规范化与稳定索引**
 
-  使用文件名定位版本化契约，先验证非空字符串 `id` 与正整数 `version`，再以 `id + version` 建立全局唯一身份索引；常规夹具按 `path + method`、schema 名、property 名建立 Map/Set。
+  使用文件名定位版本化契约，验证非空字符串 `id`、正整数 `version`、`<id>.json` 文件名与 `-vN` 后缀一致后，再以 `id + version` 建立全局唯一身份索引；常规夹具按 `path + method`、schema 名、property 名建立 Map/Set。
   忽略 `description` 和数组顺序，不改变原始夹具。
 
 - [x] **Step 2: 实现破坏变化比较**
