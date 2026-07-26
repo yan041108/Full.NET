@@ -3,7 +3,9 @@
 - 日期：2026-07-27（Asia/Shanghai）
 - 分支：`codex/files-rootpath-validation`
 - 初始基线：`main@a3b8844ce9069ee9965e3a62594c7ef3a4ecaa7b`
-- 状态：实现与隔离分支预验证完成，等待前序队列结束后同步最新 `main`
+- 最终同步基线：`main@aff0216648e463bfca940c0deebe11e8d6eb5869`
+- 功能提交：`3b77b9dbafede48db416c15ce0b3d61acc15f36a`
+- 状态：实现与最终门禁已完成，等待 fast-forward `main` 与隔离资源清理
 
 ## 范围与契约
 
@@ -24,17 +26,18 @@
 
 ## 验证
 
-| 隔离分支门禁 | 结果 |
+| 门禁 | 结果 |
 | --- | --- |
 | Release 全解决方案构建 | 0 warning / 0 error |
-| Unit | **400/400**，失败 0、跳过 0 |
+| Unit | **404/404**，失败 0、跳过 0 |
 | Files 聚焦 | **1/1**，失败 0、跳过 0 |
+| Files SQL Server/MySQL Integration | **2/2**，失败 0、跳过 0，**1m03s** |
+| Compatibility | **7/7**，失败 0、跳过 0 |
+| Architecture | **49/49**，失败 0、跳过 0 |
 | Naming | **23/23** |
 | Governance | **11/11** |
 | Skill 契约 | **52** 项通过 |
 | workspace | 通过 |
-
-最终同步后的门禁结果将在合入最新主线前以新鲜输出补齐。
 
 ## 规则与 Skills 复盘
 
@@ -46,4 +49,6 @@
 
 ## 状态结论
 
-当前仅完成隔离分支实现与聚焦预验证，尚未合入 `main`，因此不提升 Files 能力状态。
+本切片达到 `Build-verified`：超长 Windows 本地存储路径会在启动期返回可诊断且不回显路径
+内容的配置失败；合法配置仍通过双库 Files API 用例。S3/OSS Provider、租户文件与孤立 Blob
+自动清理不在本切片范围，Files 整体状态不提升为 `Verified`。
