@@ -26,6 +26,13 @@ describe('shell-notification-panel', () => {
       return key;
     };
     panel.render(t);
+    panel.setUnreadCount(12);
+    expect(root.querySelector('[data-shell-notifications-unread]').textContent)
+      .toBe('12');
+    expect(root.querySelector('[data-shell-notifications-open]').getAttribute('aria-label'))
+      .toBe('shell.notifications (12)');
+    panel.setUnreadCount(0);
+    expect(root.querySelector('[data-shell-notifications-unread]').hidden).toBe(true);
     root.querySelector('[data-shell-notifications-open]').click();
     expect(root.querySelector('[data-shell-notifications]').classList.contains('is-open')).toBe(true);
     root.querySelectorAll('.fn-notice-panel__tab')[2].click();

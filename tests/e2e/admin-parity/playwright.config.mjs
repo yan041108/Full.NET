@@ -18,11 +18,13 @@ export default defineConfig({
       // 使用验收专用端口，避免复用开发者正在运行的 Vite/uni-app 页面造成串台。
       command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host 127.0.0.1 --port 15173',
       url: 'http://127.0.0.1:15173',
+      env: { VITE_REALTIME_ENABLED: 'false' },
       reuseExistingServer: !process.env.CI
     },
     {
       command: 'pnpm --dir ../../.. --filter @fullnet/admin-layui exec vite --host 127.0.0.1 --port 15174',
       url: 'http://127.0.0.1:15174',
+      env: { VITE_REALTIME_ENABLED: 'false' },
       reuseExistingServer: !process.env.CI
     }
   ],
