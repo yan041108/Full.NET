@@ -1010,6 +1010,18 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 规则 / Skills 复盘 | 未发现需要升级的新规则或重复稳定工作流，本次无规则和 Skill 变化 |
 | 验证记录 | [`realtime-hub-path-validation-2026-07-27.md`](realtime-hub-path-validation-2026-07-27.md) |
 
+## 增补（2026-07-27，Tenancy HostDomains 启动校验）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **407 → 408** | 新增 1 项真实宿主启动回归，覆盖空集合引用、空白、协议、端口、路径、通配符、大小写重复及合法主机/IP |
+| RED / GREEN | 旧实现对非法配置不执行启动校验，且初版校验器对 `null` 集合抛空引用；显式 validator、`ValidateOnStart` 与空值守卫后聚焦 **7/7** |
+| 兼容边界 | 合法 DNS 主机名、`localhost`、IPv4、无方括号 IPv6 与合法空集合保持原语义；不自动修剪或改写配置 |
+| Integration 门槛与分片 | 保持 **189**；API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** |
+| 四处 canonical 门槛 | **408/7/49/189** |
+| 规则 / Skills 复盘 | 既有模块交付 Skill 已覆盖配置启动校验，本次无规则和 Skill 变化 |
+| 验证记录 | [`tenancy-host-domain-startup-validation-2026-07-27.md`](tenancy-host-domain-startup-validation-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

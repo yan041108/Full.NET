@@ -18,7 +18,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 407
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 408
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 ```
@@ -278,6 +278,10 @@ Identity__SigningKeys__<??????>__PrivateKeyPem=<RSA ?? PEM>
 Identity__AllowedOrigins__0=https://admin.example.com
 Tenancy__HostDomains__0=api.example.com
 ```
+
+`Tenancy:HostDomains` 的每一项必须是精确主机名或 IP 地址，不得包含协议、端口、路径、
+通配符或首尾空白；不同项按大小写不敏感规则保持唯一。非法配置会在宿主启动阶段失败，
+不会延迟到首个租户解析请求。
 
 ?????????????????????? `ActiveKeyId`????????????????????????? `Identity__AllowDevelopmentEphemeralSigningKey`???? PEM?Bootstrap ???Cookie ??Token ?????????
 
