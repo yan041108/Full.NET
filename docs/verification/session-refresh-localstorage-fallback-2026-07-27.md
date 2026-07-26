@@ -20,6 +20,8 @@
   存储能力不可用并执行既有无锁降级，不让客户端存储策略阻断会话恢复。
 - `localStorage` 中的租约属于非可信持久化输入；JSON 虽可解析但 owner 或
   到期时间结构无效时，清理损坏记录并重新竞争租约，避免空等 30 秒。
+- 有效租约的到期时间不得超过“当前时间＋本地 30 秒 TTL”；系统时钟回拨
+  或存储污染留下的异常未来租约按损坏记录处理。
 - Access Token、Refresh Token、用户资料和权限快照均未写入浏览器存储；
   `localStorage` 只保存随机 Tab owner 与租约到期时间。
 - 无 Web Locks 且无 `localStorage` 时继续执行既有无锁降级，不新增服务端
@@ -43,11 +45,15 @@ GREEN 将租约读、写和 owner 校验统一改为 `localStorage`。同一测�
 解析边界验证 owner 与有限数值到期时间，损坏记录被清理后刷新立即执行，
 聚焦测试 5/5 通过。
 
+第四轮 RED 写入结构正确但到期时间超出本地 TTL 十倍的租约，修复前虚拟
+时间推进 30 秒后准确失败于锁超时。GREEN 将本地产生租约的最大时间窗口
+纳入输入不变量，异常未来租约被清理后刷新立即执行，聚焦测试 6/6 通过。
+
 ## 完整验证
 
-- `pnpm --filter @fullnet/client-contracts test`：77/77。
+- `pnpm --filter @fullnet/client-contracts test`：78/78。
 - `pnpm --filter @fullnet/client-contracts build`：通过。
-- `pnpm test:clients`：client-contracts 77/77、Vue 202/202、Layui 95/95、
+- `pnpm test:clients`：client-contracts 78/78、Vue 203/203、Layui 95/95、
   admin-i18n 8/8、uni-app 103/103。
 - `pnpm test:governance`：11/11。
 - `pnpm test:skills`：52 项契约检查通过。
