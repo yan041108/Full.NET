@@ -156,6 +156,23 @@ function createTabId(): string {
   return `tab-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function isSessionRefreshCoordinatorMessage(
+  value: unknown
+): value is SessionRefreshCoordinatorMessage {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const message = value as Record<string, unknown>;
+  if (typeof message.sourceId !== 'string' || message.sourceId.length === 0) {
+    return false;
+  }
+
+  return message.type === 'session-cleared'
+    || (message.type === 'refresh-complete'
+      && typeof message.success === 'boolean');
+}
+
 /**
  * 浏览器跨 Tab 会话刷新协调器：优先使用 Web Locks；不支持时用 localStorage
  * 共享短租约，BroadcastChannel 只负责传播退出与完成信号。
@@ -179,9 +196,8 @@ export function createSessionRefreshCoordinator(
     if (channel === undefined) {
       channel = new BroadcastChannel(channelName);
       channel.onmessage = event => {
-        const message = event.data as SessionRefreshCoordinatorMessage | undefined;
-        if (message?.type === 'refresh-complete'
-          || message?.type === 'session-cleared') {
+        const message = event.data as unknown;
+        if (isSessionRefreshCoordinatorMessage(message)) {
           listeners.forEach(listener => listener(message));
         }
       };

@@ -16,7 +16,9 @@
 3. 动态导航、菜单与按钮可见性只负责体验，管理端点仍必须执行服务端权限策略，未知导航标识必须拒绝（见 [`development-quality.md`](development-quality.md) R-20260717-client-navigation-boundary）。
 4. 与 API 跨 Origin 且携带凭据的管理端必须验证精确 CORS 与认证写端点限流（见 [`development-quality.md`](development-quality.md) R-20260717-credentialed-cors）。
 
-验证：`pnpm test:e2e` 运行 Vue/Layui 同场景 parity E2E；能力状态记录于 [`capability-status`](../docs/roadmap/capability-status.md)。
+5. 真实栈 E2E 断言当前租户上下文时，必须定位各管理端实际可见的当前上下文节点，或复用统一的双端辅助函数；禁止依赖全页同名文本、`.first()` 或 DOM 顺序绕过隐藏元素，因为 Vue 组件的隐藏选项与 Layui 当前上下文可能具有相同文本但不同可见语义。
+
+验证：`pnpm test:e2e` 运行 Vue/Layui 同场景 parity E2E；`pnpm test:e2e:provisioner` 扫描真实栈 spec，阻止直接使用 `getByText('Full.NET Host')`；运行期继续由 Vue/Layui 真实栈场景验证辅助函数的双端行为；能力状态记录于 [`capability-status`](../docs/roadmap/capability-status.md)。
 
 ## 3. Vue 主管理端
 

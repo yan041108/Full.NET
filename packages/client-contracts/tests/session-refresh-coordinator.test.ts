@@ -89,6 +89,30 @@ describe('session refresh coordinator', () => {
     ]);
   });
 
+  it('忽略结构无效的跨标签页会话消息', () => {
+    vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
+    const coordinator = createSessionRefreshCoordinator({ tabId: 'listener' });
+    const messages: SessionRefreshCoordinatorMessage[] = [];
+    coordinator.subscribe(message => messages.push(message));
+    const external = new MockBroadcastChannel('fullnet.session.refresh');
+
+    external.postMessage({ type: 'session-cleared' });
+    external.postMessage({
+      type: 'refresh-complete',
+      success: 'true',
+      sourceId: 'invalid-peer'
+    });
+    external.postMessage({
+      type: 'session-cleared',
+      sourceId: 'valid-peer'
+    });
+
+    expect(messages).toEqual([
+      { type: 'session-cleared', sourceId: 'valid-peer' }
+    ]);
+    external.close();
+  });
+
   it('无 Web Locks 时通过跨 Tab 共享存储互斥执行', async () => {
     vi.stubGlobal('navigator', {});
     vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);

@@ -148,12 +148,12 @@ public sealed class JobExecutionRunnerTests
                 JobKey = RenewalAwaitingJobHandler.Key,
                 IsEnabled = true,
             });
-        var commandExecutor = new CompletionRaceCommandExecutor();
+        var commandExecutor = new LostLeaseCommandExecutor();
         var runner = new JobExecutionRunner(
             queryExecutor,
             commandExecutor,
             new JobHandlerRegistry(
-                [new RenewalAwaitingJobHandler(commandExecutor.RenewalStarted)]),
+                [new CompletionAfterCancellationJobHandler()]),
             new FixedClock(
                 new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
             new FixedIdGenerator(Guid.CreateVersion7()),
@@ -284,6 +284,25 @@ public sealed class JobExecutionRunnerTests
         }
     }
 
+    private sealed class CompletionAfterCancellationJobHandler : IJobHandler
+    {
+        public string JobKey => RenewalAwaitingJobHandler.Key;
+
+        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                // 模拟续租失败触发取消后，Handler 正常完成最终业务收尾。
+            }
+        }
+    }
+
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {
         public DateTimeOffset UtcNow => utcNow;
@@ -407,38 +426,4 @@ public sealed class JobExecutionRunnerTests
         }
     }
 
-    private sealed class CompletionRaceCommandExecutor : ICommandExecutor
-    {
-        private readonly TaskCompletionSource _renewalStarted =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource _successMarked =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public List<SqlStatement> Statements { get; } = [];
-
-        public Task RenewalStarted => _renewalStarted.Task;
-
-        public async Task<int> ExecuteAsync(
-            SqlStatement statement,
-            object? parameters = null,
-            CancellationToken cancellationToken = default)
-        {
-            Statements.Add(statement);
-            if (statement == JobSql.RenewExecutionLease)
-            {
-                _renewalStarted.TrySetResult();
-                await _successMarked.Task
-                    .WaitAsync(cancellationToken)
-                    .ConfigureAwait(false);
-                return 0;
-            }
-
-            if (statement == JobSql.MarkExecutionSucceeded)
-            {
-                _successMarked.TrySetResult();
-            }
-
-            return 1;
-        }
-    }
 }

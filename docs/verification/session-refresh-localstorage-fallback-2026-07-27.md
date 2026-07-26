@@ -22,6 +22,8 @@
   到期时间结构无效时，清理损坏记录并重新竞争租约，避免空等 30 秒。
 - 有效租约的到期时间不得超过“当前时间＋本地 30 秒 TTL”；系统时钟回拨
   或存储污染留下的异常未来租约按损坏记录处理。
+- `BroadcastChannel` 的消息属于同源但非可信输入；只有结构完整的刷新完成
+  或会话清空消息才能进入订阅回调。
 - Access Token、Refresh Token、用户资料和权限快照均未写入浏览器存储；
   `localStorage` 只保存随机 Tab owner 与租约到期时间。
 - 无 Web Locks 且无 `localStorage` 时继续执行既有无锁降级，不新增服务端
@@ -49,11 +51,16 @@ GREEN 将租约读、写和 owner 校验统一改为 `localStorage`。同一测�
 时间推进 30 秒后准确失败于锁超时。GREEN 将本地产生租约的最大时间窗口
 纳入输入不变量，异常未来租约被清理后刷新立即执行，聚焦测试 6/6 通过。
 
+第五轮 RED 从外部 channel 注入缺失 `sourceId` 的会话清空消息和
+`success` 非布尔值的刷新完成消息；修复前两条都会进入可信订阅回调。
+GREEN 在消息边界验证联合类型的公共字段与分支字段，仅转发结构完整消息，
+聚焦测试 7/7 通过。
+
 ## 完整验证
 
-- `pnpm --filter @fullnet/client-contracts test`：78/78。
+- `pnpm --filter @fullnet/client-contracts test`：79/79。
 - `pnpm --filter @fullnet/client-contracts build`：通过。
-- `pnpm test:clients`：client-contracts 78/78、Vue 203/203、Layui 95/95、
+- `pnpm test:clients`：client-contracts 79/79、Vue 204/204、Layui 95/95、
   admin-i18n 8/8、uni-app 103/103。
 - `pnpm test:governance`：11/11。
 - `pnpm test:skills`：52 项契约检查通过。

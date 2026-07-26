@@ -44,6 +44,38 @@ internal sealed class IdentityOptionsValidator(IHostEnvironment environment)
             failures.Add("LockoutMinutes must be between 1 and 1440.");
         }
 
+        if (options.LoginRateLimitPermitLimitPerMinute < 1)
+        {
+            failures.Add(
+                "LoginRateLimitPermitLimitPerMinute must be at least 1.");
+        }
+
+        if (options.SessionMutationRateLimitPermitLimitPerMinute < 1)
+        {
+            failures.Add(
+                "SessionMutationRateLimitPermitLimitPerMinute must be at least 1.");
+        }
+
+        if (options.SigningKeys is null)
+        {
+            failures.Add("Identity SigningKeys configuration is required.");
+        }
+        else if (options.SigningKeys.Values.Any(value => value is null))
+        {
+            failures.Add(
+                "Identity SigningKeys configuration must not contain null entries.");
+        }
+
+        if (options.AllowedOrigins is null)
+        {
+            failures.Add("Identity AllowedOrigins configuration is required.");
+        }
+
+        if (options.Bootstrap is null)
+        {
+            failures.Add("Identity Bootstrap configuration is required.");
+        }
+
         var supportsEphemeralSigning = environment.IsDevelopment()
             || environment.IsEnvironment("Testing");
         if (options.AllowDevelopmentEphemeralSigningKey && !supportsEphemeralSigning)
@@ -75,7 +107,9 @@ internal sealed class IdentityOptionsValidator(IHostEnvironment environment)
 
     private static bool HasConfiguredActiveSigningKey(IdentityOptions options) =>
         !string.IsNullOrWhiteSpace(options.ActiveKeyId)
+        && options.SigningKeys is not null
         && options.SigningKeys.TryGetValue(options.ActiveKeyId, out var key)
+        && key is not null
         && !string.IsNullOrWhiteSpace(key.PublicKeyPem)
         && !string.IsNullOrWhiteSpace(key.PrivateKeyPem);
 }

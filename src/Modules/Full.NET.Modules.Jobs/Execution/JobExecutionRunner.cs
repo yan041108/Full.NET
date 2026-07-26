@@ -74,7 +74,7 @@ internal sealed class JobExecutionRunner(
             leaseCancellation.Cancel();
             try
             {
-                await processingTask.ConfigureAwait(false);
+                return await processingTask.ConfigureAwait(false);
             }
             catch (OperationCanceledException)
                 when (leaseCancellation.IsCancellationRequested)
