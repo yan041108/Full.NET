@@ -3,9 +3,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Tenancy;
 
@@ -24,8 +26,14 @@ internal static class TenancyHostTenantManagementAssertions
         await VerifyListRequiresManageReadPermissionAsync(factory, client, cancellationToken);
         await VerifyContextReadDoesNotGrantHostDirectoryAsync(factory, client, cancellationToken);
         await VerifyCreateRejectsDuplicateIdentifierAsync(client, cancellationToken);
-        await VerifyUpdateNameWithOptimisticVersionAsync(client, cancellationToken);
-        await VerifyDisableRemovesTenantFromAvailableListAsync(client, cancellationToken);
+        await VerifyUpdateNameWithOptimisticVersionAsync(
+            factory,
+            client,
+            cancellationToken);
+        await VerifyDisableRemovesTenantFromAvailableListAsync(
+            factory,
+            client,
+            cancellationToken);
         await VerifyCannotDisableLastActiveTenantAsync(client, cancellationToken);
         await Api.OpenApiHostTenantsContractAssertions.VerifyAsync(
             client,
@@ -124,6 +132,7 @@ internal static class TenancyHostTenantManagementAssertions
     }
 
     private static async Task VerifyUpdateNameWithOptimisticVersionAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -141,6 +150,9 @@ internal static class TenancyHostTenantManagementAssertions
         var created = await createResponse.Content.ReadFromJsonAsync<TenantSummary>(
             cancellationToken);
         Assert.IsNotNull(created);
+        var outboxCountBeforeUpdate = await CountTenantChangedEventsAsync(
+            factory,
+            cancellationToken);
 
         using var updateRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
@@ -154,6 +166,9 @@ internal static class TenancyHostTenantManagementAssertions
         Assert.IsNotNull(updated);
         Assert.AreEqual("更新后名称", updated.Name);
         Assert.AreEqual(created.Version + 1, updated.Version);
+        Assert.AreEqual(
+            outboxCountBeforeUpdate + 1,
+            await CountTenantChangedEventsAsync(factory, cancellationToken));
 
         using var staleRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
@@ -167,9 +182,13 @@ internal static class TenancyHostTenantManagementAssertions
         Assert.AreEqual(
             TenancyErrorCodes.VersionConflict,
             problem.RootElement.GetProperty("code").GetString());
+        Assert.AreEqual(
+            outboxCountBeforeUpdate + 1,
+            await CountTenantChangedEventsAsync(factory, cancellationToken));
     }
 
     private static async Task VerifyDisableRemovesTenantFromAvailableListAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -187,6 +206,9 @@ internal static class TenancyHostTenantManagementAssertions
         var created = await createResponse.Content.ReadFromJsonAsync<TenantSummary>(
             cancellationToken);
         Assert.IsNotNull(created);
+        var outboxCountBeforeDisable = await CountTenantChangedEventsAsync(
+            factory,
+            cancellationToken);
 
         using var disableRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -199,6 +221,9 @@ internal static class TenancyHostTenantManagementAssertions
             cancellationToken);
         Assert.IsNotNull(disabled);
         Assert.IsFalse(disabled.IsActive);
+        Assert.AreEqual(
+            outboxCountBeforeDisable + 1,
+            await CountTenantChangedEventsAsync(factory, cancellationToken));
 
         using var availableRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -281,6 +306,26 @@ internal static class TenancyHostTenantManagementAssertions
             cancellationToken);
         Assert.IsNotNull(token);
         return token.AccessToken;
+    }
+
+    private static async Task<long> CountTenantChangedEventsAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        return await scope.ServiceProvider
+            .GetRequiredService<IQueryExecutor>()
+            .QuerySingleOrDefaultAsync<long>(
+                new SqlStatement(
+                    "integration.tenancy.count_tenant_changed_events",
+                    """
+                    SELECT COUNT(1)
+                    FROM fn_outbox_message
+                    WHERE MessageType = @MessageType
+                    """,
+                    SqlDataScope.Global),
+                new { MessageType = "fullnet.tenancy.tenant.changed" },
+                cancellationToken);
     }
 
     private static HttpRequestMessage CreateBearerJsonRequest<TRequest>(

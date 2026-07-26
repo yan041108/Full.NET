@@ -4,7 +4,6 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
-using Full.NET.Modules.Organization.Contracts;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostRoles;
 
@@ -13,7 +12,7 @@ internal sealed class HostRoleDataScopeService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    ITenantOrganizationUnitDirectory organizationUnitDirectory,
+    IIdentityOrganizationUnitDirectory organizationUnitDirectory,
     IClock clock)
 {
     public async Task<Result<HostRoleDataScopeResponse>> GetAsync(

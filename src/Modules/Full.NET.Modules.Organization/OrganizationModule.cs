@@ -50,7 +50,11 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantUserPositionManagementService>();
         services.TryAddScoped<TenantPositionQueryService>();
         services.TryAddScoped<TenantPositionManagementService>();
-        services.TryAddScoped<ITenantOrganizationUnitDirectory, TenantUnits.TenantOrganizationUnitDirectory>();
+        services.TryAddScoped<TenantUnits.TenantOrganizationUnitDirectory>();
+        services.TryAddScoped<ITenantOrganizationUnitDirectory>(provider =>
+            provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
+        services.TryAddScoped<IIdentityOrganizationUnitDirectory>(provider =>
+            provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

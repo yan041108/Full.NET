@@ -71,6 +71,8 @@ internal sealed class ApiKeyAuthenticationRow
 
     public bool IsActive { get; set; }
 
+    public DateTimeOffset? LastUsedAtUtc { get; set; }
+
     public string SecurityStamp { get; set; } = string.Empty;
 
     public bool UserIsActive { get; set; }

@@ -81,6 +81,60 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Production_module_contract_references_are_declared_dependencies()
+    {
+        Full.NET.Modularity.Modules.IFullNetModule[] modules =
+        [
+            new IdentityModule(),
+            new AuditingModule(),
+            new FilesModule(),
+            new Full.NET.Modules.Notifications.NotificationsModule(),
+            new Full.NET.Modules.Jobs.JobsModule(),
+            new TenancyModule(),
+            new Full.NET.Modules.Organization.OrganizationModule(),
+            new SettingsModule(),
+        ];
+        var root = FindRepositoryRoot();
+        var violations = modules
+            .SelectMany(module =>
+            {
+                var projectPath = Path.Combine(
+                    root,
+                    "src",
+                    "Modules",
+                    $"Full.NET.Modules.{module.Name}",
+                    $"Full.NET.Modules.{module.Name}.csproj");
+                return XDocument.Load(projectPath)
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value ?? string.Empty)
+                    .Select(GetProjectNameFromReference)
+                    .Where(project => project.StartsWith(
+                        "Full.NET.Modules.",
+                        StringComparison.Ordinal)
+                        && project.EndsWith(
+                            ".Contracts",
+                            StringComparison.Ordinal))
+                    .Select(project => project[
+                        "Full.NET.Modules.".Length
+                        ..^".Contracts".Length])
+                    .Where(dependency =>
+                        !string.Equals(
+                            dependency,
+                            module.Name,
+                            StringComparison.Ordinal)
+                        && !module.Dependencies.Contains(
+                            dependency,
+                            StringComparer.Ordinal))
+                    .Select(dependency =>
+                        $"{module.Name} references {dependency}.Contracts without declaring {dependency}");
+            })
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
     public void Module_dependency_scanner_recognizes_negative_fixtures_and_allowed_boundaries()
     {
         var fixtureRoot = Path.Combine(
@@ -200,6 +254,7 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyErrorCodes).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantManagementPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantPackagePermissions).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantChangedIntegrationEvent).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantContextSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantPackageSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisionedIntegrationEvent).FullName,

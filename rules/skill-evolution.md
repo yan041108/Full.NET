@@ -91,9 +91,9 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | 候选 | 状态/次数 | 当前证据 | 下一升级触发 |
 | --- | --- | --- | --- |
 | `fullnet-dual-database-change` | 观察 / 10 | 双库迁移、Tenancy SQL/API、Identity 授权、语言偏好与 Seed 审计均覆盖；008/009 已用真实 MySQL/SQL Server 验证 23 列 Expand/Contract、维护窗口拒绝、schema-mode 门禁、显式聚集与未记账半完成恢复 | 完成生产等价停止写入＋备份恢复演练，或第二个破坏性双库迁移复用后，按测试先行评估从模块交付 Skill 拆分；仍缺真实恢复介质与 RTO/RPO 停止条件 |
-| `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 使用事务 Outbox 与 MessagePack | 第二个业务模块交付可靠事件时升级 |
+| `fullnet-outbox-event-delivery` | 候选 / 2 | TenantProvisioned 与 TenantChanged 均使用事务 Outbox、版本化 MessagePack；TenantChanged 的 L2 删除或 Backplane 失败会传播到 Worker 并触发 Outbox 重试 | 第二个业务模块交付可靠事件时升级，验证跨模块复用后的输入、重试和停止条件 |
 | `fullnet-api-compatibility` | 候选 / 4 | ProblemDetails、Admin.NET Mapper、保留 `WWW-Authenticate` 的本地化认证 Challenge，以及经同一 Mapper 返回的稳定本地化 429 均有真实 API 测试锁定 | 新增分页、文件或另一类兼容端点时评估升级 |
-| `fullnet-cache-feature` | 候选 / 2 | FusionCache 双抽象、按域名/按 ID 租户解析缓存与 tag 失效已落地 | 独立业务模块采用第二种缓存模型或 Redis 多实例验证落地时升级 |
+| `fullnet-cache-feature` | 候选 / 3 | FusionCache 双抽象、租户 ID/域名 key 与 tag 失效、提交后本机修复、事务 Outbox 驱动的 Redis Backplane 多实例可靠失效及失败重试均已落地 | 独立业务模块采用第二种缓存模型时，基于两类消费者边界按测试先行评估升级；当前创建新 Skill 会扩大本任务范围 |
 | `fullnet-release-verification` | 自动化优先 / 10 | uni-app 三目标构建、fresh H5 E2E、许可与漏洞门禁已落地；双管理端验收已改用专用端口与有界 Worker 避免串台和不稳定 | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
 | `fullnet-realtime-feature` | 候选 / 1 | SignalR/MessagePack Hub、用户/租户分组、可选 Redis Backplane 已实现；Notifications 公告和站内信成为首批 `IRealtimePublisher` 消费者，并以提交后尽力推送边界通过双库验证 | 第二个独立业务模块消费实时发布，或多实例 Backplane 真实栈验收后评估升级 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |

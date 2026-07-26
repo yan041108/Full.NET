@@ -3,6 +3,8 @@ extern alias workerhost;
 using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Dapper;
 using Full.NET.Abstractions.Ids;
@@ -16,6 +18,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Hosting.Api;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Serialization.MessagePack;
@@ -282,6 +285,27 @@ public sealed class CacheConsistencyTests
                 + $"Secondary events: {DescribeBackplaneEvents(secondaryFactory)}");
         Assert.AreEqual(provisioned.Id, secondaryTenant.Id);
         Assert.AreEqual(identifier, secondaryTenant.Identifier);
+
+        var updated = await UpdateTenantAsync(
+            primaryFactory,
+            provisioned.Id,
+            provisioned.Version,
+            $"{identifier}-updated");
+        await processor.ProcessOnceAsync(CancellationToken.None);
+        var secondaryUpdatedTenant = await WaitForTenantAsync(
+            secondaryFactory,
+            domain,
+            tenant => tenant.Name == updated.Name,
+            "Secondary 节点未在 TenantChanged Outbox 消费后观察到更新后的名称。");
+        Assert.AreEqual(updated.Version, secondaryUpdatedTenant.Version);
+
+        var disabled = await DisableTenantAsync(primaryFactory, provisioned.Id);
+        Assert.IsFalse(disabled.IsActive);
+        await processor.ProcessOnceAsync(CancellationToken.None);
+        await WaitForTenantMissingAsync(
+            secondaryFactory,
+            domain,
+            "Secondary 节点未在 TenantChanged Outbox 消费后观察到停用状态。");
     }
 
     private static async Task VerifyPrimaryNodeStaysCorrectWhenRedisIsUnavailableAsync(
@@ -333,6 +357,67 @@ public sealed class CacheConsistencyTests
         {
             currentTenant.Clear();
         }
+    }
+
+    private static async Task<TenantSummary> UpdateTenantAsync(
+        FullNetApiFactory factory,
+        Guid tenantId,
+        int version,
+        string name)
+    {
+        using var client = factory.CreateClientForHost("localhost");
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"/api/v1/tenancy/tenants/{tenantId:D}")
+        {
+            Content = JsonContent.Create(new UpdateHostTenantRequest(name, version)),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            await LoginAsHostAdminAsync(client));
+        using var response = await client.SendAsync(request);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var tenant = await response.Content.ReadFromJsonAsync<TenantSummary>();
+        Assert.IsNotNull(tenant);
+        return tenant;
+    }
+
+    private static async Task<TenantSummary> DisableTenantAsync(
+        FullNetApiFactory factory,
+        Guid tenantId)
+    {
+        using var client = factory.CreateClientForHost("localhost");
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/tenancy/tenants/{tenantId:D}/disable")
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            await LoginAsHostAdminAsync(client));
+        using var response = await client.SendAsync(request);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var tenant = await response.Content.ReadFromJsonAsync<TenantSummary>();
+        Assert.IsNotNull(tenant);
+        return tenant;
+    }
+
+    private static async Task<string> LoginAsHostAdminAsync(HttpClient client)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(
+                new LoginRequest("admin", FullNetApiFactory.TestPassword)),
+        };
+        request.Headers.Add("Origin", "http://localhost");
+        using var response = await client.SendAsync(request);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var token = await response.Content.ReadFromJsonAsync<TokenResponse>();
+        Assert.IsNotNull(token);
+        return token.AccessToken;
     }
 
     private static async Task AssertTenantMissingAsync(
@@ -394,6 +479,50 @@ public sealed class CacheConsistencyTests
                 ? string.Empty
                 : Environment.NewLine + details));
         return null!;
+    }
+
+    private static async Task<TenantSummary> WaitForTenantAsync(
+        FullNetApiFactory factory,
+        string domain,
+        Func<TenantSummary, bool> predicate,
+        string failureMessage)
+    {
+        var timeoutAt = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < timeoutAt)
+        {
+            var tenant = await AssertTenantFoundAsync(factory, domain);
+            if (predicate(tenant))
+            {
+                return tenant;
+            }
+
+            await Task.Delay(250);
+        }
+
+        Assert.Fail(failureMessage);
+        return null!;
+    }
+
+    private static async Task WaitForTenantMissingAsync(
+        FullNetApiFactory factory,
+        string domain,
+        string failureMessage)
+    {
+        var timeoutAt = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < timeoutAt)
+        {
+            using var client = factory.CreateClientForHost(domain);
+            using var response = await client.GetAsync("/api/v1/tenancy/current");
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return;
+            }
+
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            await Task.Delay(250);
+        }
+
+        Assert.Fail(failureMessage);
     }
 
     private static async Task<BackplaneEventObservation?> WaitForBackplaneObservationAsync(
@@ -606,6 +735,9 @@ public sealed class CacheConsistencyTests
         services.AddSingleton<
             ITenantOrganizationUnitDirectory,
             EmptyTenantOrganizationUnitDirectory>();
+        services.AddSingleton<
+            IIdentityOrganizationUnitDirectory,
+            EmptyIdentityOrganizationUnitDirectory>();
         services.AddFullNetDapper(configuration, "Testing");
         services.AddFullNetMessagePack();
         services.AddFullNetCaching(configuration, "Testing");
@@ -679,6 +811,16 @@ public sealed class CacheConsistencyTests
             Guid unitId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<TenantOrganizationUnitDirectoryEntry?>(null);
+    }
+
+    private sealed class EmptyIdentityOrganizationUnitDirectory
+        : IIdentityOrganizationUnitDirectory
+    {
+        public Task<IdentityOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
+            Guid tenantId,
+            Guid unitId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IdentityOrganizationUnitDirectoryEntry?>(null);
     }
 
     private sealed class NonHttpApiResultMapper : IApiResultMapper

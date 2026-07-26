@@ -84,6 +84,7 @@ public sealed class TenancyModule : IFullNetModule
             ICommandHandler<ProvisionTenantCommand, TenantSummary>,
             Features.ProvisionTenant.Handler>();
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
+        services.TryAddScoped<TenantCacheInvalidator>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
             LocalTenantSeedContributor>());
@@ -110,6 +111,10 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             TenantProvisionedCacheInvalidationHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            TenantChangedCacheInvalidationHandler>());
+        services.TryAddScoped<TenantCacheInvalidator>();
     }
 
     /// <summary>

@@ -3,8 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -21,7 +23,10 @@ internal static class IdentityApiKeyAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
-        await VerifyCreateAuthenticateAndDisableAsync(client, cancellationToken);
+        await VerifyCreateAuthenticateAndDisableAsync(
+            factory,
+            client,
+            cancellationToken);
         await VerifyDelegatedManagerCannotExceedEffectivePermissionsAsync(
             client,
             cancellationToken);
@@ -53,6 +58,7 @@ internal static class IdentityApiKeyAssertions
     }
 
     private static async Task VerifyCreateAuthenticateAndDisableAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -87,6 +93,28 @@ internal static class IdentityApiKeyAssertions
             authorizedRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, authorizedResponse.StatusCode);
+        var firstLastUsedAtUtc = await ReadLastUsedAtUtcAsync(
+            factory,
+            created.Key.Id,
+            cancellationToken);
+        Assert.IsNotNull(firstLastUsedAtUtc);
+
+        using var secondAuthorizedRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=1");
+        secondAuthorizedRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "ApiKey",
+            created.Secret);
+        using var secondAuthorizedResponse = await client.SendAsync(
+            secondAuthorizedRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondAuthorizedResponse.StatusCode);
+        Assert.AreEqual(
+            firstLastUsedAtUtc,
+            await ReadLastUsedAtUtcAsync(
+                factory,
+                created.Key.Id,
+                cancellationToken));
 
         using var forbiddenRequest = new HttpRequestMessage(
             HttpMethod.Post,
@@ -276,6 +304,27 @@ internal static class IdentityApiKeyAssertions
         var admin = page.Items.SingleOrDefault(item => item.Username == "admin");
         Assert.IsNotNull(admin);
         return admin.Id;
+    }
+
+    private static async Task<DateTimeOffset?> ReadLastUsedAtUtcAsync(
+        FullNetApiFactory factory,
+        Guid apiKeyId,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        return await scope.ServiceProvider
+            .GetRequiredService<IQueryExecutor>()
+            .QuerySingleOrDefaultAsync<DateTimeOffset?>(
+                new SqlStatement(
+                    "integration.identity.read_api_key_last_used",
+                    """
+                    SELECT LastUsedAtUtc
+                    FROM fn_identity_api_key
+                    WHERE Id = @ApiKeyId
+                    """,
+                    SqlDataScope.Global),
+                new { ApiKeyId = apiKeyId },
+                cancellationToken);
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

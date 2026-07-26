@@ -13,6 +13,9 @@ internal sealed class ApiKeyAuthenticationService(
     ICommandExecutor commandExecutor,
     IClock clock)
 {
+    private static readonly TimeSpan LastUsedObservationWindow =
+        TimeSpan.FromMinutes(5);
+
     public async Task<ClaimsPrincipal?> AuthenticateAsync(
         string secret,
         CancellationToken cancellationToken = default)
@@ -24,7 +27,8 @@ internal sealed class ApiKeyAuthenticationService(
                 new { KeyHash = keyHash },
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!IsActive(row))
+        var now = clock.UtcNow;
+        if (!IsActive(row, now))
         {
             return null;
         }
@@ -35,15 +39,20 @@ internal sealed class ApiKeyAuthenticationService(
             return null;
         }
 
-        await commandExecutor.ExecuteAsync(
-                ApiKeySql.TouchLastUsed,
-                new
-                {
-                    ApiKeyId = row.ApiKeyId,
-                    LastUsedAtUtc = clock.UtcNow,
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
+        var lastUsedBeforeUtc = now - LastUsedObservationWindow;
+        if (row.LastUsedAtUtc is null || row.LastUsedAtUtc <= lastUsedBeforeUtc)
+        {
+            await commandExecutor.ExecuteAsync(
+                    ApiKeySql.TouchLastUsed,
+                    new
+                    {
+                        ApiKeyId = row.ApiKeyId,
+                        LastUsedAtUtc = now,
+                        LastUsedBeforeUtc = lastUsedBeforeUtc,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         var claims = new List<Claim>
         {
@@ -66,12 +75,14 @@ internal sealed class ApiKeyAuthenticationService(
         return new ClaimsPrincipal(identity);
     }
 
-    private bool IsActive(ApiKeyAuthenticationRow? row) =>
+    private static bool IsActive(
+        ApiKeyAuthenticationRow? row,
+        DateTimeOffset now) =>
         row is not null
         && row.IsActive
         && row.UserIsActive
-        && !(row.UserLockoutEndUtc > clock.UtcNow)
-        && (row.ExpiresAtUtc is null || row.ExpiresAtUtc > clock.UtcNow);
+        && !(row.UserLockoutEndUtc > now)
+        && (row.ExpiresAtUtc is null || row.ExpiresAtUtc > now);
 
     internal static IReadOnlyList<string> DeserializePermissions(string permissionsJson)
     {

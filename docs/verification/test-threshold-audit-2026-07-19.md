@@ -743,6 +743,15 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 
 本增补只改变验证反馈路径和 CI 调度，不增删 .NET 测试发现项。详细耗时、按需容器证据与仍待解决的 MySQL/Factory 成本见 [`integration-test-feedback-2026-07-26.md`](integration-test-feedback-2026-07-26.md)。
 
+## 增补（2026-07-26，强化模块化单体硬化）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **359 → 363** | 新增租户事务提交后缓存失效、Backplane 失败传播与 API Key 五分钟写入窗口 4 项 |
+| Architecture 门槛 **40 → 43** | 新增跨模块表所有权主门禁、负向夹具与 Identity→Organization.Contracts 反向依赖门禁 3 项 |
+| 四处 canonical 门槛 | **363/7/43/172** |
+| 验证记录 | [`strengthened-modular-monolith-hardening-2026-07-26.md`](strengthened-modular-monolith-hardening-2026-07-26.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

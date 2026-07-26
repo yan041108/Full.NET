@@ -50,6 +50,7 @@ internal static class ApiKeySql
                apiKey.PermissionsJson,
                apiKey.ExpiresAtUtc,
                apiKey.IsActive,
+               apiKey.LastUsedAtUtc,
                identityUser.SecurityStamp,
                identityUser.IsActive AS UserIsActive,
                identityUser.LockoutEndUtc AS UserLockoutEndUtc
@@ -69,6 +70,7 @@ internal static class ApiKeySql
             UpdatedAtUtc = @LastUsedAtUtc
         WHERE Id = @ApiKeyId
           AND IsActive = 1
+          AND (LastUsedAtUtc IS NULL OR LastUsedAtUtc <= @LastUsedBeforeUtc)
           AND EXISTS (
               SELECT 1
               FROM fn_identity_user AS identityUser

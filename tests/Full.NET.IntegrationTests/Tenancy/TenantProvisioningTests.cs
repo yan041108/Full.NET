@@ -14,6 +14,7 @@ using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
@@ -231,6 +232,9 @@ public sealed class TenantProvisioningTests
         services.AddSingleton<
             ITenantOrganizationUnitDirectory,
             EmptyTenantOrganizationUnitDirectory>();
+        services.AddSingleton<
+            IIdentityOrganizationUnitDirectory,
+            EmptyIdentityOrganizationUnitDirectory>();
         services.AddFullNetModule<IdentityModule>(configuration);
         services.AddFullNetModule<TenancyModule>(configuration);
 
@@ -254,6 +258,16 @@ public sealed class TenantProvisioningTests
             Guid unitId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<TenantOrganizationUnitDirectoryEntry?>(null);
+    }
+
+    private sealed class EmptyIdentityOrganizationUnitDirectory
+        : IIdentityOrganizationUnitDirectory
+    {
+        public Task<IdentityOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
+            Guid tenantId,
+            Guid unitId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IdentityOrganizationUnitDirectoryEntry?>(null);
     }
 
     private static async Task<OutboxRow> ReadOutboxAsync(

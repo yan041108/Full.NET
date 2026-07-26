@@ -44,15 +44,16 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         var handlers = scope.ServiceProvider
             .GetServices<IIntegrationEventHandler>()
             .ToArray();
-        Assert.HasCount(1, handlers);
+        Assert.HasCount(2, handlers);
+        var provisionedHandler = handlers.Single(handler =>
+            handler.EventType == "fullnet.tenancy.tenant.provisioned");
         Assert.IsInstanceOfType<TenantProvisionedCacheInvalidationHandler>(
-            handlers[0]);
-        Assert.AreEqual(
-            "fullnet.tenancy.tenant.provisioned",
-            handlers[0].EventType);
+            provisionedHandler);
         CollectionAssert.Contains(
-            handlers[0].LegacyEventTypes.ToArray(),
+            provisionedHandler.LegacyEventTypes.ToArray(),
             "fullnet.tenancy.tenant-provisioned");
+        Assert.IsNotNull(handlers.SingleOrDefault(handler =>
+            handler.EventType == "fullnet.tenancy.tenant.changed"));
         Assert.AreSame(
             scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>(),
             scope.ServiceProvider.GetRequiredService<ICurrentTenant>());
@@ -87,8 +88,9 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
             tags: [CacheKeyBuilder.DomainTag(domain)]);
         var handler = new TenantProvisionedCacheInvalidationHandler(
             serializer,
-            fusionCache,
-            new TestHostEnvironment(environmentName));
+            new TenantCacheInvalidator(
+                fusionCache,
+                new TestHostEnvironment(environmentName)));
         var payload = serializer.Serialize(new TenantProvisionedIntegrationEvent(
             tenantId,
             "acme",
@@ -134,8 +136,9 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         await hybridCache.SetAsync(domainKey, "stale-domain");
         var service = new TenantProvisioningService(
             new CancellingCommandDispatcher(requestCancellation, tenant),
-            fusionCache,
-            new TestHostEnvironment(environmentName));
+            new TenantCacheInvalidator(
+                fusionCache,
+                new TestHostEnvironment(environmentName)));
 
         var result = await service.ProvisionAsync(
             new ProvisionTenantRequest(

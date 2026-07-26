@@ -1,12 +1,9 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
-using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
-using Microsoft.Extensions.Hosting;
-using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 
@@ -15,25 +12,47 @@ internal sealed class HostTenantManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    IOutboxWriter outboxWriter,
     HostTenantQueryService tenantQueries,
     IClock clock,
-    IFusionCache cache,
-    IHostEnvironment environment)
+    TenantCacheInvalidator cacheInvalidator)
 {
-    public Task<Result<TenantSummary>> UpdateAsync(
+    private const string TenantChangedEventType = "fullnet.tenancy.tenant.changed";
+
+    public async Task<Result<TenantSummary>> UpdateAsync(
         Guid tenantId,
         UpdateHostTenantRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => UpdateCoreAsync(tenantId, request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var result = await transaction.ExecuteAsync(
+                token => UpdateCoreAsync(tenantId, request, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result.IsSuccess && result.Value is { } tenant)
+        {
+            await cacheInvalidator.InvalidateLocalAsync(tenant.Id, tenant.Domain)
+                .ConfigureAwait(false);
+        }
 
-    public Task<Result<TenantSummary>> DisableAsync(
+        return result;
+    }
+
+    public async Task<Result<TenantSummary>> DisableAsync(
         Guid tenantId,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => DisableCoreAsync(tenantId, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var result = await transaction.ExecuteAsync(
+                token => DisableCoreAsync(tenantId, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result.IsSuccess && result.Value is { } tenant)
+        {
+            await cacheInvalidator.InvalidateLocalAsync(tenant.Id, tenant.Domain)
+                .ConfigureAwait(false);
+        }
+
+        return result;
+    }
 
     public Task<Result<TenantSummary>> AssignPackageAsync(
         Guid tenantId,
@@ -158,6 +177,9 @@ internal sealed class HostTenantManagementService(
             return VersionConflict();
         }
 
+        await WriteTenantChangedEventAsync(existing, cancellationToken)
+            .ConfigureAwait(false);
+
         return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -209,36 +231,21 @@ internal sealed class HostTenantManagementService(
             return NotFound();
         }
 
-        await InvalidateTenantCacheAsync(existing, cancellationToken).ConfigureAwait(false);
+        await WriteTenantChangedEventAsync(existing, cancellationToken)
+            .ConfigureAwait(false);
+
         return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private async Task InvalidateTenantCacheAsync(
+    private Task WriteTenantChangedEventAsync(
         TenantResolutionRecord tenant,
-        CancellationToken cancellationToken)
-    {
-        await cache.RemoveAsync(
-                CacheKeyBuilder.TenantResolutionById(
-                    environment.EnvironmentName,
-                    tenant.Id),
-                token: cancellationToken)
-            .ConfigureAwait(false);
-        await cache.RemoveAsync(
-                CacheKeyBuilder.TenantResolutionByDomain(
-                    environment.EnvironmentName,
-                    tenant.Domain),
-                token: cancellationToken)
-            .ConfigureAwait(false);
-        await cache.RemoveByTagAsync(
-                CacheKeyBuilder.TenantTag(tenant.Id),
-                token: cancellationToken)
-            .ConfigureAwait(false);
-        await cache.RemoveByTagAsync(
-                CacheKeyBuilder.DomainTag(tenant.Domain),
-                token: cancellationToken)
-            .ConfigureAwait(false);
-    }
+        CancellationToken cancellationToken) =>
+        outboxWriter.AddAsync(
+            TenantChangedEventType,
+            1,
+            new TenantChangedIntegrationEvent(tenant.Id, tenant.Domain),
+            cancellationToken);
 
     private static Result<TenantSummary> NotFound() =>
         Result<TenantSummary>.Failure(new Error(
