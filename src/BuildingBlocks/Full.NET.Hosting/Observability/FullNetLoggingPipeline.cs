@@ -12,8 +12,8 @@ internal static class FullNetLoggingPipeline
         string applicationName,
         LoggingOptions options,
         FullNetLoggingMonitors monitors,
-        Action<LoggerSinkConfiguration> configureGeneralSink,
-        Action<LoggerSinkConfiguration> configureHighPrioritySink)
+        Action<LoggerAuditSinkConfiguration> configureGeneralSink,
+        Action<LoggerAuditSinkConfiguration> configureHighPrioritySink)
     {
         configuration
             .MinimumLevel.Information()
@@ -46,11 +46,11 @@ internal static class FullNetLoggingPipeline
     }
 
     private static ILogEventSink CreateSink(
-        Action<LoggerSinkConfiguration> configureSink)
+        Action<LoggerAuditSinkConfiguration> configureSink)
     {
         var configuration = new LoggerConfiguration()
             .MinimumLevel.Verbose();
-        configureSink(configuration.WriteTo);
+        configureSink(configuration.AuditTo);
         return configuration.CreateLogger();
     }
 }

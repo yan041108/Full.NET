@@ -82,6 +82,54 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
+    public void General_worker_continues_after_one_sink_failure()
+    {
+        using var monitors = new FullNetLoggingMonitors();
+        var delivered = new CollectingSink();
+        var generalSink = new ThrowOnceSink(delivered);
+        using var logger = CreateLogger(
+            monitors,
+            generalSink,
+            new CollectingSink(),
+            generalBufferSize: 4,
+            highPriorityBufferSize: 4);
+
+        logger.Information("discard first general event");
+        Assert.IsTrue(generalSink.WaitUntilAttempted());
+        logger.Information("deliver second general event");
+
+        Assert.IsTrue(delivered.WaitForCount(1));
+        Assert.AreEqual(
+            "deliver second general event",
+            delivered.Events.Single().RenderMessage());
+        Assert.AreEqual(1, monitors.General.Snapshot.DroppedMessagesCount);
+    }
+
+    [TestMethod]
+    public void High_priority_worker_continues_after_one_sink_failure()
+    {
+        using var monitors = new FullNetLoggingMonitors();
+        var delivered = new CollectingSink();
+        var highPrioritySink = new ThrowOnceSink(delivered);
+        using var logger = CreateLogger(
+            monitors,
+            new CollectingSink(),
+            highPrioritySink,
+            generalBufferSize: 4,
+            highPriorityBufferSize: 4);
+
+        logger.Error("discard first high priority event");
+        Assert.IsTrue(highPrioritySink.WaitUntilAttempted());
+        logger.Error("deliver second high priority event");
+
+        Assert.IsTrue(delivered.WaitForCount(1));
+        Assert.AreEqual(
+            "deliver second high priority event",
+            delivered.Events.Single().RenderMessage());
+        Assert.AreEqual(1, monitors.HighPriority.Snapshot.DroppedMessagesCount);
+    }
+
+    [TestMethod]
     public void Metrics_use_only_bounded_channel_tags()
     {
         using var monitors = new FullNetLoggingMonitors();
@@ -305,6 +353,30 @@ public sealed class HighPriorityLoggingTests
             _entered.Dispose();
             _release.Dispose();
         }
+    }
+
+    private sealed class ThrowOnceSink(ILogEventSink next) :
+        ILogEventSink,
+        IDisposable
+    {
+        private readonly ManualResetEventSlim _attempted = new();
+        private int _attempts;
+
+        public void Emit(LogEvent logEvent)
+        {
+            if (Interlocked.Increment(ref _attempts) == 1)
+            {
+                _attempted.Set();
+                throw new InvalidOperationException("simulated sink failure");
+            }
+
+            next.Emit(logEvent);
+        }
+
+        public bool WaitUntilAttempted() =>
+            _attempted.Wait(TimeSpan.FromSeconds(2));
+
+        public void Dispose() => _attempted.Dispose();
     }
 
     private sealed record FakeInspector(
