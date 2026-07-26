@@ -18,7 +18,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 390
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 392
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 ```
@@ -29,7 +29,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | ?? | ?????? | ???? / Outbox schema ?? 2 ??`--timeout 15m` |
 | PR | ???????CI PR | Identity/Tenancy/Outbox ?????? 8 ??`--timeout 15m` |
-| 完整 | 合并 `main`、共享基础设施或发布前 | 完整 `--minimum-expected-tests 186 --timeout 90m` |
+| 完整 | 合并 `main`、共享基础设施或发布前 | 完整 `--minimum-expected-tests 189 --timeout 90m` |
 
 ```powershell
 # 日常按风险选择标准入口
@@ -45,7 +45,7 @@ pnpm test:integration:full
 pnpm test:integration:durations
 
 # canonical 全量命令
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 186 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 189 --timeout 90m
 ```
 
 Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。SQL、事务、租户过滤和迁移变更必须成对覆盖 SQL Server/MySQL；共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、测试基础设施、发布或 main 门禁必须运行全量。
@@ -54,6 +54,18 @@ Integration 容器按首次使用启动；单提供程序聚焦测试不再等�
 `scope=local|distributed`、`outcome=success|failure` 标签；陈旧命中、Backplane
 熔断状态转换与恢复不带租户、域名、缓存键或异常文本。共享 L2 可能在 Worker 消费前
 让其他节点提前收敛，但事务 Outbox 仍必须由 Worker 成功发布后才能确认。
+
+### Realtime Redis Backplane
+
+多 API 节点部署可设置 `Realtime:RedisBackplaneConnectionString`；未设置时才复用
+`ConnectionStrings:redis`。运行连接会保留后台重连，并使用
+`fullnet:{environment}:signalr:` Channel Prefix。
+
+配置 Backplane 后，`/health/ready` 增加 `realtime-backplane` 检查；Redis
+中断时 ready 返回 503，但 `/health/live` 与 `/health/startup` 不受影响。Redis 在
+同一端点恢复后无需重启 API。即时消息仍是尽力下行，客户端必须刷新权威 HTTP 状态，
+可靠业务传播继续使用事务 Outbox。演练步骤见
+[Realtime Redis Backplane 故障与恢复](../operations/realtime-redis-backplane.md)。
 
 ### 可信代理配置
 

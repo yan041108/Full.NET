@@ -24,10 +24,12 @@
 4. [x] API Host 注册 `AddFullNetRealtimeSignalR` / `MapFullNetRealtime`
 5. [x] Integration 双库 Hub 协商 + Testing 探针 **156 → 158**
 6. [x] Architecture：业务模块禁止直接依赖 SignalR **38 → 40**
+7. [x] 专用 Redis ready 探针、环境级 Channel Prefix 与后台重连配置
+8. [x] SQL Server/MySQL 双 API 节点跨节点投递、Redis stop/start 与无宿主重启恢复
 
 ### 非目标
 
-- Notifications 公告/站内信模块、Vue/Layui SignalR 客户端、Redis Backplane 双实例 E2E
+- Vue/Layui SignalR 客户端、生产多副本编排、Redis Cluster/Sentinel 与告警路由
 - Outbox 触发推送、Presence Store、标记 `Verified`
 
 ---
@@ -44,3 +46,11 @@
 1. [x] API `Program.cs` 注册
 2. [x] `RealtimeApiAssertions` SQL Server/MySQL
 3. [x] 门槛与验证记录
+
+### Task 3: Redis Backplane 故障恢复
+
+1. [x] 运行连接固定后台重连与环境级 Channel Prefix
+2. [x] `realtime-backplane` 只进入 ready
+3. [x] 真实 SignalR Client 跨两个 API 宿主验证故障前投递
+4. [x] SQL Server/MySQL 使用专用 Redis 固定端点验证 503→200 与自动恢复
+5. [x] 运维文档明确即时下行与事务 Outbox 的可靠性边界

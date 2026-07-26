@@ -264,7 +264,7 @@
 
 ### Task 4D: 健康端点提供真实就绪信号（2026-07-22 P1）
 
-**状态：已完成（2026-07-22）。** `/health/live` 继续只表达进程存活；`/health/ready` 现已检查数据库连通性和已配置 Redis；`/health/startup` 通过只读查询 `fn_uuid_contract_state` 验证当前 Schema Contract 已存在。空 `ready/startup` 标签集合在映射时直接失败，避免把空集合 Healthy 当成编排器成功信号。`HealthEndpointTests` 覆盖 SQL Server/MySQL 迁移后健康、数据库断连、缺少 Schema Contract、Redis 不可达与 live 保持 200，当前 **7/7** 通过。
+**状态：已完成（2026-07-26 增补 Realtime）。** `/health/live` 继续只表达进程存活；`/health/ready` 现已检查数据库连通性、已配置的分布式缓存 Redis 与 Realtime Redis Backplane；`/health/startup` 通过只读查询 `fn_uuid_contract_state` 验证当前 Schema Contract 已存在。空 `ready/startup` 标签集合在映射时直接失败，避免把空集合 Healthy 当成编排器成功信号。`HealthEndpointTests` 覆盖 SQL Server/MySQL 迁移后健康、数据库断连、缺少 Schema Contract、缓存 Redis 或专用 Realtime Backplane 不可达与 live 保持 200，当前 **8/8** 通过。
 
 **Files:**
 - Create: `src/BuildingBlocks/Full.NET.Data.Dapper/Health/DatabaseConnectivityHealthCheck.cs`
@@ -272,6 +272,8 @@
 - Modify: `src/BuildingBlocks/Full.NET.Data.Dapper/ServiceCollectionExtensions.cs`
 - Create: `src/BuildingBlocks/Full.NET.Caching.Fusion/Health/DistributedCacheHealthCheck.cs`
 - Modify: `src/BuildingBlocks/Full.NET.Caching.Fusion/ServiceCollectionExtensions.cs`
+- Create: `src/BuildingBlocks/Full.NET.Realtime.SignalR/Health/RealtimeBackplaneHealthCheck.cs`
+- Modify: `src/BuildingBlocks/Full.NET.Realtime.SignalR/ServiceCollectionExtensions.cs`
 - Modify: `src/BuildingBlocks/Full.NET.Hosting/Observability/ServiceDefaultsExtensions.cs`
 - Modify: `src/BuildingBlocks/Full.NET.Hosting/Observability/HealthEndpointExtensions.cs`
 - Modify: `src/Hosts/Full.NET.Host.Api/Program.cs`
@@ -279,8 +281,8 @@
 - Modify: `docs/development/getting-started.md`
 
 **Interfaces:**
-- Produces: `live` 只证明进程存活；`ready` 检查当前数据库及已配置的 Redis；`startup` 通过只读 Schema Contract 查询证明所需迁移已经完成
-- Consumes: Data.Dapper 内部连接工厂、配置存在时的 `IDistributedCache`；Hosting 只负责端点分组，不反向依赖 Data/Caching
+- Produces: `live` 只证明进程存活；`ready` 检查当前数据库、已配置的分布式缓存 Redis 与 Realtime Backplane；`startup` 通过只读 Schema Contract 查询证明所需迁移已经完成
+- Consumes: Data.Dapper 内部连接工厂、配置存在时的 `IDistributedCache` 与 Realtime Redis 短连接；Hosting 只负责端点分组，不反向依赖 Data/Caching/Realtime
 
 - [x] **Step 1: 写入空集合和依赖失败 RED**
 
@@ -288,7 +290,7 @@
 
 - [x] **Step 2: 注册稳定标签和真实检查**
 
-  Data.Dapper 注册只读 `SELECT 1` 的 ready 检查和读取 `fn_uuid_contract_state` 当前契约状态的 startup 检查；Caching 仅在 Redis 已配置时注册对固定不存在键执行 `GetAsync` 的 ready 探针。标签只使用 `ready`、`startup`，同一检查可同时属于两组；API Program 在 Data/Caching 注册完成后映射端点。
+  Data.Dapper 注册只读 `SELECT 1` 的 ready 检查和读取 `fn_uuid_contract_state` 当前契约状态的 startup 检查；Caching 仅在 Redis 已配置时注册对固定不存在键执行 `GetAsync` 的 ready 探针；Realtime 仅在 Backplane 已配置时注册短连接 `PING` ready 探针。标签只使用 `ready`、`startup`，同一检查可同时属于两组；API Program 在 Data/Caching/Realtime 注册完成后映射端点。
 
 - [x] **Step 3: 防止健康检查泄密和放大故障**
 

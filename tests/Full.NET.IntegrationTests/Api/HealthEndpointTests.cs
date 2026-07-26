@@ -6,6 +6,7 @@ using Full.NET.Data.MySql;
 using Full.NET.Hosting.Observability;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
+using Full.NET.Realtime.SignalR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -139,6 +140,42 @@ public sealed class HealthEndpointTests
         Assert.AreEqual(HttpStatusCode.OK, live.StatusCode);
     }
 
+    [TestMethod]
+    public async Task HealthEndpoints_ready_returns_service_unavailable_when_realtime_backplane_is_unreachable()
+    {
+        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        await MigrateAsync(DatabaseProvider.SqlServer, connectionString);
+        await using var app = await StartMinimalHealthHostAsync(new Dictionary<string, string?>
+        {
+            [$"{DatabaseOptions.SectionName}:Provider"] = DatabaseProvider.SqlServer.ToString(),
+            [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
+            [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
+            [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] =
+                MySqlGuidStorageMode.Binary16.ToString(),
+            [$"{RealtimeOptions.SectionName}:RedisBackplaneConnectionString"] =
+                "127.0.0.1:1,abortConnect=false,connectTimeout=500,syncTimeout=500",
+        });
+        var registrations = app.Services
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>()
+            .Value
+            .Registrations
+            .Where(registration => registration.Tags.Contains("ready"))
+            .Select(registration => registration.Name)
+            .ToArray();
+        CollectionAssert.Contains(registrations, "database-connectivity");
+        CollectionAssert.Contains(registrations, "realtime-backplane");
+        CollectionAssert.DoesNotContain(registrations, "distributed-cache");
+        using var client = app.GetTestClient();
+
+        using var ready = await client.GetAsync("/health/ready");
+        using var startup = await client.GetAsync("/health/startup");
+        using var live = await client.GetAsync("/health/live");
+
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, startup.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, live.StatusCode);
+    }
+
     private static async Task<WebApplication> StartMinimalHealthHostAsync(
         Dictionary<string, string?> settings)
     {
@@ -151,6 +188,7 @@ public sealed class HealthEndpointTests
         builder.AddFullNetServiceDefaults();
         builder.Services.AddFullNetDapper(builder.Configuration, "Testing");
         builder.Services.AddFullNetCaching(builder.Configuration, "Testing");
+        builder.Services.AddFullNetRealtimeSignalR(builder.Configuration, "Testing");
 
         var app = builder.Build();
         app.MapFullNetHealthEndpoints();
