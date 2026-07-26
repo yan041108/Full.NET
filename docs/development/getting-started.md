@@ -108,6 +108,7 @@ pnpm install --frozen-lockfile
 pnpm test:naming
 pnpm test:sql-safety
 pnpm test:openapi
+pnpm test:openapi:breaking -- --base-ref main
 pnpm test:workspace
 pnpm test:clients
 pnpm build:clients
