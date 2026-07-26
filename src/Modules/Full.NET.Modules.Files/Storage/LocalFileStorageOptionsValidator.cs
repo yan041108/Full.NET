@@ -28,7 +28,8 @@ internal sealed class LocalFileStorageOptionsValidator : IValidateOptions<LocalF
                     "Files:Local:RootPath must identify a directory, not a file.");
             }
         }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        catch (Exception ex) when (
+            ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
             return ValidateOptionsResult.Fail(
                 "Files:Local:RootPath must be a valid file-system path.");

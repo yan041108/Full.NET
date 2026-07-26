@@ -30,6 +30,17 @@ public sealed class LocalFileStorageOptionsValidatorTests
                     RootPath = "\0",
                     MaxUploadBytes = 1024,
                 }).Failed);
+            if (OperatingSystem.IsWindows())
+            {
+                Assert.IsTrue(validator.Validate(
+                    null,
+                    new LocalFileStorageOptions
+                    {
+                        RootPath = new string('a', 33_000),
+                        MaxUploadBytes = 1024,
+                    }).Failed);
+            }
+
             Assert.IsTrue(validator.Validate(
                 null,
                 new LocalFileStorageOptions

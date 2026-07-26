@@ -67,6 +67,7 @@ public sealed class JobsModule : IFullNetModule
 
     private static void RegisterExecutionCore(IServiceCollection services)
     {
+        services.AddOptions<JobsWorkerOptions>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<JobHandlerRegistry>();

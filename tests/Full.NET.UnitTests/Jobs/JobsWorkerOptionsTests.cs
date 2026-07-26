@@ -39,6 +39,51 @@ public sealed class JobsWorkerOptionsTests
             "Jobs:Worker:PollMilliseconds must be between 100 and 60000.");
     }
 
+    [TestMethod]
+    public void AddBackgroundServices_BindsLeaseDefaultsAndRejectsUnsafeRenewalWindow()
+    {
+        using var defaults = CreateProvider(
+            new Dictionary<string, string?>());
+        var defaultOptions = defaults
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<JobsWorkerOptions>>()
+            .Value;
+        Assert.AreEqual(300, defaultOptions.LeaseSeconds);
+        Assert.AreEqual(60, defaultOptions.LeaseRenewalSeconds);
+
+        using var invalidBounds = CreateProvider(
+            new Dictionary<string, string?>
+            {
+                ["Jobs:Worker:LeaseSeconds"] = "29",
+                ["Jobs:Worker:LeaseRenewalSeconds"] = "4",
+            });
+        var boundsException = Assert.ThrowsExactly<
+            Microsoft.Extensions.Options.OptionsValidationException>(
+            invalidBounds
+                .GetRequiredService<Microsoft.Extensions.Options.IStartupValidator>()
+                .Validate);
+        CollectionAssert.Contains(
+            boundsException.Failures.ToArray(),
+            "Jobs:Worker:LeaseSeconds must be between 30 and 3600.");
+        CollectionAssert.Contains(
+            boundsException.Failures.ToArray(),
+            "Jobs:Worker:LeaseRenewalSeconds must be between 5 and 1200.");
+
+        using var invalidWindow = CreateProvider(
+            new Dictionary<string, string?>
+            {
+                ["Jobs:Worker:LeaseSeconds"] = "30",
+                ["Jobs:Worker:LeaseRenewalSeconds"] = "16",
+            });
+        var windowException = Assert.ThrowsExactly<
+            Microsoft.Extensions.Options.OptionsValidationException>(
+            invalidWindow
+                .GetRequiredService<Microsoft.Extensions.Options.IStartupValidator>()
+                .Validate);
+        CollectionAssert.Contains(
+            windowException.Failures.ToArray(),
+            "Jobs:Worker:LeaseRenewalSeconds must not exceed half of LeaseSeconds.");
+    }
+
     private static ServiceProvider CreateProvider(
         IReadOnlyDictionary<string, string?> configurationValues)
     {

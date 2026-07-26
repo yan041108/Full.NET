@@ -28,6 +28,7 @@ public sealed class JobExecutionHostedProcessorTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 }),
+            Options.Create(new JobsWorkerOptions()),
             NullLogger<JobExecutionRunner>.Instance);
         var services = new ServiceCollection();
         services.AddScoped(_ => runner);

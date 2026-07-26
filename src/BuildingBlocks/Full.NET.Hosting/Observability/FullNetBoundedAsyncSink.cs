@@ -110,7 +110,18 @@ internal sealed class FullNetBoundedAsyncSink :
         {
             foreach (var logEvent in _queue.GetConsumingEnumerable())
             {
-                _sink.Emit(logEvent);
+                try
+                {
+                    _sink.Emit(logEvent);
+                }
+                catch (Exception exception)
+                {
+                    Interlocked.Increment(ref _droppedMessagesCount);
+                    SelfLog.WriteLine(
+                        "Full.NET asynchronous logging sink rejected one event with {0}; "
+                        + "the worker will continue.",
+                        exception.GetType().FullName);
+                }
             }
         }
         catch (Exception exception)
