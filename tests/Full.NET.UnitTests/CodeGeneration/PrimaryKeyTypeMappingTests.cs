@@ -41,6 +41,11 @@ public sealed class PrimaryKeyTypeMappingTests
         Assert.IsFalse(PrimaryKeyTypeMapping.AreProfilesCompatible(
             PrimaryKeyProfile.UuidV7,
             PrimaryKeyProfile.Snowflake));
+
+        var unsupported = (PrimaryKeyProfile)int.MaxValue;
+        Assert.IsFalse(PrimaryKeyTypeMapping.AreProfilesCompatible(
+            unsupported,
+            unsupported));
     }
 
     [TestMethod]
