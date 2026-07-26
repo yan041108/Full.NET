@@ -74,6 +74,22 @@ public sealed class OutboxRecoveryTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
+    [TestMethod]
+    public async Task SqlServer_outbox_backlog_snapshot_tracks_pending_count_and_oldest_age()
+    {
+        await VerifyBacklogSnapshotAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task MySql_outbox_backlog_snapshot_tracks_pending_count_and_oldest_age()
+    {
+        await VerifyBacklogSnapshotAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
     private static async Task VerifyUnknownVersionDeadLetterAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
@@ -226,6 +242,94 @@ public sealed class OutboxRecoveryTests
         Assert.AreEqual(
             2,
             await ReadAttemptsAsync(databaseProvider, connectionString));
+    }
+
+    private static async Task VerifyBacklogSnapshotAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        var firstOccurredAtUtc =
+            new DateTimeOffset(2026, 7, 26, 0, 0, 0, TimeSpan.Zero);
+        var deadLetterOccurredAtUtc = firstOccurredAtUtc.AddMinutes(-2);
+        var secondOccurredAtUtc = firstOccurredAtUtc.AddMinutes(2);
+        var clock = new MutableClock(deadLetterOccurredAtUtc);
+        var configuration = CreateConfiguration(databaseProvider, connectionString);
+        await MigrateAsync(databaseProvider, connectionString);
+
+        await using var services = BuildServices(configuration, clock);
+        await InsertOutboxAsync(
+            services,
+            UnknownVersionHandler.EventTypeValue,
+            1,
+            new TestIntegrationEvent("dead-letter"));
+        await using (var deadLetterScope = services.CreateAsyncScope())
+        {
+            deadLetterScope.ServiceProvider
+                .GetRequiredService<CurrentTenantAccessor>()
+                .SetHost();
+            var deadLetterStore =
+                deadLetterScope.ServiceProvider.GetRequiredService<IOutboxStore>();
+            var deadLetterLease = await deadLetterStore.AcquireAsync(
+                1,
+                TimeSpan.FromSeconds(30),
+                CancellationToken.None);
+            Assert.HasCount(1, deadLetterLease);
+            await deadLetterStore.MarkDeadLetterAsync(
+                deadLetterLease[0].Id,
+                deadLetterLease[0].LockId,
+                "test dead letter",
+                OutboxDeadLetterReasons.HandlerNotFound,
+                deadLetterOccurredAtUtc,
+                CancellationToken.None);
+        }
+
+        clock.UtcNow = firstOccurredAtUtc;
+        await InsertOutboxAsync(
+            services,
+            UnknownVersionHandler.EventTypeValue,
+            1,
+            new TestIntegrationEvent("first"));
+        clock.UtcNow = secondOccurredAtUtc;
+        await InsertOutboxAsync(
+            services,
+            UnknownVersionHandler.EventTypeValue,
+            1,
+            new TestIntegrationEvent("second"));
+
+        await using var scope = services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var store = scope.ServiceProvider.GetRequiredService<IOutboxStore>();
+        var backlogReader =
+            scope.ServiceProvider.GetRequiredService<IOutboxBacklogReader>();
+        var initial = await backlogReader.ReadBacklogAsync(CancellationToken.None);
+        Assert.AreEqual(2L, initial.PendingCount);
+        Assert.AreEqual(firstOccurredAtUtc, initial.OldestOccurredAtUtc);
+
+        var firstLease = await store.AcquireAsync(
+            1,
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+        Assert.HasCount(1, firstLease);
+        await store.MarkProcessedAsync(
+            firstLease[0].Id,
+            firstLease[0].LockId,
+            CancellationToken.None);
+        var afterFirst = await backlogReader.ReadBacklogAsync(CancellationToken.None);
+        Assert.AreEqual(1L, afterFirst.PendingCount);
+        Assert.AreEqual(secondOccurredAtUtc, afterFirst.OldestOccurredAtUtc);
+
+        var secondLease = await store.AcquireAsync(
+            1,
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+        Assert.HasCount(1, secondLease);
+        await store.MarkProcessedAsync(
+            secondLease[0].Id,
+            secondLease[0].LockId,
+            CancellationToken.None);
+        var empty = await backlogReader.ReadBacklogAsync(CancellationToken.None);
+        Assert.AreEqual(0L, empty.PendingCount);
+        Assert.IsNull(empty.OldestOccurredAtUtc);
     }
 
     private static WorkerHost.OutboxProcessor CreateProcessor(

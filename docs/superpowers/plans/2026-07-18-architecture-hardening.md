@@ -375,7 +375,7 @@
 
 ### Task 6: Outbox 多版本、最大重试与死信
 
-**状态：已完成（2026-07-23）。** 当前实现采用“并行版本 Handler + 精确 `SchemaVersion` 路由”的最小闭环，而不额外引入升级链；`OutboxWorker` 已参数化 `BatchSize`/`LeaseSeconds`/`PollMilliseconds`/`MaxAttempts`，永久失败与超过最大尝试次数的消息会写入死信终态并保留稳定原因码。新鲜验证为：`OutboxProcessorTests` + `IntegrationEventHandlerMatcherTests` **11/11**、`OutboxRecoveryTests` 与死信迁移恢复聚焦双库 Integration **10/10**、完整 Unit **348/348**、Integration 发现数 **124**；运维边界见 [`docs/operations/outbox-worker-topology.md`](../../operations/outbox-worker-topology.md)。
+**状态：已完成并补齐积压指标（2026-07-26）。** 当前实现采用“并行版本 Handler + 精确 `SchemaVersion` 路由”的最小闭环，而不额外引入升级链；`OutboxWorker` 已参数化 `BatchSize`/`LeaseSeconds`/`PollMilliseconds`/`BacklogSampleSeconds`/`MaxAttempts`，永久失败与超过最大尝试次数的消息会写入死信终态并保留稳定原因码。`Full.NET.Outbox` Meter 以无标签 Gauge 暴露真实待处理数量与最老消息年龄，采样异常不阻断消息处理。新鲜验证为：`OutboxProcessorTests` + `IntegrationEventHandlerMatcherTests` **15/15**、`OutboxRecoveryTests` 与死信迁移恢复聚焦双库 Integration **12/12**、完整 Unit **390/390**、Integration 发现数 **186**；运维边界见 [`docs/operations/outbox-worker-topology.md`](../../operations/outbox-worker-topology.md)，指标证据见 [`docs/verification/outbox-backlog-telemetry-2026-07-26.md`](../../verification/outbox-backlog-telemetry-2026-07-26.md)。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Abstractions/Messaging`
@@ -398,7 +398,7 @@
 
 ### Task 7: 缓存一致性等级与故障注入
 
-**状态：可靠性指标切片已于 2026-07-26 完成。** Tenancy 域名解析缓存已按规则实现“提交后本机同步失效 + Outbox 跨节点修复”的最小安全边界：`TenantProvisioningService` 在事务命令成功返回后只修复当前请求节点，且提交后的本机清理不再受请求取消影响；该路径禁止承担 Backplane 可靠交付。Worker 通过租户缓存失效 Handler 同步等待 L2 删除与 Backplane 发布完成并让异常进入 Outbox 重试，只有发布成功才允许消息进入已处理状态。`Full.NET.Caching.Reliability` 现暴露失效时延/失败、陈旧命中、Backplane 熔断转换与恢复的固定低基数指标，指标消费者异常不会覆盖缓存结果。`CacheConsistencyTests` 已覆盖 SQL Server/MySQL 本机负缓存修复、双 API 节点 + Redis + Worker、Backplane 失败/恢复、延迟 Worker 期间事件保持未确认以及 Redis 不可达时主节点写后可见，聚焦 Integration **6/6** 通过。共享 L2 可提前收敛，但不能替代可靠事件确认；Outbox backlog 指标、生产多实例导出/告警与完整 S0/S1/S2 分级仍待后续步骤补齐，因此本任务尚不能标记为 `Verified`。
+**状态：可靠性指标切片已于 2026-07-26 完成。** Tenancy 域名解析缓存已按规则实现“提交后本机同步失效 + Outbox 跨节点修复”的最小安全边界：`TenantProvisioningService` 在事务命令成功返回后只修复当前请求节点，且提交后的本机清理不再受请求取消影响；该路径禁止承担 Backplane 可靠交付。Worker 通过租户缓存失效 Handler 同步等待 L2 删除与 Backplane 发布完成并让异常进入 Outbox 重试，只有发布成功才允许消息进入已处理状态。`Full.NET.Caching.Reliability` 现暴露失效时延/失败、陈旧命中、Backplane 熔断转换与恢复的固定低基数指标，指标消费者异常不会覆盖缓存结果；`Full.NET.Outbox` 同时暴露无标签待处理数量与最老消息年龄。`CacheConsistencyTests` 已覆盖 SQL Server/MySQL 本机负缓存修复、双 API 节点 + Redis + Worker、Backplane 失败/恢复、延迟 Worker 期间事件保持未确认以及 Redis 不可达时主节点写后可见，聚焦 Integration **6/6** 通过；Outbox backlog 双库聚焦 **8/8** 通过。共享 L2 可提前收敛，但不能替代可靠事件确认；生产多实例导出/告警与完整 S0/S1/S2 分级仍待后续步骤补齐，因此本任务尚不能标记为 `Verified`。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Caching.Fusion`

@@ -12,10 +12,21 @@ internal sealed class DapperOutboxStore(
     ICommandTransaction transaction,
     IIdGenerator idGenerator,
     IClock clock,
-    IOptions<DatabaseOptions> databaseOptions) : IOutboxStore
+    IOptions<DatabaseOptions> databaseOptions) : IOutboxStore, IOutboxBacklogReader
 {
     private const int MaximumErrorLength = 2000;
     private readonly DatabaseOptions _databaseOptions = databaseOptions.Value;
+
+    public Task<OutboxBacklogSnapshot> ReadBacklogAsync(
+        CancellationToken cancellationToken) =>
+        _databaseOptions.Provider switch
+        {
+            DatabaseProvider.SqlServer => ReadSqlServerBacklogAsync(
+                cancellationToken),
+            DatabaseProvider.MySql => ReadMySqlBacklogAsync(cancellationToken),
+            _ => throw new NotSupportedException(
+                $"Database provider '{_databaseOptions.Provider}' is not supported.")
+        };
 
     public Task<IReadOnlyList<OutboxEnvelope>> AcquireAsync(
         int batchSize,
@@ -135,6 +146,38 @@ internal sealed class DapperOutboxStore(
         return rows.Select(Map).ToArray();
     }
 
+    private async Task<OutboxBacklogSnapshot> ReadSqlServerBacklogAsync(
+        CancellationToken cancellationToken)
+    {
+        var row = await queryExecutor
+            .QuerySingleOrDefaultAsync<SqlServerBacklogRow>(
+                OutboxSql.ReadBacklogSqlServer,
+                parameters: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new OutboxBacklogSnapshot(
+            row?.PendingCount ?? 0,
+            row?.OldestOccurredAtUtc);
+    }
+
+    private async Task<OutboxBacklogSnapshot> ReadMySqlBacklogAsync(
+        CancellationToken cancellationToken)
+    {
+        var row = await queryExecutor
+            .QuerySingleOrDefaultAsync<MySqlBacklogRow>(
+                OutboxSql.ReadBacklogMySql,
+                parameters: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        DateTimeOffset? oldestOccurredAtUtc = row?.OldestOccurredAtUtc is { } value
+            ? new DateTimeOffset(
+                DateTime.SpecifyKind(value, DateTimeKind.Utc))
+            : null;
+        return new OutboxBacklogSnapshot(
+            row?.PendingCount ?? 0,
+            oldestOccurredAtUtc);
+    }
+
     private Task<IReadOnlyList<OutboxEnvelope>> AcquireMySqlAsync(
         object parameters,
         CancellationToken cancellationToken) =>
@@ -198,6 +241,18 @@ internal sealed class DapperOutboxStore(
         public byte[] Payload { get; init; } = [];
         public int Attempts { get; init; }
         public DateTimeOffset OccurredAtUtc { get; init; }
+    }
+
+    private sealed class SqlServerBacklogRow
+    {
+        public long PendingCount { get; init; }
+        public DateTimeOffset? OldestOccurredAtUtc { get; init; }
+    }
+
+    private sealed class MySqlBacklogRow
+    {
+        public long PendingCount { get; init; }
+        public DateTime? OldestOccurredAtUtc { get; init; }
     }
 
     private sealed class MySqlOutboxRow

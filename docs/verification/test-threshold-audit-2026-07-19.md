@@ -857,6 +857,18 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | .NET canonical 门槛 | 不变；本次未修改 C# 运行时或 Integration 测试 |
 | 验证记录 | [`openapi-offline-fixture-coverage-2026-07-26.md`](openapi-offline-fixture-coverage-2026-07-26.md) |
 
+## 增补（2026-07-26，Outbox 积压指标）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **386 → 390** | 新增待处理数量/最老年龄 Gauge、采样失败不阻断、采样周期去重与配置下界合同 |
+| Integration 门槛 **184 → 186** | SQL Server/MySQL 各新增一项 backlog 快照测试，锁定死信与已处理排除、数量收敛和 UTC 最老时间 |
+| 双库聚焦 | `OutboxRecoveryTests` **8/8**，失败 **0**、跳过 **0**，**2m50s** |
+| Integration 四分片 | API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **54** = **186** |
+| 完整门禁 | **186/186**，失败 **0**、跳过 **0**，**33m39s**，stderr 为 0 |
+| 四处 canonical 门槛 | **390/7/49/186** |
+| 验证记录 | [`outbox-backlog-telemetry-2026-07-26.md`](outbox-backlog-telemetry-2026-07-26.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

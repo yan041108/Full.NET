@@ -106,7 +106,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMultiResultQueryExecutor>(provider =>
             provider.GetRequiredService<DapperSqlExecutor>());
         services.AddScoped<IOutboxWriter, DapperOutboxWriter>();
-        services.AddScoped<IOutboxStore, DapperOutboxStore>();
+        services.AddScoped<DapperOutboxStore>();
+        services.AddScoped<IOutboxStore>(provider =>
+            provider.GetRequiredService<DapperOutboxStore>());
+        services.AddScoped<IOutboxBacklogReader>(provider =>
+            provider.GetRequiredService<DapperOutboxStore>());
         services.AddScoped<ICommandTransaction, DapperCommandTransaction>();
         services.AddHealthChecks()
             .AddCheck<DatabaseConnectivityHealthCheck>(
