@@ -28,7 +28,8 @@ describe('headless 管理端导航目录', () => {
   it('只接受已发布的 componentKey、routeName 与 path 组合', () => {
     expect(catalog.isSupportedNavigationTree([
       createNode('overview'),
-      createNode('tenant-context')
+      createNode('tenant-context'),
+      createNode('api-keys', { path: '/identity/api-keys' })
     ])).toBe(true);
     expect(catalog.isSupportedNavigationTree([
       createNode('remote-script')

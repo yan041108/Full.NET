@@ -136,6 +136,7 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | C2.2 | 访问日志（HTTP 汇总） | Build-verified | Build-verified | Auditing | M |
 | C2.2 | 操作日志（已认证写操作） | Build-verified | Build-verified | Auditing | M |
 | C2.2 | 异常日志 | Build-verified | Build-verified | Auditing | M |
+| C2.2 | Host API Key 管理 | Build-verified | Build-verified | Identity | M |
 | C2.2 | 在线用户、公告、站内通知 | Mapped | Mapped | Realtime + Notifications | L |
 | C2.3 | 文件、对象存储和预览 | Mapped | Mapped | Files + Storage Provider | L |
 | C2.3 | 任务调度、执行记录和重试 | Mapped | Mapped | Jobs | L |

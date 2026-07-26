@@ -30,6 +30,7 @@ import { createHostJobsController } from './core/host-jobs.js';
 import { createOverviewDashboardController } from './core/overview-dashboard.js';
 import { createAccessLogsController } from './core/access-logs.js';
 import { createOnlineSessionsController } from './core/online-sessions.js';
+import { createApiKeysController } from './core/api-keys.js';
 import { createOperationLogsController } from './core/operation-logs.js';
 import { createExceptionLogsController } from './core/exception-logs.js';
 import { createUsersController } from './core/users.js';
@@ -41,7 +42,7 @@ import { createOrgUserPositionsController } from './core/org-user-positions.js';
 import { createOrgPositionsController } from './core/org-positions.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context', '/tenants', '/tenant-packages', '/identity/users', '/identity/online-sessions', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/organization/positions', '/identity/super-administrators', '/settings/dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/files/host-files', '/notifications/host-announcements', '/notifications/inbox-messages', '/jobs/host-definitions', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/tenants', '/tenant-packages', '/identity/users', '/identity/online-sessions', '/identity/api-keys', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/organization/positions', '/identity/super-administrators', '/settings/dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/files/host-files', '/notifications/host-announcements', '/notifications/inbox-messages', '/jobs/host-definitions', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -146,6 +147,12 @@ export function initializeAdminApp(root = document, options = {}) {
   const onlineSessions = createOnlineSessionsController(root, {
     request,
     translation: () => translation
+  });
+  const apiKeys = createApiKeysController(root, {
+    request,
+    translation: () => translation,
+    canWrite: () => latestSnapshot.currentUser?.permissions
+      ?.includes('identity.api_keys.write') === true
   });
   const users = createUsersController(root, {
     request,
@@ -252,6 +259,9 @@ export function initializeAdminApp(root = document, options = {}) {
     }
     if (route === '/identity/online-sessions') {
       void onlineSessions.load();
+    }
+    if (route === '/identity/api-keys') {
+      void apiKeys.load();
     }
     if (route === '/identity/users') {
       void users.load();
@@ -578,6 +588,7 @@ export function initializeAdminApp(root = document, options = {}) {
       operationLogs.dispose();
       exceptionLogs.dispose();
       onlineSessions.dispose();
+      apiKeys.dispose();
       users.dispose();
       roles.dispose();
       menus.dispose();

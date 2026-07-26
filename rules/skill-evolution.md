@@ -97,7 +97,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-release-verification` | 自动化优先 / 10 | uni-app 三目标构建、fresh H5 E2E、许可与漏洞门禁已落地；双管理端验收已改用专用端口与有界 Worker 避免串台和不稳定 | 继续收敛为跨平台验证脚本/CI，不优先创建判断型 Skill |
 | `fullnet-realtime-feature` | 候选 / 1 | SignalR/MessagePack Hub、用户/租户分组、可选 Redis Backplane 已实现；Notifications 公告和站内信成为首批 `IRealtimePublisher` 消费者，并以提交后尽力推送边界通过双库验证 | 第二个独立业务模块消费实时发布，或多实例 Backplane 真实栈验收后评估升级 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
-| `fullnet-dual-admin-feature` | 候选 / 10 | Identity 会话、租户切换、权限导航、国际化/可访问性之外，租户套餐、Settings 与 Auditing 访问/操作日志均按同一“contracts 守卫 + admin-i18n 双语 + Vue/Layui 双实现 + shell-parity 双端场景”模式交付 | 首个含列表、表单、权限与租户边界的双端业务 CRUD 达到 `Verified` 后评估升级 |
+| `fullnet-dual-admin-feature` | 候选 / 11 | Identity 会话、租户切换、权限导航、国际化/可访问性之外，租户套餐、Settings、Auditing 访问/操作日志与 Host API Key 均按同一“contracts 守卫 + admin-i18n 双语 + Vue/Layui 双实现 + shell-parity 双端场景”模式交付；API Key 额外验证一次性明文不进入 Web Storage | 首个含列表、表单、权限与租户边界的双端业务 CRUD 达到 `Verified` 后评估升级 |
 | `fullnet-localization-delivery` | 候选 / 5 | L0-L2 之上，L3 uni-app 已落地规范语言/别名、Vue I18n、偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具未安装，跨平台停止条件未闭合 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
 | `fullnet-seed-data-delivery` | 候选 / 5 | Identity 作为第二个模块复用 Contributor、稳定错误码与 Scoped 多实现，并由 Migrator 完成迁移后 Profile 编排、失败阻断、兼容别名与 Host 依赖门禁；Task 3A 已将场景查看者移出发布物并改为 API 健康后的测试脚本幂等创建，Architecture 与三宿主发布物扫描已锁定边界；当前机器缺容器运行时，更新后的双库真实栈未验证 | 在 SQL Server/MySQL 完成 Baseline/Development/Demo/Test 与新场景准备脚本 E2E 后，按测试先行评估升级 |
 

@@ -108,6 +108,17 @@ internal sealed class IdentityAuthorizationContributor
             35,
             IdentitySessionManagementPermissions.Read),
         new NavigationDefinition(
+            "api-keys",
+            null,
+            "api-keys",
+            "/identity/api-keys",
+            "api-keys",
+            "API Key",
+            "API Keys",
+            "key",
+            36,
+            IdentityApiKeyManagementPermissions.Read),
+        new NavigationDefinition(
             "roles",
             null,
             "roles",

@@ -14,13 +14,13 @@
 - [x] OpenAPI 契约 + Scalar ApiKey 安全方案
 - [x] client-contracts `host-api-keys.ts`
 - [x] Integration **168 → 170**（SQL Server/MySQL）
-- [ ] 双管理端 UI（后续切片）
+- [x] 双管理端 UI（Vue/Layui 列表、创建、一次性明文复制与禁用；Mock parity 2/2）
 
 ## 非目标
 
 - 租户作用域 API Key
 - 超级管理员能力通过 API Key 授予
-- 管理端页面与菜单
+- API Key 轮换与使用审计
 
 ## 验收
 
