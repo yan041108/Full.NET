@@ -5,7 +5,8 @@
 - 初始基线：`main@a3b8844ce9069ee9965e3a62594c7ef3a4ecaa7b`
 - 最终同步基线：`main@aff0216648e463bfca940c0deebe11e8d6eb5869`
 - 功能提交：`3b77b9dbafede48db416c15ce0b3d61acc15f36a`
-- 状态：实现与最终门禁已完成，等待 fast-forward `main` 与隔离资源清理
+- main 合入内容：`main@3b9c3c01c2a4caae9c67a0e4fa12486391c47318`
+- 状态：实现、最终门禁、main 合并与隔离分支/工作树清理均已完成
 
 ## 范围与契约
 
@@ -38,6 +39,7 @@
 | Governance | **11/11** |
 | Skill 契约 | **52** 项通过 |
 | workspace | 通过 |
+| main 合并后复验 | Release 0 warning / 0 error；Unit **404/404**；Files **1/1**；Governance **11/11** |
 
 ## 规则与 Skills 复盘
 
