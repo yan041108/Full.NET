@@ -398,7 +398,7 @@
 
 ### Task 7: 缓存一致性等级与故障注入
 
-**状态：最小闭环已完成并于 2026-07-26 复核。** Tenancy 域名解析缓存已按规则实现“提交后本机同步失效 + Outbox 跨节点修复”的最小安全边界：`TenantProvisioningService` 在事务命令成功返回后只修复当前请求节点，且提交后的本机清理不再受请求取消影响；该路径禁止承担 Backplane 可靠交付。Worker 通过 `TenantProvisionedCacheInvalidationHandler` 同步等待 Backplane 发布完成并让广播异常冒泡，只有发布成功才允许 Outbox 消息进入已处理状态，失败则释放租约并安排重试。`CacheConsistencyTests` 已覆盖 SQL Server/MySQL 的本机负缓存修复、两个 API 节点 + Redis + Worker 的可观测精确失效、Backplane 不可达时 Outbox 不确认并重试，以及 Redis 不可达时主节点提交后仍立即可见，聚焦 Integration **6/6** 通过。延迟 Worker、指标暴露与完整 S0/S1/S2 分级仍待后续步骤补齐，因此本任务尚不能标记为 `Verified`。
+**状态：可靠性指标切片已于 2026-07-26 完成。** Tenancy 域名解析缓存已按规则实现“提交后本机同步失效 + Outbox 跨节点修复”的最小安全边界：`TenantProvisioningService` 在事务命令成功返回后只修复当前请求节点，且提交后的本机清理不再受请求取消影响；该路径禁止承担 Backplane 可靠交付。Worker 通过租户缓存失效 Handler 同步等待 L2 删除与 Backplane 发布完成并让异常进入 Outbox 重试，只有发布成功才允许消息进入已处理状态。`Full.NET.Caching.Reliability` 现暴露失效时延/失败、陈旧命中、Backplane 熔断转换与恢复的固定低基数指标，指标消费者异常不会覆盖缓存结果。`CacheConsistencyTests` 已覆盖 SQL Server/MySQL 本机负缓存修复、双 API 节点 + Redis + Worker、Backplane 失败/恢复、延迟 Worker 期间事件保持未确认以及 Redis 不可达时主节点写后可见，聚焦 Integration **6/6** 通过。共享 L2 可提前收敛，但不能替代可靠事件确认；Outbox backlog 指标、生产多实例导出/告警与完整 S0/S1/S2 分级仍待后续步骤补齐，因此本任务尚不能标记为 `Verified`。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Caching.Fusion`

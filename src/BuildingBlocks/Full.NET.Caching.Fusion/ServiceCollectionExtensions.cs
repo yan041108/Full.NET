@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -60,10 +62,16 @@ public static class ServiceCollectionExtensions
             .TryWithRegisteredBackplane()
             .AsHybridCache();
 
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<
+                IHostedService,
+                FusionCacheReliabilityMonitor>());
         services
             .AddOpenTelemetry()
             .WithTracing(tracing => tracing.AddFusionCacheInstrumentation())
-            .WithMetrics(metrics => metrics.AddFusionCacheInstrumentation());
+            .WithMetrics(metrics => metrics
+                .AddMeter(CacheReliabilityTelemetry.MeterName)
+                .AddFusionCacheInstrumentation());
 
         return services;
     }

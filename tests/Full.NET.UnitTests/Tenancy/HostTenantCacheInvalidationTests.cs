@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Caching.Fusion;
@@ -17,11 +18,15 @@ using ZiggyCreatures.Caching.Fusion;
 namespace Full.NET.UnitTests.Tenancy;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class HostTenantCacheInvalidationTests
 {
     [TestMethod]
     public async Task UpdateAsync_InvalidatesLocalCacheOnlyAfterTransactionReturns()
     {
+        var invalidationMeasurements = new List<InvalidationMeasurement>();
+        using var listener = CreateInvalidationListener(
+            invalidationMeasurements);
         var queryExecutor = Substitute.For<IQueryExecutor>();
         var commandExecutor = Substitute.For<ICommandExecutor>();
         var tenantId = Guid.CreateVersion7();
@@ -126,7 +131,45 @@ public sealed class HostTenantCacheInvalidationTests
             await hybridCache.GetOrCreateAsync(
                 domainKey,
                 _ => ValueTask.FromResult("fresh-domain")));
+        var localSuccess = invalidationMeasurements.Single(item =>
+            item.Tags.Any(tag =>
+                tag.Key == "scope"
+                && Equals(tag.Value, "local")));
+        Assert.AreEqual("fullnet.cache.invalidation.duration", localSuccess.Name);
+        Assert.AreEqual(
+            "success",
+            localSuccess.Tags.Single(tag => tag.Key == "outcome").Value);
     }
+
+    private static MeterListener CreateInvalidationListener(
+        List<InvalidationMeasurement> measurements)
+    {
+        var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == CacheReliabilityTelemetry.MeterName
+                    && instrument.Name == "fullnet.cache.invalidation.duration")
+                {
+                    meterListener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<double>(
+            (instrument, value, tags, _) =>
+                measurements.Add(
+                    new InvalidationMeasurement(
+                        instrument.Name,
+                        value,
+                        tags.ToArray())));
+        listener.Start();
+        return listener;
+    }
+
+    private sealed record InvalidationMeasurement(
+        string Name,
+        double Value,
+        KeyValuePair<string, object?>[] Tags);
 
     private sealed class ObservingTransaction(Func<Task> observeBeforeCommit)
         : ICommandTransaction

@@ -15,7 +15,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - 跨工具 Naming Profile、SQL/C#／稳定协议命名门禁，以及供脚手架复用的确定性 CodeGeneration 命名内核；存量债务按文件和值精确登记，不会被新代码继承。
 - SQL Server/MySQL 双数据库 DbUp 迁移及 Testcontainers 集成测试。
 - MessagePack 二进制 Outbox、精确 schema 版本路由、最大尝试、死信终态和租约式至少一次消费。
-- FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`；安全关键租户缓存已实现“提交后本机同步失效 + Outbox 跨节点修复”的最小闭环。
+- FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`；安全关键租户缓存已实现“提交后本机同步失效 + Outbox 跨节点修复”的最小闭环，并暴露失效时延/失败、陈旧命中与 Backplane 熔断恢复的低基数指标。
 - System.Text.Json 源生成 HTTP 合约、Serilog 有界异步日志、OpenTelemetry 和健康检查。
 - ASP.NET Core `Accept-Language` 请求协商、`zh-CN/en-US` 规范化、异步 CultureScope、模块错误资源和本地化响应头能力。
 - Identity 安全会话与授权上下文底座：强密码引导、RSA JWT、登录锁定、Refresh Token 轮换/重用撤销、CSRF、CORS、审计、最小 RBAC、可信租户切换和权限导航。
@@ -33,7 +33,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 378
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 380
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 # 日常按风险选择：冒烟、单提供程序 API、迁移或其他基础设施

@@ -825,6 +825,17 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | Unit / Compatibility / Integration 门槛 | **378 / 7 / 184**（不变） |
 | 四处 canonical 门槛 | **378/7/49/184** |
 
+## 增补（2026-07-26，缓存可靠性指标与延迟 Worker 确认）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **378 → 380** | 新增失效时延/失败固定标签合同，以及陈旧命中、Backplane 熔断转换/恢复事件桥接合同 |
+| RED / GREEN | 指标类型缺失时聚焦编译失败；Tenancy 未接入时本机成功/分布式失败指标断言 **2/2** 失败；实现后指标与 Tenancy 聚焦 **4/4** 通过 |
+| 双库故障注入 | `CacheConsistencyTests` SQL Server/MySQL **6/6**；锁定共享 L2 可提前收敛，但延迟 Worker 前事件不得确认、恢复后必须正式确认 |
+| Compatibility / Architecture / Integration 门槛 | **7 / 49 / 184**（不变） |
+| 四处 canonical 门槛 | **380/7/49/184** |
+| 验证记录 | [`cache-reliability-telemetry-2026-07-26.md`](cache-reliability-telemetry-2026-07-26.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

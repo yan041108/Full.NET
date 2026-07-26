@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Full.NET.Caching.Fusion;
 using Microsoft.Extensions.Hosting;
 using ZiggyCreatures.Caching.Fusion;
@@ -14,6 +15,7 @@ internal sealed class TenantCacheInvalidator(
             tenantId,
             domain,
             CreateLocalOptions(),
+            distributed: false,
             CancellationToken.None);
 
     public Task InvalidateDistributedAsync(
@@ -24,38 +26,74 @@ internal sealed class TenantCacheInvalidator(
             tenantId,
             domain,
             CreateDistributedOptions(),
+            distributed: true,
             cancellationToken);
 
     private async Task InvalidateAsync(
         Guid tenantId,
         string domain,
         FusionCacheEntryOptions options,
+        bool distributed,
         CancellationToken cancellationToken)
     {
-        await cache.RemoveAsync(
-                CacheKeyBuilder.TenantResolutionById(
-                    environment.EnvironmentName,
-                    tenantId),
-                options,
-                token: cancellationToken)
-            .ConfigureAwait(false);
-        await cache.RemoveAsync(
-                CacheKeyBuilder.TenantResolutionByDomain(
-                    environment.EnvironmentName,
-                    domain),
-                options,
-                token: cancellationToken)
-            .ConfigureAwait(false);
-        await cache.RemoveByTagAsync(
-                CacheKeyBuilder.TenantTag(tenantId),
-                options,
-                token: cancellationToken)
-            .ConfigureAwait(false);
-        await cache.RemoveByTagAsync(
-                CacheKeyBuilder.DomainTag(domain),
-                options,
-                token: cancellationToken)
-            .ConfigureAwait(false);
+        var startedAt = Stopwatch.GetTimestamp();
+        try
+        {
+            await cache.RemoveAsync(
+                    CacheKeyBuilder.TenantResolutionById(
+                        environment.EnvironmentName,
+                        tenantId),
+                    options,
+                    token: cancellationToken)
+                .ConfigureAwait(false);
+            await cache.RemoveAsync(
+                    CacheKeyBuilder.TenantResolutionByDomain(
+                        environment.EnvironmentName,
+                        domain),
+                    options,
+                    token: cancellationToken)
+                .ConfigureAwait(false);
+            await cache.RemoveByTagAsync(
+                    CacheKeyBuilder.TenantTag(tenantId),
+                    options,
+                    token: cancellationToken)
+                .ConfigureAwait(false);
+            await cache.RemoveByTagAsync(
+                    CacheKeyBuilder.DomainTag(domain),
+                    options,
+                    token: cancellationToken)
+                .ConfigureAwait(false);
+            RecordInvalidation(
+                distributed,
+                Stopwatch.GetElapsedTime(startedAt),
+                succeeded: true);
+        }
+        catch
+        {
+            RecordInvalidation(
+                distributed,
+                Stopwatch.GetElapsedTime(startedAt),
+                succeeded: false);
+            throw;
+        }
+    }
+
+    private static void RecordInvalidation(
+        bool distributed,
+        TimeSpan duration,
+        bool succeeded)
+    {
+        if (distributed)
+        {
+            CacheReliabilityTelemetry.RecordDistributedInvalidation(
+                duration,
+                succeeded);
+            return;
+        }
+
+        CacheReliabilityTelemetry.RecordLocalInvalidation(
+            duration,
+            succeeded);
     }
 
     private FusionCacheEntryOptions CreateLocalOptions()

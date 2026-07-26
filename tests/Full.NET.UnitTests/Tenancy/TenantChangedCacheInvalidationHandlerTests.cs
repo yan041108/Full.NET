@@ -1,3 +1,5 @@
+using System.Diagnostics.Metrics;
+using Full.NET.Caching.Fusion;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Serialization.MessagePack;
@@ -11,11 +13,15 @@ using ZiggyCreatures.Caching.Fusion.Backplane;
 namespace Full.NET.UnitTests.Tenancy;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class TenantChangedCacheInvalidationHandlerTests
 {
     [TestMethod]
     public async Task HandleAsync_WhenCachePropagationFails_PropagatesFailure()
     {
+        var invalidationMeasurements = new List<InvalidationMeasurement>();
+        using var listener = CreateInvalidationListener(
+            invalidationMeasurements);
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddFusionCache();
@@ -34,6 +40,7 @@ public sealed class TenantChangedCacheInvalidationHandlerTests
 
         await Assert.ThrowsExactlyAsync<FusionCacheBackplaneException>(
             () => handler.HandleAsync(payload, CancellationToken.None));
+        AssertFailedDistributedInvalidation(invalidationMeasurements);
 
         var distributedServices = new ServiceCollection();
         distributedServices.AddLogging();
@@ -56,6 +63,62 @@ public sealed class TenantChangedCacheInvalidationHandlerTests
                 payload,
                 CancellationToken.None));
     }
+
+    private static void AssertFailedDistributedInvalidation(
+        List<InvalidationMeasurement> measurements)
+    {
+        var distributedFailure = measurements.Single(item =>
+            item.Name == "fullnet.cache.invalidation.duration"
+            && item.Tags.Any(tag =>
+                tag.Key == "scope"
+                && Equals(tag.Value, "distributed")));
+        Assert.AreEqual(
+            "failure",
+            distributedFailure.Tags
+                .Single(tag => tag.Key == "outcome")
+                .Value);
+        Assert.IsTrue(measurements.Any(item =>
+            item.Name == "fullnet.cache.invalidation.failures"
+            && item.Tags.Any(tag =>
+                tag.Key == "scope"
+                && Equals(tag.Value, "distributed"))));
+    }
+
+    private static MeterListener CreateInvalidationListener(
+        List<InvalidationMeasurement> measurements)
+    {
+        var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == CacheReliabilityTelemetry.MeterName)
+                {
+                    meterListener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<double>(
+            (instrument, value, tags, _) =>
+                measurements.Add(
+                    new InvalidationMeasurement(
+                        instrument.Name,
+                        value,
+                        tags.ToArray())));
+        listener.SetMeasurementEventCallback<long>(
+            (instrument, value, tags, _) =>
+                measurements.Add(
+                    new InvalidationMeasurement(
+                        instrument.Name,
+                        value,
+                        tags.ToArray())));
+        listener.Start();
+        return listener;
+    }
+
+    private sealed record InvalidationMeasurement(
+        string Name,
+        double Value,
+        KeyValuePair<string, object?>[] Tags);
 
     private sealed class TestHostEnvironment(string environmentName) : IHostEnvironment
     {

@@ -291,7 +291,25 @@ public sealed class CacheConsistencyTests
             provisioned.Id,
             provisioned.Version,
             $"{identifier}-updated");
+        var changedOutboxId = await GetLatestTenantChangedOutboxIdAsync(
+            databaseProvider,
+            connectionString);
+        var changedBeforeWorker = await GetOutboxStateAsync(
+            databaseProvider,
+            connectionString,
+            changedOutboxId);
+        Assert.IsNull(
+            changedBeforeWorker.ProcessedAtUtc,
+            "共享 L2 即使让 secondary 提前收敛，也不得把尚未由 Worker 可靠发布的事件误记为已处理。");
+        Assert.IsNull(changedBeforeWorker.DeadLetteredAtUtc);
         await processor.ProcessOnceAsync(CancellationToken.None);
+        var changedAfterWorker = await GetOutboxStateAsync(
+            databaseProvider,
+            connectionString,
+            changedOutboxId);
+        Assert.IsNotNull(
+            changedAfterWorker.ProcessedAtUtc,
+            "Worker 恢复后必须正式确认 TenantChanged 事件，不能只依赖共享 L2 的偶然提前收敛。");
         var secondaryUpdatedTenant = await WaitForTenantAsync(
             secondaryFactory,
             domain,
@@ -593,6 +611,28 @@ public sealed class CacheConsistencyTests
               SELECT Id
               FROM fn_outbox_message
               WHERE MessageType = 'fullnet.tenancy.tenant.provisioned'
+              ORDER BY OccurredAtUtc DESC, Id DESC
+              LIMIT 1
+              """;
+        return await connection.QuerySingleAsync<Guid>(sql);
+    }
+
+    private static async Task<Guid> GetLatestTenantChangedOutboxIdAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        await using var connection = CreateConnection(databaseProvider, connectionString);
+        var sql = databaseProvider == DatabaseProvider.SqlServer
+            ? """
+              SELECT TOP (1) Id
+              FROM fn_outbox_message
+              WHERE MessageType = 'fullnet.tenancy.tenant.changed'
+              ORDER BY OccurredAtUtc DESC, Id DESC
+              """
+            : """
+              SELECT Id
+              FROM fn_outbox_message
+              WHERE MessageType = 'fullnet.tenancy.tenant.changed'
               ORDER BY OccurredAtUtc DESC, Id DESC
               LIMIT 1
               """;
