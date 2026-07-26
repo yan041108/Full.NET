@@ -34,7 +34,10 @@ interface StorageLockRecord {
   expiresAt: number;
 }
 
-function isStorageLockRecord(value: unknown): value is StorageLockRecord {
+function isStorageLockRecord(
+  value: unknown,
+  maximumExpiresAt: number
+): value is StorageLockRecord {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
@@ -43,7 +46,8 @@ function isStorageLockRecord(value: unknown): value is StorageLockRecord {
   return typeof record.owner === 'string'
     && record.owner.length > 0
     && typeof record.expiresAt === 'number'
-    && Number.isFinite(record.expiresAt);
+    && Number.isFinite(record.expiresAt)
+    && record.expiresAt <= maximumExpiresAt;
 }
 
 function readSharedStorage(): Storage | undefined {
@@ -67,7 +71,7 @@ function readStorageLock(): StorageLockRecord | undefined {
     }
 
     const parsed = JSON.parse(raw) as unknown;
-    if (isStorageLockRecord(parsed)) {
+    if (isStorageLockRecord(parsed, Date.now() + storageLockTtlMs)) {
       return parsed;
     }
 

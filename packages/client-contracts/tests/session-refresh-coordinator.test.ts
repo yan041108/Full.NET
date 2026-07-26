@@ -179,4 +179,40 @@ describe('session refresh coordinator', () => {
     expect(operation).toHaveBeenCalledOnce();
     expect(storage.has('fullnet.session.refresh.lock')).toBe(false);
   });
+
+  it('共享存储中的租约超出本地上限时清理记录并继续刷新', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-27T00:00:00Z'));
+    vi.stubGlobal('navigator', {});
+    vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
+    const storage = new Map<string, string>([
+      [
+        'fullnet.session.refresh.lock',
+        JSON.stringify({
+          owner: 'stale-tab',
+          expiresAt: Date.now() + 300_000
+        })
+      ]
+    ]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      }
+    });
+    const operation = vi.fn().mockResolvedValue(true);
+    const coordinator = createSessionRefreshCoordinator({
+      tabId: 'recovery-tab'
+    });
+
+    const result = coordinator.runExclusive(operation);
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toBe(true);
+    expect(operation).toHaveBeenCalledOnce();
+    expect(storage.has('fullnet.session.refresh.lock')).toBe(false);
+  });
 });
