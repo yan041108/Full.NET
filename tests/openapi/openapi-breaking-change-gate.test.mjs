@@ -122,7 +122,7 @@ async function compareDirectories(baseline, current) {
   }
 }
 
-test('新增规范版本契约保持兼容，身份或路由键冲突会失败', async () => {
+test('新增规范版本契约保持兼容，身份、路由键或 schema 结构冲突会失败', async () => {
   const currentContract = clone(baselineContract);
   currentContract.description = '新的说明不影响机器契约';
   currentContract.paths.reverse();
@@ -250,6 +250,55 @@ test('新增规范版本契约保持兼容，身份或路由键冲突会失败',
   assert.match(
     duplicateOperationResult.stderr,
     /duplicate contract operation: sample-v1\.json GET \/api\/v1\/samples/
+  );
+
+  const duplicateSchemaPropertyContract = clone(baselineContract);
+  duplicateSchemaPropertyContract.schemas.SampleResponse.properties.push('id');
+  const duplicateSchemaPropertyResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    { 'sample-v1.json': duplicateSchemaPropertyContract }
+  );
+
+  assert.equal(duplicateSchemaPropertyResult.status, 1);
+  assert.match(
+    duplicateSchemaPropertyResult.stderr,
+    /duplicate schema property: sample-v1\.json SampleResponse\.id/
+  );
+
+  const danglingSchemaReferenceContract = clone(baselineContract);
+  danglingSchemaReferenceContract.paths.push({
+    path: '/api/v1/samples/import',
+    operations: [
+      {
+        method: 'POST',
+        permission: 'samples.write',
+        successStatus: 202,
+        requestSchema: 'MissingImportRequest',
+        responseSchema: 'MissingImportResponse'
+      }
+    ]
+  });
+  danglingSchemaReferenceContract.schemas.NewResponsePage = {
+    properties: ['items'],
+    itemSchema: 'MissingResponse'
+  };
+  const danglingSchemaReferenceResult = await compareDirectories(
+    { 'sample-v1.json': baselineContract },
+    { 'sample-v1.json': danglingSchemaReferenceContract }
+  );
+
+  assert.equal(danglingSchemaReferenceResult.status, 1);
+  assert.match(
+    danglingSchemaReferenceResult.stderr,
+    /unknown schema reference: sample-v1\.json POST \/api\/v1\/samples\/import requestSchema=MissingImportRequest/
+  );
+  assert.match(
+    danglingSchemaReferenceResult.stderr,
+    /unknown schema reference: sample-v1\.json POST \/api\/v1\/samples\/import responseSchema=MissingImportResponse/
+  );
+  assert.match(
+    danglingSchemaReferenceResult.stderr,
+    /unknown schema reference: sample-v1\.json NewResponsePage itemSchema=MissingResponse/
   );
 });
 

@@ -31,6 +31,10 @@ internal static class JobsHostDefinitionAssertions
             factory,
             definition.Id,
             cancellationToken);
+        await JobsBatchFailureIsolationAssertions.VerifyAsync(
+            factory,
+            definition.Id,
+            cancellationToken);
         await VerifyDisableAsync(
             client,
             definition.Id,
