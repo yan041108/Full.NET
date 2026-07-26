@@ -11,7 +11,7 @@
 | 迁移 | `031_IdentityApiKey.sql`（SQL Server + MySQL） |
 | 认证 | `SmartAuthenticationDefaults` + `ApiKeyAuthenticationHandler` |
 | 管理 API | `ManageHostApiKeys` 创建/列表/禁用 |
-| OpenAPI | `identity-host-api-keys-v1.json` + Scalar `ApiKey` scheme |
+| OpenAPI | `identity-host-api-keys-v1.json` + Scalar `ApiKey` scheme；离线契约 **2/2** |
 | client-contracts | `host-api-keys.ts` + Vitest **69/69** |
 | 双管理端 | Vue/Layui 列表、创建、一次性明文复制与禁用；`identity.api_keys.read/write` 分权 |
 | 浏览器等价 | Mock API Playwright **2/2**（Vue + Layui），覆盖权限去重、明文不进入 Web Storage 与禁用 |
@@ -25,6 +25,7 @@
 - Unit：**359/359**
 - client-contracts：**69/69**
 - API Key SQL Server/MySQL 聚焦 Integration：**2/2**
+- API Key OpenAPI 离线契约：**2/2**
 - 双管理端客户端全测：Vue **191/191**、Layui **91/91**、admin-i18n **8/8**
 - 双管理端 Mock API Playwright：**2/2**
 - 全客户端生产构建、治理、Skill、工作区与依赖审计门禁：通过

@@ -10,7 +10,7 @@
 | API | `/api/v1/jobs/host-definitions`、`/api/v1/jobs/host-executions` |
 | 权限 | `jobs.definitions.read/write`、`jobs.executions.read` |
 | Integration 双库 | `Host_job_definition_and_trigger` SQL Server/MySQL **2/2**，含过期 `Running` 租约恢复 |
-| OpenAPI | `jobs-host-definitions-v1.json` |
+| OpenAPI | `jobs-host-definitions-v1.json`；离线契约 **2/2** |
 | client-contracts | `host-jobs.ts` + Vitest |
 | Mock parity | 「任务调度列表与触发」× 双端 **2/2** → `shell-parity` **60 → 62** |
 | 双端 UI | `HostJobsView.vue` + `host-jobs.js` |
