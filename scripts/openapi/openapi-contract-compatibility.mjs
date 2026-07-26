@@ -54,6 +54,28 @@ function validateContractIdentities(contracts, changes) {
       continue;
     }
 
+    const versionSuffixMatch = /-v([1-9]\d*)$/u.exec(contract.id);
+    const identityVersion = versionSuffixMatch
+      ? Number(versionSuffixMatch[1])
+      : undefined;
+    if (identityVersion !== contract.version) {
+      const versionSuffix = versionSuffixMatch
+        ? `v${versionSuffixMatch[1]}`
+        : '<missing>';
+      changes.push(
+        `contract version mismatch: ${fileName} id suffix ${versionSuffix} ` +
+          `does not match version=${String(contract.version)}`
+      );
+    }
+
+    const expectedFileName = `${contract.id}.json`;
+    if (fileName !== expectedFileName) {
+      changes.push(
+        `contract identity mismatch: ${fileName} must be named ` +
+          expectedFileName
+      );
+    }
+
     const identityKey = JSON.stringify([contract.id, contract.version]);
     const existingFileName = identities.get(identityKey);
     if (existingFileName) {
