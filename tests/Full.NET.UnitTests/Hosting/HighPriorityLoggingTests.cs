@@ -164,12 +164,89 @@ public sealed class HighPriorityLoggingTests
         CollectionAssert.Contains(registration.Tags.ToArray(), "ready");
     }
 
+    [TestMethod]
+    public void Logger_disposal_uses_one_total_timeout_for_both_blocked_channels()
+    {
+        using var monitors = new FullNetLoggingMonitors();
+        using var generalSink = new BlockingSink();
+        using var highPrioritySink = new BlockingSink();
+        var logger = CreateLogger(
+            monitors,
+            generalSink,
+            highPrioritySink,
+            generalBufferSize: 4,
+            highPriorityBufferSize: 4,
+            shutdownFlushTimeout: TimeSpan.FromMilliseconds(100));
+        logger.Information("block general channel during shutdown");
+        logger.Error("block high priority channel during shutdown");
+        Assert.IsTrue(generalSink.WaitUntilEntered());
+        Assert.IsTrue(highPrioritySink.WaitUntilEntered());
+
+        var disposeTask = Task.Run(logger.Dispose);
+        var completedWithinBudget = disposeTask.Wait(TimeSpan.FromSeconds(1));
+        generalSink.Release();
+        highPrioritySink.Release();
+        var completedAfterRelease = disposeTask.Wait(TimeSpan.FromSeconds(2));
+
+        Assert.IsTrue(completedAfterRelease);
+        Assert.IsTrue(
+            completedWithinBudget,
+            "Logger disposal exceeded the shared shutdown flush budget.");
+    }
+
+    [TestMethod]
+    public void Logger_disposal_drains_both_channels_before_timeout()
+    {
+        using var monitors = new FullNetLoggingMonitors();
+        var generalSink = new CollectingSink();
+        var highPrioritySink = new CollectingSink();
+        var logger = CreateLogger(
+            monitors,
+            generalSink,
+            highPrioritySink,
+            generalBufferSize: 4,
+            highPriorityBufferSize: 4,
+            shutdownFlushTimeout: TimeSpan.FromSeconds(1));
+        logger.Information("drain general channel");
+        logger.Error("drain high priority channel");
+
+        logger.Dispose();
+
+        Assert.AreEqual(
+            "drain general channel",
+            generalSink.Events.Single().RenderMessage());
+        Assert.AreEqual(
+            "drain high priority channel",
+            highPrioritySink.Events.Single().RenderMessage());
+    }
+
+    [TestMethod]
+    public void Service_defaults_reject_out_of_range_shutdown_flush_timeout()
+    {
+        foreach (var invalidValue in new[] { "00:00:00", "00:00:31" })
+        {
+            var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
+            builder.Configuration.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    [$"{LoggingOptions.SectionName}:ShutdownFlushTimeout"] = invalidValue,
+                });
+
+            var exception = Assert.ThrowsExactly<OptionsValidationException>(
+                () => builder.AddFullNetServiceDefaults());
+            StringAssert.Contains(
+                exception.Message,
+                nameof(LoggingOptions.ShutdownFlushTimeout));
+        }
+    }
+
     private static Serilog.Core.Logger CreateLogger(
         FullNetLoggingMonitors monitors,
         ILogEventSink generalSink,
         ILogEventSink highPrioritySink,
         int generalBufferSize,
-        int highPriorityBufferSize)
+        int highPriorityBufferSize,
+        TimeSpan? shutdownFlushTimeout = null)
     {
         var configuration = new LoggerConfiguration()
             .MinimumLevel.Verbose();
@@ -180,6 +257,8 @@ public sealed class HighPriorityLoggingTests
             {
                 AsyncBufferSize = generalBufferSize,
                 HighPriorityAsyncBufferSize = highPriorityBufferSize,
+                ShutdownFlushTimeout =
+                    shutdownFlushTimeout ?? TimeSpan.FromSeconds(5),
             },
             monitors,
             sink => sink.Sink(generalSink),

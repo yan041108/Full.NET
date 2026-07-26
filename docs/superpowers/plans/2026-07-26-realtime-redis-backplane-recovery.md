@@ -331,11 +331,12 @@
   候选在本任务中由 1 更新为 2；同步 Notifications 管理端客户端后，仓库聚合证据为
   3。当前仍缺第二类业务消费者或完整生产编排流程，创建新 Skill 会扩大任务范围。
 
-- [ ] **Step 5: 提交、同步并回到 main**
+- [x] **Step 5: 提交、同步并回到 main**
 
-  提交隔离分支后等待日志、API Key 和 Outbox 分支完成；将最新 `main` 合入本分支，按
-  `+2/+3` 重新计算门槛并重跑最终验证。随后将本分支合并到 `main`，确认工作树干净，
-  删除 `codex/realtime-redis-backplane-recovery` 分支与对应工作树。
+  功能提交 `64a0e3b`、验证收口 `e0f687b` 已同步 `main@1d994ca`，并由
+  `75e3d3f` 非快进合并到 `main`。合并后的 Release 构建 **0 warning / 0 error**、
+  Unit **392/392** 与最终静态门禁通过；Git 工作树注册、物理目录和
+  `codex/realtime-redis-backplane-recovery` 分支均已删除。
 
 ## Self-Review
 

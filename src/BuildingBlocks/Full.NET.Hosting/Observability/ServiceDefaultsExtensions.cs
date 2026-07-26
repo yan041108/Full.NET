@@ -49,6 +49,15 @@ public static class ServiceDefaultsExtensions
                 ["BlockWhenFull must remain false to protect request threads."]);
         }
 
+        if (loggingOptions.ShutdownFlushTimeout <= TimeSpan.Zero
+            || loggingOptions.ShutdownFlushTimeout > TimeSpan.FromSeconds(30))
+        {
+            throw new OptionsValidationException(
+                LoggingOptions.SectionName,
+                typeof(LoggingOptions),
+                ["ShutdownFlushTimeout must be greater than zero and no greater than 30 seconds."]);
+        }
+
         var loggingMonitors = new FullNetLoggingMonitors();
         builder.Services.AddSingleton(loggingMonitors);
         builder.Services.AddSerilog((services, configuration) =>

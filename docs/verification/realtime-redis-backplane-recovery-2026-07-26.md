@@ -69,3 +69,16 @@ Skill、workspace 与 Integration 分片门禁均已重新通过。
 - Skills：本任务把 `fullnet-realtime-feature` 候选由 **1 → 2**；同步管理端客户端
   后仓库聚合证据为 **3**。当前仍只有一类业务消费者，且缺生产编排/浏览器真实断网
   恢复流程，创建独立 Skill 会扩大任务范围，因此保留候选。
+
+## main 收口
+
+- Realtime 由 `75e3d3f` 非快进合并到 `main`；合并树与已验证功能分支树一致。
+- 合并后的 Release 构建 **0 warning / 0 error**，Unit **392/392**，OpenAPI
+  **58/58**、breaking **25/25**、Governance **11/11**、Skill **52**、
+  workspace、Integration tooling **4/4** 与四分片 **189** 精确发现均通过。
+- 首次合并后验证曾把解决方案构建与 Integration `--list-tests` 并行执行，后者锁定
+  旧 DLL，导致构建产生 5 次复制重试且分片脚本读到旧 **184** 项；锁进程退出后串行
+  重建与复跑恢复 **0 warning / 0 error** 和 **189** 项。该结果属于本次验证编排竞态，
+  未修改或放宽产品代码、测试和门槛。
+- `codex/realtime-redis-backplane-recovery` 分支、Git 工作树注册与物理目录均已删除；
+  变更可由 `main` 提交历史恢复。

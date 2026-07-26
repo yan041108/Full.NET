@@ -17,7 +17,8 @@ Full.NET 的三个官方宿主统一通过 `AddFullNetServiceDefaults()` 建立�
     "Logging": {
       "AsyncBufferSize": 10000,
       "HighPriorityAsyncBufferSize": 1000,
-      "BlockWhenFull": false
+      "BlockWhenFull": false,
+      "ShutdownFlushTimeout": "00:00:05"
     }
   }
 }
@@ -42,6 +43,14 @@ Meter `Full.NET.Logging` 暴露：
 3. `general` 的丢弃持续增长：容量或日志等级治理告警，不应自动扩容掩盖无界日志。
 4. `high_priority_logging` 连续 `Degraded`：检查 Sink 消费速度与平台采集状态。
 
+## 退出排空
+
+`ShutdownFlushTimeout` 是普通与高优先级通道共享的总退出预算，默认 5 秒，只允许大于 0 且不超过 30 秒。宿主释放 Logger 时会同时停止两条通道接收新事件，让两个后台 Worker 并行排空；等待阶段优先确认高优先级 Worker，再把同一截止时间内的剩余时间交给普通 Worker，因此最坏等待不会变成“两条通道各等待一次超时”。
+
+到期后，Full.NET 只放弃尚未进入 Sink 的内存队列事件并累计丢弃数。已经进入阻塞 Sink 的单条事件无法安全中止，只能留在后台线程等待 Sink 自行返回；后台线程不会阻止进程退出。操作系统调度可能带来少量超时误差，配置值不是投递成功保证。
+
+正常退出且 Sink 在预算内可用时，两条队列会完整排空并释放内部 Sink。强制终止、进程崩溃、节点掉电或超过预算时仍可能丢失日志，因此该机制不能替代持久化审计、磁盘 Spool 或外部投递确认。
+
 ## 审计边界
 
 日志队列不是审计存储。认证审计、租户/超级管理员安全操作、Seed 执行记录和可靠业务事件继续由数据库事务或 Outbox 持久化。不得因为高优先级队列独立而把这些记录改成 `ILogger` 调用；日志队列满不得改变业务事务和审计写入结果。
@@ -56,4 +65,4 @@ Meter `Full.NET.Logging` 暴露：
 
 ## 尚未完成
 
-当前 Console Sink 依赖部署平台采集标准输出，不提供 Full.NET 自有的磁盘 Spool、跨重启重放或外部 Sink 投递确认。Serilog Async 在正常释放时会尝试排空，但本切片没有证明 Sink 永久阻塞时的进程退出上限。Task 8B 必须在引入持久能力前明确容量、保留、加密、磁盘满策略、退出超时和重复投递语义，并完成平台不可用、磁盘满与进程退出故障注入。
+当前 Console Sink 依赖部署平台采集标准输出，不提供 Full.NET 自有的磁盘 Spool、跨重启重放或外部 Sink 投递确认。Task 8B1 已验证正常退出完整排空，以及两个 Sink 同时阻塞时共享一个有界退出预算；尚未完成的 Task 8B 必须在引入持久能力前明确容量、保留、加密、磁盘满策略和重复投递语义，并完成平台不可用、磁盘满与跨重启故障注入。
