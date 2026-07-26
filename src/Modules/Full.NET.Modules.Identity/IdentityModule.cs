@@ -1,54 +1,20 @@
 using Full.NET.Abstractions.Ids;
-using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
-using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.DependencyInjection;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
-using Full.NET.Modules.Identity.Features.Login;
-using Full.NET.Modules.Identity.DataScope;
-using Full.NET.Modules.Identity.Features.GetNavigation;
-using Full.NET.Modules.Identity.Features.ChangeSessionContext;
-using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
-using Full.NET.Modules.Identity.Features.ManageTotp;
-using Full.NET.Modules.Identity.Features.ManageHostUsers;
-using Full.NET.Modules.Identity.Features.ManageHostRoles;
-using Full.NET.Modules.Identity.Features.ManageHostMenus;
-using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
-using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
-using Full.NET.Modules.Identity.Http;
-using Full.NET.Modules.Identity.Security;
-using Full.NET.Modules.Identity.Serialization;
-using Full.NET.Hosting.RateLimiting;
-using Full.NET.Modules.Identity.RateLimiting;
-using Full.NET.Modules.Identity.Resources;
 using Full.NET.Modules.Identity.Seeding;
-using Full.NET.Hosting.Api;
-using Full.NET.Localization;
 using Full.NET.Seeding.Abstractions;
-using Full.NET.Validation.FluentValidation;
-using FluentValidation;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Cors.Infrastructure;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Hosting;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
-using System.Threading.RateLimiting;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity;
@@ -74,183 +40,10 @@ public sealed class IdentityModule : IFullNetModule
         IConfiguration configuration)
     {
         AddMigrationServices(services, configuration);
-
-        services.AddFullNetLocalization();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IAuthorizationCatalogContributor,
-            IdentityAuthorizationContributor>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IErrorResourceSource,
-            IdentityErrorResourceSource>());
-        services.TryAddSingleton(provider => AuthorizationCatalog.Create(
-            provider.GetServices<IAuthorizationCatalogContributor>()));
-        services.TryAddSingleton<PermissionClaimEvaluator>();
-        services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
-        services.TryAddScoped<
-            IIdentitySessionContextService,
-            IdentitySessionContextService>();
-        services.TryAddSingleton<NavigationProjector>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IAuthorizationHandler,
-            FullNetPermissionHandler>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IHostedService,
-            AuthorizationCatalogValidator>());
-        services.TryAddScoped<AccessSessionValidator>();
-        services.TryAddScoped<FullNetJwtBearerEvents>();
-        services.AddDataProtection();
-        services.TryAddSingleton<TotpSecretProtector>();
-        var enableTotpStrongReauthentication = configuration.GetValue(
-            $"{IdentityOptions.SectionName}:EnableTotpStrongReauthentication",
-            false);
-        if (enableTotpStrongReauthentication)
-        {
-            services.TryAddScoped<
-                IStrongReauthenticationProvider,
-                TotpStrongReauthenticationProvider>();
-        }
-        else
-        {
-            services.TryAddScoped<
-                IStrongReauthenticationProvider,
-                PasswordReauthenticationProvider>();
-        }
-
-        services.TryAddScoped<TotpEnrollmentService>();
-        services.TryAddScoped<ISuperAdministratorService, SuperAdministratorService>();
-        services.TryAddScoped<SuperAdministratorManagementService>();
-        services.TryAddScoped<SuperAdministratorQueryService>();
-        services.TryAddScoped<HostUserQueryService>();
-        services.TryAddScoped<HostUserManagementService>();
-        services.TryAddScoped<HostUserRolesService>();
-        services.TryAddScoped<IUserDataScopeResolver, UserDataScopeResolver>();
-        services.TryAddSingleton<RoleDataScopeProjection>();
-        services.TryAddSingleton<IDataScopeSqlFilterBuilder, DataScopeSqlFilterBuilder>();
-        services.TryAddScoped<HostRoleQueryService>();
-        services.TryAddScoped<HostRoleManagementService>();
-        services.TryAddScoped<HostRoleDataScopeService>();
-        services.TryAddScoped<HostMenuQueryService>();
-        services.TryAddScoped<HostMenuManagementService>();
-        services.TryAddScoped<HostOnlineSessionQueryService>();
-        services.TryAddScoped<HostOnlineSessionManagementService>();
-        services.TryAddScoped<HostApiKeyQueryService>();
-        services.TryAddScoped<HostApiKeyManagementService>();
-        services.TryAddScoped<ApiKeyAuthenticationService>();
-        services.TryAddScoped<Features.GetHostDashboardSummary.HostDashboardQueryService>();
-        services.TryAddScoped<HostUsers.HostUserDirectory>();
-        services.TryAddScoped<IHostUserDirectory>(provider =>
-            provider.GetRequiredService<HostUsers.HostUserDirectory>());
-        services.TryAddScoped<IHostUserDisplayDirectory>(provider =>
-            provider.GetRequiredService<HostUsers.HostUserDirectory>());
-        services.TryAddScoped<HostNavigationDefinitionLoader>();
-        services.AddFullNetFluentValidation();
-        services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
-        services.TryAddScoped<IValidator<Features.UpdateLocale.Command>,
-            Features.UpdateLocale.Validator>();
-        services.TryAddScoped<
-            Full.NET.Abstractions.Messaging.ICommandHandler<Command, LoginSessionResult>,
-            Handler>();
-        services.TryAddScoped<IdentityCookieWriter>();
-        services.TryAddScoped<
-            Full.NET.Abstractions.Messaging.ICommandHandler<
-                Features.RefreshSession.Command,
-                Features.RefreshSession.RefreshSessionResult>,
-            Features.RefreshSession.Handler>();
-        services.TryAddScoped<
-            Full.NET.Abstractions.Messaging.ICommandHandler<
-                Features.Logout.Command,
-                Features.Logout.LogoutResult>,
-            Features.Logout.Handler>();
-        services.TryAddScoped<
-            Full.NET.Abstractions.Messaging.ICommandHandler<
-                Features.UpdateLocale.Command,
-                LocalePreferenceResponse>,
-            Features.UpdateLocale.Handler>();
-        services.TryAddSingleton<RsaSigningKeyRing>();
-        services.TryAddSingleton<IRandomTokenGenerator, CryptographicTokenGenerator>();
-        services.TryAddSingleton<AllowedOriginValidator>();
-        services.TryAddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
-        services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = SmartAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddPolicyScheme(
-                SmartAuthenticationDefaults.AuthenticationScheme,
-                "Authorization Bearer or ApiKey",
-                options =>
-                {
-                    options.ForwardDefaultSelector = context =>
-                    {
-                        var authorization = context.Request.Headers.Authorization.ToString();
-                        return authorization.StartsWith(
-                                "ApiKey ",
-                                StringComparison.OrdinalIgnoreCase)
-                            ? ApiKeyAuthenticationDefaults.AuthenticationScheme
-                            : JwtBearerDefaults.AuthenticationScheme;
-                    };
-                })
-            .AddJwtBearer(options => options.MapInboundClaims = false)
-            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
-                ApiKeyAuthenticationDefaults.AuthenticationScheme,
-                _ => { });
-        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
-            .Configure<RsaSigningKeyRing, IOptions<IdentityOptions>>(
-                (jwt, keyRing, identityOptions) =>
-                {
-                    var settings = identityOptions.Value;
-                    jwt.MapInboundClaims = false;
-                    jwt.EventsType = typeof(FullNetJwtBearerEvents);
-                    jwt.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidateIssuerSigningKey = true,
-                        IssuerSigningKeys = keyRing.ValidationKeys,
-                        ValidateIssuer = true,
-                        ValidIssuer = settings.Issuer,
-                        ValidateAudience = true,
-                        ValidAudience = settings.Audience,
-                        ValidateLifetime = true,
-                        RequireExpirationTime = true,
-                        RequireSignedTokens = true,
-                        ClockSkew = TimeSpan.FromSeconds(30),
-                        NameClaimType = JwtRegisteredClaimNames.Name,
-                    };
-                });
-        services.AddAuthorization();
-        services.Replace(ServiceDescriptor.Singleton<
-            IAuthorizationPolicyProvider,
-            FullNetPermissionPolicyProvider>());
-        services.Replace(ServiceDescriptor.Singleton<
-            IAuthorizationMiddlewareResultHandler,
-            FullNetAuthorizationResultHandler>());
-        services.AddCors();
-        services.AddOptions<CorsOptions>()
-            .Configure<IOptions<IdentityOptions>>((cors, identityOptions) =>
-            {
-                var allowedOrigins = identityOptions.Value.AllowedOrigins
-                    .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .ToArray();
-                var policy = new CorsPolicyBuilder();
-                if (allowedOrigins.Length > 0)
-                {
-                    policy.WithOrigins(allowedOrigins)
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials();
-                }
-
-                cors.AddPolicy(BrowserCorsPolicy, policy.Build());
-            });
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IConfigureOptions<RateLimiterOptions>,
-            IdentityRateLimiterPolicyConfigurator>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IConfigureOptions<RateLimitPolicyErrorCodes>,
-            IdentityRateLimiterPolicyConfigurator>());
-        services.ConfigureHttpJsonOptions(options =>
-            options.SerializerOptions.TypeInfoResolverChain.Insert(
-                0,
-                IdentityJsonSerializerContext.Default));
+        services.AddIdentityAuthentication(configuration);
+        services.AddIdentityAuthorization(configuration);
+        services.AddIdentityDomainServices(configuration);
+        services.AddIdentityHttpPolicies(configuration);
     }
 
     public void AddMigrationServices(

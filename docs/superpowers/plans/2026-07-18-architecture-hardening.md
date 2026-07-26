@@ -522,12 +522,14 @@ Vue 壳层迁移按 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue
 
 ### Task 15: Identity 组合根按职责拆分（P2）
 
+**状态：已完成（2026-07-27）。** `IdentityModule` 仍是唯一公开入口，注册实现已拆为认证、授权、领域服务与 HTTP 策略四个 `internal` 职责；冻结描述符序列及关键运行时契约用于防止生命周期、Scheme、JWT、CORS、JSON 和授权覆盖语义漂移。Release **0 warning / 0 error**，Unit/Compatibility/Architecture **398/7/49**，SQL Server/MySQL Identity 登录、刷新、权限与 Seed 聚焦 **8/8**，Vue/Layui 真实栈登录 **2/2**，静态门禁全部通过。本次仅是行为不变的结构调整，不提升 Identity/RBAC 能力状态。
+
 **Files:**
 - Modify: `src/Modules/Full.NET.Modules.Identity/IdentityModule.cs`
-- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityAuthenticationExtensions.cs`
-- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityAuthorizationExtensions.cs`
-- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityDomainServiceExtensions.cs`
-- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityHttpPolicyExtensions.cs`
+- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityAuthenticationServiceCollectionExtensions.cs`
+- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityAuthorizationServiceCollectionExtensions.cs`
+- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityDomainServiceCollectionExtensions.cs`
+- Create: `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityHttpPolicyServiceCollectionExtensions.cs`
 - Create: `tests/Full.NET.UnitTests/Identity/IdentityModuleRegistrationTests.cs`
 
 1. 先以服务描述符快照建立失败测试，覆盖认证 Scheme、Options Validator、授权 Handler、Command Handler、Seed Contributor、CORS、限流和 JSON Context；重复调用 `AddServices` 后不可出现非预期重复注册。

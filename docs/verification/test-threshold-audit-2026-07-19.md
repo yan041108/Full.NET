@@ -946,6 +946,19 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **396/7/49/189** |
 | 验证记录 | [`jobs-cancellation-batch-failure-isolation-2026-07-27.md`](jobs-cancellation-batch-failure-isolation-2026-07-27.md) |
 
+## 增补（2026-07-27，Identity 组合根职责拆分）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **396 → 398** | 新增组合根委托等价与重复注册关键契约 2 项；冻结 Identity 自有描述符顺序、实现类型与生命周期 |
+| RED / GREEN | 四个内部注册扩展缺失时编译失败；重复 Scheme、授权有效描述符顺序等中间回归被测试捕获，最小修复后 Identity 聚焦 **122/122** |
+| Release / canonical | Release **0 warning / 0 error**；Unit/Compatibility/Architecture **398/7/49**，失败 0、跳过 0 |
+| 静态门禁 | OpenAPI **58/58**、breaking **25/25**、Governance **11/11**、Skill **52**、workspace 通过 |
+| 客户端事实 | client-contracts **76**、Vue **201**、Layui **95**；本次未修改客户端，保留 `localStorage` 跨 Tab 短租约及 `SecurityError` 降级事实 |
+| Integration 门槛 | 保持 **189**；SQL Server/MySQL Identity 登录、刷新、权限与 Seed 聚焦 **8/8**，Vue/Layui 真实栈登录 **2/2** |
+| 四处 canonical 门槛 | **398/7/49/189** |
+| 验证记录 | [`identity-module-registration-split-2026-07-27.md`](identity-module-registration-split-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
