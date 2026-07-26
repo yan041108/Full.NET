@@ -881,6 +881,17 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | .NET canonical 门槛 | 不变；本次未修改 C# 运行时或 Integration 测试 |
 | 验证记录 | [`realtime-signalr-foundation-2026-07-26.md`](realtime-signalr-foundation-2026-07-26.md) |
 
+## 增补（2026-07-27，OpenAPI 破坏性变更门禁）
+
+| 项目 | 结果 |
+| --- | --- |
+| OpenAPI 离线门槛 **50 → 58** | 新增兼容/破坏变化目录样例 **5** 项、Git ref/错误退出 **2** 项及 package/PR/main push CI wiring **1** 项 |
+| RED | 比较 CLI 缺失时聚焦 **0/7**；package script 与 PR/main push 基线 wiring 缺失时 **0/1** |
+| GREEN | 聚焦比较器 **7/7**、CI wiring **1/1**；`HEAD` 基线比较 **25/25** 个夹具兼容 |
+| CI 边界 | PR 使用 `github.event.pull_request.base.sha`，`main` 推送使用 `github.event.before`，并跳过全零 before SHA；checkout 保留完整 Git 历史，不启动后端、不访问网络、不占用 Docker |
+| .NET canonical 门槛 | **390/7/49/186**（不变；本次未修改 C#、数据库或 Integration 测试） |
+| 验证记录 | [`openapi-breaking-change-gate-2026-07-27.md`](openapi-breaking-change-gate-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
