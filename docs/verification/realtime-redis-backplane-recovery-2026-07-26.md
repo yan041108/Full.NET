@@ -54,17 +54,18 @@
 | Integration 分片 | API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** = **189** |
 | Integration 全量 | **189/189**，失败 0、跳过 0，**50m49s**，stderr 0 |
 | canonical 门槛 | **392/7/49/189** |
-| 静态与治理 | Naming **23/23**、OpenAPI **50/50**、Governance **11/11**、Integration tooling **4/4**、Skill **52**、partition/workspace 均通过 |
+| 静态与治理 | Naming **23/23**、OpenAPI **58/58**、breaking **25/25**、Governance **11/11**、Integration tooling **4/4**、Skill **52**、partition/workspace 均通过 |
 
-最终全量在 `main@1745244` 与本任务源码组成的树上执行；后续主线仅新增 OpenAPI
-Node 门禁和文档，不改 C#、数据库、Integration 或契约夹具。同步最终主线后仍须重新
-运行 OpenAPI 58、breaking-change、Governance、Skill 与 workspace 轻量门禁。
+最终全量在 `main@1745244` 与本任务源码组成的树上执行；后续同步到
+`main@1d994ca` 的变化仅涉及 OpenAPI Node 门禁、Notifications 客户端与文档，不改
+C#、数据库或 Integration。同步后的 OpenAPI 58、breaking-change、Governance、
+Skill、workspace 与 Integration 分片门禁均已重新通过。
 
 ## 规则与 Skills 复盘
 
 - 规则：登记候选经验
   `C-20260726-testcontainer-restart-port-stability`，次数 1；固定端点断言已自动化，
   尚未达到第二次重复或高风险升级门槛。
-- Skills：`fullnet-realtime-feature` 候选由 **1 → 2**；新增证据是双宿主、专用
-  Redis、真实 SignalR Client 的故障恢复闭环。当前仍只有一类业务消费者与一次运维
-  流程，创建独立 Skill 会扩大任务范围，因此保留候选。
+- Skills：本任务把 `fullnet-realtime-feature` 候选由 **1 → 2**；同步管理端客户端
+  后仓库聚合证据为 **3**。当前仍只有一类业务消费者，且缺生产编排/浏览器真实断网
+  恢复流程，创建独立 Skill 会扩大任务范围，因此保留候选。

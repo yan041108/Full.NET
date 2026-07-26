@@ -302,7 +302,7 @@
   分片为 API SQL Server 35 + API MySQL 35 + Migrations 62 +
   Infrastructure 57 = 189，未覆盖 OpenAPI 或 Outbox 的前序门槛。
 
-- [ ] **Step 3: 执行新鲜验证**
+- [x] **Step 3: 执行新鲜验证**
 
   ```powershell
   dotnet build Full.NET.slnx -c Release
@@ -318,6 +318,11 @@
   git diff --check
   git status --short --branch
   ```
+
+  新鲜结果：Release **0 warning / 0 error**；Unit/Compatibility/Architecture
+  **392/7/49**；完整 Integration **189/189**、失败 0、跳过 0、50m49s；
+  同步 `main@1d994ca` 后 OpenAPI **58/58**、breaking **25/25**、
+  Governance **11/11**、Skill **52**、workspace 与分片门禁通过。
 
 - [x] **Step 4: 执行规则与 Skills 复盘**
 
