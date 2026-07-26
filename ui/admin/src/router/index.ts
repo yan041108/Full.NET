@@ -14,6 +14,7 @@ import TenantsView from '../views/TenantsView.vue';
 import TenantPackagesView from '../views/TenantPackagesView.vue';
 import UsersView from '../views/UsersView.vue';
 import OnlineSessionsView from '../views/OnlineSessionsView.vue';
+import ApiKeysView from '../views/ApiKeysView.vue';
 import RolesView from '../views/RolesView.vue';
 import MenusView from '../views/MenusView.vue';
 import OrgUnitsView from '../views/OrgUnitsView.vue';
@@ -65,6 +66,11 @@ export function createAppRouter(
         name: 'online-sessions',
         path: '/identity/online-sessions',
         component: OnlineSessionsView
+      },
+      {
+        name: 'api-keys',
+        path: '/identity/api-keys',
+        component: ApiKeysView
       },
       {
         name: 'roles',

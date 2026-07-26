@@ -30,7 +30,8 @@ describe('Vue 本地导航目录', () => {
   it('只接受 Vue 已发布的本地组件键', () => {
     expect(isSupportedNavigationTree([
       createNode('overview'),
-      createNode('tenant-context')
+      createNode('tenant-context'),
+      createNode('api-keys', { path: '/identity/api-keys' })
     ])).toBe(true);
     expect(isSupportedNavigationTree([
       createNode('remote-script')
@@ -60,5 +61,10 @@ describe('Vue 本地导航目录', () => {
       captionKey: 'navigation.overview.caption'
     });
     expect(localNavigationFor('remote-script')).toBeUndefined();
+    expect(localNavigationFor('api-keys')).toMatchObject({
+      path: '/identity/api-keys',
+      titleKey: 'navigation.apiKeys.title',
+      captionKey: 'navigation.apiKeys.caption'
+    });
   });
 });

@@ -38,6 +38,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.onlineSessions.title',
     captionKey: 'navigation.onlineSessions.caption'
   }],
+  ['api-keys', {
+    titleKey: 'navigation.apiKeys.title',
+    captionKey: 'navigation.apiKeys.caption'
+  }],
   ['roles', {
     titleKey: 'navigation.roles.title',
     captionKey: 'navigation.roles.caption'

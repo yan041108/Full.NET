@@ -14,6 +14,7 @@ internal static class AdminNavigationWhitelist
             ["tenant-context"] = new("tenant-context", "/tenant-context"),
             ["users"] = new("users", "/identity/users"),
             ["online-sessions"] = new("online-sessions", "/identity/online-sessions"),
+            ["api-keys"] = new("api-keys", "/identity/api-keys"),
             ["roles"] = new("roles", "/identity/roles"),
             ["menus"] = new("menus", "/identity/menus"),
             ["org-units"] = new("org-units", "/organization/units"),

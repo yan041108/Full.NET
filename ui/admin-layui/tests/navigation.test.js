@@ -12,7 +12,15 @@ describe('Layui 本地导航与 DOM 安全', () => {
   it('只接受本地组件、路由名和路径的精确映射', () => {
     expect(isSupportedNavigationTree([
       navigationNode('overview'),
-      navigationNode('tenant-context')
+      navigationNode('tenant-context'),
+      {
+        ...navigationNode('overview'),
+        id: 'api-keys',
+        routeName: 'api-keys',
+        path: '/identity/api-keys',
+        componentKey: 'api-keys',
+        requiredPermission: 'identity.api_keys.read'
+      }
     ])).toBe(true);
     expect(isSupportedNavigationTree([
       { ...navigationNode('overview'), path: '/remote' }
@@ -44,6 +52,11 @@ describe('Layui 本地导航与 DOM 安全', () => {
     expect(container.querySelector('a')?.getAttribute('data-route')).toBe('/');
     expect(container.querySelector('a')?.getAttribute('aria-current')).toBe('page');
     expect(localNavigationFor('remote-script')).toBeUndefined();
+    expect(localNavigationFor('api-keys')).toMatchObject({
+      view: 'api-keys',
+      path: '/identity/api-keys',
+      titleKey: 'navigation.apiKeys.title'
+    });
   });
 
   it('权限元素只接受完整且区分大小写的权限码', () => {

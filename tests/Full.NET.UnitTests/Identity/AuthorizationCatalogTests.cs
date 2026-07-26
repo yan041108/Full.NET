@@ -39,6 +39,15 @@ public sealed class AuthorizationCatalogTests
                 "tenancy.tenants.write",
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
+
+        var navigation = catalog.Navigation.Single(item => item.Id == "api-keys");
+
+        Assert.AreEqual("api-keys", navigation.RouteName);
+        Assert.AreEqual("/identity/api-keys", navigation.Path);
+        Assert.AreEqual("api-keys", navigation.ComponentKey);
+        Assert.AreEqual(
+            IdentityApiKeyManagementPermissions.Read,
+            navigation.RequiredPermission);
     }
 
     [TestMethod]
