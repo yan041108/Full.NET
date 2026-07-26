@@ -42,6 +42,9 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddScoped<Features.QueryHostAccessLogs.HostAccessLogQueryService>();
         services.TryAddScoped<Features.QueryHostOperationLogs.HostOperationLogQueryService>();
         services.TryAddScoped<Features.QueryHostExceptionLogs.HostExceptionLogQueryService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostDashboardAuditMetricsReader,
+            HostDashboard.HostDashboardAuditMetricsReader>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

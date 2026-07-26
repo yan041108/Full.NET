@@ -29,6 +29,18 @@ internal static class IdentitySql
         // Global：供租户上下文中的 IHostUserDirectory 校验；SQL 仍限定 Host 行。
         SqlDataScope.Global);
 
+    public static readonly SqlStatement ListHostUsersByIds = new(
+        "identity.list_host_users_by_ids",
+        """
+        SELECT Id, Username, DisplayName
+        FROM fn_identity_user
+        WHERE Id IN @UserIds
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+        """,
+        // Global：跨模块读取发生在租户上下文内，SQL 自身仍精确限制为 Host 用户。
+        SqlDataScope.Global);
+
     public static readonly SqlStatement InsertUser = new(
         "identity.insert_user",
         """

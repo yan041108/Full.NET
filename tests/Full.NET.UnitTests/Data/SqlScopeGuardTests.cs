@@ -8,21 +8,40 @@ namespace Full.NET.UnitTests.Data;
 public sealed class SqlScopeGuardTests
 {
     [TestMethod]
-    public void Tenant_statement_requires_an_available_tenant_and_tenant_predicate()
+    public void Tenant_statement_requires_an_available_tenant_and_trusted_binding()
     {
-        var tenantStatement = new SqlStatement(
-            "tenant.read",
-            "select * from fn_example where TenantId = @TenantId",
-            SqlDataScope.TenantRequired);
+        var missingBinding = new SqlStatement(
+            Name: "tenant.read",
+            Text: "select * from fn_example where TenantId = @TenantId",
+            Scope: SqlDataScope.TenantRequired);
+        missingBinding.Deconstruct(
+            Name: out var name,
+            Text: out var text,
+            Scope: out var scope);
+
+        Assert.AreEqual("tenant.read", name);
+        Assert.AreEqual("select * from fn_example where TenantId = @TenantId", text);
+        Assert.AreEqual(SqlDataScope.TenantRequired, scope);
+        Assert.AreEqual(SqlTenantBinding.None, missingBinding.TenantBinding);
 
         Assert.Throws<TenantContextMissingException>(() =>
-            SqlScopeGuard.Validate(tenantStatement, new CurrentTenantAccessor()));
+            SqlScopeGuard.Validate(missingBinding, new CurrentTenantAccessor()));
 
         var accessor = new CurrentTenantAccessor();
         accessor.SetTenant(new TenantContext(Guid.CreateVersion7(), "acme", "Acme"));
+        Assert.Throws<TenantScopeViolationException>(() =>
+            SqlScopeGuard.Validate(missingBinding, accessor));
+
+        var tenantStatement = missingBinding with
+        {
+            TenantBinding = SqlTenantBinding.CurrentTenantId,
+        };
         SqlScopeGuard.Validate(tenantStatement, accessor);
 
-        var missingPredicate = tenantStatement with { Text = "select * from fn_example" };
+        var missingPredicate = tenantStatement with
+        {
+            Text = "select * from fn_example",
+        };
         Assert.Throws<TenantScopeViolationException>(() =>
             SqlScopeGuard.Validate(missingPredicate, accessor));
     }
@@ -39,6 +58,13 @@ public sealed class SqlScopeGuardTests
 
         accessor.SetHost();
         SqlScopeGuard.Validate(hostStatement, accessor);
+
+        var invalidBinding = hostStatement with
+        {
+            TenantBinding = SqlTenantBinding.CurrentTenantId,
+        };
+        Assert.Throws<TenantScopeViolationException>(() =>
+            SqlScopeGuard.Validate(invalidBinding, accessor));
     }
 
     [TestMethod]
@@ -47,5 +73,12 @@ public sealed class SqlScopeGuardTests
         var statement = new SqlStatement("global.read", "select 1", SqlDataScope.Global);
 
         SqlScopeGuard.Validate(statement, new CurrentTenantAccessor());
+
+        var invalidBinding = statement with
+        {
+            TenantBinding = SqlTenantBinding.CurrentTenantId,
+        };
+        Assert.Throws<TenantScopeViolationException>(() =>
+            SqlScopeGuard.Validate(invalidBinding, new CurrentTenantAccessor()));
     }
 }

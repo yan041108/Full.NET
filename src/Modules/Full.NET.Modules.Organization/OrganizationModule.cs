@@ -5,6 +5,7 @@ using Full.NET.Localization;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Organization.DataScope;
 using Full.NET.Modules.Organization.Features.ManageTenantPositions;
 using Full.NET.Modules.Organization.Features.ManageTenantUnits;
 using Full.NET.Modules.Organization.Features.ManageTenantUserPositions;
@@ -55,6 +56,9 @@ public sealed class OrganizationModule : IFullNetModule
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
         services.TryAddScoped<IIdentityOrganizationUnitDirectory>(provider =>
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
+        services.TryAddSingleton<
+            IIdentityOrganizationDataScopeSqlProjection,
+            IdentityOrganizationDataScopeSqlProjection>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

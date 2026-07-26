@@ -1,4 +1,11 @@
-namespace Full.NET.Modules.Identity.Persistence;
+namespace Full.NET.Modules.Auditing.Persistence;
+
+internal sealed class HostDashboardAccessMetricsRecord
+{
+    public long TodayRequestCount { get; set; }
+
+    public decimal TodayErrorRate { get; set; }
+}
 
 internal sealed class HostDashboardActivityRecord
 {

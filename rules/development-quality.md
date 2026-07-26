@@ -87,11 +87,21 @@
 - 验证：共享契约测试覆盖畸形输入，Vue/Layui 单元测试覆盖精确白名单和安全文本渲染，同场景 E2E 必须覆盖未知组件拒绝、无权限和服务端错误
 - 例外：无。静态公开页面可以不请求动态导航，但仍必须使用本地声明路由
 
+### R-20260726-trusted-proxy-boundary：转发 Header 必须由宿主可信代理边界统一规范化
+
+- 状态：强制
+- 来源：Task 16 安全审查发现，覆盖完整 IPv4-mapped 地址空间的 IPv6 CIDR 可在双栈服务器上等价信任全部 IPv4 来源
+- 适用范围：所有读取客户端地址、请求协议或 `X-Forwarded-*` 的 API 宿主、中间件、业务模块、测试和部署配置
+- 风险：攻击者可伪造客户端地址或协议，绕过限流、污染审计、影响 Origin/安全跳转判断，并隐藏真实连接来源
+- 规则：转发 Header 必须由宿主统一使用 ASP.NET Core Forwarded Headers Middleware 处理，并位于日志、CORS、限流、认证、授权和 Endpoint 之前；默认必须关闭，只能信任显式最小代理 IP/CIDR 和精确层数，禁止全地址族、完整 IPv4-mapped 地址空间及其更宽超网。业务模块禁止直接解析转发 Header，只能读取规范化后的连接信息。双栈部署必须按 API 实际观察到的连接形式验证 IPv4、IPv4-mapped 与原生 IPv6 行为
+- 验证：`TrustedProxyOptionsTests` 覆盖失败关闭和危险 CIDR，`TrustedProxyBoundaryTests` 锁定唯一解析边界与管道顺序，`TrustedProxyForwardingTests` 覆盖伪造、链路、限流和双栈，SQL Server/MySQL API 用例覆盖协议与审计消费
+- 例外：明确不存在反向代理且保持默认关闭时，无需登记信任源；任何启用场景均无宽网段例外
+
 ## 5. Dapper、事务与双数据库
 
 1. 业务数据访问默认使用 Dapper 与显式 SQL。未经明确架构决策，禁止引入 EF Core 作为并行 ORM 或业务数据访问捷径。
 2. SQL 必须参数化；表名、排序字段等不能参数化的片段必须来自封闭白名单，禁止拼接用户输入。
-3. 租户作用域内的 SQL 必须通过现有范围守卫，并在查询和写入条件中真实包含租户过滤；仅设置上下文变量不等于隔离。
+3. 租户作用域内的 SQL 必须同时声明 `SqlDataScope.TenantRequired` 与 `SqlTenantBinding.CurrentTenantId`，由统一范围守卫校验并由执行器注入受信任的当前租户参数；`Global`/`HostOnly` 必须使用 `SqlTenantBinding.None`。查询和写入条件仍必须真实包含租户过滤，仅声明元数据或设置上下文变量不等于隔离。全模块 Scope/Binding 一致性必须由 Architecture Tests 自动检查。每条生产 `Global` Statement 还必须在 [`contracts/architecture/global-sql-statements.json`](../contracts/architecture/global-sql-statements.json) 以 Statement Name、声明成员和源码文件精确登记安全分类、中文理由与不可变 SQL 片段；禁止通配符、批量豁免、未登记新增项和过期目录项。
 4. 命令事务必须明确开始、提交、回滚和释放；异常、取消与超时路径不得遗留连接或未完成事务。
 5. 业务数据与 Outbox 必须在同一数据库事务内原子写入。事务内禁止调用不可回滚的外部 HTTP、gRPC 或消息服务。
 6. 数据库行为变更必须同时提供 SQL Server 与 MySQL 的迁移、SQL、索引和集成验证；不能以“语法相近”代替双库测试。
@@ -119,7 +129,7 @@
 - 适用范围：认证主体或可信 Host 上下文建立前执行的 SQL，以及租户请求仍需读取的 Host 用户、菜单、凭据和其他 Host 目录
 - 风险：`HostOnly` 依赖一个尚未建立或已切换为租户的上下文，可能让认证入口全部失败，或使合法租户请求抛出 `HostContextRequiredException`
 - 规则：上述语句必须使用 `SqlDataScope.Global`，并在 SQL 自身通过不可变、可审查的行条件精确限制 Host 数据（例如 `TenantId IS NULL`、固定作用域键及必要关联过滤）。只有调用前已存在可信 Host 上下文、且语句不需要在租户或匿名认证路径执行时才可使用 `HostOnly`。禁止以 `Global` 代替行过滤，禁止依赖请求参数动态放宽 Host 目录范围
-- 验证：每个此类 Statement 必须有 Unit/Architecture 断言同时锁定 `Global` 和显式 Host 行过滤；认证入口与跨租户上下文消费者必须分别提供 SQL Server/MySQL 集成回归
+- 验证：每个此类 Statement 必须进入 Global SQL 精确目录，由 Architecture Tests 同时锁定 `Global`、声明身份和显式 Host 行过滤；认证入口与跨租户上下文消费者必须分别提供 SQL Server/MySQL 集成回归
 - 例外：无
 
 ### R-20260718-dapper-tooling-boundary：Dapper 辅助包不能绕过统一数据路径

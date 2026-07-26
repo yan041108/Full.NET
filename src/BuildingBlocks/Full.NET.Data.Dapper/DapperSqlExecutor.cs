@@ -134,7 +134,7 @@ internal sealed class DapperSqlExecutor(
         SqlScopeGuard.Validate(statement, currentTenant);
 
         var parameters = new DynamicParameters(values);
-        if (statement.Scope == SqlDataScope.TenantRequired)
+        if (statement.TenantBinding == SqlTenantBinding.CurrentTenantId)
         {
             parameters.Add("TenantId", currentTenant.Id!.Value);
         }

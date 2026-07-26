@@ -38,7 +38,7 @@ SqlBuilder 解决“从一组受信任 SQL 片段中选择并组合”的样板�
 3. 基础模板、WHERE/JOIN/GROUP/HAVING/SET 片段必须是源代码或生成器产生的静态内容；排序、字段和运算符必须先映射到封闭白名单；
 4. 参数值通过对象/DynamicParameters 合并，禁止字符串插值、拼接引号或把用户输入写入模板；
 5. Build 结果仍是 `SqlStatement + Parameters`，必须交给 `IQueryExecutor`，不能直接调用连接；
-6. `TenantRequired` 模板必须在最终 SQL 中保留 `@TenantId`，SqlScopeGuard 在 Build 后再次验证；
+6. `TenantRequired` 模板必须携带 `SqlTenantBinding.CurrentTenantId` 并在最终 SQL 中引用 `@TenantId`，Build 结果交给 `SqlScopeGuard` 校验 Scope/Binding 一致性和参数存在性，再由执行器注入受信任参数；
 7. 模板 Marker 缺失、Clause 未消费、重复参数冲突和空排序必须失败，不静默生成退化 SQL；
 8. SQL Server/MySQL 共有条件可复用；分页、JSON、锁、Upsert 等差异继续交给 `ISqlDialect`/Provider Statement，不能塞入条件 Builder 隐藏分支。
 

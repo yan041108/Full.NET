@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 using Full.NET.Modules.Notifications.Persistence;
@@ -16,6 +17,7 @@ internal sealed class HostInboxMessageService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    IHostUserDirectory hostUserDirectory,
     IRealtimePublisher realtimePublisher,
     IClock clock,
     IIdGenerator idGenerator,
@@ -53,12 +55,11 @@ internal sealed class HostInboxMessageService(
             return validation;
         }
 
-        var recipientExists = await queryExecutor.QuerySingleOrDefaultAsync<int?>(
-                InboxMessageSql.HostRecipientExists,
-                new { request.RecipientUserId },
+        var recipient = await hostUserDirectory.FindActiveHostUserAsync(
+                request.RecipientUserId,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (recipientExists is null)
+        if (recipient is null)
         {
             return RecipientNotFound();
         }

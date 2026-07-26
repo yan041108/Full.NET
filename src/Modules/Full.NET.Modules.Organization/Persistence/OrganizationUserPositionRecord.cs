@@ -17,8 +17,6 @@ internal sealed class OrganizationUserPositionListRow
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public string Username { get; set; } = string.Empty;
-    public string DisplayName { get; set; } = string.Empty;
     public Guid PositionId { get; set; }
     public string PositionCode { get; set; } = string.Empty;
     public string PositionName { get; set; } = string.Empty;

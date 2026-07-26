@@ -752,6 +752,79 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **363/7/43/172** |
 | 验证记录 | [`strengthened-modular-monolith-hardening-2026-07-26.md`](strengthened-modular-monolith-hardening-2026-07-26.md) |
 
+## 增补（2026-07-26，Identity–Organization 数据范围 Port）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **363 → 364** | 新增 Organization 自有数据范围 SQL 投影回归，覆盖 `self`、`organization`、`organization_subtree` 与非法范围拒绝 |
+| Architecture 门槛 | **43** 不变；Identity→Organization 跨模块表访问债务 **7 → 5** |
+| 双库焦点验证 | Organization Data Scope **2/2**，TenantProvisioning 精简宿主 **2/2** |
+| Integration 全量 | **172/172**，失败 **0**、跳过 **0**，**26m 32s** |
+| 四处 canonical 门槛 | **364/7/43/172** |
+| 验证记录 | [`identity-organization-data-scope-port-2026-07-26.md`](identity-organization-data-scope-port-2026-07-26.md) |
+
+## 增补（2026-07-26，Organization–Identity 用户目录边界）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **364 → 365** | 新增 Identity Host 用户批量目录回归，锁定 ID 去重、单次查询和显示投影 |
+| Architecture 门槛 | **43** 不变；Organization→Identity 跨模块表访问债务 **5 → 4** |
+| 双库焦点验证 | 用户-机构与用户-职位 SQL Server/MySQL **4/4** |
+| Integration 全量 | **172/172**，失败 **0**、跳过 **0**，**26m 05s** |
+| 四处 canonical 门槛 | **365/7/43/172** |
+| 验证记录 | [`organization-identity-user-directory-boundary-2026-07-26.md`](organization-identity-user-directory-boundary-2026-07-26.md) |
+
+## 增补（2026-07-26，Host 工作台指标边界）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **365 → 366** | 新增 Host 工作台聚合回归，锁定所有者指标消费与精简模块配置的零值/空活动退化行为 |
+| Architecture 门槛 | **43** 不变；精确跨模块表访问债务 **3 → 0** |
+| 四处 canonical 门槛 | **366/7/43/172** |
+| 验证记录 | [`host-dashboard-metrics-boundary-2026-07-26.md`](host-dashboard-metrics-boundary-2026-07-26.md) |
+
+## 增补（2026-07-26，租户 SQL 绑定元数据）
+
+| 项目 | 结果 |
+| --- | --- |
+| Architecture 门槛 **43 → 44** | 新增全模块 `SqlDataScope`/`SqlTenantBinding` 一致性门禁，覆盖 BuildingBlocks、宿主及全部官方业务模块 |
+| Unit / Compatibility / Integration 门槛 | **366 / 7 / 172**（不变） |
+| 双库焦点验证 | Organization 与 Tenancy 租户 SQL SQL Server/MySQL **12/12** |
+| Integration 全量 | **172/172**，失败 **0**、跳过 **0**，**27m 32s** |
+| 四处 canonical 门槛 | **366/7/44/172** |
+| 验证记录 | [`tenant-sql-binding-metadata-2026-07-26.md`](tenant-sql-binding-metadata-2026-07-26.md) |
+
+## 增补（2026-07-26，Global SQL Statement 精确目录）
+
+| 项目 | 结果 |
+| --- | --- |
+| Architecture 门槛 **44 → 46** | 新增生产 Global SQL 精确目录主门禁及分析器负向夹具；锁定 Statement Name、声明、文件、安全分类、理由和必需 SQL 片段 |
+| Global 目录 | **23/23** 条生产声明精确登记；禁止新增未登记项、过期项、重复项与通配符 |
+| Unit / Compatibility / Integration 门槛 | **366 / 7 / 172**（不变） |
+| 四处 canonical 门槛 | **366/7/46/172** |
+| 验证记录 | [`global-sql-statement-catalog-2026-07-26.md`](global-sql-statement-catalog-2026-07-26.md) |
+
+## 增补（2026-07-26，可信代理客户端地址边界）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **366 → 378** | 新增默认关闭、显式 Header、代理 IP/CIDR、IPv4/IPv6、无效配置、全网 CIDR 与覆盖完整 IPv4-mapped 空间的 IPv6 CIDR 启动拒绝回归 |
+| Architecture 门槛 **46 → 48** | 禁止生产模块直接解析 `X-Forwarded-*`，并锁定转发中间件先于日志、限流、认证和授权 |
+| Integration 门槛 **172 → 184** | 新增伪造/未知代理、单/多层链、CIDR、IPv4/IPv6、IPv4-mapped 精确代理与网段、无效地址及限流分区 **10** 项，以及 Identity Origin/审计双库 **2** 项 |
+| Integration 四分片 | API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **52** = **184** |
+| 四处 canonical 门槛 | **378/7/48/184** |
+| 验证记录 | [`trusted-proxy-forwarding-2026-07-26.md`](trusted-proxy-forwarding-2026-07-26.md) |
+
+## 增补（2026-07-26，Architecture 扫描工作树隔离）
+
+| 项目 | 结果 |
+| --- | --- |
+| Architecture 门槛 **48 → 49** | 新增仓库扫描回归，锁定 `.git`、`.worktrees`、`bin`、`obj` 不进入当前工作树的项目与源码边界检查 |
+| RED | 创建 `codex/uniapp-uni-ui-adoption` 工作树后，MySQL 消费者、迁移所有权与 UUID 转换扫描稳定出现 **3** 项跨工作树假阳性 |
+| GREEN | 聚焦回归 **4/4**、Architecture **49/49**，失败 **0**、跳过 **0** |
+| Unit / Compatibility / Integration 门槛 | **378 / 7 / 184**（不变） |
+| 四处 canonical 门槛 | **378/7/49/184** |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

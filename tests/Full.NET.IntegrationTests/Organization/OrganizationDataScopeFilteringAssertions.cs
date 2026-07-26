@@ -91,6 +91,9 @@ internal static class OrganizationDataScopeFilteringAssertions
                 adminTenant.TenantId));
         using var updateScopeResponse = await client.SendAsync(updateScopeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, updateScopeResponse.StatusCode);
+        var customScope = await updateScopeResponse.Content
+            .ReadFromJsonAsync<HostRoleDataScopeResponse>(cancellationToken);
+        Assert.IsNotNull(customScope);
 
         var username = $"scope-user-{Guid.NewGuid():N}".ToLowerInvariant();
         using var createUserRequest = CreateBearerJsonRequest(
@@ -165,6 +168,45 @@ internal static class OrganizationDataScopeFilteringAssertions
             scopedTenant.AccessToken);
         using var hiddenResponse = await client.SendAsync(hiddenRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, hiddenResponse.StatusCode);
+
+        await CreateUserUnitAssignmentAsync(
+            client,
+            adminTenant.AccessToken,
+            createdUser.Id,
+            visibleUnit.Id,
+            cancellationToken);
+        using var updateSelfScopeRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{createdRole.Id:D}/data-scope",
+            hostAdminToken,
+            new UpdateHostRoleDataScopeRequest(
+                RoleDataScopeKinds.Self,
+                [],
+                customScope.Version));
+        using var updateSelfScopeResponse = await client.SendAsync(
+            updateSelfScopeRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updateSelfScopeResponse.StatusCode);
+        var selfScope = await updateSelfScopeResponse.Content
+            .ReadFromJsonAsync<HostRoleDataScopeResponse>(cancellationToken);
+        Assert.IsNotNull(selfScope);
+        Assert.AreEqual(RoleDataScopeKinds.Self, selfScope.DataScopeKind);
+
+        using var selfListRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/organization/units?page=1&pageSize=20");
+        selfListRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            scopedTenant.AccessToken);
+        using var selfListResponse = await client.SendAsync(
+            selfListRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, selfListResponse.StatusCode);
+        var selfPage = await selfListResponse.Content
+            .ReadFromJsonAsync<PagedResult<OrganizationUnitResponse>>(cancellationToken);
+        Assert.IsNotNull(selfPage);
+        Assert.AreEqual(1, selfPage.Total);
+        Assert.AreEqual(visibleUnit.Id, selfPage.Items.Single().Id);
     }
 
     private static async Task VerifyTenantUserUnitListDataScopeFilteringAsync(

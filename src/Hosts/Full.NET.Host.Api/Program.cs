@@ -1,6 +1,7 @@
 using Full.NET.Caching.Fusion;
 using Full.NET.Composition;
 using Full.NET.Data.Dapper;
+using Full.NET.Hosting.Forwarding;
 using Full.NET.Hosting.Observability;
 using Full.NET.Hosting.OpenApi;
 using Full.NET.Hosting.RateLimiting;
@@ -12,6 +13,7 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddFullNetServiceDefaults();
+builder.Services.AddFullNetTrustedProxyForwarding(builder.Configuration);
 builder.Services.AddFullNetOpenApi();
 builder.Services.AddFullNetRateLimiter(builder.Configuration);
 builder.Services.AddFullNetDapper(
@@ -30,6 +32,7 @@ builder.Services.AddFullNetApplicationModules(
     FullNetHostProfile.Api);
 
 var app = builder.Build();
+app.UseFullNetTrustedProxyForwarding();
 app.UseFullNetLocalization();
 app.UseFullNetRequestLogging();
 app.UseExceptionHandler();

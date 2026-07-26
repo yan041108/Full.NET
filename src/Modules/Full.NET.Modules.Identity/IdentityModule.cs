@@ -124,6 +124,7 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<HostUserManagementService>();
         services.TryAddScoped<HostUserRolesService>();
         services.TryAddScoped<IUserDataScopeResolver, UserDataScopeResolver>();
+        services.TryAddSingleton<RoleDataScopeProjection>();
         services.TryAddSingleton<IDataScopeSqlFilterBuilder, DataScopeSqlFilterBuilder>();
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();
@@ -136,7 +137,11 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<HostApiKeyManagementService>();
         services.TryAddScoped<ApiKeyAuthenticationService>();
         services.TryAddScoped<Features.GetHostDashboardSummary.HostDashboardQueryService>();
-        services.TryAddScoped<IHostUserDirectory, HostUsers.HostUserDirectory>();
+        services.TryAddScoped<HostUsers.HostUserDirectory>();
+        services.TryAddScoped<IHostUserDirectory>(provider =>
+            provider.GetRequiredService<HostUsers.HostUserDirectory>());
+        services.TryAddScoped<IHostUserDisplayDirectory>(provider =>
+            provider.GetRequiredService<HostUsers.HostUserDirectory>());
         services.TryAddScoped<HostNavigationDefinitionLoader>();
         services.AddFullNetFluentValidation();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();

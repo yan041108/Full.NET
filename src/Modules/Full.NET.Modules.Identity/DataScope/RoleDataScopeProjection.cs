@@ -5,12 +5,25 @@ using Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// 角色数据范围在机构单元查询上的参数化 SQL 投影。
 /// </summary>
-internal static class RoleDataScopeProjection
+internal sealed class RoleDataScopeProjection
 {
+    private readonly IIdentityOrganizationDataScopeSqlProjection? organizationProjection;
+
+    /// <summary>
+    /// 允许 Identity 在未装配 Organization 的精简宿主中独立启动；机构范围只有在真实
+    /// 消费时才要求存在唯一适配器，避免把可选模块变成 Identity 的启动期反向依赖。
+    /// </summary>
+    public RoleDataScopeProjection(
+        IEnumerable<IIdentityOrganizationDataScopeSqlProjection> organizationProjections)
+    {
+        ArgumentNullException.ThrowIfNull(organizationProjections);
+        organizationProjection = organizationProjections.SingleOrDefault();
+    }
+
     /// <summary>
     /// 为机构单元 Id 列构建附加 WHERE 片段；返回 null 表示不追加限制（全部）。
     /// </summary>
-    public static RoleDataScopeSqlFragment? BuildOrganizationUnitFilter(
+    public RoleDataScopeSqlFragment? BuildOrganizationUnitFilter(
         string dataScopeKind,
         string unitIdColumn,
         Guid? currentUserId = null)
@@ -18,33 +31,10 @@ internal static class RoleDataScopeProjection
         return dataScopeKind switch
         {
             RoleDataScopeKinds.All => null,
-            RoleDataScopeKinds.Self => new RoleDataScopeSqlFragment(
-                $"""
-                EXISTS (
-                    SELECT 1
-                    FROM fn_organization_user_unit AS assignment
-                    WHERE assignment.TenantId = @TenantId
-                      AND assignment.UserId = @DataScopeUserId
-                      AND assignment.UnitId = {unitIdColumn}
-                      AND assignment.IsActive = 1
-                )
-                """,
-                new { DataScopeUserId = currentUserId }),
-            RoleDataScopeKinds.Organization => new RoleDataScopeSqlFragment(
-                $"""
-                {unitIdColumn} IN (
-                    SELECT assignment.UnitId
-                    FROM fn_organization_user_unit AS assignment
-                    WHERE assignment.TenantId = @TenantId
-                      AND assignment.UserId = @DataScopeUserId
-                      AND assignment.IsPrimary = 1
-                      AND assignment.IsActive = 1
-                )
-                """,
-                new { DataScopeUserId = currentUserId }),
-            RoleDataScopeKinds.OrganizationSubtree => new RoleDataScopeSqlFragment(
-                BuildSubtreeSql(unitIdColumn),
-                new { DataScopeUserId = currentUserId }),
+            RoleDataScopeKinds.Self
+                or RoleDataScopeKinds.Organization
+                or RoleDataScopeKinds.OrganizationSubtree =>
+                BuildOrganizationFilter(dataScopeKind, unitIdColumn, currentUserId),
             RoleDataScopeKinds.Custom => new RoleDataScopeSqlFragment(
                 $"""
                 {unitIdColumn} IN (
@@ -63,7 +53,7 @@ internal static class RoleDataScopeProjection
     /// <summary>
     /// 多角色数据范围并集；返回 null 表示不限制，<c>1 = 0</c> 表示无可见数据。
     /// </summary>
-    public static RoleDataScopeSqlFragment? BuildUnionOrganizationUnitFilter(
+    public RoleDataScopeSqlFragment? BuildUnionOrganizationUnitFilter(
         IReadOnlyList<RoleDataScopeEntry> roleScopes,
         string unitIdColumn,
         Guid currentUserId)
@@ -128,35 +118,20 @@ internal static class RoleDataScopeProjection
     private static RoleDataScopeSqlFragment DenyAll() =>
         new("1 = 0", null);
 
-    private static string BuildSubtreeSql(string unitIdColumn) =>
-        $"""
-        {unitIdColumn} IN (
-            WITH primary_unit AS (
-                SELECT assignment.UnitId
-                FROM fn_organization_user_unit AS assignment
-                WHERE assignment.TenantId = @TenantId
-                  AND assignment.UserId = @DataScopeUserId
-                  AND assignment.IsPrimary = 1
-                  AND assignment.IsActive = 1
-            ),
-            unit_tree AS (
-                SELECT unitObject.Id
-                FROM fn_organization_unit AS unitObject
-                INNER JOIN primary_unit
-                    ON primary_unit.UnitId = unitObject.Id
-                WHERE unitObject.TenantId = @TenantId
-                  AND unitObject.IsActive = 1
-                UNION ALL
-                SELECT childObject.Id
-                FROM fn_organization_unit AS childObject
-                INNER JOIN unit_tree
-                    ON childObject.ParentId = unit_tree.Id
-                WHERE childObject.TenantId = @TenantId
-                  AND childObject.IsActive = 1
-            )
-            SELECT unit_tree.Id FROM unit_tree
-        )
-        """;
+    private RoleDataScopeSqlFragment BuildOrganizationFilter(
+        string dataScopeKind,
+        string unitIdColumn,
+        Guid? currentUserId)
+    {
+        var projection = organizationProjection
+            ?? throw new InvalidOperationException(
+                "The Organization data-scope projection is not registered.");
+        var filter = projection.BuildOrganizationUnitFilter(
+            dataScopeKind,
+            unitIdColumn,
+            currentUserId ?? Guid.Empty);
+        return new RoleDataScopeSqlFragment(filter.Sql, filter.Parameters);
+    }
 }
 
 internal sealed record RoleDataScopeSqlFragment(

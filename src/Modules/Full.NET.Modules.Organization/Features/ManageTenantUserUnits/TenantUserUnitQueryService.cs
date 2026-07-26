@@ -10,6 +10,7 @@ namespace Full.NET.Modules.Organization.Features.ManageTenantUserUnits;
 /// <summary>租户用户-机构隶属只读查询。</summary>
 internal sealed class TenantUserUnitQueryService(
     IQueryExecutor queryExecutor,
+    IHostUserDisplayDirectory hostUserDirectory,
     IUserDataScopeResolver dataScopeResolver,
     IDataScopeSqlFilterBuilder dataScopeFilterBuilder,
     IOptions<DatabaseOptions> databaseOptions)
@@ -70,7 +71,14 @@ internal sealed class TenantUserUnitQueryService(
                     filter),
                 cancellationToken)
             .ConfigureAwait(false);
-        var items = rows.Select(Map).ToArray();
+        var users = await hostUserDirectory.FindHostUsersAsync(
+                rows.Select(row => row.UserId).Distinct().ToArray(),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var items = rows
+            .Where(row => users.ContainsKey(row.UserId))
+            .Select(row => Map(row, users[row.UserId]))
+            .ToArray();
         return Result<PagedResult<OrganizationUserUnitResponse>>.Success(
             new PagedResult<OrganizationUserUnitResponse>(items, page, pageSize, total));
     }
@@ -89,15 +97,23 @@ internal sealed class TenantUserUnitQueryService(
             return NotFound();
         }
 
-        return Result<OrganizationUserUnitResponse>.Success(Map(row));
+        var users = await hostUserDirectory.FindHostUsersAsync(
+                [row.UserId],
+                cancellationToken)
+            .ConfigureAwait(false);
+        return users.TryGetValue(row.UserId, out var user)
+            ? Result<OrganizationUserUnitResponse>.Success(Map(row, user))
+            : NotFound();
     }
 
-    internal static OrganizationUserUnitResponse Map(OrganizationUserUnitListRow row) =>
+    internal static OrganizationUserUnitResponse Map(
+        OrganizationUserUnitListRow row,
+        HostUserDirectoryEntry user) =>
         new(
             row.Id,
             row.UserId,
-            row.Username,
-            row.DisplayName,
+            user.Username,
+            user.DisplayName,
             row.UnitId,
             row.UnitCode,
             row.UnitName,

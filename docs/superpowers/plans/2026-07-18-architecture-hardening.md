@@ -530,17 +530,24 @@ Vue 壳层迁移按 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue
 
 ### Task 16: 可信代理后的客户端地址与限流（生产前 P1）
 
+**状态：已完成（2026-07-26）。** API 默认关闭转发信任并清除框架 loopback 默认值；只有显式代理 IP/CIDR、有效 1～10 层上限通过启动校验后，才在请求日志、限流、认证和 Endpoint 之前处理 `X-Forwarded-For`/`X-Forwarded-Proto`。Identity 继续统一读取规范化后的 `Connection.RemoteIpAddress`，未新增模块内 Header 解析。当前伪造、未知代理、单/多层链、CIDR、IPv4/IPv6、IPv4-mapped 连接、无效地址与限流分区 Integration **10/10**，Identity Origin 与审计 SQL Server/MySQL **2/2**，Architecture **2/2**。
+
 **Files:**
+- Create: `src/BuildingBlocks/Full.NET.Hosting/Forwarding/TrustedProxyOptions.cs`
+- Create: `src/BuildingBlocks/Full.NET.Hosting/Forwarding/TrustedProxyOptionsValidator.cs`
+- Create: `src/BuildingBlocks/Full.NET.Hosting/Forwarding/TrustedProxyForwardedHeadersConfigurator.cs`
+- Create: `src/BuildingBlocks/Full.NET.Hosting/Forwarding/TrustedProxyForwardingExtensions.cs`
 - Modify: `src/Hosts/Full.NET.Host.Api/Program.cs`
-- Create: `src/BuildingBlocks/Full.NET.Hosting/Api/Forwarding/TrustedProxyOptions.cs`
-- Create: `src/BuildingBlocks/Full.NET.Hosting/Api/Forwarding/TrustedProxyOptionsValidator.cs`
-- Create: `src/BuildingBlocks/Full.NET.Hosting/Api/Forwarding/ServiceCollectionExtensions.cs`
-- Modify: `src/Modules/Full.NET.Modules.Identity/IdentityModule.cs`
-- Modify: `src/Modules/Full.NET.Modules.Identity/Features/Login/Endpoint.cs`
-- Modify: `src/Modules/Full.NET.Modules.Identity/Features/RefreshSession/Endpoint.cs`
-- Modify: `src/Modules/Full.NET.Modules.Identity/Features/Logout/Endpoint.cs`
+- Modify: `src/Hosts/Full.NET.Host.Api/appsettings.json`
+- Create: `tests/Full.NET.UnitTests/Hosting/TrustedProxyOptionsTests.cs`
+- Create: `tests/Full.NET.ArchitectureTests/TrustedProxyBoundaryTests.cs`
 - Create: `tests/Full.NET.IntegrationTests/Api/TrustedProxyForwardingTests.cs`
+- Create: `tests/Full.NET.IntegrationTests/Api/TrustedProxyForwardingAssertions.cs`
+- Create: `tests/Full.NET.IntegrationTests/Api/TrustedProxyForwardingApiSqlServerTests.cs`
+- Create: `tests/Full.NET.IntegrationTests/Api/TrustedProxyForwardingApiMySqlTests.cs`
+- Modify: `tests/Full.NET.IntegrationTests/Api/FullNetApiFactory.cs`
 - Modify: `docs/development/getting-started.md`
+- Create: `docs/verification/trusted-proxy-forwarding-2026-07-26.md`
 
 1. 先建立失败测试：无可信代理配置时伪造 `X-Forwarded-For` 不得改变客户端地址；来自显式可信代理/网络且转发层数不超限时才接受最右侧受信链解析结果；无效 IP、超长链和未知代理必须拒绝或回退连接地址。
 2. 使用 ASP.NET Core `ForwardedHeadersMiddleware`，只启用所需 Header，显式配置 `KnownProxies`/`KnownNetworks` 与 `ForwardLimit`；Production 配置为空时不得自动信任任意代理。

@@ -3,7 +3,8 @@ using Full.NET.Modules.Identity.Contracts;
 namespace Full.NET.Modules.Identity.DataScope;
 
 /// <summary>将有效数据范围投影为机构单元 SQL 过滤。</summary>
-internal sealed class DataScopeSqlFilterBuilder : IDataScopeSqlFilterBuilder
+internal sealed class DataScopeSqlFilterBuilder(RoleDataScopeProjection projection)
+    : IDataScopeSqlFilterBuilder
 {
     public DataScopeSqlFilter? BuildOrganizationUnitFilter(
         EffectiveUserDataScope scope,
@@ -18,7 +19,7 @@ internal sealed class DataScopeSqlFilterBuilder : IDataScopeSqlFilterBuilder
             return null;
         }
 
-        var fragment = RoleDataScopeProjection.BuildUnionOrganizationUnitFilter(
+        var fragment = projection.BuildUnionOrganizationUnitFilter(
             scope.RoleScopes,
             unitIdColumn,
             currentUserId);

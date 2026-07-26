@@ -49,14 +49,19 @@ internal static class PlatformHostDashboardAssertions
         using var probeResponse = await client.SendAsync(probeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, probeResponse.StatusCode);
 
-        using var activityRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            $"/api/v1/identity/roles/{Guid.CreateVersion7():D}/disable");
-        activityRequest.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            adminToken);
-        using var activityResponse = await client.SendAsync(activityRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.NotFound, activityResponse.StatusCode);
+        for (var index = 0; index < 7; index++)
+        {
+            using var activityRequest = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"/api/v1/identity/roles/{Guid.CreateVersion7():D}/disable");
+            activityRequest.Headers.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                adminToken);
+            using var activityResponse = await client.SendAsync(
+                activityRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.NotFound, activityResponse.StatusCode);
+        }
 
         using var summaryRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -74,8 +79,14 @@ internal static class PlatformHostDashboardAssertions
         Assert.IsTrue(summary.TodayRequestCount >= 1);
         Assert.IsTrue(summary.TodayErrorRate >= 0m && summary.TodayErrorRate <= 1m);
         Assert.IsNotNull(summary.RecentActivities);
-        Assert.IsTrue(summary.RecentActivities.Length > 0);
+        Assert.HasCount(5, summary.RecentActivities);
         Assert.IsFalse(string.IsNullOrWhiteSpace(summary.RecentActivities[0].RequestPath));
+        for (var index = 1; index < summary.RecentActivities.Length; index++)
+        {
+            Assert.IsGreaterThanOrEqualTo(
+                summary.RecentActivities[index].OccurredAtUtc,
+                summary.RecentActivities[index - 1].OccurredAtUtc);
+        }
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

@@ -61,6 +61,9 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostDashboardTenantMetricsReader,
+            HostDashboard.HostDashboardTenantMetricsReader>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

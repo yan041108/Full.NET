@@ -18,9 +18,9 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 363
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 378
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 43
+dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 ```
 
 ???????????/ PR / ?????????? SQL Server/MySQL ?? + ??????????????DbUp??????????
@@ -29,7 +29,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | ?? | ?????? | ???? / Outbox schema ?? 2 ??`--timeout 15m` |
 | PR | ???????CI PR | Identity/Tenancy/Outbox ?????? 8 ??`--timeout 15m` |
-| ?? | ?? `main`??????| ?? `--minimum-expected-tests 172 --timeout 90m` |
+| 完整 | 合并 `main`、共享基础设施或发布前 | 完整 `--minimum-expected-tests 184 --timeout 90m` |
 
 ```powershell
 # 日常按风险选择标准入口
@@ -45,10 +45,41 @@ pnpm test:integration:full
 pnpm test:integration:durations
 
 # canonical 全量命令
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 172 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 184 --timeout 90m
 ```
 
 Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。SQL、事务、租户过滤和迁移变更必须成对覆盖 SQL Server/MySQL；共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、测试基础设施、发布或 main 门禁必须运行全量。
+
+### 可信代理配置
+
+API 默认关闭 `TrustedProxy`，并忽略客户端直接发送的 `X-Forwarded-For` 与
+`X-Forwarded-Proto`。只有 API 实际连接到显式登记的代理 IP/CIDR 时才能启用；
+请求日志、限流和 Identity 认证审计随后统一读取规范化的
+`Connection.RemoteIpAddress`，业务模块不得自行解析转发 Header。
+
+```json
+{
+  "TrustedProxy": {
+    "Enabled": true,
+    "ForwardLimit": 1,
+    "KnownProxies": ["127.0.0.1", "::1"],
+    "KnownNetworks": []
+  }
+}
+```
+
+- Aspire 本机代理只登记 API 实际看到的 loopback 地址。ASP.NET Core 会让
+  `127.0.0.1` 与其 IPv4-mapped 连接形式 `::ffff:127.0.0.1` 命中同一信任项；
+  原生 IPv6 代理仍须单独登记。
+- Nginx 直连 API 时登记 Nginx 的源 IP 或最小 CIDR，并保持
+  `ForwardLimit=1`。
+- Kubernetes 登记 ingress 到 Pod 的实际网络 CIDR；存在多级受信代理时逐层登记，
+  并把 `ForwardLimit` 设为精确层数。
+- 禁止配置 `0.0.0.0/0`、`::/0`、`::ffff:0:0/96`、覆盖完整
+  IPv4-mapped 地址空间的更宽 IPv6 网段或公网客户端网段；无效地址、全网 CIDR、
+  空信任源和超过 10 层的配置会在启动期失败。
+- 只处理客户端地址与协议，不接受转发 Host/Prefix；代理必须覆盖写入转发 Header，
+  不得把客户端原始值无校验透传。
 
 ??????? Testcontainers ???? SQL Server ??MySQL????Docker ????????
 

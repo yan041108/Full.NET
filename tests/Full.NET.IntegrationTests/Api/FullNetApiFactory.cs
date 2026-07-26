@@ -1,3 +1,4 @@
+using System.Net;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Migrations;
@@ -7,6 +8,7 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Tenancy.Contracts;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -22,7 +24,8 @@ namespace Full.NET.IntegrationTests.Api;
 internal sealed class FullNetApiFactory(
     DatabaseProvider provider,
     string connectionString,
-    IReadOnlyDictionary<string, string?>? settingsOverrides = null) : WebApplicationFactory<Program>
+    IReadOnlyDictionary<string, string?>? settingsOverrides = null,
+    IPAddress? connectionRemoteIpAddress = null) : WebApplicationFactory<Program>
 {
     public const string TestPassword = "FullNet!2026Integration";
 
@@ -52,12 +55,21 @@ internal sealed class FullNetApiFactory(
         builder.ConfigureAppConfiguration((_, configuration) =>
             configuration.AddInMemoryCollection(settings));
         builder.ConfigureServices(services =>
+        {
+            if (connectionRemoteIpAddress is not null)
+            {
+                services.AddSingleton<IStartupFilter>(
+                    new TestConnectionRemoteIpAddressStartupFilter(
+                        connectionRemoteIpAddress));
+            }
+
             services.PostConfigure<FusionCacheOptions>(options =>
             {
                 // 集成测试会在同一进程里启动多个 API 工厂；若共享同一个 InstanceId，
                 // FusionCache Backplane 会把它们视为同一缓存节点并忽略彼此的失效广播。
                 FusionCacheDangerZoneUtils.SetInstanceId(options, _cacheInstanceId);
-            }));
+            });
+        });
     }
 
     private Dictionary<string, string?> BuildSettings()
@@ -205,7 +217,11 @@ internal sealed class FullNetApiFactory(
 
     public FullNetApiFactory CreateIsolatedFactory()
     {
-        return new FullNetApiFactory(provider, connectionString, settingsOverrides);
+        return new FullNetApiFactory(
+            provider,
+            connectionString,
+            settingsOverrides,
+            connectionRemoteIpAddress);
     }
 
     public async Task<string> CreateHostAccessTokenAsync(
@@ -308,6 +324,34 @@ internal sealed class FullNetApiFactory(
                 .QuerySingleOrDefaultAsync<long>(
                     IdentitySql.CountAuthenticationAudits,
                     cancellationToken: cancellationToken);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
+    public async Task<long> GetAuthenticationAuditCountByIpAddressAsync(
+        string ipAddress,
+        CancellationToken cancellationToken = default)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            return await scope.ServiceProvider.GetRequiredService<IQueryExecutor>()
+                .QuerySingleOrDefaultAsync<long>(
+                    new SqlStatement(
+                        "test.count-authentication-audits-by-ip-address",
+                        """
+                        SELECT COUNT(*)
+                        FROM fn_identity_auth_audit
+                        WHERE IpAddress = @IpAddress
+                        """,
+                        SqlDataScope.HostOnly),
+                    new { IpAddress = ipAddress },
+                    cancellationToken);
         }
         finally
         {
@@ -475,3 +519,19 @@ internal sealed record HostTestIdentity(
     Guid UserId,
     string Username,
     string AccessToken);
+
+internal sealed class TestConnectionRemoteIpAddressStartupFilter(
+    IPAddress remoteIpAddress) : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) =>
+        application =>
+        {
+            // 测试入口必须先模拟实际 TCP 对端，随后才让生产转发中间件执行信任判断。
+            application.Use(nextMiddleware => async context =>
+            {
+                context.Connection.RemoteIpAddress = remoteIpAddress;
+                await nextMiddleware(context);
+            });
+            next(application);
+        };
+}

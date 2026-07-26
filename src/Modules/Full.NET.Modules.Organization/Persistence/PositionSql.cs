@@ -12,7 +12,8 @@ internal static class PositionSql
         FROM fn_organization_position
         WHERE Id = @PositionId AND TenantId = @TenantId
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement FindByTenantAndCode = new(
         "organization.find_position_by_tenant_and_code",
@@ -22,7 +23,8 @@ internal static class PositionSql
         FROM fn_organization_position
         WHERE TenantId = @TenantId AND Code = @Code
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement Count = new(
         "organization.count_positions",
@@ -31,7 +33,8 @@ internal static class PositionSql
         FROM fn_organization_position
         WHERE TenantId = @TenantId
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement ListSqlServer = new(
         "organization.list_positions.sql_server",
@@ -43,7 +46,8 @@ internal static class PositionSql
         ORDER BY DisplayOrder, Code
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement ListMySql = new(
         "organization.list_positions.mysql",
@@ -55,7 +59,8 @@ internal static class PositionSql
         ORDER BY DisplayOrder, Code
         LIMIT @PageSize OFFSET @Offset
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement Insert = new(
         "organization.insert_position",
@@ -67,7 +72,8 @@ internal static class PositionSql
             (@Id, @TenantId, @Code, @Name, @DisplayOrder,
              @IsActive, @CreatedAtUtc, @UpdatedAtUtc, @Version)
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement Update = new(
         "organization.update_position",
@@ -81,7 +87,8 @@ internal static class PositionSql
           AND TenantId = @TenantId
           AND Version = @Version
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement Disable = new(
         "organization.disable_position",
@@ -94,5 +101,6 @@ internal static class PositionSql
           AND TenantId = @TenantId
           AND IsActive = 1
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 }

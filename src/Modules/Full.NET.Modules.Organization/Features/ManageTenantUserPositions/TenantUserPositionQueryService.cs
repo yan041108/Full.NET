@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Persistence;
 using Microsoft.Extensions.Options;
@@ -9,6 +10,7 @@ namespace Full.NET.Modules.Organization.Features.ManageTenantUserPositions;
 /// <summary>租户用户-职位隶属只读查询（目录级，不按机构数据范围裁剪）。</summary>
 internal sealed class TenantUserPositionQueryService(
     IQueryExecutor queryExecutor,
+    IHostUserDisplayDirectory hostUserDirectory,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<OrganizationUserPositionResponse>>> ListAsync(
@@ -44,7 +46,14 @@ internal sealed class TenantUserPositionQueryService(
                 },
                 cancellationToken)
             .ConfigureAwait(false);
-        var items = rows.Select(Map).ToArray();
+        var users = await hostUserDirectory.FindHostUsersAsync(
+                rows.Select(row => row.UserId).Distinct().ToArray(),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var items = rows
+            .Where(row => users.ContainsKey(row.UserId))
+            .Select(row => Map(row, users[row.UserId]))
+            .ToArray();
         return Result<PagedResult<OrganizationUserPositionResponse>>.Success(
             new PagedResult<OrganizationUserPositionResponse>(items, page, pageSize, total));
     }
@@ -63,15 +72,23 @@ internal sealed class TenantUserPositionQueryService(
             return NotFound();
         }
 
-        return Result<OrganizationUserPositionResponse>.Success(Map(row));
+        var users = await hostUserDirectory.FindHostUsersAsync(
+                [row.UserId],
+                cancellationToken)
+            .ConfigureAwait(false);
+        return users.TryGetValue(row.UserId, out var user)
+            ? Result<OrganizationUserPositionResponse>.Success(Map(row, user))
+            : NotFound();
     }
 
-    internal static OrganizationUserPositionResponse Map(OrganizationUserPositionListRow row) =>
+    internal static OrganizationUserPositionResponse Map(
+        OrganizationUserPositionListRow row,
+        HostUserDirectoryEntry user) =>
         new(
             row.Id,
             row.UserId,
-            row.Username,
-            row.DisplayName,
+            user.Username,
+            user.DisplayName,
             row.PositionId,
             row.PositionCode,
             row.PositionName,

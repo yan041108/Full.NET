@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "statementName": "auditing.insert_access_log",
+      "declaration": "Full.NET.Modules.Auditing.Persistence.AccessLogSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Persistence/AccessLogSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "访问日志必须在匿名、Host 和租户请求中统一落库，写入值显式携带当前可用的租户标识。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_access_log",
+        "@TenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.insert_exception_log",
+      "declaration": "Full.NET.Modules.Auditing.Persistence.ExceptionLogSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Persistence/ExceptionLogSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "异常日志必须覆盖匿名、Host 和租户请求，写入值显式携带当前可用的租户标识。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_exception_log",
+        "@TenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.insert_operation_log",
+      "declaration": "Full.NET.Modules.Auditing.Persistence.OperationLogSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Persistence/OperationLogSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "操作日志必须覆盖 Host 和租户操作，写入值显式携带当前可用的租户标识。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_operation_log",
+        "@TenantId"
+      ]
+    },
+    {
+      "statementName": "identity.find_api_key_for_authentication",
+      "declaration": "Full.NET.Modules.Identity.Persistence.ApiKeySql.FindForAuthentication",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/ApiKeySql.cs",
+      "category": "host_catalog",
+      "reason": "API Key 认证发生在可信请求上下文建立之前，SQL 必须自行把关联用户限制为 Host 用户。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_api_key AS apiKey",
+        "identityUser.ScopeKey = 'host'",
+        "identityUser.TenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "identity.find_host_user_by_id",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.FindHostUserById",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "租户上下文中的跨模块 Host 用户校验必须能够执行，SQL 仍以用户标识和固定 Host 行条件精确收敛。",
+      "requiredSqlFragments": [
+        "Id = @UserId",
+        "ScopeKey = 'host'",
+        "TenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "identity.find_profile_by_verified_identity",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.FindProfileByIdentity",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "verified_identity",
+      "reason": "个人资料查询只接受已验证令牌中的用户标识与原始作用域，两项必须同时命中。",
+      "requiredSqlFragments": [
+        "Id = @UserId",
+        "ScopeKey = @ScopeKey"
+      ]
+    },
+    {
+      "statementName": "identity.find_refresh_session_by_explicit_session_id",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.FindRefreshSessionById",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "verified_identity",
+      "reason": "刷新流程在租户上下文重建前按高熵会话标识定位会话，并通过关联用户恢复受控身份。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_refresh_session AS session",
+        "INNER JOIN fn_identity_user AS identityUser",
+        "session.Id = @SessionId"
+      ]
+    },
+    {
+      "statementName": "identity.get_actor_authorization",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.GetUserAuthorization",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "verified_identity",
+      "reason": "授权投影由已验证演员身份驱动，并在 SQL 中同时限制角色作用域和 Host/租户分支。",
+      "requiredSqlFragments": [
+        "userRole.UserId = @UserId",
+        "roleObject.ScopeKey = @ScopeKey",
+        "roleObject.TenantId IS NULL",
+        "roleObject.TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "identity.get_user_active_role_data_scopes",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.GetUserActiveRoleDataScopes",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "Host 用户目录端口按显式用户标识读取有效角色范围，SQL 必须固定为 Host 角色且只接受有效角色。",
+      "requiredSqlFragments": [
+        "userRole.UserId = @UserId",
+        "roleObject.ScopeKey = 'host'",
+        "roleObject.TenantId IS NULL",
+        "roleObject.IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "identity.insert_explicit_context_audit",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.InsertContextAudit",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "上下文切换审计必须同时记录 Host 与目标租户事件，租户信息作为审计值显式写入。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_identity_auth_audit",
+        "@ContextTenantId"
+      ]
+    },
+    {
+      "statementName": "identity.list_active_host_menus",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.ListActiveHostMenus",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "租户会话构建导航时仍需读取 Host 菜单目录，SQL 必须固定为有效 Host 菜单。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_navigation",
+        "ScopeKey = 'host'",
+        "TenantId IS NULL",
+        "IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "identity.list_host_users_by_ids",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.ListHostUsersByIds",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "跨模块通知在租户上下文中解析显式 Host 用户集合，SQL 必须同时限制用户标识集合和 Host 行。",
+      "requiredSqlFragments": [
+        "Id IN @UserIds",
+        "ScopeKey = 'host'",
+        "TenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "identity.touch_api_key_last_used",
+      "declaration": "Full.NET.Modules.Identity.Persistence.ApiKeySql.TouchLastUsed",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/ApiKeySql.cs",
+      "category": "host_catalog",
+      "reason": "认证成功后更新 API Key 使用时间时尚无请求租户，EXISTS 子句必须保证 Key 归属 Host 用户。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_api_key",
+        "identityUser.ScopeKey = 'host'",
+        "identityUser.TenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "identity.update_locale_preference_by_verified_identity",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.UpdateLocalePreference",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "verified_identity",
+      "reason": "语言偏好更新绑定已验证用户、原始作用域、安全戳、版本和仍有效的显式会话，避免跨身份写入。",
+      "requiredSqlFragments": [
+        "Id = @UserId",
+        "ScopeKey = @ScopeKey",
+        "ProfileVersion = @ProfileVersion",
+        "SecurityStamp = @SecurityStamp",
+        "session.Id = @SessionId",
+        "session.UserId = fn_identity_user.Id"
+      ]
+    },
+    {
+      "statementName": "identity.update_refresh_session_explicit_context",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.UpdateRefreshSessionContext",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "verified_identity",
+      "reason": "会话上下文切换以显式会话、用户和并发版本为联合锚点，并只允许未消费、未撤销会话。",
+      "requiredSqlFragments": [
+        "Id = @SessionId",
+        "UserId = @UserId",
+        "Version = @Version",
+        "ConsumedAtUtc IS NULL",
+        "RevokedAtUtc IS NULL"
+      ]
+    },
+    {
+      "statementName": "organization.find_active_unit_by_tenant_and_id",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationSql.FindActiveUnitByTenantAndId",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Host 管理流程需校验显式目标租户的组织单元，SQL 必须同时绑定单元、目标租户和有效状态。",
+      "requiredSqlFragments": [
+        "Id = @UnitId",
+        "TenantId = @TenantId",
+        "IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "outbox.insert",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperOutboxWriter.InsertStatement",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperOutboxWriter.cs",
+      "category": "reliable_event_sink",
+      "reason": "Outbox 是 Host 与租户事件共享的可靠写入汇点，租户标识由可信当前上下文作为消息数据显式写入。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_outbox_message",
+        "@TenantId"
+      ]
+    },
+    {
+      "statementName": "tenancy.count_by_domain",
+      "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.CountByDomain",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "category": "tenant_resolution",
+      "reason": "租户域名唯一性检查发生在租户上下文之外，以显式自然键精确计数。",
+      "requiredSqlFragments": [
+        "FROM fn_tenancy_tenant",
+        "Domain = @Domain"
+      ]
+    },
+    {
+      "statementName": "tenancy.find_by_domain",
+      "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.FindByDomain",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "category": "tenant_resolution",
+      "reason": "请求域名解析发生在当前租户建立之前，以显式域名自然键精确定位租户。",
+      "requiredSqlFragments": [
+        "FROM fn_tenancy_tenant",
+        "Domain = @Domain"
+      ]
+    },
+    {
+      "statementName": "tenancy.find_by_explicit_id",
+      "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.FindById",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "category": "host_tenant_catalog",
+      "reason": "Host 管理员上下文切换以授权后的显式目标租户标识读取租户目录。",
+      "requiredSqlFragments": [
+        "FROM fn_tenancy_tenant",
+        "Id = @TenantId"
+      ]
+    },
+    {
+      "statementName": "tenancy.find_by_identifier",
+      "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.FindByIdentifier",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "category": "tenant_resolution",
+      "reason": "租户标识唯一性检查发生在租户上下文之外，以显式自然键精确计数。",
+      "requiredSqlFragments": [
+        "FROM fn_tenancy_tenant",
+        "Identifier = @Identifier"
+      ]
+    },
+    {
+      "statementName": "tenancy.get_available_for_host_administrator",
+      "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.GetAvailable",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "category": "host_tenant_catalog",
+      "reason": "该目录只在已授权 Host 超级管理员上下文中提供可切换的有效租户集合。",
+      "requiredSqlFragments": [
+        "FROM fn_tenancy_tenant",
+        "WHERE IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "tenancy.tenant.find_summary_by_identifier",
+      "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.FindSummaryByIdentifier",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "category": "tenant_resolution",
+      "reason": "Migrator 的可信 Host 播种流程以稳定租户自然键执行幂等状态检查。",
+      "requiredSqlFragments": [
+        "FROM fn_tenancy_tenant",
+        "Identifier = @Identifier"
+      ]
+    }
+  ]
+}

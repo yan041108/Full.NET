@@ -78,7 +78,8 @@ internal static class TenantSql
         FROM fn_tenancy_tenant
         WHERE Id = @TenantId AND IsActive = 1
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement CountHostTenants = new(
         "tenancy.count_host_tenants",

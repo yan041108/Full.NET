@@ -15,6 +15,25 @@ public sealed record DataScopeSqlFilter(
     string Sql,
     object? Parameters);
 
+/// <summary>
+/// 为 Identity 数据范围组合器提供 Organization 自有表上的 SQL 投影。
+/// </summary>
+/// <remarks>
+/// 该端口由消费方 Identity 定义、Organization 在同一进程内实现，避免 Identity
+/// 直接依赖机构表结构；调用方传入的列名只能来自服务端固定查询，不能接受请求输入。
+/// </remarks>
+public interface IIdentityOrganizationDataScopeSqlProjection
+{
+    /// <summary>
+    /// 构建当前用户在机构单元列上的受限范围；仅接受 self、organization 和
+    /// organization_subtree 三种由 Organization 拥有的范围。
+    /// </summary>
+    DataScopeSqlFilter BuildOrganizationUnitFilter(
+        string dataScopeKind,
+        string unitIdColumn,
+        Guid currentUserId);
+}
+
 /// <summary>解析当前用户活动角色的数据范围种类。</summary>
 public interface IUserDataScopeResolver
 {

@@ -119,6 +119,8 @@ internal static class OrganizationUserUnitManagementAssertions
         var created = await createResponse.Content
             .ReadFromJsonAsync<OrganizationUserUnitResponse>(cancellationToken);
         Assert.IsNotNull(created);
+        Assert.AreEqual("admin", created.Username);
+        Assert.AreEqual("系统管理员", created.DisplayName);
         Assert.IsFalse(created.IsPrimary);
 
         using var updateRequest = CreateBearerJsonRequest(

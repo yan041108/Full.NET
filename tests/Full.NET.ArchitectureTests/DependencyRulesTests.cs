@@ -393,8 +393,7 @@ public sealed class DependencyRulesTests
             Path.Combine("tests", "Full.NET.IntegrationTests", "Full.NET.IntegrationTests.csproj"),
             Path.Combine("tests", "Full.NET.ArchitectureTests", "Full.NET.ArchitectureTests.csproj"),
         };
-        var consumers = Directory
-            .EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+        var consumers = EnumerateRepositoryFiles(root, "*.csproj")
             .Where(path => XDocument.Load(path)
                 .Descendants()
                 .Where(element => element.Name.LocalName == "ProjectReference")
@@ -440,16 +439,9 @@ public sealed class DependencyRulesTests
             Path.Combine("tests", "Full.NET.UnitTests", "Data", "MySqlConnectionStringPolicyTests.cs"),
             Path.Combine("tests", "Full.NET.IntegrationTests", "Data", "GuidBinaryRoundTripTests.cs"),
         };
-        var sourceFiles = Directory
-            .EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
+        var sourceFiles = EnumerateRepositoryFiles(root, "*.*")
             .Where(path => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
                 || path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
-            .Where(path => !path.Contains(
-                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
-                StringComparison.OrdinalIgnoreCase))
-            .Where(path => !path.Contains(
-                $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
-                StringComparison.OrdinalIgnoreCase))
             .Select(path => new GuidStorageSourceFile(
                 Path.GetRelativePath(root, path),
                 File.ReadAllText(path)))
@@ -686,6 +678,54 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Repository_file_scans_exclude_nested_worktrees_and_build_outputs()
+    {
+        var fixtureRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"fullnet-repository-scan-{Guid.NewGuid():N}");
+        var expectedProject = Path.Combine(
+            fixtureRoot,
+            "src",
+            "Approved",
+            "Approved.csproj");
+        var excludedProjects = new[]
+        {
+            Path.Combine(
+                fixtureRoot,
+                ".worktrees",
+                "feature",
+                "src",
+                "Duplicate.csproj"),
+            Path.Combine(fixtureRoot, ".git", "internal", "Ignored.csproj"),
+            Path.Combine(fixtureRoot, "src", "Approved", "bin", "Generated.csproj"),
+            Path.Combine(fixtureRoot, "src", "Approved", "obj", "Generated.csproj"),
+        };
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(expectedProject)!);
+            File.WriteAllText(expectedProject, "<Project />");
+            foreach (var excludedProject in excludedProjects)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(excludedProject)!);
+                File.WriteAllText(excludedProject, "<Project />");
+            }
+
+            var projects = EnumerateRepositoryFiles(fixtureRoot, "*.csproj")
+                .Select(path => Path.GetRelativePath(fixtureRoot, path).Replace('\\', '/'))
+                .ToArray();
+
+            CollectionAssert.AreEqual(
+                new[] { "src/Approved/Approved.csproj" },
+                projects);
+        }
+        finally
+        {
+            Directory.Delete(fixtureRoot, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public void RejectedDapperExtensions_AreNotReferencedByProjectsOrCentralVersions()
     {
         var rejectedPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -703,8 +743,7 @@ public sealed class DependencyRulesTests
             "Z.Dapper.Plus",
         };
         var root = FindRepositoryRoot();
-        var offenders = Directory
-            .EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+        var offenders = EnumerateRepositoryFiles(root, "*.csproj")
             .Append(Path.Combine(root, "Directory.Packages.props"))
             .Where(File.Exists)
             .SelectMany(path => XDocument.Load(path)
@@ -853,8 +892,7 @@ public sealed class DependencyRulesTests
 
     private static string[] FindDirectMigrationConsumers(string root)
     {
-        return Directory
-            .EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+        return EnumerateRepositoryFiles(root, "*.csproj")
             .Where(path => XDocument.Load(path)
                 .Descendants()
                 .Where(element => element.Name.LocalName == "ProjectReference")
@@ -910,6 +948,41 @@ public sealed class DependencyRulesTests
             .Replace('\\', Path.DirectorySeparatorChar)
             .Replace('/', Path.DirectorySeparatorChar);
         return Path.GetFullPath(Path.Combine(baseDirectory, platformPath));
+    }
+
+    private static IEnumerable<string> EnumerateRepositoryFiles(
+        string root,
+        string searchPattern)
+    {
+        var pendingDirectories = new Stack<string>();
+        pendingDirectories.Push(root);
+
+        while (pendingDirectories.TryPop(out var directory))
+        {
+            foreach (var file in Directory
+                         .EnumerateFiles(directory, searchPattern, SearchOption.TopDirectoryOnly)
+                         .OrderBy(path => path, StringComparer.Ordinal))
+            {
+                yield return file;
+            }
+
+            foreach (var childDirectory in Directory
+                         .EnumerateDirectories(directory, "*", SearchOption.TopDirectoryOnly)
+                         .Where(path => !IsExcludedRepositoryScanDirectory(path))
+                         .OrderByDescending(path => path, StringComparer.Ordinal))
+            {
+                pendingDirectories.Push(childDirectory);
+            }
+        }
+    }
+
+    private static bool IsExcludedRepositoryScanDirectory(string path)
+    {
+        var name = Path.GetFileName(path);
+        return name.Equals(".git", StringComparison.OrdinalIgnoreCase)
+            || name.Equals(".worktrees", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("bin", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("obj", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void WriteProject(string path, params string[] projectReferences)

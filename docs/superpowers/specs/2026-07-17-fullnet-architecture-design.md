@@ -396,9 +396,9 @@ DbUp 读取模块内嵌的、有序、数据库专用 SQL 脚本。`Host.Migrato
 
 每条 SQL 定义都携带数据作用域元数据：
 
-- `TenantRequired`：必须存在租户上下文和 `@TenantId` 参数；
+- `TenantRequired`：必须存在租户上下文，并显式声明 `SqlTenantBinding.CurrentTenantId`；
 - `HostOnly`：只能由 Host 管理端执行；
-- `Global`：公共数据。
+- `Global`：公共数据，或必须跨匿名/Host/租户上下文执行且由 SQL 自身精确收敛的受审查例外。
 
 框架自带及生成的租户 SQL 必须包含：
 
@@ -407,7 +407,7 @@ WHERE TenantId = @TenantId
   AND IsDeleted = 0
 ```
 
-执行器负责注入当前租户参数，并在缺少租户上下文或必要参数时拒绝执行。框架不尝试通过 SQL Parser 自动重写任意 SQL；安全性由生成规范、作用域声明、执行器校验、代码审查和架构测试共同保证。
+执行器只对显式声明 `CurrentTenantId` 的 Statement 注入受信任的当前租户参数；`TenantRequired` 与该绑定必须成对出现且 SQL 必须引用 `@TenantId`，`Global`/`HostOnly` 禁止携带租户绑定。每条生产 `Global` Statement 必须在 `contracts/architecture/global-sql-statements.json` 以 Statement Name、声明成员和源码文件逐项精确登记安全分类、理由与关键 SQL 片段；Architecture Tests 双向拒绝未登记声明、过期或重复目录、通配符和关键行条件漂移。框架不尝试通过 SQL Parser 自动重写任意 SQL；安全性由静态 SQL/生成规范、作用域与绑定声明、Global 精确目录、参数存在性纵深检查、代码审查、双库集成测试和全模块架构门禁共同保证。
 
 独立数据库租户模式后续通过 `IDbConnectionFactory` 选择连接，不改变业务 Handler 契约。
 
@@ -711,7 +711,7 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 
 ### 20.3 架构测试
 
-自动禁止模块循环依赖、跨模块内部引用、生产模块之间的 `InternalsVisibleTo`、模块实现项目引用、裸连接、业务层直接调用 Dapper、Endpoint 包含业务逻辑、租户查询绕过执行器、Service Locator，以及 BuildingBlocks 反向依赖业务模块。架构测试还必须限制 DbUp 迁移组件消费者、验证 Host Profile 的服务集合边界，并拒绝未显式声明认证或匿名意图的 Endpoint。
+自动禁止模块循环依赖、跨模块内部引用、生产模块之间的 `InternalsVisibleTo`、模块实现项目引用、裸连接、业务层直接调用 Dapper、Endpoint 包含业务逻辑、租户查询绕过执行器、未精确登记的 Global SQL、Service Locator，以及 BuildingBlocks 反向依赖业务模块。架构测试还必须限制 DbUp 迁移组件消费者、验证 Host Profile 的服务集合边界，并拒绝未显式声明认证或匿名意图的 Endpoint。
 
 ### 20.4 API、生成器和 E2E
 

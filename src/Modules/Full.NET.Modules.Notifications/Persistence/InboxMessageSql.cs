@@ -4,19 +4,6 @@ namespace Full.NET.Modules.Notifications.Persistence;
 
 internal static class InboxMessageSql
 {
-    public static readonly SqlStatement HostRecipientExists =
-        new(
-            "notifications.host_inbox_recipient_exists",
-            """
-            SELECT 1
-            FROM fn_identity_user
-            WHERE Id = @RecipientUserId
-              AND ScopeKey = 'host'
-              AND TenantId IS NULL
-              AND IsActive = 1
-            """,
-            SqlDataScope.HostOnly);
-
     public static readonly SqlStatement Insert =
         new(
             "notifications.insert_inbox_message",

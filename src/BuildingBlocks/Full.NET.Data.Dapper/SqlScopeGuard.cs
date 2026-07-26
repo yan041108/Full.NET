@@ -18,7 +18,8 @@ internal static class SqlScopeGuard
                     throw new TenantContextMissingException(statement.Name);
                 }
 
-                if (!statement.Text.Contains("@TenantId", StringComparison.OrdinalIgnoreCase))
+                if (statement.TenantBinding != SqlTenantBinding.CurrentTenantId
+                    || !statement.Text.Contains("@TenantId", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new TenantScopeViolationException(statement.Name);
                 }
@@ -30,6 +31,11 @@ internal static class SqlScopeGuard
 
             case SqlDataScope.Global:
             case SqlDataScope.HostOnly:
+                if (statement.TenantBinding != SqlTenantBinding.None)
+                {
+                    throw new TenantScopeViolationException(statement.Name);
+                }
+
                 break;
 
             default:

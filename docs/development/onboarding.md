@@ -97,8 +97,9 @@ AI 代理仍以 `AGENTS.md` 和 `rules/` 为权威源；本节描述意图，不
 | `IQueryExecutor` | SELECT 查询，返回只读结果 |
 | `ICommandExecutor` | INSERT / UPDATE / DELETE，返回影响行数 |
 | `IMultiResultQueryExecutor` | 一次往返取多张表，减少数据库往返次数 |
-| `SqlStatement` | SQL 三元组 `(Name, Text, Scope)`，每条 SQL 可追踪、可审查、可测试 |
+| `SqlStatement` | SQL 四元组 `(Name, Text, Scope, TenantBinding)`，每条 SQL 可追踪、可审查、可测试 |
 | `SqlDataScope` | 枚举：`Global` / `TenantRequired` / `HostOnly`，SQL 层面强制租户隔离边界 |
+| `SqlTenantBinding` | 枚举：`None` / `CurrentTenantId`，声明执行器是否注入受信任的当前租户参数 |
 | `IOutboxWriter` | Outbox 写入抽象，业务代码通过此接口发布事件，与消息中间件解耦 |
 | `IOutboxStore` | Outbox 读取抽象，后台 Worker 通过此接口轮询待发事件 |
 
