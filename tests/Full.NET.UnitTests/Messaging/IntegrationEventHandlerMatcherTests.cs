@@ -50,15 +50,31 @@ public sealed class IntegrationEventHandlerMatcherTests
     }
 
     [TestMethod]
-    public void ValidateUniqueRoutes_RejectsOverlappingLegacyRoutes()
+    public void ValidateUniqueRoutes_RejectsInvalidMetadataAndOverlappingRoutes()
     {
+        var emptyEventType = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
+                [new InvalidRouteHandler(" ", 1, [])]));
+        var invalidSchemaVersion = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
+                [new InvalidRouteHandler("fullnet.tenancy.tenant.provisioned", 0, [])]));
+        var emptyLegacyEventType = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
+                [new InvalidRouteHandler(
+                    "fullnet.tenancy.tenant.provisioned",
+                    1,
+                    [""])]));
         var first = new TenantProvisionedHandler();
         var second = new ConflictingHandler();
-
-        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+        var overlappingRoute = Assert.ThrowsExactly<InvalidOperationException>(() =>
             IntegrationEventHandlerMatcher.ValidateUniqueRoutes([first, second]));
 
-        StringAssert.Contains(exception.Message, "fullnet.tenancy.tenant-provisioned");
+        StringAssert.Contains(emptyEventType.Message, "EventType");
+        StringAssert.Contains(invalidSchemaVersion.Message, "SchemaVersion");
+        StringAssert.Contains(emptyLegacyEventType.Message, "LegacyEventTypes");
+        StringAssert.Contains(
+            overlappingRoute.Message,
+            "fullnet.tenancy.tenant-provisioned");
     }
 
     private sealed class TenantProvisionedHandler(int schemaVersion = 1)
@@ -82,6 +98,24 @@ public sealed class IntegrationEventHandlerMatcherTests
         public string EventType => "fullnet.tenancy.tenant-provisioned";
 
         public int SchemaVersion => 1;
+
+        public Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class InvalidRouteHandler(
+        string eventType,
+        int schemaVersion,
+        IReadOnlyList<string> legacyEventTypes)
+        : IIntegrationEventHandler
+    {
+        public string EventType => eventType;
+
+        public IReadOnlyList<string> LegacyEventTypes => legacyEventTypes;
+
+        public int SchemaVersion => schemaVersion;
 
         public Task HandleAsync(
             ReadOnlyMemory<byte> payload,
