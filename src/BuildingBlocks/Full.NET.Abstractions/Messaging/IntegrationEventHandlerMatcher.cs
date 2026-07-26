@@ -24,21 +24,48 @@ public static class IntegrationEventHandlerMatcher
             StringTupleComparer.Ordinal);
         foreach (var handler in handlers)
         {
-            foreach (var eventType in EnumerateEventTypes(handler))
+            var owner = handler.GetType().FullName ?? handler.GetType().Name;
+            var eventType = handler.EventType;
+            if (string.IsNullOrWhiteSpace(eventType))
             {
-                var route = (eventType, handler.SchemaVersion);
+                throw new InvalidOperationException(
+                    $"Integration event handler '{owner}' must declare a non-empty "
+                    + $"{nameof(IIntegrationEventHandler.EventType)}.");
+            }
+
+            var schemaVersion = handler.SchemaVersion;
+            if (schemaVersion < 1)
+            {
+                throw new InvalidOperationException(
+                    $"Integration event handler '{owner}' must declare a positive "
+                    + $"{nameof(IIntegrationEventHandler.SchemaVersion)}.");
+            }
+
+            var legacyEventTypes = handler.LegacyEventTypes;
+            if (legacyEventTypes.Any(string.IsNullOrWhiteSpace))
+            {
+                throw new InvalidOperationException(
+                    $"Integration event handler '{owner}' must not declare empty "
+                    + $"{nameof(IIntegrationEventHandler.LegacyEventTypes)} entries.");
+            }
+
+            foreach (var routeEventType in EnumerateEventTypes(
+                eventType,
+                legacyEventTypes))
+            {
+                var route = (routeEventType, schemaVersion);
                 if (routeOwners.TryGetValue(route, out var existingOwner)
                     && !string.Equals(
                         existingOwner,
-                        handler.GetType().FullName,
+                        owner,
                         StringComparison.Ordinal))
                 {
                     throw new InvalidOperationException(
-                        $"Integration event route '{eventType}' schema {handler.SchemaVersion} "
-                        + $"is registered by both '{existingOwner}' and '{handler.GetType().FullName}'.");
+                        $"Integration event route '{routeEventType}' schema {schemaVersion} "
+                        + $"is registered by both '{existingOwner}' and '{owner}'.");
                 }
 
-                routeOwners[route] = handler.GetType().FullName ?? handler.GetType().Name;
+                routeOwners[route] = owner;
             }
         }
     }
@@ -49,10 +76,12 @@ public static class IntegrationEventHandlerMatcher
         string.Equals(handler.EventType, messageType, StringComparison.Ordinal)
         || handler.LegacyEventTypes.Contains(messageType, StringComparer.Ordinal);
 
-    private static IEnumerable<string> EnumerateEventTypes(IIntegrationEventHandler handler)
+    private static IEnumerable<string> EnumerateEventTypes(
+        string eventType,
+        IReadOnlyList<string> legacyEventTypes)
     {
-        yield return handler.EventType;
-        foreach (var legacyType in handler.LegacyEventTypes)
+        yield return eventType;
+        foreach (var legacyType in legacyEventTypes)
         {
             yield return legacyType;
         }

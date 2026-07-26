@@ -34,6 +34,18 @@ interface StorageLockRecord {
   expiresAt: number;
 }
 
+function isStorageLockRecord(value: unknown): value is StorageLockRecord {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const record = value as Partial<StorageLockRecord>;
+  return typeof record.owner === 'string'
+    && record.owner.length > 0
+    && typeof record.expiresAt === 'number'
+    && Number.isFinite(record.expiresAt);
+}
+
 function readSharedStorage(): Storage | undefined {
   try {
     return typeof localStorage === 'undefined' ? undefined : localStorage;
@@ -54,7 +66,13 @@ function readStorageLock(): StorageLockRecord | undefined {
       return undefined;
     }
 
-    return JSON.parse(raw) as StorageLockRecord;
+    const parsed = JSON.parse(raw) as unknown;
+    if (isStorageLockRecord(parsed)) {
+      return parsed;
+    }
+
+    storage.removeItem(storageLockKey);
+    return undefined;
   } catch {
     try {
       storage.removeItem(storageLockKey);
