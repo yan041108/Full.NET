@@ -16,6 +16,8 @@
 - 支持 Web Locks 时继续使用浏览器原生锁，不改变主路径。
 - 无 Web Locks 时把既有 30 秒、带 owner 的短租约移到同源 Tab 共享的
   `localStorage`。
+- 浏览器暴露 `localStorage` 但因隐私或安全策略拒绝读写时，把该异常视为
+  存储能力不可用并执行既有无锁降级，不让客户端存储策略阻断会话恢复。
 - Access Token、Refresh Token、用户资料和权限快照均未写入浏览器存储；
   `localStorage` 只保存随机 Tab owner 与租约到期时间。
 - 无 Web Locks 且无 `localStorage` 时继续执行既有无锁降级，不新增服务端
@@ -30,11 +32,15 @@ RED 使用两个协调器模拟两个 Tab，并让 `sessionStorage` 在读取时
 GREEN 将租约读、写和 owner 校验统一改为 `localStorage`。同一测试中的两个
 协调器共享存储，并发刷新期间最大活动操作数为 1；聚焦测试 3/3 通过。
 
+第二轮 RED 让 `localStorage.getItem` 抛出 `SecurityError`，修复前刷新函数
+尚未执行便直接失败。GREEN 对存储获取、读、写和清理建立异常边界：写锁
+失败时立即降级执行刷新，聚焦测试 4/4 通过。
+
 ## 完整验证
 
-- `pnpm --filter @fullnet/client-contracts test`：75/75。
+- `pnpm --filter @fullnet/client-contracts test`：76/76。
 - `pnpm --filter @fullnet/client-contracts build`：通过。
-- `pnpm test:clients`：client-contracts 75/75、Vue 200/200、Layui 95/95、
+- `pnpm test:clients`：client-contracts 76/76、Vue 201/201、Layui 95/95、
   admin-i18n 8/8、uni-app 103/103。
 - `pnpm test:governance`：11/11。
 - `pnpm test:skills`：52 项契约检查通过。

@@ -913,6 +913,16 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | .NET canonical 门槛 | **395/7/49/189**（不变；本次未修改 C#、数据库或 Integration 测试） |
 | 验证记录 | [`realtime-signalr-foundation-2026-07-26.md`](realtime-signalr-foundation-2026-07-26.md) |
 
+## 增补（2026-07-27，会话刷新存储回退）
+
+| 项目 | 结果 |
+| --- | --- |
+| client-contracts Vitest **75 → 76** | 无 Web Locks 时使用 `localStorage` 跨 Tab 短租约；存储策略抛出 `SecurityError` 时降级执行刷新 |
+| RED / GREEN | 存储拒绝场景由聚焦 **1/4** 失败转为 **4/4**；共享契约全量 **76/76**，TypeScript 构建通过 |
+| Vue / Layui | **201/201** / **95/95**（Vue 聚合门槛随 workspace 链接中的共享测试增加 1 项） |
+| .NET canonical 门槛 | **395/7/49/189**（不变；本次未修改 C#、数据库或 Integration 测试） |
+| 验证记录 | [`session-refresh-localstorage-fallback-2026-07-27.md`](session-refresh-localstorage-fallback-2026-07-27.md) |
+
 ## 增补（2026-07-26，日志退出共享预算）
 
 | 项目 | 结果 |
