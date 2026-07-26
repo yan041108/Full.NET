@@ -54,11 +54,7 @@ public static class IntegrationEventHandlerMatcher
                 legacyEventTypes))
             {
                 var route = (routeEventType, schemaVersion);
-                if (routeOwners.TryGetValue(route, out var existingOwner)
-                    && !string.Equals(
-                        existingOwner,
-                        owner,
-                        StringComparison.Ordinal))
+                if (routeOwners.TryGetValue(route, out var existingOwner))
                 {
                     throw new InvalidOperationException(
                         $"Integration event route '{routeEventType}' schema {schemaVersion} "

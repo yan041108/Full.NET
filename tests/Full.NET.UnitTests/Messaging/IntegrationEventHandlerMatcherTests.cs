@@ -68,6 +68,12 @@ public sealed class IntegrationEventHandlerMatcherTests
         var second = new ConflictingHandler();
         var overlappingRoute = Assert.ThrowsExactly<InvalidOperationException>(() =>
             IntegrationEventHandlerMatcher.ValidateUniqueRoutes([first, second]));
+        var duplicateHandlerType = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
+                [
+                    new TenantProvisionedHandler(),
+                    new TenantProvisionedHandler()
+                ]));
 
         StringAssert.Contains(emptyEventType.Message, "EventType");
         StringAssert.Contains(invalidSchemaVersion.Message, "SchemaVersion");
@@ -75,6 +81,9 @@ public sealed class IntegrationEventHandlerMatcherTests
         StringAssert.Contains(
             overlappingRoute.Message,
             "fullnet.tenancy.tenant-provisioned");
+        StringAssert.Contains(
+            duplicateHandlerType.Message,
+            "fullnet.tenancy.tenant.provisioned");
     }
 
     private sealed class TenantProvisionedHandler(int schemaVersion = 1)
