@@ -169,7 +169,7 @@
 - Consumes: Tasks 1–2 的 RED/GREEN、双库和完整门禁证据。
 - Produces: 同步主线后 canonical 门槛 `390/7/49/186`；若并行任务实际改变发现数，以测试运行器新鲜发现结果同时更新全部 canonical 来源。
 
-- [ ] **Step 1: 同步状态与运维语义**
+- [x] **Step 1: 同步状态与运维语义**
 
   记录两个指标、无标签边界、采样故障不阻断消费，以及建议的 pending count/oldest age
   告警基线。缓存/Outbox 能力继续保持 `Build-verified`：生产指标导出、真实告警平台和完整
@@ -180,7 +180,7 @@
   等高优先级日志任务提交后，将最新 `main` 合入本分支；解决共享文档门槛时保留两边已验证
   事实。API Key UI 分支若已合入，也同样保留其双端状态，不覆盖其文件。
 
-- [ ] **Step 3: 执行最终完整门禁**
+- [x] **Step 3: 执行最终完整门禁**
 
   ```powershell
   dotnet build Full.NET.slnx -c Release
@@ -199,7 +199,7 @@
 
   预期：Release 0 warning/0 error；所有发现测试通过、失败 0、跳过 0；Node 门禁全部通过。
 
-- [ ] **Step 4: 完成规则与 Skill 复盘**
+- [x] **Step 4: 完成规则与 Skill 复盘**
 
   按 `rules/rule-evolution.md` 判断是否形成第二次可泛化遗漏，再按
   `rules/skill-evolution.md` 判断是否需要演进项目 Skill。未达到门槛时只在验证记录写明

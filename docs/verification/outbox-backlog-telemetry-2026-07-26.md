@@ -2,8 +2,8 @@
 
 - 日期：2026-07-26（Asia/Shanghai）
 - 分支：`codex/outbox-backlog-telemetry`
-- 基线：`790754e` 之后的隔离工作树
-- 状态：实现与聚焦验证完成；完整主线验证待并行日志任务提交后执行
+- 基线：从 `790754e` 建立隔离工作树，完整验证前已同步 `c552f48`
+- 状态：实现、双库聚焦与完整运行时门禁已完成；待同步纯 OpenAPI 文档提交后合入 `main`
 
 ## 范围与合同
 
@@ -52,13 +52,20 @@ SQL Server `datetimeoffset` 与 MySQL `datetime(6)` 显式 UTC 映射一致。
 空队列同时记录 `0` 条和 `0` 秒。年龄由 Worker 的 `IClock.UtcNow` 与数据库最老
 `OccurredAtUtc` 计算并钳制为非负值；不记录租户、消息类型、消息 ID 或异常文本。
 
-## 已完成的附加门禁
+## 完整验证
 
 | 门禁 | 结果 |
 | --- | --- |
-| Unit 聚焦 | **11/11** |
+| Release 构建 | 0 warning / 0 error |
+| Unit | **390/390**，失败 0、跳过 0 |
+| Compatibility | **7/7**，失败 0、跳过 0 |
 | Architecture | **49/49** |
+| Integration | **186/186**，失败 0、跳过 0，**33m39s**，stderr 为 0 |
 | Naming | **23/23** |
+| Skill 契约 | **52** 项通过 |
+| Governance | **11/11** |
+| Integration tooling | **4/4** |
+| Integration partitions | **35 + 35 + 62 + 54 = 186**，无遗漏或重复 |
 | `git diff --check` | 通过 |
 
 ## 规则与 Skills 复盘
@@ -69,9 +76,8 @@ SQL Server `datetimeoffset` 与 MySQL `datetime(6)` 显式 UTC 映射一致。
 - Skills：本切片是既有 Outbox 基础设施的指标补齐，没有形成第二个业务模块的可靠事件交付
   工作流，也没有暴露 `fullnet-module-delivery` 的新缺口；本次无 Skills 变化。
 
-## 待最终回填
+## 状态结论
 
-并行高优先级日志任务仍占用主工作区并运行完整 Integration。本分支将在其提交后合入最新
-`main`，统一 canonical 测试门槛，再执行 Release 构建、Unit、Compatibility、
-Architecture、Integration 全量与全部治理门禁。本节在获得新鲜最终输出后更新，当前不能
-把上述待执行项描述为通过。
+本切片达到 `Build-verified`：代码级 Meter、非阻断采样、SQL Server/MySQL 查询语义和完整
+回归门禁均已有新鲜证据。生产 OTLP 后端、仪表盘、真实告警阈值、多副本容量基准仍未实跑，
+因此不能标记为 `Verified`。
