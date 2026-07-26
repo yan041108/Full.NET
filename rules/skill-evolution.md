@@ -95,7 +95,7 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-api-compatibility` | 候选 / 4 | ProblemDetails、Admin.NET Mapper、保留 `WWW-Authenticate` 的本地化认证 Challenge，以及经同一 Mapper 返回的稳定本地化 429 均有真实 API 测试锁定 | 新增分页、文件或另一类兼容端点时评估升级 |
 | `fullnet-cache-feature` | 候选 / 3 | FusionCache 双抽象、租户 ID/域名 key 与 tag 失效、提交后本机修复、事务 Outbox 驱动的 Redis Backplane 多实例可靠失效及失败重试均已落地 | 独立业务模块采用第二种缓存模型时，基于两类消费者边界按测试先行评估升级；当前创建新 Skill 会扩大本任务范围 |
 | `fullnet-release-verification` | 自动化优先 / 11 | uni-app 三目标构建、fresh H5 E2E、许可与漏洞门禁已落地；本轮共享 Hosting 全量 Integration 在 Docker Desktop 停止时产生 172 项环境失败，启动并预热 Engine 后精确复跑与最终 **184/184** 通过 | 优先把 Docker Engine readiness、冷启动预热和环境失败分类收敛进 Integration preflight/脚本，不创建判断型 Skill |
-| `fullnet-realtime-feature` | 候选 / 1 | SignalR/MessagePack Hub、用户/租户分组、可选 Redis Backplane 已实现；Notifications 公告和站内信成为首批 `IRealtimePublisher` 消费者，并以提交后尽力推送边界通过双库验证 | 第二个独立业务模块消费实时发布，或多实例 Backplane 真实栈验收后评估升级 |
+| `fullnet-realtime-feature` | 候选 / 2 | SignalR/MessagePack Hub、用户/租户分组与 Notifications 提交后尽力推送已通过双库验证；本轮进一步以两个真实 API 宿主、专用 Redis、真实 SignalR Client 锁定 ready 降级、固定端点 stop/start 与无需重启恢复 | 第二个独立业务模块消费实时发布，或生产多副本编排/管理端客户端形成第二类稳定交付流程后，再按测试先行评估升级 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
 | `fullnet-dual-admin-feature` | 候选 / 11 | Identity 会话、租户切换、权限导航、国际化/可访问性之外，租户套餐、Settings、Auditing 访问/操作日志与 Host API Key 均按同一“contracts 守卫 + admin-i18n 双语 + Vue/Layui 双实现 + shell-parity 双端场景”模式交付；API Key 额外验证一次性明文不进入 Web Storage | 首个含列表、表单、权限与租户边界的双端业务 CRUD 达到 `Verified` 后评估升级 |
 | `fullnet-localization-delivery` | 候选 / 5 | L0-L2 之上，L3 uni-app 已落地规范语言/别名、Vue I18n、偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具未安装，跨平台停止条件未闭合 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
