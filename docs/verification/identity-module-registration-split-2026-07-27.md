@@ -41,3 +41,5 @@
 | 格式与范围 | 定向 `dotnet format --verify-no-changes`、`git diff --check` 通过；无 SQL、迁移、公共 API 或生产客户端改动 |
 
 最终 canonical 为 **398/7/49/189**。Integration 总数保持 189，本切片未新增或删除 Integration 测试方法；客户端事实保持 client-contracts **76**、Vue **201**、Layui **95**。
+
+功能提交 `f389fe1` fast-forward 合入 `main` 后再次验证 Release **0 warning / 0 error**、Unit/Compatibility/Architecture **398/7/49**、Governance **11/11**、Skill **52** 与 workspace；任务分支、Git worktree 注册和物理残留均已删除。

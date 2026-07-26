@@ -30,4 +30,4 @@
 - [x] 更新架构硬化 Task 15、能力矩阵和独立验证记录；未借结构重构提升 Identity/RBAC 整体成熟度。
 - [x] 执行 Release、Unit、Compatibility、Architecture、双库 Identity 聚焦 Integration、客户端真实栈登录冒烟及全部静态门禁。
 - [x] 完成规则与 Skill 遗漏复盘、三轮结构化代码审查、`git diff --check` 和范围审计。
-- [ ] 提交后合并到本地 `main`，删除 `codex/identity-module-registration-split` 分支及工作树，不推送远端。
+- [x] 功能提交 `f389fe1` 已 fast-forward 合并到本地 `main`；`codex/identity-module-registration-split` 分支、Git worktree 注册和物理残留均已删除，未推送远端。
