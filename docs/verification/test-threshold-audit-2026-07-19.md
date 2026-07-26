@@ -973,6 +973,19 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **400/7/49/189** |
 | 验证记录 | [`jobs-worker-bounded-options-2026-07-27.md`](jobs-worker-bounded-options-2026-07-27.md) |
 
+## 增补（2026-07-27，Jobs 长任务主动续租）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **400 → 404** | 新增租约配置边界、主动续租、所有权丢失取消与终态零行续租竞态 4 项回归 |
+| RED / GREEN | 配置与续租接口缺失先编译失败；移除零行所有权判断后超时；终态竞态修正前误抛所有权丢失，最小修复后 Jobs 聚焦 **7/7** |
+| 配置边界 | `LeaseSeconds` 默认 `300`、范围 `30..3600`；`LeaseRenewalSeconds` 默认 `60`、范围 `5..1200` 且不超过租约一半；越界配置在 Worker 启动期失败 |
+| Jobs SQL Server/MySQL 聚焦 | 既有两项用例加入主动续租场景，**2/2** 通过，失败 0、跳过 0，**1m48s** |
+| Integration 门槛与分片 | 保持 **189**；API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** |
+| 四处 canonical 门槛 | **404/7/49/189** |
+| 规则 / Skills 复盘 | 不新增强制规则；`fullnet-dual-database-change` 候选观察次数 **10 → 11**，尚未达到独立 Skill 触发条件 |
+| 验证记录 | [`jobs-active-lease-renewal-2026-07-27.md`](jobs-active-lease-renewal-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)

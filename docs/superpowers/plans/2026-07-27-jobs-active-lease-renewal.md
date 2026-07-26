@@ -116,7 +116,7 @@
 
   释放 Handler，断言第一个 Runner 返回 1；执行终态为 `succeeded`、`AttemptCount = 1`、租约字段清空。所有等待使用明确超时，避免挂起测试进程。
 
-- [ ] **Step 3: 等待队列后运行双库聚焦**
+- [x] **Step 3: 等待队列后运行双库聚焦**
 
   ```powershell
   dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --no-restore --nologo
@@ -139,19 +139,19 @@
 **Interfaces:**
 - Produces: 最新 main 上准确的 canonical 门槛、配置/故障语义和双库证据。
 
-- [ ] **Step 1: 记录能力与限制**
+- [x] **Step 1: 记录能力与限制**
 
   记录默认值、合法范围、续租所有权条件、续租故障取消语义、双库命令/数量/耗时；保留 Cron/延迟调度、失败重试分类、运维重放和真实大规模压力基准为未完成项。
 
-- [ ] **Step 2: 同步最终 main**
+- [x] **Step 2: 同步最终 main**
 
   等 Outbox、E2E 与 session lease-horizon 依次合并清理后，将最新 main 合入本分支，解决共享 canonical/路线图文档差异。
 
-- [ ] **Step 3: 执行最终门禁**
+- [x] **Step 3: 执行最终门禁**
 
   运行 Release、Unit、Compatibility、Architecture、Integration 分片发现、Jobs 双库 2/2、Governance、Skills、workspace 与 `git diff --check`。若本任务新增 4 个 Unit 且前序无 .NET 测试变化，目标为 404/7/49/189。
 
-- [ ] **Step 4: 规则与 Skills 复盘**
+- [x] **Step 4: 规则与 Skills 复盘**
 
   读取并执行 `rules/rule-evolution.md`、`rules/skill-evolution.md`；只有形成跨任务重复模式并达到门槛时才更新规则或项目 Skill。
 

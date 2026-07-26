@@ -66,9 +66,34 @@ WHERE TenantId IS NULL
 
 ## 最终双库与合并门禁
 
-待 Outbox → admin-real-stack E2E → session lease-horizon 依次合并清理并释放 Docker 后，
-本节补录最新 main 上的 Jobs SQL Server/MySQL **2/2**、最终 canonical、静态门槛、
-合并提交与分支/工作树/容器清理证据。
+分支已同步 `main@8d80c62c78e7b31cf116626aa478812e59ab370a`，完整保留 Outbox、
+admin-real-stack E2E 与 session lease-horizon 的前序差异。随后在 Docker 空闲时运行：
+
+```powershell
+dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --no-restore --nologo
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --filter "FullyQualifiedName~JobsApi" --minimum-expected-tests 2 --timeout 20m
+```
+
+结果为 SQL Server/MySQL **2/2**，失败 0、跳过 0，耗时 **1m48s**；Integration 项目
+Release 编译 **0 warning / 0 error**。测试退出后 Docker 容器为 0。
+
+| 最新 main 同步后的门槛 | 结果 |
+| --- | --- |
+| Full.NET.slnx Release | **0 warning / 0 error** |
+| Unit / Compatibility / Architecture | **404/404** / **7/7** / **49/49**，失败 0、跳过 0 |
+| Integration 分片发现 | **35/35/62/57 = 189**，无遗漏或重复 |
+| Naming / Governance / Project Skill / Workspace | **23/23** / **11/11** / **52** 项 / 通过 |
+| `git diff --check` | 通过 |
+
+最终 canonical 为 **404/7/49/189**。合并提交、main 轻量复验以及分支/工作树清理状态
+在完成 fast-forward 后补录。
+
+## 规则与 Skills 复盘
+
+本切片没有形成新的跨模块遗漏模式：现有 Worker 配置启动校验、Host-only SQL 作用域、
+租约所有权与双库门禁已覆盖，因此不新增或修改强制规则。项目 Skill 复盘命中既有
+`fullnet-dual-database-change` 候选一次，观察次数 **10 → 11**；本次没有破坏性迁移，
+仍未达到从模块交付 Skill 拆分独立 Skill 的触发条件。
 
 ## 保持不变的限制
 
