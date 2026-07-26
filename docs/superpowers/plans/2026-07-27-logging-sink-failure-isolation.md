@@ -139,7 +139,7 @@
 
   `logging-sink-failure-isolation-2026-07-27.md` 记录基线 9/9、首轮 RED 的 dropped 假绿、异常传播后的两个后续事件超时、GREEN 11/11、完整门禁和未完成项。未执行的磁盘满、跨重启和外部平台测试必须明确列为未验证。
 
-- [ ] **Step 3: 同步最终 main 并执行完成门禁**
+- [x] **Step 3: 同步最终 main 并执行完成门禁**
 
   在 Jobs active lease renewal → Files RootPath → IdentityOptions 启动校验队列全部完成后，把最新 `main` 合入本分支，解决 canonical 文档差异，然后运行：
 
@@ -160,7 +160,7 @@
   git diff --check
   ```
 
-  Expected: 所有命令退出码 0；Release 0 warning/0 error；按当前队列预计 Unit 至少 **406**（最终同步时若最新 `main` 已提高门槛，只能上调，禁止降低）。Hosting 是共享基础设施，因此完整 Integration 仍需顺序独占 Docker。
+  Actual: 所有命令退出码 0；Release 0 warning/0 error；Unit / Compatibility / Architecture 为 **406/7/49**，Logging 聚焦 **11/11**；完整 Integration **189/189**，失败 0、跳过 0、stderr 0，耗时 **31m23s**。Hosting 是共享基础设施，因此完整 Integration 已顺序独占 Docker 执行，结束后容器自动归零。
 
 - [ ] **Step 4: 规则与 Skill 复盘、提交、合并清理**
 
@@ -170,7 +170,7 @@
   git commit -m "fix: keep logging workers alive after sink failures"
   ```
 
-  在主工作树确认 `main` 未漂移后合并；合并后重跑聚焦 11 项与 Governance/Skill/workspace/diff check，最后删除 `codex/logging-local-spool` 分支、Git worktree 注册和物理目录。
+  在主工作树确认 `main` 未漂移后合并；合并后重跑聚焦 11 项与 Governance/Skill/workspace/diff check，最后删除 `codex/logging-sink-failure-isolation` 分支、Git worktree 注册和物理目录。
 
 ## Self-Review
 

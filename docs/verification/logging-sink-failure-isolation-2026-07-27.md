@@ -30,11 +30,19 @@
 | `dotnet build tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --no-restore` | 通过，警告 **0**、错误 **0** |
 | 日志聚焦 Unit | **11/11**，失败 **0**、跳过 **0** |
 | 当前树 Release | `dotnet build Full.NET.slnx -c Release --no-restore` 通过，警告 **0**、错误 **0** |
-| 当前树测试 | Unit **402/402**、Compatibility **7/7**、Architecture **49/49**，失败 **0**、跳过 **0** |
-| 当前树静态门禁 | Governance **11/11**、Project Skills **52 checks**、Naming **23/23**、workspace、OpenAPI **58/58**、OpenAPI breaking **25/25**、Integration tooling **4/4** 均通过 |
-| 当前树 Integration 分区发现 | **35 + 35 + 62 + 57 = 189**，四分区发现门禁均通过 |
-| 最终主线复验 | 等待 Jobs、Files、IdentityOptions 前序队列同步最新 `main` 后执行 |
-| 完整 Integration | Hosting 共享基础设施触发全量；等待前序 Docker 队列释放后执行 |
+| 最终树测试 | Unit **406/406**、Compatibility **7/7**、Architecture **49/49**，失败 **0**、跳过 **0**；Logging 聚焦 **11/11** |
+| 最终树静态门禁 | Governance **11/11**、Project Skills **52 checks**、Naming **23/23**、workspace、OpenAPI **58/58**、OpenAPI breaking **25/25**、Integration tooling **4/4** 均通过 |
+| 最终树 Integration 分区发现 | **35 + 35 + 62 + 57 = 189**，四分区发现门禁均通过 |
+| canonical | Unit **404 → 406**；Compatibility / Architecture / Integration 保持 **7/49/189** |
+| 完整 Integration | **189/189**，失败 **0**、跳过 **0**、stderr **0**，耗时 **31m23s**；结束后 Testcontainers 自动释放，Docker 容器 **0** |
+
+## 队列合流记录
+
+首次同步到 `main@eb611aa` 后，全量 Unit 的 406 项在 20-worker 并行调度下暴露了 Jobs 续租终态竞态，结果为 405 成功、1 失败；同一用例单独连续 10 次通过，证明既有测试依赖调度时序。该问题由 Jobs 原切片在独立范围以确定性 RED 修复并合入 `main@085857c`，Logging 未修改 Jobs。Logging 重新 rebase、构建后全量 Unit **406/406** 通过，最终全量 Integration 也只在包含该修复的源码上执行。
+
+## 规则与 Skills 复盘
+
+本次新证据只证明一次性的 Serilog 子 Logger 异常可观测性缺口，两个通道的回归测试已形成机械防护；没有出现第二次同类遗漏、高风险规则歧义或需要跨模块复用的稳定工程判断流程。因此不新增或修改强制规则，不登记候选经验，也不新增、修改项目 Skill。
 
 ## 未完成项
 
