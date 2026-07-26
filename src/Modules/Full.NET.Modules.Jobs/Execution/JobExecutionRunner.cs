@@ -66,6 +66,11 @@ internal sealed class JobExecutionRunner(
                 renewalFailure = exception;
             }
 
+            if (processingTask.IsCompletedSuccessfully)
+            {
+                return await processingTask.ConfigureAwait(false);
+            }
+
             leaseCancellation.Cancel();
             try
             {
@@ -101,6 +106,11 @@ internal sealed class JobExecutionRunner(
                 when (leaseCancellation.IsCancellationRequested)
             {
                 // 批次已经结束或宿主正在退出，续租循环应随 linked token 有界停止。
+            }
+            catch (Exception)
+                when (processingTask.IsCompletedSuccessfully)
+            {
+                // 最后一个执行已写入终态时，零行续租只表示该批次不再需要持有租约。
             }
         }
     }

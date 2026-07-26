@@ -131,6 +131,59 @@ public sealed class JobExecutionRunnerTests
     }
 
     [TestMethod]
+    public async Task ProcessPendingAsync_WhenFinalCompletionRacesWithZeroRowRenewal_ReturnsSuccess()
+    {
+        var definitionId = Guid.CreateVersion7();
+        var executionId = Guid.CreateVersion7();
+        var queryExecutor = new StubQueryExecutor(
+            new JobExecutionRecord
+            {
+                Id = executionId,
+                JobDefinitionId = definitionId,
+                Status = JobExecutionStatuses.Running,
+            },
+            new JobDefinitionRecord
+            {
+                Id = definitionId,
+                JobKey = RenewalAwaitingJobHandler.Key,
+                IsEnabled = true,
+            });
+        var commandExecutor = new CompletionRaceCommandExecutor();
+        var runner = new JobExecutionRunner(
+            queryExecutor,
+            commandExecutor,
+            new JobHandlerRegistry(
+                [new RenewalAwaitingJobHandler(commandExecutor.RenewalStarted)]),
+            new FixedClock(
+                new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
+            new FixedIdGenerator(Guid.CreateVersion7()),
+            Options.Create(
+                new DatabaseOptions
+                {
+                    Provider = DatabaseProvider.SqlServer,
+                }),
+            Options.Create(
+                new JobsWorkerOptions
+                {
+                    LeaseSeconds = 2,
+                    LeaseRenewalSeconds = 1,
+                }),
+            NullLogger<JobExecutionRunner>.Instance);
+
+        var processed = await runner
+            .ProcessPendingAsync(1, CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.AreEqual(1, processed);
+        CollectionAssert.Contains(
+            commandExecutor.Statements,
+            JobSql.MarkExecutionSucceeded);
+        CollectionAssert.DoesNotContain(
+            commandExecutor.Statements,
+            JobSql.MarkExecutionFailed);
+    }
+
+    [TestMethod]
     public async Task ProcessPendingAsync_WhenHostCancels_PropagatesWithoutMarkingFailure()
     {
         var definitionId = Guid.CreateVersion7();
@@ -351,6 +404,41 @@ public sealed class JobExecutionRunnerTests
             Statements.Add(statement);
             return Task.FromResult(
                 statement == JobSql.RenewExecutionLease ? 0 : 1);
+        }
+    }
+
+    private sealed class CompletionRaceCommandExecutor : ICommandExecutor
+    {
+        private readonly TaskCompletionSource _renewalStarted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _successMarked =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public List<SqlStatement> Statements { get; } = [];
+
+        public Task RenewalStarted => _renewalStarted.Task;
+
+        public async Task<int> ExecuteAsync(
+            SqlStatement statement,
+            object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            Statements.Add(statement);
+            if (statement == JobSql.RenewExecutionLease)
+            {
+                _renewalStarted.TrySetResult();
+                await _successMarked.Task
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return 0;
+            }
+
+            if (statement == JobSql.MarkExecutionSucceeded)
+            {
+                _successMarked.TrySetResult();
+            }
+
+            return 1;
         }
     }
 }

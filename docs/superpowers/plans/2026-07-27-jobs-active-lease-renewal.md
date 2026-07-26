@@ -14,7 +14,7 @@
 - 配置仍位于 `Jobs:Worker`：`LeaseSeconds` 默认 300、范围 30～3600；`LeaseRenewalSeconds` 默认 60、范围 5～1200，且不得大于 `LeaseSeconds / 2`。
 - 续租 UPDATE 必须同时匹配 Host 作用域、`LeaseId` 和 `running` 状态；不得延长已完成或已被其他 Worker 重新领取的记录。
 - 宿主取消不是业务失败：停止续租、传播取消，不清理租约，由过期恢复路径接管。
-- Unit canonical 预计从 400 增至 403；Integration 保持 189，最终数字以同步最新 main 后的发现结果为准。
+- Unit canonical 预计从 400 增至 404；Integration 保持 189，最终数字以同步最新 main 后的发现结果为准。
 - 当前只做非 Docker 开发；最终双库验证与 main 合并排在 Outbox → admin-real-stack E2E → session lease-horizon 之后。
 
 ---
@@ -74,6 +74,7 @@
 - [x] **Step 1: 写 Runner RED 测试**
 
   新增一个会阻塞到第一次续租发生的 Handler；配置测试专用 2 秒租约和 1 秒续租，断言 Runner 在 Handler 完成前执行 `JobSql.RenewExecutionLease`，参数包含当前 `LeaseId`、`running` 状态及晚于初始租约的 `LeaseExpiresAtUtc`。
+  增加终态竞态回归：让最后一个 Handler 与返回 0 的续租确定性交错，先证明已成功写入终态的批次会被误报所有权丢失。
 
 - [x] **Step 2: 运行 RED**
 
@@ -95,7 +96,7 @@
 
 - [x] **Step 4: 运行 GREEN 与 Jobs Unit 回归**
 
-  构建并运行 `JobExecutionRunnerTests|JobsWorkerOptionsTests|JobExecutionHostedProcessorTests`，预期 6/6、失败 0、跳过 0；其中额外一项锁定续租返回 0 时取消 Handler 并传播所有权丢失。
+  构建并运行 `JobExecutionRunnerTests|JobsWorkerOptionsTests|JobExecutionHostedProcessorTests`，预期 7/7、失败 0、跳过 0；其中一项锁定续租返回 0 时取消 Handler 并传播所有权丢失，另一项锁定最后一个执行已写入终态时不把零行续租误报为故障。
 
 ### Task 3: Prove Renewal on SQL Server and MySQL
 
@@ -148,7 +149,7 @@
 
 - [ ] **Step 3: 执行最终门禁**
 
-  运行 Release、Unit、Compatibility、Architecture、Integration 分片发现、Jobs 双库 2/2、Governance、Skills、workspace 与 `git diff --check`。若本任务新增 3 个 Unit 且前序无 .NET 测试变化，目标为 403/7/49/189。
+  运行 Release、Unit、Compatibility、Architecture、Integration 分片发现、Jobs 双库 2/2、Governance、Skills、workspace 与 `git diff --check`。若本任务新增 4 个 Unit 且前序无 .NET 测试变化，目标为 404/7/49/189。
 
 - [ ] **Step 4: 规则与 Skills 复盘**
 
