@@ -464,7 +464,7 @@ this slice: Unit 416, Compatibility 7, Architecture 49, Integration 191.
 
 Read `rules/rule-evolution.md` and `rules/skill-evolution.md`; record whether either threshold is met. Update the verification record with fresh commands, results, HEADs, Docker/process state, and explicit remaining Outbox gaps.
 
-- [ ] **Step 7: Commit, fast-forward main, reverify, and clean**
+- [x] **Step 7: Commit, fast-forward main, reverify, and clean**
 
 ```powershell
 git add docs README.md .github/workflows/ci.yml .agents/skills/fullnet-module-delivery/references/delivery-map.md

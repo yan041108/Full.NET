@@ -1,7 +1,7 @@
 # Outbox 旧版本退役扫描验证
 
 日期：2026-07-27
-状态：验证通过，待合并与清理
+状态：已完成并合入清理
 
 ## 1. 目标与边界
 
@@ -112,8 +112,18 @@ Release solution build 已通过，结果为 **0 warning / 0 error**。
 后台 run 被按 PID 精确终止；它们都没有计入产品结果，也没有替代上述权威完整
 套件。
 
-最终 canonical 为 **416/7/49/191**。合并后主线复验、最终 HEAD 与分支/worktree
-清理状态将在 fast-forward 后补入。
+最终 canonical 为 **416/7/49/191**。功能与门槛提交已 fast-forward 到
+`main@995e45bc45b132b791658fc23450739531d45567`。主线新鲜复验结果为 Release
+solution build **0 warning / 0 error**、Unit **416/416**、Compatibility **7/7**、
+Architecture **49/49**、Governance **11/11**、Skill **52 checks**、Integration
+分片发现 **191**、workspace 与 SQL safety **5/5** 均通过。构建首次在受管沙箱
+内因其空 NuGet 缓存无法解析 SDK，改用已包含所需 SDK 的本机 NuGet 缓存执行同一
+`--no-restore` 命令后通过；该环境失败未计入产品结果。
+
+`codex/outbox-version-retirement-scan` 分支、关联 worktree 与其中的
+`node_modules` junction 已删除。最终复核 Docker 容器 **0**、实际
+`dotnet.exe` Integration runner **0**；主检出区仅保留用户已有的 `.cache/`
+与 `.tmp/art-design-pro/`。
 
 ## 6. 规则与 Skills 复盘
 
