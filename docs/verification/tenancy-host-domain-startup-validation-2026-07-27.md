@@ -4,7 +4,8 @@
 - 分支：`codex/tenancy-host-domain-validation`
 - 初始基线：`main@e34ce5cc9bbe5b753baef6fb304108e207173c04`
 - 最终同步基线：`main@b43d2145b92f18d8fbc7b93a9ebec95197d6fc71`
-- 状态：实现与最终合并前验证完成，等待 fast-forward main 与分支/工作树清理
+- 功能提交：`d49b2973030a705532d027788ae1ee33e5eabfa4`
+- 状态：实现、最终门禁、main 合入与分支/工作树清理均已完成
 
 ## 范围与契约
 
@@ -67,6 +68,18 @@
 最终 canonical 为 **408/7/49/189**；README、本地开发指南、CI、项目 Skill 交付地图与
 测试门槛审计记录已同步。全量 Integration 期间独占 Docker，完成后确认测试容器与
 Integration 进程均已退出。
+
+## main 合入后复验与清理
+
+功能提交通过 `--ff-only` 合入 main。main 自身输出目录的新鲜复验结果为：
+
+- Unit 工程 Release 构建 0 warning / 0 error；
+- Unit **408/408**，Tenancy 新旧聚焦 **7/7**；
+- Governance **11/11**、Project Skill **52** 项、Workspace 均通过；
+- `git diff --check` 通过，Docker 容器与 Integration 进程均为 0。
+
+`codex/tenancy-host-domain-validation` 分支、Git 工作树登记和物理目录均已删除。
+主检出区只保留用户原有的 `.cache/` 与 `.tmp/art-design-pro/` 未跟踪目录。
 
 ## 规则与 Skills 复盘
 
