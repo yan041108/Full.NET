@@ -1022,6 +1022,17 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 规则 / Skills 复盘 | 既有模块交付 Skill 已覆盖配置启动校验，本次无规则和 Skill 变化 |
 | 验证记录 | [`tenancy-host-domain-startup-validation-2026-07-27.md`](tenancy-host-domain-startup-validation-2026-07-27.md) |
 
+## 增补（2026-07-27，限流策略错误码冲突注册）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **408 → 409** | 新增 1 项 Hosting 回归，拒绝同一限流策略被注册为不同稳定错误码，并保留首次映射 |
+| RED / GREEN | 旧实现静默覆盖首次映射；冲突保护后聚焦 **2/2**，同值重复注册保持幂等 |
+| Compatibility / Architecture / Integration | 保持 **7/49/189** |
+| 四处 canonical 门槛 | **409/7/49/189** |
+| 规则 / Skills 复盘 | 既有稳定机器码与测试先行规则已覆盖，本次无规则和 Skill 变化 |
+| 验证记录 | [`rate-limit-policy-code-conflict-2026-07-27.md`](rate-limit-policy-code-conflict-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
