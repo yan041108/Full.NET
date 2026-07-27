@@ -24,13 +24,14 @@
 | 门槛 | 结果 |
 | --- | --- |
 | Release solution | 0 warning / 0 error |
-| Unit | 409/409；既有测试方法扩展，canonical 不变 |
+| Unit | 416/416；既有测试方法扩展，canonical 不变 |
 | Compatibility | 7/7 |
 | Architecture | 49/49 |
+| Integration tooling | 4/4 |
 | Governance / Skill | 11/11；52 项契约检查 |
-| Workspace / diff | 通过 |
+| Workspace / diff | workspace 与 `git diff --check` 通过 |
 | owned C# format | 两份本切片文件限定 `dotnet format --verify-no-changes` 通过 |
-| Integration | 继承紧邻主线完整全量 189/189；本切片不占 Docker |
+| Integration | 继承紧邻 Outbox 主线完整全量 191/191；本切片不占 Docker |
 
 Windows checkout 初次 scoped format 检查报告 owned C# 文件仍使用 CRLF；formatter
 仅将这两份文件规范为 `.editorconfig` 要求的 LF，Git 差异保持局部。
