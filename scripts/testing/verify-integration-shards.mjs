@@ -22,7 +22,16 @@ const partitionNames = [
 ];
 
 export function verifyPartitionSets(fullTests, partitions) {
-  const fullIds = new Set(fullTests.map(test => test.uid));
+  const fullIds = new Set();
+  for (const test of fullTests) {
+    if (fullIds.has(test.uid)) {
+      throw new Error(
+        `全量测试 UID 重复：${test.uid}（${test.displayName}）。`
+      );
+    }
+    fullIds.add(test.uid);
+  }
+
   const assigned = new Map();
   for (const [name, tests] of Object.entries(partitions)) {
     for (const test of tests) {

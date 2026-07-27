@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Tenancy;
 
@@ -76,7 +77,11 @@ public sealed class TenancyModule : IFullNetModule
     {
         AddTenantContextAccessor(services);
         services.AddOptions<TenancyOptions>()
-            .Bind(configuration.GetSection(TenancyOptions.SectionName));
+            .Bind(configuration.GetSection(TenancyOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<TenancyOptions>,
+            TenancyOptionsValidator>());
         services.AddFullNetFluentValidation();
         services.TryAddScoped<
             IValidator<ProvisionTenantCommand>,

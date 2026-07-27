@@ -40,5 +40,6 @@ public static class PrimaryKeyTypeMapping
     /// <param name="right">右侧配置档。</param>
     /// <returns>仅当两者相同且非默认冲突时返回 <see langword="true"/>。</returns>
     public static bool AreProfilesCompatible(PrimaryKeyProfile left, PrimaryKeyProfile right) =>
-        left == right;
+        left == right
+        && left is PrimaryKeyProfile.UuidV7 or PrimaryKeyProfile.Snowflake;
 }

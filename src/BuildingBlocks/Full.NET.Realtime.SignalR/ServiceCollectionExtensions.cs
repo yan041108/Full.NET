@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
         options.RedisBackplaneConnectionString = ResolveRedisBackplaneConnectionString(
             configuration,
             options);
+        Validate(options);
         services.AddSingleton(Options.Create(options));
 
         if (!options.Enabled)
@@ -68,5 +69,27 @@ public static class ServiceCollectionExtensions
 
         var connectionString = configuration.GetConnectionString("redis");
         return string.IsNullOrWhiteSpace(connectionString) ? null : connectionString;
+    }
+
+    private static void Validate(RealtimeOptions options)
+    {
+        if (!options.Enabled)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(options.HubPath)
+            || !options.HubPath.StartsWith('/')
+            || options.HubPath.Contains('?')
+            || options.HubPath.Contains('#')
+            || options.HubPath.Any(char.IsWhiteSpace))
+        {
+            throw new OptionsValidationException(
+                RealtimeOptions.SectionName,
+                typeof(RealtimeOptions),
+                [
+                    "Realtime:HubPath must be an absolute path without whitespace, a query string, or a fragment.",
+                ]);
+        }
     }
 }
