@@ -23,13 +23,18 @@ function attributes(tag) {
 function durationToMilliseconds(duration) {
   const match = /^(\d+):(\d{2}):(\d{2}(?:\.\d+)?)$/.exec(duration ?? '');
   if (!match) {
-    return 0;
+    return null;
   }
 
+  const minutes = Number(match[2]);
+  const seconds = Number(match[3]);
+  if (minutes >= 60 || seconds >= 60) {
+    return null;
+  }
   return (
     Number(match[1]) * 3_600_000
-    + Number(match[2]) * 60_000
-    + Number(match[3]) * 1_000
+    + minutes * 60_000
+    + seconds * 1_000
   );
 }
 
@@ -93,11 +98,18 @@ export function analyzeTrx(xml) {
       definitionsById.get(result.testId)
       ?? definitionsByName.get(result.testName)
       ?? {};
+    const testName = result.testName ?? definition.name ?? 'Unknown';
+    const durationMs = durationToMilliseconds(result.duration);
+    if (durationMs === null) {
+      throw new Error(
+        `测试“${testName}”缺少有效的 duration。`
+      );
+    }
     tests.push({
-      name: result.testName ?? definition.name ?? 'Unknown',
+      name: testName,
       className: definition.className ?? '',
       outcome: result.outcome ?? 'Unknown',
-      durationMs: durationToMilliseconds(result.duration)
+      durationMs
     });
   }
 

@@ -63,6 +63,20 @@ test('TRX 报告按耗时降序输出最慢测试', () => {
   assert.match(text, /总计 3，成功 2，失败 1，其他 0，总测试耗时 7\.000s/);
   assert.ok(text.indexOf('Host_users_with_sql_server') < text.indexOf('Host_users_with_mysql'));
   assert.equal(formatDuration(1250), '1.250s');
+  for (const durationAttribute of [
+    '',
+    'duration="not-a-duration"',
+    'duration="00:60:00"'
+  ]) {
+    const invalidTrx = sampleTrx.replace(
+      'duration="00:00:03.5000000"',
+      durationAttribute
+    );
+    assert.throws(
+      () => analyzeTrx(invalidTrx),
+      /Host_users_with_sql_server.*duration/
+    );
+  }
 });
 
 test('四个 CI 分片数量精确覆盖全量门槛', () => {
