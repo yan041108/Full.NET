@@ -28,6 +28,43 @@ internal sealed class DapperOutboxStore(
                 $"Database provider '{_databaseOptions.Provider}' is not supported.")
         };
 
+    public Task<OutboxVersionRetirementSnapshot> ReadVersionRetirementAsync(
+        IReadOnlyCollection<string> messageTypes,
+        int schemaVersion,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(messageTypes);
+        if (messageTypes.Count == 0
+            || messageTypes.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new ArgumentException(
+                "At least one non-empty Outbox message type is required.",
+                nameof(messageTypes));
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
+        var parameters = new
+        {
+            MessageTypes = messageTypes
+                .Distinct(StringComparer.Ordinal)
+                .ToArray(),
+            SchemaVersion = schemaVersion
+        };
+        return _databaseOptions.Provider switch
+        {
+            DatabaseProvider.SqlServer =>
+                ReadSqlServerVersionRetirementAsync(
+                    parameters,
+                    cancellationToken),
+            DatabaseProvider.MySql =>
+                ReadMySqlVersionRetirementAsync(
+                    parameters,
+                    cancellationToken),
+            _ => throw new NotSupportedException(
+                $"Database provider '{_databaseOptions.Provider}' is not supported.")
+        };
+    }
+
     public Task<IReadOnlyList<OutboxEnvelope>> AcquireAsync(
         int batchSize,
         TimeSpan lease,
@@ -178,6 +215,45 @@ internal sealed class DapperOutboxStore(
             oldestOccurredAtUtc);
     }
 
+    private async Task<OutboxVersionRetirementSnapshot>
+        ReadSqlServerVersionRetirementAsync(
+            object parameters,
+            CancellationToken cancellationToken)
+    {
+        var row = await queryExecutor
+            .QuerySingleOrDefaultAsync<SqlServerVersionRetirementRow>(
+                OutboxSql.ReadVersionRetirementSqlServer,
+                parameters,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new OutboxVersionRetirementSnapshot(
+            row?.PendingCount ?? 0,
+            row?.DeadLetterCount ?? 0,
+            row?.OldestUnprocessedOccurredAtUtc);
+    }
+
+    private async Task<OutboxVersionRetirementSnapshot>
+        ReadMySqlVersionRetirementAsync(
+            object parameters,
+            CancellationToken cancellationToken)
+    {
+        var row = await queryExecutor
+            .QuerySingleOrDefaultAsync<MySqlVersionRetirementRow>(
+                OutboxSql.ReadVersionRetirementMySql,
+                parameters,
+                cancellationToken)
+            .ConfigureAwait(false);
+        DateTimeOffset? oldestUnprocessedOccurredAtUtc =
+            row?.OldestUnprocessedOccurredAtUtc is { } value
+                ? new DateTimeOffset(
+                    DateTime.SpecifyKind(value, DateTimeKind.Utc))
+                : null;
+        return new OutboxVersionRetirementSnapshot(
+            row?.PendingCount ?? 0,
+            row?.DeadLetterCount ?? 0,
+            oldestUnprocessedOccurredAtUtc);
+    }
+
     private Task<IReadOnlyList<OutboxEnvelope>> AcquireMySqlAsync(
         object parameters,
         CancellationToken cancellationToken) =>
@@ -253,6 +329,20 @@ internal sealed class DapperOutboxStore(
     {
         public long PendingCount { get; init; }
         public DateTime? OldestOccurredAtUtc { get; init; }
+    }
+
+    private sealed class SqlServerVersionRetirementRow
+    {
+        public long PendingCount { get; init; }
+        public long DeadLetterCount { get; init; }
+        public DateTimeOffset? OldestUnprocessedOccurredAtUtc { get; init; }
+    }
+
+    private sealed class MySqlVersionRetirementRow
+    {
+        public long PendingCount { get; init; }
+        public long DeadLetterCount { get; init; }
+        public DateTime? OldestUnprocessedOccurredAtUtc { get; init; }
     }
 
     private sealed class MySqlOutboxRow

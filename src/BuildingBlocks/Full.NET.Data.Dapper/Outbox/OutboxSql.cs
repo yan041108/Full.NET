@@ -26,6 +26,42 @@ internal static class OutboxSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ReadVersionRetirementSqlServer = new(
+        "outbox.read_version_retirement.sql_server",
+        """
+        SELECT COUNT_BIG(
+                   CASE WHEN DeadLetteredAtUtc IS NULL THEN 1 END
+               ) AS PendingCount,
+               COUNT_BIG(
+                   CASE WHEN DeadLetteredAtUtc IS NOT NULL THEN 1 END
+               ) AS DeadLetterCount,
+               MIN(OccurredAtUtc) AS OldestUnprocessedOccurredAtUtc
+        FROM fn_outbox_message
+        WHERE ProcessedAtUtc IS NULL
+          AND MessageType IN @MessageTypes
+          AND SchemaVersion = @SchemaVersion;
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ReadVersionRetirementMySql = new(
+        "outbox.read_version_retirement.my_sql",
+        """
+        SELECT COALESCE(
+                   SUM(CASE WHEN DeadLetteredAtUtc IS NULL THEN 1 ELSE 0 END),
+                   0
+               ) AS PendingCount,
+               COALESCE(
+                   SUM(CASE WHEN DeadLetteredAtUtc IS NOT NULL THEN 1 ELSE 0 END),
+                   0
+               ) AS DeadLetterCount,
+               MIN(OccurredAtUtc) AS OldestUnprocessedOccurredAtUtc
+        FROM fn_outbox_message
+        WHERE ProcessedAtUtc IS NULL
+          AND MessageType IN @MessageTypes
+          AND SchemaVersion = @SchemaVersion;
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement AcquireSqlServer = new(
         "outbox.acquire.sql_server",
         """

@@ -90,6 +90,22 @@ public sealed class OutboxRecoveryTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
+    [TestMethod]
+    public async Task SqlServer_version_retirement_snapshot_counts_only_target_unprocessed_routes()
+    {
+        await VerifyVersionRetirementSnapshotAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task MySql_version_retirement_snapshot_counts_only_target_unprocessed_routes()
+    {
+        await VerifyVersionRetirementSnapshotAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
     private static async Task VerifyUnknownVersionDeadLetterAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
@@ -332,6 +348,84 @@ public sealed class OutboxRecoveryTests
         Assert.IsNull(empty.OldestOccurredAtUtc);
     }
 
+    private static async Task VerifyVersionRetirementSnapshotAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        const string canonicalType =
+            "fullnet.tests.messaging.version_retirement.current";
+        const string legacyType =
+            "fullnet.tests.messaging.version-retirement.legacy";
+        const string processedAlias =
+            "fullnet.tests.messaging.version-retirement.processed";
+        const string otherType =
+            "fullnet.tests.messaging.version_retirement.other";
+        var deadLetterOccurredAtUtc =
+            new DateTimeOffset(2026, 7, 27, 1, 0, 0, TimeSpan.Zero);
+        var clock = new MutableClock(deadLetterOccurredAtUtc);
+        var configuration = CreateConfiguration(databaseProvider, connectionString);
+        await MigrateAsync(databaseProvider, connectionString);
+
+        await using var services = BuildServices(configuration, clock);
+        await InsertOutboxAsync(
+            services,
+            legacyType,
+            1,
+            new TestIntegrationEvent("dead-letter"));
+        await UpdateOutboxTimestampAsync(
+            databaseProvider,
+            connectionString,
+            legacyType,
+            "DeadLetteredAtUtc",
+            deadLetterOccurredAtUtc);
+
+        clock.UtcNow = deadLetterOccurredAtUtc.AddMinutes(1);
+        await InsertOutboxAsync(
+            services,
+            canonicalType,
+            1,
+            new TestIntegrationEvent("pending"));
+
+        clock.UtcNow = deadLetterOccurredAtUtc.AddMinutes(2);
+        await InsertOutboxAsync(
+            services,
+            processedAlias,
+            1,
+            new TestIntegrationEvent("processed"));
+        await UpdateOutboxTimestampAsync(
+            databaseProvider,
+            connectionString,
+            processedAlias,
+            "ProcessedAtUtc",
+            clock.UtcNow);
+
+        clock.UtcNow = deadLetterOccurredAtUtc.AddMinutes(3);
+        await InsertOutboxAsync(
+            services,
+            otherType,
+            1,
+            new TestIntegrationEvent("other-type"));
+        await InsertOutboxAsync(
+            services,
+            canonicalType,
+            2,
+            new TestIntegrationEvent("other-version"));
+
+        await using var scope = services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var reader = scope.ServiceProvider.GetRequiredService<IOutboxBacklogReader>();
+        var snapshot = await reader.ReadVersionRetirementAsync(
+            [canonicalType, legacyType, processedAlias],
+            1,
+            CancellationToken.None);
+
+        Assert.AreEqual(1L, snapshot.PendingCount);
+        Assert.AreEqual(1L, snapshot.DeadLetterCount);
+        Assert.AreEqual(
+            deadLetterOccurredAtUtc,
+            snapshot.OldestUnprocessedOccurredAtUtc);
+    }
+
     private static WorkerHost.OutboxProcessor CreateProcessor(
         ServiceProvider services,
         MutableClock clock) => new(
@@ -438,6 +532,35 @@ public sealed class OutboxRecoveryTests
                 Payload = payload,
                 MessageType = messageType,
                 SchemaVersion = schemaVersion
+            });
+    }
+
+    private static async Task UpdateOutboxTimestampAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString,
+        string messageType,
+        string columnName,
+        DateTimeOffset timestamp)
+    {
+        Assert.IsTrue(
+            columnName is "ProcessedAtUtc" or "DeadLetteredAtUtc",
+            "测试夹具只允许更新已审核的 Outbox 终态时间列。");
+        var databaseTimestamp = databaseProvider == DatabaseProvider.MySql
+            ? (object)timestamp.UtcDateTime
+            : timestamp;
+        await using var connection = CreateConnection(
+            databaseProvider,
+            connectionString);
+        await connection.ExecuteAsync(
+            $"""
+             UPDATE fn_outbox_message
+             SET {columnName} = @Timestamp
+             WHERE MessageType = @MessageType
+             """,
+            new
+            {
+                Timestamp = databaseTimestamp,
+                MessageType = messageType
             });
     }
 
