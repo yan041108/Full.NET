@@ -9,9 +9,10 @@
 - 数据库租约领取；
 - 最大尝试次数与死信终态；
 - 待处理数量与最老消息年龄指标；
+- 指定消息类型与 SchemaVersion 的一次性只读退役扫描；
 - SQL Server / MySQL 双库列契约。
 
-本文档不声明尚未实现的能力，例如相邻版本升级链、版本退役扫描、Redis Leader Election 或通用一键自动重放工具。
+本文档不声明尚未实现的能力，例如相邻版本升级链、生产发布平台自动化门禁、Redis Leader Election 或通用一键自动重放工具。
 
 ## 2. 默认拓扑
 
@@ -120,7 +121,23 @@ Worker 将 `Full.NET.Outbox` Meter 接入 OpenTelemetry，并按
 - 再部署生产者：确认全部消费端已能处理新 `SchemaVersion` 后，生产者再开始写新版本消息。
 - 最后退役旧版本：确认库内旧版本消息已排空、死信已处理且不再有旧生产者写入后，才允许移除旧 Handler。
 
-当前未实现“自动升级链”与“版本退役扫描”。因此运维与发布阶段必须显式检查旧版本消息是否已排空，不能假定系统会自动升格旧载荷。
+旧 Handler 仍在当前发布物中时，可从仓库根目录运行一次性只读扫描：
+
+```powershell
+dotnet run --project src/Hosts/Full.NET.Host.Worker -c Release --no-build -- `
+  --outbox-version-retirement-message-type fullnet.tenancy.tenant.provisioned `
+  --outbox-version-retirement-schema-version 1
+```
+
+扫描契约如下：
+
+- `message-type` 可填写 Handler 当前声明的规范路由或历史别名；工具先解析到唯一 Handler，再同时检查该 Handler 的规范路由与全部历史别名。
+- `schema-version` 必须是正整数，并只检查该精确版本。
+- 只统计 `ProcessedAtUtc IS NULL` 的记录；普通待处理和死信分别计数，任一非零都会阻止退役。
+- 报告只包含稳定结果码、输入路由、精确版本、实际扫描路由、两个计数与最老未处理时间，不输出载荷、租户或消息标识，也不会修改、领取或重放消息。
+- 安全排空返回 `0` 和 `outbox.version_retirement.safe`；仍有阻塞返回 `2` 和 `outbox.version_retirement.blocked`；命令或路由错误返回 `1` 和对应稳定错误码。
+
+该结果是单一时间点证据。生产者冻结、完整发布窗口内不再写入旧版本、死信处置和观察期仍须由发布流程保证；当前也未实现自动升级链，不能假定系统会自动升格旧载荷。
 
 ## 7. 查询死信
 
@@ -220,7 +237,7 @@ WHERE Id = @Id
 
 以下事项仍是后续工作，不应被当前文档误读为已完成：
 
-- 相邻版本升级链与版本退役自动扫描；
+- 相邻版本升级链与生产发布平台中的持续退役门禁；
 - 真实多副本压力基准与容量建议；
 - 受控人工重放自动化工具；
 - 结合 Redis/编排器的更广生产演练。
