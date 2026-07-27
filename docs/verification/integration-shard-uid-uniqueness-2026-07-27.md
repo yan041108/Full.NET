@@ -3,8 +3,8 @@
 - 日期：2026-07-27（Asia/Shanghai）
 - 初始基线：`main@b837747e0d2a301747947a229468725690562826`
 - 最终同步基线：`main@2abe451d4e7dd18145ed511f4b3f1238c1b03601`
-- 分支：`codex/integration-partition-uid-validation`
-- 状态：实现与最终门禁已完成，等待 fast-forward 合入与分支清理
+- 原分支：`codex/integration-partition-uid-validation`
+- 状态：实现与最终门禁已完成，已 fast-forward 合入 `main`；分支、worktree 注册和物理目录已清理
 
 ## 问题与边界
 
