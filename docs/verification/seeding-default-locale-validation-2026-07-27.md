@@ -1,8 +1,8 @@
 # Seeding DefaultLocale 启动校验验证记录（2026-07-27）
 
 - 范围：`Seeding:DefaultLocale` 启动配置校验、聚焦 Unit 回归。
-- 状态：**Unit-verified，等待既定 main 合并队列后完成 canonical 收口**。
-- 开发基线：`main@fa3449442bcce350872088084268771697a5a7e8`。
+- 状态：**Build-verified**。
+- 最终同步基线：`main@306b4583841826c39c814a32c7ee5f4839fca5bb`。
 
 ## 行为合同
 
@@ -22,22 +22,24 @@
 | GREEN | 新增契约 **1/1**；Seeding 聚焦 **46/46**，失败 0，跳过 0 |
 | 格式与差异 | 两个代码文件完成定向 `dotnet format`；`git diff --check` 通过 |
 
-## 隔离分支预验证
+## 最终验证
 
 | 门槛 | 新鲜结果 |
 | --- | --- |
 | `Full.NET.slnx` Release | **0 warning / 0 error** |
-| Unit / Compatibility / Architecture | **408/408** / **7/7** / **49/49**，失败 0，跳过 0 |
+| Unit / Compatibility / Architecture | **410/410** / **7/7** / **49/49**，失败 0，跳过 0 |
+| Seeding SQL Server/MySQL 聚焦 | **6/6**，失败 0，跳过 0，**2m57s** |
 | Integration 分片发现 | API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **57** = **189** |
 | Governance / Project Skill / Workspace | **11/11** / **52** 项 / 通过 |
+| Docker / Integration 进程 | **0 / 0** |
 
-## 后续收口
+紧邻前序 Tenancy 共享宿主变更已在最终主线序列中完成完整 Integration
+**189/189**，失败 0、跳过 0，**30m07s**，stderr 0。本切片只修改
+Migrator 专用 Seeding 配置验证，不改共享宿主、SQL、事务或数据映射；按
+`rules/development-quality.md` 第 11.1 节执行受影响的 Seeding 双提供程序
+聚焦 **6/6**，不重复完整全量。
 
-本分支不占用 Docker。待
-Data.CodeGeneration → Outbox → Tenancy → Integration shard UID → RateLimit
-依次合入后，分支将同步最新 `main`，更新四处 canonical 门槛与审计记录，
-执行 Release、Unit、Compatibility、Architecture、Governance、Project Skill、
-Workspace 和分片发现验证，再合入 `main` 并删除分支/工作树。
+最终 canonical 为 **410/7/49/189**；四处门槛与审计记录已同步。
 
 ## 规则与 Skills 复盘
 

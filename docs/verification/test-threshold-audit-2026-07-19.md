@@ -1033,6 +1033,18 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 规则 / Skills 复盘 | 既有稳定机器码与测试先行规则已覆盖，本次无规则和 Skill 变化 |
 | 验证记录 | [`rate-limit-policy-code-conflict-2026-07-27.md`](rate-limit-policy-code-conflict-2026-07-27.md) |
 
+## 增补（2026-07-27，Seeding DefaultLocale 启动校验）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **409 → 410** | 新增 1 项 Seeding 启动回归，拒绝非空但无法由 `CultureInfo` 解析的默认语言标签 |
+| RED / GREEN | 旧实现只拒绝空白值，`not a locale!` 未触发启动异常；最小校验后新增契约 **1/1**、Seeding Unit 聚焦 **46/46** |
+| 稳定边界 | 非法配置由 `IStartupValidator` 以 `OptionsValidationException` 快速失败，并保留 `seed.options.invalid`；默认 `zh-CN` 与数据库租约语义不变 |
+| Compatibility / Architecture / Integration | 保持 **7/49/189**；Seeding SQL Server/MySQL 聚焦 **6/6**，紧邻 Tenancy 完整全量 **189/189** |
+| 四处 canonical 门槛 | **410/7/49/189** |
+| 规则 / Skills 复盘 | 既有 BCP 47、启动校验和测试先行规则已覆盖，本次无规则和 Skill 变化 |
+| 验证记录 | [`seeding-default-locale-validation-2026-07-27.md`](seeding-default-locale-validation-2026-07-27.md) |
+
 ## 关联文档
 
 - [当前能力状态矩阵](../roadmap/capability-status.md)
