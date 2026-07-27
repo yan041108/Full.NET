@@ -78,7 +78,7 @@ public sealed class ModuleRegistryTests
     }
 
     [TestMethod]
-    public void Registry_rejects_null_and_blank_dependency_keys_when_adding_modules()
+    public void Registry_rejects_invalid_dependency_keys_when_adding_modules()
     {
         var registry = new FullNetModuleRegistry();
 
@@ -86,9 +86,16 @@ public sealed class ModuleRegistryTests
             () => registry.Add(new NamedModule("null-consumer", [null!])));
         var blankException = Assert.Throws<InvalidOperationException>(
             () => registry.Add(new NamedModule("blank-consumer", ["   "])));
+        var duplicateException = Assert.Throws<InvalidOperationException>(
+            () => registry.Add(new NamedModule("duplicate-consumer", ["base", "base"])));
 
         StringAssert.Contains(nullException.Message, "null-consumer", StringComparison.Ordinal);
         StringAssert.Contains(blankException.Message, "blank-consumer", StringComparison.Ordinal);
+        StringAssert.Contains(
+            duplicateException.Message,
+            "duplicate-consumer",
+            StringComparison.Ordinal);
+        StringAssert.Contains(duplicateException.Message, "base", StringComparison.Ordinal);
     }
 
     [TestMethod]

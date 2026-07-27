@@ -19,13 +19,22 @@ public sealed class FullNetModuleRegistry
         var dependencyKeys = module.Dependencies?.ToArray()
             ?? throw new InvalidOperationException(
                 $"Module key '{moduleKey}' must declare a dependency collection.");
+        var declaredDependencyKeys = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < dependencyKeys.Length; index++)
         {
-            if (string.IsNullOrWhiteSpace(dependencyKeys[index]))
+            var dependencyKey = dependencyKeys[index];
+            if (string.IsNullOrWhiteSpace(dependencyKey))
             {
                 throw new InvalidOperationException(
                     $"Module key '{moduleKey}' declares a null or blank dependency key "
                     + $"at index {index}.");
+            }
+
+            if (!declaredDependencyKeys.Add(dependencyKey))
+            {
+                throw new InvalidOperationException(
+                    $"Module key '{moduleKey}' declares duplicate dependency key "
+                    + $"'{dependencyKey}'.");
             }
         }
 
