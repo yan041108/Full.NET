@@ -214,7 +214,7 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 411
+          --minimum-expected-tests 416
 
       - name: Compatibility tests
         run: >-
@@ -236,7 +236,7 @@ jobs:
         run: node scripts/testing/run-integration-shard.mjs smoke
 
       # canonical 本地全量回退：
-      # dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 189 --timeout 90m
+      # dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 191 --timeout 90m
 
       - name: Serialization baseline
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -312,4 +312,4 @@ jobs:
         run: |
           test "${{ needs.build-test.result }}" = "success"
           test "${{ needs.integration-shard.result }}" = "success"
-          echo "All 189 Integration tests passed across four isolated shards."
+          echo "All 191 Integration tests passed across four isolated shards."

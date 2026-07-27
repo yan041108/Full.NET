@@ -18,7 +18,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 411
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 416
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 ```
@@ -29,7 +29,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | ?? | ?????? | ???? / Outbox schema ?? 2 ??`--timeout 15m` |
 | PR | ???????CI PR | Identity/Tenancy/Outbox ?????? 8 ??`--timeout 15m` |
-| 完整 | 合并 `main`、共享基础设施或发布前 | 完整 `--minimum-expected-tests 189 --timeout 90m` |
+| 完整 | 合并 `main`、共享基础设施或发布前 | 完整 `--minimum-expected-tests 191 --timeout 90m` |
 
 ```powershell
 # 日常按风险选择标准入口
@@ -45,7 +45,7 @@ pnpm test:integration:full
 pnpm test:integration:durations
 
 # canonical 全量命令
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 189 --timeout 90m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 191 --timeout 90m
 ```
 
 Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。SQL、事务、租户过滤和迁移变更必须成对覆盖 SQL Server/MySQL；共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、测试基础设施、发布或 main 门禁必须运行全量。

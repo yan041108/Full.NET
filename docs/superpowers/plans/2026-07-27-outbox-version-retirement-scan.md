@@ -400,11 +400,11 @@ git commit -m "feat(outbox): execute version retirement scan"
 - Consumes: RateLimit、Seeding、DatabaseOptions、Caching 完整合入清理后的最新 `main`。
 - Produces: 主线可执行的只读命令、双库证据、同步 canonical 门槛与已删除的临时分支/worktree。
 
-- [ ] **Step 1: Wait for the queue and rebase onto the latest clean main**
+- [x] **Step 1: Wait for the queue and rebase onto the latest clean main**
 
 Verify Docker/Integration process count is zero, fetch the latest local `main`, then rebase this branch. Resolve only documentation/canonical drift; stop if any owned source/test file overlaps unexpectedly.
 
-- [ ] **Step 2: Run the two focused database tests**
+- [x] **Step 2: Run the two focused database tests**
 
 Run:
 
@@ -415,7 +415,7 @@ dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationT
 
 Expected: SQL Server 1/1 and MySQL 1/1 pass; pending/dead-letter/processed/other-version routing assertions all hold.
 
-- [ ] **Step 3: Update runbook and capability evidence**
+- [x] **Step 3: Update runbook and capability evidence**
 
 Document the exact operational form:
 
@@ -427,7 +427,7 @@ dotnet run --project src/Hosts/Full.NET.Host.Worker -c Release --no-build -- `
 
 Record exit codes `0=safe`, `1=invalid/error`, `2=blocked`; state that dead letters block retirement, aliases are included automatically, the Handler must still be deployed, a producer freeze/retirement window is still required, and the command never replays or mutates messages. Remove only the now-closed “版本退役扫描” gap; adjacent upgrades, replay automation, production pressure/alerting remain open, so capability stays `Build-verified`.
 
-- [ ] **Step 4: Discover and synchronize canonical counts**
+- [x] **Step 4: Discover and synchronize canonical counts**
 
 Build all four test assemblies, run `--list-tests json`, and set:
 
@@ -438,16 +438,16 @@ Build all four test assemblies, run `--list-tests json`, and set:
 
 Apply the exact discovered values to README, getting-started, CI, delivery-map and the latest threshold audit. The verification record must distinguish focused dual-database execution from full Integration execution.
 
-- [ ] **Step 5: Run final fresh gates**
+- [x] **Step 5: Run final fresh gates**
 
 Run:
 
 ```powershell
 dotnet build Full.NET.slnx -c Release --no-restore
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 413
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 416
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 49
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 191 --timeout 45m
+dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --no-ansi --progress off --minimum-expected-tests 191 --timeout 90m
 pnpm test:governance
 pnpm test:skills
 pnpm exec prettier --check .
@@ -457,11 +457,10 @@ git status --short --branch
 
 Expected: Release build 0 warnings/0 errors; all four suites meet exact discovered totals; Governance 11/11; Skill contracts 52/52; workspace, diff and status checks pass. Full Integration owns Docker only in this final queue position and leaves zero containers/processes.
 
-The literals above are exact for the branch base `4dcea9c` plus this slice. If queued
-main changes the discovered totals, update these four literals in the plan and all
-canonical sources to the newly discovered exact values before running the gate.
+The literals above are the fresh discovery totals from final base `216475c` plus
+this slice: Unit 416, Compatibility 7, Architecture 49, Integration 191.
 
-- [ ] **Step 6: Perform rule/skill evolution reviews and close evidence**
+- [x] **Step 6: Perform rule/skill evolution reviews and close evidence**
 
 Read `rules/rule-evolution.md` and `rules/skill-evolution.md`; record whether either threshold is met. Update the verification record with fresh commands, results, HEADs, Docker/process state, and explicit remaining Outbox gaps.
 

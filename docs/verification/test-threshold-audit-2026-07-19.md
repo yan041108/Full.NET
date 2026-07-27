@@ -1061,3 +1061,16 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **411/7/49/189** |
 | 规则 / Skills 复盘 | 单次局部配置遗漏已由自动回归阻断，本次无规则和 Skill 变化 |
 | 验证记录 | [`cache-redis-connection-validation-2026-07-27.md`](cache-redis-connection-validation-2026-07-27.md) |
+
+## 增补：2026-07-27，Outbox 旧版本退役扫描
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **411 → 416** | 新增命令解析 2 项与 Scanner 3 项，覆盖参数隔离、非法输入、canonical/legacy 路由、safe/blocked 与缺失 Handler |
+| Integration 门槛 **189 → 191** | SQL Server/MySQL 各新增 1 项只读快照，覆盖目标 pending、dead-letter、已处理、其他消息类型和其他版本 |
+| Integration 四分片 | API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **59** = **191** |
+| 稳定边界 | 退出码 `0/1/2` 分别表示安全、命令或路由错误、仍有阻塞；扫描不领取、修改、重放或输出敏感消息字段 |
+| 双库与完整门禁 | 退役快照 SQL Server/MySQL **2/2**；完整 **191/191**，失败 0、跳过 0，**34m26s**，TRX Completed 且 stderr 0 |
+| 四处 canonical 门槛 | **416/7/49/191** |
+| 规则 / Skills 复盘 | 现有双库、敏感信息、公共契约与完成门禁规则已覆盖；首次单一能力切片不足以形成新 Skill，本次无变化 |
+| 验证记录 | [`outbox-version-retirement-scan-2026-07-27.md`](outbox-version-retirement-scan-2026-07-27.md) |

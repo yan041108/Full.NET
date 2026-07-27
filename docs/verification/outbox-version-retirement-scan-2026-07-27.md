@@ -1,7 +1,7 @@
 # Outbox 旧版本退役扫描验证
 
 日期：2026-07-27
-状态：等待最终主线同步与双库全量验证
+状态：验证通过，待合并与清理
 
 ## 1. 目标与边界
 
@@ -65,21 +65,55 @@ SQL Server 与 MySQL 各新增一个同语义用例。每个用例在新迁移�
 - 一个其他消息类型；
 - 一个其他 SchemaVersion。
 
-预期快照为普通待处理 `1`、死信 `1`，最老时间取两个未处理目标消息中的最早值。双库实际执行结果将在本切片到达共享 Docker 队首后补入。
+预期快照为普通待处理 `1`、死信 `1`，最老时间取两个未处理目标消息中的最早值。
+Docker Engine READY 后从干净状态运行，SQL Server/MySQL **2/2** 通过，失败
+**0**、跳过 **0**，耗时 **1m07s**。
 
 ## 5. 最终门禁
 
-等待 DatabaseOptions 与 Caching 完整合入清理后，基于最新 `main` 执行并记录：
+DatabaseOptions 与 Caching 已完整合入清理，本分支无冲突同步到
+`main@216475cf266b9b1005e7ba07a28bcafb0dfb4f5b`。新鲜发现结果为：
 
-- Release solution build；
-- Unit、Compatibility、Architecture 新鲜全量；
-- SQL Server/MySQL 聚焦退役快照；
-- 完整 Integration；
-- Governance、Skill contracts、workspace formatting、`git diff --check`；
-- 合并后主线非 Docker 复验；
-- Docker 容器与 Integration 进程归零。
+| Suite | 发现数量 |
+| --- | ---: |
+| Unit | 416 |
+| Compatibility | 7 |
+| Architecture | 49 |
+| Integration | 191 |
 
-最终 HEAD、canonical 数量、精确命令和结果将在合入前更新。
+已同步 README、getting-started、CI、Integration 分片定义与项目 Skill delivery-map。
+Release solution build 已通过，结果为 **0 warning / 0 error**。
+
+最终分支门禁：
+
+| 门禁 | 结果 |
+| --- | --- |
+| Release solution build | **0 warning / 0 error** |
+| Unit | **416/416**，失败 0、跳过 0 |
+| Compatibility | **7/7**，失败 0、跳过 0 |
+| Architecture | **49/49**，失败 0、跳过 0 |
+| 退役快照 SQL Server/MySQL | **2/2**，失败 0、跳过 0，**1m07s** |
+| 完整 Integration | MTP 摘要 **191/191**，失败 0、跳过 0，**34m26s** |
+| 完整 Integration TRX | `outcome=Completed`，total/executed/passed **191/191/191**；failed/error/timeout/aborted/inconclusive/notExecuted 全 0，墙钟 **34m25.907s** |
+| Integration stderr | **0 bytes**，无 `ELIFECYCLE` |
+| Integration 分片 | API SQL Server **35** + API MySQL **35** + Migrations **62** + Infrastructure **59** = **191**，无遗漏或重复 |
+| Governance / Skill / SQL safety | **11/11** / **52 checks** / **5/5** |
+| Integration tooling / workspace | **4/4** / 通过 |
+| owned C# format / `git diff --check` | 通过 / 通过 |
+| Docker / Integration 进程 | 完整套件结束后 **0 / 0** |
+
+完整套件由 detached wrapper 启动；wrapper 没有保留可在事后读取的 runner
+句柄，因此未直接观测数值 ExitCode。这里不声称捕获到 exit 0，而是以 MTP
+“已通过”摘要、完整 TRX counters、stderr 0 和无 `ELIFECYCLE` 共同证明成功路径。
+
+执行期间第一次聚焦运行因 Docker Desktop 未启动，在任何数据库断言前以
+`DockerUnavailableException` 失败；Engine READY=29.6.1 后已从干净状态重跑
+并通过。一次受管沙箱后台尝试同样因无 Docker 命名管道权限失败，且一个重复
+后台 run 被按 PID 精确终止；它们都没有计入产品结果，也没有替代上述权威完整
+套件。
+
+最终 canonical 为 **416/7/49/191**。合并后主线复验、最终 HEAD 与分支/worktree
+清理状态将在 fast-forward 后补入。
 
 ## 6. 规则与 Skills 复盘
 
