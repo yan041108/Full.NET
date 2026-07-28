@@ -1,4 +1,5 @@
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Auditing.Features.QueryHostAccessLogs;
 using Full.NET.Modules.Auditing.Features.QueryHostExceptionLogs;
 using Full.NET.Modules.Auditing.Features.QueryHostOperationLogs;
@@ -32,7 +33,8 @@ public sealed class AuditingPagedQueryRoundTripTests
         var service = new HostAccessLogQueryService(
             RejectingQueryExecutor.Instance,
             executor,
-            Options.Create(new DatabaseOptions { Provider = provider }));
+            Options.Create(new DatabaseOptions { Provider = provider }),
+            CreateContainsTimeRangePolicy());
 
         var result = await service.ListAsync(
             3,
@@ -77,7 +79,8 @@ public sealed class AuditingPagedQueryRoundTripTests
         var service = new HostOperationLogQueryService(
             RejectingQueryExecutor.Instance,
             executor,
-            Options.Create(new DatabaseOptions { Provider = provider }));
+            Options.Create(new DatabaseOptions { Provider = provider }),
+            CreateContainsTimeRangePolicy());
 
         var result = await service.ListAsync(
             3,
@@ -121,7 +124,8 @@ public sealed class AuditingPagedQueryRoundTripTests
         var service = new HostExceptionLogQueryService(
             RejectingQueryExecutor.Instance,
             executor,
-            Options.Create(new DatabaseOptions { Provider = provider }));
+            Options.Create(new DatabaseOptions { Provider = provider }),
+            CreateContainsTimeRangePolicy());
 
         var result = await service.ListAsync(
             3,
@@ -263,6 +267,9 @@ public sealed class AuditingPagedQueryRoundTripTests
 
     private static bool HasBit(int value, int bit) =>
         (value & (1 << bit)) != 0;
+
+    private static AuditingContainsTimeRangePolicy CreateContainsTimeRangePolicy() =>
+        new(Options.Create(new AuditingQueryOptions()));
 
     private static T ReadParameter<T>(object parameters, string name) =>
         (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;

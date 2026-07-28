@@ -618,6 +618,31 @@
               <strong translate="no"></strong><span></span>
             </div>
             <section class="fn-tenants__ledger">
+              <div class="layui-form">
+                <div class="layui-form-item">
+                  <div class="layui-inline">
+                    <label class="layui-form-label" data-i18n="accessLogs.pathContains"></label>
+                    <div class="layui-input-inline">
+                      <input class="layui-input" type="search" autocomplete="off" data-access-logs-path-contains>
+                    </div>
+                  </div>
+                  <div class="layui-inline">
+                    <label class="layui-form-label" data-i18n="accessLogs.fromUtc"></label>
+                    <div class="layui-input-inline">
+                      <input class="layui-input" type="datetime-local" data-access-logs-from-utc>
+                    </div>
+                  </div>
+                  <div class="layui-inline">
+                    <label class="layui-form-label" data-i18n="accessLogs.toUtc"></label>
+                    <div class="layui-input-inline">
+                      <input class="layui-input" type="datetime-local" data-access-logs-to-utc>
+                    </div>
+                  </div>
+                  <button type="button" class="layui-btn" data-access-logs-search data-i18n="accessLogs.search"></button>
+                </div>
+              </div>
+            </section>
+            <section class="fn-tenants__ledger">
               <header><div><small>01</small><h2 data-i18n="accessLogs.directoryTitle"></h2></div></header>
               <div data-access-logs-directory></div>
               <button type="button" class="layui-btn layui-btn-primary" data-access-logs-load-more data-i18n="accessLogs.loadMore" hidden></button>

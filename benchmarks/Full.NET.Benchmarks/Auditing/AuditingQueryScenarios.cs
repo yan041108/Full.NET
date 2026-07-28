@@ -13,6 +13,7 @@ public sealed record AuditingQueryScenario(
 public static class AuditingQueryScenarios
 {
     public const string MatchingPath = "/api/v1/settings";
+    public const int MaximumContainsWindowDays = 1;
 
     public static IReadOnlyList<AuditingQueryScenario> Create(
         AuditingQueryBenchmarkOptions options,
@@ -52,7 +53,7 @@ public static class AuditingQueryScenarios
                 options.PageSize),
             new(
                 "contains_bounded",
-                referenceUtc.AddDays(-1),
+                referenceUtc.AddDays(-MaximumContainsWindowDays),
                 referenceUtc,
                 null,
                 null,

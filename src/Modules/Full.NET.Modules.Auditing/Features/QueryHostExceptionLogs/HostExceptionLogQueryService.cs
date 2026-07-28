@@ -10,7 +10,8 @@ namespace Full.NET.Modules.Auditing.Features.QueryHostExceptionLogs;
 internal sealed class HostExceptionLogQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    AuditingContainsTimeRangePolicy containsTimeRangePolicy)
 {
     private const string SafeExceptionMessage = "Unhandled application exception.";
 
@@ -27,6 +28,16 @@ internal sealed class HostExceptionLogQueryService(
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var filter = BuildFilter(fromUtc, toUtc, exceptionTypeContains, pathContains);
+        var timeRangeError = containsTimeRangePolicy.Validate(
+            filter.FromUtc,
+            filter.ToUtc,
+            filter.ExceptionTypeContains is not null
+            || filter.PathContains is not null);
+        if (timeRangeError is not null)
+        {
+            return Result<PagedResult<ExceptionLogResponse>>.Failure(timeRangeError);
+        }
+
         var pageStatement = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => ExceptionLogSql.CreatePageFilteredSqlServer(

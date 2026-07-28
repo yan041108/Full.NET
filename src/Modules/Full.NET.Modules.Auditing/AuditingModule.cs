@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Auditing;
 
@@ -28,6 +29,12 @@ public sealed class AuditingModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddOptions<AuditingQueryOptions>()
+            .Bind(configuration.GetSection(AuditingQueryOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<AuditingQueryOptions>,
+            AuditingQueryOptionsValidator>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             AuditingAuthorizationContributor>());
@@ -39,6 +46,7 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddScoped<AccessLogWriter>();
         services.TryAddScoped<OperationLogWriter>();
         services.TryAddScoped<ExceptionLogWriter>();
+        services.TryAddSingleton<AuditingContainsTimeRangePolicy>();
         services.TryAddScoped<Features.QueryHostAccessLogs.HostAccessLogQueryService>();
         services.TryAddScoped<Features.QueryHostOperationLogs.HostOperationLogQueryService>();
         services.TryAddScoped<Features.QueryHostExceptionLogs.HostExceptionLogQueryService>();

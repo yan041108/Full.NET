@@ -322,6 +322,7 @@ export type {
 } from './settings-enum-catalogs.js';
 
 export {
+  applyAuditingAccessLogContainsDefaults,
   isAuditingAccessLog,
   isAuditingAccessLogCursorPage,
   isAuditingAccessLogPage
@@ -330,7 +331,8 @@ export {
 export type {
   AuditingAccessLog,
   AuditingAccessLogCursorPage,
-  AuditingAccessLogPage
+  AuditingAccessLogPage,
+  AuditingAccessLogQuery
 } from './auditing-access-logs.js';
 
 export {

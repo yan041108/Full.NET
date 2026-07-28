@@ -5,6 +5,8 @@ using Full.NET.Hosting.Api;
 using Full.NET.Localization;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Auditing;
+using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.UnitTests.Localization;
@@ -51,6 +53,16 @@ public sealed class ErrorResourceCompletenessTests
             typeof(TenancyErrorCodes).Assembly);
 
         AssertResources(manager, TenancyErrorCodes.All);
+    }
+
+    [TestMethod]
+    public void Auditing_error_codes_have_all_required_resources()
+    {
+        var manager = new ResourceManager(
+            "Full.NET.Modules.Auditing.Resources.AuditingErrors",
+            typeof(AuditingModule).Assembly);
+
+        AssertResources(manager, AuditingErrorCodes.All);
     }
 
     private static void AssertResources(

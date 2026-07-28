@@ -59,6 +59,10 @@ internal static class AuditingExceptionLogAssertions
         CancellationToken cancellationToken)
     {
         var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        await VerifyContainsTimeBoundaryAsync(
+            client,
+            adminToken,
+            cancellationToken);
 
         using var probeRequest = new HttpRequestMessage(
             HttpMethod.Post,
@@ -91,9 +95,15 @@ internal static class AuditingExceptionLogAssertions
                 cancellationToken);
         }
 
+        var referenceUtc = DateTimeOffset.UtcNow;
+        var timeRangeQuery = CreateTimeRangeQuery(
+            referenceUtc.AddHours(-12),
+            referenceUtc.AddHours(1));
         using var listRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            "/api/v1/auditing/exception-logs?page=1&pageSize=50&pathContains=/api/v1/auditing/exception-probes");
+            "/api/v1/auditing/exception-logs?page=1&pageSize=50"
+            + "&pathContains=/api/v1/auditing/exception-probes"
+            + $"&{timeRangeQuery}");
         listRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminToken);
@@ -139,6 +149,65 @@ internal static class AuditingExceptionLogAssertions
             AuditingErrorCodes.ExceptionLogNotFound,
             problem.RootElement.GetProperty("code").GetString());
     }
+
+    private static async Task VerifyContainsTimeBoundaryAsync(
+        HttpClient client,
+        string adminToken,
+        CancellationToken cancellationToken)
+    {
+        using var missingRangeRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/auditing/exception-logs?page=1&pageSize=1"
+            + "&exceptionTypeContains=InvalidOperationException");
+        missingRangeRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var missingRangeResponse = await client.SendAsync(
+            missingRangeRequest,
+            cancellationToken);
+        await AssertProblemAsync(
+            missingRangeResponse,
+            AuditingErrorCodes.ContainsTimeRangeRequired,
+            cancellationToken);
+
+        var referenceUtc = DateTimeOffset.UtcNow;
+        var overLimitRange = CreateTimeRangeQuery(
+            referenceUtc.AddDays(-2),
+            referenceUtc);
+        using var overLimitRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/auditing/exception-logs?page=1&pageSize=1"
+            + $"&pathContains=%2Fapi&{overLimitRange}");
+        overLimitRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var overLimitResponse = await client.SendAsync(
+            overLimitRequest,
+            cancellationToken);
+        await AssertProblemAsync(
+            overLimitResponse,
+            AuditingErrorCodes.ContainsTimeRangeExceeded,
+            cancellationToken);
+    }
+
+    private static async Task AssertProblemAsync(
+        HttpResponseMessage response,
+        string expectedCode,
+        CancellationToken cancellationToken)
+    {
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            expectedCode,
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static string CreateTimeRangeQuery(
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc) =>
+        $"fromUtc={Uri.EscapeDataString($"{fromUtc:O}")}"
+        + $"&toUtc={Uri.EscapeDataString($"{toUtc:O}")}";
 
     private static async Task<string> LoginAsHostAdminAsync(
         HttpClient client,

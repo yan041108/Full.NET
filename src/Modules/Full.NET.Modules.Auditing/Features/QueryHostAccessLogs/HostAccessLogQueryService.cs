@@ -10,7 +10,8 @@ namespace Full.NET.Modules.Auditing.Features.QueryHostAccessLogs;
 internal sealed class HostAccessLogQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    AuditingContainsTimeRangePolicy containsTimeRangePolicy)
 {
     public async Task<Result<PagedResult<AccessLogResponse>>> ListAsync(
         int page,
@@ -26,6 +27,15 @@ internal sealed class HostAccessLogQueryService(
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var filter = BuildFilter(fromUtc, toUtc, httpMethod, statusCode, pathContains);
+        var timeRangeError = containsTimeRangePolicy.Validate(
+            filter.FromUtc,
+            filter.ToUtc,
+            filter.PathContains is not null);
+        if (timeRangeError is not null)
+        {
+            return Result<PagedResult<AccessLogResponse>>.Failure(timeRangeError);
+        }
+
         var pageStatement = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => AccessLogSql.CreatePageFilteredSqlServer(
@@ -86,6 +96,15 @@ internal sealed class HostAccessLogQueryService(
             httpMethod,
             statusCode,
             pathContains);
+        var timeRangeError = containsTimeRangePolicy.Validate(
+            filter.FromUtc,
+            filter.ToUtc,
+            filter.PathContains is not null);
+        if (timeRangeError is not null)
+        {
+            return Result<AccessLogCursorPageResponse>.Failure(timeRangeError);
+        }
+
         AccessLogCursorBoundary? boundary = null;
         if (cursor is not null)
         {

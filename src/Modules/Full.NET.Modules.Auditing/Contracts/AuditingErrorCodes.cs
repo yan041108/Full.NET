@@ -20,6 +20,18 @@ public static class AuditingErrorCodes
     /// <summary>目标异常日志不存在。</summary>
     public const string ExceptionLogNotFound = "auditing.exception_log.not_found";
 
+    /// <summary>Contains 查询缺少完整的 UTC 时间范围。</summary>
+    public const string ContainsTimeRangeRequired =
+        "auditing.query.contains_time_range_required";
+
+    /// <summary>审计查询的 UTC 时间范围顺序无效。</summary>
+    public const string TimeRangeInvalid =
+        "auditing.query.time_range_invalid";
+
+    /// <summary>Contains 查询的 UTC 时间范围超过服务端上限。</summary>
+    public const string ContainsTimeRangeExceeded =
+        "auditing.query.contains_time_range_exceeded";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -29,5 +41,8 @@ public static class AuditingErrorCodes
         AccessLogCursorInvalid,
         OperationLogNotFound,
         ExceptionLogNotFound,
+        ContainsTimeRangeRequired,
+        TimeRangeInvalid,
+        ContainsTimeRangeExceeded,
     ]);
 }

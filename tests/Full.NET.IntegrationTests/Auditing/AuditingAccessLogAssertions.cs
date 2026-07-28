@@ -77,6 +77,10 @@ internal static class AuditingAccessLogAssertions
         CancellationToken cancellationToken)
     {
         var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        await VerifyContainsTimeBoundaryAsync(
+            client,
+            adminToken,
+            cancellationToken);
 
         using var probeRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -98,9 +102,15 @@ internal static class AuditingAccessLogAssertions
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, secondProbeResponse.StatusCode);
 
+        var referenceUtc = DateTimeOffset.UtcNow;
+        var timeRangeQuery = CreateTimeRangeQuery(
+            referenceUtc.AddHours(-12),
+            referenceUtc.AddHours(1));
         using var listRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            "/api/v1/auditing/access-logs?page=1&pageSize=50&pathContains=/api/v1/settings/enum-catalogs");
+            "/api/v1/auditing/access-logs?page=1&pageSize=50"
+            + "&pathContains=/api/v1/settings/enum-catalogs"
+            + $"&{timeRangeQuery}");
         listRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminToken);
@@ -157,9 +167,13 @@ internal static class AuditingAccessLogAssertions
     {
         const string pathFilter = "/api/v1/settings/enum-catalogs";
         var encodedFilter = Uri.EscapeDataString(pathFilter);
+        var referenceUtc = DateTimeOffset.UtcNow;
+        var timeRangeQuery = CreateTimeRangeQuery(
+            referenceUtc.AddHours(-12),
+            referenceUtc.AddHours(1));
         using var firstRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            $"/api/v1/auditing/access-logs/cursor?limit=1&pathContains={encodedFilter}");
+            $"/api/v1/auditing/access-logs/cursor?limit=1&pathContains={encodedFilter}&{timeRangeQuery}");
         firstRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminToken);
@@ -176,7 +190,7 @@ internal static class AuditingAccessLogAssertions
 
         using var nextRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            $"/api/v1/auditing/access-logs/cursor?limit=1&pathContains={encodedFilter}&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
+            $"/api/v1/auditing/access-logs/cursor?limit=1&pathContains={encodedFilter}&{timeRangeQuery}&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
         nextRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminToken);
@@ -192,7 +206,7 @@ internal static class AuditingAccessLogAssertions
 
         using var mismatchedFilterRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            $"/api/v1/auditing/access-logs/cursor?limit=1&pathContains=%2Fapi%2Fv1%2Fidentity&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
+            $"/api/v1/auditing/access-logs/cursor?limit=1&pathContains=%2Fapi%2Fv1%2Fidentity&{timeRangeQuery}&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
         mismatchedFilterRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminToken);
@@ -238,9 +252,13 @@ internal static class AuditingAccessLogAssertions
             pathFilter,
             cancellationToken);
         var encodedFilter = Uri.EscapeDataString(pathFilter);
+        var referenceUtc = DateTimeOffset.UtcNow;
+        var timeRangeQuery = CreateTimeRangeQuery(
+            referenceUtc.AddHours(-12),
+            referenceUtc.AddHours(1));
         using var firstRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            $"/api/v1/auditing/access-logs/cursor?limit=2&pathContains={encodedFilter}");
+            $"/api/v1/auditing/access-logs/cursor?limit=2&pathContains={encodedFilter}&{timeRangeQuery}");
         firstRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminToken);
@@ -257,7 +275,7 @@ internal static class AuditingAccessLogAssertions
 
         using var nextRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            $"/api/v1/auditing/access-logs/cursor?limit=2&pathContains={encodedFilter}&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
+            $"/api/v1/auditing/access-logs/cursor?limit=2&pathContains={encodedFilter}&{timeRangeQuery}&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
         nextRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminToken);
@@ -275,6 +293,76 @@ internal static class AuditingAccessLogAssertions
         Assert.AreEqual(3, items.Select(item => item.Id).Distinct().Count());
         Assert.AreEqual(1, items.Select(item => item.OccurredAtUtc).Distinct().Count());
     }
+
+    private static async Task VerifyContainsTimeBoundaryAsync(
+        HttpClient client,
+        string adminToken,
+        CancellationToken cancellationToken)
+    {
+        using var ordinaryRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/auditing/access-logs?page=1&pageSize=1");
+        ordinaryRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var ordinaryResponse = await client.SendAsync(
+            ordinaryRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, ordinaryResponse.StatusCode);
+
+        using var missingRangeRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/auditing/access-logs?page=1&pageSize=1"
+            + "&pathContains=%2Fapi");
+        missingRangeRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var missingRangeResponse = await client.SendAsync(
+            missingRangeRequest,
+            cancellationToken);
+        await AssertProblemAsync(
+            missingRangeResponse,
+            AuditingErrorCodes.ContainsTimeRangeRequired,
+            cancellationToken);
+
+        var referenceUtc = DateTimeOffset.UtcNow;
+        var overLimitRange = CreateTimeRangeQuery(
+            referenceUtc.AddDays(-2),
+            referenceUtc);
+        using var overLimitRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/auditing/access-logs/cursor?limit=1"
+            + $"&pathContains=%2Fapi&{overLimitRange}");
+        overLimitRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var overLimitResponse = await client.SendAsync(
+            overLimitRequest,
+            cancellationToken);
+        await AssertProblemAsync(
+            overLimitResponse,
+            AuditingErrorCodes.ContainsTimeRangeExceeded,
+            cancellationToken);
+    }
+
+    private static async Task AssertProblemAsync(
+        HttpResponseMessage response,
+        string expectedCode,
+        CancellationToken cancellationToken)
+    {
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            expectedCode,
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static string CreateTimeRangeQuery(
+        DateTimeOffset fromUtc,
+        DateTimeOffset toUtc) =>
+        $"fromUtc={Uri.EscapeDataString($"{fromUtc:O}")}"
+        + $"&toUtc={Uri.EscapeDataString($"{toUtc:O}")}";
 
     private static async Task SeedCursorTieRowsAsync(
         FullNetApiFactory factory,

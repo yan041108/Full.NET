@@ -10,7 +10,15 @@
           "method": "GET",
           "permission": "auditing.access.read",
           "successStatus": 200,
-          "responseSchema": "AccessLogResponse"
+          "responseSchema": "AccessLogResponse",
+          "queryParameters": [
+            "fromUtc",
+            "toUtc",
+            "pathContains"
+          ],
+          "errorStatuses": [
+            400
+          ]
         }
       ]
     },
@@ -21,7 +29,15 @@
           "method": "GET",
           "permission": "auditing.access.read",
           "successStatus": 200,
-          "responseSchema": "AccessLogCursorPageResponse"
+          "responseSchema": "AccessLogCursorPageResponse",
+          "queryParameters": [
+            "fromUtc",
+            "toUtc",
+            "pathContains"
+          ],
+          "errorStatuses": [
+            400
+          ]
         }
       ]
     },

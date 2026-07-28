@@ -39,6 +39,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<PagedResult<ExceptionLogResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAuthorization(FullNetPermissionPolicies.For(ExceptionLogPermissions.Read));
 
         group.MapGet("/{exceptionLogId:guid}", async (

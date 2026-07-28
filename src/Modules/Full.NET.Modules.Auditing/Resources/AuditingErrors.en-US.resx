@@ -8,4 +8,7 @@
   <data name="auditing.access_log.cursor_invalid" xml:space="preserve"><value>The access log cursor is invalid or does not match the current filter.</value></data>
   <data name="auditing.operation_log.not_found" xml:space="preserve"><value>The operation log entry was not found.</value></data>
   <data name="auditing.exception_log.not_found" xml:space="preserve"><value>The exception log entry was not found.</value></data>
+  <data name="auditing.query.contains_time_range_required" xml:space="preserve"><value>Contains queries require both a start time and an end time.</value></data>
+  <data name="auditing.query.time_range_invalid" xml:space="preserve"><value>The start time must not be later than the end time.</value></data>
+  <data name="auditing.query.contains_time_range_exceeded" xml:space="preserve"><value>The contains query time range exceeds the server limit.</value></data>
 </root>

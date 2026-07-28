@@ -1,5 +1,6 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Auditing.Contracts;
+using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Auditing.Features.QueryHostAccessLogs;
 using Full.NET.Modules.Auditing.Persistence;
 using Microsoft.Extensions.Options;
@@ -222,7 +223,9 @@ public sealed class AuditingAccessLogCursorTests
         new(
             queryExecutor,
             RejectingMultiResultQueryExecutor.Instance,
-            Options.Create(new DatabaseOptions { Provider = provider }));
+            Options.Create(new DatabaseOptions { Provider = provider }),
+            new AuditingContainsTimeRangePolicy(
+                Options.Create(new AuditingQueryOptions())));
 
     private static AccessLogCursorFilter CreateFilter(string? pathContains) =>
         new(

@@ -10,7 +10,8 @@ namespace Full.NET.Modules.Auditing.Features.QueryHostOperationLogs;
 internal sealed class HostOperationLogQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    AuditingContainsTimeRangePolicy containsTimeRangePolicy)
 {
     public async Task<Result<PagedResult<OperationLogResponse>>> ListAsync(
         int page,
@@ -26,6 +27,15 @@ internal sealed class HostOperationLogQueryService(
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var filter = BuildFilter(fromUtc, toUtc, httpMethod, succeeded, pathContains);
+        var timeRangeError = containsTimeRangePolicy.Validate(
+            filter.FromUtc,
+            filter.ToUtc,
+            filter.PathContains is not null);
+        if (timeRangeError is not null)
+        {
+            return Result<PagedResult<OperationLogResponse>>.Failure(timeRangeError);
+        }
+
         var pageStatement = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => OperationLogSql.CreatePageFilteredSqlServer(

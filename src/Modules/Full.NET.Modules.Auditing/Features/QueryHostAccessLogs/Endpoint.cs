@@ -41,6 +41,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<PagedResult<AccessLogResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAuthorization(FullNetPermissionPolicies.For(AccessLogPermissions.Read));
 
         group.MapGet("/cursor", async (

@@ -43,6 +43,8 @@ internal static class OpenApiAuditingExceptionLogsContractAssertions
                     HasSuccessResponse(responses, successStatus),
                     $"OpenAPI 缺少 {successStatus} 响应：{method.ToUpperInvariant()} {path}");
 
+                AssertQueryContract(openApiOperation, responses, operation, method, path);
+
                 if (operation.TryGetProperty("responseSchema", out var responseSchema))
                 {
                     var responseSchemaName = responseSchema.GetString()!;
@@ -62,6 +64,46 @@ internal static class OpenApiAuditingExceptionLogsContractAssertions
                             $"OpenAPI schema {responseSchemaName} 缺少属性：{propertyName}");
                     }
                 }
+            }
+        }
+    }
+
+    private static void AssertQueryContract(
+        JsonElement openApiOperation,
+        JsonElement responses,
+        JsonElement contractOperation,
+        string method,
+        string path)
+    {
+        if (contractOperation.TryGetProperty(
+                "queryParameters",
+                out var queryParameters))
+        {
+            var actualNames = openApiOperation.GetProperty("parameters")
+                .EnumerateArray()
+                .Where(parameter =>
+                    parameter.GetProperty("in").GetString() == "query")
+                .Select(parameter => parameter.GetProperty("name").GetString())
+                .ToHashSet(StringComparer.Ordinal);
+            foreach (var parameter in queryParameters.EnumerateArray())
+            {
+                var name = parameter.GetString()!;
+                Assert.IsTrue(
+                    actualNames.Contains(name),
+                    $"OpenAPI 缺少查询参数 {name}：{method.ToUpperInvariant()} {path}");
+            }
+        }
+
+        if (contractOperation.TryGetProperty(
+                "errorStatuses",
+                out var errorStatuses))
+        {
+            foreach (var status in errorStatuses.EnumerateArray())
+            {
+                var statusCode = status.GetInt32();
+                Assert.IsTrue(
+                    responses.TryGetProperty(statusCode.ToString(), out _),
+                    $"OpenAPI 缺少 {statusCode} 响应：{method.ToUpperInvariant()} {path}");
             }
         }
     }

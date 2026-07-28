@@ -148,21 +148,27 @@ SQL Server c=32 相对 c=16 仍增吞吐 18.6%，但 P95 翻倍、锁等待约 3
 - Modify: `tests/Full.NET.IntegrationTests/Auditing/AuditingOperationLogAssertions.cs`
 - Modify: `tests/Full.NET.IntegrationTests/Auditing/AuditingExceptionLogAssertions.cs`
 
-- [ ] **Step 1: 先冻结公共契约**
+- [x] **Step 1: 先冻结公共契约**
 
 禁止静默截断结果。Spec 明确 contains 查询必须携带显式 `FromUtc`/`ToUtc`，时间窗上限由稳定
 配置给出；无 contains 的普通列表保持兼容。Vue/Layui 在用户启用 contains 时默认填入可见
 时间范围，并允许用户在上限内调整。
 
-- [ ] **Step 2: 建立 RED 并实现双端 GREEN**
+- [x] **Step 2: 建立 RED 并实现双端 GREEN**
 
 OpenAPI、共享客户端、双前端和双库 API 测试先锁定缺失/超窗 ProblemDetails，再实现统一
 验证。复用当前参数化 SQL，不增加普通 B-tree 索引，不继续微调 OFFSET。
 
-- [ ] **Step 3: 复测 100,000 行矩阵**
+- [x] **Step 3: 复测 100,000 行矩阵**
 
 复用现有 Audit benchmark 比较无界基线与新契约允许的最大时间窗，记录双库 P50/P95/P99
 和执行计划；若最大允许窗口仍不满足预算，进入专用搜索设施 Decision Gate，不猜索引。
+
+31 天候选覆盖完整 30 天数据集，SQL Server P95 与无界基本相同，已拒绝作为默认值。
+最终生产默认与双端便利范围统一为 1 天；100,000 行同轮中 SQL Server P95 由
+418.816ms 降至 37.180ms，MySQL 由 100.142ms 降至 16.484ms。完整 RED/GREEN、
+双库 API、执行计划与否定证据见
+[`auditing-contains-time-boundary-2026-07-28.md`](../../verification/auditing-contains-time-boundary-2026-07-28.md)。
 
 ### Task 22: Audit 同步写入尾延迟与可靠性分层
 

@@ -10,7 +10,16 @@
           "method": "GET",
           "permission": "auditing.exceptions.read",
           "successStatus": 200,
-          "responseSchema": "ExceptionLogResponse"
+          "responseSchema": "ExceptionLogResponse",
+          "queryParameters": [
+            "fromUtc",
+            "toUtc",
+            "exceptionTypeContains",
+            "pathContains"
+          ],
+          "errorStatuses": [
+            400
+          ]
         }
       ]
     },

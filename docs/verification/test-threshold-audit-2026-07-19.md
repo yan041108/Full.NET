@@ -1199,3 +1199,14 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 双库聚焦 | SQL Server/MySQL 批尾主动续租 **2/2**，失败 0、跳过 0 |
 | 四处 canonical 门槛 | **475/7/49/193** |
 | 验证记录 | [`outbox-active-lease-renewal-2026-07-28.md`](outbox-active-lease-renewal-2026-07-28.md) |
+
+## 增补（2026-07-28，Auditing contains 显式时间边界）
+
+| 审计项 | 结果 |
+| --- | --- |
+| Unit 门槛 **475 → 484** | 新增 Options 默认/边界 3 项、普通列表兼容、缺失范围、反向范围、超窗、精确上限共 5 项，以及 Auditing 双语错误资源完整性 1 项 |
+| RED / GREEN | 服务端策略类型缺失时编译失败；共享客户端、Vue/Layui 时间范围与清空自动默认先失败；最终 Unit **484/484**、client-contracts **82/82**、Vue **213/213**、Layui **103/103** |
+| 双库 API | SQL Server/MySQL 三类 Auditing API **6/6**；缺失/超窗 ProblemDetails、普通列表、合法 contains、Access cursor 与 OpenAPI 通过 |
+| 四处 canonical 门槛 | **484/7/49/193** |
+| 性能证据 | 100,000 行双库矩阵拒绝覆盖完整数据集的 31 天默认；1 天相对无界 contains 的 P95 改善 SQL Server **91.12%**、MySQL **83.54%** |
+| 验证记录 | [`auditing-contains-time-boundary-2026-07-28.md`](auditing-contains-time-boundary-2026-07-28.md) |

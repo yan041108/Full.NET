@@ -25,6 +25,43 @@ export interface AuditingAccessLogCursorPage {
   hasMore: boolean;
 }
 
+export interface AuditingAccessLogQuery {
+  fromUtc?: string;
+  toUtc?: string;
+  pathContains?: string;
+}
+
+const defaultContainsWindowMilliseconds = 24 * 60 * 60 * 1000;
+
+export function applyAuditingAccessLogContainsDefaults(
+  query: AuditingAccessLogQuery,
+  nowUtc = new Date()
+): AuditingAccessLogQuery {
+  const normalized = { ...query };
+  if (!normalized.fromUtc) {
+    delete normalized.fromUtc;
+  }
+  if (!normalized.toUtc) {
+    delete normalized.toUtc;
+  }
+  const pathContains = query.pathContains?.trim();
+  if (pathContains) {
+    normalized.pathContains = pathContains;
+  } else {
+    delete normalized.pathContains;
+    return normalized;
+  }
+
+  if (!normalized.fromUtc && !normalized.toUtc) {
+    normalized.fromUtc = new Date(
+      nowUtc.getTime() - defaultContainsWindowMilliseconds
+    ).toISOString();
+    normalized.toUtc = nowUtc.toISOString();
+  }
+
+  return normalized;
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isAuditingAccessLog(value: unknown): value is AuditingAccessLog {

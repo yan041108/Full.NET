@@ -57,7 +57,12 @@ public sealed class AuditingQueryBenchmarkTests
             scenarios.Select(scenario => scenario.Name).ToArray());
         Assert.AreEqual(99_950, scenarios[1].Offset);
         Assert.IsNull(scenarios[2].FromUtc);
-        Assert.IsNotNull(scenarios[3].FromUtc);
+        Assert.AreEqual(
+            new DateTimeOffset(2026, 7, 26, 0, 0, 0, TimeSpan.Zero),
+            scenarios[3].FromUtc);
+        Assert.AreEqual(
+            new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero),
+            scenarios[3].ToUtc);
     }
 
     [TestMethod]

@@ -115,6 +115,64 @@ describe('Layui 访问日志控制器', () => {
       .toContain('/refreshed');
     controller.dispose();
   });
+
+  it('启用 contains 时显示 24 小时范围并提交同一筛选', async () => {
+    document.body.innerHTML = `
+      <div data-access-logs-problem hidden><strong></strong><span></span></div>
+      <input data-access-logs-path-contains>
+      <input data-access-logs-from-utc type="datetime-local">
+      <input data-access-logs-to-utc type="datetime-local">
+      <button data-access-logs-search></button>
+      <div data-access-logs-directory></div>
+      <button data-access-logs-load-more></button>
+    `;
+    const request = vi.fn()
+      .mockResolvedValue({
+        items: [],
+        nextCursor: null,
+        hasMore: false
+      });
+    const controller = createAccessLogsController(document, {
+      request,
+      translation: () => ({ t: key => key })
+    });
+    await controller.load();
+
+    const pathInput = document.querySelector(
+      '[data-access-logs-path-contains]'
+    );
+    pathInput.value = ' /api/v1/settings ';
+    pathInput.dispatchEvent(new Event('input'));
+
+    const fromInput = document.querySelector('[data-access-logs-from-utc]');
+    const toInput = document.querySelector('[data-access-logs-to-utc]');
+    expect(fromInput.value).not.toBe('');
+    expect(toInput.value).not.toBe('');
+
+    document.querySelector('[data-access-logs-search]').click();
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+
+    const url = new URL(request.mock.calls[1][0], 'http://localhost');
+    expect(url.searchParams.get('pathContains')).toBe('/api/v1/settings');
+    expect(Date.parse(url.searchParams.get('toUtc'))
+      - Date.parse(url.searchParams.get('fromUtc')))
+      .toBe(24 * 60 * 60 * 1000);
+
+    pathInput.value = '';
+    pathInput.dispatchEvent(new Event('input'));
+    expect(fromInput.value).toBe('');
+    expect(toInput.value).toBe('');
+    document.querySelector('[data-access-logs-search]').click();
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(3));
+    const clearedUrl = new URL(
+      request.mock.calls[2][0],
+      'http://localhost'
+    );
+    expect(clearedUrl.searchParams.has('pathContains')).toBe(false);
+    expect(clearedUrl.searchParams.has('fromUtc')).toBe(false);
+    expect(clearedUrl.searchParams.has('toUtc')).toBe(false);
+    controller.dispose();
+  });
 });
 
 function createLog(id, requestPath) {

@@ -57,7 +57,7 @@ describe('access-logs api', () => {
       });
 
     const first = await listAuditingAccessLogsByCursor();
-    await listAuditingAccessLogsByCursor(first.nextCursor);
+    await listAuditingAccessLogsByCursor({ cursor: first.nextCursor });
 
     expect(request).toHaveBeenNthCalledWith(
       1,
@@ -66,6 +66,27 @@ describe('access-logs api', () => {
     expect(request).toHaveBeenNthCalledWith(
       2,
       '/api/v1/auditing/access-logs/cursor?limit=20&cursor=cursor%2B%2F%3D'
+    );
+  });
+
+  it('serializes the contains time range on every cursor request', async () => {
+    vi.mocked(request).mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      hasMore: false
+    });
+
+    await listAuditingAccessLogsByCursor({
+      fromUtc: '2026-07-27T08:30:00.000Z',
+      toUtc: '2026-07-28T08:30:00.000Z',
+      pathContains: '/api/v1/settings'
+    });
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/v1/auditing/access-logs/cursor?limit=20'
+      + '&fromUtc=2026-07-27T08%3A30%3A00.000Z'
+      + '&toUtc=2026-07-28T08%3A30%3A00.000Z'
+      + '&pathContains=%2Fapi%2Fv1%2Fsettings'
     );
   });
 });

@@ -1,3 +1,5 @@
+import { applyAuditingAccessLogContainsDefaults } from '@fullnet/client-contracts';
+
 /**
  * 装配 Host 访问日志只读视图。
  */
@@ -6,10 +8,18 @@ export function createAccessLogsController(root, options) {
   const translation = options.translation;
   const directory = root.querySelector('[data-access-logs-directory]');
   const loadMoreButton = root.querySelector('[data-access-logs-load-more]');
+  const pathContainsInput = root.querySelector(
+    '[data-access-logs-path-contains]'
+  );
+  const fromUtcInput = root.querySelector('[data-access-logs-from-utc]');
+  const toUtcInput = root.querySelector('[data-access-logs-to-utc]');
+  const searchButton = root.querySelector('[data-access-logs-search]');
   let loading;
   let items = [];
   let nextCursor = null;
   let hasMore = false;
+  let activeQuery = {};
+  let defaultRangeApplied = false;
 
   const load = async () => {
     // 路由或会话刷新必须在当前追加结束后重新读取首批，避免旧追加覆盖新状态。
@@ -25,12 +35,55 @@ export function createAccessLogsController(root, options) {
     return await loadBatch(nextCursor, true);
   };
 
+  const search = async () => {
+    activeQuery = buildQuery(
+      pathContainsInput,
+      fromUtcInput,
+      toUtcInput
+    );
+    return await load();
+  };
+
+  const applyDefaults = () => {
+    if (!pathContainsInput?.value.trim()) {
+      if (defaultRangeApplied) {
+        fromUtcInput.value = '';
+        toUtcInput.value = '';
+      }
+      defaultRangeApplied = false;
+      return;
+    }
+
+    const hadNoTimeRange = !fromUtcInput?.value && !toUtcInput?.value;
+    const query = buildQuery(pathContainsInput, fromUtcInput, toUtcInput);
+    if (hadNoTimeRange && query.fromUtc && query.toUtc) {
+      defaultRangeApplied = true;
+    }
+  };
+
+  const markTimeRangeEdited = () => {
+    defaultRangeApplied = false;
+  };
+
   const loadBatch = async (cursor, append) => {
     if (loading) return await loading;
-    const cursorQuery = cursor
-      ? `&cursor=${encodeURIComponent(cursor)}`
-      : '';
-    loading = request(`/api/v1/auditing/access-logs/cursor?limit=20${cursorQuery}`)
+    const parameters = new URLSearchParams();
+    parameters.set('limit', '20');
+    if (activeQuery.fromUtc) {
+      parameters.set('fromUtc', activeQuery.fromUtc);
+    }
+    if (activeQuery.toUtc) {
+      parameters.set('toUtc', activeQuery.toUtc);
+    }
+    if (activeQuery.pathContains) {
+      parameters.set('pathContains', activeQuery.pathContains);
+    }
+    if (cursor) {
+      parameters.set('cursor', cursor);
+    }
+    loading = request(
+      `/api/v1/auditing/access-logs/cursor?${parameters.toString()}`
+    )
       .then(page => {
         const batch = Array.isArray(page?.items) ? page.items : [];
         items = append ? [...items, ...batch] : batch;
@@ -50,14 +103,55 @@ export function createAccessLogsController(root, options) {
   };
 
   loadMoreButton?.addEventListener('click', loadMore);
+  pathContainsInput?.addEventListener('input', applyDefaults);
+  fromUtcInput?.addEventListener('input', markTimeRangeEdited);
+  toUtcInput?.addEventListener('input', markTimeRangeEdited);
+  searchButton?.addEventListener('click', search);
   updateLoadMoreButton(loadMoreButton, false);
 
   return {
     load,
     dispose() {
       loadMoreButton?.removeEventListener('click', loadMore);
+      pathContainsInput?.removeEventListener('input', applyDefaults);
+      fromUtcInput?.removeEventListener('input', markTimeRangeEdited);
+      toUtcInput?.removeEventListener('input', markTimeRangeEdited);
+      searchButton?.removeEventListener('click', search);
     }
   };
+}
+
+function buildQuery(pathInput, fromInput, toInput) {
+  const query = applyAuditingAccessLogContainsDefaults({
+    pathContains: pathInput?.value,
+    fromUtc: toUtcIso(fromInput?.value),
+    toUtc: toUtcIso(toInput?.value)
+  });
+  applyVisibleDefaults(query, fromInput, toInput);
+  return query;
+}
+
+function applyVisibleDefaults(query, fromInput, toInput) {
+  if (query.fromUtc && fromInput && !fromInput.value) {
+    fromInput.value = toDateTimeLocal(query.fromUtc);
+  }
+  if (query.toUtc && toInput && !toInput.value) {
+    toInput.value = toDateTimeLocal(query.toUtc);
+  }
+}
+
+function toUtcIso(value) {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function toDateTimeLocal(value) {
+  const parsed = new Date(value);
+  const local = new Date(
+    parsed.getTime() - parsed.getTimezoneOffset() * 60_000
+  );
+  return local.toISOString().slice(0, 16);
 }
 
 function updateLoadMoreButton(button, hasMore) {

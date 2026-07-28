@@ -3,9 +3,13 @@ import { onMounted, ref } from 'vue';
 import { ElButton, ElCard, ElTag } from 'element-plus';
 import type {
   AuditingAccessLog,
+  AuditingAccessLogQuery,
   FullNetProblemDetails
 } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import {
+  applyAuditingAccessLogContainsDefaults,
+  isFullNetProblemDetails
+} from '@fullnet/client-contracts';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listAuditingAccessLogsByCursor } from '../api/access-logs';
 
@@ -15,6 +19,11 @@ const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const nextCursor = ref<string | null>(null);
 const hasMore = ref(false);
+const pathContains = ref('');
+const fromUtcInput = ref('');
+const toUtcInput = ref('');
+const activeQuery = ref<AuditingAccessLogQuery>({});
+const containsDefaultRangeApplied = ref(false);
 
 onMounted(load);
 
@@ -32,6 +41,37 @@ async function loadMore(): Promise<void> {
   await loadBatch(nextCursor.value, true);
 }
 
+async function search(): Promise<void> {
+  activeQuery.value = buildQuery();
+  await load();
+}
+
+function handlePathContainsInput(): void {
+  if (!pathContains.value.trim()) {
+    if (containsDefaultRangeApplied.value) {
+      fromUtcInput.value = '';
+      toUtcInput.value = '';
+    }
+    containsDefaultRangeApplied.value = false;
+    return;
+  }
+
+  const hadNoTimeRange = !fromUtcInput.value && !toUtcInput.value;
+  const query = applyAuditingAccessLogContainsDefaults({
+    pathContains: pathContains.value,
+    fromUtc: toUtcIso(fromUtcInput.value),
+    toUtc: toUtcIso(toUtcInput.value)
+  });
+  applyVisibleDefaults(query);
+  if (hadNoTimeRange && query.fromUtc && query.toUtc) {
+    containsDefaultRangeApplied.value = true;
+  }
+}
+
+function markTimeRangeEdited(): void {
+  containsDefaultRangeApplied.value = false;
+}
+
 async function loadBatch(
   cursor?: string | null,
   append = false
@@ -42,9 +82,13 @@ async function loadBatch(
   loading.value = true;
   problem.value = undefined;
   try {
-    const page = cursor === undefined
+    const options = {
+      ...activeQuery.value,
+      ...(cursor ? { cursor } : {})
+    };
+    const page = Object.keys(options).length === 0
       ? await listAuditingAccessLogsByCursor()
-      : await listAuditingAccessLogsByCursor(cursor);
+      : await listAuditingAccessLogsByCursor(options);
     items.value = append ? [...items.value, ...page.items] : page.items;
     nextCursor.value = page.nextCursor;
     hasMore.value = page.hasMore;
@@ -53,6 +97,41 @@ async function loadBatch(
   } finally {
     loading.value = false;
   }
+}
+
+function buildQuery(): AuditingAccessLogQuery {
+  const query = applyAuditingAccessLogContainsDefaults({
+    pathContains: pathContains.value,
+    fromUtc: toUtcIso(fromUtcInput.value),
+    toUtc: toUtcIso(toUtcInput.value)
+  });
+  applyVisibleDefaults(query);
+  return query;
+}
+
+function applyVisibleDefaults(query: AuditingAccessLogQuery): void {
+  if (query.fromUtc && !fromUtcInput.value) {
+    fromUtcInput.value = toDateTimeLocal(query.fromUtc);
+  }
+  if (query.toUtc && !toUtcInput.value) {
+    toUtcInput.value = toDateTimeLocal(query.toUtc);
+  }
+}
+
+function toUtcIso(value: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function toDateTimeLocal(value: string): string {
+  const parsed = new Date(value);
+  const local = new Date(
+    parsed.getTime() - parsed.getTimezoneOffset() * 60_000
+  );
+  return local.toISOString().slice(0, 16);
 }
 
 function toProblem(error: unknown): FullNetProblemDetails {
@@ -74,6 +153,45 @@ function toProblem(error: unknown): FullNetProblemDetails {
       <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
     </div>
+
+    <form class="art-filter-row" @submit.prevent="search">
+      <label>
+        <span>{{ t('accessLogs.pathContains') }}</span>
+        <input
+          v-model="pathContains"
+          data-testid="access-logs-path-contains"
+          type="search"
+          autocomplete="off"
+          @input="handlePathContainsInput"
+        />
+      </label>
+      <label>
+        <span>{{ t('accessLogs.fromUtc') }}</span>
+        <input
+          v-model="fromUtcInput"
+          data-testid="access-logs-from-utc"
+          type="datetime-local"
+          @input="markTimeRangeEdited"
+        />
+      </label>
+      <label>
+        <span>{{ t('accessLogs.toUtc') }}</span>
+        <input
+          v-model="toUtcInput"
+          data-testid="access-logs-to-utc"
+          type="datetime-local"
+          @input="markTimeRangeEdited"
+        />
+      </label>
+      <el-button
+        data-testid="access-logs-search"
+        native-type="button"
+        :loading="loading"
+        @click="search"
+      >
+        {{ t('accessLogs.search') }}
+      </el-button>
+    </form>
 
     <el-card shadow="never" class="art-table-card">
       <template #header>

@@ -10,7 +10,15 @@
           "method": "GET",
           "permission": "auditing.operations.read",
           "successStatus": 200,
-          "responseSchema": "OperationLogResponse"
+          "responseSchema": "OperationLogResponse",
+          "queryParameters": [
+            "fromUtc",
+            "toUtc",
+            "pathContains"
+          ],
+          "errorStatuses": [
+            400
+          ]
         }
       ]
     },

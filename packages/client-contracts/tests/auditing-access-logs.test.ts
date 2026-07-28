@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyAuditingAccessLogContainsDefaults,
   isAuditingAccessLog,
   isAuditingAccessLogCursorPage,
   isAuditingAccessLogPage
@@ -65,6 +66,34 @@ describe('Auditing 访问日志契约', () => {
       componentKey: 'access-logs',
       routeName: 'access-logs',
       path: '/auditing/access-logs'
+    });
+  });
+
+  it('contains 首次启用时补充可见的 24 小时 UTC 范围', () => {
+    expect(applyAuditingAccessLogContainsDefaults(
+      { pathContains: ' /api/v1 ' },
+      new Date('2026-07-28T08:30:00.000Z')
+    )).toEqual({
+      pathContains: '/api/v1',
+      fromUtc: '2026-07-27T08:30:00.000Z',
+      toUtc: '2026-07-28T08:30:00.000Z'
+    });
+  });
+
+  it('无 contains 或半填时间范围时不静默补齐', () => {
+    expect(applyAuditingAccessLogContainsDefaults(
+      {},
+      new Date('2026-07-28T08:30:00.000Z')
+    )).toEqual({});
+    expect(applyAuditingAccessLogContainsDefaults(
+      {
+        pathContains: '/api',
+        fromUtc: '2026-07-27T08:30:00.000Z'
+      },
+      new Date('2026-07-28T08:30:00.000Z')
+    )).toEqual({
+      pathContains: '/api',
+      fromUtc: '2026-07-27T08:30:00.000Z'
     });
   });
 });
