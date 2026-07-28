@@ -1187,5 +1187,5 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 行为边界 | 只新增隔离 benchmark、测试和文档；不修改生产 API、数据库结构、认证语义、Audit 可靠性或 Outbox Worker 默认并发 |
 | 双库短矩阵 | SQL Server/MySQL 各一档冒烟通过；完整消费响应体，连接池/Dapper/数据库证据完整，原始 NDJSON 存在，证据门禁退出码 0 |
 | 四处 canonical 门槛 | **474/7/49/193** |
-| 性能证据 | V2 的 8 档长窗因 `ResponseHeadersRead` 未完整消费多数读取响应体而降级为诊断数据；正式 V3 待从已提交源码重跑，不以 V2 冻结 QPS 或饱和结论 |
+| 性能证据 | V2 因响应体未完整消费降级为诊断数据；正式 V3 从 `db290c1` 运行双库 8 档、共 778,263 个完整响应请求，证据与预算 8/8 PASS，非预期错误和 Dapper 失败均为 0 |
 | 验证记录 | [`production-equivalent-mixed-load-2026-07-28.md`](production-equivalent-mixed-load-2026-07-28.md) |
