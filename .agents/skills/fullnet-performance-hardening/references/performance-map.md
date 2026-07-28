@@ -122,7 +122,9 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 锁等待、日志写入、GC、容器资源与期末 backlog，不能只看平均吞吐。默认额外执行一次
 遗弃租约恢复场景；短开发验证可显式 `--recovery false`，正式证据不得关闭。长矩阵默认
 开启 `--resume true`：每个完成键原子写入同一输出目录，后续任务窗口必须复用完全相同的
-参数与构建版本；参数或源版本漂移时禁止续跑，避免把不可比较的样本合并。
+参数与构建版本；参数或源版本漂移时禁止续跑，避免把不可比较的样本合并。需要按任务窗口
+主动分段时使用 `--max-new-samples <n>`；它只限制本次新增并已持久化的样本数，不计入
+checkpoint skip，也不改变矩阵语义。
 
 分别在 SQL Server/MySQL 验证：
 
@@ -150,7 +152,7 @@ pnpm test:skills
 pnpm test:governance
 pnpm test:naming
 dotnet build Full.NET.slnx -c Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 518
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 519
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 49
 ```

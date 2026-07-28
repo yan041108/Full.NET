@@ -31,6 +31,8 @@ public static class OutboxCapacityRunner
             options,
             scenarios,
             cancellationToken);
+        var runBudget = new OutboxCapacityRunBudget(
+            options.MaximumNewSamples);
         var providerResults = checkpoint.Providers.ToList();
         foreach (var provider in options.Providers)
         {
@@ -92,6 +94,12 @@ public static class OutboxCapacityRunner
                             runs,
                             recoveries),
                         cancellationToken);
+                    if (options.MaximumNewSamples > 0
+                        && runBudget.RecordCompletedSample())
+                    {
+                        WriteBudgetPause(options, runBudget);
+                        return;
+                    }
                 }
             }
             if (options.RecoveryEnabled)
@@ -129,6 +137,12 @@ public static class OutboxCapacityRunner
                             runs,
                             recoveries),
                         cancellationToken);
+                    if (options.MaximumNewSamples > 0
+                        && runBudget.RecordCompletedSample())
+                    {
+                        WriteBudgetPause(options, runBudget);
+                        return;
+                    }
                 }
             }
 
@@ -147,6 +161,18 @@ public static class OutboxCapacityRunner
             scenarios,
             OrderProviderResults(options, providerResults),
             cancellationToken);
+        Console.WriteLine(
+            $"Outbox capacity artifacts: "
+            + $"{Path.GetFullPath(options.OutputDirectory)}");
+    }
+
+    private static void WriteBudgetPause(
+        OutboxCapacityOptions options,
+        OutboxCapacityRunBudget runBudget)
+    {
+        Console.WriteLine(
+            $"本次已新增 {runBudget.CompletedSamples} 个样本，"
+            + "达到 --max-new-samples，已正常保存 checkpoint。");
         Console.WriteLine(
             $"Outbox capacity artifacts: "
             + $"{Path.GetFullPath(options.OutputDirectory)}");

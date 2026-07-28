@@ -18,6 +18,7 @@ public sealed record OutboxCapacityOptions(
     bool RecoveryEnabled,
     TimeSpan RecoveryGrace,
     bool ResumeEnabled,
+    int MaximumNewSamples,
     string OutputDirectory)
 {
     public const string HelpText =
@@ -43,6 +44,7 @@ public sealed record OutboxCapacityOptions(
           --recovery <bool>               是否运行遗弃租约恢复场景，默认 true
           --recovery-grace-seconds <n>    租约之外允许的恢复余量，默认 5 秒
           --resume <bool>                 是否从同一输出目录断点续跑，默认 true
+          --max-new-samples <n>           本次最多新增样本数，范围 0..10000，默认 0（不限制）
           --output <path>                 工件目录，默认 BenchmarkDotNet.Artifacts/outbox-capacity/<UTC>
           --help                          显示帮助
 
@@ -144,6 +146,17 @@ public sealed record OutboxCapacityOptions(
             values,
             "--resume",
             defaultValue: true);
+        var maximumNewSamples = ParseBoundedInt(
+            values,
+            "--max-new-samples",
+            defaultValue: 0,
+            minimum: 0,
+            maximum: 10_000);
+        if (maximumNewSamples > 0 && !resumeEnabled)
+        {
+            throw new ArgumentException(
+                "--max-new-samples 大于 0 时必须启用 --resume。");
+        }
 
         var outputDirectory = values.GetValueOrDefault(
             "--output",
@@ -174,6 +187,7 @@ public sealed record OutboxCapacityOptions(
             recoveryEnabled,
             TimeSpan.FromSeconds(recoveryGraceSeconds),
             resumeEnabled,
+            maximumNewSamples,
             outputDirectory);
     }
 
@@ -343,6 +357,7 @@ public sealed record OutboxCapacityOptions(
         "--recovery",
         "--recovery-grace-seconds",
         "--resume",
+        "--max-new-samples",
         "--output",
     ];
 }

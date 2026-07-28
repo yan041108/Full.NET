@@ -36,10 +36,10 @@ dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release `
   --filter FullyQualifiedName~OutboxCapacityContractTests --no-restore
 ```
 
-结果：**7/7 通过**。其中宿主装配回归测试先复现缺少 `IIdGenerator` 导致
+结果：**8/8 通过**。其中宿主装配回归测试先复现缺少 `IIdGenerator` 导致
 `ValidateOnBuild` 失败，再补齐与真实 Dapper Outbox Store 相同的依赖闭包。
 
-Unit discovery 为 **518**，canonical 更新为 **518/7/49/199**。本地没有运行完整
+Unit discovery 为 **519**，canonical 更新为 **519/7/49/199**。本地没有运行完整
 199 项 Integration；它继续只由 `main` CI 四个互斥分片执行。
 
 受影响选择器以 `b1472503ca59b4c601c8899602d229b30d269a8c` 为基线，只选择
@@ -106,3 +106,21 @@ Exactly-Once。原始工件：
 
 该能力只减少长矩阵因中断造成的重复采样，不缩短单档预热/稳态时间，也不允许跨版本拼接
 性能结论。正式 35 档三轮报告仍须达到 `COMPLETE` 后才能进入索引或默认并发决策。
+
+## 8. 单次新增样本预算增补
+
+- 任务基线：`20647377dc9de65e2bd39bdff490244c72ac0357`。
+- `--max-new-samples 0` 保持无限制；正数必须与 `--resume true` 配合。
+- 预算只统计本次新执行且已经原子写入 checkpoint 的普通场景或恢复样本；旧完成键的
+  `checkpoint skip` 不计数。
+
+真实 SQL Server 一档、两轮重复、每次最多新增 1 个样本的连续三次运行结果：
+
+1. 第一次新增 1 个样本后正常退出，进度 `1/2`、状态 `PARTIAL`；
+2. 第二次跳过第一轮、补齐第二轮，进度 `2/2`、状态 `COMPLETE`；
+3. 第三次在连接 Docker 前跳过完整 Provider，容器启动标记为 false。
+
+工件：
+`%TEMP%/fullnet-outbox-budget-smoke-3d2cdd7c60ea4d12b5aee4d4527f2155`。
+该预算只控制单次命令的工作量和正常停止点，不参与 checkpoint 的矩阵兼容签名，因此后续
+窗口可调整批次大小，但不得改变任何性能采样参数。

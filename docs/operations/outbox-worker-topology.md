@@ -128,6 +128,11 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 合并。报告进度必须达到 `COMPLETE`，`PARTIAL` 只能作为断点，不得用于默认并发或索引决策。
 需要故意覆盖同名目录重新采样时显式使用 `--resume false`，并保留旧工件后再执行。
 
+长矩阵可设置 `--max-new-samples <n>`，在本次新增并持久化 N 个普通场景或恢复样本后
+正常退出并释放容器。该参数必须与 `--resume true` 一起使用；`0` 表示不限制。旧
+checkpoint 中已完成而被跳过的键不消耗本次预算，因此不同任务窗口可以使用不同的 N，
+但仍必须复用同一构建版本、矩阵参数和输出目录。
+
 ## 4. 积压指标
 
 Worker 将 `Full.NET.Outbox` Meter 接入 OpenTelemetry，并按

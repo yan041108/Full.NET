@@ -43,6 +43,7 @@ public sealed class OutboxCapacityContractTests
         Assert.IsTrue(options.RecoveryEnabled);
         Assert.AreEqual(TimeSpan.FromSeconds(5), options.RecoveryGrace);
         Assert.IsTrue(options.ResumeEnabled);
+        Assert.AreEqual(0, options.MaximumNewSamples);
     }
 
     [TestMethod]
@@ -106,6 +107,7 @@ public sealed class OutboxCapacityContractTests
         Assert.IsFalse(options.RecoveryEnabled);
         Assert.AreEqual(TimeSpan.FromSeconds(2), options.RecoveryGrace);
         Assert.IsFalse(options.ResumeEnabled);
+        Assert.AreEqual(0, options.MaximumNewSamples);
         Assert.AreEqual("artifacts/outbox-capacity", options.OutputDirectory);
     }
 
@@ -145,11 +147,40 @@ public sealed class OutboxCapacityContractTests
         Assert.ThrowsExactly<ArgumentException>(
             () => OutboxCapacityOptions.Parse(["--resume", "sometimes"]));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+            () => OutboxCapacityOptions.Parse(["--max-new-samples", "-1"]));
+        Assert.ThrowsExactly<ArgumentException>(
+            () => OutboxCapacityOptions.Parse(
+            [
+                "--resume", "false",
+                "--max-new-samples", "1",
+            ]));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => OutboxCapacityOptions.Parse(
             [
                 "--recovery", "true",
                 "--recovery-grace-seconds", "0",
             ]));
+    }
+
+    [TestMethod]
+    public void Run_budget_stops_after_configured_new_samples()
+    {
+        var options = OutboxCapacityOptions.Parse(
+        [
+            "--max-new-samples", "2",
+        ]);
+        var budget = new OutboxCapacityRunBudget(
+            options.MaximumNewSamples);
+        var unlimited = new OutboxCapacityRunBudget(
+            maximumNewSamples: 0);
+
+        Assert.AreEqual(2, options.MaximumNewSamples);
+        Assert.IsFalse(budget.RecordCompletedSample());
+        Assert.IsTrue(budget.RecordCompletedSample());
+        Assert.IsTrue(budget.IsExhausted);
+        Assert.AreEqual(2, budget.CompletedSamples);
+        Assert.IsFalse(unlimited.RecordCompletedSample());
+        Assert.IsFalse(unlimited.IsExhausted);
     }
 
     [TestMethod]
@@ -195,7 +226,10 @@ public sealed class OutboxCapacityContractTests
                 CancellationToken.None);
 
             var checkpoint = await OutboxCapacityCheckpoint.LoadAsync(
-                options,
+                options with
+                {
+                    MaximumNewSamples = 1,
+                },
                 scenarios,
                 CancellationToken.None);
 

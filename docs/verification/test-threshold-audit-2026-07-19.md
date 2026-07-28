@@ -1293,3 +1293,13 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **518/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
 | 行为边界 | 只修改 benchmark 工件原子写入与断点续跑，不修改生产 Outbox、数据库结构或默认并发 |
 | Integration | 由任务基线影响选择器决定；本地不运行完整 199 项 |
+
+## 增补（2026-07-29，Outbox 容量单次运行预算）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **518 → 519** | 新增运行预算契约 1 项，锁定有限预算停止、无限预算和已完成样本计数 |
+| Unit discovery | **519**；本地只运行 Outbox 容量与 Dapper 指标聚焦测试 |
+| 四处 canonical 门槛 | **519/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
+| 行为边界 | 只控制 benchmark 单次新增样本数量；checkpoint skip 不计数，不改变矩阵语义或生产 Outbox |
+| Integration | 由任务基线影响选择器决定；本地不运行完整 199 项 |

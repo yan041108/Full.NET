@@ -171,7 +171,7 @@ public sealed class OutboxCapacityCheckpoint
     private static bool OptionsMatch(
         OutboxCapacityOptions current,
         OutboxCapacityOptions checkpoint) =>
-        // 输出目录和是否读取 checkpoint 不改变样本语义，其余矩阵参数必须完全一致。
+        // 输出目录、续跑开关和单次新增预算不改变样本语义，其余矩阵参数必须完全一致。
         current.Providers.SequenceEqual(
             checkpoint.Providers,
             StringComparer.OrdinalIgnoreCase)
