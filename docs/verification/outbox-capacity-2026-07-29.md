@@ -188,3 +188,25 @@ Exactly-Once。原始工件：
 结论：`outbox.mark_processed` 的当前已复现失败已闭环为容量 runner 的关停编排问题；
 `fe06896` checkpoint 仍不得续用，因为其样本包含旧关停语义。下一步从本修复后的固定提交
 和全新输出目录恢复正式双库矩阵；完整矩阵完成前不得提高默认并发。
+
+## 11. 正式矩阵积压耗尽与夹具补量闭环
+
+- 旧固定版本 `079662144b98d3e1ff63f180a761ad64f880c84f` 的 SQL Server 正式
+  checkpoint 推进到普通样本 `28/210`；前 27 项通过，第 28 项
+  `c2-d0-r2-b20-p256` 吞吐约 `485.206 msg/s`，但采样前积压 `14537` 在 30 秒
+  窗口内归零，因此 `backlogSustained=false`。该样本没有 Dapper failure/cancellation、
+  ProcessorError 或重复投递，失败根因是固定 20000 条同时承担 10 秒预热和 30 秒采样，
+  不是生产 Outbox 正确性缺陷。
+- runner 现在把预热与采样拆为两个领取阶段：预热结束先停止新领取并排空在途批次，再按
+  预热实测速率 × 采样时长 × `1.5` 安全系数，加一个副本批次余量补足待处理消息；补量
+  完成后才重置 Handler 并启动正式 Dapper、连接池、进程和容器遥测。
+- 同一失败形状的真实 SQL Server smoke 修复后，采样前积压 `27038`、期末积压
+  `11940`，完成 `15095`、约 `503.060 msg/s`，P99 `0.002 ms`；正确性和连接池余量
+  门禁通过，failure/cancellation、ProcessorError 和重复投递均为 0。
+- TDD RED 为缺少 `OutboxCapacityBacklogPlanner` 的编译失败；GREEN 新增规划契约并使
+  `OutboxCapacityContractTests` **10/10** 通过。Release benchmark build 为
+  0 warning/0 error，本地未运行完整 199 项 Integration。
+
+旧 `0796621` checkpoint 保留为夹具饥饿诊断证据，禁止继续用于容量决策。补量改变了
+正式采样语义，必须从本修复提交的新源版本和全新输出目录重启双库矩阵；默认
+`OutboxWorker:MaxConcurrency=1` 不变。

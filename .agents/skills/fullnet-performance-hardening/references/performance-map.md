@@ -125,6 +125,10 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 参数与构建版本；参数或源版本漂移时禁止续跑，避免把不可比较的样本合并。需要按任务窗口
 主动分段时使用 `--max-new-samples <n>`；它只限制本次新增并已持久化的样本数，不计入
 checkpoint skip，也不改变矩阵语义。
+正式采样前必须先停止并排空预热消费者，再按预热实测速率、采样时长和安全余量补足
+待处理消息；补量不得与正式采样争用数据库，也不得计入正式 Dapper、连接池或吞吐证据。
+若期末积压归零，该样本只能作为夹具饥饿的否定证据，禁止据此评价容量或继续拼接旧
+checkpoint。
 容量报告还必须按稳定 `StatementName` 和低基数失败原因汇总非取消 Dapper 失败；
 `deadlock`、`command_timeout`、`lock_wait_timeout`、`database_error` 与
 `application_error` 用于定位瓶颈，不得写入 SQL、异常文本、租户或消息 ID。
@@ -155,7 +159,7 @@ pnpm test:skills
 pnpm test:governance
 pnpm test:naming
 dotnet build Full.NET.slnx -c Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 520
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 521
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 49
 ```

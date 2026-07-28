@@ -1313,3 +1313,13 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **520/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
 | 行为边界 | Dapper 指标新增低基数 `failure_reason`，容量工件新增失败语句与原因聚合；不记录 SQL、参数、租户、消息 ID 或异常文本 |
 | Integration | 由任务基线影响选择器决定；本地不运行完整 199 项 |
+
+## 增补（2026-07-29，Outbox 容量采样积压补量）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **520 → 521** | 新增采样积压规划契约 1 项，锁定预热实测速率、安全余量和只补差额语义 |
+| Unit discovery | **521**；本地只运行 `OutboxCapacityContractTests` 受影响测试类 |
+| 四处 canonical 门槛 | **521/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
+| 行为边界 | 只修复 benchmark 预热与采样共用固定积压导致的窗口饥饿；不修改生产 Outbox、数据库结构或默认并发 |
+| Integration | 本地不运行完整 199 项；使用单档真实 SQL Server 容量 smoke 验证 |

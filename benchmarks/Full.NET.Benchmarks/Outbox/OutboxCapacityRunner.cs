@@ -260,8 +260,50 @@ public static class OutboxCapacityRunner
                 options,
                 processorLogger))
             .ToArray();
-        // 采样窗口结束只阻止领取新批次；在途终态写入继续使用外部取消令牌，
-        // 避免把基准主动收尾误判成数据库失败，同时保留人工中断的快速取消能力。
+        if (options.Warmup > TimeSpan.Zero)
+        {
+            using var stopWarmupBatches =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken);
+            var warmupTasks = processors
+                .Select(processor => ConsumeAsync(
+                    processor,
+                    processorErrors,
+                    stopWarmupBatches.Token,
+                    cancellationToken))
+                .ToArray();
+            await Task.Delay(options.Warmup, cancellationToken);
+            await stopWarmupBatches.CancelAsync();
+            await Task.WhenAll(warmupTasks);
+        }
+
+        var warmupSnapshot = probe.Snapshot();
+        var backlogAfterWarmup = await database.CaptureStateAsync(
+            cancellationToken);
+        var samplingTarget =
+            OutboxCapacityBacklogPlanner.CalculateSamplingTarget(
+                options.SeedMessages,
+                warmupSnapshot.CompletedMessages,
+                options.Warmup,
+                options.Duration,
+                scenario.BatchSize,
+                scenario.Replicas);
+        var samplingDeficit =
+            OutboxCapacityBacklogPlanner.CalculateDeficit(
+                backlogAfterWarmup.PendingOutboxCount,
+                samplingTarget);
+        if (samplingDeficit > 0)
+        {
+            await database.SeedPendingOutboxAsync(
+                samplingDeficit,
+                scenario.PayloadSize,
+                OutboxCapacityRunnerMessageType.Value,
+                cancellationToken);
+        }
+
+        probe.Reset();
+        // 预热消费者已经完全排空在途批次，补量不会与正式采样争用数据库；
+        // 采样结束只阻止领取新批次，终态写入继续使用外部取消令牌完成收尾。
         using var stopStartingBatches =
             CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
@@ -272,13 +314,6 @@ public static class OutboxCapacityRunner
                 stopStartingBatches.Token,
                 cancellationToken))
             .ToArray();
-
-        if (options.Warmup > TimeSpan.Zero)
-        {
-            await Task.Delay(options.Warmup, cancellationToken);
-        }
-
-        probe.Reset();
         using var dapper = new MixedLoadDapperTelemetry();
         using var pool = MixedLoadConnectionPoolTelemetry.Create(
             database.Provider,

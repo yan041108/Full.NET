@@ -187,6 +187,30 @@ public sealed class OutboxCapacityContractTests
     }
 
     [TestMethod]
+    public void Sampling_backlog_planner_replenishes_from_observed_warmup_rate()
+    {
+        var target = OutboxCapacityBacklogPlanner.CalculateSamplingTarget(
+            configuredSeedMessages: 20_000,
+            warmupCompletedMessages: 5_463,
+            warmup: TimeSpan.FromSeconds(10),
+            duration: TimeSpan.FromSeconds(30),
+            batchSize: 20,
+            replicas: 2);
+
+        Assert.AreEqual(24_624, target);
+        Assert.AreEqual(
+            10_087,
+            OutboxCapacityBacklogPlanner.CalculateDeficit(
+                currentPendingMessages: 14_537,
+                targetPendingMessages: target));
+        Assert.AreEqual(
+            0,
+            OutboxCapacityBacklogPlanner.CalculateDeficit(
+                currentPendingMessages: target,
+                targetPendingMessages: target));
+    }
+
+    [TestMethod]
     public async Task Checkpoint_resume_skips_completed_keys_and_rejects_parameter_drift()
     {
         var outputDirectory = Path.Combine(
