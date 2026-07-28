@@ -137,6 +137,21 @@ internal static class OutboxSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement RenewLease = new(
+        "outbox.renew_lease",
+        """
+        UPDATE fn_outbox_message
+        SET LockedUntilUtc = CASE
+            WHEN LockedUntilUtc < @LockedUntil THEN @LockedUntil
+            ELSE LockedUntilUtc
+        END
+        WHERE Id IN @Ids
+          AND LockId = @LockId
+          AND ProcessedAtUtc IS NULL
+          AND DeadLetteredAtUtc IS NULL;
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement MarkProcessed = new(
         "outbox.mark_processed",
         """

@@ -33,7 +33,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 454
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 461
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 # 日常按风险选择：冒烟、单提供程序 API、迁移或其他基础设施
@@ -44,11 +44,11 @@ pnpm test:integration:migrations
 pnpm test:integration:infrastructure
 # 快速校验四分片发现数、重复和遗漏
 pnpm test:integration:partitions
-# 共享基础设施、发布 / push main：完整 191 项并生成 TRX
+# 共享基础设施、发布 / push main：完整 193 项并生成 TRX
 pnpm test:integration:full
 pnpm test:integration:durations
 # canonical 全量命令：
-# dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 191 --timeout 90m
+# dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 193 --timeout 90m
 # 可选：10 万行审计查询双库基准与执行计划（不属于日常测试门禁）
 # dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- audit-query
 # 可选：SQL Server 可选谓词/分支 SQL/RECOMPILE 混合顺序 A/B

@@ -18,6 +18,19 @@ public interface IOutboxStore
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// 延长当前批次仍未进入终态的消息租约，防止慢 Handler 与批尾消息被并发回收。
+    /// </summary>
+    /// <param name="messageIds">当前批次的精确消息标识集合。</param>
+    /// <param name="lockId">当前批次共享的租约标识。</param>
+    /// <param name="lease">从当前时刻开始计算的新租约持续时间。</param>
+    /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    Task RenewLeaseAsync(
+        IReadOnlyCollection<Guid> messageIds,
+        Guid lockId,
+        TimeSpan lease,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// 将已成功处理的消息标记为完成，并释放租约。
     /// </summary>
     /// <param name="id">消息标识。</param>
@@ -88,3 +101,7 @@ public static class OutboxDeadLetterReasons
 public sealed class OutboxConcurrencyException(Guid id, Guid lockId)
     : InvalidOperationException(
         $"Outbox message '{id:D}' is no longer owned by lock '{lockId:D}'.");
+
+public sealed class OutboxLeaseLostException(Guid lockId)
+    : InvalidOperationException(
+        $"Outbox lease '{lockId:D}' is no longer owned.");

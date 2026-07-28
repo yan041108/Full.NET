@@ -45,11 +45,11 @@ export const shards = {
       'FullyQualifiedName!~ApiSqlServerTests'
       + '&FullyQualifiedName!~ApiMySqlTests'
       + '&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations',
-    minimum: 59,
+    minimum: 61,
     timeout: '60m'
   },
   full: {
-    minimum: 191,
+    minimum: 193,
     timeout: '90m'
   }
 };

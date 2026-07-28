@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
@@ -110,7 +111,7 @@ public sealed class OutboxProcessorTests
     public async Task ProcessOnceAsync_OnUnknownEventTypeDeadLettersMessageAndContinuesBatch()
     {
         var deadLetter = CreateMessage(attempts: 2, messageType: "fullnet.unknown.event");
-        var next = CreateMessage(attempts: 1);
+        var next = CreateMessage(attempts: 1, lockId: deadLetter.LockId);
         var store = CreateStore(deadLetter, next);
         var handler = new RecordingHandler(next.MessageType, next.SchemaVersion);
         var now = new DateTimeOffset(2026, 7, 17, 0, 0, 0, TimeSpan.Zero);
@@ -212,6 +213,272 @@ public sealed class OutboxProcessorTests
             options.BatchSize,
             TimeSpan.FromSeconds(options.LeaseSeconds),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_RenewsLeaseWhileHandlerIsRunning()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            LeaseSeconds = 6,
+            LeaseRenewalSeconds = 1,
+        };
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var handler = new BlockingHandler(
+            message.MessageType,
+            message.SchemaVersion);
+        var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = CreateProcessor(provider, now, options);
+
+        var processingTask = processor.ProcessOnceAsync(CancellationToken.None);
+        await handler.Entered.WaitAsync(TimeSpan.FromSeconds(2));
+        await Task.Delay(TimeSpan.FromMilliseconds(1200));
+
+        await store.Received().RenewLeaseAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(
+                messageIds => ContainsOnly(messageIds, message.Id)),
+            message.LockId,
+            TimeSpan.FromSeconds(options.LeaseSeconds),
+            Arg.Any<CancellationToken>());
+        handler.Release();
+        Assert.AreEqual(
+            1,
+            await processingTask.WaitAsync(TimeSpan.FromSeconds(2)));
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_RenewsLeaseFromIndependentScopedStore()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            LeaseSeconds = 6,
+            LeaseRenewalSeconds = 1,
+        };
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var handler = new BlockingHandler(
+            message.MessageType,
+            message.SchemaVersion);
+        var storeScopeIds = new ConcurrentQueue<Guid>();
+        var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateScopedStoreProvider(
+            store,
+            storeScopeIds,
+            handler);
+        var processor = CreateProcessor(provider, now, options);
+
+        var processingTask = processor.ProcessOnceAsync(CancellationToken.None);
+        await handler.Entered.WaitAsync(TimeSpan.FromSeconds(2));
+        await Task.Delay(TimeSpan.FromMilliseconds(1200));
+
+        Assert.IsGreaterThanOrEqualTo(
+            2,
+            storeScopeIds.Distinct().Count(),
+            "领取和主动续租必须解析自不同的依赖注入 Scope。");
+        handler.Release();
+        Assert.AreEqual(
+            1,
+            await processingTask.WaitAsync(TimeSpan.FromSeconds(2)));
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_WhenLeaseRenewalFailsCancelsHandlerAndPropagatesFailure()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            LeaseSeconds = 6,
+            LeaseRenewalSeconds = 1,
+        };
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        store
+            .RenewLeaseAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(
+                    messageIds => ContainsOnly(messageIds, message.Id)),
+                message.LockId,
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(
+                new InvalidOperationException("Lease renewal failed.")));
+        var handler = new BlockingHandler(
+            message.MessageType,
+            message.SchemaVersion);
+        var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = CreateProcessor(provider, now, options);
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => processor.ProcessOnceAsync(CancellationToken.None)
+                .WaitAsync(TimeSpan.FromSeconds(3)));
+
+        Assert.AreEqual("Lease renewal failed.", exception.Message);
+        await handler.Canceled.WaitAsync(TimeSpan.FromSeconds(2));
+        await store.DidNotReceiveWithAnyArgs().MarkFailedAsync(
+            default,
+            default,
+            string.Empty,
+            default,
+            default);
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_WhenRenewalFailsBeforeTerminalPropagatesEvenIfHandlerCompletes()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            LeaseSeconds = 6,
+            LeaseRenewalSeconds = 1,
+        };
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        store
+            .RenewLeaseAsync(
+                Arg.Any<IReadOnlyCollection<Guid>>(),
+                message.LockId,
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(
+                new OutboxLeaseLostException(message.LockId)));
+        var handler = new CompletionAfterCancellationHandler(
+            message.MessageType,
+            message.SchemaVersion);
+        var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = CreateProcessor(provider, now, options);
+
+        var exception =
+            await Assert.ThrowsExactlyAsync<OutboxLeaseLostException>(
+                () => processor
+                    .ProcessOnceAsync(CancellationToken.None)
+                    .WaitAsync(TimeSpan.FromSeconds(3)));
+
+        Assert.Contains(
+            message.LockId.ToString("D"),
+            exception.Message,
+            StringComparison.Ordinal);
+        await store.Received(1).MarkProcessedAsync(
+            message.Id,
+            message.LockId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ProcessBatchWithLeaseRenewalAsync_WhenTerminalPrecedesZeroRowRenewalReturnsSuccess()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            LeaseSeconds = 6,
+            LeaseRenewalSeconds = 1,
+        };
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var releaseProcessing = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        store
+            .RenewLeaseAsync(
+                Arg.Any<IReadOnlyCollection<Guid>>(),
+                message.LockId,
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+                _ =>
+                {
+                    releaseProcessing.TrySetResult();
+                    return Task.FromException(
+                        new OutboxLeaseLostException(message.LockId));
+                });
+        var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store);
+        var processor = CreateProcessor(provider, now, options);
+
+        var processed = await processor
+            .ProcessBatchWithLeaseRenewalAsync(
+                [message],
+                async (markBatchTerminal, cancellationToken) =>
+                {
+                    markBatchTerminal();
+                    await releaseProcessing.Task
+                        .WaitAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    return 1;
+                },
+                CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(3));
+
+        Assert.AreEqual(1, processed);
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_WhenProcessingFailsBeforeRenewalCleanupPreservesProcessingFailure()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            LeaseSeconds = 6,
+            LeaseRenewalSeconds = 1,
+        };
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var renewalEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRenewal = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        store
+            .RenewLeaseAsync(
+                Arg.Any<IReadOnlyCollection<Guid>>(),
+                message.LockId,
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+                async _ =>
+                {
+                    renewalEntered.TrySetResult();
+                    await releaseRenewal.Task.ConfigureAwait(false);
+                    await Task.Delay(TimeSpan.FromMilliseconds(100))
+                        .ConfigureAwait(false);
+                    throw new InvalidOperationException(
+                        "Renewal cleanup failed.");
+                });
+        store
+            .MarkProcessedAsync(
+                message.Id,
+                message.LockId,
+                Arg.Any<CancellationToken>())
+            .Returns(
+                async _ =>
+                {
+                    await renewalEntered.Task
+                        .WaitAsync(TimeSpan.FromSeconds(2))
+                        .ConfigureAwait(false);
+                    releaseRenewal.TrySetResult();
+                    throw new InvalidOperationException(
+                        "Mark processed failed.");
+                });
+        store
+            .MarkFailedAsync(
+                message.Id,
+                message.LockId,
+                Arg.Any<string>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(
+                new InvalidOperationException(
+                    "Processing state failed.")));
+        var handler = new RecordingHandler(
+            message.MessageType,
+            message.SchemaVersion);
+        var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
+        await using var provider = CreateProvider(store, handler);
+        var processor = CreateProcessor(provider, now, options);
+
+        var exception =
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                () => processor
+                    .ProcessOnceAsync(CancellationToken.None)
+                    .WaitAsync(TimeSpan.FromSeconds(4)));
+
+        Assert.AreEqual("Processing state failed.", exception.Message);
     }
 
     [TestMethod]
@@ -328,12 +595,15 @@ public sealed class OutboxProcessorTests
             BacklogSampleSeconds = 4,
             BatchSize = 2,
             MaxConcurrency = 3,
+            LeaseSeconds = 10,
+            LeaseRenewalSeconds = 6,
         };
         var validator = new OutboxWorkerOptionsValidator();
 
         var result = validator.Validate(Options.DefaultName, options);
 
         Assert.AreEqual(1, new OutboxWorkerOptions().MaxConcurrency);
+        Assert.AreEqual(10, new OutboxWorkerOptions().LeaseRenewalSeconds);
         Assert.IsFalse(result.Succeeded);
         CollectionAssert.Contains(
             (result.Failures ?? []).ToArray(),
@@ -341,16 +611,23 @@ public sealed class OutboxProcessorTests
         CollectionAssert.Contains(
             (result.Failures ?? []).ToArray(),
             "OutboxWorker:MaxConcurrency must not exceed BatchSize.");
+        CollectionAssert.Contains(
+            (result.Failures ?? []).ToArray(),
+            "OutboxWorker:LeaseRenewalSeconds must not exceed half of LeaseSeconds.");
 
         var invalidRange = validator.Validate(
             Options.DefaultName,
             new OutboxWorkerOptions
             {
                 MaxConcurrency = 17,
+                LeaseRenewalSeconds = 0,
             });
         CollectionAssert.Contains(
             (invalidRange.Failures ?? []).ToArray(),
             "OutboxWorker:MaxConcurrency must be between 1 and 16.");
+        CollectionAssert.Contains(
+            (invalidRange.Failures ?? []).ToArray(),
+            "OutboxWorker:LeaseRenewalSeconds must be between 1 and 1200.");
     }
 
     private static OutboxProcessor CreateProcessor(
@@ -393,16 +670,53 @@ public sealed class OutboxProcessorTests
         return services.BuildServiceProvider();
     }
 
+    private static ServiceProvider CreateScopedStoreProvider(
+        IOutboxStore store,
+        ConcurrentQueue<Guid> storeScopeIds,
+        params IIntegrationEventHandler[] handlers)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<StoreScopeIdentity>();
+        services.AddScoped<IOutboxStore>(
+            serviceProvider =>
+            {
+                storeScopeIds.Enqueue(
+                    serviceProvider
+                        .GetRequiredService<StoreScopeIdentity>()
+                        .Id);
+                return store;
+            });
+        services.AddScoped<IOutboxBacklogReader>(
+            serviceProvider =>
+                (IOutboxBacklogReader)serviceProvider
+                    .GetRequiredService<IOutboxStore>());
+        foreach (var handler in handlers)
+        {
+            services.AddSingleton(handler);
+        }
+
+        return services.BuildServiceProvider();
+    }
+
     private static IOutboxBacklogReader BacklogReader(IOutboxStore store) =>
         (IOutboxBacklogReader)store;
+
+    private static bool ContainsOnly(
+        IReadOnlyCollection<Guid>? messageIds,
+        Guid expectedId) =>
+        messageIds is not null
+        && messageIds.Count == 1
+        && messageIds.Contains(expectedId);
 
     private static OutboxEnvelope CreateMessage(
         int attempts,
         string messageType = "fullnet.test.event",
         int schemaVersion = 1,
-        string contentType = "application/x-msgpack") => new(
+        string contentType = "application/x-msgpack",
+        Guid? lockId = null) => new(
         Guid.CreateVersion7(),
-        Guid.CreateVersion7(),
+        lockId ?? Guid.CreateVersion7(),
         messageType,
         schemaVersion,
         contentType,
@@ -464,6 +778,76 @@ public sealed class OutboxProcessorTests
             ReadOnlyMemory<byte> payload,
             CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Handler failed.");
+    }
+
+    private sealed class BlockingHandler(string eventType, int schemaVersion)
+        : IIntegrationEventHandler
+    {
+        private readonly TaskCompletionSource _canceled =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _entered =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public string EventType => eventType;
+
+        public int SchemaVersion => schemaVersion;
+
+        public Task Canceled => _canceled.Task;
+
+        public Task Entered => _entered.Task;
+
+        public async Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            _entered.TrySetResult();
+            try
+            {
+                await _release.Task.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                _canceled.TrySetResult();
+                throw;
+            }
+        }
+
+        public void Release() => _release.TrySetResult();
+    }
+
+    private sealed class CompletionAfterCancellationHandler(
+        string eventType,
+        int schemaVersion) : IIntegrationEventHandler
+    {
+        public string EventType => eventType;
+
+        public int SchemaVersion => schemaVersion;
+
+        public async Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Task.Delay(
+                        Timeout.InfiniteTimeSpan,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                // 模拟租约归零与最后终态竞争时，Handler 已完成不可回滚的业务收尾。
+            }
+        }
+    }
+
+    private sealed class StoreScopeIdentity
+    {
+        public Guid Id { get; } = Guid.CreateVersion7();
     }
 
     private sealed class PoisonPayloadHandler(string eventType, int schemaVersion)

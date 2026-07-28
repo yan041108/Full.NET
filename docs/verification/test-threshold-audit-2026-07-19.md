@@ -1165,3 +1165,15 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **454/7/49/191** |
 | 性能证据 | 双库 100,000 行、页面 50、预热 5、成对采样 30；cursor P50/P95/P99 降幅 SQL Server **92.65%/91.96%/88.39%**，MySQL **97.05%/96.67%/97.12%** |
 | 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) 第 14 节 |
+
+## 增补（2026-07-28，Outbox 主动续租与批尾保护）
+
+| 审计项 | 结果 |
+| --- | --- |
+| Unit 门槛 **454 → 461** | 新增长 Handler 周期续租、独立 Scoped Store、续租失败传播、最终终态竞争、终态前失败、异常优先级与 MySQL matched-row 连接策略共 7 项 |
+| Integration 门槛 **191 → 193** | SQL Server/MySQL 各新增 1 项批尾保护，Infrastructure 分片 **59 → 61** |
+| RED / GREEN | 缺少配置/Store 契约时 7 个预期编译错误；补契约但未接入 Processor 时 **12/14**；最终 Processor 回归 **18/18**、MySQL 连接策略 **15/15** |
+| 双库聚焦 | SQL Server/MySQL 批尾续租 **2/2**；MySQL 独立连续复跑 **3/3** |
+| 四处 canonical 门槛 | **461/7/49/193** |
+| 完整验证 | Release **0 warning / 0 error**；**461/7/49/193** 全部通过，失败 0、跳过 0；最终完整 Integration `32m44.276s` |
+| 验证记录 | [`outbox-active-lease-renewal-2026-07-28.md`](outbox-active-lease-renewal-2026-07-28.md) |

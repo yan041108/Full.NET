@@ -14,6 +14,7 @@ public static class MySqlConnectionStringPolicy
     /// <remarks>
     /// 调用方不得自行覆盖 GuidFormat；仅 Migrator 可将
     /// <paramref name="allowUserVariables"/> 设为 <see langword="true"/>。
+    /// 运行连接统一使用匹配行计数，确保所有权更新不会因同值写入误报零行。
     /// </remarks>
     /// <param name="connectionString">待规范化的原始 MySQL 连接字符串。</param>
     /// <param name="mode">当前部署阶段使用的 UUID 物理存储模式。</param>
@@ -65,6 +66,7 @@ public static class MySqlConnectionStringPolicy
         }
 
         builder.AllowUserVariables = allowUserVariables;
+        builder.UseAffectedRows = false;
         return builder.ConnectionString;
     }
 

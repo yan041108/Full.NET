@@ -22,6 +22,9 @@ public sealed class OutboxWorkerOptions
     /// <summary>获取或设置租约秒数；到期后其他 Worker 可回收卡住的消息。</summary>
     public int LeaseSeconds { get; set; } = 30;
 
+    /// <summary>获取或设置批次租约的主动续期间隔秒数。</summary>
+    public int LeaseRenewalSeconds { get; set; } = 10;
+
     /// <summary>获取或设置空轮询等待毫秒数。</summary>
     public int PollMilliseconds { get; set; } = 1000;
 
@@ -57,6 +60,18 @@ internal sealed class OutboxWorkerOptionsValidator : IValidateOptions<OutboxWork
         if (options.LeaseSeconds is < 5 or > 3600)
         {
             failures.Add("OutboxWorker:LeaseSeconds must be between 5 and 3600.");
+        }
+
+        if (options.LeaseRenewalSeconds is < 1 or > 1200)
+        {
+            failures.Add(
+                "OutboxWorker:LeaseRenewalSeconds must be between 1 and 1200.");
+        }
+
+        if (options.LeaseRenewalSeconds > options.LeaseSeconds / 2)
+        {
+            failures.Add(
+                "OutboxWorker:LeaseRenewalSeconds must not exceed half of LeaseSeconds.");
         }
 
         if (options.PollMilliseconds is < 100 or > 60000)

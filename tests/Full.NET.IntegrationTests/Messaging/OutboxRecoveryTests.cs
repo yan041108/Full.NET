@@ -92,6 +92,22 @@ public sealed class OutboxRecoveryTests
     }
 
     [TestMethod]
+    public async Task SqlServer_outbox_active_renewal_protects_batch_tail()
+    {
+        await VerifyActiveLeaseRenewalProtectsBatchTailAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task MySql_outbox_active_renewal_protects_batch_tail()
+    {
+        await VerifyActiveLeaseRenewalProtectsBatchTailAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task SqlServer_outbox_backlog_snapshot_tracks_pending_count_and_oldest_age()
     {
         await VerifyBacklogSnapshotAsync(
@@ -275,6 +291,187 @@ public sealed class OutboxRecoveryTests
         Assert.AreEqual(
             2,
             await ReadAttemptsAsync(databaseProvider, connectionString));
+    }
+
+    private static async Task VerifyActiveLeaseRenewalProtectsBatchTailAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        const int messageCount = 2;
+        const int leaseSeconds = 6;
+        var initialNow =
+            new DateTimeOffset(2026, 7, 28, 3, 0, 0, TimeSpan.Zero);
+        var clock = new MutableClock(initialNow);
+        var configuration = CreateConfiguration(
+            databaseProvider,
+            connectionString);
+        await MigrateAsync(databaseProvider, connectionString);
+        var handler = new BatchTailLeaseHandler();
+        await using var services = BuildServices(
+            configuration,
+            clock,
+            handler);
+        for (var index = 0; index < messageCount; index++)
+        {
+            await InsertOutboxAsync(
+                services,
+                BatchTailLeaseHandler.EventTypeValue,
+                1,
+                new TestIntegrationEvent($"lease-renewal-{index}"));
+        }
+
+        var processor = CreateProcessor(
+            services,
+            clock,
+            new WorkerHost.OutboxWorkerOptions
+            {
+                BatchSize = messageCount,
+                MaxConcurrency = 1,
+                LeaseSeconds = leaseSeconds,
+                LeaseRenewalSeconds = 1,
+                PollMilliseconds = 1000,
+                MaxAttempts = 3,
+            });
+        var processingTask = processor.ProcessOnceAsync(CancellationToken.None);
+        await handler.FirstMessageEntered.WaitAsync(TimeSpan.FromSeconds(5));
+        clock.UtcNow = initialNow.AddSeconds(leaseSeconds + 1);
+
+        try
+        {
+            await WaitForLeaseExtensionAsync(
+                databaseProvider,
+                connectionString,
+                clock.UtcNow,
+                messageCount);
+            var leaseBeforeClockRollback = await ReadActiveLeaseAsync(
+                databaseProvider,
+                connectionString);
+            Assert.HasCount(messageCount, leaseBeforeClockRollback);
+            Assert.AreEqual(
+                1,
+                leaseBeforeClockRollback
+                    .Select(row => row.LockId)
+                    .Distinct()
+                    .Count());
+
+            clock.UtcNow = initialNow.AddMinutes(-1);
+            await using (var renewalScope = services.CreateAsyncScope())
+            {
+                renewalScope.ServiceProvider
+                    .GetRequiredService<CurrentTenantAccessor>()
+                    .SetHost();
+                var renewalStore = renewalScope.ServiceProvider
+                    .GetRequiredService<IOutboxStore>();
+                await renewalStore.RenewLeaseAsync(
+                    leaseBeforeClockRollback
+                        .Select(row => row.Id)
+                        .ToArray(),
+                    leaseBeforeClockRollback[0].LockId,
+                    TimeSpan.FromSeconds(leaseSeconds),
+                    CancellationToken.None);
+            }
+
+            var leaseAfterClockRollback = await ReadActiveLeaseAsync(
+                databaseProvider,
+                connectionString);
+            Assert.HasCount(messageCount, leaseAfterClockRollback);
+            Assert.IsTrue(
+                leaseAfterClockRollback.Min(row => row.LockedUntilUtc)
+                >= leaseBeforeClockRollback.Min(row => row.LockedUntilUtc),
+                "宿主时钟回拨后的主动续租不得缩短现有数据库租约。");
+            clock.UtcNow = initialNow.AddSeconds(leaseSeconds + 1);
+
+            await using var competingScope = services.CreateAsyncScope();
+            competingScope.ServiceProvider
+                .GetRequiredService<CurrentTenantAccessor>()
+                .SetHost();
+            var competingStore = competingScope.ServiceProvider
+                .GetRequiredService<IOutboxStore>();
+
+            var competingLease = await competingStore.AcquireAsync(
+                messageCount,
+                TimeSpan.FromSeconds(leaseSeconds),
+                CancellationToken.None);
+
+            Assert.AreEqual(
+                0,
+                competingLease.Count,
+                "主动续租必须同时保护正在执行的消息和尚未开始的批尾消息。");
+        }
+        finally
+        {
+            handler.ReleaseFirstMessage();
+        }
+
+        Assert.AreEqual(
+            messageCount,
+            await processingTask.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.AreEqual(messageCount, handler.HandledCount);
+        Assert.AreEqual(
+            messageCount,
+            await CountOutboxAsync(
+                databaseProvider,
+                connectionString,
+                """
+                MessageType = @MessageType
+                AND Attempts = 1
+                AND ProcessedAtUtc IS NOT NULL
+                AND DeadLetteredAtUtc IS NULL
+                """,
+                new { MessageType = BatchTailLeaseHandler.EventTypeValue }));
+    }
+
+    private static async Task WaitForLeaseExtensionAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString,
+        DateTimeOffset threshold,
+        int expectedCount)
+    {
+        var databaseThreshold = databaseProvider == DatabaseProvider.MySql
+            ? (object)threshold.UtcDateTime
+            : threshold;
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var extendedCount = await CountOutboxAsync(
+                databaseProvider,
+                connectionString,
+                """
+                ProcessedAtUtc IS NULL
+                AND DeadLetteredAtUtc IS NULL
+                AND LockId IS NOT NULL
+                AND LockedUntilUtc > @Threshold
+                """,
+                new { Threshold = databaseThreshold });
+            if (extendedCount == expectedCount)
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+        }
+
+        Assert.Fail("Outbox 批次租约未在预期时间内完成主动续期。");
+    }
+
+    private static async Task<IReadOnlyList<ActiveLeaseRow>>
+        ReadActiveLeaseAsync(
+            DatabaseProvider databaseProvider,
+            string connectionString)
+    {
+        await using var connection = CreateConnection(
+            databaseProvider,
+            connectionString);
+        var rows = await connection.QueryAsync<ActiveLeaseRow>(
+            """
+            SELECT Id, LockId, LockedUntilUtc
+            FROM fn_outbox_message
+            WHERE ProcessedAtUtc IS NULL
+              AND DeadLetteredAtUtc IS NULL
+              AND LockId IS NOT NULL
+            ORDER BY Id;
+            """);
+        return rows.ToArray();
     }
 
     private static async Task VerifyTerminalUpdateDoesNotBlockAcquireAsync(
@@ -837,6 +1034,43 @@ public sealed class OutboxRecoveryTests
             Task.CompletedTask;
     }
 
+    private sealed class BatchTailLeaseHandler : IIntegrationEventHandler
+    {
+        public const string EventTypeValue =
+            "fullnet.tests.messaging.batch_tail_lease";
+
+        private readonly TaskCompletionSource _firstMessageEntered =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseFirstMessage =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _handledCount;
+
+        public string EventType => EventTypeValue;
+
+        public int SchemaVersion => 1;
+
+        public Task FirstMessageEntered => _firstMessageEntered.Task;
+
+        public int HandledCount => Volatile.Read(ref _handledCount);
+
+        public async Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            var handledCount = Interlocked.Increment(ref _handledCount);
+            if (handledCount != 1)
+            {
+                return;
+            }
+
+            _firstMessageEntered.TrySetResult();
+            await _releaseFirstMessage.Task.WaitAsync(cancellationToken);
+        }
+
+        public void ReleaseFirstMessage() =>
+            _releaseFirstMessage.TrySetResult();
+    }
+
     private sealed class CoordinatedConcurrencyHandler : IIntegrationEventHandler
     {
         public const string EventTypeValue =
@@ -934,4 +1168,9 @@ public sealed class OutboxRecoveryTests
     {
         public DateTimeOffset UtcNow { get; set; } = utcNow;
     }
+
+    private sealed record ActiveLeaseRow(
+        Guid Id,
+        Guid LockId,
+        DateTimeOffset LockedUntilUtc);
 }

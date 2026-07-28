@@ -19,6 +19,8 @@
 - 默认多副本安全模型依赖数据库租约，而不是默认引入额外选主机制。
 - 每个 Worker 周期调用 `AcquireAsync(batchSize, lease, ...)`，只领取 `ProcessedAtUtc IS NULL`、`DeadLetteredAtUtc IS NULL` 且租约已过期/未占用的消息。
 - 成功领取时数据库会为消息写入新的 `LockId`、`LockedUntilUtc` 并递增 `Attempts`。
+- 批次处理期间按 `LeaseRenewalSeconds`，使用精确批次消息 ID 与共享 `LockId` 主动延长
+  仍未进入终态的消息，因而同时保护正在执行的慢 Handler 和尚未开始的批尾消息。
 - 处理成功后消息被标记为 `ProcessedAtUtc`，并清理重试/租约/死信辅助字段。
 - 临时失败会释放租约、保留错误摘要并设置 `NextAttemptAtUtc`，等待下次重试。
 - 永久失败或达到最大尝试次数后，消息进入死信终态，不再被后续领取。
@@ -35,6 +37,7 @@
     "BatchSize": 20,
     "MaxConcurrency": 1,
     "LeaseSeconds": 30,
+    "LeaseRenewalSeconds": 10,
     "PollMilliseconds": 1000,
     "BacklogSampleSeconds": 30,
     "MaxAttempts": 5
@@ -49,6 +52,7 @@
 | `BatchSize` | 20 | 1..200 | 每轮最多领取的消息数 |
 | `MaxConcurrency` | 1 | 1..16，且不超过 `BatchSize` | 单个 Worker 进程内同时处理的最大消息数；默认 1 保持串行 |
 | `LeaseSeconds` | 30 | 5..3600 | 单条消息租约持续时间；过期后允许其他 Worker 回收 |
+| `LeaseRenewalSeconds` | 10 | 1..1200，且不超过 `LeaseSeconds / 2` | 批次主动续期间隔；使用独立 Scope 和数据库会话 |
 | `PollMilliseconds` | 1000 | 100..60000 | 空轮询等待时间 |
 | `BacklogSampleSeconds` | 30 | 5..3600 | 积压聚合查询与指标记录周期；采样失败不会阻断消息领取 |
 | `MaxAttempts` | 5 | 1..100 | 单条消息允许的最大总尝试次数，包含当前领取 |
@@ -62,9 +66,17 @@
   Handler。若业务依赖聚合内顺序，必须保持 1，或先设计并验证显式顺序键。
 - 并发路径为每条消息创建独立 DI Scope、Handler 与数据库会话。连接池和下游并发预算
   必须覆盖每个 Worker 的 `MaxConcurrency` 乘以副本数，禁止把并发上限直接等同于可用吞吐。
-- 处理器耗时明显高于 `LeaseSeconds` 时，应优先缩小批量、优化处理器或提升租约，而不是直接增加副本数。
-- 当前 Outbox 不续租；单条 Handler 可能超过 `LeaseSeconds` 时，提高并发不能解决租约
-  过期风险，必须先优化 Handler 或按最长受控耗时调整租约。
+- 续租周期必须留出数据库抖动余量。降低 `LeaseSeconds` 时必须同步设置
+  `LeaseRenewalSeconds`，否则启动期校验会拒绝不安全配置。
+- 每次续租创建独立 DI Scope 和数据库会话，不与 Handler 共享连接；连接池预算须额外
+  覆盖每个活跃批次的续租命令。
+- 续租更新按批次消息主键集合定位，并同时匹配相同 `LockId`、未处理且非死信状态；不会
+  周期性按未索引的 `LockId` 扫描整个积压表。截止时间使用单调更新，宿主时钟回拨不得
+  缩短已持有租约；MySQL 连接固定使用 matched-row 计数，避免同值更新误报零行。
+- 零行更新或续租数据库故障会取消当前批次的协作式 Handler 并让本轮失败，保留租约到期
+  恢复语义；若最后一条消息已先进入成功终态，则保持该成功结果，不误报租约丢失。
+- 主动续租缩小长 Handler 与批尾消息的重复消费窗口，但进程崩溃、网络分区和终态确认
+  竞态仍可能产生重复；Handler 仍必须幂等，禁止把该能力描述为 Exactly-Once。
 - 若生产明确要求单副本运行，必须在部署清单中显式写死 `replicas: 1`，并记录“单副本故障期间 Outbox 会暂停消费”的风险。
 
 ## 4. 积压指标

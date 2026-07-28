@@ -99,6 +99,53 @@ internal sealed class DapperOutboxStore(
         };
     }
 
+    public async Task RenewLeaseAsync(
+        IReadOnlyCollection<Guid> messageIds,
+        Guid lockId,
+        TimeSpan lease,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(messageIds);
+        if (messageIds.Count == 0 || messageIds.Any(id => id == Guid.Empty))
+        {
+            throw new ArgumentException(
+                "The Outbox message identifiers must not be empty.",
+                nameof(messageIds));
+        }
+
+        if (lockId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "The Outbox lock identifier must not be empty.",
+                nameof(lockId));
+        }
+
+        if (lease <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(lease),
+                lease,
+                "The Outbox lease must be greater than zero.");
+        }
+
+        var distinctMessageIds = messageIds.Distinct().ToArray();
+        var affectedRows = await commandExecutor
+            .ExecuteAsync(
+                OutboxSql.RenewLease,
+                new
+                {
+                    Ids = distinctMessageIds,
+                    LockId = lockId,
+                    LockedUntil = clock.UtcNow.Add(lease),
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows == 0)
+        {
+            throw new OutboxLeaseLostException(lockId);
+        }
+    }
+
     public async Task MarkProcessedAsync(
         Guid id,
         Guid lockId,

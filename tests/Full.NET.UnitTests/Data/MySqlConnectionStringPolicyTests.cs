@@ -72,6 +72,18 @@ public sealed class MySqlConnectionStringPolicyTests
     }
 
     [TestMethod]
+    public void Connection_policy_enforces_matched_row_counting()
+    {
+        var actual = MySqlConnectionStringPolicy.Create(
+            $"{ConnectionString};UseAffectedRows=true",
+            MySqlGuidStorageMode.Binary16,
+            allowUserVariables: false);
+        var builder = new MySqlConnectionStringBuilder(actual);
+
+        Assert.IsFalse(builder.UseAffectedRows);
+    }
+
+    [TestMethod]
     public void Explicit_char36_is_rejected()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>

@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
@@ -72,17 +73,27 @@ internal sealed class OutboxProcessor(
                     var handlers = services
                         .GetServices<IIntegrationEventHandler>()
                         .ToArray();
-                    foreach (var message in messages)
-                    {
-                        await ProcessMessageAsync(
-                                message,
-                                handlers,
-                                store,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    }
+                    return await ProcessBatchWithLeaseRenewalAsync(
+                            messages,
+                            async (
+                                markBatchTerminal,
+                                batchCancellationToken) =>
+                            {
+                                foreach (var message in messages)
+                                {
+                                    await ProcessMessageAsync(
+                                            message,
+                                            handlers,
+                                            store,
+                                            batchCancellationToken)
+                                        .ConfigureAwait(false);
+                                }
 
-                    return messages.Count;
+                                markBatchTerminal();
+                                return messages.Count;
+                            },
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
             finally
@@ -92,16 +103,27 @@ internal sealed class OutboxProcessor(
         }
 
         // 并发路径在领取事务提交并释放批次 Scope 后启动，每条消息独占 Scoped Handler 与数据库会话。
-        await Parallel.ForEachAsync(
+        return await ProcessBatchWithLeaseRenewalAsync(
                 messages,
-                new ParallelOptions
+                async (
+                    markBatchTerminal,
+                    batchCancellationToken) =>
                 {
-                    CancellationToken = cancellationToken,
-                    MaxDegreeOfParallelism = _options.MaxConcurrency,
+                    await Parallel.ForEachAsync(
+                            messages,
+                            new ParallelOptions
+                            {
+                                CancellationToken = batchCancellationToken,
+                                MaxDegreeOfParallelism =
+                                    _options.MaxConcurrency,
+                            },
+                            ProcessMessageInScopeAsync)
+                        .ConfigureAwait(false);
+                    markBatchTerminal();
+                    return messages.Count;
                 },
-                ProcessMessageInScopeAsync)
+                cancellationToken)
             .ConfigureAwait(false);
-        return messages.Count;
     }
 
     internal TimeSpan GetDelayAfterBatch(int processedCount) =>
@@ -243,6 +265,145 @@ internal sealed class OutboxProcessor(
         }
     }
 
+    internal async Task<int> ProcessBatchWithLeaseRenewalAsync(
+        IReadOnlyList<OutboxEnvelope> messages,
+        Func<Action, CancellationToken, Task<int>> processBatch,
+        CancellationToken cancellationToken)
+    {
+        if (messages.Count == 0)
+        {
+            return 0;
+        }
+
+        var lockId = messages[0].LockId;
+        if (messages.Any(message => message.LockId != lockId))
+        {
+            throw new InvalidOperationException(
+                "An Outbox batch must share one lock identifier.");
+        }
+
+        using var leaseCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var batchReachedTerminal = 0;
+        void MarkBatchTerminal() =>
+            Interlocked.Exchange(ref batchReachedTerminal, 1);
+
+        var messageIds = messages.Select(message => message.Id).ToArray();
+        var renewalTask = RenewLeaseUntilCanceledAsync(
+            messageIds,
+            lockId,
+            leaseCancellation.Token);
+        var processingTask = processBatch(
+            MarkBatchTerminal,
+            leaseCancellation.Token);
+        var completedTask = await Task.WhenAny(processingTask, renewalTask)
+            .ConfigureAwait(false);
+        if (completedTask == renewalTask)
+        {
+            Exception? renewalFailure = null;
+            try
+            {
+                await renewalTask.ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                renewalFailure = exception;
+            }
+
+            if (Volatile.Read(ref batchReachedTerminal) == 1)
+            {
+                return await processingTask.ConfigureAwait(false);
+            }
+
+            leaseCancellation.Cancel();
+            Exception? processingFailure = null;
+            try
+            {
+                await processingTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (leaseCancellation.IsCancellationRequested)
+            {
+                // 续租失败后先等待协作式 Handler 退出，再传播原始租约故障。
+            }
+            catch (Exception exception)
+            {
+                processingFailure = exception;
+            }
+
+            if (renewalFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(renewalFailure).Throw();
+            }
+
+            if (processingFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(processingFailure).Throw();
+            }
+
+            throw new InvalidOperationException(
+                $"Outbox lease '{lockId:D}' renewal stopped unexpectedly.");
+        }
+
+        try
+        {
+            return await processingTask.ConfigureAwait(false);
+        }
+        finally
+        {
+            leaseCancellation.Cancel();
+            try
+            {
+                await renewalTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (leaseCancellation.IsCancellationRequested)
+            {
+                // 批次已进入终态或宿主退出，续租循环应随 linked token 有界停止。
+            }
+            catch (Exception)
+            {
+                // 处理分支已经先完成；续租清理故障不得覆盖原始处理结果。
+            }
+        }
+    }
+
+    private async Task RenewLeaseUntilCanceledAsync(
+        IReadOnlyCollection<Guid> messageIds,
+        Guid lockId,
+        CancellationToken cancellationToken)
+    {
+        var renewalInterval = TimeSpan.FromSeconds(
+            _options.LeaseRenewalSeconds);
+        var leaseDuration = TimeSpan.FromSeconds(_options.LeaseSeconds);
+        while (true)
+        {
+            await Task.Delay(renewalInterval, cancellationToken)
+                .ConfigureAwait(false);
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var services = scope.ServiceProvider;
+            var currentTenant =
+                services.GetRequiredService<CurrentTenantAccessor>();
+            currentTenant.SetHost();
+            try
+            {
+                var store = services.GetRequiredService<IOutboxStore>();
+                await store
+                    .RenewLeaseAsync(
+                        messageIds,
+                        lockId,
+                        leaseDuration,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                OutboxProcessorLog.LeaseRenewed(logger, lockId);
+            }
+            finally
+            {
+                currentTenant.Clear();
+            }
+        }
+    }
+
     private async ValueTask ProcessMessageInScopeAsync(
         OutboxEnvelope message,
         CancellationToken cancellationToken)
@@ -366,6 +527,12 @@ internal static partial class OutboxProcessorLog
     public static partial void BacklogSamplingFailed(
         ILogger logger,
         Exception exception);
+
+    [LoggerMessage(
+        EventId = 3006,
+        Level = LogLevel.Debug,
+        Message = "Renewed Outbox lease {LockId}")]
+    public static partial void LeaseRenewed(ILogger logger, Guid lockId);
 }
 
 internal sealed class OutboxPermanentException(string reasonCode, string message)
