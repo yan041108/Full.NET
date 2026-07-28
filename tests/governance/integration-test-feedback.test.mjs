@@ -63,7 +63,7 @@ test('开发规则必须按变更风险分层，并把本地全量留给 main CI
   assert.match(rules, /test:integration:affected:plan/);
   assert.match(rules, /test:integration:affected/);
   assert.match(rules, /任务基线/);
-  assert.match(rules, /完整 193 项只保留给 `main` CI/);
+  assert.match(rules, /完整 195 项只保留给 `main` CI/);
   assert.match(rules, /本地任务禁止运行 `test:integration:full`/);
 });
 
@@ -80,7 +80,7 @@ test('其它任务窗口必须记录基线并使用受影响测试选择器', as
     assert.match(source, /git rev-parse HEAD/);
     assert.match(source, /test:integration:affected:plan/);
     assert.match(source, /test:integration:affected/);
-    assert.match(source, /完整 193 项只保留给 `main` CI/);
+    assert.match(source, /完整 195 项只保留给 `main` CI/);
   }
 });
 

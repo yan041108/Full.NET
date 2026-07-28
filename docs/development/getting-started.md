@@ -29,7 +29,7 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 | --- | --- | --- |
 | ?? | ?????? | ???? / Outbox schema ?? 2 ??`--timeout 15m` |
 | PR | ???????CI PR | Identity/Tenancy/Outbox ?????? 8 ??`--timeout 15m` |
-| 完整 | 合并 `main`、共享基础设施或发布前 | 完整 `--minimum-expected-tests 193 --timeout 90m` |
+| 完整 | 合并 `main`、共享基础设施或发布前 | 完整 `--minimum-expected-tests 195 --timeout 90m` |
 
 ```powershell
 # 日常按风险选择标准入口
@@ -48,7 +48,7 @@ pnpm test:integration:durations
 ```
 
 `main` CI 的 canonical 定义保持
-`Full.NET.IntegrationTests --minimum-expected-tests 193 --timeout 90m`，只由四个互斥
+`Full.NET.IntegrationTests --minimum-expected-tests 195 --timeout 90m`，只由四个互斥
 并行分片执行；本地任务不得运行该完整集合。
 
 审计列表性能调查使用显式、非 CI 的双库基准入口。默认创建正式迁移后的
@@ -97,7 +97,7 @@ workload、原始请求样本、资源指标和预算判定写入
 `BenchmarkDotNet.Artifacts/mixed-load/`。它是本机回归门槛，不是生产 SLA；
 短时正确性检查可通过 `mixed-load --help` 查看覆盖参数。
 
-Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。每个服务端任务窗口先记录 `git rev-parse HEAD`，完成时通过 `test:integration:affected:plan` 审查影响集，再由 `test:integration:affected` 自动运行对应模块双库过滤集、Smoke、migrations 或 tooling。本地任务禁止运行 193 项全量；完整 193 项只保留给 `main` CI 的互斥并行分片。
+Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。每个服务端任务窗口先记录 `git rev-parse HEAD`，完成时通过 `test:integration:affected:plan` 审查影响集，再由 `test:integration:affected` 自动运行对应模块双库过滤集、Smoke、migrations 或 tooling。本地任务禁止运行 195 项全量；完整 195 项只保留给 `main` CI 的互斥并行分片。
 
 缓存可靠性指标使用 Meter `Full.NET.Caching.Reliability`：失效时延与失败只带固定
 `scope=local|distributed`、`outcome=success|failure` 标签；陈旧命中、Backplane

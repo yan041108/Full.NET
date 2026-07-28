@@ -214,7 +214,8 @@ Access 明确为请求遥测；Operation 与安全相关 Exception 保持不可�
 Task 20 矩阵；只有 P95/P99 达标且可靠性测试不退化才保留。
 
 状态（2026-07-29）：请求作用域固定三槽、单显式事务、单参数化命令候选已通过 Unit
-`7/7`、基准契约 `20/20` 和 SQL Server/MySQL Auditing 影响集 `6/6`。并发 4 的 3 秒短时
+`7/7`、基准契约 `20/20` 和 SQL Server/MySQL Auditing 影响集 `8/8`，其中两项真实制造
+第二条 INSERT 失败并确认第一条回滚。并发 4 的 3 秒短时
 A/B 中，两库总体 P95 均改善，MySQL `all` P95/P99 由 `78.878/281.212ms` 收敛到
 `42.666/48.401ms`，且归因、行数、错误与预算证据门禁全部通过。正式 Task 20 长稳态矩阵
 尚未复跑，故 Step 3 保持未完成；详见
@@ -342,7 +343,7 @@ Backplane 故障时必须 fail-closed，不能仅依赖陈旧 L1。
 
 **Priority:** P0（开发反馈）
 
-**Status:** 本地受影响测试选择器已于 2026-07-29 落地；本地任务禁止运行 193 项
+**Status:** 本地受影响测试选择器已于 2026-07-29 落地；本地任务禁止运行 195 项
 全量，完整门禁只由 `main` CI 并行分片执行。数据库模板 A/B 与 main 分片耗时再平衡
 仍待后续证据。
 
@@ -385,8 +386,8 @@ FCP/LCP/INP/DOMContentLoaded/Load、字体和 CSS 瀑布，不再只看单 JS ch
 基于新鲜 191 项 TRX 记录累计与墙钟时间，优先分析 MySQL Seed、Outbox、命名迁移演练；
 禁止以跳过或共享污染数据库换取速度。
 
-现行 canonical 已为 193 项。Task 21 全量墙钟为 `36m08s`；同一 Auditing 双库影响集
-为 **6/6、1m52s**。仓库已新增基于任务 Git 基线的 `test:integration:affected`，
+现行 canonical 已为 195 项。Task 21 全量墙钟为 `36m08s`；当前 Auditing 双库影响集
+为 **8/8**。仓库已新增基于任务 Git 基线的 `test:integration:affected`，
 将模块、共享能力、Smoke、migrations 与 tooling 映射为本地影响集。
 
 - [ ] **Step 2: A/B 初始化与复用策略**
@@ -397,7 +398,7 @@ FCP/LCP/INP/DOMContentLoaded/Load、字体和 CSS 瀑布，不再只看单 JS ch
 - [ ] **Step 3: 调整分片并冻结回归**
 
 以历史耗时平衡 SQL Server/MySQL/API/迁移/基础设施分片，目标是降低 PR 最慢分片墙钟，
-同时保持 main 全量 193 项、失败 0、跳过 0 和独立恢复用例。
+同时保持 main 全量 195 项、失败 0、跳过 0 和独立恢复用例。
 
 ## Execution Order and Stop Conditions
 

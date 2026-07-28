@@ -35,4 +35,14 @@ public sealed class AuditingApiMySqlTests
 
         await AuditingExceptionLogAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Request_audit_batch_rolls_back_partial_write_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await AuditingBatchRollbackAssertions.VerifyAsync(factory);
+    }
 }

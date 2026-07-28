@@ -157,7 +157,7 @@ Host，生产 Host 不读取 profile Header。
 | `AuditingWritePathTests` | **7/7**，失败 0、跳过 0 |
 | `MixedLoadContractTests` | **20/20**，失败 0、跳过 0 |
 | affected Integration plan | `focused: Auditing`，未升级为完整 193 项 |
-| SQL Server/MySQL Auditing Integration | **6/6**，失败 0、跳过 0，约 1m24s |
+| SQL Server/MySQL Auditing Integration | 查询/API **6/6**；真实半批回滚 **2/2**；影响集共 **8/8** |
 
 ### 7.2 双库短时 A/B
 
@@ -175,4 +175,6 @@ Host，生产 Host 不读取 profile Header。
 候选双库均为 0 个非预期错误，五种 profile 的预期/观测次数完全一致，
 `auditWriteAttributionComplete`、总证据门禁和预算门禁均为 PASS。短样本中 SQL Server
 总体 P95 改善约 6.41%，MySQL 改善约 7.72%；MySQL `all` P95/P99 明显收敛，支持保留候选。
-正式 `30s/600s × c=1/4/16/32` Task 20 矩阵尚未执行，因此 Task 22 Step 3 不标记完成。
+此外，SQL Server/MySQL 各通过一项真实事务回滚测试：第二条 Operation INSERT 触发非空约束
+失败后，第一条已执行的 Access INSERT 行数仍为 0。正式
+`30s/600s × c=1/4/16/32` Task 20 矩阵尚未执行，因此 Task 22 Step 3 不标记完成。

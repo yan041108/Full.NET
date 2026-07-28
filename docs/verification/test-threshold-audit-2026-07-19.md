@@ -1217,7 +1217,8 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | --- | --- |
 | Unit 门槛 **484 → 498** | Task 22 Step 1 的写入 profile、归因和证据门禁 6 项；本候选新增请求级 Audit 固定槽、空批次、一/二/三类组合、单事务单命令、失败隔离与取消语义 7 项，以及批量 Statement 归因展开 1 项 |
 | RED / GREEN | 批处理类型、Writer 和协调 Middleware 缺失时编译失败；归因展开 API 缺失时 3 个编译错误；实现后聚焦 **7/7** 与 **20/20** |
-| 双库影响集 | affected selector 仅命中 Auditing；SQL Server/MySQL **6/6**，失败 0、跳过 0，未执行完整 193 项 |
-| 四处 canonical 门槛 | **498/7/49/193**；README、getting-started、CI、模块交付与性能 Skill reference 已同步；`--list-tests` 新鲜发现 498 项 |
+| Integration 门槛 **193 → 195** | SQL Server/MySQL 各新增 1 项真实半批回滚测试；API 分片分别 **35 → 36** |
+| 双库影响集 | affected selector 仅命中 Auditing；查询/API 6 项与半批回滚 2 项共 **8/8**，失败 0、跳过 0，未执行完整 195 项 |
+| 四处 canonical 门槛 | **498/7/49/195**；README、getting-started、CI、规则、选择器、分片和项目 Skill 已同步；新鲜发现 **498/195** 项 |
 | 性能证据 | 并发 4、预热 1 秒、采样 3 秒的双库 A/B 中，总体 P95 均改善；证据链完整，正式长稳态矩阵仍待执行 |
 | 验证记录 | [`auditing-write-tail-latency-2026-07-28.md`](auditing-write-tail-latency-2026-07-28.md) 第 7 节 |

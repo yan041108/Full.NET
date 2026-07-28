@@ -35,4 +35,14 @@ public sealed class AuditingApiSqlServerTests
 
         await AuditingExceptionLogAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Request_audit_batch_rolls_back_partial_write_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await AuditingBatchRollbackAssertions.VerifyAsync(factory);
+    }
 }
