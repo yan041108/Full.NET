@@ -58,8 +58,8 @@ SQL。
 Worker。指标只允许 `category`、`provider`、`result` 等封闭标签，至少记录删除行数、失败数、
 最近成功时间和本轮耗时。
 
-Outbox 运维指标继续区分 Pending、到期重试、持租约和 Dead Letter，不能把 Dead Letter 混入
-普通 backlog 后自动删除。
+Outbox 运维快照已在同一次采样查询中区分 Pending、到期且无活动租约的重试、持租约和
+Dead Letter，并记录最老死信年龄；Dead Letter 不混入普通 backlog，也没有自动删除入口。
 
 ## 5. 分阶段验收
 

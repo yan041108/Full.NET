@@ -7,22 +7,84 @@ internal static class OutboxSql
     public static readonly SqlStatement ReadBacklogSqlServer = new(
         "outbox.read_backlog.sql_server",
         """
-        SELECT COUNT_BIG(*) AS PendingCount,
-               MIN(OccurredAtUtc) AS OldestOccurredAtUtc
+        SELECT COUNT_BIG(
+                   CASE WHEN DeadLetteredAtUtc IS NULL THEN 1 END
+               ) AS PendingCount,
+               MIN(
+                   CASE WHEN DeadLetteredAtUtc IS NULL
+                       THEN OccurredAtUtc
+                   END
+               ) AS OldestOccurredAtUtc,
+               COUNT_BIG(
+                   CASE WHEN DeadLetteredAtUtc IS NULL
+                              AND NextAttemptAtUtc IS NOT NULL
+                              AND NextAttemptAtUtc <= @Now
+                              AND (
+                                  LockedUntilUtc IS NULL
+                                  OR LockedUntilUtc <= @Now
+                              )
+                       THEN 1
+                   END
+               ) AS DueRetryCount,
+               COUNT_BIG(
+                   CASE WHEN DeadLetteredAtUtc IS NULL
+                              AND LockedUntilUtc > @Now
+                       THEN 1
+                   END
+               ) AS ActiveLeaseCount,
+               COUNT_BIG(
+                   CASE WHEN DeadLetteredAtUtc IS NOT NULL THEN 1 END
+               ) AS DeadLetterCount,
+               MIN(DeadLetteredAtUtc) AS OldestDeadLetteredAtUtc
         FROM fn_outbox_message
-        WHERE ProcessedAtUtc IS NULL
-          AND DeadLetteredAtUtc IS NULL;
+        WHERE ProcessedAtUtc IS NULL;
         """,
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement ReadBacklogMySql = new(
         "outbox.read_backlog.my_sql",
         """
-        SELECT COUNT(*) AS PendingCount,
-               MIN(OccurredAtUtc) AS OldestOccurredAtUtc
+        SELECT COALESCE(
+                   SUM(CASE WHEN DeadLetteredAtUtc IS NULL THEN 1 ELSE 0 END),
+                   0
+               ) AS PendingCount,
+               MIN(
+                   CASE WHEN DeadLetteredAtUtc IS NULL
+                       THEN OccurredAtUtc
+                   END
+               ) AS OldestOccurredAtUtc,
+               COALESCE(
+                   SUM(
+                       CASE WHEN DeadLetteredAtUtc IS NULL
+                                      AND NextAttemptAtUtc IS NOT NULL
+                                      AND NextAttemptAtUtc <= @Now
+                                      AND (
+                                          LockedUntilUtc IS NULL
+                                          OR LockedUntilUtc <= @Now
+                                      )
+                           THEN 1
+                           ELSE 0
+                       END
+                   ),
+                   0
+               ) AS DueRetryCount,
+               COALESCE(
+                   SUM(
+                       CASE WHEN DeadLetteredAtUtc IS NULL
+                                      AND LockedUntilUtc > @Now
+                           THEN 1
+                           ELSE 0
+                       END
+                   ),
+                   0
+               ) AS ActiveLeaseCount,
+               COALESCE(
+                   SUM(CASE WHEN DeadLetteredAtUtc IS NOT NULL THEN 1 ELSE 0 END),
+                   0
+               ) AS DeadLetterCount,
+               MIN(DeadLetteredAtUtc) AS OldestDeadLetteredAtUtc
         FROM fn_outbox_message
-        WHERE ProcessedAtUtc IS NULL
-          AND DeadLetteredAtUtc IS NULL;
+        WHERE ProcessedAtUtc IS NULL;
         """,
         SqlDataScope.HostOnly);
 

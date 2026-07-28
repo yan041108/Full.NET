@@ -77,3 +77,8 @@ Worker 使用独立的 `OutboxRetention` 配置：
 SQL Server 使用有界锁候选 CTE；MySQL 在短事务中通过 `FOR UPDATE SKIP LOCKED` 领取 ID 后
 按领取集合删除。指标 Meter 为 `Full.NET.Outbox.Retention`，记录删除行数、失败数、最近成功
 时间和单轮耗时。配置改为 `false` 后，当前数据库批次结束，但不会开始下一批。
+
+现有 `Full.NET.Outbox` 积压采样仍按 `OutboxWorker:BacklogSampleSeconds` 执行一次只读查询，
+同一快照额外暴露到期且无活动租约的重试数、活动租约数、死信数和最老死信年龄；不会为每个
+分类增加独立数据库往返。Pending 总数保持“所有未成功且未死信消息”，因此它包含尚未到期的
+重试和活动租约；各分类指标用于解释总量，不应相加后再与 Pending 比较。

@@ -26,6 +26,16 @@ AND ProcessedAtUtc < CutoffUtc
 `Full.NET.Outbox.Retention` Meter 提供删除行数、失败数、最近成功时间和单轮耗时；标签仅含
 固定的 `provider` 与 `result`。
 
+后续同日切片扩展了既有 `Full.NET.Outbox` 单次 backlog 快照，新增：
+
+- `fullnet.outbox.retry.due`：已到重试时间且没有活动租约；
+- `fullnet.outbox.lease.active`：租约截止时间仍在未来；
+- `fullnet.outbox.dead_letter.messages`：死信总数；
+- `fullnet.outbox.dead_letter.oldest_age`：最早死信终态年龄。
+
+原 Pending 总数和最老待处理年龄语义保持不变；新增属性采用 init 扩展，保留原有
+`OutboxBacklogSnapshot(long, DateTimeOffset?)` 构造兼容。
+
 ## 新鲜验证
 
 | 验证 | 结果 |
@@ -35,6 +45,9 @@ AND ProcessedAtUtc < CutoffUtc
 | Integration 项目 Debug 构建 | 0 warning、0 error |
 | 影响集 Release 构建 | 0 warning、0 error |
 | 任务基线影响集 | tooling **20/20**、Outbox **14/14**、Smoke **8/8**，失败 0、跳过 0 |
+| 运维分类 Unit | **1/1**，六项指标从同一快照记录 |
+| 运维分类 SQL Server/MySQL Integration | **2/2**，失败 0、跳过 0，约 46 秒 |
+| 运维分类任务基线影响集 | Outbox **14/14**，失败 0、跳过 0，约 2 分 25 秒 |
 
 双库测试真实插入过期成功、恰好截止、未过期成功、待重试、持租约和 Dead Letter 六类消息，
 以 `BatchSize=1` 连续清理两批；首批仅删除过期成功消息，第二批返回 0，其余五类保持存在。

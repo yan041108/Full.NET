@@ -702,6 +702,11 @@ public sealed class OutboxRecoveryTests
             UnknownVersionHandler.EventTypeValue,
             1,
             new TestIntegrationEvent("second"));
+        await UpdateOutboxNextAttemptAsync(
+            databaseProvider,
+            connectionString,
+            secondOccurredAtUtc,
+            secondOccurredAtUtc);
 
         await using var scope = services.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
@@ -711,12 +716,22 @@ public sealed class OutboxRecoveryTests
         var initial = await backlogReader.ReadBacklogAsync(CancellationToken.None);
         Assert.AreEqual(2L, initial.PendingCount);
         Assert.AreEqual(firstOccurredAtUtc, initial.OldestOccurredAtUtc);
+        Assert.AreEqual(1L, initial.DueRetryCount);
+        Assert.AreEqual(0L, initial.ActiveLeaseCount);
+        Assert.AreEqual(1L, initial.DeadLetterCount);
+        Assert.AreEqual(
+            deadLetterOccurredAtUtc,
+            initial.OldestDeadLetteredAtUtc);
 
         var firstLease = await store.AcquireAsync(
             1,
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
         Assert.HasCount(1, firstLease);
+        var duringFirstLease = await backlogReader.ReadBacklogAsync(
+            CancellationToken.None);
+        Assert.AreEqual(1L, duringFirstLease.ActiveLeaseCount);
+        Assert.AreEqual(1L, duringFirstLease.DueRetryCount);
         await store.MarkProcessedAsync(
             firstLease[0].Id,
             firstLease[0].LockId,
@@ -724,12 +739,18 @@ public sealed class OutboxRecoveryTests
         var afterFirst = await backlogReader.ReadBacklogAsync(CancellationToken.None);
         Assert.AreEqual(1L, afterFirst.PendingCount);
         Assert.AreEqual(secondOccurredAtUtc, afterFirst.OldestOccurredAtUtc);
+        Assert.AreEqual(1L, afterFirst.DueRetryCount);
+        Assert.AreEqual(0L, afterFirst.ActiveLeaseCount);
 
         var secondLease = await store.AcquireAsync(
             1,
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
         Assert.HasCount(1, secondLease);
+        var duringSecondLease = await backlogReader.ReadBacklogAsync(
+            CancellationToken.None);
+        Assert.AreEqual(0L, duringSecondLease.DueRetryCount);
+        Assert.AreEqual(1L, duringSecondLease.ActiveLeaseCount);
         await store.MarkProcessedAsync(
             secondLease[0].Id,
             secondLease[0].LockId,
@@ -737,6 +758,12 @@ public sealed class OutboxRecoveryTests
         var empty = await backlogReader.ReadBacklogAsync(CancellationToken.None);
         Assert.AreEqual(0L, empty.PendingCount);
         Assert.IsNull(empty.OldestOccurredAtUtc);
+        Assert.AreEqual(0L, empty.DueRetryCount);
+        Assert.AreEqual(0L, empty.ActiveLeaseCount);
+        Assert.AreEqual(1L, empty.DeadLetterCount);
+        Assert.AreEqual(
+            deadLetterOccurredAtUtc,
+            empty.OldestDeadLetteredAtUtc);
     }
 
     private static async Task VerifyRetentionAsync(
@@ -1049,6 +1076,39 @@ public sealed class OutboxRecoveryTests
             {
                 Timestamp = databaseTimestamp,
                 MessageType = messageType
+            });
+    }
+
+    private static async Task UpdateOutboxNextAttemptAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString,
+        DateTimeOffset occurredAtUtc,
+        DateTimeOffset nextAttemptAtUtc)
+    {
+        static object ToDatabaseTimestamp(
+            DatabaseProvider provider,
+            DateTimeOffset value) =>
+            provider == DatabaseProvider.MySql
+                ? value.UtcDateTime
+                : value;
+
+        await using var connection = CreateConnection(
+            databaseProvider,
+            connectionString);
+        await connection.ExecuteAsync(
+            """
+            UPDATE fn_outbox_message
+            SET NextAttemptAtUtc = @NextAttemptAtUtc
+            WHERE OccurredAtUtc = @OccurredAtUtc;
+            """,
+            new
+            {
+                OccurredAtUtc = ToDatabaseTimestamp(
+                    databaseProvider,
+                    occurredAtUtc),
+                NextAttemptAtUtc = ToDatabaseTimestamp(
+                    databaseProvider,
+                    nextAttemptAtUtc),
             });
     }
 

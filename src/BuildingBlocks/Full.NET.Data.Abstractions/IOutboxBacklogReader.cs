@@ -9,7 +9,7 @@ public interface IOutboxBacklogReader
     /// 读取当前全部未处理且未死信消息的积压快照。
     /// </summary>
     /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
-    /// <returns>待处理数量与最老消息发生时间；空队列的时间为空。</returns>
+    /// <returns>待处理、到期重试、活动租约和死信分类快照；空分类的时间为空。</returns>
     Task<OutboxBacklogSnapshot> ReadBacklogAsync(
         CancellationToken cancellationToken);
 
@@ -33,7 +33,20 @@ public interface IOutboxBacklogReader
 /// <param name="OldestOccurredAtUtc">最老待处理消息的 UTC 发生时间；空队列时为空。</param>
 public sealed record OutboxBacklogSnapshot(
     long PendingCount,
-    DateTimeOffset? OldestOccurredAtUtc);
+    DateTimeOffset? OldestOccurredAtUtc)
+{
+    /// <summary>已到重试时间且当前没有活动租约的消息数量。</summary>
+    public long DueRetryCount { get; init; }
+
+    /// <summary>租约仍未到期的未处理消息数量。</summary>
+    public long ActiveLeaseCount { get; init; }
+
+    /// <summary>尚未处理且已进入死信终态的消息数量。</summary>
+    public long DeadLetterCount { get; init; }
+
+    /// <summary>最早死信终态时间；没有死信时为空。</summary>
+    public DateTimeOffset? OldestDeadLetteredAtUtc { get; init; }
+}
 
 /// <summary>
 /// 表示某个 Handler 版本仍未排空的只读证据。

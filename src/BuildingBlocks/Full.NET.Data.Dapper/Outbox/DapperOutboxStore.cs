@@ -256,12 +256,18 @@ internal sealed class DapperOutboxStore(
         var row = await queryExecutor
             .QuerySingleOrDefaultAsync<SqlServerBacklogRow>(
                 OutboxSql.ReadBacklogSqlServer,
-                parameters: null,
+                new { Now = clock.UtcNow },
                 cancellationToken)
             .ConfigureAwait(false);
         return new OutboxBacklogSnapshot(
             row?.PendingCount ?? 0,
-            row?.OldestOccurredAtUtc);
+            row?.OldestOccurredAtUtc)
+        {
+            DueRetryCount = row?.DueRetryCount ?? 0,
+            ActiveLeaseCount = row?.ActiveLeaseCount ?? 0,
+            DeadLetterCount = row?.DeadLetterCount ?? 0,
+            OldestDeadLetteredAtUtc = row?.OldestDeadLetteredAtUtc,
+        };
     }
 
     private async Task<OutboxBacklogSnapshot> ReadMySqlBacklogAsync(
@@ -270,16 +276,27 @@ internal sealed class DapperOutboxStore(
         var row = await queryExecutor
             .QuerySingleOrDefaultAsync<MySqlBacklogRow>(
                 OutboxSql.ReadBacklogMySql,
-                parameters: null,
+                new { Now = clock.UtcNow },
                 cancellationToken)
             .ConfigureAwait(false);
         DateTimeOffset? oldestOccurredAtUtc = row?.OldestOccurredAtUtc is { } value
             ? new DateTimeOffset(
                 DateTime.SpecifyKind(value, DateTimeKind.Utc))
             : null;
+        DateTimeOffset? oldestDeadLetteredAtUtc =
+            row?.OldestDeadLetteredAtUtc is { } deadLetteredAt
+                ? new DateTimeOffset(
+                    DateTime.SpecifyKind(deadLetteredAt, DateTimeKind.Utc))
+                : null;
         return new OutboxBacklogSnapshot(
             row?.PendingCount ?? 0,
-            oldestOccurredAtUtc);
+            oldestOccurredAtUtc)
+        {
+            DueRetryCount = row?.DueRetryCount ?? 0,
+            ActiveLeaseCount = row?.ActiveLeaseCount ?? 0,
+            DeadLetterCount = row?.DeadLetterCount ?? 0,
+            OldestDeadLetteredAtUtc = oldestDeadLetteredAtUtc,
+        };
     }
 
     private async Task<OutboxVersionRetirementSnapshot>
@@ -474,12 +491,20 @@ internal sealed class DapperOutboxStore(
     {
         public long PendingCount { get; init; }
         public DateTimeOffset? OldestOccurredAtUtc { get; init; }
+        public long DueRetryCount { get; init; }
+        public long ActiveLeaseCount { get; init; }
+        public long DeadLetterCount { get; init; }
+        public DateTimeOffset? OldestDeadLetteredAtUtc { get; init; }
     }
 
     private sealed class MySqlBacklogRow
     {
         public long PendingCount { get; init; }
         public DateTime? OldestOccurredAtUtc { get; init; }
+        public long DueRetryCount { get; init; }
+        public long ActiveLeaseCount { get; init; }
+        public long DeadLetterCount { get; init; }
+        public DateTime? OldestDeadLetteredAtUtc { get; init; }
     }
 
     private sealed class SqlServerVersionRetirementRow

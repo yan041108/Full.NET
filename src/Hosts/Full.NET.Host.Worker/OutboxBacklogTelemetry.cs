@@ -4,7 +4,7 @@ using Full.NET.Data.Abstractions;
 namespace Full.NET.Host.Worker;
 
 /// <summary>
-/// 记录 Outbox 积压数量与最老消息年龄的低基数指标。
+/// 记录 Outbox 待处理、到期重试、活动租约与死信状态的低基数指标。
 /// </summary>
 internal static class OutboxBacklogTelemetry
 {
@@ -19,6 +19,22 @@ internal static class OutboxBacklogTelemetry
         Meter.CreateGauge<double>(
             "fullnet.outbox.backlog.oldest_age",
             unit: "s");
+    private static readonly Gauge<long> DueRetryMessages =
+        Meter.CreateGauge<long>(
+            "fullnet.outbox.retry.due",
+            unit: "{message}");
+    private static readonly Gauge<long> ActiveLeaseMessages =
+        Meter.CreateGauge<long>(
+            "fullnet.outbox.lease.active",
+            unit: "{message}");
+    private static readonly Gauge<long> DeadLetterMessages =
+        Meter.CreateGauge<long>(
+            "fullnet.outbox.dead_letter.messages",
+            unit: "{message}");
+    private static readonly Gauge<double> OldestDeadLetterAge =
+        Meter.CreateGauge<double>(
+            "fullnet.outbox.dead_letter.oldest_age",
+            unit: "s");
 
     public static void Record(
         OutboxBacklogSnapshot snapshot,
@@ -31,6 +47,16 @@ internal static class OutboxBacklogTelemetry
                 ? Math.Max(0d, (observedAtUtc - oldest).TotalSeconds)
                 : 0d;
             OldestMessageAge.Record(age);
+            DueRetryMessages.Record(snapshot.DueRetryCount);
+            ActiveLeaseMessages.Record(snapshot.ActiveLeaseCount);
+            DeadLetterMessages.Record(snapshot.DeadLetterCount);
+            var deadLetterAge =
+                snapshot.OldestDeadLetteredAtUtc is { } oldestDeadLetter
+                    ? Math.Max(
+                        0d,
+                        (observedAtUtc - oldestDeadLetter).TotalSeconds)
+                    : 0d;
+            OldestDeadLetterAge.Record(deadLetterAge);
         }
         catch (Exception)
         {

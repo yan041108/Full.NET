@@ -580,13 +580,19 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
-    public async Task ProcessOnceAsync_RecordsPendingCountAndOldestMessageAge()
+    public async Task ProcessOnceAsync_RecordsOperationalBacklogCategoriesAndAges()
     {
         var now = new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero);
         var store = CreateStore();
         BacklogReader(store)
             .ReadBacklogAsync(Arg.Any<CancellationToken>())
-            .Returns(new OutboxBacklogSnapshot(2, now.AddSeconds(-90)));
+            .Returns(new OutboxBacklogSnapshot(2, now.AddSeconds(-90))
+            {
+                DueRetryCount = 3,
+                ActiveLeaseCount = 4,
+                DeadLetterCount = 5,
+                OldestDeadLetteredAtUtc = now.AddSeconds(-120),
+            });
         var measurements = new List<(string Name, double Value)>();
         using var listener = new System.Diagnostics.Metrics.MeterListener
         {
@@ -616,6 +622,18 @@ public sealed class OutboxProcessorTests
         CollectionAssert.Contains(
             measurements,
             ("fullnet.outbox.backlog.oldest_age", 90d));
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.retry.due", 3d));
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.lease.active", 4d));
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.dead_letter.messages", 5d));
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.dead_letter.oldest_age", 120d));
     }
 
     [TestMethod]
