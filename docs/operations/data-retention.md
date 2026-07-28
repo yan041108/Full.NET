@@ -82,3 +82,9 @@ SQL Server 使用有界锁候选 CTE；MySQL 在短事务中通过 `FOR UPDATE S
 同一快照额外暴露到期且无活动租约的重试数、活动租约数、死信数和最老死信年龄；不会为每个
 分类增加独立数据库往返。Pending 总数保持“所有未成功且未死信消息”，因此它包含尚未到期的
 重试和活动租约；各分类指标用于解释总量，不应相加后再与 Pending 比较。
+
+2026-07-29 的 SQL Server/MySQL 持续写入短矩阵验证了默认 `BatchSize=200` 和
+`MaxBatchesPerRun=15`；两库并发 1/4 的请求、Worker 与 cleanup 错误均为 0。该结果只支持
+保留当前默认值，不授权提高批大小、单轮上限或 `OutboxWorker:MaxConcurrency`。无单轮上限
+的 MySQL c=4 压力形状曾产生秒级尾延迟，因此运维配置不得把清理改成无界连续循环；完整证据
+见 [`outbox-retention-2026-07-29.md`](../verification/outbox-retention-2026-07-29.md)。

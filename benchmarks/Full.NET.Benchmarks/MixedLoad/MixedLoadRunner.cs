@@ -8,6 +8,8 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.RegularExpressions;
 using Dapper;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -49,145 +51,195 @@ public static class MixedLoadRunner
         {
             cancellationToken.ThrowIfCancellationRequested();
             var runs = new List<MixedLoadRunResult>();
+            MixedLoadOutboxRetentionProfile?[] retentionProfiles =
+                options.OutboxRetentionMatrixEnabled
+                    ? options.OutboxRetentionProfiles
+                        .Select(profile =>
+                            (MixedLoadOutboxRetentionProfile?)profile)
+                        .ToArray()
+                    : [null];
             foreach (var concurrency in options.ConcurrencyLevels)
             {
-                var poolName =
-                    $"fullnet-mixed-load-{provider}-c{concurrency}-{Guid.NewGuid():N}";
-                using var poolTelemetry = MixedLoadConnectionPoolTelemetry.Create(
-                    ParseProvider(provider),
-                    poolName);
-                Console.WriteLine(
-                    $"[{provider}] 并发 {concurrency}：启动隔离数据库并迁移...");
-                await using var database = await MixedLoadDatabase.StartAsync(
-                    provider,
-                    poolName,
-                    cancellationToken);
-                await using var host = new MixedLoadApiFactory(
-                    database.Provider,
-                    database.ConnectionString);
-                using var client = host.CreateBenchmarkClient();
-                var auditWriteTelemetry = host.Services
-                    .GetRequiredService<MixedLoadAuditWriteTelemetry>();
-                MixedLoadSetup setup;
-                MixedLoadCredentials credentials;
-                MixedLoadWorkerState[] workerStates;
-                using (MixedLoadConsoleSilencer.Suppress())
+                foreach (var retentionProfile in retentionProfiles)
                 {
-                    setup = await host.InitializeAsync(
-                        concurrency,
-                        cancellationToken);
-                    credentials = await PrepareCredentialsAsync(
-                        client,
-                        setup.AdminUserId,
-                        cancellationToken);
-                    workerStates = setup.Tenants
-                        .Select((tenant, index) => new MixedLoadWorkerState(
-                            index,
-                            tenant.Id,
-                            tenant.Version))
-                        .ToArray();
-                    await VerifyPreflightAsync(
-                        client,
-                        workerStates[0],
-                        credentials,
-                        scenarios,
-                        cancellationToken);
-                    await Task.Delay(100, cancellationToken);
-                }
-
-                Console.WriteLine(
-                    $"[{provider}] 并发 {concurrency}：预热 {options.Warmup.TotalSeconds:0}s...");
-                using var telemetry = new MixedLoadDapperTelemetry();
-                using (MixedLoadConsoleSilencer.Suppress())
-                {
-                    await RunPhaseAsync(
-                        client,
-                        credentials,
-                        workerStates,
-                        scenarios,
-                        options.AuditWriteProfiles,
-                        options.Seed,
-                        options.Warmup,
-                        samples: null,
-                        cancellationToken);
-                    await Task.Delay(100, cancellationToken);
-                }
-
-                telemetry.Reset();
-                auditWriteTelemetry.Reset();
-                poolTelemetry.Reset();
-                var resourceBefore = CaptureProcessResources();
-                var databaseBefore = await database.CaptureStateAsync(cancellationToken);
-                var samples = new ConcurrentQueue<MixedLoadRequestSample>();
-                await using var containerTelemetry =
-                    new MixedLoadContainerTelemetry(database.ContainerId);
-                containerTelemetry.Start();
-                Console.WriteLine(
-                    $"[{provider}] 并发 {concurrency}：采样 {options.Duration.TotalSeconds:0}s...");
-                TimeSpan elapsed;
-                using (MixedLoadConsoleSilencer.Suppress())
-                {
-                    elapsed = await RunPhaseAsync(
-                        client,
-                        credentials,
-                        workerStates,
-                        scenarios,
-                        options.AuditWriteProfiles,
-                        options.Seed,
-                        options.Duration,
-                        samples,
-                        cancellationToken);
-                }
-                var containerResources = await containerTelemetry.StopAsync();
-                await Task.Delay(100, cancellationToken);
-                var databaseAfter = await database.CaptureStateAsync(cancellationToken);
-                var resourceAfter = CaptureProcessResources();
-                var requestSamples = samples
-                    .OrderBy(sample => sample.StartedAtUtc)
-                    .ThenBy(sample => sample.WorkerId)
-                    .ToArray();
-                var result = MixedLoadReportWriter.CreateRunResult(
-                    provider,
-                    database.ContainerImage,
-                    database.DatabaseVersion,
-                    concurrency,
-                    options,
-                    elapsed,
-                    requestSamples,
-                    telemetry.Snapshot(),
-                    auditWriteTelemetry.Snapshot(),
-                    poolTelemetry.Snapshot(),
-                    containerResources,
-                    resourceBefore,
-                    resourceAfter,
-                    databaseBefore,
-                    databaseAfter);
-                var checkpointedResult = await MixedLoadReportWriter
-                    .WriteRunCheckpointAsync(
-                        options.OutputDirectory,
-                        result,
-                        cancellationToken);
-                runs.Add(checkpointedResult);
-                var checkpointProviders = providerResults
-                    .Append(new MixedLoadProviderResult(
+                    var profileSuffix = retentionProfile is null
+                        ? string.Empty
+                        : $"-retention-{retentionProfile.Value.ToString().ToLowerInvariant()}";
+                    var poolName =
+                        $"fullnet-mixed-load-{provider}-c{concurrency}"
+                        + $"{profileSuffix}-{Guid.NewGuid():N}";
+                    using var poolTelemetry = MixedLoadConnectionPoolTelemetry.Create(
+                        ParseProvider(provider),
+                        poolName);
+                    Console.WriteLine(
+                        $"[{provider}] 并发 {concurrency}{profileSuffix}："
+                        + "启动隔离数据库并迁移...");
+                    await using var database = await MixedLoadDatabase.StartAsync(
                         provider,
-                        checkpointedResult.ContainerImage,
-                        checkpointedResult.DatabaseVersion,
-                        runs))
-                    .ToArray();
-                await MixedLoadReportWriter.WriteAsync(
-                    options.OutputDirectory,
-                    MixedLoadReportWriter.CreateReport(
-                        options,
-                        checkpointProviders),
-                    cancellationToken);
+                        poolName,
+                        cancellationToken);
+                    await using var host = new MixedLoadApiFactory(
+                        database.Provider,
+                        database.ConnectionString);
+                    using var client = host.CreateBenchmarkClient();
+                    var auditWriteTelemetry = host.Services
+                        .GetRequiredService<MixedLoadAuditWriteTelemetry>();
+                    MixedLoadSetup setup;
+                    MixedLoadCredentials credentials;
+                    MixedLoadWorkerState[] workerStates;
+                    using (MixedLoadConsoleSilencer.Suppress())
+                    {
+                        setup = await host.InitializeAsync(
+                            concurrency,
+                            cancellationToken);
+                        credentials = await PrepareCredentialsAsync(
+                            client,
+                            setup.AdminUserId,
+                            cancellationToken);
+                        workerStates = setup.Tenants
+                            .Select((tenant, index) => new MixedLoadWorkerState(
+                                index,
+                                tenant.Id,
+                                tenant.Version))
+                            .ToArray();
+                        await VerifyPreflightAsync(
+                            client,
+                            workerStates[0],
+                            credentials,
+                            scenarios,
+                            cancellationToken);
+                        await Task.Delay(100, cancellationToken);
+                    }
 
-                Console.WriteLine(
-                    $"[{provider}] c={concurrency}: "
-                    + $"QPS={result.RequestsPerSecond:0.##}, "
-                    + $"P95={result.Latency.P95Milliseconds:0.###}ms, "
-                    + $"P99={result.Latency.P99Milliseconds:0.###}ms, "
-                    + $"unexpected={result.UnexpectedErrorRate:P3}");
+                    Console.WriteLine(
+                        $"[{provider}] 并发 {concurrency}：预热 {options.Warmup.TotalSeconds:0}s...");
+                    using var telemetry = new MixedLoadDapperTelemetry();
+                    using (MixedLoadConsoleSilencer.Suppress())
+                    {
+                        await RunPhaseAsync(
+                            client,
+                            credentials,
+                            workerStates,
+                            scenarios,
+                            options.AuditWriteProfiles,
+                            options.Seed,
+                            options.Warmup,
+                            samples: null,
+                            cancellationToken);
+                        await Task.Delay(100, cancellationToken);
+                    }
+
+                    if (retentionProfile is not null)
+                    {
+                        Console.WriteLine(
+                            $"[{provider}] 并发 {concurrency}{profileSuffix}："
+                            + $"预置 {options.OutboxRetentionSeedProcessed} "
+                            + "条过期成功消息...");
+                        await database.SeedExpiredProcessedOutboxAsync(
+                            options.OutboxRetentionSeedProcessed,
+                            cancellationToken);
+                    }
+
+                    telemetry.Reset();
+                    auditWriteTelemetry.Reset();
+                    poolTelemetry.Reset();
+                    var resourceBefore = CaptureProcessResources();
+                    var databaseBefore = await database.CaptureStateAsync(cancellationToken);
+                    var samples = new ConcurrentQueue<MixedLoadRequestSample>();
+                    await using var containerTelemetry =
+                        new MixedLoadContainerTelemetry(database.ContainerId);
+                    containerTelemetry.Start();
+                    Console.WriteLine(
+                        $"[{provider}] 并发 {concurrency}：采样 {options.Duration.TotalSeconds:0}s...");
+                    TimeSpan elapsed;
+                    MixedLoadOutboxActivitySnapshot? outboxActivity = null;
+                    using (MixedLoadConsoleSilencer.Suppress())
+                    {
+                        var requestTask = RunPhaseAsync(
+                            client,
+                            credentials,
+                            workerStates,
+                            scenarios,
+                            options.AuditWriteProfiles,
+                            options.Seed,
+                            options.Duration,
+                            samples,
+                            cancellationToken);
+                        if (retentionProfile is null)
+                        {
+                            elapsed = await requestTask;
+                        }
+                        else
+                        {
+                            var outboxSamples =
+                                new ConcurrentQueue<MixedLoadOutboxOperationSample>();
+                            var outboxTask = RunOutboxActivityAsync(
+                                host.Services,
+                                retentionProfile.Value,
+                                options,
+                                outboxSamples,
+                                cancellationToken);
+                            await Task.WhenAll(requestTask, outboxTask);
+                            elapsed = await requestTask;
+                            outboxActivity = new MixedLoadOutboxActivitySnapshot(
+                                retentionProfile.Value,
+                                outboxSamples
+                                    .OrderBy(sample => sample.StartedAtUtc)
+                                    .ToArray());
+                        }
+                    }
+                    var containerResources = await containerTelemetry.StopAsync();
+                    await Task.Delay(100, cancellationToken);
+                    var databaseAfter = await database.CaptureStateAsync(cancellationToken);
+                    var resourceAfter = CaptureProcessResources();
+                    var requestSamples = samples
+                        .OrderBy(sample => sample.StartedAtUtc)
+                        .ThenBy(sample => sample.WorkerId)
+                        .ToArray();
+                    var result = MixedLoadReportWriter.CreateRunResult(
+                        provider,
+                        database.ContainerImage,
+                        database.DatabaseVersion,
+                        concurrency,
+                        options,
+                        elapsed,
+                        requestSamples,
+                        telemetry.Snapshot(),
+                        auditWriteTelemetry.Snapshot(),
+                        poolTelemetry.Snapshot(),
+                        containerResources,
+                        resourceBefore,
+                        resourceAfter,
+                        databaseBefore,
+                        databaseAfter,
+                        outboxActivity);
+                    var checkpointedResult = await MixedLoadReportWriter
+                        .WriteRunCheckpointAsync(
+                            options.OutputDirectory,
+                            result,
+                            cancellationToken);
+                    runs.Add(checkpointedResult);
+                    var checkpointProviders = providerResults
+                        .Append(new MixedLoadProviderResult(
+                            provider,
+                            checkpointedResult.ContainerImage,
+                            checkpointedResult.DatabaseVersion,
+                            runs))
+                        .ToArray();
+                    await MixedLoadReportWriter.WriteAsync(
+                        options.OutputDirectory,
+                        MixedLoadReportWriter.CreateReport(
+                            options,
+                            checkpointProviders),
+                        cancellationToken);
+
+                    Console.WriteLine(
+                        $"[{provider}] c={concurrency}{profileSuffix}: "
+                        + $"QPS={result.RequestsPerSecond:0.##}, "
+                        + $"P95={result.Latency.P95Milliseconds:0.###}ms, "
+                        + $"P99={result.Latency.P99Milliseconds:0.###}ms, "
+                        + $"unexpected={result.UnexpectedErrorRate:P3}");
+                }
             }
 
             var firstRun = runs[0];
@@ -251,6 +303,168 @@ public static class MixedLoadRunner
         await Task.WhenAll(tasks);
         stopwatch.Stop();
         return stopwatch.Elapsed;
+    }
+
+    private static async Task RunOutboxActivityAsync(
+        IServiceProvider services,
+        MixedLoadOutboxRetentionProfile profile,
+        MixedLoadOptions options,
+        ConcurrentQueue<MixedLoadOutboxOperationSample> samples,
+        CancellationToken cancellationToken)
+    {
+        var stopTimestamp = Stopwatch.GetTimestamp()
+            + (long)(options.Duration.TotalSeconds * Stopwatch.Frequency);
+        var worker = RunOutboxDrainAsync(
+            services,
+            stopTimestamp,
+            samples,
+            cancellationToken);
+        if (profile == MixedLoadOutboxRetentionProfile.Off)
+        {
+            await worker;
+            return;
+        }
+
+        var cleanup = RunOutboxCleanupAsync(
+            services,
+            stopTimestamp,
+            options,
+            samples,
+            cancellationToken);
+        await Task.WhenAll(worker, cleanup);
+    }
+
+    private static async Task RunOutboxDrainAsync(
+        IServiceProvider services,
+        long stopTimestamp,
+        ConcurrentQueue<MixedLoadOutboxOperationSample> samples,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested
+            && Stopwatch.GetTimestamp() < stopTimestamp)
+        {
+            var startedAtUtc = DateTimeOffset.UtcNow;
+            var stopwatch = Stopwatch.StartNew();
+            var processed = 0;
+            string? error = null;
+            try
+            {
+                await using var scope = services.CreateAsyncScope();
+                scope.ServiceProvider
+                    .GetRequiredService<CurrentTenantAccessor>()
+                    .SetHost();
+                var store = scope.ServiceProvider
+                    .GetRequiredService<IOutboxStore>();
+                var messages = await store.AcquireAsync(
+                    batchSize: 20,
+                    lease: TimeSpan.FromSeconds(30),
+                    cancellationToken);
+                foreach (var message in messages)
+                {
+                    await store.MarkProcessedAsync(
+                        message.Id,
+                        message.LockId,
+                        cancellationToken);
+                    processed++;
+                }
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                error = $"{exception.GetType().Name}: {exception.Message}";
+            }
+            finally
+            {
+                stopwatch.Stop();
+            }
+
+            if (processed > 0 || error is not null)
+            {
+                samples.Enqueue(new MixedLoadOutboxOperationSample(
+                    startedAtUtc,
+                    "worker",
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    processed,
+                    error));
+            }
+
+            if (processed == 0 && error is null)
+            {
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(10),
+                    cancellationToken);
+            }
+        }
+    }
+
+    private static async Task RunOutboxCleanupAsync(
+        IServiceProvider services,
+        long stopTimestamp,
+        MixedLoadOptions options,
+        ConcurrentQueue<MixedLoadOutboxOperationSample> samples,
+        CancellationToken cancellationToken)
+    {
+        var cutoffUtc = DateTimeOffset.UtcNow.AddDays(-30);
+        var batchesExecuted = 0;
+        while (!cancellationToken.IsCancellationRequested
+            && Stopwatch.GetTimestamp() < stopTimestamp
+            && batchesExecuted < options.OutboxRetentionMaxBatches)
+        {
+            var startedAtUtc = DateTimeOffset.UtcNow;
+            var stopwatch = Stopwatch.StartNew();
+            var deleted = 0;
+            string? error = null;
+            try
+            {
+                await using var scope = services.CreateAsyncScope();
+                scope.ServiceProvider
+                    .GetRequiredService<CurrentTenantAccessor>()
+                    .SetHost();
+                deleted = await scope.ServiceProvider
+                    .GetRequiredService<IOutboxRetentionStore>()
+                    .DeleteProcessedBatchAsync(
+                        cutoffUtc,
+                        options.OutboxRetentionBatchSize,
+                        cancellationToken);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                error = $"{exception.GetType().Name}: {exception.Message}";
+            }
+            finally
+            {
+                stopwatch.Stop();
+            }
+
+            samples.Enqueue(new MixedLoadOutboxOperationSample(
+                startedAtUtc,
+                "cleanup",
+                stopwatch.Elapsed.TotalMilliseconds,
+                deleted,
+                error));
+            batchesExecuted++;
+            if (error is null
+                && deleted < options.OutboxRetentionBatchSize)
+            {
+                break;
+            }
+
+            if (options.OutboxRetentionInterval > TimeSpan.Zero)
+            {
+                await Task.Delay(
+                    options.OutboxRetentionInterval,
+                    cancellationToken);
+            }
+        }
     }
 
     private static async Task RunWorkerAsync(
@@ -955,7 +1169,63 @@ internal abstract class MixedLoadDatabase : IAsyncDisposable
             databaseMetrics.LockWaitMilliseconds,
             databaseMetrics.Error,
             operationLogs,
-            exceptionLogs);
+            exceptionLogs,
+            databaseMetrics.LogBytesWritten,
+            databaseMetrics.UndoHistoryLength);
+    }
+
+    public async Task SeedExpiredProcessedOutboxAsync(
+        int count,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(
+            cancellationToken);
+        var occurredAtUtc = DateTimeOffset.UtcNow.AddDays(-61);
+        var processedAtUtc = occurredAtUtc.AddMinutes(1);
+        const int insertBatchSize = 250;
+        for (var offset = 0; offset < count; offset += insertBatchSize)
+        {
+            var currentBatchSize = Math.Min(insertBatchSize, count - offset);
+            var sql = new StringBuilder(
+                """
+                INSERT INTO fn_outbox_message
+                    (Id, MessageType, SchemaVersion, ContentType, TenantId,
+                     TraceId, Payload, OccurredAtUtc, ProcessedAtUtc, Attempts)
+                VALUES
+                """);
+            var parameters = new DynamicParameters();
+            parameters.Add("MessageType", "benchmark.retention.expired");
+            parameters.Add("SchemaVersion", 1);
+            parameters.Add("ContentType", "application/x-msgpack");
+            parameters.Add("Payload", new byte[] { 0x90 });
+            parameters.Add("OccurredAtUtc", occurredAtUtc);
+            parameters.Add("ProcessedAtUtc", processedAtUtc);
+            for (var index = 0; index < currentBatchSize; index++)
+            {
+                if (index > 0)
+                {
+                    sql.AppendLine(",");
+                }
+
+                var parameterName = $"Id{index}";
+                sql.Append(
+                    $"(@{parameterName}, @MessageType, @SchemaVersion, "
+                    + "@ContentType, NULL, NULL, @Payload, @OccurredAtUtc, "
+                    + "@ProcessedAtUtc, 0)");
+                parameters.Add(parameterName, Guid.CreateVersion7());
+            }
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                sql.ToString(),
+                parameters,
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public abstract ValueTask DisposeAsync();
@@ -1104,7 +1374,12 @@ internal sealed class SqlServerMixedLoadDatabase(
                          WHERE wait_type LIKE 'LCK[_]%') AS LockWaitCount,
                         (SELECT COALESCE(SUM(wait_time_ms), 0)
                          FROM sys.dm_os_wait_stats
-                         WHERE wait_type LIKE 'LCK[_]%') AS LockWaitMilliseconds
+                         WHERE wait_type LIKE 'LCK[_]%') AS LockWaitMilliseconds,
+                        (SELECT COALESCE(SUM(vfs.num_of_bytes_written), 0)
+                         FROM sys.dm_io_virtual_file_stats(DB_ID(), NULL) AS vfs
+                         INNER JOIN sys.database_files AS database_file
+                             ON database_file.file_id = vfs.file_id
+                         WHERE database_file.type_desc = 'LOG') AS LogBytesWritten
                     """,
                     cancellationToken: cancellationToken));
             return new MixedLoadDatabaseMetrics(
@@ -1112,11 +1387,15 @@ internal sealed class SqlServerMixedLoadDatabase(
                 metrics.ActiveLocks,
                 metrics.LockWaitCount,
                 metrics.LockWaitMilliseconds,
+                metrics.LogBytesWritten,
+                null,
                 null);
         }
         catch (Exception exception)
         {
             return new MixedLoadDatabaseMetrics(
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -1129,12 +1408,14 @@ internal sealed class SqlServerMixedLoadDatabase(
         int DatabaseSessions,
         int ActiveLocks,
         long LockWaitCount,
-        long LockWaitMilliseconds);
+        long LockWaitMilliseconds,
+        long LogBytesWritten);
 }
 
 internal sealed class MySqlMixedLoadDatabase(
     MySqlContainer container,
     string connectionString,
+    string diagnosticConnectionString,
     string databaseVersion) : MixedLoadDatabase(connectionString)
 {
     public const string Image = "mysql:8.0";
@@ -1172,13 +1453,25 @@ internal sealed class MySqlMixedLoadDatabase(
                 MaximumPoolSize =
                     MixedLoadConnectionPoolTelemetry.MaximumPoolSize,
             }.ConnectionString;
+            var diagnosticConnectionString = new MySqlConnectionStringBuilder(
+                connectionString)
+            {
+                UserID = "root",
+                Password = password,
+                ApplicationName = $"{poolName}-diagnostics",
+                MaximumPoolSize = 2,
+            }.ConnectionString;
             await using var connection = new MySqlConnection(connectionString);
             var version = await connection.ExecuteScalarAsync<string>(
                 new CommandDefinition(
                     "SELECT VERSION()",
                     cancellationToken: cancellationToken))
                 ?? "unknown";
-            return new MySqlMixedLoadDatabase(container, connectionString, version);
+            return new MySqlMixedLoadDatabase(
+                container,
+                connectionString,
+                diagnosticConnectionString,
+                version);
         }
         catch
         {
@@ -1202,32 +1495,54 @@ internal sealed class MySqlMixedLoadDatabase(
     {
         try
         {
+            // 业务负载继续使用最小权限账号；仅隔离容器内的诊断连接读取 PROCESS 指标。
+            await using var diagnosticConnection =
+                new MySqlConnection(diagnosticConnectionString);
+            await diagnosticConnection.OpenAsync(cancellationToken);
             var sessions = await ReadStatusAsync(
-                connection,
+                diagnosticConnection,
                 "Threads_connected",
                 cancellationToken);
             var currentWaiters = await ReadStatusAsync(
-                connection,
+                diagnosticConnection,
                 "Innodb_row_lock_current_waits",
                 cancellationToken);
             var lockWaits = await ReadStatusAsync(
-                connection,
+                diagnosticConnection,
                 "Innodb_row_lock_waits",
                 cancellationToken);
             var lockWaitMilliseconds = await ReadStatusAsync(
-                connection,
+                diagnosticConnection,
                 "Innodb_row_lock_time",
                 cancellationToken);
+            var logBytesWritten = await ReadStatusAsync(
+                diagnosticConnection,
+                "Innodb_os_log_written",
+                cancellationToken);
+            var engineStatus = await diagnosticConnection
+                .QuerySingleAsync<MySqlEngineStatusRow>(
+                    new CommandDefinition(
+                        "SHOW ENGINE INNODB STATUS",
+                        cancellationToken: cancellationToken));
+            var undoHistoryLength =
+                MixedLoadMySqlStatusParser.ParseHistoryListLength(
+                    engineStatus.Status)
+                ?? throw new InvalidOperationException(
+                    "MySQL InnoDB status 缺少 History list length。");
             return new MixedLoadDatabaseMetrics(
                 sessions,
                 currentWaiters,
                 lockWaits,
                 lockWaitMilliseconds,
+                logBytesWritten,
+                undoHistoryLength,
                 null);
         }
         catch (Exception exception)
         {
             return new MixedLoadDatabaseMetrics(
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -1250,6 +1565,8 @@ internal sealed class MySqlMixedLoadDatabase(
                 "SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_waits'",
             "Innodb_row_lock_time" =>
                 "SHOW GLOBAL STATUS LIKE 'Innodb_row_lock_time'",
+            "Innodb_os_log_written" =>
+                "SHOW GLOBAL STATUS LIKE 'Innodb_os_log_written'",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(variableName),
                 variableName,
@@ -1266,6 +1583,11 @@ internal sealed class MySqlMixedLoadDatabase(
     }
 
     private sealed record MySqlStatusRow(string Variable_name, string Value);
+
+    private sealed record MySqlEngineStatusRow(
+        string Type,
+        string Name,
+        string Status);
 }
 
 internal sealed record MixedLoadDatabaseMetrics(
@@ -1273,7 +1595,31 @@ internal sealed record MixedLoadDatabaseMetrics(
     long? ActiveLocks,
     long? LockWaitCount,
     double? LockWaitMilliseconds,
+    long? LogBytesWritten,
+    long? UndoHistoryLength,
     string? Error);
+
+public static partial class MixedLoadMySqlStatusParser
+{
+    public static long? ParseHistoryListLength(string status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        var match = HistoryListLengthRegex().Match(status);
+        return match.Success
+            && long.TryParse(
+                match.Groups[1].Value,
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var value)
+            ? value
+            : null;
+    }
+
+    [GeneratedRegex(
+        @"History list length\s+(\d+)",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex HistoryListLengthRegex();
+}
 
 internal sealed class MixedLoadConsoleSilencer : IDisposable
 {

@@ -1243,3 +1243,14 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 分片变化 | infrastructure **61 → 63**；其余互斥分片保持 **37/37/62**，合计 **199** |
 | 行为边界 | 仅清理严格过期的成功终态；等于截止时间、Pending、待重试、持租约和 Dead Letter 均保留 |
 | 验证记录 | [`auditing-retention-2026-07-29.md`](auditing-retention-2026-07-29.md) |
+
+## 增补（2026-07-29，Outbox 清理并行容量矩阵）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **505 → 509** | 新增 retention A/B CLI/边界 2 项、请求与 Worker P99 门禁 1 项、MySQL InnoDB undo 状态解析 1 项 |
+| RED / GREEN | 缺少 profile、活动结果和解析器时先编译失败；部分 checkpoint 的 off 尚未配对 on 时复现 Markdown 异常，修复后聚焦 **24/24** |
+| 双库容量 | SQL Server/MySQL、并发 1/4、清理 off/on 共 8 档；请求、Worker、cleanup 错误均为 0，证据与预算 8/8 PASS |
+| 四处 canonical 门槛 | **509/7/49/199**；README、getting-started、CI、规则引用和项目 Skills 已同步 |
+| 行为边界 | 只扩展 benchmark 与文档，不修改生产清理、Worker 并发、数据库结构或默认配置 |
+| 验证记录 | [`outbox-retention-2026-07-29.md`](outbox-retention-2026-07-29.md) |

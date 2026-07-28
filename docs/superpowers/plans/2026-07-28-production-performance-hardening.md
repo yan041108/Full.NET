@@ -259,7 +259,7 @@ SQL Server 使用有界候选 CTE，MySQL 使用短事务领取 ID 后按领取�
 三类记录公平推进；Outbox 双库验证只删除严格过期的成功终态，等于截止时间、Pending、
 待重试、持租约和 Dead Letter 全部保留。持续写入容量矩阵仍由 Step 3 承接。
 
-- [ ] **Step 3: 补充指标与容量复测**
+- [x] **Step 3: 补充指标与容量复测**
 
 增加清理行数、失败数、最近成功时间、Dead Letter 数/最老年龄、重试到期数和租约中数量；
 指标只用低基数标签。以持续写入并行运行清理，确认请求和 Worker P99 不越预算。
@@ -271,6 +271,13 @@ SQL Server 使用有界候选 CTE，MySQL 使用短事务领取 ID 后按领取�
 
 状态（2026-07-29）：Audit 已发布删除行数、失败数、最近成功时间和单轮耗时指标，并注册到
 Worker OpenTelemetry；Outbox 分类指标和持续写入容量复测仍待后续。
+
+状态（2026-07-29）：SQL Server/MySQL 已完成清理 off/on、并发 1/4 的真实 API 混合负载
+短矩阵。生产默认 `BatchSize=200`、`MaxBatchesPerRun=15` 的八档请求、Worker 与 cleanup
+错误均为 0，清理档各删除 2000 条；请求/Worker P99、锁等待、log bytes 和 MySQL undo
+证据完整。默认配置与 `OutboxWorker:MaxConcurrency=1` 均不调整。无单轮上限的 MySQL
+c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证据保留；详见
+[`outbox-retention-2026-07-29.md`](../../verification/outbox-retention-2026-07-29.md)。
 
 ### Task 24: Outbox 容量矩阵、消息上下文与幂等门禁
 

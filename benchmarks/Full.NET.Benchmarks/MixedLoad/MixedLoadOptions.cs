@@ -11,8 +11,16 @@ public sealed record MixedLoadOptions(
     double MaximumUnexpectedErrorRate,
     string OutputDirectory,
     MixedLoadWorkload Workload,
-    IReadOnlyList<MixedLoadAuditWriteProfile> AuditWriteProfiles)
+    IReadOnlyList<MixedLoadAuditWriteProfile> AuditWriteProfiles,
+    IReadOnlyList<MixedLoadOutboxRetentionProfile> OutboxRetentionProfiles,
+    int OutboxRetentionSeedProcessed,
+    int OutboxRetentionBatchSize,
+    int OutboxRetentionMaxBatches,
+    TimeSpan OutboxRetentionInterval)
 {
+    public bool OutboxRetentionMatrixEnabled =>
+        OutboxRetentionProfiles.Count > 0;
+
     public const string HelpText =
         """
         Full.NET 生产等价混合负载基准
@@ -30,6 +38,16 @@ public sealed record MixedLoadOptions(
           --output <path>          工件目录，默认 BenchmarkDotNet.Artifacts/mixed-load/<UTC>
           --workload <name>        default 或 audit-write，默认 default
           --audit-write-profiles   归因组合列表：none,access,operation,exception,all
+          --outbox-retention-profiles
+                                   Outbox 清理 A/B：off,on；默认不启用
+          --outbox-retention-seed-processed <n>
+                                   每档预置的过期成功消息数，默认 10000
+          --outbox-retention-batch-size <n>
+                                   清理单批上限 1..1000，默认 200
+          --outbox-retention-max-batches <n>
+                                   单轮清理批次数 1..100，默认 15
+          --outbox-retention-interval-ms <n>
+                                   清理批间隔 0..60000ms，默认 0
           --help                   显示帮助
         """;
 
@@ -66,6 +84,46 @@ public sealed record MixedLoadOptions(
 
         var workload = ParseWorkload(values);
         var auditWriteProfiles = ParseAuditWriteProfiles(values, workload);
+        var outboxRetentionProfiles = ParseOutboxRetentionProfiles(
+            values,
+            workload);
+        var outboxRetentionSeedProcessed = ParseBoundedInt(
+            values,
+            "--outbox-retention-seed-processed",
+            defaultValue: 10_000,
+            minimum: 1,
+            maximum: 1_000_000);
+        var outboxRetentionBatchSize = ParseBoundedInt(
+            values,
+            "--outbox-retention-batch-size",
+            defaultValue: 200,
+            minimum: 1,
+            maximum: 1000);
+        var outboxRetentionMaxBatches = ParseBoundedInt(
+            values,
+            "--outbox-retention-max-batches",
+            defaultValue: 15,
+            minimum: 1,
+            maximum: 100);
+        var outboxRetentionIntervalMilliseconds = ParseBoundedInt(
+            values,
+            "--outbox-retention-interval-ms",
+            defaultValue: 0,
+            minimum: 0,
+            maximum: 60_000);
+        var hasRetentionTuning = values.Keys.Any(key =>
+            key.StartsWith(
+                "--outbox-retention-",
+                StringComparison.OrdinalIgnoreCase)
+            && !key.Equals(
+                "--outbox-retention-profiles",
+                StringComparison.OrdinalIgnoreCase));
+        if (hasRetentionTuning && outboxRetentionProfiles.Count == 0)
+        {
+            throw new ArgumentException(
+                "Outbox retention 调优参数必须与 --outbox-retention-profiles 一起使用。");
+        }
+
         return new MixedLoadOptions(
             providers,
             concurrency,
@@ -75,7 +133,13 @@ public sealed record MixedLoadOptions(
             maximumErrorRate,
             outputDirectory,
             workload,
-            auditWriteProfiles);
+            auditWriteProfiles,
+            outboxRetentionProfiles,
+            outboxRetentionSeedProcessed,
+            outboxRetentionBatchSize,
+            outboxRetentionMaxBatches,
+            TimeSpan.FromMilliseconds(
+                outboxRetentionIntervalMilliseconds));
     }
 
     private static Dictionary<string, string> ParsePairs(
@@ -199,6 +263,25 @@ public sealed record MixedLoadOptions(
         return value;
     }
 
+    private static int ParseBoundedInt(
+        IReadOnlyDictionary<string, string> values,
+        string key,
+        int defaultValue,
+        int minimum,
+        int maximum)
+    {
+        var value = ParseInt(values, key, defaultValue);
+        if (value < minimum || value > maximum)
+        {
+            throw new ArgumentOutOfRangeException(
+                key,
+                value,
+                $"{key} 必须位于 {minimum}..{maximum}。");
+        }
+
+        return value;
+    }
+
     private static double ParseErrorRate(
         IReadOnlyDictionary<string, string> values)
     {
@@ -276,6 +359,57 @@ public sealed record MixedLoadOptions(
                 "--audit-write-profiles"),
         };
 
+    private static IReadOnlyList<MixedLoadOutboxRetentionProfile>
+        ParseOutboxRetentionProfiles(
+            IReadOnlyDictionary<string, string> values,
+            MixedLoadWorkload workload)
+    {
+        if (!values.TryGetValue("--outbox-retention-profiles", out var raw))
+        {
+            return [];
+        }
+
+        if (workload != MixedLoadWorkload.Default)
+        {
+            throw new ArgumentException(
+                "--outbox-retention-profiles 只能用于 default workload。",
+                "--outbox-retention-profiles");
+        }
+
+        var profiles = raw
+            .Split(
+                ',',
+                StringSplitOptions.TrimEntries
+                | StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => value.ToLowerInvariant() switch
+            {
+                "off" => MixedLoadOutboxRetentionProfile.Off,
+                "on" => MixedLoadOutboxRetentionProfile.On,
+                _ => throw new ArgumentException(
+                    $"不支持的 Outbox retention profile：{value}",
+                    "--outbox-retention-profiles"),
+            })
+            .ToArray();
+        if (profiles.Length == 0
+            || profiles.Distinct().Count() != profiles.Length)
+        {
+            throw new ArgumentException(
+                "--outbox-retention-profiles 不能为空或包含重复值。",
+                "--outbox-retention-profiles");
+        }
+
+        if (profiles.Length != 2
+            || !profiles.Contains(MixedLoadOutboxRetentionProfile.Off)
+            || !profiles.Contains(MixedLoadOutboxRetentionProfile.On))
+        {
+            throw new ArgumentException(
+                "--outbox-retention-profiles 必须同时包含 off,on。",
+                "--outbox-retention-profiles");
+        }
+
+        return profiles;
+    }
+
     private static readonly string[] KnownOptions =
     [
         "--providers",
@@ -287,5 +421,16 @@ public sealed record MixedLoadOptions(
         "--output",
         "--workload",
         "--audit-write-profiles",
+        "--outbox-retention-profiles",
+        "--outbox-retention-seed-processed",
+        "--outbox-retention-batch-size",
+        "--outbox-retention-max-batches",
+        "--outbox-retention-interval-ms",
     ];
+}
+
+public enum MixedLoadOutboxRetentionProfile
+{
+    Off = 0,
+    On = 1,
 }

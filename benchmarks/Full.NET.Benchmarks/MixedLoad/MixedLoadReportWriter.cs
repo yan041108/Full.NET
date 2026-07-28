@@ -92,7 +92,9 @@ public sealed record MixedLoadDatabaseSnapshot(
     double? LockWaitMilliseconds,
     string? MetricsError,
     long OperationLogCount = 0,
-    long ExceptionLogCount = 0);
+    long ExceptionLogCount = 0,
+    long? LogBytesWritten = null,
+    long? UndoHistoryLength = null);
 
 public sealed record MixedLoadDatabaseDelta(
     long AccessLogsWritten,
@@ -106,7 +108,21 @@ public sealed record MixedLoadDatabaseDelta(
     double? LockWaitMillisecondsDelta,
     string? MetricsError,
     long OperationLogsWritten = 0,
-    long ExceptionLogsWritten = 0);
+    long ExceptionLogsWritten = 0,
+    long? LogBytesWrittenDelta = null,
+    long? UndoHistoryLengthBefore = null,
+    long? UndoHistoryLengthAfter = null);
+
+public sealed record MixedLoadOutboxOperationSample(
+    DateTimeOffset StartedAtUtc,
+    string Operation,
+    double DurationMilliseconds,
+    int ItemCount,
+    string? Error);
+
+public sealed record MixedLoadOutboxActivitySnapshot(
+    MixedLoadOutboxRetentionProfile Profile,
+    IReadOnlyList<MixedLoadOutboxOperationSample> Samples);
 
 public sealed record MixedLoadEvidenceEvaluation(
     bool ScenarioCoverageComplete,
@@ -131,6 +147,102 @@ public sealed record MixedLoadScenarioResult(
     int Requests,
     int UnexpectedErrors,
     MixedLoadLatencyStatistics Latency);
+
+public sealed record MixedLoadOutboxActivityResult(
+    MixedLoadOutboxRetentionProfile Profile,
+    MixedLoadLatencyStatistics RequestLatency,
+    MixedLoadLatencyStatistics WorkerLatency,
+    long ProcessedMessages,
+    long DeletedMessages,
+    double DeletedMessagesPerSecond,
+    long WorkerErrors,
+    long CleanupErrors,
+    MixedLoadLatencyStatistics? CleanupLatency,
+    bool EvidenceComplete,
+    string? EvidenceError)
+{
+    public string RawSampleFile { get; init; } = string.Empty;
+
+    [JsonIgnore]
+    public IReadOnlyList<MixedLoadOutboxOperationSample> Samples { get; init; } = [];
+}
+
+public sealed record MixedLoadOutboxRetentionComparison(
+    double MaximumP99RegressionRatio,
+    double RequestP99RegressionRatio,
+    double WorkerP99RegressionRatio,
+    bool RequestP99Passed,
+    bool WorkerP99Passed,
+    bool ReliabilityPassed,
+    bool CleanupProgressPassed)
+{
+    public const double RequestP99GuardBandMilliseconds = 100d;
+
+    public const double WorkerP99GuardBandMilliseconds = 250d;
+
+    public bool Passed =>
+        RequestP99Passed
+        && WorkerP99Passed
+        && ReliabilityPassed
+        && CleanupProgressPassed;
+
+    public static MixedLoadOutboxRetentionComparison Evaluate(
+        MixedLoadOutboxActivityResult off,
+        MixedLoadOutboxActivityResult on,
+        double maximumP99RegressionRatio)
+    {
+        ArgumentNullException.ThrowIfNull(off);
+        ArgumentNullException.ThrowIfNull(on);
+        if (off.Profile != MixedLoadOutboxRetentionProfile.Off
+            || on.Profile != MixedLoadOutboxRetentionProfile.On)
+        {
+            throw new ArgumentException(
+                "Outbox retention 对比必须按 off/on 顺序提供。");
+        }
+
+        if (maximumP99RegressionRatio is < 0d or > 1d)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumP99RegressionRatio),
+                maximumP99RegressionRatio,
+                "P99 退化比例必须位于 0..1。");
+        }
+
+        var requestRegression = CalculateRegression(
+            off.RequestLatency.P99Milliseconds,
+            on.RequestLatency.P99Milliseconds);
+        var workerRegression = CalculateRegression(
+            off.WorkerLatency.P99Milliseconds,
+            on.WorkerLatency.P99Milliseconds);
+        return new MixedLoadOutboxRetentionComparison(
+            maximumP99RegressionRatio,
+            requestRegression,
+            workerRegression,
+            requestRegression <= maximumP99RegressionRatio
+                || on.RequestLatency.P99Milliseconds
+                    <= RequestP99GuardBandMilliseconds,
+            workerRegression <= maximumP99RegressionRatio
+                || on.WorkerLatency.P99Milliseconds
+                    <= WorkerP99GuardBandMilliseconds,
+            off.WorkerErrors == 0
+                && off.CleanupErrors == 0
+                && on.WorkerErrors == 0
+                && on.CleanupErrors == 0
+                && off.EvidenceComplete
+                && on.EvidenceComplete,
+            off.DeletedMessages == 0 && on.DeletedMessages > 0);
+    }
+
+    private static double CalculateRegression(double baseline, double candidate)
+    {
+        if (baseline <= 0d)
+        {
+            return candidate <= 0d ? 0d : double.PositiveInfinity;
+        }
+
+        return (candidate - baseline) / baseline;
+    }
+}
 
 public sealed record MixedLoadProviderBudget(
     string Provider,
@@ -208,6 +320,8 @@ public sealed record MixedLoadRunResult(
     MixedLoadBudgetEvaluation BudgetEvaluation,
     string RawSampleFile)
 {
+    public MixedLoadOutboxActivityResult? OutboxActivity { get; init; }
+
     [JsonIgnore]
     public IReadOnlyList<MixedLoadRequestSample> Samples { get; init; } = [];
 }
@@ -247,7 +361,8 @@ public static class MixedLoadReportWriter
         MixedLoadProcessSnapshot processBefore,
         MixedLoadProcessSnapshot processAfter,
         MixedLoadDatabaseSnapshot databaseBefore,
-        MixedLoadDatabaseSnapshot databaseAfter)
+        MixedLoadDatabaseSnapshot databaseAfter,
+        MixedLoadOutboxActivitySnapshot? outboxActivity = null)
     {
         if (samples.Count == 0)
         {
@@ -314,7 +429,12 @@ public static class MixedLoadReportWriter
                 databaseAfter.LockWaitMilliseconds),
             databaseBefore.MetricsError ?? databaseAfter.MetricsError,
             databaseAfter.OperationLogCount - databaseBefore.OperationLogCount,
-            databaseAfter.ExceptionLogCount - databaseBefore.ExceptionLogCount);
+            databaseAfter.ExceptionLogCount - databaseBefore.ExceptionLogCount,
+            Difference(
+                databaseBefore.LogBytesWritten,
+                databaseAfter.LogBytesWritten),
+            databaseBefore.UndoHistoryLength,
+            databaseAfter.UndoHistoryLength);
         var budget = MixedLoadProviderBudget.Create(
             provider,
             options.MaximumUnexpectedErrorRate);
@@ -401,10 +521,21 @@ public static class MixedLoadReportWriter
             databaseContainer.AverageCpuPercentOfHost
                 <= budget.MaximumDatabaseContainerCpuPercent,
             evidence.Passed);
+        var profileSuffix = outboxActivity is null
+            ? string.Empty
+            : $"-retention-{outboxActivity.Profile.ToString().ToLowerInvariant()}";
         var rawFile = Path.Combine(
                 "raw",
-                $"{provider}-c{concurrency}-samples.ndjson")
+                $"{provider}-c{concurrency}{profileSuffix}-samples.ndjson")
             .Replace('\\', '/');
+        var outboxActivityResult = outboxActivity is null
+            ? null
+            : CreateOutboxActivityResult(
+                latency,
+                actualDuration,
+                provider,
+                concurrency,
+                outboxActivity);
 
         return new MixedLoadRunResult(
             provider,
@@ -432,6 +563,90 @@ public static class MixedLoadReportWriter
             rawFile)
         {
             Samples = samples,
+            OutboxActivity = outboxActivityResult,
+        };
+    }
+
+    private static MixedLoadOutboxActivityResult CreateOutboxActivityResult(
+        MixedLoadLatencyStatistics requestLatency,
+        TimeSpan actualDuration,
+        string provider,
+        int concurrency,
+        MixedLoadOutboxActivitySnapshot snapshot)
+    {
+        var workerSamples = snapshot.Samples
+            .Where(sample => sample.Operation == "worker")
+            .ToArray();
+        var cleanupSamples = snapshot.Samples
+            .Where(sample => sample.Operation == "cleanup")
+            .ToArray();
+        var workerSuccesses = workerSamples
+            .Where(sample => sample.Error is null && sample.ItemCount > 0)
+            .ToArray();
+        var cleanupSuccesses = cleanupSamples
+            .Where(sample => sample.Error is null)
+            .ToArray();
+        var workerErrors = workerSamples.LongCount(sample =>
+            sample.Error is not null);
+        var cleanupErrors = cleanupSamples.LongCount(sample =>
+            sample.Error is not null);
+        var evidenceErrors = new List<string>();
+        if (workerSuccesses.Length == 0)
+        {
+            evidenceErrors.Add("未采集到成功的 Outbox Worker 样本。");
+        }
+
+        if (snapshot.Profile == MixedLoadOutboxRetentionProfile.Off
+            && cleanupSamples.Length > 0)
+        {
+            evidenceErrors.Add("off profile 不应执行清理。");
+        }
+
+        var deletedMessages = cleanupSuccesses.Sum(sample =>
+            (long)sample.ItemCount);
+        if (snapshot.Profile == MixedLoadOutboxRetentionProfile.On
+            && deletedMessages == 0)
+        {
+            evidenceErrors.Add("on profile 未删除过期成功消息。");
+        }
+
+        if (workerErrors > 0 || cleanupErrors > 0)
+        {
+            evidenceErrors.Add(
+                $"Worker/cleanup 错误数为 {workerErrors}/{cleanupErrors}。");
+        }
+
+        var rawSampleFile = Path.Combine(
+                "raw",
+                $"{provider}-c{concurrency}-retention-"
+                + $"{snapshot.Profile.ToString().ToLowerInvariant()}"
+                + "-outbox.ndjson")
+            .Replace('\\', '/');
+        return new MixedLoadOutboxActivityResult(
+            snapshot.Profile,
+            requestLatency,
+            MixedLoadLatencyStatistics.Calculate(
+                workerSuccesses.Length == 0
+                    ? [0d]
+                    : workerSuccesses.Select(sample =>
+                        sample.DurationMilliseconds).ToArray()),
+            workerSuccesses.Sum(sample => (long)sample.ItemCount),
+            deletedMessages,
+            deletedMessages / Math.Max(0.001d, actualDuration.TotalSeconds),
+            workerErrors,
+            cleanupErrors,
+            cleanupSuccesses.Length == 0
+                ? null
+                : MixedLoadLatencyStatistics.Calculate(
+                    cleanupSuccesses.Select(sample =>
+                        sample.DurationMilliseconds).ToArray()),
+            evidenceErrors.Count == 0,
+            evidenceErrors.Count == 0
+                ? null
+                : string.Join("；", evidenceErrors))
+        {
+            RawSampleFile = rawSampleFile,
+            Samples = snapshot.Samples,
         };
     }
 
@@ -471,9 +686,23 @@ public static class MixedLoadReportWriter
             outputDirectory,
             run,
             cancellationToken);
+        if (run.OutboxActivity is { } outboxActivity)
+        {
+            await WriteRawOutboxSamplesAsync(
+                outputDirectory,
+                outboxActivity,
+                cancellationToken);
+        }
+
         return run with
         {
             Samples = [],
+            OutboxActivity = run.OutboxActivity is null
+                ? null
+                : run.OutboxActivity with
+                {
+                    Samples = [],
+                },
         };
     }
 
@@ -510,6 +739,14 @@ public static class MixedLoadReportWriter
                 run,
                 cancellationToken,
                 rawOptions);
+            if (run.OutboxActivity is { Samples.Count: > 0 } outboxActivity)
+            {
+                await WriteRawOutboxSamplesAsync(
+                    outputDirectory,
+                    outboxActivity,
+                    cancellationToken,
+                    rawOptions);
+            }
         }
 
         await WriteTextAtomicallyAsync(
@@ -542,9 +779,11 @@ public static class MixedLoadReportWriter
     public static void EnsurePassed(MixedLoadBenchmarkReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        var failed = report.Providers
+        var failedRuns = report.Providers
             .SelectMany(provider => provider.Runs)
-            .Where(run => !run.BudgetEvaluation.Passed)
+            .Where(run =>
+                !run.BudgetEvaluation.Passed
+                || run.OutboxActivity is { EvidenceComplete: false })
             .Select(run =>
                 $"{run.Provider}/c={run.Concurrency}: "
                 + $"P95={run.BudgetEvaluation.P95Passed}, "
@@ -553,11 +792,46 @@ public static class MixedLoadReportWriter
                 + $"host CPU={run.BudgetEvaluation.HostProcessCpuPassed}, "
                 + $"database CPU="
                 + $"{run.BudgetEvaluation.DatabaseContainerCpuPassed}, "
-                + $"evidence={run.BudgetEvaluation.EvidencePassed}"
+                + $"evidence={run.BudgetEvaluation.EvidencePassed}, "
+                + $"outbox={run.OutboxActivity?.EvidenceComplete ?? true}"
                 + (run.Evidence.FailureReasons.Count == 0
                     ? string.Empty
-                    : $" ({string.Join("；", run.Evidence.FailureReasons)})"))
+                    : $" ({string.Join("；", run.Evidence.FailureReasons)})")
+                + (run.OutboxActivity?.EvidenceError is null
+                    ? string.Empty
+                    : $" ({run.OutboxActivity.EvidenceError})"))
             .ToArray();
+        var failedComparisons = report.Providers
+            .SelectMany(provider => provider.Runs
+                .Where(run => run.OutboxActivity is not null)
+                .GroupBy(run => run.Concurrency)
+                .Select(group =>
+                {
+                    var off = group.Single(run =>
+                        run.OutboxActivity!.Profile
+                        == MixedLoadOutboxRetentionProfile.Off);
+                    var on = group.Single(run =>
+                        run.OutboxActivity!.Profile
+                        == MixedLoadOutboxRetentionProfile.On);
+                    return new
+                    {
+                        Provider = provider.Provider,
+                        Concurrency = group.Key,
+                        Comparison = MixedLoadOutboxRetentionComparison.Evaluate(
+                            off.OutboxActivity!,
+                            on.OutboxActivity!,
+                            maximumP99RegressionRatio: 0.20d),
+                    };
+                }))
+            .Where(item => !item.Comparison.Passed)
+            .Select(item =>
+                $"{item.Provider}/c={item.Concurrency}: "
+                + $"request P99 Δ={item.Comparison.RequestP99RegressionRatio:P3}, "
+                + $"worker P99 Δ={item.Comparison.WorkerP99RegressionRatio:P3}, "
+                + $"reliability={item.Comparison.ReliabilityPassed}, "
+                + $"cleanup progress={item.Comparison.CleanupProgressPassed}")
+            .ToArray();
+        var failed = failedRuns.Concat(failedComparisons).ToArray();
         if (failed.Length > 0)
         {
             throw new InvalidOperationException(
@@ -595,6 +869,60 @@ public static class MixedLoadReportWriter
                 var options = jsonOptions
                     ?? new JsonSerializerOptions(JsonSerializerDefaults.Web);
                 foreach (var sample in run.Samples)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await writer.WriteLineAsync(
+                        JsonSerializer.Serialize(sample, options).AsMemory(),
+                        cancellationToken);
+                }
+            }
+
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
+    }
+
+    private static async Task WriteRawOutboxSamplesAsync(
+        string outputDirectory,
+        MixedLoadOutboxActivityResult activity,
+        CancellationToken cancellationToken,
+        JsonSerializerOptions? jsonOptions = null)
+    {
+        if (activity.Samples.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Outbox retention {activity.Profile} 没有可写入的原始样本。");
+        }
+
+        var path = Path.Combine(
+            outputDirectory,
+            activity.RawSampleFile.Replace(
+                '/',
+                Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(
+            Path.GetDirectoryName(path)
+            ?? throw new InvalidOperationException(
+                "Outbox 原始样本路径缺少目录。"));
+        var temporaryPath = CreateTemporaryPath(path);
+        try
+        {
+            await using (var stream = new FileStream(
+                temporaryPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 64 * 1024,
+                useAsync: true))
+            await using (var writer = new StreamWriter(
+                stream,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                var options = jsonOptions
+                    ?? new JsonSerializerOptions(JsonSerializerDefaults.Web);
+                foreach (var sample in activity.Samples)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     await writer.WriteLineAsync(
@@ -653,6 +981,18 @@ public static class MixedLoadReportWriter
         builder.AppendLine(
             $"- Workload：`{report.Options.Workload}`；Audit 写入组合："
             + $"`{string.Join(",", report.Options.AuditWriteProfiles)}`");
+        if (report.Options.OutboxRetentionMatrixEnabled)
+        {
+            builder.AppendLine(
+                $"- Outbox retention A/B："
+                + $"`{string.Join(",", report.Options.OutboxRetentionProfiles)}`；"
+                + $"过期成功种子 `{report.Options.OutboxRetentionSeedProcessed}`；"
+                + $"批大小 `{report.Options.OutboxRetentionBatchSize}`；"
+                + $"单轮上限 `{report.Options.OutboxRetentionMaxBatches}`；"
+                + $"批间隔 "
+                + $"`{report.Options.OutboxRetentionInterval.TotalMilliseconds:0}ms`");
+        }
+
         builder.AppendLine();
         builder.AppendLine(
             "> 本报告是本机 Testcontainers 与进程内真实 API Host 的回归基线，"
@@ -683,16 +1023,18 @@ public static class MixedLoadReportWriter
             builder.AppendLine($"- 数据库版本：`{provider.DatabaseVersion}`");
             builder.AppendLine();
             builder.AppendLine(
-                "| 并发 | 请求 | QPS | P50 ms | P95 ms | P99 ms | "
+                "| 并发 | Retention | 请求 | QPS | P50 ms | P95 ms | P99 ms | "
                 + "非预期错误率 | Host CPU | DB CPU | Audit A/O/E Δ | "
                 + "Outbox pending Δ | 预算 |");
             builder.AppendLine(
-                "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | "
+                "| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | "
                 + "---: | ---: | ---: | ---: | --- |");
             foreach (var run in provider.Runs)
             {
                 builder.AppendLine(
-                    $"| {run.Concurrency} | {run.RequestCount} | "
+                    $"| {run.Concurrency} | "
+                    + $"`{run.OutboxActivity?.Profile.ToString() ?? "-"}` | "
+                    + $"{run.RequestCount} | "
                     + $"{Format(run.RequestsPerSecond)} | "
                     + $"{Format(run.Latency.P50Milliseconds)} | "
                     + $"{Format(run.Latency.P95Milliseconds)} | "
@@ -708,6 +1050,38 @@ public static class MixedLoadReportWriter
             }
 
             builder.AppendLine();
+            foreach (var comparisonGroup in provider.Runs
+                         .Where(run => run.OutboxActivity is not null)
+                         .GroupBy(run => run.Concurrency)
+                         .Where(group =>
+                             group.Select(run => run.OutboxActivity!.Profile)
+                                 .Distinct()
+                                 .Count() == 2))
+            {
+                var off = comparisonGroup.Single(run =>
+                    run.OutboxActivity!.Profile
+                    == MixedLoadOutboxRetentionProfile.Off);
+                var on = comparisonGroup.Single(run =>
+                    run.OutboxActivity!.Profile
+                    == MixedLoadOutboxRetentionProfile.On);
+                var comparison = MixedLoadOutboxRetentionComparison.Evaluate(
+                    off.OutboxActivity!,
+                    on.OutboxActivity!,
+                    maximumP99RegressionRatio: 0.20d);
+                builder.AppendLine(
+                    $"- c={comparisonGroup.Key} retention on/off："
+                    + $"请求 P99 Δ `{comparison.RequestP99RegressionRatio:P3}`；"
+                    + $"Worker P99 Δ `{comparison.WorkerP99RegressionRatio:P3}`；"
+                    + $"可靠性 `{comparison.ReliabilityPassed}`；"
+                    + $"清理推进 `{comparison.CleanupProgressPassed}`；"
+                    + $"结论 `{(comparison.Passed ? "PASS" : "FAIL")}`");
+            }
+
+            if (provider.Runs.Any(run => run.OutboxActivity is not null))
+            {
+                builder.AppendLine();
+            }
+
             var budget = provider.Runs.FirstOrDefault()?.Budget;
             if (budget is not null)
             {
@@ -723,7 +1097,11 @@ public static class MixedLoadReportWriter
 
             foreach (var run in provider.Runs)
             {
-                builder.AppendLine($"### c={run.Concurrency}");
+                builder.AppendLine(
+                    $"### c={run.Concurrency}"
+                    + (run.OutboxActivity is null
+                        ? string.Empty
+                        : $" retention={run.OutboxActivity.Profile}"));
                 builder.AppendLine();
                 builder.AppendLine(
                     $"- Dapper 命令：`{run.Dapper.StatementExecutions.Values.Sum()}`；"
@@ -784,6 +1162,33 @@ public static class MixedLoadReportWriter
                     + $"`{run.Database.ActiveLocksAfter}`；锁等待增量："
                     + $"`{run.Database.LockWaitCountDelta}` / "
                     + $"`{run.Database.LockWaitMillisecondsDelta:0.###}ms`");
+                builder.AppendLine(
+                    $"- 数据库日志写入增量："
+                    + $"`{run.Database.LogBytesWrittenDelta}` bytes；"
+                    + $"undo history：`{run.Database.UndoHistoryLengthBefore}` → "
+                    + $"`{run.Database.UndoHistoryLengthAfter}`");
+                if (run.OutboxActivity is { } activity)
+                {
+                    builder.AppendLine(
+                        $"- Outbox Worker：处理 `{activity.ProcessedMessages}`；"
+                        + $"P95/P99 "
+                        + $"`{Format(activity.WorkerLatency.P95Milliseconds)}`/"
+                        + $"`{Format(activity.WorkerLatency.P99Milliseconds)}ms`；"
+                        + $"错误 `{activity.WorkerErrors}`");
+                    builder.AppendLine(
+                        $"- Outbox cleanup：删除 `{activity.DeletedMessages}`；"
+                        + $"吞吐 `{Format(activity.DeletedMessagesPerSecond)}/s`；"
+                        + $"P95/P99 "
+                        + (activity.CleanupLatency is null
+                            ? "`-/-`"
+                            : $"`{Format(activity.CleanupLatency.P95Milliseconds)}`/"
+                              + $"`{Format(activity.CleanupLatency.P99Milliseconds)}ms`")
+                        + $"；错误 `{activity.CleanupErrors}`；"
+                        + $"证据 `{activity.EvidenceComplete}`");
+                    builder.AppendLine(
+                        $"- Outbox 原始样本：`{activity.RawSampleFile}`");
+                }
+
                 if (run.Database.MetricsError is not null)
                 {
                     builder.AppendLine(

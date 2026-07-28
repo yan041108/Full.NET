@@ -125,6 +125,132 @@ public sealed class MixedLoadContractTests
     }
 
     [TestMethod]
+    public void Outbox_retention_matrix_is_explicit_and_freezes_bounded_defaults()
+    {
+        var defaults = MixedLoadOptions.Parse([]);
+
+        Assert.IsFalse(defaults.OutboxRetentionMatrixEnabled);
+        Assert.HasCount(0, defaults.OutboxRetentionProfiles);
+        Assert.AreEqual(10_000, defaults.OutboxRetentionSeedProcessed);
+        Assert.AreEqual(200, defaults.OutboxRetentionBatchSize);
+        Assert.AreEqual(15, defaults.OutboxRetentionMaxBatches);
+        Assert.AreEqual(
+            TimeSpan.Zero,
+            defaults.OutboxRetentionInterval);
+
+        var options = MixedLoadOptions.Parse(
+        [
+            "--outbox-retention-profiles", "off,on",
+            "--outbox-retention-seed-processed", "500",
+            "--outbox-retention-batch-size", "25",
+            "--outbox-retention-max-batches", "5",
+            "--outbox-retention-interval-ms", "100",
+        ]);
+
+        Assert.IsTrue(options.OutboxRetentionMatrixEnabled);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                MixedLoadOutboxRetentionProfile.Off,
+                MixedLoadOutboxRetentionProfile.On,
+            },
+            options.OutboxRetentionProfiles.ToArray());
+        Assert.AreEqual(500, options.OutboxRetentionSeedProcessed);
+        Assert.AreEqual(25, options.OutboxRetentionBatchSize);
+        Assert.AreEqual(5, options.OutboxRetentionMaxBatches);
+        Assert.AreEqual(
+            TimeSpan.FromMilliseconds(100),
+            options.OutboxRetentionInterval);
+    }
+
+    [TestMethod]
+    public void Outbox_retention_parser_rejects_ambiguous_or_unbounded_shapes()
+    {
+        Assert.ThrowsExactly<ArgumentException>(
+            () => MixedLoadOptions.Parse(
+            [
+                "--outbox-retention-profiles", "on,on",
+            ]));
+        Assert.ThrowsExactly<ArgumentException>(
+            () => MixedLoadOptions.Parse(
+            [
+                "--outbox-retention-profiles", "enabled",
+            ]));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+            () => MixedLoadOptions.Parse(
+            [
+                "--outbox-retention-profiles", "off,on",
+                "--outbox-retention-seed-processed", "0",
+            ]));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+            () => MixedLoadOptions.Parse(
+            [
+                "--outbox-retention-profiles", "off,on",
+                "--outbox-retention-batch-size", "1001",
+            ]));
+        Assert.ThrowsExactly<ArgumentException>(
+            () => MixedLoadOptions.Parse(
+            [
+                "--outbox-retention-batch-size", "25",
+            ]));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+            () => MixedLoadOptions.Parse(
+            [
+                "--outbox-retention-profiles", "off,on",
+                "--outbox-retention-max-batches", "101",
+            ]));
+    }
+
+    [TestMethod]
+    public void Outbox_retention_comparison_gates_request_and_worker_tail_regression()
+    {
+        var off = CreateOutboxActivity(
+            MixedLoadOutboxRetentionProfile.Off,
+            requestP99Milliseconds: 100,
+            workerP99Milliseconds: 40,
+            deletedRows: 0);
+        var passingOn = CreateOutboxActivity(
+            MixedLoadOutboxRetentionProfile.On,
+            requestP99Milliseconds: 115,
+            workerP99Milliseconds: 45,
+            deletedRows: 200);
+        var failingOn = CreateOutboxActivity(
+            MixedLoadOutboxRetentionProfile.On,
+            requestP99Milliseconds: 121,
+            workerP99Milliseconds: 40,
+            deletedRows: 200);
+
+        var passing = MixedLoadOutboxRetentionComparison.Evaluate(
+            off,
+            passingOn,
+            maximumP99RegressionRatio: 0.20d);
+        var failing = MixedLoadOutboxRetentionComparison.Evaluate(
+            off,
+            failingOn,
+            maximumP99RegressionRatio: 0.20d);
+
+        Assert.IsTrue(passing.Passed);
+        Assert.AreEqual(0.15d, passing.RequestP99RegressionRatio, 0.001d);
+        Assert.AreEqual(0.125d, passing.WorkerP99RegressionRatio, 0.001d);
+        Assert.IsFalse(failing.Passed);
+        Assert.IsFalse(failing.RequestP99Passed);
+
+        var lowLatencyGuardBand = MixedLoadOutboxRetentionComparison.Evaluate(
+            CreateOutboxActivity(
+                MixedLoadOutboxRetentionProfile.Off,
+                requestP99Milliseconds: 25,
+                workerP99Milliseconds: 50,
+                deletedRows: 0),
+            CreateOutboxActivity(
+                MixedLoadOutboxRetentionProfile.On,
+                requestP99Milliseconds: 45,
+                workerP99Milliseconds: 100,
+                deletedRows: 200),
+            maximumP99RegressionRatio: 0.20d);
+        Assert.IsTrue(lowLatencyGuardBand.Passed);
+    }
+
+    [TestMethod]
     public void Parser_supports_audit_write_attribution_profiles()
     {
         var options = MixedLoadOptions.Parse(
@@ -500,7 +626,17 @@ public sealed class MixedLoadContractTests
                 processBefore,
                 processAfter,
                 databaseBefore,
-                databaseAfter);
+                databaseAfter,
+                new MixedLoadOutboxActivitySnapshot(
+                    MixedLoadOutboxRetentionProfile.Off,
+                    [
+                        new MixedLoadOutboxOperationSample(
+                            capturedAt,
+                            "worker",
+                            2,
+                            1,
+                            null),
+                    ]));
 
             var checkpoint = await MixedLoadReportWriter
                 .WriteRunCheckpointAsync(
@@ -509,12 +645,36 @@ public sealed class MixedLoadContractTests
                     CancellationToken.None);
 
             Assert.HasCount(0, checkpoint.Samples);
+            Assert.IsNotNull(checkpoint.OutboxActivity);
+            Assert.HasCount(0, checkpoint.OutboxActivity.Samples);
             var rawPath = Path.Combine(
                 outputDirectory,
-                "raw",
-                "sqlserver-c1-samples.ndjson");
+                checkpoint.RawSampleFile.Replace(
+                    '/',
+                    Path.DirectorySeparatorChar));
             Assert.IsTrue(File.Exists(rawPath));
             Assert.HasCount(2, await File.ReadAllLinesAsync(rawPath));
+            var outboxRawPath = Path.Combine(
+                outputDirectory,
+                checkpoint.OutboxActivity.RawSampleFile.Replace(
+                    '/',
+                    Path.DirectorySeparatorChar));
+            Assert.IsTrue(File.Exists(outboxRawPath));
+            Assert.HasCount(1, await File.ReadAllLinesAsync(outboxRawPath));
+            await MixedLoadReportWriter.WriteAsync(
+                outputDirectory,
+                MixedLoadReportWriter.CreateReport(
+                    options,
+                    [
+                        new MixedLoadProviderResult(
+                            "sqlserver",
+                            checkpoint.ContainerImage,
+                            checkpoint.DatabaseVersion,
+                            [checkpoint]),
+                    ]),
+                CancellationToken.None);
+            Assert.IsTrue(File.Exists(
+                Path.Combine(outputDirectory, "README.md")));
             Assert.HasCount(
                 0,
                 Directory.GetFiles(
@@ -707,6 +867,26 @@ public sealed class MixedLoadContractTests
                 1000));
     }
 
+    [TestMethod]
+    public void MySql_innodb_status_parser_extracts_undo_history_length()
+    {
+        const string status =
+            """
+            TRANSACTIONS
+            ------------
+            Trx id counter 92841
+            Purge done for trx's n:o < 92839 undo n:o < 0 state: running
+            History list length 17
+            """;
+
+        Assert.AreEqual(
+            17L,
+            MixedLoadMySqlStatusParser.ParseHistoryListLength(status));
+        Assert.IsNull(
+            MixedLoadMySqlStatusParser.ParseHistoryListLength(
+                "TRANSACTIONS without history evidence"));
+    }
+
     private static MixedLoadConnectionPoolSnapshot CreateCompletePoolSnapshot() =>
         new(
             100,
@@ -722,6 +902,26 @@ public sealed class MixedLoadContractTests
             90,
             true,
             "test",
+            true,
+            null);
+
+    private static MixedLoadOutboxActivityResult CreateOutboxActivity(
+        MixedLoadOutboxRetentionProfile profile,
+        double requestP99Milliseconds,
+        double workerP99Milliseconds,
+        long deletedRows) =>
+        new(
+            profile,
+            MixedLoadLatencyStatistics.Calculate([requestP99Milliseconds]),
+            MixedLoadLatencyStatistics.Calculate([workerP99Milliseconds]),
+            deletedRows,
+            deletedRows,
+            deletedRows,
+            0,
+            0,
+            deletedRows == 0
+                ? null
+                : MixedLoadLatencyStatistics.Calculate([1d]),
             true,
             null);
 
