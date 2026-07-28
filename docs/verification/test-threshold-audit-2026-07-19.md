@@ -1263,5 +1263,14 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 兼容边界 | payload-only Handler 由默认接口重载继续工作；Worker 统一传递六字段稳定上下文 |
 | 幂等边界 | 生产 Handler 必须声明天然幂等或 MessageId 持久化去重；`Unspecified` 与未知枚举启动失败 |
 | 四处 canonical 门槛 | **510/7/49/199**；README、getting-started、CI、规则引用和项目 Skills 已同步 |
+
+## 增补（2026-07-29，Outbox 消费容量入口）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **510 → 516** | 新增容量默认矩阵、代表场景压缩、短运行参数、非法形状和真实 Outbox Store 宿主装配 5 项契约测试；新增基准聚合区分受控 SQL 取消与真实失败 1 项 |
+| Unit discovery | **516**，失败 0；本地聚焦 `OutboxCapacityContractTests` 与 `DapperTelemetryTests` |
+| 四处 canonical 门槛 | **516/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
+| Integration | 本地未运行完整 199 项；继续只由 `main` CI 四个互斥分片执行 |
 | Integration 边界 | 本切片无数据库结构或 SQL 行为变化；最终只运行任务基线影响选择器命中的目标 |
 | 验证记录 | [`outbox-message-context-idempotency-2026-07-29.md`](outbox-message-context-idempotency-2026-07-29.md) |

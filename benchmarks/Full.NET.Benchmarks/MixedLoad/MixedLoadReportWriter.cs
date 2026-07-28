@@ -62,7 +62,8 @@ public sealed record MixedLoadLatencyStatistics(
 public sealed record MixedLoadDapperSnapshot(
     IReadOnlyDictionary<string, long> StatementExecutions,
     MixedLoadLatencyStatistics? Duration,
-    long Failures);
+    long Failures,
+    long Cancellations = 0);
 
 public sealed record MixedLoadProcessSnapshot(
     DateTimeOffset CapturedAtUtc,

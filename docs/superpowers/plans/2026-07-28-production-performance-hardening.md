@@ -283,9 +283,10 @@ c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证�
 
 **Priority:** P1
 
-**Status:** Step 1 已于 2026-07-29 完成。Worker 已通过兼容默认重载传递稳定消息上下文，
-并在启动期拒绝未声明或未知幂等策略；现有两类缓存失效 Handler 已证明并声明天然幂等。
-容量矩阵、索引 A/B 与默认并发决策仍开放。
+**Status:** Step 1 已于 2026-07-29 完成。Step 2 的独立 `outbox-capacity` 双库入口、
+35 档有界代表矩阵、真实 Worker/租约/多副本装配和吞吐、尾延迟、重复、续租、连接池、
+锁/日志、GC、容器资源报告已落地；SQL Server/MySQL 单档慢 Handler 冒烟均通过。
+正式 35 档三轮采样、进程终止恢复时间和 Step 3 的索引 A/B/默认并发决策仍开放。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Abstractions/Messaging/IIntegrationEventHandler.cs`
@@ -304,7 +305,7 @@ c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证�
 OccurredAtUtc；现有 Handler 通过兼容适配迁移。跨数据库或有外部副作用的消费者必须使用
 MessageId 去重或证明天然幂等。
 
-- [ ] **Step 2: 建立容量矩阵**
+- [ ] **Step 2: 建立容量矩阵（入口与双库冒烟已完成，正式证据待跑）**
 
 双库覆盖 Handler 延迟 `0/10/100/1000ms`、持续积压、多副本、并发 `1/2/4/8`、不同
 BatchSize 与 payload 大小；记录吞吐、P95/P99、重复次数、续租命令、连接池、锁等待、GC

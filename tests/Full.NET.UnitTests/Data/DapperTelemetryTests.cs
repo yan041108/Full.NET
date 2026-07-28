@@ -1,4 +1,5 @@
 using System.Diagnostics.Metrics;
+using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 
@@ -58,6 +59,30 @@ public sealed class DapperTelemetryTests
             && measurement.Tags["provider"] == "my_sql"
             && measurement.Tags["operation"] == "execute"
             && measurement.Tags["outcome"] == "canceled"));
+    }
+
+    [TestMethod]
+    public void Benchmark_aggregation_separates_controlled_cancellation_from_failure()
+    {
+        using var telemetry = new MixedLoadDapperTelemetry();
+
+        DapperTelemetry.Record(
+            "outbox.renew_lease",
+            DatabaseProvider.MySql,
+            DapperOperation.Execute,
+            TimeSpan.FromMilliseconds(5),
+            new OperationCanceledException());
+        DapperTelemetry.Record(
+            "outbox.mark_processed",
+            DatabaseProvider.MySql,
+            DapperOperation.Execute,
+            TimeSpan.FromMilliseconds(5),
+            new InvalidOperationException("database failure"));
+
+        var snapshot = telemetry.Snapshot();
+
+        Assert.AreEqual(1L, snapshot.Failures);
+        Assert.AreEqual(1L, snapshot.Cancellations);
     }
 
     private static MeterListener CreateListener(List<Measurement> measurements)

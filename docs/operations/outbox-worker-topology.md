@@ -97,6 +97,24 @@ Outbox 记录。重试、租约回收和多副本竞争不会生成新的 `Messa
   竞态仍可能产生重复；Handler 仍必须幂等，禁止把该能力描述为 Exactly-Once。
 - 若生产明确要求单副本运行，必须在部署清单中显式写死 `replicas: 1`，并记录“单副本故障期间 Outbox 会暂停消费”的风险。
 
+### 3.1 消费容量矩阵
+
+独立容量入口使用真实 `OutboxProcessor`、Dapper Store 和隔离双库容器：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- outbox-capacity
+```
+
+正式默认矩阵覆盖并发 `1/2/4/8`、Handler 延迟 `0/10/100/1000ms`、副本 `1/2`，
+并在参考并发档比较 Batch `20/100` 与 Payload `256/4096`。矩阵刻意压缩为 35 个
+代表场景，每档默认三轮；不得扩成全参数笛卡尔积，也不得把它加入日常受影响测试。
+
+开发期应使用 `--providers`、`--concurrency`、`--handler-delay-ms`、`--replicas`、
+`--batch-sizes`、`--payload-sizes`、`--repetitions 1` 和短采样显式收窄。报告必须同时
+检查吞吐、Handler P95/P99、重复投递、续租命令、连接池、锁等待、日志写入、GC/分配、
+数据库容器资源和期末 backlog。任何正确性门禁失败、数据库证据缺失或 backlog 被意外
+排空，都不能作为提高默认并发的证据。
+
 ## 4. 积压指标
 
 Worker 将 `Full.NET.Outbox` Meter 接入 OpenTelemetry，并按

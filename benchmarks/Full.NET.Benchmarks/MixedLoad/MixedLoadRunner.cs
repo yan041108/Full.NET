@@ -975,7 +975,7 @@ internal sealed class MixedLoadAuditWriteCapturePolicy(
     }
 }
 
-internal sealed class MixedLoadDapperTelemetry : IDisposable
+public sealed class MixedLoadDapperTelemetry : IDisposable
 {
     private const string MeterName = "fullnet.data.dapper";
     private readonly MeterListener _listener = new();
@@ -983,6 +983,7 @@ internal sealed class MixedLoadDapperTelemetry : IDisposable
         new(StringComparer.Ordinal);
     private readonly ConcurrentQueue<double> _durations = new();
     private long _failures;
+    private long _cancellations;
 
     public MixedLoadDapperTelemetry()
     {
@@ -1006,6 +1007,7 @@ internal sealed class MixedLoadDapperTelemetry : IDisposable
         }
 
         Interlocked.Exchange(ref _failures, 0);
+        Interlocked.Exchange(ref _cancellations, 0);
     }
 
     public MixedLoadDapperSnapshot Snapshot()
@@ -1017,7 +1019,8 @@ internal sealed class MixedLoadDapperTelemetry : IDisposable
             durations.Length == 0
                 ? null
                 : MixedLoadLatencyStatistics.Calculate(durations),
-            Interlocked.Read(ref _failures));
+            Interlocked.Read(ref _failures),
+            Interlocked.Read(ref _cancellations));
     }
 
     public void Dispose() => _listener.Dispose();
@@ -1035,7 +1038,17 @@ internal sealed class MixedLoadDapperTelemetry : IDisposable
         }
         else if (instrument.Name == "fullnet.data.sql.failures")
         {
-            Interlocked.Add(ref _failures, measurement);
+            if (string.Equals(
+                    GetTag(tags, "outcome"),
+                    "canceled",
+                    StringComparison.Ordinal))
+            {
+                Interlocked.Add(ref _cancellations, measurement);
+            }
+            else
+            {
+                Interlocked.Add(ref _failures, measurement);
+            }
         }
     }
 
@@ -1215,6 +1228,74 @@ internal abstract class MixedLoadDatabase : IAsyncDisposable
                     $"(@{parameterName}, @MessageType, @SchemaVersion, "
                     + "@ContentType, NULL, NULL, @Payload, @OccurredAtUtc, "
                     + "@ProcessedAtUtc, 0)");
+                parameters.Add(parameterName, Guid.CreateVersion7());
+            }
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                sql.ToString(),
+                parameters,
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task ResetOutboxAsync(
+        CancellationToken cancellationToken)
+    {
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM fn_outbox_message",
+            cancellationToken: cancellationToken));
+    }
+
+    public async Task SeedPendingOutboxAsync(
+        int count,
+        int payloadSize,
+        string messageType,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        ArgumentOutOfRangeException.ThrowIfLessThan(payloadSize, 64);
+        ArgumentException.ThrowIfNullOrWhiteSpace(messageType);
+
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(
+            cancellationToken);
+        var payload = new byte[payloadSize];
+        Random.Shared.NextBytes(payload);
+        var occurredAtUtc = DateTimeOffset.UtcNow;
+        const int insertBatchSize = 250;
+        for (var offset = 0; offset < count; offset += insertBatchSize)
+        {
+            var currentBatchSize = Math.Min(insertBatchSize, count - offset);
+            var sql = new StringBuilder(
+                """
+                INSERT INTO fn_outbox_message
+                    (Id, MessageType, SchemaVersion, ContentType, TenantId,
+                     TraceId, Payload, OccurredAtUtc, Attempts)
+                VALUES
+                """);
+            var parameters = new DynamicParameters();
+            parameters.Add("MessageType", messageType);
+            parameters.Add("SchemaVersion", 1);
+            parameters.Add("ContentType", "application/x-msgpack");
+            parameters.Add("Payload", payload);
+            parameters.Add("OccurredAtUtc", occurredAtUtc);
+            for (var index = 0; index < currentBatchSize; index++)
+            {
+                if (index > 0)
+                {
+                    sql.AppendLine(",");
+                }
+
+                var parameterName = $"Id{index}";
+                sql.Append(
+                    $"(@{parameterName}, @MessageType, @SchemaVersion, "
+                    + "@ContentType, NULL, NULL, @Payload, @OccurredAtUtc, 0)");
                 parameters.Add(parameterName, Guid.CreateVersion7());
             }
 

@@ -2,8 +2,21 @@ using BenchmarkDotNet.Running;
 using Full.NET.Benchmarks;
 using Full.NET.Benchmarks.Auditing;
 using Full.NET.Benchmarks.MixedLoad;
+using Full.NET.Benchmarks.Outbox;
 
-if (args.FirstOrDefault() is "mixed-load")
+if (args.FirstOrDefault() is "outbox-capacity")
+{
+    var outboxArguments = args.Skip(1).ToArray();
+    if (outboxArguments.Contains("--help", StringComparer.OrdinalIgnoreCase))
+    {
+        Console.WriteLine(OutboxCapacityOptions.HelpText);
+        return;
+    }
+
+    await OutboxCapacityRunner.RunAsync(
+        OutboxCapacityOptions.Parse(outboxArguments));
+}
+else if (args.FirstOrDefault() is "mixed-load")
 {
     var mixedLoadArguments = args.Skip(1).ToArray();
     if (mixedLoadArguments.Contains("--help", StringComparer.OrdinalIgnoreCase))
