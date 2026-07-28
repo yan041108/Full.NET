@@ -15,7 +15,9 @@ public sealed record MixedLoadRequestSample(
     double DurationMilliseconds,
     int? StatusCode,
     int ExpectedStatusCode,
-    string? Error)
+    string? Error,
+    MixedLoadAuditWriteProfile AuditWriteProfile =
+        MixedLoadAuditWriteProfile.All)
 {
     public bool IsUnexpected =>
         Error is not null || StatusCode != ExpectedStatusCode;
@@ -88,7 +90,9 @@ public sealed record MixedLoadDatabaseSnapshot(
     long? ActiveLocks,
     long? LockWaitCount,
     double? LockWaitMilliseconds,
-    string? MetricsError);
+    string? MetricsError,
+    long OperationLogCount = 0,
+    long ExceptionLogCount = 0);
 
 public sealed record MixedLoadDatabaseDelta(
     long AccessLogsWritten,
@@ -100,7 +104,9 @@ public sealed record MixedLoadDatabaseDelta(
     long? ActiveLocksAfter,
     long? LockWaitCountDelta,
     double? LockWaitMillisecondsDelta,
-    string? MetricsError);
+    string? MetricsError,
+    long OperationLogsWritten = 0,
+    long ExceptionLogsWritten = 0);
 
 public sealed record MixedLoadEvidenceEvaluation(
     bool ScenarioCoverageComplete,
@@ -108,6 +114,7 @@ public sealed record MixedLoadEvidenceEvaluation(
     bool DatabaseMetricsComplete,
     bool ConnectionPoolComplete,
     bool ContainerResourcesComplete,
+    bool AuditWriteAttributionComplete,
     IReadOnlyList<string> FailureReasons)
 {
     public bool Passed =>
@@ -115,7 +122,8 @@ public sealed record MixedLoadEvidenceEvaluation(
         && DapperComplete
         && DatabaseMetricsComplete
         && ConnectionPoolComplete
-        && ContainerResourcesComplete;
+        && ContainerResourcesComplete
+        && AuditWriteAttributionComplete;
 }
 
 public sealed record MixedLoadScenarioResult(
@@ -190,6 +198,7 @@ public sealed record MixedLoadRunResult(
     IReadOnlyDictionary<string, int> StatusCodes,
     IReadOnlyList<MixedLoadScenarioResult> Scenarios,
     MixedLoadDapperSnapshot Dapper,
+    MixedLoadAuditWriteAttributionResult AuditWrites,
     MixedLoadConnectionPoolSnapshot ConnectionPool,
     MixedLoadContainerSnapshot DatabaseContainer,
     MixedLoadProcessDelta Process,
@@ -232,6 +241,7 @@ public static class MixedLoadReportWriter
         TimeSpan actualDuration,
         IReadOnlyList<MixedLoadRequestSample> samples,
         MixedLoadDapperSnapshot dapper,
+        MixedLoadAuditWriteSnapshot auditWrites,
         MixedLoadConnectionPoolSnapshot connectionPool,
         MixedLoadContainerSnapshot databaseContainer,
         MixedLoadProcessSnapshot processBefore,
@@ -302,11 +312,14 @@ public static class MixedLoadReportWriter
             Difference(
                 databaseBefore.LockWaitMilliseconds,
                 databaseAfter.LockWaitMilliseconds),
-            databaseBefore.MetricsError ?? databaseAfter.MetricsError);
+            databaseBefore.MetricsError ?? databaseAfter.MetricsError,
+            databaseAfter.OperationLogCount - databaseBefore.OperationLogCount,
+            databaseAfter.ExceptionLogCount - databaseBefore.ExceptionLogCount);
         var budget = MixedLoadProviderBudget.Create(
             provider,
             options.MaximumUnexpectedErrorRate);
-        var expectedScenarios = MixedLoadScenarioCatalog.Default
+        var workload = MixedLoadScenarioCatalog.Get(options.Workload);
+        var expectedScenarios = workload
             .Select(scenario => scenario.Name)
             .ToHashSet(StringComparer.Ordinal);
         var actualScenarios = scenarioResults
@@ -317,6 +330,24 @@ public static class MixedLoadReportWriter
             && dapper.Duration is not null
             && dapper.Failures == 0;
         var databaseMetricsComplete = database.MetricsError is null;
+        var auditWriteAttribution = MixedLoadAuditWriteAttribution.Create(
+            samples,
+            workload,
+            auditWrites,
+            options.AuditWriteProfiles);
+        var auditDatabaseCountsComplete =
+            database.AccessLogsWritten
+                == ObservedAuditWrites(
+                    auditWriteAttribution,
+                    "auditing.insert_access_log")
+            && database.OperationLogsWritten
+                == ObservedAuditWrites(
+                    auditWriteAttribution,
+                    "auditing.insert_operation_log")
+            && database.ExceptionLogsWritten
+                == ObservedAuditWrites(
+                    auditWriteAttribution,
+                    "auditing.insert_exception_log");
         var failureReasons = new List<string>();
         if (!scenarioCoverageComplete)
         {
@@ -346,12 +377,21 @@ public static class MixedLoadReportWriter
                 + $"{databaseContainer.EvidenceError ?? "未知原因"}");
         }
 
+        if (!auditWriteAttribution.EvidenceComplete
+            || !auditDatabaseCountsComplete)
+        {
+            failureReasons.Add(
+                "Audit profile、写入失败、预期/观测次数或数据库行数证据不完整。");
+        }
+
         var evidence = new MixedLoadEvidenceEvaluation(
             scenarioCoverageComplete,
             dapperComplete,
             databaseMetricsComplete,
             connectionPool.EvidenceComplete,
             databaseContainer.EvidenceComplete,
+            auditWriteAttribution.EvidenceComplete
+                && auditDatabaseCountsComplete,
             failureReasons);
         var evaluation = new MixedLoadBudgetEvaluation(
             latency.P95Milliseconds <= budget.P95Milliseconds,
@@ -381,6 +421,7 @@ public static class MixedLoadReportWriter
             statusCodes,
             scenarioResults,
             dapper,
+            auditWriteAttribution,
             connectionPool,
             databaseContainer,
             process,
@@ -409,7 +450,7 @@ public static class MixedLoadReportWriter
             RuntimeInformation.OSDescription,
             Environment.ProcessorCount,
             options,
-            MixedLoadScenarioCatalog.Default,
+            MixedLoadScenarioCatalog.Get(options.Workload),
             MixedLoadMetricContract.Required,
             providers);
     }
@@ -609,6 +650,9 @@ public static class MixedLoadReportWriter
             $"- 预热：`{report.Options.Warmup.TotalSeconds:0}s`；"
             + $"稳态：`{report.Options.Duration.TotalSeconds:0}s`；"
             + $"种子：`{report.Options.Seed}`");
+        builder.AppendLine(
+            $"- Workload：`{report.Options.Workload}`；Audit 写入组合："
+            + $"`{string.Join(",", report.Options.AuditWriteProfiles)}`");
         builder.AppendLine();
         builder.AppendLine(
             "> 本报告是本机 Testcontainers 与进程内真实 API Host 的回归基线，"
@@ -616,13 +660,15 @@ public static class MixedLoadReportWriter
         builder.AppendLine();
         builder.AppendLine("## Workload");
         builder.AppendLine();
-        builder.AppendLine("| 场景 | 权重 | 认证 | 类型 | 预期状态 | Audit | Outbox |");
-        builder.AppendLine("| --- | ---: | --- | --- | ---: | --- | --- |");
+        builder.AppendLine(
+            "| 场景 | 权重 | 认证 | Method | 类型 | 预期状态 | Audit | Outbox |");
+        builder.AppendLine("| --- | ---: | --- | --- | --- | ---: | --- | --- |");
         foreach (var scenario in report.Workload)
         {
             builder.AppendLine(
                 $"| `{scenario.Name}` | {scenario.Weight} | "
-                + $"{scenario.Authentication} | {scenario.Operation} | "
+                + $"{scenario.Authentication} | {scenario.RequestMethod} | "
+                + $"{scenario.Operation} | "
                 + $"{(int)scenario.ExpectedStatusCode} | "
                 + $"{YesNo(scenario.IsAuditQuery)} | "
                 + $"{YesNo(scenario.ProducesOutbox)} |");
@@ -638,7 +684,7 @@ public static class MixedLoadReportWriter
             builder.AppendLine();
             builder.AppendLine(
                 "| 并发 | 请求 | QPS | P50 ms | P95 ms | P99 ms | "
-                + "非预期错误率 | Host CPU | DB CPU | Audit Δ | "
+                + "非预期错误率 | Host CPU | DB CPU | Audit A/O/E Δ | "
                 + "Outbox pending Δ | 预算 |");
             builder.AppendLine(
                 "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | "
@@ -654,7 +700,9 @@ public static class MixedLoadReportWriter
                     + $"{run.UnexpectedErrorRate:P3} | "
                     + $"{Format(run.Process.CpuPercent)}% | "
                     + $"{Format(run.DatabaseContainer.AverageCpuPercentOfHost)}% | "
-                    + $"{run.Database.AccessLogsWritten} | "
+                    + $"{run.Database.AccessLogsWritten}/"
+                    + $"{run.Database.OperationLogsWritten}/"
+                    + $"{run.Database.ExceptionLogsWritten} | "
                     + $"{run.Database.PendingOutboxGrowth} | "
                     + $"{(run.BudgetEvaluation.Passed ? "PASS" : "FAIL")} |");
             }
@@ -680,6 +728,25 @@ public static class MixedLoadReportWriter
                 builder.AppendLine(
                     $"- Dapper 命令：`{run.Dapper.StatementExecutions.Values.Sum()}`；"
                     + $"失败：`{run.Dapper.Failures}`");
+                builder.AppendLine();
+                builder.AppendLine(
+                    "| Audit profile | 请求 | P95 ms | P99 ms | "
+                    + "Access 预期/观测/P95 | Operation 预期/观测/P95 | "
+                    + "Exception 预期/观测/P95 | 证据 |");
+                builder.AppendLine(
+                    "| --- | ---: | ---: | ---: | --- | --- | --- | --- |");
+                foreach (var profile in run.AuditWrites.Profiles)
+                {
+                    builder.AppendLine(
+                        $"| `{profile.Profile}` | {profile.RequestCount} | "
+                        + $"{Format(profile.Latency.P95Milliseconds)} | "
+                        + $"{Format(profile.Latency.P99Milliseconds)} | "
+                        + $"{FormatAuditObservation(profile, "auditing.insert_access_log")} | "
+                        + $"{FormatAuditObservation(profile, "auditing.insert_operation_log")} | "
+                        + $"{FormatAuditObservation(profile, "auditing.insert_exception_log")} | "
+                        + $"{(profile.EvidenceComplete ? "PASS" : "FAIL")} |");
+                }
+
                 builder.AppendLine(
                     $"- 连接池：峰值 active/pooled/pending = "
                     + $"`{run.ConnectionPool.PeakActiveConnections}`/"
@@ -743,6 +810,29 @@ public static class MixedLoadReportWriter
 
     private static string Format(double value) =>
         value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static string FormatAuditObservation(
+        MixedLoadAuditWriteProfileResult profile,
+        string statementName)
+    {
+        var expected = profile.ExpectedStatementExecutions[statementName];
+        var observed = profile.ObservedStatementExecutions[statementName];
+        var observation = profile.Observations.SingleOrDefault(item =>
+            string.Equals(
+                item.StatementName,
+                statementName,
+                StringComparison.Ordinal));
+        return $"{expected}/{observed}/"
+            + (observation?.Duration is { } duration
+                ? Format(duration.P95Milliseconds)
+                : "-");
+    }
+
+    private static long ObservedAuditWrites(
+        MixedLoadAuditWriteAttributionResult attribution,
+        string statementName) =>
+        attribution.Profiles.Sum(profile =>
+            profile.ObservedStatementExecutions[statementName]);
 
     private static string YesNo(bool value) => value ? "是" : "否";
 }

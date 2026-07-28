@@ -190,6 +190,12 @@ OpenAPI、共享客户端、双前端和双库 API 测试先锁定缺失/超窗 
 在 Task 20 workload 中分别开启/关闭 Access、Operation、Exception 写入，记录单次和组合
 增量 P95/P99、数据库命令数与锁等待。先确认“最多三次串行写”在真实请求组合中的发生率。
 
+状态（2026-07-29）：Benchmark-only 的逐请求
+`none/access/operation/exception/all` 归因、专用异常场景、Statement 耗时、三表行数和证据
+门禁已落地；10 秒、并发 4 的双库正确性冒烟通过，并确认异常请求真实发生三次串行写。
+正式 `30s/600s × c=1/4/16/32` 矩阵尚未执行，因此 Step 1 保持未完成。详见
+[`auditing-write-tail-latency-2026-07-28.md`](../../verification/auditing-write-tail-latency-2026-07-28.md)。
+
 - [ ] **Step 2: 冻结可靠性分类**
 
 Operation 与安全相关 Exception 保持可靠审计；Access 是否为可丢遥测必须由 Spec 明确。

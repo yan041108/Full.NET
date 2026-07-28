@@ -23,6 +23,10 @@ public sealed class MixedLoadContractTests
         Assert.AreEqual(TimeSpan.FromMinutes(10), options.Duration);
         Assert.AreEqual(20260728, options.Seed);
         Assert.AreEqual(0.005d, options.MaximumUnexpectedErrorRate);
+        Assert.AreEqual(MixedLoadWorkload.Default, options.Workload);
+        CollectionAssert.AreEqual(
+            new[] { MixedLoadAuditWriteProfile.All },
+            options.AuditWriteProfiles.ToArray());
     }
 
     [TestMethod]
@@ -118,6 +122,218 @@ public sealed class MixedLoadContractTests
             () => MixedLoadOptions.Parse(["--duration-seconds", "0"]));
         Assert.ThrowsExactly<ArgumentException>(
             () => MixedLoadOptions.Parse(["--unknown", "value"]));
+    }
+
+    [TestMethod]
+    public void Parser_supports_audit_write_attribution_profiles()
+    {
+        var options = MixedLoadOptions.Parse(
+        [
+            "--workload", "audit-write",
+            "--audit-write-profiles", "none,access,operation,exception,all",
+        ]);
+
+        Assert.AreEqual(MixedLoadWorkload.AuditWrite, options.Workload);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                MixedLoadAuditWriteProfile.None,
+                MixedLoadAuditWriteProfile.Access,
+                MixedLoadAuditWriteProfile.Operation,
+                MixedLoadAuditWriteProfile.Exception,
+                MixedLoadAuditWriteProfile.All,
+            },
+            options.AuditWriteProfiles.ToArray());
+        Assert.ThrowsExactly<ArgumentException>(
+            () => MixedLoadOptions.Parse(
+            [
+                "--workload", "default",
+                "--audit-write-profiles", "none,all",
+            ]));
+        Assert.ThrowsExactly<ArgumentException>(
+            () => MixedLoadOptions.Parse(
+            [
+                "--workload", "audit-write",
+                "--audit-write-profiles", "all,all",
+            ]));
+    }
+
+    [TestMethod]
+    public void Audit_write_workload_exposes_one_two_and_three_write_paths()
+    {
+        var scenarios = MixedLoadScenarioCatalog.AuditWriteAttribution;
+
+        Assert.AreEqual(100, scenarios.Sum(scenario => scenario.Weight));
+        Assert.IsTrue(scenarios.Any(scenario =>
+            scenario.ExpectedAuditWrites == MixedLoadAuditWriteProfile.Access));
+        Assert.IsTrue(scenarios.Any(scenario =>
+            scenario.ExpectedAuditWrites
+                == (MixedLoadAuditWriteProfile.Access
+                    | MixedLoadAuditWriteProfile.Operation)));
+        Assert.IsTrue(scenarios.Any(scenario =>
+            scenario.ExpectedAuditWrites == MixedLoadAuditWriteProfile.All
+            && scenario.Path == "/api/v1/auditing/exception-probes"
+            && scenario.RequestMethod == HttpMethod.Post.Method
+            && scenario.ExpectedStatusCode
+                == HttpStatusCode.InternalServerError));
+    }
+
+    [TestMethod]
+    public void Audit_write_policy_only_suppresses_unselected_audit_inserts()
+    {
+        Assert.IsFalse(MixedLoadAuditWritePolicy.ShouldExecute(
+            MixedLoadAuditWriteProfile.None,
+            "auditing.insert_access_log"));
+        Assert.IsTrue(MixedLoadAuditWritePolicy.ShouldExecute(
+            MixedLoadAuditWriteProfile.Access,
+            "auditing.insert_access_log"));
+        Assert.IsFalse(MixedLoadAuditWritePolicy.ShouldExecute(
+            MixedLoadAuditWriteProfile.Access,
+            "auditing.insert_operation_log"));
+        Assert.IsTrue(MixedLoadAuditWritePolicy.ShouldExecute(
+            MixedLoadAuditWriteProfile.All,
+            "auditing.insert_exception_log"));
+        Assert.IsTrue(MixedLoadAuditWritePolicy.ShouldExecute(
+            MixedLoadAuditWriteProfile.None,
+            "tenancy.update_tenant"));
+    }
+
+    [TestMethod]
+    public void Audit_write_profile_selector_balances_profiles_per_worker()
+    {
+        var selector = new MixedLoadAuditWriteProfileSelector(
+        [
+            MixedLoadAuditWriteProfile.None,
+            MixedLoadAuditWriteProfile.Access,
+            MixedLoadAuditWriteProfile.All,
+        ],
+            workerId: 1);
+
+        var selected = Enumerable.Range(0, 6)
+            .Select(sequence => selector.Select(sequence))
+            .ToArray();
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                MixedLoadAuditWriteProfile.Access,
+                MixedLoadAuditWriteProfile.All,
+                MixedLoadAuditWriteProfile.None,
+                MixedLoadAuditWriteProfile.Access,
+                MixedLoadAuditWriteProfile.All,
+                MixedLoadAuditWriteProfile.None,
+            },
+            selected);
+    }
+
+    [TestMethod]
+    public void Audit_write_telemetry_attributes_attempts_and_tail_latency_by_profile()
+    {
+        var telemetry = new MixedLoadAuditWriteTelemetry();
+        telemetry.Record(
+            MixedLoadAuditWriteProfile.Access,
+            "auditing.insert_access_log",
+            4,
+            succeeded: true);
+        telemetry.Record(
+            MixedLoadAuditWriteProfile.Access,
+            "auditing.insert_access_log",
+            9,
+            succeeded: true);
+        telemetry.Record(
+            MixedLoadAuditWriteProfile.All,
+            "auditing.insert_exception_log",
+            12,
+            succeeded: false);
+
+        var snapshot = telemetry.Snapshot();
+        var access = snapshot.Observations.Single(item =>
+            item.Profile == MixedLoadAuditWriteProfile.Access
+            && item.StatementName == "auditing.insert_access_log");
+        var exception = snapshot.Observations.Single(item =>
+            item.Profile == MixedLoadAuditWriteProfile.All
+            && item.StatementName == "auditing.insert_exception_log");
+
+        Assert.AreEqual(2L, access.Attempts);
+        Assert.AreEqual(0L, access.Failures);
+        Assert.AreEqual(9d, access.Duration!.P95Milliseconds);
+        Assert.AreEqual(1L, exception.Attempts);
+        Assert.AreEqual(1L, exception.Failures);
+    }
+
+    [TestMethod]
+    public void Audit_write_attribution_compares_profile_latency_and_expected_inserts()
+    {
+        var scenario = MixedLoadScenarioCatalog.AuditWriteAttribution.Single(item =>
+            item.Name == "audit-access-only");
+        var capturedAt = DateTimeOffset.UtcNow;
+        var samples = new[]
+        {
+            new MixedLoadRequestSample(
+                0,
+                0,
+                scenario.Name,
+                capturedAt,
+                5,
+                200,
+                200,
+                null,
+                MixedLoadAuditWriteProfile.None),
+            new MixedLoadRequestSample(
+                1,
+                0,
+                scenario.Name,
+                capturedAt,
+                10,
+                200,
+                200,
+                null,
+                MixedLoadAuditWriteProfile.Access),
+            new MixedLoadRequestSample(
+                2,
+                0,
+                scenario.Name,
+                capturedAt,
+                20,
+                200,
+                200,
+                null,
+                MixedLoadAuditWriteProfile.All),
+        };
+        var telemetry = new MixedLoadAuditWriteTelemetry();
+        telemetry.Record(
+            MixedLoadAuditWriteProfile.Access,
+            "auditing.insert_access_log",
+            3,
+            succeeded: true);
+        telemetry.Record(
+            MixedLoadAuditWriteProfile.All,
+            "auditing.insert_access_log",
+            4,
+            succeeded: true);
+
+        var result = MixedLoadAuditWriteAttribution.Create(
+            samples,
+            [scenario],
+            telemetry.Snapshot(),
+            [
+                MixedLoadAuditWriteProfile.None,
+                MixedLoadAuditWriteProfile.Access,
+                MixedLoadAuditWriteProfile.All,
+            ]);
+
+        Assert.IsTrue(result.EvidenceComplete);
+        Assert.AreEqual(5d, result.Profiles[0].Latency.P95Milliseconds);
+        Assert.AreEqual(10d, result.Profiles[1].Latency.P95Milliseconds);
+        Assert.AreEqual(20d, result.Profiles[2].Latency.P95Milliseconds);
+        Assert.AreEqual(
+            1L,
+            result.Profiles[1].ExpectedStatementExecutions[
+                "auditing.insert_access_log"]);
+        Assert.AreEqual(
+            1L,
+            result.Profiles[1].ObservedStatementExecutions[
+                "auditing.insert_access_log"]);
     }
 
     [TestMethod]
@@ -254,6 +470,7 @@ public sealed class MixedLoadContractTests
                     new Dictionary<string, long>(),
                     null,
                     0),
+                new MixedLoadAuditWriteSnapshot([]),
                 CreateCompletePoolSnapshot(),
                 CreateCompleteContainerSnapshot(),
                 processBefore,
@@ -419,6 +636,7 @@ public sealed class MixedLoadContractTests
                 },
                 MixedLoadLatencyStatistics.Calculate([1d]),
                 1),
+            new MixedLoadAuditWriteSnapshot([]),
             CreateCompletePoolSnapshot(),
             CreateCompleteContainerSnapshot(),
             processBefore,

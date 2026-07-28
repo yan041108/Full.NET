@@ -16,10 +16,13 @@ using Full.NET.Migrations.DbUp;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
@@ -39,6 +42,7 @@ public static class MixedLoadRunner
     {
         ArgumentNullException.ThrowIfNull(options);
         var providerResults = new List<MixedLoadProviderResult>();
+        var scenarios = MixedLoadScenarioCatalog.Get(options.Workload);
 
         foreach (var provider in options.Providers)
         {
@@ -61,6 +65,8 @@ public static class MixedLoadRunner
                     database.Provider,
                     database.ConnectionString);
                 using var client = host.CreateBenchmarkClient();
+                var auditWriteTelemetry = host.Services
+                    .GetRequiredService<MixedLoadAuditWriteTelemetry>();
                 MixedLoadSetup setup;
                 MixedLoadCredentials credentials;
                 MixedLoadWorkerState[] workerStates;
@@ -83,6 +89,7 @@ public static class MixedLoadRunner
                         client,
                         workerStates[0],
                         credentials,
+                        scenarios,
                         cancellationToken);
                     await Task.Delay(100, cancellationToken);
                 }
@@ -96,6 +103,8 @@ public static class MixedLoadRunner
                         client,
                         credentials,
                         workerStates,
+                        scenarios,
+                        options.AuditWriteProfiles,
                         options.Seed,
                         options.Warmup,
                         samples: null,
@@ -104,6 +113,7 @@ public static class MixedLoadRunner
                 }
 
                 telemetry.Reset();
+                auditWriteTelemetry.Reset();
                 poolTelemetry.Reset();
                 var resourceBefore = CaptureProcessResources();
                 var databaseBefore = await database.CaptureStateAsync(cancellationToken);
@@ -120,6 +130,8 @@ public static class MixedLoadRunner
                         client,
                         credentials,
                         workerStates,
+                        scenarios,
+                        options.AuditWriteProfiles,
                         options.Seed,
                         options.Duration,
                         samples,
@@ -142,6 +154,7 @@ public static class MixedLoadRunner
                     elapsed,
                     requestSamples,
                     telemetry.Snapshot(),
+                    auditWriteTelemetry.Snapshot(),
                     poolTelemetry.Snapshot(),
                     containerResources,
                     resourceBefore,
@@ -208,6 +221,8 @@ public static class MixedLoadRunner
         HttpClient client,
         MixedLoadCredentials credentials,
         IReadOnlyList<MixedLoadWorkerState> workerStates,
+        IReadOnlyList<MixedLoadScenario> scenarios,
+        IReadOnlyList<MixedLoadAuditWriteProfile> auditWriteProfiles,
         int seed,
         TimeSpan duration,
         ConcurrentQueue<MixedLoadRequestSample>? samples,
@@ -226,6 +241,8 @@ public static class MixedLoadRunner
                 client,
                 credentials,
                 worker,
+                scenarios,
+                auditWriteProfiles,
                 seed,
                 stopTimestamp,
                 samples,
@@ -239,19 +256,25 @@ public static class MixedLoadRunner
         HttpClient client,
         MixedLoadCredentials credentials,
         MixedLoadWorkerState worker,
+        IReadOnlyList<MixedLoadScenario> scenarios,
+        IReadOnlyList<MixedLoadAuditWriteProfile> auditWriteProfiles,
         int seed,
         long stopTimestamp,
         ConcurrentQueue<MixedLoadRequestSample>? samples,
         CancellationToken cancellationToken)
     {
         var selector = new MixedLoadScenarioSelector(
-            MixedLoadScenarioCatalog.Default,
+            scenarios,
             unchecked(seed + (worker.WorkerId * 7919)));
+        var auditWriteProfileSelector = new MixedLoadAuditWriteProfileSelector(
+            auditWriteProfiles,
+            worker.WorkerId);
         long sequence = 0;
         while (!cancellationToken.IsCancellationRequested
             && Stopwatch.GetTimestamp() < stopTimestamp)
         {
             var scenario = selector.Next();
+            var auditWriteProfile = auditWriteProfileSelector.Select(sequence);
             var startedAtUtc = DateTimeOffset.UtcNow;
             var stopwatch = Stopwatch.StartNew();
             int? statusCode = null;
@@ -262,7 +285,8 @@ public static class MixedLoadRunner
                     scenario,
                     worker,
                     credentials,
-                    sequence);
+                    sequence,
+                    auditWriteProfile);
                 using var response = await client.SendAsync(
                     request,
                     HttpCompletionOption.ResponseHeadersRead,
@@ -308,7 +332,8 @@ public static class MixedLoadRunner
                     stopwatch.Elapsed.TotalMilliseconds,
                     statusCode,
                     (int)scenario.ExpectedStatusCode,
-                    error));
+                    error,
+                    auditWriteProfile));
             }
 
             sequence++;
@@ -319,27 +344,23 @@ public static class MixedLoadRunner
         MixedLoadScenario scenario,
         MixedLoadWorkerState worker,
         MixedLoadCredentials credentials,
-        long sequence)
+        long sequence,
+        MixedLoadAuditWriteProfile auditWriteProfile)
     {
         var path = scenario.Path.Replace(
             "{tenantId}",
             worker.TenantId.ToString("D"),
             StringComparison.Ordinal);
-        HttpRequestMessage request;
-        if (scenario.Operation == MixedLoadOperation.Read)
-        {
-            request = new HttpRequestMessage(HttpMethod.Get, path);
-        }
-        else
+        var request = new HttpRequestMessage(
+            new HttpMethod(scenario.RequestMethod),
+            path);
+        if (scenario.Operation == MixedLoadOperation.Write)
         {
             var name = scenario.IsExpectedValidationFailure
                 ? string.Empty
                 : $"Mixed load {worker.WorkerId:D3}-{sequence:D10}";
-            request = new HttpRequestMessage(HttpMethod.Put, path)
-            {
-                Content = JsonContent.Create(
-                    new UpdateHostTenantRequest(name, worker.Version)),
-            };
+            request.Content = JsonContent.Create(
+                new UpdateHostTenantRequest(name, worker.Version));
         }
 
         var token = scenario.Authentication == MixedLoadAuthentication.Jwt
@@ -350,6 +371,9 @@ public static class MixedLoadRunner
                 ? "Bearer"
                 : "ApiKey",
             token);
+        request.Headers.Add(
+            MixedLoadAuditWritePolicy.HeaderName,
+            MixedLoadAuditWritePolicy.GetToken(auditWriteProfile));
         return request;
     }
 
@@ -403,6 +427,7 @@ public static class MixedLoadRunner
         HttpClient client,
         MixedLoadWorkerState worker,
         MixedLoadCredentials credentials,
+        IReadOnlyList<MixedLoadScenario> scenarios,
         CancellationToken cancellationToken)
     {
         using (var health = await client.GetAsync("/health/ready", cancellationToken))
@@ -410,13 +435,14 @@ public static class MixedLoadRunner
             health.EnsureSuccessStatusCode();
         }
 
-        foreach (var scenario in MixedLoadScenarioCatalog.Default)
+        foreach (var scenario in scenarios)
         {
             using var request = CreateRequest(
                 scenario,
                 worker,
                 credentials,
-                sequence: 0);
+                sequence: 0,
+                MixedLoadAuditWriteProfile.All);
             using var response = await client.SendAsync(request, cancellationToken);
             if (response.StatusCode != scenario.ExpectedStatusCode)
             {
@@ -507,6 +533,7 @@ public static class MixedLoadRunner
                 "Full.NET.Host.Api"));
             builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(settings));
+            builder.ConfigureTestServices(DecorateAuditCommandExecutor);
         }
 
         public HttpClient CreateBenchmarkClient()
@@ -590,6 +617,36 @@ public static class MixedLoadRunner
             throw new DirectoryNotFoundException("无法定位 Full.NET 仓库根目录。");
         }
 
+        private static void DecorateAuditCommandExecutor(IServiceCollection services)
+        {
+            var descriptor = services.LastOrDefault(item =>
+                    item.ServiceType == typeof(ICommandExecutor))
+                ?? throw new InvalidOperationException(
+                    "Benchmark Host 缺少 ICommandExecutor 注册。");
+            services.Remove(descriptor);
+            services.AddHttpContextAccessor();
+            services.TryAddSingleton<MixedLoadAuditWriteTelemetry>();
+            services.AddScoped<ICommandExecutor>(provider =>
+                new MixedLoadAuditCommandExecutor(
+                    CreateOriginalCommandExecutor(provider, descriptor),
+                    provider.GetRequiredService<IHttpContextAccessor>(),
+                    provider.GetRequiredService<MixedLoadAuditWriteTelemetry>()));
+        }
+
+        private static ICommandExecutor CreateOriginalCommandExecutor(
+            IServiceProvider provider,
+            ServiceDescriptor descriptor)
+        {
+            var service = descriptor.ImplementationInstance
+                ?? descriptor.ImplementationFactory?.Invoke(provider)
+                ?? (descriptor.ImplementationType is { } implementationType
+                    ? ActivatorUtilities.CreateInstance(provider, implementationType)
+                    : null);
+            return service as ICommandExecutor
+                ?? throw new InvalidOperationException(
+                    "无法创建 Benchmark Host 的原始 ICommandExecutor。");
+        }
+
         async ValueTask IAsyncDisposable.DisposeAsync()
         {
             await base.DisposeAsync();
@@ -599,6 +656,71 @@ public static class MixedLoadRunner
     private sealed record MixedLoadSetup(
         Guid AdminUserId,
         IReadOnlyList<TenantSummary> Tenants);
+}
+
+internal sealed class MixedLoadAuditCommandExecutor(
+    ICommandExecutor inner,
+    IHttpContextAccessor httpContextAccessor,
+    MixedLoadAuditWriteTelemetry telemetry) : ICommandExecutor
+{
+    public async Task<int> ExecuteAsync(
+        SqlStatement statement,
+        object? parameters = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(statement);
+        var profile = ReadProfile();
+        if (!MixedLoadAuditWritePolicy.ShouldExecute(profile, statement.Name))
+        {
+            return 1;
+        }
+
+        if (!MixedLoadAuditWritePolicy.IsAuditInsert(statement.Name))
+        {
+            return await inner.ExecuteAsync(
+                    statement,
+                    parameters,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var result = await inner.ExecuteAsync(
+                    statement,
+                    parameters,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            stopwatch.Stop();
+            telemetry.Record(
+                profile,
+                statement.Name,
+                stopwatch.Elapsed.TotalMilliseconds,
+                succeeded: true);
+            return result;
+        }
+        catch
+        {
+            stopwatch.Stop();
+            telemetry.Record(
+                profile,
+                statement.Name,
+                stopwatch.Elapsed.TotalMilliseconds,
+                succeeded: false);
+            throw;
+        }
+    }
+
+    private MixedLoadAuditWriteProfile ReadProfile()
+    {
+        var value = httpContextAccessor.HttpContext?
+            .Request.Headers[MixedLoadAuditWritePolicy.HeaderName]
+            .ToString();
+        return string.IsNullOrWhiteSpace(value)
+            ? MixedLoadAuditWriteProfile.All
+            : MixedLoadAuditWritePolicy.ParseToken(value);
+    }
 }
 
 internal sealed class MixedLoadDapperTelemetry : IDisposable
@@ -762,6 +884,14 @@ internal abstract class MixedLoadDatabase : IAsyncDisposable
             new CommandDefinition(
                 "SELECT COUNT(*) FROM fn_auditing_access_log",
                 cancellationToken: cancellationToken));
+        var operationLogs = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition(
+                "SELECT COUNT(*) FROM fn_auditing_operation_log",
+                cancellationToken: cancellationToken));
+        var exceptionLogs = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition(
+                "SELECT COUNT(*) FROM fn_auditing_exception_log",
+                cancellationToken: cancellationToken));
         var outboxPending = await connection.ExecuteScalarAsync<long>(
             new CommandDefinition(
                 """
@@ -785,7 +915,9 @@ internal abstract class MixedLoadDatabase : IAsyncDisposable
             databaseMetrics.ActiveLocks,
             databaseMetrics.LockWaitCount,
             databaseMetrics.LockWaitMilliseconds,
-            databaseMetrics.Error);
+            databaseMetrics.Error,
+            operationLogs,
+            exceptionLogs);
     }
 
     public abstract ValueTask DisposeAsync();

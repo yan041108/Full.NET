@@ -9,7 +9,9 @@ public sealed record MixedLoadOptions(
     TimeSpan Duration,
     int Seed,
     double MaximumUnexpectedErrorRate,
-    string OutputDirectory)
+    string OutputDirectory,
+    MixedLoadWorkload Workload,
+    IReadOnlyList<MixedLoadAuditWriteProfile> AuditWriteProfiles)
 {
     public const string HelpText =
         """
@@ -26,6 +28,8 @@ public sealed record MixedLoadOptions(
           --seed <n>               场景选择固定种子，默认 20260728
           --max-error-rate <value> 非预期错误率上限，默认 0.005
           --output <path>          工件目录，默认 BenchmarkDotNet.Artifacts/mixed-load/<UTC>
+          --workload <name>        default 或 audit-write，默认 default
+          --audit-write-profiles   归因组合列表：none,access,operation,exception,all
           --help                   显示帮助
         """;
 
@@ -60,6 +64,8 @@ public sealed record MixedLoadOptions(
             throw new ArgumentException("--output 不能为空。", "--output");
         }
 
+        var workload = ParseWorkload(values);
+        var auditWriteProfiles = ParseAuditWriteProfiles(values, workload);
         return new MixedLoadOptions(
             providers,
             concurrency,
@@ -67,7 +73,9 @@ public sealed record MixedLoadOptions(
             TimeSpan.FromSeconds(durationSeconds),
             seed,
             maximumErrorRate,
-            outputDirectory);
+            outputDirectory,
+            workload,
+            auditWriteProfiles);
     }
 
     private static Dictionary<string, string> ParsePairs(
@@ -215,6 +223,59 @@ public sealed record MixedLoadOptions(
         return value;
     }
 
+    private static MixedLoadWorkload ParseWorkload(
+        IReadOnlyDictionary<string, string> values) =>
+        values.GetValueOrDefault("--workload", "default").ToLowerInvariant() switch
+        {
+            "default" => MixedLoadWorkload.Default,
+            "audit-write" => MixedLoadWorkload.AuditWrite,
+            var value => throw new ArgumentException(
+                $"--workload 不支持 {value}。",
+                "--workload"),
+        };
+
+    private static IReadOnlyList<MixedLoadAuditWriteProfile> ParseAuditWriteProfiles(
+        IReadOnlyDictionary<string, string> values,
+        MixedLoadWorkload workload)
+    {
+        var hasExplicitProfiles = values.TryGetValue(
+            "--audit-write-profiles",
+            out var raw);
+        if (hasExplicitProfiles && workload != MixedLoadWorkload.AuditWrite)
+        {
+            throw new ArgumentException(
+                "--audit-write-profiles 只能用于 audit-write workload。",
+                "--audit-write-profiles");
+        }
+
+        var profiles = (raw ?? "all")
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(ParseAuditWriteProfile)
+            .ToArray();
+        if (profiles.Length == 0
+            || profiles.Distinct().Count() != profiles.Length)
+        {
+            throw new ArgumentException(
+                "--audit-write-profiles 不能为空或包含重复值。",
+                "--audit-write-profiles");
+        }
+
+        return profiles;
+    }
+
+    private static MixedLoadAuditWriteProfile ParseAuditWriteProfile(string value) =>
+        value.ToLowerInvariant() switch
+        {
+            "none" => MixedLoadAuditWriteProfile.None,
+            "access" => MixedLoadAuditWriteProfile.Access,
+            "operation" => MixedLoadAuditWriteProfile.Operation,
+            "exception" => MixedLoadAuditWriteProfile.Exception,
+            "all" => MixedLoadAuditWriteProfile.All,
+            _ => throw new ArgumentException(
+                $"不支持的 Audit 写入 profile：{value}",
+                "--audit-write-profiles"),
+        };
+
     private static readonly string[] KnownOptions =
     [
         "--providers",
@@ -224,5 +285,7 @@ public sealed record MixedLoadOptions(
         "--seed",
         "--max-error-rate",
         "--output",
+        "--workload",
+        "--audit-write-profiles",
     ];
 }
