@@ -192,10 +192,22 @@ internal sealed class DapperSqlExecutor(
             operation,
             stopwatch.Elapsed,
             exception);
-        DapperLog.StatementExecuted(
+        if (exception is null)
+        {
+            DapperLog.StatementExecuted(
+                logger,
+                statement.Name,
+                _options.Provider,
+                stopwatch.Elapsed.TotalMilliseconds);
+            return;
+        }
+
+        DapperLog.StatementFailed(
             logger,
             statement.Name,
             _options.Provider,
-            stopwatch.Elapsed.TotalMilliseconds);
+            stopwatch.Elapsed.TotalMilliseconds,
+            DapperTelemetry.GetDatabaseErrorCode(exception),
+            exception);
     }
 }

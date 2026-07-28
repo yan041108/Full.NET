@@ -14,4 +14,16 @@ internal static partial class DapperLog
         string statementName,
         DatabaseProvider provider,
         double elapsedMilliseconds);
+
+    [LoggerMessage(
+        EventId = 2001,
+        Level = LogLevel.Warning,
+        Message = "Failed SQL {StatementName} on {Provider} in {ElapsedMilliseconds} ms with database error code {DatabaseErrorCode}")]
+    public static partial void StatementFailed(
+        ILogger logger,
+        string statementName,
+        DatabaseProvider provider,
+        double elapsedMilliseconds,
+        string databaseErrorCode,
+        Exception exception);
 }

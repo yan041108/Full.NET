@@ -245,11 +245,14 @@ public static class OutboxCapacityRunner
         var probe = new OutboxCapacityHandler(
             TimeSpan.FromMilliseconds(
                 scenario.HandlerDelayMilliseconds));
-        await using var services = BuildServices(database, probe);
         var processorErrors = new ConcurrentQueue<string>();
+        await using var services = BuildServices(
+            database,
+            probe,
+            processorErrors);
         var processorLogger =
             new OutboxCapacityProcessorLogger<WorkerHost.OutboxProcessor>(
-            processorErrors);
+                processorErrors);
         var processors = Enumerable.Range(0, scenario.Replicas)
             .Select(_ => CreateProcessor(
                 services,
@@ -257,14 +260,17 @@ public static class OutboxCapacityRunner
                 options,
                 processorLogger))
             .ToArray();
-        using var runCancellation =
+        // 采样窗口结束只阻止领取新批次；在途终态写入继续使用外部取消令牌，
+        // 避免把基准主动收尾误判成数据库失败，同时保留人工中断的快速取消能力。
+        using var stopStartingBatches =
             CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
         var processorTasks = processors
             .Select(processor => ConsumeAsync(
                 processor,
                 processorErrors,
-                runCancellation.Token))
+                stopStartingBatches.Token,
+                cancellationToken))
             .ToArray();
 
         if (options.Warmup > TimeSpan.Zero)
@@ -288,12 +294,17 @@ public static class OutboxCapacityRunner
         var stopwatch = Stopwatch.StartNew();
         await Task.Delay(options.Duration, cancellationToken);
         stopwatch.Stop();
-        await runCancellation.CancelAsync();
-        await Task.WhenAll(processorTasks);
-        var databaseContainer = await container.StopAsync();
+        await stopStartingBatches.CancelAsync();
+        // 先冻结窗口内证据，再等待在途批次排空；排空阶段不计入吞吐与正确性门禁。
+        var handlerSnapshot = probe.Snapshot();
+        var dapperSnapshot = dapper.Snapshot();
+        var poolSnapshot = pool.Snapshot();
         var processAfter = CaptureProcessResources();
         var databaseAfter = await database.CaptureStateAsync(
             cancellationToken);
+        var processorErrorSnapshot = processorErrors.ToArray();
+        var databaseContainer = await container.StopAsync();
+        await Task.WhenAll(processorTasks);
 
         return OutboxCapacityReportWriter.CreateRunResult(
             database.Provider.ToString(),
@@ -302,15 +313,15 @@ public static class OutboxCapacityRunner
             scenario,
             repetition,
             stopwatch.Elapsed,
-            probe.Snapshot(),
-            dapper.Snapshot(),
-            pool.Snapshot(),
+            handlerSnapshot,
+            dapperSnapshot,
+            poolSnapshot,
             databaseContainer,
             processBefore,
             processAfter,
             databaseBefore,
             databaseAfter,
-            processorErrors.ToArray());
+            processorErrorSnapshot);
     }
 
     private static async Task<OutboxCapacityRecoveryResult> RunRecoveryAsync(
@@ -417,7 +428,8 @@ public static class OutboxCapacityRunner
 
     private static ServiceProvider BuildServices(
         MixedLoadDatabase database,
-        OutboxCapacityHandler handler)
+        OutboxCapacityHandler handler,
+        ConcurrentQueue<string>? errors = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -437,6 +449,13 @@ public static class OutboxCapacityRunner
             services,
             configuration,
             handler);
+        if (errors is not null)
+        {
+            services.AddLogging(builder =>
+                builder.AddProvider(
+                    new OutboxCapacityFailureLoggerProvider(errors)));
+        }
+
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
@@ -467,23 +486,25 @@ public static class OutboxCapacityRunner
     private static async Task ConsumeAsync(
         WorkerHost.OutboxProcessor processor,
         ConcurrentQueue<string> errors,
-        CancellationToken cancellationToken)
+        CancellationToken stopStartingBatches,
+        CancellationToken executionCancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        while (!stopStartingBatches.IsCancellationRequested)
         {
             try
             {
                 var processed = await processor.ProcessOnceAsync(
-                    cancellationToken);
+                    executionCancellationToken);
                 if (processed == 0)
                 {
                     await Task.Delay(
                         TimeSpan.FromMilliseconds(10),
-                        cancellationToken);
+                        stopStartingBatches);
                 }
             }
             catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
+                when (stopStartingBatches.IsCancellationRequested
+                    || executionCancellationToken.IsCancellationRequested)
             {
                 break;
             }
@@ -550,10 +571,48 @@ public sealed class OutboxCapacityProcessorLogger<TCategoryName> :
             return;
         }
 
+        if (eventId.Id == 2001
+            && state is IEnumerable<KeyValuePair<string, object?>> values)
+        {
+            var properties = values.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value,
+                StringComparer.Ordinal);
+            _errors.Enqueue(
+                $"dapper.event.{eventId.Id} | {exception.GetType().Name}"
+                + $" | statement={GetProperty(properties, "StatementName")}"
+                + $" | provider={GetProperty(properties, "Provider")}"
+                + $" | code={GetProperty(properties, "DatabaseErrorCode")}");
+            return;
+        }
+
         _errors.Enqueue(
             $"outbox.event.{eventId.Id} | "
             + $"{exception.GetType().Name}: "
             + exception.Message.ReplaceLineEndings(" "));
+    }
+
+    private static string GetProperty(
+        IReadOnlyDictionary<string, object?> properties,
+        string name) =>
+        properties.TryGetValue(name, out var value)
+            ? value?.ToString() ?? "not_available"
+            : "not_available";
+}
+
+/// <summary>
+/// 将容量基准中的 DI 日志路由到共享失败队列，使底层数据库错误与处理器结果进入同一份证据。
+/// </summary>
+public sealed class OutboxCapacityFailureLoggerProvider(
+    ConcurrentQueue<string> errors) : ILoggerProvider
+{
+    /// <inheritdoc />
+    public ILogger CreateLogger(string categoryName) =>
+        new OutboxCapacityProcessorLogger<object>(errors);
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
     }
 }
 

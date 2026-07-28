@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using Full.NET.Data.Abstractions;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
@@ -101,5 +102,19 @@ internal static class DapperTelemetry
             } => "lock_wait_timeout",
             System.Data.Common.DbException => "database_error",
             _ => "application_error",
+        };
+
+    internal static string GetDatabaseErrorCode(Exception exception) =>
+        exception switch
+        {
+            SqlException sqlException =>
+                sqlException.Number.ToString(CultureInfo.InvariantCulture),
+            MySqlException mySqlException =>
+                ((int)mySqlException.ErrorCode).ToString(
+                    CultureInfo.InvariantCulture),
+            System.Data.Common.DbException databaseException =>
+                databaseException.ErrorCode.ToString(
+                    CultureInfo.InvariantCulture),
+            _ => "not_available",
         };
 }

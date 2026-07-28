@@ -149,3 +149,42 @@ Exactly-Once。原始工件：
 结论：正式矩阵暂停扩跑，默认并发继续保持 `1`。下一步必须捕获 SQL Server
 `outbox.mark_processed` 的具体数据库错误边界并建立回归测试；修复后从新固定提交和新
 输出目录重新采样，禁止继续合并 `fe06896` checkpoint。
+
+## 10. 多副本终态失败闭环
+
+- 任务基线：`f782424584647b052330cb7b81d5758f2fe89059`。
+- Dapper 失败日志新增 EventId `2001`，只记录稳定 `StatementName`、Provider 和数据库
+  error code；容量入口通过 DI 日志 Provider 将其写入 `processorErrors`。指标标签仍不
+  包含错误码、异常消息、SQL、参数、租户或消息 ID。
+- SQL Server 四副本 `c1-d0-r4-b20-p256` 的修复前复现稳定得到 3 次
+  `outbox.mark_processed`、`SqlException Number=0`，随后出现 3 次
+  `outbox.mark_failed` 受控取消；重复投递为 0。这证明旧 runner 把“采样窗口结束”和
+  “取消在途批次”复用了同一令牌，窗口结束主动取消 SQL 后形成了关停伪失败，并非已确认
+  的稳态 deadlock、超时或终态写入竞争。
+- 容量 runner 现在使用两层取消：窗口结束只停止领取新批次，在途批次继续使用外部任务
+  令牌完成；人工中断仍会取消在途工作。窗口结束时先冻结 Handler、Dapper、连接池、
+  进程和 ProcessorError 证据，再等待在途批次排空，排空阶段不计入吞吐或正确性门禁。
+- 相同 SQL Server 四副本场景修复后为 PASS：完成 `11221`、约 `560.995 msg/s`，
+  Dapper failure/cancellation、ProcessorError 和重复投递均为 0。
+- 原失败形状 SQL Server 双副本短重复 3/3 PASS，完成数分别为
+  `3352/3100/3437`；三轮 failure/cancellation、ProcessorError 和重复投递均为 0。
+- MySQL 四副本同类短抽样 PASS，完成 `2486`；failure/cancellation、
+  ProcessorError 和重复投递均为 0。默认 `OutboxWorker:MaxConcurrency=1` 未调整。
+- Outbox 容量与 Dapper 聚焦 Unit **12/12**、受影响 Integration smoke **8/8**；
+  Release benchmark build 为 0 warning/0 error。治理 **13/13**、性能治理 **3/3**、
+  命名 **23/23**、项目 Skills 合同 **52/52 + 33/33**。本地未运行完整 199 项
+  Integration，它仍只由 `main` CI 四分片执行。
+
+代表性本机工件：
+
+- RED：`%TEMP%/fullnet-outbox-capacity-evidence-86a0c48fe8644a8ab6357739a973e458`
+- SQL Server 四副本 GREEN：
+  `%TEMP%/fullnet-outbox-capacity-fixed-0c19baad1a5a4b36bb7951870767e3f7`
+- SQL Server 双副本三轮：
+  `%TEMP%/fullnet-outbox-capacity-repeat-d885a199e8604ebbb930f14235be3b05`
+- MySQL 四副本 GREEN：
+  `%TEMP%/fullnet-outbox-capacity-mysql-1c061fce571b498b9cd1af5471dcc4bb`
+
+结论：`outbox.mark_processed` 的当前已复现失败已闭环为容量 runner 的关停编排问题；
+`fe06896` checkpoint 仍不得续用，因为其样本包含旧关停语义。下一步从本修复后的固定提交
+和全新输出目录恢复正式双库矩阵；完整矩阵完成前不得提高默认并发。

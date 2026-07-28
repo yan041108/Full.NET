@@ -290,9 +290,12 @@ c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证�
 的索引 A/B/默认并发决策仍开放。容量入口已支持按完成键原子 checkpoint 和同版本、
 同参数断点续跑，并可用单次新增样本预算正常分段退出；正式矩阵可跨任务窗口积累且不会
 重复已完成场景。`fe06896` 的首批正式 SQL Server 样本在双副本档暴露间歇性
-`outbox.mark_processed` 非取消 `database_error`；旧 checkpoint 仅保留为否定证据，
-不得继续拼接容量结论。报告已补充按 StatementName 与低基数原因归因，下一步先闭环该
-终态写入错误，再从新的固定提交重跑正式矩阵。
+`outbox.mark_processed` 非取消 `database_error`；通过 Dapper EventId `2001` 的
+Statement/Provider/error code 证据，已确认它是采样结束复用执行取消令牌导致的
+`SqlException Number=0` 关停伪失败。runner 已拆分“停止领取新批次”和“外部取消在途
+工作”，SQL Server 原失败形状 3/3、四副本放大场景及 MySQL 四副本抽样均通过，
+failure/cancellation、ProcessorError 和重复投递为 0。旧 checkpoint 仍只保留为否定
+证据，不得继续拼接容量结论；下一步从修复后的固定提交和新目录重跑正式矩阵。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Abstractions/Messaging/IIntegrationEventHandler.cs`

@@ -4,6 +4,7 @@ using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -342,7 +343,7 @@ public sealed class OutboxCapacityContractTests
     }
 
     [TestMethod]
-    public void Processor_logger_captures_message_failure_exception()
+    public void Processor_logger_captures_message_and_dapper_failure_context()
     {
         var errors = new ConcurrentQueue<string>();
         var logger = new OutboxCapacityProcessorLogger<object>(errors);
@@ -355,11 +356,22 @@ public sealed class OutboxCapacityContractTests
             "message failed",
             exception,
             static (state, _) => state);
+        DapperLog.StatementFailed(
+            logger,
+            "outbox.mark_processed",
+            DatabaseProvider.SqlServer,
+            elapsedMilliseconds: 15,
+            databaseErrorCode: "40501",
+            exception);
 
         CollectionAssert.AreEqual(
             new[]
             {
                 "outbox.event.3002 | InvalidOperationException: terminal write failed retry",
+                "dapper.event.2001 | InvalidOperationException"
+                + " | statement=outbox.mark_processed"
+                + " | provider=SqlServer"
+                + " | code=40501",
             },
             errors.ToArray());
     }

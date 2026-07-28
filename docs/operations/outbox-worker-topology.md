@@ -136,7 +136,10 @@ checkpoint 中已完成而被跳过的键不消耗本次预算，因此不同任
 容量报告会把非取消 Dapper 失败按稳定 `StatementName` 和低基数原因分类；当前原因集合为
 `deadlock`、`command_timeout`、`lock_wait_timeout`、`database_error` 与
 `application_error`。这些字段用于阻断错误样本并定位边界，不得替代数据库错误日志或
-在指标中加入 SQL、异常文本、租户、消息 ID 等高基数内容。
+在指标中加入 SQL、异常文本、租户、消息 ID 等高基数内容。失败日志 EventId `2001`
+额外保留稳定 Statement、Provider 与数据库 error code，容量入口会将其写入样本的
+`processorErrors`，但 error code 仍不得进入指标标签。采样窗口结束只停止领取新批次，
+在途批次继续完成；只有外部任务取消才中断在途工作。
 
 ## 4. 积压指标
 
