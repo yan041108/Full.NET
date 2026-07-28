@@ -33,6 +33,9 @@ dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.Architectur
 
 ```powershell
 # 日常按风险选择标准入口
+$taskBase = git rev-parse HEAD
+pnpm test:integration:affected:plan -- --base $taskBase
+pnpm test:integration:affected -- --base $taskBase
 pnpm test:integration:smoke
 pnpm test:integration:api:sqlserver
 pnpm test:integration:api:mysql
@@ -40,13 +43,13 @@ pnpm test:integration:migrations
 pnpm test:integration:infrastructure
 pnpm test:integration:partitions
 
-# 共享基础设施、发布和 main 门禁
-pnpm test:integration:full
 pnpm test:integration:durations
 
-# canonical 全量命令
-dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 193 --timeout 90m
 ```
+
+`main` CI 的 canonical 定义保持
+`Full.NET.IntegrationTests --minimum-expected-tests 193 --timeout 90m`，只由四个互斥
+并行分片执行；本地任务不得运行该完整集合。
 
 审计列表性能调查使用显式、非 CI 的双库基准入口。默认创建正式迁移后的
 SQL Server/MySQL 临时数据库，写入 10 万行固定分布数据，对首屏、深 OFFSET、
@@ -94,7 +97,7 @@ workload、原始请求样本、资源指标和预算判定写入
 `BenchmarkDotNet.Artifacts/mixed-load/`。它是本机回归门槛，不是生产 SLA；
 短时正确性检查可通过 `mixed-load --help` 查看覆盖参数。
 
-Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。SQL、事务、租户过滤和迁移变更必须成对覆盖 SQL Server/MySQL；共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、测试基础设施、发布或 main 门禁必须运行全量。
+Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。每个服务端任务窗口先记录 `git rev-parse HEAD`，完成时通过 `test:integration:affected:plan` 审查影响集，再由 `test:integration:affected` 自动运行对应模块双库过滤集、Smoke、migrations 或 tooling。本地任务禁止运行 193 项全量；完整 193 项只保留给 `main` CI 的互斥并行分片。
 
 缓存可靠性指标使用 Meter `Full.NET.Caching.Reliability`：失效时延与失败只带固定
 `scope=local|distributed`、`outcome=success|failure` 标签；陈旧命中、Backplane

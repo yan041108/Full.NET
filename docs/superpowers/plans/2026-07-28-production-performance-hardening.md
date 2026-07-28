@@ -321,7 +321,11 @@ Backplane 故障时必须 fail-closed，不能仅依赖陈旧 L1。
 
 ### Task 27: 前端真实用户性能
 
-**Priority:** P2
+**Priority:** P0（开发反馈）
+
+**Status:** 本地受影响测试选择器已于 2026-07-29 落地；本地任务禁止运行 193 项
+全量，完整门禁只由 `main` CI 并行分片执行。数据库模板 A/B 与 main 分片耗时再平衡
+仍待后续证据。
 
 **Files:**
 - Create: `tests/performance/admin-real-user-performance.test.mjs`
@@ -357,10 +361,14 @@ FCP/LCP/INP/DOMContentLoaded/Load、字体和 CSS 瀑布，不再只看单 JS ch
 - Modify: `tests/testing/integration-sharding.test.mjs`
 - Create: `docs/verification/integration-feedback-speed-2026-07-28.md`
 
-- [ ] **Step 1: 用 TRX 锁定最慢用例**
+- [x] **Step 1: 用 TRX 锁定最慢用例**
 
 基于新鲜 191 项 TRX 记录累计与墙钟时间，优先分析 MySQL Seed、Outbox、命名迁移演练；
 禁止以跳过或共享污染数据库换取速度。
+
+现行 canonical 已为 193 项。Task 21 全量墙钟为 `36m08s`；同一 Auditing 双库影响集
+为 **6/6、1m52s**。仓库已新增基于任务 Git 基线的 `test:integration:affected`，
+将模块、共享能力、Smoke、migrations 与 tooling 映射为本地影响集。
 
 - [ ] **Step 2: A/B 初始化与复用策略**
 

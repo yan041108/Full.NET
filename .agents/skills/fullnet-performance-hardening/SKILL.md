@@ -9,7 +9,7 @@ description: Use when analyzing or changing Full.NET request latency, throughput
 
 先用真实指标证明瓶颈，再做保持安全、租户、事务和双库语义的最小改动。静态代码形态只能生成假设，不能单独证明生产吞吐提升。
 
-开始前读取根目录 `AGENTS.md`、`rules/performance-engineering.md` 和受影响领域规则。需要命令、指标与场景矩阵时读取[性能地图](references/performance-map.md)。
+开始前读取根目录 `AGENTS.md`、`rules/performance-engineering.md` 和受影响领域规则，并运行 `git rev-parse HEAD` 记录任务基线。需要命令、指标与场景矩阵时读取[性能地图](references/performance-map.md)。
 
 ## 1. 建立性能契约
 
@@ -83,11 +83,12 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 ## 5. 完成验证
 
 1. 重跑相同场景与相同环境，比较基线和候选。
-2. 运行受影响 Unit/Architecture/Compatibility/Integration；共享宿主、认证、Outbox、缓存或 Dapper 基础设施按风险运行全量。
+2. 运行受影响 Unit/Architecture/Compatibility/Integration；共享宿主、认证、Outbox、缓存或 Dapper 基础设施使用选择器登记的 Smoke、双库过滤集或专项分片。
 3. 数据库变化必须真实覆盖 SQL Server 与 MySQL。
 4. 前端变化运行双管理端测试、生产构建并记录包体。
 5. 更新 Verification、运行 `git diff --check` 和 `git status`。
 6. 只声明数据支持的收益；未执行生产等价压测时禁止承诺固定 QPS。
+7. 先运行 `pnpm test:integration:affected:plan -- --base <任务基线>` 审查影响集，再运行 `pnpm test:integration:affected -- --base <任务基线>`。本地任务禁止运行 193 项全量；完整 193 项只保留给 `main` CI 的互斥并行分片。
 
 ## 常见错误
 

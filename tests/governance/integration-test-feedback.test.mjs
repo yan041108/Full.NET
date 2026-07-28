@@ -40,7 +40,9 @@ test('仓库必须提供分层 Integration 命令和耗时分析入口', async (
     'test:integration:full',
     'test:integration:durations',
     'test:integration:partitions',
-    'test:integration:tooling'
+    'test:integration:tooling',
+    'test:integration:affected:plan',
+    'test:integration:affected'
   ];
 
   for (const script of requiredScripts) {
@@ -48,10 +50,9 @@ test('仓库必须提供分层 Integration 命令和耗时分析入口', async (
   }
 });
 
-test('开发规则必须按变更风险分层，并明确全量触发条件', async () => {
+test('开发规则必须按变更风险分层，并把本地全量留给 main CI', async () => {
   const rules = await read('rules/development-quality.md');
   assert.match(rules, /变更风险分层/);
-  assert.match(rules, /全量触发条件/);
   assert.match(rules, /共享宿主/);
   assert.match(rules, /SQL Server 与 MySQL/);
   assert.doesNotMatch(
@@ -59,6 +60,37 @@ test('开发规则必须按变更风险分层，并明确全量触发条件', as
     /聚焦运行（`--filter` \/ `-g`）只能作为迭代手段/,
     '规则不得再把所有聚焦运行一律降级为仅迭代证据'
   );
+  assert.match(rules, /test:integration:affected:plan/);
+  assert.match(rules, /test:integration:affected/);
+  assert.match(rules, /任务基线/);
+  assert.match(rules, /完整 193 项只保留给 `main` CI/);
+  assert.match(rules, /本地任务禁止运行 `test:integration:full`/);
+});
+
+test('其它任务窗口必须记录基线并使用受影响测试选择器', async () => {
+  const agents = await read('AGENTS.md');
+  const performanceSkill = await read(
+    '.agents/skills/fullnet-performance-hardening/SKILL.md'
+  );
+  const moduleSkill = await read(
+    '.agents/skills/fullnet-module-delivery/SKILL.md'
+  );
+
+  for (const source of [agents, performanceSkill, moduleSkill]) {
+    assert.match(source, /git rev-parse HEAD/);
+    assert.match(source, /test:integration:affected:plan/);
+    assert.match(source, /test:integration:affected/);
+    assert.match(source, /完整 193 项只保留给 `main` CI/);
+  }
+});
+
+test('本地受影响测试选择器不得调用 full', async () => {
+  const selector = await read(
+    'scripts/testing/run-affected-integration.mjs'
+  );
+
+  assert.doesNotMatch(selector, /argumentsFor\(['"]full['"]\)/);
+  assert.match(selector, /本地受影响测试选择器禁止执行 full/);
 });
 
 test('main Integration 门禁必须使用四分片矩阵并汇总结果', async () => {

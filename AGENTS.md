@@ -15,7 +15,7 @@
 1. 必须读取本文件和 [`rules/README.md`](rules/README.md)。
 2. 必须读取 [`rules/development-quality.md`](rules/development-quality.md)；涉及代码、SQL、配置或脚本时，还必须读取 [`rules/code-comments.md`](rules/code-comments.md)；新增或修改数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成器产物时，还必须读取 [`rules/naming-conventions.md`](rules/naming-conventions.md)。
 3. 必须检查 `.agents/skills/` 是否存在匹配当前任务的项目 Skill；新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时必须使用 [`fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)；性能分析、基准、负载测试或请求/SQL/缓存/Worker/客户端包体优化必须使用 [`fullnet-performance-hardening`](.agents/skills/fullnet-performance-hardening/SKILL.md)。
-4. 必须检查当前分支、`git status`、相关设计与计划，保留用户已有和无关变更。
+4. 必须检查当前分支、`git status`、相关设计与计划，保留用户已有和无关变更；代码、SQL、配置或脚本任务必须运行 `git rev-parse HEAD` 并记录任务基线。
 5. 必须确认需求、授权边界和验收条件；能从仓库安全确定的信息不得反复询问。
 6. 产生或更新评估、规格、决策、计划或验证记录时，必须遵循 [`rules/development-quality.md`](rules/development-quality.md) 第 12.1 节的文档产物分层。
 
@@ -28,7 +28,7 @@
 
 ### 完成前
 
-1. 必须执行与风险相称的构建、测试和静态检查，并依据新鲜输出报告结果。
+1. 必须执行与风险相称的构建、测试和静态检查，并依据新鲜输出报告结果。服务端相关任务先运行 `pnpm test:integration:affected:plan -- --base <任务基线>` 审查影响集，再运行 `pnpm test:integration:affected -- --base <任务基线>`；本地任务只运行受影响测试，禁止运行 193 项全量。完整 193 项只保留给 `main` CI 的互斥并行分片门禁。
 2. 必须同步更新受影响的 README、开发文档、路线图、迁移说明和测试数量门槛。
 3. 必须读取并执行 [`rules/rule-evolution.md`](rules/rule-evolution.md) 的遗漏复盘；满足升级门槛时，在同一任务中更新相应规则并在交付说明中披露。
 4. 规则复盘后必须读取并执行 [`rules/skill-evolution.md`](rules/skill-evolution.md) 的 Skills 复盘；满足门槛时更新候选或按测试先行流程演进一个项目 Skill。

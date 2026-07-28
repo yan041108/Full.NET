@@ -37,6 +37,10 @@ dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --min
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 # 日常按风险选择：冒烟、单提供程序 API、迁移或其他基础设施
+# 任务开始先记录：$taskBase = git rev-parse HEAD
+# 完成时自动判定 none / tooling / 双库 focused / 专项分片
+pnpm test:integration:affected:plan -- --base $taskBase
+pnpm test:integration:affected -- --base $taskBase
 pnpm test:integration:smoke
 pnpm test:integration:api:sqlserver
 pnpm test:integration:api:mysql
@@ -44,11 +48,7 @@ pnpm test:integration:migrations
 pnpm test:integration:infrastructure
 # 快速校验四分片发现数、重复和遗漏
 pnpm test:integration:partitions
-# 共享基础设施、发布 / push main：完整 193 项并生成 TRX
-pnpm test:integration:full
 pnpm test:integration:durations
-# canonical 全量命令：
-# dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 193 --timeout 90m
 # 可选：10 万行审计查询双库基准与执行计划（不属于日常测试门禁）
 # dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- audit-query
 # 可选：SQL Server 可选谓词/分支 SQL/RECOMPILE 混合顺序 A/B
@@ -56,7 +56,11 @@ pnpm test:integration:durations
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
-Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。SQL、事务、租户过滤和迁移变更仍必须成对覆盖 SQL Server/MySQL；共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、测试基础设施和发布门禁必须跑全量。
+`main` CI 的 canonical 定义保持
+`Full.NET.IntegrationTests --minimum-expected-tests 193 --timeout 90m`，只由四个互斥
+并行分片执行；本地任务不得运行该完整集合。
+
+Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。跨任务窗口应使用任务基线和 `test:integration:affected` 自动选择验证范围；聚焦模式会先确认 SQL Server/MySQL 都已发现并以精确发现数作为最低门槛。本地任务只运行受影响测试：模块和共享能力使用对应双库过滤集，共享宿主使用 Smoke，迁移使用 migrations 分片，测试脚本使用 tooling。完整 193 项只保留给 `main` CI 的四个互斥并行分片。
 
 AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。Bootstrap 现在幂等创建受保护超级管理员角色，不再同步逐项权限；签名 Claim、当前作用域动态权限、逐请求 Session/SecurityStamp 校验、双库并发最后一名保护、远程授予/撤销 API、事务内可追责审计和 Vue/Layui 对等管理页已经实现。远程写操作只允许 Development/Testing 显式开启，Production 在 MFA/强认证 Provider 落地前无法开启；账号禁用/删除路径保护和真实后端浏览器 E2E 仍按[设计](docs/superpowers/specs/2026-07-18-super-administrator-design.md)与[计划](docs/superpowers/plans/2026-07-18-super-administrator.md)后续交付，因此当前不能标记为完整 `Verified`。
 
