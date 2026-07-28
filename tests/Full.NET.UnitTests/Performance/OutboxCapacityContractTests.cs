@@ -39,6 +39,8 @@ public sealed class OutboxCapacityContractTests
         Assert.AreEqual(20_000, options.SeedMessages);
         Assert.AreEqual(TimeSpan.FromSeconds(30), options.Lease);
         Assert.AreEqual(TimeSpan.FromSeconds(10), options.LeaseRenewal);
+        Assert.IsTrue(options.RecoveryEnabled);
+        Assert.AreEqual(TimeSpan.FromSeconds(5), options.RecoveryGrace);
     }
 
     [TestMethod]
@@ -79,6 +81,8 @@ public sealed class OutboxCapacityContractTests
             "--seed-messages", "200",
             "--lease-seconds", "9",
             "--lease-renewal-seconds", "3",
+            "--recovery", "false",
+            "--recovery-grace-seconds", "2",
             "--output", "artifacts/outbox-capacity",
         ]);
 
@@ -96,6 +100,8 @@ public sealed class OutboxCapacityContractTests
         Assert.AreEqual(200, options.SeedMessages);
         Assert.AreEqual(TimeSpan.FromSeconds(9), options.Lease);
         Assert.AreEqual(TimeSpan.FromSeconds(3), options.LeaseRenewal);
+        Assert.IsFalse(options.RecoveryEnabled);
+        Assert.AreEqual(TimeSpan.FromSeconds(2), options.RecoveryGrace);
         Assert.AreEqual("artifacts/outbox-capacity", options.OutputDirectory);
     }
 
@@ -130,6 +136,61 @@ public sealed class OutboxCapacityContractTests
             ]));
         Assert.ThrowsExactly<ArgumentException>(
             () => OutboxCapacityOptions.Parse(["--unknown", "value"]));
+        Assert.ThrowsExactly<ArgumentException>(
+            () => OutboxCapacityOptions.Parse(["--recovery", "sometimes"]));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+            () => OutboxCapacityOptions.Parse(
+            [
+                "--recovery", "true",
+                "--recovery-grace-seconds", "0",
+            ]));
+    }
+
+    [TestMethod]
+    public void Recovery_gate_requires_same_message_second_attempt_and_lease_bounded_time()
+    {
+        var messageId = Guid.CreateVersion7();
+        var passing = OutboxCapacityRecoveryResult.Create(
+            provider: "mysql",
+            repetition: 1,
+            abandonedMessageId: messageId,
+            recoveredMessageId: messageId,
+            recoveryDuration: TimeSpan.FromSeconds(6.1),
+            lease: TimeSpan.FromSeconds(6),
+            recoveryGrace: TimeSpan.FromSeconds(2),
+            attempts: 2,
+            duplicateDeliveries: 1,
+            dapperFailures: 0,
+            pendingBefore: 1,
+            pendingAfter: 0,
+            dapperCancellations: 0,
+            acquireExecutions: 3);
+        var tooEarly = passing with
+        {
+            RecoveryDurationMilliseconds = 4_000,
+        };
+        var missingAcquireEvidence = passing with
+        {
+            AcquireExecutions = 0,
+        };
+        var cancelledAcquire = passing with
+        {
+            DapperCancellations = 1,
+        };
+
+        Assert.IsTrue(passing.CorrectnessGatePassed);
+        Assert.IsFalse(tooEarly.CorrectnessGatePassed);
+        Assert.IsFalse(missingAcquireEvidence.CorrectnessGatePassed);
+        Assert.IsFalse(cancelledAcquire.CorrectnessGatePassed);
+        Assert.AreEqual(
+            3L,
+            OutboxCapacityRecoveryResult.CountAcquireExecutions(
+                new Dictionary<string, long>(StringComparer.Ordinal)
+                {
+                    ["outbox.acquire.sql_server"] = 2,
+                    ["outbox.select_claimable_ids.my_sql"] = 1,
+                    ["outbox.mark_processed"] = 1,
+                }));
     }
 
     [TestMethod]

@@ -220,7 +220,7 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 516
+          --minimum-expected-tests 517
 
       - name: Compatibility tests
         run: >-

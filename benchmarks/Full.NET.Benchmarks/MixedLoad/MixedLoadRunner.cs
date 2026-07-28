@@ -1309,6 +1309,23 @@ internal abstract class MixedLoadDatabase : IAsyncDisposable
         await transaction.CommitAsync(cancellationToken);
     }
 
+    public async Task<int> ReadOutboxAttemptsAsync(
+        Guid messageId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition(
+                """
+                SELECT Attempts
+                FROM fn_outbox_message
+                WHERE Id = @MessageId
+                """,
+                new { MessageId = messageId },
+                cancellationToken: cancellationToken));
+    }
+
     public abstract ValueTask DisposeAsync();
 
     protected abstract DbConnection CreateConnection();

@@ -56,12 +56,30 @@ public static class OutboxCapacityRunner
                         cancellationToken));
                 }
             }
+            var recoveries = new List<OutboxCapacityRecoveryResult>();
+            if (options.RecoveryEnabled)
+            {
+                for (var repetition = 1;
+                     repetition <= options.Repetitions;
+                     repetition++)
+                {
+                    Console.WriteLine(
+                        $"[{provider}] abandoned-lease-recovery repeat "
+                        + $"{repetition}/{options.Repetitions}");
+                    recoveries.Add(await RunRecoveryAsync(
+                        database,
+                        repetition,
+                        options,
+                        cancellationToken));
+                }
+            }
 
             providerResults.Add(new OutboxCapacityProviderResult(
                 provider,
                 database.ContainerImage,
                 database.DatabaseVersion,
-                runs));
+                runs,
+                recoveries));
         }
 
         await OutboxCapacityReportWriter.WriteAsync(
@@ -153,6 +171,107 @@ public static class OutboxCapacityRunner
             databaseBefore,
             databaseAfter,
             processorErrors.ToArray());
+    }
+
+    private static async Task<OutboxCapacityRecoveryResult> RunRecoveryAsync(
+        MixedLoadDatabase database,
+        int repetition,
+        OutboxCapacityOptions options,
+        CancellationToken cancellationToken)
+    {
+        await database.ResetOutboxAsync(cancellationToken);
+        await database.SeedPendingOutboxAsync(
+            count: 1,
+            payloadSize: options.PayloadSizes[0],
+            OutboxCapacityRunnerMessageType.Value,
+            cancellationToken);
+        var handler = new OutboxCapacityHandler(TimeSpan.Zero);
+        await using var services = BuildServices(database, handler);
+
+        OutboxEnvelope abandoned;
+        await using (var abandonedScope = services.CreateAsyncScope())
+        {
+            var accessor = abandonedScope.ServiceProvider
+                .GetRequiredService<CurrentTenantAccessor>();
+            accessor.SetHost();
+            var store = abandonedScope.ServiceProvider
+                .GetRequiredService<IOutboxStore>();
+            var messages = await store.AcquireAsync(
+                batchSize: 1,
+                options.Lease,
+                cancellationToken);
+            if (messages.Count != 1)
+            {
+                throw new InvalidOperationException(
+                    $"遗弃租约恢复场景预期领取 1 条消息，实际为 {messages.Count}。");
+            }
+
+            abandoned = messages[0];
+            // 模拟 Handler 已开始产生副作用但进程在终态确认前退出，恢复投递必须复用同一 MessageId。
+            handler.RecordAbandonedDelivery(abandoned.Id);
+        }
+
+        var databaseBefore = await database.CaptureStateAsync(
+            cancellationToken);
+        using var dapper = new MixedLoadDapperTelemetry();
+        dapper.Reset();
+        var processor = CreateProcessor(
+            services,
+            new OutboxCapacityScenario(
+                Concurrency: 1,
+                HandlerDelayMilliseconds: 0,
+                Replicas: 1,
+                BatchSize: 1,
+                PayloadSize: options.PayloadSizes[0]),
+            options);
+        using var recoveryCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+        recoveryCancellation.CancelAfter(
+            options.Lease + options.RecoveryGrace);
+        var stopwatch = Stopwatch.StartNew();
+        while (true)
+        {
+            var processed = await processor.ProcessOnceAsync(
+                recoveryCancellation.Token);
+            if (processed > 0)
+            {
+                break;
+            }
+
+            var delay = processor.GetDelayAfterBatch(processed);
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, recoveryCancellation.Token);
+            }
+        }
+
+        stopwatch.Stop();
+        var dapperSnapshot = dapper.Snapshot();
+        var databaseAfter = await database.CaptureStateAsync(
+            cancellationToken);
+        var handlerSnapshot = handler.Snapshot();
+        var attempts = await database.ReadOutboxAttemptsAsync(
+            abandoned.Id,
+            cancellationToken);
+        var acquireExecutions =
+            OutboxCapacityRecoveryResult.CountAcquireExecutions(
+                dapperSnapshot.StatementExecutions);
+        return OutboxCapacityRecoveryResult.Create(
+            database.Provider.ToString(),
+            repetition,
+            abandoned.Id,
+            handler.LastCompletedMessageId,
+            stopwatch.Elapsed,
+            options.Lease,
+            options.RecoveryGrace,
+            attempts,
+            handlerSnapshot.DuplicateDeliveries,
+            dapperSnapshot.Failures,
+            databaseBefore.PendingOutboxCount,
+            databaseAfter.PendingOutboxCount,
+            dapperSnapshot.Cancellations,
+            acquireExecutions);
     }
 
     private static ServiceProvider BuildServices(
@@ -279,6 +398,7 @@ internal sealed class OutboxCapacityHandler(TimeSpan delay) :
     private readonly ConcurrentDictionary<Guid, int> _deliveries = new();
     private readonly ConcurrentQueue<double> _latencies = new();
     private long _completed;
+    private Guid? _lastCompletedMessageId;
 
     public string EventType => OutboxCapacityRunnerMessageType.Value;
 
@@ -286,6 +406,8 @@ internal sealed class OutboxCapacityHandler(TimeSpan delay) :
 
     public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
         IntegrationEventIdempotencyStrategy.NaturallyIdempotent;
+
+    public Guid? LastCompletedMessageId => _lastCompletedMessageId;
 
     public async Task HandleAsync(
         IntegrationEventContext context,
@@ -300,6 +422,7 @@ internal sealed class OutboxCapacityHandler(TimeSpan delay) :
         }
 
         _latencies.Enqueue(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        _lastCompletedMessageId = context.MessageId;
         Interlocked.Increment(ref _completed);
     }
 
@@ -317,7 +440,11 @@ internal sealed class OutboxCapacityHandler(TimeSpan delay) :
         }
 
         Interlocked.Exchange(ref _completed, 0);
+        _lastCompletedMessageId = null;
     }
+
+    public void RecordAbandonedDelivery(Guid messageId) =>
+        _deliveries.AddOrUpdate(messageId, 1, (_, count) => count + 1);
 
     public OutboxCapacityHandlerSnapshot Snapshot()
     {

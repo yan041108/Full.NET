@@ -115,6 +115,13 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 数据库容器资源和期末 backlog。任何正确性门禁失败、数据库证据缺失或 backlog 被意外
 排空，都不能作为提高默认并发的证据。
 
+默认还会在每个 Provider 执行遗弃租约恢复：先由真实 Store 领取单条消息并模拟 Handler
+已经开始产生副作用，随后不写成功、失败或死信终态，让真实 `OutboxProcessor` 在租约
+到期后接管。报告要求恢复前后复用同一 `MessageId`、`Attempts = 2`、重复窗口为 1、
+恢复时间不早于租约边界且不超过 `LeaseSeconds + RecoveryGraceSeconds`。开发期可用
+`--recovery false` 跳过这段等待，但正式容量证据不得关闭；`--recovery-grace-seconds`
+只控制测量超时余量，不改变生产 Worker 租约。
+
 ## 4. 积压指标
 
 Worker 将 `Full.NET.Outbox` Meter 接入 OpenTelemetry，并按

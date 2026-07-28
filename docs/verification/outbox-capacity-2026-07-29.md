@@ -6,7 +6,7 @@
 - 基线：`b1472503ca59b4c601c8899602d229b30d269a8c` 加本记录对应工作区差异。
 - 结论：SQL Server 与 MySQL 的慢 Handler 单档均通过正确性门禁；默认
   `OutboxWorker:MaxConcurrency = 1` 未调整。
-- 未闭环：正式 35 档三轮采样、进程终止后的恢复时间、索引 A/B 和默认并发决策。
+- 未闭环：正式 35 档三轮采样、索引 A/B 和默认并发决策。
 
 ## 2. 实现边界
 
@@ -36,14 +36,19 @@ dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release `
   --filter FullyQualifiedName~OutboxCapacityContractTests --no-restore
 ```
 
-结果：**5/5 通过**。其中宿主装配回归测试先复现缺少 `IIdGenerator` 导致
+结果：**6/6 通过**。其中宿主装配回归测试先复现缺少 `IIdGenerator` 导致
 `ValidateOnBuild` 失败，再补齐与真实 Dapper Outbox Store 相同的依赖闭包。
 
-Unit discovery 为 **516**，canonical 更新为 **516/7/49/199**。本地没有运行完整
+Unit discovery 为 **517**，canonical 更新为 **517/7/49/199**。本地没有运行完整
 199 项 Integration；它继续只由 `main` CI 四个互斥分片执行。
 
 受影响选择器以 `b1472503ca59b4c601c8899602d229b30d269a8c` 为基线，只选择
 共享 Worker Host Smoke，结果 **8/8 通过**，墙钟约 **1 分 23 秒**。
+
+本次恢复增补以 `58442119b0d1a6fbbea3b53fa0963adc88b9cd17` 为任务基线。
+`test:integration:affected:plan` 与 `test:integration:affected` 均判定
+`local mode: none`、`affected targets: none`，因此没有启动 Integration 容器；
+完整 199 项仍只由 `main` CI 四分片执行。
 
 ## 4. 双库真实冒烟
 
@@ -67,6 +72,21 @@ Unit discovery 为 **516**，canonical 更新为 **516/7/49/199**。本地没有
 ## 5. 下一步
 
 1. 以正式时长运行 35 档三轮双库矩阵，并保留每档原始 JSON。
-2. 增加受控进程终止场景，量化租约到期后的恢复时间和重复投递。
-3. 只有执行计划和正式矩阵都提供证据时，才进入 pending 索引 A/B。
-4. 默认并发继续保持 1，正式双库所有正确性与资源门禁通过前不得提高。
+2. 只有执行计划和正式矩阵都提供证据时，才进入 pending 索引 A/B。
+3. 默认并发继续保持 1，正式双库所有正确性与资源门禁通过前不得提高。
+
+## 6. 遗弃租约恢复增补
+
+恢复场景使用真实 Store 领取并遗弃单条租约，模拟 Handler 已产生副作用但进程在终态
+确认前退出，再由真实 `OutboxProcessor` 轮询接管。共同参数为租约 5 秒、恢复余量
+3 秒、Payload 256 字节、重复 1 次。
+
+| Provider | 恢复 ms | MessageId | Attempts | 重复窗口 | Acquire SQL | Dapper 失败/取消 | 恢复后 pending | 门禁 |
+|---|---:|---|---:|---:|---:|---:|---:|---|
+| SQL Server | 5031.670 | 稳定复用 | 2 | 1 | 47 | 0/0 | 0 | PASS |
+| MySQL | 5080.650 | 稳定复用 | 2 | 1 | 47 | 0/0 | 0 | PASS |
+
+两库都没有早于租约边界重新投递，并在 3 秒余量内完成终态。该场景刻意保留一次重复窗口，
+证明至少一次语义下 Handler 仍必须使用稳定 `MessageId` 去重或具备天然幂等性；它不声称
+Exactly-Once。原始工件：
+`%TEMP%/fullnet-outbox-recovery-gate-c298c713f4d84a3fa0ad56c8786efd24`。

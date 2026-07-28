@@ -286,7 +286,8 @@ c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证�
 **Status:** Step 1 已于 2026-07-29 完成。Step 2 的独立 `outbox-capacity` 双库入口、
 35 档有界代表矩阵、真实 Worker/租约/多副本装配和吞吐、尾延迟、重复、续租、连接池、
 锁/日志、GC、容器资源报告已落地；SQL Server/MySQL 单档慢 Handler 冒烟均通过。
-正式 35 档三轮采样、进程终止恢复时间和 Step 3 的索引 A/B/默认并发决策仍开放。
+遗弃租约恢复已通过 SQL Server/MySQL 真实时间验证；正式 35 档三轮采样和 Step 3
+的索引 A/B/默认并发决策仍开放。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Abstractions/Messaging/IIntegrationEventHandler.cs`

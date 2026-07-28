@@ -15,6 +15,8 @@ public sealed record OutboxCapacityOptions(
     int SeedMessages,
     TimeSpan Lease,
     TimeSpan LeaseRenewal,
+    bool RecoveryEnabled,
+    TimeSpan RecoveryGrace,
     string OutputDirectory)
 {
     public const string HelpText =
@@ -37,6 +39,8 @@ public sealed record OutboxCapacityOptions(
           --seed-messages <n>             每个场景预置消息数，默认 20000
           --lease-seconds <n>             租约秒数，默认 30
           --lease-renewal-seconds <n>     续租周期秒数，默认 10，不得超过租约一半
+          --recovery <bool>               是否运行遗弃租约恢复场景，默认 true
+          --recovery-grace-seconds <n>    租约之外允许的恢复余量，默认 5 秒
           --output <path>                 工件目录，默认 BenchmarkDotNet.Artifacts/outbox-capacity/<UTC>
           --help                          显示帮助
 
@@ -124,6 +128,16 @@ public sealed record OutboxCapacityOptions(
             throw new ArgumentException(
                 "--lease-renewal-seconds 不得超过 --lease-seconds 的一半。");
         }
+        var recoveryEnabled = ParseBoolean(
+            values,
+            "--recovery",
+            defaultValue: true);
+        var recoveryGraceSeconds = ParseBoundedInt(
+            values,
+            "--recovery-grace-seconds",
+            defaultValue: 5,
+            minimum: 1,
+            maximum: 300);
 
         var outputDirectory = values.GetValueOrDefault(
             "--output",
@@ -151,6 +165,8 @@ public sealed record OutboxCapacityOptions(
             seedMessages,
             TimeSpan.FromSeconds(leaseSeconds),
             TimeSpan.FromSeconds(leaseRenewalSeconds),
+            recoveryEnabled,
+            TimeSpan.FromSeconds(recoveryGraceSeconds),
             outputDirectory);
     }
 
@@ -283,6 +299,26 @@ public sealed record OutboxCapacityOptions(
         return value;
     }
 
+    private static bool ParseBoolean(
+        IReadOnlyDictionary<string, string> values,
+        string key,
+        bool defaultValue)
+    {
+        if (!values.TryGetValue(key, out var raw))
+        {
+            return defaultValue;
+        }
+
+        if (!bool.TryParse(raw, out var value))
+        {
+            throw new ArgumentException(
+                $"{key} 必须是 true 或 false。",
+                key);
+        }
+
+        return value;
+    }
+
     private static readonly string[] KnownOptions =
     [
         "--providers",
@@ -297,6 +333,8 @@ public sealed record OutboxCapacityOptions(
         "--seed-messages",
         "--lease-seconds",
         "--lease-renewal-seconds",
+        "--recovery",
+        "--recovery-grace-seconds",
         "--output",
     ];
 }

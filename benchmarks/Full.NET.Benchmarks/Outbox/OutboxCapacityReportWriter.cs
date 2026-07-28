@@ -44,7 +44,94 @@ public sealed record OutboxCapacityProviderResult(
     string Provider,
     string ContainerImage,
     string DatabaseVersion,
-    IReadOnlyList<OutboxCapacityRunResult> Runs);
+    IReadOnlyList<OutboxCapacityRunResult> Runs,
+    IReadOnlyList<OutboxCapacityRecoveryResult> Recoveries);
+
+public sealed record OutboxCapacityRecoveryResult(
+    string Provider,
+    int Repetition,
+    Guid AbandonedMessageId,
+    Guid? RecoveredMessageId,
+    double RecoveryDurationMilliseconds,
+    double LeaseMilliseconds,
+    double RecoveryGraceMilliseconds,
+    int Attempts,
+    long DuplicateDeliveries,
+    long DapperFailures,
+    long PendingBefore,
+    long PendingAfter,
+    long DapperCancellations = 0,
+    long AcquireExecutions = 0)
+{
+    public bool StableMessageIdentity =>
+        RecoveredMessageId == AbandonedMessageId;
+
+    public bool LeaseBoundaryRespected =>
+        RecoveryDurationMilliseconds >= LeaseMilliseconds - 500d;
+
+    public bool RecoveredWithinBudget =>
+        RecoveryDurationMilliseconds
+        <= LeaseMilliseconds + RecoveryGraceMilliseconds;
+
+    public bool CorrectnessGatePassed =>
+        StableMessageIdentity
+        && LeaseBoundaryRespected
+        && RecoveredWithinBudget
+        && Attempts == 2
+        && DuplicateDeliveries == 1
+        && DapperFailures == 0
+        && DapperCancellations == 0
+        && AcquireExecutions > 0
+        && PendingBefore == 1
+        && PendingAfter == 0;
+
+    public static OutboxCapacityRecoveryResult Create(
+        string provider,
+        int repetition,
+        Guid abandonedMessageId,
+        Guid? recoveredMessageId,
+        TimeSpan recoveryDuration,
+        TimeSpan lease,
+        TimeSpan recoveryGrace,
+        int attempts,
+        long duplicateDeliveries,
+        long dapperFailures,
+        long pendingBefore,
+        long pendingAfter,
+        long dapperCancellations = 0,
+        long acquireExecutions = 0) => new(
+        provider,
+        repetition,
+        abandonedMessageId,
+        recoveredMessageId,
+        recoveryDuration.TotalMilliseconds,
+        lease.TotalMilliseconds,
+        recoveryGrace.TotalMilliseconds,
+        attempts,
+        duplicateDeliveries,
+        dapperFailures,
+        pendingBefore,
+        pendingAfter,
+        dapperCancellations,
+        acquireExecutions);
+
+    public static long CountAcquireExecutions(
+        IReadOnlyDictionary<string, long> statementExecutions)
+    {
+        ArgumentNullException.ThrowIfNull(statementExecutions);
+        return statementExecutions
+            .Where(pair =>
+                string.Equals(
+                    pair.Key,
+                    "outbox.acquire.sql_server",
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    pair.Key,
+                    "outbox.select_claimable_ids.my_sql",
+                    StringComparison.Ordinal))
+            .Sum(pair => pair.Value);
+    }
+}
 
 public sealed record OutboxCapacityReport(
     Guid ReportId,
@@ -135,6 +222,7 @@ public static class OutboxCapacityReportWriter
                 "process_gc_allocations",
                 "database_container_cpu_memory",
                 "backlog_sustained",
+                "abandoned_lease_recovery",
             ],
             providers);
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
@@ -186,6 +274,34 @@ public static class OutboxCapacityReportWriter
                 + $"| {Math.Max(0d, lockWaitAfter - lockWaitBefore):F2} "
                 + $"| {Math.Max(0L, logAfter - logBefore)} "
                 + $"| {(run.CorrectnessGatePassed ? "PASS" : "FAIL")} |");
+        }
+
+        var recoveries = report.Providers
+            .SelectMany(provider => provider.Recoveries)
+            .ToArray();
+        if (recoveries.Length > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("## 遗弃租约恢复");
+            builder.AppendLine();
+            builder.AppendLine(
+                "| Provider | 重复 | 恢复 ms | 租约 ms | Attempts | 重复投递 "
+                + "| Acquire SQL | 受控取消 | 期末积压 | 正确性门禁 |");
+            builder.AppendLine(
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|");
+            foreach (var recovery in recoveries)
+            {
+                builder.AppendLine(
+                    $"| {recovery.Provider} | {recovery.Repetition} "
+                    + $"| {recovery.RecoveryDurationMilliseconds:F2} "
+                    + $"| {recovery.LeaseMilliseconds:F0} "
+                    + $"| {recovery.Attempts} "
+                    + $"| {recovery.DuplicateDeliveries} "
+                    + $"| {recovery.AcquireExecutions} "
+                    + $"| {recovery.DapperCancellations} "
+                    + $"| {recovery.PendingAfter} "
+                    + $"| {(recovery.CorrectnessGatePassed ? "PASS" : "FAIL")} |");
+            }
         }
 
         return builder.ToString();

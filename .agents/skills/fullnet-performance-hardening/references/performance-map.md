@@ -119,7 +119,8 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 默认使用 SQL Server/MySQL、并发 `1/2/4/8`、Handler 延迟 `0/10/100/1000ms` 和
 副本 `1/2` 的核心矩阵；Batch/Payload 只在参考档组合，避免无界笛卡尔积。开发期必须
 显式缩小列表、`--repetitions 1` 和采样时长；正式报告必须保留重复投递、续租、连接池、
-锁等待、日志写入、GC、容器资源与期末 backlog，不能只看平均吞吐。
+锁等待、日志写入、GC、容器资源与期末 backlog，不能只看平均吞吐。默认额外执行一次
+遗弃租约恢复场景；短开发验证可显式 `--recovery false`，正式证据不得关闭。
 
 分别在 SQL Server/MySQL 验证：
 
@@ -147,7 +148,7 @@ pnpm test:skills
 pnpm test:governance
 pnpm test:naming
 dotnet build Full.NET.slnx -c Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 516
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 517
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 49
 ```
