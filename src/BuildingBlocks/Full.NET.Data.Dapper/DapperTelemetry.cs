@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Full.NET.Data.Abstractions;
+using Microsoft.Data.SqlClient;
+using MySqlConnector;
 
 namespace Full.NET.Data.Dapper;
 
@@ -43,6 +45,7 @@ internal static class DapperTelemetry
             { "provider", GetProviderName(provider) },
             { "operation", GetOperationName(operation) },
             { "outcome", GetOutcome(exception) },
+            { "failure_reason", GetFailureReason(exception) },
         };
 
         Executions.Add(1, tags);
@@ -77,5 +80,26 @@ internal static class DapperTelemetry
             null => "success",
             OperationCanceledException => "canceled",
             _ => "failure",
+        };
+
+    private static string GetFailureReason(Exception? exception) =>
+        exception switch
+        {
+            null => "none",
+            OperationCanceledException => "canceled",
+            SqlException { Number: 1205 } => "deadlock",
+            SqlException { Number: -2 } => "command_timeout",
+            MySqlException
+            {
+                ErrorCode:
+                    MySqlErrorCode.LockDeadlock
+                    or MySqlErrorCode.UserLockDeadlock
+            } => "deadlock",
+            MySqlException
+            {
+                ErrorCode: MySqlErrorCode.LockWaitTimeout
+            } => "lock_wait_timeout",
+            System.Data.Common.DbException => "database_error",
+            _ => "application_error",
         };
 }

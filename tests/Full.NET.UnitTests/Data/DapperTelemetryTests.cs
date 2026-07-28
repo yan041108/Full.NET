@@ -83,6 +83,14 @@ public sealed class DapperTelemetryTests
 
         Assert.AreEqual(1L, snapshot.Failures);
         Assert.AreEqual(1L, snapshot.Cancellations);
+        Assert.AreEqual(
+            1L,
+            snapshot.FailureStatements["outbox.mark_processed"]);
+        Assert.IsFalse(
+            snapshot.FailureStatements.ContainsKey("outbox.renew_lease"));
+        Assert.AreEqual(
+            1L,
+            snapshot.FailureReasons["application_error"]);
     }
 
     private static MeterListener CreateListener(List<Measurement> measurements)

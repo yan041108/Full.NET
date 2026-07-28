@@ -63,7 +63,20 @@ public sealed record MixedLoadDapperSnapshot(
     IReadOnlyDictionary<string, long> StatementExecutions,
     MixedLoadLatencyStatistics? Duration,
     long Failures,
-    long Cancellations = 0);
+    long Cancellations = 0)
+{
+    /// <summary>
+    /// 按稳定 StatementName 汇总非取消数据库失败，保留低基数根因定位线索。
+    /// </summary>
+    public IReadOnlyDictionary<string, long> FailureStatements { get; init; } =
+        new Dictionary<string, long>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 按稳定低基数原因汇总非取消数据库失败，避免将异常文本写入性能工件。
+    /// </summary>
+    public IReadOnlyDictionary<string, long> FailureReasons { get; init; } =
+        new Dictionary<string, long>(StringComparer.Ordinal);
+}
 
 public sealed record MixedLoadProcessSnapshot(
     DateTimeOffset CapturedAtUtc,

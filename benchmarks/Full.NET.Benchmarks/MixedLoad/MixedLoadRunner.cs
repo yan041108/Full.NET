@@ -981,6 +981,10 @@ public sealed class MixedLoadDapperTelemetry : IDisposable
     private readonly MeterListener _listener = new();
     private readonly ConcurrentDictionary<string, long> _statements =
         new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, long> _failureStatements =
+        new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, long> _failureReasons =
+        new(StringComparer.Ordinal);
     private readonly ConcurrentQueue<double> _durations = new();
     private long _failures;
     private long _cancellations;
@@ -1002,6 +1006,8 @@ public sealed class MixedLoadDapperTelemetry : IDisposable
     public void Reset()
     {
         _statements.Clear();
+        _failureStatements.Clear();
+        _failureReasons.Clear();
         while (_durations.TryDequeue(out _))
         {
         }
@@ -1020,7 +1026,21 @@ public sealed class MixedLoadDapperTelemetry : IDisposable
                 ? null
                 : MixedLoadLatencyStatistics.Calculate(durations),
             Interlocked.Read(ref _failures),
-            Interlocked.Read(ref _cancellations));
+            Interlocked.Read(ref _cancellations))
+        {
+            FailureStatements = _failureStatements
+                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(
+                    pair => pair.Key,
+                    pair => pair.Value,
+                    StringComparer.Ordinal),
+            FailureReasons = _failureReasons
+                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(
+                    pair => pair.Key,
+                    pair => pair.Value,
+                    StringComparer.Ordinal),
+        };
     }
 
     public void Dispose() => _listener.Dispose();
@@ -1048,6 +1068,16 @@ public sealed class MixedLoadDapperTelemetry : IDisposable
             else
             {
                 Interlocked.Add(ref _failures, measurement);
+                var statement = GetTag(tags, "statement_name") ?? "unknown";
+                _failureStatements.AddOrUpdate(
+                    statement,
+                    measurement,
+                    (_, value) => value + measurement);
+                var reason = GetTag(tags, "failure_reason") ?? "unknown";
+                _failureReasons.AddOrUpdate(
+                    reason,
+                    measurement,
+                    (_, value) => value + measurement);
             }
         }
     }

@@ -13,6 +13,7 @@ using Full.NET.Data.MySql;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using WorkerHost = workerhost::Full.NET.Host.Worker;
@@ -245,16 +246,20 @@ public static class OutboxCapacityRunner
             TimeSpan.FromMilliseconds(
                 scenario.HandlerDelayMilliseconds));
         await using var services = BuildServices(database, probe);
+        var processorErrors = new ConcurrentQueue<string>();
+        var processorLogger =
+            new OutboxCapacityProcessorLogger<WorkerHost.OutboxProcessor>(
+            processorErrors);
         var processors = Enumerable.Range(0, scenario.Replicas)
             .Select(_ => CreateProcessor(
                 services,
                 scenario,
-                options))
+                options,
+                processorLogger))
             .ToArray();
         using var runCancellation =
             CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
-        var processorErrors = new ConcurrentQueue<string>();
         var processorTasks = processors
             .Select(processor => ConsumeAsync(
                 processor,
@@ -358,7 +363,8 @@ public static class OutboxCapacityRunner
                 Replicas: 1,
                 BatchSize: 1,
                 PayloadSize: options.PayloadSizes[0]),
-            options);
+            options,
+            NullLogger<WorkerHost.OutboxProcessor>.Instance);
         using var recoveryCancellation =
             CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
@@ -441,7 +447,8 @@ public static class OutboxCapacityRunner
     private static WorkerHost.OutboxProcessor CreateProcessor(
         ServiceProvider services,
         OutboxCapacityScenario scenario,
-        OutboxCapacityOptions options) => new(
+        OutboxCapacityOptions options,
+        ILogger<WorkerHost.OutboxProcessor> logger) => new(
         services.GetRequiredService<IServiceScopeFactory>(),
         services.GetRequiredService<IClock>(),
         Options.Create(new WorkerHost.OutboxWorkerOptions
@@ -455,7 +462,7 @@ public static class OutboxCapacityRunner
             BacklogSampleSeconds = 30,
             MaxAttempts = 5,
         }),
-        NullLogger<WorkerHost.OutboxProcessor>.Instance);
+        logger);
 
     private static async Task ConsumeAsync(
         WorkerHost.OutboxProcessor processor,
@@ -500,6 +507,53 @@ public static class OutboxCapacityRunner
             GC.CollectionCount(0),
             GC.CollectionCount(1),
             GC.CollectionCount(2));
+    }
+}
+
+/// <summary>
+/// 收集 Outbox 消息级失败摘要，避免容量门禁只有失败计数而缺少根因线索。
+/// </summary>
+/// <typeparam name="TCategoryName">日志分类类型。</typeparam>
+public sealed class OutboxCapacityProcessorLogger<TCategoryName> :
+    ILogger<TCategoryName>
+{
+    private readonly ConcurrentQueue<string> _errors;
+
+    /// <summary>
+    /// 创建共享失败队列的容量基准日志收集器。
+    /// </summary>
+    /// <param name="errors">保存单行异常摘要的线程安全队列。</param>
+    public OutboxCapacityProcessorLogger(ConcurrentQueue<string> errors)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+        _errors = errors;
+    }
+
+    /// <inheritdoc />
+    public IDisposable? BeginScope<TState>(TState state)
+        where TState : notnull => null;
+
+    /// <inheritdoc />
+    public bool IsEnabled(LogLevel logLevel) =>
+        logLevel >= LogLevel.Warning;
+
+    /// <inheritdoc />
+    public void Log<TState>(
+        LogLevel logLevel,
+        EventId eventId,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        if (logLevel < LogLevel.Warning || exception is null)
+        {
+            return;
+        }
+
+        _errors.Enqueue(
+            $"outbox.event.{eventId.Id} | "
+            + $"{exception.GetType().Name}: "
+            + exception.Message.ReplaceLineEndings(" "));
     }
 }
 

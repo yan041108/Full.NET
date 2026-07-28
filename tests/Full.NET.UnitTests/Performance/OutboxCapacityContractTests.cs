@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Full.NET.Benchmarks.Outbox;
 using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Abstractions.Messaging;
@@ -5,6 +6,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Data.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Full.NET.UnitTests.Performance;
 
@@ -337,6 +339,29 @@ public sealed class OutboxCapacityContractTests
         Assert.IsNotNull(provider.GetService<IIdGenerator>());
         await using var scope = provider.CreateAsyncScope();
         Assert.IsNotNull(scope.ServiceProvider.GetService<IOutboxStore>());
+    }
+
+    [TestMethod]
+    public void Processor_logger_captures_message_failure_exception()
+    {
+        var errors = new ConcurrentQueue<string>();
+        var logger = new OutboxCapacityProcessorLogger<object>(errors);
+        var exception = new InvalidOperationException(
+            "terminal write failed\r\nretry");
+
+        logger.Log(
+            LogLevel.Warning,
+            new EventId(3002),
+            "message failed",
+            exception,
+            static (state, _) => state);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "outbox.event.3002 | InvalidOperationException: terminal write failed retry",
+            },
+            errors.ToArray());
     }
 
     private static OutboxCapacityRunResult CreateCompletedRun(

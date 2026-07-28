@@ -36,10 +36,10 @@ dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release `
   --filter FullyQualifiedName~OutboxCapacityContractTests --no-restore
 ```
 
-结果：**8/8 通过**。其中宿主装配回归测试先复现缺少 `IIdGenerator` 导致
+结果：**9/9 通过**。其中宿主装配回归测试先复现缺少 `IIdGenerator` 导致
 `ValidateOnBuild` 失败，再补齐与真实 Dapper Outbox Store 相同的依赖闭包。
 
-Unit discovery 为 **519**，canonical 更新为 **519/7/49/199**。本地没有运行完整
+Unit discovery 为 **520**，canonical 更新为 **520/7/49/199**。本地没有运行完整
 199 项 Integration；它继续只由 `main` CI 四个互斥分片执行。
 
 受影响选择器以 `b1472503ca59b4c601c8899602d229b30d269a8c` 为基线，只选择
@@ -124,3 +124,28 @@ Exactly-Once。原始工件：
 `%TEMP%/fullnet-outbox-budget-smoke-3d2cdd7c60ea4d12b5aee4d4527f2155`。
 该预算只控制单次命令的工作量和正常停止点，不参与 checkpoint 的矩阵兼容签名，因此后续
 窗口可调整批次大小，但不得改变任何性能采样参数。
+
+## 9. 正式矩阵首批否定证据与失败归因
+
+- 固定版本：`fe068967a549cd94aa19e36fb45eb2785cb297a9`。
+- 默认 SQL Server 矩阵先完成普通样本 `5/210`；单副本三轮均通过，双副本前两轮均因
+  非取消 Dapper failure 未通过正确性门禁，因此该 checkpoint 只保留为否定证据。
+- 双副本同参数独立复现多轮后，失败稳定归属于 `outbox.mark_processed`；四副本放大场景
+  一轮出现 3 次，低基数原因均为 `database_error`。没有重复投递、积压排空、续租失败、
+  命令超时或已确认的 deadlock 证据。
+- 容量工件现在同时保存 `failureStatements` 与 `failureReasons`，并收集 Worker
+  Warning/Error 的单行异常摘要；指标不写入 SQL、参数、租户、消息 ID 或异常文本。
+- TDD 先分别以缺少 Processor 日志收集器、失败语句聚合和失败原因聚合得到 RED，再完成
+  GREEN；Outbox 容量与 Dapper 聚焦 Unit **12/12** 通过，Unit discovery **520**。
+- 以 `fe06896` 为基线的受影响选择器只命中共享 BuildingBlock smoke，结果 **8/8**；
+  本地没有运行完整 199 项 Integration。
+
+代表性诊断工件：
+
+- `%TEMP%/fullnet-outbox-capacity-formal-fe06896`
+- `%TEMP%/fullnet-outbox-diagnose-statements2-fe06896`
+- `%TEMP%/fullnet-outbox-failure-reason-r4-fe06896`
+
+结论：正式矩阵暂停扩跑，默认并发继续保持 `1`。下一步必须捕获 SQL Server
+`outbox.mark_processed` 的具体数据库错误边界并建立回归测试；修复后从新固定提交和新
+输出目录重新采样，禁止继续合并 `fe06896` checkpoint。

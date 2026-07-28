@@ -289,7 +289,10 @@ c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证�
 遗弃租约恢复已通过 SQL Server/MySQL 真实时间验证；正式 35 档三轮采样和 Step 3
 的索引 A/B/默认并发决策仍开放。容量入口已支持按完成键原子 checkpoint 和同版本、
 同参数断点续跑，并可用单次新增样本预算正常分段退出；正式矩阵可跨任务窗口积累且不会
-重复已完成场景。
+重复已完成场景。`fe06896` 的首批正式 SQL Server 样本在双副本档暴露间歇性
+`outbox.mark_processed` 非取消 `database_error`；旧 checkpoint 仅保留为否定证据，
+不得继续拼接容量结论。报告已补充按 StatementName 与低基数原因归因，下一步先闭环该
+终态写入错误，再从新的固定提交重跑正式矩阵。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Abstractions/Messaging/IIntegrationEventHandler.cs`

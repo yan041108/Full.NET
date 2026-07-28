@@ -1303,3 +1303,13 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **519/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
 | 行为边界 | 只控制 benchmark 单次新增样本数量；checkpoint skip 不计数，不改变矩阵语义或生产 Outbox |
 | Integration | 由任务基线影响选择器决定；本地不运行完整 199 项 |
+
+## 增补（2026-07-29，Outbox 容量失败归因）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **519 → 520** | 新增容量 Processor 失败日志契约 1 项；既有 Dapper 聚合测试扩展 StatementName 与低基数失败原因断言 |
+| Unit discovery | **520**；本地只运行 Outbox 容量与 Dapper 指标聚焦测试 |
+| 四处 canonical 门槛 | **520/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
+| 行为边界 | Dapper 指标新增低基数 `failure_reason`，容量工件新增失败语句与原因聚合；不记录 SQL、参数、租户、消息 ID 或异常文本 |
+| Integration | 由任务基线影响选择器决定；本地不运行完整 199 项 |

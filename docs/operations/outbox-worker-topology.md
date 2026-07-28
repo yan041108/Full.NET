@@ -133,6 +133,11 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 checkpoint 中已完成而被跳过的键不消耗本次预算，因此不同任务窗口可以使用不同的 N，
 但仍必须复用同一构建版本、矩阵参数和输出目录。
 
+容量报告会把非取消 Dapper 失败按稳定 `StatementName` 和低基数原因分类；当前原因集合为
+`deadlock`、`command_timeout`、`lock_wait_timeout`、`database_error` 与
+`application_error`。这些字段用于阻断错误样本并定位边界，不得替代数据库错误日志或
+在指标中加入 SQL、异常文本、租户、消息 ID 等高基数内容。
+
 ## 4. 积压指标
 
 Worker 将 `Full.NET.Outbox` Meter 接入 OpenTelemetry，并按
