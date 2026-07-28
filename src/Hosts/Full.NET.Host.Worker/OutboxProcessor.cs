@@ -198,8 +198,15 @@ internal sealed class OutboxProcessor(
                     + $"but found {matchingHandlers.Count}.");
             }
 
+            var context = new IntegrationEventContext(
+                message.Id,
+                message.MessageType,
+                message.SchemaVersion,
+                message.TenantId,
+                message.TraceId,
+                message.OccurredAtUtc);
             await matchingHandlers[0]
-                .HandleAsync(message.Payload, cancellationToken)
+                .HandleAsync(context, message.Payload, cancellationToken)
                 .ConfigureAwait(false);
             await store
                 .MarkProcessedAsync(

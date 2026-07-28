@@ -34,6 +34,15 @@ public sealed class OutboxProcessorTests
         Assert.AreEqual(0, wrongType.HandledCount);
         Assert.AreEqual(0, wrongVersion.HandledCount);
         CollectionAssert.AreEqual(message.Payload, matching.LastPayload.ToArray());
+        Assert.AreEqual(
+            new IntegrationEventContext(
+                message.Id,
+                message.MessageType,
+                message.SchemaVersion,
+                message.TenantId,
+                message.TraceId,
+                message.OccurredAtUtc),
+            matching.LastContext);
         await store.Received(1).MarkProcessedAsync(
             message.Id,
             message.LockId,
@@ -867,7 +876,18 @@ public sealed class OutboxProcessorTests
 
         public int HandledCount { get; private set; }
 
+        public IntegrationEventContext? LastContext { get; private set; }
+
         public ReadOnlyMemory<byte> LastPayload { get; private set; }
+
+        public Task HandleAsync(
+            IntegrationEventContext context,
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            LastContext = context;
+            return HandleAsync(payload, cancellationToken);
+        }
 
         public Task HandleAsync(
             ReadOnlyMemory<byte> payload,

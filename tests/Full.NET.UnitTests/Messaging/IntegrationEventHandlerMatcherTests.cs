@@ -50,6 +50,20 @@ public sealed class IntegrationEventHandlerMatcherTests
     }
 
     [TestMethod]
+    public void ValidateUniqueRoutes_RejectsMissingOrUnknownIdempotencyStrategy()
+    {
+        var missing = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
+                [new UnspecifiedIdempotencyHandler()]));
+        var unknown = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
+                [new InvalidIdempotencyHandler()]));
+
+        StringAssert.Contains(missing.Message, "IdempotencyStrategy");
+        StringAssert.Contains(unknown.Message, "IdempotencyStrategy");
+    }
+
+    [TestMethod]
     public void ValidateUniqueRoutes_RejectsInvalidMetadataAndOverlappingRoutes()
     {
         var emptyEventType = Assert.ThrowsExactly<InvalidOperationException>(() =>
@@ -96,6 +110,9 @@ public sealed class IntegrationEventHandlerMatcherTests
 
         public int SchemaVersion => schemaVersion;
 
+        public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+            IntegrationEventIdempotencyStrategy.NaturallyIdempotent;
+
         public Task HandleAsync(
             ReadOnlyMemory<byte> payload,
             CancellationToken cancellationToken) =>
@@ -107,6 +124,9 @@ public sealed class IntegrationEventHandlerMatcherTests
         public string EventType => "fullnet.tenancy.tenant-provisioned";
 
         public int SchemaVersion => 1;
+
+        public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+            IntegrationEventIdempotencyStrategy.NaturallyIdempotent;
 
         public Task HandleAsync(
             ReadOnlyMemory<byte> payload,
@@ -125,6 +145,38 @@ public sealed class IntegrationEventHandlerMatcherTests
         public IReadOnlyList<string> LegacyEventTypes => legacyEventTypes;
 
         public int SchemaVersion => schemaVersion;
+
+        public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+            IntegrationEventIdempotencyStrategy.NaturallyIdempotent;
+
+        public Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class UnspecifiedIdempotencyHandler
+        : IIntegrationEventHandler
+    {
+        public string EventType => "fullnet.test.unspecified";
+
+        public int SchemaVersion => 1;
+
+        public Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class InvalidIdempotencyHandler
+        : IIntegrationEventHandler
+    {
+        public string EventType => "fullnet.test.invalid";
+
+        public int SchemaVersion => 1;
+
+        public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+            (IntegrationEventIdempotencyStrategy)99;
 
         public Task HandleAsync(
             ReadOnlyMemory<byte> payload,

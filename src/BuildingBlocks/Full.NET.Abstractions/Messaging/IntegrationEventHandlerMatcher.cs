@@ -41,6 +41,16 @@ public static class IntegrationEventHandlerMatcher
                     + $"{nameof(IIntegrationEventHandler.SchemaVersion)}.");
             }
 
+            var idempotencyStrategy = handler.IdempotencyStrategy;
+            if (idempotencyStrategy is not (
+                IntegrationEventIdempotencyStrategy.NaturallyIdempotent
+                or IntegrationEventIdempotencyStrategy.MessageIdDeduplication))
+            {
+                throw new InvalidOperationException(
+                    $"Integration event handler '{owner}' must declare a supported "
+                    + $"{nameof(IIntegrationEventHandler.IdempotencyStrategy)}.");
+            }
+
             var legacyEventTypes = handler.LegacyEventTypes;
             if (legacyEventTypes.Any(string.IsNullOrWhiteSpace))
             {

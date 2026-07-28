@@ -6,6 +6,7 @@
 
 - MessagePack `application/x-msgpack` 载荷；
 - `(MessageType, SchemaVersion)` 精确路由；
+- 稳定消息上下文与 Handler 幂等策略启动门禁；
 - 数据库租约领取；
 - 最大尝试次数与死信终态；
 - 待处理数量与最老消息年龄指标；
@@ -26,6 +27,23 @@
 - 永久失败或达到最大尝试次数后，消息进入死信终态，不再被后续领取。
 
 结论：当前生产默认模型是“数据库租约 + 幂等 Handler + 至少一次投递”。在没有真实压力证据前，不要把“必须上 Redis Leader Election”写成唯一解。
+
+### 2.1 消息上下文与幂等门禁
+
+Worker 调用 Handler 时提供 `IntegrationEventContext`，其中 `MessageId`、`MessageType`、
+`SchemaVersion`、`TenantId`、`TraceId` 和 `OccurredAtUtc` 均直接来自已领取的持久化
+Outbox 记录。重试、租约回收和多副本竞争不会生成新的 `MessageId`。
+
+`IIntegrationEventHandler` 保留 payload-only 重载；旧实现通过默认接口方法继续工作。
+新 Handler 若需要去重，应覆盖上下文重载。每个生产 Handler 必须声明以下一种策略，Worker
+在启动期拒绝 `Unspecified` 或未知值：
+
+- `NaturallyIdempotent`：重复执行只会收敛到同一业务状态；代码审查必须能指向具体不变量。
+- `MessageIdDeduplication`：跨数据库写入或外部副作用在其提交边界持久化 `MessageId`，
+  去重记录与副作用应尽可能位于同一事务；仅在内存中记忆 MessageId 不构成可靠去重。
+
+策略声明是启动门禁和审计证据，不会把至少一次投递升级为 Exactly-Once。新增 Handler
+不得依赖 `TraceId`、租约 `LockId` 或当前尝试次数作为幂等键。
 
 ## 3. Worker 配置
 

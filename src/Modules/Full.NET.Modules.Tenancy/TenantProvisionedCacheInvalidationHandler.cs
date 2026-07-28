@@ -17,6 +17,10 @@ internal sealed class TenantProvisionedCacheInvalidationHandler(
 
     public int SchemaVersion => 1;
 
+    // 删除共享缓存并广播失效可重复执行，重复投递只会收敛到同一缓存缺失状态。
+    public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+        IntegrationEventIdempotencyStrategy.NaturallyIdempotent;
+
     public async Task HandleAsync(
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken)

@@ -1254,3 +1254,14 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **509/7/49/199**；README、getting-started、CI、规则引用和项目 Skills 已同步 |
 | 行为边界 | 只扩展 benchmark 与文档，不修改生产清理、Worker 并发、数据库结构或默认配置 |
 | 验证记录 | [`outbox-retention-2026-07-29.md`](outbox-retention-2026-07-29.md) |
+
+## 增补（2026-07-29，Outbox 消息上下文与幂等门禁）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **509 → 510** | 新增未声明/未知幂等策略启动拒绝 1 项；上下文透传并入既有精确路由测试 |
+| 兼容边界 | payload-only Handler 由默认接口重载继续工作；Worker 统一传递六字段稳定上下文 |
+| 幂等边界 | 生产 Handler 必须声明天然幂等或 MessageId 持久化去重；`Unspecified` 与未知枚举启动失败 |
+| 四处 canonical 门槛 | **510/7/49/199**；README、getting-started、CI、规则引用和项目 Skills 已同步 |
+| Integration 边界 | 本切片无数据库结构或 SQL 行为变化；最终只运行任务基线影响选择器命中的目标 |
+| 验证记录 | [`outbox-message-context-idempotency-2026-07-29.md`](outbox-message-context-idempotency-2026-07-29.md) |

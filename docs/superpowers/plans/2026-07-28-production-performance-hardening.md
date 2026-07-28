@@ -283,6 +283,10 @@ c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证�
 
 **Priority:** P1
 
+**Status:** Step 1 已于 2026-07-29 完成。Worker 已通过兼容默认重载传递稳定消息上下文，
+并在启动期拒绝未声明或未知幂等策略；现有两类缓存失效 Handler 已证明并声明天然幂等。
+容量矩阵、索引 A/B 与默认并发决策仍开放。
+
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Abstractions/Messaging/IIntegrationEventHandler.cs`
 - Modify: `src/BuildingBlocks/Full.NET.Data.Abstractions/OutboxEnvelope.cs`
@@ -294,7 +298,7 @@ c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证�
 - Modify: `docs/operations/outbox-worker-topology.md`
 - Create: `docs/verification/outbox-capacity-2026-07-28.md`
 
-- [ ] **Step 1: 冻结消息上下文兼容方案**
+- [x] **Step 1: 冻结消息上下文兼容方案**
 
 为 Handler 暴露稳定 `MessageId`、MessageType、SchemaVersion、TenantId、TraceId 和
 OccurredAtUtc；现有 Handler 通过兼容适配迁移。跨数据库或有外部副作用的消费者必须使用
