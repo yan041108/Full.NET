@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
 using global::Dapper;
 
 namespace Full.NET.Data.Dapper;
@@ -115,6 +116,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOutboxBacklogReader>(provider =>
             provider.GetRequiredService<DapperOutboxStore>());
         services.AddScoped<ICommandTransaction, DapperCommandTransaction>();
+        services
+            .AddOpenTelemetry()
+            .WithMetrics(metrics => metrics.AddMeter(DapperTelemetry.MeterName));
         services.AddHealthChecks()
             .AddCheck<DatabaseConnectivityHealthCheck>(
                 "database-connectivity",

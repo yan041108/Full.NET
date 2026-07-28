@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Contracts;
@@ -12,6 +13,60 @@ namespace Full.NET.UnitTests.Jobs;
 [TestClass]
 public sealed class JobExecutionRunnerTests
 {
+    [TestMethod]
+    public async Task ProcessPendingAsync_MultipleExecutionsLoadDefinitionsOncePerBatch()
+    {
+        var definitionId = Guid.CreateVersion7();
+        var executions = new[]
+        {
+            new JobExecutionRecord
+            {
+                Id = Guid.CreateVersion7(),
+                JobDefinitionId = definitionId,
+                Status = JobExecutionStatuses.Running,
+            },
+            new JobExecutionRecord
+            {
+                Id = Guid.CreateVersion7(),
+                JobDefinitionId = definitionId,
+                Status = JobExecutionStatuses.Running,
+            },
+        };
+        var definition = new JobDefinitionRecord
+        {
+            Id = definitionId,
+            JobKey = ImmediateJobHandler.Key,
+            IsEnabled = true,
+        };
+        var queryExecutor = new BatchDefinitionRecordingQueryExecutor(
+            executions,
+            definition);
+        var transaction = new RecordingTransaction();
+        var runner = new JobExecutionRunner(
+            queryExecutor,
+            new RecordingCommandExecutor(),
+            transaction,
+            new JobHandlerRegistry([new ImmediateJobHandler()]),
+            new FixedClock(
+                new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
+            new FixedIdGenerator(Guid.CreateVersion7()),
+            Options.Create(
+                new DatabaseOptions
+                {
+                    Provider = DatabaseProvider.MySql,
+                }),
+            Options.Create(new JobsWorkerOptions()),
+            NullLogger<JobExecutionRunner>.Instance);
+
+        var processed = await runner.ProcessPendingAsync(
+            executions.Length,
+            CancellationToken.None);
+
+        Assert.AreEqual(executions.Length, processed);
+        Assert.AreEqual(1, queryExecutor.DefinitionQueryCount);
+        Assert.AreEqual(1, transaction.ExecutionCount);
+    }
+
     [TestMethod]
     public async Task ProcessPendingAsync_WhenHandlerOutlivesRenewalInterval_RenewsOwnedLease()
     {
@@ -43,6 +98,7 @@ public sealed class JobExecutionRunnerTests
         var runner = new JobExecutionRunner(
             queryExecutor,
             commandExecutor,
+            new RecordingTransaction(),
             new JobHandlerRegistry(
                 [new RenewalAwaitingJobHandler(commandExecutor.RenewalObserved)]),
             new SteppingClock(initialNow),
@@ -98,6 +154,7 @@ public sealed class JobExecutionRunnerTests
         var runner = new JobExecutionRunner(
             queryExecutor,
             commandExecutor,
+            new RecordingTransaction(),
             new JobHandlerRegistry([handler]),
             new FixedClock(
                 new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
@@ -152,6 +209,7 @@ public sealed class JobExecutionRunnerTests
         var runner = new JobExecutionRunner(
             queryExecutor,
             commandExecutor,
+            new RecordingTransaction(),
             new JobHandlerRegistry(
                 [new CompletionAfterCancellationJobHandler()]),
             new FixedClock(
@@ -206,6 +264,7 @@ public sealed class JobExecutionRunnerTests
         var runner = new JobExecutionRunner(
             queryExecutor,
             commandExecutor,
+            new RecordingTransaction(),
             new JobHandlerRegistry(
                 [new CancellingJobHandler(cancellationTokenSource)]),
             new FixedClock(
@@ -241,6 +300,16 @@ public sealed class JobExecutionRunnerTests
             cancellationTokenSource.Cancel();
             return Task.FromCanceled(cancellationToken);
         }
+    }
+
+    private sealed class ImmediateJobHandler : IJobHandler
+    {
+        public const string Key = "jobs.test-immediate";
+
+        public string JobKey => Key;
+
+        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private sealed class RenewalAwaitingJobHandler(Task renewalObserved) : IJobHandler
@@ -328,17 +397,9 @@ public sealed class JobExecutionRunnerTests
         public Task<T?> QuerySingleOrDefaultAsync<T>(
             SqlStatement statement,
             object? parameters = null,
-            CancellationToken cancellationToken = default)
-        {
-            if (typeof(T) == typeof(JobDefinitionRecord)
-                && statement == JobSql.FindDefinitionById)
-            {
-                return Task.FromResult((T?)(object)definition);
-            }
-
+            CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
                 $"Unexpected single-row statement '{statement.Name}'.");
-        }
 
         public Task<IReadOnlyList<T>> QueryAsync<T>(
             SqlStatement statement,
@@ -350,6 +411,67 @@ public sealed class JobExecutionRunnerTests
             {
                 return Task.FromResult(
                     (IReadOnlyList<T>)(object)new[] { execution });
+            }
+
+            if (typeof(T) == typeof(JobDefinitionRecord)
+                && statement == JobSql.FindDefinitionsByIds)
+            {
+                return Task.FromResult(
+                    (IReadOnlyList<T>)(object)new[] { definition });
+            }
+
+            throw new InvalidOperationException(
+                $"Unexpected list statement '{statement.Name}'.");
+        }
+    }
+
+    private sealed class BatchDefinitionRecordingQueryExecutor(
+        IReadOnlyList<JobExecutionRecord> executions,
+        JobDefinitionRecord definition) : IQueryExecutor
+    {
+        public int DefinitionQueryCount { get; private set; }
+
+        public Task<T?> QuerySingleOrDefaultAsync<T>(
+            SqlStatement statement,
+            object? parameters = null,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                $"Unexpected single-row statement '{statement.Name}'.");
+
+        public Task<IReadOnlyList<T>> QueryAsync<T>(
+            SqlStatement statement,
+            object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (typeof(T) == typeof(Guid)
+                && statement == JobSql.SelectClaimableExecutionIdsMySql)
+            {
+                return Task.FromResult(
+                    (IReadOnlyList<T>)(object)executions
+                        .Select(execution => execution.Id)
+                        .ToArray());
+            }
+
+            if (typeof(T) == typeof(JobExecutionRecord)
+                && statement == JobSql.SelectExecutionsByLeaseMySql)
+            {
+                return Task.FromResult(
+                    (IReadOnlyList<T>)(object)executions);
+            }
+
+            if (typeof(T) == typeof(JobExecutionRecord)
+                && statement == JobSql.AcquireExecutionsSqlServer)
+            {
+                return Task.FromResult(
+                    (IReadOnlyList<T>)(object)executions);
+            }
+
+            if (typeof(T) == typeof(JobDefinitionRecord)
+                && statement == JobSql.FindDefinitionsByIds)
+            {
+                DefinitionQueryCount++;
+                return Task.FromResult(
+                    (IReadOnlyList<T>)(object)new[] { definition });
             }
 
             throw new InvalidOperationException(
@@ -368,6 +490,19 @@ public sealed class JobExecutionRunnerTests
         {
             Statements.Add(statement);
             return Task.FromResult(1);
+        }
+    }
+
+    private sealed class RecordingTransaction : ICommandTransaction
+    {
+        public int ExecutionCount { get; private set; }
+
+        public async Task<T> ExecuteAsync<T>(
+            Func<CancellationToken, Task<T>> action,
+            CancellationToken cancellationToken)
+        {
+            ExecutionCount++;
+            return await action(cancellationToken).ConfigureAwait(false);
         }
     }
 

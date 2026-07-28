@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { listAuditingAccessLogs } from './access-logs';
+import {
+  listAuditingAccessLogs,
+  listAuditingAccessLogsByCursor
+} from './access-logs';
 
 vi.mock('./http', () => ({
   request: vi.fn()
@@ -38,5 +41,31 @@ describe('access-logs api', () => {
     );
     expect(page.total).toBe(1);
     expect(page.items[0].requestPath).toBe('/api/v1/settings/enum-catalogs');
+  });
+
+  it('lists and continues access logs by encoded cursor', async () => {
+    vi.mocked(request)
+      .mockResolvedValueOnce({
+        items: [],
+        nextCursor: 'cursor+/=',
+        hasMore: true
+      })
+      .mockResolvedValueOnce({
+        items: [],
+        nextCursor: null,
+        hasMore: false
+      });
+
+    const first = await listAuditingAccessLogsByCursor();
+    await listAuditingAccessLogsByCursor(first.nextCursor);
+
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/auditing/access-logs/cursor?limit=20'
+    );
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/auditing/access-logs/cursor?limit=20&cursor=cursor%2B%2F%3D'
+    );
   });
 });

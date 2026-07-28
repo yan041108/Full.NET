@@ -8,6 +8,7 @@ namespace Full.NET.Modules.Auditing.Serialization;
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(AccessLogResponse))]
 [JsonSerializable(typeof(PagedResult<AccessLogResponse>))]
+[JsonSerializable(typeof(AccessLogCursorPageResponse))]
 [JsonSerializable(typeof(OperationLogResponse))]
 [JsonSerializable(typeof(PagedResult<OperationLogResponse>))]
 [JsonSerializable(typeof(ExceptionLogResponse))]

@@ -80,13 +80,11 @@ internal sealed class DapperOutboxStore(
         }
 
         var now = clock.UtcNow;
-        var parameters = new
-        {
-            BatchSize = batchSize,
-            LockId = idGenerator.NewId(),
-            Now = now,
-            LockedUntil = now.Add(lease)
-        };
+        var parameters = new OutboxAcquireParameters(
+            batchSize,
+            idGenerator.NewId(),
+            now,
+            now.Add(lease));
 
         return _databaseOptions.Provider switch
         {
@@ -255,13 +253,33 @@ internal sealed class DapperOutboxStore(
     }
 
     private Task<IReadOnlyList<OutboxEnvelope>> AcquireMySqlAsync(
-        object parameters,
+        OutboxAcquireParameters parameters,
         CancellationToken cancellationToken) =>
         transaction.ExecuteAsync<IReadOnlyList<OutboxEnvelope>>(
             async token =>
             {
+                // 先跳过终态更新持有的行锁，再按已锁定主键领取，避免待处理索引上的长时间等待。
+                var ids = await queryExecutor
+                    .QueryAsync<Guid>(
+                        OutboxSql.SelectClaimableIdsMySql,
+                        parameters,
+                        token)
+                    .ConfigureAwait(false);
+                if (ids.Count == 0)
+                {
+                    return Array.Empty<OutboxEnvelope>();
+                }
+
                 await commandExecutor
-                    .ExecuteAsync(OutboxSql.AcquireMySql, parameters, token)
+                    .ExecuteAsync(
+                        OutboxSql.ClaimByIdsMySql,
+                        new
+                        {
+                            Ids = ids.ToArray(),
+                            parameters.LockId,
+                            parameters.LockedUntil,
+                        },
+                        token)
                     .ConfigureAwait(false);
                 var rows = await queryExecutor
                     .QueryAsync<MySqlOutboxRow>(
@@ -272,6 +290,12 @@ internal sealed class DapperOutboxStore(
                 return rows.Select(Map).ToArray();
             },
             cancellationToken);
+
+    private sealed record OutboxAcquireParameters(
+        int BatchSize,
+        Guid LockId,
+        DateTimeOffset Now,
+        DateTimeOffset LockedUntil);
 
     private static OutboxEnvelope Map(MySqlOutboxRow row) => new(
         row.Id,

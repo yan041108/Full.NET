@@ -14,7 +14,7 @@
 
 1. 必须读取本文件和 [`rules/README.md`](rules/README.md)。
 2. 必须读取 [`rules/development-quality.md`](rules/development-quality.md)；涉及代码、SQL、配置或脚本时，还必须读取 [`rules/code-comments.md`](rules/code-comments.md)；新增或修改数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成器产物时，还必须读取 [`rules/naming-conventions.md`](rules/naming-conventions.md)。
-3. 必须检查 `.agents/skills/` 是否存在匹配当前任务的项目 Skill；新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时必须使用 [`fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)。
+3. 必须检查 `.agents/skills/` 是否存在匹配当前任务的项目 Skill；新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时必须使用 [`fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)；性能分析、基准、负载测试或请求/SQL/缓存/Worker/客户端包体优化必须使用 [`fullnet-performance-hardening`](.agents/skills/fullnet-performance-hardening/SKILL.md)。
 4. 必须检查当前分支、`git status`、相关设计与计划，保留用户已有和无关变更。
 5. 必须确认需求、授权边界和验收条件；能从仓库安全确定的信息不得反复询问。
 6. 产生或更新评估、规格、决策、计划或验证记录时，必须遵循 [`rules/development-quality.md`](rules/development-quality.md) 第 12.1 节的文档产物分层。
@@ -61,8 +61,10 @@
 - [`rules/README.md`](rules/README.md)：规则范围、用词和维护方式。
 - [`rules/code-comments.md`](rules/code-comments.md)：中文代码注释与文档注释规范。
 - [`rules/development-quality.md`](rules/development-quality.md)：常见遗漏防护和完成定义。
+- [`rules/performance-engineering.md`](rules/performance-engineering.md)：性能证据、请求链、双库、Worker 与客户端包体门禁。
 - [`rules/naming-conventions.md`](rules/naming-conventions.md)：数据库、C#、API、机器码、配置、缓存和生成器的统一命名边界。
 - [`rules/client-frontend.md`](rules/client-frontend.md)：Vue/Layui 双管理端、uni-app、Flutter 与桌面端的框架、UI、许可与验收边界。
 - [`rules/rule-evolution.md`](rules/rule-evolution.md)：自动复盘、规则升级、冲突与退役机制。
 - [`rules/skill-evolution.md`](rules/skill-evolution.md)：项目 Skills 候选、测试先行、升级与退役机制。
 - [`.agents/skills/fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)：完整业务模块纵向交付流程。
+- [`.agents/skills/fullnet-performance-hardening`](.agents/skills/fullnet-performance-hardening/SKILL.md)：性能基线、瓶颈定位、语义门禁与验证流程。

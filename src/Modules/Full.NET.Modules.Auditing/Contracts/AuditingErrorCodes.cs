@@ -11,6 +11,9 @@ public static class AuditingErrorCodes
     /// <summary>目标访问日志不存在。</summary>
     public const string AccessLogNotFound = "auditing.access_log.not_found";
 
+    /// <summary>访问日志游标无效、版本未知或与当前筛选不匹配。</summary>
+    public const string AccessLogCursorInvalid = "auditing.access_log.cursor_invalid";
+
     /// <summary>目标操作日志不存在。</summary>
     public const string OperationLogNotFound = "auditing.operation_log.not_found";
 
@@ -23,6 +26,7 @@ public static class AuditingErrorCodes
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         AccessLogNotFound,
+        AccessLogCursorInvalid,
         OperationLogNotFound,
         ExceptionLogNotFound,
     ]);

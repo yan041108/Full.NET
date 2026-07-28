@@ -15,6 +15,17 @@
       ]
     },
     {
+      "path": "/api/v1/auditing/access-logs/cursor",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.access.read",
+          "successStatus": 200,
+          "responseSchema": "AccessLogCursorPageResponse"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/auditing/access-logs/{accessLogId}",
       "operations": [
         {
@@ -40,6 +51,13 @@
         "traceId",
         "clientIpFingerprint",
         "isAuthenticated"
+      ]
+    },
+    "AccessLogCursorPageResponse": {
+      "properties": [
+        "items",
+        "nextCursor",
+        "hasMore"
       ]
     }
   }

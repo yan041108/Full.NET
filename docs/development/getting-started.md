@@ -18,7 +18,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 416
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 454
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 ```
@@ -47,6 +47,40 @@ pnpm test:integration:durations
 # canonical 全量命令
 dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 191 --timeout 90m
 ```
+
+审计列表性能调查使用显式、非 CI 的双库基准入口。默认创建正式迁移后的
+SQL Server/MySQL 临时数据库，写入 10 万行固定分布数据，对首屏、深 OFFSET、
+无界 contains 和最近一天 contains 各预热 5 次并采样 30 次，同时输出
+P50/P95/P99 与执行计划：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- audit-query
+```
+
+工件写入 `BenchmarkDotNet.Artifacts/auditing-query/`，该目录不提交。结果仅代表
+当前机器上的受控 Testcontainers 实验；修改索引、搜索或分页契约前仍须评估
+双库计划、写放大和 API 兼容性。
+
+SQL Server 可选谓词的计划稳定性时，运行：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- audit-query --mode sqlserver-plan-ab --providers sqlserver
+```
+
+该模式会分别清空隔离容器计划缓存，以 `broad_first`/`bounded_first` 两种顺序比较
+现状、分支 SQL 和 `OPTION (RECOMPILE)`，工件写入
+`BenchmarkDotNet.Artifacts/auditing-query-sqlserver-ab/`。CompileCPU 对缓存策略表示
+一次计划编译，对 recompile 表示采集该计划时的一次编译，不能直接当作采样窗口总 CPU。
+
+访问日志显式游标与旧深页 OFFSET 端点的生产等价 A/B 使用：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- audit-query --mode cursor-ab
+```
+
+该模式在两个 Provider 中定位等价深页边界，交替采样旧端点的 COUNT＋OFFSET 和新端点
+的单次 keyset 查询，并校验有序 ID 完全一致。两者响应语义不同；结果只能用于评价显式
+游标端点，不能据此删除精确总数或静默改变旧 API。
 
 Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。SQL、事务、租户过滤和迁移变更必须成对覆盖 SQL Server/MySQL；共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、测试基础设施、发布或 main 门禁必须运行全量。
 
@@ -123,7 +157,9 @@ pnpm test:openapi
 pnpm test:openapi:breaking -- --base-ref main
 pnpm test:workspace
 pnpm test:clients
+pnpm test:performance-governance
 pnpm build:clients
+pnpm test:bundle-budgets
 pnpm test:e2e
 pnpm test:e2e:uniapp
 ```

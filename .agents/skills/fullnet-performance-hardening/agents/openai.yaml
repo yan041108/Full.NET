@@ -1,0 +1,4 @@
+interface:
+  display_name: "Full.NET Performance Hardening"
+  short_description: "Measure and harden Full.NET performance safely"
+  default_prompt: "Use $fullnet-performance-hardening to measure and improve a Full.NET hot path."

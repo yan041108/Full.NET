@@ -1074,3 +1074,94 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **416/7/49/191** |
 | 规则 / Skills 复盘 | 现有双库、敏感信息、公共契约与完成门禁规则已覆盖；首次单一能力切片不足以形成新 Skill，本次无变化 |
 | 验证记录 | [`outbox-version-retirement-scan-2026-07-27.md`](outbox-version-retirement-scan-2026-07-27.md) |
+
+## 增补：2026-07-27，性能硬化基础
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **416 → 421** | 新增 Dapper 低基数指标 2 项、Outbox/Jobs 满批次排空 2 项、Jobs 同批 Definition 合并查询 1 项 |
+| RED / GREEN | Dapper 指标缺失、Worker 固定空等、Jobs Definition 逐条查询与 Vue 静态路由均先出现预期失败；最小实现后 Dapper 聚焦 **2/2**、Outbox/Jobs 聚焦 **19/19**、Vue 路由聚焦 **1/1** |
+| Compatibility / Architecture / Integration | 门槛保持 **7/49/191**；完整验证结果记录于性能硬化验证文档 |
+| 四处 canonical 门槛 | **421/7/49/191** |
+| 规则 / Skills 复盘 | 根据项目所有者的长期治理决策，新增 `rules/performance-engineering.md` 与 `fullnet-performance-hardening`，并以 Skill 契约测试和官方校验器固化 |
+| 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) |
+
+## 增补：2026-07-27，审计分页数据库往返合并
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **421 → 427** | 访问、操作、异常日志在 SQL Server/MySQL 下各新增 1 个单次多结果往返场景 |
+| RED / GREEN | 三个查询服务缺少多结果执行器依赖时编译失败；实现后聚焦 **8/8**、Unit 全量 **427/427** |
+| 双库聚焦 | SQL Server/MySQL 审计 API 各 **3/3**，失败 0、跳过 0 |
+| Integration 门槛 | 保持 **191**；本次未新增 Integration 测试发现项 |
+| 四处 canonical 门槛 | **427/7/49/191** |
+| 性能边界 | 可确认每个审计列表数据库命令往返 **2 → 1**；未执行生产等价 P50/P95/P99，不声明固定延迟收益 |
+| 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) |
+
+## 增补（2026-07-27，审计大表双库基准契约）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **427 → 431** | 新增基准默认规模、最近秩百分位、四场景矩阵和生产 Access Log SQL 防漂移共 4 项 |
+| RED / GREEN | 基准类型尚不存在时编译失败；实现后聚焦 **4/4**、Unit 全量 **431/431** |
+| Compatibility / Architecture / Integration | 门槛保持 **7/49/191**；Architecture 先以 **47/49** 识别 benchmark 的新基础设施引用，精确登记非运行时基准消费者后 **49/49**；基准使用独立 Testcontainers，不增加 Integration 发现项 |
+| 四处 canonical 门槛 | **431/7/49/191** |
+| 性能证据 | SQL Server/MySQL 100,000 行、预热 5、采样 30 的 P50/P95/P99 与双库计划已记录 |
+| 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) |
+
+## 增补（2026-07-27，SQL Server 审计计划稳定性 A/B）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **431 → 435** | 新增 A/B mode Provider 约束、混合请求顺序、三类查询策略和 ShowPlan 编译/运行指标解析共 4 项 |
+| RED / GREEN | A/B mode、查询工厂、顺序和指标类型缺失时编译失败；实现后聚焦 **8/8** |
+| Compatibility / Architecture / Integration | 门槛保持 **7/49/191**；本 Task 仅新增隔离 benchmark，不修改生产 SQL 或 Integration 发现项 |
+| 四处 canonical 门槛 | **435/7/49/191** |
+| 性能证据 | SQL Server 100,000 行、两种首次编译顺序、三策略、预热 5、采样 30 的 P50/P95/P99、逻辑读、实际读行与编译成本已记录 |
+| 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) 第 10 节 |
+
+## 增补（2026-07-27，SQL Server 审计固定谓词生产落地）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **435 → 436** | 新增三类 SQL Server 分页形状有界、唯一、参数化与稳定 Scope/Statement Name 契约 1 项 |
+| RED / GREEN | 三类生产 shape 接口缺失时编译失败；实现后审计 SQL/服务/benchmark 聚焦 **15/15**、Unit 全量 **436/436** |
+| Compatibility / Architecture / Integration | **7/49/191**；Architecture 首次 **48/49** 阻止普通方法构造 `SqlStatement`，改用精确白名单的安全原型 clone 后 **49/49**；SQL Server/MySQL 审计 API 各 **3/3** |
+| 四处 canonical 门槛 | **436/7/49/191** |
+| 性能证据 | SQL Server 100,000 行、两种顺序、三策略、预热 5、采样 30；生产等价分支四组 P95 相对当前下降 **41.62%–56.13%**，count 逻辑读保持 **606/81** |
+| 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) 第 11 节 |
+
+## 增补（2026-07-27，MySQL 深 OFFSET 索引 Hint A/B）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **436 → 439** | 新增 MySQL A/B mode Provider 约束、固定索引 Hint SQL 和成对反转采样顺序共 3 项 |
+| RED / GREEN | mode、MySQL 策略工厂和采样顺序缺失时编译失败；实现后基准聚焦 **11/11**、Unit 全量 **439/439** |
+| Compatibility / Architecture / Integration | 门槛保持 **7/49/191**；本 Task 仅增加隔离 benchmark，不修改生产 SQL、迁移、公共 API 或 Integration 发现项 |
+| 四处 canonical 门槛 | **439/7/49/191** |
+| 性能证据 | MySQL 100,000 行、四场景、两策略、预热 5、成对交替采样 30；Hint 深页 P95/P99 改善但 P50 与其他场景尾延迟退化，拒绝生产落地 |
+| 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) 第 12 节 |
+
+## 增补（2026-07-27，MySQL 延迟物化 A/B）
+
+| 审计项 | 结果 |
+| --- | --- |
+| Unit 门槛 **439 → 442** | 新增延迟物化 mode Provider 约束、固定 SQL/独立策略矩阵和有序 ID 等价性共 3 项 |
+| RED / GREEN | mode、延迟物化策略和页面有序 ID 签名缺失时编译失败；实现后基准聚焦 **14/14**、Unit 全量 **442/442** |
+| 行为边界 | 仅新增隔离 benchmark；生产 SQL、迁移、公共 API 和 MySQL 运行时行为未修改 |
+| Compatibility / Architecture / Integration | 门槛保持 **7/49/191**；本 Task 仅增加隔离 benchmark，不修改生产 SQL、迁移、公共 API 或 Integration 发现项 |
+| 四处 canonical 门槛 | **442/7/49/191** |
+| 性能证据 | MySQL 100,000 行、四场景、两策略、两次独立容器、预热 5、成对交替采样 30；深页全部百分位稳定改善，但 contains 尾延迟方向不稳定，拒绝通用生产落地 |
+| 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) 第 13 节 |
+
+## 增补（2026-07-27，访问日志显式游标分页）
+
+| 审计项 | 结果 |
+| --- | --- |
+| Unit 门槛 **442 → 454** | 游标/服务/双库 SQL 8 项，cursor A/B mode、生产 SQL 防漂移和 keyset 契约 4 项 |
+| RED / GREEN | C# 类型缺失、客户端守卫/API/页面和 Layui OFFSET 请求分别失败；实现后游标 **8/8**、基准 **18/18**、客户端契约 **4/4**、Vue **3/3**、Layui **2/2** |
+| 公共兼容 | 旧 OFFSET/PagedResult 路由与客户端函数保留；新增 `/cursor`、游标页 schema 和稳定 400 错误码 |
+| 双库 API | SQL Server/MySQL 各 **1/1**，权限、首批、下一批无重复、三条相同时间戳记录跨页后 ID 完整唯一、非法游标、详情与运行时 OpenAPI 通过 |
+| 四处 canonical 门槛 | **454/7/49/191** |
+| 性能证据 | 双库 100,000 行、页面 50、预热 5、成对采样 30；cursor P50/P95/P99 降幅 SQL Server **92.65%/91.96%/88.39%**，MySQL **97.05%/96.67%/97.12%** |
+| 验证记录 | [`performance-hardening-foundation-2026-07-27.md`](performance-hardening-foundation-2026-07-27.md) 第 14 节 |

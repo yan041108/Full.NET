@@ -51,6 +51,18 @@ internal static class JobSql
             """,
             SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindDefinitionsByIds =
+        new(
+            "jobs.find_host_definitions_by_ids",
+            """
+            SELECT Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+                   CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
+            FROM fn_jobs_definition
+            WHERE TenantId IS NULL
+              AND Id IN @Ids
+            """,
+            SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindDefinitionByJobKey =
         new(
             "jobs.find_host_definition_by_job_key",
@@ -210,16 +222,12 @@ internal static class JobSql
             """,
             SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement AcquireExecutionsMySql =
+    public static readonly SqlStatement SelectClaimableExecutionIdsMySql =
         new(
-            "jobs.acquire_host_executions.mysql",
+            "jobs.select_claimable_host_execution_ids.mysql",
             """
-            UPDATE fn_jobs_execution
-            SET Status = @RunningStatus,
-                LeaseId = @LeaseId,
-                LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
-                StartedAtUtc = COALESCE(StartedAtUtc, @Now),
-                AttemptCount = AttemptCount + 1
+            SELECT Id
+            FROM fn_jobs_execution
             WHERE TenantId IS NULL
               AND (
                   (Status = @PendingStatus
@@ -228,6 +236,22 @@ internal static class JobSql
               )
             ORDER BY CreatedAtUtc, Id
             LIMIT @BatchSize
+            FOR UPDATE SKIP LOCKED
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ClaimExecutionsByIdsMySql =
+        new(
+            "jobs.claim_host_executions_by_ids.mysql",
+            """
+            UPDATE fn_jobs_execution
+            SET Status = @RunningStatus,
+                LeaseId = @LeaseId,
+                LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
+                StartedAtUtc = COALESCE(StartedAtUtc, @Now),
+                AttemptCount = AttemptCount + 1
+            WHERE TenantId IS NULL
+              AND Id IN @Ids
             """,
             SqlDataScope.HostOnly);
 

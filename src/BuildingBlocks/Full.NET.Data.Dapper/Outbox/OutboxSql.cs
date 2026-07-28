@@ -92,19 +92,29 @@ internal static class OutboxSql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement AcquireMySql = new(
-        "outbox.acquire.my_sql",
+    public static readonly SqlStatement SelectClaimableIdsMySql = new(
+        "outbox.select_claimable_ids.my_sql",
+        """
+        SELECT Id
+        FROM fn_outbox_message
+        WHERE ProcessedAtUtc IS NULL
+          AND DeadLetteredAtUtc IS NULL
+          AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
+          AND (LockedUntilUtc IS NULL OR LockedUntilUtc <= @Now)
+        ORDER BY OccurredAtUtc, Id
+        LIMIT @BatchSize
+        FOR UPDATE SKIP LOCKED;
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ClaimByIdsMySql = new(
+        "outbox.claim_by_ids.my_sql",
         """
         UPDATE fn_outbox_message
         SET LockId = @LockId,
             LockedUntilUtc = @LockedUntil,
             Attempts = Attempts + 1
-        WHERE ProcessedAtUtc IS NULL
-          AND DeadLetteredAtUtc IS NULL
-          AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)
-          AND (LockedUntilUtc IS NULL OR LockedUntilUtc <= @Now)
-        ORDER BY OccurredAtUtc
-        LIMIT @BatchSize;
+        WHERE Id IN @Ids;
         """,
         SqlDataScope.HostOnly);
 

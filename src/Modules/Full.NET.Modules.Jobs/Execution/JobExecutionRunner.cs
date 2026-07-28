@@ -1,5 +1,6 @@
 using System.Runtime.ExceptionServices;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Contracts;
@@ -14,6 +15,7 @@ namespace Full.NET.Modules.Jobs.Execution;
 internal sealed class JobExecutionRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
+    ICommandTransaction transaction,
     JobHandlerRegistry handlerRegistry,
     IClock clock,
     IIdGenerator idGenerator,
@@ -120,10 +122,27 @@ internal sealed class JobExecutionRunner(
         Guid leaseId,
         CancellationToken cancellationToken)
     {
+        var definitions = await queryExecutor.QueryAsync<JobDefinitionRecord>(
+                JobSql.FindDefinitionsByIds,
+                new
+                {
+                    Ids = acquired
+                        .Select(execution => execution.JobDefinitionId)
+                        .Distinct()
+                        .ToArray(),
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        var definitionsById = definitions.ToDictionary(
+            definition => definition.Id);
         var processed = 0;
         foreach (var execution in acquired)
         {
-            await ProcessOneAsync(execution, leaseId, cancellationToken)
+            await ProcessOneAsync(
+                    execution,
+                    definitionsById,
+                    leaseId,
+                    cancellationToken)
                 .ConfigureAwait(false);
             processed++;
         }
@@ -162,15 +181,13 @@ internal sealed class JobExecutionRunner(
 
     private async Task ProcessOneAsync(
         JobExecutionRecord execution,
+        IReadOnlyDictionary<Guid, JobDefinitionRecord> definitionsById,
         Guid leaseId,
         CancellationToken cancellationToken)
     {
-        var definition = await queryExecutor.QuerySingleOrDefaultAsync<JobDefinitionRecord>(
-                JobSql.FindDefinitionById,
-                new { Id = execution.JobDefinitionId },
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (definition is null
+        if (!definitionsById.TryGetValue(
+                execution.JobDefinitionId,
+                out var definition)
             || !handlerRegistry.TryGetHandler(definition.JobKey, out var handler)
             || handler is null)
         {
@@ -240,17 +257,41 @@ internal sealed class JobExecutionRunner(
 
         if (databaseOptions.Value.Provider == DatabaseProvider.MySql)
         {
-            await commandExecutor.ExecuteAsync(
-                    JobSql.AcquireExecutionsMySql,
-                    parameters,
+            return await transaction.ExecuteAsync(
+                    async transactionCancellationToken =>
+                    {
+                        // 先锁定候选行并跳过其他 Worker 持有的锁，再按主键更新，避免领取与终态更新发生反向等待。
+                        var ids = await queryExecutor.QueryAsync<Guid>(
+                                JobSql.SelectClaimableExecutionIdsMySql,
+                                parameters,
+                                transactionCancellationToken)
+                            .ConfigureAwait(false);
+                        if (ids.Count == 0)
+                        {
+                            return Array.Empty<JobExecutionRecord>();
+                        }
+
+                        await commandExecutor.ExecuteAsync(
+                                JobSql.ClaimExecutionsByIdsMySql,
+                                new
+                                {
+                                    Ids = ids.ToArray(),
+                                    LeaseId = leaseId,
+                                    Now = now,
+                                    LeaseExpiresAtUtc = leaseExpiresAt,
+                                    RunningStatus = JobExecutionStatuses.Running,
+                                },
+                                transactionCancellationToken)
+                            .ConfigureAwait(false);
+                        var rows = await queryExecutor.QueryAsync<JobExecutionRecord>(
+                                JobSql.SelectExecutionsByLeaseMySql,
+                                new { LeaseId = leaseId },
+                                transactionCancellationToken)
+                            .ConfigureAwait(false);
+                        return rows.ToArray();
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
-            var rows = await queryExecutor.QueryAsync<JobExecutionRecord>(
-                    JobSql.SelectExecutionsByLeaseMySql,
-                    new { LeaseId = leaseId },
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return rows.ToArray();
         }
 
         throw new InvalidOperationException(

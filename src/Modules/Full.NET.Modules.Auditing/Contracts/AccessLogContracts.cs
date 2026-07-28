@@ -22,3 +22,11 @@ public sealed record AccessLogResponse(
     string? TraceId,
     string? ClientIpFingerprint,
     bool IsAuthenticated);
+
+/// <summary>
+/// Host 访问日志游标批次响应；不提供精确总数，避免深页查询固定执行 COUNT。
+/// </summary>
+public sealed record AccessLogCursorPageResponse(
+    IReadOnlyList<AccessLogResponse> Items,
+    string? NextCursor,
+    bool HasMore);

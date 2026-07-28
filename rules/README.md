@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | [`code-comments.md`](code-comments.md) | 新增或修改代码、SQL、脚本、配置 | 规定中文注释的语言、覆盖范围、质量与维护标准 |
 | [`development-quality.md`](development-quality.md) | 所有开发、修复、重构和审查任务 | 防止需求、架构、安全、数据、测试、文档、许可和 Git 遗漏 |
+| [`performance-engineering.md`](performance-engineering.md) | 性能分析、基准、负载测试以及请求、SQL、缓存、Worker 或客户端包体优化 | 规定性能证据、语义门禁、低基数指标、双库和尾延迟验证 |
 | [`naming-conventions.md`](naming-conventions.md) | 新增或修改数据库对象、公共标识符、API/JSON、稳定机器码、配置/缓存键或生成器产物 | 规定跨 SQL Server/MySQL、Dapper、C# 与多客户端的命名、兼容和验证方式 |
 | [`client-frontend.md`](client-frontend.md) | 新增或修改 Vue/Layui 管理端、uni-app、Flutter/桌面端或客户端依赖 | 规定各端框架、UI 基线、许可与资产来源边界、双端同步与 `Verified` 验收方式 |
 | [`rule-evolution.md`](rule-evolution.md) | 每项任务完成前 | 将复盘发现按证据门槛升级为项目规则 |

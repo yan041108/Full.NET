@@ -20,9 +20,11 @@ internal sealed class JobExecutionHostedProcessor(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var processedCount = 0;
             try
             {
-                await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
+                processedCount = await ProcessOnceAsync(stoppingToken)
+                    .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -33,18 +35,25 @@ internal sealed class JobExecutionHostedProcessor(
                 JobExecutionHostedProcessorLog.IterationFailed(logger, exception);
             }
 
-            await Task.Delay(PollingDelay, stoppingToken).ConfigureAwait(false);
+            var delay = GetDelayAfterBatch(processedCount);
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
+            }
         }
     }
 
-    internal async Task ProcessOnceAsync(CancellationToken cancellationToken)
+    internal async Task<int> ProcessOnceAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         var runner = scope.ServiceProvider.GetRequiredService<JobExecutionRunner>();
-        await runner
+        return await runner
             .ProcessPendingAsync(_options.BatchSize, cancellationToken)
             .ConfigureAwait(false);
     }
+
+    internal TimeSpan GetDelayAfterBatch(int processedCount) =>
+        processedCount >= _options.BatchSize ? TimeSpan.Zero : PollingDelay;
 }
 
 internal static partial class JobExecutionHostedProcessorLog

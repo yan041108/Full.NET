@@ -5,14 +5,41 @@ export function createAccessLogsController(root, options) {
   const request = options.request;
   const translation = options.translation;
   const directory = root.querySelector('[data-access-logs-directory]');
+  const loadMoreButton = root.querySelector('[data-access-logs-load-more]');
   let loading;
+  let items = [];
+  let nextCursor = null;
+  let hasMore = false;
 
   const load = async () => {
+    // 路由或会话刷新必须在当前追加结束后重新读取首批，避免旧追加覆盖新状态。
+    if (loading) await loading;
+    items = [];
+    nextCursor = null;
+    hasMore = false;
+    return await loadBatch(null, false);
+  };
+
+  const loadMore = async () => {
+    if (!hasMore || !nextCursor) return;
+    return await loadBatch(nextCursor, true);
+  };
+
+  const loadBatch = async (cursor, append) => {
     if (loading) return await loading;
-    loading = request('/api/v1/auditing/access-logs?page=1&pageSize=20')
+    const cursorQuery = cursor
+      ? `&cursor=${encodeURIComponent(cursor)}`
+      : '';
+    loading = request(`/api/v1/auditing/access-logs/cursor?limit=20${cursorQuery}`)
       .then(page => {
-        const items = Array.isArray(page?.items) ? page.items : [];
+        const batch = Array.isArray(page?.items) ? page.items : [];
+        items = append ? [...items, ...batch] : batch;
+        nextCursor = typeof page?.nextCursor === 'string'
+          ? page.nextCursor
+          : null;
+        hasMore = page?.hasMore === true && nextCursor !== null;
         renderDirectory(directory, items, translation());
+        updateLoadMoreButton(loadMoreButton, hasMore);
         hideProblem(root);
       })
       .catch(problem => {
@@ -22,10 +49,19 @@ export function createAccessLogsController(root, options) {
     return await loading;
   };
 
+  loadMoreButton?.addEventListener('click', loadMore);
+  updateLoadMoreButton(loadMoreButton, false);
+
   return {
     load,
-    dispose() {}
+    dispose() {
+      loadMoreButton?.removeEventListener('click', loadMore);
+    }
   };
+}
+
+function updateLoadMoreButton(button, hasMore) {
+  if (button) button.hidden = !hasMore;
 }
 
 function renderDirectory(container, items, translation) {

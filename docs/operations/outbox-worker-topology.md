@@ -33,6 +33,7 @@
 {
   "OutboxWorker": {
     "BatchSize": 20,
+    "MaxConcurrency": 1,
     "LeaseSeconds": 30,
     "PollMilliseconds": 1000,
     "BacklogSampleSeconds": 30,
@@ -46,6 +47,7 @@
 | 配置 | 默认值 | 有效范围 | 说明 |
 | --- | ---: | ---: | --- |
 | `BatchSize` | 20 | 1..200 | 每轮最多领取的消息数 |
+| `MaxConcurrency` | 1 | 1..16，且不超过 `BatchSize` | 单个 Worker 进程内同时处理的最大消息数；默认 1 保持串行 |
 | `LeaseSeconds` | 30 | 5..3600 | 单条消息租约持续时间；过期后允许其他 Worker 回收 |
 | `PollMilliseconds` | 1000 | 100..60000 | 空轮询等待时间 |
 | `BacklogSampleSeconds` | 30 | 5..3600 | 积压聚合查询与指标记录周期；采样失败不会阻断消息领取 |
@@ -54,7 +56,15 @@
 运维建议：
 
 - 先从默认值启动，不要同时大幅提高 `BatchSize` 和 `LeaseSeconds`。
+- `MaxConcurrency = 1` 保持单批按领取顺序串行处理；只有受控负载证据证明 Handler、
+  数据库和下游依赖仍有容量时，才从 2 或 4 开始逐级提高。
+- `MaxConcurrency > 1` 不保证消息全局完成顺序，只允许用于彼此独立且满足幂等要求的
+  Handler。若业务依赖聚合内顺序，必须保持 1，或先设计并验证显式顺序键。
+- 并发路径为每条消息创建独立 DI Scope、Handler 与数据库会话。连接池和下游并发预算
+  必须覆盖每个 Worker 的 `MaxConcurrency` 乘以副本数，禁止把并发上限直接等同于可用吞吐。
 - 处理器耗时明显高于 `LeaseSeconds` 时，应优先缩小批量、优化处理器或提升租约，而不是直接增加副本数。
+- 当前 Outbox 不续租；单条 Handler 可能超过 `LeaseSeconds` 时，提高并发不能解决租约
+  过期风险，必须先优化 Handler 或按最长受控耗时调整租约。
 - 若生产明确要求单副本运行，必须在部署清单中显式写死 `replicas: 1`，并记录“单副本故障期间 Outbox 会暂停消费”的风险。
 
 ## 4. 积压指标

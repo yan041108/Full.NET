@@ -81,6 +81,34 @@ describe('Layui 管理端应用', () => {
     app.dispose();
   });
 
+  it('运行库后加载时重新同步当前语言再启用组件增强', () => {
+    renderDynamicFixture();
+    const app = initializeAdminApp(document, {
+      session: createSessionStub(authorizedSnapshot()),
+      autoRestore: false
+    });
+    const calls = [];
+    vi.stubGlobal('layui', {
+      i18n: { set: ({ locale }) => calls.push(`locale:${locale}`) },
+      use: (_modules, callback) => {
+        calls.push('use');
+        callback();
+      },
+      element: { render: () => calls.push('element.render') },
+      form: { render: () => calls.push('form.render') }
+    });
+
+    app.enhanceLayui();
+
+    expect(calls).toEqual([
+      'locale:zh-CN',
+      'use',
+      'element.render',
+      'form.render'
+    ]);
+    app.dispose();
+  });
+
   it('通过安全 DOM API 呈现动态导航和租户上下文', () => {
     renderDynamicFixture();
     const snapshot = authorizedSnapshot();

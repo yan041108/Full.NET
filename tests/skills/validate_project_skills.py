@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_PATH = Path(__file__).with_name("fullnet-module-delivery.contract.json")
+CONTRACT_ROOT = Path(__file__).parent
 PLACEHOLDER_PATTERN = re.compile(
     r"\b(?:TB[D]|TO[DO]|FIXM[E])\b|implement\s+later|fill\s+in\s+details",
     re.IGNORECASE,
@@ -18,28 +18,30 @@ def read_utf8(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def main() -> int:
-    contract = json.loads(read_utf8(CONTRACT_PATH))
+def validate_contract(contract_path: Path) -> list[str]:
+    contract = json.loads(read_utf8(contract_path))
     skill_name = contract["skill"]
     skill_dir = ROOT / ".agents" / "skills" / skill_name
     errors: list[str] = []
 
     if not skill_dir.is_dir():
         relative = skill_dir.relative_to(ROOT).as_posix()
-        print(f"Missing skill directory: {relative}", file=sys.stderr)
-        return 1
+        return [f"Missing skill directory: {relative}"]
 
     skill_path = skill_dir / "SKILL.md"
     metadata_path = skill_dir / "agents" / "openai.yaml"
-    reference_path = skill_dir / "references" / "delivery-map.md"
+    reference_relative = contract.get(
+        "reference",
+        "references/delivery-map.md",
+    )
+    reference_path = skill_dir / reference_relative
 
     for path in (skill_path, metadata_path, reference_path):
         if not path.is_file():
             errors.append(f"Missing required file: {path.relative_to(ROOT).as_posix()}")
 
     if errors:
-        print("\n".join(errors), file=sys.stderr)
-        return 1
+        return errors
 
     skill_text = read_utf8(skill_path)
     metadata_text = read_utf8(metadata_path)
@@ -69,8 +71,8 @@ def main() -> int:
         errors.append(f"SKILL.md has {line_count} lines; maximum is {contract['max_lines']}.")
     if PLACEHOLDER_PATTERN.search(combined_text):
         errors.append("Skill content contains a placeholder marker.")
-    if "(references/delivery-map.md)" not in skill_text:
-        errors.append("SKILL.md must link directly to references/delivery-map.md.")
+    if f"({reference_relative})" not in skill_text:
+        errors.append(f"SKILL.md must link directly to {reference_relative}.")
     if f"${skill_name}" not in metadata_text:
         errors.append(f"agents/openai.yaml must mention ${skill_name} in default_prompt.")
 
@@ -81,17 +83,28 @@ def main() -> int:
         if term not in combined_text:
             errors.append(f"Missing contract term: {term}")
 
-    # 模块交付 Skill 必须把验证成本按风险分层，避免后续会话恢复为
-    # “任意局部改动都先跑 172 项 Integration”的低反馈效率路径。
-    for term in ("变更风险分层", "全量触发条件", "test:integration:full"):
+    # 每个 Skill 可声明自己的结构化门禁，避免把特定领域规则硬编码进通用校验器。
+    for term in contract.get("verification_terms", []):
         if term not in combined_text:
-            errors.append(f"Missing layered verification term: {term}")
+            errors.append(f"Missing verification term: {term}")
+
+    if not errors:
+        print(
+            f"PASS {skill_name}: "
+            f"{len(tuple(dict.fromkeys(required_terms)))} contract checks"
+        )
+    return errors
+
+
+def main() -> int:
+    contract_paths = sorted(CONTRACT_ROOT.glob("*.contract.json"))
+    errors: list[str] = []
+    for contract_path in contract_paths:
+        errors.extend(validate_contract(contract_path))
 
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-
-    print(f"PASS {skill_name}: {len(tuple(dict.fromkeys(required_terms)))} contract checks")
     return 0
 
 

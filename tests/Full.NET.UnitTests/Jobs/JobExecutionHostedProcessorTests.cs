@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Execution;
@@ -19,6 +20,7 @@ public sealed class JobExecutionHostedProcessorTests
         var runner = new JobExecutionRunner(
             queryExecutor,
             new UnexpectedCommandExecutor(),
+            new UnexpectedTransaction(),
             new JobHandlerRegistry([]),
             new FixedClock(
                 new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
@@ -49,6 +51,44 @@ public sealed class JobExecutionHostedProcessorTests
         Assert.AreEqual(
             TimeSpan.FromMilliseconds(options.PollMilliseconds),
             processor.PollingDelay);
+    }
+
+    [TestMethod]
+    public void GetDelayAfterBatch_OnlyWaitsWhenBatchIsNotFull()
+    {
+        var queryExecutor = new BatchSizeRecordingQueryExecutor();
+        var runner = new JobExecutionRunner(
+            queryExecutor,
+            new UnexpectedCommandExecutor(),
+            new UnexpectedTransaction(),
+            new JobHandlerRegistry([]),
+            new FixedClock(
+                new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
+            new FixedIdGenerator(Guid.CreateVersion7()),
+            Options.Create(
+                new DatabaseOptions
+                {
+                    Provider = DatabaseProvider.SqlServer,
+                }),
+            Options.Create(new JobsWorkerOptions()),
+            NullLogger<JobExecutionRunner>.Instance);
+        var services = new ServiceCollection();
+        services.AddScoped(_ => runner);
+        using var provider = services.BuildServiceProvider();
+        var options = new JobsWorkerOptions
+        {
+            BatchSize = 7,
+            PollMilliseconds = 250,
+        };
+        var processor = new JobExecutionHostedProcessor(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(options),
+            NullLogger<JobExecutionHostedProcessor>.Instance);
+
+        Assert.AreEqual(TimeSpan.Zero, processor.GetDelayAfterBatch(7));
+        Assert.AreEqual(
+            TimeSpan.FromMilliseconds(250),
+            processor.GetDelayAfterBatch(6));
     }
 
     private sealed class BatchSizeRecordingQueryExecutor : IQueryExecutor
@@ -91,6 +131,15 @@ public sealed class JobExecutionHostedProcessorTests
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
                 $"Unexpected command statement '{statement.Name}'.");
+    }
+
+    private sealed class UnexpectedTransaction : ICommandTransaction
+    {
+        public Task<T> ExecuteAsync<T>(
+            Func<CancellationToken, Task<T>> action,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(
+                "SQL Server acquisition must not start a command transaction.");
     }
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock

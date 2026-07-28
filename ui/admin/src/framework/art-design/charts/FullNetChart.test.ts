@@ -75,4 +75,32 @@ describe('echarts 模块化入口', () => {
     expect(source).toContain("from 'echarts/core'");
     expect(source).not.toMatch(/from 'echarts'/);
   });
+
+  it('只注册当前折线图需要的图表和组件', () => {
+    const filePath = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      'echarts.ts'
+    );
+    const source = readFileSync(filePath, 'utf8');
+    const chartImports = source.match(
+      /import\s*\{(?<names>[^}]+)\}\s*from 'echarts\/charts'/
+    );
+    const componentImports = source.match(
+      /import\s*\{(?<names>[^}]+)\}\s*from 'echarts\/components'/
+    );
+
+    expect(importedNames(chartImports?.groups?.names)).toEqual(['LineChart']);
+    expect(importedNames(componentImports?.groups?.names)).toEqual([
+      'GridComponent',
+      'TooltipComponent'
+    ]);
+  });
 });
+
+function importedNames(source: string | undefined): string[] {
+  return (source ?? '')
+    .split(',')
+    .map(name => name.trim())
+    .filter(Boolean)
+    .sort();
+}

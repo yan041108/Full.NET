@@ -43,6 +43,9 @@ jobs:
       - name: Verify project skills contract
         run: pnpm test:skills
 
+      - name: Verify performance governance
+        run: pnpm test:performance-governance
+
       - name: Verify naming governance
         run: pnpm test:naming
 
@@ -72,6 +75,9 @@ jobs:
 
       - name: Build client packages
         run: pnpm build:clients
+
+      - name: Verify frontend bundle budgets
+        run: pnpm test:bundle-budgets
 
       - name: Install Playwright Chromium
         run: pnpm --filter @fullnet/uniapp-h5-e2e exec playwright install --with-deps chromium
@@ -214,7 +220,7 @@ jobs:
           dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
           --no-ansi
           --progress off
-          --minimum-expected-tests 416
+          --minimum-expected-tests 454
 
       - name: Compatibility tests
         run: >-

@@ -9,6 +9,7 @@ namespace Full.NET.Modules.Auditing.Features.QueryHostExceptionLogs;
 /// <summary>Host 异常日志分页列表与详情只读查询。</summary>
 internal sealed class HostExceptionLogQueryService(
     IQueryExecutor queryExecutor,
+    IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
     private const string SafeExceptionMessage = "Unhandled application exception.";
@@ -26,24 +27,19 @@ internal sealed class HostExceptionLogQueryService(
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var filter = BuildFilter(fromUtc, toUtc, exceptionTypeContains, pathContains);
-        var (countStatement, listStatement) = databaseOptions.Value.Provider switch
+        var pageStatement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => (
-                ExceptionLogSql.CountFilteredSqlServer,
-                ExceptionLogSql.ListFilteredSqlServer),
-            DatabaseProvider.MySql => (
-                ExceptionLogSql.CountFilteredMySql,
-                ExceptionLogSql.ListFilteredMySql),
+            DatabaseProvider.SqlServer => ExceptionLogSql.CreatePageFilteredSqlServer(
+                filter.FromUtc is not null,
+                filter.ToUtc is not null,
+                filter.ExceptionTypeContains is not null,
+                filter.PathContains is not null),
+            DatabaseProvider.MySql => ExceptionLogSql.PageFilteredMySql,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
-        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                countStatement,
-                filter,
-                cancellationToken)
-            .ConfigureAwait(false);
-        var rows = await queryExecutor.QueryAsync<ExceptionLogRecord>(
-                listStatement,
+        var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
+                pageStatement,
                 new
                 {
                     filter.FromUtc,
@@ -53,14 +49,22 @@ internal sealed class HostExceptionLogQueryService(
                     Offset = offset,
                     PageSize = pageSize,
                 },
+                async (reader, _) =>
+                {
+                    var total = await reader.ReadSingleOrDefaultAsync<long>()
+                        .ConfigureAwait(false);
+                    var rows = await reader.ReadAsync<ExceptionLogRecord>()
+                        .ConfigureAwait(false);
+                    return (Total: total, Rows: rows);
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<PagedResult<ExceptionLogResponse>>.Success(
             new PagedResult<ExceptionLogResponse>(
-                rows.Select(Map).ToArray(),
+                pageResult.Rows.Select(Map).ToArray(),
                 page,
                 pageSize,
-                total));
+                pageResult.Total));
     }
 
     public async Task<Result<ExceptionLogResponse>> GetByIdAsync(

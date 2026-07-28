@@ -215,6 +215,27 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
+    public void GetDelayAfterBatch_OnlyWaitsWhenBatchIsNotFull()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            BatchSize = 7,
+            PollMilliseconds = 250,
+        };
+        var store = CreateStore();
+        using var provider = CreateProvider(store);
+        var processor = CreateProcessor(
+            provider,
+            new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero),
+            options);
+
+        Assert.AreEqual(TimeSpan.Zero, processor.GetDelayAfterBatch(7));
+        Assert.AreEqual(
+            TimeSpan.FromMilliseconds(250),
+            processor.GetDelayAfterBatch(6));
+    }
+
+    [TestMethod]
     public async Task ProcessOnceAsync_RecordsPendingCountAndOldestMessageAge()
     {
         var now = new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero);
@@ -300,20 +321,36 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
-    public void OutboxWorkerOptionsValidator_RejectsUnsafeBacklogSampleInterval()
+    public void OutboxWorkerOptionsValidator_RejectsUnsafeBounds()
     {
         var options = new OutboxWorkerOptions
         {
             BacklogSampleSeconds = 4,
+            BatchSize = 2,
+            MaxConcurrency = 3,
         };
         var validator = new OutboxWorkerOptionsValidator();
 
         var result = validator.Validate(Options.DefaultName, options);
 
+        Assert.AreEqual(1, new OutboxWorkerOptions().MaxConcurrency);
         Assert.IsFalse(result.Succeeded);
         CollectionAssert.Contains(
             (result.Failures ?? []).ToArray(),
             "OutboxWorker:BacklogSampleSeconds must be between 5 and 3600.");
+        CollectionAssert.Contains(
+            (result.Failures ?? []).ToArray(),
+            "OutboxWorker:MaxConcurrency must not exceed BatchSize.");
+
+        var invalidRange = validator.Validate(
+            Options.DefaultName,
+            new OutboxWorkerOptions
+            {
+                MaxConcurrency = 17,
+            });
+        CollectionAssert.Contains(
+            (invalidRange.Failures ?? []).ToArray(),
+            "OutboxWorker:MaxConcurrency must be between 1 and 16.");
     }
 
     private static OutboxProcessor CreateProcessor(

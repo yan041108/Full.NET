@@ -1,5 +1,6 @@
 extern alias workerhost;
 
+using System.Data;
 using System.Data.Common;
 using Dapper;
 using Full.NET.Abstractions.Ids;
@@ -61,7 +62,15 @@ public sealed class OutboxRecoveryTests
     [TestMethod]
     public async Task SqlServer_outbox_lease_prevents_duplicate_success_and_recovers_after_expiry()
     {
+        var connectionString =
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         await VerifyLeaseRecoveryAsync(
+            DatabaseProvider.SqlServer,
+            connectionString);
+        await VerifyTerminalUpdateDoesNotBlockAcquireAsync(
+            DatabaseProvider.SqlServer,
+            connectionString);
+        await VerifyBoundedConcurrencyUsesIndependentScopesAsync(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
@@ -69,7 +78,15 @@ public sealed class OutboxRecoveryTests
     [TestMethod]
     public async Task MySql_outbox_lease_prevents_duplicate_success_and_recovers_after_expiry()
     {
+        var connectionString =
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         await VerifyLeaseRecoveryAsync(
+            DatabaseProvider.MySql,
+            connectionString);
+        await VerifyTerminalUpdateDoesNotBlockAcquireAsync(
+            DatabaseProvider.MySql,
+            connectionString);
+        await VerifyBoundedConcurrencyUsesIndependentScopesAsync(
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
@@ -260,6 +277,167 @@ public sealed class OutboxRecoveryTests
             await ReadAttemptsAsync(databaseProvider, connectionString));
     }
 
+    private static async Task VerifyTerminalUpdateDoesNotBlockAcquireAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero));
+        var configuration = CreateConfiguration(
+            databaseProvider,
+            connectionString);
+        await using var services = BuildServices(configuration, clock);
+        await InsertOutboxAsync(
+            services,
+            UnknownVersionHandler.EventTypeValue,
+            1,
+            new TestIntegrationEvent("terminal-lock"));
+
+        OutboxEnvelope leased;
+        await using (var leaseScope = services.CreateAsyncScope())
+        {
+            leaseScope.ServiceProvider
+                .GetRequiredService<CurrentTenantAccessor>()
+                .SetHost();
+            var store = leaseScope.ServiceProvider
+                .GetRequiredService<IOutboxStore>();
+            var rows = await store.AcquireAsync(
+                1,
+                TimeSpan.FromSeconds(30),
+                CancellationToken.None);
+            Assert.HasCount(1, rows);
+            leased = rows[0];
+        }
+
+        clock.UtcNow = clock.UtcNow.AddSeconds(31);
+        await using var terminalConnection = CreateConnection(
+            databaseProvider,
+            connectionString);
+        await terminalConnection.OpenAsync();
+        await using var terminalTransaction = await terminalConnection
+            .BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        var databaseNow = databaseProvider == DatabaseProvider.MySql
+            ? (object)clock.UtcNow.UtcDateTime
+            : clock.UtcNow;
+        var affectedRows = await terminalConnection.ExecuteAsync(
+            """
+            UPDATE fn_outbox_message
+            SET ProcessedAtUtc = @Now,
+                NextAttemptAtUtc = NULL,
+                LockId = NULL,
+                LockedUntilUtc = NULL,
+                Error = NULL,
+                DeadLetteredAtUtc = NULL,
+                DeadLetterReasonCode = NULL
+            WHERE Id = @Id
+              AND LockId = @LockId
+              AND ProcessedAtUtc IS NULL
+              AND DeadLetteredAtUtc IS NULL
+            """,
+            new
+            {
+                leased.Id,
+                leased.LockId,
+                Now = databaseNow,
+            },
+            terminalTransaction);
+        Assert.AreEqual(1, affectedRows);
+
+        try
+        {
+            await using var acquireScope = services.CreateAsyncScope();
+            acquireScope.ServiceProvider
+                .GetRequiredService<CurrentTenantAccessor>()
+                .SetHost();
+            var store = acquireScope.ServiceProvider
+                .GetRequiredService<IOutboxStore>();
+            using var timeout = new CancellationTokenSource(
+                TimeSpan.FromSeconds(3));
+
+            // 终态事务持锁时，其他 Worker 必须跳过该行，禁止等待到命令超时或依赖重试恢复。
+            var rows = await store.AcquireAsync(
+                1,
+                TimeSpan.FromSeconds(30),
+                timeout.Token);
+
+            Assert.AreEqual(0, rows.Count);
+        }
+        finally
+        {
+            await terminalTransaction.RollbackAsync(CancellationToken.None);
+        }
+    }
+
+    private static async Task VerifyBoundedConcurrencyUsesIndependentScopesAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        const int messageCount = 4;
+        const int maxConcurrency = 2;
+        var clock = new MutableClock(
+            new DateTimeOffset(2026, 7, 28, 2, 0, 0, TimeSpan.Zero));
+        var configuration = CreateConfiguration(
+            databaseProvider,
+            connectionString);
+        await MigrateAsync(databaseProvider, connectionString);
+        var probe = new OutboxConcurrencyProbe(maxConcurrency);
+        await using var services = BuildServices(
+            configuration,
+            clock,
+            serviceCollection =>
+            {
+                serviceCollection.AddSingleton(probe);
+                serviceCollection.AddScoped<
+                    IIntegrationEventHandler,
+                    CoordinatedConcurrencyHandler>();
+            });
+        for (var index = 0; index < messageCount; index++)
+        {
+            await InsertOutboxAsync(
+                services,
+                CoordinatedConcurrencyHandler.EventTypeValue,
+                1,
+                new TestIntegrationEvent($"concurrent-{index}"));
+        }
+
+        var processor = CreateProcessor(
+            services,
+            clock,
+            new WorkerHost.OutboxWorkerOptions
+            {
+                BatchSize = messageCount,
+                MaxConcurrency = maxConcurrency,
+                LeaseSeconds = 30,
+                PollMilliseconds = 1000,
+                MaxAttempts = 3,
+            });
+        var processingTask = processor.ProcessOnceAsync(CancellationToken.None);
+        await probe.ConcurrencyReached.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(maxConcurrency, probe.PeakConcurrency);
+        probe.Release();
+
+        var processed = await processingTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.AreEqual(messageCount, processed);
+        Assert.AreEqual(messageCount, probe.HandlerInstanceCount);
+        Assert.AreEqual(messageCount, probe.HandledCount);
+        Assert.AreEqual(
+            messageCount,
+            await CountOutboxAsync(
+                databaseProvider,
+                connectionString,
+                """
+                MessageType = @MessageType
+                AND ProcessedAtUtc IS NOT NULL
+                AND DeadLetteredAtUtc IS NULL
+                """,
+                new
+                {
+                    MessageType =
+                        CoordinatedConcurrencyHandler.EventTypeValue,
+                }));
+    }
+
     private static async Task VerifyBacklogSnapshotAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
@@ -428,10 +606,11 @@ public sealed class OutboxRecoveryTests
 
     private static WorkerHost.OutboxProcessor CreateProcessor(
         ServiceProvider services,
-        MutableClock clock) => new(
+        MutableClock clock,
+        WorkerHost.OutboxWorkerOptions? options = null) => new(
         services.GetRequiredService<IServiceScopeFactory>(),
         clock,
-        Options.Create(new WorkerHost.OutboxWorkerOptions
+        Options.Create(options ?? new WorkerHost.OutboxWorkerOptions
         {
             BatchSize = 20,
             LeaseSeconds = 30,
@@ -457,6 +636,13 @@ public sealed class OutboxRecoveryTests
     private static ServiceProvider BuildServices(
         IConfiguration configuration,
         MutableClock clock,
+        params IIntegrationEventHandler[] handlers) =>
+        BuildServices(configuration, clock, _ => { }, handlers);
+
+    private static ServiceProvider BuildServices(
+        IConfiguration configuration,
+        MutableClock clock,
+        Action<IServiceCollection> configureServices,
         params IIntegrationEventHandler[] handlers)
     {
         var services = new ServiceCollection();
@@ -472,6 +658,7 @@ public sealed class OutboxRecoveryTests
         {
             services.AddSingleton<IIntegrationEventHandler>(handler);
         }
+        configureServices(services);
 
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
@@ -648,6 +835,99 @@ public sealed class OutboxRecoveryTests
             ReadOnlyMemory<byte> payload,
             CancellationToken cancellationToken) =>
             Task.CompletedTask;
+    }
+
+    private sealed class CoordinatedConcurrencyHandler : IIntegrationEventHandler
+    {
+        public const string EventTypeValue =
+            "fullnet.tests.messaging.bounded_concurrency";
+
+        private readonly OutboxConcurrencyProbe _probe;
+
+        public CoordinatedConcurrencyHandler(OutboxConcurrencyProbe probe)
+        {
+            _probe = probe;
+            _probe.RegisterHandlerInstance();
+        }
+
+        public string EventType => EventTypeValue;
+
+        public int SchemaVersion => 1;
+
+        public async Task HandleAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            _probe.Enter();
+            try
+            {
+                await _probe.WaitForReleaseAsync(cancellationToken);
+                _probe.RecordHandled();
+            }
+            finally
+            {
+                _probe.Exit();
+            }
+        }
+    }
+
+    private sealed class OutboxConcurrencyProbe(int expectedConcurrency)
+    {
+        private readonly TaskCompletionSource _concurrencyReached =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _activeCount;
+        private int _handledCount;
+        private int _handlerInstanceCount;
+        private int _peakConcurrency;
+
+        public Task ConcurrencyReached => _concurrencyReached.Task;
+
+        public int HandledCount => Volatile.Read(ref _handledCount);
+
+        public int HandlerInstanceCount =>
+            Volatile.Read(ref _handlerInstanceCount);
+
+        public int PeakConcurrency => Volatile.Read(ref _peakConcurrency);
+
+        public void Enter()
+        {
+            var activeCount = Interlocked.Increment(ref _activeCount);
+            UpdatePeak(activeCount);
+            if (activeCount >= expectedConcurrency)
+            {
+                _concurrencyReached.TrySetResult();
+            }
+        }
+
+        public void Exit() => Interlocked.Decrement(ref _activeCount);
+
+        public void RecordHandled() => Interlocked.Increment(ref _handledCount);
+
+        public void RegisterHandlerInstance() =>
+            Interlocked.Increment(ref _handlerInstanceCount);
+
+        public void Release() => _release.TrySetResult();
+
+        public Task WaitForReleaseAsync(CancellationToken cancellationToken) =>
+            _release.Task.WaitAsync(cancellationToken);
+
+        private void UpdatePeak(int activeCount)
+        {
+            while (true)
+            {
+                var peak = Volatile.Read(ref _peakConcurrency);
+                if (activeCount <= peak
+                    || Interlocked.CompareExchange(
+                        ref _peakConcurrency,
+                        activeCount,
+                        peak) == peak)
+                {
+                    return;
+                }
+            }
+        }
     }
 
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock

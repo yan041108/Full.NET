@@ -1,27 +1,53 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { ElCard, ElTag } from 'element-plus';
+import { ElButton, ElCard, ElTag } from 'element-plus';
 import type {
   AuditingAccessLog,
   FullNetProblemDetails
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listAuditingAccessLogs } from '../api/access-logs';
+import { listAuditingAccessLogsByCursor } from '../api/access-logs';
 
 const { t } = useAdminI18n();
 const items = ref<AuditingAccessLog[]>([]);
 const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const nextCursor = ref<string | null>(null);
+const hasMore = ref(false);
 
 onMounted(load);
 
 async function load(): Promise<void> {
+  items.value = [];
+  nextCursor.value = null;
+  hasMore.value = false;
+  await loadBatch();
+}
+
+async function loadMore(): Promise<void> {
+  if (!hasMore.value || nextCursor.value === null) {
+    return;
+  }
+  await loadBatch(nextCursor.value, true);
+}
+
+async function loadBatch(
+  cursor?: string | null,
+  append = false
+): Promise<void> {
+  if (loading.value) {
+    return;
+  }
   loading.value = true;
   problem.value = undefined;
   try {
-    const page = await listAuditingAccessLogs();
-    items.value = page.items;
+    const page = cursor === undefined
+      ? await listAuditingAccessLogsByCursor()
+      : await listAuditingAccessLogsByCursor(cursor);
+    items.value = append ? [...items.value, ...page.items] : page.items;
+    nextCursor.value = page.nextCursor;
+    hasMore.value = page.hasMore;
   } catch (error: unknown) {
     problem.value = toProblem(error);
   } finally {
@@ -69,6 +95,15 @@ function toProblem(error: unknown): FullNetProblemDetails {
           {{ item.isAuthenticated ? t('accessLogs.authenticated') : t('accessLogs.anonymous') }}
         </el-tag>
       </article>
+      <div v-if="hasMore" class="art-table-card__footer">
+        <el-button
+          data-testid="access-logs-load-more"
+          :loading="loading"
+          @click="loadMore"
+        >
+          {{ t('accessLogs.loadMore') }}
+        </el-button>
+      </div>
     </el-card>
   </section>
 </template>

@@ -4,12 +4,9 @@
  * 禁止从完整 `echarts` 包副作用导入。
  */
 import { init, use, type ECharts, type EChartsCoreOption } from 'echarts/core';
-import { BarChart, LineChart, PieChart } from 'echarts/charts';
+import { LineChart } from 'echarts/charts';
 import {
-  DatasetComponent,
   GridComponent,
-  LegendComponent,
-  TitleComponent,
   TooltipComponent
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
@@ -24,13 +21,8 @@ function ensureRegistered(): void {
 
   use([
     LineChart,
-    BarChart,
-    PieChart,
-    TitleComponent,
     TooltipComponent,
     GridComponent,
-    LegendComponent,
-    DatasetComponent,
     CanvasRenderer
   ]);
   registered = true;

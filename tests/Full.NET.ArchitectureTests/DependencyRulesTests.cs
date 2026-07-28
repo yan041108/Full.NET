@@ -385,6 +385,7 @@ public sealed class DependencyRulesTests
 
         var approvedConsumers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            Path.Combine("benchmarks", "Full.NET.Benchmarks", "Full.NET.Benchmarks.csproj"),
             Path.Combine("src", "BuildingBlocks", "Full.NET.Data.Dapper", "Full.NET.Data.Dapper.csproj"),
             Path.Combine("src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "Full.NET.Migrations.DbUp.csproj"),
             Path.Combine("src", "BuildingBlocks", "Full.NET.Seeding.Dapper", "Full.NET.Seeding.Dapper.csproj"),
@@ -561,12 +562,19 @@ public sealed class DependencyRulesTests
         var root = FindRepositoryRoot();
         const string migratorProject =
             "src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj";
+        const string benchmarkProject =
+            "benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj";
         var migrationConsumers = FindDirectMigrationConsumers(root);
         var unapprovedProductionConsumers = migrationConsumers
             .Where(path => !path.StartsWith("tests/", StringComparison.OrdinalIgnoreCase))
             .Where(path => !string.Equals(
                 path,
                 migratorProject,
+                StringComparison.OrdinalIgnoreCase))
+            // 基准工具在隔离容器中复用正式迁移，不能因此把迁移能力带入任何运行时 Host。
+            .Where(path => !string.Equals(
+                path,
+                benchmarkProject,
                 StringComparison.OrdinalIgnoreCase))
             .ToArray();
 

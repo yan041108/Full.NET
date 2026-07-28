@@ -43,6 +43,35 @@ internal static class Endpoint
         .Produces<PagedResult<AccessLogResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(AccessLogPermissions.Read));
 
+        group.MapGet("/cursor", async (
+            int? limit,
+            string? cursor,
+            DateTimeOffset? fromUtc,
+            DateTimeOffset? toUtc,
+            string? httpMethod,
+            int? statusCode,
+            string? pathContains,
+            HostAccessLogQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ListCursorAsync(
+                    limit ?? 20,
+                    cursor,
+                    fromUtc,
+                    toUtc,
+                    httpMethod,
+                    statusCode,
+                    pathContains,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<AccessLogCursorPageResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .RequireAuthorization(FullNetPermissionPolicies.For(AccessLogPermissions.Read));
+
         group.MapGet("/{accessLogId:guid}", async (
             Guid accessLogId,
             HostAccessLogQueryService queries,

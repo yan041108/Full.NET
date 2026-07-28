@@ -28,6 +28,8 @@ public sealed class GlobalSqlStatementCatalogTests
     private static readonly string[] AllowedRuntimeCloneMethods =
     [
         "Full.NET.Modules.Organization.Persistence.TenantScopedSqlComposer.ApplyDataScopeFilter",
+        "Full.NET.Modules.Auditing.Persistence.AuditingSqlServerPageStatementBuilder.CreateVariants",
+        "Full.NET.Modules.Auditing.Persistence.AuditingSqlServerPageStatementBuilder.CreateListVariants",
     ];
 
     private static readonly JsonSerializerOptions JsonOptions = new()

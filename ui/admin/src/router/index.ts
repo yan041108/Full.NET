@@ -7,32 +7,9 @@ import type { Pinia } from 'pinia';
 import { useSessionStore } from '../auth/session';
 import { flattenNavigation } from '../navigation/catalog';
 import OverviewView from '../views/OverviewView.vue';
-import StatusView from '../views/StatusView.vue';
-import TenantContextView from '../views/TenantContextView.vue';
-import SuperAdministratorsView from '../views/SuperAdministratorsView.vue';
-import TenantsView from '../views/TenantsView.vue';
-import TenantPackagesView from '../views/TenantPackagesView.vue';
-import UsersView from '../views/UsersView.vue';
-import OnlineSessionsView from '../views/OnlineSessionsView.vue';
-import ApiKeysView from '../views/ApiKeysView.vue';
-import RolesView from '../views/RolesView.vue';
-import MenusView from '../views/MenusView.vue';
-import OrgUnitsView from '../views/OrgUnitsView.vue';
-import OrgUserUnitsView from '../views/OrgUserUnitsView.vue';
-import OrgPositionsView from '../views/OrgPositionsView.vue';
-import OrgUserPositionsView from '../views/OrgUserPositionsView.vue';
-import DictTypesView from '../views/DictTypesView.vue';
-import ConfigEntriesView from '../views/ConfigEntriesView.vue';
-import EnumCatalogsView from '../views/EnumCatalogsView.vue';
-import HostFilesView from '../views/HostFilesView.vue';
-import HostAnnouncementsView from '../views/HostAnnouncementsView.vue';
-import InboxMessagesView from '../views/InboxMessagesView.vue';
-import HostJobsView from '../views/HostJobsView.vue';
-import AccessLogsView from '../views/AccessLogsView.vue';
-import OperationLogsView from '../views/OperationLogsView.vue';
-import ExceptionLogsView from '../views/ExceptionLogsView.vue';
 
 const statusPaths = new Set(['/403', '/404', '/500']);
+const loadStatusView = () => import('../views/StatusView.vue');
 
 export function createAppRouter(
   history: RouterHistory = createWebHashHistory(),
@@ -45,121 +22,121 @@ export function createAppRouter(
       {
         name: 'tenant-context',
         path: '/tenant-context',
-        component: TenantContextView
+        component: () => import('../views/TenantContextView.vue')
       },
       {
         name: 'tenant-management',
         path: '/tenants',
-        component: TenantsView
+        component: () => import('../views/TenantsView.vue')
       },
       {
         name: 'tenant-packages',
         path: '/tenant-packages',
-        component: TenantPackagesView
+        component: () => import('../views/TenantPackagesView.vue')
       },
       {
         name: 'users',
         path: '/identity/users',
-        component: UsersView
+        component: () => import('../views/UsersView.vue')
       },
       {
         name: 'online-sessions',
         path: '/identity/online-sessions',
-        component: OnlineSessionsView
+        component: () => import('../views/OnlineSessionsView.vue')
       },
       {
         name: 'api-keys',
         path: '/identity/api-keys',
-        component: ApiKeysView
+        component: () => import('../views/ApiKeysView.vue')
       },
       {
         name: 'roles',
         path: '/identity/roles',
-        component: RolesView
+        component: () => import('../views/RolesView.vue')
       },
       {
         name: 'menus',
         path: '/identity/menus',
-        component: MenusView
+        component: () => import('../views/MenusView.vue')
       },
       {
         name: 'org-units',
         path: '/organization/units',
-        component: OrgUnitsView
+        component: () => import('../views/OrgUnitsView.vue')
       },
       {
         name: 'org-user-units',
         path: '/organization/user-units',
-        component: OrgUserUnitsView
+        component: () => import('../views/OrgUserUnitsView.vue')
       },
       {
         name: 'org-positions',
         path: '/organization/positions',
-        component: OrgPositionsView
+        component: () => import('../views/OrgPositionsView.vue')
       },
       {
         name: 'org-user-positions',
         path: '/organization/user-positions',
-        component: OrgUserPositionsView
+        component: () => import('../views/OrgUserPositionsView.vue')
       },
       {
         name: 'super-administrators',
         path: '/identity/super-administrators',
-        component: SuperAdministratorsView
+        component: () => import('../views/SuperAdministratorsView.vue')
       },
       {
         name: 'dict-types',
         path: '/settings/dict-types',
-        component: DictTypesView
+        component: () => import('../views/DictTypesView.vue')
       },
       {
         name: 'config-entries',
         path: '/settings/config-entries',
-        component: ConfigEntriesView
+        component: () => import('../views/ConfigEntriesView.vue')
       },
       {
         name: 'enum-catalogs',
         path: '/settings/enum-catalogs',
-        component: EnumCatalogsView
+        component: () => import('../views/EnumCatalogsView.vue')
       },
       {
         name: 'host-files',
         path: '/files/host-files',
-        component: HostFilesView
+        component: () => import('../views/HostFilesView.vue')
       },
       {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
-        component: HostAnnouncementsView
+        component: () => import('../views/HostAnnouncementsView.vue')
       },
       {
         name: 'inbox-messages',
         path: '/notifications/inbox-messages',
-        component: InboxMessagesView
+        component: () => import('../views/InboxMessagesView.vue')
       },
       {
         name: 'host-jobs',
         path: '/jobs/host-definitions',
-        component: HostJobsView
+        component: () => import('../views/HostJobsView.vue')
       },
       {
         name: 'access-logs',
         path: '/auditing/access-logs',
-        component: AccessLogsView
+        component: () => import('../views/AccessLogsView.vue')
       },
       {
         name: 'operation-logs',
         path: '/auditing/operation-logs',
-        component: OperationLogsView
+        component: () => import('../views/OperationLogsView.vue')
       },
       {
         name: 'exception-logs',
         path: '/auditing/exception-logs',
-        component: ExceptionLogsView
+        component: () => import('../views/ExceptionLogsView.vue')
       },
-      { path: '/403', component: StatusView, props: { code: '403' } },
-      { path: '/404', component: StatusView, props: { code: '404' } },
-      { path: '/500', component: StatusView, props: { code: '500' } },
+      { path: '/403', component: loadStatusView, props: { code: '403' } },
+      { path: '/404', component: loadStatusView, props: { code: '404' } },
+      { path: '/500', component: loadStatusView, props: { code: '500' } },
       { path: '/:pathMatch(.*)*', redirect: '/404' }
     ]
   });

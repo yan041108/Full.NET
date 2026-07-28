@@ -323,11 +323,13 @@ export type {
 
 export {
   isAuditingAccessLog,
+  isAuditingAccessLogCursorPage,
   isAuditingAccessLogPage
 } from './auditing-access-logs.js';
 
 export type {
   AuditingAccessLog,
+  AuditingAccessLogCursorPage,
   AuditingAccessLogPage
 } from './auditing-access-logs.js';
 

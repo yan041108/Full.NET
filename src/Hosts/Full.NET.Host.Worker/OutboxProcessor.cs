@@ -20,9 +20,11 @@ internal sealed class OutboxProcessor(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var processedCount = 0;
             try
             {
-                await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
+                processedCount = await ProcessOnceAsync(stoppingToken)
+                    .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -33,52 +35,79 @@ internal sealed class OutboxProcessor(
                 OutboxProcessorLog.BatchFailed(logger, exception);
             }
 
-            await Task.Delay(
-                    TimeSpan.FromMilliseconds(_options.PollMilliseconds),
-                    stoppingToken)
-                .ConfigureAwait(false);
-        }
-    }
-
-    internal async Task ProcessOnceAsync(CancellationToken cancellationToken)
-    {
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var services = scope.ServiceProvider;
-        var currentTenant = services.GetRequiredService<CurrentTenantAccessor>();
-        currentTenant.SetHost();
-        try
-        {
-            var store = services.GetRequiredService<IOutboxStore>();
-            var backlogReader =
-                services.GetRequiredService<IOutboxBacklogReader>();
-            var handlers = services
-                .GetServices<IIntegrationEventHandler>()
-                .ToArray();
-            await RecordBacklogAsync(backlogReader, cancellationToken)
-                .ConfigureAwait(false);
-            var messages = await store
-                .AcquireAsync(
-                    _options.BatchSize,
-                    TimeSpan.FromSeconds(_options.LeaseSeconds),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            OutboxProcessorLog.MessagesLeased(logger, messages.Count);
-
-            foreach (var message in messages)
+            var delay = GetDelayAfterBatch(processedCount);
+            if (delay > TimeSpan.Zero)
             {
-                await ProcessMessageAsync(
-                        message,
-                        handlers,
-                        store,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
             }
         }
-        finally
-        {
-            currentTenant.Clear();
-        }
     }
+
+    internal async Task<int> ProcessOnceAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<OutboxEnvelope> messages;
+        await using (var scope = scopeFactory.CreateAsyncScope())
+        {
+            var services = scope.ServiceProvider;
+            var currentTenant =
+                services.GetRequiredService<CurrentTenantAccessor>();
+            currentTenant.SetHost();
+            try
+            {
+                var store = services.GetRequiredService<IOutboxStore>();
+                var backlogReader =
+                    services.GetRequiredService<IOutboxBacklogReader>();
+                await RecordBacklogAsync(backlogReader, cancellationToken)
+                    .ConfigureAwait(false);
+                messages = await store
+                    .AcquireAsync(
+                        _options.BatchSize,
+                        TimeSpan.FromSeconds(_options.LeaseSeconds),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                OutboxProcessorLog.MessagesLeased(logger, messages.Count);
+
+                if (_options.MaxConcurrency == 1)
+                {
+                    var handlers = services
+                        .GetServices<IIntegrationEventHandler>()
+                        .ToArray();
+                    foreach (var message in messages)
+                    {
+                        await ProcessMessageAsync(
+                                message,
+                                handlers,
+                                store,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    return messages.Count;
+                }
+            }
+            finally
+            {
+                currentTenant.Clear();
+            }
+        }
+
+        // 并发路径在领取事务提交并释放批次 Scope 后启动，每条消息独占 Scoped Handler 与数据库会话。
+        await Parallel.ForEachAsync(
+                messages,
+                new ParallelOptions
+                {
+                    CancellationToken = cancellationToken,
+                    MaxDegreeOfParallelism = _options.MaxConcurrency,
+                },
+                ProcessMessageInScopeAsync)
+            .ConfigureAwait(false);
+        return messages.Count;
+    }
+
+    internal TimeSpan GetDelayAfterBatch(int processedCount) =>
+        processedCount >= _options.BatchSize
+            ? TimeSpan.Zero
+            : TimeSpan.FromMilliseconds(_options.PollMilliseconds);
 
     private async Task RecordBacklogAsync(
         IOutboxBacklogReader backlogReader,
@@ -211,6 +240,34 @@ internal sealed class OutboxProcessor(
                 message.SchemaVersion,
                 message.Attempts,
                 retryAt);
+        }
+    }
+
+    private async ValueTask ProcessMessageInScopeAsync(
+        OutboxEnvelope message,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var currentTenant =
+            services.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var handlers = services
+                .GetServices<IIntegrationEventHandler>()
+                .ToArray();
+            var store = services.GetRequiredService<IOutboxStore>();
+            await ProcessMessageAsync(
+                    message,
+                    handlers,
+                    store,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            currentTenant.Clear();
         }
     }
 

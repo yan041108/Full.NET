@@ -13,6 +13,10 @@ const contractsSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Auditing/Contracts/AccessLogContracts.cs'
 );
+const errorCodesSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Auditing/Contracts/AuditingErrorCodes.cs'
+);
 const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Auditing/Features/QueryHostAccessLogs/Endpoint.cs'
@@ -47,9 +51,12 @@ test('Host 访问日志 OpenAPI 夹具结构完整且路径唯一', async () => 
 test('Host 访问日志 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   const contract = await loadContract();
   const contractsSource = await readFile(contractsSourcePath, 'utf8');
+  const errorCodesSource = await readFile(errorCodesSourcePath, 'utf8');
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
 
   assert.match(contractsSource, /record AccessLogResponse/u);
+  assert.match(contractsSource, /record AccessLogCursorPageResponse/u);
+  assert.match(errorCodesSource, /AccessLogCursorInvalid/u);
   assert.match(contractsSource, /auditing\.access\.read/u);
   assert.match(
     endpointSource,
@@ -59,6 +66,9 @@ test('Host 访问日志 OpenAPI 夹具与 C# 契约和端点源码一致', async
   const relativeRoutes = new Map([
     ['/api/v1/auditing/access-logs', new Map([
       ['GET', 'MapGet("/",']
+    ])],
+    ['/api/v1/auditing/access-logs/cursor', new Map([
+      ['GET', 'MapGet("/cursor",']
     ])],
     ['/api/v1/auditing/access-logs/{accessLogId}', new Map([
       ['GET', 'MapGet("/{accessLogId:guid}",']

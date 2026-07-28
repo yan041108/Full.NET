@@ -1,0 +1,81 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using Full.NET.Data.Abstractions;
+
+namespace Full.NET.Data.Dapper;
+
+internal enum DapperOperation
+{
+    QuerySingle,
+    Query,
+    Execute,
+    QueryMultiple,
+}
+
+internal static class DapperTelemetry
+{
+    internal const string MeterName = "fullnet.data.dapper";
+
+    private static readonly Meter Meter = new(MeterName);
+    private static readonly Counter<long> Executions = Meter.CreateCounter<long>(
+        "fullnet.data.sql.executions",
+        unit: "{execution}",
+        description: "已完成的参数化 SQL 执行次数。");
+    private static readonly Counter<long> Failures = Meter.CreateCounter<long>(
+        "fullnet.data.sql.failures",
+        unit: "{failure}",
+        description: "失败或取消的参数化 SQL 执行次数。");
+    private static readonly Histogram<double> Duration = Meter.CreateHistogram<double>(
+        "fullnet.data.sql.duration",
+        unit: "ms",
+        description: "参数化 SQL 执行与结果读取或写入的总耗时。");
+
+    internal static void Record(
+        string statementName,
+        DatabaseProvider provider,
+        DapperOperation operation,
+        TimeSpan elapsed,
+        Exception? exception)
+    {
+        var tags = new TagList
+        {
+            { "statement_name", statementName },
+            { "provider", GetProviderName(provider) },
+            { "operation", GetOperationName(operation) },
+            { "outcome", GetOutcome(exception) },
+        };
+
+        Executions.Add(1, tags);
+        Duration.Record(elapsed.TotalMilliseconds, tags);
+        if (exception is not null)
+        {
+            Failures.Add(1, tags);
+        }
+    }
+
+    private static string GetProviderName(DatabaseProvider provider) =>
+        provider switch
+        {
+            DatabaseProvider.SqlServer => "sql_server",
+            DatabaseProvider.MySql => "my_sql",
+            _ => "unknown",
+        };
+
+    private static string GetOperationName(DapperOperation operation) =>
+        operation switch
+        {
+            DapperOperation.QuerySingle => "query_single",
+            DapperOperation.Query => "query",
+            DapperOperation.Execute => "execute",
+            DapperOperation.QueryMultiple => "query_multiple",
+            _ => "unknown",
+        };
+
+    private static string GetOutcome(Exception? exception) =>
+        exception switch
+        {
+            null => "success",
+            OperationCanceledException => "canceled",
+            _ => "failure",
+        };
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isAuditingAccessLog,
+  isAuditingAccessLogCursorPage,
   isAuditingAccessLogPage
 } from '../src/auditing-access-logs';
 import { createAdminNavigationCatalog } from '../src/navigation-catalog';
@@ -37,6 +38,24 @@ describe('Auditing 访问日志契约', () => {
       page: 1,
       pageSize: 20,
       total: 1
+    })).toBe(false);
+  });
+
+  it('接受游标页并拒绝不一致的后续状态', () => {
+    expect(isAuditingAccessLogCursorPage({
+      items: [sampleLog],
+      nextCursor: 'AQID',
+      hasMore: true
+    })).toBe(true);
+    expect(isAuditingAccessLogCursorPage({
+      items: [sampleLog],
+      nextCursor: null,
+      hasMore: true
+    })).toBe(false);
+    expect(isAuditingAccessLogCursorPage({
+      items: [sampleLog],
+      nextCursor: 'AQID',
+      hasMore: false
     })).toBe(false);
   });
 

@@ -9,6 +9,7 @@ namespace Full.NET.Modules.Auditing.Features.QueryHostOperationLogs;
 /// <summary>Host 操作日志分页列表与详情只读查询。</summary>
 internal sealed class HostOperationLogQueryService(
     IQueryExecutor queryExecutor,
+    IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<OperationLogResponse>>> ListAsync(
@@ -25,24 +26,20 @@ internal sealed class HostOperationLogQueryService(
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var filter = BuildFilter(fromUtc, toUtc, httpMethod, succeeded, pathContains);
-        var (countStatement, listStatement) = databaseOptions.Value.Provider switch
+        var pageStatement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => (
-                OperationLogSql.CountFilteredSqlServer,
-                OperationLogSql.ListFilteredSqlServer),
-            DatabaseProvider.MySql => (
-                OperationLogSql.CountFilteredMySql,
-                OperationLogSql.ListFilteredMySql),
+            DatabaseProvider.SqlServer => OperationLogSql.CreatePageFilteredSqlServer(
+                filter.FromUtc is not null,
+                filter.ToUtc is not null,
+                filter.HttpMethod is not null,
+                filter.Succeeded is not null,
+                filter.PathContains is not null),
+            DatabaseProvider.MySql => OperationLogSql.PageFilteredMySql,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
-        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                countStatement,
-                filter,
-                cancellationToken)
-            .ConfigureAwait(false);
-        var rows = await queryExecutor.QueryAsync<OperationLogRecord>(
-                listStatement,
+        var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
+                pageStatement,
                 new
                 {
                     filter.FromUtc,
@@ -53,14 +50,22 @@ internal sealed class HostOperationLogQueryService(
                     Offset = offset,
                     PageSize = pageSize,
                 },
+                async (reader, _) =>
+                {
+                    var total = await reader.ReadSingleOrDefaultAsync<long>()
+                        .ConfigureAwait(false);
+                    var rows = await reader.ReadAsync<OperationLogRecord>()
+                        .ConfigureAwait(false);
+                    return (Total: total, Rows: rows);
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<PagedResult<OperationLogResponse>>.Success(
             new PagedResult<OperationLogResponse>(
-                rows.Select(Map).ToArray(),
+                pageResult.Rows.Select(Map).ToArray(),
                 page,
                 pageSize,
-                total));
+                pageResult.Total));
     }
 
     public async Task<Result<OperationLogResponse>> GetByIdAsync(

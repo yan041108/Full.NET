@@ -9,6 +9,7 @@ namespace Full.NET.Modules.Auditing.Features.QueryHostAccessLogs;
 /// <summary>Host 访问日志分页列表与详情只读查询。</summary>
 internal sealed class HostAccessLogQueryService(
     IQueryExecutor queryExecutor,
+    IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<AccessLogResponse>>> ListAsync(
@@ -25,24 +26,20 @@ internal sealed class HostAccessLogQueryService(
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var filter = BuildFilter(fromUtc, toUtc, httpMethod, statusCode, pathContains);
-        var (countStatement, listStatement) = databaseOptions.Value.Provider switch
+        var pageStatement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => (
-                AccessLogSql.CountFilteredSqlServer,
-                AccessLogSql.ListFilteredSqlServer),
-            DatabaseProvider.MySql => (
-                AccessLogSql.CountFilteredMySql,
-                AccessLogSql.ListFilteredMySql),
+            DatabaseProvider.SqlServer => AccessLogSql.CreatePageFilteredSqlServer(
+                filter.FromUtc is not null,
+                filter.ToUtc is not null,
+                filter.HttpMethod is not null,
+                filter.StatusCode is not null,
+                filter.PathContains is not null),
+            DatabaseProvider.MySql => AccessLogSql.PageFilteredMySql,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
-        var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                countStatement,
-                filter,
-                cancellationToken)
-            .ConfigureAwait(false);
-        var rows = await queryExecutor.QueryAsync<AccessLogRecord>(
-                listStatement,
+        var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
+                pageStatement,
                 new
                 {
                     filter.FromUtc,
@@ -53,11 +50,98 @@ internal sealed class HostAccessLogQueryService(
                     Offset = offset,
                     PageSize = pageSize,
                 },
+                async (reader, _) =>
+                {
+                    var total = await reader.ReadSingleOrDefaultAsync<long>()
+                        .ConfigureAwait(false);
+                    var rows = await reader.ReadAsync<AccessLogRecord>()
+                        .ConfigureAwait(false);
+                    return (Total: total, Rows: rows);
+                },
                 cancellationToken)
             .ConfigureAwait(false);
-        var items = rows.Select(Map).ToArray();
+        var items = pageResult.Rows.Select(Map).ToArray();
         return Result<PagedResult<AccessLogResponse>>.Success(
-            new PagedResult<AccessLogResponse>(items, page, pageSize, total));
+            new PagedResult<AccessLogResponse>(
+                items,
+                page,
+                pageSize,
+                pageResult.Total));
+    }
+
+    public async Task<Result<AccessLogCursorPageResponse>> ListCursorAsync(
+        int limit,
+        string? cursor,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        string? httpMethod,
+        int? statusCode,
+        string? pathContains,
+        CancellationToken cancellationToken = default)
+    {
+        limit = Math.Clamp(limit, 1, 100);
+        var filter = BuildFilter(
+            fromUtc,
+            toUtc,
+            httpMethod,
+            statusCode,
+            pathContains);
+        AccessLogCursorBoundary? boundary = null;
+        if (cursor is not null)
+        {
+            if (!AccessLogCursorCodec.TryDecode(cursor, filter, out var decoded))
+            {
+                return Result<AccessLogCursorPageResponse>.Failure(new Error(
+                    AuditingErrorCodes.AccessLogCursorInvalid,
+                    "The access log cursor is invalid or does not match the current filter.",
+                    ErrorType.Validation));
+            }
+
+            boundary = decoded;
+        }
+
+        var statement = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => AccessLogSql.CreateCursorListSqlServer(
+                boundary is not null,
+                filter.FromUtc is not null,
+                filter.ToUtc is not null,
+                filter.HttpMethod is not null,
+                filter.StatusCode is not null,
+                filter.PathContains is not null),
+            DatabaseProvider.MySql => boundary is null
+                ? AccessLogSql.CursorListFirstMySql
+                : AccessLogSql.CursorListAfterMySql,
+            _ => throw new InvalidOperationException(
+                "The configured database provider is not supported."),
+        };
+        var rows = await queryExecutor.QueryAsync<AccessLogRecord>(
+                statement,
+                new
+                {
+                    filter.FromUtc,
+                    filter.ToUtc,
+                    filter.HttpMethod,
+                    filter.StatusCode,
+                    filter.PathContains,
+                    CursorOccurredAtUtc = boundary?.OccurredAtUtc,
+                    CursorId = boundary?.Id,
+                    FetchSize = limit + 1,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        var hasMore = rows.Count > limit;
+        var selectedRows = rows.Take(limit).ToArray();
+        var items = selectedRows.Select(Map).ToArray();
+        var nextCursor = hasMore
+            ? AccessLogCursorCodec.Encode(
+                new AccessLogCursorBoundary(
+                    selectedRows[^1].OccurredAtUtc,
+                    selectedRows[^1].Id),
+                filter)
+            : null;
+        return Result<AccessLogCursorPageResponse>.Success(
+            new AccessLogCursorPageResponse(items, nextCursor, hasMore));
     }
 
     public async Task<Result<AccessLogResponse>> GetByIdAsync(
@@ -80,7 +164,7 @@ internal sealed class HostAccessLogQueryService(
         return Result<AccessLogResponse>.Success(Map(record));
     }
 
-    private static AccessLogFilter BuildFilter(
+    private static AccessLogCursorFilter BuildFilter(
         DateTimeOffset? fromUtc,
         DateTimeOffset? toUtc,
         string? httpMethod,
@@ -105,20 +189,13 @@ internal sealed class HostAccessLogQueryService(
             }
         }
 
-        return new AccessLogFilter(
+        return new AccessLogCursorFilter(
             fromUtc,
             toUtc,
             normalizedMethod,
             statusCode,
             pathFragment);
     }
-
-    private sealed record AccessLogFilter(
-        DateTimeOffset? FromUtc,
-        DateTimeOffset? ToUtc,
-        string? HttpMethod,
-        int? StatusCode,
-        string? PathContains);
 
     internal static AccessLogResponse Map(AccessLogRecord record) =>
         new(

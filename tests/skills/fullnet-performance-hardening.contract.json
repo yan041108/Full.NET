@@ -1,0 +1,84 @@
+{
+  "skill": "fullnet-performance-hardening",
+  "max_lines": 260,
+  "reference": "references/performance-map.md",
+  "verification_terms": [
+    "P50",
+    "P95",
+    "P99",
+    "SQL Server",
+    "MySQL",
+    "cursor-ab",
+    "有序 ID",
+    "精确总数",
+    "git diff --check"
+  ],
+  "required_terms": [
+    "AGENTS.md",
+    "rules/performance-engineering.md",
+    "StatementName",
+    "OpenTelemetry",
+    "Dapper",
+    "Outbox",
+    "FusionCache",
+    "BenchmarkDotNet",
+    "执行计划",
+    "包体",
+    "停止条件"
+  ],
+  "scenarios": [
+    {
+      "name": "请求链数据库往返",
+      "prompt": "分析认证接口的 P99，并减少每请求数据库往返。",
+      "required_terms": [
+        "往返",
+        "撤销时效",
+        "fail-closed",
+        "基线"
+      ]
+    },
+    {
+      "name": "审计热路径",
+      "prompt": "把同步审计写入改成异步以降低接口延迟。",
+      "required_terms": [
+        "可靠性",
+        "有界",
+        "背压",
+        "Outbox"
+      ]
+    },
+    {
+      "name": "大表分页",
+      "prompt": "优化审计列表的 COUNT、OFFSET 和 contains 搜索。",
+      "required_terms": [
+        "QueryMultiple",
+        "游标分页",
+        "时间范围",
+        "索引"
+      ]
+    },
+    {
+      "name": "后台积压",
+      "prompt": "Outbox 或 Jobs 在积压时吞吐不足。",
+      "required_terms": [
+        "满批次",
+        "租约",
+        "有界并发",
+        "锁顺序",
+        "SKIP LOCKED",
+        "最老消息年龄"
+      ]
+    },
+    {
+      "name": "前端首包",
+      "prompt": "Vue 或 Layui 管理端首包超过预算。",
+      "required_terms": [
+        "动态导入",
+        "延迟 chunk",
+        "gzip",
+        "Brotli",
+        "CI"
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Host.Worker;
 
 /// <summary>
-/// 定义 Outbox Worker 的批大小、租约、轮询、指标采样与最大尝试边界。
+/// 定义 Outbox Worker 的批大小、有界并发、租约、轮询、指标采样与最大尝试边界。
 /// </summary>
 /// <remarks>
 /// 默认拓扑依赖数据库租约支持多副本安全消费；只有在真实压力证据证明不足时，才允许继续讨论额外选主机制。
@@ -15,6 +15,9 @@ public sealed class OutboxWorkerOptions
 
     /// <summary>获取或设置每轮最多领取的消息数量。</summary>
     public int BatchSize { get; set; } = 20;
+
+    /// <summary>获取或设置单个 Worker 进程内同时处理的最大消息数量。</summary>
+    public int MaxConcurrency { get; set; } = 1;
 
     /// <summary>获取或设置租约秒数；到期后其他 Worker 可回收卡住的消息。</summary>
     public int LeaseSeconds { get; set; } = 30;
@@ -37,6 +40,18 @@ internal sealed class OutboxWorkerOptionsValidator : IValidateOptions<OutboxWork
         if (options.BatchSize is < 1 or > 200)
         {
             failures.Add("OutboxWorker:BatchSize must be between 1 and 200.");
+        }
+
+        if (options.MaxConcurrency is < 1 or > 16)
+        {
+            failures.Add(
+                "OutboxWorker:MaxConcurrency must be between 1 and 16.");
+        }
+
+        if (options.MaxConcurrency > options.BatchSize)
+        {
+            failures.Add(
+                "OutboxWorker:MaxConcurrency must not exceed BatchSize.");
         }
 
         if (options.LeaseSeconds is < 5 or > 3600)

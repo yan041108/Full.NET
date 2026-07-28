@@ -724,6 +724,10 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 
 建立单行查询、分页、批量写入、权限检查、租户解析、Token、System.Text.Json 源生成、MessagePack、gRPC 契约、日志热路径和 Outbox 的可重复 Benchmark。发布门禁比较相对退化，不承诺脱离环境的固定 QPS。序列化基准必须使用 Full.NET 的真实分页、树形权限、租户和事件 DTO，不能只引用第三方项目的微基准结论。
 
+性能变更必须记录场景、数据规模、并发、预热、时长、运行环境、Provider、基线提交、吞吐、错误率、P50/P95/P99 与受影响资源指标。请求链优先减少数据库和网络往返；Dapper 仅按稳定 Statement 名称暴露低基数指标。认证撤销、租户隔离、Audit/Outbox 可靠性和双库兼容是性能优化的硬停止条件，不能用缓存、fire-and-forget 或单库执行计划换取表面吞吐。
+
+轮询 Worker 在取得满批次时应立即继续领取，未满批次才进入 Poll 等待；并发必须有租约、顺序键、作用域和连接池预算。管理端以路由动态导入和依赖按需加载控制首包，发布验证同时记录 minified、gzip 与可用时的 Brotli，并以相对基线退化作为门禁。详细执行规则见 [`rules/performance-engineering.md`](../../../rules/performance-engineering.md)，重复工作流使用项目 Skill `$fullnet-performance-hardening`。
+
 ## 21. 运行与部署
 
 四个宿主职责：

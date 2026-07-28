@@ -21,11 +21,12 @@ internal sealed class DapperSqlExecutor(
         object? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        var command = await CreateCommandAsync(
+        var command = CreateCommand(
             statement,
             parameters,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
         var stopwatch = Stopwatch.StartNew();
+        Exception? exception = null;
 
         try
         {
@@ -34,9 +35,18 @@ internal sealed class DapperSqlExecutor(
                 .ConfigureAwait(false);
             return await connection.QuerySingleOrDefaultAsync<T>(command).ConfigureAwait(false);
         }
+        catch (Exception caught)
+        {
+            exception = caught;
+            throw;
+        }
         finally
         {
-            LogExecution(statement, stopwatch);
+            LogExecution(
+                statement,
+                DapperOperation.QuerySingle,
+                stopwatch,
+                exception);
         }
     }
 
@@ -45,11 +55,12 @@ internal sealed class DapperSqlExecutor(
         object? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        var command = await CreateCommandAsync(
+        var command = CreateCommand(
             statement,
             parameters,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
         var stopwatch = Stopwatch.StartNew();
+        Exception? exception = null;
 
         try
         {
@@ -59,9 +70,14 @@ internal sealed class DapperSqlExecutor(
             var rows = await connection.QueryAsync<T>(command).ConfigureAwait(false);
             return rows.AsList();
         }
+        catch (Exception caught)
+        {
+            exception = caught;
+            throw;
+        }
         finally
         {
-            LogExecution(statement, stopwatch);
+            LogExecution(statement, DapperOperation.Query, stopwatch, exception);
         }
     }
 
@@ -70,11 +86,12 @@ internal sealed class DapperSqlExecutor(
         object? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        var command = await CreateCommandAsync(
+        var command = CreateCommand(
             statement,
             parameters,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
         var stopwatch = Stopwatch.StartNew();
+        Exception? exception = null;
 
         try
         {
@@ -83,9 +100,14 @@ internal sealed class DapperSqlExecutor(
                 .ConfigureAwait(false);
             return await connection.ExecuteAsync(command).ConfigureAwait(false);
         }
+        catch (Exception caught)
+        {
+            exception = caught;
+            throw;
+        }
         finally
         {
-            LogExecution(statement, stopwatch);
+            LogExecution(statement, DapperOperation.Execute, stopwatch, exception);
         }
     }
 
@@ -96,11 +118,12 @@ internal sealed class DapperSqlExecutor(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(projector);
-        var command = await CreateCommandAsync(
+        var command = CreateCommand(
             statement,
             parameters,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
         var stopwatch = Stopwatch.StartNew();
+        Exception? exception = null;
 
         try
         {
@@ -120,13 +143,22 @@ internal sealed class DapperSqlExecutor(
 
             return result;
         }
+        catch (Exception caught)
+        {
+            exception = caught;
+            throw;
+        }
         finally
         {
-            LogExecution(statement, stopwatch);
+            LogExecution(
+                statement,
+                DapperOperation.QueryMultiple,
+                stopwatch,
+                exception);
         }
     }
 
-    private Task<CommandDefinition> CreateCommandAsync(
+    private CommandDefinition CreateCommand(
         SqlStatement statement,
         object? values,
         CancellationToken cancellationToken)
@@ -139,17 +171,27 @@ internal sealed class DapperSqlExecutor(
             parameters.Add("TenantId", currentTenant.Id!.Value);
         }
 
-        return Task.FromResult(new CommandDefinition(
+        return new CommandDefinition(
             statement.Text,
             parameters,
             session.Transaction,
             _options.CommandTimeoutSeconds,
-            cancellationToken: cancellationToken));
+            cancellationToken: cancellationToken);
     }
 
-    private void LogExecution(SqlStatement statement, Stopwatch stopwatch)
+    private void LogExecution(
+        SqlStatement statement,
+        DapperOperation operation,
+        Stopwatch stopwatch,
+        Exception? exception)
     {
         stopwatch.Stop();
+        DapperTelemetry.Record(
+            statement.Name,
+            _options.Provider,
+            operation,
+            stopwatch.Elapsed,
+            exception);
         DapperLog.StatementExecuted(
             logger,
             statement.Name,

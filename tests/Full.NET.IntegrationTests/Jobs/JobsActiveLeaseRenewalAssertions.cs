@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -130,6 +131,7 @@ internal static class JobsActiveLeaseRenewalAssertions
         new(
             services.GetRequiredService<IQueryExecutor>(),
             services.GetRequiredService<ICommandExecutor>(),
+            services.GetRequiredService<ICommandTransaction>(),
             registry,
             services.GetRequiredService<IClock>(),
             services.GetRequiredService<IIdGenerator>(),

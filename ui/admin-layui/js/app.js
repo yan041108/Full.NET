@@ -18,32 +18,14 @@ import { createShellTabsController } from './core/shell-tabs.js';
 import { applyShellChrome } from './core/shell-chrome.js';
 import { applyShellSettingsToDocument, readShellSettings } from './core/shell-art-settings.js';
 import { bindShellSettings } from './core/shell-settings.js';
-import { createSuperAdministratorController } from './core/super-administrators.js';
-import { createTenantsController } from './core/tenants.js';
-import { createTenantPackagesController } from './core/tenant-packages.js';
-import { createDictTypesController } from './core/dict-types.js';
-import { createConfigEntriesController } from './core/config-entries.js';
-import { createEnumCatalogsController } from './core/enum-catalogs.js';
-import { createHostFilesController } from './core/host-files.js';
-import { createHostAnnouncementsController } from './core/host-announcements.js';
-import { createInboxMessagesController } from './core/inbox-messages.js';
-import { createHostJobsController } from './core/host-jobs.js';
-import { createOverviewDashboardController } from './core/overview-dashboard.js';
-import { createAccessLogsController } from './core/access-logs.js';
-import { createOnlineSessionsController } from './core/online-sessions.js';
-import { createApiKeysController } from './core/api-keys.js';
-import { createOperationLogsController } from './core/operation-logs.js';
-import { createExceptionLogsController } from './core/exception-logs.js';
-import { createUsersController } from './core/users.js';
-import { createRolesController } from './core/roles.js';
-import { createMenusController } from './core/menus.js';
-import { createOrgUnitsController } from './core/org-units.js';
-import { createOrgUserUnitsController } from './core/org-user-units.js';
-import { createOrgUserPositionsController } from './core/org-user-positions.js';
-import { createOrgPositionsController } from './core/org-positions.js';
+import {
+  createLayuiRouteControllerDefinitions,
+  createRouteControllerRegistry
+} from './core/route-controllers.js';
 
 const hostContextValue = '__fullnet_host__';
 const knownLocalPaths = new Set(['/', '/tenant-context', '/tenants', '/tenant-packages', '/identity/users', '/identity/online-sessions', '/identity/api-keys', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/organization/positions', '/identity/super-administrators', '/settings/dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/files/host-files', '/notifications/host-announcements', '/notifications/inbox-messages', '/jobs/host-definitions', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs']);
+const sessionReloadRoutes = new Set(['/identity/super-administrators', '/tenants', '/tenant-packages', '/settings/dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/organization/positions', '/organization/user-units', '/organization/user-positions']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -89,100 +71,16 @@ export function initializeAdminApp(root = document, options = {}) {
   let isLoggingIn = false;
   let isSwitchingContext = false;
   let componentLocaleGeneration = 0;
-  const superAdministrators = createSuperAdministratorController(root, {
-    request,
-    translation: () => translation
-  });
-  const tenants = createTenantsController(root, {
-    request,
-    translation: () => translation
-  });
-  const tenantPackages = createTenantPackagesController(root, {
-    request,
-    translation: () => translation
-  });
-  const dictTypes = createDictTypesController(root, {
-    request,
-    translation: () => translation
-  });
-  const configEntries = createConfigEntriesController(root, {
-    request,
-    translation: () => translation
-  });
-  const enumCatalogs = createEnumCatalogsController(root, {
-    request,
-    translation: () => translation
-  });
-  const hostFiles = createHostFilesController(root, {
-    request,
-    translation: () => translation
-  });
-  const hostAnnouncements = createHostAnnouncementsController(root, {
-    request,
-    translation: () => translation
-  });
-  const inboxMessages = createInboxMessagesController(root, {
-    request,
-    translation: () => translation
-  });
-  const hostJobs = createHostJobsController(root, {
-    request,
-    translation: () => translation
-  });
-  const overviewDashboard = createOverviewDashboardController(root, {
-    request,
-    translation: () => translation
-  });
-  const accessLogs = createAccessLogsController(root, {
-    request,
-    translation: () => translation
-  });
-  const operationLogs = createOperationLogsController(root, {
-    request,
-    translation: () => translation
-  });
-  const exceptionLogs = createExceptionLogsController(root, {
-    request,
-    translation: () => translation
-  });
-  const onlineSessions = createOnlineSessionsController(root, {
-    request,
-    translation: () => translation
-  });
-  const apiKeys = createApiKeysController(root, {
-    request,
-    translation: () => translation,
-    canWrite: () => latestSnapshot.currentUser?.permissions
-      ?.includes('identity.api_keys.write') === true
-  });
-  const users = createUsersController(root, {
-    request,
-    translation: () => translation
-  });
-  const roles = createRolesController(root, {
-    request,
-    translation: () => translation,
-    getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null
-  });
-  const menus = createMenusController(root, {
-    request,
-    translation: () => translation
-  });
-  const orgUnits = createOrgUnitsController(root, {
-    request,
-    translation: () => translation
-  });
-  const orgUserUnits = createOrgUserUnitsController(root, {
-    request,
-    translation: () => translation
-  });
-  const orgUserPositions = createOrgUserPositionsController(root, {
-    request,
-    translation: () => translation
-  });
-  const orgPositions = createOrgPositionsController(root, {
-    request,
-    translation: () => translation
+  const routeControllers = createRouteControllerRegistry({
+    definitions: createLayuiRouteControllerDefinitions(root, {
+      request,
+      translation: () => translation,
+      canWrite: () => latestSnapshot.currentUser?.permissions
+        ?.includes('identity.api_keys.write') === true,
+      getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null
+    }),
+    isActive: route => latestSnapshot.state === 'authenticated'
+      && currentRoute() === route
   });
   const shellTabs = createShellTabsController(root, {
     getActivePath: () => currentRoute(),
@@ -215,76 +113,10 @@ export function initializeAdminApp(root = document, options = {}) {
       return;
     }
 
-    const route = currentRoute();
-    if (route === '/' || route === '') {
-      void overviewDashboard.load();
-    }
-    if (route === '/identity/super-administrators') {
-      void superAdministrators.load();
-    }
-    if (route === '/tenants') {
-      void tenants.load();
-    }
-    if (route === '/tenant-packages') {
-      void tenantPackages.load();
-    }
-    if (route === '/settings/dict-types') {
-      void dictTypes.load();
-    }
-    if (route === '/settings/config-entries') {
-      void configEntries.load();
-    }
-    if (route === '/settings/enum-catalogs') {
-      void enumCatalogs.load();
-    }
-    if (route === '/files/host-files') {
-      void hostFiles.load();
-    }
-    if (route === '/notifications/host-announcements') {
-      void hostAnnouncements.load();
-    }
-    if (route === '/notifications/inbox-messages') {
-      void inboxMessages.load();
-    }
-    if (route === '/jobs/host-definitions') {
-      void hostJobs.load();
-    }
-    if (route === '/auditing/access-logs') {
-      void accessLogs.load();
-    }
-    if (route === '/auditing/operation-logs') {
-      void operationLogs.load();
-    }
-    if (route === '/auditing/exception-logs') {
-      void exceptionLogs.load();
-    }
-    if (route === '/identity/online-sessions') {
-      void onlineSessions.load();
-    }
-    if (route === '/identity/api-keys') {
-      void apiKeys.load();
-    }
-    if (route === '/identity/users') {
-      void users.load();
-    }
-    if (route === '/identity/roles') {
-      void roles.load();
-    }
-    if (route === '/identity/menus') {
-      void menus.load();
-    }
-    if (route === '/organization/units') {
-      void orgUnits.load();
-    }
-    if (route === '/organization/positions') {
-      void orgPositions.load();
-    }
-    if (route === '/organization/user-units') {
-      void orgUserUnits.load();
-    }
-    if (route === '/organization/user-positions') {
-      void orgUserPositions.load();
-    }
+    void routeControllers.load(currentRoute()).catch((error) => {
+      console.error('Layui route controller failed to load.', error);
+      globalThis.layui?.layer?.msg?.(translation.t('overview.clientFailure'), { icon: 2 });
+    });
   };
   const shellTopbar = bindShellTopbar(root, {
     getSettings: () => shellLayout.getSettings(),
@@ -314,13 +146,13 @@ export function initializeAdminApp(root = document, options = {}) {
         onInboxChanged: () => {
           if (latestSnapshot.state === 'authenticated'
             && currentRoute() === '/notifications/inbox-messages') {
-            void inboxMessages.load();
+            loadActiveRouteData();
           }
         },
         onAnnouncementChanged: () => {
           if (latestSnapshot.state === 'authenticated'
             && currentRoute() === '/notifications/host-announcements') {
-            void hostAnnouncements.load();
+            loadActiveRouteData();
           }
         }
       })
@@ -485,73 +317,11 @@ export function initializeAdminApp(root = document, options = {}) {
     latestSnapshot = normalizeSnapshot(snapshot);
     renderSession(root, latestSnapshot, translation, shellLayout, shellSettings, shellTabs, shellTopbar, shellGlobalSearch, shellNotifications, shellChat);
     if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/identity/super-administrators') {
-      void superAdministrators.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/tenants') {
-      void tenants.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/tenant-packages') {
-      void tenantPackages.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/settings/dict-types') {
-      void dictTypes.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/settings/config-entries') {
-      void configEntries.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/settings/enum-catalogs') {
-      void enumCatalogs.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/auditing/access-logs') {
-      void accessLogs.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/auditing/operation-logs') {
-      void operationLogs.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/auditing/exception-logs') {
-      void exceptionLogs.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/identity/users') {
-      void users.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/identity/roles') {
-      void roles.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/identity/menus') {
-      void menus.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/organization/units') {
-      void orgUnits.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/organization/positions') {
-      void orgPositions.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/organization/user-units') {
-      void orgUserUnits.load();
-    }
-    if (latestSnapshot.state === 'authenticated'
-      && currentRoute() === '/organization/user-positions') {
-      void orgUserPositions.load();
+      && sessionReloadRoutes.has(currentRoute())) {
+      loadActiveRouteData();
     }
   });
-  const unsubscribeI18n = i18n.subscribe((snapshot) => {
-    translation = snapshot;
-    // 组件消息必须先更新，随后业务绑定和组件 render 才能读取同一语言。
+  const synchronizeLayuiLocale = () => {
     applyLayuiLocale(globalThis.layui, translation.locale);
     const componentLocaleOperation = ++componentLocaleGeneration;
     renderComponentLocaleFixture(
@@ -559,6 +329,21 @@ export function initializeAdminApp(root = document, options = {}) {
       translation.locale,
       () => componentLocaleOperation === componentLocaleGeneration
     );
+  };
+  const renderLayuiComponents = () => {
+    globalThis.layui?.use?.(['element', 'form', 'layer'], () => {
+      globalThis.layui.element?.render?.();
+      globalThis.layui.form?.render?.();
+    });
+  };
+  const enhanceLayui = () => {
+    synchronizeLayuiLocale();
+    renderLayuiComponents();
+  };
+  const unsubscribeI18n = i18n.subscribe((snapshot) => {
+    translation = snapshot;
+    // 组件消息必须先更新，随后业务绑定和组件 render 才能读取同一语言。
+    synchronizeLayuiLocale();
     i18n.applyBindings(root);
     if (isLoggingIn) {
       setText(
@@ -588,13 +373,11 @@ export function initializeAdminApp(root = document, options = {}) {
     : Promise.resolve();
 
   // Layui 只负责渐进增强；核心路由、权限与错误反馈在其全局对象缺失时仍可工作。
-  globalThis.layui?.use?.(['element', 'form', 'layer'], () => {
-    globalThis.layui.element?.render?.();
-    globalThis.layui.form?.render?.();
-  });
+  renderLayuiComponents();
 
   return {
     ready,
+    enhanceLayui,
     dispose() {
       window.removeEventListener('hashchange', onRouteChange);
       probeButton?.removeEventListener('click', onProbe);
@@ -606,24 +389,7 @@ export function initializeAdminApp(root = document, options = {}) {
         selector.removeEventListener('change', onLocaleChange);
       });
       tenantDirectory?.removeEventListener('click', onTenantAction);
-      superAdministrators.dispose();
-      tenants.dispose();
-      tenantPackages.dispose();
-      dictTypes.dispose();
-      configEntries.dispose();
-      enumCatalogs.dispose();
-      accessLogs.dispose();
-      operationLogs.dispose();
-      exceptionLogs.dispose();
-      onlineSessions.dispose();
-      apiKeys.dispose();
-      users.dispose();
-      roles.dispose();
-      menus.dispose();
-      orgUnits.dispose();
-      orgPositions.dispose();
-      orgUserUnits.dispose();
-      orgUserPositions.dispose();
+      routeControllers.dispose();
       shellSettings.dispose();
       shellTopbar.dispose();
       shellGlobalSearch.dispose();

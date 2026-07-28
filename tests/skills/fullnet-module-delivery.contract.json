@@ -1,6 +1,12 @@
 {
   "skill": "fullnet-module-delivery",
   "max_lines": 500,
+  "reference": "references/delivery-map.md",
+  "verification_terms": [
+    "变更风险分层",
+    "全量触发条件",
+    "test:integration:full"
+  ],
   "required_terms": [
     "AGENTS.md",
     "Dapper",
