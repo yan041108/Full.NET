@@ -248,7 +248,7 @@ V2 的 c=32 场景 P95/P99 显示 JWT 读链可能最热：SQL Server 为
 ```powershell
 dotnet build Full.NET.slnx -c Release --no-restore
 dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll `
-  --no-ansi --progress off --minimum-expected-tests 474
+  --no-ansi --progress off --minimum-expected-tests 475
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll `
   --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll `
@@ -261,7 +261,7 @@ git diff --check
 | 门禁 | 结果 |
 | --- | --- |
 | Release build | 0 warning、0 error |
-| Unit / Compatibility / Architecture | 474/474、7/7、49/49；失败 0、跳过 0 |
+| Unit / Compatibility / Architecture | 当前 475/475、7/7、49/49；失败 0、跳过 0 |
 | Project Skills | `fullnet-module-delivery` 52 项、`fullnet-performance-hardening` 33 项通过 |
 | Governance / Naming / Performance governance | 11/11、23/23、3/3 通过 |
 | 双库正式矩阵 | V3 共 778,263 请求；8/8 证据与预算 PASS，非预期错误 0、Dapper 失败 0 |

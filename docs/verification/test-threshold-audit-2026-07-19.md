@@ -1186,6 +1186,16 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | RED / GREEN | `MixedLoad` 类型与命名空间缺失时基准和契约测试编译失败；检查点与响应体消费 API 缺失时新增测试编译失败；实现后聚焦 **13/13** |
 | 行为边界 | 只新增隔离 benchmark、测试和文档；不修改生产 API、数据库结构、认证语义、Audit 可靠性或 Outbox Worker 默认并发 |
 | 双库短矩阵 | SQL Server/MySQL 各一档冒烟通过；完整消费响应体，连接池/Dapper/数据库证据完整，原始 NDJSON 存在，证据门禁退出码 0 |
-| 四处 canonical 门槛 | **474/7/49/193** |
+| 四处 canonical 门槛 | Task 20 完成时 **474/7/49/193**；后续 Outbox 竞态回归提升为 **475/7/49/193** |
 | 性能证据 | V2 因响应体未完整消费降级为诊断数据；正式 V3 从 `db290c1` 运行双库 8 档、共 778,263 个完整响应请求，证据与预算 8/8 PASS，非预期错误和 Dapper 失败均为 0 |
 | 验证记录 | [`production-equivalent-mixed-load-2026-07-28.md`](production-equivalent-mixed-load-2026-07-28.md) |
+
+## 增补（2026-07-28，Outbox 续租终态竞态修正）
+
+| 审计项 | 结果 |
+| --- | --- |
+| Unit 门槛 **474 → 475** | 新增“续租调用先失败、Async Scope Dispose 阻塞、处理随后失败”确定性异常优先级回归 |
+| RED / GREEN | RED 捕获后到处理异常而非 `OutboxLeaseLostException`；GREEN 使用续租失败、处理完成和终态完成的单调事件顺序，聚焦 **19/19** |
+| 双库聚焦 | SQL Server/MySQL 批尾主动续租 **2/2**，失败 0、跳过 0 |
+| 四处 canonical 门槛 | **475/7/49/193** |
+| 验证记录 | [`outbox-active-lease-renewal-2026-07-28.md`](outbox-active-lease-renewal-2026-07-28.md) |

@@ -284,18 +284,11 @@ internal sealed class OutboxProcessor(
 
         using var leaseCancellation =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var batchReachedTerminal = 0;
-        void MarkBatchTerminal() =>
-            Interlocked.Exchange(ref batchReachedTerminal, 1);
+        var completionOrder = new OutboxLeaseCompletionOrder();
 
         var messageIds = messages.Select(message => message.Id).ToArray();
-        var renewalTask = RenewLeaseUntilCanceledAsync(
-            messageIds,
-            lockId,
-            leaseCancellation.Token);
-        var processingTask = processBatch(
-            MarkBatchTerminal,
-            leaseCancellation.Token);
+        var renewalTask = RenewLeaseAndTrackFailureAsync();
+        var processingTask = ProcessBatchAndTrackCompletionAsync();
         var completedTask = await Task.WhenAny(processingTask, renewalTask)
             .ConfigureAwait(false);
         if (completedTask == renewalTask)
@@ -310,7 +303,8 @@ internal sealed class OutboxProcessor(
                 renewalFailure = exception;
             }
 
-            if (Volatile.Read(ref batchReachedTerminal) == 1)
+            if (completionOrder.ShouldPreserveProcessingOutcome(
+                processingTask.IsCompletedSuccessfully))
             {
                 return await processingTask.ConfigureAwait(false);
             }
@@ -362,8 +356,43 @@ internal sealed class OutboxProcessor(
                 // 批次已进入终态或宿主退出，续租循环应随 linked token 有界停止。
             }
             catch (Exception)
+                when (completionOrder.ShouldPreserveProcessingOutcome(
+                    processingTask.IsCompletedSuccessfully))
             {
-                // 处理分支已经先完成；续租清理故障不得覆盖原始处理结果。
+                // 终态先完成时零行续租是正常竞争；处理先失败时保留原始处理异常。
+            }
+        }
+
+        async Task<int> ProcessBatchAndTrackCompletionAsync()
+        {
+            try
+            {
+                return await processBatch(
+                        completionOrder.MarkBatchTerminal,
+                        leaseCancellation.Token)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                completionOrder.MarkProcessingCompleted();
+            }
+        }
+
+        async Task RenewLeaseAndTrackFailureAsync()
+        {
+            try
+            {
+                await RenewLeaseUntilCanceledAsync(
+                        messageIds,
+                        lockId,
+                        completionOrder.MarkRenewalFailed,
+                        leaseCancellation.Token)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                completionOrder.MarkRenewalFailed();
+                throw;
             }
         }
     }
@@ -371,6 +400,7 @@ internal sealed class OutboxProcessor(
     private async Task RenewLeaseUntilCanceledAsync(
         IReadOnlyCollection<Guid> messageIds,
         Guid lockId,
+        Action markRenewalFailed,
         CancellationToken cancellationToken)
     {
         var renewalInterval = TimeSpan.FromSeconds(
@@ -382,11 +412,12 @@ internal sealed class OutboxProcessor(
                 .ConfigureAwait(false);
             await using var scope = scopeFactory.CreateAsyncScope();
             var services = scope.ServiceProvider;
-            var currentTenant =
-                services.GetRequiredService<CurrentTenantAccessor>();
-            currentTenant.SetHost();
+            CurrentTenantAccessor? currentTenant = null;
             try
             {
+                currentTenant =
+                    services.GetRequiredService<CurrentTenantAccessor>();
+                currentTenant.SetHost();
                 var store = services.GetRequiredService<IOutboxStore>();
                 await store
                     .RenewLeaseAsync(
@@ -397,9 +428,14 @@ internal sealed class OutboxProcessor(
                     .ConfigureAwait(false);
                 OutboxProcessorLog.LeaseRenewed(logger, lockId);
             }
+            catch
+            {
+                markRenewalFailed();
+                throw;
+            }
             finally
             {
-                currentTenant.Clear();
+                currentTenant?.Clear();
             }
         }
     }
@@ -465,6 +501,67 @@ internal sealed class OutboxProcessor(
     {
         var seconds = Math.Min(300d, Math.Pow(2d, Math.Max(0, attempts)));
         return TimeSpan.FromSeconds(seconds);
+    }
+}
+
+internal sealed class OutboxLeaseCompletionOrder
+{
+    private long _nextOrder;
+    private long _processingCompletionOrder;
+    private long _renewalFailureOrder;
+    private long _terminalOrder;
+
+    public bool DidBatchReachTerminalBeforeRenewalFailure
+    {
+        get
+        {
+            var terminalOrder = Volatile.Read(ref _terminalOrder);
+            var renewalFailureOrder =
+                Volatile.Read(ref _renewalFailureOrder);
+            return terminalOrder > 0
+                && renewalFailureOrder > 0
+                && terminalOrder < renewalFailureOrder;
+        }
+    }
+
+    public bool DidProcessingCompleteBeforeRenewalFailure
+    {
+        get
+        {
+            var processingCompletionOrder =
+                Volatile.Read(ref _processingCompletionOrder);
+            var renewalFailureOrder =
+                Volatile.Read(ref _renewalFailureOrder);
+            return processingCompletionOrder > 0
+                && renewalFailureOrder > 0
+                && processingCompletionOrder < renewalFailureOrder;
+        }
+    }
+
+    public void MarkBatchTerminal()
+    {
+        var order = Interlocked.Increment(ref _nextOrder);
+        Interlocked.CompareExchange(ref _terminalOrder, order, 0);
+    }
+
+    public bool ShouldPreserveProcessingOutcome(bool processingSucceeded) =>
+        DidBatchReachTerminalBeforeRenewalFailure
+        || (!processingSucceeded
+            && DidProcessingCompleteBeforeRenewalFailure);
+
+    public void MarkRenewalFailed()
+    {
+        var order = Interlocked.Increment(ref _nextOrder);
+        Interlocked.CompareExchange(ref _renewalFailureOrder, order, 0);
+    }
+
+    public void MarkProcessingCompleted()
+    {
+        var order = Interlocked.Increment(ref _nextOrder);
+        Interlocked.CompareExchange(
+            ref _processingCompletionOrder,
+            order,
+            0);
     }
 }
 

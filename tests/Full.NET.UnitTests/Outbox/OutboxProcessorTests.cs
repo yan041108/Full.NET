@@ -324,7 +324,7 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
-    public async Task ProcessOnceAsync_WhenRenewalFailsBeforeTerminalPropagatesEvenIfHandlerCompletes()
+    public async Task ProcessBatchWithLeaseRenewalAsync_WhenRenewalCallFailsBeforeTerminalPropagatesAfterScopeDisposal()
     {
         var options = new OutboxWorkerOptions
         {
@@ -333,35 +333,104 @@ public sealed class OutboxProcessorTests
         };
         var message = CreateMessage(attempts: 1);
         var store = CreateStore(message);
+        var renewalCallFailed = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         store
             .RenewLeaseAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 message.LockId,
                 Arg.Any<TimeSpan>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromException(
-                new OutboxLeaseLostException(message.LockId)));
-        var handler = new CompletionAfterCancellationHandler(
-            message.MessageType,
-            message.SchemaVersion);
+            .Returns(
+                _ =>
+                {
+                    renewalCallFailed.TrySetResult();
+                    return Task.FromException(
+                        new OutboxLeaseLostException(message.LockId));
+                });
+        var scopeDisposal = new BlockingAsyncScopeDisposal();
         var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
-        await using var provider = CreateProvider(store, handler);
+        await using var provider =
+            CreateRenewalScopeProvider(store, scopeDisposal);
         var processor = CreateProcessor(provider, now, options);
+
+        var processingTask = processor.ProcessBatchWithLeaseRenewalAsync(
+            [message],
+            async (markBatchTerminal, cancellationToken) =>
+            {
+                await renewalCallFailed.Task
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                markBatchTerminal();
+                return 1;
+            },
+            CancellationToken.None);
+        await scopeDisposal.Entered.WaitAsync(TimeSpan.FromSeconds(3));
+        scopeDisposal.Release();
 
         var exception =
             await Assert.ThrowsExactlyAsync<OutboxLeaseLostException>(
-                () => processor
-                    .ProcessOnceAsync(CancellationToken.None)
-                    .WaitAsync(TimeSpan.FromSeconds(3)));
+                () => processingTask.WaitAsync(TimeSpan.FromSeconds(3)));
 
         Assert.Contains(
             message.LockId.ToString("D"),
             exception.Message,
             StringComparison.Ordinal);
-        await store.Received(1).MarkProcessedAsync(
-            message.Id,
-            message.LockId,
-            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ProcessBatchWithLeaseRenewalAsync_WhenRenewalCallPrecedesProcessingFailurePropagatesLeaseFailure()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            LeaseSeconds = 6,
+            LeaseRenewalSeconds = 1,
+        };
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var renewalCallFailed = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        store
+            .RenewLeaseAsync(
+                Arg.Any<IReadOnlyCollection<Guid>>(),
+                message.LockId,
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+                _ =>
+                {
+                    renewalCallFailed.TrySetResult();
+                    return Task.FromException(
+                        new OutboxLeaseLostException(message.LockId));
+                });
+        var scopeDisposal = new BlockingAsyncScopeDisposal();
+        var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
+        await using var provider =
+            CreateRenewalScopeProvider(store, scopeDisposal);
+        var processor = CreateProcessor(provider, now, options);
+
+        var processingTask = processor.ProcessBatchWithLeaseRenewalAsync(
+            [message],
+            async (_, cancellationToken) =>
+            {
+                await renewalCallFailed.Task
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                throw new InvalidOperationException(
+                    "Processing failed after lease loss.");
+            },
+            CancellationToken.None);
+        await scopeDisposal.Entered.WaitAsync(TimeSpan.FromSeconds(3));
+        scopeDisposal.Release();
+
+        var exception =
+            await Assert.ThrowsExactlyAsync<OutboxLeaseLostException>(
+                () => processingTask.WaitAsync(TimeSpan.FromSeconds(3)));
+
+        Assert.Contains(
+            message.LockId.ToString("D"),
+            exception.Message,
+            StringComparison.Ordinal);
     }
 
     [TestMethod]
@@ -413,6 +482,14 @@ public sealed class OutboxProcessorTests
     [TestMethod]
     public async Task ProcessOnceAsync_WhenProcessingFailsBeforeRenewalCleanupPreservesProcessingFailure()
     {
+        var completionOrder = new OutboxLeaseCompletionOrder();
+        completionOrder.MarkProcessingCompleted();
+        completionOrder.MarkRenewalFailed();
+        Assert.IsTrue(
+            completionOrder.ShouldPreserveProcessingOutcome(
+                processingSucceeded: false),
+            "处理失败先发生时，稍后的续租清理故障不能覆盖原始异常。");
+
         var options = new OutboxWorkerOptions
         {
             LeaseSeconds = 6,
@@ -699,6 +776,23 @@ public sealed class OutboxProcessorTests
         return services.BuildServiceProvider();
     }
 
+    private static ServiceProvider CreateRenewalScopeProvider(
+        IOutboxStore store,
+        BlockingAsyncScopeDisposal scopeDisposal)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped(_ => scopeDisposal);
+        services.AddScoped<IOutboxStore>(
+            serviceProvider =>
+            {
+                _ = serviceProvider
+                    .GetRequiredService<BlockingAsyncScopeDisposal>();
+                return store;
+            });
+        return services.BuildServiceProvider();
+    }
+
     private static IOutboxBacklogReader BacklogReader(IOutboxStore store) =>
         (IOutboxBacklogReader)store;
 
@@ -818,31 +912,22 @@ public sealed class OutboxProcessorTests
         public void Release() => _release.TrySetResult();
     }
 
-    private sealed class CompletionAfterCancellationHandler(
-        string eventType,
-        int schemaVersion) : IIntegrationEventHandler
+    private sealed class BlockingAsyncScopeDisposal : IAsyncDisposable
     {
-        public string EventType => eventType;
+        private readonly TaskCompletionSource _entered =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public int SchemaVersion => schemaVersion;
+        public Task Entered => _entered.Task;
 
-        public async Task HandleAsync(
-            ReadOnlyMemory<byte> payload,
-            CancellationToken cancellationToken)
+        public async ValueTask DisposeAsync()
         {
-            try
-            {
-                await Task.Delay(
-                        Timeout.InfiniteTimeSpan,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
-            {
-                // 模拟租约归零与最后终态竞争时，Handler 已完成不可回滚的业务收尾。
-            }
+            _entered.TrySetResult();
+            await _release.Task.ConfigureAwait(false);
         }
+
+        public void Release() => _release.TrySetResult();
     }
 
     private sealed class StoreScopeIdentity
