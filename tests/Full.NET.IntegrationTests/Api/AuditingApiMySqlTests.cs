@@ -45,4 +45,14 @@ public sealed class AuditingApiMySqlTests
 
         await AuditingBatchRollbackAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Audit_retention_deletes_expired_rows_in_fair_batches_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await AuditingRetentionAssertions.VerifyAsync(factory);
+    }
 }

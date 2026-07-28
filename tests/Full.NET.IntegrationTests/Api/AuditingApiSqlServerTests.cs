@@ -45,4 +45,14 @@ public sealed class AuditingApiSqlServerTests
 
         await AuditingBatchRollbackAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Audit_retention_deletes_expired_rows_in_fair_batches_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await AuditingRetentionAssertions.VerifyAsync(factory);
+    }
 }

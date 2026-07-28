@@ -7,6 +7,7 @@ using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Middleware;
+using Full.NET.Modules.Auditing.Retention;
 using Full.NET.Modules.Auditing.Resources;
 using Full.NET.Modules.Auditing.Serialization;
 using Full.NET.Modules.Identity.Contracts;
@@ -17,6 +18,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
 
 namespace Full.NET.Modules.Auditing;
 
@@ -70,6 +72,28 @@ public sealed class AuditingModule : IFullNetModule
         Features.QueryHostExceptionLogs.Endpoint.Map(endpoints);
         var environment = endpoints.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
         Features.TriggerExceptionProbe.Endpoint.Map(endpoints, environment);
+    }
+
+    /// <summary>
+    /// 仅为 Worker 装配默认关闭的审计保留清理，避免 API 进程重复执行后台任务。
+    /// </summary>
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<AuditingRetentionOptions>()
+            .Bind(configuration.GetSection(AuditingRetentionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<AuditingRetentionOptions>,
+            AuditingRetentionOptionsValidator>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddScoped<AuditingRetentionRunner>();
+        services.AddHostedService<AuditingRetentionHostedProcessor>();
+        services
+            .AddOpenTelemetry()
+            .WithMetrics(metrics =>
+                metrics.AddMeter(AuditingRetentionTelemetry.MeterName));
     }
 
     /// <summary>

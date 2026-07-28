@@ -33,7 +33,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 498
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 502
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 # 日常按风险选择：冒烟、单提供程序 API、迁移或其他基础设施
@@ -57,10 +57,10 @@ dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
 `main` CI 的 canonical 定义保持
-`Full.NET.IntegrationTests --minimum-expected-tests 195 --timeout 90m`，只由四个互斥
+`Full.NET.IntegrationTests --minimum-expected-tests 197 --timeout 90m`，只由四个互斥
 并行分片执行；本地任务不得运行该完整集合。
 
-Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。跨任务窗口应使用任务基线和 `test:integration:affected` 自动选择验证范围；聚焦模式会先确认 SQL Server/MySQL 都已发现并以精确发现数作为最低门槛。本地任务只运行受影响测试：模块和共享能力使用对应双库过滤集，共享宿主使用 Smoke，迁移使用 migrations 分片，测试脚本使用 tooling。完整 195 项只保留给 `main` CI 的四个互斥并行分片。
+Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。跨任务窗口应使用任务基线和 `test:integration:affected` 自动选择验证范围；聚焦模式会先确认 SQL Server/MySQL 都已发现并以精确发现数作为最低门槛。本地任务只运行受影响测试：模块和共享能力使用对应双库过滤集，共享宿主使用 Smoke，迁移使用 migrations 分片，测试脚本使用 tooling。完整 197 项只保留给 `main` CI 的四个互斥并行分片。
 
 AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。Bootstrap 现在幂等创建受保护超级管理员角色，不再同步逐项权限；签名 Claim、当前作用域动态权限、逐请求 Session/SecurityStamp 校验、双库并发最后一名保护、远程授予/撤销 API、事务内可追责审计和 Vue/Layui 对等管理页已经实现。远程写操作只允许 Development/Testing 显式开启，Production 在 MFA/强认证 Provider 落地前无法开启；账号禁用/删除路径保护和真实后端浏览器 E2E 仍按[设计](docs/superpowers/specs/2026-07-18-super-administrator-design.md)与[计划](docs/superpowers/plans/2026-07-18-super-administrator.md)后续交付，因此当前不能标记为完整 `Verified`。
 

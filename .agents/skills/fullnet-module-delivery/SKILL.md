@@ -98,7 +98,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 ## 7. 完成验证
 
-1. 按变更风险分层运行受影响测试和 `pnpm test:naming`，再运行 Release 构建；先执行 `pnpm test:integration:affected:plan -- --base <任务基线>` 审查影响集，再执行 `pnpm test:integration:affected -- --base <任务基线>`。本地任务只运行受影响测试；完整 195 项只保留给 `main` CI 的互斥并行分片。
+1. 按变更风险分层运行受影响测试和 `pnpm test:naming`，再运行 Release 构建；先执行 `pnpm test:integration:affected:plan -- --base <任务基线>` 审查影响集，再执行 `pnpm test:integration:affected -- --base <任务基线>`。本地任务只运行受影响测试；完整 197 项只保留给 `main` CI 的互斥并行分片。
 2. 使用 `--minimum-expected-tests` 防止零测试假通过；增删测试后同步 README、开发文档和 CI 的测试数量。
 3. 数据变更必须实际运行 SQL Server/MySQL 集成测试。依赖不可用时报告未验证项，不得写成通过。
 4. 检查 `git diff --check`、架构依赖、UTF-8、许可证和工作区状态。
@@ -106,7 +106,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 6. 执行 rules 复盘，再执行 Skills 复盘；达到门槛时在同一任务更新相应治理文件。
 7. 存量不兼容名称只可在 `contracts/naming/naming-debt.json` 按类型、值和文件精确登记，并给出移除里程碑；禁止通配、目录豁免或让新生成代码继承债务。
 
-本地 Integration 只运行影响集：普通模块、认证、租户、Outbox 和缓存执行对应 SQL Server/MySQL 聚焦测试；共享宿主与 Composition 执行 Smoke；迁移 Runner 执行 migrations 分片；Integration 工具执行 tooling。完整 195 项只保留给 `main` CI，不在本地任务中运行。
+本地 Integration 只运行影响集：普通模块、认证、租户、Outbox 和缓存执行对应 SQL Server/MySQL 聚焦测试；共享宿主与 Composition 执行 Smoke；迁移 Runner 执行 migrations 分片；Integration 工具执行 tooling。完整 197 项只保留给 `main` CI，不在本地任务中运行。
 
 ## 按需决策速查
 

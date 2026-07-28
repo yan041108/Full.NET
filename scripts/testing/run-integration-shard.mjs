@@ -27,12 +27,12 @@ export const shards = {
   },
   'api-sqlserver': {
     filter: 'FullyQualifiedName~ApiSqlServerTests',
-    minimum: 36,
+    minimum: 37,
     timeout: '60m'
   },
   'api-mysql': {
     filter: 'FullyQualifiedName~ApiMySqlTests',
-    minimum: 36,
+    minimum: 37,
     timeout: '60m'
   },
   migrations: {
@@ -49,7 +49,7 @@ export const shards = {
     timeout: '60m'
   },
   full: {
-    minimum: 195,
+    minimum: 197,
     timeout: '90m'
   }
 };

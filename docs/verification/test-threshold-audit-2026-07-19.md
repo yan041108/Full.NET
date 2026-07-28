@@ -1222,3 +1222,14 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **498/7/49/195**；README、getting-started、CI、规则、选择器、分片和项目 Skill 已同步；新鲜发现 **498/195** 项 |
 | 性能证据 | 并发 4、预热 1 秒、采样 3 秒的双库 A/B 中，总体 P95 均改善；证据链完整，正式长稳态矩阵仍待执行 |
 | 验证记录 | [`auditing-write-tail-latency-2026-07-28.md`](auditing-write-tail-latency-2026-07-28.md) 第 7 节 |
+
+## 增补（2026-07-29，Audit 小批量保留清理）
+
+| 审计项 | 结果 |
+| --- | --- |
+| Unit 门槛 **498 → 502** | 新增默认值/非法边界、关闭零数据库访问、SQL Server 公平轮转和 MySQL 短事务领取 4 项 |
+| Integration 门槛 **195 → 197** | SQL Server/MySQL 各新增 1 项真实小批量清理测试；完整套件仍只由 `main` CI 运行 |
+| 双库聚焦 | 新增清理用例 MySQL **1/1**、SQL Server **1/1**；最终 Auditing 影响集由选择器执行 |
+| 四处 canonical 门槛 | **502/7/49/197**；README、getting-started、CI、规则、选择器、分片和项目 Skill 已同步 |
+| 行为边界 | 生产默认关闭；仅清理严格早于截止时间的 Audit，Outbox 自动清理仍未交付 |
+| 验证记录 | [`auditing-retention-2026-07-29.md`](auditing-retention-2026-07-29.md) |
