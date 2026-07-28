@@ -18,7 +18,7 @@ docker run --rm hello-world
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 461
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 474
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
 ```
@@ -81,6 +81,18 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 该模式在两个 Provider 中定位等价深页边界，交替采样旧端点的 COUNT＋OFFSET 和新端点
 的单次 keyset 查询，并校验有序 ID 完全一致。两者响应语义不同；结果只能用于评价显式
 游标端点，不能据此删除精确总数或静默改变旧 API。
+
+生产等价混合负载的正式双库矩阵使用：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- mixed-load
+```
+
+默认对 SQL Server/MySQL 分别运行 `1/4/16/32` 并发，每档预热 30 秒、稳态采样
+10 分钟。运行会为每个 Provider/并发单元创建独立数据库与 API Host，并将固定
+workload、原始请求样本、资源指标和预算判定写入
+`BenchmarkDotNet.Artifacts/mixed-load/`。它是本机回归门槛，不是生产 SLA；
+短时正确性检查可通过 `mixed-load --help` 查看覆盖参数。
 
 Integration 容器按首次使用启动；单提供程序聚焦测试不再等待另外一个数据库和 Redis。SQL、事务、租户过滤和迁移变更必须成对覆盖 SQL Server/MySQL；共享宿主、认证授权、租户基础设施、Outbox、缓存、迁移 Runner、Composition、测试基础设施、发布或 main 门禁必须运行全量。
 

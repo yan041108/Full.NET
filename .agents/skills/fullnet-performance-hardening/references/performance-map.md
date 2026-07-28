@@ -43,6 +43,18 @@ Artifact paths:
 6. 审计第一页与深分页；
 7. 依赖超时和客户端取消。
 
+跨请求链的双库混合负载入口为：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- mixed-load
+```
+
+默认矩阵对 SQL Server/MySQL 分别运行 `1/4/16/32` 并发，每档预热 30 秒、稳态
+600 秒，并覆盖 JWT/API Key、读写、预期验证失败、Audit 查询和 Outbox 入队。每个
+Provider/并发单元使用独立数据库与 API Host；工件包含固定 manifest、汇总和逐请求
+NDJSON。该入口用于冻结本机回归预算，不得把 TestServer QPS 当作生产 SLA，也不得用
+API 侧 Outbox pending 增量替代 Worker 消费容量证据。
+
 审计列表的可重复双库入口为：
 
 ```powershell
@@ -124,7 +136,7 @@ pnpm test:skills
 pnpm test:governance
 pnpm test:naming
 dotnet build Full.NET.slnx -c Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 454
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 474
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 49
 ```

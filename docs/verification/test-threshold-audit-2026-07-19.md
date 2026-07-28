@@ -1177,3 +1177,15 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **461/7/49/193** |
 | 完整验证 | Release **0 warning / 0 error**；**461/7/49/193** 全部通过，失败 0、跳过 0；最终完整 Integration `32m44.276s` |
 | 验证记录 | [`outbox-active-lease-renewal-2026-07-28.md`](outbox-active-lease-renewal-2026-07-28.md) |
+
+## 增补（2026-07-28，生产等价混合负载基线）
+
+| 审计项 | 结果 |
+| --- | --- |
+| Unit 门槛 **461 → 474** | 新增默认矩阵、workload 覆盖、稳定权重、固定种子选择、CLI 校验、必需指标、百分位算法、Provider 预算、逐档检查点、完整响应体消费、MySQL 连接池遥测、证据失败门禁与容器 CPU 归一化共 13 项 |
+| RED / GREEN | `MixedLoad` 类型与命名空间缺失时基准和契约测试编译失败；检查点与响应体消费 API 缺失时新增测试编译失败；实现后聚焦 **13/13** |
+| 行为边界 | 只新增隔离 benchmark、测试和文档；不修改生产 API、数据库结构、认证语义、Audit 可靠性或 Outbox Worker 默认并发 |
+| 双库短矩阵 | SQL Server/MySQL 各一档冒烟通过；完整消费响应体，连接池/Dapper/数据库证据完整，原始 NDJSON 存在，证据门禁退出码 0 |
+| 四处 canonical 门槛 | **474/7/49/193** |
+| 性能证据 | V2 的 8 档长窗因 `ResponseHeadersRead` 未完整消费多数读取响应体而降级为诊断数据；正式 V3 待从已提交源码重跑，不以 V2 冻结 QPS 或饱和结论 |
+| 验证记录 | [`production-equivalent-mixed-load-2026-07-28.md`](production-equivalent-mixed-load-2026-07-28.md) |

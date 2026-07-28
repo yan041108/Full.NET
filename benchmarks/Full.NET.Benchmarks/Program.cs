@@ -1,8 +1,20 @@
 using BenchmarkDotNet.Running;
 using Full.NET.Benchmarks;
 using Full.NET.Benchmarks.Auditing;
+using Full.NET.Benchmarks.MixedLoad;
 
-if (args.FirstOrDefault() is "audit-query")
+if (args.FirstOrDefault() is "mixed-load")
+{
+    var mixedLoadArguments = args.Skip(1).ToArray();
+    if (mixedLoadArguments.Contains("--help", StringComparer.OrdinalIgnoreCase))
+    {
+        Console.WriteLine(MixedLoadOptions.HelpText);
+        return;
+    }
+
+    await MixedLoadRunner.RunAsync(MixedLoadOptions.Parse(mixedLoadArguments));
+}
+else if (args.FirstOrDefault() is "audit-query")
 {
     var auditArguments = args.Skip(1).ToArray();
     if (auditArguments.Contains("--help", StringComparer.OrdinalIgnoreCase))

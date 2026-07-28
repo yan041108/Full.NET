@@ -93,6 +93,9 @@ Skills 和 `git diff --check`。验证记录必须说明续租降低重复窗口
 - Create: `benchmarks/Full.NET.Benchmarks/MixedLoad/MixedLoadScenario.cs`
 - Create: `benchmarks/Full.NET.Benchmarks/MixedLoad/MixedLoadRunner.cs`
 - Create: `benchmarks/Full.NET.Benchmarks/MixedLoad/MixedLoadReportWriter.cs`
+- Create: `benchmarks/Full.NET.Benchmarks/MixedLoad/MixedLoadResponseConsumer.cs`
+- Create: `benchmarks/Full.NET.Benchmarks/MixedLoad/MixedLoadConnectionPoolTelemetry.cs`
+- Create: `benchmarks/Full.NET.Benchmarks/MixedLoad/MixedLoadContainerTelemetry.cs`
 - Modify: `benchmarks/Full.NET.Benchmarks/Program.cs`
 - Modify: `benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj`
 - Create: `tests/Full.NET.UnitTests/Performance/MixedLoadContractTests.cs`
@@ -102,13 +105,13 @@ Skills 和 `git diff --check`。验证记录必须说明续租降低重复窗口
 - Consumes: 真实 API Host、JWT、API Key、读写请求、Audit、Outbox、SQL Server/MySQL。
 - Produces: 可重复命令、固定 workload manifest、原始样本与汇总预算；不修改生产行为。
 
-- [ ] **Step 1: 冻结 workload 与 RED 契约**
+- [x] **Step 1: 冻结 workload 与 RED 契约**
 
 定义至少四种流量：JWT 读、JWT 写、API Key 读、API Key 写；覆盖成功、验证失败、Audit
 列表和产生 Outbox 的写请求。契约测试锁定权重、并发、预热、持续时间、随机种子、最大错误
 率和必需指标，禁止只测单 Endpoint 或只报平均值。
 
-- [ ] **Step 2: 实现隔离基准驱动**
+- [x] **Step 2: 实现隔离基准驱动**
 
 为每个 Provider 启动独立数据库与 API Host，完成迁移和确定性数据准备；运行前校验 Host、
 认证与数据库健康。采集客户端延迟、状态码、Dapper Statement、连接池、GC、CPU、数据库
