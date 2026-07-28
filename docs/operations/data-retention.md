@@ -2,9 +2,9 @@
 
 ## 当前状态
 
-Audit Access、Operation 和 Exception 汇总表已经支持 Worker 小批量保留清理。生产配置默认
-关闭，只有部署方确认适用的法律、财务和行业制度后才能启用。Outbox 自动清理尚未交付；
-当前不得通过手工 SQL、定时任务或复用 Audit 清理器删除 Outbox 记录。
+Audit Access、Operation、Exception 汇总表和已成功处理的 Outbox 已支持 Worker 小批量保留
+清理。生产配置默认关闭，只有部署方确认适用的法律、财务和行业制度后才能启用。不得通过
+手工 SQL、外部定时任务或复用 Audit 清理器扩大 Outbox 删除资格。
 
 ## Audit 配置
 
@@ -54,8 +54,26 @@ SQL Server 使用 `UPDLOCK, READPAST, ROWLOCK` 的有界候选 CTE。MySQL 在�
 指标 Meter 为 `Full.NET.Auditing.Retention`，包含删除行数、失败数、最近成功 Unix 时间和
 单轮耗时。标签只使用 `category`、`provider` 和 `result`。
 
-## Outbox 禁止边界
+## Outbox 配置与删除边界
 
-后续 Outbox 清理只能删除 `ProcessedAtUtc` 非空、Dead Letter 为空且严格早于截止时间的成功
-终态记录。Pending、待重试、持租约和 Dead Letter 都禁止自动删除。Outbox 清理配置和真实
-双库测试完成前，运维不得把本页的 Audit 开关理解为 Outbox 删除授权。
+Worker 使用独立的 `OutboxRetention` 配置：
+
+```json
+{
+  "OutboxRetention": {
+    "Enabled": false,
+    "RetentionDays": 30,
+    "BatchSize": 200,
+    "MaxBatchesPerRun": 15,
+    "PollSeconds": 3600
+  }
+}
+```
+
+范围与暂停语义和 Audit 一致。清理只删除 `ProcessedAtUtc` 非空、`DeadLetteredAtUtc` 为空且
+严格满足 `ProcessedAtUtc < 截止时间` 的成功终态记录。等于截止时间的记录，以及 Pending、
+待重试、持租约和 Dead Letter 都禁止自动删除。
+
+SQL Server 使用有界锁候选 CTE；MySQL 在短事务中通过 `FOR UPDATE SKIP LOCKED` 领取 ID 后
+按领取集合删除。指标 Meter 为 `Full.NET.Outbox.Retention`，记录删除行数、失败数、最近成功
+时间和单轮耗时。配置改为 `false` 后，当前数据库批次结束，但不会开始下一批。

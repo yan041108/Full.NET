@@ -115,6 +115,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DapperOutboxStore>());
         services.AddScoped<IOutboxBacklogReader>(provider =>
             provider.GetRequiredService<DapperOutboxStore>());
+        services.AddScoped<IOutboxRetentionStore>(provider =>
+            provider.GetRequiredService<DapperOutboxStore>());
         services.AddScoped<ICommandTransaction, DapperCommandTransaction>();
         services
             .AddOpenTelemetry()

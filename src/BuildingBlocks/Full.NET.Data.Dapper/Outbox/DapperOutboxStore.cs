@@ -12,7 +12,8 @@ internal sealed class DapperOutboxStore(
     ICommandTransaction transaction,
     IIdGenerator idGenerator,
     IClock clock,
-    IOptions<DatabaseOptions> databaseOptions) : IOutboxStore, IOutboxBacklogReader
+    IOptions<DatabaseOptions> databaseOptions)
+    : IOutboxStore, IOutboxBacklogReader, IOutboxRetentionStore
 {
     private const int MaximumErrorLength = 2000;
     private readonly DatabaseOptions _databaseOptions = databaseOptions.Value;
@@ -93,6 +94,27 @@ internal sealed class DapperOutboxStore(
                 cancellationToken),
             DatabaseProvider.MySql => AcquireMySqlAsync(
                 parameters,
+                cancellationToken),
+            _ => throw new NotSupportedException(
+                $"Database provider '{_databaseOptions.Provider}' is not supported.")
+        };
+    }
+
+    public Task<int> DeleteProcessedBatchAsync(
+        DateTimeOffset cutoffUtc,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+        return _databaseOptions.Provider switch
+        {
+            DatabaseProvider.SqlServer => DeleteProcessedSqlServerBatchAsync(
+                cutoffUtc,
+                batchSize,
+                cancellationToken),
+            DatabaseProvider.MySql => DeleteProcessedMySqlBatchAsync(
+                cutoffUtc,
+                batchSize,
                 cancellationToken),
             _ => throw new NotSupportedException(
                 $"Database provider '{_databaseOptions.Provider}' is not supported.")
@@ -338,6 +360,53 @@ internal sealed class DapperOutboxStore(
             },
             cancellationToken);
 
+    private async Task<int> DeleteProcessedSqlServerBatchAsync(
+        DateTimeOffset cutoffUtc,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                OutboxSql.DeleteProcessedSqlServer,
+                new { CutoffUtc = cutoffUtc, BatchSize = batchSize },
+                cancellationToken)
+            .ConfigureAwait(false);
+        EnsureAffectedRowsWithinBatch(affectedRows, batchSize);
+        return affectedRows;
+    }
+
+    private Task<int> DeleteProcessedMySqlBatchAsync(
+        DateTimeOffset cutoffUtc,
+        int batchSize,
+        CancellationToken cancellationToken) =>
+        transaction.ExecuteAsync(
+            async transactionToken =>
+            {
+                var ids = await queryExecutor.QueryAsync<Guid>(
+                        OutboxSql.SelectProcessedIdsMySql,
+                        new { CutoffUtc = cutoffUtc, BatchSize = batchSize },
+                        transactionToken)
+                    .ConfigureAwait(false);
+                if (ids.Count == 0)
+                {
+                    return 0;
+                }
+
+                var claimedIds = ids.ToArray();
+                var affectedRows = await commandExecutor.ExecuteAsync(
+                        OutboxSql.DeleteProcessedIdsMySql,
+                        new { Ids = claimedIds, CutoffUtc = cutoffUtc },
+                        transactionToken)
+                    .ConfigureAwait(false);
+                if (affectedRows != claimedIds.Length)
+                {
+                    throw new InvalidOperationException(
+                        "Outbox retention did not delete every claimed MySQL row.");
+                }
+
+                return affectedRows;
+            },
+            cancellationToken);
+
     private sealed record OutboxAcquireParameters(
         int BatchSize,
         Guid LockId,
@@ -373,6 +442,17 @@ internal sealed class DapperOutboxStore(
         if (affectedRows != 1)
         {
             throw new OutboxConcurrencyException(id, lockId);
+        }
+    }
+
+    private static void EnsureAffectedRowsWithinBatch(
+        int affectedRows,
+        int batchSize)
+    {
+        if (affectedRows < 0 || affectedRows > batchSize)
+        {
+            throw new InvalidOperationException(
+                "Outbox retention affected rows outside the configured batch.");
         }
     }
 

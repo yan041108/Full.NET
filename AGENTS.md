@@ -28,7 +28,7 @@
 
 ### 完成前
 
-1. 必须执行与风险相称的构建、测试和静态检查，并依据新鲜输出报告结果。服务端相关任务先运行 `pnpm test:integration:affected:plan -- --base <任务基线>` 审查影响集，再运行 `pnpm test:integration:affected -- --base <任务基线>`；本地任务只运行受影响测试，禁止运行 197 项全量。完整 197 项只保留给 `main` CI 的互斥并行分片门禁。
+1. 必须执行与风险相称的构建、测试和静态检查，并依据新鲜输出报告结果。服务端相关任务先运行 `pnpm test:integration:affected:plan -- --base <任务基线>` 审查影响集，再运行 `pnpm test:integration:affected -- --base <任务基线>`；本地任务只运行受影响测试，禁止运行 199 项全量。完整 199 项只保留给 `main` CI 的互斥并行分片门禁。
 2. 必须同步更新受影响的 README、开发文档、路线图、迁移说明和测试数量门槛。
 3. 必须读取并执行 [`rules/rule-evolution.md`](rules/rule-evolution.md) 的遗漏复盘；满足升级门槛时，在同一任务中更新相应规则并在交付说明中披露。
 4. 规则复盘后必须读取并执行 [`rules/skill-evolution.md`](rules/skill-evolution.md) 的 Skills 复盘；满足门槛时更新候选或按测试先行流程演进一个项目 Skill。

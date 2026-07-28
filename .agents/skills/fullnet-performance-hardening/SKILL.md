@@ -88,7 +88,7 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 4. 前端变化运行双管理端测试、生产构建并记录包体。
 5. 更新 Verification、运行 `git diff --check` 和 `git status`。
 6. 只声明数据支持的收益；未执行生产等价压测时禁止承诺固定 QPS。
-7. 先运行 `pnpm test:integration:affected:plan -- --base <任务基线>` 审查影响集，再运行 `pnpm test:integration:affected -- --base <任务基线>`。本地任务禁止运行 197 项全量；完整 197 项只保留给 `main` CI 的互斥并行分片。
+7. 先运行 `pnpm test:integration:affected:plan -- --base <任务基线>` 审查影响集，再运行 `pnpm test:integration:affected -- --base <任务基线>`。本地任务禁止运行 199 项全量；完整 199 项只保留给 `main` CI 的互斥并行分片。
 
 ## 常见错误
 

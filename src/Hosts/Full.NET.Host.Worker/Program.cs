@@ -38,7 +38,9 @@ builder.Services.AddFullNetDatabaseSchemaModeGuard();
 builder.Services.AddFullNetMessagePack();
 builder.Services
     .AddOpenTelemetry()
-    .WithMetrics(metrics => metrics.AddMeter(OutboxBacklogTelemetry.MeterName));
+    .WithMetrics(metrics => metrics
+        .AddMeter(OutboxBacklogTelemetry.MeterName)
+        .AddMeter(OutboxRetentionTelemetry.MeterName));
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
@@ -48,12 +50,19 @@ builder.Services.AddOptions<OutboxWorkerOptions>()
 builder.Services.AddSingleton<
     IValidateOptions<OutboxWorkerOptions>,
     OutboxWorkerOptionsValidator>();
+builder.Services.AddOptions<OutboxRetentionOptions>()
+    .Bind(builder.Configuration.GetSection(OutboxRetentionOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<
+    IValidateOptions<OutboxRetentionOptions>,
+    OutboxRetentionOptionsValidator>();
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Worker);
 if (commandLine.VersionRetirement is null)
 {
     builder.Services.AddHostedService<OutboxProcessor>();
+    builder.Services.AddHostedService<OutboxRetentionProcessor>();
 }
 
 using var host = builder.Build();

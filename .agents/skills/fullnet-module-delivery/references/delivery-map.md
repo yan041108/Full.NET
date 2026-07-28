@@ -63,13 +63,13 @@ dotnet build Full.NET.slnx -c Release
 ???? Microsoft Testing Platform ????
 
 ```powershell
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 502
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 505
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 49
 ```
 
 `main` CI 的 canonical 定义保持
-`Full.NET.IntegrationTests --minimum-expected-tests 197 --timeout 90m`，只由四个互斥
+`Full.NET.IntegrationTests --minimum-expected-tests 199 --timeout 90m`，只由四个互斥
 并行分片执行，本地任务不得运行该完整集合。
 
 Integration 按变更风险分层，优先使用仓库标准入口：
@@ -87,7 +87,7 @@ pnpm test:integration:partitions
 pnpm test:integration:durations
 ```
 
-本地只运行任务影响集；SQL、事务、租户过滤和迁移必须成对覆盖 SQL Server/MySQL。模块和共享能力使用对应双库过滤集，共享宿主使用 Smoke，迁移使用 migrations，测试工具使用 tooling。完整 197 项只保留给 `main` CI 的互斥并行分片。
+本地只运行任务影响集；SQL、事务、租户过滤和迁移必须成对覆盖 SQL Server/MySQL。模块和共享能力使用对应双库过滤集，共享宿主使用 Smoke，迁移使用 migrations，测试工具使用 tooling。完整 199 项只保留给 `main` CI 的互斥并行分片。
 
 ??????????
 

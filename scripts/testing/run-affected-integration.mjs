@@ -431,7 +431,7 @@ function renderSelection(paths, selection, baseRef) {
   for (const reason of selection.reasons) {
     output.push(`- ${reason}`);
   }
-  output.push('完整 197 项仅由 main CI 并行分片执行。');
+  output.push('完整 199 项仅由 main CI 并行分片执行。');
   return `${output.join('\n')}\n`;
 }
 

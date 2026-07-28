@@ -107,6 +107,47 @@ internal static class OutboxSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement DeleteProcessedSqlServer = new(
+        "outbox.retention.delete_processed.sql_server",
+        """
+        ;WITH Candidates AS
+        (
+            SELECT TOP (@BatchSize) Id
+            FROM fn_outbox_message WITH (UPDLOCK, READPAST, ROWLOCK)
+            WHERE ProcessedAtUtc IS NOT NULL
+              AND DeadLetteredAtUtc IS NULL
+              AND ProcessedAtUtc < @CutoffUtc
+            ORDER BY ProcessedAtUtc, Id
+        )
+        DELETE FROM Candidates;
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement SelectProcessedIdsMySql = new(
+        "outbox.retention.select_processed_ids.my_sql",
+        """
+        SELECT Id
+        FROM fn_outbox_message
+        WHERE ProcessedAtUtc IS NOT NULL
+          AND DeadLetteredAtUtc IS NULL
+          AND ProcessedAtUtc < @CutoffUtc
+        ORDER BY ProcessedAtUtc, Id
+        LIMIT @BatchSize
+        FOR UPDATE SKIP LOCKED;
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteProcessedIdsMySql = new(
+        "outbox.retention.delete_processed_ids.my_sql",
+        """
+        DELETE FROM fn_outbox_message
+        WHERE Id IN @Ids
+          AND ProcessedAtUtc IS NOT NULL
+          AND DeadLetteredAtUtc IS NULL
+          AND ProcessedAtUtc < @CutoffUtc;
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ClaimByIdsMySql = new(
         "outbox.claim_by_ids.my_sql",
         """

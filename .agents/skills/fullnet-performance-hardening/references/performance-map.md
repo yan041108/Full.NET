@@ -136,9 +136,9 @@ pnpm test:skills
 pnpm test:governance
 pnpm test:naming
 dotnet build Full.NET.slnx -c Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 502
+dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 505
 dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
 dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 49
 ```
 
-测试数量变化时先同步 canonical 门槛，再使用新数字。本地数据库、认证、共享宿主、Outbox、缓存或 Dapper 基础设施变更按照 `rules/development-quality.md` 第 11.1 节运行 `test:integration:affected` 选择出的影响集；完整 197 项只由 `main` CI 并行分片执行。
+测试数量变化时先同步 canonical 门槛，再使用新数字。本地数据库、认证、共享宿主、Outbox、缓存或 Dapper 基础设施变更按照 `rules/development-quality.md` 第 11.1 节运行 `test:integration:affected` 选择出的影响集；完整 199 项只由 `main` CI 并行分片执行。

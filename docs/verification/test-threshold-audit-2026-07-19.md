@@ -1232,4 +1232,14 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 双库聚焦 | 新增清理用例 MySQL **1/1**、SQL Server **1/1**；最终 Auditing 影响集由选择器执行 |
 | 四处 canonical 门槛 | **502/7/49/197**；README、getting-started、CI、规则、选择器、分片和项目 Skill 已同步 |
 | 行为边界 | 生产默认关闭；仅清理严格早于截止时间的 Audit，Outbox 自动清理仍未交付 |
+
+## 增补（2026-07-29，Outbox 成功终态保留清理）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **502 → 505** | 新增默认关闭/边界、严格截止与不足一批停止、配置热暂停 3 项 |
+| Integration 门槛 **197 → 199** | SQL Server/MySQL 各新增 1 项真实资格保护测试；完整套件仍只由 `main` CI 运行 |
+| 四处 canonical 门槛 | **505/7/49/199**；README、getting-started、CI、规则、选择器、分片和项目 Skill 已同步 |
+| 分片变化 | infrastructure **61 → 63**；其余互斥分片保持 **37/37/62**，合计 **199** |
+| 行为边界 | 仅清理严格过期的成功终态；等于截止时间、Pending、待重试、持租约和 Dead Letter 均保留 |
 | 验证记录 | [`auditing-retention-2026-07-29.md`](auditing-retention-2026-07-29.md) |

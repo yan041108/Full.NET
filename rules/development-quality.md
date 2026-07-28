@@ -226,7 +226,7 @@
 1. 新行为和缺陷修复必须先建立能失败的测试或可复现实验；文档和纯机械变更可用结构化检查代替行为测试。
 2. 至少覆盖成功、验证失败、权限失败、取消、并发、重复请求和依赖故障中与变更相关的路径。
 3. 数据层变更必须运行 SQL Server 与 MySQL 集成测试。Docker 或外部依赖不可用时，必须报告未验证项，禁止静默跳过后宣称通过。
-4. Full.NET 使用 Microsoft Testing Platform；必须按 README 直接执行测试程序集并保留 `--minimum-expected-tests` 门槛，不能只看到构建成功就认为测试已执行。Integration 验证必须按变更风险分层：本地只运行受影响测试；SQL、事务、租户过滤和迁移变更必须覆盖 SQL Server 与 MySQL；共享基础设施运行对应 Smoke、能力过滤集或专项分片；完整 197 项只由 `main` CI 并行分片执行。聚焦结果只能表述为聚焦通过，被门槛拒绝、零发现或降低门槛的运行不得作为完成证据。
+4. Full.NET 使用 Microsoft Testing Platform；必须按 README 直接执行测试程序集并保留 `--minimum-expected-tests` 门槛，不能只看到构建成功就认为测试已执行。Integration 验证必须按变更风险分层：本地只运行受影响测试；SQL、事务、租户过滤和迁移变更必须覆盖 SQL Server 与 MySQL；共享基础设施运行对应 Smoke、能力过滤集或专项分片；完整 199 项只由 `main` CI 并行分片执行。聚焦结果只能表述为聚焦通过，被门槛拒绝、零发现或降低门槛的运行不得作为完成证据。
 5. 增删测试后必须同步 `README.md`、`docs/development/getting-started.md`、CI 与 `fullnet-module-delivery` delivery-map 中的最小测试数量，并在最新 `docs/verification/test-threshold-audit-*.md` 增补当前门槛和新鲜验证；`pnpm test:governance` 必须阻止四个 canonical 来源与最新审计记录漂移，防止过滤或发现失败造成“零测试通过”。
 6. 架构、兼容性和序列化契约必须有专门测试；不能只依赖端到端测试偶然覆盖。
 7. 完成前必须运行 Release 构建、相关测试和 `git diff --check`；报告测试总数、失败数和任何跳过项。
@@ -245,7 +245,7 @@
 | 迁移 Runner 或迁移测试基础设施 | 运行 migrations 分片 |
 | Integration 测试工具链 | 运行 Integration tooling 与治理契约 |
 
-本地任务禁止运行 `test:integration:full`，只运行从任务基线计算出的受影响测试；共享路径不得自动升级为 197 项全量。完整 197 项只保留给 `main` CI：由互斥且穷尽的并行分片执行，每个分片分别保留最低数量门槛，并由汇总门禁确认全部成功。准备发布时以最近一次目标 `main` CI 全量门禁为完整 Integration 证据，本地仍只补跑发布变更的影响集。
+本地任务禁止运行 `test:integration:full`，只运行从任务基线计算出的受影响测试；共享路径不得自动升级为 199 项全量。完整 199 项只保留给 `main` CI：由互斥且穷尽的并行分片执行，每个分片分别保留最低数量门槛，并由汇总门禁确认全部成功。准备发布时以最近一次目标 `main` CI 全量门禁为完整 Integration 证据，本地仍只补跑发布变更的影响集。
 
 本地标准入口为 `pnpm test:integration:affected:plan` 和 `pnpm test:integration:affected`。`test:integration:full` 只保留为 CI 维护诊断入口，普通本地任务禁止调用；完成耗时基线或排查慢测时必须对受影响 TRX 运行 `pnpm test:integration:durations`，不得只凭单次墙钟时间修改并行度、共享数据库或测试隔离策略。
 

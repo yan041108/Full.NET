@@ -249,15 +249,15 @@ A/B 中，两库总体 P95 均改善，MySQL `all` P95/P99 由 `78.878/281.212ms
 生产默认关闭；Dead Letter、Pending、待重试和持租约 Outbox 没有自动删除入口。Audit
 先作为独立最小切片实施，Outbox 成功终态随后按同一门禁实现。
 
-- [ ] **Step 2: 建立双库 RED 并小批量删除**
+- [x] **Step 2: 建立双库 RED 并小批量删除**
 
 SQL 使用稳定时间键和主键边界，小事务删除；验证仅删除截止时间前终态记录，不触碰待处理、
 持租约、待重试或需审计保留的数据。记录事务日志/undo、锁等待、写放大和暂停恢复。
 
-状态（2026-07-29）：Audit 子切片已完成。默认关闭和非法边界快速失败由 4 项 Unit
-锁定；SQL Server 使用有界候选 CTE，MySQL 使用短事务领取 ID 后按领取集合删除。双库真实
-测试均验证 Access/Operation/Exception 公平推进、旧记录分批删除和新记录保留。Outbox
-成功终态清理以及持续写入容量矩阵仍未完成，因此本步骤保持开放。
+状态（2026-07-29）：Audit 与 Outbox 小批量删除均已完成。两者生产默认关闭并支持热暂停；
+SQL Server 使用有界候选 CTE，MySQL 使用短事务领取 ID 后按领取集合删除。Audit 双库验证
+三类记录公平推进；Outbox 双库验证只删除严格过期的成功终态，等于截止时间、Pending、
+待重试、持租约和 Dead Letter 全部保留。持续写入容量矩阵仍由 Step 3 承接。
 
 - [ ] **Step 3: 补充指标与容量复测**
 
@@ -359,7 +359,7 @@ Backplane 故障时必须 fail-closed，不能仅依赖陈旧 L1。
 
 **Priority:** P0（开发反馈）
 
-**Status:** 本地受影响测试选择器已于 2026-07-29 落地；本地任务禁止运行 197 项
+**Status:** 本地受影响测试选择器已于 2026-07-29 落地；本地任务禁止运行 199 项
 全量，完整门禁只由 `main` CI 并行分片执行。数据库模板 A/B 与 main 分片耗时再平衡
 仍待后续证据。
 
@@ -402,7 +402,7 @@ FCP/LCP/INP/DOMContentLoaded/Load、字体和 CSS 瀑布，不再只看单 JS ch
 基于新鲜 191 项 TRX 记录累计与墙钟时间，优先分析 MySQL Seed、Outbox、命名迁移演练；
 禁止以跳过或共享污染数据库换取速度。
 
-现行 canonical 已为 197 项。Task 21 全量墙钟为 `36m08s`；当前 Auditing 双库影响集
+现行 canonical 已为 199 项。Task 21 全量墙钟为 `36m08s`；当前 Auditing 双库影响集
 为 **8/8**。仓库已新增基于任务 Git 基线的 `test:integration:affected`，
 将模块、共享能力、Smoke、migrations 与 tooling 映射为本地影响集。
 
@@ -414,7 +414,7 @@ FCP/LCP/INP/DOMContentLoaded/Load、字体和 CSS 瀑布，不再只看单 JS ch
 - [ ] **Step 3: 调整分片并冻结回归**
 
 以历史耗时平衡 SQL Server/MySQL/API/迁移/基础设施分片，目标是降低 PR 最慢分片墙钟，
-同时保持 main 全量 197 项、失败 0、跳过 0 和独立恢复用例。
+同时保持 main 全量 199 项、失败 0、跳过 0 和独立恢复用例。
 
 ## Execution Order and Stop Conditions
 

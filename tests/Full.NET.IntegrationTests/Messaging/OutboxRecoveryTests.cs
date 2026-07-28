@@ -124,6 +124,22 @@ public sealed class OutboxRecoveryTests
     }
 
     [TestMethod]
+    public async Task SqlServer_outbox_retention_deletes_only_expired_successful_messages()
+    {
+        await VerifyRetentionAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task MySql_outbox_retention_deletes_only_expired_successful_messages()
+    {
+        await VerifyRetentionAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task SqlServer_version_retirement_snapshot_counts_only_target_unprocessed_routes()
     {
         await VerifyVersionRetirementSnapshotAsync(
@@ -723,6 +739,94 @@ public sealed class OutboxRecoveryTests
         Assert.IsNull(empty.OldestOccurredAtUtc);
     }
 
+    private static async Task VerifyRetentionAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString)
+    {
+        const string expired = "fullnet.tests.messaging.retention.expired";
+        const string atCutoff = "fullnet.tests.messaging.retention.at_cutoff";
+        const string fresh = "fullnet.tests.messaging.retention.fresh";
+        const string retry = "fullnet.tests.messaging.retention.retry";
+        const string leased = "fullnet.tests.messaging.retention.leased";
+        const string deadLetter = "fullnet.tests.messaging.retention.dead_letter";
+        var cutoff =
+            new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero);
+        var clock = new MutableClock(cutoff.AddDays(30));
+        var configuration = CreateConfiguration(databaseProvider, connectionString);
+        await MigrateAsync(databaseProvider, connectionString);
+
+        await using var services = BuildServices(configuration, clock);
+        foreach (var messageType in new[]
+                 {
+                     expired,
+                     atCutoff,
+                     fresh,
+                     retry,
+                     leased,
+                     deadLetter,
+                 })
+        {
+            await InsertOutboxAsync(
+                services,
+                messageType,
+                1,
+                new TestIntegrationEvent(messageType));
+        }
+
+        await SetRetentionStatesAsync(
+            databaseProvider,
+            connectionString,
+            expired,
+            atCutoff,
+            fresh,
+            retry,
+            leased,
+            deadLetter,
+            cutoff);
+
+        await using var scope = services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var retentionStore = scope.ServiceProvider
+            .GetRequiredService<IOutboxRetentionStore>();
+
+        var firstBatch = await retentionStore.DeleteProcessedBatchAsync(
+            cutoff,
+            1,
+            CancellationToken.None);
+        var secondBatch = await retentionStore.DeleteProcessedBatchAsync(
+            cutoff,
+            1,
+            CancellationToken.None);
+
+        Assert.AreEqual(1, firstBatch);
+        Assert.AreEqual(0, secondBatch);
+        Assert.AreEqual(
+            0L,
+            await CountOutboxAsync(
+                databaseProvider,
+                connectionString,
+                "MessageType = @MessageType",
+                new { MessageType = expired }));
+        foreach (var retainedType in new[]
+                 {
+                     atCutoff,
+                     fresh,
+                     retry,
+                     leased,
+                     deadLetter,
+                 })
+        {
+            Assert.AreEqual(
+                1L,
+                await CountOutboxAsync(
+                    databaseProvider,
+                    connectionString,
+                    "MessageType = @MessageType",
+                    new { MessageType = retainedType }),
+                retainedType);
+        }
+    }
+
     private static async Task VerifyVersionRetirementSnapshotAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
@@ -945,6 +1049,94 @@ public sealed class OutboxRecoveryTests
             {
                 Timestamp = databaseTimestamp,
                 MessageType = messageType
+            });
+    }
+
+    private static async Task SetRetentionStatesAsync(
+        DatabaseProvider databaseProvider,
+        string connectionString,
+        string expired,
+        string atCutoff,
+        string fresh,
+        string retry,
+        string leased,
+        string deadLetter,
+        DateTimeOffset cutoff)
+    {
+        static object ToDatabaseTimestamp(
+            DatabaseProvider provider,
+            DateTimeOffset value) =>
+            provider == DatabaseProvider.MySql
+                ? value.UtcDateTime
+                : value;
+
+        await using var connection = CreateConnection(
+            databaseProvider,
+            connectionString);
+        await connection.ExecuteAsync(
+            """
+            UPDATE fn_outbox_message
+            SET ProcessedAtUtc = CASE MessageType
+                    WHEN @Expired THEN @ExpiredAt
+                    WHEN @AtCutoff THEN @Cutoff
+                    WHEN @Fresh THEN @FreshAt
+                    ELSE ProcessedAtUtc
+                END,
+                NextAttemptAtUtc = CASE
+                    WHEN MessageType = @Retry THEN @RetryAt
+                    ELSE NextAttemptAtUtc
+                END,
+                LockId = CASE
+                    WHEN MessageType = @Leased THEN @LockId
+                    ELSE LockId
+                END,
+                LockedUntilUtc = CASE
+                    WHEN MessageType = @Leased THEN @LockedUntil
+                    ELSE LockedUntilUtc
+                END,
+                DeadLetteredAtUtc = CASE
+                    WHEN MessageType = @DeadLetter THEN @DeadLetteredAt
+                    ELSE DeadLetteredAtUtc
+                END,
+                DeadLetterReasonCode = CASE
+                    WHEN MessageType = @DeadLetter THEN @DeadLetterReasonCode
+                    ELSE DeadLetterReasonCode
+                END
+            WHERE MessageType IN (
+                @Expired,
+                @AtCutoff,
+                @Fresh,
+                @Retry,
+                @Leased,
+                @DeadLetter
+            );
+            """,
+            new
+            {
+                Expired = expired,
+                AtCutoff = atCutoff,
+                Fresh = fresh,
+                Retry = retry,
+                Leased = leased,
+                DeadLetter = deadLetter,
+                ExpiredAt = ToDatabaseTimestamp(
+                    databaseProvider,
+                    cutoff.AddTicks(-1)),
+                Cutoff = ToDatabaseTimestamp(databaseProvider, cutoff),
+                FreshAt = ToDatabaseTimestamp(
+                    databaseProvider,
+                    cutoff.AddTicks(1)),
+                RetryAt = ToDatabaseTimestamp(
+                    databaseProvider,
+                    cutoff.AddDays(1)),
+                LockId = Guid.CreateVersion7(),
+                LockedUntil = ToDatabaseTimestamp(
+                    databaseProvider,
+                    cutoff.AddDays(1)),
+                DeadLetteredAt = ToDatabaseTimestamp(
+                    databaseProvider,
+                    cutoff.AddDays(-1)),
+                DeadLetterReasonCode = OutboxDeadLetterReasons.HandlerNotFound,
             });
     }
 

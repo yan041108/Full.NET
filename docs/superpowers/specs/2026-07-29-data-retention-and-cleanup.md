@@ -49,8 +49,8 @@ Audit 使用 `Auditing:Retention`，Outbox 使用 `OutboxRetention`。两者独�
   积压饿死其他类别；
 - 达到 `MaxBatchesPerRun` 或所有类别都返回不足一批后停止本轮。
 
-Outbox 后续实现复用相同小批量原则，但资格谓词必须同时锁定成功终态；不得复用 Audit 的通用
-表名或动态 SQL。
+Outbox 已复用相同小批量原则，资格谓词同时锁定成功终态；没有复用 Audit 的通用表名或动态
+SQL。
 
 ## 4. 失败与指标
 
@@ -68,4 +68,4 @@ Outbox 运维指标继续区分 Pending、到期重试、持租约和 Dead Lette
 2. Outbox：真实验证仅删除已成功处理且到期记录；Pending、待重试、持租约和 Dead Letter 均
    保留。
 3. 持续写入并行清理的短矩阵记录删除吞吐、请求/Worker P95/P99、锁等待和日志/undo 写放大。
-4. 本地只运行受影响测试；完整 197 项继续只由 `main` CI 四个互斥分片执行。
+4. 本地只运行受影响测试；完整 199 项继续只由 `main` CI 四个互斥分片执行。
