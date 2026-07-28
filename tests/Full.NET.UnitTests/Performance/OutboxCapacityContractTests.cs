@@ -1,4 +1,5 @@
 using Full.NET.Benchmarks.Outbox;
+using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Data.Abstractions;
@@ -41,6 +42,7 @@ public sealed class OutboxCapacityContractTests
         Assert.AreEqual(TimeSpan.FromSeconds(10), options.LeaseRenewal);
         Assert.IsTrue(options.RecoveryEnabled);
         Assert.AreEqual(TimeSpan.FromSeconds(5), options.RecoveryGrace);
+        Assert.IsTrue(options.ResumeEnabled);
     }
 
     [TestMethod]
@@ -83,6 +85,7 @@ public sealed class OutboxCapacityContractTests
             "--lease-renewal-seconds", "3",
             "--recovery", "false",
             "--recovery-grace-seconds", "2",
+            "--resume", "false",
             "--output", "artifacts/outbox-capacity",
         ]);
 
@@ -102,6 +105,7 @@ public sealed class OutboxCapacityContractTests
         Assert.AreEqual(TimeSpan.FromSeconds(3), options.LeaseRenewal);
         Assert.IsFalse(options.RecoveryEnabled);
         Assert.AreEqual(TimeSpan.FromSeconds(2), options.RecoveryGrace);
+        Assert.IsFalse(options.ResumeEnabled);
         Assert.AreEqual("artifacts/outbox-capacity", options.OutputDirectory);
     }
 
@@ -138,12 +142,89 @@ public sealed class OutboxCapacityContractTests
             () => OutboxCapacityOptions.Parse(["--unknown", "value"]));
         Assert.ThrowsExactly<ArgumentException>(
             () => OutboxCapacityOptions.Parse(["--recovery", "sometimes"]));
+        Assert.ThrowsExactly<ArgumentException>(
+            () => OutboxCapacityOptions.Parse(["--resume", "sometimes"]));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => OutboxCapacityOptions.Parse(
             [
                 "--recovery", "true",
                 "--recovery-grace-seconds", "0",
             ]));
+    }
+
+    [TestMethod]
+    public async Task Checkpoint_resume_skips_completed_keys_and_rejects_parameter_drift()
+    {
+        var outputDirectory = Path.Combine(
+            Path.GetTempPath(),
+            $"fullnet-outbox-capacity-checkpoint-{Guid.NewGuid():N}");
+        var options = OutboxCapacityOptions.Parse(
+        [
+            "--providers", "sqlserver",
+            "--concurrency", "1",
+            "--handler-delay-ms", "0",
+            "--replicas", "1",
+            "--batch-sizes", "20",
+            "--payload-sizes", "256",
+            "--repetitions", "2",
+            "--warmup-seconds", "0",
+            "--duration-seconds", "1",
+            "--seed-messages", "20",
+            "--lease-seconds", "6",
+            "--lease-renewal-seconds", "2",
+            "--recovery", "false",
+            "--resume", "true",
+            "--output", outputDirectory,
+        ]);
+        var scenarios = OutboxCapacityScenarioCatalog.Build(options);
+        var completedRun = CreateCompletedRun(scenarios.Single());
+
+        try
+        {
+            await OutboxCapacityReportWriter.WriteAsync(
+                options,
+                scenarios,
+                [
+                    new OutboxCapacityProviderResult(
+                        "SqlServer",
+                        "sqlserver:test",
+                        "test",
+                        [completedRun],
+                        []),
+                ],
+                CancellationToken.None);
+
+            var checkpoint = await OutboxCapacityCheckpoint.LoadAsync(
+                options,
+                scenarios,
+                CancellationToken.None);
+
+            Assert.IsTrue(checkpoint.HasRun(
+                "sqlserver",
+                scenarios.Single(),
+                repetition: 1));
+            Assert.IsFalse(checkpoint.HasRun(
+                "sqlserver",
+                scenarios.Single(),
+                repetition: 2));
+            Assert.AreEqual(1, checkpoint.CompletedRunCount);
+            Assert.AreEqual(1, checkpoint.PendingRunCount);
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => OutboxCapacityCheckpoint.LoadAsync(
+                    options with
+                    {
+                        Duration = TimeSpan.FromSeconds(2),
+                    },
+                    scenarios,
+                    CancellationToken.None));
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, recursive: true);
+            }
+        }
     }
 
     [TestMethod]
@@ -223,6 +304,70 @@ public sealed class OutboxCapacityContractTests
         await using var scope = provider.CreateAsyncScope();
         Assert.IsNotNull(scope.ServiceProvider.GetService<IOutboxStore>());
     }
+
+    private static OutboxCapacityRunResult CreateCompletedRun(
+        OutboxCapacityScenario scenario) => new(
+        Provider: "SqlServer",
+        ContainerImage: "sqlserver:test",
+        DatabaseVersion: "test",
+        Scenario: scenario,
+        Repetition: 1,
+        ActualDurationSeconds: 1,
+        CompletedMessages: 1,
+        UniqueMessages: 1,
+        DuplicateDeliveries: 0,
+        MessagesPerSecond: 1,
+        HandlerLatency: null,
+        LeaseRenewalExecutions: 0,
+        Dapper: new MixedLoadDapperSnapshot(
+            new Dictionary<string, long>(),
+            Duration: null,
+            Failures: 0),
+        ConnectionPool: new MixedLoadConnectionPoolSnapshot(
+            ConfiguredMaximumConnections: 100,
+            PeakActiveConnections: 1,
+            PeakIdleConnections: 0,
+            PeakPooledConnections: 1,
+            PeakPendingRequests: 0,
+            PeakStasisConnections: 0,
+            ConnectionTimeouts: 0,
+            ReclaimedConnections: 0,
+            WaitDuration: null,
+            PublishedInstruments: [],
+            MaximumSafeActiveConnections: 80,
+            CapacityHeadroomPassed: true,
+            ObservationMode: "test",
+            EvidenceComplete: true,
+            EvidenceError: null),
+        DatabaseContainer: new MixedLoadContainerSnapshot(
+            SampleCount: 1,
+            AverageCpuPercentOfHost: 0,
+            PeakCpuPercentOfHost: 0,
+            PeakMemoryBytes: 0,
+            EvidenceComplete: true,
+            EvidenceError: null),
+        Process: new MixedLoadProcessDelta(
+            CpuPercent: 0,
+            AllocatedBytes: 0,
+            FinalHeapSizeBytes: 0,
+            Gen0Collections: 0,
+            Gen1Collections: 0,
+            Gen2Collections: 0),
+        DatabaseBefore: CreateDatabaseSnapshot(pendingOutboxCount: 2),
+        DatabaseAfter: CreateDatabaseSnapshot(pendingOutboxCount: 1),
+        ProcessorErrors: []);
+
+    private static MixedLoadDatabaseSnapshot CreateDatabaseSnapshot(
+        long pendingOutboxCount) => new(
+        CapturedAtUtc: DateTimeOffset.UtcNow,
+        AccessLogCount: 0,
+        PendingOutboxCount: pendingOutboxCount,
+        OldestPendingOutboxAtUtc: DateTimeOffset.UtcNow,
+        DatabaseSessions: 1,
+        ActiveLocks: 0,
+        LockWaitCount: 0,
+        LockWaitMilliseconds: 0,
+        MetricsError: null);
 
     private sealed class NoOpCapacityHandler : IIntegrationEventHandler
     {

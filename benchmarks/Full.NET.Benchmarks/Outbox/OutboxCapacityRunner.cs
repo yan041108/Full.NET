@@ -27,23 +27,50 @@ public static class OutboxCapacityRunner
     {
         ArgumentNullException.ThrowIfNull(options);
         var scenarios = OutboxCapacityScenarioCatalog.Build(options);
-        var providerResults = new List<OutboxCapacityProviderResult>();
+        var checkpoint = await OutboxCapacityCheckpoint.LoadAsync(
+            options,
+            scenarios,
+            cancellationToken);
+        var providerResults = checkpoint.Providers.ToList();
         foreach (var provider in options.Providers)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var existing = providerResults.SingleOrDefault(result =>
+                ProviderEquals(result.Provider, provider));
+            var runs = existing?.Runs.ToList() ?? [];
+            var recoveries = existing?.Recoveries.ToList() ?? [];
+            if (runs.Count == scenarios.Count * options.Repetitions
+                && (!options.RecoveryEnabled
+                    || recoveries.Count == options.Repetitions))
+            {
+                Console.WriteLine(
+                    $"[{provider}] checkpoint 已完成，跳过容器启动。");
+                continue;
+            }
+
             var poolName =
                 $"fullnet-outbox-capacity-{provider}-{Guid.NewGuid():N}";
             await using var database = await MixedLoadDatabase.StartAsync(
                 provider,
                 poolName,
                 cancellationToken);
-            var runs = new List<OutboxCapacityRunResult>();
             foreach (var scenario in scenarios)
             {
                 for (var repetition = 1;
                      repetition <= options.Repetitions;
                      repetition++)
                 {
+                    if (runs.Any(run =>
+                            run.Scenario == scenario
+                            && run.Repetition == repetition))
+                    {
+                        Console.WriteLine(
+                            $"[{provider}] {scenario.Name} repeat "
+                            + $"{repetition}/{options.Repetitions} "
+                            + "checkpoint skip");
+                        continue;
+                    }
+
                     Console.WriteLine(
                         $"[{provider}] {scenario.Name} repeat "
                         + $"{repetition}/{options.Repetitions}");
@@ -54,15 +81,35 @@ public static class OutboxCapacityRunner
                         repetition,
                         options,
                         cancellationToken));
+                    await SaveCheckpointAsync(
+                        options,
+                        scenarios,
+                        providerResults,
+                        new OutboxCapacityProviderResult(
+                            provider,
+                            database.ContainerImage,
+                            database.DatabaseVersion,
+                            runs,
+                            recoveries),
+                        cancellationToken);
                 }
             }
-            var recoveries = new List<OutboxCapacityRecoveryResult>();
             if (options.RecoveryEnabled)
             {
                 for (var repetition = 1;
                      repetition <= options.Repetitions;
                      repetition++)
                 {
+                    if (recoveries.Any(recovery =>
+                            recovery.Repetition == repetition))
+                    {
+                        Console.WriteLine(
+                            $"[{provider}] abandoned-lease-recovery repeat "
+                            + $"{repetition}/{options.Repetitions} "
+                            + "checkpoint skip");
+                        continue;
+                    }
+
                     Console.WriteLine(
                         $"[{provider}] abandoned-lease-recovery repeat "
                         + $"{repetition}/{options.Repetitions}");
@@ -71,26 +118,88 @@ public static class OutboxCapacityRunner
                         repetition,
                         options,
                         cancellationToken));
+                    await SaveCheckpointAsync(
+                        options,
+                        scenarios,
+                        providerResults,
+                        new OutboxCapacityProviderResult(
+                            provider,
+                            database.ContainerImage,
+                            database.DatabaseVersion,
+                            runs,
+                            recoveries),
+                        cancellationToken);
                 }
             }
 
-            providerResults.Add(new OutboxCapacityProviderResult(
-                provider,
-                database.ContainerImage,
-                database.DatabaseVersion,
-                runs,
-                recoveries));
+            UpsertProviderResult(
+                providerResults,
+                new OutboxCapacityProviderResult(
+                    provider,
+                    database.ContainerImage,
+                    database.DatabaseVersion,
+                    runs,
+                    recoveries));
         }
 
         await OutboxCapacityReportWriter.WriteAsync(
             options,
             scenarios,
-            providerResults,
+            OrderProviderResults(options, providerResults),
             cancellationToken);
         Console.WriteLine(
             $"Outbox capacity artifacts: "
             + $"{Path.GetFullPath(options.OutputDirectory)}");
     }
+
+    private static async Task SaveCheckpointAsync(
+        OutboxCapacityOptions options,
+        IReadOnlyList<OutboxCapacityScenario> scenarios,
+        List<OutboxCapacityProviderResult> providerResults,
+        OutboxCapacityProviderResult current,
+        CancellationToken cancellationToken)
+    {
+        UpsertProviderResult(providerResults, current);
+        if (!options.ResumeEnabled)
+        {
+            return;
+        }
+
+        await OutboxCapacityReportWriter.WriteAsync(
+            options,
+            scenarios,
+            OrderProviderResults(options, providerResults),
+            cancellationToken);
+    }
+
+    private static void UpsertProviderResult(
+        List<OutboxCapacityProviderResult> providerResults,
+        OutboxCapacityProviderResult current)
+    {
+        var index = providerResults.FindIndex(result =>
+            ProviderEquals(result.Provider, current.Provider));
+        if (index < 0)
+        {
+            providerResults.Add(current);
+            return;
+        }
+
+        providerResults[index] = current;
+    }
+
+    private static IReadOnlyList<OutboxCapacityProviderResult>
+        OrderProviderResults(
+            OutboxCapacityOptions options,
+            IReadOnlyList<OutboxCapacityProviderResult> providerResults) =>
+        options.Providers
+            .Select(provider => providerResults.SingleOrDefault(result =>
+                ProviderEquals(result.Provider, provider)))
+            .Where(result => result is not null)
+            .Cast<OutboxCapacityProviderResult>()
+            .ToArray();
+
+    private static bool ProviderEquals(string left, string right) =>
+        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 
     private static async Task<OutboxCapacityRunResult> RunScenarioAsync(
         MixedLoadDatabase database,

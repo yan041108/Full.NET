@@ -1283,3 +1283,13 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | Integration | 本地不运行完整 199 项；继续只由 `main` CI 四个互斥分片执行 |
 | Integration 边界 | 本切片无数据库结构或 SQL 行为变化；最终只运行任务基线影响选择器命中的目标 |
 | 验证记录 | [`outbox-message-context-idempotency-2026-07-29.md`](outbox-message-context-idempotency-2026-07-29.md) |
+
+## 增补（2026-07-29，Outbox 容量矩阵断点续跑）
+
+| 项目 | 结果 |
+| --- | --- |
+| Unit 门槛 **517 → 518** | 新增 checkpoint 契约 1 项，锁定已完成键跳过、剩余计数和矩阵参数漂移拒绝 |
+| Unit discovery | **518**；本地只运行 Outbox 容量与 Dapper 指标聚焦测试 |
+| 四处 canonical 门槛 | **518/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
+| 行为边界 | 只修改 benchmark 工件原子写入与断点续跑，不修改生产 Outbox、数据库结构或默认并发 |
+| Integration | 由任务基线影响选择器决定；本地不运行完整 199 项 |

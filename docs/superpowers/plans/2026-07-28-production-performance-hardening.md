@@ -287,7 +287,8 @@ c=4 压力形状产生秒级尾延迟，已作为禁止无界清理的否定证�
 35 档有界代表矩阵、真实 Worker/租约/多副本装配和吞吐、尾延迟、重复、续租、连接池、
 锁/日志、GC、容器资源报告已落地；SQL Server/MySQL 单档慢 Handler 冒烟均通过。
 遗弃租约恢复已通过 SQL Server/MySQL 真实时间验证；正式 35 档三轮采样和 Step 3
-的索引 A/B/默认并发决策仍开放。
+的索引 A/B/默认并发决策仍开放。容量入口已支持按完成键原子 checkpoint 和同版本、
+同参数断点续跑，正式矩阵可跨任务窗口积累且不会重复已完成场景。
 
 **Files:**
 - Modify: `src/BuildingBlocks/Full.NET.Abstractions/Messaging/IIntegrationEventHandler.cs`

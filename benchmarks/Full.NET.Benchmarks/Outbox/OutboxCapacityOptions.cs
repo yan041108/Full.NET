@@ -17,6 +17,7 @@ public sealed record OutboxCapacityOptions(
     TimeSpan LeaseRenewal,
     bool RecoveryEnabled,
     TimeSpan RecoveryGrace,
+    bool ResumeEnabled,
     string OutputDirectory)
 {
     public const string HelpText =
@@ -41,6 +42,7 @@ public sealed record OutboxCapacityOptions(
           --lease-renewal-seconds <n>     续租周期秒数，默认 10，不得超过租约一半
           --recovery <bool>               是否运行遗弃租约恢复场景，默认 true
           --recovery-grace-seconds <n>    租约之外允许的恢复余量，默认 5 秒
+          --resume <bool>                 是否从同一输出目录断点续跑，默认 true
           --output <path>                 工件目录，默认 BenchmarkDotNet.Artifacts/outbox-capacity/<UTC>
           --help                          显示帮助
 
@@ -138,6 +140,10 @@ public sealed record OutboxCapacityOptions(
             defaultValue: 5,
             minimum: 1,
             maximum: 300);
+        var resumeEnabled = ParseBoolean(
+            values,
+            "--resume",
+            defaultValue: true);
 
         var outputDirectory = values.GetValueOrDefault(
             "--output",
@@ -167,6 +173,7 @@ public sealed record OutboxCapacityOptions(
             TimeSpan.FromSeconds(leaseRenewalSeconds),
             recoveryEnabled,
             TimeSpan.FromSeconds(recoveryGraceSeconds),
+            resumeEnabled,
             outputDirectory);
     }
 
@@ -335,6 +342,7 @@ public sealed record OutboxCapacityOptions(
         "--lease-renewal-seconds",
         "--recovery",
         "--recovery-grace-seconds",
+        "--resume",
         "--output",
     ];
 }

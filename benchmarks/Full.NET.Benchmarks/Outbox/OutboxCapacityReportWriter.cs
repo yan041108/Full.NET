@@ -143,7 +143,41 @@ public sealed record OutboxCapacityReport(
     OutboxCapacityOptions Options,
     IReadOnlyList<OutboxCapacityScenario> Scenarios,
     IReadOnlyList<string> RequiredMetrics,
-    IReadOnlyList<OutboxCapacityProviderResult> Providers);
+    IReadOnlyList<OutboxCapacityProviderResult> Providers)
+{
+    /// <summary>
+    /// 获取完整矩阵预期执行的普通容量采样数量。
+    /// </summary>
+    public int ExpectedRunCount =>
+        Options.Providers.Count * Scenarios.Count * Options.Repetitions;
+
+    /// <summary>
+    /// 获取当前报告已经持久化的普通容量采样数量。
+    /// </summary>
+    public int CompletedRunCount =>
+        Providers.Sum(provider => provider.Runs.Count);
+
+    /// <summary>
+    /// 获取完整矩阵预期执行的遗弃租约恢复采样数量。
+    /// </summary>
+    public int ExpectedRecoveryCount =>
+        Options.RecoveryEnabled
+            ? Options.Providers.Count * Options.Repetitions
+            : 0;
+
+    /// <summary>
+    /// 获取当前报告已经持久化的遗弃租约恢复采样数量。
+    /// </summary>
+    public int CompletedRecoveryCount =>
+        Providers.Sum(provider => provider.Recoveries.Count);
+
+    /// <summary>
+    /// 获取当前报告是否已覆盖全部普通场景和恢复轮次。
+    /// </summary>
+    public bool IsComplete =>
+        CompletedRunCount == ExpectedRunCount
+        && CompletedRecoveryCount == ExpectedRecoveryCount;
+}
 
 public static class OutboxCapacityReportWriter
 {
@@ -203,10 +237,7 @@ public static class OutboxCapacityReportWriter
         var report = new OutboxCapacityReport(
             Guid.NewGuid(),
             DateTimeOffset.UtcNow,
-            Assembly.GetExecutingAssembly()
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-                ?.InformationalVersion
-                ?? "unknown",
+            GetSourceVersion(),
             RuntimeInformation.FrameworkDescription,
             RuntimeInformation.OSDescription,
             Environment.ProcessorCount,
@@ -225,22 +256,24 @@ public static class OutboxCapacityReportWriter
                 "abandoned_lease_recovery",
             ],
             providers);
-        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            WriteIndented = true,
-            Converters = { new JsonStringEnumConverter() },
-        };
-        await File.WriteAllTextAsync(
+        var json = JsonSerializer.Serialize(
+            report,
+            CreateJsonOptions(writeIndented: true));
+        await WriteTextAtomicallyAsync(
             Path.Combine(options.OutputDirectory, "report.json"),
-            JsonSerializer.Serialize(report, jsonOptions),
-            Encoding.UTF8,
+            json,
             cancellationToken);
-        await File.WriteAllTextAsync(
+        await WriteTextAtomicallyAsync(
             Path.Combine(options.OutputDirectory, "summary.md"),
             BuildMarkdown(report),
-            Encoding.UTF8,
             cancellationToken);
     }
+
+    internal static string GetSourceVersion() =>
+        Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+        ?? "unknown";
 
     private static string BuildMarkdown(OutboxCapacityReport report)
     {
@@ -250,6 +283,10 @@ public static class OutboxCapacityReportWriter
         builder.AppendLine(
             $"生成时间：{report.GeneratedAtUtc:O}；场景数：{report.Scenarios.Count}；"
             + $"重复次数：{report.Options.Repetitions}。");
+        builder.AppendLine(
+            $"进度：场景 {report.CompletedRunCount}/{report.ExpectedRunCount}；"
+            + $"恢复 {report.CompletedRecoveryCount}/{report.ExpectedRecoveryCount}；"
+            + $"状态：{(report.IsComplete ? "COMPLETE" : "PARTIAL")}。");
         builder.AppendLine();
         builder.AppendLine(
             "| Provider | 场景 | 重复 | msg/s | P95 ms | P99 ms | 重复投递 | 续租 | "
@@ -326,6 +363,36 @@ public static class OutboxCapacityReportWriter
             Math.Max(0, after.Gen0Collections - before.Gen0Collections),
             Math.Max(0, after.Gen1Collections - before.Gen1Collections),
             Math.Max(0, after.Gen2Collections - before.Gen2Collections));
+    }
+
+    private static JsonSerializerOptions CreateJsonOptions(
+        bool writeIndented) =>
+        new(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = writeIndented,
+            Converters = { new JsonStringEnumConverter() },
+        };
+
+    private static async Task WriteTextAtomicallyAsync(
+        string path,
+        string content,
+        CancellationToken cancellationToken)
+    {
+        var temporaryPath =
+            $"{path}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            await File.WriteAllTextAsync(
+                temporaryPath,
+                content,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                cancellationToken);
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
     }
 }
 

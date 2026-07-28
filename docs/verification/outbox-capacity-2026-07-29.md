@@ -36,10 +36,10 @@ dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release `
   --filter FullyQualifiedName~OutboxCapacityContractTests --no-restore
 ```
 
-结果：**6/6 通过**。其中宿主装配回归测试先复现缺少 `IIdGenerator` 导致
+结果：**7/7 通过**。其中宿主装配回归测试先复现缺少 `IIdGenerator` 导致
 `ValidateOnBuild` 失败，再补齐与真实 Dapper Outbox Store 相同的依赖闭包。
 
-Unit discovery 为 **517**，canonical 更新为 **517/7/49/199**。本地没有运行完整
+Unit discovery 为 **518**，canonical 更新为 **518/7/49/199**。本地没有运行完整
 199 项 Integration；它继续只由 `main` CI 四个互斥分片执行。
 
 受影响选择器以 `b1472503ca59b4c601c8899602d229b30d269a8c` 为基线，只选择
@@ -90,3 +90,19 @@ Unit discovery 为 **517**，canonical 更新为 **517/7/49/199**。本地没有
 证明至少一次语义下 Handler 仍必须使用稳定 `MessageId` 去重或具备天然幂等性；它不声称
 Exactly-Once。原始工件：
 `%TEMP%/fullnet-outbox-recovery-gate-c298c713f4d84a3fa0ad56c8786efd24`。
+
+## 7. 正式矩阵断点续跑增补
+
+- 任务基线：`97bd04cb5b24ff906061952fa798b6c447b9a446`。
+- 默认启用 `--resume true`，每完成一个普通场景或恢复轮次即原子替换报告。
+- 续跑严格校验程序集源版本和全部矩阵语义参数；版本、时长、预热、种子、租约、Provider
+  或场景漂移都会拒绝合并。
+- `summary.md` 明确输出普通场景与恢复轮次的完成数，并区分 `PARTIAL` 与 `COMPLETE`。
+
+真实 SQL Server 一档短跑使用同一输出目录连续执行两次。第一次启动容器并得到
+`场景 1/1、恢复 0/0、COMPLETE`；第二次在容器启动前命中完成 checkpoint，输出
+`checkpoint 已完成，跳过容器启动`，Docker 连接标记为 false。工件：
+`%TEMP%/fullnet-outbox-checkpoint-smoke-082397a37bdc43d784144b19ec353251`。
+
+该能力只减少长矩阵因中断造成的重复采样，不缩短单档预热/稳态时间，也不允许跨版本拼接
+性能结论。正式 35 档三轮报告仍须达到 `COMPLETE` 后才能进入索引或默认并发决策。

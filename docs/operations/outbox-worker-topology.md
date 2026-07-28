@@ -122,6 +122,12 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 `--recovery false` 跳过这段等待，但正式容量证据不得关闭；`--recovery-grace-seconds`
 只控制测量超时余量，不改变生产 Worker 租约。
 
+容量入口默认启用 `--resume true`。每完成一个普通场景或恢复轮次，就以临时文件加原子
+替换更新 `report.json` 和 `summary.md`；同一 `--output` 可在后续任务窗口继续。恢复时会
+校验程序集源版本、Provider、矩阵、预热、时长、种子、租约和恢复参数，任一漂移都会拒绝
+合并。报告进度必须达到 `COMPLETE`，`PARTIAL` 只能作为断点，不得用于默认并发或索引决策。
+需要故意覆盖同名目录重新采样时显式使用 `--resume false`，并保留旧工件后再执行。
+
 ## 4. 积压指标
 
 Worker 将 `Full.NET.Outbox` Meter 接入 OpenTelemetry，并按
