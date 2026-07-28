@@ -42,7 +42,7 @@ internal sealed class OperationLogMiddleware(RequestDelegate next)
         {
             stopwatch.Stop();
             var model = BuildModel(httpContext, stopwatch.Elapsed);
-            await writer.TryWriteAsync(model, CancellationToken.None).ConfigureAwait(false);
+            writer.Capture(model);
         }
     }
 

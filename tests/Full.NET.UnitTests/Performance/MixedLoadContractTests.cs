@@ -199,6 +199,30 @@ public sealed class MixedLoadContractTests
     }
 
     [TestMethod]
+    public void Audit_write_policy_expands_batch_statement_into_constituent_inserts()
+    {
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "auditing.insert_access_log",
+                "auditing.insert_operation_log",
+                "auditing.insert_exception_log",
+            },
+            MixedLoadAuditWritePolicy.GetObservedStatements(
+                "auditing.insert_request_audit_batch.access_operation_exception")
+                .ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "auditing.insert_operation_log" },
+            MixedLoadAuditWritePolicy.GetObservedStatements(
+                "auditing.insert_request_audit_batch.operation")
+                .ToArray());
+        Assert.AreEqual(
+            0,
+            MixedLoadAuditWritePolicy.GetObservedStatements(
+                "tenancy.update_tenant").Count);
+    }
+
+    [TestMethod]
     public void Audit_write_profile_selector_balances_profiles_per_worker()
     {
         var selector = new MixedLoadAuditWriteProfileSelector(

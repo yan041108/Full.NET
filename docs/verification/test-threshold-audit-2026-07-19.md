@@ -1210,3 +1210,14 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **484/7/49/193** |
 | 性能证据 | 100,000 行双库矩阵拒绝覆盖完整数据集的 31 天默认；1 天相对无界 contains 的 P95 改善 SQL Server **91.12%**、MySQL **83.54%** |
 | 验证记录 | [`auditing-contains-time-boundary-2026-07-28.md`](auditing-contains-time-boundary-2026-07-28.md) |
+
+## 增补（2026-07-29，Audit 请求内批处理）
+
+| 审计项 | 结果 |
+| --- | --- |
+| Unit 门槛 **484 → 498** | Task 22 Step 1 的写入 profile、归因和证据门禁 6 项；本候选新增请求级 Audit 固定槽、空批次、一/二/三类组合、单事务单命令、失败隔离与取消语义 7 项，以及批量 Statement 归因展开 1 项 |
+| RED / GREEN | 批处理类型、Writer 和协调 Middleware 缺失时编译失败；归因展开 API 缺失时 3 个编译错误；实现后聚焦 **7/7** 与 **20/20** |
+| 双库影响集 | affected selector 仅命中 Auditing；SQL Server/MySQL **6/6**，失败 0、跳过 0，未执行完整 193 项 |
+| 四处 canonical 门槛 | **498/7/49/193**；README、getting-started、CI、模块交付与性能 Skill reference 已同步；`--list-tests` 新鲜发现 498 项 |
+| 性能证据 | 并发 4、预热 1 秒、采样 3 秒的双库 A/B 中，总体 P95 均改善；证据链完整，正式长稳态矩阵仍待执行 |
+| 验证记录 | [`auditing-write-tail-latency-2026-07-28.md`](auditing-write-tail-latency-2026-07-28.md) 第 7 节 |

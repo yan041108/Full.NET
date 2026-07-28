@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Migrations.DbUp\Full.NET.Migrations.DbUp.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Serialization.MessagePack\Full.NET.Serialization.MessagePack.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Api\Full.NET.Host.Api.csproj" Aliases="apiHost" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Auditing\Full.NET.Modules.Auditing.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
   </ItemGroup>

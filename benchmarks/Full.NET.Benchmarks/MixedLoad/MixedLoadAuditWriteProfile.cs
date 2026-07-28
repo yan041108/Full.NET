@@ -34,6 +34,8 @@ public static class MixedLoadAuditWritePolicy
     private const string AccessStatement = "auditing.insert_access_log";
     private const string OperationStatement = "auditing.insert_operation_log";
     private const string ExceptionStatement = "auditing.insert_exception_log";
+    private const string BatchStatementPrefix =
+        "auditing.insert_request_audit_batch.";
 
     /// <summary>
     /// 判断当前 profile 是否应实际执行给定 Statement；非 Audit Statement 始终执行。
@@ -56,9 +58,33 @@ public static class MixedLoadAuditWritePolicy
     /// 判断给定稳定 Statement 名称是否属于本轮归因的三类 Audit INSERT。
     /// </summary>
     public static bool IsAuditInsert(string statementName) =>
-        statementName is AccessStatement
-            or OperationStatement
-            or ExceptionStatement;
+        GetObservedStatements(statementName).Count > 0;
+
+    /// <summary>
+    /// 将逐条或请求批量 Statement 展开为三类稳定观测名称，使批处理前后的归因口径保持一致。
+    /// </summary>
+    public static IReadOnlyList<string> GetObservedStatements(string statementName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(statementName);
+        return statementName switch
+        {
+            AccessStatement => [AccessStatement],
+            OperationStatement => [OperationStatement],
+            ExceptionStatement => [ExceptionStatement],
+            $"{BatchStatementPrefix}access" => [AccessStatement],
+            $"{BatchStatementPrefix}operation" => [OperationStatement],
+            $"{BatchStatementPrefix}exception" => [ExceptionStatement],
+            $"{BatchStatementPrefix}access_operation" =>
+                [AccessStatement, OperationStatement],
+            $"{BatchStatementPrefix}access_exception" =>
+                [AccessStatement, ExceptionStatement],
+            $"{BatchStatementPrefix}operation_exception" =>
+                [OperationStatement, ExceptionStatement],
+            $"{BatchStatementPrefix}access_operation_exception" =>
+                [AccessStatement, OperationStatement, ExceptionStatement],
+            _ => [],
+        };
+    }
 
     /// <summary>
     /// 将 profile 转换为只在 Benchmark Host 内使用的低基数 Header 值。

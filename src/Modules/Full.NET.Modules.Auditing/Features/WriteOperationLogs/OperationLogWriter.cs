@@ -1,8 +1,4 @@
-using Full.NET.Abstractions.Ids;
-using Full.NET.Abstractions.Time;
-using Full.NET.Data.Abstractions;
-using Full.NET.Modules.Auditing.Persistence;
-using Microsoft.Extensions.Logging;
+using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 
 namespace Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 
@@ -23,47 +19,9 @@ internal sealed record OperationLogWriteModel(
     string? PermissionCode);
 
 /// <summary>
-/// 尽力写入操作日志；失败只记警告，不得拖垮业务响应。
+/// 将操作审计摘要写入请求作用域的固定槽位，由外层协调 Middleware 统一同步提交。
 /// </summary>
-internal sealed class OperationLogWriter(
-    ICommandExecutor commandExecutor,
-    IClock clock,
-    IIdGenerator idGenerator,
-    ILogger<OperationLogWriter> logger)
+internal sealed class OperationLogWriter(AuditWriteBuffer buffer)
 {
-    public async Task TryWriteAsync(
-        OperationLogWriteModel model,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await commandExecutor.ExecuteAsync(
-                    OperationLogSql.Insert,
-                    new
-                    {
-                        Id = idGenerator.NewId(),
-                        OccurredAtUtc = clock.UtcNow,
-                        model.ActionKey,
-                        model.HttpMethod,
-                        model.RequestPath,
-                        model.StatusCode,
-                        model.DurationMs,
-                        model.Succeeded,
-                        model.UserId,
-                        model.TenantId,
-                        model.TraceId,
-                        model.ClientIpFingerprint,
-                        model.PermissionCode,
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(
-                ex,
-                "Failed to persist HTTP operation log for {ActionKey}.",
-                model.ActionKey);
-        }
-    }
+    public void Capture(OperationLogWriteModel model) => buffer.Capture(model);
 }

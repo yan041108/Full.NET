@@ -2,12 +2,12 @@
 
 ## 1. 状态与范围
 
-- 计划任务：Task 22 Step 1，只测不改。
+- 计划任务：Task 22 Step 1–2，以及 Step 3 的最小候选与短时 A/B；正式容量矩阵仍待执行。
 - 执行时间：2026-07-29（Asia/Shanghai）。
 - 代码基线：`15ada1b408aed12dd4fa687437f8bf510c78e83f` 加本记录对应工作区差异。
 - 范围：真实 Testing API Host、JWT、读请求、事务 Outbox 写请求、异常探针、
   Access/Operation/Exception 三类 Audit INSERT、SQL Server/MySQL。
-- 非范围：本轮没有修改生产 Middleware、Writer、可靠性分类、事务语义或数据库结构。
+- 第 1–6 节保留初始“只测不改”证据；第 7 节记录随后批准的可靠性分类、生产候选和验证结果。
 
 本轮为混合负载基准增加 `audit-write` 归因 workload。Benchmark Host 通过测试专用
 `ICommandExecutor` 装饰器读取逐请求 profile，分别执行
@@ -129,3 +129,50 @@ SQL Server 完成 `671` 个请求，MySQL 完成 `492` 个请求，均为 `0` �
   进行单变量 A/B。
 - 本轮没有生产代码、SQL 或数据库对象变更，因此没有新的 Auditing Integration 影响集；
   正式候选实现后仍必须运行对应 SQL Server/MySQL 聚焦 Integration。
+
+## 7. 请求内批处理候选（2026-07-29）
+
+可靠性分类已由
+[`2026-07-29-auditing-write-reliability-classification.md`](../superpowers/specs/2026-07-29-auditing-write-reliability-classification.md)
+冻结：Access 是请求遥测；Operation 与安全相关 Exception 是不可采样的同步数据库审计摘要，
+并补充业务领域审计而不替代其事务语义。三类请求级记录都不进入进程内队列，也没有生产关闭
+或降采样开关。
+
+实现使用请求作用域固定三槽收集 Access/Operation/Exception，在最外层协调 Middleware 的
+`finally` 中使用 `CancellationToken.None` 提交。非空组合映射为七个固定、参数化、全局 Scope
+的 Statement；一次显式 `ICommandTransaction` 内只调用一次 `ICommandExecutor`。任一 INSERT
+失败时整批回滚、记录 Warning，并保持既有“不得用审计数据库故障替换业务响应”的兼容语义。
+空批次不打开事务。该原子性只覆盖同一请求的三张 Audit 表，不宣称与任意业务事务原子提交。
+
+生产代码先由五项失败契约锁定固定容量、空批次、单事务单命令、失败不逃逸和客户端断开后的
+最终提交，再实现最小 GREEN；随后补充一类、两类精确组合的两项防漂移覆盖。基准侧增加一项
+契约，将七个批量 Statement 展开回既有三类稳定观测名；基准专用捕获策略只注册在 Benchmark
+Host，生产 Host 不读取 profile Header。
+
+### 7.1 受影响验证
+
+| 验证 | 结果 |
+| --- | --- |
+| Release Unit build | 0 warning / 0 error |
+| `AuditingWritePathTests` | **7/7**，失败 0、跳过 0 |
+| `MixedLoadContractTests` | **20/20**，失败 0、跳过 0 |
+| affected Integration plan | `focused: Auditing`，未升级为完整 193 项 |
+| SQL Server/MySQL Auditing Integration | **6/6**，失败 0、跳过 0，约 1m24s |
+
+### 7.2 双库短时 A/B
+
+相同机器、并发 4、预热 1 秒、采样 3 秒、同一
+`none/access/operation/exception/all` workload 的前后结果如下。短样本只证明方向和证据链
+可执行，不用于冻结生产容量预算。
+
+| Provider | 实现 | QPS | 总体 P95 ms | 总体 P99 ms | all P95 ms | all P99 ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| SQL Server | 三次独立同步写 | 222.06 | 30.301 | 36.473 | 33.543 | 38.730 |
+| SQL Server | 请求内单事务单命令 | 233.06 | 28.359 | 33.553 | 29.577 | 37.716 |
+| MySQL | 三次独立同步写 | 162.88 | 45.234 | 101.537 | 78.878 | 281.212 |
+| MySQL | 请求内单事务单命令 | 185.26 | 41.744 | 50.654 | 42.666 | 48.401 |
+
+候选双库均为 0 个非预期错误，五种 profile 的预期/观测次数完全一致，
+`auditWriteAttributionComplete`、总证据门禁和预算门禁均为 PASS。短样本中 SQL Server
+总体 P95 改善约 6.41%，MySQL 改善约 7.72%；MySQL `all` P95/P99 明显收敛，支持保留候选。
+正式 `30s/600s × c=1/4/16/32` Task 20 矩阵尚未执行，因此 Task 22 Step 3 不标记完成。

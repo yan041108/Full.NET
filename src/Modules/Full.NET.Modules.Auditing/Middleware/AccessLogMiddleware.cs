@@ -32,8 +32,7 @@ internal sealed class AccessLogMiddleware(RequestDelegate next)
         {
             stopwatch.Stop();
             var model = BuildModel(httpContext, stopwatch.Elapsed);
-            // 尽力写入：不传播取消，避免客户端断开导致审计写入被连带取消。
-            await writer.TryWriteAsync(model, CancellationToken.None).ConfigureAwait(false);
+            writer.Capture(model);
         }
     }
 

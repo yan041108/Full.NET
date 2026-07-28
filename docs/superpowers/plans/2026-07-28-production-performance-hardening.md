@@ -175,6 +175,7 @@ OpenAPI、共享客户端、双前端和双库 API 测试先锁定缺失/超窗 
 **Priority:** P0
 
 **Files:**
+- Create: `docs/superpowers/specs/2026-07-29-auditing-write-reliability-classification.md`
 - Modify: `src/Modules/Full.NET.Modules.Auditing/Middleware/AccessLogMiddleware.cs`
 - Modify: `src/Modules/Full.NET.Modules.Auditing/Middleware/OperationLogMiddleware.cs`
 - Modify: `src/Modules/Full.NET.Modules.Auditing/Middleware/ExceptionLogMiddleware.cs`
@@ -196,16 +197,28 @@ OpenAPI、共享客户端、双前端和双库 API 测试先锁定缺失/超窗 
 正式 `30s/600s × c=1/4/16/32` 矩阵尚未执行，因此 Step 1 保持未完成。详见
 [`auditing-write-tail-latency-2026-07-28.md`](../../verification/auditing-write-tail-latency-2026-07-28.md)。
 
-- [ ] **Step 2: 冻结可靠性分类**
+- [x] **Step 2: 冻结可靠性分类**
 
 Operation 与安全相关 Exception 保持可靠审计；Access 是否为可丢遥测必须由 Spec 明确。
 若全部属于可靠 Audit，候选仅限同事务/同命令批处理或事务 Outbox，不允许进程内无界缓冲；
 若 Access 被明确降级为遥测，必须有有界队列、丢弃计数和过载策略。
 
+状态（2026-07-29）：已批准
+[`Audit 写入可靠性分类与请求内批处理规格`](../specs/2026-07-29-auditing-write-reliability-classification.md)。
+Access 明确为请求遥测；Operation 与安全相关 Exception 保持不可采样的同步数据库审计摘要。
+选定候选为请求内固定三槽收集、单命令显式事务提交，不引入跨请求队列或后台任务。
+
 - [ ] **Step 3: 单变量 A/B 后实施最小候选**
 
 为选定候选先建立失败/崩溃/背压 RED，再实现。双库验证成功、回滚、异常和取消语义，复跑
 Task 20 矩阵；只有 P95/P99 达标且可靠性测试不退化才保留。
+
+状态（2026-07-29）：请求作用域固定三槽、单显式事务、单参数化命令候选已通过 Unit
+`7/7`、基准契约 `20/20` 和 SQL Server/MySQL Auditing 影响集 `6/6`。并发 4 的 3 秒短时
+A/B 中，两库总体 P95 均改善，MySQL `all` P95/P99 由 `78.878/281.212ms` 收敛到
+`42.666/48.401ms`，且归因、行数、错误与预算证据门禁全部通过。正式 Task 20 长稳态矩阵
+尚未复跑，故 Step 3 保持未完成；详见
+[`auditing-write-tail-latency-2026-07-28.md`](../../verification/auditing-write-tail-latency-2026-07-28.md) 第 7 节。
 
 ### Task 23: Audit 与 Outbox 保留、清理和运维指标
 

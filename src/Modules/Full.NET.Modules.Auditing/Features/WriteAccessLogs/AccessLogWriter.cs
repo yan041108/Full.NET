@@ -1,8 +1,4 @@
-using Full.NET.Abstractions.Ids;
-using Full.NET.Abstractions.Time;
-using Full.NET.Data.Abstractions;
-using Full.NET.Modules.Auditing.Persistence;
-using Microsoft.Extensions.Logging;
+using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 
 namespace Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 
@@ -21,46 +17,9 @@ internal sealed record AccessLogWriteModel(
     bool IsAuthenticated);
 
 /// <summary>
-/// 尽力写入访问日志；失败只记警告，不得拖垮业务响应。
+/// 将访问遥测写入请求作用域的固定槽位，由外层协调 Middleware 统一同步提交。
 /// </summary>
-internal sealed class AccessLogWriter(
-    ICommandExecutor commandExecutor,
-    IClock clock,
-    IIdGenerator idGenerator,
-    ILogger<AccessLogWriter> logger)
+internal sealed class AccessLogWriter(AuditWriteBuffer buffer)
 {
-    public async Task TryWriteAsync(
-        AccessLogWriteModel model,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await commandExecutor.ExecuteAsync(
-                    AccessLogSql.Insert,
-                    new
-                    {
-                        Id = idGenerator.NewId(),
-                        OccurredAtUtc = clock.UtcNow,
-                        model.HttpMethod,
-                        model.RequestPath,
-                        model.StatusCode,
-                        model.DurationMs,
-                        model.UserId,
-                        model.TenantId,
-                        model.TraceId,
-                        model.ClientIpFingerprint,
-                        model.IsAuthenticated,
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(
-                ex,
-                "Failed to persist HTTP access log for {HttpMethod} {RequestPath}.",
-                model.HttpMethod,
-                model.RequestPath);
-        }
-    }
+    public void Capture(AccessLogWriteModel model) => buffer.Capture(model);
 }

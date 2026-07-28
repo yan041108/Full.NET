@@ -25,10 +25,7 @@ internal sealed class ExceptionLogMiddleware(RequestDelegate next)
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            await writer.TryWriteAsync(
-                    BuildModel(httpContext, ex),
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            writer.Capture(BuildModel(httpContext, ex));
             throw;
         }
     }

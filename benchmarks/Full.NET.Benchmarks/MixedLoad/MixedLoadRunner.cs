@@ -13,6 +13,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.Migrations.DbUp;
+using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.AspNetCore.Hosting;
@@ -626,6 +627,10 @@ public static class MixedLoadRunner
             services.Remove(descriptor);
             services.AddHttpContextAccessor();
             services.TryAddSingleton<MixedLoadAuditWriteTelemetry>();
+            services.RemoveAll<IAuditWriteCapturePolicy>();
+            services.AddScoped<
+                IAuditWriteCapturePolicy,
+                MixedLoadAuditWriteCapturePolicy>();
             services.AddScoped<ICommandExecutor>(provider =>
                 new MixedLoadAuditCommandExecutor(
                     CreateOriginalCommandExecutor(provider, descriptor),
@@ -685,6 +690,8 @@ internal sealed class MixedLoadAuditCommandExecutor(
         }
 
         var stopwatch = Stopwatch.StartNew();
+        var observedStatements =
+            MixedLoadAuditWritePolicy.GetObservedStatements(statement.Name);
         try
         {
             var result = await inner.ExecuteAsync(
@@ -693,21 +700,29 @@ internal sealed class MixedLoadAuditCommandExecutor(
                     cancellationToken)
                 .ConfigureAwait(false);
             stopwatch.Stop();
-            telemetry.Record(
-                profile,
-                statement.Name,
-                stopwatch.Elapsed.TotalMilliseconds,
-                succeeded: true);
+            foreach (var observedStatement in observedStatements)
+            {
+                telemetry.Record(
+                    profile,
+                    observedStatement,
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    succeeded: true);
+            }
+
             return result;
         }
         catch
         {
             stopwatch.Stop();
-            telemetry.Record(
-                profile,
-                statement.Name,
-                stopwatch.Elapsed.TotalMilliseconds,
-                succeeded: false);
+            foreach (var observedStatement in observedStatements)
+            {
+                telemetry.Record(
+                    profile,
+                    observedStatement,
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    succeeded: false);
+            }
+
             throw;
         }
     }
@@ -720,6 +735,29 @@ internal sealed class MixedLoadAuditCommandExecutor(
         return string.IsNullOrWhiteSpace(value)
             ? MixedLoadAuditWriteProfile.All
             : MixedLoadAuditWritePolicy.ParseToken(value);
+    }
+}
+
+internal sealed class MixedLoadAuditWriteCapturePolicy(
+    IHttpContextAccessor httpContextAccessor) : IAuditWriteCapturePolicy
+{
+    public bool ShouldCapture(AuditWriteKinds kind)
+    {
+        var value = httpContextAccessor.HttpContext?
+            .Request.Headers[MixedLoadAuditWritePolicy.HeaderName]
+            .ToString();
+        var profile = string.IsNullOrWhiteSpace(value)
+            ? MixedLoadAuditWriteProfile.All
+            : MixedLoadAuditWritePolicy.ParseToken(value);
+        var requested = kind switch
+        {
+            AuditWriteKinds.Access => MixedLoadAuditWriteProfile.Access,
+            AuditWriteKinds.Operation => MixedLoadAuditWriteProfile.Operation,
+            AuditWriteKinds.Exception => MixedLoadAuditWriteProfile.Exception,
+            _ => MixedLoadAuditWriteProfile.None,
+        };
+        return requested != MixedLoadAuditWriteProfile.None
+            && profile.HasFlag(requested);
     }
 }
 
