@@ -330,6 +330,11 @@ BatchSize 与 payload 大小；记录吞吐、P95/P99、重复次数、续租命
 
 **Priority:** P1
 
+**Status:** Step 1 已于 2026-07-29 基于正式混合负载 V3 完成。JWT 与 API Key 均确认
+每请求固定一次认证数据库读取；API Key `LastUsed` 每个十分钟档仅更新 2–10 次。
+Step 2 已冻结当前“数据库提交后下一个请求立即看到”的语义；最大非零撤销传播窗口
+尚未批准，因此 Step 3 不得静默引入 TTL。
+
 **Files:**
 - Modify: `src/Modules/Full.NET.Modules.Identity/Security/AccessSessionValidator.cs`
 - Modify: `src/Modules/Full.NET.Modules.Identity/Security/ApiKeyAuthenticationService.cs`
@@ -339,7 +344,7 @@ BatchSize 与 payload 大小；记录吞吐、P95/P99、重复次数、续租命
 - Modify: `tests/Full.NET.IntegrationTests/Identity/IdentityApiKeyAssertions.cs`
 - Create: `docs/verification/authentication-request-chain-2026-07-28.md`
 
-- [ ] **Step 1: 基线每请求数据库往返**
+- [x] **Step 1: 基线每请求数据库往返**
 
 在 Task 20 下按 JWT/API Key、成功/撤销/禁用/租户停用统计 Statement 次数与 P95/P99，
 单独量化 API Key `LastUsed` 节流更新。
