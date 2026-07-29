@@ -70,7 +70,7 @@ public sealed class JobsModule : IFullNetModule
         services.AddOptions<JobsWorkerOptions>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
-        services.TryAddSingleton<JobHandlerRegistry>();
+        services.TryAddScoped<JobHandlerRegistry>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IJobHandler, PingJobHandler>());
         services.TryAddScoped<JobExecutionRunner>();
     }

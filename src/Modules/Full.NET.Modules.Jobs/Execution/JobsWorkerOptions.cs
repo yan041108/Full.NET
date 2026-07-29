@@ -11,6 +11,9 @@ internal sealed class JobsWorkerOptions
     /// <summary>获取或设置每轮最多领取的任务数量。</summary>
     public int BatchSize { get; set; } = 10;
 
+    /// <summary>获取或设置同一批次内允许并行执行的最大任务数量；默认保持串行。</summary>
+    public int MaxConcurrency { get; set; } = 1;
+
     /// <summary>获取或设置两次轮询之间的等待毫秒数。</summary>
     public int PollMilliseconds { get; set; } = 2000;
 
@@ -35,6 +38,18 @@ internal sealed class JobsWorkerOptionsValidator : IValidateOptions<JobsWorkerOp
         {
             failures.Add(
                 "Jobs:Worker:PollMilliseconds must be between 100 and 60000.");
+        }
+
+        if (options.MaxConcurrency is < 1 or > 16)
+        {
+            failures.Add(
+                "Jobs:Worker:MaxConcurrency must be between 1 and 16.");
+        }
+
+        if (options.MaxConcurrency > options.BatchSize)
+        {
+            failures.Add(
+                "Jobs:Worker:MaxConcurrency must not exceed BatchSize.");
         }
 
         if (options.LeaseSeconds is < 30 or > 3600)

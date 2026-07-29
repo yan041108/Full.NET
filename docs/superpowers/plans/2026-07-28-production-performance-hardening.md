@@ -358,6 +358,11 @@ Backplane 故障时必须 fail-closed，不能仅依赖陈旧 L1。
 
 **Priority:** P1
 
+**Status:** Step 1 已于 2026-07-29 完成；并发配置默认保持 `1`，不同 JobKey
+按上限并行，相同 JobKey 串行，每条并发执行使用独立 Scope。并发语义 Unit 与默认串行
+SQL Server/MySQL smoke 已通过；Step 2 的双库并发路径、慢 Handler、续租和故障隔离
+仍开放，Step 3 完整容量矩阵只进入夜间或手动 CI。
+
 **Files:**
 - Modify: `src/Modules/Full.NET.Modules.Jobs/Execution/JobsWorkerOptions.cs`
 - Modify: `src/Modules/Full.NET.Modules.Jobs/Execution/JobExecutionRunner.cs`
@@ -366,7 +371,7 @@ Backplane 故障时必须 fail-closed，不能仅依赖陈旧 L1。
 - Modify: `tests/Full.NET.IntegrationTests/Jobs/JobsMultiWorkerClaimAssertions.cs`
 - Create: `docs/verification/jobs-bounded-concurrency-2026-07-28.md`
 
-- [ ] **Step 1: 冻结顺序键、Scope 与连接预算**
+- [x] **Step 1: 冻结顺序键、Scope 与连接预算**
 
 默认并发保持 `1`；并发仅对无相同 `JobKey` 顺序约束的执行启用，每条执行独立 Scope 和
 数据库会话，租约续期覆盖批尾，连接预算按进程并发乘副本数计算。

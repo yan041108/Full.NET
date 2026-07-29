@@ -1323,3 +1323,13 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **521/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
 | 行为边界 | 只修复 benchmark 预热与采样共用固定积压导致的窗口饥饿；不修改生产 Outbox、数据库结构或默认并发 |
 | Integration | 本地不运行完整 199 项；使用单档真实 SQL Server 容量 smoke 验证 |
+
+### 2026-07-29 Jobs 有界并发
+
+| 检查 | 结果 |
+| --- | --- |
+| Unit 门槛 **521 → 522** | 新增 Jobs 有界并发语义 1 项，锁定不同 JobKey 并行、相同 JobKey 串行和逐执行 Scope 隔离 |
+| Unit discovery | **522**；本地只运行 Jobs 受影响测试类 |
+| 四处 canonical 门槛 | **522/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
+| 行为边界 | 新增默认关闭的 Jobs 有界并发；默认值保持 `1`，不调整领取 SQL、租约时长或数据库结构 |
+| Integration | SQL Server/MySQL 各运行 1 个 Jobs smoke；完整 199 项仍只由 `main` CI 执行 |

@@ -18,12 +18,14 @@ public sealed class JobsWorkerOptionsTests
             .Value;
         Assert.AreEqual(10, defaultOptions.BatchSize);
         Assert.AreEqual(2000, defaultOptions.PollMilliseconds);
+        Assert.AreEqual(1, defaultOptions.MaxConcurrency);
 
         using var invalid = CreateProvider(
             new Dictionary<string, string?>
             {
                 ["Jobs:Worker:BatchSize"] = "0",
                 ["Jobs:Worker:PollMilliseconds"] = "99",
+                ["Jobs:Worker:MaxConcurrency"] = "17",
             });
         var startupValidator = invalid.GetRequiredService<
             Microsoft.Extensions.Options.IStartupValidator>();
@@ -37,6 +39,24 @@ public sealed class JobsWorkerOptionsTests
         CollectionAssert.Contains(
             exception.Failures.ToArray(),
             "Jobs:Worker:PollMilliseconds must be between 100 and 60000.");
+        CollectionAssert.Contains(
+            exception.Failures.ToArray(),
+            "Jobs:Worker:MaxConcurrency must be between 1 and 16.");
+
+        using var exceedsBatch = CreateProvider(
+            new Dictionary<string, string?>
+            {
+                ["Jobs:Worker:BatchSize"] = "2",
+                ["Jobs:Worker:MaxConcurrency"] = "3",
+            });
+        var exceedsBatchException = Assert.ThrowsExactly<
+            Microsoft.Extensions.Options.OptionsValidationException>(
+            exceedsBatch
+                .GetRequiredService<Microsoft.Extensions.Options.IStartupValidator>()
+                .Validate);
+        CollectionAssert.Contains(
+            exceedsBatchException.Failures.ToArray(),
+            "Jobs:Worker:MaxConcurrency must not exceed BatchSize.");
     }
 
     [TestMethod]

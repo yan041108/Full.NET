@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Contracts;
 using Full.NET.Modules.Jobs.Execution;
 using Full.NET.Modules.Jobs.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -21,7 +22,8 @@ internal sealed class JobExecutionRunner(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     IOptions<JobsWorkerOptions> workerOptions,
-    ILogger<JobExecutionRunner> logger)
+    ILogger<JobExecutionRunner> logger,
+    IServiceScopeFactory? executionScopeFactory = null)
 {
     private readonly JobsWorkerOptions _workerOptions = workerOptions.Value;
 
@@ -135,19 +137,76 @@ internal sealed class JobExecutionRunner(
             .ConfigureAwait(false);
         var definitionsById = definitions.ToDictionary(
             definition => definition.Id);
-        var processed = 0;
-        foreach (var execution in acquired)
+        if (_workerOptions.MaxConcurrency == 1)
         {
-            await ProcessOneAsync(
-                    execution,
-                    definitionsById,
-                    leaseId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            processed++;
+            foreach (var execution in acquired)
+            {
+                await ProcessOneAsync(
+                        execution,
+                        definitionsById,
+                        leaseId,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            return acquired.Count;
         }
 
-        return processed;
+        if (executionScopeFactory is null)
+        {
+            throw new InvalidOperationException(
+                "Jobs parallel execution requires an execution scope factory.");
+        }
+
+        var executionGroups = acquired.GroupBy(
+            execution => definitionsById.TryGetValue(
+                execution.JobDefinitionId,
+                out var definition)
+                ? definition.JobKey
+                : $"missing:{execution.JobDefinitionId:D}",
+            StringComparer.Ordinal);
+        await Parallel.ForEachAsync(
+                executionGroups,
+                new ParallelOptions
+                {
+                    CancellationToken = cancellationToken,
+                    MaxDegreeOfParallelism = _workerOptions.MaxConcurrency,
+                },
+                async (group, groupCancellationToken) =>
+                {
+                    foreach (var execution in group)
+                    {
+                        await ProcessOneInScopeAsync(
+                                execution,
+                                definitionsById,
+                                leaseId,
+                                groupCancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                })
+                .ConfigureAwait(false);
+
+        return acquired.Count;
+    }
+
+    private async ValueTask ProcessOneInScopeAsync(
+        JobExecutionRecord execution,
+        IReadOnlyDictionary<Guid, JobDefinitionRecord> definitionsById,
+        Guid leaseId,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = executionScopeFactory!.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        await ProcessOneCoreAsync(
+                execution,
+                definitionsById,
+                leaseId,
+                cancellationToken,
+                services.GetRequiredService<JobHandlerRegistry>(),
+                services.GetRequiredService<ICommandExecutor>(),
+                services.GetRequiredService<IClock>(),
+                logger)
+            .ConfigureAwait(false);
     }
 
     private async Task RenewLeaseUntilCanceledAsync(
@@ -179,23 +238,46 @@ internal sealed class JobExecutionRunner(
         }
     }
 
-    private async Task ProcessOneAsync(
+    private Task ProcessOneAsync(
         JobExecutionRecord execution,
         IReadOnlyDictionary<Guid, JobDefinitionRecord> definitionsById,
         Guid leaseId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        ProcessOneCoreAsync(
+            execution,
+            definitionsById,
+            leaseId,
+            cancellationToken,
+            handlerRegistry,
+            commandExecutor,
+            clock,
+            logger);
+
+    private static async Task ProcessOneCoreAsync(
+        JobExecutionRecord execution,
+        IReadOnlyDictionary<Guid, JobDefinitionRecord> definitionsById,
+        Guid leaseId,
+        CancellationToken cancellationToken,
+        JobHandlerRegistry scopedHandlerRegistry,
+        ICommandExecutor scopedCommandExecutor,
+        IClock scopedClock,
+        ILogger<JobExecutionRunner> scopedLogger)
     {
         if (!definitionsById.TryGetValue(
                 execution.JobDefinitionId,
                 out var definition)
-            || !handlerRegistry.TryGetHandler(definition.JobKey, out var handler)
+            || !scopedHandlerRegistry.TryGetHandler(
+                definition.JobKey,
+                out var handler)
             || handler is null)
         {
             await MarkFailedAsync(
                     execution.Id,
                     leaseId,
                     "Job handler was not found.",
-                    cancellationToken)
+                    cancellationToken,
+                    scopedCommandExecutor,
+                    scopedClock)
                 .ConfigureAwait(false);
             return;
         }
@@ -203,7 +285,12 @@ internal sealed class JobExecutionRunner(
         try
         {
             await handler.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-            await MarkSucceededAsync(execution.Id, leaseId, cancellationToken)
+            await MarkSucceededAsync(
+                    execution.Id,
+                    leaseId,
+                    cancellationToken,
+                    scopedCommandExecutor,
+                    scopedClock)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -215,7 +302,7 @@ internal sealed class JobExecutionRunner(
         catch (Exception exception)
         {
             JobExecutionRunnerLog.ExecutionFailed(
-                logger,
+                scopedLogger,
                 exception,
                 execution.Id,
                 definition.JobKey);
@@ -223,7 +310,9 @@ internal sealed class JobExecutionRunner(
                     execution.Id,
                     leaseId,
                     exception.Message,
-                    cancellationToken)
+                    cancellationToken,
+                    scopedCommandExecutor,
+                    scopedClock)
                 .ConfigureAwait(false);
         }
     }
@@ -298,11 +387,13 @@ internal sealed class JobExecutionRunner(
             $"Unsupported database provider '{databaseOptions.Value.Provider}'.");
     }
 
-    private Task MarkSucceededAsync(
+    private static Task MarkSucceededAsync(
         Guid executionId,
         Guid leaseId,
-        CancellationToken cancellationToken) =>
-        commandExecutor.ExecuteAsync(
+        CancellationToken cancellationToken,
+        ICommandExecutor scopedCommandExecutor,
+        IClock scopedClock) =>
+        scopedCommandExecutor.ExecuteAsync(
             JobSql.MarkExecutionSucceeded,
             new
             {
@@ -310,16 +401,18 @@ internal sealed class JobExecutionRunner(
                 LeaseId = leaseId,
                 RunningStatus = JobExecutionStatuses.Running,
                 SucceededStatus = JobExecutionStatuses.Succeeded,
-                FinishedAtUtc = clock.UtcNow,
+                FinishedAtUtc = scopedClock.UtcNow,
             },
             cancellationToken);
 
-    private Task MarkFailedAsync(
+    private static Task MarkFailedAsync(
         Guid executionId,
         Guid leaseId,
         string errorMessage,
-        CancellationToken cancellationToken) =>
-        commandExecutor.ExecuteAsync(
+        CancellationToken cancellationToken,
+        ICommandExecutor scopedCommandExecutor,
+        IClock scopedClock) =>
+        scopedCommandExecutor.ExecuteAsync(
             JobSql.MarkExecutionFailed,
             new
             {
@@ -327,7 +420,7 @@ internal sealed class JobExecutionRunner(
                 LeaseId = leaseId,
                 RunningStatus = JobExecutionStatuses.Running,
                 FailedStatus = JobExecutionStatuses.Failed,
-                FinishedAtUtc = clock.UtcNow,
+                FinishedAtUtc = scopedClock.UtcNow,
                 ErrorMessage = errorMessage.Length > 2000
                     ? errorMessage[..2000]
                     : errorMessage,

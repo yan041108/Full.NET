@@ -5,6 +5,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Contracts;
 using Full.NET.Modules.Jobs.Execution;
 using Full.NET.Modules.Jobs.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -13,6 +14,88 @@ namespace Full.NET.UnitTests.Jobs;
 [TestClass]
 public sealed class JobExecutionRunnerTests
 {
+    [TestMethod]
+    public async Task ProcessPendingAsync_WithBoundedConcurrency_IsolatesScopesAndSerializesSameJobKey()
+    {
+        var firstDefinitionId = Guid.CreateVersion7();
+        var secondDefinitionId = Guid.CreateVersion7();
+        var executions = new[]
+        {
+            CreateExecution(firstDefinitionId),
+            CreateExecution(firstDefinitionId),
+            CreateExecution(secondDefinitionId),
+        };
+        var definitions = new[]
+        {
+            new JobDefinitionRecord
+            {
+                Id = firstDefinitionId,
+                JobKey = "jobs.test-parallel-a",
+                IsEnabled = true,
+            },
+            new JobDefinitionRecord
+            {
+                Id = secondDefinitionId,
+                JobKey = "jobs.test-parallel-b",
+                IsEnabled = true,
+            },
+        };
+        var coordinator = new ParallelExecutionCoordinator(2);
+        var services = new ServiceCollection();
+        services.AddSingleton(coordinator);
+        services.AddSingleton<IClock>(
+            new FixedClock(
+                new DateTimeOffset(2026, 7, 29, 0, 0, 0, TimeSpan.Zero)));
+        services.AddScoped<ExecutionScopeIdentity>();
+        services.AddScoped<ICommandExecutor, ScopedRecordingCommandExecutor>();
+        services.AddScoped<IJobHandler>(
+            provider => new CoordinatedJobHandler(
+                definitions[0].JobKey,
+                provider.GetRequiredService<ExecutionScopeIdentity>(),
+                coordinator));
+        services.AddScoped<IJobHandler>(
+            provider => new CoordinatedJobHandler(
+                definitions[1].JobKey,
+                provider.GetRequiredService<ExecutionScopeIdentity>(),
+                coordinator));
+        services.AddScoped<JobHandlerRegistry>();
+        await using var provider = services.BuildServiceProvider();
+        var runner = new JobExecutionRunner(
+            new MultipleJobsQueryExecutor(executions, definitions),
+            new RecordingCommandExecutor(),
+            new RecordingTransaction(),
+            new JobHandlerRegistry([]),
+            new FixedClock(
+                new DateTimeOffset(2026, 7, 29, 0, 0, 0, TimeSpan.Zero)),
+            new FixedIdGenerator(Guid.CreateVersion7()),
+            Options.Create(
+                new DatabaseOptions
+                {
+                    Provider = DatabaseProvider.SqlServer,
+                }),
+            Options.Create(
+                new JobsWorkerOptions
+                {
+                    BatchSize = 3,
+                    MaxConcurrency = 2,
+                }),
+            NullLogger<JobExecutionRunner>.Instance,
+            provider.GetRequiredService<IServiceScopeFactory>());
+
+        var processed = await runner
+            .ProcessPendingAsync(3, CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.AreEqual(3, processed);
+        Assert.AreEqual(2, coordinator.PeakConcurrency);
+        Assert.AreEqual(1, coordinator.GetPeakFor(definitions[0].JobKey));
+        Assert.AreEqual(1, coordinator.GetPeakFor(definitions[1].JobKey));
+        Assert.HasCount(3, coordinator.HandlerScopeIds.Distinct().ToArray());
+        CollectionAssert.AreEquivalent(
+            coordinator.HandlerScopeIds.ToArray(),
+            coordinator.CommandScopeIds.ToArray());
+    }
+
     [TestMethod]
     public async Task ProcessPendingAsync_MultipleExecutionsLoadDefinitionsOncePerBatch()
     {
@@ -312,6 +395,104 @@ public sealed class JobExecutionRunnerTests
             Task.CompletedTask;
     }
 
+    private static JobExecutionRecord CreateExecution(Guid definitionId) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            JobDefinitionId = definitionId,
+            Status = JobExecutionStatuses.Running,
+        };
+
+    private sealed class CoordinatedJobHandler(
+        string jobKey,
+        ExecutionScopeIdentity scopeIdentity,
+        ParallelExecutionCoordinator coordinator) : IJobHandler
+    {
+        public string JobKey => jobKey;
+
+        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+            coordinator.ExecuteAsync(
+                JobKey,
+                scopeIdentity.Id,
+                cancellationToken);
+    }
+
+    private sealed class ExecutionScopeIdentity
+    {
+        public Guid Id { get; } = Guid.CreateVersion7();
+    }
+
+    private sealed class ParallelExecutionCoordinator(int expectedConcurrency)
+    {
+        private readonly TaskCompletionSource _allStarted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly object _gate = new();
+        private readonly Dictionary<string, int> _activeByKey =
+            new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> _peakByKey =
+            new(StringComparer.Ordinal);
+        private int _active;
+
+        public int PeakConcurrency { get; private set; }
+
+        public List<Guid> HandlerScopeIds { get; } = [];
+
+        public List<Guid> CommandScopeIds { get; } = [];
+
+        public int GetPeakFor(string jobKey)
+        {
+            lock (_gate)
+            {
+                return _peakByKey.GetValueOrDefault(jobKey);
+            }
+        }
+
+        public async Task ExecuteAsync(
+            string jobKey,
+            Guid scopeId,
+            CancellationToken cancellationToken)
+        {
+            lock (_gate)
+            {
+                HandlerScopeIds.Add(scopeId);
+                _active++;
+                PeakConcurrency = Math.Max(PeakConcurrency, _active);
+                var activeForKey = _activeByKey.GetValueOrDefault(jobKey) + 1;
+                _activeByKey[jobKey] = activeForKey;
+                _peakByKey[jobKey] = Math.Max(
+                    _peakByKey.GetValueOrDefault(jobKey),
+                    activeForKey);
+                if (_active >= expectedConcurrency)
+                {
+                    _allStarted.TrySetResult();
+                }
+            }
+
+            try
+            {
+                await _allStarted.Task
+                    .WaitAsync(TimeSpan.FromSeconds(2), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                lock (_gate)
+                {
+                    _active--;
+                    _activeByKey[jobKey]--;
+                }
+            }
+        }
+
+        public void RecordCommandScope(Guid scopeId)
+        {
+            lock (_gate)
+            {
+                CommandScopeIds.Add(scopeId);
+            }
+        }
+    }
+
     private sealed class RenewalAwaitingJobHandler(Task renewalObserved) : IJobHandler
     {
         public const string Key = "jobs.test-active-renewal";
@@ -479,6 +660,41 @@ public sealed class JobExecutionRunnerTests
         }
     }
 
+    private sealed class MultipleJobsQueryExecutor(
+        IReadOnlyList<JobExecutionRecord> executions,
+        IReadOnlyList<JobDefinitionRecord> definitions) : IQueryExecutor
+    {
+        public Task<T?> QuerySingleOrDefaultAsync<T>(
+            SqlStatement statement,
+            object? parameters = null,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                $"Unexpected single-row statement '{statement.Name}'.");
+
+        public Task<IReadOnlyList<T>> QueryAsync<T>(
+            SqlStatement statement,
+            object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (typeof(T) == typeof(JobExecutionRecord)
+                && statement == JobSql.AcquireExecutionsSqlServer)
+            {
+                return Task.FromResult(
+                    (IReadOnlyList<T>)(object)executions);
+            }
+
+            if (typeof(T) == typeof(JobDefinitionRecord)
+                && statement == JobSql.FindDefinitionsByIds)
+            {
+                return Task.FromResult(
+                    (IReadOnlyList<T>)(object)definitions);
+            }
+
+            throw new InvalidOperationException(
+                $"Unexpected list statement '{statement.Name}'.");
+        }
+    }
+
     private sealed class RecordingCommandExecutor : ICommandExecutor
     {
         public List<SqlStatement> Statements { get; } = [];
@@ -489,6 +705,20 @@ public sealed class JobExecutionRunnerTests
             CancellationToken cancellationToken = default)
         {
             Statements.Add(statement);
+            return Task.FromResult(1);
+        }
+    }
+
+    private sealed class ScopedRecordingCommandExecutor(
+        ExecutionScopeIdentity scopeIdentity,
+        ParallelExecutionCoordinator coordinator) : ICommandExecutor
+    {
+        public Task<int> ExecuteAsync(
+            SqlStatement statement,
+            object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            coordinator.RecordCommandScope(scopeIdentity.Id);
             return Task.FromResult(1);
         }
     }
