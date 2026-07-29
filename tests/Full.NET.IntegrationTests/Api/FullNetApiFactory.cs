@@ -25,7 +25,8 @@ internal sealed class FullNetApiFactory(
     DatabaseProvider provider,
     string connectionString,
     IReadOnlyDictionary<string, string?>? settingsOverrides = null,
-    IPAddress? connectionRemoteIpAddress = null) : WebApplicationFactory<Program>
+    IPAddress? connectionRemoteIpAddress = null,
+    Action<IServiceCollection>? configureTestServices = null) : WebApplicationFactory<Program>
 {
     public const string TestPassword = "FullNet!2026Integration";
 
@@ -69,6 +70,7 @@ internal sealed class FullNetApiFactory(
                 // FusionCache Backplane 会把它们视为同一缓存节点并忽略彼此的失效广播。
                 FusionCacheDangerZoneUtils.SetInstanceId(options, _cacheInstanceId);
             });
+            configureTestServices?.Invoke(services);
         });
     }
 
@@ -221,7 +223,8 @@ internal sealed class FullNetApiFactory(
             provider,
             connectionString,
             settingsOverrides,
-            connectionRemoteIpAddress);
+            connectionRemoteIpAddress,
+            configureTestServices);
     }
 
     public async Task<string> CreateHostAccessTokenAsync(

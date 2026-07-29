@@ -358,10 +358,10 @@ Backplane 故障时必须 fail-closed，不能仅依赖陈旧 L1。
 
 **Priority:** P1
 
-**Status:** Step 1 已于 2026-07-29 完成；并发配置默认保持 `1`，不同 JobKey
-按上限并行，相同 JobKey 串行，每条并发执行使用独立 Scope。并发语义 Unit 与默认串行
-SQL Server/MySQL smoke 已通过；Step 2 的双库并发路径、慢 Handler、续租和故障隔离
-仍开放，Step 3 完整容量矩阵只进入夜间或手动 CI。
+**Status:** Step 1、Step 2 已于 2026-07-29 完成；并发配置默认保持 `1`，不同 JobKey
+按上限并行，相同 JobKey 串行，每条并发执行使用独立 Scope。并发语义 Unit 与显式并发
+SQL Server/MySQL smoke 已通过，覆盖慢 Handler、续租、故障隔离、Host 上下文和既有
+多 Worker 无重复终态；Step 3 完整容量矩阵只进入夜间或手动 CI。
 
 **Files:**
 - Modify: `src/Modules/Full.NET.Modules.Jobs/Execution/JobsWorkerOptions.cs`
@@ -376,7 +376,7 @@ SQL Server/MySQL smoke 已通过；Step 2 的双库并发路径、慢 Handler、
 默认并发保持 `1`；并发仅对无相同 `JobKey` 顺序约束的执行启用，每条执行独立 Scope 和
 数据库会话，租约续期覆盖批尾，连接预算按进程并发乘副本数计算。
 
-- [ ] **Step 2: 建立双库 RED 并实现有界并发**
+- [x] **Step 2: 建立双库 RED 并实现有界并发**
 
 用闸门 Handler 验证峰值、Scope 隔离、续租、单条失败隔离和多 Worker 无重复终态；禁止
 无界 `Task.WhenAll`。

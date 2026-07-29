@@ -1,6 +1,7 @@
 using System.Runtime.ExceptionServices;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Contracts;
@@ -197,16 +198,25 @@ internal sealed class JobExecutionRunner(
     {
         await using var scope = executionScopeFactory!.CreateAsyncScope();
         var services = scope.ServiceProvider;
-        await ProcessOneCoreAsync(
-                execution,
-                definitionsById,
-                leaseId,
-                cancellationToken,
-                services.GetRequiredService<JobHandlerRegistry>(),
-                services.GetRequiredService<ICommandExecutor>(),
-                services.GetRequiredService<IClock>(),
-                logger)
-            .ConfigureAwait(false);
+        var currentTenant = services.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            await ProcessOneCoreAsync(
+                    execution,
+                    definitionsById,
+                    leaseId,
+                    cancellationToken,
+                    services.GetRequiredService<JobHandlerRegistry>(),
+                    services.GetRequiredService<ICommandExecutor>(),
+                    services.GetRequiredService<IClock>(),
+                    logger)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     private async Task RenewLeaseUntilCanceledAsync(

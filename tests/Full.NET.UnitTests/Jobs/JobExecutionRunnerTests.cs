@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Contracts;
@@ -46,6 +47,7 @@ public sealed class JobExecutionRunnerTests
         services.AddSingleton<IClock>(
             new FixedClock(
                 new DateTimeOffset(2026, 7, 29, 0, 0, 0, TimeSpan.Zero)));
+        services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ExecutionScopeIdentity>();
         services.AddScoped<ICommandExecutor, ScopedRecordingCommandExecutor>();
         services.AddScoped<IJobHandler>(

@@ -18,6 +18,7 @@ internal static class JobsHostDefinitionAssertions
 {
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
+        JobsBoundedConcurrencyProbe? concurrencyProbe = null,
         CancellationToken cancellationToken = default)
     {
         await factory.InitializeAsync(cancellationToken);
@@ -38,6 +39,14 @@ internal static class JobsHostDefinitionAssertions
         await JobsActiveLeaseRenewalAssertions.VerifyAsync(
             factory,
             cancellationToken);
+        if (concurrencyProbe is not null)
+        {
+            await JobsBoundedConcurrencyAssertions.VerifyAsync(
+                factory,
+                concurrencyProbe,
+                cancellationToken);
+        }
+
         await VerifyDisableAsync(
             client,
             definition.Id,
