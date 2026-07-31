@@ -335,7 +335,7 @@ public sealed class AuditingQueryBenchmarkTests
             },
             lateMaterializationStrategies.ToArray());
         StringAssert.Contains(
-            query.ListSql,
+            query.ListSql.ReplaceLineEndings("\n"),
             "SELECT Id, OccurredAtUtc\n    FROM fn_auditing_access_log");
         StringAssert.Contains(
             query.ListSql,

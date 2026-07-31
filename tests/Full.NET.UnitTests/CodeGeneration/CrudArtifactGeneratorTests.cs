@@ -876,11 +876,18 @@ public sealed class CrudArtifactGeneratorTests
                 File.Exists(fixturePath),
                 $"缺少代码生成固定夹具：{artifact.RelativePath}");
             Assert.AreEqual(
-                artifact.Content,
-                File.ReadAllText(fixturePath),
+                NormalizeFixtureContent(artifact.Content),
+                NormalizeFixtureContent(File.ReadAllText(fixturePath)),
                 $"代码生成固定夹具漂移：{artifact.RelativePath}");
         }
     }
+
+    private static string NormalizeFixtureContent(string content) =>
+        string.Join(
+            '\n',
+            content.ReplaceLineEndings("\n")
+                .Split('\n')
+                .Select(line => line.TrimEnd()));
 
     private static string Artifact(
         IEnumerable<GeneratedArtifact> artifacts,
