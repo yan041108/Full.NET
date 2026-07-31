@@ -8,7 +8,8 @@ function defineController(importController, exportName, root, options) {
 export function createLayuiRouteControllerDefinitions(root, options) {
   const sharedOptions = {
     request: options.request,
-    translation: options.translation
+    translation: options.translation,
+    hasPermission: options.hasPermission
   };
 
   return new Map([
@@ -41,6 +42,15 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       'createDictTypesController',
       root,
       sharedOptions
+    )],
+    ['/settings/tenant-dict-types', defineController(
+      () => import('./tenant-dict-types.js'),
+      'createTenantDictTypesController',
+      root,
+      {
+        ...sharedOptions,
+        canWrite: options.canWriteTenantDictTypes
+      }
     )],
     ['/settings/config-entries', defineController(
       () => import('./config-entries.js'),
@@ -75,6 +85,12 @@ export function createLayuiRouteControllerDefinitions(root, options) {
     ['/jobs/host-definitions', defineController(
       () => import('./host-jobs.js'),
       'createHostJobsController',
+      root,
+      sharedOptions
+    )],
+    ['/code-generation/previews', defineController(
+      () => import('./code-generation-previews.js'),
+      'createCodeGenerationPreviewsController',
       root,
       sharedOptions
     )],
@@ -141,6 +157,12 @@ export function createLayuiRouteControllerDefinitions(root, options) {
     ['/organization/positions', defineController(
       () => import('./org-positions.js'),
       'createOrgPositionsController',
+      root,
+      sharedOptions
+    )],
+    ['/organization/position-levels', defineController(
+      () => import('./org-position-levels.js'),
+      'createOrgPositionLevelsController',
       root,
       sharedOptions
     )],

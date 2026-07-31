@@ -1,5 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { listOrganizationPositions, createOrganizationPosition } from './org-positions';
+import {
+  assignOrganizationPositionLevel,
+  assignOrganizationPositionUnit,
+  createOrganizationPosition,
+  listOrganizationPositions
+} from './org-positions';
 
 vi.mock('./http', () => ({
   request: vi.fn()
@@ -18,6 +23,12 @@ describe('org-positions api', () => {
         id: '01912345-6789-7abc-8def-0123456789ab',
         code: 'engineer',
         name: '工程师',
+        unitId: null,
+        unitCode: null,
+        unitName: null,
+        positionLevelId: null,
+        positionLevelCode: null,
+        positionLevelName: null,
         displayOrder: 10,
         isActive: true,
         createdAtUtc: '2026-07-25T08:00:00.000Z',
@@ -41,6 +52,12 @@ describe('org-positions api', () => {
       id: '01912345-6789-7abc-8def-0123456789ab',
       code: 'engineer',
       name: '工程师',
+      unitId: null,
+      unitCode: null,
+      unitName: null,
+      positionLevelId: null,
+      positionLevelCode: null,
+      positionLevelName: null,
       displayOrder: 10,
       isActive: true,
       createdAtUtc: '2026-07-25T08:00:00.000Z',
@@ -52,5 +69,73 @@ describe('org-positions api', () => {
     expect(request).toHaveBeenCalledWith('/api/v1/organization/positions', expect.objectContaining({
       method: 'POST'
     }));
+  });
+
+  it('binds and unbinds a position unit with optimistic concurrency', async () => {
+    vi.mocked(request).mockResolvedValue({
+      id: '01912345-6789-7abc-8def-0123456789ab',
+      code: 'engineer',
+      name: '工程师',
+      unitId: null,
+      unitCode: null,
+      unitName: null,
+      positionLevelId: null,
+      positionLevelCode: null,
+      positionLevelName: null,
+      displayOrder: 10,
+      isActive: true,
+      createdAtUtc: '2026-07-25T08:00:00.000Z',
+      updatedAtUtc: '2026-07-29T08:00:00.000Z',
+      version: 2
+    });
+
+    await assignOrganizationPositionUnit(
+      '01912345-6789-7abc-8def-0123456789ab',
+      null,
+      1
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/v1/organization/positions/01912345-6789-7abc-8def-0123456789ab/unit',
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ unitId: null, version: 1 })
+      }
+    );
+  });
+
+  it('binds and unbinds a position level with optimistic concurrency', async () => {
+    vi.mocked(request).mockResolvedValue({
+      id: '01912345-6789-7abc-8def-0123456789ab',
+      code: 'engineer',
+      name: '工程师',
+      unitId: null,
+      unitCode: null,
+      unitName: null,
+      positionLevelId: null,
+      positionLevelCode: null,
+      positionLevelName: null,
+      displayOrder: 10,
+      isActive: true,
+      createdAtUtc: '2026-07-25T08:00:00.000Z',
+      updatedAtUtc: '2026-07-29T08:00:00.000Z',
+      version: 2
+    });
+
+    await assignOrganizationPositionLevel(
+      '01912345-6789-7abc-8def-0123456789ab',
+      null,
+      1
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/v1/organization/positions/01912345-6789-7abc-8def-0123456789ab/position-level',
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ positionLevelId: null, version: 1 })
+      }
+    );
   });
 });

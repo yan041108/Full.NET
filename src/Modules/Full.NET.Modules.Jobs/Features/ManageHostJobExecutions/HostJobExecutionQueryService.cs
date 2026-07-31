@@ -64,11 +64,14 @@ internal sealed class HostJobExecutionQueryService(
         new(
             record.Id,
             record.JobDefinitionId,
+            record.JobScheduleId,
             record.Status,
             record.TriggerKind,
+            record.ScheduledForUtc,
             record.ErrorMessage,
             record.StartedAtUtc,
             record.FinishedAtUtc,
+            record.NextAttemptAtUtc,
             record.AttemptCount,
             record.CreatedAtUtc);
 

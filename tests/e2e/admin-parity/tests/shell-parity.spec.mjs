@@ -994,6 +994,246 @@ test('字典项列表、创建与禁用在两端保持一致', async ({ page }, 
   await expect(itemsPanel.getByText('已禁用', { exact: true })).toBeVisible();
 });
 
+test('租户字典类型列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await mockAuthenticatedSession(page, { initialTenantId: tenantId });
+  const operations = [];
+  const dictTypeId = '019bc2b1-2a40-7cc3-8992-a80de51bf29d';
+  const state = { hasDictType: false, disabled: false };
+  const listBody = () => {
+    if (!state.hasDictType) {
+      return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
+    }
+
+    return JSON.stringify({
+      items: [{
+        id: dictTypeId,
+        code: 'parity_tenant_status',
+        name: '对等租户状态',
+        description: '说明',
+        displayOrder: 10,
+        isActive: !state.disabled,
+        version: state.disabled ? 2 : 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+  };
+
+  await page.route('**/api/v1/settings/tenant-dict-types?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: listBody()
+  }));
+  await page.route('**/api/v1/settings/tenant-dict-types', async route => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    operations.push({ type: 'create', body: route.request().postDataJSON() });
+    state.hasDictType = true;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: dictTypeId,
+        code: 'parity_tenant_status',
+        name: '对等租户状态',
+        description: '说明',
+        displayOrder: 10,
+        isActive: true,
+        version: 1
+      })
+    });
+  });
+  await page.route(`**/api/v1/settings/tenant-dict-types/${dictTypeId}/disable`, async route => {
+    operations.push({ type: 'disable' });
+    state.disabled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: dictTypeId,
+        code: 'parity_tenant_status',
+        name: '对等租户状态',
+        description: '说明',
+        displayOrder: 10,
+        isActive: false,
+        version: 2
+      })
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /租户数据字典/ }).click();
+  await expect(page.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
+  await expect(page.getByText('尚无字典类型', { exact: true })).toBeVisible();
+
+  const dictTypesView = routeView(page, clientKind, 'tenant-dict-types', '.dict-types-view');
+  await dictTypesView.getByLabel('字典编码', { exact: true }).fill('parity_tenant_status');
+  await dictTypesView.getByLabel('显示名称', { exact: true }).fill('对等租户状态');
+  await dictTypesView.getByLabel('说明', { exact: true }).fill('说明');
+  await dictTypesView.getByLabel('显示顺序', { exact: true }).first().fill('10');
+  await dictTypesView.getByRole('button', { name: '创建字典类型' }).click();
+  await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
+    type: 'create',
+    body: {
+      code: 'parity_tenant_status',
+      name: '对等租户状态',
+      description: '说明',
+      displayOrder: 10
+    }
+  }]);
+  await expect(page.getByText('对等租户状态', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
+      .evaluate(button => button.click());
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
+  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+});
+
+test('租户字典项列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await mockAuthenticatedSession(page, { initialTenantId: tenantId });
+  const operations = [];
+  const dictTypeId = '019bc2b1-2a40-7cc3-8992-a80de51bf29e';
+  const dictItemId = '019bc2b1-2a40-7cc3-8992-a80de51bf29f';
+  const state = { hasItem: false, disabled: false };
+  const itemsBody = () => {
+    if (!state.hasItem) {
+      return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
+    }
+
+    return JSON.stringify({
+      items: [{
+        id: dictItemId,
+        dictTypeId,
+        label: '对等租户项',
+        value: 'parity_tenant_item',
+        color: '#409eff',
+        displayOrder: 5,
+        isActive: !state.disabled,
+        version: state.disabled ? 2 : 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+  };
+
+  await page.route('**/api/v1/settings/tenant-dict-types?page=1&pageSize=20', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      items: [{
+        id: dictTypeId,
+        code: 'parity_tenant_enum',
+        name: '对等租户枚举',
+        description: null,
+        displayOrder: 1,
+        isActive: true,
+        version: 1
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    })
+  }));
+  await page.route(`**/api/v1/settings/tenant-dict-types/${dictTypeId}/items?page=1&pageSize=20`, route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: itemsBody()
+  }));
+  await page.route(`**/api/v1/settings/tenant-dict-types/${dictTypeId}/items`, async route => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    operations.push({ type: 'create', body: route.request().postDataJSON() });
+    state.hasItem = true;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: dictItemId,
+        dictTypeId,
+        label: '对等租户项',
+        value: 'parity_tenant_item',
+        color: '#409eff',
+        displayOrder: 5,
+        isActive: true,
+        version: 1
+      })
+    });
+  });
+  await page.route(`**/api/v1/settings/tenant-dict-items/${dictItemId}/disable`, async route => {
+    operations.push({ type: 'disable' });
+    state.disabled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: dictItemId,
+        dictTypeId,
+        label: '对等租户项',
+        value: 'parity_tenant_item',
+        color: '#409eff',
+        displayOrder: 5,
+        isActive: false,
+        version: 2
+      })
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /租户数据字典/ }).click();
+  await expect(page.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
+  await expect(page.getByText('对等租户枚举', { exact: true })).toBeVisible();
+
+  const dictTypesView = routeView(page, clientKind, 'tenant-dict-types', '.dict-types-view');
+  await dictTypesView.getByRole('button', { name: '字典项', exact: true }).click();
+  const itemsPanel = clientKind === 'layui'
+    ? dictTypesView.locator('[data-tenant-dict-items-panel]')
+    : dictTypesView.locator('[data-dict-items-panel]');
+  await expect(itemsPanel).toBeVisible();
+  await expect(itemsPanel.getByText('该类型尚无字典项', { exact: true })).toBeVisible();
+
+  await itemsPanel.getByLabel('显示文本', { exact: true }).fill('对等租户项');
+  await itemsPanel.getByLabel('机器值', { exact: true }).fill('parity_tenant_item');
+  await itemsPanel.getByLabel('颜色', { exact: true }).fill('#409eff');
+  await itemsPanel.getByLabel('显示顺序', { exact: true }).fill('5');
+  await itemsPanel.getByRole('button', { name: '创建字典项' }).click();
+  await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
+    type: 'create',
+    body: {
+      label: '对等租户项',
+      value: 'parity_tenant_item',
+      color: '#409eff',
+      displayOrder: 5
+    }
+  }]);
+  await expect(itemsPanel.getByText('对等租户项', { exact: true }).first()).toBeVisible();
+  await expect(itemsPanel.locator('code', { hasText: 'parity_tenant_item' })).toBeVisible();
+
+  await itemsPanel.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
+      .evaluate(button => button.click());
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
+  await expect(itemsPanel.getByText('已禁用', { exact: true })).toBeVisible();
+});
+
 test('系统配置列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page);
@@ -1276,58 +1516,85 @@ test('在线用户列表与强制下线在两端保持一致', async ({ page }, 
   await expect.poll(() => operations.some(operation => operation.type === 'revoke')).toBe(true);
 });
 
-test('API Key 创建、一次性明文与禁用在两端保持一致', async ({ page }, testInfo) => {
+test('API Key 创建、轮换、一次性明文与禁用在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page);
   const keyId = '01912345-6789-7abc-8def-0123456789b8';
+  const rotatedKeyId = '01912345-6789-7abc-8def-0123456789b9';
   const userId = '01912345-6789-7abc-8def-0123456789ac';
-  const state = { created: false, active: true };
+  const state = { created: false, rotated: false, activeKeyId: keyId };
   const operations = [];
-  const apiKey = () => ({
-    id: keyId,
+  const apiKey = (id, isActive, keyPrefix = 'fn_live_parity') => ({
+    id,
     userId,
     username: 'parity-automation',
     displayName: '对等流水线',
-    keyPrefix: 'fn_live_parity',
+    keyPrefix,
     permissions: ['platform.dashboard.read'],
     expiresAtUtc: null,
-    isActive: state.active,
+    isActive: isActive,
     lastUsedAtUtc: null,
     createdAtUtc: '2026-07-26T00:00:00Z'
   });
+  const listItems = () => {
+    if (!state.created) return [];
+    if (!state.rotated) {
+      return [apiKey(keyId, true)];
+    }
+    return [
+      apiKey(keyId, false),
+      apiKey(rotatedKeyId, state.activeKeyId === rotatedKeyId, 'fnk_rotated')
+    ];
+  };
 
   await page.route('**/api/v1/identity/api-keys**', async route => {
     const method = route.request().method();
+    const url = route.request().url();
     if (method === 'GET') {
+      const items = listItems();
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          items: state.created ? [apiKey()] : [],
+          items,
           page: 1,
           pageSize: 20,
-          total: state.created ? 1 : 0
+          total: items.length
         })
       });
       return;
     }
-    if (method === 'POST' && route.request().url().endsWith('/api/v1/identity/api-keys')) {
+    if (method === 'POST' && url.endsWith('/api/v1/identity/api-keys')) {
       operations.push({ type: 'create', body: route.request().postDataJSON() });
       state.created = true;
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify({ key: apiKey(), secret: 'fn_live_once_only' })
+        body: JSON.stringify({ key: apiKey(keyId, true), secret: 'fn_live_once_only' })
       });
       return;
     }
-    if (method === 'POST' && route.request().url().includes(`/${keyId}/disable`)) {
-      operations.push({ type: 'disable' });
-      state.active = false;
+    if (method === 'POST' && url.includes(`/${keyId}/rotate`)) {
+      operations.push({ type: 'rotate' });
+      state.rotated = true;
+      state.activeKeyId = rotatedKeyId;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(apiKey())
+        body: JSON.stringify({
+          key: apiKey(rotatedKeyId, true, 'fnk_rotated'),
+          secret: 'fn_live_rotated_once'
+        })
+      });
+      return;
+    }
+    if (method === 'POST' && url.includes(`/${rotatedKeyId}/disable`)) {
+      operations.push({ type: 'disable' });
+      state.activeKeyId = keyId;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(apiKey(rotatedKeyId, false, 'fnk_rotated'))
       });
       return;
     }
@@ -1359,7 +1626,23 @@ test('API Key 创建、一次性明文与禁用在两端保持一致', async ({ 
     session: Object.values(sessionStorage).includes(secret)
   }), 'fn_live_once_only')).toEqual({ local: false, session: false });
 
-  await apiKeysView.getByRole('button', { name: '禁用', exact: true }).click();
+  const rowByName = apiKeysView.getByRole('article').filter({ hasText: '对等流水线' });
+  await rowByName.filter({ hasText: '有效' }).getByRole('button', { name: '轮换', exact: true }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '轮换', exact: true })
+      .evaluate(button => button.click());
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+  await expect(apiKeysView.getByText('fn_live_rotated_once', { exact: true })).toBeVisible();
+  await expect.poll(() => operations.some(operation => operation.type === 'rotate')).toBe(true);
+  expect(await page.evaluate(secret => ({
+    local: Object.values(localStorage).includes(secret),
+    session: Object.values(sessionStorage).includes(secret)
+  }), 'fn_live_rotated_once')).toEqual({ local: false, session: false });
+
+  await rowByName.filter({ hasText: '有效' }).getByRole('button', { name: '禁用', exact: true }).click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -1368,7 +1651,7 @@ test('API Key 创建、一次性明文与禁用在两端保持一致', async ({ 
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(apiKeysView.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(rowByName.getByText('已禁用', { exact: true }).first()).toBeVisible();
 });
 
 test('Host 文件列表与上传删除在两端保持一致', async ({ page }, testInfo) => {
@@ -2267,12 +2550,20 @@ test('机构列表、创建与禁用在两端保持一致', async ({ page }, tes
   await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
 });
 
-test('职位列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
+test('职位创建、机构与职级绑定及禁用在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page, { initialTenantId: tenantId });
   const operations = [];
   const positionId = 'e2e-tenant-position-id';
-  const state = { hasPosition: false, disabled: false };
+  const unitId = 'e2e-tenant-unit-id';
+  const positionLevelId = 'e2e-tenant-position-level-id';
+  const state = {
+    hasPosition: false,
+    disabled: false,
+    unitId: null,
+    positionLevelId: null,
+    version: 1
+  };
   const listBody = () => {
     if (!state.hasPosition) {
       return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
@@ -2283,11 +2574,17 @@ test('职位列表、创建与禁用在两端保持一致', async ({ page }, tes
         id: positionId,
         code: 'parity-pos',
         name: '对等职位',
+        unitId: state.unitId,
+        unitCode: state.unitId ? 'parity-unit' : null,
+        unitName: state.unitId ? '对等机构' : null,
+        positionLevelId: state.positionLevelId,
+        positionLevelCode: state.positionLevelId ? 'senior' : null,
+        positionLevelName: state.positionLevelId ? '高级' : null,
         displayOrder: 10,
         isActive: !state.disabled,
         createdAtUtc: '2026-07-25T00:00:00Z',
         updatedAtUtc: state.disabled ? '2026-07-25T01:00:00Z' : null,
-        version: state.disabled ? 2 : 1
+        version: state.version
       }],
       page: 1,
       pageSize: 20,
@@ -2299,7 +2596,50 @@ test('职位列表、创建与禁用在两端保持一致', async ({ page }, tes
     status: 200,
     contentType: 'application/json',
     body: listBody()
+    })
+  );
+  await page.route('**/api/v1/organization/units?page=1&pageSize=100', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      items: [{
+        id: unitId,
+        parentId: null,
+        code: 'parity-unit',
+        name: '对等机构',
+        displayOrder: 10,
+        isActive: true,
+        createdAtUtc: '2026-07-25T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      }],
+      page: 1,
+      pageSize: 100,
+      total: 1
+    })
   }));
+  await page.route(
+    '**/api/v1/organization/position-levels?page=1&pageSize=100',
+    route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [{
+          id: positionLevelId,
+          code: 'senior',
+          name: '高级',
+          displayOrder: 10,
+          isActive: true,
+          createdAtUtc: '2026-07-25T00:00:00Z',
+          updatedAtUtc: null,
+          version: 1
+        }],
+        page: 1,
+        pageSize: 100,
+        total: 1
+      })
+    })
+  );
   await page.route('**/api/v1/organization/positions', async route => {
     if (route.request().method() !== 'POST') {
       await route.fallback();
@@ -2314,6 +2654,12 @@ test('职位列表、创建与禁用在两端保持一致', async ({ page }, tes
         id: positionId,
         code: 'parity-pos',
         name: '对等职位',
+        unitId: null,
+        unitCode: null,
+        unitName: null,
+        positionLevelId: null,
+        positionLevelCode: null,
+        positionLevelName: null,
         displayOrder: 10,
         isActive: true,
         createdAtUtc: '2026-07-25T00:00:00Z',
@@ -2322,9 +2668,11 @@ test('职位列表、创建与禁用在两端保持一致', async ({ page }, tes
       })
     });
   });
-  await page.route(`**/api/v1/organization/positions/${positionId}/disable`, async route => {
-    operations.push({ type: 'disable' });
-    state.disabled = true;
+  await page.route(`**/api/v1/organization/positions/${positionId}/unit`, async route => {
+    const body = route.request().postDataJSON();
+    operations.push({ type: 'assign-unit', body });
+    state.unitId = body.unitId;
+    state.version += 1;
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -2332,11 +2680,71 @@ test('职位列表、创建与禁用在两端保持一致', async ({ page }, tes
         id: positionId,
         code: 'parity-pos',
         name: '对等职位',
+        unitId: state.unitId,
+        unitCode: state.unitId ? 'parity-unit' : null,
+        unitName: state.unitId ? '对等机构' : null,
+        positionLevelId: state.positionLevelId,
+        positionLevelCode: state.positionLevelId ? 'senior' : null,
+        positionLevelName: state.positionLevelId ? '高级' : null,
+        displayOrder: 10,
+        isActive: true,
+        createdAtUtc: '2026-07-25T00:00:00Z',
+        updatedAtUtc: '2026-07-25T00:30:00Z',
+        version: state.version
+      })
+    });
+  });
+  await page.route(
+    `**/api/v1/organization/positions/${positionId}/position-level`,
+    async route => {
+      const body = route.request().postDataJSON();
+      operations.push({ type: 'assign-position-level', body });
+      state.positionLevelId = body.positionLevelId;
+      state.version += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: positionId,
+          code: 'parity-pos',
+          name: '对等职位',
+          unitId: state.unitId,
+          unitCode: state.unitId ? 'parity-unit' : null,
+          unitName: state.unitId ? '对等机构' : null,
+          positionLevelId: state.positionLevelId,
+          positionLevelCode: state.positionLevelId ? 'senior' : null,
+          positionLevelName: state.positionLevelId ? '高级' : null,
+          displayOrder: 10,
+          isActive: true,
+          createdAtUtc: '2026-07-25T00:00:00Z',
+          updatedAtUtc: '2026-07-25T00:45:00Z',
+          version: state.version
+        })
+      });
+    }
+  );
+  await page.route(`**/api/v1/organization/positions/${positionId}/disable`, async route => {
+    operations.push({ type: 'disable' });
+    state.disabled = true;
+    state.version += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: positionId,
+        code: 'parity-pos',
+        name: '对等职位',
+        unitId: state.unitId,
+        unitCode: state.unitId ? 'parity-unit' : null,
+        unitName: state.unitId ? '对等机构' : null,
+        positionLevelId: state.positionLevelId,
+        positionLevelCode: state.positionLevelId ? 'senior' : null,
+        positionLevelName: state.positionLevelId ? '高级' : null,
         displayOrder: 10,
         isActive: false,
         createdAtUtc: '2026-07-25T00:00:00Z',
         updatedAtUtc: '2026-07-25T01:00:00Z',
-        version: 2
+        version: state.version
       })
     });
   });
@@ -2360,6 +2768,33 @@ test('职位列表、创建与禁用在两端保持一致', async ({ page }, tes
   }]);
   await expect(page.getByText('对等职位', { exact: true }).first()).toBeVisible();
 
+  if (clientKind === 'vue') {
+    await orgPositionsView.locator('.el-select').first().click();
+    await page.getByRole('option', { name: /对等机构/ }).click();
+  } else {
+    await orgPositionsView.getByLabel('所属机构', { exact: true }).selectOption(unitId);
+  }
+  await expect.poll(() => operations.some(operation => (
+    operation.type === 'assign-unit'
+      && operation.body.unitId === unitId
+      && operation.body.version === 1
+  ))).toBe(true);
+  await expect(page.getByText('对等机构', { exact: true }).first()).toBeVisible();
+
+  if (clientKind === 'vue') {
+    await orgPositionsView.locator('.el-select').nth(1).click();
+    await page.getByRole('option', { name: /高级/ }).click();
+  } else {
+    await orgPositionsView.getByLabel('所属职级', { exact: true })
+      .selectOption(positionLevelId);
+  }
+  await expect.poll(() => operations.some(operation => (
+    operation.type === 'assign-position-level'
+      && operation.body.positionLevelId === positionLevelId
+      && operation.body.version === 2
+  ))).toBe(true);
+  await expect(page.getByText('高级', { exact: true }).first()).toBeVisible();
+
   await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -2370,6 +2805,71 @@ test('职位列表、创建与禁用在两端保持一致', async ({ page }, tes
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
   await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+});
+
+test('职级列表与创建在两端保持一致', async ({ page }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await mockAuthenticatedSession(page, { initialTenantId: tenantId });
+  const operations = [];
+  let hasLevel = false;
+  const level = {
+    id: 'e2e-tenant-position-level-id',
+    code: 'senior',
+    name: '高级',
+    displayOrder: 10,
+    isActive: true,
+    createdAtUtc: '2026-07-29T00:00:00Z',
+    updatedAtUtc: null,
+    version: 1
+  };
+
+  await page.route(
+    '**/api/v1/organization/position-levels?page=1&pageSize=20',
+    route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: hasLevel ? [level] : [],
+        page: 1,
+        pageSize: 20,
+        total: hasLevel ? 1 : 0
+      })
+    })
+  );
+  await page.route('**/api/v1/organization/position-levels', async route => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    operations.push(route.request().postDataJSON());
+    hasLevel = true;
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(level)
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: /职级管理/ }).click();
+  await expect(page.getByRole('heading', { name: '职级管理', exact: true })).toBeVisible();
+  await expect(page.getByText('尚无租户职级', { exact: true })).toBeVisible();
+
+  const view = routeView(
+    page,
+    clientKind,
+    'org-position-levels',
+    '.org-position-levels-view'
+  );
+  await view.getByLabel('职级编码', { exact: true }).fill('senior');
+  await view.getByLabel('显示名称', { exact: true }).fill('高级');
+  await view.getByRole('button', { name: '创建职级' }).click();
+  await expect.poll(() => operations).toEqual([{
+    code: 'senior',
+    name: '高级',
+    displayOrder: 10
+  }]);
+  await expect(page.getByText('高级', { exact: true }).first()).toBeVisible();
 });
 
 test('用户机构隶属列表、分配与取消在两端保持一致', async ({ page }, testInfo) => {
@@ -2404,24 +2904,34 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
     });
   };
 
-  await page.route('**/api/v1/identity/users?page=1&pageSize=20', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      items: [{
-        id: 'e2e-user-id',
-        username: 'admin',
-        displayName: '系统管理员',
-        isActive: true,
-        createdAtUtc: '2026-07-21T00:00:00Z',
-        updatedAtUtc: null,
-        version: 1
-      }],
-      page: 1,
-      pageSize: 20,
-      total: 1
-    })
-  }));
+  await page.route(
+    '**/api/v1/organization/user-units/assignable-users?page=*&pageSize=100',
+    route => {
+      const requestedPage = Number(
+        new URL(route.request().url()).searchParams.get('page') ?? '1'
+      );
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: requestedPage === 1
+            ? [{
+                id: 'e2e-user-id',
+                username: 'admin',
+                displayName: '系统管理员'
+              }]
+            : [{
+                id: 'e2e-user-page-2-id',
+                username: 'operator',
+                displayName: '分页操作员'
+              }],
+          page: requestedPage,
+          pageSize: 100,
+          total: 101
+        })
+      });
+    }
+  );
   await page.route('**/api/v1/organization/units?page=1&pageSize=20', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -2508,11 +3018,17 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
     '.org-user-units-view'
   );
   if (clientKind === 'vue') {
+    await orgUserUnitsView.getByTestId('org-user-units-load-more-users').click();
     await orgUserUnitsView.locator('.el-select').first().click();
+    await expect(page.getByRole('option', { name: /分页操作员/ })).toBeVisible();
     await page.getByRole('option', { name: /系统管理员/ }).click();
     await orgUserUnitsView.locator('.el-select').nth(1).click();
     await page.getByRole('option', { name: /对等机构/ }).click();
   } else {
+    await orgUserUnitsView.locator('[data-org-user-units-load-more-users]').click();
+    await expect(
+      orgUserUnitsView.locator('[data-org-user-units-user] option[value="e2e-user-page-2-id"]')
+    ).toHaveText(/分页操作员/);
     await orgUserUnitsView.locator('[data-org-user-units-user]').selectOption('e2e-user-id');
     await orgUserUnitsView.locator('[data-org-user-units-unit]').selectOption('e2e-tenant-unit-id');
   }
@@ -2571,24 +3087,34 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
     });
   };
 
-  await page.route('**/api/v1/identity/users?page=1&pageSize=20', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      items: [{
-        id: 'e2e-user-id',
-        username: 'admin',
-        displayName: '系统管理员',
-        isActive: true,
-        createdAtUtc: '2026-07-25T00:00:00Z',
-        updatedAtUtc: null,
-        version: 1
-      }],
-      page: 1,
-      pageSize: 20,
-      total: 1
-    })
-  }));
+  await page.route(
+    '**/api/v1/organization/user-positions/assignable-users?page=*&pageSize=100',
+    route => {
+      const requestedPage = Number(
+        new URL(route.request().url()).searchParams.get('page') ?? '1'
+      );
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: requestedPage === 1
+            ? [{
+                id: 'e2e-user-id',
+                username: 'admin',
+                displayName: '系统管理员'
+              }]
+            : [{
+                id: 'e2e-user-page-2-id',
+                username: 'operator',
+                displayName: '分页操作员'
+              }],
+          page: requestedPage,
+          pageSize: 100,
+          total: 101
+        })
+      });
+    }
+  );
   await page.route('**/api/v1/organization/positions?page=1&pageSize=20', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -2597,6 +3123,12 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
         id: 'e2e-tenant-position-id',
         code: 'parity-pos',
         name: '对等职位',
+        unitId: null,
+        unitCode: null,
+        unitName: null,
+        positionLevelId: null,
+        positionLevelCode: null,
+        positionLevelName: null,
         displayOrder: 10,
         isActive: true,
         createdAtUtc: '2026-07-25T00:00:00Z',
@@ -2676,11 +3208,19 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
     '.org-user-positions-view'
   );
   if (clientKind === 'vue') {
+    await orgUserPositionsView.getByTestId('org-user-positions-load-more-users').click();
     await orgUserPositionsView.locator('.el-select').first().click();
+    await expect(page.getByRole('option', { name: /分页操作员/ })).toBeVisible();
     await page.getByRole('option', { name: /系统管理员/ }).click();
     await orgUserPositionsView.locator('.el-select').nth(1).click();
     await page.getByRole('option', { name: /对等职位/ }).click();
   } else {
+    await orgUserPositionsView.locator('[data-org-user-positions-load-more-users]').click();
+    await expect(
+      orgUserPositionsView.locator(
+        '[data-org-user-positions-user] option[value="e2e-user-page-2-id"]'
+      )
+    ).toHaveText(/分页操作员/);
     await orgUserPositionsView.locator('[data-org-user-positions-user]').selectOption('e2e-user-id');
     await orgUserPositionsView.locator('[data-org-user-positions-position]')
       .selectOption('e2e-tenant-position-id');
@@ -2971,8 +3511,12 @@ function currentUserResponse(activeTenantId = null) {
             'organization.user_units.write',
             'organization.positions.read',
             'organization.positions.write',
+            'organization.position_levels.read',
+            'organization.position_levels.write',
             'organization.user_positions.read',
-            'organization.user_positions.write'
+            'organization.user_positions.write',
+            'settings.tenant_dict_types.read',
+            'settings.tenant_dict_types.write'
           ]
         : [])
     ],
@@ -3124,10 +3668,22 @@ function navigationResponse(unknownComponent = false, activeTenantId = null) {
       order: 47, requiredPermission: 'organization.positions.read', children: []
     });
     nodes.push({
+      id: 'org-position-levels', parentId: null, routeName: 'org-position-levels',
+      path: '/organization/position-levels', componentKey: 'org-position-levels',
+      title: '职级管理', caption: '租户作用域职级目录', icon: 'medal',
+      order: 48, requiredPermission: 'organization.position_levels.read', children: []
+    });
+    nodes.push({
       id: 'org-user-positions', parentId: null, routeName: 'org-user-positions',
       path: '/organization/user-positions', componentKey: 'org-user-positions',
       title: '用户职位隶属', caption: '租户作用域 Host 用户与职位关系', icon: 'user',
-      order: 48, requiredPermission: 'organization.user_positions.read', children: []
+      order: 49, requiredPermission: 'organization.user_positions.read', children: []
+    });
+    nodes.push({
+      id: 'tenant-dict-types', parentId: null, routeName: 'tenant-dict-types',
+      path: '/settings/tenant-dict-types', componentKey: 'tenant-dict-types',
+      title: '租户数据字典', caption: '租户作用域字典目录', icon: 'collection',
+      order: 50, requiredPermission: 'settings.tenant_dict_types.read', children: []
     });
   }
 

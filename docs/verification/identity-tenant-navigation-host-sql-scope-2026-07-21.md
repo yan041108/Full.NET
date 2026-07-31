@@ -16,6 +16,7 @@
 | SQL 作用域 | `ListActiveHostMenus`、`FindHostUserById` → `SqlDataScope.Global`（SQL 仍限制 Host 行） |
 | 单测 | `HostCatalogSqlScopeTests`（+2 → Unit **333**） |
 | 客户端 | 租户上下文中用户机构隶属页对 Host 用户列表 403 降级，不阻断空列表渲染 |
+| 2026-07-29 增补 | 用户机构/职位隶属改用各自精确写权限保护的可分配 Host 用户候选 API；双端分页按需加载，403 降级为空候选且不依赖 `/api/v1/me`；未放宽 Host 用户管理目录权限 |
 | E2E | `enterDevelopmentTenant` / `expectVisibleCurrentContext`；机构与租户规格等待侧栏上下文 |
 
 ## 本地验证
@@ -28,4 +29,4 @@
 
 ## 仍开放
 
-- 租户上下文中为隶属创建表单提供正式的可分配 Host 用户 API（当前选择器在无 `identity.users.read` 时为空）
+- 可分配 Host 用户候选目录已由用户机构/职位专用 API 关闭；后续若候选规模需要服务端搜索，须以真实数据规模和交互证据另行立项。

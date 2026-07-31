@@ -30,6 +30,17 @@
           "responseSchema": "HostApiKeyResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/identity/api-keys/{apiKeyId}/rotate",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.api_keys.write",
+          "successStatus": 200,
+          "responseSchema": "CreateHostApiKeyResponse"
+        }
+      ]
     }
   ],
   "schemas": {

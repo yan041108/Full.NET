@@ -5,9 +5,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Files.Cleanup;
 using Full.NET.Modules.Files.Contracts;
+using Full.NET.Modules.Files.Persistence;
+using Full.NET.Modules.Files.Reconciliation;
+using Full.NET.Modules.Files.Storage;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Files;
 
@@ -22,8 +29,177 @@ internal static class FilesHostFileManagementAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
-        await VerifyUploadDownloadAndDeleteAsync(client, cancellationToken);
+        await VerifyPendingUploadReconciliationAsync(factory, cancellationToken);
+        await VerifyUploadDownloadAndDeleteAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiFilesHostFilesContractAssertions.VerifyAsync(client, cancellationToken);
+    }
+
+    private static async Task VerifyPendingUploadReconciliationAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            var query = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+            var providers = scope.ServiceProvider.GetRequiredService<FileStorageProviderRegistry>();
+            var storage = providers.DefaultProvider;
+            var createdAtUtc = DateTimeOffset.UtcNow.AddHours(-1);
+            var createdByUserId = Guid.CreateVersion7();
+            var existingId = Guid.CreateVersion7();
+            var missingId = Guid.CreateVersion7();
+            var publishingId = Guid.CreateVersion7();
+            var existingKey = $"host/reconciliation/{existingId:N}";
+            var missingKey = $"host/reconciliation/{missingId:N}";
+            var publishingKey = $"host/reconciliation/{publishingId:N}";
+
+            foreach (var candidate in new[]
+                     {
+                         (Id: existingId, Key: existingKey, Name: "existing.bin"),
+                         (Id: missingId, Key: missingKey, Name: "missing.bin"),
+                         (Id: publishingId, Key: publishingKey, Name: "publishing.bin"),
+                     })
+            {
+                var affected = await command.ExecuteAsync(
+                    HostFileSql.Insert,
+                    new
+                    {
+                        candidate.Id,
+                        OriginalFileName = candidate.Name,
+                        ContentType = "application/octet-stream",
+                        SizeBytes = 1L,
+                        storage.ProviderKey,
+                        StorageKey = candidate.Key,
+                        ContentHash = (string?)null,
+                        CreatedAtUtc = createdAtUtc,
+                        CreatedByUserId = createdByUserId,
+                    },
+                    cancellationToken);
+                Assert.AreEqual(1, affected);
+            }
+
+            Assert.AreEqual(
+                1,
+                await command.ExecuteAsync(
+                    HostFileSql.ClaimPublication,
+                    new
+                    {
+                        FileId = publishingId,
+                        storage.ProviderKey,
+                        StorageKey = publishingKey,
+                    },
+                    cancellationToken));
+
+            await using (var content = new MemoryStream([42], writable: false))
+            {
+                await storage.SaveAsync(existingKey, content, cancellationToken);
+            }
+
+            Assert.IsNull(await query.QuerySingleOrDefaultAsync<HostFileDetailRecord>(
+                HostFileSql.FindActiveById,
+                new { FileId = existingId },
+                cancellationToken));
+
+            var runner = ActivatorUtilities.CreateInstance<
+                PendingHostFileReconciliationRunner>(scope.ServiceProvider);
+            var result = await runner.RunOnceAsync(
+                new PendingHostFileReconciliationOptions
+                {
+                    Enabled = true,
+                    BatchSize = 50,
+                    MaxBatchesPerRun = 10,
+                    MinimumAgeSeconds = 30,
+                },
+                cancellationToken);
+
+            Assert.IsTrue(result.Promoted >= 1);
+            Assert.IsTrue(result.Purged >= 1);
+            Assert.IsTrue(result.RetainedPublishing >= 1);
+            Assert.IsNotNull(await query.QuerySingleOrDefaultAsync<HostFileDetailRecord>(
+                HostFileSql.FindActiveById,
+                new { FileId = existingId },
+                cancellationToken));
+            Assert.AreEqual(
+                0L,
+                await query.QuerySingleOrDefaultAsync<long>(
+                    new SqlStatement(
+                        "test.files.count-purged-pending",
+                        """
+                        SELECT COUNT(1)
+                        FROM fn_files_file
+                        WHERE Id = @FileId
+                          AND TenantId IS NULL
+                        """,
+                        SqlDataScope.HostOnly),
+                    new { FileId = missingId },
+                    cancellationToken));
+            Assert.AreEqual(
+                "publishing",
+                await query.QuerySingleOrDefaultAsync<string>(
+                    new SqlStatement(
+                        "test.files.read-retained-publishing-state",
+                        """
+                        SELECT StorageState
+                        FROM fn_files_file
+                        WHERE Id = @FileId
+                          AND TenantId IS NULL
+                        """,
+                        SqlDataScope.HostOnly),
+                    new { FileId = publishingId },
+                    cancellationToken));
+
+            await storage.DeleteAsync(existingKey, CancellationToken.None);
+            Assert.AreEqual(
+                1,
+                await command.ExecuteAsync(
+                    new SqlStatement(
+                        "test.files.purge-reconciled-file",
+                        """
+                        DELETE FROM fn_files_file
+                        WHERE Id = @FileId
+                          AND TenantId IS NULL
+                          AND ProviderKey = @ProviderKey
+                          AND StorageKey = @StorageKey
+                        """,
+                        SqlDataScope.HostOnly),
+                    new
+                    {
+                        FileId = existingId,
+                        storage.ProviderKey,
+                        StorageKey = existingKey,
+                    },
+                    CancellationToken.None));
+            Assert.AreEqual(
+                1,
+                await command.ExecuteAsync(
+                    new SqlStatement(
+                        "test.files.purge-retained-publishing-file",
+                        """
+                        DELETE FROM fn_files_file
+                        WHERE Id = @FileId
+                          AND TenantId IS NULL
+                          AND ProviderKey = @ProviderKey
+                          AND StorageKey = @StorageKey
+                        """,
+                        SqlDataScope.HostOnly),
+                    new
+                    {
+                        FileId = publishingId,
+                        storage.ProviderKey,
+                        StorageKey = publishingKey,
+                    },
+                    CancellationToken.None));
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(
@@ -49,6 +225,7 @@ internal static class FilesHostFileManagementAssertions
     }
 
     private static async Task VerifyUploadDownloadAndDeleteAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -113,6 +290,12 @@ internal static class FilesHostFileManagementAssertions
         using var deleteResponse = await client.SendAsync(deleteRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, deleteResponse.StatusCode);
 
+        await VerifyDeletedBlobCleanupAsync(
+            factory,
+            created.Id,
+            payload,
+            cancellationToken);
+
         using var missingDownloadRequest = new HttpRequestMessage(
             HttpMethod.Get,
             $"/api/v1/files/host-files/{created.Id:D}/content");
@@ -123,6 +306,95 @@ internal static class FilesHostFileManagementAssertions
             missingDownloadRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, missingDownloadResponse.StatusCode);
+    }
+
+    private static async Task VerifyDeletedBlobCleanupAsync(
+        FullNetApiFactory factory,
+        Guid fileId,
+        byte[] payload,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider
+            .GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var query = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+            var tombstone = await query
+                .QuerySingleOrDefaultAsync<DeletedHostFileBlobRecord>(
+                    new SqlStatement(
+                        "test.files.find-deleted-host-file",
+                        """
+                        SELECT Id, ProviderKey, StorageKey, DeletedAtUtc
+                        FROM fn_files_file
+                        WHERE Id = @FileId
+                          AND TenantId IS NULL
+                          AND DeletedAtUtc IS NOT NULL
+                        """,
+                        SqlDataScope.HostOnly),
+                    new { FileId = fileId },
+                    cancellationToken);
+            Assert.IsNotNull(tombstone);
+
+            Assert.AreEqual(LocalHostFileBlobStorage.Key, tombstone.ProviderKey);
+            var storageProviders = scope.ServiceProvider
+                .GetRequiredService<FileStorageProviderRegistry>();
+            var blobStorage = storageProviders.Resolve(tombstone.ProviderKey);
+            await using (var content = new MemoryStream(payload, writable: false))
+            {
+                // 重建同步删除失败后的真实残态，后台任务必须先删 Blob 再清除墓碑。
+                await blobStorage.SaveAsync(
+                    tombstone.StorageKey,
+                    content,
+                    cancellationToken);
+            }
+
+            var runner = ActivatorUtilities.CreateInstance<
+                DeletedHostFileBlobCleanupRunner>(scope.ServiceProvider);
+            var result = await runner.RunOnceAsync(
+                new DeletedHostFileBlobCleanupOptions
+                {
+                    Enabled = true,
+                    BatchSize = 50,
+                    MaxBatchesPerRun = 10,
+                },
+                cancellationToken);
+            Assert.IsTrue(result.Purged >= 1);
+            Assert.AreEqual(0, result.BlobFailures);
+
+            var remaining = await query.QuerySingleOrDefaultAsync<long>(
+                new SqlStatement(
+                    "test.files.count-deleted-host-file",
+                    """
+                    SELECT COUNT(1)
+                    FROM fn_files_file
+                    WHERE Id = @FileId
+                      AND TenantId IS NULL
+                    """,
+                    SqlDataScope.HostOnly),
+                new { FileId = fileId },
+                cancellationToken);
+            Assert.AreEqual(0L, remaining);
+            _ = await Assert.ThrowsAsync<FileNotFoundException>(
+                () => blobStorage.OpenReadAsync(
+                    tombstone.StorageKey,
+                    cancellationToken));
+
+            var secondResult = await runner.RunOnceAsync(
+                new DeletedHostFileBlobCleanupOptions
+                {
+                    Enabled = true,
+                    BatchSize = 50,
+                    MaxBatchesPerRun = 10,
+                },
+                cancellationToken);
+            Assert.AreEqual(0, secondResult.Scanned);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     private sealed record PagedHostFileResponses(

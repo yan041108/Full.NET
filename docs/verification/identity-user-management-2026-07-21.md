@@ -39,10 +39,9 @@ Host 作用域用户：分页列表、详情、创建、更新资料、禁用；
 
 1. Host 管理员登录后进入用户管理，列表含种子 `admin` / `系统管理员`。
 2. `e2e-viewer` 调用用户 API 返回 `authorization.permission_denied`，导航无用户管理，直链 `#/identity/users` 展示 403。
+3. **2026-07-29 增补**：Vue/Layui 经 UI 完成 Host 用户创建、显示名称更新、禁用（登录 API 返回 `identity.invalid_credentials`）、启用；用户名带 `clientKind` 后缀避免持久化栈重复数据。
 
-套件总项数：**20**（10 唯一场景 × Vue/Layui）；CI `real-stack-e2e`（SQL Server）与 `real-stack-e2e-mysql`（main）。
-
-本地验证：2026-07-21 本机无可用容器运行时（Testcontainers 无法启动 SQL Server），未附新鲜 `pnpm test:e2e:real` 日志；以 CI 作业为准。
+套件：`host-users` 真实栈 **6/6**（3 唯一场景 × 双端）；全量真实栈套件见 CI `real-stack-e2e` / `real-stack-e2e-mysql`。
 
 ## OpenAPI 夹具
 

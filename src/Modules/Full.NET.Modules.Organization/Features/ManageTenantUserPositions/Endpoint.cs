@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Organization.Features.ListAssignableHostUsers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -14,6 +15,24 @@ internal static class Endpoint
     {
         var group = endpoints.MapGroup("/api/v1/organization/user-positions")
             .WithTags("Organization");
+
+        group.MapGet("/assignable-users", async (
+            int? page,
+            int? pageSize,
+            AssignableHostUserQueryService queries,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ListAsync(
+                    page ?? 1,
+                    pageSize ?? 100,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return Results.Ok(result);
+        })
+        .Produces<PagedResult<OrganizationAssignableUserResponse>>(
+            StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationUserPositionManagementPermissions.Write));
 
         group.MapGet("/", async (
             int? page,

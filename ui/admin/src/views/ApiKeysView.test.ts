@@ -101,4 +101,36 @@ describe('Vue API Key 管理页', () => {
 
     expect(wrapper.find('[data-testid="api-key-create-form"]').exists()).toBe(false);
   });
+
+  it('列表刷新会重新加载并格式化最后使用时间', async () => {
+    listMock.mockResolvedValue({
+      items: [{
+        id: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
+        userId,
+        username: 'automation',
+        displayName: '流水线',
+        keyPrefix: 'fn_live_abcd',
+        permissions: ['identity.users.read'],
+        expiresAtUtc: null,
+        isActive: true,
+        lastUsedAtUtc: '2026-07-26T12:00:00Z',
+        createdAtUtc: '2026-07-26T00:00:00Z'
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+
+    const wrapper = mount(ApiKeysView);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('最后使用');
+    expect(wrapper.text()).not.toContain('从未');
+    listMock.mockClear();
+
+    await wrapper.get('[data-testid="api-keys-refresh"]').trigger('click');
+    await flushPromises();
+
+    expect(listMock).toHaveBeenCalledTimes(1);
+  });
 });

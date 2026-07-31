@@ -2,57 +2,11 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const assembly = path.join(
-  'tests',
-  'Full.NET.IntegrationTests',
-  'bin',
-  'Release',
-  'net10.0',
-  'Full.NET.IntegrationTests.dll'
-);
+import { loadTestMatrix } from './run-dotnet-test-suite.mjs';
 
-const smokeFilter =
-  'FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema'
-  + '|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema'
-  + '|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract'
-  + '|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract'
-  + '|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox'
-  + '|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox';
-
-export const shards = {
-  smoke: {
-    filter: smokeFilter,
-    minimum: 8,
-    timeout: '15m'
-  },
-  'api-sqlserver': {
-    filter: 'FullyQualifiedName~ApiSqlServerTests',
-    minimum: 37,
-    timeout: '60m'
-  },
-  'api-mysql': {
-    filter: 'FullyQualifiedName~ApiMySqlTests',
-    minimum: 37,
-    timeout: '60m'
-  },
-  migrations: {
-    filter: 'FullyQualifiedName~Full.NET.IntegrationTests.Migrations',
-    minimum: 62,
-    timeout: '90m'
-  },
-  infrastructure: {
-    filter:
-      'FullyQualifiedName!~ApiSqlServerTests'
-      + '&FullyQualifiedName!~ApiMySqlTests'
-      + '&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations',
-    minimum: 63,
-    timeout: '60m'
-  },
-  full: {
-    minimum: 199,
-    timeout: '90m'
-  }
-};
+const matrix = loadTestMatrix();
+const assembly = matrix.integration.assembly;
+export const shards = matrix.integration.shards;
 
 export function argumentsFor(shardName) {
   const shard = shards[shardName];

@@ -3,6 +3,7 @@ import { request } from './http';
 import {
   createOrganizationUserPosition,
   disableOrganizationUserPosition,
+  listAssignableOrganizationUserPositionUsers,
   listOrganizationUserPositions,
   updateOrganizationUserPosition
 } from './org-user-positions';
@@ -34,11 +35,25 @@ describe('Vue 租户用户-职位隶属 API', () => {
       page: 1,
       pageSize: 20,
       total: 1
+    }).mockResolvedValueOnce({
+      items: [{
+        id: 'user-id',
+        username: 'admin',
+        displayName: '系统管理员'
+      }],
+      page: 1,
+      pageSize: 100,
+      total: 1
     });
 
     await expect(listOrganizationUserPositions()).resolves.toMatchObject({ total: 1 });
+    await expect(listAssignableOrganizationUserPositionUsers())
+      .resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenCalledWith(
       '/api/v1/organization/user-positions?page=1&pageSize=20'
+    );
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/organization/user-positions/assignable-users?page=1&pageSize=100'
     );
   });
 

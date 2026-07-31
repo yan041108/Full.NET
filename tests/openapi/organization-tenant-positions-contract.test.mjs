@@ -54,6 +54,8 @@ test('租户职位 OpenAPI 夹具与 C# 契约和端点源码一致', async () =
 
   assert.match(contractsSource, /record CreateOrganizationPositionRequest/u);
   assert.match(contractsSource, /record UpdateOrganizationPositionRequest/u);
+  assert.match(contractsSource, /record AssignOrganizationPositionUnitRequest/u);
+  assert.match(contractsSource, /record AssignOrganizationPositionLevelRequest/u);
   assert.match(contractsSource, /record OrganizationPositionResponse/u);
   assert.match(contractsSource, /organization\.positions\.read/u);
   assert.match(contractsSource, /organization\.positions\.write/u);
@@ -71,6 +73,12 @@ test('租户职位 OpenAPI 夹具与 C# 契约和端点源码一致', async () =
     ])],
     ['/api/v1/organization/positions/{positionId}/disable', new Map([
       ['POST', 'MapPost("/{positionId:guid}/disable",']
+    ])],
+    ['/api/v1/organization/positions/{positionId}/unit', new Map([
+      ['PUT', 'MapPut("/{positionId:guid}/unit",']
+    ])],
+    ['/api/v1/organization/positions/{positionId}/position-level', new Map([
+      ['PUT', 'MapPut("/{positionId:guid}/position-level",']
     ])]
   ]);
 

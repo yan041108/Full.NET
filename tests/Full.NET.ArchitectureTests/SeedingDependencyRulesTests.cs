@@ -6,6 +6,7 @@ using Full.NET.Modules.Organization;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Settings;
 using Full.NET.Modules.Settings.Contracts;
+using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Tenancy;
@@ -29,6 +30,7 @@ public sealed class SeedingDependencyRulesTests
         typeof(DictTypeResponse).Assembly,
         typeof(AuditingModule).Assembly,
         typeof(FilesModule).Assembly,
+        typeof(SerialNumbersModule).Assembly,
         ProductionAssemblies.HostApi,
         ProductionAssemblies.HostWorker,
         ProductionAssemblies.HostMigrator,
@@ -63,6 +65,7 @@ public sealed class SeedingDependencyRulesTests
             "Full.NET.Modules.Identity.Contracts",
             "Full.NET.Modules.Organization",
             "Full.NET.Modules.Organization.Contracts",
+            "Full.NET.Modules.SerialNumbers",
             "Full.NET.Modules.Settings",
             "Full.NET.Modules.Settings.Contracts",
             "Full.NET.Modules.Tenancy",

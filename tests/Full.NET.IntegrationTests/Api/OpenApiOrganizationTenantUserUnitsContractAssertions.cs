@@ -98,11 +98,12 @@ internal static class OpenApiOrganizationTenantUserUnitsContractAssertions
             return true;
         }
 
-        if (schemaName == "OrganizationUserUnitResponsePage")
+        if (schemaName.EndsWith("ResponsePage", StringComparison.Ordinal))
         {
+            var itemSchemaName = schemaName[..^"Page".Length];
             foreach (var candidate in openApiSchemas.EnumerateObject())
             {
-                if (!candidate.Name.Contains("OrganizationUserUnitResponse", StringComparison.Ordinal))
+                if (!candidate.Name.Contains(itemSchemaName, StringComparison.Ordinal))
                 {
                     continue;
                 }

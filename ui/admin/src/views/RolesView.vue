@@ -16,6 +16,7 @@ import {
 import {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
   ROLE_DATA_SCOPE_KINDS,
+  type FieldProjectionFieldDefinition,
   type FullNetProblemDetails,
   type HostRole,
   type OrganizationUnit,
@@ -27,9 +28,12 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createHostRole,
   disableHostRole,
+  getFieldProjectionCatalog,
   getHostRoleDataScope,
+  getHostRoleFieldGrants,
   listHostRoles,
   replaceHostRolePermissions,
+  replaceHostRoleFieldGrants,
   updateHostRole,
   updateHostRoleDataScope
 } from '../api/roles';
@@ -45,15 +49,22 @@ const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const permissionsVisible = ref(false);
 const dataScopeVisible = ref(false);
+const fieldGrantsVisible = ref(false);
 const editingRole = ref<HostRole>();
 const selectedPermissions = ref<string[]>([]);
 const selectedDataScopeKind = ref<RoleDataScopeKind>('identity.data_scope.all');
 const selectedUnitIds = ref<string[]>([]);
 const dataScopeVersion = ref(0);
+const fieldGrantVersion = ref(0);
+const fieldGrantResourceKey = 'identity.host_users';
+const assignableFields = ref<FieldProjectionFieldDefinition[]>([]);
+const selectedFieldKeys = ref<string[]>([]);
 const orgUnits = ref<OrganizationUnit[]>([]);
 const dataScopeKinds = ROLE_DATA_SCOPE_KINDS;
 const assignablePermissions = HOST_ROLE_ASSIGNABLE_PERMISSIONS;
 const canWrite = computed(() => session.can('identity.roles.write'));
+const canReadFieldGrants = computed(() => session.can('identity.role_field_grants.read'));
+const canWriteFieldGrants = computed(() => session.can('identity.role_field_grants.write'));
 const inTenantContext = computed(() => !!session.currentUser?.tenantId);
 
 onMounted(load);
@@ -216,6 +227,51 @@ async function saveDataScope(): Promise<void> {
   }
 }
 
+async function openFieldGrants(role: HostRole): Promise<void> {
+  if (role.isSystem || changing.value || !canReadFieldGrants.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const [catalog, grants] = await Promise.all([
+      getFieldProjectionCatalog(),
+      getHostRoleFieldGrants(role.id, fieldGrantResourceKey)
+    ]);
+    const resource = catalog.find(item => item.resourceKey === fieldGrantResourceKey);
+    assignableFields.value = resource?.fields.filter(field => field.assignable) ?? [];
+    selectedFieldKeys.value = [...grants.fieldKeys];
+    fieldGrantVersion.value = grants.version;
+    editingRole.value = role;
+    fieldGrantsVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'roles.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function saveFieldGrants(): Promise<void> {
+  const role = editingRole.value;
+  if (!role || changing.value || !canWriteFieldGrants.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await replaceHostRoleFieldGrants(
+      role.id,
+      fieldGrantResourceKey,
+      [...selectedFieldKeys.value].sort(),
+      fieldGrantVersion.value
+    );
+    fieldGrantsVisible.value = false;
+    editingRole.value = undefined;
+    ElMessage.success(t('roles.fieldGrantsSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'roles.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 async function disable(role: HostRole): Promise<void> {
   if (changing.value || !role.isActive || role.isSystem) return;
   try {
@@ -304,6 +360,9 @@ function toProblem(
           <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="openDataScope(role)">
             {{ t('roles.dataScope') }}
           </el-button>
+          <el-button v-if="canReadFieldGrants && !role.isSystem" plain :disabled="changing" @click="openFieldGrants(role)">
+            {{ t('roles.fieldGrants') }}
+          </el-button>
           <el-button
             v-if="canWrite && role.isActive && !role.isSystem"
             type="danger"
@@ -351,6 +410,21 @@ function toProblem(
       <template #footer>
         <el-button @click="dataScopeVisible = false">{{ t('status.back') }}</el-button>
         <el-button type="primary" :loading="changing" @click="saveDataScope">{{ t('roles.saveDataScope') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="fieldGrantsVisible" :title="t('roles.fieldGrantsTitle')" width="560px">
+      <el-checkbox-group v-model="selectedFieldKeys" class="art-dialog-grid">
+        <el-checkbox v-for="field in assignableFields" :key="field.fieldKey" :label="field.fieldKey">
+          {{ field.displayName }}
+          <code translate="no">{{ field.fieldKey }}</code>
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="fieldGrantsVisible = false">{{ t('status.back') }}</el-button>
+        <el-button v-if="canWriteFieldGrants" type="primary" :loading="changing" @click="saveFieldGrants">
+          {{ t('roles.saveFieldGrants') }}
+        </el-button>
       </template>
     </el-dialog>
   </section>

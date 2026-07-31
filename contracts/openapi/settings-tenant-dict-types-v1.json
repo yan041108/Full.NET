@@ -1,0 +1,172 @@
+{
+  "id": "settings-tenant-dict-types-v1",
+  "version": 1,
+  "description": "租户数据字典类型与字典项 HTTP 契约冻结夹具；与 Settings 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/settings/tenant-dict-types",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.tenant_dict_types.read",
+          "successStatus": 200,
+          "responseSchema": "DictTypeResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "settings.tenant_dict_types.write",
+          "successStatus": 201,
+          "requestSchema": "CreateDictTypeRequest",
+          "responseSchema": "DictTypeResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/tenant-dict-types/{dictTypeId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.tenant_dict_types.read",
+          "successStatus": 200,
+          "responseSchema": "DictTypeResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "settings.tenant_dict_types.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateDictTypeRequest",
+          "responseSchema": "DictTypeResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/tenant-dict-types/{dictTypeId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "settings.tenant_dict_types.write",
+          "successStatus": 200,
+          "responseSchema": "DictTypeResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/tenant-dict-types/{dictTypeId}/items",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.tenant_dict_types.read",
+          "successStatus": 200,
+          "responseSchema": "DictItemResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "settings.tenant_dict_types.write",
+          "successStatus": 201,
+          "requestSchema": "CreateDictItemRequest",
+          "responseSchema": "DictItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/tenant-dict-items/{dictItemId}",
+      "operations": [
+        {
+          "method": "PUT",
+          "permission": "settings.tenant_dict_types.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateDictItemRequest",
+          "responseSchema": "DictItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/tenant-dict-items/{dictItemId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "settings.tenant_dict_types.write",
+          "successStatus": 200,
+          "responseSchema": "DictItemResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "DictTypeResponse": {
+      "properties": [
+        "id",
+        "code",
+        "name",
+        "description",
+        "displayOrder",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateDictTypeRequest": {
+      "properties": [
+        "code",
+        "name",
+        "description",
+        "displayOrder"
+      ]
+    },
+    "UpdateDictTypeRequest": {
+      "properties": [
+        "name",
+        "description",
+        "displayOrder",
+        "version"
+      ]
+    },
+    "DictTypeResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "DictItemResponse": {
+      "properties": [
+        "id",
+        "dictTypeId",
+        "label",
+        "value",
+        "color",
+        "displayOrder",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateDictItemRequest": {
+      "properties": [
+        "label",
+        "value",
+        "color",
+        "displayOrder"
+      ]
+    },
+    "UpdateDictItemRequest": {
+      "properties": [
+        "label",
+        "color",
+        "displayOrder",
+        "version"
+      ]
+    },
+    "DictItemResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

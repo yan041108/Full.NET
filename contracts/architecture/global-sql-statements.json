@@ -35,6 +35,106 @@
       ]
     },
     {
+      "statementName": "auditing.insert_request_audit_batch.access",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.Access",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "访问审计批量写入覆盖匿名、Host 与租户请求，租户标识作为审计值显式写入。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_access_log",
+        "@AccessTenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.insert_request_audit_batch.access_exception",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.AccessException",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "访问与异常审计需要在同一批次覆盖匿名、Host 与租户请求，并分别显式携带租户标识。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_access_log",
+        "@AccessTenantId",
+        "INSERT INTO fn_auditing_exception_log",
+        "@ExceptionTenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.insert_request_audit_batch.access_operation",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.AccessOperation",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "访问与操作审计需要在同一批次覆盖 Host 与租户请求，并分别显式携带租户标识。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_access_log",
+        "@AccessTenantId",
+        "INSERT INTO fn_auditing_operation_log",
+        "@OperationTenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.insert_request_audit_batch.access_operation_exception",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.AccessOperationException",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "完整请求审计批次需要同时写入访问、操作与异常记录，并为每类记录显式携带租户标识。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_access_log",
+        "@AccessTenantId",
+        "INSERT INTO fn_auditing_operation_log",
+        "@OperationTenantId",
+        "INSERT INTO fn_auditing_exception_log",
+        "@ExceptionTenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.insert_request_audit_batch.exception",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.Exception",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "异常审计批量写入覆盖匿名、Host 与租户请求，租户标识作为审计值显式写入。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_exception_log",
+        "@ExceptionTenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.insert_request_audit_batch.operation",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.Operation",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "操作审计批量写入覆盖 Host 与租户请求，租户标识作为审计值显式写入。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_operation_log",
+        "@OperationTenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.insert_request_audit_batch.operation_exception",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.OperationException",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "操作与异常审计需要在同一批次覆盖 Host 与租户请求，并分别显式携带租户标识。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_operation_log",
+        "@OperationTenantId",
+        "INSERT INTO fn_auditing_exception_log",
+        "@ExceptionTenantId"
+      ]
+    },
+    {
+      "statementName": "identity.count_active_host_user_selections",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.CountActiveHostUserSelections",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "租户业务选择 Host 用户时需要读取受控候选目录，SQL 固定限制为有效 Host 用户。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_user",
+        "ScopeKey = 'host'",
+        "TenantId IS NULL",
+        "IsActive = 1"
+      ]
+    },
+    {
       "statementName": "identity.find_api_key_for_authentication",
       "declaration": "Full.NET.Modules.Identity.Persistence.ApiKeySql.FindForAuthentication",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/ApiKeySql.cs",
@@ -95,6 +195,19 @@
       ]
     },
     {
+      "statementName": "identity.get_user_field_projection_grants",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.GetUserFieldProjectionGrants",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "verified_identity",
+      "reason": "字段投影从已验证用户出发，只联合有效角色和目标资源授权；解析器还会再次约束 Host 或租户作用域及代码目录。",
+      "requiredSqlFragments": [
+        "identityUser.Id = @UserId",
+        "identityUser.IsActive = 1",
+        "roleObject.IsActive = 1",
+        "fieldGrant.ResourceKey = @ResourceKey"
+      ]
+    },
+    {
       "statementName": "identity.get_user_active_role_data_scopes",
       "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.GetUserActiveRoleDataScopes",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
@@ -129,6 +242,34 @@
         "ScopeKey = 'host'",
         "TenantId IS NULL",
         "IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "identity.list_active_host_user_selections.my_sql",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.ListActiveHostUserSelectionsMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 租户业务选择 Host 用户时读取分页候选目录，SQL 固定限制为有效 Host 用户。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_user",
+        "ScopeKey = 'host'",
+        "TenantId IS NULL",
+        "IsActive = 1",
+        "LIMIT @PageSize OFFSET @Offset"
+      ]
+    },
+    {
+      "statementName": "identity.list_active_host_user_selections.sql_server",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.ListActiveHostUserSelectionsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "SQL Server 租户业务选择 Host 用户时读取分页候选目录，SQL 固定限制为有效 Host 用户。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_user",
+        "ScopeKey = 'host'",
+        "TenantId IS NULL",
+        "IsActive = 1",
+        "OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY"
       ]
     },
     {
@@ -205,6 +346,153 @@
       "requiredSqlFragments": [
         "INSERT INTO fn_outbox_message",
         "@TenantId"
+      ]
+    },
+    {
+      "statementName": "serial_numbers.rule.find_by_key",
+      "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.FindRuleByKey",
+      "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",
+      "category": "host_catalog",
+      "reason": "租户业务分配流水号前需要按稳定规则键读取 Host 规则目录，SQL 只以显式自然键精确定位。",
+      "requiredSqlFragments": [
+        "FROM fn_serialnumbers_rule",
+        "RuleKey = @RuleKey"
+      ]
+    },
+    {
+      "statementName": "serial_numbers.rule.lock_for_allocation.sql_server",
+      "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.LockRuleForAllocationSqlServer",
+      "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",
+      "category": "host_catalog",
+      "reason": "SQL Server 取号事务以共享规则锁读取 Host 规则目录，使并行取号可以共存，同时与规则语义变更互斥。",
+      "requiredSqlFragments": [
+        "FROM fn_serialnumbers_rule WITH (HOLDLOCK)",
+        "RuleKey = @RuleKey"
+      ]
+    },
+    {
+      "statementName": "serial_numbers.rule.lock_for_allocation.my_sql",
+      "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.LockRuleForAllocationMySql",
+      "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 取号事务以共享规则锁读取 Host 规则目录，使并行取号可以共存，同时与规则语义变更互斥。",
+      "requiredSqlFragments": [
+        "FROM fn_serialnumbers_rule",
+        "RuleKey = @RuleKey",
+        "FOR SHARE"
+      ]
+    },
+    {
+      "statementName": "serial_numbers.allocation.find_host_idempotency",
+      "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.FindHostAllocation",
+      "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",
+      "category": "host_catalog",
+      "reason": "租户业务可重放 Host 全局流水号分配，但查询必须同时绑定规则、幂等键和 Host 空租户分支。",
+      "requiredSqlFragments": [
+        "RuleId = @RuleId",
+        "TenantId IS NULL",
+        "IdempotencyKey = @IdempotencyKey"
+      ]
+    },
+    {
+      "statementName": "serial_numbers.counter.allocate_host.sql_server",
+      "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.AllocateHostSqlServer",
+      "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",
+      "category": "host_catalog",
+      "reason": "SQL Server 租户业务可推进 Host 全局计数器，事务锁资源绑定规则与重置桶，数据分支固定为空租户。",
+      "requiredSqlFragments": [
+        "sys.sp_getapplock",
+        "@LockResource",
+        "RuleId = @RuleId",
+        "TenantId IS NULL",
+        "ResetBucket = @ResetBucket"
+      ]
+    },
+    {
+      "statementName": "serial_numbers.counter.allocate_host.my_sql",
+      "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.AllocateHostMySql",
+      "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 租户业务可通过唯一作用域桶原子推进 Host 全局计数器，写入分支显式固定为空租户。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_serialnumbers_counter",
+        "@RuleId, NULL, @ResetBucket",
+        "ON DUPLICATE KEY UPDATE"
+      ]
+    },
+    {
+      "statementName": "serial_numbers.allocation.insert_host",
+      "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.InsertHostAllocation",
+      "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",
+      "category": "host_catalog",
+      "reason": "Host 全局流水号结果可由租户业务触发，但持久记录必须显式写入规则、幂等键并固定为空租户。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_serialnumbers_allocation",
+        "@RuleId, NULL, @RuleKey",
+        "@IdempotencyKey"
+      ]
+    },
+    {
+      "statementName": "settings.grid_preference.delete_for_verified_user",
+      "declaration": "Full.NET.Modules.Settings.Persistence.GridPreferenceSql.Delete",
+      "file": "src/Modules/Full.NET.Modules.Settings/Persistence/GridPreferenceSql.cs",
+      "category": "verified_identity",
+      "reason": "个人 Grid 偏好允许在 Host 与租户会话中重置，但删除始终同时绑定令牌中的用户标识和可信 Grid 键。",
+      "requiredSqlFragments": [
+        "DELETE FROM fn_settings_user_grid_preference",
+        "UserId = @UserId",
+        "GridKey = @GridKey"
+      ]
+    },
+    {
+      "statementName": "settings.grid_preference.find_by_verified_user_and_grid",
+      "declaration": "Full.NET.Modules.Settings.Persistence.GridPreferenceSql.FindByUserAndGrid",
+      "file": "src/Modules/Full.NET.Modules.Settings/Persistence/GridPreferenceSql.cs",
+      "category": "verified_identity",
+      "reason": "个人 Grid 偏好跨当前租户上下文跟随同一已验证用户，查询必须联合绑定用户和服务端可信 Grid 键。",
+      "requiredSqlFragments": [
+        "FROM fn_settings_user_grid_preference",
+        "UserId = @UserId",
+        "GridKey = @GridKey"
+      ]
+    },
+    {
+      "statementName": "settings.grid_preference.insert_for_verified_user",
+      "declaration": "Full.NET.Modules.Settings.Persistence.GridPreferenceSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Settings/Persistence/GridPreferenceSql.cs",
+      "category": "verified_identity",
+      "reason": "个人 Grid 偏好创建发生在 Host 或租户会话中，用户标识来自已验证 subject，Grid 与列键已由可信目录校验。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_settings_user_grid_preference",
+        "@UserId",
+        "@GridKey"
+      ]
+    },
+    {
+      "statementName": "settings.grid_preference.replace_stale_schema_for_verified_user",
+      "declaration": "Full.NET.Modules.Settings.Persistence.GridPreferenceSql.ReplaceStaleSchema",
+      "file": "src/Modules/Full.NET.Modules.Settings/Persistence/GridPreferenceSql.cs",
+      "category": "verified_identity",
+      "reason": "客户端目录升级后只允许以当前用户、可信 Grid 和不同 schema 版本替换旧展示偏好。",
+      "requiredSqlFragments": [
+        "UPDATE fn_settings_user_grid_preference",
+        "UserId = @UserId",
+        "GridKey = @GridKey",
+        "SchemaVersion <> @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "settings.grid_preference.update_for_verified_user",
+      "declaration": "Full.NET.Modules.Settings.Persistence.GridPreferenceSql.UpdateCurrentSchema",
+      "file": "src/Modules/Full.NET.Modules.Settings/Persistence/GridPreferenceSql.cs",
+      "category": "verified_identity",
+      "reason": "个人 Grid 偏好更新必须联合绑定当前用户、可信 Grid、schema 版本与乐观并发版本。",
+      "requiredSqlFragments": [
+        "UPDATE fn_settings_user_grid_preference",
+        "UserId = @UserId",
+        "GridKey = @GridKey",
+        "SchemaVersion = @SchemaVersion",
+        "Version = @Version"
       ]
     },
     {

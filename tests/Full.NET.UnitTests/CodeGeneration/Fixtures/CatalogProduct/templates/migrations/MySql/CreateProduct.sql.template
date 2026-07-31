@@ -1,0 +1,14 @@
+-- Full.NET 生成的 MySQL 迁移草案。
+-- 请分配真实迁移编号并完成幂等恢复评审后，再移入正式 DbUp 目录。
+CREATE TABLE IF NOT EXISTS acme_catalog_product
+(
+    Id BINARY(16) NOT NULL,
+    TenantId BINARY(16) NOT NULL,
+    Name varchar(200) NOT NULL,
+    Description varchar(500) NULL,
+    IsActive boolean NOT NULL,
+    Version bigint NOT NULL,
+    CreatedAtUtc datetime(6) NOT NULL,
+    CONSTRAINT PK_acme_catalog_product PRIMARY KEY (Id),
+    KEY IX_acme_catalog_product_TenantId_Id (TenantId, Id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

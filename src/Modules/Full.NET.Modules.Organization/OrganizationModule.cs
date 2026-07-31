@@ -6,6 +6,8 @@ using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.DataScope;
+using Full.NET.Modules.Organization.Features.ListAssignableHostUsers;
+using Full.NET.Modules.Organization.Features.ManageTenantPositionLevels;
 using Full.NET.Modules.Organization.Features.ManageTenantPositions;
 using Full.NET.Modules.Organization.Features.ManageTenantUnits;
 using Full.NET.Modules.Organization.Features.ManageTenantUserPositions;
@@ -47,10 +49,13 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantUnitManagementService>();
         services.TryAddScoped<TenantUserUnitQueryService>();
         services.TryAddScoped<TenantUserUnitManagementService>();
+        services.TryAddScoped<AssignableHostUserQueryService>();
         services.TryAddScoped<TenantUserPositionQueryService>();
         services.TryAddScoped<TenantUserPositionManagementService>();
         services.TryAddScoped<TenantPositionQueryService>();
         services.TryAddScoped<TenantPositionManagementService>();
+        services.TryAddScoped<TenantPositionLevelQueryService>();
+        services.TryAddScoped<TenantPositionLevelManagementService>();
         services.TryAddScoped<TenantUnits.TenantOrganizationUnitDirectory>();
         services.TryAddScoped<ITenantOrganizationUnitDirectory>(provider =>
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
@@ -70,6 +75,7 @@ public sealed class OrganizationModule : IFullNetModule
         Features.ManageTenantUnits.Endpoint.Map(endpoints);
         Features.ManageTenantUserUnits.Endpoint.Map(endpoints);
         Features.ManageTenantPositions.Endpoint.Map(endpoints);
+        Features.ManageTenantPositionLevels.Endpoint.Map(endpoints);
         Features.ManageTenantUserPositions.Endpoint.Map(endpoints);
     }
 }

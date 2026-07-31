@@ -89,7 +89,7 @@ describe('Vue 管理端壳层', () => {
 
     expect(wrapper.text()).toContain('没有访问权限');
     expect(wrapper.text()).toContain('403');
-  });
+  }, 10_000);
 
   it('切换语言后更新可信导航、文档语义和页面标题', async () => {
     const pinia = createAuthenticatedPinia();

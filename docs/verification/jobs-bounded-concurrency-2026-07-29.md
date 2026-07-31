@@ -50,3 +50,13 @@ Scope 内设置 Host，并在 `finally` 中清理，保证成功与失败终态�
   `MaxConcurrency` 默认值必须保持 `1`。
 - 连接池预算、持续积压、慢 Handler 与多副本组合的容量收益仍由上述夜间/手动矩阵决定，
   不在本地 smoke 中扩展样本。
+
+## 2026-07-30 容量入口进展
+
+`jobs-capacity` 独立入口、构建指纹 checkpoint、原子报告和手工双 Provider 串行工作流已
+建立。SQL Server/MySQL 的缩小 c1/c2 smoke 共 4 档，正确性门禁全部通过并在 teardown
+后确认容器残留为 0；详见
+[`jobs-concurrency-capacity-2026-07-30.md`](jobs-concurrency-capacity-2026-07-30.md)。
+
+该 smoke 不含完整 `1/2/4/8`、1000ms 慢 Handler 和双副本三轮矩阵，不能用于提高
+默认并发。`MaxConcurrency = 1` 继续保持不变。

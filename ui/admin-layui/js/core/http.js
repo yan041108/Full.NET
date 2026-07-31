@@ -1,6 +1,6 @@
 import { createHttpClient } from '@fullnet/client-contracts';
 
-const apiBaseUrl = globalThis.FULLNET_CONFIG?.apiBaseUrl
+export const apiBaseUrl = globalThis.FULLNET_CONFIG?.apiBaseUrl
   ?? import.meta.env.VITE_API_BASE_URL
   ?? '';
 const http = createHttpClient(apiBaseUrl);

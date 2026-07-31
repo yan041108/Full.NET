@@ -57,6 +57,11 @@ describe('Layui 本地导航与 DOM 安全', () => {
       path: '/identity/api-keys',
       titleKey: 'navigation.apiKeys.title'
     });
+    expect(localNavigationFor('code-generation-previews')).toMatchObject({
+      view: 'code-generation-previews',
+      path: '/code-generation/previews',
+      titleKey: 'navigation.codeGenerationPreviews.title'
+    });
   });
 
   it('权限元素只接受完整且区分大小写的权限码', () => {

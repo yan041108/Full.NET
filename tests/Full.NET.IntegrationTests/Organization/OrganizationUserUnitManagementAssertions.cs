@@ -62,6 +62,28 @@ internal static class OrganizationUserUnitManagementAssertions
         Assert.AreEqual(
             "authorization.permission_denied",
             problem.RootElement.GetProperty("code").GetString());
+
+        var readOnlyTenantToken = await EnterAcmeTenantAsync(
+            client,
+            await factory.CreateHostAccessTokenAsync(
+                [
+                    "platform.dashboard.read",
+                    "tenancy.tenants.read",
+                    "tenancy.tenants.switch",
+                    OrganizationUserUnitManagementPermissions.Read,
+                ],
+                cancellationToken),
+            cancellationToken);
+        using var candidatesRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/organization/user-units/assignable-users?page=1&pageSize=100");
+        candidatesRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            readOnlyTenantToken);
+        using var candidatesResponse = await client.SendAsync(
+            candidatesRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, candidatesResponse.StatusCode);
     }
 
     private static async Task VerifyCreateRejectsDuplicateAssignmentAsync(
@@ -158,7 +180,7 @@ internal static class OrganizationUserUnitManagementAssertions
     {
         using var currentUserRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            "/api/v1/me");
+            "/api/v1/organization/user-units/assignable-users?page=1&pageSize=100");
         currentUserRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminTenantToken);
@@ -166,8 +188,11 @@ internal static class OrganizationUserUnitManagementAssertions
             currentUserRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, currentUserResponse.StatusCode);
-        var admin = await currentUserResponse.Content
-            .ReadFromJsonAsync<CurrentUserResponse>(cancellationToken);
+        var candidates = await currentUserResponse.Content
+            .ReadFromJsonAsync<PagedResult<OrganizationAssignableUserResponse>>(
+                cancellationToken);
+        Assert.IsNotNull(candidates);
+        var admin = candidates.Items.Single(user => user.Username == "admin");
         Assert.IsNotNull(admin);
         Assert.AreEqual("admin", admin.Username);
 

@@ -15,4 +15,10 @@
   <data name="settings.config_entry.not_found" xml:space="preserve"><value>The system configuration entry was not found.</value></data>
   <data name="settings.config_entry.version_conflict" xml:space="preserve"><value>The system configuration entry was updated concurrently. Refresh and try again.</value></data>
   <data name="settings.enum_catalog.not_found" xml:space="preserve"><value>The enumeration or constant catalog was not found.</value></data>
+  <data name="settings.grid_preference.grid_not_found" xml:space="preserve"><value>The Grid key is not published by the local catalog.</value></data>
+  <data name="settings.grid_preference.column_unknown" xml:space="preserve"><value>The Grid column key is not published by the local catalog.</value></data>
+  <data name="settings.grid_preference.column_duplicate" xml:space="preserve"><value>A Grid column key can appear only once.</value></data>
+  <data name="settings.grid_preference.invalid" xml:space="preserve"><value>The Grid preference contains an invalid presentation value.</value></data>
+  <data name="settings.grid_preference.schema_version_mismatch" xml:space="preserve"><value>The Grid schema version no longer matches the local catalog.</value></data>
+  <data name="settings.grid_preference.version_conflict" xml:space="preserve"><value>The Grid preference was updated concurrently. Refresh and try again.</value></data>
 </root>

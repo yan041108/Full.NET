@@ -87,6 +87,16 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Host_role_field_grants_enforce_projection_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await IdentityRoleFieldGrantAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_menu_management_follows_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

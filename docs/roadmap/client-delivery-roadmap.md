@@ -137,10 +137,11 @@ P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担�
 | C2.2 | 操作日志（已认证写操作） | Build-verified | Build-verified | Auditing | M |
 | C2.2 | 异常日志 | Build-verified | Build-verified | Auditing | M |
 | C2.2 | Host API Key 管理 | Build-verified | Build-verified | Identity | M |
+| C2.2 | 用户 Grid/Column 展示偏好适配器 | Build-verified | Build-verified | Settings + Client Preferences | S |
 | C2.2 | 在线用户、公告、站内通知 | Mapped | Mapped | Realtime + Notifications | L |
 | C2.3 | 文件、对象存储和预览 | Mapped | Mapped | Files + Storage Provider | L |
 | C2.3 | 任务调度、执行记录和重试 | Mapped | Mapped | Jobs | L |
-| C2.3 | 代码生成、模板和生成记录 | Designing | Designing | CodeGeneration + Naming Profile | XL |
+| C2.3 | 代码生成预览、Host 模板、受控 Apply 与运行记录 | Verified | Verified | CodeGeneration + Naming Profile | XL |
 | C2.4 | 工作台、统计和监控入口 | Mapped | Mapped | Dashboard Contracts | L |
 
 规模只表示相对拆分需要，不是工期承诺：`M` 应拆成至少一个可独立验收切片，`L` 至少两个，`XL` 必须先建立独立设计和多阶段计划。

@@ -1,29 +1,44 @@
 import { execFile, spawn } from 'node:child_process';
-import { readdir } from 'node:fs/promises';
+import {
+  mkdir,
+  readFile,
+  readdir,
+  writeFile
+} from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
 import { argumentsFor } from './run-integration-shard.mjs';
+import { loadTestMatrix } from './run-dotnet-test-suite.mjs';
 
 const execFileAsync = promisify(execFile);
-const assembly = path.join(
-  'tests',
-  'Full.NET.IntegrationTests',
-  'bin',
-  'Release',
-  'net10.0',
-  'Full.NET.IntegrationTests.dll'
-);
+const testMatrix = loadTestMatrix();
+const assembly = testMatrix.integration.assembly;
+const migrationSelections = testMatrix.integration.migrationSelections ?? {};
+const smokeFilter = testMatrix.integration.shards.smoke.filter;
 
 const focusedModules = new Set([
   'Auditing',
+  'CodeGeneration',
   'Files',
   'Jobs',
   'Notifications',
   'Organization',
+  'SerialNumbers',
   'Settings'
 ]);
+
+const integrationModules = [
+  ...focusedModules,
+  'Identity',
+  'Tenancy',
+  'CodeGeneration',
+  'Caching',
+  'Realtime',
+  'Seeding',
+  'Data'
+].sort((left, right) => right.length - left.length);
 
 const noIntegrationPrefixes = [
   '.agents/',
@@ -49,8 +64,36 @@ const localNoisePrefixes = [
   'BenchmarkDotNet.Artifacts/'
 ];
 
+const phases = new Set(['inner', 'slice', 'merge']);
+const immediateTargetNames = new Set([
+  'Caching',
+  'CodeGeneration',
+  'Data',
+  'Identity',
+  'Outbox',
+  'Realtime',
+  'Seeding',
+  'Tenancy',
+  'integration-matrix',
+  'integration-tooling',
+  'migrations',
+  'smoke'
+]);
+const estimatedTargetSeconds =
+  testMatrix.integration.feedback.targetEstimatedSeconds;
+const defaultFocusedEstimateSeconds =
+  testMatrix.integration.feedback.defaultFocusedEstimateSeconds;
+const sliceBudgetSeconds =
+  testMatrix.integration.feedback.sliceBudgetSeconds;
+const snapshotHashConcurrency = 8;
+
 function normalizePath(filePath) {
   return filePath.replaceAll('\\', '/').replace(/^\.\/+/, '');
+}
+
+function isLocalNoise(filePath) {
+  return localNoisePrefixes.some(prefix => filePath.startsWith(prefix))
+    || /^src\/Hosts\/[^/]+\/App_Data(?:\/|$)/.test(filePath);
 }
 
 function moduleFromSourcePath(filePath) {
@@ -64,6 +107,16 @@ function moduleFromIntegrationPath(filePath) {
       .exec(filePath);
   if (apiMatch) {
     return apiMatch[1];
+  }
+
+  if (filePath.startsWith('tests/Full.NET.IntegrationTests/Api/')) {
+    const fileName = path.posix.basename(filePath);
+    const moduleName = integrationModules.find(name =>
+      fileName.includes(name)
+    );
+    if (moduleName) {
+      return moduleName;
+    }
   }
 
   const assertionMatch =
@@ -80,7 +133,11 @@ function addTarget(targets, target) {
 }
 
 function addModuleTarget(targets, moduleName) {
-  if (moduleName === 'Identity' || moduleName === 'Tenancy') {
+  if (
+    moduleName === 'Identity'
+    || moduleName === 'Tenancy'
+    || moduleName === 'CodeGeneration'
+  ) {
     addTarget(
       targets,
       filterTarget(moduleName, `FullyQualifiedName~${moduleName}`)
@@ -90,7 +147,41 @@ function addModuleTarget(targets, moduleName) {
   addTarget(targets, filterTarget(moduleName));
 }
 
+function migrationDetails(filePath) {
+  const match =
+    /^src\/BuildingBlocks\/Full\.NET\.Migrations\.DbUp\/Migrations\/(?:MySql|SqlServer)\/(\d+)_([A-Za-z0-9]+)\.sql$/i
+      .exec(filePath);
+  if (!match) {
+    return null;
+  }
+
+  const [, number, name] = match;
+  return {
+    moduleName: integrationModules.find(module => name.startsWith(module))
+      ?? null,
+    number
+  };
+}
+
 function classifyBuildingBlock(filePath, targets) {
+  const migration = migrationDetails(filePath);
+  if (migration) {
+    const registered = migrationSelections[migration.number];
+    if (registered?.filter) {
+      addTarget(
+        targets,
+        filterTarget(`migration-${migration.number}`, registered.filter)
+      );
+    } else {
+      addTarget(targets, { kind: 'shard', name: 'migrations' });
+    }
+    if (migration.moduleName) {
+      addModuleTarget(targets, migration.moduleName);
+    }
+    return registered
+      ? `已登记迁移恢复集 ${migration.number}`
+      : `未登记迁移 ${migration.number} 安全降级`;
+  }
   if (/Full\.NET\.Migrations|\/Migrations\./.test(filePath)) {
     addTarget(targets, { kind: 'shard', name: 'migrations' });
     return '迁移基础设施';
@@ -123,11 +214,32 @@ function classifyBuildingBlock(filePath, targets) {
     );
     return '播种基础设施';
   }
+  if (/Full\.NET\.Data\.CodeGeneration/.test(filePath)) {
+    addTarget(
+      targets,
+      filterTarget('CodeGeneration', 'FullyQualifiedName~CodeGeneration')
+    );
+    return '代码生成基础设施';
+  }
   addTarget(targets, { kind: 'shard', name: 'smoke' });
   return '共享 BuildingBlock';
 }
 
 function classifyIntegrationPath(filePath, targets) {
+  const migrationRecovery = filePath.match(
+    /^tests\/Full\.NET\.IntegrationTests\/Migrations\/Migration(\d{3})[A-Za-z0-9]*Tests\.cs$/i
+  );
+  if (migrationRecovery) {
+    const number = migrationRecovery[1];
+    const registered = migrationSelections[number];
+    if (registered?.filter) {
+      addTarget(
+        targets,
+        filterTarget(`migration-${number}`, registered.filter)
+      );
+      return `迁移 ${number} 聚焦恢复 Integration`;
+    }
+  }
   if (filePath.startsWith('tests/Full.NET.IntegrationTests/Migrations/')) {
     addTarget(targets, { kind: 'shard', name: 'migrations' });
     return '迁移 Integration';
@@ -158,7 +270,10 @@ function classifyIntegrationPath(filePath, targets) {
     addModuleTarget(targets, moduleName);
     return `模块 Integration：${moduleName}`;
   }
-  if (['Caching', 'Realtime', 'Seeding', 'Data'].includes(moduleName)) {
+  if (
+    ['Caching', 'CodeGeneration', 'Realtime', 'Seeding', 'Data']
+      .includes(moduleName)
+  ) {
     addTarget(
       targets,
       filterTarget(moduleName, `FullyQualifiedName~${moduleName}`)
@@ -177,13 +292,23 @@ export function classifyChangedPaths(paths) {
   const reasons = [];
 
   for (const filePath of normalizedPaths) {
+    if (isLocalNoise(filePath)) {
+      continue;
+    }
+
     if (
       filePath === 'package.json'
+      || filePath === 'eng/testing/test-matrix.json'
       || filePath.startsWith('scripts/testing/')
       || filePath.startsWith('tests/testing/')
       || filePath === 'tests/governance/integration-test-feedback.test.mjs'
     ) {
-      addTarget(targets, { kind: 'tooling', name: 'integration-tooling' });
+      addTarget(targets, {
+        kind: 'tooling',
+        name: filePath === 'eng/testing/test-matrix.json'
+          ? 'integration-matrix'
+          : 'integration-tooling'
+      });
       reasons.push(`Integration 工具链：${filePath}`);
       continue;
     }
@@ -213,6 +338,15 @@ export function classifyChangedPaths(paths) {
 
     if (filePath.startsWith('src/BuildingBlocks/')) {
       reasons.push(`${classifyBuildingBlock(filePath, targets)}：${filePath}`);
+      continue;
+    }
+
+    if (filePath.startsWith('src/Tools/Full.NET.CodeGeneration.Cli/')) {
+      addTarget(
+        targets,
+        filterTarget('CodeGeneration', 'FullyQualifiedName~CodeGeneration')
+      );
+      reasons.push(`代码生成 CLI：${filePath}`);
       continue;
     }
 
@@ -280,8 +414,92 @@ export function verifyFocusedDiscovery(tests) {
   }
 }
 
+export function targetsForPhase(targets, phase) {
+  if (!phases.has(phase)) {
+    throw new Error('验证阶段只支持 inner、slice 或 merge。');
+  }
+
+  if (phase === 'slice') {
+    return [...targets];
+  }
+  if (phase === 'inner') {
+    return targets.filter(target =>
+      immediateTargetNames.has(target.name)
+      || target.name.startsWith('migration-')
+    );
+  }
+
+  const selected = new Map();
+  for (const target of targets) {
+    const mergeTarget = target.kind === 'shard' && target.name === 'smoke'
+      ? filterTarget('smoke', smokeFilter)
+      : target;
+    addTarget(selected, mergeTarget);
+  }
+  if (targets.some(target => target.kind !== 'tooling')) {
+    addTarget(selected, filterTarget('smoke', smokeFilter));
+  }
+  return [...selected.values()];
+}
+
+export function estimateSelectionSeconds(targets) {
+  const names = [...new Set(targets.map(target => target.name))];
+  const seconds = names.reduce(
+    (total, name) =>
+      total
+      + (estimatedTargetSeconds[name] ?? defaultFocusedEstimateSeconds),
+    0
+  );
+  return {
+    seconds,
+    exceedsSliceBudget: seconds > sliceBudgetSeconds
+  };
+}
+
+function testIdentity(test) {
+  return test.uid
+    ?? [
+      test.type?.namespace,
+      test.type?.typeName,
+      test.type?.methodName,
+      test.displayName
+    ].filter(Boolean).join('.');
+}
+
+export function combineFilterTargets(targets, discoveries) {
+  const filterTargets = targets.filter(target => target.kind === 'filter');
+  if (filterTargets.length === 0) {
+    throw new Error('合并执行至少需要一个 filter 目标。');
+  }
+
+  const uniqueTests = new Map();
+  for (const target of filterTargets) {
+    const tests = discoveries.get(target.name) ?? [];
+    verifyFocusedDiscovery(tests);
+    for (const test of tests) {
+      uniqueTests.set(testIdentity(test), test);
+    }
+  }
+
+  return {
+    filter: filterTargets.map(target => target.filter).join('|'),
+    discoveredCount: uniqueTests.size,
+    targetNames: filterTargets.map(target => target.name),
+    tests: [...uniqueTests.values()]
+  };
+}
+
+export function toolingVerificationScopes(targets) {
+  const targetNames = new Set(targets.map(target => target.name));
+  return targetNames.has('integration-matrix')
+    ? ['tooling', 'partitions', 'governance']
+    : ['tooling'];
+}
+
 export function parseArguments(args) {
   let baseRef = null;
+  let snapshotId = null;
+  let phase = 'slice';
   let planOnly = false;
 
   for (let index = 0; index < args.length; index += 1) {
@@ -299,16 +517,40 @@ export function parseArguments(args) {
       baseRef = argument.slice('--base='.length);
       continue;
     }
+    if (argument === '--snapshot') {
+      snapshotId = args[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith('--snapshot=')) {
+      snapshotId = argument.slice('--snapshot='.length);
+      continue;
+    }
+    if (argument === '--phase') {
+      phase = args[index + 1] ?? '';
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith('--phase=')) {
+      phase = argument.slice('--phase='.length);
+      continue;
+    }
     throw new Error(`未知参数：${argument}`);
   }
 
-  if (!baseRef) {
+  if (baseRef && snapshotId) {
+    throw new Error('--base 与 --snapshot 只能选择一种任务边界。');
+  }
+  if (!baseRef && !snapshotId) {
     throw new Error(
-      '缺少 --base <task-base-sha>；任务开始时先运行 git rev-parse HEAD 记录基线。'
+      '缺少 --base <task-base-sha> 或 --snapshot <task-id>；任务开始时先记录任务边界。'
     );
   }
+  if (!phases.has(phase)) {
+    throw new Error('--phase 只支持 inner、slice 或 merge。');
+  }
 
-  return { baseRef, planOnly };
+  return { baseRef, phase, planOnly, snapshotId };
 }
 
 function lines(value) {
@@ -327,10 +569,165 @@ async function git(args, cwd) {
   return stdout;
 }
 
+async function collectDirtyPaths(cwd) {
+  const outputs = await Promise.all([
+    git(['diff', '--cached', '--name-only', '--diff-filter=ACMRD'], cwd),
+    git(['diff', '--name-only', '--diff-filter=ACMRD'], cwd),
+    git(['ls-files', '--others', '--exclude-standard'], cwd)
+  ]);
+  return [...new Set(outputs.flatMap(lines))]
+    .filter(filePath => !isLocalNoise(filePath))
+    .sort();
+}
+
+async function worktreeHash(cwd, filePath) {
+  try {
+    return (
+      await git(['hash-object', '--', filePath], cwd)
+    ).trim() || null;
+  } catch (error) {
+    if (
+      error.code === 'ENOENT'
+      || /could not open|does not exist|outside repository/i.test(
+        `${error.stderr ?? ''} ${error.message}`
+      )
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function indexHashes(cwd, filePath) {
+  const output = await git(['ls-files', '--stage', '--', filePath], cwd);
+  return [...new Set(
+    output
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map(line => line.split(/\s+/)[1])
+      .filter(Boolean)
+  )].sort();
+}
+
+async function contentState(cwd, filePath) {
+  const [worktreeHashValue, indexHashValues] = await Promise.all([
+    worktreeHash(cwd, filePath),
+    indexHashes(cwd, filePath)
+  ]);
+  return {
+    worktreeHash: worktreeHashValue,
+    indexHashes: indexHashValues
+  };
+}
+
+export async function mapWithConcurrency(items, concurrency, mapper) {
+  if (!Number.isInteger(concurrency) || concurrency <= 0) {
+    throw new Error('并发数必须是正整数。');
+  }
+
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, () => runWorker())
+  );
+  return results;
+}
+
+async function taskSnapshotDirectory(cwd) {
+  const gitDirectory = (
+    await git(['rev-parse', '--path-format=absolute', '--git-dir'], cwd)
+  ).trim();
+  return path.join(gitDirectory, 'fullnet-task-snapshots');
+}
+
+function validateSnapshotId(id) {
+  if (!id || !/^[A-Za-z0-9._-]+$/.test(id)) {
+    throw new Error('任务快照 ID 只能包含字母、数字、点、下划线和连字符。');
+  }
+  return id;
+}
+
+async function readTaskSnapshot({ cwd, id }) {
+  const snapshotId = validateSnapshotId(id);
+  const directory = await taskSnapshotDirectory(cwd);
+  const content = await readFile(
+    path.join(directory, `${snapshotId}.json`),
+    'utf8'
+  );
+  return JSON.parse(content);
+}
+
+export async function createTaskSnapshot({
+  cwd = process.cwd(),
+  id = `task-${Date.now()}-${process.pid}`
+} = {}) {
+  const snapshotId = validateSnapshotId(id);
+  const baseRef = (await git(['rev-parse', 'HEAD'], cwd)).trim();
+  const dirtyPaths = await collectDirtyPaths(cwd);
+  const files = Object.fromEntries(
+    await mapWithConcurrency(
+      dirtyPaths,
+      snapshotHashConcurrency,
+      async filePath => [
+        filePath,
+        await contentState(cwd, filePath)
+      ]
+    )
+  );
+  const snapshot = {
+    schemaVersion: 2,
+    id: snapshotId,
+    baseRef,
+    createdAt: new Date().toISOString(),
+    files
+  };
+  const directory = await taskSnapshotDirectory(cwd);
+  await mkdir(directory, { recursive: true });
+  try {
+    await writeFile(
+      path.join(directory, `${snapshotId}.json`),
+      `${JSON.stringify(snapshot, null, 2)}\n`,
+      { encoding: 'utf8', flag: 'wx' }
+    );
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      throw new Error(
+        `任务快照“${snapshotId}”已存在；请复用原边界或选择新 ID。`
+      );
+    }
+    throw error;
+  }
+  return snapshot;
+}
+
 export async function collectChangedPaths({
   baseRef,
+  snapshotId,
   cwd = process.cwd()
 }) {
+  let snapshot = null;
+  if (snapshotId) {
+    snapshot = await readTaskSnapshot({ cwd, id: snapshotId });
+    if (snapshot.schemaVersion !== 2) {
+      throw new Error(
+        `任务快照“${snapshotId}”版本过旧；请使用新 ID 重新创建。`
+      );
+    }
+    baseRef = snapshot.baseRef;
+  }
+  if (!baseRef) {
+    throw new Error('收集变更时必须提供 baseRef 或 snapshotId。');
+  }
+
   await git(['rev-parse', '--verify', `${baseRef}^{commit}`], cwd);
   const mergeBase = (
     await git(['merge-base', baseRef, 'HEAD'], cwd)
@@ -345,11 +742,37 @@ export async function collectChangedPaths({
     git(['ls-files', '--others', '--exclude-standard'], cwd)
   ]);
 
-  return [...new Set(outputs.flatMap(lines))]
-    .filter(filePath =>
-      !localNoisePrefixes.some(prefix => filePath.startsWith(prefix))
-    )
+  const candidates = [...new Set(outputs.flatMap(lines))]
+    .filter(filePath => !isLocalNoise(filePath))
     .sort();
+  if (!snapshot) {
+    return candidates;
+  }
+
+  const changed = await mapWithConcurrency(
+    candidates,
+    snapshotHashConcurrency,
+    async filePath => {
+      if (!Object.hasOwn(snapshot.files, filePath)) {
+        return filePath;
+      }
+      const current = await contentState(cwd, filePath);
+      const original = snapshot.files[filePath];
+      const knownHashes = new Set([
+        original.worktreeHash,
+        ...original.indexHashes
+      ]);
+      const worktreeChanged =
+        current.worktreeHash !== original.worktreeHash;
+      const indexIntroducedNewContent = current.indexHashes.some(
+        hash => !knownHashes.has(hash)
+      );
+      return worktreeChanged || indexIntroducedNewContent
+        ? filePath
+        : null;
+    }
+  );
+  return changed.filter(Boolean);
 }
 
 export function argumentsForFocused(target, discoveredCount) {
@@ -421,17 +844,27 @@ async function discover(filter, cwd) {
   return JSON.parse(stdout.trim()).tests;
 }
 
-function renderSelection(paths, selection, baseRef) {
+function renderSelection(paths, selection, taskBoundary, phase, targets) {
+  const estimate = estimateSelectionSeconds(targets);
   const output = [
-    `Integration 任务基线：${baseRef}`,
+    `Integration 任务边界：${taskBoundary}`,
     `变更文件：${paths.length}`,
     `本地模式：${selection.mode}`,
-    `受影响目标：${selection.targets.map(target => target.name).join(', ') || 'none'}`
+    `验证阶段：${phase}`,
+    `受影响目标：${selection.targets.map(target => target.name).join(', ') || 'none'}`,
+    `本阶段执行：${targets.map(target => target.name).join(', ') || 'none'}`,
+    `预计耗时：约 ${Math.ceil(estimate.seconds / 60)} 分钟`
   ];
+  if (estimate.exceedsSliceBudget) {
+    output.push(
+      `预算提示：预计超过 ${Math.ceil(sliceBudgetSeconds / 60)} 分钟，`
+      + '请拆分切片或交给合并门禁执行。'
+    );
+  }
   for (const reason of selection.reasons) {
     output.push(`- ${reason}`);
   }
-  output.push('完整 199 项仅由 main CI 并行分片执行。');
+  output.push('完整集合仅由 main CI 按测试矩阵并行分片执行。');
   return `${output.join('\n')}\n`;
 }
 
@@ -451,30 +884,66 @@ async function runToolingTests(cwd) {
   );
 }
 
+async function runMatrixVerification(cwd) {
+  await runProcess(
+    process.execPath,
+    [path.join('scripts', 'testing', 'verify-integration-shards.mjs')],
+    cwd
+  );
+  const governanceDirectory = path.join(cwd, 'tests', 'governance');
+  const governanceTests = (await readdir(governanceDirectory))
+    .filter(fileName => fileName.endsWith('.test.mjs'))
+    .map(fileName => path.join('tests', 'governance', fileName));
+  await runProcess(
+    process.execPath,
+    ['--test', ...governanceTests],
+    cwd
+  );
+}
+
 async function runCli(args, cwd = process.cwd()) {
-  const { baseRef, planOnly } = parseArguments(args);
-  const paths = await collectChangedPaths({ baseRef, cwd });
+  const {
+    baseRef,
+    phase,
+    planOnly,
+    snapshotId
+  } = parseArguments(args);
+  const paths = await collectChangedPaths({ baseRef, snapshotId, cwd });
   if (paths.length === 0) {
-    throw new Error(`任务基线 ${baseRef} 到当前工作区没有可验证变更。`);
+    throw new Error(
+      `任务边界 ${snapshotId ?? baseRef} 到当前工作区没有可验证变更。`
+    );
   }
 
   const selection = classifyChangedPaths(paths);
-  process.stdout.write(renderSelection(paths, selection, baseRef));
+  const executionTargets = targetsForPhase(selection.targets, phase);
+  process.stdout.write(
+    renderSelection(
+      paths,
+      selection,
+      snapshotId ?? baseRef,
+      phase,
+      executionTargets
+    )
+  );
   if (planOnly || selection.mode === 'none') {
     return;
   }
 
-  const toolingTargets = selection.targets.filter(
+  const toolingTargets = executionTargets.filter(
     target => target.kind === 'tooling'
   );
+  const toolingScopes = toolingVerificationScopes(toolingTargets);
   if (toolingTargets.length > 0) {
     await runToolingTests(cwd);
   }
 
-  const integrationTargets = selection.targets.filter(
+  const integrationTargets = executionTargets.filter(
     target => target.kind !== 'tooling'
   );
-  if (integrationTargets.length === 0) {
+  const requiresFreshIntegrationAssembly =
+    integrationTargets.length > 0 || toolingScopes.includes('partitions');
+  if (!requiresFreshIntegrationAssembly) {
     return;
   }
 
@@ -491,23 +960,55 @@ async function runCli(args, cwd = process.cwd()) {
     cwd
   );
 
-  for (const target of integrationTargets) {
+  if (toolingScopes.includes('partitions')) {
+    await runMatrixVerification(cwd);
+  }
+  if (integrationTargets.length === 0) {
+    return;
+  }
+
+  const shardTargets = integrationTargets.filter(
+    target => target.kind === 'shard'
+  );
+  for (const target of shardTargets) {
     if (target.kind === 'shard') {
       if (target.name === 'full') {
         throw new Error('本地受影响测试选择器禁止执行 full。');
       }
       await runProcess('dotnet', argumentsFor(target.name), cwd);
-      continue;
     }
+  }
 
-    const tests = await discover(target.filter, cwd);
-    verifyFocusedDiscovery(tests);
+  const filterTargets = integrationTargets.filter(
+    target => target.kind === 'filter'
+  );
+  if (filterTargets.length > 0) {
+    const discoveredEntries = await Promise.all(
+      filterTargets.map(async target => [
+        target.name,
+        await discover(target.filter, cwd)
+      ])
+    );
+    const combined = combineFilterTargets(
+      filterTargets,
+      new Map(discoveredEntries)
+    );
     process.stdout.write(
-      `${target.name} 聚焦发现：${tests.length} 项，已确认双 Provider。\n`
+      `${combined.targetNames.join(', ')} 聚焦发现：`
+      + `${combined.discoveredCount} 项（UID 去重），已确认各目标双 Provider。\n`
     );
     await runProcess(
       'dotnet',
-      argumentsForFocused(target, tests.length),
+      argumentsForFocused(
+        {
+          kind: 'filter',
+          name: combined.targetNames.length === 1
+            ? combined.targetNames[0]
+            : 'combined',
+          filter: combined.filter
+        },
+        combined.discoveredCount
+      ),
       cwd
     );
   }

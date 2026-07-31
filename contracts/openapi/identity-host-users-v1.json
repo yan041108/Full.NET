@@ -22,6 +22,17 @@
       ]
     },
     {
+      "path": "/api/v1/identity/users/export",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.users.export",
+          "successStatus": 200,
+          "responseSchema": "HostUserResponseCollection"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/identity/users/{userId}",
       "operations": [
         {
@@ -83,7 +94,16 @@
         "isActive",
         "createdAtUtc",
         "updatedAtUtc",
-        "version"
+        "version",
+        "projectedFields"
+      ]
+    },
+    "HostUserProjectedFieldsResponse": {
+      "properties": [
+        "effectiveFieldKeys",
+        "preferredLocale",
+        "failedLoginCount",
+        "lockoutEndUtc"
       ]
     },
     "CreateHostUserRequest": {
@@ -111,6 +131,9 @@
         "pageSize",
         "total"
       ],
+      "itemSchema": "HostUserResponse"
+    },
+    "HostUserResponseCollection": {
       "itemSchema": "HostUserResponse"
     }
   }

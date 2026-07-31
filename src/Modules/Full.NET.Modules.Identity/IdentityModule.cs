@@ -80,6 +80,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageTotp.Endpoint.Map(endpoints);
         Features.ManageHostUsers.Endpoint.Map(endpoints);
         Features.ManageHostRoles.Endpoint.Map(endpoints);
+        Features.ManageHostRoleFieldGrants.Endpoint.Map(endpoints);
         Features.ManageHostMenus.Endpoint.Map(endpoints);
         Features.ManageHostOnlineSessions.Endpoint.Map(endpoints);
         Features.ManageHostApiKeys.Endpoint.Map(endpoints);

@@ -30,6 +30,11 @@ public sealed class NamingProfile
     public required ContractNamingProfile Contracts { get; init; }
 
     /// <summary>
+    /// 获取 .NET 标识符命名规则。
+    /// </summary>
+    public required DotNetNamingProfile DotNet { get; init; }
+
+    /// <summary>
     /// 从程序集嵌入资源读取构建时冻结的默认命名规范。
     /// </summary>
     /// <returns>经过版本和关键字段校验的命名规范。</returns>
@@ -110,6 +115,12 @@ public sealed class ConstraintDigestProfile
 /// </summary>
 public sealed class ContractNamingProfile
 {
+    /// <summary>获取 HTTP 路径分段规则。</summary>
+    public required string HttpPathSegmentPattern { get; init; }
+
+    /// <summary>获取 JSON 属性大小写约定。</summary>
+    public required string JsonCase { get; init; }
+
     /// <summary>获取权限码规则。</summary>
     public required PatternProfile Permission { get; init; }
 
@@ -121,6 +132,15 @@ public sealed class ContractNamingProfile
 
     /// <summary>获取 SQL Statement ID 规则。</summary>
     public required PatternProfile Statement { get; init; }
+}
+
+/// <summary>
+/// 定义代码生成器使用的 .NET 标识符规则。
+/// </summary>
+public sealed class DotNetNamingProfile
+{
+    /// <summary>获取 .NET 类型名规则。</summary>
+    public required string TypePattern { get; init; }
 }
 
 /// <summary>

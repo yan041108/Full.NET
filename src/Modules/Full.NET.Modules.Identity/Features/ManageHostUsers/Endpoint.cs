@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostUsers;
 
@@ -23,7 +24,13 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (!TryGetSubject(httpContext.User, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
             var result = await queries.ListAsync(
+                    actorUserId,
                     page ?? 1,
                     pageSize ?? 20,
                     cancellationToken)
@@ -33,6 +40,24 @@ internal static class Endpoint
         .Produces<PagedResult<HostUserResponse>>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Read);
 
+        group.MapGet("/export", async (
+            HostUserQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetSubject(httpContext.User, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await queries.ExportAsync(actorUserId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<IReadOnlyList<HostUserResponse>>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Export);
+
         group.MapGet("/{userId:guid}", async (
             Guid userId,
             HostUserQueryService queries,
@@ -40,7 +65,12 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.GetByIdAsync(userId, cancellationToken)
+            if (!TryGetSubject(httpContext.User, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await queries.GetByIdAsync(actorUserId, userId, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
@@ -154,5 +184,16 @@ internal static class Endpoint
         })
         .RequireFullNetPermission(IdentityUserManagementPermissions.Write)
         .Produces<HostUserRolesResponse>(StatusCodes.Status200OK);
+    }
+
+    private static bool TryGetSubject(
+        System.Security.Claims.ClaimsPrincipal principal,
+        out Guid userId)
+    {
+        userId = Guid.Empty;
+        var subjects = principal.FindAll(JwtRegisteredClaimNames.Sub).ToArray();
+        return subjects.Length == 1
+            && Guid.TryParse(subjects[0].Value, out userId)
+            && userId != Guid.Empty;
     }
 }

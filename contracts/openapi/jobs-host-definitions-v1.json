@@ -72,6 +72,66 @@
           "responseSchema": "HostJobExecutionResponsePage"
         }
       ]
+    },
+    {
+      "path": "/api/v1/jobs/host-schedules",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "jobs.schedules.read",
+          "successStatus": 200,
+          "responseSchema": "HostJobScheduleResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "jobs.schedules.write",
+          "successStatus": 201,
+          "requestSchema": "CreateHostJobScheduleRequest",
+          "responseSchema": "HostJobScheduleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-schedules/{scheduleId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "jobs.schedules.read",
+          "successStatus": 200,
+          "responseSchema": "HostJobScheduleResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "jobs.schedules.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostJobScheduleRequest",
+          "responseSchema": "HostJobScheduleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-schedules/{scheduleId}/pause",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.schedules.write",
+          "successStatus": 200,
+          "requestSchema": "ChangeHostJobScheduleStateRequest",
+          "responseSchema": "HostJobScheduleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-schedules/{scheduleId}/resume",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.schedules.write",
+          "successStatus": 200,
+          "requestSchema": "ChangeHostJobScheduleStateRequest",
+          "responseSchema": "HostJobScheduleResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -118,11 +178,14 @@
       "properties": [
         "id",
         "jobDefinitionId",
+        "jobScheduleId",
         "status",
         "triggerKind",
+        "scheduledForUtc",
         "errorMessage",
         "startedAtUtc",
         "finishedAtUtc",
+        "nextAttemptAtUtc",
         "attemptCount",
         "createdAtUtc"
       ]
@@ -133,6 +196,57 @@
         "page",
         "pageSize",
         "total"
+      ]
+    },
+    "HostJobScheduleResponse": {
+      "properties": [
+        "id",
+        "jobDefinitionId",
+        "triggerKind",
+        "cronExpression",
+        "timeZoneId",
+        "oneTimeAtUtc",
+        "misfirePolicy",
+        "isEnabled",
+        "nextExecutionAtUtc",
+        "lastExecutionAtUtc",
+        "completedAtUtc",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "HostJobScheduleResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreateHostJobScheduleRequest": {
+      "properties": [
+        "jobDefinitionId",
+        "triggerKind",
+        "cronExpression",
+        "timeZoneId",
+        "oneTimeAtUtc",
+        "misfirePolicy"
+      ]
+    },
+    "UpdateHostJobScheduleRequest": {
+      "properties": [
+        "triggerKind",
+        "cronExpression",
+        "timeZoneId",
+        "oneTimeAtUtc",
+        "misfirePolicy",
+        "version"
+      ]
+    },
+    "ChangeHostJobScheduleStateRequest": {
+      "properties": [
+        "version"
       ]
     }
   }

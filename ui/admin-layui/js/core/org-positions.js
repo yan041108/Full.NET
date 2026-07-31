@@ -6,16 +6,44 @@ export function createOrgPositionsController(root, options) {
   const translation = options.translation;
   const form = root.querySelector('[data-org-positions-create-form]');
   const directory = root.querySelector('[data-org-positions-directory]');
+  const hasPermission = options.hasPermission ?? (() => true);
+  const canBindUnits = () => hasPermission('organization.positions.write')
+    && hasPermission('organization.units.read');
+  const canBindPositionLevels = () => hasPermission('organization.positions.write')
+    && hasPermission('organization.position_levels.read');
   let loading;
   let changing = false;
 
   const load = async () => {
     if (loading) return await loading;
-    loading = request('/api/v1/organization/positions?page=1&pageSize=20')
-      .then(page => {
+    const positionsRequest = request(
+      '/api/v1/organization/positions?page=1&pageSize=20'
+    );
+    const unitsRequest = canBindUnits()
+      ? request('/api/v1/organization/units?page=1&pageSize=100')
+        .catch(() => ({ items: [] }))
+      : Promise.resolve({ items: [] });
+    const positionLevelsRequest = canBindPositionLevels()
+      ? request('/api/v1/organization/position-levels?page=1&pageSize=100')
+        .catch(() => ({ items: [] }))
+      : Promise.resolve({ items: [] });
+    loading = Promise.all([
+      positionsRequest,
+      unitsRequest,
+      positionLevelsRequest
+    ])
+      .then(([page, unitPage, positionLevelPage]) => {
         renderDirectory(
           directory,
           Array.isArray(page?.items) ? page.items : [],
+          Array.isArray(unitPage?.items)
+            ? unitPage.items.filter(unit => unit?.isActive)
+            : [],
+          canBindUnits(),
+          Array.isArray(positionLevelPage?.items)
+            ? positionLevelPage.items.filter(level => level?.isActive)
+            : [],
+          canBindPositionLevels(),
           translation()
         );
         hideProblem(root);
@@ -111,13 +139,71 @@ export function createOrgPositionsController(root, options) {
     });
   };
 
+  const onPositionLevelChange = async event => {
+    const select = event.target instanceof Element
+      ? event.target.closest('[data-org-positions-position-level]')
+      : undefined;
+    if (!select || changing) return;
+    changing = true;
+    try {
+      await request(
+        `/api/v1/organization/positions/${encodeURIComponent(select.dataset.orgPositionsPositionLevel)}/position-level`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            positionLevelId: select.value || null,
+            version: Number(select.dataset.version ?? '0')
+          })
+        }
+      );
+      notify(translation().t('orgPositions.positionLevelUpdateSuccess'), 1);
+      await load();
+    } catch (problem) {
+      showProblem(root, problem, translation().t('orgPositions.operationFailed'));
+    } finally {
+      changing = false;
+    }
+  };
+
+  const onUnitChange = async event => {
+    const select = event.target instanceof Element
+      ? event.target.closest('[data-org-positions-unit]')
+      : undefined;
+    if (!select || changing) return;
+    changing = true;
+    try {
+      await request(
+        `/api/v1/organization/positions/${encodeURIComponent(select.dataset.orgPositionsUnit)}/unit`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            unitId: select.value || null,
+            version: Number(select.dataset.version ?? '0')
+          })
+        }
+      );
+      notify(translation().t('orgPositions.unitUpdateSuccess'), 1);
+      await load();
+    } catch (problem) {
+      showProblem(root, problem, translation().t('orgPositions.operationFailed'));
+    } finally {
+      changing = false;
+    }
+  };
+
   form?.addEventListener('submit', onCreate);
   directory?.addEventListener('click', onDirectoryAction);
+  directory?.addEventListener('change', onUnitChange);
+  directory?.addEventListener('change', onPositionLevelChange);
   return {
     load,
     dispose() {
       form?.removeEventListener('submit', onCreate);
       directory?.removeEventListener('click', onDirectoryAction);
+      directory?.removeEventListener('change', onUnitChange);
+      directory?.removeEventListener('change', onPositionLevelChange);
     }
   };
 }
@@ -130,7 +216,15 @@ function jsonRequest(body) {
   };
 }
 
-function renderDirectory(container, positions, translation) {
+function renderDirectory(
+  container,
+  positions,
+  units,
+  canBindUnits,
+  positionLevels,
+  canBindPositionLevels,
+  translation
+) {
   if (!container) return;
   if (positions.length === 0) {
     const empty = container.ownerDocument.createElement('p');
@@ -151,7 +245,13 @@ function renderDirectory(container, positions, translation) {
     name.textContent = position.name ?? '';
     const code = container.ownerDocument.createElement('code');
     code.textContent = position.code ?? '';
-    identity.append(name, code);
+    const unitName = container.ownerDocument.createElement('span');
+    unitName.textContent = position.unitName
+      ?? translation.t('orgPositions.unitUnassigned');
+    const positionLevelName = container.ownerDocument.createElement('span');
+    positionLevelName.textContent = position.positionLevelName
+      ?? translation.t('orgPositions.positionLevelUnassigned');
+    identity.append(name, code, unitName, positionLevelName);
     const tags = container.ownerDocument.createElement('div');
     tags.className = 'fn-org-units__tags';
     const status = container.ownerDocument.createElement('span');
@@ -161,6 +261,51 @@ function renderDirectory(container, positions, translation) {
     tags.append(status);
     const actions = container.ownerDocument.createElement('div');
     actions.className = 'fn-org-units__actions';
+    if (position.isActive && canBindUnits) {
+      const unitLabel = container.ownerDocument.createElement('label');
+      const unitSelect = container.ownerDocument.createElement('select');
+      unitSelect.className = 'layui-input';
+      unitSelect.setAttribute('aria-label', translation.t('orgPositions.unit'));
+      unitSelect.dataset.orgPositionsUnit = position.id;
+      unitSelect.dataset.version = String(position.version ?? 0);
+      const emptyOption = container.ownerDocument.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = translation.t('orgPositions.unitUnassigned');
+      unitSelect.append(emptyOption);
+      units.forEach(unit => {
+        const option = container.ownerDocument.createElement('option');
+        option.value = unit.id;
+        option.textContent = `${unit.name} (${unit.code})`;
+        unitSelect.append(option);
+      });
+      unitSelect.value = position.unitId ?? '';
+      unitLabel.append(unitSelect);
+      actions.append(unitLabel);
+    }
+    if (position.isActive && canBindPositionLevels) {
+      const positionLevelLabel = container.ownerDocument.createElement('label');
+      const positionLevelSelect = container.ownerDocument.createElement('select');
+      positionLevelSelect.className = 'layui-input';
+      positionLevelSelect.setAttribute(
+        'aria-label',
+        translation.t('orgPositions.positionLevel')
+      );
+      positionLevelSelect.dataset.orgPositionsPositionLevel = position.id;
+      positionLevelSelect.dataset.version = String(position.version ?? 0);
+      const emptyOption = container.ownerDocument.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = translation.t('orgPositions.positionLevelUnassigned');
+      positionLevelSelect.append(emptyOption);
+      positionLevels.forEach(positionLevel => {
+        const option = container.ownerDocument.createElement('option');
+        option.value = positionLevel.id;
+        option.textContent = `${positionLevel.name} (${positionLevel.code})`;
+        positionLevelSelect.append(option);
+      });
+      positionLevelSelect.value = position.positionLevelId ?? '';
+      positionLevelLabel.append(positionLevelSelect);
+      actions.append(positionLevelLabel);
+    }
     if (position.isActive) {
       const edit = container.ownerDocument.createElement('button');
       edit.type = 'button';

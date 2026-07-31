@@ -90,6 +90,7 @@ describe('Layui Host API Key 控制器', () => {
     document.body.innerHTML = `
       <form data-api-keys-form></form>
       <section data-api-keys-secret hidden><code></code><button data-api-keys-copy></button></section>
+      <button type="button" data-api-keys-refresh></button>
       <div data-api-keys-directory></div>`;
     const controller = createApiKeysController(document, {
       request: vi.fn().mockResolvedValue({
@@ -109,6 +110,58 @@ describe('Layui Host API Key 控制器', () => {
     await controller.load();
 
     expect(document.querySelector('[data-api-keys-disable]')).toBeNull();
+    controller.dispose();
+  });
+
+  it('刷新列表会重新请求并格式化最后使用时间', async () => {
+    document.body.innerHTML = `
+      <button type="button" data-api-keys-refresh></button>
+      <div data-api-keys-directory></div>`;
+    const request = vi.fn()
+      .mockResolvedValueOnce({
+        items: [{
+          id: 'key-1',
+          displayName: '流水线',
+          username: 'automation',
+          keyPrefix: 'fn_live',
+          permissions: ['identity.users.read'],
+          expiresAtUtc: null,
+          isActive: true,
+          lastUsedAtUtc: '2026-07-26T12:00:00Z'
+        }],
+        page: 1,
+        pageSize: 20,
+        total: 1
+      })
+      .mockResolvedValueOnce({
+        items: [{
+          id: 'key-1',
+          displayName: '流水线',
+          username: 'automation',
+          keyPrefix: 'fn_live',
+          permissions: ['identity.users.read'],
+          expiresAtUtc: null,
+          isActive: true,
+          lastUsedAtUtc: '2026-07-26T12:00:00Z'
+        }],
+        page: 1,
+        pageSize: 20,
+        total: 1
+      });
+    const controller = createApiKeysController(document, {
+      request,
+      translation: () => ({ locale: 'zh-CN', t: key => key }),
+      canWrite: () => false
+    });
+
+    await controller.load();
+    const directoryText = document.querySelector('[data-api-keys-directory]')?.textContent ?? '';
+    expect(directoryText).toContain('apiKeys.lastUsedAt');
+    expect(directoryText).not.toContain('apiKeys.never');
+
+    document.querySelector('[data-api-keys-refresh]')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
     controller.dispose();
   });
 });

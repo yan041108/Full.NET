@@ -2,19 +2,14 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Storage;
 
-/// <summary>基于本地目录的 Host 文件二进制读写；对象键由模块生成，禁止客户端指定绝对路径。</summary>
-internal interface IHostFileBlobStorage
-{
-    Task SaveAsync(string storageKey, Stream content, CancellationToken cancellationToken);
-
-    Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken);
-
-    Task DeleteAsync(string storageKey, CancellationToken cancellationToken);
-}
-
+/// <summary>基于本地目录的文件对象存储；对象键由模块生成，禁止客户端指定绝对路径。</summary>
 internal sealed class LocalHostFileBlobStorage(IOptions<LocalFileStorageOptions> options)
-    : IHostFileBlobStorage
+    : IFileStorageProvider
 {
+    public const string Key = "local";
+
+    public string ProviderKey => Key;
+
     public async Task SaveAsync(
         string storageKey,
         Stream content,
@@ -24,14 +19,35 @@ internal sealed class LocalHostFileBlobStorage(IOptions<LocalFileStorageOptions>
         var directory = Path.GetDirectoryName(fullPath)
             ?? throw new InvalidOperationException("Storage key must include a directory segment.");
         Directory.CreateDirectory(directory);
-        await using var fileStream = new FileStream(
-            fullPath,
-            FileMode.CreateNew,
-            FileAccess.Write,
-            FileShare.None,
-            bufferSize: 81920,
-            useAsync: true);
-        await content.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+        var stagingPath = Path.Combine(
+            directory,
+            $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.uploading");
+        try
+        {
+            await using (var fileStream = new FileStream(
+                stagingPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 81920,
+                useAsync: true))
+            {
+                await content.CopyToAsync(fileStream, cancellationToken)
+                    .ConfigureAwait(false);
+                await fileStream.FlushAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            // 同目录移动只在完整写入并关闭句柄后发布对象，调用方不会观察到部分最终文件。
+            File.Move(stagingPath, fullPath, overwrite: false);
+        }
+        finally
+        {
+            if (File.Exists(stagingPath))
+            {
+                File.Delete(stagingPath);
+            }
+        }
     }
 
     public Task<Stream> OpenReadAsync(
@@ -53,6 +69,14 @@ internal sealed class LocalHostFileBlobStorage(IOptions<LocalFileStorageOptions>
             bufferSize: 81920,
             useAsync: true);
         return Task.FromResult(stream);
+    }
+
+    public Task<bool> ExistsAsync(
+        string storageKey,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(File.Exists(ResolvePath(storageKey)));
     }
 
     public Task DeleteAsync(string storageKey, CancellationToken cancellationToken)

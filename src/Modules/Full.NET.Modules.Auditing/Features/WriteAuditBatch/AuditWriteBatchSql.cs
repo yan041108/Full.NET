@@ -42,34 +42,55 @@ internal static class AuditWriteBatchSql
              @ExceptionClientIpFingerprint);
         """;
 
+    private static readonly SqlStatement Access = new(
+        "auditing.insert_request_audit_batch.access",
+        AccessInsert,
+        SqlDataScope.Global);
+
+    private static readonly SqlStatement Operation = new(
+        "auditing.insert_request_audit_batch.operation",
+        OperationInsert,
+        SqlDataScope.Global);
+
+    private static readonly SqlStatement Exception = new(
+        "auditing.insert_request_audit_batch.exception",
+        ExceptionInsert,
+        SqlDataScope.Global);
+
+    private static readonly SqlStatement AccessOperation = new(
+        "auditing.insert_request_audit_batch.access_operation",
+        $"{AccessInsert}{Environment.NewLine}{OperationInsert}",
+        SqlDataScope.Global);
+
+    private static readonly SqlStatement AccessException = new(
+        "auditing.insert_request_audit_batch.access_exception",
+        $"{AccessInsert}{Environment.NewLine}{ExceptionInsert}",
+        SqlDataScope.Global);
+
+    private static readonly SqlStatement OperationException = new(
+        "auditing.insert_request_audit_batch.operation_exception",
+        $"{OperationInsert}{Environment.NewLine}{ExceptionInsert}",
+        SqlDataScope.Global);
+
+    private static readonly SqlStatement AccessOperationException = new(
+        "auditing.insert_request_audit_batch.access_operation_exception",
+        $"{AccessInsert}{Environment.NewLine}"
+        + $"{OperationInsert}{Environment.NewLine}"
+        + ExceptionInsert,
+        SqlDataScope.Global);
+
     public static SqlStatement Get(AuditWriteKinds kinds) =>
         kinds switch
         {
-            AuditWriteKinds.Access => Create("access", AccessInsert),
-            AuditWriteKinds.Operation => Create("operation", OperationInsert),
-            AuditWriteKinds.Exception => Create("exception", ExceptionInsert),
-            AuditWriteKinds.Access | AuditWriteKinds.Operation => Create(
-                "access_operation",
-                $"{AccessInsert}{Environment.NewLine}{OperationInsert}"),
-            AuditWriteKinds.Access | AuditWriteKinds.Exception => Create(
-                "access_exception",
-                $"{AccessInsert}{Environment.NewLine}{ExceptionInsert}"),
-            AuditWriteKinds.Operation | AuditWriteKinds.Exception => Create(
-                "operation_exception",
-                $"{OperationInsert}{Environment.NewLine}{ExceptionInsert}"),
+            AuditWriteKinds.Access => Access,
+            AuditWriteKinds.Operation => Operation,
+            AuditWriteKinds.Exception => Exception,
+            AuditWriteKinds.Access | AuditWriteKinds.Operation => AccessOperation,
+            AuditWriteKinds.Access | AuditWriteKinds.Exception => AccessException,
+            AuditWriteKinds.Operation | AuditWriteKinds.Exception => OperationException,
             AuditWriteKinds.Access
                 | AuditWriteKinds.Operation
-                | AuditWriteKinds.Exception => Create(
-                    "access_operation_exception",
-                    $"{AccessInsert}{Environment.NewLine}"
-                    + $"{OperationInsert}{Environment.NewLine}"
-                    + ExceptionInsert),
+                | AuditWriteKinds.Exception => AccessOperationException,
             _ => throw new ArgumentOutOfRangeException(nameof(kinds), kinds, null),
         };
-
-    private static SqlStatement Create(string suffix, string text) =>
-        new(
-            $"auditing.insert_request_audit_batch.{suffix}",
-            text,
-            SqlDataScope.Global);
 }

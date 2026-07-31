@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.UnitTests.Jobs;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class JobExecutionRunnerTests
 {
     [TestMethod]
@@ -142,6 +144,7 @@ public sealed class JobExecutionRunnerTests
                 }),
             Options.Create(new JobsWorkerOptions()),
             NullLogger<JobExecutionRunner>.Instance);
+        using var metrics = new JobsMetricCapture();
 
         var processed = await runner.ProcessPendingAsync(
             executions.Length,
@@ -150,6 +153,35 @@ public sealed class JobExecutionRunnerTests
         Assert.AreEqual(executions.Length, processed);
         Assert.AreEqual(1, queryExecutor.DefinitionQueryCount);
         Assert.AreEqual(1, transaction.ExecutionCount);
+        AssertOutcomeMeasurements(
+            metrics,
+            expectedCount: executions.Length,
+            expectedOutcome: "succeeded");
+
+        using var throwingListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == "Full.NET.Jobs")
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        throwingListener.SetMeasurementEventCallback<long>(
+            (_, _, _, _) =>
+                throw new InvalidOperationException(
+                    "模拟任务指标监听器故障。"));
+        throwingListener.Start();
+        try
+        {
+            JobsTelemetry.RecordSucceeded();
+        }
+        catch (InvalidOperationException exception)
+        {
+            Assert.Fail(
+                $"任务指标监听器故障不得改变执行结果：{exception.Message}");
+        }
     }
 
     [TestMethod]
@@ -373,6 +405,277 @@ public sealed class JobExecutionRunnerTests
             JobSql.MarkExecutionFailed);
     }
 
+    [TestMethod]
+    public async Task ProcessPendingAsync_WhenRetryableFailureHasAttemptsRemaining_ReschedulesWithDueTime()
+    {
+        var now = new DateTimeOffset(
+            2026,
+            7,
+            30,
+            1,
+            0,
+            0,
+            TimeSpan.Zero);
+        var commandExecutor = new FailureRecordingCommandExecutor();
+        using var metrics = new JobsMetricCapture();
+        var runner = CreateFailureRunner(
+            new RetryableFailureJobHandler(),
+            attemptCount: 1,
+            maxAttempts: 3,
+            retryDelaySeconds: 45,
+            now,
+            commandExecutor);
+
+        var processed = await runner.ProcessPendingAsync(
+            1,
+            CancellationToken.None);
+
+        Assert.AreEqual(1, processed);
+        CollectionAssert.Contains(
+            commandExecutor.Statements,
+            JobSql.RescheduleExecution);
+        CollectionAssert.DoesNotContain(
+            commandExecutor.Statements,
+            JobSql.MarkExecutionFailed);
+        Assert.AreEqual(
+            now.AddSeconds(45),
+            commandExecutor.ReadParameter<DateTimeOffset>(
+                JobSql.RescheduleExecution,
+                "NextAttemptAtUtc"));
+        Assert.AreEqual(
+            RetryableFailureJobHandler.ErrorMessage,
+            commandExecutor.ReadParameter<string>(
+                JobSql.RescheduleExecution,
+                "ErrorMessage"));
+        AssertOutcomeMeasurements(
+            metrics,
+            expectedCount: 1,
+            expectedOutcome: "retry_scheduled");
+        AssertCounterMeasurements(
+            metrics,
+            "fullnet.jobs.retry.scheduled",
+            expectedCount: 1);
+        AssertCounterMeasurements(
+            metrics,
+            "fullnet.jobs.retry.exhausted",
+            expectedCount: 0);
+
+    }
+
+    [TestMethod]
+    public async Task ProcessPendingAsync_WhenExponentialRetryIsConfigured_UsesAttemptBasedDelay()
+    {
+        var now = new DateTimeOffset(
+            2026,
+            7,
+            30,
+            1,
+            0,
+            0,
+            TimeSpan.Zero);
+        var commandExecutor = new FailureRecordingCommandExecutor();
+        using var metrics = new JobsMetricCapture();
+        var runner = CreateFailureRunner(
+            new RetryableFailureJobHandler(),
+            attemptCount: 3,
+            maxAttempts: 4,
+            retryDelaySeconds: 30,
+            now,
+            commandExecutor,
+            workerOptions: new JobsWorkerOptions
+            {
+                MaxAttempts = 4,
+                RetryDelaySeconds = 30,
+                RetryBackoffMode = "exponential",
+                RetryMaxDelaySeconds = 1000,
+                RetryJitterPercent = 20,
+            },
+            retryJitterSource: new FixedJobsRetryJitterSource(1.0));
+
+        await runner.ProcessPendingAsync(1, CancellationToken.None);
+
+        Assert.AreEqual(
+            now.AddSeconds(144),
+            commandExecutor.ReadParameter<DateTimeOffset>(
+                JobSql.RescheduleExecution,
+                "NextAttemptAtUtc"));
+        var retryDelays = metrics.DoubleMeasurements
+            .Where(item => item.Name == "fullnet.jobs.retry.delay")
+            .ToArray();
+        Assert.HasCount(1, retryDelays);
+        Assert.AreEqual("s", retryDelays[0].Unit);
+        Assert.AreEqual(144d, retryDelays[0].Value);
+        Assert.HasCount(0, retryDelays[0].Tags);
+    }
+
+    [TestMethod]
+    public async Task ProcessPendingAsync_WhenRetryableFailureExhaustsAttempts_MarksFailure()
+    {
+        var commandExecutor = new FailureRecordingCommandExecutor();
+        using var metrics = new JobsMetricCapture();
+        var runner = CreateFailureRunner(
+            new RetryableFailureJobHandler(),
+            attemptCount: 3,
+            maxAttempts: 3,
+            retryDelaySeconds: 30,
+            new DateTimeOffset(2026, 7, 30, 1, 0, 0, TimeSpan.Zero),
+            commandExecutor);
+
+        await runner.ProcessPendingAsync(1, CancellationToken.None);
+
+        CollectionAssert.Contains(
+            commandExecutor.Statements,
+            JobSql.MarkExecutionFailed);
+        CollectionAssert.DoesNotContain(
+            commandExecutor.Statements,
+            JobSql.RescheduleExecution);
+        AssertOutcomeMeasurements(
+            metrics,
+            expectedCount: 1,
+            expectedOutcome: "failed");
+        AssertCounterMeasurements(
+            metrics,
+            "fullnet.jobs.retry.exhausted",
+            expectedCount: 1);
+    }
+
+    [TestMethod]
+    public async Task ProcessPendingAsync_WhenOrdinaryFailureHasAttemptsRemaining_MarksFailure()
+    {
+        var commandExecutor = new FailureRecordingCommandExecutor();
+        using var metrics = new JobsMetricCapture();
+        var runner = CreateFailureRunner(
+            new TerminalFailureJobHandler(),
+            attemptCount: 1,
+            maxAttempts: 3,
+            retryDelaySeconds: 30,
+            new DateTimeOffset(2026, 7, 30, 1, 0, 0, TimeSpan.Zero),
+            commandExecutor);
+
+        await runner.ProcessPendingAsync(1, CancellationToken.None);
+
+        CollectionAssert.Contains(
+            commandExecutor.Statements,
+            JobSql.MarkExecutionFailed);
+        CollectionAssert.DoesNotContain(
+            commandExecutor.Statements,
+            JobSql.RescheduleExecution);
+        AssertOutcomeMeasurements(
+            metrics,
+            expectedCount: 1,
+            expectedOutcome: "failed");
+        AssertCounterMeasurements(
+            metrics,
+            "fullnet.jobs.retry.exhausted",
+            expectedCount: 0);
+
+        using var lostOwnershipMetrics = new JobsMetricCapture();
+        var lostOwnershipCommandExecutor =
+            new FailureRecordingCommandExecutor(affectedRows: 0);
+        var lostOwnershipRunner = CreateFailureRunner(
+            new TerminalFailureJobHandler(),
+            attemptCount: 1,
+            maxAttempts: 3,
+            retryDelaySeconds: 30,
+            new DateTimeOffset(2026, 7, 30, 1, 0, 0, TimeSpan.Zero),
+            lostOwnershipCommandExecutor);
+
+        await lostOwnershipRunner.ProcessPendingAsync(
+            1,
+            CancellationToken.None);
+
+        AssertOutcomeMeasurements(
+            lostOwnershipMetrics,
+            expectedCount: 0,
+            expectedOutcome: "failed");
+    }
+
+    private static void AssertOutcomeMeasurements(
+        JobsMetricCapture metrics,
+        int expectedCount,
+        string expectedOutcome)
+    {
+        var outcomes = metrics.Measurements
+            .Where(item =>
+                item.Name == "fullnet.jobs.execution.transitions")
+            .ToArray();
+        Assert.HasCount(expectedCount, outcomes);
+        Assert.IsTrue(outcomes.All(item => item.Value == 1L));
+        Assert.IsTrue(outcomes.All(item => item.Tags.Length == 1));
+        Assert.IsTrue(outcomes.All(item => item.Tags[0].Key == "outcome"));
+        Assert.IsTrue(outcomes.All(
+            item => Equals(item.Tags[0].Value, expectedOutcome)));
+    }
+
+    private static void AssertCounterMeasurements(
+        JobsMetricCapture metrics,
+        string name,
+        int expectedCount)
+    {
+        var measurements = metrics.Measurements
+            .Where(item => item.Name == name)
+            .ToArray();
+        Assert.HasCount(expectedCount, measurements);
+        Assert.IsTrue(measurements.All(item => item.Value == 1L));
+        Assert.IsTrue(measurements.All(item => item.Tags.Length == 0));
+    }
+
+    private static JobExecutionRunner CreateFailureRunner(
+        IJobHandler handler,
+        int attemptCount,
+        int maxAttempts,
+        int retryDelaySeconds,
+        DateTimeOffset now,
+        FailureRecordingCommandExecutor commandExecutor,
+        JobsWorkerOptions? workerOptions = null,
+        IJobsRetryJitterSource? retryJitterSource = null)
+    {
+        var definitionId = Guid.CreateVersion7();
+        return new JobExecutionRunner(
+            new StubQueryExecutor(
+                new JobExecutionRecord
+                {
+                    Id = Guid.CreateVersion7(),
+                    JobDefinitionId = definitionId,
+                    Status = JobExecutionStatuses.Running,
+                    AttemptCount = attemptCount,
+                },
+                new JobDefinitionRecord
+                {
+                    Id = definitionId,
+                    JobKey = handler.JobKey,
+                    IsEnabled = true,
+                }),
+            commandExecutor,
+            new RecordingTransaction(),
+            new JobHandlerRegistry([handler]),
+            new FixedClock(now),
+            new FixedIdGenerator(Guid.CreateVersion7()),
+            Options.Create(
+                new DatabaseOptions
+                {
+                    Provider = DatabaseProvider.SqlServer,
+                }),
+            Options.Create(
+                workerOptions
+                ?? new JobsWorkerOptions
+                {
+                    MaxAttempts = maxAttempts,
+                    RetryDelaySeconds = retryDelaySeconds,
+                }),
+            NullLogger<JobExecutionRunner>.Instance,
+            retryJitterSource: retryJitterSource);
+    }
+
+    private sealed class FixedJobsRetryJitterSource(double value)
+        : IJobsRetryJitterSource
+    {
+        public double NextUnitInterval()
+        {
+            return value;
+        }
+    }
+
     private sealed class CancellingJobHandler(
         CancellationTokenSource cancellationTokenSource) : IJobHandler
     {
@@ -395,6 +698,28 @@ public sealed class JobExecutionRunnerTests
 
         public Task ExecuteAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
+    }
+
+    private sealed class RetryableFailureJobHandler : IJobHandler
+    {
+        public const string Key = "jobs.test-retryable-failure";
+
+        public const string ErrorMessage = "retryable test failure";
+
+        public string JobKey => Key;
+
+        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+            throw new RetryableJobException(ErrorMessage);
+    }
+
+    private sealed class TerminalFailureJobHandler : IJobHandler
+    {
+        public const string Key = "jobs.test-terminal-failure";
+
+        public string JobKey => Key;
+
+        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("terminal test failure");
     }
 
     private static JobExecutionRecord CreateExecution(Guid definitionId) =>
@@ -711,6 +1036,32 @@ public sealed class JobExecutionRunnerTests
         }
     }
 
+    private sealed class FailureRecordingCommandExecutor(
+        int affectedRows = 1) : ICommandExecutor
+    {
+        private readonly Dictionary<SqlStatement, object?> _parameters = [];
+
+        public List<SqlStatement> Statements { get; } = [];
+
+        public Task<int> ExecuteAsync(
+            SqlStatement statement,
+            object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            Statements.Add(statement);
+            _parameters[statement] = parameters;
+            return Task.FromResult(affectedRows);
+        }
+
+        public T ReadParameter<T>(SqlStatement statement, string name) =>
+            (T?)_parameters[statement]?
+                .GetType()
+                .GetProperty(name)?
+                .GetValue(_parameters[statement])
+            ?? throw new InvalidOperationException(
+                $"Command parameter '{name}' was not provided.");
+    }
+
     private sealed class ScopedRecordingCommandExecutor(
         ExecutionScopeIdentity scopeIdentity,
         ParallelExecutionCoordinator coordinator) : ICommandExecutor
@@ -792,5 +1143,54 @@ public sealed class JobExecutionRunnerTests
                 statement == JobSql.RenewExecutionLease ? 0 : 1);
         }
     }
+
+    private sealed class JobsMetricCapture : IDisposable
+    {
+        private readonly MeterListener _listener = new();
+
+        public JobsMetricCapture()
+        {
+            _listener.InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == "Full.NET.Jobs")
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            };
+            _listener.SetMeasurementEventCallback<long>(
+                (instrument, value, tags, _) =>
+                    Measurements.Add(
+                        new JobsMeasurement(
+                            instrument.Name,
+                            value,
+                            tags.ToArray())));
+            _listener.SetMeasurementEventCallback<double>(
+                (instrument, value, tags, _) =>
+                    DoubleMeasurements.Add(
+                        new JobsDoubleMeasurement(
+                            instrument.Name,
+                            instrument.Unit,
+                            value,
+                            tags.ToArray())));
+            _listener.Start();
+        }
+
+        public List<JobsMeasurement> Measurements { get; } = [];
+
+        public List<JobsDoubleMeasurement> DoubleMeasurements { get; } = [];
+
+        public void Dispose() => _listener.Dispose();
+    }
+
+    private sealed record JobsMeasurement(
+        string Name,
+        long Value,
+        KeyValuePair<string, object?>[] Tags);
+
+    private sealed record JobsDoubleMeasurement(
+        string Name,
+        string? Unit,
+        double Value,
+        KeyValuePair<string, object?>[] Tags);
 
 }

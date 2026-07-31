@@ -12,7 +12,7 @@ import {
 } from 'element-plus';
 import {
   type FullNetProblemDetails,
-  type HostUser,
+  type OrganizationAssignableUser,
   type OrganizationPosition,
   type OrganizationUserPosition
 } from '@fullnet/client-contracts';
@@ -23,23 +23,27 @@ import { listOrganizationPositions } from '../api/org-positions';
 import {
   createOrganizationUserPosition,
   disableOrganizationUserPosition,
+  listAssignableOrganizationUserPositionUsers,
   listOrganizationUserPositions,
   updateOrganizationUserPosition
 } from '../api/org-user-positions';
-import { listHostUsers } from '../api/users';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const assignments = ref<OrganizationUserPosition[]>([]);
-const users = ref<HostUser[]>([]);
+const users = ref<OrganizationAssignableUser[]>([]);
 const positions = ref<OrganizationPosition[]>([]);
 const selectedUserId = ref('');
 const selectedPositionId = ref('');
 const isPrimary = ref(false);
 const loading = ref(false);
 const changing = ref(false);
+const loadingMoreUsers = ref(false);
+const userPage = ref(1);
+const userTotal = ref(0);
 const problem = ref<FullNetProblemDetails>();
 const canWrite = computed(() => session.can('organization.user_positions.write'));
+const hasMoreUsers = computed(() => users.value.length < userTotal.value);
 
 onMounted(load);
 
@@ -47,23 +51,60 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const [assignmentPage, positionPage, userPage] = await Promise.all([
+    const [assignmentPage, positionPage, assignableUserPage] = await Promise.all([
       listOrganizationUserPositions(),
       listOrganizationPositions(),
-      listHostUsers().catch(() => ({
-        items: [] as HostUser[],
-        page: 1,
-        pageSize: 20,
-        total: 0
-      }))
+      canWrite.value
+        ? listAssignableOrganizationUserPositionUsers()
+            .catch(error => {
+              if (isForbidden(error)) {
+                return {
+                  items: [] as OrganizationAssignableUser[],
+                  page: 1,
+                  pageSize: 100,
+                  total: 0
+                };
+              }
+              throw error;
+            })
+        : Promise.resolve({
+          items: [] as OrganizationAssignableUser[],
+          page: 1,
+          pageSize: 100,
+          total: 0
+        })
     ]);
     assignments.value = assignmentPage.items;
-    users.value = userPage.items.filter(user => user.isActive);
+    users.value = assignableUserPage.items;
+    userPage.value = assignableUserPage.page;
+    userTotal.value = assignableUserPage.total;
     positions.value = positionPage.items.filter(position => position.isActive);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'orgUserPositions.loadFailed');
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadMoreUsers(): Promise<void> {
+  if (loadingMoreUsers.value || !canWrite.value || !hasMoreUsers.value) {
+    return;
+  }
+  loadingMoreUsers.value = true;
+  problem.value = undefined;
+  try {
+    const nextPage = await listAssignableOrganizationUserPositionUsers(userPage.value + 1);
+    users.value = appendUniqueUsers(users.value, nextPage.items);
+    userPage.value = nextPage.page;
+    userTotal.value = nextPage.total;
+  } catch (error: unknown) {
+    if (isForbidden(error)) {
+      userTotal.value = users.value.length;
+      return;
+    }
+    problem.value = toProblem(error, 'orgUserPositions.loadFailed');
+  } finally {
+    loadingMoreUsers.value = false;
   }
 }
 
@@ -142,6 +183,22 @@ function toProblem(
     ? error
     : { status: 500, code: 'client.organization_user_position_failed', title: t(fallbackKey) };
 }
+
+function isForbidden(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'status' in error
+    && error.status === 403;
+}
+
+function appendUniqueUsers(
+  current: OrganizationAssignableUser[],
+  incoming: OrganizationAssignableUser[]
+): OrganizationAssignableUser[] {
+  const byId = new Map(current.map(user => [user.id, user]));
+  incoming.forEach(user => byId.set(user.id, user));
+  return [...byId.values()];
+}
 </script>
 
 <template>
@@ -167,6 +224,15 @@ function toProblem(
               :value="user.id"
             />
           </el-select>
+          <el-button
+            v-if="hasMoreUsers"
+            link
+            :loading="loadingMoreUsers"
+            data-testid="org-user-positions-load-more-users"
+            @click.prevent="loadMoreUsers"
+          >
+            {{ t('orgUserPositions.loadMoreUsers') }}
+          </el-button>
         </label>
         <label>
           <span>{{ t('orgUserPositions.position') }}</span>

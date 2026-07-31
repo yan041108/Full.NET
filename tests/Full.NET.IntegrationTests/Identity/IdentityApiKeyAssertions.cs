@@ -146,9 +146,15 @@ internal static class IdentityApiKeyAssertions
         Assert.IsNotNull(page);
         Assert.IsTrue(page.Items.Any(item => item.Id == created.Key.Id));
 
+        var rotated = await VerifyRotateReplacesSecretAsync(
+            client,
+            adminToken,
+            created,
+            cancellationToken);
+
         using var disableRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
-            $"/api/v1/identity/api-keys/{created.Key.Id:D}/disable",
+            $"/api/v1/identity/api-keys/{rotated.Key.Id:D}/disable",
             adminToken,
             new { });
         using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
@@ -159,9 +165,51 @@ internal static class IdentityApiKeyAssertions
             "/api/v1/identity/users?page=1&pageSize=1");
         revokedRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "ApiKey",
-            created.Secret);
+            rotated.Secret);
         using var revokedResponse = await client.SendAsync(revokedRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Unauthorized, revokedResponse.StatusCode);
+    }
+
+    private static async Task<CreateHostApiKeyResponse> VerifyRotateReplacesSecretAsync(
+        HttpClient client,
+        string adminToken,
+        CreateHostApiKeyResponse created,
+        CancellationToken cancellationToken)
+    {
+        using var rotateRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/api-keys/{created.Key.Id:D}/rotate",
+            adminToken,
+            new { });
+        using var rotateResponse = await client.SendAsync(rotateRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, rotateResponse.StatusCode);
+        var rotated = await rotateResponse.Content
+            .ReadFromJsonAsync<CreateHostApiKeyResponse>(cancellationToken);
+        Assert.IsNotNull(rotated);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(rotated.Secret));
+        Assert.AreNotEqual(created.Secret, rotated.Secret);
+        Assert.AreNotEqual(created.Key.Id, rotated.Key.Id);
+        Assert.AreEqual(created.Key.DisplayName, rotated.Key.DisplayName);
+        Assert.IsTrue(rotated.Key.IsActive);
+
+        using var oldKeyRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=1");
+        oldKeyRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "ApiKey",
+            created.Secret);
+        using var oldKeyResponse = await client.SendAsync(oldKeyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, oldKeyResponse.StatusCode);
+
+        using var newKeyRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=1");
+        newKeyRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "ApiKey",
+            rotated.Secret);
+        using var newKeyResponse = await client.SendAsync(newKeyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, newKeyResponse.StatusCode);
+        return rotated;
     }
 
     private static async Task VerifyDelegatedManagerCannotExceedEffectivePermissionsAsync(

@@ -13,9 +13,17 @@ const contractsSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Identity.Contracts/IdentityRoleManagementContracts.cs'
 );
+const fieldProjectionContractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Identity.Contracts/FieldProjectionContracts.cs'
+);
 const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Identity/Features/ManageHostRoles/Endpoint.cs'
+);
+const fieldGrantEndpointSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Identity/Features/ManageHostRoleFieldGrants/Endpoint.cs'
 );
 
 async function loadContract() {
@@ -35,7 +43,10 @@ test('Host 角色 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^identity\.roles\.(read|write)$/u);
+      assert.match(
+        operation.permission,
+        /^identity\.(roles\.(read|write)|role_field_grants\.(read|write))$/u
+      );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -49,8 +60,14 @@ test('Host 角色 OpenAPI 夹具结构完整且路径唯一', async () => {
 
 test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   const contract = await loadContract();
-  const contractsSource = await readFile(contractsSourcePath, 'utf8');
-  const endpointSource = await readFile(endpointSourcePath, 'utf8');
+  const contractsSource = [
+    await readFile(contractsSourcePath, 'utf8'),
+    await readFile(fieldProjectionContractsSourcePath, 'utf8')
+  ].join('\n');
+  const endpointSource = [
+    await readFile(endpointSourcePath, 'utf8'),
+    await readFile(fieldGrantEndpointSourcePath, 'utf8')
+  ].join('\n');
 
   assert.match(contractsSource, /record CreateHostRoleRequest/u);
   assert.match(contractsSource, /record UpdateHostRoleRequest/u);
@@ -58,10 +75,15 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(contractsSource, /record HostRoleResponse/u);
   assert.match(contractsSource, /identity\.roles\.read/u);
   assert.match(contractsSource, /identity\.roles\.write/u);
+  assert.match(contractsSource, /identity\.role_field_grants\.read/u);
+  assert.match(contractsSource, /identity\.role_field_grants\.write/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/roles"\)/u);
 
   const relativeRoutes = new Map([
+    ['/api/v1/identity/field-projections/catalog', new Map([
+      ['GET', 'MapGet("/catalog",']
+    ])],
     ['/api/v1/identity/roles', new Map([
       ['GET', 'MapGet("/",'],
       ['POST', 'MapPost("/",']
@@ -69,6 +91,10 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ['/api/v1/identity/roles/{roleId}', new Map([
       ['GET', 'MapGet("/{roleId:guid}",'],
       ['PUT', 'MapPut("/{roleId:guid}",']
+    ])],
+    ['/api/v1/identity/roles/{roleId}/field-grants', new Map([
+      ['GET', 'MapGet("/{roleId:guid}/field-grants",'],
+      ['PUT', 'MapPut("/{roleId:guid}/field-grants",']
     ])],
     ['/api/v1/identity/roles/{roleId}/permissions', new Map([
       ['PUT', 'MapPut("/{roleId:guid}/permissions",']
@@ -89,7 +115,8 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   }
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {
-    if (schemaName === 'HostRoleResponsePage') {
+    if (schemaName === 'HostRoleResponsePage'
+      || schemaName === 'FieldProjectionResourceDefinitionCollection') {
       continue;
     }
     for (const property of schema.properties) {
@@ -101,4 +128,8 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
       );
     }
   }
+
+  assert.ok(contract.paths.some(
+    entry => entry.path === '/api/v1/identity/roles/{roleId}/field-grants'
+  ));
 });

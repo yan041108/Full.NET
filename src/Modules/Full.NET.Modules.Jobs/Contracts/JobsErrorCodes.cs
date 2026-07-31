@@ -18,6 +18,14 @@ public static class JobsErrorCodes
 
     public const string ExecutionNotFound = "jobs.execution_not_found";
 
+    public const string ScheduleNotFound = "jobs.schedule_not_found";
+
+    public const string ScheduleConcurrencyConflict =
+        "jobs.schedule_concurrency_conflict";
+
+    public const string ScheduleValidationFailed =
+        "jobs.schedule_validation_failed";
+
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         DefinitionNotFound,
@@ -27,5 +35,8 @@ public static class JobsErrorCodes
         DefinitionDisabled,
         HandlerNotFound,
         ExecutionNotFound,
+        ScheduleNotFound,
+        ScheduleConcurrencyConflict,
+        ScheduleValidationFailed,
     ]);
 }

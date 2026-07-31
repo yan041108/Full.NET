@@ -1,8 +1,12 @@
 import {
+  isFieldProjectionCatalog,
   isHostRole,
+  isHostRoleFieldGrants,
   isHostRoleDataScope,
   isHostRolePage,
   type HostRole,
+  type FieldProjectionResourceDefinition,
+  type HostRoleFieldGrants,
   type HostRoleDataScope,
   type HostRolePage,
   type RoleDataScopeKind
@@ -100,5 +104,40 @@ export async function updateHostRoleDataScope(
     }
   );
   if (!isHostRoleDataScope(value)) throw new Error('client.invalid_host_role_data_scope');
+  return value;
+}
+
+export async function getFieldProjectionCatalog(): Promise<FieldProjectionResourceDefinition[]> {
+  const value = await request<unknown>('/api/v1/identity/field-projections/catalog');
+  if (!isFieldProjectionCatalog(value)) throw new Error('client.invalid_field_projection_catalog');
+  return value;
+}
+
+export async function getHostRoleFieldGrants(
+  id: string,
+  resourceKey: string
+): Promise<HostRoleFieldGrants> {
+  const value = await request<unknown>(
+    `/api/v1/identity/roles/${encodeURIComponent(id)}/field-grants?resourceKey=${encodeURIComponent(resourceKey)}`
+  );
+  if (!isHostRoleFieldGrants(value)) throw new Error('client.invalid_role_field_grants');
+  return value;
+}
+
+export async function replaceHostRoleFieldGrants(
+  id: string,
+  resourceKey: string,
+  fieldKeys: string[],
+  version: number
+): Promise<HostRoleFieldGrants> {
+  const value = await request<unknown>(
+    `/api/v1/identity/roles/${encodeURIComponent(id)}/field-grants`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ resourceKey, fieldKeys, version })
+    }
+  );
+  if (!isHostRoleFieldGrants(value)) throw new Error('client.invalid_role_field_grants');
   return value;
 }

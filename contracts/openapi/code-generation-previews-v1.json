@@ -1,0 +1,50 @@
+{
+  "path": "/api/v1/code-generation/previews",
+  "errorStatus": 400,
+  "schemas": {
+    "CodeGenerationPreviewRequest": [
+      "ownerKey",
+      "moduleKey",
+      "entityKey",
+      "databaseTableName",
+      "rootNamespace",
+      "clrTypeName",
+      "apiResourceName",
+      "permissionResourceName",
+      "dataScope",
+      "hasVersion",
+      "columns",
+      "entityCapabilities",
+      "scene",
+      "relationships"
+    ],
+    "CodeGenerationEntityCapabilitiesRequest": [
+      "deleteMode",
+      "hasCreatedAudit",
+      "hasUpdatedAudit",
+      "hasDeletedAudit",
+      "hasVersion",
+      "ownershipMode"
+    ],
+    "CodeGenerationRelationshipRequest": [
+      "principalEntityKey",
+      "principalColumnName",
+      "principalDataScope",
+      "dependentEntityKey",
+      "dependentColumnName",
+      "dependentDataScope"
+    ],
+    "CodeGenerationPreviewResponse": [
+      "databaseTableName",
+      "readPermission",
+      "writePermission",
+      "artifacts"
+    ],
+    "CodeGenerationPreviewArtifactResponse": [
+      "path",
+      "kind",
+      "sha256",
+      "content"
+    ]
+  }
+}

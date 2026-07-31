@@ -4,6 +4,17 @@
   "description": "租户用户-机构隶属 HTTP 契约冻结夹具；与 OrganizationUserUnitManagementContracts 和 ManageTenantUserUnits.Endpoint 对齐。",
   "paths": [
     {
+      "path": "/api/v1/organization/user-units/assignable-users",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.user_units.write",
+          "successStatus": 200,
+          "responseSchema": "OrganizationAssignableUserResponsePage"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/organization/user-units",
       "operations": [
         {
@@ -46,6 +57,21 @@
     }
   ],
   "schemas": {
+    "OrganizationAssignableUserResponse": {
+      "properties": [
+        "id",
+        "username",
+        "displayName"
+      ]
+    },
+    "OrganizationAssignableUserResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
     "OrganizationUserUnitResponse": {
       "properties": [
         "id",

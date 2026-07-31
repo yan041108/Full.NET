@@ -1,0 +1,71 @@
+{
+  "id": "settings-grid-preferences-v1",
+  "version": 1,
+  "description": "当前用户 Grid/Column 展示偏好 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/me/grid-preferences/{gridKey}",
+      "operations": [
+        {
+          "method": "GET",
+          "authorization": "authenticated",
+          "successStatus": 200,
+          "errorStatuses": [
+            401,
+            404
+          ],
+          "responseSchema": "GridPreferenceResponse"
+        },
+        {
+          "method": "PUT",
+          "authorization": "authenticated",
+          "successStatus": 200,
+          "errorStatuses": [
+            400,
+            401,
+            404,
+            409
+          ],
+          "requestSchema": "UpdateGridPreferenceRequest",
+          "responseSchema": "GridPreferenceResponse"
+        },
+        {
+          "method": "DELETE",
+          "authorization": "authenticated",
+          "successStatus": 200,
+          "errorStatuses": [
+            401,
+            404
+          ],
+          "responseSchema": "GridPreferenceResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "GridColumnPreference": {
+      "properties": [
+        "columnKey",
+        "order",
+        "width",
+        "visible",
+        "fixed"
+      ]
+    },
+    "UpdateGridPreferenceRequest": {
+      "properties": [
+        "schemaVersion",
+        "columns",
+        "version"
+      ]
+    },
+    "GridPreferenceResponse": {
+      "properties": [
+        "gridKey",
+        "schemaVersion",
+        "columns",
+        "version"
+      ]
+    }
+  }
+}

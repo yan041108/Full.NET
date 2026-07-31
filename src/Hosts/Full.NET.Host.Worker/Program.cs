@@ -7,6 +7,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Host.Worker;
+using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
@@ -44,6 +45,9 @@ builder.Services
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
+builder.Services.AddFullNetRealtimePublisher(
+    builder.Configuration,
+    builder.Environment.EnvironmentName);
 builder.Services.AddOptions<OutboxWorkerOptions>()
     .Bind(builder.Configuration.GetSection(OutboxWorkerOptions.SectionName))
     .ValidateOnStart();
@@ -66,7 +70,7 @@ if (commandLine.VersionRetirement is null)
 }
 
 using var host = builder.Build();
-using (var scope = host.Services.CreateScope())
+await using (var scope = host.Services.CreateAsyncScope())
 {
     IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
         scope.ServiceProvider.GetServices<IIntegrationEventHandler>());
@@ -81,7 +85,7 @@ if (commandLine.VersionRetirement is null)
 await host.StartAsync();
 try
 {
-    using var scope = host.Services.CreateScope();
+    await using var scope = host.Services.CreateAsyncScope();
     scope.ServiceProvider
         .GetRequiredService<CurrentTenantAccessor>()
         .SetHost();

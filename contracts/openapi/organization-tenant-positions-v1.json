@@ -49,6 +49,30 @@
           "responseSchema": "OrganizationPositionResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/organization/positions/{positionId}/unit",
+      "operations": [
+        {
+          "method": "PUT",
+          "permission": "organization.positions.write",
+          "successStatus": 200,
+          "requestSchema": "AssignOrganizationPositionUnitRequest",
+          "responseSchema": "OrganizationPositionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/positions/{positionId}/position-level",
+      "operations": [
+        {
+          "method": "PUT",
+          "permission": "organization.positions.write",
+          "successStatus": 200,
+          "requestSchema": "AssignOrganizationPositionLevelRequest",
+          "responseSchema": "OrganizationPositionResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -57,6 +81,12 @@
         "id",
         "code",
         "name",
+        "unitId",
+        "unitCode",
+        "unitName",
+        "positionLevelId",
+        "positionLevelCode",
+        "positionLevelName",
         "displayOrder",
         "isActive",
         "createdAtUtc",
@@ -75,6 +105,18 @@
       "properties": [
         "name",
         "displayOrder",
+        "version"
+      ]
+    },
+    "AssignOrganizationPositionUnitRequest": {
+      "properties": [
+        "unitId",
+        "version"
+      ]
+    },
+    "AssignOrganizationPositionLevelRequest": {
+      "properties": [
+        "positionLevelId",
         "version"
       ]
     },

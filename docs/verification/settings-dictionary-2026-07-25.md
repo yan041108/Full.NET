@@ -103,4 +103,34 @@
 
 ## 状态结论
 
-Settings 数据字典类型与字典项已具备后端 API、双端 UI、Mock 对等 E2E、**SQL Server + MySQL 真实栈聚焦**与双库 Integration。租户级字典、L5 翻译与系统强类型配置未交付。状态保持 `Build-verified`，不得标为 `Verified`。
+Settings 数据字典类型与字典项已具备后端 API、双端 UI、Mock 对等 E2E、**SQL Server + MySQL 真实栈聚焦**与双库 Integration。**租户级字典**已交付 API + 双端 UI + OpenAPI + Parity + 真实栈（见下节增补）。L5 翻译与系统强类型配置未交付。状态保持 `Build-verified`，不得标为 `Verified`。
+
+## 增补（2026-07-29，租户数据字典纵向切片）
+
+| 层级 | 内容 |
+|---|---|
+| 迁移 | `033_SettingsTenantDictionaryScope.sql`（SqlServer 过滤唯一索引 + MySql COALESCE 函数索引） |
+| API | `/api/v1/settings/tenant-dict-types`、`/api/v1/settings/tenant-dict-types/{typeId}/items`、`/api/v1/settings/tenant-dict-items/{id}` |
+| 权限与导航 | `settings.tenant_dict_types.read` / `settings.tenant_dict_types.write`；导航 `tenant-dict-types` |
+| 双端 UI | Vue `TenantDictTypesView.vue`、Layui `tenant-dict-types.js` |
+| OpenAPI | `settings-tenant-dict-types-v1.json` + node 合同测试 **2/2**；Integration OpenAPI 校验编入 `SettingsTenantDictTypeManagementAssertions` |
+| Parity E2E | shell-parity 租户字典类型 **2/2** + 字典项 **2/2** |
+| 真实栈 E2E | `host-tenant-dict-types.spec.mjs` **4/4**（Vue + Layui × 管理员加载/创建 + viewer 403） |
+| Integration | `Tenant_dict_type_management_follows_contract_*` 双库（含租户字典项生命周期） |
+
+计划：[`2026-07-29-settings-tenant-dictionary-vertical-slice.md`](../superpowers/plans/2026-07-29-settings-tenant-dictionary-vertical-slice.md)。
+
+### 双端权限体验收口（2026-07-29）
+
+Layui 原实现只通过静态 `data-permission` 隐藏创建表单，控制器打开字典项面板时会重新显示表单，并向只有读权限的用户生成编辑、禁用按钮。服务端授权仍会拒绝越权请求，但与 Vue 的只读体验不一致。现由控制器动态读取 `settings.tenant_dict_types.write`，统一约束类型/字典项创建表单、动态写按钮和写事件。
+
+| 命令 | 结果 |
+|---|---|
+| `pnpm --filter @fullnet/admin-layui exec vitest run tests/tenant-dict-types.test.js --maxWorkers=1` | **1/1** |
+| `pnpm --filter @fullnet/admin-layui exec vitest run --maxWorkers=1` | **105/105** |
+| `pnpm --filter @fullnet/admin typecheck` | 通过 |
+| `pnpm --filter @fullnet/admin-layui build` | 通过 |
+| `pnpm --filter @fullnet/admin-parity-e2e test -- --grep "租户字典" --workers=1` | **4/4** |
+| `dotnet build src/Modules/Full.NET.Modules.Settings/Full.NET.Modules.Settings.csproj --no-restore -c Release` | **0 警告 / 0 错误** |
+
+**未交付**：字典缓存失效、L5 字典展示文本翻译、强类型配置消费者。

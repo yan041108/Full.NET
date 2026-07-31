@@ -1,10 +1,25 @@
 import {
+  isOrganizationAssignableUserPage,
   isOrganizationUserUnit,
   isOrganizationUserUnitPage,
+  type OrganizationAssignableUserPage,
   type OrganizationUserUnit,
   type OrganizationUserUnitPage
 } from '@fullnet/client-contracts';
 import { request } from './http';
+
+export async function listAssignableOrganizationUserUnitUsers(
+  page = 1,
+  pageSize = 100
+): Promise<OrganizationAssignableUserPage> {
+  const value = await request<unknown>(
+    `/api/v1/organization/user-units/assignable-users?page=${page}&pageSize=${pageSize}`
+  );
+  if (!isOrganizationAssignableUserPage(value)) {
+    throw new Error('client.invalid_organization_assignable_user_page');
+  }
+  return value;
+}
 
 export async function listOrganizationUserUnits(
   page = 1,

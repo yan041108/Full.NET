@@ -13,6 +13,33 @@ describe('Host 用户客户端契约', () => {
       version: 1
     };
     expect(isHostUser(user)).toBe(true);
+    expect(isHostUser({
+      ...user,
+      projectedFields: {
+        effectiveFieldKeys: ['id', 'preferred_locale'],
+        preferredLocale: 'zh-CN',
+        failedLoginCount: null,
+        lockoutEndUtc: null
+      }
+    })).toBe(true);
+    expect(isHostUser({
+      ...user,
+      projectedFields: {
+        effectiveFieldKeys: ['id', 'PasswordHash'],
+        preferredLocale: null,
+        failedLoginCount: null,
+        lockoutEndUtc: null
+      }
+    })).toBe(false);
+    expect(isHostUser({
+      ...user,
+      projectedFields: {
+        effectiveFieldKeys: 'preferred_locale',
+        preferredLocale: null,
+        failedLoginCount: -1,
+        lockoutEndUtc: null
+      }
+    })).toBe(false);
     expect(isHostUserPage({
       items: [user],
       page: 1,

@@ -41,7 +41,9 @@ export function createLayuiNotificationsRealtime(options) {
   const realtime = (options.realtimeFactory
     ?? createNotificationsRealtimeController)({
     session: options.session,
-    onMessage
+    onMessage,
+    onReconnected: () => queueUnreadCountLoad(sessionGeneration, true),
+    hubPath: options.hubPath
   });
   const unsubscribeSession = options.session.subscribe(snapshot => {
     const generation = ++sessionGeneration;
@@ -50,6 +52,10 @@ export function createLayuiNotificationsRealtime(options) {
       return;
     }
 
+    void queueUnreadCountLoad(generation, false);
+  });
+
+  function queueUnreadCountLoad(generation, refreshInbox) {
     loadTransition = loadTransition.then(async () => {
       try {
         const response = await options.request(
@@ -60,12 +66,16 @@ export function createLayuiNotificationsRealtime(options) {
           && Number.isSafeInteger(response?.unreadCount)
           && response.unreadCount >= 0) {
           options.onUnreadCount(response.unreadCount);
+          if (refreshInbox) {
+            options.onInboxChanged();
+          }
         }
       } catch {
         // 未读数查询失败时保持壳层可用，后续 SignalR 消息或页面请求仍可恢复。
       }
     });
-  });
+    return loadTransition;
+  }
 
   return {
     async whenSettled() {

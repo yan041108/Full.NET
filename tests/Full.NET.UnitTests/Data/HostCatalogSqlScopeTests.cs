@@ -24,10 +24,40 @@ public sealed class HostCatalogSqlScopeTests
     {
         // Organization 等模块在租户上下文中通过 IHostUserDirectory 校验 Host 用户；HostOnly 会阻断分配写路径。
         Assert.AreEqual(SqlDataScope.Global, IdentitySql.FindHostUserById.Scope);
+        Assert.AreEqual(
+            SqlDataScope.Global,
+            IdentitySql.CountActiveHostUserSelections.Scope);
+        Assert.AreEqual(
+            SqlDataScope.Global,
+            IdentitySql.ListActiveHostUserSelectionsSqlServer.Scope);
+        Assert.AreEqual(
+            SqlDataScope.Global,
+            IdentitySql.ListActiveHostUserSelectionsMySql.Scope);
+        StringAssert.Contains(
+            IdentitySql.ListActiveHostUserSelectionsSqlServer.Text,
+            "ScopeKey = 'host'");
+        StringAssert.Contains(
+            IdentitySql.ListActiveHostUserSelectionsSqlServer.Text,
+            "TenantId IS NULL");
+        StringAssert.Contains(
+            IdentitySql.ListActiveHostUserSelectionsSqlServer.Text,
+            "IsActive = 1");
+        foreach (var statement in new[]
+                 {
+                     IdentitySql.CountActiveHostUserSelections,
+                     IdentitySql.ListActiveHostUserSelectionsMySql
+                 })
+        {
+            StringAssert.Contains(statement.Text, "ScopeKey = 'host'");
+            StringAssert.Contains(statement.Text, "TenantId IS NULL");
+            StringAssert.Contains(statement.Text, "IsActive = 1");
+        }
 
         var accessor = new CurrentTenantAccessor();
         accessor.SetTenant(new TenantContext(Guid.CreateVersion7(), "local", "Full.NET Local"));
         SqlScopeGuard.Validate(IdentitySql.FindHostUserById, accessor);
+        SqlScopeGuard.Validate(IdentitySql.ListActiveHostUserSelectionsSqlServer, accessor);
+        SqlScopeGuard.Validate(IdentitySql.ListActiveHostUserSelectionsMySql, accessor);
     }
 
     [TestMethod]

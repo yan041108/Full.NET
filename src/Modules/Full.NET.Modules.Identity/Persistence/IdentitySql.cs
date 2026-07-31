@@ -41,6 +41,44 @@ internal static class IdentitySql
         // Global：跨模块读取发生在租户上下文内，SQL 自身仍精确限制为 Host 用户。
         SqlDataScope.Global);
 
+    public static readonly SqlStatement CountActiveHostUserSelections = new(
+        "identity.count_active_host_user_selections",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_user
+        WHERE ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        """,
+        // Global：租户业务只能读取显式限定为 Host 且活动的候选用户。
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListActiveHostUserSelectionsSqlServer = new(
+        "identity.list_active_host_user_selections.sql_server",
+        """
+        SELECT Id, Username, DisplayName
+        FROM fn_identity_user
+        WHERE ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        ORDER BY NormalizedUsername
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListActiveHostUserSelectionsMySql = new(
+        "identity.list_active_host_user_selections.my_sql",
+        """
+        SELECT Id, Username, DisplayName
+        FROM fn_identity_user
+        WHERE ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        ORDER BY NormalizedUsername
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement InsertUser = new(
         "identity.insert_user",
         """
@@ -761,6 +799,97 @@ internal static class IdentitySql
         ORDER BY rolePermission.PermissionCode
         """,
         SqlDataScope.Global);
+
+    public static readonly SqlStatement GetUserFieldProjectionGrants = new(
+        "identity.get_user_field_projection_grants",
+        """
+        SELECT roleObject.ScopeKey,
+               roleObject.TenantId,
+               roleObject.IsSuperAdministrator,
+               fieldGrant.FieldKey
+        FROM fn_identity_user AS identityUser
+        INNER JOIN fn_identity_user_role AS userRole
+            ON userRole.UserId = identityUser.Id
+        INNER JOIN fn_identity_role AS roleObject
+            ON roleObject.Id = userRole.RoleId
+        LEFT JOIN fn_identity_role_field_grant AS fieldGrant
+            ON fieldGrant.RoleId = roleObject.Id
+           AND fieldGrant.ResourceKey = @ResourceKey
+        WHERE identityUser.Id = @UserId
+          AND identityUser.IsActive = 1
+          AND roleObject.IsActive = 1
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement GetHostRoleFieldGrants = new(
+        "identity.get_host_role_field_grants",
+        """
+        SELECT fieldGrant.FieldKey
+        FROM fn_identity_role_field_grant AS fieldGrant
+        INNER JOIN fn_identity_role AS roleObject
+            ON roleObject.Id = fieldGrant.RoleId
+        WHERE fieldGrant.RoleId = @RoleId
+          AND fieldGrant.ResourceKey = @ResourceKey
+          AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL
+        ORDER BY fieldGrant.FieldKey
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindHostUserProjectionBaseById = new(
+        "identity.find_host_user_projection_base_by_id",
+        """
+        SELECT Id, Username, DisplayName, IsActive,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_identity_user
+        WHERE Id = @UserId AND ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostUserPreferredLocales = new(
+        "identity.list_host_user_preferred_locales",
+        """
+        SELECT Id, PreferredLocale AS Value
+        FROM fn_identity_user
+        WHERE Id IN @UserIds AND ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostUserFailedLoginCounts = new(
+        "identity.list_host_user_failed_login_counts",
+        """
+        SELECT Id, FailedLoginCount AS Value
+        FROM fn_identity_user
+        WHERE Id IN @UserIds AND ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostUserLockoutEnds = new(
+        "identity.list_host_user_lockout_ends",
+        """
+        SELECT Id, LockoutEndUtc AS Value
+        FROM fn_identity_user
+        WHERE Id IN @UserIds AND ScopeKey = 'host' AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteHostRoleFieldGrants = new(
+        "identity.delete_host_role_field_grants",
+        """
+        DELETE FROM fn_identity_role_field_grant
+        WHERE RoleId = @RoleId AND ResourceKey = @ResourceKey
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertHostRoleFieldGrant = new(
+        "identity.insert_host_role_field_grant",
+        """
+        INSERT INTO fn_identity_role_field_grant
+            (Id, RoleId, ResourceKey, FieldKey, CreatedAtUtc, CreatedById)
+        VALUES
+            (@Id, @RoleId, @ResourceKey, @FieldKey, @CreatedAtUtc, @CreatedById)
+        """,
+        SqlDataScope.HostOnly);
 
     public static readonly SqlStatement UpdateLoginFailure = new(
         "identity.update_login_failure",

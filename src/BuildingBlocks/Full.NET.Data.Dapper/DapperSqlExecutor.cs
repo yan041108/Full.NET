@@ -103,6 +103,11 @@ internal sealed class DapperSqlExecutor(
         catch (Exception caught)
         {
             exception = caught;
+            if (DataCommandExceptionMapper.TryMap(caught, out var mapped))
+            {
+                throw mapped;
+            }
+
             throw;
         }
         finally

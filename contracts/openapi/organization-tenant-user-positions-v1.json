@@ -4,6 +4,17 @@
   "description": "租户用户-职位隶属 HTTP 契约冻结夹具；与 OrganizationUserPositionManagementContracts 和 ManageTenantUserPositions.Endpoint 对齐。",
   "paths": [
     {
+      "path": "/api/v1/organization/user-positions/assignable-users",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.user_positions.write",
+          "successStatus": 200,
+          "responseSchema": "OrganizationAssignableUserResponsePage"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/organization/user-positions",
       "operations": [
         {
@@ -46,6 +57,21 @@
     }
   ],
   "schemas": {
+    "OrganizationAssignableUserResponse": {
+      "properties": [
+        "id",
+        "username",
+        "displayName"
+      ]
+    },
+    "OrganizationAssignableUserResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
     "OrganizationUserPositionResponse": {
       "properties": [
         "id",

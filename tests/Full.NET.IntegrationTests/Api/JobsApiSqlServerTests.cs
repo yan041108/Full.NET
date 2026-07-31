@@ -14,9 +14,12 @@ public sealed class JobsApiSqlServerTests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
             configureTestServices: services =>
+            {
                 JobsBoundedConcurrencyAssertions.ConfigureServices(
                     services,
-                    concurrencyProbe));
+                    concurrencyProbe);
+                JobsRetrySchedulingAssertions.ConfigureServices(services);
+            });
 
         await JobsHostDefinitionAssertions.VerifyAsync(
             factory,

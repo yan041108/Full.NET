@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Settings;
+using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Tenancy;
@@ -47,6 +48,7 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
         typeof(AuditingModule).Assembly,
         typeof(FilesModule).Assembly,
+        typeof(SerialNumbersModule).Assembly,
     ];
 
     [TestMethod]
@@ -93,6 +95,7 @@ public sealed class DependencyRulesTests
             new TenancyModule(),
             new Full.NET.Modules.Organization.OrganizationModule(),
             new SettingsModule(),
+            new SerialNumbersModule(),
         ];
         var root = FindRepositoryRoot();
         var violations = modules
@@ -797,6 +800,16 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void SerialNumbers_declares_identity_as_an_explicit_module_dependency()
+    {
+        var module = new SerialNumbersModule();
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Identity" },
+            module.Dependencies.ToArray());
+    }
+
+    [TestMethod]
     public void Auditing_declares_identity_as_an_explicit_module_dependency()
     {
         var module = new AuditingModule();
@@ -1166,6 +1179,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
         typeof(AuditingModule).Assembly,
         typeof(FilesModule).Assembly,
+        typeof(SerialNumbersModule).Assembly,
         HostApi,
         HostMigrator,
         HostWorker,

@@ -1,0 +1,43 @@
+{
+  "paths": {
+    "/api/v1/code-generation/templates": {
+      "get": ["200"],
+      "post": ["201", "400", "401"]
+    },
+    "/api/v1/code-generation/templates/{templateId}": {
+      "get": ["200", "404"],
+      "put": ["200", "400", "401", "404", "409"]
+    },
+    "/api/v1/code-generation/templates/{templateId}/delete": {
+      "post": ["204", "400", "401", "404", "409"]
+    }
+  },
+  "schemas": {
+    "CreateCodeGenerationTemplateRequest": [
+      "name",
+      "description",
+      "schema"
+    ],
+    "UpdateCodeGenerationTemplateRequest": [
+      "name",
+      "description",
+      "schema",
+      "version"
+    ],
+    "DeleteCodeGenerationTemplateRequest": [
+      "version"
+    ],
+    "CodeGenerationTemplateResponse": [
+      "id",
+      "name",
+      "description",
+      "schema",
+      "schemaSha256",
+      "createdAtUtc",
+      "createdByUserId",
+      "updatedAtUtc",
+      "updatedByUserId",
+      "version"
+    ]
+  }
+}

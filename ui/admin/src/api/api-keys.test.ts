@@ -3,7 +3,8 @@ import { request } from './http';
 import {
   createHostApiKey,
   disableHostApiKey,
-  listHostApiKeys
+  listHostApiKeys,
+  rotateHostApiKey
 } from './api-keys';
 
 vi.mock('./http', () => ({ request: vi.fn() }));
@@ -73,6 +74,20 @@ describe('Vue Host API Key API', () => {
 
     expect(requestMock).toHaveBeenCalledWith(
       `/api/v1/identity/api-keys/${sampleApiKey.id}/disable`,
+      { method: 'POST' }
+    );
+  });
+
+  it('通过 POST 轮换 API Key 并返回新明文', async () => {
+    requestMock.mockResolvedValueOnce({
+      key: { ...sampleApiKey, id: '019bc2b1-2a40-7cc3-8992-a80de51bf297' },
+      secret: 'fn_live_rotated'
+    });
+
+    await expect(rotateHostApiKey(sampleApiKey.id))
+      .resolves.toMatchObject({ secret: 'fn_live_rotated' });
+    expect(requestMock).toHaveBeenCalledWith(
+      `/api/v1/identity/api-keys/${sampleApiKey.id}/rotate`,
       { method: 'POST' }
     );
   });

@@ -21,10 +21,13 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Seeding.Abstractions\Full.NET.Seeding.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Seeding.Dapper\Full.NET.Seeding.Dapper.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Validation.FluentValidation\Full.NET.Validation.FluentValidation.csproj" />
+    <ProjectReference Include="..\..\src\Tools\Full.NET.CodeGeneration.Cli\Full.NET.CodeGeneration.Cli.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Migrator\Full.NET.Host.Migrator.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Worker\Full.NET.Host.Worker.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.CodeGeneration\Full.NET.Modules.CodeGeneration.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.SerialNumbers\Full.NET.Modules.SerialNumbers.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Files\Full.NET.Modules.Files.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Notifications\Full.NET.Modules.Notifications.csproj" />
   </ItemGroup>

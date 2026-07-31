@@ -9,10 +9,10 @@
 | 项 | 说明 |
 |---|---|
 | 数据 | `fn_organization_user_unit`（迁移 `014_OrganizationUserUnit.sql`，SQL Server + MySQL） |
-| API | `GET/POST /api/v1/organization/user-units`、`PUT/{id}`、`POST/{id}/disable` |
+| API | `GET/POST /api/v1/organization/user-units`、`GET /assignable-users`、`PUT/{id}`、`POST/{id}/disable`；候选 API 分页返回活动 Host 用户最小投影 |
 | 权限 | `organization.user_units.read` / `organization.user_units.write`（Tenant 作用域） |
 | 导航 | `org-user-units` → `/organization/user-units` |
-| 双管理端 | Vue `OrgUserUnitsView.vue`、Layui `org-user-units.js` |
+| 双管理端 | Vue `OrgUserUnitsView.vue`、Layui `org-user-units.js`；候选用户按需加载后续页，403 降级为空候选 |
 | 跨模块 | `IHostUserDirectory` 校验活动 Host 用户 |
 
 ## 测试门槛

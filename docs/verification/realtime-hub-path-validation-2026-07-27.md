@@ -51,3 +51,26 @@ BroadcastChannel 与 admin-real-stack locator 契约仅涉及 TypeScript、Node
 本次是单一 Realtime 配置边界遗漏，已由启动期回归测试稳定阻断；没有形成跨模块
 重复模式或新的高风险架构决策，因此不新增或修改强制规则。现有项目 Skill 能完整
 覆盖同步、验证与合并流程，本次无 Skill 变化。
+
+## 规范路径失败关闭增补（2026-07-30）
+
+- 启用 Realtime 时，`HubPath` 现在还必须是非根规范路径：根路径 `/`、尾随 `/` 和
+  路径内部重复 `//` 均在服务注册阶段以 `OptionsValidationException` 失败关闭。
+- 该约束避免 Hub 占用应用根边界，并防止 SignalR 从尾随分隔符派生非规范 negotiate
+  路径；默认 `/hubs/notifications` 与合法自定义路径保持原值。
+- `Realtime:Enabled=false` 继续跳过 HubPath 校验，Worker-only 发布端的 Redis
+  失败关闭语义不变。
+- TDD RED 在 Unit Release build **0 warning / 0 error** 后精确失败于根路径未抛异常；
+  最小实现后新增方法 **1/1**、`RealtimeBackplaneRegistrationTests` **9/9**。
+- 本切片使用任务快照 `realtime-hub-path-canonical-validation-20260730`；快照创建早于
+  RED 文件写入。首次 inner 计划仅显示其它窗口后写入的 CodeGeneration 文件，是因为
+  Integration 选择器不把纯 Unit 测试文件映射为真实栈目标；生产 Realtime 文件落盘后
+  重新规划并按最终影响集验证。
+- 最终工作区组合 affected 命中 CodeGeneration、Files 与 Realtime，聚焦测试
+  **28/28**，Integration Release build **0 warning / 0 error**；teardown 后
+  `RUNNING_COUNT=0`、SQL Server/MySQL/Ryuk/Testcontainers 残留 **0**。
+- 全窗口冻结后的共享收口为 solution Release build **0 warning / 0 error**、
+  Unit **760/760**、Architecture **49/49**；唯一测试矩阵同步为 Unit **760**、
+  Integration full/API SQL Server/API MySQL/migrations/infrastructure
+  **230/39/39/70/82**，迁移恢复选择器 `037` 保留。最终 Realtime 聚焦复跑
+  **35/35**，命名门禁 **23/23**。

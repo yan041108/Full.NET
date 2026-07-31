@@ -3,9 +3,12 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Notifications;
 
@@ -20,7 +23,10 @@ internal static class NotificationsHostAnnouncementAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
-        await VerifyDraftUpdatePublishLifecycleAsync(client, cancellationToken);
+        await VerifyDraftUpdatePublishLifecycleAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiNotificationsHostAnnouncementsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -47,6 +53,7 @@ internal static class NotificationsHostAnnouncementAssertions
     }
 
     private static async Task VerifyDraftUpdatePublishLifecycleAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -106,6 +113,10 @@ internal static class NotificationsHostAnnouncementAssertions
         Assert.IsNotNull(published);
         Assert.AreEqual(AnnouncementStatuses.Published, published.Status);
         Assert.IsNotNull(published.PublishedAtUtc);
+        await VerifyPublishedOutboxAsync(
+            factory,
+            published,
+            cancellationToken);
 
         using var republishRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -139,6 +150,60 @@ internal static class NotificationsHostAnnouncementAssertions
         int Page,
         int PageSize,
         long Total);
+
+    private static async Task VerifyPublishedOutboxAsync(
+        FullNetApiFactory factory,
+        HostAnnouncementResponse published,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant =
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var rows = await scope.ServiceProvider
+                .GetRequiredService<IQueryExecutor>()
+                .QueryAsync<NotificationOutboxRecord>(
+                    new SqlStatement(
+                        "test.notifications.announcement_published_outbox",
+                        """
+                        SELECT MessageType, SchemaVersion, Payload
+                        FROM fn_outbox_message
+                        WHERE MessageType = @MessageType
+                        ORDER BY OccurredAtUtc DESC, Id
+                        """,
+                        SqlDataScope.Global),
+                    new
+                    {
+                        MessageType =
+                            NotificationRealtimeEventTypes.AnnouncementPublished,
+                    },
+                    cancellationToken);
+
+            Assert.HasCount(1, rows);
+            Assert.AreEqual(1, rows[0].SchemaVersion);
+            var integrationEvent = scope.ServiceProvider
+                .GetRequiredService<IIntegrationEventSerializer>()
+                .Deserialize<AnnouncementPublishedIntegrationEvent>(
+                    rows[0].Payload);
+            Assert.AreEqual(published.Id, integrationEvent.AnnouncementId);
+            Assert.AreEqual(published.Title, integrationEvent.Title);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
+    private sealed class NotificationOutboxRecord
+    {
+        public string MessageType { get; set; } = string.Empty;
+
+        public int SchemaVersion { get; set; }
+
+        public byte[] Payload { get; set; } = [];
+    }
 
     private static async Task<string> LoginAsHostAdminAsync(
         HttpClient client,

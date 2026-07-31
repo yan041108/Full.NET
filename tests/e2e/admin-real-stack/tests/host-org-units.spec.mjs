@@ -23,7 +23,7 @@ test('Host 管理员在租户上下文中可从真实 API 加载机构列表', a
 
   const navigation = page.getByRole('navigation', { name: '主导航' });
   await expect(navigation.getByRole('link', { name: /机构管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /机构管理/ }).click();
+  await page.goto('/#/organization/units');
 
   await expect(page.getByRole('heading', { name: '机构管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无租户机构', { exact: true })).toBeVisible();

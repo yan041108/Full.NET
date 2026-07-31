@@ -4,9 +4,9 @@
 
 - 范围：Task 24 Step 2 的独立容量入口、矩阵约束、真实 Worker 装配、报告与双库单档冒烟。
 - 基线：`b1472503ca59b4c601c8899602d229b30d269a8c` 加本记录对应工作区差异。
-- 结论：SQL Server 与 MySQL 的慢 Handler 单档均通过正确性门禁；默认
-  `OutboxWorker:MaxConcurrency = 1` 未调整。
-- 未闭环：正式 35 档三轮采样、索引 A/B 和默认并发决策。
+- 结论：SQL Server 与 MySQL 的慢 Handler 单档均通过正确性门禁；**正式 35 档双库三轮
+  矩阵已 COMPLETE**（见 §12）；默认 `OutboxWorker:MaxConcurrency = 1` 未调整。
+- 未闭环：索引 A/B 与默认并发决策（须单独 Decision Gate）。
 
 ## 2. 实现边界
 
@@ -210,3 +210,18 @@ Exactly-Once。原始工件：
 旧 `0796621` checkpoint 保留为夹具饥饿诊断证据，禁止继续用于容量决策。补量改变了
 正式采样语义，必须从本修复提交的新源版本和全新输出目录重启双库矩阵；默认
 `OutboxWorker:MaxConcurrency=1` 不变。
+
+## 12. 正式 35 档双库矩阵 COMPLETE
+
+- 任务基线：`975da1ee9c0e073e6cfbf0bd2c2cd530063d8313`。
+- 输出目录：`.tmp/outbox-capacity-formal-20260729`（断点续跑自 `165/210` 普通样本 +
+  `3/6` 恢复轮次）。
+- 最终结果：普通场景 **210/210**、遗弃租约恢复 **6/6**、状态 **COMPLETE**；墙钟约
+  **38 分钟**（续跑段）。
+- 全部 **210** 项普通采样与 **6** 项恢复轮次的正确性门禁均为 **PASS**；无 Dapper
+  failure/cancellation、ProcessorError 或重复投递未通过样本。
+- 默认参数：并发 `1/2/4/8`、延迟 `0/10/100/1000ms`、副本 `1/2`、参考形状 Batch
+  `20/100`、Payload `256/4096`、预热 10s、采样 30s、预置 20000、租约 30s、续租 10s、
+  每档重复 3 次。
+- 默认 `OutboxWorker:MaxConcurrency = 1` **未调整**；索引 A/B 与默认并发上调仍须
+  单独 Decision Gate 与执行计划证据。

@@ -1,5 +1,13 @@
 import { spawn } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { generateKeyPairSync } from 'node:crypto';
+import {
+  createWriteStream,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { GenericContainer, Wait } from 'testcontainers';
@@ -25,6 +33,35 @@ function resolveDatabaseProvider() {
   }
 
   return 'SqlServer';
+}
+
+/** 真实栈启动 Profile：development 含 Development Seed；production-totp 走 Production + TOTP 强认证。 */
+function resolveStackProfile() {
+  return process.env.FULLNET_E2E_STACK_PROFILE ?? 'development';
+}
+
+function createProductionSigningKeyEnv(keyId = 'e2eprodsigning') {
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+  });
+
+  return {
+    Identity__ActiveKeyId: keyId,
+    [`Identity__SigningKeys__${keyId}__PublicKeyPem`]: publicKey,
+    [`Identity__SigningKeys__${keyId}__PrivateKeyPem`]: privateKey
+  };
+}
+
+async function startRedisContainer() {
+  const container = await new GenericContainer('redis:8.6')
+    .withExposedPorts(6379)
+    .withWaitStrategy(Wait.forListeningPorts())
+    .start();
+
+  const connectionString = `${container.getHost()}:${container.getMappedPort(6379)}`;
+  return { container, connectionString };
 }
 
 async function startDatabaseContainer(provider) {
@@ -82,14 +119,24 @@ export async function bootstrapStack() {
     return activeStack;
   }
 
+  const stackProfile = resolveStackProfile();
   const databaseProvider = resolveDatabaseProvider();
   const { container, connectionString } = await startDatabaseContainer(databaseProvider);
+  const { container: redisContainer, connectionString: redisConnectionString } =
+    await startRedisContainer();
+  const codeGenerationWorkspaceRoot = mkdtempSync(path.join(
+    tmpdir(),
+    'fullnet-codegeneration-e2e-'
+  ));
 
+  const isProductionTotp = stackProfile === 'production-totp';
   const sharedEnv = {
     ...withoutTestScenarioHostConfiguration(process.env),
     Database__Provider: databaseProvider,
     Database__ConnectionString: connectionString,
     Database__MySqlGuidStorageMode: 'Binary16',
+    Cache__RedisConnectionString: redisConnectionString,
+    Realtime__RedisBackplaneConnectionString: redisConnectionString,
     UuidBinaryContract__MaintenanceMode: 'true',
     UuidBinaryContract__BackupVerified: 'true',
     UuidBinaryContract__LegacyWritersStopped: 'true',
@@ -101,14 +148,29 @@ export async function bootstrapStack() {
     PreV1NamingContract__DestructiveDdlApprovalId: 'e2e-real-stack-011',
     Identity__Bootstrap__Username: adminUsername,
     Identity__Bootstrap__Password: adminPassword,
-    Identity__AllowDevelopmentEphemeralSigningKey: 'true',
     Identity__AllowedOrigins__0: 'http://localhost:25173',
     Identity__AllowedOrigins__1: 'http://localhost:25174',
     Identity__LoginRateLimitPermitLimitPerMinute: '240',
     Identity__SessionMutationRateLimitPermitLimitPerMinute: '240',
     Tenancy__HostDomains__0: 'localhost',
-    DOTNET_ENVIRONMENT: 'Development',
-    ASPNETCORE_ENVIRONMENT: 'Development'
+    Realtime__Enabled: 'true',
+    Realtime__HubPath: '/hubs/notifications',
+    OutboxWorker__PollMilliseconds: '100',
+    CodeGeneration__Apply__Enabled: 'true',
+    CodeGeneration__Apply__WorkspaceRoot: codeGenerationWorkspaceRoot,
+    DOTNET_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
+    ASPNETCORE_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
+    ...(isProductionTotp
+      ? {
+          ...createProductionSigningKeyEnv(),
+          Identity__AllowDevelopmentEphemeralSigningKey: 'false',
+          Identity__EnableTotpStrongReauthentication: 'true',
+          Identity__EnableRemoteSuperAdministratorManagement: 'true',
+          Files__Local__RootPath: path.join(repoRoot, '.tmp/e2e-real-stack-files')
+        }
+      : {
+          Identity__AllowDevelopmentEphemeralSigningKey: 'true'
+        })
   };
 
   await runDotnet([
@@ -117,7 +179,7 @@ export async function bootstrapStack() {
     'src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj',
     '--',
     '--seed',
-    'development'
+    isProductionTotp ? 'baseline' : 'development'
   ], sharedEnv);
 
   const apiProcess = spawn(
@@ -140,25 +202,61 @@ export async function bootstrapStack() {
   );
 
   await waitForApi(apiUrl);
-  const viewerEnvironment = {
-    ...process.env,
-    FULLNET_E2E_API_URL: apiUrl
-  };
-  await provisionViewer(viewerEnvironment);
-  // 第二次准备必须只复用同一角色和用户，防止测试重跑产生重复场景数据。
-  await provisionViewer(viewerEnvironment);
+
+  if (!isProductionTotp) {
+    const viewerEnvironment = {
+      ...process.env,
+      FULLNET_E2E_API_URL: apiUrl
+    };
+    await provisionViewer(viewerEnvironment);
+    // 第二次准备必须只复用同一角色和用户，防止测试重跑产生重复场景数据。
+    await provisionViewer(viewerEnvironment);
+  }
+
+  // 真实栈保持 API/Worker 角色分离，确保浏览器场景经过事务 Outbox 和 Redis Backplane。
+  const workerLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/worker.log');
+  mkdirSync(path.dirname(workerLogPath), { recursive: true });
+  writeFileSync(workerLogPath, '');
+  const workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });
+  const workerProcess = spawn(
+    'dotnet',
+    [
+      'run',
+      '--project',
+      'src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj'
+    ],
+    {
+      cwd: repoRoot,
+      env: sharedEnv,
+      stdio: 'pipe'
+    }
+  );
+  workerProcess.stdout?.pipe(workerLogStream, { end: false });
+  workerProcess.stderr?.pipe(workerLogStream, { end: false });
 
   activeStack = {
     apiUrl,
     apiProcess,
+    workerProcess,
+    workerLogStream,
     container,
-    databaseProvider
+    redisContainer,
+    databaseProvider,
+    stackProfile,
+    redisConnectionString,
+    codeGenerationWorkspaceRoot
   };
   writeFileSync(statePath, JSON.stringify({
     apiUrl,
     apiPid: apiProcess.pid,
+    workerPid: workerProcess.pid,
+    workerLogPath,
     containerId: container.getId(),
-    databaseProvider
+    redisContainerId: redisContainer.getId(),
+    databaseProvider,
+    stackProfile,
+    redisConnectionString,
+    codeGenerationWorkspaceRoot
   }, null, 2));
 
   return activeStack;
@@ -179,8 +277,21 @@ export async function teardownStack() {
   if (activeStack.apiProcess && !activeStack.apiProcess.killed) {
     activeStack.apiProcess.kill();
   }
+  if (activeStack.workerProcess && !activeStack.workerProcess.killed) {
+    activeStack.workerProcess.kill();
+  }
+  activeStack.workerLogStream?.end();
 
   await activeStack.container.stop();
+  if (activeStack.redisContainer) {
+    await activeStack.redisContainer.stop();
+  }
+  if (activeStack.codeGenerationWorkspaceRoot) {
+    rmSync(activeStack.codeGenerationWorkspaceRoot, {
+      recursive: true,
+      force: true
+    });
+  }
   activeStack = undefined;
 }
 

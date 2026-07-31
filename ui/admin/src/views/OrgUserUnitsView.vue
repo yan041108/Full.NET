@@ -12,7 +12,7 @@ import {
 } from 'element-plus';
 import {
   type FullNetProblemDetails,
-  type HostUser,
+  type OrganizationAssignableUser,
   type OrganizationUnit,
   type OrganizationUserUnit
 } from '@fullnet/client-contracts';
@@ -23,23 +23,27 @@ import { listOrganizationUnits } from '../api/org-units';
 import {
   createOrganizationUserUnit,
   disableOrganizationUserUnit,
+  listAssignableOrganizationUserUnitUsers,
   listOrganizationUserUnits,
   updateOrganizationUserUnit
 } from '../api/org-user-units';
-import { listHostUsers } from '../api/users';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const assignments = ref<OrganizationUserUnit[]>([]);
-const users = ref<HostUser[]>([]);
+const users = ref<OrganizationAssignableUser[]>([]);
 const units = ref<OrganizationUnit[]>([]);
 const selectedUserId = ref('');
 const selectedUnitId = ref('');
 const isPrimary = ref(false);
 const loading = ref(false);
 const changing = ref(false);
+const loadingMoreUsers = ref(false);
+const userPage = ref(1);
+const userTotal = ref(0);
 const problem = ref<FullNetProblemDetails>();
 const canWrite = computed(() => session.can('organization.user_units.write'));
+const hasMoreUsers = computed(() => users.value.length < userTotal.value);
 
 onMounted(load);
 
@@ -47,24 +51,59 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const [assignmentPage, unitPage, userPage] = await Promise.all([
+    const [assignmentPage, unitPage, assignableUserPage] = await Promise.all([
       listOrganizationUserUnits(),
       listOrganizationUnits(),
-      // 租户上下文通常无 identity.users.read；选择器可降级，列表仍应可渲染。
-      listHostUsers().catch(() => ({
-        items: [] as HostUser[],
-        page: 1,
-        pageSize: 20,
-        total: 0
-      }))
+      canWrite.value
+        ? listAssignableOrganizationUserUnitUsers().catch(error => {
+          if (isForbidden(error)) {
+            return {
+              items: [] as OrganizationAssignableUser[],
+              page: 1,
+              pageSize: 100,
+              total: 0
+            };
+          }
+          throw error;
+        })
+        : Promise.resolve({
+          items: [] as OrganizationAssignableUser[],
+          page: 1,
+          pageSize: 100,
+          total: 0
+        })
     ]);
     assignments.value = assignmentPage.items;
-    users.value = userPage.items.filter(user => user.isActive);
+    users.value = assignableUserPage.items;
+    userPage.value = assignableUserPage.page;
+    userTotal.value = assignableUserPage.total;
     units.value = unitPage.items.filter(unit => unit.isActive);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'orgUserUnits.loadFailed');
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadMoreUsers(): Promise<void> {
+  if (loadingMoreUsers.value || !canWrite.value || !hasMoreUsers.value) {
+    return;
+  }
+  loadingMoreUsers.value = true;
+  problem.value = undefined;
+  try {
+    const nextPage = await listAssignableOrganizationUserUnitUsers(userPage.value + 1);
+    users.value = appendUniqueUsers(users.value, nextPage.items);
+    userPage.value = nextPage.page;
+    userTotal.value = nextPage.total;
+  } catch (error: unknown) {
+    if (isForbidden(error)) {
+      userTotal.value = users.value.length;
+      return;
+    }
+    problem.value = toProblem(error, 'orgUserUnits.loadFailed');
+  } finally {
+    loadingMoreUsers.value = false;
   }
 }
 
@@ -143,6 +182,22 @@ function toProblem(
     ? error
     : { status: 500, code: 'client.organization_user_unit_failed', title: t(fallbackKey) };
 }
+
+function isForbidden(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'status' in error
+    && error.status === 403;
+}
+
+function appendUniqueUsers(
+  current: OrganizationAssignableUser[],
+  incoming: OrganizationAssignableUser[]
+): OrganizationAssignableUser[] {
+  const byId = new Map(current.map(user => [user.id, user]));
+  incoming.forEach(user => byId.set(user.id, user));
+  return [...byId.values()];
+}
 </script>
 
 <template>
@@ -168,6 +223,15 @@ function toProblem(
               :value="user.id"
             />
           </el-select>
+          <el-button
+            v-if="hasMoreUsers"
+            link
+            :loading="loadingMoreUsers"
+            data-testid="org-user-units-load-more-users"
+            @click.prevent="loadMoreUsers"
+          >
+            {{ t('orgUserUnits.loadMoreUsers') }}
+          </el-button>
         </label>
         <label>
           <span>{{ t('orgUserUnits.unit') }}</span>

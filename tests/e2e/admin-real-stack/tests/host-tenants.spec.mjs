@@ -38,7 +38,7 @@ test('Host 管理员可为种子租户分配套餐', async ({ page, request }, t
   test.setTimeout(60_000);
   const clientKind = testInfo.project.metadata.clientKind;
   const packageCode = `e2e-rs-${Date.now().toString(36)}`;
-  const packageName = '真实栈分配套餐';
+  const packageName = `真实栈分配套餐 ${packageCode}`;
   const createdPackage = await createTenantPackageViaApi(request, clientKind, {
     code: packageCode,
     name: packageName
@@ -60,7 +60,7 @@ test('Host 管理员可为种子租户分配套餐', async ({ page, request }, t
 
   if (clientKind === 'vue') {
     await tenantRow.locator('.el-select').click();
-    await page.getByRole('option', { name: packageName }).click();
+    await page.getByRole('listbox').getByRole('option', { name: packageName, exact: true }).click();
   } else {
     await tenantRow.locator(`select[data-tenants-package="${localTenant.id}"]`)
       .selectOption(createdPackage.id);

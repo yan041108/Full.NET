@@ -6,6 +6,14 @@ export interface HostUser {
   createdAtUtc: string;
   updatedAtUtc: string | null;
   version: number;
+  projectedFields?: HostUserProjectedFields | null;
+}
+
+export interface HostUserProjectedFields {
+  effectiveFieldKeys: string[];
+  preferredLocale: string | null;
+  failedLoginCount: number | null;
+  lockoutEndUtc: string | null;
 }
 
 export interface HostUserPage {
@@ -50,6 +58,35 @@ export function isUpdateHostUserRequest(value: unknown): value is UpdateHostUser
     && typeof value.version === 'number';
 }
 
+function isHostUserProjectedFields(value: unknown): value is HostUserProjectedFields {
+  const knownFieldKeys = new Set([
+    'id',
+    'username',
+    'display_name',
+    'is_active',
+    'created_at_utc',
+    'updated_at_utc',
+    'version',
+    'preferred_locale',
+    'failed_login_count',
+    'lockout_end_utc'
+  ]);
+  if (!isRecord(value) || !Array.isArray(value.effectiveFieldKeys)) {
+    return false;
+  }
+
+  const fieldKeys = value.effectiveFieldKeys;
+  return isRecord(value)
+    && fieldKeys.every(fieldKey => isText(fieldKey) && knownFieldKeys.has(fieldKey))
+    && new Set(fieldKeys).size === fieldKeys.length
+    && (value.preferredLocale === null || isText(value.preferredLocale))
+    && (value.failedLoginCount === null
+      || (typeof value.failedLoginCount === 'number'
+        && Number.isInteger(value.failedLoginCount)
+        && value.failedLoginCount >= 0))
+    && (value.lockoutEndUtc === null || isText(value.lockoutEndUtc));
+}
+
 /** 校验不可信 JSON 是否为 Host 用户角色分配响应。 */
 export function isHostUserRoles(value: unknown): value is HostUserRoles {
   return isRecord(value)
@@ -88,7 +125,10 @@ export function isHostUser(value: unknown): value is HostUser {
     && typeof value.isActive === 'boolean'
     && isText(value.createdAtUtc)
     && (value.updatedAtUtc === null || isText(value.updatedAtUtc))
-    && typeof value.version === 'number';
+    && typeof value.version === 'number'
+    && (value.projectedFields === undefined
+      || value.projectedFields === null
+      || isHostUserProjectedFields(value.projectedFields));
 }
 
 function isText(value: unknown): value is string {

@@ -1,0 +1,49 @@
+name: Jobs capacity
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jobs-capacity-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore benchmark
+        run: dotnet restore benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj
+
+      - name: Build benchmark
+        run: >-
+          dotnet build
+          benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj
+          --configuration Release
+          --no-restore
+
+      - name: Run Jobs capacity matrix
+        run: >-
+          dotnet run
+          --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj
+          --configuration Release
+          --no-build --
+          jobs-capacity
+          --output BenchmarkDotNet.Artifacts/jobs-capacity
+
+      - name: Upload Jobs capacity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobs-capacity
+          path: BenchmarkDotNet.Artifacts/jobs-capacity/**
+          if-no-files-found: error

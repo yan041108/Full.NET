@@ -1,6 +1,6 @@
 import { createHttpClient } from '@fullnet/client-contracts';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 const http = createHttpClient(apiBaseUrl);
 
 export const configureAuthentication = http.configureAuthentication.bind(http);

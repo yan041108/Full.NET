@@ -13,6 +13,10 @@ const contractsSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Organization.Contracts/OrganizationUserPositionManagementContracts.cs'
 );
+const assignableContractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Organization.Contracts/OrganizationAssignableUserContracts.cs'
+);
 const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserPositions/Endpoint.cs'
@@ -49,18 +53,25 @@ test('租户用户-职位隶属 OpenAPI 夹具结构完整且路径唯一', asyn
 
 test('租户用户-职位隶属 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   const contract = await loadContract();
-  const contractsSource = await readFile(contractsSourcePath, 'utf8');
+  const contractsSource = [
+    await readFile(contractsSourcePath, 'utf8'),
+    await readFile(assignableContractsSourcePath, 'utf8')
+  ].join('\n');
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
 
   assert.match(contractsSource, /record CreateOrganizationUserPositionRequest/u);
   assert.match(contractsSource, /record UpdateOrganizationUserPositionRequest/u);
   assert.match(contractsSource, /record OrganizationUserPositionResponse/u);
+  assert.match(contractsSource, /record OrganizationAssignableUserResponse/u);
   assert.match(contractsSource, /organization\.user_positions\.read/u);
   assert.match(contractsSource, /organization\.user_positions\.write/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/user-positions"\)/u);
 
   const relativeRoutes = new Map([
+    ['/api/v1/organization/user-positions/assignable-users', new Map([
+      ['GET', 'MapGet("/assignable-users",']
+    ])],
     ['/api/v1/organization/user-positions', new Map([
       ['GET', 'MapGet("/",'],
       ['POST', 'MapPost("/",']
@@ -84,7 +95,7 @@ test('租户用户-职位隶属 OpenAPI 夹具与 C# 契约和端点源码一致
   }
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {
-    if (schemaName === 'OrganizationUserPositionResponsePage') {
+    if (schemaName.endsWith('ResponsePage')) {
       continue;
     }
     for (const property of schema.properties) {

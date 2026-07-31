@@ -1,6 +1,7 @@
 using BenchmarkDotNet.Running;
 using Full.NET.Benchmarks;
 using Full.NET.Benchmarks.Auditing;
+using Full.NET.Benchmarks.Jobs;
 using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Benchmarks.Outbox;
 
@@ -54,6 +55,40 @@ else if (args.FirstOrDefault() is "audit-query")
     {
         await AuditingQueryBenchmarkRunner.RunAsync(auditOptions);
     }
+}
+else if (args.FirstOrDefault() is "jobs-backlog-query")
+{
+    var jobsArguments = args.Skip(1).ToArray();
+    if (jobsArguments.Contains("--help", StringComparer.OrdinalIgnoreCase))
+    {
+        Console.WriteLine(JobsBacklogQueryBenchmarkOptions.HelpText);
+        return;
+    }
+
+    var jobsOptions = JobsBacklogQueryBenchmarkOptions.Parse(
+        jobsArguments);
+    if (jobsOptions.Mode == JobsBacklogQueryBenchmarkMode.IndexAb)
+    {
+        await JobsBacklogIndexAbBenchmarkRunner.RunAsync(jobsOptions);
+    }
+    else
+    {
+        await JobsBacklogQueryBenchmarkRunner.RunAsync(jobsOptions);
+    }
+}
+else if (args.FirstOrDefault() is "jobs-capacity")
+{
+    var capacityArguments = args.Skip(1).ToArray();
+    if (capacityArguments.Contains(
+            "--help",
+            StringComparer.OrdinalIgnoreCase))
+    {
+        Console.WriteLine(JobsCapacityOptions.HelpText);
+        return;
+    }
+
+    await JobsCapacityRunner.RunAsync(
+        JobsCapacityOptions.Parse(capacityArguments));
 }
 else
 {

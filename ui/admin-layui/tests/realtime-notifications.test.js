@@ -25,6 +25,30 @@ describe('Layui Notifications 实时状态', () => {
     await state.dispose();
   });
 
+  it('将管理端解析后的 API Hub 地址传给共享 SignalR 客户端', async () => {
+    const session = createSession();
+    const realtimeFactory = vi.fn(() => ({
+      whenSettled: async () => undefined,
+      dispose: async () => undefined
+    }));
+    const hubPath = 'http://localhost:5149/hubs/notifications';
+
+    const state = createLayuiNotificationsRealtime({
+      session,
+      hubPath,
+      request: vi.fn(),
+      onUnreadCount: vi.fn(),
+      onInboxChanged: vi.fn(),
+      onAnnouncementChanged: vi.fn(),
+      realtimeFactory
+    });
+
+    expect(realtimeFactory).toHaveBeenCalledWith(expect.objectContaining({
+      hubPath
+    }));
+    await state.dispose();
+  });
+
   it('同步未读数并分发站内信与公告刷新', async () => {
     const session = createSession();
     const request = vi.fn().mockResolvedValue({ unreadCount: 5 });
@@ -114,6 +138,73 @@ describe('Layui Notifications 实时状态', () => {
 
     expect(onUnreadCount).not.toHaveBeenCalled();
     void state.dispose();
+  });
+
+  it('SignalR 重连后补拉未读数并刷新当前收件箱', async () => {
+    const session = createSession();
+    const request = vi.fn()
+      .mockResolvedValueOnce({ unreadCount: 2 })
+      .mockResolvedValueOnce({ unreadCount: 6 });
+    const onUnreadCount = vi.fn();
+    const onInboxChanged = vi.fn();
+    let onReconnected;
+    const state = createLayuiNotificationsRealtime({
+      session,
+      request,
+      onUnreadCount,
+      onInboxChanged,
+      onAnnouncementChanged: vi.fn(),
+      realtimeFactory: options => {
+        onReconnected = options.onReconnected;
+        return {
+          whenSettled: async () => undefined,
+          dispose: async () => undefined
+        };
+      }
+    });
+
+    session.publish(authenticatedSnapshot());
+    await state.whenSettled();
+    await onReconnected();
+    await state.whenSettled();
+
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(onUnreadCount).toHaveBeenLastCalledWith(6);
+    expect(onInboxChanged).toHaveBeenCalledOnce();
+    await state.dispose();
+  });
+
+  it('SignalR 重连后的补拉失败保持现有状态且不传播异常', async () => {
+    const session = createSession();
+    const request = vi.fn()
+      .mockResolvedValueOnce({ unreadCount: 3 })
+      .mockRejectedValueOnce(new Error('offline'));
+    const onUnreadCount = vi.fn();
+    const onInboxChanged = vi.fn();
+    let onReconnected;
+    const state = createLayuiNotificationsRealtime({
+      session,
+      request,
+      onUnreadCount,
+      onInboxChanged,
+      onAnnouncementChanged: vi.fn(),
+      realtimeFactory: options => {
+        onReconnected = options.onReconnected;
+        return {
+          whenSettled: async () => undefined,
+          dispose: async () => undefined
+        };
+      }
+    });
+
+    session.publish(authenticatedSnapshot());
+    await state.whenSettled();
+    await expect(onReconnected()).resolves.toBeUndefined();
+    await state.whenSettled();
+
+    expect(onUnreadCount).toHaveBeenLastCalledWith(3);
+    expect(onInboxChanged).not.toHaveBeenCalled();
+    await state.dispose();
   });
 });
 

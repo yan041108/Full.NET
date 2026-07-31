@@ -1333,3 +1333,20 @@ Unit 全量首次运行暴露 `AuthorizationCatalogTests.Built_in_contributors_p
 | 四处 canonical 门槛 | **522/7/49/199**；README、getting-started、CI、roadmap 和两个项目 Skill reference 已同步 |
 | 行为边界 | 新增默认关闭的 Jobs 有界并发；默认值保持 `1`，不调整领取 SQL、租约时长或数据库结构 |
 | Integration | SQL Server/MySQL 各运行 1 个 Jobs smoke；完整 199 项仍只由 `main` CI 执行 |
+
+## 增补（2026-07-29，Identity API Key 轮换与真实栈浏览器闭环）
+
+| 项目 | 结果 |
+| --- | --- |
+| Mock parity | `shell-parity` API Key 场景扩展轮换与双明文不进入 Web Storage（**2/2**） |
+| 真实栈 E2E | `pnpm test:e2e:real` **102/102**（SQL Server Testcontainer 栈；含 `host-api-keys` **6/6**、Overview 探针 **4/4**、Host 用户写路径 **6/6**） |
+| 验证记录 | [`identity-api-key-2026-07-26.md`](identity-api-key-2026-07-26.md)、[`platform-overview-probe-real-stack-2026-07-29.md`](platform-overview-probe-real-stack-2026-07-29.md)、[`identity-user-management-2026-07-21.md`](identity-user-management-2026-07-21.md) |
+
+## 增补（2026-07-29，租户数据字典真实栈 + Outbox 正式矩阵 COMPLETE）
+
+| 项目 | 结果 |
+| --- | --- |
+| 租户字典真实栈 E2E | `host-tenant-dict-types` **4/4**（Vue + Layui × 管理员加载/创建 + viewer 403） |
+| 全量真实栈 E2E | `pnpm test:e2e:real` **106/106**（较上轮 **102** 新增租户字典 **4**） |
+| Outbox 正式容量矩阵 | 双库 **210/210** 普通采样 + **6/6** 遗弃租约恢复，状态 **COMPLETE**；见 [`outbox-capacity-2026-07-29.md`](outbox-capacity-2026-07-29.md) §12 |
+| 验证记录 | [`settings-dictionary-2026-07-25.md`](settings-dictionary-2026-07-25.md)、[`outbox-capacity-2026-07-29.md`](outbox-capacity-2026-07-29.md) |

@@ -36,8 +36,16 @@ internal static class JobsHostDefinitionAssertions
             factory,
             definition.Id,
             cancellationToken);
+        await JobsRetrySchedulingAssertions.VerifyAsync(
+            factory,
+            cancellationToken);
         await JobsActiveLeaseRenewalAssertions.VerifyAsync(
             factory,
+            cancellationToken);
+        await JobsScheduleAssertions.VerifyAsync(
+            factory,
+            client,
+            definition,
             cancellationToken);
         if (concurrencyProbe is not null)
         {

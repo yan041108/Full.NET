@@ -10,7 +10,7 @@ using Full.NET.Modules.Identity.Security;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostApiKeys;
 
-/// <summary>Host API Key 创建与禁用；明文密钥只在创建响应中返回一次。</summary>
+/// <summary>Host API Key 创建、禁用与轮换；明文密钥只在创建/轮换响应中返回一次。</summary>
 internal sealed class HostApiKeyManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -42,6 +42,134 @@ internal sealed class HostApiKeyManagementService(
         transaction.ExecuteAsync(
             token => DisableCoreAsync(apiKeyId, token),
             cancellationToken);
+
+    public Task<Result<CreateHostApiKeyResponse>> RotateAsync(
+        Guid operatorUserId,
+        IReadOnlyCollection<string> credentialPermissions,
+        Guid apiKeyId,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => RotateCoreAsync(
+                operatorUserId,
+                credentialPermissions,
+                apiKeyId,
+                token),
+            cancellationToken);
+
+    private async Task<Result<CreateHostApiKeyResponse>> RotateCoreAsync(
+        Guid operatorUserId,
+        IReadOnlyCollection<string> credentialPermissions,
+        Guid apiKeyId,
+        CancellationToken cancellationToken)
+    {
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<ApiKeyListRow>(
+                ApiKeySql.FindById,
+                new { ApiKeyId = apiKeyId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (row is null || !row.IsActive)
+        {
+            return RotateNotFound();
+        }
+
+        var permissions = ApiKeyAuthenticationService.DeserializePermissions(
+            row.PermissionsJson);
+        var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                new { UserId = row.UserId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (user is null)
+        {
+            return Result<CreateHostApiKeyResponse>.Failure(new Error(
+                IdentityErrorCodes.ApiKeyUserNotFound,
+                "The host user was not found.",
+                ErrorType.NotFound));
+        }
+
+        if (!user.IsActive)
+        {
+            return Result<CreateHostApiKeyResponse>.Failure(new Error(
+                IdentityErrorCodes.ApiKeyUserInactive,
+                "The host user is inactive.",
+                ErrorType.Conflict));
+        }
+
+        var operatorSnapshot = await permissionSnapshots.ReadAsync(
+                operatorUserId,
+                "host",
+                null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var targetSnapshot = operatorUserId == row.UserId
+            ? operatorSnapshot
+            : await permissionSnapshots.ReadAsync(
+                row.UserId,
+                "host",
+                null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!HasPermissionCeiling(
+                permissions,
+                credentialPermissions,
+                operatorSnapshot.Permissions,
+                targetSnapshot.Permissions))
+        {
+            return Result<CreateHostApiKeyResponse>.Failure(new Error(
+                CommonErrorCodes.PermissionDenied,
+                "API key permissions cannot exceed the operator or target user permissions.",
+                ErrorType.Forbidden));
+        }
+
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                ApiKeySql.Disable,
+                new
+                {
+                    ApiKeyId = apiKeyId,
+                    DisabledAtUtc = clock.UtcNow,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows < 1)
+        {
+            return RotateNotFound();
+        }
+
+        var secret = $"{KeyPrefix}{tokenGenerator.Generate(32)}";
+        var now = clock.UtcNow;
+        var record = new ApiKeyRecord
+        {
+            Id = idGenerator.NewId(),
+            UserId = row.UserId,
+            DisplayName = row.DisplayName,
+            KeyPrefix = secret[..Math.Min(secret.Length, 16)],
+            KeyHash = TokenHash.Compute(secret),
+            PermissionsJson = row.PermissionsJson,
+            ExpiresAtUtc = row.ExpiresAtUtc,
+            IsActive = true,
+            CreatedAtUtc = now,
+            Version = 1,
+        };
+        await commandExecutor.ExecuteAsync(
+                ApiKeySql.Insert,
+                record,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var response = new HostApiKeyResponse(
+            record.Id,
+            record.UserId,
+            user.Username,
+            record.DisplayName,
+            record.KeyPrefix,
+            permissions,
+            record.ExpiresAtUtc,
+            record.IsActive,
+            record.LastUsedAtUtc,
+            record.CreatedAtUtc);
+        return Result<CreateHostApiKeyResponse>.Success(
+            new CreateHostApiKeyResponse(response, secret));
+    }
 
     private async Task<Result<CreateHostApiKeyResponse>> CreateCoreAsync(
         Guid operatorUserId,
@@ -249,6 +377,12 @@ internal sealed class HostApiKeyManagementService(
 
     private static Result<HostApiKeyResponse> NotFound() =>
         Result<HostApiKeyResponse>.Failure(new Error(
+            IdentityErrorCodes.ApiKeyNotFound,
+            "The API key was not found.",
+            ErrorType.NotFound));
+
+    private static Result<CreateHostApiKeyResponse> RotateNotFound() =>
+        Result<CreateHostApiKeyResponse>.Failure(new Error(
             IdentityErrorCodes.ApiKeyNotFound,
             "The API key was not found.",
             ErrorType.NotFound));

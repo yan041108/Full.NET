@@ -3,9 +3,12 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Notifications;
 
@@ -20,7 +23,10 @@ internal static class NotificationsInboxMessageAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifySendRequiresWritePermissionAsync(factory, client, cancellationToken);
-        await VerifySendListReadAndMarkReadLifecycleAsync(client, cancellationToken);
+        await VerifySendListReadAndMarkReadLifecycleAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiNotificationsInboxMessagesContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -44,6 +50,7 @@ internal static class NotificationsInboxMessageAssertions
     }
 
     private static async Task VerifySendListReadAndMarkReadLifecycleAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -126,6 +133,12 @@ internal static class NotificationsInboxMessageAssertions
             cancellationToken);
         Assert.IsNotNull(readAll);
         Assert.AreEqual(0, readAll.UnreadCount);
+
+        await VerifyInboxOutboxAsync(
+            factory,
+            currentUser.Id,
+            created,
+            cancellationToken);
     }
 
     private sealed record PagedInboxMessageResponses(
@@ -133,6 +146,77 @@ internal static class NotificationsInboxMessageAssertions
         int Page,
         int PageSize,
         long Total);
+
+    private static async Task VerifyInboxOutboxAsync(
+        FullNetApiFactory factory,
+        Guid recipientUserId,
+        InboxMessageResponse created,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant =
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var query = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+            var serializer = scope.ServiceProvider
+                .GetRequiredService<IIntegrationEventSerializer>();
+            var receivedRows = await ReadOutboxAsync(
+                query,
+                NotificationRealtimeEventTypes.InboxMessageReceived,
+                cancellationToken);
+            Assert.HasCount(1, receivedRows);
+            Assert.AreEqual(1, receivedRows[0].SchemaVersion);
+            var received = serializer
+                .Deserialize<InboxMessageReceivedIntegrationEvent>(
+                    receivedRows[0].Payload);
+            Assert.AreEqual(recipientUserId, received.RecipientUserId);
+            Assert.AreEqual(created.Id, received.MessageId);
+            Assert.AreEqual(created.Title, received.Title);
+
+            var readStateRows = await ReadOutboxAsync(
+                query,
+                NotificationRealtimeEventTypes.InboxReadStateChanged,
+                cancellationToken);
+            Assert.HasCount(1, readStateRows);
+            Assert.AreEqual(1, readStateRows[0].SchemaVersion);
+            var readState = serializer
+                .Deserialize<InboxReadStateChangedIntegrationEvent>(
+                    readStateRows[0].Payload);
+            Assert.AreEqual(recipientUserId, readState.RecipientUserId);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
+    private static Task<IReadOnlyList<NotificationOutboxRecord>> ReadOutboxAsync(
+        IQueryExecutor query,
+        string messageType,
+        CancellationToken cancellationToken) =>
+        query.QueryAsync<NotificationOutboxRecord>(
+            new SqlStatement(
+                "test.notifications.outbox_by_message_type",
+                """
+                SELECT MessageType, SchemaVersion, Payload
+                FROM fn_outbox_message
+                WHERE MessageType = @MessageType
+                ORDER BY OccurredAtUtc DESC, Id
+                """,
+                SqlDataScope.Global),
+            new { MessageType = messageType },
+            cancellationToken);
+
+    private sealed class NotificationOutboxRecord
+    {
+        public string MessageType { get; set; } = string.Empty;
+
+        public int SchemaVersion { get; set; }
+
+        public byte[] Payload { get; set; } = [];
+    }
 
     private static async Task<CurrentUserResponse> GetCurrentUserAsync(
         HttpClient client,

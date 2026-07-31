@@ -11,12 +11,12 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Features.ManageHostFiles;
 
-/// <summary>Host 文件上传与软删除；物理写入在数据库事务外完成，失败时尽力回滚已落盘对象。</summary>
+/// <summary>Host 文件上传与软删除；上传通过持久化状态机隔离数据库提交不确定性与对象发布。</summary>
 internal sealed class HostFileManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostFileQueryService fileQueries,
-    IHostFileBlobStorage blobStorage,
+    FileStorageProviderRegistry storageProviders,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<LocalFileStorageOptions> storageOptions)
@@ -57,19 +57,98 @@ internal sealed class HostFileManagementService(
         var fileId = idGenerator.NewId();
         var now = clock.UtcNow;
         var storageKey = BuildStorageKey(fileId, now);
+        var storageProvider = storageProviders.DefaultProvider;
 
-        var buffered = await BufferContentAsync(content, cancellationToken)
+        var buffered = await BufferContentAsync(
+                content,
+                storageOptions.Value.MaxUploadBytes,
+                cancellationToken)
             .ConfigureAwait(false);
+        if (buffered is null)
+        {
+            return Result<HostFileResponse>.Failure(new Error(
+                FilesErrorCodes.FileTooLarge,
+                "The uploaded file exceeds the allowed size.",
+                ErrorType.Validation));
+        }
+
         await using (buffered)
         {
+            if (buffered.Length == 0)
+            {
+                return InvalidUpload("File content must not be empty.");
+            }
+
+            // 元数据必须以已读取的真实字节数为准，声明长度只参与请求前快速拒绝。
+            var actualContentLength = buffered.Length;
             var contentHash = await ComputeSha256HexAsync(buffered, cancellationToken)
                 .ConfigureAwait(false);
             buffered.Position = 0;
 
+            // 必须先提交不可见的 pending 元数据；若提交结果不确定，此时尚未发布 Blob。
+            await transaction.ExecuteAsync(
+                    async token =>
+                    {
+                        var affectedRows = await commandExecutor.ExecuteAsync(
+                                HostFileSql.Insert,
+                                new
+                                {
+                                    Id = fileId,
+                                    OriginalFileName = normalizedName,
+                                    ContentType = normalizedContentType,
+                                    SizeBytes = actualContentLength,
+                                    storageProvider.ProviderKey,
+                                    StorageKey = storageKey,
+                                    ContentHash = contentHash,
+                                    CreatedAtUtc = now,
+                                    CreatedByUserId = createdByUserId,
+                                },
+                                token)
+                            .ConfigureAwait(false);
+                        if (affectedRows != 1)
+                        {
+                            throw new InvalidOperationException(
+                                "Files pending upload insert must affect exactly one row.");
+                        }
+
+                        return true;
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            await transaction.ExecuteAsync(
+                    async token =>
+                    {
+                        var affectedRows = await commandExecutor.ExecuteAsync(
+                                HostFileSql.ClaimPublication,
+                                new
+                                {
+                                    FileId = fileId,
+                                    storageProvider.ProviderKey,
+                                    StorageKey = storageKey,
+                                },
+                                token)
+                            .ConfigureAwait(false);
+                        if (affectedRows != 1)
+                        {
+                            throw new InvalidOperationException(
+                                "Files upload publication claim must affect exactly one row.");
+                        }
+
+                        return true;
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             try
             {
-                await blobStorage.SaveAsync(storageKey, buffered, cancellationToken)
+                await storageProvider.SaveAsync(storageKey, buffered, cancellationToken)
                     .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // 请求取消属于控制流，不能降级成上传内容校验错误。
+                throw;
             }
             catch (Exception)
             {
@@ -81,30 +160,62 @@ internal sealed class HostFileManagementService(
                 return await transaction.ExecuteAsync(
                         async token =>
                         {
-                            await commandExecutor.ExecuteAsync(
-                                    HostFileSql.Insert,
+                            var affectedRows = await commandExecutor.ExecuteAsync(
+                                    HostFileSql.MarkReady,
                                     new
                                     {
-                                        Id = fileId,
-                                        OriginalFileName = normalizedName,
-                                        ContentType = normalizedContentType,
-                                        SizeBytes = contentLength,
+                                        FileId = fileId,
+                                        storageProvider.ProviderKey,
                                         StorageKey = storageKey,
-                                        ContentHash = contentHash,
-                                        CreatedAtUtc = now,
-                                        CreatedByUserId = createdByUserId,
                                     },
                                     token)
                                 .ConfigureAwait(false);
-                            return await fileQueries.GetByIdAsync(fileId, token)
+                            // 0 可能表示对账器已凭同一对象证据并发完成 ready；负数或多行仍必须 fail-closed。
+                            if (affectedRows is < 0 or > 1)
+                            {
+                                throw new InvalidOperationException(
+                                    "Files upload ready transition affected rows outside the expected boundary.");
+                            }
+
+                            if (affectedRows == 0)
+                            {
+                                var concurrentReadBack = await fileQueries
+                                    .GetDetailByIdAsync(fileId, token)
+                                    .ConfigureAwait(false);
+                                // 0 行只能接受同一 Provider/StorageKey 已 ready 的精确读回，禁止把删除或串线误判为并发成功。
+                                if (!concurrentReadBack.IsSuccess
+                                    || !string.Equals(
+                                        concurrentReadBack.Value!.ProviderKey,
+                                        storageProvider.ProviderKey,
+                                        StringComparison.Ordinal)
+                                    || !string.Equals(
+                                        concurrentReadBack.Value.StorageKey,
+                                        storageKey,
+                                        StringComparison.Ordinal))
+                                {
+                                    throw new InvalidOperationException(
+                                        "Files concurrently completed upload could not be read back.");
+                                }
+
+                                return Result<HostFileResponse>.Success(
+                                    HostFileQueryService.Map(concurrentReadBack.Value));
+                            }
+
+                            var readBack = await fileQueries.GetByIdAsync(fileId, token)
                                 .ConfigureAwait(false);
+                            if (!readBack.IsSuccess)
+                            {
+                                throw new InvalidOperationException(
+                                    "Files ready upload could not be read back.");
+                            }
+
+                            return readBack;
                         },
                         cancellationToken)
                     .ConfigureAwait(false);
             }
             catch
             {
-                await TryDeleteBlobAsync(storageKey, cancellationToken).ConfigureAwait(false);
                 throw;
             }
         }
@@ -118,9 +229,14 @@ internal sealed class HostFileManagementService(
                 token => DeleteCoreAsync(fileId, token),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (outcome.Result.IsSuccess && outcome.StorageKey is not null)
+        if (outcome.Result.IsSuccess
+            && outcome.StorageProvider is not null
+            && outcome.StorageKey is not null)
         {
-            await TryDeleteBlobAsync(outcome.StorageKey, CancellationToken.None)
+            await TryDeleteBlobAsync(
+                    outcome.StorageProvider,
+                    outcome.StorageKey,
+                    CancellationToken.None)
                 .ConfigureAwait(false);
         }
 
@@ -137,16 +253,26 @@ internal sealed class HostFileManagementService(
         {
             return new DeleteOutcome(
                 Result<HostFileResponse>.Failure(detailResult.Error!),
+                null,
                 null);
         }
 
         var detail = detailResult.Value!;
+        // Provider 必须在数据库写入前按持久化机器码解析；未知值不得回退到当前默认 Provider。
+        var storageProvider = storageProviders.Resolve(detail.ProviderKey);
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 HostFileSql.SoftDelete,
                 new { FileId = fileId, DeletedAtUtc = now },
                 cancellationToken)
             .ConfigureAwait(false);
+        // 单文件删除最多只能影响一行；异常计数必须回滚，避免错误提交后继续删除 blob。
+        if (affected is < 0 or > 1)
+        {
+            throw new InvalidOperationException(
+                "Files delete affected rows outside the expected file boundary.");
+        }
+
         if (affected == 0)
         {
             return new DeleteOutcome(
@@ -154,11 +280,13 @@ internal sealed class HostFileManagementService(
                     FilesErrorCodes.FileNotFound,
                     "The file was not found.",
                     ErrorType.NotFound)),
+                null,
                 null);
         }
 
         return new DeleteOutcome(
             Result<HostFileResponse>.Success(HostFileQueryService.Map(detail)),
+            storageProvider,
             detail.StorageKey);
     }
 
@@ -181,16 +309,46 @@ internal sealed class HostFileManagementService(
     }
 
     private static string BuildStorageKey(Guid fileId, DateTimeOffset createdAtUtc) =>
-        $"host/{createdAtUtc:yyyy/MM}/{fileId:N}";
+        FormattableString.Invariant(
+            $"host/{createdAtUtc:yyyy}/{createdAtUtc:MM}/{fileId:N}");
 
-    private static async Task<MemoryStream> BufferContentAsync(
+    private static async Task<MemoryStream?> BufferContentAsync(
         Stream content,
+        long maxBytes,
         CancellationToken cancellationToken)
     {
         var buffer = new MemoryStream();
-        await content.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
-        buffer.Position = 0;
-        return buffer;
+        var copyBuffer = new byte[81920];
+        try
+        {
+            while (true)
+            {
+                var read = await content.ReadAsync(copyBuffer, cancellationToken)
+                    .ConfigureAwait(false);
+                if (read == 0)
+                {
+                    buffer.Position = 0;
+                    return buffer;
+                }
+
+                // 声明长度只用于快速拒绝；真实读取仍必须限流，防止低报长度造成无界缓冲。
+                if (buffer.Length > maxBytes - read)
+                {
+                    await buffer.DisposeAsync().ConfigureAwait(false);
+                    return null;
+                }
+
+                await buffer.WriteAsync(
+                        copyBuffer.AsMemory(0, read),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            await buffer.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
     private static async Task<string> ComputeSha256HexAsync(
@@ -202,12 +360,14 @@ internal sealed class HostFileManagementService(
     }
 
     private async Task TryDeleteBlobAsync(
+        IFileStorageProvider storageProvider,
         string storageKey,
         CancellationToken cancellationToken)
     {
         try
         {
-            await blobStorage.DeleteAsync(storageKey, cancellationToken).ConfigureAwait(false);
+            await storageProvider.DeleteAsync(storageKey, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch
         {
@@ -223,5 +383,6 @@ internal sealed class HostFileManagementService(
 
     private sealed record DeleteOutcome(
         Result<HostFileResponse> Result,
+        IFileStorageProvider? StorageProvider,
         string? StorageKey);
 }

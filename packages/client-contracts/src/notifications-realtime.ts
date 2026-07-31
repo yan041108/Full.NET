@@ -21,6 +21,8 @@ export interface NotificationsHubConnection {
   stop(): Promise<void>;
   on(methodName: string, handler: (message: unknown) => void): void;
   off(methodName: string, handler: (message: unknown) => void): void;
+  onreconnected(handler: (connectionId?: string) => void): void;
+  onclose(handler: (error?: Error) => void): void;
 }
 
 export interface NotificationsHubConnectionOptions {
@@ -38,6 +40,7 @@ export interface NotificationsRealtimeSession {
 export interface NotificationsRealtimeOptions {
   session: NotificationsRealtimeSession;
   onMessage: (message: RealtimeMessage) => void;
+  onReconnected?: () => void | Promise<void>;
   hubPath?: string;
   connectionFactory?: (
     options: NotificationsHubConnectionOptions
@@ -119,6 +122,26 @@ export function createNotificationsRealtimeController(
       }
     };
     connection.on(clientMethodName, handler);
+    connection.onreconnected(() => {
+      if (disposed
+        || desiredKey !== targetKey
+        || activeConnection !== connection) {
+        return;
+      }
+
+      void Promise.resolve(options.onReconnected?.()).catch(() => undefined);
+    });
+    connection.onclose(() => {
+      if (activeConnection !== connection) {
+        return;
+      }
+
+      activeConnection = undefined;
+      activeHandler = undefined;
+      activeKey = undefined;
+      connection.off(clientMethodName, handler);
+      scheduleInitialRetry(targetKey);
+    });
     try {
       await connection.start();
       if (disposed || desiredKey !== targetKey) {

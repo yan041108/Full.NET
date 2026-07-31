@@ -1,0 +1,90 @@
+{
+  "id": "organization-tenant-position-levels-v1",
+  "version": 1,
+  "description": "租户职级管理 HTTP 契约冻结夹具；与 OrganizationPositionLevelManagementContracts 和 ManageTenantPositionLevels.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/organization/position-levels",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.position_levels.read",
+          "successStatus": 200,
+          "responseSchema": "OrganizationPositionLevelResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "organization.position_levels.write",
+          "successStatus": 201,
+          "requestSchema": "CreateOrganizationPositionLevelRequest",
+          "responseSchema": "OrganizationPositionLevelResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/position-levels/{positionLevelId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "organization.position_levels.read",
+          "successStatus": 200,
+          "responseSchema": "OrganizationPositionLevelResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "organization.position_levels.write",
+          "successStatus": 200,
+          "requestSchema": "UpdateOrganizationPositionLevelRequest",
+          "responseSchema": "OrganizationPositionLevelResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/organization/position-levels/{positionLevelId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "organization.position_levels.write",
+          "successStatus": 200,
+          "responseSchema": "OrganizationPositionLevelResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OrganizationPositionLevelResponse": {
+      "properties": [
+        "id",
+        "code",
+        "name",
+        "displayOrder",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "CreateOrganizationPositionLevelRequest": {
+      "properties": [
+        "code",
+        "name",
+        "displayOrder"
+      ]
+    },
+    "UpdateOrganizationPositionLevelRequest": {
+      "properties": [
+        "name",
+        "displayOrder",
+        "version"
+      ]
+    },
+    "OrganizationPositionLevelResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

@@ -1,0 +1,162 @@
+using Full.NET.Abstractions.Results;
+using Full.NET.Hosting.Api;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Jobs.Contracts;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+namespace Full.NET.Modules.Jobs.Features.ManageHostJobSchedules;
+
+internal static class Endpoint
+{
+    public static void Map(IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/v1/jobs/host-schedules")
+            .WithTags("Jobs");
+
+        group.MapGet("/", async (
+            int? page,
+            int? pageSize,
+            Guid? jobDefinitionId,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ListAsync(
+                    page ?? 1,
+                    pageSize ?? 20,
+                    jobDefinitionId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<PagedResult<HostJobScheduleResponse>>(StatusCodes.Status200OK)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesRead));
+
+        group.MapGet("/{scheduleId:guid}", async (
+            Guid scheduleId,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetByIdAsync(
+                    scheduleId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<HostJobScheduleResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesRead));
+
+        group.MapPost("/", async (
+            CreateHostJobScheduleRequest request,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.CreateAsync(
+                    userId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.Created(
+                $"/api/v1/jobs/host-schedules/{result.Value!.Id:D}",
+                result.Value);
+        })
+        .Produces<HostJobScheduleResponse>(StatusCodes.Status201Created)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesWrite));
+
+        group.MapPut("/{scheduleId:guid}", async (
+            Guid scheduleId,
+            UpdateHostJobScheduleRequest request,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.UpdateAsync(
+                    userId,
+                    scheduleId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<HostJobScheduleResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesWrite));
+
+        MapStateChange(group, "pause", enable: false);
+        MapStateChange(group, "resume", enable: true);
+    }
+
+    private static void MapStateChange(
+        RouteGroupBuilder group,
+        string action,
+        bool enable)
+    {
+        group.MapPost($"/{{scheduleId:guid}}/{action}", async (
+            Guid scheduleId,
+            ChangeHostJobScheduleStateRequest request,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = enable
+                ? await service.ResumeAsync(
+                        userId,
+                        scheduleId,
+                        request,
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : await service.PauseAsync(
+                        userId,
+                        scheduleId,
+                        request,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<HostJobScheduleResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesWrite));
+    }
+
+    private static bool TryResolveUserId(
+        HttpContext httpContext,
+        out Guid userId)
+    {
+        userId = default;
+        return Guid.TryParse(
+            httpContext.User.FindFirst("sub")?.Value,
+            out userId);
+    }
+}

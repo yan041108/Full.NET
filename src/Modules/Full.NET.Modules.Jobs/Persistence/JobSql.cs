@@ -126,10 +126,11 @@ internal static class JobSql
             INSERT INTO fn_jobs_execution
                 (Id, TenantId, JobDefinitionId, Status, TriggerKind,
                  ErrorMessage, StartedAtUtc, FinishedAtUtc,
-                 LeaseId, LeaseExpiresAtUtc, AttemptCount, CreatedAtUtc)
+                 LeaseId, LeaseExpiresAtUtc, NextAttemptAtUtc,
+                 AttemptCount, CreatedAtUtc)
             VALUES
                 (@Id, NULL, @JobDefinitionId, @Status, @TriggerKind,
-                 NULL, NULL, NULL, NULL, NULL, 0, @CreatedAtUtc)
+                 NULL, NULL, NULL, NULL, NULL, NULL, 0, @CreatedAtUtc)
             """,
             SqlDataScope.HostOnly);
 
@@ -137,9 +138,11 @@ internal static class JobSql
         new(
             "jobs.list_host_executions.sql_server",
             """
-            SELECT e.Id, e.TenantId, e.JobDefinitionId, e.Status, e.TriggerKind,
+            SELECT e.Id, e.TenantId, e.JobDefinitionId, e.JobScheduleId,
+                   e.Status, e.TriggerKind, e.ScheduledForUtc,
                    e.ErrorMessage, e.StartedAtUtc, e.FinishedAtUtc,
-                   e.LeaseId, e.LeaseExpiresAtUtc, e.AttemptCount, e.CreatedAtUtc,
+                   e.LeaseId, e.LeaseExpiresAtUtc, e.NextAttemptAtUtc,
+                   e.AttemptCount, e.CreatedAtUtc,
                    d.JobKey
             FROM fn_jobs_execution e
             INNER JOIN fn_jobs_definition d ON d.Id = e.JobDefinitionId
@@ -154,9 +157,11 @@ internal static class JobSql
         new(
             "jobs.list_host_executions.mysql",
             """
-            SELECT e.Id, e.TenantId, e.JobDefinitionId, e.Status, e.TriggerKind,
+            SELECT e.Id, e.TenantId, e.JobDefinitionId, e.JobScheduleId,
+                   e.Status, e.TriggerKind, e.ScheduledForUtc,
                    e.ErrorMessage, e.StartedAtUtc, e.FinishedAtUtc,
-                   e.LeaseId, e.LeaseExpiresAtUtc, e.AttemptCount, e.CreatedAtUtc,
+                   e.LeaseId, e.LeaseExpiresAtUtc, e.NextAttemptAtUtc,
+                   e.AttemptCount, e.CreatedAtUtc,
                    d.JobKey
             FROM fn_jobs_execution e
             INNER JOIN fn_jobs_definition d ON d.Id = e.JobDefinitionId
@@ -182,13 +187,299 @@ internal static class JobSql
         new(
             "jobs.find_host_execution_by_id",
             """
-            SELECT e.Id, e.TenantId, e.JobDefinitionId, e.Status, e.TriggerKind,
+            SELECT e.Id, e.TenantId, e.JobDefinitionId, e.JobScheduleId,
+                   e.Status, e.TriggerKind, e.ScheduledForUtc,
                    e.ErrorMessage, e.StartedAtUtc, e.FinishedAtUtc,
-                   e.LeaseId, e.LeaseExpiresAtUtc, e.AttemptCount, e.CreatedAtUtc,
+                   e.LeaseId, e.LeaseExpiresAtUtc, e.NextAttemptAtUtc,
+                   e.AttemptCount, e.CreatedAtUtc,
                    d.JobKey
             FROM fn_jobs_execution e
             INNER JOIN fn_jobs_definition d ON d.Id = e.JobDefinitionId
             WHERE e.Id = @Id AND e.TenantId IS NULL
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindScheduleById =
+        new(
+            "jobs.find_host_schedule_by_id",
+            """
+            SELECT Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
+                   TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
+                   NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
+                   CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
+                   Version
+            FROM fn_jobs_schedule
+            WHERE Id = @Id AND TenantId IS NULL
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListSchedulesSqlServer =
+        new(
+            "jobs.list_host_schedules.sql_server",
+            """
+            SELECT Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
+                   TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
+                   NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
+                   CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
+                   Version
+            FROM fn_jobs_schedule
+            WHERE TenantId IS NULL
+              AND (@JobDefinitionId IS NULL
+                   OR JobDefinitionId = @JobDefinitionId)
+            ORDER BY CreatedAtUtc DESC, Id
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListSchedulesMySql =
+        new(
+            "jobs.list_host_schedules.mysql",
+            """
+            SELECT Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
+                   TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
+                   NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
+                   CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
+                   Version
+            FROM fn_jobs_schedule
+            WHERE TenantId IS NULL
+              AND (@JobDefinitionId IS NULL
+                   OR JobDefinitionId = @JobDefinitionId)
+            ORDER BY CreatedAtUtc DESC, Id
+            LIMIT @PageSize OFFSET @Offset
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountSchedules =
+        new(
+            "jobs.count_host_schedules",
+            """
+            SELECT COUNT(*)
+            FROM fn_jobs_schedule
+            WHERE TenantId IS NULL
+              AND (@JobDefinitionId IS NULL
+                   OR JobDefinitionId = @JobDefinitionId)
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertSchedule =
+        new(
+            "jobs.insert_host_schedule",
+            """
+            INSERT INTO fn_jobs_schedule
+                (Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
+                 TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
+                 NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
+                 CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
+                 Version)
+            VALUES
+                (@Id, NULL, @JobDefinitionId, @TriggerKind, @CronExpression,
+                 @TimeZoneId, @OneTimeAtUtc, @MisfirePolicy, @IsEnabled,
+                 @NextExecutionAtUtc, NULL, NULL,
+                 @CreatedAtUtc, @CreatedByUserId, NULL, NULL, @Version)
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement PauseSchedule =
+        new(
+            "jobs.pause_host_schedule",
+            """
+            UPDATE fn_jobs_schedule
+            SET IsEnabled = 0,
+                UpdatedAtUtc = @UpdatedAtUtc,
+                UpdatedByUserId = @UpdatedByUserId,
+                Version = @NextVersion
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND IsEnabled = 1
+              AND CompletedAtUtc IS NULL
+              AND Version = @Version
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateSchedule =
+        new(
+            "jobs.update_host_schedule",
+            """
+            UPDATE fn_jobs_schedule
+            SET TriggerKind = @TriggerKind,
+                CronExpression = @CronExpression,
+                TimeZoneId = @TimeZoneId,
+                OneTimeAtUtc = @OneTimeAtUtc,
+                MisfirePolicy = @MisfirePolicy,
+                NextExecutionAtUtc = @NextExecutionAtUtc,
+                UpdatedAtUtc = @UpdatedAtUtc,
+                UpdatedByUserId = @UpdatedByUserId,
+                Version = @NextVersion
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND CompletedAtUtc IS NULL
+              AND Version = @Version
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ResumeSchedule =
+        new(
+            "jobs.resume_host_schedule",
+            """
+            UPDATE fn_jobs_schedule
+            SET IsEnabled = 1,
+                NextExecutionAtUtc = @NextExecutionAtUtc,
+                UpdatedAtUtc = @UpdatedAtUtc,
+                UpdatedByUserId = @UpdatedByUserId,
+                Version = @NextVersion
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND IsEnabled = 0
+              AND CompletedAtUtc IS NULL
+              AND Version = @Version
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement SelectDueSchedulesSqlServer =
+        new(
+            "jobs.select_due_host_schedules.sql_server",
+            """
+            SELECT TOP (@BatchSize)
+                   s.Id, s.TenantId, s.JobDefinitionId, s.TriggerKind,
+                   s.CronExpression, s.TimeZoneId, s.OneTimeAtUtc,
+                   s.MisfirePolicy, s.IsEnabled, s.NextExecutionAtUtc,
+                   s.LastExecutionAtUtc, s.CompletedAtUtc,
+                   s.CreatedAtUtc, s.CreatedByUserId,
+                   s.UpdatedAtUtc, s.UpdatedByUserId, s.Version
+            FROM fn_jobs_schedule AS s WITH (UPDLOCK, READPAST, ROWLOCK)
+            INNER JOIN fn_jobs_definition AS d
+                ON d.Id = s.JobDefinitionId
+               AND d.TenantId IS NULL
+               AND d.IsEnabled = 1
+            WHERE s.TenantId IS NULL
+              AND s.IsEnabled = 1
+              AND s.CompletedAtUtc IS NULL
+              AND s.NextExecutionAtUtc <= @Now
+            ORDER BY s.NextExecutionAtUtc, s.Id
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement SelectDueSchedulesMySql =
+        new(
+            "jobs.select_due_host_schedules.mysql",
+            """
+            SELECT s.Id, s.TenantId, s.JobDefinitionId, s.TriggerKind,
+                   s.CronExpression, s.TimeZoneId, s.OneTimeAtUtc,
+                   s.MisfirePolicy, s.IsEnabled, s.NextExecutionAtUtc,
+                   s.LastExecutionAtUtc, s.CompletedAtUtc,
+                   s.CreatedAtUtc, s.CreatedByUserId,
+                   s.UpdatedAtUtc, s.UpdatedByUserId, s.Version
+            FROM fn_jobs_schedule AS s
+            INNER JOIN fn_jobs_definition AS d
+                ON d.Id = s.JobDefinitionId
+               AND d.TenantId IS NULL
+               AND d.IsEnabled = 1
+            WHERE s.TenantId IS NULL
+              AND s.IsEnabled = 1
+              AND s.CompletedAtUtc IS NULL
+              AND s.NextExecutionAtUtc <= @Now
+            ORDER BY s.NextExecutionAtUtc, s.Id
+            LIMIT @BatchSize
+            FOR UPDATE SKIP LOCKED
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertScheduledExecution =
+        new(
+            "jobs.insert_scheduled_host_execution",
+            """
+            INSERT INTO fn_jobs_execution
+                (Id, TenantId, JobDefinitionId, JobScheduleId,
+                 Status, TriggerKind, ScheduledForUtc,
+                 ErrorMessage, StartedAtUtc, FinishedAtUtc,
+                 LeaseId, LeaseExpiresAtUtc, NextAttemptAtUtc,
+                 AttemptCount, CreatedAtUtc)
+            VALUES
+                (@Id, NULL, @JobDefinitionId, @JobScheduleId,
+                 @Status, @TriggerKind, @ScheduledForUtc,
+                 NULL, NULL, NULL, NULL, NULL, NULL, 0, @CreatedAtUtc)
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement AdvanceSchedule =
+        new(
+            "jobs.advance_host_schedule",
+            """
+            UPDATE fn_jobs_schedule
+            SET IsEnabled = @IsEnabled,
+                NextExecutionAtUtc = @NextExecutionAtUtc,
+                LastExecutionAtUtc =
+                    COALESCE(@LastExecutionAtUtc, LastExecutionAtUtc),
+                CompletedAtUtc = @CompletedAtUtc,
+                UpdatedAtUtc = @UpdatedAtUtc,
+                Version = @NextVersion
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND IsEnabled = 1
+              AND CompletedAtUtc IS NULL
+              AND Version = @Version
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ReadBacklogSqlServer =
+        new(
+            "jobs.read_backlog.sql_server",
+            """
+            SELECT COUNT_BIG(*) AS PendingCount,
+                   MIN(
+                       CASE WHEN NextAttemptAtUtc IS NULL
+                                      OR NextAttemptAtUtc <= @ObservedAtUtc
+                           THEN CreatedAtUtc
+                       END
+                   ) AS OldestClaimableCreatedAtUtc,
+                   COUNT_BIG(
+                       CASE WHEN NextAttemptAtUtc IS NOT NULL
+                                      AND NextAttemptAtUtc <= @ObservedAtUtc
+                           THEN 1
+                       END
+                   ) AS DueRetryCount,
+                   MIN(
+                       CASE WHEN NextAttemptAtUtc IS NOT NULL
+                                      AND NextAttemptAtUtc <= @ObservedAtUtc
+                           THEN NextAttemptAtUtc
+                       END
+                   ) AS OldestDueRetryAtUtc
+            FROM fn_jobs_execution
+            WHERE TenantId IS NULL
+              AND Status = @PendingStatus
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ReadBacklogMySql =
+        new(
+            "jobs.read_backlog.my_sql",
+            """
+            SELECT COUNT(*) AS PendingCount,
+                   MIN(
+                       CASE WHEN NextAttemptAtUtc IS NULL
+                                      OR NextAttemptAtUtc <= @ObservedAtUtc
+                           THEN CreatedAtUtc
+                       END
+                   ) AS OldestClaimableCreatedAtUtc,
+                   COALESCE(
+                       SUM(
+                           CASE WHEN NextAttemptAtUtc IS NOT NULL
+                                          AND NextAttemptAtUtc <= @ObservedAtUtc
+                               THEN 1
+                               ELSE 0
+                           END
+                       ),
+                       0
+                   ) AS DueRetryCount,
+                   MIN(
+                       CASE WHEN NextAttemptAtUtc IS NOT NULL
+                                      AND NextAttemptAtUtc <= @ObservedAtUtc
+                           THEN NextAttemptAtUtc
+                       END
+                   ) AS OldestDueRetryAtUtc
+            FROM fn_jobs_execution
+            WHERE TenantId IS NULL
+              AND Status = @PendingStatus
             """,
             SqlDataScope.HostOnly);
 
@@ -203,7 +494,8 @@ internal static class JobSql
                 WHERE e.TenantId IS NULL
                   AND (
                       (e.Status = @PendingStatus
-                       AND (e.LeaseExpiresAtUtc IS NULL OR e.LeaseExpiresAtUtc <= @Now))
+                       AND (e.LeaseExpiresAtUtc IS NULL OR e.LeaseExpiresAtUtc <= @Now)
+                       AND (e.NextAttemptAtUtc IS NULL OR e.NextAttemptAtUtc <= @Now))
                       OR (e.Status = @RunningStatus AND e.LeaseExpiresAtUtc <= @Now)
                   )
                 ORDER BY e.CreatedAtUtc, e.Id
@@ -212,12 +504,14 @@ internal static class JobSql
             SET Status = @RunningStatus,
                 LeaseId = @LeaseId,
                 LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
+                NextAttemptAtUtc = NULL,
                 StartedAtUtc = COALESCE(StartedAtUtc, @Now),
                 AttemptCount = AttemptCount + 1
             OUTPUT inserted.Id, inserted.TenantId, inserted.JobDefinitionId,
                    inserted.Status, inserted.TriggerKind, inserted.ErrorMessage,
                    inserted.StartedAtUtc, inserted.FinishedAtUtc, inserted.LeaseId,
-                   inserted.LeaseExpiresAtUtc, inserted.AttemptCount, inserted.CreatedAtUtc,
+                   inserted.LeaseExpiresAtUtc, inserted.NextAttemptAtUtc,
+                   inserted.AttemptCount, inserted.CreatedAtUtc,
                    CAST(NULL AS varchar(64)) AS JobKey;
             """,
             SqlDataScope.HostOnly);
@@ -231,7 +525,8 @@ internal static class JobSql
             WHERE TenantId IS NULL
               AND (
                   (Status = @PendingStatus
-                   AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now))
+                   AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
+                   AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now))
                   OR (Status = @RunningStatus AND LeaseExpiresAtUtc <= @Now)
               )
             ORDER BY CreatedAtUtc, Id
@@ -248,6 +543,7 @@ internal static class JobSql
             SET Status = @RunningStatus,
                 LeaseId = @LeaseId,
                 LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
+                NextAttemptAtUtc = NULL,
                 StartedAtUtc = COALESCE(StartedAtUtc, @Now),
                 AttemptCount = AttemptCount + 1
             WHERE TenantId IS NULL
@@ -259,9 +555,11 @@ internal static class JobSql
         new(
             "jobs.select_host_executions_by_lease.mysql",
             """
-            SELECT e.Id, e.TenantId, e.JobDefinitionId, e.Status, e.TriggerKind,
+            SELECT e.Id, e.TenantId, e.JobDefinitionId, e.JobScheduleId,
+                   e.Status, e.TriggerKind, e.ScheduledForUtc,
                    e.ErrorMessage, e.StartedAtUtc, e.FinishedAtUtc,
-                   e.LeaseId, e.LeaseExpiresAtUtc, e.AttemptCount, e.CreatedAtUtc,
+                   e.LeaseId, e.LeaseExpiresAtUtc, e.NextAttemptAtUtc,
+                   e.AttemptCount, e.CreatedAtUtc,
                    d.JobKey
             FROM fn_jobs_execution e
             INNER JOIN fn_jobs_definition d ON d.Id = e.JobDefinitionId
@@ -291,6 +589,7 @@ internal static class JobSql
                 FinishedAtUtc = @FinishedAtUtc,
                 LeaseId = NULL,
                 LeaseExpiresAtUtc = NULL,
+                NextAttemptAtUtc = NULL,
                 ErrorMessage = NULL
             WHERE Id = @Id
               AND LeaseId = @LeaseId
@@ -307,6 +606,24 @@ internal static class JobSql
                 FinishedAtUtc = @FinishedAtUtc,
                 LeaseId = NULL,
                 LeaseExpiresAtUtc = NULL,
+                NextAttemptAtUtc = NULL,
+                ErrorMessage = @ErrorMessage
+            WHERE Id = @Id
+              AND LeaseId = @LeaseId
+              AND Status = @RunningStatus
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RescheduleExecution =
+        new(
+            "jobs.reschedule_host_execution",
+            """
+            UPDATE fn_jobs_execution
+            SET Status = @PendingStatus,
+                FinishedAtUtc = NULL,
+                LeaseId = NULL,
+                LeaseExpiresAtUtc = NULL,
+                NextAttemptAtUtc = @NextAttemptAtUtc,
                 ErrorMessage = @ErrorMessage
             WHERE Id = @Id
               AND LeaseId = @LeaseId

@@ -1,0 +1,53 @@
+{
+  "paths": {
+    "/api/v1/code-generation/runs": {
+      "get": ["200", "400"]
+    },
+    "/api/v1/code-generation/runs/preview": {
+      "post": ["200", "400", "401", "404", "409", "500"]
+    },
+    "/api/v1/code-generation/runs/apply": {
+      "post": ["200", "400", "401", "404", "409", "500"]
+    },
+    "/api/v1/code-generation/runs/{runId}": {
+      "get": ["200", "404"]
+    }
+  },
+  "schemas": {
+    "CodeGenerationRunPreviewRequest": [
+      "templateId",
+      "templateVersion",
+      "schema"
+    ],
+    "CodeGenerationRunPreviewResponse": [
+      "runId",
+      "preview"
+    ],
+    "CodeGenerationRunApplyRequest": [
+      "previewRunId"
+    ],
+    "CodeGenerationRunApplyResponse": [
+      "runId",
+      "previewRunId",
+      "artifactCount",
+      "changedArtifactCount",
+      "manifestSha256"
+    ],
+    "CodeGenerationRunResponse": [
+      "id",
+      "templateId",
+      "templateVersion",
+      "operationKind",
+      "status",
+      "moduleKey",
+      "entityKey",
+      "schemaSha256",
+      "artifactCount",
+      "manifestSha256",
+      "errorCode",
+      "requestedByUserId",
+      "startedAtUtc",
+      "finishedAtUtc"
+    ]
+  }
+}

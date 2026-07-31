@@ -6,7 +6,7 @@ public static class IdentityApiKeyManagementPermissions
     /// <summary>分页查询 Host API Key。</summary>
     public const string Read = "identity.api_keys.read";
 
-    /// <summary>创建与禁用 Host API Key。</summary>
+    /// <summary>创建、禁用与轮换 Host API Key。</summary>
     public const string Write = "identity.api_keys.write";
 }
 

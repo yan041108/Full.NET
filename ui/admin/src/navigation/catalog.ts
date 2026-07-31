@@ -62,6 +62,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.orgPositions.title',
     captionKey: 'navigation.orgPositions.caption'
   }],
+  ['org-position-levels', {
+    titleKey: 'navigation.orgPositionLevels.title',
+    captionKey: 'navigation.orgPositionLevels.caption'
+  }],
   ['org-user-positions', {
     titleKey: 'navigation.orgUserPositions.title',
     captionKey: 'navigation.orgUserPositions.caption'
@@ -73,6 +77,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
   ['dict-types', {
     titleKey: 'navigation.dictTypes.title',
     captionKey: 'navigation.dictTypes.caption'
+  }],
+  ['tenant-dict-types', {
+    titleKey: 'navigation.tenantDictTypes.title',
+    captionKey: 'navigation.tenantDictTypes.caption'
   }],
   ['config-entries', {
     titleKey: 'navigation.configEntries.title',
@@ -97,6 +105,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
   ['host-jobs', {
     titleKey: 'navigation.hostJobs.title',
     captionKey: 'navigation.hostJobs.caption'
+  }],
+  ['code-generation-previews', {
+    titleKey: 'navigation.codeGenerationPreviews.title',
+    captionKey: 'navigation.codeGenerationPreviews.caption'
   }],
   ['access-logs', {
     titleKey: 'navigation.accessLogs.title',

@@ -35,7 +35,7 @@ test('Host 用户 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^identity\.users\.(read|write)$/u);
+      assert.match(operation.permission, /^identity\.users\.(read|write|export)$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -58,6 +58,8 @@ test('Host 用户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(contractsSource, /record HostUserResponse/u);
   assert.match(contractsSource, /identity\.users\.read/u);
   assert.match(contractsSource, /identity\.users\.write/u);
+  assert.match(contractsSource, /identity\.users\.export/u);
+  assert.match(contractsSource, /HostUserProjectedFieldsResponse/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/users"\)/u);
 
@@ -65,6 +67,9 @@ test('Host 用户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ['/api/v1/identity/users', new Map([
       ['GET', 'MapGet("/",'],
       ['POST', 'MapPost("/",']
+    ])],
+    ['/api/v1/identity/users/export', new Map([
+      ['GET', 'MapGet("/export",']
     ])],
     ['/api/v1/identity/users/{userId}', new Map([
       ['GET', 'MapGet("/{userId:guid}",'],
@@ -92,7 +97,7 @@ test('Host 用户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   }
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {
-    if (schemaName === 'HostUserResponsePage') {
+    if (schemaName === 'HostUserResponsePage' || schemaName === 'HostUserResponseCollection') {
       continue;
     }
     for (const property of schema.properties) {
@@ -104,4 +109,7 @@ test('Host 用户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
       );
     }
   }
+
+  assert.ok(contract.paths.some(entry => entry.path === '/api/v1/identity/users/export'));
+  assert.ok(contract.schemas.HostUserResponse.properties.includes('projectedFields'));
 });

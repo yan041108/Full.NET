@@ -6,31 +6,47 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
+  ElSelect,
   ElTag
 } from 'element-plus';
 import {
   type FullNetProblemDetails,
-  type OrganizationPosition
+  type OrganizationPosition,
+  type OrganizationPositionLevel,
+  type OrganizationUnit
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
+  assignOrganizationPositionLevel,
+  assignOrganizationPositionUnit,
   createOrganizationPosition,
   disableOrganizationPosition,
   listOrganizationPositions,
   updateOrganizationPosition
 } from '../api/org-positions';
+import { listOrganizationPositionLevels } from '../api/org-position-levels';
+import { listOrganizationUnits } from '../api/org-units';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const positions = ref<OrganizationPosition[]>([]);
+const units = ref<OrganizationUnit[]>([]);
+const positionLevels = ref<OrganizationPositionLevel[]>([]);
 const code = ref('');
 const name = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const canWrite = computed(() => session.can('organization.positions.write'));
+const canBindUnits = computed(() => (
+  canWrite.value && session.can('organization.units.read')
+));
+const canBindPositionLevels = computed(() => (
+  canWrite.value && session.can('organization.position_levels.read')
+));
 
 onMounted(load);
 
@@ -38,12 +54,66 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const page = await listOrganizationPositions();
+    const unitPageRequest = canBindUnits.value
+      ? listOrganizationUnits(1, 100).catch(() => null)
+      : Promise.resolve(null);
+    const positionLevelPageRequest = canBindPositionLevels.value
+      ? listOrganizationPositionLevels(1, 100).catch(() => null)
+      : Promise.resolve(null);
+    const [page, unitPage, positionLevelPage] = await Promise.all([
+      listOrganizationPositions(),
+      unitPageRequest,
+      positionLevelPageRequest
+    ]);
     positions.value = page.items;
+    // 机构或职级目录权限、网络失败不应阻断职位列表的只读展示。
+    units.value = unitPage?.items.filter(unit => unit.isActive) ?? [];
+    positionLevels.value = positionLevelPage?.items.filter(level => level.isActive) ?? [];
   } catch (error: unknown) {
     problem.value = toProblem(error, 'orgPositions.loadFailed');
   } finally {
     loading.value = false;
+  }
+}
+
+async function assignPositionLevel(
+  position: OrganizationPosition,
+  value: unknown
+): Promise<void> {
+  if (changing.value || !position.isActive) return;
+  const positionLevelId = typeof value === 'string' && value.length > 0
+    ? value
+    : null;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await assignOrganizationPositionLevel(
+      position.id,
+      positionLevelId,
+      position.version
+    );
+    ElMessage.success(t('orgPositions.positionLevelUpdateSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'orgPositions.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function assignUnit(position: OrganizationPosition, value: unknown): Promise<void> {
+  if (changing.value || !position.isActive) return;
+  const unitId = typeof value === 'string' && value.length > 0 ? value : null;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await assignOrganizationPositionUnit(position.id, unitId, position.version);
+    ElMessage.success(t('orgPositions.unitUpdateSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'orgPositions.operationFailed');
+  } finally {
+    changing.value = false;
   }
 }
 
@@ -168,7 +238,41 @@ function toProblem(
         <div class="art-data-row__main">
           <strong translate="no">{{ position.name }}</strong>
           <code translate="no">{{ position.code }}</code>
+          <span>{{ position.unitName ?? t('orgPositions.unitUnassigned') }}</span>
+          <span>
+            {{ position.positionLevelName ?? t('orgPositions.positionLevelUnassigned') }}
+          </span>
         </div>
+        <el-select
+          v-if="canBindUnits && position.isActive"
+          :model-value="position.unitId ?? ''"
+          :aria-label="t('orgPositions.unit')"
+          :disabled="changing"
+          @change="assignUnit(position, $event)"
+        >
+          <el-option :label="t('orgPositions.unitUnassigned')" value="" />
+          <el-option
+            v-for="unit in units"
+            :key="unit.id"
+            :label="`${unit.name} (${unit.code})`"
+            :value="unit.id"
+          />
+        </el-select>
+        <el-select
+          v-if="canBindPositionLevels && position.isActive"
+          :model-value="position.positionLevelId ?? ''"
+          :aria-label="t('orgPositions.positionLevel')"
+          :disabled="changing"
+          @change="assignPositionLevel(position, $event)"
+        >
+          <el-option :label="t('orgPositions.positionLevelUnassigned')" value="" />
+          <el-option
+            v-for="positionLevel in positionLevels"
+            :key="positionLevel.id"
+            :label="`${positionLevel.name} (${positionLevel.code})`"
+            :value="positionLevel.id"
+          />
+        </el-select>
         <el-tag :type="position.isActive ? 'success' : 'info'">
           {{ t(position.isActive ? 'orgPositions.active' : 'orgPositions.inactive') }}
         </el-tag>

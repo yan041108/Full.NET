@@ -4,10 +4,10 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 using Full.NET.Modules.Notifications.Persistence;
-using Full.NET.Realtime;
 using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.SendHostInboxMessages;
@@ -17,8 +17,9 @@ internal sealed class HostInboxMessageService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    IOutboxWriter outboxWriter,
     IHostUserDirectory hostUserDirectory,
-    IRealtimePublisher realtimePublisher,
+    NotificationRealtimeDelivery realtimeDelivery,
     IClock clock,
     IIdGenerator idGenerator,
     ILogger<HostInboxMessageService> logger)
@@ -91,6 +92,16 @@ internal sealed class HostInboxMessageService(
             return NotFound();
         }
 
+        await outboxWriter.AddAsync(
+                NotificationRealtimeEventTypes.InboxMessageReceived,
+                1,
+                new InboxMessageReceivedIntegrationEvent(
+                    request.RecipientUserId,
+                    messageId,
+                    record.Title),
+                cancellationToken)
+            .ConfigureAwait(false);
+
         return Result<InboxMessageResponse>.Success(MyInboxQueryService.Map(record));
     }
 
@@ -101,35 +112,11 @@ internal sealed class HostInboxMessageService(
     {
         try
         {
-            await realtimePublisher.PublishToUserAsync(
-                    recipientUserId,
-                    new RealtimeMessage(
-                        RealtimeMessageCodes.InboxMessageReceived,
-                        new Dictionary<string, object?>
-                        {
-                            ["messageId"] = response.Id,
-                            ["title"] = response.Title,
-                        }),
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            var unreadCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                    InboxMessageSql.CountUnreadForRecipient,
-                    new
-                    {
-                        RecipientUserId = recipientUserId,
-                        UnreadStatus = InboxMessageStatuses.Unread,
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
-            await realtimePublisher.PublishToUserAsync(
-                    recipientUserId,
-                    new RealtimeMessage(
-                        RealtimeMessageCodes.InboxUnreadCountChanged,
-                        new Dictionary<string, object?>
-                        {
-                            ["unreadCount"] = unreadCount,
-                        }),
+            await realtimeDelivery.PublishInboxMessageAsync(
+                    new InboxMessageReceivedIntegrationEvent(
+                        recipientUserId,
+                        response.Id,
+                        response.Title),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

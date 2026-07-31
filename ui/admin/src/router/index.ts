@@ -75,6 +75,11 @@ export function createAppRouter(
         component: () => import('../views/OrgPositionsView.vue')
       },
       {
+        name: 'org-position-levels',
+        path: '/organization/position-levels',
+        component: () => import('../views/OrgPositionLevelsView.vue')
+      },
+      {
         name: 'org-user-positions',
         path: '/organization/user-positions',
         component: () => import('../views/OrgUserPositionsView.vue')
@@ -88,6 +93,11 @@ export function createAppRouter(
         name: 'dict-types',
         path: '/settings/dict-types',
         component: () => import('../views/DictTypesView.vue')
+      },
+      {
+        name: 'tenant-dict-types',
+        path: '/settings/tenant-dict-types',
+        component: () => import('../views/TenantDictTypesView.vue')
       },
       {
         name: 'config-entries',
@@ -118,6 +128,11 @@ export function createAppRouter(
         name: 'host-jobs',
         path: '/jobs/host-definitions',
         component: () => import('../views/HostJobsView.vue')
+      },
+      {
+        name: 'code-generation-previews',
+        path: '/code-generation/previews',
+        component: () => import('../views/CodeGenerationPreviewsView.vue')
       },
       {
         name: 'access-logs',

@@ -74,6 +74,24 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Write);
+
+        group.MapPost("/{apiKeyId:guid}/rotate", async (
+            Guid apiKeyId,
+            HostApiKeyManagementService service,
+            PermissionClaimEvaluator permissionClaims,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.RotateAsync(
+                    ResolveUserId(httpContext.User),
+                    permissionClaims.ResolvePermissions(httpContext.User),
+                    apiKeyId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Write);
     }
 
     private static Guid ResolveUserId(System.Security.Claims.ClaimsPrincipal principal) =>

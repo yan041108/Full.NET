@@ -13,10 +13,12 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElConfigProvider } from 'element-plus';
 import {
   isFullNetProblemDetails,
+  resolveFullNetApiUrl,
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
 import type { MessageKey } from '@fullnet/admin-i18n';
 import LoginView from './views/LoginView.vue';
+import { apiBaseUrl } from './api/http';
 import { useSessionStore } from './auth/session';
 import { createElementLocaleController } from './i18n/elementLocale';
 import { useAdminI18n } from './i18n/adminI18n';
@@ -38,7 +40,8 @@ const router = useRouter();
 const session = useSessionStore();
 const notificationsRealtime = createVueNotificationsRealtime({
   session,
-  enabled: import.meta.env.VITE_REALTIME_ENABLED !== 'false'
+  enabled: import.meta.env.VITE_REALTIME_ENABLED !== 'false',
+  hubPath: resolveFullNetApiUrl(apiBaseUrl, '/hubs/notifications')
 });
 provide(notificationsRealtimeKey, notificationsRealtime);
 const pageRefreshKey = ref(0);

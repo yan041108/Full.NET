@@ -24,11 +24,27 @@ public sealed record UpdateOrganizationPositionRequest(
     int DisplayOrder,
     int Version);
 
+/// <summary>绑定或解绑职位所属机构；空机构标识表示解除现有绑定。</summary>
+public sealed record AssignOrganizationPositionUnitRequest(
+    Guid? UnitId,
+    int Version);
+
+/// <summary>绑定或解绑职位所属职级；空职级标识表示解除现有绑定。</summary>
+public sealed record AssignOrganizationPositionLevelRequest(
+    Guid? PositionLevelId,
+    int Version);
+
 /// <summary>租户职位列表项与详情响应。</summary>
 public sealed record OrganizationPositionResponse(
     Guid Id,
     string Code,
     string Name,
+    Guid? UnitId,
+    string? UnitCode,
+    string? UnitName,
+    Guid? PositionLevelId,
+    string? PositionLevelCode,
+    string? PositionLevelName,
     int DisplayOrder,
     bool IsActive,
     DateTimeOffset CreatedAtUtc,

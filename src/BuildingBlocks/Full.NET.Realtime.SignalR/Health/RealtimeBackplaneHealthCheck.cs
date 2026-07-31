@@ -1,11 +1,12 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
-using StackExchange.Redis;
 
 namespace Full.NET.Realtime.SignalR.Health;
 
 internal sealed class RealtimeBackplaneHealthCheck(
-    IOptions<RealtimeOptions> realtimeOptions) : IHealthCheck
+    IOptions<RealtimeOptions> realtimeOptions,
+    IRealtimeBackplaneProbe backplaneProbe) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -19,39 +20,53 @@ internal sealed class RealtimeBackplaneHealthCheck(
             return HealthCheckResult.Healthy();
         }
 
+        var startedTimestamp = Stopwatch.GetTimestamp();
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(2));
-            var configuration = ConfigurationOptions.Parse(connectionString);
-            // 健康探针必须快速失败，不能沿用运行连接的后台重连语义拖住 ready。
-            configuration.AbortOnConnectFail = true;
-            configuration.ConnectRetry = 0;
-            configuration.ConnectTimeout = 1000;
-            configuration.AsyncTimeout = 1000;
-            await using var connection = await ConnectionMultiplexer
-                .ConnectAsync(configuration)
-                .WaitAsync(timeout.Token);
-            _ = await connection
-                .GetDatabase()
-                .PingAsync()
-                .WaitAsync(timeout.Token);
+            await backplaneProbe.PingAsync(
+                connectionString,
+                timeout.Token);
+            RealtimeBackplaneTelemetry.Record(
+                startedTimestamp,
+                "healthy",
+                isReady: true);
             return HealthCheckResult.Healthy();
         }
         catch (OperationCanceledException)
             when (!cancellationToken.IsCancellationRequested)
         {
+            RealtimeBackplaneTelemetry.Record(
+                startedTimestamp,
+                "timeout",
+                isReady: false);
             return HealthCheckResult.Unhealthy(
                 "Realtime Redis Backplane 健康检查超时。");
         }
-        catch (RedisException)
+        catch (OperationCanceledException)
         {
-            return HealthCheckResult.Unhealthy(
-                "Realtime Redis Backplane 健康检查失败。");
+            // 调用方取消不是 Backplane 故障，必须继续传播给 Health Check 管道。
+            throw;
         }
-        catch (InvalidOperationException)
+        catch (TimeoutException)
         {
+            // Redis 原生超时与本地两秒预算属于同一容量/网络故障分类，且不得暴露端点详情。
+            RealtimeBackplaneTelemetry.Record(
+                startedTimestamp,
+                "timeout",
+                isReady: false);
+            return HealthCheckResult.Unhealthy(
+                "Realtime Redis Backplane 健康检查超时。");
+        }
+        catch (Exception)
+        {
+            // ready 边界只暴露稳定结果，避免把端点、认证信息或 Redis 内部类型写入响应。
+            RealtimeBackplaneTelemetry.Record(
+                startedTimestamp,
+                "failure",
+                isReady: false);
             return HealthCheckResult.Unhealthy(
                 "Realtime Redis Backplane 健康检查失败。");
         }

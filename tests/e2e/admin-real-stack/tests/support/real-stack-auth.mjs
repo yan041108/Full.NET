@@ -51,6 +51,61 @@ export async function loginHostAdminAccessToken(request, clientKind) {
   return loginWithPassword(request, clientKind, username, password);
 }
 
+/** 将种子管理员当前站内信全部标记为已读，给未读徽标场景建立确定基线。 */
+export async function markAllInboxMessagesReadViaApi(request, clientKind) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.post(
+    `${apiBaseUrl}/api/v1/notifications/my-inbox-messages/read-all`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin
+      }
+    }
+  );
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(body.unreadCount).toBe(0);
+}
+
+/**
+ * 经真实 Host 写 API 发送站内信，由独立 Worker 消费 Outbox 后推送到收件人连接。
+ * @returns {Promise<{ id: string, title: string, status: string }>}
+ */
+export async function sendHostInboxMessageViaApi(
+  request,
+  clientKind,
+  recipientUserId,
+  options
+) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.post(
+    `${apiBaseUrl}/api/v1/notifications/host-inbox-messages`,
+    {
+      data: {
+        recipientUserId,
+        title: options.title,
+        content: options.content
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(response.status()).toBe(201);
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.title).toBe(options.title);
+  expect(body.status).toBe('unread');
+  return body;
+}
+
 /**
  * 经真实 API 创建一次性 Host 用户，避免污染 e2e-viewer 等共享账号。
  * @returns {Promise<{ id: string, username: string }>}
@@ -139,6 +194,78 @@ export async function createSettingsDictTypeViaApi(request, clientKind, options)
  * 经真实 API 在指定字典类型下创建字典项。
  * @returns {Promise<{ id: string, value: string, label: string, version: number }>}
  */
+/** 获取 Host 管理员在 Development 本地租户上下文中的 Access Token。 */
+export async function loginTenantAdminAccessToken(request, clientKind) {
+  const hostToken = await loginHostAdminAccessToken(request, clientKind);
+  return enterTenantAccessToken(request, clientKind, hostToken);
+}
+
+/**
+ * 经真实 API 在租户上下文中创建字典类型。
+ * @returns {Promise<{ id: string, code: string, name: string, version: number }>}
+ */
+export async function createSettingsTenantDictTypeViaApi(request, clientKind, options) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginTenantAdminAccessToken(request, clientKind);
+  const response = await request.post(`${apiBaseUrl}/api/v1/settings/tenant-dict-types`, {
+    data: {
+      code: options.code,
+      name: options.name,
+      description: options.description ?? null,
+      displayOrder: options.displayOrder ?? 0
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.code).toBe(options.code);
+  expect(body.name).toBe(options.name);
+  return { id: body.id, code: body.code, name: body.name, version: body.version };
+}
+
+/**
+ * 经真实 API 在租户上下文中于指定字典类型下创建字典项。
+ * @returns {Promise<{ id: string, value: string, label: string, version: number }>}
+ */
+export async function createSettingsTenantDictItemViaApi(
+  request,
+  clientKind,
+  dictTypeId,
+  options
+) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginTenantAdminAccessToken(request, clientKind);
+  const response = await request.post(
+    `${apiBaseUrl}/api/v1/settings/tenant-dict-types/${encodeURIComponent(dictTypeId)}/items`,
+    {
+      data: {
+        label: options.label,
+        value: options.value,
+        color: options.color ?? null,
+        displayOrder: options.displayOrder ?? 0
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  expect(typeof body.id).toBe('string');
+  expect(body.value).toBe(options.value);
+  expect(body.label).toBe(options.label);
+  return { id: body.id, value: body.value, label: body.label, version: body.version };
+}
+
 export async function createSettingsDictItemViaApi(request, clientKind, dictTypeId, options) {
   const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   const origin = adminOrigin(clientKind);
@@ -233,6 +360,27 @@ export async function uploadHostFileViaApi(request, clientKind, options) {
     originalFileName: body.originalFileName,
     sizeBytes: body.sizeBytes
   };
+}
+
+/**
+ * 从 Host 用户目录查找种子管理员，供 API Key 等写路径绑定用户。
+ * @returns {Promise<{ id: string, username: string }>}
+ */
+export async function findSeedAdminUserViaApi(request, clientKind, loginUsername = 'admin') {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const response = await request.get(`${apiBaseUrl}/api/v1/identity/users?page=1&pageSize=50`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  const user = body.items?.find(entry => entry.username === loginUsername);
+  expect(user?.id).toBeTruthy();
+  return { id: user.id, username: user.username };
 }
 
 /**

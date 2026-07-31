@@ -1,0 +1,59 @@
+{
+  "ownerKey": "acme",
+  "moduleKey": "catalog",
+  "entityKey": "product",
+  "databaseTableName": "acme_catalog_product",
+  "rootNamespace": "Acme.Modules.Catalog",
+  "clrTypeName": "Product",
+  "apiResourceName": "products",
+  "permissionResourceName": "products",
+  "dataScope": "TenantRequired",
+  "hasVersion": true,
+  "columns": [
+    {
+      "databaseName": "Id",
+      "clrPropertyName": "Id",
+      "jsonPropertyName": "id",
+      "scalarType": "Uuid"
+    },
+    {
+      "databaseName": "TenantId",
+      "clrPropertyName": "TenantId",
+      "jsonPropertyName": "tenantId",
+      "scalarType": "Uuid"
+    },
+    {
+      "databaseName": "Name",
+      "clrPropertyName": "Name",
+      "jsonPropertyName": "displayName",
+      "scalarType": "String",
+      "maxLength": 200
+    },
+    {
+      "databaseName": "Description",
+      "clrPropertyName": "Description",
+      "jsonPropertyName": "description",
+      "scalarType": "String",
+      "isNullable": true,
+      "maxLength": 500
+    },
+    {
+      "databaseName": "IsActive",
+      "clrPropertyName": "IsActive",
+      "jsonPropertyName": "isActive",
+      "scalarType": "Boolean"
+    },
+    {
+      "databaseName": "Version",
+      "clrPropertyName": "Version",
+      "jsonPropertyName": "version",
+      "scalarType": "Int64"
+    },
+    {
+      "databaseName": "CreatedAtUtc",
+      "clrPropertyName": "CreatedAtUtc",
+      "jsonPropertyName": "createdAtUtc",
+      "scalarType": "DateTimeUtc"
+    }
+  ]
+}

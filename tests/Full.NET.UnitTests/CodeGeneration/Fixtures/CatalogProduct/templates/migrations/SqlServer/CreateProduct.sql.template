@@ -1,0 +1,18 @@
+-- Full.NET 生成的 SQL Server 迁移草案。
+-- 请分配真实迁移编号并完成幂等恢复评审后，再移入正式 DbUp 目录。
+IF OBJECT_ID(N'dbo.acme_catalog_product', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.acme_catalog_product
+    (
+        Id uniqueidentifier NOT NULL,
+        TenantId uniqueidentifier NOT NULL,
+        Name nvarchar(200) NOT NULL,
+        Description nvarchar(500) NULL,
+        IsActive bit NOT NULL,
+        Version bigint NOT NULL,
+        CreatedAtUtc datetimeoffset(7) NOT NULL,
+        CONSTRAINT PK_acme_catalog_product PRIMARY KEY NONCLUSTERED (Id)
+    );
+    CREATE CLUSTERED INDEX IX_acme_catalog_product_TenantId_Id
+        ON dbo.acme_catalog_product(TenantId, Id);
+END;

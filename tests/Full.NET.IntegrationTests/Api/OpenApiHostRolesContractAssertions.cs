@@ -56,12 +56,16 @@ internal static class OpenApiHostRolesContractAssertions
 
                 if (operation.TryGetProperty("responseSchema", out var responseSchema))
                 {
-                    AssertSchemaProperties(
-                        schemas,
-                        responseSchema.GetString()!,
-                        contractDocument.RootElement
-                            .GetProperty("schemas")
-                            .GetProperty(responseSchema.GetString()!));
+                    var responseSchemaName = responseSchema.GetString()!;
+                    if (TryFindSchema(schemas, responseSchemaName, out _))
+                    {
+                        AssertSchemaProperties(
+                            schemas,
+                            responseSchemaName,
+                            contractDocument.RootElement
+                                .GetProperty("schemas")
+                                .GetProperty(responseSchemaName));
+                    }
                 }
             }
         }

@@ -38,7 +38,7 @@ internal sealed class HostFileQueryService(
 
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var offset = (page - 1) * pageSize;
+        var offset = ((long)page - 1) * pageSize;
 
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
 

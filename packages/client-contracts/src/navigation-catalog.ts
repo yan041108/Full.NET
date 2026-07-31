@@ -70,6 +70,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/organization/positions'
   },
   {
+    componentKey: 'org-position-levels',
+    routeName: 'org-position-levels',
+    path: '/organization/position-levels'
+  },
+  {
     componentKey: 'org-user-positions',
     routeName: 'org-user-positions',
     path: '/organization/user-positions'
@@ -83,6 +88,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     componentKey: 'dict-types',
     routeName: 'dict-types',
     path: '/settings/dict-types'
+  },
+  {
+    componentKey: 'tenant-dict-types',
+    routeName: 'tenant-dict-types',
+    path: '/settings/tenant-dict-types'
   },
   {
     componentKey: 'config-entries',
@@ -113,6 +123,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     componentKey: 'host-jobs',
     routeName: 'host-jobs',
     path: '/jobs/host-definitions'
+  },
+  {
+    componentKey: 'code-generation-previews',
+    routeName: 'code-generation-previews',
+    path: '/code-generation/previews'
   },
   {
     componentKey: 'access-logs',

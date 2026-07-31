@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "dotnetSuites": {
+    "unit": {
+      "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
+      "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
+      "minimum": 936,
+      "timeout": "10m"
+    },
+    "compatibility": {
+      "project": "tests/Full.NET.CompatibilityTests/Full.NET.CompatibilityTests.csproj",
+      "assembly": "tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll",
+      "minimum": 7,
+      "timeout": "10m"
+    },
+    "architecture": {
+      "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
+      "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
+      "minimum": 50,
+      "timeout": "10m"
+    }
+  },
+  "integration": {
+    "assembly": "tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll",
+    "feedback": {
+      "sliceBudgetSeconds": 600,
+      "defaultFocusedEstimateSeconds": 120,
+      "targetEstimatedSeconds": {
+        "integration-matrix": 30,
+        "integration-tooling": 5,
+        "migrations": 1800,
+        "smoke": 180
+      }
+    },
+    "migrationSelections": {
+      "008": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
+      },
+      "009": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryContractMigrationTests|FullyQualifiedName~UuidBinaryContractRecoveryTests"
+      },
+      "010": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~NamingExpandMigrationTests|FullyQualifiedName~NamingPartialRecoveryTests"
+      },
+      "011": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~NamingContractMigrationTests|FullyQualifiedName~NamingContractPartialRecoveryTests|FullyQualifiedName~NamingReleaseCandidateUpgradeDrillTests"
+      },
+      "034": {
+        "filter": "FullyQualifiedName~Migration034OrganizationPositionUnitRecoveryTests.MySql_|FullyQualifiedName~Migration034OrganizationPositionUnitRecoveryTests.SqlServer_"
+      },
+      "035": {
+        "filter": "FullyQualifiedName~Migration035OrganizationPositionLevelRecoveryTests.MySql_|FullyQualifiedName~Migration035OrganizationPositionLevelRecoveryTests.SqlServer_"
+      },
+      "036": {
+        "filter": "FullyQualifiedName~Migration036OrganizationPositionLevelBindingRecoveryTests.MySql_|FullyQualifiedName~Migration036OrganizationPositionLevelBindingRecoveryTests.SqlServer_"
+      },
+      "037": {
+        "filter": "FullyQualifiedName~Migration037JobsRetrySchedulingRecoveryTests.MySql_|FullyQualifiedName~Migration037JobsRetrySchedulingRecoveryTests.SqlServer_"
+      },
+      "038": {
+        "filter": "FullyQualifiedName~Migration038SettingsGridPreferenceRecoveryTests.MySql_|FullyQualifiedName~Migration038SettingsGridPreferenceRecoveryTests.SqlServer_"
+      },
+      "039": {
+        "filter": "FullyQualifiedName~Migration039SerialNumbersRecoveryTests.MySql_|FullyQualifiedName~Migration039SerialNumbersRecoveryTests.SqlServer_"
+      },
+      "040": {
+        "filter": "FullyQualifiedName~Migration040JobsSchedulesRecoveryTests.MySql_|FullyQualifiedName~Migration040JobsSchedulesRecoveryTests.SqlServer_"
+      },
+      "041": {
+        "filter": "FullyQualifiedName~Migration041IdentityRoleFieldGrantRecoveryTests.MySql_|FullyQualifiedName~Migration041IdentityRoleFieldGrantRecoveryTests.SqlServer_"
+      },
+      "044": {
+        "filter": "FullyQualifiedName~Migration044CodeGenerationTemplateRecoveryTests.MySql_|FullyQualifiedName~Migration044CodeGenerationTemplateRecoveryTests.SqlServer_"
+      },
+      "045": {
+        "filter": "FullyQualifiedName~Migration045CodeGenerationRunRecoveryTests.MySql_|FullyQualifiedName~Migration045CodeGenerationRunRecoveryTests.SqlServer_"
+      },
+      "046": {
+        "filter": "FullyQualifiedName~Migration046CodeGenerationApplyRecoveryTests.MySql_|FullyQualifiedName~Migration046CodeGenerationApplyRecoveryTests.SqlServer_"
+      },
+      "047": {
+        "filter": "FullyQualifiedName~Migration047FilesStorageProviderRecoveryTests.MySql_|FullyQualifiedName~Migration047FilesStorageProviderRecoveryTests.SqlServer_"
+      },
+      "048": {
+        "filter": "FullyQualifiedName~Migration048FilesUploadStateRecoveryTests.MySql_|FullyQualifiedName~Migration048FilesUploadStateRecoveryTests.SqlServer_"
+      }
+    },
+    "mainPartitions": [
+      "api-sqlserver",
+      "api-mysql",
+      "migrations",
+      "infrastructure"
+    ],
+    "shards": {
+      "smoke": {
+        "filter": "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox",
+        "minimum": 8,
+        "timeout": "15m"
+      },
+      "api-sqlserver": {
+        "filter": "FullyQualifiedName~ApiSqlServerTests",
+        "minimum": 44,
+        "timeout": "60m"
+      },
+      "api-mysql": {
+        "filter": "FullyQualifiedName~ApiMySqlTests",
+        "minimum": 44,
+        "timeout": "60m"
+      },
+      "migrations": {
+        "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
+        "minimum": 88,
+        "timeout": "90m"
+      },
+      "infrastructure": {
+        "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations",
+        "minimum": 83,
+        "timeout": "60m"
+      },
+      "full": {
+        "minimum": 259,
+        "timeout": "90m"
+      }
+    }
+  }
+}

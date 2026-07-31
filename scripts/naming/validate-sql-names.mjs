@@ -207,7 +207,7 @@ function inspectCreateTableBlocks(lines, file, profile, debt, violations) {
     const table = match[1];
     for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
       const line = stripComment(lines[cursor]).trim();
-      if (/^\)\b|^\)\s*;?$/.test(line)) break;
+      if (/^\)\s*(?:;|ENGINE\b|DEFAULT\b|CHARACTER\b|COLLATE\b|COMMENT\b|ROW_FORMAT\b|$)/i.test(line)) break;
       if (!line || /^\($/.test(line)) continue;
       if (/\bPRIMARY\s+KEY\b/i.test(line) && !/\bCONSTRAINT\s+PK_[A-Za-z0-9_]+\s+PRIMARY\s+KEY\b/i.test(line)) {
         violations.push(violation(

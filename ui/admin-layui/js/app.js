@@ -1,4 +1,5 @@
-import { request } from './core/http.js';
+import { resolveFullNetApiUrl } from '@fullnet/client-contracts';
+import { apiBaseUrl, request } from './core/http.js';
 import { adminI18n } from './core/i18n.js';
 import { applyLayuiLocale } from './core/layui-locale.js';
 import { identitySession } from './core/session.js';
@@ -24,8 +25,8 @@ import {
 } from './core/route-controllers.js';
 
 const hostContextValue = '__fullnet_host__';
-const knownLocalPaths = new Set(['/', '/tenant-context', '/tenants', '/tenant-packages', '/identity/users', '/identity/online-sessions', '/identity/api-keys', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/organization/positions', '/identity/super-administrators', '/settings/dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/files/host-files', '/notifications/host-announcements', '/notifications/inbox-messages', '/jobs/host-definitions', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs']);
-const sessionReloadRoutes = new Set(['/identity/super-administrators', '/tenants', '/tenant-packages', '/settings/dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/organization/positions', '/organization/user-units', '/organization/user-positions']);
+const knownLocalPaths = new Set(['/', '/tenant-context', '/tenants', '/tenant-packages', '/identity/users', '/identity/online-sessions', '/identity/api-keys', '/identity/roles', '/identity/menus', '/organization/units', '/organization/user-units', '/organization/positions', '/organization/position-levels', '/organization/user-positions', '/identity/super-administrators', '/settings/dict-types', '/settings/tenant-dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/files/host-files', '/notifications/host-announcements', '/notifications/inbox-messages', '/jobs/host-definitions', '/code-generation/previews', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs']);
+const sessionReloadRoutes = new Set(['/identity/super-administrators', '/tenants', '/tenant-packages', '/settings/dict-types', '/settings/tenant-dict-types', '/settings/config-entries', '/settings/enum-catalogs', '/auditing/access-logs', '/auditing/operation-logs', '/auditing/exception-logs', '/identity/users', '/identity/roles', '/identity/menus', '/organization/units', '/organization/positions', '/organization/position-levels', '/organization/user-units', '/organization/user-positions', '/code-generation/previews']);
 const statusRoutes = {
   '/403': {
     code: '403',
@@ -75,8 +76,12 @@ export function initializeAdminApp(root = document, options = {}) {
     definitions: createLayuiRouteControllerDefinitions(root, {
       request,
       translation: () => translation,
+      hasPermission: permission => latestSnapshot.currentUser?.permissions
+        ?.includes(permission) === true,
       canWrite: () => latestSnapshot.currentUser?.permissions
         ?.includes('identity.api_keys.write') === true,
+      canWriteTenantDictTypes: () => latestSnapshot.currentUser?.permissions
+        ?.includes('settings.tenant_dict_types.write') === true,
       getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null
     }),
     isActive: route => latestSnapshot.state === 'authenticated'
@@ -141,6 +146,7 @@ export function initializeAdminApp(root = document, options = {}) {
     ? realtimeNotificationsFactory({
         session,
         enabled: realtimeEnabled !== false && realtimeEnabled !== 'false',
+        hubPath: resolveFullNetApiUrl(apiBaseUrl, '/hubs/notifications'),
         request,
         onUnreadCount: count => shellNotifications.setUnreadCount(count),
         onInboxChanged: () => {

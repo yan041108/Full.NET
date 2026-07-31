@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Features.ManageHostAnnouncements;
 using Full.NET.Modules.Notifications.Persistence;
@@ -25,6 +26,7 @@ public sealed class HostAnnouncementManagementServiceTests
         var query = Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
         var publisher = Substitute.For<IRealtimePublisher>();
+        var outboxWriter = Substitute.For<IOutboxWriter>();
         var clock = Substitute.For<IClock>();
         var idGenerator = Substitute.For<IIdGenerator>();
         var draft = CreateRecord(
@@ -59,6 +61,16 @@ public sealed class HostAnnouncementManagementServiceTests
                 Assert.IsFalse(transaction.IsActive);
                 throw new OperationCanceledException("simulated publisher cancellation");
             });
+        outboxWriter.AddAsync(
+                NotificationRealtimeEventTypes.AnnouncementPublished,
+                1,
+                Arg.Any<AnnouncementPublishedIntegrationEvent>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.IsTrue(transaction.IsActive);
+                return Task.CompletedTask;
+            });
         var queries = new HostAnnouncementQueryService(
             query,
             Options.Create(new DatabaseOptions
@@ -70,8 +82,9 @@ public sealed class HostAnnouncementManagementServiceTests
             query,
             command,
             transaction,
+            outboxWriter,
             queries,
-            publisher,
+            new NotificationRealtimeDelivery(query, publisher),
             clock,
             idGenerator,
             NullLogger<HostAnnouncementManagementService>.Instance);
@@ -83,6 +96,14 @@ public sealed class HostAnnouncementManagementServiceTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(AnnouncementStatuses.Published, result.Value?.Status);
+        await outboxWriter.Received(1).AddAsync(
+            NotificationRealtimeEventTypes.AnnouncementPublished,
+            1,
+            Arg.Is<AnnouncementPublishedIntegrationEvent>(integrationEvent =>
+                integrationEvent != null
+                && integrationEvent.AnnouncementId == announcementId
+                && integrationEvent.Title == published.Title),
+            Arg.Any<CancellationToken>());
         await publisher.Received(1).PublishToGroupAsync(
             RealtimeGroups.HostBroadcast,
             Arg.Any<RealtimeMessage>(),

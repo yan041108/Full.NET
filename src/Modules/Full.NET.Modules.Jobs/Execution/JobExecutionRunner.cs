@@ -24,9 +24,12 @@ internal sealed class JobExecutionRunner(
     IOptions<DatabaseOptions> databaseOptions,
     IOptions<JobsWorkerOptions> workerOptions,
     ILogger<JobExecutionRunner> logger,
-    IServiceScopeFactory? executionScopeFactory = null)
+    IServiceScopeFactory? executionScopeFactory = null,
+    IJobsRetryJitterSource? retryJitterSource = null)
 {
     private readonly JobsWorkerOptions _workerOptions = workerOptions.Value;
+    private readonly IJobsRetryJitterSource _retryJitterSource =
+        retryJitterSource ?? new SystemJobsRetryJitterSource();
 
     public async Task<int> ProcessPendingAsync(
         int batchSize = 10,
@@ -210,7 +213,9 @@ internal sealed class JobExecutionRunner(
                     services.GetRequiredService<JobHandlerRegistry>(),
                     services.GetRequiredService<ICommandExecutor>(),
                     services.GetRequiredService<IClock>(),
-                    logger)
+                    _workerOptions,
+                    logger,
+                    _retryJitterSource)
                 .ConfigureAwait(false);
         }
         finally
@@ -261,7 +266,9 @@ internal sealed class JobExecutionRunner(
             handlerRegistry,
             commandExecutor,
             clock,
-            logger);
+            _workerOptions,
+            logger,
+            _retryJitterSource);
 
     private static async Task ProcessOneCoreAsync(
         JobExecutionRecord execution,
@@ -271,7 +278,9 @@ internal sealed class JobExecutionRunner(
         JobHandlerRegistry scopedHandlerRegistry,
         ICommandExecutor scopedCommandExecutor,
         IClock scopedClock,
-        ILogger<JobExecutionRunner> scopedLogger)
+        JobsWorkerOptions scopedWorkerOptions,
+        ILogger<JobExecutionRunner> scopedLogger,
+        IJobsRetryJitterSource retryJitterSource)
     {
         if (!definitionsById.TryGetValue(
                 execution.JobDefinitionId,
@@ -281,7 +290,7 @@ internal sealed class JobExecutionRunner(
                 out var handler)
             || handler is null)
         {
-            await MarkFailedAsync(
+            var failedRows = await MarkFailedAsync(
                     execution.Id,
                     leaseId,
                     "Job handler was not found.",
@@ -289,25 +298,77 @@ internal sealed class JobExecutionRunner(
                     scopedCommandExecutor,
                     scopedClock)
                 .ConfigureAwait(false);
+            if (failedRows > 0)
+            {
+                JobsTelemetry.RecordFailed(retryExhausted: false);
+            }
+
             return;
         }
 
         try
         {
             await handler.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-            await MarkSucceededAsync(
+            var succeededRows = await MarkSucceededAsync(
                     execution.Id,
                     leaseId,
                     cancellationToken,
                     scopedCommandExecutor,
                     scopedClock)
                 .ConfigureAwait(false);
+            if (succeededRows > 0)
+            {
+                JobsTelemetry.RecordSucceeded();
+            }
         }
         catch (OperationCanceledException)
             when (cancellationToken.IsCancellationRequested)
         {
             // 宿主取消不属于业务失败；保留当前租约，由过期恢复路径重新领取未完成任务。
             throw;
+        }
+        catch (RetryableJobException exception)
+        {
+            JobExecutionRunnerLog.ExecutionFailed(
+                scopedLogger,
+                exception,
+                execution.Id,
+                definition.JobKey);
+            if (execution.AttemptCount < scopedWorkerOptions.MaxAttempts)
+            {
+                var retryDelaySeconds =
+                    JobsRetryDelayCalculator.CalculateSeconds(
+                        scopedWorkerOptions,
+                        execution.AttemptCount,
+                        retryJitterSource.NextUnitInterval());
+                var rescheduledRows = await RescheduleAsync(
+                        execution.Id,
+                        leaseId,
+                        exception.Message,
+                        scopedClock.UtcNow.AddSeconds(retryDelaySeconds),
+                        cancellationToken,
+                        scopedCommandExecutor)
+                    .ConfigureAwait(false);
+                if (rescheduledRows > 0)
+                {
+                    JobsTelemetry.RecordRetryScheduled(retryDelaySeconds);
+                }
+
+                return;
+            }
+
+            var failedRows = await MarkFailedAsync(
+                    execution.Id,
+                    leaseId,
+                    exception.Message,
+                    cancellationToken,
+                    scopedCommandExecutor,
+                    scopedClock)
+                .ConfigureAwait(false);
+            if (failedRows > 0)
+            {
+                JobsTelemetry.RecordFailed(retryExhausted: true);
+            }
         }
         catch (Exception exception)
         {
@@ -316,7 +377,7 @@ internal sealed class JobExecutionRunner(
                 exception,
                 execution.Id,
                 definition.JobKey);
-            await MarkFailedAsync(
+            var failedRows = await MarkFailedAsync(
                     execution.Id,
                     leaseId,
                     exception.Message,
@@ -324,6 +385,10 @@ internal sealed class JobExecutionRunner(
                     scopedCommandExecutor,
                     scopedClock)
                 .ConfigureAwait(false);
+            if (failedRows > 0)
+            {
+                JobsTelemetry.RecordFailed(retryExhausted: false);
+            }
         }
     }
 
@@ -397,7 +462,7 @@ internal sealed class JobExecutionRunner(
             $"Unsupported database provider '{databaseOptions.Value.Provider}'.");
     }
 
-    private static Task MarkSucceededAsync(
+    private static Task<int> MarkSucceededAsync(
         Guid executionId,
         Guid leaseId,
         CancellationToken cancellationToken,
@@ -415,7 +480,7 @@ internal sealed class JobExecutionRunner(
             },
             cancellationToken);
 
-    private static Task MarkFailedAsync(
+    private static Task<int> MarkFailedAsync(
         Guid executionId,
         Guid leaseId,
         string errorMessage,
@@ -431,11 +496,34 @@ internal sealed class JobExecutionRunner(
                 RunningStatus = JobExecutionStatuses.Running,
                 FailedStatus = JobExecutionStatuses.Failed,
                 FinishedAtUtc = scopedClock.UtcNow,
-                ErrorMessage = errorMessage.Length > 2000
-                    ? errorMessage[..2000]
-                    : errorMessage,
+                ErrorMessage = BoundErrorMessage(errorMessage),
             },
             cancellationToken);
+
+    private static Task<int> RescheduleAsync(
+        Guid executionId,
+        Guid leaseId,
+        string errorMessage,
+        DateTimeOffset nextAttemptAtUtc,
+        CancellationToken cancellationToken,
+        ICommandExecutor scopedCommandExecutor) =>
+        scopedCommandExecutor.ExecuteAsync(
+            JobSql.RescheduleExecution,
+            new
+            {
+                Id = executionId,
+                LeaseId = leaseId,
+                RunningStatus = JobExecutionStatuses.Running,
+                PendingStatus = JobExecutionStatuses.Pending,
+                NextAttemptAtUtc = nextAttemptAtUtc,
+                ErrorMessage = BoundErrorMessage(errorMessage),
+            },
+            cancellationToken);
+
+    private static string BoundErrorMessage(string errorMessage) =>
+        errorMessage.Length > 2000
+            ? errorMessage[..2000]
+            : errorMessage;
 }
 
 internal static partial class JobExecutionRunnerLog

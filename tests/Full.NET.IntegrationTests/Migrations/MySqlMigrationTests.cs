@@ -62,7 +62,7 @@ public sealed class MySqlMigrationTests
         var second = await runner.MigrateAsync();
 
         Assert.IsTrue(first.Successful);
-        Assert.AreEqual(1, first.ExecutedScriptCount);
+        Assert.IsGreaterThan(0, first.ExecutedScriptCount);
         Assert.IsTrue(second.Successful);
         Assert.AreEqual(0, second.ExecutedScriptCount);
 

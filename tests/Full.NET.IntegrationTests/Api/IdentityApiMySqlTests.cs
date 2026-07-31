@@ -87,6 +87,16 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Host_role_field_grants_enforce_projection_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await IdentityRoleFieldGrantAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_menu_management_follows_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(

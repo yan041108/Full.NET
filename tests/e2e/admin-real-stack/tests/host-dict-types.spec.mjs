@@ -55,10 +55,11 @@ test('Host 管理员可从真实 API 加载并创建数据字典类型与项', a
     : page.locator('.dict-types-view');
 
   await expect(dictTypesView.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
-  await expect(dictTypesView.getByText(typeCode, { exact: true })).toBeVisible();
-  await expect(dictTypesView.getByText(`真实栈字典 ${clientKind}`, { exact: true })).toBeVisible();
+  const dictTypeRow = dictTypesView.getByRole('article').filter({ hasText: typeCode });
+  await expect(dictTypeRow).toBeVisible();
+  await expect(dictTypeRow.getByText(`真实栈字典 ${clientKind}`, { exact: true })).toBeVisible();
 
-  await dictTypesView.getByRole('article').filter({ hasText: typeCode })
+  await dictTypeRow
     .getByRole('button', { name: '字典项', exact: true })
     .click();
   const itemsPanel = dictTypesView.locator('[data-dict-items-panel]');

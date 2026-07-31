@@ -45,6 +45,7 @@ describe('Layui 管理端应用', () => {
 
     expect(realtimeNotificationsFactory).toHaveBeenCalledWith(expect.objectContaining({
       session,
+      hubPath: '/hubs/notifications',
       request: expect.any(Function),
       onUnreadCount: expect.any(Function),
       onInboxChanged: expect.any(Function),
@@ -275,6 +276,81 @@ describe('Layui 管理端应用', () => {
     expect(document.querySelector('[data-route-view="status"]').hidden).toBe(false);
     expect(document.querySelector('[data-status-code]').textContent).toBe('403');
     expect(document.querySelector('[data-status-title]').textContent).toBe('没有访问权限');
+    app.dispose();
+  });
+
+  it('已知代码生成路由被导航裁剪时呈现 403 而不是 404', () => {
+    renderDynamicFixture();
+    window.history.replaceState({}, '', '/#/code-generation/previews');
+
+    const app = initializeAdminApp(document, {
+      session: createSessionStub(authorizedSnapshot()),
+      autoRestore: false
+    });
+
+    expect(document.querySelector('[data-status-code]').textContent).toBe('403');
+    expect(document.querySelector('[data-status-title]').textContent).toBe('没有访问权限');
+    app.dispose();
+  });
+
+  it('刷新代码生成路由恢复会话后重新加载模板目录', async () => {
+    renderDynamicFixture();
+    document.querySelector('[data-session-shell]').insertAdjacentHTML(
+      'beforeend',
+      `<main data-route-view="code-generation-previews" hidden>
+        <div data-codegen-problem hidden><strong></strong><span></span></div>
+        <form data-codegen-template-form>
+          <input name="templateName">
+          <textarea name="templateDescription"></textarea>
+          <button type="submit">保存</button>
+          <button type="button" data-codegen-template-update>更新</button>
+          <button type="button" data-codegen-template-delete>删除</button>
+        </form>
+        <div data-codegen-template-directory></div>
+        <form data-codegen-form>
+          <textarea name="schema"></textarea>
+          <button type="submit">预览</button>
+        </form>
+        <div data-codegen-summary></div>
+        <div data-codegen-artifacts></div>
+        <pre data-codegen-content><code></code></pre>
+      </main>`
+    );
+    const snapshot = authorizedSnapshot();
+    snapshot.currentUser.permissions.push(
+      'codegen.previews.read',
+      'codegen.templates.read',
+      'codegen.templates.write'
+    );
+    snapshot.navigation.push({
+      ...navigationNode('code-generation-previews'),
+      path: '/code-generation/previews',
+      title: '代码生成',
+      requiredPermission: 'codegen.previews.read'
+    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    window.history.replaceState({}, '', '/#/code-generation/previews');
+
+    const app = initializeAdminApp(document, {
+      session: createSessionStub(snapshot),
+      autoRestore: false
+    });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/api/v1/code-generation/templates?page=1&pageSize=20'
+      ),
+      expect.any(Object)
+    ));
     app.dispose();
   });
 

@@ -6,6 +6,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Jobs.Execution;
 using Full.NET.Modules.Jobs.Execution.Handlers;
 using Full.NET.Modules.Jobs.Resources;
+using Full.NET.Modules.Jobs.Scheduling;
 using Full.NET.Modules.Jobs.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
 
 namespace Full.NET.Modules.Jobs;
 
@@ -37,6 +39,7 @@ public sealed class JobsModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostJobDefinitions.HostJobDefinitionManagementService>();
         services.TryAddScoped<Features.ManageHostJobExecutions.HostJobExecutionQueryService>();
         services.TryAddScoped<Features.ManageHostJobExecutions.HostJobTriggerService>();
+        services.TryAddScoped<Features.ManageHostJobSchedules.HostJobScheduleService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -47,6 +50,7 @@ public sealed class JobsModule : IFullNetModule
     {
         Features.ManageHostJobDefinitions.Endpoint.Map(endpoints);
         Features.ManageHostJobExecutions.Endpoint.Map(endpoints);
+        Features.ManageHostJobSchedules.Endpoint.Map(endpoints);
     }
 
     /// <summary>Worker 轮询执行待处理任务；不引入 HTTP 与完整模块依赖图。</summary>
@@ -63,6 +67,10 @@ public sealed class JobsModule : IFullNetModule
                 IValidateOptions<JobsWorkerOptions>,
                 JobsWorkerOptionsValidator>());
         services.AddHostedService<JobExecutionHostedProcessor>();
+        services
+            .AddOpenTelemetry()
+            .WithMetrics(metrics =>
+                metrics.AddMeter(JobsTelemetry.MeterName));
     }
 
     private static void RegisterExecutionCore(IServiceCollection services)
@@ -70,7 +78,12 @@ public sealed class JobsModule : IFullNetModule
         services.AddOptions<JobsWorkerOptions>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddSingleton<
+            IJobsRetryJitterSource,
+            SystemJobsRetryJitterSource>();
         services.TryAddScoped<JobHandlerRegistry>();
+        services.TryAddScoped<JobsBacklogReader>();
+        services.TryAddScoped<JobScheduleDispatcher>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IJobHandler, PingJobHandler>());
         services.TryAddScoped<JobExecutionRunner>();
     }

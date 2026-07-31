@@ -111,6 +111,12 @@ public static class IdentityErrorCodes
     /// <summary>系统角色受保护，禁止变更。</summary>
     public const string RoleSystemLocked = "identity.roles.system_locked";
 
+    /// <summary>字段投影资源或字段键不在服务端稳定目录中。</summary>
+    public const string FieldProjectionInvalid = "identity.field_projection.invalid";
+
+    /// <summary>角色字段授权发生并发版本冲突。</summary>
+    public const string FieldProjectionVersionConflict = "identity.field_projection.version_conflict";
+
     /// <summary>数据范围种类无效。</summary>
     public const string DataScopeInvalidKind = "identity.data_scope.invalid_kind";
 
@@ -185,6 +191,8 @@ public static class IdentityErrorCodes
         RoleCodeExists,
         RoleNotFound,
         RoleSystemLocked,
+        FieldProjectionInvalid,
+        FieldProjectionVersionConflict,
         DataScopeInvalidKind,
         DataScopeCustomUnitsRequired,
         DataScopeTenantContextRequired,

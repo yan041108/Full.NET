@@ -148,58 +148,74 @@ test('client-frontend.md 内部链接必须真实存在', async () => {
   }
 });
 
-test('测试门槛在 canonical 来源与最新审计记录中保持一致', async () => {
-  const canonicalFiles = [
+test('测试门槛只有一个机器事实源且 CI 使用稳定命令', async () => {
+  const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
+  assert.equal(matrix.schemaVersion, 1);
+  for (const suite of Object.values(matrix.dotnetSuites)) {
+    assert.ok(Number.isInteger(suite.minimum) && suite.minimum > 0);
+  }
+  assert.equal(
+    matrix.integration.mainPartitions.reduce(
+      (sum, name) => sum + matrix.integration.shards[name].minimum,
+      0
+    ),
+    matrix.integration.shards.full.minimum
+  );
+
+  const workflow = await read('.github/workflows/ci.yml');
+  for (const command of [
+    'pnpm test:dotnet:unit',
+    'pnpm test:dotnet:compatibility',
+    'pnpm test:dotnet:architecture'
+  ]) {
+    assert.match(workflow, new RegExp(command.replaceAll(':', '\\:')));
+  }
+  assert.doesNotMatch(
+    workflow,
+    /--minimum-expected-tests\s+\d+/,
+    'CI 不得复制机器清单中的最低发现数'
+  );
+
+  for (const file of [
     'README.md',
     'docs/development/getting-started.md',
-    '.github/workflows/ci.yml',
-    '.agents/skills/fullnet-module-delivery/references/delivery-map.md'
-  ];
-  const suites = [
-    'Full.NET.UnitTests',
-    'Full.NET.CompatibilityTests',
-    'Full.NET.ArchitectureTests',
-    'Full.NET.IntegrationTests'
-  ];
-  const canonicalThresholds = [];
-  for (const file of canonicalFiles) {
+    'rules/development-quality.md',
+    '.agents/skills/fullnet-module-delivery/references/delivery-map.md',
+    '.agents/skills/fullnet-performance-hardening/references/performance-map.md'
+  ]) {
     const text = await read(file);
-    const thresholds = suites.map(suite => {
-      const pattern = new RegExp(
-        `${suite.replaceAll('.', '\\.')}[\\s\\S]{0,400}?--minimum-expected-tests\\s+(\\d+)`,
-        'g'
-      );
-      const matches = [...text.matchAll(pattern)];
-      assert.ok(matches.length > 0, `${file} 缺少 ${suite} 的测试门槛`);
-      return Math.max(...matches.map(match => Number(match[1])));
-    });
-    canonicalThresholds.push(thresholds);
-  }
-
-  for (const thresholds of canonicalThresholds.slice(1)) {
-    assert.deepEqual(
-      thresholds,
-      canonicalThresholds[0],
-      'README、getting-started、CI 与 Skill delivery-map 的门槛必须一致'
+    assert.match(
+      text,
+      /eng\/testing\/test-matrix\.json/,
+      `${file} 必须引用测试矩阵唯一事实源`
     );
   }
 
-  const auditText = await read('docs/verification/test-threshold-audit-2026-07-19.md');
-  const auditMatches = [...auditText.matchAll(
-    /四处 canonical 门槛[^\n]*\*\*(\d+)\/(\d+)\/(\d+)\/(\d+)\*\*/g
-  )];
-  assert.ok(auditMatches.length > 0, '测试门槛审计缺少 canonical 门槛记录');
-  const latestAuditThresholds = auditMatches.at(-1).slice(1).map(Number);
-  assert.deepEqual(
-    latestAuditThresholds,
-    canonicalThresholds[0],
-    '最新测试门槛审计必须与四个 canonical 来源一致'
+  const qualityRules = await read('rules/development-quality.md');
+  assert.doesNotMatch(
+    qualityRules,
+    /最新 `docs\/verification\/test-threshold-audit-\*\.md`/,
+    '普通测试数量变化不得继续要求人工追加审计长文档'
+  );
+});
+
+test('治理演进和永久文档使用证据触发而不是每任务扩张', async () => {
+  const qualityRules = await read('rules/development-quality.md');
+  const ruleEvolution = await read('rules/rule-evolution.md');
+  const skillEvolution = await read('rules/skill-evolution.md');
+
+  assert.match(qualityRules, /普通功能.*PR/);
+  assert.match(qualityRules, /跨模块或预计超过一个工作日.*计划/);
+  assert.match(qualityRules, /性能基准、安全审计、恢复演练或发布.*Verification/);
+
+  assert.match(ruleEvolution, /触发式复盘/);
+  assert.match(ruleEvolution, /未命中触发条件.*一行/);
+  assert.doesNotMatch(
+    ruleEvolution,
+    /每项开发、修复、重构、审查或合并任务结束前[\s\S]{0,40}必须执行一次规则复盘/
   );
 
-  const qualityRules = await read('rules/development-quality.md');
-  assert.match(
-    qualityRules,
-    /test-threshold-audit/,
-    '开发质量规则必须要求同步最新测试门槛审计记录'
-  );
+  assert.match(skillEvolution, /里程碑集中复盘/);
+  assert.match(skillEvolution, /冻结新增项目 Skill/);
+  assert.doesNotMatch(skillEvolution, /更新命中的候选次数/);
 });

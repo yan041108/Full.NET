@@ -128,11 +128,25 @@ export {
 export type {
   HostUser,
   HostUserPage,
+  HostUserProjectedFields,
   HostUserRoles,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   UpdateHostUserRequest
 } from './host-users.js';
+
+export {
+  isFieldProjectionCatalog,
+  isHostRoleFieldGrants
+} from './field-projections.js';
+
+export type {
+  FieldProjectionDefaultVisibility,
+  FieldProjectionFieldDefinition,
+  FieldProjectionResourceDefinition,
+  FieldProjectionSensitivity,
+  HostRoleFieldGrants
+} from './field-projections.js';
 
 export {
   isHostOnlineSession,
@@ -420,6 +434,16 @@ export type {
 } from './tenant-user-units.js';
 
 export {
+  isOrganizationAssignableUser,
+  isOrganizationAssignableUserPage
+} from './tenant-org-assignable-users.js';
+
+export type {
+  OrganizationAssignableUser,
+  OrganizationAssignableUserPage
+} from './tenant-org-assignable-users.js';
+
+export {
   isOrganizationUserPosition,
   isOrganizationUserPositionPage,
   isUpdateOrganizationUserPositionRequest
@@ -442,11 +466,92 @@ export type {
   OrganizationPosition,
   OrganizationPositionPage,
   CreateOrganizationPositionRequest,
-  UpdateOrganizationPositionRequest
+  UpdateOrganizationPositionRequest,
+  AssignOrganizationPositionUnitRequest,
+  AssignOrganizationPositionLevelRequest
 } from './tenant-org-positions.js';
+
+export {
+  isOrganizationPositionLevel,
+  isOrganizationPositionLevelPage
+} from './tenant-org-position-levels.js';
+
+export type {
+  OrganizationPositionLevel,
+  OrganizationPositionLevelPage,
+  CreateOrganizationPositionLevelRequest,
+  UpdateOrganizationPositionLevelRequest
+} from './tenant-org-position-levels.js';
 
 export type {
   TenantContextDescriptor,
   TenantContextSummary,
   TenantContextTokenResponse
 } from './tenancy.js';
+
+export {
+  isCodeGenerationPreviewRequest,
+  isCodeGenerationPreviewResponse
+} from './code-generation-previews.js';
+
+export {
+  isCodeGenerationTemplatePage,
+  isCodeGenerationTemplateResponse
+} from './code-generation-templates.js';
+
+export {
+  isCodeGenerationRunApplyRequest,
+  isCodeGenerationRunApplyResponse,
+  isCodeGenerationRunPage,
+  isCodeGenerationRunPreviewRequest,
+  isCodeGenerationRunPreviewResponse,
+  isCodeGenerationRunResponse
+} from './code-generation-runs.js';
+
+export type {
+  CodeGenerationRunApplyRequest,
+  CodeGenerationRunApplyResponse,
+  CodeGenerationRunOperationKind,
+  CodeGenerationRunPage,
+  CodeGenerationRunPreviewRequest,
+  CodeGenerationRunPreviewResponse,
+  CodeGenerationRunResponse,
+  CodeGenerationRunStatus
+} from './code-generation-runs.js';
+
+export type {
+  CodeGenerationTemplatePage,
+  CodeGenerationTemplateResponse,
+  CreateCodeGenerationTemplateRequest,
+  DeleteCodeGenerationTemplateRequest,
+  UpdateCodeGenerationTemplateRequest
+} from './code-generation-templates.js';
+
+export {
+  createGridPreferenceRequest,
+  gridPreferenceDefinitionFor,
+  isGridPreferenceResponse
+} from './grid-preferences.js';
+
+export type {
+  GridColumnFixed,
+  GridColumnPreference,
+  GridPreferenceDefinition,
+  GridPreferenceResponse,
+  UpdateGridPreferenceRequest
+} from './grid-preferences.js';
+
+export type {
+  CodeGenerationArtifactKind,
+  CodeGenerationDataScope,
+  CodeGenerationDeleteMode,
+  CodeGenerationEntityCapabilitiesRequest,
+  CodeGenerationOwnershipMode,
+  CodeGenerationPreviewArtifact,
+  CodeGenerationPreviewColumnRequest,
+  CodeGenerationPreviewRequest,
+  CodeGenerationPreviewResponse,
+  CodeGenerationRelationshipRequest,
+  CodeGenerationScalarType,
+  CodeGenerationScene
+} from './code-generation-previews.js';

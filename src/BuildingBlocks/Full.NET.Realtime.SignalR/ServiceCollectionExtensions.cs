@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Full.NET.Realtime.SignalR.Health;
+using OpenTelemetry.Metrics;
 
 namespace Full.NET.Realtime.SignalR;
 
@@ -17,6 +18,42 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration,
         string environmentName)
     {
+        if (AddFullNetRealtimePublisherCore(
+                services,
+                configuration,
+                environmentName,
+                requireRedisBackplane: false))
+        {
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                IPostConfigureOptions<JwtBearerOptions>,
+                JwtBearerSignalRAccessTokenPostConfigure>());
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// 注册不承载 Hub Endpoint 的实时发布能力，供 Worker 通过同一 Redis Backplane 修复推送。
+    /// </summary>
+    public static IServiceCollection AddFullNetRealtimePublisher(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string environmentName)
+    {
+        AddFullNetRealtimePublisherCore(
+            services,
+            configuration,
+            environmentName,
+            requireRedisBackplane: true);
+        return services;
+    }
+
+    private static bool AddFullNetRealtimePublisherCore(
+        IServiceCollection services,
+        IConfiguration configuration,
+        string environmentName,
+        bool requireRedisBackplane)
+    {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
@@ -26,18 +63,22 @@ public static class ServiceCollectionExtensions
         options.RedisBackplaneConnectionString = ResolveRedisBackplaneConnectionString(
             configuration,
             options);
-        Validate(options);
+        Validate(options, requireRedisBackplane);
         services.AddSingleton(Options.Create(options));
 
         if (!options.Enabled)
         {
             services.TryAddSingleton<IRealtimePublisher>(NullRealtimePublisher.Instance);
-            return services;
+            return false;
         }
 
         var signalRBuilder = services
             .AddSignalR()
             .AddMessagePackProtocol();
+        services
+            .AddOpenTelemetry()
+            .WithMetrics(metrics => metrics.AddMeter(
+                RealtimeBackplaneTelemetry.MeterName));
 
         if (!string.IsNullOrWhiteSpace(options.RedisBackplaneConnectionString))
         {
@@ -45,6 +86,9 @@ public static class ServiceCollectionExtensions
                 redisOptions.Configuration = RealtimeRedisConfiguration.Create(
                     options.RedisBackplaneConnectionString,
                     environmentName));
+            services.TryAddSingleton<
+                IRealtimeBackplaneProbe,
+                RealtimeBackplaneProbe>();
             services.AddHealthChecks()
                 .AddCheck<RealtimeBackplaneHealthCheck>(
                     "realtime-backplane",
@@ -52,10 +96,7 @@ public static class ServiceCollectionExtensions
         }
 
         services.AddSingleton<IRealtimePublisher, SignalRRealtimePublisher>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IPostConfigureOptions<JwtBearerOptions>,
-            JwtBearerSignalRAccessTokenPostConfigure>());
-        return services;
+        return true;
     }
 
     private static string? ResolveRedisBackplaneConnectionString(
@@ -71,7 +112,9 @@ public static class ServiceCollectionExtensions
         return string.IsNullOrWhiteSpace(connectionString) ? null : connectionString;
     }
 
-    private static void Validate(RealtimeOptions options)
+    private static void Validate(
+        RealtimeOptions options,
+        bool requireRedisBackplane)
     {
         if (!options.Enabled)
         {
@@ -80,6 +123,11 @@ public static class ServiceCollectionExtensions
 
         if (string.IsNullOrWhiteSpace(options.HubPath)
             || !options.HubPath.StartsWith('/')
+            || options.HubPath.Length == 1
+            || options.HubPath.EndsWith('/')
+            || options.HubPath.Contains(
+                "//",
+                StringComparison.Ordinal)
             || options.HubPath.Contains('?')
             || options.HubPath.Contains('#')
             || options.HubPath.Any(char.IsWhiteSpace))
@@ -89,6 +137,18 @@ public static class ServiceCollectionExtensions
                 typeof(RealtimeOptions),
                 [
                     "Realtime:HubPath must be an absolute path without whitespace, a query string, or a fragment.",
+                ]);
+        }
+
+        if (requireRedisBackplane
+            && string.IsNullOrWhiteSpace(
+                options.RedisBackplaneConnectionString))
+        {
+            throw new OptionsValidationException(
+                RealtimeOptions.SectionName,
+                typeof(RealtimeOptions),
+                [
+                    "Realtime publishing outside the API host requires Realtime:RedisBackplaneConnectionString or ConnectionStrings:redis.",
                 ]);
         }
     }

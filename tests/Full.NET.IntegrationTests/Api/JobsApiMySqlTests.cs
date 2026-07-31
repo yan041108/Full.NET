@@ -14,9 +14,12 @@ public sealed class JobsApiMySqlTests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
             configureTestServices: services =>
+            {
                 JobsBoundedConcurrencyAssertions.ConfigureServices(
                     services,
-                    concurrencyProbe));
+                    concurrencyProbe);
+                JobsRetrySchedulingAssertions.ConfigureServices(services);
+            });
 
         await JobsHostDefinitionAssertions.VerifyAsync(
             factory,

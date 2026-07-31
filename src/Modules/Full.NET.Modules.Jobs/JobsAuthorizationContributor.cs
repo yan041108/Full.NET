@@ -19,6 +19,14 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             HostJobPermissions.ExecutionsRead,
             "查询任务执行记录",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.SchedulesRead,
+            "查询任务计划",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.SchedulesWrite,
+            "管理任务计划",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =

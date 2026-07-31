@@ -15,7 +15,7 @@ import type { FullNetProblemDetails, HostRole, HostUser } from '@fullnet/client-
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { createHostUser, disableHostUser, enableHostUser, getHostUserRoles, listHostUsers, replaceHostUserRoles, resetHostUserPassword, updateHostUser } from '../api/users';
+import { createHostUser, disableHostUser, enableHostUser, exportHostUsers, getHostUserRoles, listHostUsers, replaceHostUserRoles, resetHostUserPassword, updateHostUser } from '../api/users';
 import { listHostRoles } from '../api/roles';
 
 const session = useSessionStore();
@@ -33,6 +33,7 @@ const assignableRoles = ref<HostRole[]>([]);
 const selectedRoleIds = ref<string[]>([]);
 const rolesVersion = ref(0);
 const canWrite = computed(() => session.can('identity.users.write'));
+const canExport = computed(() => session.can('identity.users.export'));
 
 onMounted(load);
 
@@ -66,6 +67,26 @@ async function create(): Promise<void> {
     password.value = '';
     ElMessage.success(t('users.createSuccess'));
     await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function exportUsers(): Promise<void> {
+  if (changing.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const rows = await exportHostUsers();
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'host-users.json';
+    link.click();
+    URL.revokeObjectURL(url);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'users.operationFailed');
   } finally {
@@ -258,6 +279,9 @@ function toProblem(
         <div class="art-table-card__header">
           <h2>{{ t('users.directoryTitle') }}</h2>
           <span class="art-table-card__count">{{ users.length }}</span>
+          <el-button v-if="canExport" plain :disabled="changing" @click="exportUsers">
+            {{ t('users.export') }}
+          </el-button>
         </div>
       </template>
 
@@ -267,6 +291,15 @@ function toProblem(
         <div class="art-data-row__main">
           <strong translate="no">{{ user.displayName }}</strong>
           <code translate="no">{{ user.username }}</code>
+          <small v-if="user.projectedFields?.effectiveFieldKeys.includes('preferred_locale')">
+            locale: <code translate="no">{{ user.projectedFields.preferredLocale ?? '—' }}</code>
+          </small>
+          <small v-if="user.projectedFields?.effectiveFieldKeys.includes('failed_login_count')">
+            failed-login: {{ user.projectedFields.failedLoginCount ?? 0 }}
+          </small>
+          <small v-if="user.projectedFields?.effectiveFieldKeys.includes('lockout_end_utc')">
+            lockout: <time translate="no">{{ user.projectedFields.lockoutEndUtc ?? '—' }}</time>
+          </small>
         </div>
         <el-tag :type="user.isActive ? 'success' : 'info'">
           {{ t(user.isActive ? 'users.active' : 'users.inactive') }}

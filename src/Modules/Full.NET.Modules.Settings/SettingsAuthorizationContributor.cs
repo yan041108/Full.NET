@@ -28,6 +28,14 @@ internal sealed class SettingsAuthorizationContributor
             EnumCatalogPermissions.Read,
             "查询枚举与常量目录",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenantDictTypeManagementPermissions.Read,
+            "查询租户数据字典",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            TenantDictTypeManagementPermissions.Write,
+            "管理租户数据字典",
+            AuthorizationScope.Tenant),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -65,5 +73,16 @@ internal sealed class SettingsAuthorizationContributor
             "list",
             52,
             EnumCatalogPermissions.Read),
+        new NavigationDefinition(
+            "tenant-dict-types",
+            null,
+            "tenant-dict-types",
+            "/settings/tenant-dict-types",
+            "tenant-dict-types",
+            "租户数据字典",
+            "Tenant Dictionaries",
+            "collection",
+            53,
+            TenantDictTypeManagementPermissions.Read),
     ];
 }

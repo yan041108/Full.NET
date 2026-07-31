@@ -382,6 +382,82 @@
             </section>
           </main>
 
+          <main data-route-view="tenant-dict-types" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="dictTypes.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="dictTypes.title"></h1>
+                <span data-i18n="dictTypes.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-tenant-dict-types-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-tenants__create"
+              data-tenant-dict-types-create-form
+              data-permission="settings.tenant_dict_types.write"
+            >
+              <div><small>01</small><h2 data-i18n="dictTypes.createTitle"></h2></div>
+              <label>
+                <span data-i18n="dictTypes.code"></span>
+                <input class="layui-input" name="code" autocomplete="off" required data-i18n-placeholder="dictTypes.codePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="dictTypes.name"></span>
+                <input class="layui-input" name="name" autocomplete="off" required data-i18n-placeholder="dictTypes.namePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="dictTypes.descriptionLabel"></span>
+                <input class="layui-input" name="description" autocomplete="off" data-i18n-placeholder="dictTypes.descriptionPlaceholder">
+              </label>
+              <label>
+                <span data-i18n="dictTypes.displayOrder"></span>
+                <input class="layui-input" name="displayOrder" type="number" value="0" autocomplete="off">
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="dictTypes.create"></button>
+            </form>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="dictTypes.directoryTitle"></h2></div></header>
+              <div data-tenant-dict-types-directory></div>
+            </section>
+            <section class="fn-tenants__ledger" data-tenant-dict-items-panel hidden>
+              <header>
+                <div>
+                  <small>03</small>
+                  <h2 data-tenant-dict-items-panel-title data-i18n="dictItems.directoryTitle"></h2>
+                </div>
+                <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" data-tenant-dict-items-close data-i18n="dictItems.close"></button>
+              </header>
+              <form
+                class="fn-tenants__create"
+                data-tenant-dict-items-create-form
+                data-permission="settings.tenant_dict_types.write"
+                hidden
+              >
+                <div><small>01</small><h3 data-i18n="dictItems.createTitle"></h3></div>
+                <label>
+                  <span data-i18n="dictItems.label"></span>
+                  <input class="layui-input" name="label" autocomplete="off" required data-i18n-placeholder="dictItems.labelPlaceholder">
+                </label>
+                <label>
+                  <span data-i18n="dictItems.value"></span>
+                  <input class="layui-input" name="value" autocomplete="off" required data-i18n-placeholder="dictItems.valuePlaceholder">
+                </label>
+                <label>
+                  <span data-i18n="dictItems.color"></span>
+                  <input class="layui-input" name="color" autocomplete="off" data-i18n-placeholder="dictItems.colorPlaceholder">
+                </label>
+                <label>
+                  <span data-i18n="dictItems.displayOrder"></span>
+                  <input class="layui-input" name="displayOrder" type="number" value="0" autocomplete="off">
+                </label>
+                <button class="layui-btn" type="submit" data-i18n="dictItems.create"></button>
+              </form>
+              <div data-tenant-dict-items-directory></div>
+            </section>
+          </main>
+
           <main data-route-view="config-entries" class="fn-tenants" hidden>
             <section class="fn-tenants__heading">
               <div>
@@ -606,6 +682,172 @@
             </section>
           </main>
 
+          <main
+            data-route-view="code-generation-previews"
+            class="fn-codegen"
+            hidden
+          >
+            <section class="fn-codegen__heading">
+              <div>
+                <p data-i18n="codeGeneration.eyebrow"></p>
+                <h1
+                  data-route-heading
+                  tabindex="-1"
+                  data-i18n="codeGeneration.title"
+                ></h1>
+                <span data-i18n="codeGeneration.description"></span>
+              </div>
+              <aside>
+                <i aria-hidden="true"></i>
+                <strong data-i18n="codeGeneration.readOnly"></strong>
+                <small data-i18n="codeGeneration.readOnlyHint"></small>
+              </aside>
+            </section>
+            <div
+              class="fn-context-problem"
+              data-codegen-problem
+              role="alert"
+              hidden
+            >
+              <strong translate="no"></strong><span></span>
+            </div>
+            <section
+              class="fn-codegen__panel"
+              data-codegen-templates
+            >
+              <header>
+                <div>
+                  <small>00</small>
+                  <h2 data-i18n="codeGeneration.templatesTitle"></h2>
+                </div>
+              </header>
+              <div
+                data-codegen-template-directory
+                data-permission="codegen.templates.read"
+              ></div>
+              <form
+                data-codegen-template-form
+                data-permission="codegen.templates.write"
+              >
+                <input
+                  name="templateName"
+                  maxlength="128"
+                  data-i18n-placeholder="codeGeneration.templateName"
+                />
+                <textarea
+                  name="templateDescription"
+                  rows="2"
+                  maxlength="512"
+                  data-i18n-placeholder="codeGeneration.templateDescription"
+                ></textarea>
+                <button
+                  class="layui-btn"
+                  type="submit"
+                  data-i18n="codeGeneration.templateSave"
+                ></button>
+                <button
+                  class="layui-btn layui-btn-primary"
+                  type="button"
+                  data-codegen-template-update
+                  data-i18n="codeGeneration.templateUpdate"
+                ></button>
+                <button
+                  class="layui-btn layui-btn-danger"
+                  type="button"
+                  data-codegen-template-delete
+                  data-i18n="codeGeneration.templateDelete"
+                ></button>
+              </form>
+            </section>
+            <div class="fn-codegen__grid">
+              <form class="fn-codegen__panel" data-codegen-form>
+                <header>
+                  <div>
+                    <small>01</small>
+                    <h2 data-i18n="codeGeneration.schemaTitle"></h2>
+                  </div>
+                  <code>JSON · ≤128</code>
+                </header>
+                <textarea
+                  name="schema"
+                  rows="26"
+                  spellcheck="false"
+                  data-i18n-aria-label="codeGeneration.schemaTitle"
+                >{
+  "ownerKey": "acme",
+  "moduleKey": "catalog",
+  "entityKey": "product",
+  "databaseTableName": "acme_catalog_product",
+  "rootNamespace": "Acme.Modules.Catalog",
+  "clrTypeName": "Product",
+  "apiResourceName": "products",
+  "permissionResourceName": "products",
+  "dataScope": "TenantRequired",
+  "hasVersion": true,
+  "columns": [
+    { "databaseName": "Id", "clrPropertyName": "Id", "jsonPropertyName": "id", "scalarType": "Uuid", "isNullable": false, "maxLength": null, "numericPrecision": null, "numericScale": null },
+    { "databaseName": "TenantId", "clrPropertyName": "TenantId", "jsonPropertyName": "tenantId", "scalarType": "Uuid", "isNullable": false, "maxLength": null, "numericPrecision": null, "numericScale": null },
+    { "databaseName": "Name", "clrPropertyName": "Name", "jsonPropertyName": "displayName", "scalarType": "String", "isNullable": false, "maxLength": 200, "numericPrecision": null, "numericScale": null },
+    { "databaseName": "IsActive", "clrPropertyName": "IsActive", "jsonPropertyName": "isActive", "scalarType": "Boolean", "isNullable": false, "maxLength": null, "numericPrecision": null, "numericScale": null },
+    { "databaseName": "Version", "clrPropertyName": "Version", "jsonPropertyName": "version", "scalarType": "Int64", "isNullable": false, "maxLength": null, "numericPrecision": null, "numericScale": null }
+  ]
+}</textarea>
+                <footer>
+                  <span data-i18n="codeGeneration.explicitScopeHint"></span>
+                  <button
+                    class="layui-btn"
+                    type="submit"
+                    data-permission="codegen.runs.execute"
+                    data-i18n="codeGeneration.preview"
+                  ></button>
+                  <button
+                    class="layui-btn layui-btn-danger layui-btn-primary"
+                    type="button"
+                    data-codegen-apply
+                    data-permission="codegen.runs.apply"
+                    data-i18n="codeGeneration.apply"
+                    disabled
+                  ></button>
+                </footer>
+              </form>
+              <section class="fn-codegen__panel fn-codegen__output">
+                <header>
+                  <div>
+                    <small>02</small>
+                    <h2 data-i18n="codeGeneration.artifactsTitle"></h2>
+                  </div>
+                </header>
+                <div class="fn-codegen__summary" data-codegen-summary></div>
+                <div class="fn-codegen__browser">
+                  <nav
+                    data-codegen-artifacts
+                    data-i18n-aria-label="codeGeneration.artifactsTitle"
+                  ></nav>
+                  <pre
+                    data-codegen-content
+                    tabindex="0"
+                    data-i18n-aria-label="codeGeneration.artifactsTitle"
+                  ><code translate="no"></code></pre>
+                </div>
+              </section>
+            </div>
+            <section
+              class="fn-codegen__panel"
+              data-permission="codegen.runs.read"
+            >
+              <header>
+                <div>
+                  <small>03</small>
+                  <h2 data-i18n="codeGeneration.runHistoryTitle"></h2>
+                </div>
+              </header>
+              <div
+                class="fn-codegen__runs"
+                data-codegen-run-history
+              ></div>
+            </section>
+          </main>
+
           <main data-route-view="access-logs" class="fn-tenants" hidden>
             <section class="fn-tenants__heading">
               <div>
@@ -750,7 +992,15 @@
               ></button>
             </section>
             <section class="fn-tenants__ledger">
-              <header><div><small>02</small><h2 data-i18n="apiKeys.listTitle"></h2></div></header>
+              <header>
+                <div><small>02</small><h2 data-i18n="apiKeys.listTitle"></h2></div>
+                <button
+                  class="layui-btn layui-btn-primary layui-btn-sm"
+                  type="button"
+                  data-api-keys-refresh
+                  data-i18n="apiKeys.refresh"
+                ></button>
+              </header>
               <div data-api-keys-directory></div>
             </section>
           </main>
@@ -787,7 +1037,7 @@
               <button class="layui-btn" type="submit" data-i18n="users.create"></button>
             </form>
             <section class="fn-users__ledger">
-              <header><div><small>02</small><h2 data-i18n="users.directoryTitle"></h2></div></header>
+              <header><div><small>02</small><h2 data-i18n="users.directoryTitle"></h2></div><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" data-users-export data-i18n="users.export"></button></header>
               <div data-users-directory></div>
             </section>
           </main>
@@ -940,6 +1190,39 @@
             </section>
           </main>
 
+          <main data-route-view="org-position-levels" class="fn-org-units" hidden>
+            <section class="fn-org-units__heading">
+              <div>
+                <p data-i18n="orgPositionLevels.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="orgPositionLevels.title"></h1>
+                <span data-i18n="orgPositionLevels.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-org-position-levels-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <form
+              class="fn-org-units__create"
+              data-org-position-levels-create-form
+              data-permission="organization.position_levels.write"
+            >
+              <div><small>01</small><h2 data-i18n="orgPositionLevels.createTitle"></h2></div>
+              <label>
+                <span data-i18n="orgPositionLevels.code"></span>
+                <input class="layui-input" name="code" autocomplete="off" required data-i18n-placeholder="orgPositionLevels.codePlaceholder">
+              </label>
+              <label>
+                <span data-i18n="orgPositionLevels.name"></span>
+                <input class="layui-input" name="name" autocomplete="off" required data-i18n-placeholder="orgPositionLevels.namePlaceholder">
+              </label>
+              <button class="layui-btn" type="submit" data-i18n="orgPositionLevels.create"></button>
+            </form>
+            <section class="fn-org-units__ledger">
+              <header><div><small>02</small><h2 data-i18n="orgPositionLevels.directoryTitle"></h2></div></header>
+              <div data-org-position-levels-directory></div>
+            </section>
+          </main>
+
           <main data-route-view="org-user-units" class="fn-org-user-units" hidden>
             <section class="fn-org-user-units__heading">
               <div>
@@ -960,6 +1243,13 @@
               <label>
                 <span data-i18n="orgUserUnits.user"></span>
                 <select class="layui-input" name="userId" data-org-user-units-user required></select>
+                <button
+                  type="button"
+                  class="layui-btn layui-btn-primary layui-btn-sm"
+                  data-org-user-units-load-more-users
+                  data-i18n="orgUserUnits.loadMoreUsers"
+                  hidden
+                ></button>
               </label>
               <label>
                 <span data-i18n="orgUserUnits.unit"></span>
@@ -997,6 +1287,13 @@
               <label>
                 <span data-i18n="orgUserPositions.user"></span>
                 <select class="layui-input" name="userId" data-org-user-positions-user required></select>
+                <button
+                  type="button"
+                  class="layui-btn layui-btn-primary layui-btn-sm"
+                  data-org-user-positions-load-more-users
+                  data-i18n="orgUserPositions.loadMoreUsers"
+                  hidden
+                ></button>
               </label>
               <label>
                 <span data-i18n="orgUserPositions.position"></span>

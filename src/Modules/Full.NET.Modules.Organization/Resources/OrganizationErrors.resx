@@ -14,4 +14,6 @@
   <data name="organization.user_positions.user_not_found" xml:space="preserve"><value>未找到指定的 Host 用户。</value></data>
   <data name="organization.positions.code_exists" xml:space="preserve"><value>该租户职位编码已存在。</value></data>
   <data name="organization.positions.not_found" xml:space="preserve"><value>未找到指定的职位。</value></data>
+  <data name="organization.position_levels.code_exists" xml:space="preserve"><value>该租户职级编码已存在。</value></data>
+  <data name="organization.position_levels.not_found" xml:space="preserve"><value>未找到指定的职级。</value></data>
 </root>

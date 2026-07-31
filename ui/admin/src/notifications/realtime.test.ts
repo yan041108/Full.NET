@@ -27,6 +27,26 @@ describe('Vue Notifications 实时状态', () => {
     await state.dispose();
   });
 
+  it('将管理端解析后的 API Hub 地址传给共享 SignalR 客户端', async () => {
+    const session = createSession();
+    const realtimeFactory = vi.fn(() => ({
+      whenSettled: async () => undefined,
+      dispose: async () => undefined
+    }));
+    const hubPath = 'http://localhost:5149/hubs/notifications';
+
+    const state = createVueNotificationsRealtime({
+      session,
+      hubPath,
+      realtimeFactory
+    });
+
+    expect(realtimeFactory).toHaveBeenCalledWith(expect.objectContaining({
+      hubPath
+    }));
+    await state.dispose();
+  });
+
   it('同步初始未读数并按稳定消息推进页面修订号', async () => {
     const session = createSession();
     const loadUnreadCount = vi.fn().mockResolvedValue({ unreadCount: 4 });
@@ -109,6 +129,67 @@ describe('Vue Notifications 实时状态', () => {
       data: { unreadCount: -1 }
     });
     expect(state.unreadCount.value).toBe(7);
+    await state.dispose();
+  });
+
+  it('SignalR 重连后补拉未读数并刷新当前收件箱', async () => {
+    const session = createSession();
+    const loadUnreadCount = vi.fn()
+      .mockResolvedValueOnce({ unreadCount: 2 })
+      .mockResolvedValueOnce({ unreadCount: 6 });
+    let onReconnected: (() => void | Promise<void>) | undefined;
+    const state = createVueNotificationsRealtime({
+      session,
+      loadUnreadCount,
+      realtimeFactory: options => {
+        onReconnected = (options as NotificationsRealtimeOptions & {
+          onReconnected?: () => void | Promise<void>;
+        }).onReconnected;
+        return {
+          whenSettled: async () => undefined,
+          dispose: async () => undefined
+        };
+      }
+    });
+
+    session.publish(authenticatedSnapshot());
+    await state.whenSettled();
+    await onReconnected?.();
+    await state.whenSettled();
+
+    expect(loadUnreadCount).toHaveBeenCalledTimes(2);
+    expect(state.unreadCount.value).toBe(6);
+    expect(state.inboxRevision.value).toBe(1);
+    await state.dispose();
+  });
+
+  it('SignalR 重连后的补拉失败保持现有状态且不传播异常', async () => {
+    const session = createSession();
+    const loadUnreadCount = vi.fn()
+      .mockResolvedValueOnce({ unreadCount: 3 })
+      .mockRejectedValueOnce(new Error('offline'));
+    let onReconnected: (() => void | Promise<void>) | undefined;
+    const state = createVueNotificationsRealtime({
+      session,
+      loadUnreadCount,
+      realtimeFactory: options => {
+        onReconnected = (options as NotificationsRealtimeOptions & {
+          onReconnected?: () => void | Promise<void>;
+        }).onReconnected;
+        return {
+          whenSettled: async () => undefined,
+          dispose: async () => undefined
+        };
+      }
+    });
+
+    session.publish(authenticatedSnapshot());
+    await state.whenSettled();
+    await expect(onReconnected?.()).resolves.toBeUndefined();
+    await state.whenSettled();
+
+    expect(state.unreadCount.value).toBe(3);
+    expect(state.inboxRevision.value).toBe(0);
     await state.dispose();
   });
 });

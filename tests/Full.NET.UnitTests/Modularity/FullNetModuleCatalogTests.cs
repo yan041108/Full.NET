@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Composition;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.CodeGeneration;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Jobs;
@@ -9,6 +10,7 @@ using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Settings;
+using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Seeding.Abstractions;
@@ -43,14 +45,19 @@ public sealed class FullNetModuleCatalogTests
             {
                 typeof(IdentityModule),
                 typeof(AuditingModule),
+                typeof(CodeGenerationModule),
                 typeof(FilesModule),
                 typeof(JobsModule),
                 typeof(NotificationsModule),
                 typeof(TenancyModule),
                 typeof(OrganizationModule),
+                typeof(SerialNumbersModule),
                 typeof(SettingsModule),
             },
-            modules);
+            modules,
+            string.Join(
+                Environment.NewLine,
+                modules.Select(module => module.FullName)));
     }
 
     [TestMethod]

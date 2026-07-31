@@ -8,11 +8,12 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createHostApiKey,
   disableHostApiKey,
-  listHostApiKeys
+  listHostApiKeys,
+  rotateHostApiKey
 } from '../api/api-keys';
 
 const session = useSessionStore();
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
 const items = ref<HostApiKey[]>([]);
 const userId = ref('');
 const displayName = ref('');
@@ -25,6 +26,17 @@ const problem = ref<FullNetProblemDetails>();
 const canWrite = computed(() => session.can('identity.api_keys.write'));
 
 onMounted(load);
+
+function formatLastUsed(value: string | null | undefined): string {
+  if (!value) {
+    return t('apiKeys.never');
+  }
+
+  return new Intl.DateTimeFormat(locale.value, {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  }).format(new Date(value));
+}
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -76,6 +88,33 @@ async function copySecret(): Promise<void> {
     ElMessage.success(t('apiKeys.copySuccess'));
   } catch (error: unknown) {
     problem.value = toProblem(error);
+  }
+}
+
+async function rotate(item: HostApiKey): Promise<void> {
+  if (changing.value || !item.isActive) return;
+  try {
+    await ElMessageBox.confirm(
+      t('apiKeys.confirmRotate', { name: item.displayName }),
+      t('apiKeys.rotate'),
+      {
+        type: 'warning',
+        confirmButtonText: t('apiKeys.rotate'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    changing.value = true;
+    problem.value = undefined;
+    secret.value = '';
+    const result = await rotateHostApiKey(item.id);
+    secret.value = result.secret;
+    ElMessage.success(t('apiKeys.rotateSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') return;
+    problem.value = toProblem(error);
+  } finally {
+    changing.value = false;
   }
 }
 
@@ -184,6 +223,14 @@ function toProblem(
         <div class="art-table-card__header">
           <h2>{{ t('apiKeys.listTitle') }}</h2>
           <span class="art-table-card__count">{{ items.length }}</span>
+          <ElButton
+            plain
+            data-testid="api-keys-refresh"
+            :loading="loading"
+            @click="load"
+          >
+            {{ t('apiKeys.refresh') }}
+          </ElButton>
         </div>
       </template>
       <p v-if="items.length === 0" class="art-empty-state">{{ t('apiKeys.emptyList') }}</p>
@@ -194,12 +241,15 @@ function toProblem(
           <small>{{ t('apiKeys.prefix') }}: <code translate="no">{{ item.keyPrefix }}</code></small>
           <small>{{ t('apiKeys.permissions') }}: {{ item.permissions.join(', ') }}</small>
           <small>{{ t('apiKeys.expiresAt') }}: {{ item.expiresAtUtc ?? t('apiKeys.noExpiration') }}</small>
-          <small>{{ t('apiKeys.lastUsedAt') }}: {{ item.lastUsedAtUtc ?? t('apiKeys.never') }}</small>
+          <small>{{ t('apiKeys.lastUsedAt') }}: {{ formatLastUsed(item.lastUsedAtUtc) }}</small>
           <ElTag :type="item.isActive ? 'success' : 'info'">
             {{ item.isActive ? t('apiKeys.statusActive') : t('apiKeys.statusDisabled') }}
           </ElTag>
         </div>
         <div v-if="canWrite && item.isActive" class="art-data-row__actions">
+          <ElButton plain :disabled="changing" @click="rotate(item)">
+            {{ t('apiKeys.rotate') }}
+          </ElButton>
           <ElButton type="danger" plain :disabled="changing" @click="disable(item)">
             {{ t('apiKeys.disable') }}
           </ElButton>

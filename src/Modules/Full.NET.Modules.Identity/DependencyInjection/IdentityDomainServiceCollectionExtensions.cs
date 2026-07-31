@@ -10,7 +10,9 @@ using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
+using Full.NET.Modules.Identity.Features.ManageHostRoleFieldGrants;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
+using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Resources;
@@ -43,6 +45,9 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();
         services.TryAddScoped<HostRoleDataScopeService>();
+        services.TryAddSingleton(_ => FieldProjectionCatalog.CreateDefault());
+        services.TryAddScoped<IUserFieldProjectionResolver, UserFieldProjectionResolver>();
+        services.TryAddScoped<HostRoleFieldGrantService>();
         services.TryAddScoped<HostMenuQueryService>();
         services.TryAddScoped<HostMenuManagementService>();
         services.TryAddScoped<HostOnlineSessionQueryService>();
@@ -56,6 +61,9 @@ internal static class IdentityDomainServiceCollectionExtensions
             provider.GetRequiredService<HostUsers.HostUserDirectory>());
         services.TryAddScoped<IHostUserDisplayDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostUserDirectory>());
+        services.TryAddScoped<
+            IHostUserSelectionDirectory,
+            HostUsers.HostUserSelectionDirectory>();
         services.TryAddScoped<HostNavigationDefinitionLoader>();
         services.AddFullNetFluentValidation();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();

@@ -47,6 +47,18 @@ internal sealed class IdentityAuthorizationContributor
             "管理 Host 角色",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityUserManagementPermissions.Export,
+            "导出 Host 用户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleFieldGrantPermissions.Read,
+            "读取角色字段授权",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleFieldGrantPermissions.Write,
+            "管理角色字段授权",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityMenuManagementPermissions.Read,
             "查看 Host 菜单",
             AuthorizationScope.Host),

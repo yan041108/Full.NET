@@ -1,0 +1,48 @@
+#nullable enable
+
+using Dapper;
+using Full.NET.IntegrationTests;
+using Microsoft.Data.SqlClient;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using MySqlConnector;
+
+namespace Acme.Modules.Catalog.Generated.Tests;
+
+// 采用说明：先为成对 SQL 草案分配同一迁移编号并移入正式目录，再移除 .template 后缀。
+[TestClass]
+public sealed class ProductMigrationIntegrationTests
+{
+    [TestMethod]
+    public async Task SqlServer_migration_exposes_the_expected_table_shape()
+    {
+        var connectionString =
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        await using var connection = new SqlConnection(connectionString);
+        var columnCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo'
+              AND TABLE_NAME = 'acme_catalog_product'
+            """);
+
+        Assert.AreEqual(7, columnCount);
+    }
+
+    [TestMethod]
+    public async Task MySql_migration_exposes_the_expected_table_shape()
+    {
+        var connectionString =
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+        await using var connection = new MySqlConnection(connectionString);
+        var columnCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'acme_catalog_product'
+            """);
+
+        Assert.AreEqual(7, columnCount);
+    }
+}

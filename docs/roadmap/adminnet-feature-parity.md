@@ -2,9 +2,12 @@
 
 - 基线仓库：`G:\wwwroot\github_fork\Admin.NET.Pro`
 - 基线分支：`v2.1`
+- 基线提交：`3879b035791b4603e734c15e7c316e0aeca32f1b`（2026-07-13）
 - 建立日期：2026-07-17
 - 目标：Admin.NET.Pro 的适用功能原则上在 Full.NET 中全量对标
 - 当前能力总览：[`capability-status.md`](capability-status.md)
+- 源码设计复核：[`adminnet-source-design-absorption-review-2026-07-30.md`](../verification/adminnet-source-design-absorption-review-2026-07-30.md)
+- 吸收改造计划：[`2026-07-30-adminnet-design-absorption-program.md`](../superpowers/plans/2026-07-30-adminnet-design-absorption-program.md)
 
 ## 1. 对标定义
 
@@ -32,6 +35,15 @@
 
 本矩阵表达长期功能范围，不等于当前可用清单。当前真正落地的业务范围、验证级别和近期缺口以 `capability-status.md` 为唯一总览；任何公开介绍不得把大量 `Mapped` 行合计为“已具备完整后台能力”。
 
+源码设计按四级处理：
+
+- `A / 优先吸收`：产品价值明确，能够按现有 Full.NET 边界形成独立纵向切片；
+- `B / 重构吸收`：保留业务语义，但必须先解决安全、事务、租户或模块边界；
+- `C / 兼容隔离`：只进入 Compatibility、Provider 或受控工具；
+- `D / 拒绝原实现`：不复制会削弱 Full.NET 不变量的机制，只保留等价业务目标。
+
+当前优先顺序为：代码生成实体能力与场景策略，列显示个性化和流水号，Jobs 触发器与 Files Provider，字段投影授权与请求签名，审计和模块目录，最后才是大型插件与动态兼容能力。该顺序只表达实施依赖，不改变下表任何能力状态。
+
 ## 2. README 内置功能基线
 
 | Admin.NET.Pro 功能 | Full.NET 归属 | 形态 | 计划 | 状态 |
@@ -43,8 +55,8 @@
 | 用户管理 | Identity | Core | M2 | Implementing（Host 列表/创建/禁用/启用/重置密码已交付；[验证记录](../verification/identity-user-management-2026-07-21.md)、[重置密码](../verification/identity-host-user-reset-password-2026-07-25.md)、[启用](../verification/identity-host-user-enable-2026-07-25.md)） |
 | 租户管理 | Tenancy | Core | M2 | **Build-verified**（Host 列表/开通/更新/禁用；[验证记录](../verification/tenancy-host-tenant-management-2026-07-23.md)） |
 | 机构管理 | Organization | Core | M2 | **Build-verified**（租户机构树 CRUD；见[验证记录](../verification/organization-unit-management-2026-07-21.md)） |
-| 职位管理 | Organization | Core | M2 | **Build-verified**（租户职位 CRUD；见[验证记录](../verification/organization-position-2026-07-25.md)） |
-| 用户职位隶属 | Organization | Core | M2 | **Build-verified**（租户用户-职位分配；见[验证记录](../verification/organization-user-position-assignment-2026-07-25.md)） |
+| 职位管理 | Organization | Core | M2 | **Build-verified**（租户职位 CRUD、机构与职级绑定/解绑、职级目录 CRUD、双库 Integration、双端 parity 及双库双端真实栈写入；完整 `main` CI 与发布前人工验收待补） |
+| 用户职位隶属 | Organization | Core | M2 | **Build-verified**（租户用户-职位分配；正式可分配 Host 用户候选目录支持双库分页、精确写权限与双端按需加载；双管理端、双数据库真实栈分配/设主/取消/API 回读已通过；见[验证记录](../verification/organization-user-position-assignment-2026-07-25.md)） |
 | 菜单与按钮权限管理 | Identity | Core | M2 | Build-verified（[菜单验证](../verification/identity-menu-management-2026-07-21.md)；按钮权限仍非目标） |
 | 角色与数据授权 | Identity + Organization | Core | M2 | **Build-verified**（Host 角色/权限/数据范围、用户-角色分配与运行时机构过滤；[验证记录](../verification/identity-role-data-authorization-2026-07-26.md)、[收口计划](../superpowers/plans/2026-07-26-identity-role-data-authorization-parity-closure.md)） |
 | 字典管理 | Settings | Core | M3 | **Build-verified**（字典类型 + 字典项 Host CRUD 与双端 UI；见[验证记录](../verification/settings-dictionary-2026-07-25.md)、[类型切片](../superpowers/plans/2026-07-25-settings-dictionary-vertical-slice.md)、[项 UI 切片](../superpowers/plans/2026-07-25-settings-dict-items-ui-vertical-slice.md)） |
@@ -53,12 +65,12 @@
 | 服务监控 | Observability Admin | Official Module | M5+ | Mapped |
 | 在线用户与强制下线 | Identity + Notifications | Core | M2 | **Build-verified**（Host 在线会话列表与强制下线；[验证记录](../verification/identity-host-online-sessions-2026-07-26.md)） |
 | 公告与 SignalR 通知 | Realtime + Notifications | Core | M2/M3 | **Build-verified**（Host 公告草稿/发布 + `IRealtimePublisher` 广播；[验证记录](../verification/notifications-host-announcement-2026-07-26.md)） |
-| 文件与对象存储 | Files + Storage Providers | Core + Provider | M3/M5+ | **Build-verified**（Host 文件元数据上传/列表/下载/删除与本地存储；[验证记录](../verification/files-host-file-metadata-2026-07-26.md)） |
-| 任务调度 | Jobs | Core | M3 | **Build-verified**（Host 任务定义 CRUD、手动触发、`jobs.ping` 处理器与 Worker 轮询；[验证记录](../verification/jobs-host-definitions-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-jobs-host-definitions-vertical-slice.md)） |
+| 文件与对象存储 | Files + Storage Providers | Core + Provider | M3/M5+ | **Build-verified**（Host 文件元数据上传/列表/下载/删除；稳定 `ProviderKey` 持久化与注册表；下载、补偿及墓碑清理按记录路由；当前仅本地 Provider；[验证记录](../verification/files-storage-provider-boundary-2026-08-01.md)） |
+| 任务调度 | Jobs | Core | M3 | **Build-verified**（Host 任务定义 CRUD、手动/一次性/Cron 触发、IANA/Windows 时区规范化、`skip`/`fire_once`、暂停恢复、执行历史关联与 Worker 原子物化；SQL Server/MySQL `040_JobsSchedules` 恢复及双库纵向切片通过；见[计划调度验证](../verification/jobs-schedules-2026-07-31.md)、[基础验证](../verification/jobs-host-definitions-2026-07-26.md)） |
 | 系统配置 | Settings | Core | M3 | **Build-verified**（Host 配置项 CRUD 与双端 UI；见[验证记录](../verification/settings-system-config-2026-07-25.md)、[实施计划](../superpowers/plans/2026-07-25-settings-system-config-vertical-slice.md)） |
 | 邮件与短信 | Notifications Providers | Provider | M5+ | Mapped |
 | Swagger、OpenAPI 和接口文档 | Hosting | Core | M1 | **Build-verified**（OpenAPI 元数据、Bearer JWT、Scalar UI 与双端入口；[验证记录](../verification/platform-openapi-documentation-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-platform-openapi-documentation-vertical-slice.md)） |
-| 前后端代码生成 | CodeGeneration | Core | P0 Naming Profile/命名内核；M3 首个纵向样例 | Implementing |
+| 前后端代码生成 | CodeGeneration | Core | P0 Naming Profile/命名内核；M3 首个纵向样例 | Implementing（统一 `FullNetCrudSchema`、显式 Tenant/Host/Global 作用域、Product 确定性跨栈产物、后端 CRUD 骨架、Vue/Layui 页面模型、成对双库迁移草案、最小双 Provider 集成测试草案及安全预览/应用 CLI 已完成；Decimal precision/scale 已从严格 JSON 与双库元数据贯通到报告和迁移草案；双库基础表目录已可只读扫描并排除视图；严格逐表语义映射、单连接多表导入、合并工作区批量预览和独立显式批量 Apply 已完成双库验证；整批写盘复用同一 Manifest 所有权、冲突零写入、原子提交与 committed tombstone；模块接入已提供严格显式目标驱动的只读影响计划，缺失项目、入口、Composition、路由或客户端适配文件会保守阻塞；后端产物可通过系统临时投影执行真实 Release 编译，也可由独立 `apply-module-integration` 在编译通过后按实体目录原子写盘、保留同模块其他实体所有权并幂等重入；模块级聚合注册桥会按全部受管实体确定性重建；`apply-module-entry-integration`、`apply-composition-integration` 与可选 `apply-client-route-integration` 均保持显式目标、先编译后提交和幂等重入；Host-only 管理模块现已提供严格预览、模板持久化、可信审计、乐观并发与软删除 API，`044_CodeGenerationTemplate` 已完成双库恢复验证；受跟踪预览现以独立 read/execute 权限写入不可变无源码摘要，`045_CodeGenerationRun` 已完成双库恢复，运行目录使用单往返分页；Host 受控 Apply 以独立权限、默认禁用的运维工作区和 `046_CodeGenerationApply` 双库状态机完成 Vue/Layui 真实栈验证，并在工作区修改前持久化不可覆盖、可校验的本地回滚证据，见[Host Apply 验证](../verification/codegeneration-host-apply-2026-07-31.md)与[回滚检查点验证](../verification/codegeneration-apply-rollback-checkpoint-2026-08-01.md)；回滚 API/权限/双端入口与保留清理、Worker/跨实例调度、远程仓库写入及生产启用仍开放） |
 | 在线表单构建器 | FormBuilder | Official Module | M5+ | Mapped |
 | 微信小程序与微信支付 | WeChat + Payments | Official Module + Provider | M5+ | Mapped |
 | Excel 导入导出、HTML/PDF 报告 | ImportExport + Reporting | Official Module + Provider | M5+ | Mapped |
@@ -72,10 +84,10 @@
 
 | Admin.NET.Pro 能力 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| API Key 认证 | Identity | Core | M2 | **Build-verified**（Host 创建/列表/禁用与认证、Vue/Layui 双管理端、Mock parity 2/2；轮换、使用审计与真实后端浏览器链路仍待补；见[验证记录](../verification/identity-api-key-2026-07-26.md)） |
+| API Key 认证 | Identity | Core | M2 | **Build-verified**（Host 创建/列表/禁用/轮换与认证、最后使用展示与列表刷新、Vue/Layui 双管理端、Mock parity 2/2、真实栈浏览器 6/6；见[验证记录](../verification/identity-api-key-2026-07-26.md)） |
 | 请求签名认证 | Identity Signature Auth | Official Module | M5+ | Mapped |
 | 缓存管理 | Caching Admin | Official Module | M5+ | Mapped |
-| 列显示个性化 | Settings + Client Preferences | Core | M3 | Mapped |
+| 列显示个性化 | Settings + Client Preferences | Core | M3 | **Build-verified**（当前用户 Grid 偏好 API、双库 038、可信 Grid/Column 目录、SchemaVersion/Version、FusionCache、Vue/Layui 适配器；首个目录 `identity.users`，可视化列编辑器与真实浏览器 E2E 待具体 Grid 消费者接入；见[验证记录](../verification/settings-grid-preferences-2026-07-30.md)） |
 | 全栈多语言、时区与用户语言偏好 | Localization + Identity + Tenancy + Clients | Core + Client | M2-M5+ | Implementing |
 | 模块化开发/演示种子数据与执行审计 | Seeding + Migrator + Module Contributors | Core | M2 | Build-verified（双库契约见[验证记录](../verification/seed-dual-database-contract-2026-07-21.md)） |
 | 数据库管理 | DatabaseTools | Official Module | M5+ | Mapped |
@@ -87,7 +99,7 @@
 | 打印 | Printing | Official Module + Client | M5+ | Mapped |
 | 行政区域 | Regions | Official Module | M5+ | Mapped |
 | 报表配置 | Reporting | Official Module | M5+ | Mapped |
-| 流水号规则 | SerialNumbers | Official Module | M5+ | Mapped |
+| 流水号规则 | SerialNumbers | Official Module | M5+ | **Build-verified**（Host 规则 API、纯预览、Host/租户计数器、UTC 日/月/年重置、幂等分配、SQL Server/MySQL 039 与恢复测试；双管理端与真实栈 E2E 待后续切片；见[验证记录](../verification/serial-numbers-2026-07-30.md)） |
 | 系统升级 | Upgrade Management | Official Module | M5+ | Mapped |
 | 支付宝 | Payments.Alipay | Provider | M5+ | Mapped |
 | 微信生态 | WeChat | Official Module + Provider | M5+ | Mapped |

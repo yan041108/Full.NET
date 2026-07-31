@@ -47,6 +47,22 @@ internal sealed class TenantPositionManagementService(
             token => DisableCoreAsync(positionId, token),
             cancellationToken);
 
+    public Task<Result<OrganizationPositionResponse>> AssignUnitAsync(
+        Guid positionId,
+        AssignOrganizationPositionUnitRequest request,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => AssignUnitCoreAsync(positionId, request, token),
+            cancellationToken);
+
+    public Task<Result<OrganizationPositionResponse>> AssignPositionLevelAsync(
+        Guid positionId,
+        AssignOrganizationPositionLevelRequest request,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => AssignPositionLevelCoreAsync(positionId, request, token),
+            cancellationToken);
+
     private async Task<Result<OrganizationPositionResponse>> CreateCoreAsync(
         CreateOrganizationPositionRequest request,
         CancellationToken cancellationToken)
@@ -169,6 +185,56 @@ internal sealed class TenantPositionManagementService(
             .ConfigureAwait(false);
     }
 
+    private async Task<Result<OrganizationPositionResponse>> AssignUnitCoreAsync(
+        Guid positionId,
+        AssignOrganizationPositionUnitRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureTenantContext();
+        var position = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
+                PositionSql.FindById,
+                new { PositionId = positionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (position is null || !position.IsActive)
+        {
+            return NotFound();
+        }
+
+        if (request.UnitId is Guid unitId)
+        {
+            var unit = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
+                    OrganizationSql.FindUnitById,
+                    new { UnitId = unitId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (unit is null || !unit.IsActive)
+            {
+                return UnitNotFound();
+            }
+        }
+
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                PositionSql.AssignUnit,
+                new
+                {
+                    PositionId = positionId,
+                    request.UnitId,
+                    UpdatedAtUtc = clock.UtcNow,
+                    request.Version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return await ResolveUpdateFailureAsync(positionId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await positionQueries.FindByIdAsync(positionId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private async Task<Result<OrganizationPositionResponse>> ResolveUpdateFailureAsync(
         Guid positionId,
         CancellationToken cancellationToken)
@@ -184,6 +250,57 @@ internal sealed class TenantPositionManagementService(
         }
 
         return VersionConflict();
+    }
+
+    private async Task<Result<OrganizationPositionResponse>> AssignPositionLevelCoreAsync(
+        Guid positionId,
+        AssignOrganizationPositionLevelRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureTenantContext();
+        var position = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
+                PositionSql.FindById,
+                new { PositionId = positionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (position is null || !position.IsActive)
+        {
+            return NotFound();
+        }
+
+        if (request.PositionLevelId is Guid positionLevelId)
+        {
+            var positionLevel =
+                await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionLevelRecord>(
+                        PositionLevelSql.FindById,
+                        new { PositionLevelId = positionLevelId },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            if (positionLevel is null || !positionLevel.IsActive)
+            {
+                return PositionLevelNotFound();
+            }
+        }
+
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                PositionSql.AssignPositionLevel,
+                new
+                {
+                    PositionId = positionId,
+                    request.PositionLevelId,
+                    UpdatedAtUtc = clock.UtcNow,
+                    request.Version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return await ResolveUpdateFailureAsync(positionId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await positionQueries.FindByIdAsync(positionId, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private void EnsureTenantContext()
@@ -222,6 +339,18 @@ internal sealed class TenantPositionManagementService(
         Result<OrganizationPositionResponse>.Failure(new Error(
             OrganizationErrorCodes.PositionNotFound,
             "The organization position was not found.",
+            ErrorType.NotFound));
+
+    private static Result<OrganizationPositionResponse> UnitNotFound() =>
+        Result<OrganizationPositionResponse>.Failure(new Error(
+            OrganizationErrorCodes.UnitNotFound,
+            "The organization unit was not found or is inactive.",
+            ErrorType.NotFound));
+
+    private static Result<OrganizationPositionResponse> PositionLevelNotFound() =>
+        Result<OrganizationPositionResponse>.Failure(new Error(
+            OrganizationErrorCodes.PositionLevelNotFound,
+            "The organization position level was not found or is inactive.",
             ErrorType.NotFound));
 
     private static Result<OrganizationPositionResponse> VersionConflict() =>

@@ -2,9 +2,9 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Persistence;
-using Full.NET.Realtime;
 using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
@@ -14,8 +14,8 @@ internal sealed class MyInboxManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    MyInboxQueryService queries,
-    IRealtimePublisher realtimePublisher,
+    IOutboxWriter outboxWriter,
+    NotificationRealtimeDelivery realtimeDelivery,
     IClock clock,
     ILogger<MyInboxManagementService> logger)
 {
@@ -75,7 +75,7 @@ internal sealed class MyInboxManagementService(
         }
 
         var now = clock.UtcNow;
-        await commandExecutor.ExecuteAsync(
+        var affected = await commandExecutor.ExecuteAsync(
                 InboxMessageSql.MarkRead,
                 new
                 {
@@ -87,6 +87,13 @@ internal sealed class MyInboxManagementService(
                 },
                 cancellationToken)
             .ConfigureAwait(false);
+        if (affected > 0)
+        {
+            await AddReadStateChangedAsync(
+                    recipientUserId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
                 InboxMessageSql.FindForRecipientById,
@@ -101,7 +108,7 @@ internal sealed class MyInboxManagementService(
         CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
-        await commandExecutor.ExecuteAsync(
+        var affected = await commandExecutor.ExecuteAsync(
                 InboxMessageSql.MarkAllRead,
                 new
                 {
@@ -112,6 +119,13 @@ internal sealed class MyInboxManagementService(
                 },
                 cancellationToken)
             .ConfigureAwait(false);
+        if (affected > 0)
+        {
+            await AddReadStateChangedAsync(
+                    recipientUserId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         return Result<InboxUnreadCountResponse>.Success(new InboxUnreadCountResponse(0));
     }
@@ -122,21 +136,10 @@ internal sealed class MyInboxManagementService(
     {
         try
         {
-            var countResult = await queries.GetUnreadCountAsync(recipientUserId, cancellationToken)
+            await realtimeDelivery.PublishInboxUnreadCountAsync(
+                    recipientUserId,
+                    cancellationToken)
                 .ConfigureAwait(false);
-            if (countResult.IsSuccess)
-            {
-                await realtimePublisher.PublishToUserAsync(
-                        recipientUserId,
-                        new RealtimeMessage(
-                            RealtimeMessageCodes.InboxUnreadCountChanged,
-                            new Dictionary<string, object?>
-                            {
-                                ["unreadCount"] = countResult.Value!.UnreadCount,
-                            }),
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
         }
         catch (Exception ex)
         {
@@ -146,6 +149,15 @@ internal sealed class MyInboxManagementService(
                 recipientUserId);
         }
     }
+
+    private Task AddReadStateChangedAsync(
+        Guid recipientUserId,
+        CancellationToken cancellationToken) =>
+        outboxWriter.AddAsync(
+            NotificationRealtimeEventTypes.InboxReadStateChanged,
+            1,
+            new InboxReadStateChangedIntegrationEvent(recipientUserId),
+            cancellationToken);
 
     private static Result<InboxMessageResponse> NotFound() =>
         Result<InboxMessageResponse>.Failure(new Error(

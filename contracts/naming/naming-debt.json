@@ -610,6 +610,230 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/015_HostRoleDataScope.sql",
       "reason": "015 将 UPDATE DataScopeKind 包入 EXEC，避免批处理在同一批次解析尚未可见的新列；由角色数据范围双库集成覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/033_SettingsTenantDictionaryScope.sql",
+      "reason": "033 使用 INFORMATION_SCHEMA + PREPARE 收敛租户字典列和索引的半完成状态；DDL 为脚本内固定常量，并由双库恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/033_SettingsTenantDictionaryScope.sql",
+      "reason": "033 在新增 TenantId 的同一批次通过 EXEC 创建引用新列的过滤索引，避免 SQL Server 编译期列解析失败。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/033_SettingsTenantDictionaryScope.sql",
+      "reason": "033 的条件 DROP INDEX 尚不被静态扫描器完整解析；固定对象名已人工审查并由双库集成测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/034_OrganizationPositionUnit.sql",
+      "reason": "034 使用 INFORMATION_SCHEMA + PREPARE 收敛职位机构列、外键和索引；DDL 为脚本内固定常量，并由聚焦恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/034_OrganizationPositionUnit.sql",
+      "reason": "034 在新增 UnitId 的同一批次通过 EXEC 创建外键和索引，避免 SQL Server 编译期列解析失败；由聚焦恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/035_OrganizationPositionLevel.sql",
+      "reason": "035 使用 INFORMATION_SCHEMA + PREPARE 恢复缺失的职级唯一索引与排序索引；DDL 为脚本内固定常量，并由双库聚焦恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/036_OrganizationPositionLevelBinding.sql",
+      "reason": "036 使用 INFORMATION_SCHEMA + PREPARE 收敛职位职级列、外键和索引；DDL 为脚本内固定常量，并由双库聚焦恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/036_OrganizationPositionLevelBinding.sql",
+      "reason": "036 在新增 PositionLevelId 的同一批次通过 EXEC 创建外键和索引，避免 SQL Server 编译期列解析失败；由双库聚焦恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/037_JobsRetryScheduling.sql",
+      "reason": "037 使用静态存储过程分支收敛到期列与领取索引；固定对象已人工审查并由双库聚焦恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/037_JobsRetryScheduling.sql",
+      "reason": "037 的条件 DROP INDEX 尚不被静态扫描器完整解析；固定对象已人工审查并由双库聚焦恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/038_SettingsGridPreference.sql",
+      "reason": "038 使用静态存储过程收敛用户 Grid 偏好唯一索引，固定对象已人工审查并由双库缺失、前缀和畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/038_SettingsGridPreference.sql",
+      "reason": "038 的条件 DROP INDEX 尚不能由静态扫描器完整解析，固定对象已人工审查并由双库缺失、过滤和畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/040_JobsSchedules.sql",
+      "reason": "040 使用静态存储过程收敛任务计划列与到期、历史索引；对象名和 DDL 均为脚本内固定常量，并由 MySQL 缺失对象恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/040_JobsSchedules.sql",
+      "reason": "040 的条件 DROP INDEX 尚不能由静态扫描器完整解析；固定对象已人工审查，并由 SQL Server 缺失与畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/041_IdentityRoleFieldGrant.sql",
+      "reason": "041 使用固定存储过程恢复角色、资源、字段三列唯一索引；全部对象名为脚本内常量，并由 MySQL 畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/041_IdentityRoleFieldGrant.sql",
+      "reason": "041 的条件 DROP INDEX 尚不被静态扫描器完整解析；固定对象已人工审查，并由 SQL Server 畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/044_CodeGenerationTemplate.sql",
+      "reason": "044 使用静态存储过程收敛模板目录索引，固定对象已人工审查并由双库缺失和畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/044_CodeGenerationTemplate.sql",
+      "reason": "044 的条件 DROP INDEX 尚不能由静态扫描器完整解析，固定对象已人工审查并由双库缺失和畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/039_SerialNumbers.sql",
+      "reason": "039 使用 INFORMATION_SCHEMA 与 PREPARE 收敛流水号索引的缺失、列序、唯一性和前缀状态；对象名与 DDL 来自脚本内固定调用清单，并由双库缺失和畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/039_SerialNumbers.sql",
+      "reason": "039 只从脚本内固定索引目录执行 QUOTENAME 保护的 DROP 与固定 CREATE SQL，已由双库缺失、过滤和畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/039_SerialNumbers.sql",
+      "reason": "039 使用受固定调用清单约束的存储过程收敛流水号唯一索引，固定对象由双库缺失和畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/039_SerialNumbers.sql",
+      "reason": "039 使用固定索引目录和动态 DDL 收敛流水号唯一索引，固定对象由双库缺失、过滤和畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/045_CodeGenerationRun.sql",
+      "reason": "045 使用静态存储过程收敛代码生成运行分页索引，固定对象已人工审查并由双库缺失索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/045_CodeGenerationRun.sql",
+      "reason": "045 的条件 DROP INDEX 尚不能由静态扫描器完整解析，固定对象已人工审查并由双库缺失索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/046_CodeGenerationApply.sql",
+      "reason": "046 使用固定存储过程收敛代码生成运行约束的缺失与半完成状态；对象名均为脚本内常量，并由双库 running 到终态及迁移重跑恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/046_CodeGenerationApply.sql",
+      "reason": "046 的条件 DROP CHECK 与固定约束重建尚不能由静态扫描器完整解析；固定对象已人工审查，并由双库 running 到终态及迁移重跑恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/047_FilesStorageProvider.sql",
+      "reason": "047 在新增 ProviderKey 的同一批次通过固定 EXEC 完成回填、非空收紧和唯一索引创建，避免 SQL Server 编译期列解析失败；由双库半完成恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/047_FilesStorageProvider.sql",
+      "reason": "047 的条件索引替换与固定动态 DDL 尚不能由静态扫描器完整解析；对象名和 SQL 均为脚本内常量，并由双库半完成恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/047_FilesStorageProvider.sql",
+      "reason": "047 使用固定存储过程收敛 ProviderKey 列与复合唯一索引的缺失、可空和半完成状态；对象名均为脚本内常量，并由双库恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/048_FilesUploadState.sql",
+      "reason": "048 在新增 StorageState 的同一批次使用固定 EXEC 完成存量 ready 回填、非空收紧与固定检查约束，避免 SQL Server 编译期解析尚未存在的列；对象名、状态码与 SQL 均为脚本常量，并由双库半完成恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/048_FilesUploadState.sql",
+      "reason": "048 的条件 DROP CHECK 与固定约束重建尚不能由静态扫描器完整解析；约束名和 pending/ready 状态码已人工审查，并由 SQL Server 半完成恢复与 Files 真实栈测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/048_FilesUploadState.sql",
+      "reason": "048 使用固定存储过程收敛 StorageState 列缺失、可空、空值与检查约束缺失状态；对象名和 pending/ready 状态码均为脚本常量，并由 MySQL 半完成恢复与 Files 真实栈测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

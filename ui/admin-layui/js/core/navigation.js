@@ -75,6 +75,12 @@ const presentation = new Map([
     titleKey: 'navigation.orgPositions.title',
     captionKey: 'navigation.orgPositions.caption'
   }],
+  ['org-position-levels', {
+    view: 'org-position-levels',
+    iconClass: 'layui-icon-senior',
+    titleKey: 'navigation.orgPositionLevels.title',
+    captionKey: 'navigation.orgPositionLevels.caption'
+  }],
   ['org-user-positions', {
     view: 'org-user-positions',
     iconClass: 'layui-icon-user',
@@ -92,6 +98,12 @@ const presentation = new Map([
     iconClass: 'layui-icon-read',
     titleKey: 'navigation.dictTypes.title',
     captionKey: 'navigation.dictTypes.caption'
+  }],
+  ['tenant-dict-types', {
+    view: 'tenant-dict-types',
+    iconClass: 'layui-icon-read',
+    titleKey: 'navigation.tenantDictTypes.title',
+    captionKey: 'navigation.tenantDictTypes.caption'
   }],
   ['config-entries', {
     view: 'config-entries',
@@ -128,6 +140,12 @@ const presentation = new Map([
     iconClass: 'layui-icon-time',
     titleKey: 'navigation.hostJobs.title',
     captionKey: 'navigation.hostJobs.caption'
+  }],
+  ['code-generation-previews', {
+    view: 'code-generation-previews',
+    iconClass: 'layui-icon-code-circle',
+    titleKey: 'navigation.codeGenerationPreviews.title',
+    captionKey: 'navigation.codeGenerationPreviews.caption'
   }],
   ['access-logs', {
     view: 'access-logs',

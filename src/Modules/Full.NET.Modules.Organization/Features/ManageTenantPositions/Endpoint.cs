@@ -87,6 +87,44 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationPositionManagementPermissions.Write));
 
+        group.MapPut("/{positionId:guid}/unit", async (
+            Guid positionId,
+            AssignOrganizationPositionUnitRequest request,
+            TenantPositionManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.AssignUnitAsync(
+                    positionId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<OrganizationPositionResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationPositionManagementPermissions.Write));
+
+        group.MapPut("/{positionId:guid}/position-level", async (
+            Guid positionId,
+            AssignOrganizationPositionLevelRequest request,
+            TenantPositionManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.AssignPositionLevelAsync(
+                    positionId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<OrganizationPositionResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            OrganizationPositionManagementPermissions.Write));
+
         group.MapPost("/{positionId:guid}/disable", async (
             Guid positionId,
             TenantPositionManagementService service,

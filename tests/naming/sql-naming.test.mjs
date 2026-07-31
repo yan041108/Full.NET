@@ -74,6 +74,16 @@ test('触发器 BEFORE UPDATE 不把 ON 误判为业务表', async () => {
   assert.equal(violations.some(item => item.ruleId === 'FNSQL003'), true);
 });
 
+test('MySQL 表选项结束建表块且不把存储过程变量识别为列', async () => {
+  const violations = await validateSqlNaming(
+    [path.join(fixtureRoot, 'mysql-table-options.sql')],
+    { repositoryRoot, debt: { schemaVersion: 1, items: [] } }
+  );
+
+  assert.equal(violations.some(item => item.ruleId === 'FNDB002'), false);
+  assert.equal(violations.some(item => item.ruleId === 'FNSQL003'), true);
+});
+
 test('SQL Server 和 MySQL 迁移必须按文件名成对出现', async () => {
   const migrationRoot = path.join(fixtureRoot, 'Migrations');
   const violations = await validateMigrationPairs(migrationRoot, { repositoryRoot });

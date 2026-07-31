@@ -21,7 +21,9 @@ using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
+using Full.NET.Modules.Identity.Features.ManageHostRoleFieldGrants;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
+using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Features.ManageTotp;
 using Full.NET.Modules.Identity.HostUsers;
@@ -294,6 +296,13 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleDataScopeService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Factory<FieldProjectionCatalog>(
+            ServiceLifetime.Singleton),
+        RegistrationExpectation.Type<
+            IUserFieldProjectionResolver,
+            UserFieldProjectionResolver>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<HostRoleFieldGrantService>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostMenuQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostMenuManagementService>(
             ServiceLifetime.Scoped),
@@ -312,6 +321,9 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostUserDisplayDirectory>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IHostUserSelectionDirectory,
+            HostUserSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostNavigationDefinitionLoader>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Type<

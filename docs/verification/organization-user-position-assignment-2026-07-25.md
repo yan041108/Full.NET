@@ -2,21 +2,23 @@
 
 - 范围：`fn_organization_user_position`；租户用户-职位隶属 CRUD；Vue/Layui 管理页
 - 计划：[实施计划](../superpowers/plans/2026-07-25-organization-user-position-assignment-vertical-slice.md)
-- 状态：**Build-verified**（职级、职位-机构绑定未交付；不能标记 `Verified`）
+- 增补日期：2026-07-29
+- 状态：**Build-verified**（双管理端、双数据库真实写路径已通过；完整 `main` CI 与发布前人工验收待执行）
 
 ## 自动化证据
 
 | 层 | 结果 |
 |---|---|
-| Integration 双库 | Organization user-positions SQL Server/MySQL **2/2** → **148 → 150** |
-| OpenAPI 夹具 | `organization-tenant-user-positions-v1` 静态 **2/2** |
-| client-contracts | `tenant-user-positions` **1/1** |
-| Vue API 单测 | `org-user-positions.test.ts` **2/2** |
-| Layui 单测 | `org-user-positions.test.js` **1/1** |
-| Mock parity | 「用户职位隶属列表、分配与取消」× 双端 **2/2** → `shell-parity` **50 → 52** |
-| Real-stack E2E | `host-org-user-positions.spec.mjs` **2** 场景 × 双端 → **74 → 76** |
-| 四处 canonical 门槛 | **349/7/38/150** |
+| Integration 双库 | Organization user-positions SQL Server/MySQL 既有生命周期验证通过 |
+| OpenAPI 夹具 | `organization-tenant-user-positions-v1` 静态契约通过 |
+| client-contracts | `tenant-user-positions` 契约通过 |
+| Vue 客户端 | API 单测与类型检查通过；使用用户职位专用候选 API，支持按需加载后续页与 403 空候选降级 |
+| Layui 客户端 | 控制器测试通过；使用用户职位专用候选 API，支持按需加载后续页且不依赖 `/api/v1/identity/users` 或 `/api/v1/me` |
+| Mock parity | 用户职位列表、分配与取消双端场景通过 |
+| Real-stack SQL Server | Vue/Layui 经 UI 完成分配、设为主职位、取消，并由 API 回读持久化结果 |
+| Real-stack MySQL | Vue/Layui 经 UI 完成分配、设为主职位、取消，并由 API 回读持久化结果 |
 
 ## 非目标
 
-- 不包含职级、职位-机构绑定、数据范围投影变更。
+- 不包含候选用户关键字搜索；当前正式候选目录按稳定用户名分页，由客户端显式按需加载后续页。
+- 不包含完整 `main` CI 与发布前人工验收。

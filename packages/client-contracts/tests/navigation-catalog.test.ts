@@ -25,6 +25,19 @@ function createNode(
 describe('headless 管理端导航目录', () => {
   const catalog = createAdminNavigationCatalog();
 
+  it('发布租户职级管理路由', () => {
+    expect(catalog.localNavigationFor('org-position-levels')).toEqual({
+      componentKey: 'org-position-levels',
+      routeName: 'org-position-levels',
+      path: '/organization/position-levels'
+    });
+    expect(catalog.localNavigationFor('code-generation-previews')).toEqual({
+      componentKey: 'code-generation-previews',
+      routeName: 'code-generation-previews',
+      path: '/code-generation/previews'
+    });
+  });
+
   it('只接受已发布的 componentKey、routeName 与 path 组合', () => {
     expect(catalog.isSupportedNavigationTree([
       createNode('overview'),

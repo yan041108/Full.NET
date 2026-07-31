@@ -3,20 +3,21 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Persistence;
-using Full.NET.Realtime;
 using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.ManageHostAnnouncements;
 
-/// <summary>Host 公告创建、更新与发布；发布后经 <see cref="IRealtimePublisher"/> 广播。</summary>
+/// <summary>Host 公告创建、更新与发布；提交后执行低延迟广播并由 Outbox 负责修复。</summary>
 internal sealed class HostAnnouncementManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    IOutboxWriter outboxWriter,
     HostAnnouncementQueryService queries,
-    IRealtimePublisher realtimePublisher,
+    NotificationRealtimeDelivery realtimeDelivery,
     IClock clock,
     IIdGenerator idGenerator,
     ILogger<HostAnnouncementManagementService> logger)
@@ -183,6 +184,15 @@ internal sealed class HostAnnouncementManagementService(
             return ConcurrencyConflict();
         }
 
+        await outboxWriter.AddAsync(
+                NotificationRealtimeEventTypes.AnnouncementPublished,
+                1,
+                new AnnouncementPublishedIntegrationEvent(
+                    announcementId,
+                    existing.Title),
+                cancellationToken)
+            .ConfigureAwait(false);
+
         return await queries.GetByIdAsync(announcementId, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -193,15 +203,10 @@ internal sealed class HostAnnouncementManagementService(
     {
         try
         {
-            await realtimePublisher.PublishToGroupAsync(
-                    RealtimeGroups.HostBroadcast,
-                    new RealtimeMessage(
-                        RealtimeMessageCodes.AnnouncementPublished,
-                        new Dictionary<string, object?>
-                        {
-                            ["announcementId"] = announcement.Id,
-                            ["title"] = announcement.Title,
-                        }),
+            await realtimeDelivery.PublishAnnouncementAsync(
+                    new AnnouncementPublishedIntegrationEvent(
+                        announcement.Id,
+                        announcement.Title),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

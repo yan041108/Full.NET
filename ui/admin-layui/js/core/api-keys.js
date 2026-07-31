@@ -11,6 +11,7 @@ export function createApiKeysController(root, options) {
   const secretPanel = root.querySelector('[data-api-keys-secret]');
   const copyButton = root.querySelector('[data-api-keys-copy]');
   const directory = root.querySelector('[data-api-keys-directory]');
+  const refreshButton = root.querySelector('[data-api-keys-refresh]');
   let currentSecret = '';
   let loading;
   let changing = false;
@@ -87,24 +88,58 @@ export function createApiKeysController(root, options) {
   };
 
   const onDirectoryAction = async event => {
-    const button = event.target instanceof Element
+    const disableButton = event.target instanceof Element
       ? event.target.closest('[data-api-keys-disable]')
       : undefined;
-    if (!button || changing || !canWrite()) return;
+    if (disableButton && !changing && canWrite()) {
+      const accepted = await confirm(
+        translation().t('apiKeys.confirmDisable', {
+          name: disableButton.dataset.displayName ?? ''
+        })
+      );
+      if (!accepted) return;
+
+      changing = true;
+      try {
+        await request(
+          `/api/v1/identity/api-keys/${encodeURIComponent(disableButton.dataset.apiKeysDisable)}/disable`,
+          { method: 'POST' }
+        );
+        notify(translation().t('apiKeys.disableSuccess'), 1);
+        await load();
+      } catch (problem) {
+        showProblem(root, problem, translation().t('apiKeys.operationFailed'));
+      } finally {
+        changing = false;
+      }
+      return;
+    }
+
+    const rotateButton = event.target instanceof Element
+      ? event.target.closest('[data-api-keys-rotate]')
+      : undefined;
+    if (!rotateButton || changing || !canWrite()) return;
     const accepted = await confirm(
-      translation().t('apiKeys.confirmDisable', {
-        name: button.dataset.displayName ?? ''
+      translation().t('apiKeys.confirmRotate', {
+        name: rotateButton.dataset.displayName ?? ''
       })
     );
     if (!accepted) return;
 
     changing = true;
+    clearSecret(secretPanel);
+    currentSecret = '';
     try {
-      await request(
-        `/api/v1/identity/api-keys/${encodeURIComponent(button.dataset.apiKeysDisable)}/disable`,
+      const result = await request(
+        `/api/v1/identity/api-keys/${encodeURIComponent(rotateButton.dataset.apiKeysRotate)}/rotate`,
         { method: 'POST' }
       );
-      notify(translation().t('apiKeys.disableSuccess'), 1);
+      if (!result?.secret || typeof result.secret !== 'string') {
+        throw new Error('client.invalid_create_host_api_key_result');
+      }
+      currentSecret = result.secret;
+      renderSecret(secretPanel, currentSecret);
+      notify(translation().t('apiKeys.rotateSuccess'), 1);
       await load();
     } catch (problem) {
       showProblem(root, problem, translation().t('apiKeys.operationFailed'));
@@ -113,9 +148,15 @@ export function createApiKeysController(root, options) {
     }
   };
 
+  const onRefresh = () => {
+    if (changing) return;
+    void load();
+  };
+
   form?.addEventListener('submit', onSubmit);
   copyButton?.addEventListener('click', onCopy);
   directory?.addEventListener('click', onDirectoryAction);
+  refreshButton?.addEventListener('click', onRefresh);
 
   return {
     load,
@@ -125,6 +166,7 @@ export function createApiKeysController(root, options) {
       form?.removeEventListener('submit', onSubmit);
       copyButton?.removeEventListener('click', onCopy);
       directory?.removeEventListener('click', onDirectoryAction);
+      refreshButton?.removeEventListener('click', onRefresh);
     }
   };
 }
@@ -150,7 +192,11 @@ function renderDirectory(container, items, translation, canWrite) {
       textElement(container, 'small', `${translation.t('apiKeys.prefix')}: ${item.keyPrefix ?? ''}`),
       textElement(container, 'small', `${translation.t('apiKeys.permissions')}: ${(item.permissions ?? []).join(', ')}`),
       textElement(container, 'small', `${translation.t('apiKeys.expiresAt')}: ${item.expiresAtUtc ?? translation.t('apiKeys.noExpiration')}`),
-      textElement(container, 'small', `${translation.t('apiKeys.lastUsedAt')}: ${item.lastUsedAtUtc ?? translation.t('apiKeys.never')}`),
+      textElement(
+        container,
+        'small',
+        `${translation.t('apiKeys.lastUsedAt')}: ${formatLastUsed(item.lastUsedAtUtc, translation)}`
+      ),
       textElement(container, 'span', item.isActive
         ? translation.t('apiKeys.statusActive')
         : translation.t('apiKeys.statusDisabled'))
@@ -159,18 +205,39 @@ function renderDirectory(container, items, translation, canWrite) {
     if (canWrite && item.isActive) {
       const actions = container.ownerDocument.createElement('div');
       actions.className = 'fn-tenants__actions';
+      const rotate = container.ownerDocument.createElement('button');
+      rotate.type = 'button';
+      rotate.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      rotate.dataset.apiKeysRotate = item.id ?? '';
+      rotate.dataset.displayName = item.displayName ?? '';
+      rotate.textContent = translation.t('apiKeys.rotate');
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
       disable.dataset.apiKeysDisable = item.id ?? '';
       disable.dataset.displayName = item.displayName ?? '';
       disable.textContent = translation.t('apiKeys.disable');
-      actions.append(disable);
+      actions.append(rotate, disable);
       article.append(actions);
     }
     fragment.append(article);
   });
   container.replaceChildren(fragment);
+}
+
+function formatLastUsed(value, translation) {
+  if (!value) {
+    return translation.t('apiKeys.never');
+  }
+
+  try {
+    return new Intl.DateTimeFormat(translation.locale, {
+      dateStyle: 'short',
+      timeStyle: 'short'
+    }).format(new Date(value));
+  } catch {
+    return String(value);
+  }
 }
 
 function textElement(container, tagName, value) {

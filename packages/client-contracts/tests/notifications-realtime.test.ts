@@ -4,7 +4,8 @@ import {
   createNotificationsRealtimeController,
   isRealtimeMessage,
   type IdentitySessionSnapshot,
-  type NotificationsHubConnection
+  type NotificationsHubConnection,
+  type NotificationsRealtimeOptions
 } from '../src/index';
 
 describe('Notifications 实时客户端', () => {
@@ -118,6 +119,63 @@ describe('Notifications 实时客户端', () => {
     await controller.dispose();
   });
 
+  it('自动重连成功后通知上层修复可能遗漏的业务状态', async () => {
+    const session = createSession();
+    const connection = createConnection();
+    const onReconnected = vi.fn().mockResolvedValue(undefined);
+    const options: NotificationsRealtimeOptions & {
+      onReconnected: () => Promise<void>;
+    } = {
+      session,
+      onMessage: vi.fn(),
+      onReconnected,
+      connectionFactory: factoryOptions => {
+        connection.configure(factoryOptions.accessTokenFactory);
+        return connection;
+      }
+    };
+    const controller = createNotificationsRealtimeController(options);
+
+    session.publish(authenticatedSnapshot(null));
+    await controller.whenSettled();
+    await connection.reconnect();
+
+    expect(onReconnected).toHaveBeenCalledOnce();
+    await controller.dispose();
+  });
+
+  it('自动重连耗尽并关闭后重新创建连接，显式销毁不再重试', async () => {
+    vi.useFakeTimers();
+    const session = createSession();
+    const first = createConnection();
+    const second = createConnection();
+    const connections = [first, second];
+    const connectionFactory = vi.fn(options => {
+      const connection = connections.shift()!;
+      connection.configure(options.accessTokenFactory);
+      return connection;
+    });
+    const controller = createNotificationsRealtimeController({
+      session,
+      onMessage: vi.fn(),
+      connectionFactory
+    });
+
+    session.publish(authenticatedSnapshot(null));
+    await controller.whenSettled();
+    await first.close();
+    await vi.advanceTimersByTimeAsync(0);
+    await controller.whenSettled();
+
+    expect(second.start).toHaveBeenCalledOnce();
+    expect(connectionFactory).toHaveBeenCalledTimes(2);
+
+    await controller.dispose();
+    await second.close();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(connectionFactory).toHaveBeenCalledTimes(2);
+  });
+
   it('切换上下文会取消旧连接重试并立即连接新上下文', async () => {
     vi.useFakeTimers();
     const session = createSession();
@@ -198,12 +256,18 @@ function createSession() {
 function createConnection() {
   let handler: ((message: unknown) => void) | undefined;
   let accessTokenFactory: (() => string | undefined) | undefined;
+  let reconnectedHandler: (() => void | Promise<void>) | undefined;
+  let closedHandler: (() => void | Promise<void>) | undefined;
   const connection: NotificationsHubConnection & {
     start: ReturnType<typeof vi.fn>;
     stop: ReturnType<typeof vi.fn>;
     receive(message: unknown): void;
+    reconnect(): Promise<void>;
+    close(): Promise<void>;
     readAccessToken(): string | undefined;
     configure(tokenFactory: () => string | undefined): void;
+    onreconnected: ReturnType<typeof vi.fn>;
+    onclose: ReturnType<typeof vi.fn>;
   } = {
     start: vi.fn().mockResolvedValue(undefined),
     stop: vi.fn().mockResolvedValue(undefined),
@@ -213,8 +277,20 @@ function createConnection() {
     off: vi.fn(() => {
       handler = undefined;
     }),
+    onreconnected: vi.fn(value => {
+      reconnectedHandler = value;
+    }),
+    onclose: vi.fn(value => {
+      closedHandler = value;
+    }),
     receive(message) {
       handler?.(message);
+    },
+    async reconnect() {
+      await reconnectedHandler?.();
+    },
+    async close() {
+      await closedHandler?.();
     },
     readAccessToken() {
       return accessTokenFactory?.();

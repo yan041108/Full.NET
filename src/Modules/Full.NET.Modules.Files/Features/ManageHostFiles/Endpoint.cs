@@ -185,7 +185,7 @@ internal static class Endpoint
 
             HostFileQueryService queries,
 
-            IHostFileBlobStorage blobStorage,
+            FileStorageProviderRegistry storageProviders,
 
             IApiResultMapper mapper,
 
@@ -215,7 +215,11 @@ internal static class Endpoint
 
             var detail = detailResult.Value!;
 
-            var stream = await blobStorage.OpenReadAsync(detail.StorageKey, cancellationToken)
+            // 下载必须服从对象创建时持久化的 Provider，切换默认配置不能改变既有对象归属。
+            var storageProvider = storageProviders.Resolve(detail.ProviderKey);
+            var stream = await storageProvider.OpenReadAsync(
+                    detail.StorageKey,
+                    cancellationToken)
 
                 .ConfigureAwait(false);
 

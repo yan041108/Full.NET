@@ -4,6 +4,17 @@
   "description": "Host 角色管理 HTTP 契约冻结夹具；与 IdentityRoleManagementContracts 和 ManageHostRoles.Endpoint 对齐。",
   "paths": [
     {
+      "path": "/api/v1/identity/field-projections/catalog",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.role_field_grants.read",
+          "successStatus": 200,
+          "responseSchema": "FieldProjectionResourceDefinitionCollection"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/identity/roles",
       "operations": [
         {
@@ -36,6 +47,24 @@
           "successStatus": 200,
           "requestSchema": "UpdateHostRoleRequest",
           "responseSchema": "HostRoleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/roles/{roleId}/field-grants",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.role_field_grants.read",
+          "successStatus": 200,
+          "responseSchema": "HostRoleFieldGrantsResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.role_field_grants.write",
+          "successStatus": 200,
+          "requestSchema": "ReplaceHostRoleFieldGrantsRequest",
+          "responseSchema": "HostRoleFieldGrantsResponse"
         }
       ]
     },
@@ -95,6 +124,31 @@
         "permissionCodes",
         "version"
       ]
+    },
+    "ReplaceHostRoleFieldGrantsRequest": {
+      "properties": [
+        "resourceKey",
+        "fieldKeys",
+        "version"
+      ]
+    },
+    "HostRoleFieldGrantsResponse": {
+      "properties": [
+        "roleId",
+        "resourceKey",
+        "fieldKeys",
+        "version"
+      ]
+    },
+    "FieldProjectionResourceDefinition": {
+      "properties": [
+        "resourceKey",
+        "displayName",
+        "fields"
+      ]
+    },
+    "FieldProjectionResourceDefinitionCollection": {
+      "itemSchema": "FieldProjectionResourceDefinition"
     },
     "HostRoleResponsePage": {
       "properties": [

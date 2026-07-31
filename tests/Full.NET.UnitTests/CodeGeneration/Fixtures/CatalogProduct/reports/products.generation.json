@@ -1,0 +1,94 @@
+{
+  "ownerKey": "acme",
+  "moduleKey": "catalog",
+  "entityKey": "product",
+  "databaseTableName": "acme_catalog_product",
+  "rootNamespace": "Acme.Modules.Catalog",
+  "clrTypeName": "Product",
+  "apiResourceName": "products",
+  "permissionResourceName": "products",
+  "readPermission": "catalog.products.read",
+  "writePermission": "catalog.products.write",
+  "isTenantScoped": true,
+  "dataScope": "tenant.required",
+  "hasVersion": true,
+  "usesLegacyEntityCapabilities": true,
+  "legacyLifecycle": "disable",
+  "scene": "single",
+  "relationships": [],
+  "entityCapabilities": null,
+  "migrationTemplateGenerated": true,
+  "integrationTestTemplateGenerated": true,
+  "columns": [
+    {
+      "databaseName": "Id",
+      "clrPropertyName": "Id",
+      "jsonPropertyName": "id",
+      "scalarType": "uuid",
+      "isNullable": false,
+      "maxLength": null,
+      "numericPrecision": null,
+      "numericScale": null
+    },
+    {
+      "databaseName": "TenantId",
+      "clrPropertyName": "TenantId",
+      "jsonPropertyName": "tenantId",
+      "scalarType": "uuid",
+      "isNullable": false,
+      "maxLength": null,
+      "numericPrecision": null,
+      "numericScale": null
+    },
+    {
+      "databaseName": "Name",
+      "clrPropertyName": "Name",
+      "jsonPropertyName": "displayName",
+      "scalarType": "string",
+      "isNullable": false,
+      "maxLength": 200,
+      "numericPrecision": null,
+      "numericScale": null
+    },
+    {
+      "databaseName": "Description",
+      "clrPropertyName": "Description",
+      "jsonPropertyName": "description",
+      "scalarType": "string",
+      "isNullable": true,
+      "maxLength": 500,
+      "numericPrecision": null,
+      "numericScale": null
+    },
+    {
+      "databaseName": "IsActive",
+      "clrPropertyName": "IsActive",
+      "jsonPropertyName": "isActive",
+      "scalarType": "boolean",
+      "isNullable": false,
+      "maxLength": null,
+      "numericPrecision": null,
+      "numericScale": null
+    },
+    {
+      "databaseName": "Version",
+      "clrPropertyName": "Version",
+      "jsonPropertyName": "version",
+      "scalarType": "int64",
+      "isNullable": false,
+      "maxLength": null,
+      "numericPrecision": null,
+      "numericScale": null
+    },
+    {
+      "databaseName": "CreatedAtUtc",
+      "clrPropertyName": "CreatedAtUtc",
+      "jsonPropertyName": "createdAtUtc",
+      "scalarType": "date.time.utc",
+      "isNullable": false,
+      "maxLength": null,
+      "numericPrecision": null,
+      "numericScale": null
+    }
+  ]
+}

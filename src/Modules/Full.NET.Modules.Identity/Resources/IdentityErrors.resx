@@ -48,4 +48,6 @@
   <data name="identity.api_keys.invalid_permissions" xml:space="preserve"><value>API Key 权限列表无效。</value></data>
   <data name="identity.api_keys.user_not_found" xml:space="preserve"><value>API Key 绑定的 Host 用户不存在。</value></data>
   <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>API Key 绑定的 Host 用户已禁用。</value></data>
+  <data name="identity.field_projection.invalid" xml:space="preserve"><value>字段投影资源或字段键无效。</value></data>
+  <data name="identity.field_projection.version_conflict" xml:space="preserve"><value>角色字段授权已被并发修改。</value></data>
 </root>

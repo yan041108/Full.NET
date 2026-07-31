@@ -19,6 +19,14 @@ export async function listHostUsers(
   return value;
 }
 
+export async function exportHostUsers(): Promise<HostUser[]> {
+  const value = await request<unknown>('/api/v1/identity/users/export');
+  if (!Array.isArray(value) || !value.every(isHostUser)) {
+    throw new Error('client.invalid_host_user_export');
+  }
+  return value;
+}
+
 export async function createHostUser(
   username: string,
   displayName: string,

@@ -13,6 +13,10 @@ const contractsSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Organization.Contracts/OrganizationUserUnitManagementContracts.cs'
 );
+const assignableContractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Organization.Contracts/OrganizationAssignableUserContracts.cs'
+);
 const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/Endpoint.cs'
@@ -49,18 +53,25 @@ test('租户用户-机构隶属 OpenAPI 夹具结构完整且路径唯一', asyn
 
 test('租户用户-机构隶属 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   const contract = await loadContract();
-  const contractsSource = await readFile(contractsSourcePath, 'utf8');
+  const contractsSource = [
+    await readFile(contractsSourcePath, 'utf8'),
+    await readFile(assignableContractsSourcePath, 'utf8')
+  ].join('\n');
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
 
   assert.match(contractsSource, /record CreateOrganizationUserUnitRequest/u);
   assert.match(contractsSource, /record UpdateOrganizationUserUnitRequest/u);
   assert.match(contractsSource, /record OrganizationUserUnitResponse/u);
+  assert.match(contractsSource, /record OrganizationAssignableUserResponse/u);
   assert.match(contractsSource, /organization\.user_units\.read/u);
   assert.match(contractsSource, /organization\.user_units\.write/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/user-units"\)/u);
 
   const relativeRoutes = new Map([
+    ['/api/v1/organization/user-units/assignable-users', new Map([
+      ['GET', 'MapGet("/assignable-users",']
+    ])],
     ['/api/v1/organization/user-units', new Map([
       ['GET', 'MapGet("/",'],
       ['POST', 'MapPost("/",']
@@ -84,7 +95,7 @@ test('租户用户-机构隶属 OpenAPI 夹具与 C# 契约和端点源码一致
   }
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {
-    if (schemaName === 'OrganizationUserUnitResponsePage') {
+    if (schemaName.endsWith('ResponsePage')) {
       continue;
     }
     for (const property of schema.properties) {

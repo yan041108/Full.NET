@@ -6,6 +6,7 @@ export function createUsersController(root, options) {
   const translation = options.translation;
   const form = root.querySelector('[data-users-create-form]');
   const directory = root.querySelector('[data-users-directory]');
+  const exportButton = root.querySelector('[data-users-export]');
   let loading;
   let changing = false;
 
@@ -187,13 +188,34 @@ export function createUsersController(root, options) {
     }
   };
 
+  const onExport = async () => {
+    if (changing) return;
+    changing = true;
+    try {
+      const rows = await request('/api/v1/identity/users/export');
+      const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'host-users.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (problem) {
+      showProblem(root, problem, translation().t('users.operationFailed'));
+    } finally {
+      changing = false;
+    }
+  };
+
   form?.addEventListener('submit', onCreate);
   directory?.addEventListener('click', onDirectoryAction);
+  exportButton?.addEventListener('click', onExport);
   return {
     load,
     dispose() {
       form?.removeEventListener('submit', onCreate);
       directory?.removeEventListener('click', onDirectoryAction);
+      exportButton?.removeEventListener('click', onExport);
     }
   };
 }
@@ -228,6 +250,22 @@ function renderDirectory(container, users, translation) {
     const username = container.ownerDocument.createElement('code');
     username.textContent = user.username ?? '';
     identity.append(name, username);
+    const projected = user.projectedFields;
+    if (Array.isArray(projected?.effectiveFieldKeys)) {
+      const details = container.ownerDocument.createElement('small');
+      const values = [];
+      if (projected.effectiveFieldKeys.includes('preferred_locale')) {
+        values.push(`locale: ${projected.preferredLocale ?? '—'}`);
+      }
+      if (projected.effectiveFieldKeys.includes('failed_login_count')) {
+        values.push(`failed-login: ${projected.failedLoginCount ?? 0}`);
+      }
+      if (projected.effectiveFieldKeys.includes('lockout_end_utc')) {
+        values.push(`lockout: ${projected.lockoutEndUtc ?? '—'}`);
+      }
+      details.textContent = values.join(' · ');
+      identity.append(details);
+    }
     const state = container.ownerDocument.createElement('em');
     state.textContent = translation.t(user.isActive ? 'users.active' : 'users.inactive');
     const actions = container.ownerDocument.createElement('div');

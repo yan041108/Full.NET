@@ -42,9 +42,15 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddScoped<HostDictTypeManagementService>();
         services.TryAddScoped<Features.ManageHostDictItems.HostDictItemQueryService>();
         services.TryAddScoped<Features.ManageHostDictItems.HostDictItemManagementService>();
+        services.TryAddScoped<Features.ManageTenantDictTypes.TenantDictTypeQueryService>();
+        services.TryAddScoped<Features.ManageTenantDictTypes.TenantDictTypeManagementService>();
+        services.TryAddScoped<Features.ManageTenantDictItems.TenantDictItemQueryService>();
+        services.TryAddScoped<Features.ManageTenantDictItems.TenantDictItemManagementService>();
         services.TryAddScoped<Features.ManageHostConfigEntries.HostConfigEntryQueryService>();
         services.TryAddScoped<Features.ManageHostConfigEntries.HostConfigEntryManagementService>();
         services.TryAddScoped<Features.QueryHostEnumCatalogs.HostEnumCatalogQueryService>();
+        services.TryAddScoped<
+            Features.ManageMyGridPreferences.MyGridPreferenceService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -55,7 +61,10 @@ public sealed class SettingsModule : IFullNetModule
     {
         Features.ManageHostDictTypes.Endpoint.Map(endpoints);
         Features.ManageHostDictItems.Endpoint.Map(endpoints);
+        Features.ManageTenantDictTypes.Endpoint.Map(endpoints);
+        Features.ManageTenantDictItems.Endpoint.Map(endpoints);
         Features.ManageHostConfigEntries.Endpoint.Map(endpoints);
         Features.QueryHostEnumCatalogs.Endpoint.Map(endpoints);
+        Features.ManageMyGridPreferences.Endpoint.Map(endpoints);
     }
 }

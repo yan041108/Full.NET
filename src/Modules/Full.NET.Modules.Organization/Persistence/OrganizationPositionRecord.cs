@@ -5,6 +5,12 @@ internal sealed record OrganizationPositionRecord(
     Guid TenantId,
     string Code,
     string Name,
+    Guid? UnitId,
+    string? UnitCode,
+    string? UnitName,
+    Guid? PositionLevelId,
+    string? PositionLevelCode,
+    string? PositionLevelName,
     int DisplayOrder,
     bool IsActive,
     DateTimeOffset CreatedAtUtc,
@@ -28,6 +34,18 @@ internal sealed class OrganizationPositionListRow
     public string Code { get; set; } = string.Empty;
 
     public string Name { get; set; } = string.Empty;
+
+    public Guid? UnitId { get; set; }
+
+    public string? UnitCode { get; set; }
+
+    public string? UnitName { get; set; }
+
+    public Guid? PositionLevelId { get; set; }
+
+    public string? PositionLevelCode { get; set; }
+
+    public string? PositionLevelName { get; set; }
 
     public int DisplayOrder { get; set; }
 

@@ -22,4 +22,7 @@ namespace Full.NET.Modules.Settings.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<EnumCatalogSummary>))]
 [JsonSerializable(typeof(EnumCatalogDetail))]
 [JsonSerializable(typeof(EnumCatalogMember))]
+[JsonSerializable(typeof(GridColumnPreference[]))]
+[JsonSerializable(typeof(UpdateGridPreferenceRequest))]
+[JsonSerializable(typeof(GridPreferenceResponse))]
 internal partial class SettingsJsonSerializerContext : JsonSerializerContext;

@@ -14,4 +14,6 @@
   <data name="organization.user_positions.user_not_found" xml:space="preserve"><value>The host user was not found.</value></data>
   <data name="organization.positions.code_exists" xml:space="preserve"><value>An organization position with this code already exists.</value></data>
   <data name="organization.positions.not_found" xml:space="preserve"><value>The organization position was not found.</value></data>
+  <data name="organization.position_levels.code_exists" xml:space="preserve"><value>An organization position level with this code already exists.</value></data>
+  <data name="organization.position_levels.not_found" xml:space="preserve"><value>The organization position level was not found.</value></data>
 </root>

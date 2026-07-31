@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
@@ -23,6 +24,7 @@ public sealed class NotificationsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        AddBackgroundServices(services, configuration);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             NotificationsAuthorizationContributor>());
@@ -40,6 +42,25 @@ public sealed class NotificationsModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 NotificationsJsonSerializerContext.Default));
+    }
+
+    /// <summary>
+    /// 注册 Worker 修复 Notifications 实时投递所需的最小后台能力。
+    /// </summary>
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.TryAddScoped<NotificationRealtimeDelivery>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            AnnouncementPublishedRealtimeHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            InboxMessageReceivedRealtimeHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            InboxReadStateChangedRealtimeHandler>());
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

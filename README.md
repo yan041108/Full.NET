@@ -33,9 +33,9 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 ```powershell
 dotnet restore Full.NET.slnx
 dotnet build Full.NET.slnx --configuration Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --minimum-expected-tests 522
-dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --minimum-expected-tests 7
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --minimum-expected-tests 49
+pnpm test:dotnet:unit -- --no-build
+pnpm test:dotnet:compatibility -- --no-build
+pnpm test:dotnet:architecture -- --no-build
 # 日常按风险选择：冒烟、单提供程序 API、迁移或其他基础设施
 # 任务开始先记录：$taskBase = git rev-parse HEAD
 # 完成时自动判定 none / tooling / 双库 focused / 专项分片
@@ -56,11 +56,11 @@ pnpm test:integration:durations
 dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 ```
 
-`main` CI 的 canonical 定义保持
-`Full.NET.IntegrationTests --minimum-expected-tests 199 --timeout 90m`，只由四个互斥
-并行分片执行；本地任务不得运行该完整集合。
+测试套件、最低发现数、超时与 Integration 分片的唯一机器事实源是
+[`eng/testing/test-matrix.json`](eng/testing/test-matrix.json)。`main` CI 运行其中的
+全部互斥分片；本地任务不得运行完整集合。
 
-Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。跨任务窗口应使用任务基线和 `test:integration:affected` 自动选择验证范围；聚焦模式会先确认 SQL Server/MySQL 都已发现并以精确发现数作为最低门槛。本地任务只运行受影响测试：模块和共享能力使用对应双库过滤集，共享宿主使用 Smoke，迁移使用 migrations 分片，测试脚本使用 tooling。完整 199 项只保留给 `main` CI 的四个互斥并行分片。
+Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。工作区已脏或任务跨窗口时先用 `test:task:start` 创建快照，再按 `inner`、`slice`、`merge` 阶段使用 `test:integration:affected` 自动选择验证范围；多个过滤目标会按 UID 去重并合并为一次进程。本地只运行受影响测试，完整集合只保留给 `main` CI 的互斥并行分片。
 
 AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。Bootstrap 现在幂等创建受保护超级管理员角色，不再同步逐项权限；签名 Claim、当前作用域动态权限、逐请求 Session/SecurityStamp 校验、双库并发最后一名保护、远程授予/撤销 API、事务内可追责审计和 Vue/Layui 对等管理页已经实现。远程写操作只允许 Development/Testing 显式开启，Production 在 MFA/强认证 Provider 落地前无法开启；账号禁用/删除路径保护和真实后端浏览器 E2E 仍按[设计](docs/superpowers/specs/2026-07-18-super-administrator-design.md)与[计划](docs/superpowers/plans/2026-07-18-super-administrator.md)后续交付，因此当前不能标记为完整 `Verified`。
 
@@ -100,4 +100,4 @@ Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新�
 
 ## 当前边界
 
-M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、MessagePack、可选 Redis Backplane、专用 ready 探针、SQL Server/MySQL 双 API 节点 stop/start 故障恢复，以及 Vue/Layui 管理端认证连接、首次失败退避恢复、切租户重连、未读徽标和当前通知页刷新已达 `Build-verified`；生产多副本编排/告警、Redis Cluster/Sentinel、浏览器真实后端断网恢复 E2E 与 Outbox 修复推送仍未完成。真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。
+M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、MessagePack、可选 Redis Backplane、专用 ready 探针、SQL Server/MySQL 双 API 节点 stop/start 故障恢复，以及 Vue/Layui 管理端认证连接、首次失败退避恢复、切租户重连、未读徽标、当前通知页刷新、独立 Worker Outbox 修复推送和双库真实浏览器断网恢复 E2E 已达 `Build-verified`；生产多副本编排/告警与 Redis Cluster/Sentinel 仍未完成。真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。

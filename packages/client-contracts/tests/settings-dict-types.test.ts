@@ -103,12 +103,17 @@ describe('Settings 数据字典契约', () => {
     })).toBe(false);
   });
 
-  it('导航白名单发布 dict-types 与 config-entries 组件键', () => {
+  it('导航白名单发布 dict-types、tenant-dict-types 与 config-entries 组件键', () => {
     const catalog = createAdminNavigationCatalog();
     expect(catalog.localNavigationFor('dict-types')).toEqual({
       componentKey: 'dict-types',
       routeName: 'dict-types',
       path: '/settings/dict-types'
+    });
+    expect(catalog.localNavigationFor('tenant-dict-types')).toEqual({
+      componentKey: 'tenant-dict-types',
+      routeName: 'tenant-dict-types',
+      path: '/settings/tenant-dict-types'
     });
     expect(catalog.localNavigationFor('config-entries')).toEqual({
       componentKey: 'config-entries',

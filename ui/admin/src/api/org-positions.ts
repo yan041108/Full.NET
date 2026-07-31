@@ -51,6 +51,40 @@ export async function updateOrganizationPosition(
   return value;
 }
 
+export async function assignOrganizationPositionUnit(
+  id: string,
+  unitId: string | null,
+  version: number
+): Promise<OrganizationPosition> {
+  const value = await request<unknown>(
+    `/api/v1/organization/positions/${encodeURIComponent(id)}/unit`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ unitId, version })
+    }
+  );
+  if (!isOrganizationPosition(value)) throw new Error('client.invalid_organization_position');
+  return value;
+}
+
+export async function assignOrganizationPositionLevel(
+  id: string,
+  positionLevelId: string | null,
+  version: number
+): Promise<OrganizationPosition> {
+  const value = await request<unknown>(
+    `/api/v1/organization/positions/${encodeURIComponent(id)}/position-level`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ positionLevelId, version })
+    }
+  );
+  if (!isOrganizationPosition(value)) throw new Error('client.invalid_organization_position');
+  return value;
+}
+
 export async function disableOrganizationPosition(id: string): Promise<OrganizationPosition> {
   const value = await request<unknown>(
     `/api/v1/organization/positions/${encodeURIComponent(id)}/disable`,

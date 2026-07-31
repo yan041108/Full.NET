@@ -50,6 +50,15 @@ public sealed class ContractNameValidatorTests
     }
 
     [TestMethod]
+    public void IsValidDotNetType_and_http_path_use_the_shared_profile()
+    {
+        Assert.IsTrue(ContractNameValidator.IsValidDotNetType("ProductItem"));
+        Assert.IsFalse(ContractNameValidator.IsValidDotNetType("productItem"));
+        Assert.IsTrue(ContractNameValidator.IsValidHttpPathSegment("product-items"));
+        Assert.IsFalse(ContractNameValidator.IsValidHttpPathSegment("ProductItems"));
+    }
+
+    [TestMethod]
     public void Embedded_profile_matches_shared_examples()
     {
         using var examples = JsonDocument.Parse(File.ReadAllText(Path.Combine(

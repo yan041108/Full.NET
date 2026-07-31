@@ -41,6 +41,24 @@ public static class SettingsErrorCodes
     /// <summary>目标枚举/常量目录不存在。</summary>
     public const string EnumCatalogNotFound = "settings.enum_catalog.not_found";
 
+    /// <summary>Grid 键未在可信本地目录发布。</summary>
+    public const string GridNotFound = "settings.grid_preference.grid_not_found";
+
+    /// <summary>列键未在 Grid 可信目录发布。</summary>
+    public const string GridColumnUnknown = "settings.grid_preference.column_unknown";
+
+    /// <summary>同一列键在偏好中重复出现。</summary>
+    public const string GridColumnDuplicate = "settings.grid_preference.column_duplicate";
+
+    /// <summary>Grid 偏好展示值无效。</summary>
+    public const string GridPreferenceInvalid = "settings.grid_preference.invalid";
+
+    /// <summary>客户端 Grid schema 版本已经过期。</summary>
+    public const string GridSchemaVersionMismatch = "settings.grid_preference.schema_version_mismatch";
+
+    /// <summary>Grid 偏好记录版本冲突。</summary>
+    public const string GridPreferenceVersionConflict = "settings.grid_preference.version_conflict";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -57,5 +75,11 @@ public static class SettingsErrorCodes
         ConfigEntryNotFound,
         ConfigEntryVersionConflict,
         EnumCatalogNotFound,
+        GridNotFound,
+        GridColumnUnknown,
+        GridColumnDuplicate,
+        GridPreferenceInvalid,
+        GridSchemaVersionMismatch,
+        GridPreferenceVersionConflict,
     ]);
 }

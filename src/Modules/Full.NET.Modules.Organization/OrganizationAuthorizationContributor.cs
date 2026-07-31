@@ -33,6 +33,14 @@ internal sealed class OrganizationAuthorizationContributor
             "管理职位",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
+            OrganizationPositionLevelManagementPermissions.Read,
+            "查看职级",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionLevelManagementPermissions.Write,
+            "管理职级",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
             OrganizationUserPositionManagementPermissions.Read,
             "查看用户职位隶属",
             AuthorizationScope.Tenant),
@@ -78,6 +86,17 @@ internal sealed class OrganizationAuthorizationContributor
             47,
             OrganizationPositionManagementPermissions.Read),
         new NavigationDefinition(
+            "org-position-levels",
+            null,
+            "org-position-levels",
+            "/organization/position-levels",
+            "org-position-levels",
+            "职级管理",
+            "Organization",
+            "medal",
+            48,
+            OrganizationPositionLevelManagementPermissions.Read),
+        new NavigationDefinition(
             "org-user-positions",
             null,
             "org-user-positions",
@@ -86,7 +105,7 @@ internal sealed class OrganizationAuthorizationContributor
             "用户职位隶属",
             "Organization",
             "user",
-            48,
+            49,
             OrganizationUserPositionManagementPermissions.Read),
     ];
 }

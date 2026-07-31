@@ -21,6 +21,10 @@ const executionsEndpointPath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobExecutions/Endpoint.cs'
 );
+const schedulesEndpointPath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobSchedules/Endpoint.cs'
+);
 
 async function loadContract() {
   return JSON.parse(await readFile(contractPath, 'utf8'));
@@ -29,6 +33,10 @@ async function loadContract() {
 test('Host 任务 OpenAPI 夹具结构完整且路径唯一', async () => {
   const contract = await loadContract();
   assert.equal(contract.id, 'jobs-host-definitions-v1');
+  assert.ok(
+    contract.schemas.HostJobExecutionResponse.properties.includes('nextAttemptAtUtc'),
+    'HostJobExecutionResponse 应暴露下一次重试时间'
+  );
 
   const seen = new Set();
   for (const entry of contract.paths) {
@@ -37,7 +45,10 @@ test('Host 任务 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^jobs\.(definitions|executions)\.(read|write)$/u);
+      assert.match(
+        operation.permission,
+        /^jobs\.(definitions|executions|schedules)\.(read|write)$/u
+      );
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
       }
@@ -51,17 +62,22 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   const contractsSource = await readFile(contractsSourcePath, 'utf8');
   const definitionsEndpoint = await readFile(definitionsEndpointPath, 'utf8');
   const executionsEndpoint = await readFile(executionsEndpointPath, 'utf8');
-  const endpointSources = `${definitionsEndpoint}\n${executionsEndpoint}`;
+  const schedulesEndpoint = await readFile(schedulesEndpointPath, 'utf8');
+  const endpointSources =
+    `${definitionsEndpoint}\n${executionsEndpoint}\n${schedulesEndpoint}`;
 
   for (const permission of [
     'jobs.definitions.read',
     'jobs.definitions.write',
-    'jobs.executions.read'
+    'jobs.executions.read',
+    'jobs.schedules.read',
+    'jobs.schedules.write'
   ]) {
     assert.ok(contractsSource.includes(permission), `C# 契约缺少权限码：${permission}`);
   }
   assert.match(definitionsEndpoint, /MapGroup\("\/api\/v1\/jobs\/host-definitions"\)/u);
   assert.match(executionsEndpoint, /MapGroup\("\/api\/v1\/jobs\/host-executions"\)/u);
+  assert.match(schedulesEndpoint, /MapGroup\("\/api\/v1\/jobs\/host-schedules"\)/u);
 
   const routeMarkers = new Map([
     ['GET /api/v1/jobs/host-definitions', 'MapGet("/",'],
@@ -76,7 +92,19 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
       'POST /api/v1/jobs/host-definitions/{definitionId}/trigger',
       'MapPost("/{definitionId:guid}/trigger",'
     ],
-    ['GET /api/v1/jobs/host-executions', 'MapGet("/",']
+    ['GET /api/v1/jobs/host-executions', 'MapGet("/",'],
+    ['GET /api/v1/jobs/host-schedules', 'MapGet("/",'],
+    ['POST /api/v1/jobs/host-schedules', 'MapPost("/",'],
+    ['GET /api/v1/jobs/host-schedules/{scheduleId}', 'MapGet("/{scheduleId:guid}",'],
+    ['PUT /api/v1/jobs/host-schedules/{scheduleId}', 'MapPut("/{scheduleId:guid}",'],
+    [
+      'POST /api/v1/jobs/host-schedules/{scheduleId}/pause',
+      'MapStateChange(group, "pause", enable: false)'
+    ],
+    [
+      'POST /api/v1/jobs/host-schedules/{scheduleId}/resume',
+      'MapStateChange(group, "resume", enable: true)'
+    ]
   ]);
 
   for (const entry of contract.paths) {

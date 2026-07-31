@@ -26,6 +26,14 @@ public static class OrganizationErrorCodes
     /// <summary>目标职位不存在或不属于当前租户。</summary>
     public const string PositionNotFound = "organization.positions.not_found";
 
+    /// <summary>职级编码在租户内已存在。</summary>
+    public const string PositionLevelCodeExists =
+        "organization.position_levels.code_exists";
+
+    /// <summary>目标职级不存在或不属于当前租户。</summary>
+    public const string PositionLevelNotFound =
+        "organization.position_levels.not_found";
+
     /// <summary>用户-职位隶属已存在。</summary>
     public const string UserPositionAlreadyAssigned = "organization.user_positions.already_assigned";
 
@@ -47,6 +55,8 @@ public static class OrganizationErrorCodes
         UserUnitUserNotFound,
         PositionCodeExists,
         PositionNotFound,
+        PositionLevelCodeExists,
+        PositionLevelNotFound,
         UserPositionAlreadyAssigned,
         UserPositionNotFound,
         UserPositionUserNotFound,

@@ -151,6 +151,37 @@ export function createRolesController(root, options) {
       return;
     }
 
+    const fieldGrantsButton = event.target instanceof Element
+      ? event.target.closest('[data-roles-field-grants]')
+      : undefined;
+    if (fieldGrantsButton && !changing) {
+      void openFieldGrantsDialog(
+        fieldGrantsButton.dataset.rolesFieldGrants,
+        translation(),
+        request,
+        async (resourceKey, fieldKeys, version) => {
+          changing = true;
+          try {
+            await request(
+              `/api/v1/identity/roles/${encodeURIComponent(fieldGrantsButton.dataset.rolesFieldGrants)}/field-grants`,
+              {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ resourceKey, fieldKeys, version })
+              }
+            );
+            notify(translation().t('roles.fieldGrantsSuccess'), 1);
+            await load();
+          } catch (problem) {
+            showProblem(root, problem, translation().t('roles.operationFailed'));
+          } finally {
+            changing = false;
+          }
+        }
+      );
+      return;
+    }
+
     const disableButton = event.target instanceof Element
       ? event.target.closest('[data-roles-disable]')
       : undefined;
@@ -247,6 +278,12 @@ function renderDirectory(container, roles, translation) {
       dataScope.dataset.version = String(role.version ?? 0);
       dataScope.textContent = translation.t('roles.dataScope');
       actions.append(dataScope);
+      const fieldGrants = container.ownerDocument.createElement('button');
+      fieldGrants.type = 'button';
+      fieldGrants.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      fieldGrants.dataset.rolesFieldGrants = role.id;
+      fieldGrants.textContent = translation.t('roles.fieldGrants');
+      actions.append(fieldGrants);
     }
     if (role.isActive && !role.isSystem) {
       const disable = container.ownerDocument.createElement('button');
@@ -406,6 +443,55 @@ function openDataScopeDialog(roleId, translation, request, confirm) {
         }
       });
     });
+}
+
+function openFieldGrantsDialog(roleId, translation, request, confirm) {
+  const resourceKey = 'identity.host_users';
+  return Promise.all([
+    request('/api/v1/identity/field-projections/catalog'),
+    request(`/api/v1/identity/roles/${encodeURIComponent(roleId)}/field-grants?resourceKey=${encodeURIComponent(resourceKey)}`)
+  ]).then(([catalog, grants]) => {
+    const resource = (Array.isArray(catalog) ? catalog : [])
+      .find(item => item.resourceKey === resourceKey);
+    const selected = new Set(Array.isArray(grants?.fieldKeys) ? grants.fieldKeys : []);
+    const fields = (Array.isArray(resource?.fields) ? resource.fields : [])
+      .filter(field => field.assignable);
+    const content = document.createElement('div');
+    content.className = 'fn-roles__permission-dialog';
+    fields.forEach(field => {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = field.fieldKey;
+      input.checked = selected.has(field.fieldKey);
+      label.append(input, document.createTextNode(` ${field.displayName} (${field.fieldKey})`));
+      content.append(label);
+    });
+
+    if (!globalThis.layui?.layer?.open) {
+      void confirm(resourceKey, [...selected].sort(), grants?.version ?? 0);
+      return;
+    }
+
+    document.body.appendChild(content);
+    globalThis.layui.layer.open({
+      type: 1,
+      title: translation.t('roles.fieldGrantsTitle'),
+      area: ['560px', '420px'],
+      content,
+      btn: [translation.t('roles.saveFieldGrants'), translation.t('status.back')],
+      yes(index) {
+        const fieldKeys = [...content.querySelectorAll('input:checked')]
+          .map(input => input.value)
+          .sort();
+        globalThis.layui.layer.close(index);
+        void confirm(resourceKey, fieldKeys, grants?.version ?? 0);
+      },
+      end() {
+        content.remove();
+      }
+    });
+  });
 }
 
 function resolveLayerContent(layero, selector) {

@@ -26,6 +26,7 @@ export interface VueNotificationsRealtimeState {
 export interface VueNotificationsRealtimeOptions {
   session: NotificationsRealtimeSession;
   enabled?: boolean;
+  hubPath?: string;
   loadUnreadCount?: () => Promise<InboxUnreadCount>;
   realtimeFactory?: (
     options: NotificationsRealtimeOptions
@@ -89,7 +90,9 @@ export function createVueNotificationsRealtime(
   const realtime = (options.realtimeFactory
     ?? createNotificationsRealtimeController)({
     session: options.session,
-    onMessage
+    onMessage,
+    onReconnected: () => queueUnreadCountLoad(sessionGeneration, true),
+    hubPath: options.hubPath
   });
   const unsubscribeSession = options.session.subscribe(snapshot => {
     const generation = ++sessionGeneration;
@@ -98,18 +101,29 @@ export function createVueNotificationsRealtime(
       return;
     }
 
-    const loadUnreadCount = options.loadUnreadCount ?? getInboxUnreadCount;
+    void queueUnreadCountLoad(generation, false);
+  });
+
+  function queueUnreadCountLoad(
+    generation: number,
+    refreshInbox: boolean
+  ): Promise<void> {
     loadTransition = loadTransition.then(async () => {
       try {
+        const loadUnreadCount = options.loadUnreadCount ?? getInboxUnreadCount;
         const response = await loadUnreadCount();
         if (!disposed && generation === sessionGeneration) {
           unreadCount.value = response.unreadCount;
+          if (refreshInbox) {
+            inboxRevision.value++;
+          }
         }
       } catch {
         // 初始未读数失败保持零值，实时连接和站内信页面仍可独立恢复。
       }
     });
-  });
+    return loadTransition;
+  }
 
   return {
     unreadCount,

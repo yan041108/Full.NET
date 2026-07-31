@@ -57,6 +57,10 @@ test('Host API Key OpenAPI 夹具与 C# 契约和端点源码一致', async () =
     [
       'POST /api/v1/identity/api-keys/{apiKeyId}/disable',
       'MapPost("/{apiKeyId:guid}/disable",'
+    ],
+    [
+      'POST /api/v1/identity/api-keys/{apiKeyId}/rotate',
+      'MapPost("/{apiKeyId:guid}/rotate",'
     ]
   ]);
 

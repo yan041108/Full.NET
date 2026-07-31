@@ -14,7 +14,21 @@ internal sealed record HostFileDetailRecord(
     string OriginalFileName,
     string ContentType,
     long SizeBytes,
+    string ProviderKey,
     string StorageKey,
     string? ContentHash,
     DateTimeOffset CreatedAtUtc,
     Guid CreatedByUserId);
+
+internal sealed record DeletedHostFileBlobRecord(
+    Guid Id,
+    string ProviderKey,
+    string StorageKey,
+    DateTimeOffset DeletedAtUtc);
+
+internal sealed record PendingHostFileRecord(
+    Guid Id,
+    string ProviderKey,
+    string StorageKey,
+    DateTimeOffset CreatedAtUtc,
+    string StorageState = "pending");

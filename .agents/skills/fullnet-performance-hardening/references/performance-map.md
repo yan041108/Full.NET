@@ -141,6 +141,54 @@ checkpoint。
 - 进程终止、租约到期、恢复和重复消费；
 - Batch/Poll/Lease 参数矩阵。
 
+Jobs backlog 聚合查询的可重复双库证据入口为：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- jobs-backlog-query
+```
+
+默认使用 10 万行固定分布数据、单并发、5 次预热和 30 次采样，并保存 SQL Server 实际
+`STATISTICS XML`、MySQL `EXPLAIN FORMAT=JSON` 与 `EXPLAIN ANALYZE`。短开发验证可显式使用
+`--rows 2000 --warmup 1 --iterations 5 --providers <provider>`；正式证据必须双库执行且保留默认
+代表性规模。该入口直接消费 Jobs 生产 Statement，结果门禁覆盖 Host pending、到期重试、最老可领取
+与最老到期时间；不同 Provider 的绝对耗时不得横向排名，也不能据此承诺生产 SLA。
+
+Jobs backlog 候选索引的同库 A/B 入口为：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- jobs-backlog-query --mode index-ab
+```
+
+该模式在每个 Provider 的单一容器和固定数据集内按
+`baseline -> candidate -> candidate -> baseline` 镜像块采样，候选索引固定为
+`IX_fn_jobs_execution_BacklogStatusTenant`。除 backlog 查询 P50/P95/P99 与实际计划外，
+还必须记录索引创建耗时、索引体积以及生产 `trigger_insert`、`claim`、
+`terminal_success` Statement 的事务回滚探针。短开发验证可使用：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- jobs-backlog-query --mode index-ab --rows 2000 --warmup 1 --iterations 5 --mutation-iterations 3 --providers <provider>
+```
+
+只有 SQL Server/MySQL 的查询 P95/P99 都严格改善、正确性和计划完整，且三类写路径
+P95 回归均不超过 20%，才允许进入独立迁移切片；A/B 命令本身禁止修改正式迁移、
+生产 SQL、Worker 默认并发或积压采样周期。
+
+Jobs 并发容量的可重复入口为：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -c Release -- jobs-capacity
+```
+
+默认矩阵覆盖 SQL Server/MySQL、并发 `1/2/4/8`、Handler 延迟 `0/1000ms`，
+并额外包含慢 Handler 的双副本 `c2` 形状；每档三轮。Runner 使用生产
+`JobExecutionRunner`、固定低基数 JobKey、预热实测速率补量、原子 checkpoint 与
+构建指纹隔离，报告终态吞吐、Handler/队列 P50/P95/P99、预期失败、重复尝试、续租、
+Dapper 失败原因、连接池、数据库锁/日志、进程和容器资源。完整矩阵只允许通过
+`.github/workflows/jobs-capacity.yml` 手工触发；本地只运行每个 Provider 一次短 smoke。
+只有两库全部 c2 正确，吞吐中位数至少提升 20%、队列 P95 不回退、慢 Handler 有续租、
+双副本正确且数据库失败为零，报告才可给出 `EligibleForCanaryAtTwo`。该结论只允许进入
+独立 canary 决策，不得自动修改生产配置；证据不完整时默认 `MaxConcurrency = 1`。
+
 ### 前端
 
 ```powershell
@@ -159,9 +207,11 @@ pnpm test:skills
 pnpm test:governance
 pnpm test:naming
 dotnet build Full.NET.slnx -c Release
-dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll --no-ansi --progress off --minimum-expected-tests 522
-dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll --no-ansi --progress off --minimum-expected-tests 7
-dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll --no-ansi --progress off --minimum-expected-tests 49
+pnpm test:dotnet:unit -- --no-build
+pnpm test:dotnet:compatibility -- --no-build
+pnpm test:dotnet:architecture -- --no-build
 ```
 
-测试数量变化时先同步 canonical 门槛，再使用新数字。本地数据库、认证、共享宿主、Outbox、缓存或 Dapper 基础设施变更按照 `rules/development-quality.md` 第 11.1 节运行 `test:integration:affected` 选择出的影响集；完整 199 项只由 `main` CI 并行分片执行。
+测试数量、超时与分片只维护在
+[`eng/testing/test-matrix.json`](../../../../eng/testing/test-matrix.json)，Skill
+不得复制易变数字。本地数据库、认证、共享宿主、Outbox、缓存或 Dapper 基础设施变更按照 `rules/development-quality.md` 第 11.1 节运行 `test:integration:affected` 选择出的影响集；完整集合只由 `main` CI 并行分片执行。

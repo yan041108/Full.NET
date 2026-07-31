@@ -65,3 +65,14 @@ export async function disableHostApiKey(id: string): Promise<HostApiKey> {
   }
   return value;
 }
+
+export async function rotateHostApiKey(id: string): Promise<CreateHostApiKeyResult> {
+  const value = await request<unknown>(
+    `/api/v1/identity/api-keys/${encodeURIComponent(id)}/rotate`,
+    { method: 'POST' }
+  );
+  if (!isCreateHostApiKeyResult(value)) {
+    throw new Error('client.invalid_create_host_api_key_result');
+  }
+  return value;
+}

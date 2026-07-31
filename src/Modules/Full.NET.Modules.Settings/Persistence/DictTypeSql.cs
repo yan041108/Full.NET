@@ -9,6 +9,7 @@ internal static class DictTypeSql
         """
         SELECT COUNT(1)
         FROM fn_settings_dict_type
+        WHERE TenantId IS NULL
         """,
         SqlDataScope.HostOnly);
 
@@ -25,6 +26,7 @@ internal static class DictTypeSql
                UpdatedAtUtc,
                Version
         FROM fn_settings_dict_type
+        WHERE TenantId IS NULL
         ORDER BY DisplayOrder, Name, Code, Id
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -43,6 +45,7 @@ internal static class DictTypeSql
                UpdatedAtUtc,
                Version
         FROM fn_settings_dict_type
+        WHERE TenantId IS NULL
         ORDER BY DisplayOrder, Name, Code, Id
         LIMIT @PageSize OFFSET @Offset
         """,
@@ -62,6 +65,7 @@ internal static class DictTypeSql
                Version
         FROM fn_settings_dict_type
         WHERE Id = @DictTypeId
+          AND TenantId IS NULL
         """,
         SqlDataScope.HostOnly);
 
@@ -71,6 +75,7 @@ internal static class DictTypeSql
         SELECT Id, Code, Name, Description, DisplayOrder, IsActive, Version
         FROM fn_settings_dict_type
         WHERE Id = @DictTypeId
+          AND TenantId IS NULL
         """,
         SqlDataScope.HostOnly);
 
@@ -80,6 +85,7 @@ internal static class DictTypeSql
         SELECT Id, Code, Name, Description, DisplayOrder, IsActive, Version
         FROM fn_settings_dict_type
         WHERE Code = @Code
+          AND TenantId IS NULL
         """,
         SqlDataScope.HostOnly);
 
@@ -87,9 +93,9 @@ internal static class DictTypeSql
         "settings.dict_type.insert",
         """
         INSERT INTO fn_settings_dict_type
-            (Id, Code, Name, Description, DisplayOrder, IsActive, CreatedAtUtc, Version)
+            (Id, TenantId, Code, Name, Description, DisplayOrder, IsActive, CreatedAtUtc, Version)
         VALUES
-            (@Id, @Code, @Name, @Description, @DisplayOrder, @IsActive, @CreatedAtUtc, @Version)
+            (@Id, NULL, @Code, @Name, @Description, @DisplayOrder, @IsActive, @CreatedAtUtc, @Version)
         """,
         SqlDataScope.HostOnly);
 
@@ -103,6 +109,7 @@ internal static class DictTypeSql
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @DictTypeId
+          AND TenantId IS NULL
           AND Version = @Version
         """,
         SqlDataScope.HostOnly);
@@ -115,6 +122,7 @@ internal static class DictTypeSql
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @DictTypeId
+          AND TenantId IS NULL
           AND IsActive = 1
         """,
         SqlDataScope.HostOnly);

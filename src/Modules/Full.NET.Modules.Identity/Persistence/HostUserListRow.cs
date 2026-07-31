@@ -16,3 +16,24 @@ internal sealed class HostUserListRow
 
     public int Version { get; set; }
 }
+
+internal sealed class HostUserPreferredLocaleRow
+{
+    public Guid Id { get; set; }
+
+    public string? Value { get; set; }
+}
+
+internal sealed class HostUserFailedLoginCountRow
+{
+    public Guid Id { get; set; }
+
+    public int Value { get; set; }
+}
+
+internal sealed class HostUserLockoutEndUtcRow
+{
+    public Guid Id { get; set; }
+
+    public DateTimeOffset? Value { get; set; }
+}

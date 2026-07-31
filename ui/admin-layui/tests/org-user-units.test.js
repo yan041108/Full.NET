@@ -89,6 +89,7 @@ describe('Layui 租户用户-机构隶属控制器', () => {
       });
     const controller = createOrgUserUnitsController(document, {
       request,
+      hasPermission: permission => permission === 'organization.user_units.write',
       translation: () => ({ locale: 'zh-CN', t: key => key })
     });
 
@@ -108,7 +109,7 @@ describe('Layui 租户用户-机构隶属控制器', () => {
     );
     expect(request).toHaveBeenNthCalledWith(
       3,
-      '/api/v1/identity/users?page=1&pageSize=20'
+      '/api/v1/organization/user-units/assignable-users?page=1&pageSize=100'
     );
     expect(request).toHaveBeenNthCalledWith(
       4,
@@ -128,8 +129,57 @@ describe('Layui 租户用户-机构隶属控制器', () => {
     );
     expect(request).toHaveBeenNthCalledWith(
       7,
-      '/api/v1/identity/users?page=1&pageSize=20'
+      '/api/v1/organization/user-units/assignable-users?page=1&pageSize=100'
     );
+    controller.dispose();
+  });
+
+  it('按需加载下一页可分配用户并保留已有选项', async () => {
+    document.body.innerHTML = `
+      <form data-org-user-units-create-form>
+        <select name="userId" data-org-user-units-user></select>
+        <select name="unitId" data-org-user-units-unit></select>
+        <button type="button" data-org-user-units-load-more-users hidden></button>
+      </form>
+      <div data-org-user-units-problem hidden><strong></strong><span></span></div>
+      <div data-org-user-units-directory></div>`;
+    const request = vi.fn(async url => {
+      if (url.includes('/user-units?page=') || url.includes('/units?page=')) {
+        return { items: [], page: 1, pageSize: 20, total: 0 };
+      }
+      if (url.includes('page=2')) {
+        return {
+          items: [{ id: 'user-2', username: 'operator', displayName: '操作员' }],
+          page: 2,
+          pageSize: 100,
+          total: 101
+        };
+      }
+      return {
+        items: [{ id: 'user-1', username: 'admin', displayName: '管理员' }],
+        page: 1,
+        pageSize: 100,
+        total: 101
+      };
+    });
+    const controller = createOrgUserUnitsController(document, {
+      request,
+      hasPermission: permission => permission === 'organization.user_units.write',
+      translation: () => ({ locale: 'zh-CN', t: key => key })
+    });
+
+    await controller.load();
+    const loadMore = document.querySelector('[data-org-user-units-load-more-users]');
+    expect(loadMore.hidden).toBe(false);
+    loadMore.click();
+
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith(
+      '/api/v1/organization/user-units/assignable-users?page=2&pageSize=100'
+    ));
+    await vi.waitFor(() => expect(
+      Array.from(document.querySelector('[data-org-user-units-user]').options)
+        .map(option => option.value)
+    ).toEqual(['', 'user-1', 'user-2']));
     controller.dispose();
   });
 });

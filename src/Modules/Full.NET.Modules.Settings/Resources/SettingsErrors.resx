@@ -15,4 +15,10 @@
   <data name="settings.config_entry.not_found" xml:space="preserve"><value>未找到该系统配置项。</value></data>
   <data name="settings.config_entry.version_conflict" xml:space="preserve"><value>系统配置项记录已被其他操作更新，请刷新后重试。</value></data>
   <data name="settings.enum_catalog.not_found" xml:space="preserve"><value>未找到该枚举或常量目录。</value></data>
+  <data name="settings.grid_preference.grid_not_found" xml:space="preserve"><value>未找到本地目录发布的 Grid。</value></data>
+  <data name="settings.grid_preference.column_unknown" xml:space="preserve"><value>Grid 列键未在本地目录发布。</value></data>
+  <data name="settings.grid_preference.column_duplicate" xml:space="preserve"><value>同一个 Grid 列键只能出现一次。</value></data>
+  <data name="settings.grid_preference.invalid" xml:space="preserve"><value>Grid 偏好包含无效的展示值。</value></data>
+  <data name="settings.grid_preference.schema_version_mismatch" xml:space="preserve"><value>Grid schema 版本与本地目录不再匹配。</value></data>
+  <data name="settings.grid_preference.version_conflict" xml:space="preserve"><value>Grid 偏好已被其他操作更新，请刷新后重试。</value></data>
 </root>

@@ -8,6 +8,8 @@ using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Jobs;
+using Full.NET.Modules.CodeGeneration;
+using Full.NET.Modules.SerialNumbers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -84,5 +86,7 @@ public static class FullNetModuleCatalog
         new TenancyModule(),
         new OrganizationModule(),
         new SettingsModule(),
+        new CodeGenerationModule(),
+        new SerialNumbersModule(),
     ];
 }

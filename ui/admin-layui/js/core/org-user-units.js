@@ -4,29 +4,53 @@
 export function createOrgUserUnitsController(root, options) {
   const request = options.request;
   const translation = options.translation;
+  const canWrite = () => options.hasPermission?.(
+    'organization.user_units.write'
+  ) === true;
   const form = root.querySelector('[data-org-user-units-create-form]');
   const directory = root.querySelector('[data-org-user-units-directory]');
   const userSelect = root.querySelector('[data-org-user-units-user]');
+  const loadMoreUsersButton = root.querySelector(
+    '[data-org-user-units-load-more-users]'
+  );
   const unitSelect = root.querySelector('[data-org-user-units-unit]');
   let loading;
   let changing = false;
+  let loadingMoreUsers = false;
+  let users = [];
+  let userPage = 1;
+  let userTotal = 0;
+  if (form) form.hidden = !canWrite();
 
   const load = async () => {
     if (loading) return await loading;
     loading = Promise.all([
       request('/api/v1/organization/user-units?page=1&pageSize=20'),
       request('/api/v1/organization/units?page=1&pageSize=20'),
-      // 租户上下文无 identity.users.read；选择器可降级为空，列表仍应可渲染。
-      request('/api/v1/identity/users?page=1&pageSize=20').catch(() => ({ items: [] }))
+      canWrite()
+        ? request('/api/v1/organization/user-units/assignable-users?page=1&pageSize=100')
+            .catch(problem => {
+              if (problem?.status === 403) {
+                return { items: [], page: 1, pageSize: 100, total: 0 };
+              }
+              throw problem;
+            })
+        : Promise.resolve({ items: [], page: 1, pageSize: 100, total: 0 })
     ])
-      .then(([assignmentPage, unitPage, userPage]) => {
+      .then(([assignmentPage, unitPage, userPageResult]) => {
+        users = Array.isArray(userPageResult?.items) ? userPageResult.items : [];
+        userPage = positiveIntegerOr(userPageResult?.page, 1);
+        userTotal = nonNegativeIntegerOr(userPageResult?.total, users.length);
         renderSelectOptions(
           userSelect,
-          Array.isArray(userPage?.items)
-            ? userPage.items.filter(user => user.isActive)
-            : [],
+          users,
           user => `${user.displayName} (${user.username})`,
           user => user.id
+        );
+        updateLoadMoreButton(
+          loadMoreUsersButton,
+          users.length < userTotal,
+          loadingMoreUsers
         );
         renderSelectOptions(
           unitSelect,
@@ -50,9 +74,50 @@ export function createOrgUserUnitsController(root, options) {
     return await loading;
   };
 
+  const onLoadMoreUsers = async () => {
+    if (loadingMoreUsers || !canWrite() || users.length >= userTotal) return;
+    loadingMoreUsers = true;
+    updateLoadMoreButton(loadMoreUsersButton, true, true);
+    const selectedUserId = userSelect?.value ?? '';
+    try {
+      const nextPage = await request(
+        `/api/v1/organization/user-units/assignable-users?page=${userPage + 1}&pageSize=100`
+      );
+      users = appendUniqueUsers(
+        users,
+        Array.isArray(nextPage?.items) ? nextPage.items : []
+      );
+      userPage = positiveIntegerOr(nextPage?.page, userPage + 1);
+      userTotal = nonNegativeIntegerOr(nextPage?.total, users.length);
+      renderSelectOptions(
+        userSelect,
+        users,
+        user => `${user.displayName} (${user.username})`,
+        user => user.id
+      );
+      if (userSelect && users.some(user => user.id === selectedUserId)) {
+        userSelect.value = selectedUserId;
+      }
+      hideProblem(root);
+    } catch (problem) {
+      if (problem?.status === 403) {
+        userTotal = users.length;
+      } else {
+        showProblem(root, problem, translation().t('orgUserUnits.loadFailed'));
+      }
+    } finally {
+      loadingMoreUsers = false;
+      updateLoadMoreButton(
+        loadMoreUsersButton,
+        users.length < userTotal,
+        false
+      );
+    }
+  };
+
   const onCreate = async event => {
     event.preventDefault();
-    if (changing || !form) return;
+    if (changing || !form || !canWrite()) return;
     const data = new FormData(form);
     const userId = String(data.get('userId') ?? '').trim();
     const unitId = String(data.get('unitId') ?? '').trim();
@@ -128,11 +193,13 @@ export function createOrgUserUnitsController(root, options) {
 
   form?.addEventListener('submit', onCreate);
   directory?.addEventListener('click', onDirectoryAction);
+  loadMoreUsersButton?.addEventListener('click', onLoadMoreUsers);
   return {
     load,
     dispose() {
       form?.removeEventListener('submit', onCreate);
       directory?.removeEventListener('click', onDirectoryAction);
+      loadMoreUsersButton?.removeEventListener('click', onLoadMoreUsers);
     }
   };
 }
@@ -159,6 +226,26 @@ function renderSelectOptions(container, items, labelFor, valueFor) {
     fragment.append(option);
   });
   container.replaceChildren(fragment);
+}
+
+function appendUniqueUsers(current, incoming) {
+  const byId = new Map(current.map(user => [user.id, user]));
+  incoming.forEach(user => byId.set(user.id, user));
+  return [...byId.values()];
+}
+
+function updateLoadMoreButton(button, hasMore, loading) {
+  if (!button) return;
+  button.hidden = !hasMore;
+  button.disabled = loading;
+}
+
+function positiveIntegerOr(value, fallback) {
+  return Number.isInteger(value) && value >= 1 ? value : fallback;
+}
+
+function nonNegativeIntegerOr(value, fallback) {
+  return Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
 function renderDirectory(container, assignments, translation) {

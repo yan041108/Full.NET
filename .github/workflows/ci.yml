@@ -203,6 +203,10 @@ jobs:
         with:
           node-version: 24
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
       - name: Restore
         run: dotnet restore Full.NET.slnx
 
@@ -216,33 +220,18 @@ jobs:
         run: node scripts/testing/verify-integration-shards.mjs
 
       - name: Unit tests
-        run: >-
-          dotnet tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll
-          --no-ansi
-          --progress off
-          --minimum-expected-tests 522
+        run: pnpm test:dotnet:unit -- --no-build
 
       - name: Compatibility tests
-        run: >-
-          dotnet tests/Full.NET.CompatibilityTests/bin/Release/net10.0/Full.NET.CompatibilityTests.dll
-          --no-ansi
-          --progress off
-          --minimum-expected-tests 7
+        run: pnpm test:dotnet:compatibility -- --no-build
 
       - name: Architecture tests
-        run: >-
-          dotnet tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll
-          --no-ansi
-          --progress off
-          --minimum-expected-tests 49
+        run: pnpm test:dotnet:architecture -- --no-build
 
       # PR ?????? Identity/Tenancy/Outbox ??????????????�?push main�?
       - name: Integration smoke (dual-provider)
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         run: node scripts/testing/run-integration-shard.mjs smoke
-
-      # canonical 本地全量回退：
-      # dotnet tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll --minimum-expected-tests 199 --timeout 90m
 
       - name: Serialization baseline
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -265,14 +254,32 @@ jobs:
             BenchmarkDotNet.Artifacts/results/**
           if-no-files-found: warn
 
+  integration-matrix:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.matrix.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Read Integration partitions
+        id: matrix
+        shell: bash
+        run: echo "shards=$(node scripts/testing/print-test-matrix.mjs)" >> "$GITHUB_OUTPUT"
+
   integration-shard:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: integration-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 105
     strategy:
       fail-fast: false
       matrix:
-        shard: [api-sqlserver, api-mysql, migrations, infrastructure]
+        shard: ${{ fromJSON(needs.integration-matrix.outputs.shards) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -318,4 +325,4 @@ jobs:
         run: |
           test "${{ needs.build-test.result }}" = "success"
           test "${{ needs.integration-shard.result }}" = "success"
-          echo "All 199 Integration tests passed across four isolated shards."
+          echo "Canonical Integration matrix passed across all isolated shards."
