@@ -254,6 +254,41 @@ public static class GenerationRollbackCheckpointStore
             previousContents);
     }
 
+    /// <summary>
+    /// 在调用方已完成资格与安全校验后删除检查点目录；目录不存在时幂等返回 false。
+    /// </summary>
+    public static Task<bool> TryDeleteAsync(
+        string workspaceRoot,
+        Guid applyRunId,
+        CancellationToken cancellationToken = default)
+    {
+        if (applyRunId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Apply 运行标识不能为空。",
+                nameof(applyRunId));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var fullRoot = GenerationWorkspacePath.NormalizeRoot(workspaceRoot);
+        var checkpointRelativePath = $"{RootRelativePath}/{applyRunId:N}";
+        var checkpointPath = GenerationWorkspacePath.Resolve(
+            fullRoot,
+            checkpointRelativePath);
+        if (!Directory.Exists(checkpointPath))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (!File.Exists(Path.Combine(checkpointPath, MetadataFileName)))
+        {
+            throw new ArgumentException("回滚检查点元数据不完整。");
+        }
+
+        Directory.Delete(checkpointPath, recursive: true);
+        return Task.FromResult(true);
+    }
+
     private static async Task<IReadOnlyDictionary<string, string>>
         ReadPreviousContentsAsync(
             string fullRoot,

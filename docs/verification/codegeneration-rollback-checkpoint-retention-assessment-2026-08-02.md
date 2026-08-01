@@ -1,8 +1,8 @@
 # CodeGeneration 回滚检查点保留与清理评估建议稿
 
 - 日期：2026-08-02
-- 代码基线：`main` @ `2ecdec8`
-- 状态：**建议稿**（待用户确认边界后进入 Spec）
+- 代码基线：`main` @ `839b7b9`
+- 状态：**已关闭** → Spec [2026-08-02-codegeneration-checkpoint-retention-design.md](../superpowers/specs/2026-08-02-codegeneration-checkpoint-retention-design.md)（Approved for implementation）
 - 上游证据：[产品 Rollback 验证记录](codegeneration-product-rollback-2026-08-02.md)、[Apply 检查点验证](codegeneration-apply-rollback-checkpoint-2026-08-01.md)、[内部逆向执行验证](codegeneration-rollback-workspace-2026-08-01.md)
 
 ## 1. 结论

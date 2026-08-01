@@ -1,9 +1,11 @@
+using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.CodeGeneration.Configuration;
 using Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
 using Full.NET.Modules.CodeGeneration.Features.ManageHostTemplates;
 using Full.NET.Modules.CodeGeneration.Features.NormalizeCrudSchema;
 using Full.NET.Modules.CodeGeneration.Features.PreviewCrudGeneration;
+using Full.NET.Modules.CodeGeneration.Retention;
 using Full.NET.Modules.CodeGeneration.Serialization;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Routing;
@@ -46,6 +48,13 @@ public sealed class CodeGenerationModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<CodeGenerationApplyOptions>,
             CodeGenerationApplyOptionsValidator>());
+        services.AddOptions<CodeGenerationCheckpointRetentionOptions>()
+            .Bind(configuration.GetSection(
+                CodeGenerationCheckpointRetentionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<CodeGenerationCheckpointRetentionOptions>,
+            CodeGenerationCheckpointRetentionOptionsValidator>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -57,5 +66,24 @@ public sealed class CodeGenerationModule : IFullNetModule
         Features.PreviewCrudGeneration.Endpoint.Map(endpoints);
         Features.ManageHostTemplates.Endpoint.Map(endpoints);
         Features.ManageHostRuns.Endpoint.Map(endpoints);
+    }
+
+    /// <summary>
+    /// 仅为 Worker 装配默认关闭的检查点保留清理，避免 API 进程重复执行后台任务。
+    /// </summary>
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<CodeGenerationCheckpointRetentionOptions>()
+            .Bind(configuration.GetSection(
+                CodeGenerationCheckpointRetentionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<CodeGenerationCheckpointRetentionOptions>,
+            CodeGenerationCheckpointRetentionOptionsValidator>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddScoped<CodeGenerationCheckpointRetentionRunner>();
+        services.AddHostedService<CodeGenerationCheckpointRetentionHostedProcessor>();
     }
 }

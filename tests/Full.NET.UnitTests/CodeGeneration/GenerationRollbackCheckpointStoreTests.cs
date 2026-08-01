@@ -257,6 +257,28 @@ public sealed class GenerationRollbackCheckpointStoreTests
                 ApplyRunId));
     }
 
+    [TestMethod]
+    public async Task TryDelete_removes_checkpoint_directory_idempotently()
+    {
+        using var workspace = new TemporaryDirectory();
+        var plan = await CreateUpdatePlanAsync(workspace);
+        await GenerationRollbackCheckpointStore.CreateAsync(
+            workspace.Path,
+            ApplyRunId,
+            plan);
+
+        var deleted = await GenerationRollbackCheckpointStore.TryDeleteAsync(
+            workspace.Path,
+            ApplyRunId);
+        Assert.IsTrue(deleted);
+        Assert.IsFalse(Directory.Exists(workspace.GetCheckpointPath()));
+
+        var deletedAgain = await GenerationRollbackCheckpointStore.TryDeleteAsync(
+            workspace.Path,
+            ApplyRunId);
+        Assert.IsFalse(deletedAgain);
+    }
+
     private static async Task<GenerationWritePlan> CreateUpdatePlanAsync(
         TemporaryDirectory workspace)
     {
