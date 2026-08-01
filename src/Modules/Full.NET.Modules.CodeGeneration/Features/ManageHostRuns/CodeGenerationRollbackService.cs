@@ -8,6 +8,7 @@ using Full.NET.Modules.CodeGeneration.Configuration;
 using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.CodeGeneration.Git;
 using Full.NET.Modules.CodeGeneration.Persistence;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
@@ -19,10 +20,12 @@ internal sealed class CodeGenerationRollbackService(
     ICommandExecutor commandExecutor,
     IQueryExecutor queryExecutor,
     IOptions<CodeGenerationApplyOptions> options,
+    IOptions<CodeGenerationCheckpointRetentionOptions> retentionOptions,
     CodeGenerationApplyGate applyGate,
     CodeGenerationGitWorkspaceService gitWorkspace,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ILogger<CodeGenerationRollbackService> logger)
 {
     public async Task<Result<CodeGenerationRunRollbackResponse>> RollbackAsync(
         Guid actorUserId,
@@ -245,6 +248,11 @@ internal sealed class CodeGenerationRollbackService(
                     CancellationToken.None)
                 .ConfigureAwait(false);
 
+            await TryDeleteCheckpointAfterSucceededRollbackAsync(
+                    request.ApplyRunId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             var changedCount = plan.Actions.Count(action =>
                 action.Kind != GenerationWriteActionKind.Unchanged);
             return Result<CodeGenerationRunRollbackResponse>.Success(
@@ -319,6 +327,39 @@ internal sealed class CodeGenerationRollbackService(
                 existingRollback.ArtifactCount,
                 changedArtifactCount: 0,
                 existingRollback.ManifestSha256));
+    }
+
+    private async Task TryDeleteCheckpointAfterSucceededRollbackAsync(
+        Guid applyRunId,
+        CancellationToken cancellationToken)
+    {
+        if (!retentionOptions.Value.DeleteAfterSucceededRollback)
+        {
+            return;
+        }
+
+        try
+        {
+            await GenerationRollbackCheckpointStore.TryDeleteAsync(
+                    options.Value.WorkspaceRoot,
+                    applyRunId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is
+            IOException
+            or UnauthorizedAccessException
+            or ArgumentException)
+        {
+            logger.LogWarning(
+                exception,
+                "Failed to delete rollback checkpoint after succeeded rollback.");
+        }
     }
 
     private async Task FailAsync(

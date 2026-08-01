@@ -24,6 +24,11 @@ internal sealed class CodeGenerationCheckpointRetentionOptions
     /// 磁盘检查点目录上限；0 表示不按数量触发清理。
     /// </summary>
     public int MaxCheckpointCount { get; set; }
+
+    /// <summary>
+    /// 产品 Rollback 成功后立即删除对应检查点；与 Worker 保留策略独立，默认关闭。
+    /// </summary>
+    public bool DeleteAfterSucceededRollback { get; set; }
 }
 
 internal sealed class CodeGenerationCheckpointRetentionOptionsValidator

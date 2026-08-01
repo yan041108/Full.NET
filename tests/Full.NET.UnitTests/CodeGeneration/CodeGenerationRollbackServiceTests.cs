@@ -7,6 +7,7 @@ using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
 using Full.NET.Modules.CodeGeneration.Features.NormalizeCrudSchema;
 using Full.NET.Modules.CodeGeneration.Persistence;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -88,6 +89,40 @@ public sealed class CodeGenerationRollbackServiceTests
                 parameters != null
                 && Read<Guid>(parameters, "Id") == RollbackRunId),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Succeeded_rollback_deletes_checkpoint_when_configured()
+    {
+        using var workspace = new TemporaryDirectory();
+        var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(
+                CodeGenerationRunSql.Insert,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        command.ExecuteAsync(
+                CodeGenerationRunSql.CompleteRollback,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        var fixture = await CreatePreparedFixtureAsync(
+            workspace.Path,
+            command,
+            retention: new CodeGenerationCheckpointRetentionOptions
+            {
+                DeleteAfterSucceededRollback = true,
+            });
+
+        var result = await fixture.Service.RollbackAsync(
+            ActorUserId,
+            new CodeGenerationRunRollbackRequest(ApplyRunId));
+
+        Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+        Assert.IsFalse(Directory.Exists(Path.Combine(
+            workspace.Path,
+            GenerationRollbackCheckpointStore.RootRelativePath,
+            ApplyRunId.ToString("N"))));
     }
 
     [TestMethod]
@@ -417,7 +452,8 @@ public sealed class CodeGenerationRollbackServiceTests
     private static async Task<RollbackFixture> CreatePreparedFixtureAsync(
         string workspaceRoot,
         ICommandExecutor command,
-        IQueryExecutor? queryOverride = null)
+        IQueryExecutor? queryOverride = null,
+        CodeGenerationCheckpointRetentionOptions? retention = null)
     {
         const string relativePath = "Backend/Product.g.cs";
         const string appliedContent = "applied-product\n";
@@ -462,7 +498,7 @@ public sealed class CodeGenerationRollbackServiceTests
                 .Returns((CodeGenerationRunRecord?)null);
         }
 
-        var service = CreateService(workspaceRoot, command, query);
+        var service = CreateService(workspaceRoot, command, query, retention: retention);
         return new RollbackFixture(service, relativePath);
     }
 
@@ -470,7 +506,8 @@ public sealed class CodeGenerationRollbackServiceTests
         string workspaceRoot,
         ICommandExecutor command,
         IQueryExecutor query,
-        CodeGenerationApplyGate? gate = null) =>
+        CodeGenerationApplyGate? gate = null,
+        CodeGenerationCheckpointRetentionOptions? retention = null) =>
         new(
             command,
             query,
@@ -479,10 +516,12 @@ public sealed class CodeGenerationRollbackServiceTests
                 Enabled = true,
                 WorkspaceRoot = workspaceRoot,
             }),
+            Options.Create(retention ?? new CodeGenerationCheckpointRetentionOptions()),
             gate ?? CodeGenerationApplyGateTestSupport.CreateLocalGate(@"C:\workspaces\codegen"),
             CodeGenerationGitWorkspaceTestSupport.CreateDisabled(workspaceRoot),
             new FixedClock(Now),
-            new FixedIdGenerator(RollbackRunId));
+            new FixedIdGenerator(RollbackRunId),
+            NullLogger<CodeGenerationRollbackService>.Instance);
 
     private static CodeGenerationRunRecord CreateSucceededApplyRecord() =>
         new()
