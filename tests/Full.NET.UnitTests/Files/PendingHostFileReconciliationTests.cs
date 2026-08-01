@@ -236,6 +236,10 @@ public sealed class PendingHostFileReconciliationTests
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
+        var environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns(Environments.Development);
+        environment.ContentRootPath.Returns(Path.GetFullPath("."));
+        services.AddSingleton(environment);
         new FilesModule().AddBackgroundServices(services, configuration);
         return services.BuildServiceProvider();
     }

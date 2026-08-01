@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Storage;
@@ -78,7 +79,8 @@ internal sealed partial class FileStorageProviderRegistry
 
 /// <summary>在宿主启动时验证默认 Provider 语法和注册集合，避免首个文件请求才暴露配置错误。</summary>
 internal sealed class FileStorageOptionsValidator(
-    IEnumerable<IFileStorageProvider> providers) : IValidateOptions<FileStorageOptions>
+    IEnumerable<IFileStorageProvider> providers,
+    IHostEnvironment environment) : IValidateOptions<FileStorageOptions>
 {
     public ValidateOptionsResult Validate(string? name, FileStorageOptions options)
     {
@@ -86,6 +88,17 @@ internal sealed class FileStorageOptionsValidator(
         {
             return ValidateOptionsResult.Fail(
                 "Files:Storage:DefaultProviderKey must be a lowercase stable machine code.");
+        }
+
+        // 多实例生产禁止默认落本地磁盘；历史 local 对象仍可通过 Resolve("local") 读取。
+        if (environment.IsProduction()
+            && !string.Equals(
+                options.DefaultProviderKey,
+                S3HostFileBlobStorage.Key,
+                StringComparison.Ordinal))
+        {
+            return ValidateOptionsResult.Fail(
+                "Production Files:Storage:DefaultProviderKey must be 's3'.");
         }
 
         try

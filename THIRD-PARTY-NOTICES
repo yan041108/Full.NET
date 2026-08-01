@@ -10,6 +10,8 @@ the complete license texts.
   https://github.com/dotnet
 - Dapper — Apache-2.0
   https://github.com/DapperLib/Dapper
+- AWS SDK for .NET (AWSSDK.S3 / AWSSDK.Core) — Apache-2.0
+  https://github.com/aws/aws-sdk-net
 - DbUp — MIT
   https://github.com/DbUp/DbUp
 - FluentValidation — Apache-2.0
