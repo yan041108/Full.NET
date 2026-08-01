@@ -1,0 +1,93 @@
+{
+  "name": "soak",
+  "targetInFlight": 5000,
+  "treatVuAsActualInFlight": false,
+  "capacityStatus": "Capacity-not-verified",
+  "providers": [
+    "SqlServer",
+    "MySql"
+  ],
+  "executionOrderGate": [
+    "2k",
+    "5k",
+    "10k",
+    "soak"
+  ],
+  "requestTimeout": "30s",
+  "thinkTimeSeconds": 0.01,
+  "phases": {
+    "warmup": "10m",
+    "ramp": "20m",
+    "steady": "4h",
+    "burst": "10m",
+    "soak": "4h"
+  },
+  "closedLoop": {
+    "model": "closed_loop",
+    "purpose": "stability_at_target_in_flight",
+    "vus": 500,
+    "mustNotImpersonateOpenLoopArrival": true
+  },
+  "openLoop": {
+    "model": "open_loop",
+    "purpose": "arrival_rate_queueing_and_coordinated_omission_detection",
+    "arrivalRatePerSecond": 1000,
+    "preAllocatedVUs": 600,
+    "maxVUs": 2000,
+    "mustNotImpersonateClosedLoopStability": true
+  },
+  "thresholds": {
+    "http_req_failed": [
+      "rate<0.01"
+    ],
+    "http_req_duration": [
+      "p(50)<200",
+      "p(95)<500",
+      "p(99)<1000"
+    ],
+    "fullnet_http_error_rate": [
+      "rate<0.01"
+    ]
+  },
+  "stopConditions": [
+    "error_rate_exceeded",
+    "p99_exceeded",
+    "recovery_time_exceeded",
+    "database_connection_lock_io_budget",
+    "cache_stale_window_exceeded",
+    "audit_outbox_reliability_breach",
+    "tenant_isolation_breach",
+    "scheduler_arrival_rate_miss",
+    "load_generator_resource_budget"
+  ],
+  "scenariosRequired": [
+    "read-heavy",
+    "mixed-write",
+    "cache-recovery",
+    "audit-logging",
+    "outbox-jobs-backlog"
+  ],
+  "coverage": [
+    "hot_cache",
+    "cold_cache",
+    "read_mostly",
+    "mixed_write",
+    "hot_key",
+    "missing_key",
+    "batch_invalidation",
+    "redis_cold_start",
+    "http_operation_log_profiles",
+    "b1_audit_microbatch",
+    "upload",
+    "signalr",
+    "outbox_jobs_backlog",
+    "database_primary_failover"
+  ],
+  "recoveryTimeBudgetSeconds": 300,
+  "hardware": {
+    "fillInCertificationRecord": true,
+    "targetRps": null,
+    "apiReplicas": null,
+    "workerReplicas": null
+  }
+}

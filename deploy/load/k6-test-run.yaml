@@ -1,0 +1,36 @@
+# Manual k6 TestRun for dedicated capacity clusters only.
+# Do not schedule this against developer machines or shared CI as an automatic gate.
+apiVersion: k6.io/v1alpha1
+kind: TestRun
+metadata:
+  name: fullnet-capacity-2k
+  namespace: fullnet-load
+  labels:
+    app.kubernetes.io/name: fullnet
+    fullnet.io/capacity-status: Capacity-not-verified
+spec:
+  parallelism: 4
+  script:
+    configMap:
+      name: fullnet-k6-scripts
+      file: read-heavy.js
+  runner:
+    image: grafana/k6:0.54.0
+    env:
+      - name: FULLNET_BASE_URL
+        value: https://api.fullnet.example
+      - name: FULLNET_DB_PROVIDER
+        value: SqlServer
+      - name: FULLNET_LOAD_PROFILE
+        value: "2k"
+      - name: FULLNET_LOAD_MODEL
+        value: closed_loop
+    resources:
+      requests:
+        cpu: "1"
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 2Gi
+  separate: true
+  arguments: --out experimental-prometheus-rw
