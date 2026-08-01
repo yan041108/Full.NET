@@ -1,0 +1,79 @@
+-- 050：Settings 模块 B0 域内同事务审计。
+-- 该表只承接与业务写入同事务提交的域内审计记录，不经过 Outbox；Outcome 固定为
+-- success/failure 两种取值，禁止承载其他审计可靠性等级的数据。
+CREATE TABLE IF NOT EXISTS fn_settings_domain_audit
+(
+    Id BINARY(16) NOT NULL,
+    TenantId BINARY(16) NULL,
+    ActionKey varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    EntityId BINARY(16) NOT NULL,
+    Outcome varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    ActorUserId BINARY(16) NULL,
+    ActorDisplayName varchar(128) NULL,
+    TraceId varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    DiffSummaryJson text NULL,
+    OccurredAtUtc datetime(6) NOT NULL,
+    CONSTRAINT PK_fn_settings_domain_audit PRIMARY KEY (Id),
+    CONSTRAINT CK_fn_settings_domain_audit_Outcome
+        CHECK (Outcome IN ('success', 'failure')),
+    KEY IX_fn_settings_domain_audit_OccurredAtUtc_Id (OccurredAtUtc, Id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+DROP PROCEDURE IF EXISTS fn_settings_domain_audit_tenant_index;
+DELIMITER $$
+CREATE PROCEDURE fn_settings_domain_audit_tenant_index()
+BEGIN
+    IF EXISTS
+    (
+        SELECT 1
+        FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_settings_domain_audit'
+          AND INDEX_NAME = 'IX_fn_settings_domain_audit_TenantId_OccurredAtUtc_Id'
+    )
+    AND
+    (
+        (
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_settings_domain_audit'
+              AND INDEX_NAME = 'IX_fn_settings_domain_audit_TenantId_OccurredAtUtc_Id'
+        ) <> 3
+        OR EXISTS
+        (
+            SELECT 1
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_settings_domain_audit'
+              AND INDEX_NAME = 'IX_fn_settings_domain_audit_TenantId_OccurredAtUtc_Id'
+              AND
+              (
+                  NON_UNIQUE <> 1
+                  OR SUB_PART IS NOT NULL
+                  OR (SEQ_IN_INDEX = 1 AND COLUMN_NAME <> 'TenantId')
+                  OR (SEQ_IN_INDEX = 2 AND COLUMN_NAME <> 'OccurredAtUtc')
+                  OR (SEQ_IN_INDEX = 3 AND COLUMN_NAME <> 'Id')
+              )
+        )
+    ) THEN
+        DROP INDEX IX_fn_settings_domain_audit_TenantId_OccurredAtUtc_Id
+            ON fn_settings_domain_audit;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1
+        FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_settings_domain_audit'
+          AND INDEX_NAME = 'IX_fn_settings_domain_audit_TenantId_OccurredAtUtc_Id'
+    ) THEN
+        CREATE INDEX IX_fn_settings_domain_audit_TenantId_OccurredAtUtc_Id
+            ON fn_settings_domain_audit (TenantId, OccurredAtUtc, Id);
+    END IF;
+END$$
+DELIMITER ;
+
+CALL fn_settings_domain_audit_tenant_index();
+DROP PROCEDURE fn_settings_domain_audit_tenant_index;

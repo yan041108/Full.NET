@@ -31,6 +31,7 @@ public sealed class AuditReliabilityCatalog
     private static readonly AuditReliabilityCatalogEntry[] WellKnownEntries =
     [
         new("tenancy.host_tenant.disable", AuditReliabilityClass.DomainTransactional),
+        new("settings.logging-diagnostic-policy.updated", AuditReliabilityClass.DomainTransactional),
         new("auditing.operation_log.write", AuditReliabilityClass.ImportantHttp),
         new("auditing.access_log.write", AuditReliabilityClass.BestEffort),
     ];

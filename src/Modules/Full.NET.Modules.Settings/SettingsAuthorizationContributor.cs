@@ -25,6 +25,14 @@ internal sealed class SettingsAuthorizationContributor
             "管理系统配置",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            DiagnosticPolicyManagementPermissions.Read,
+            "查询限时诊断策略",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            DiagnosticPolicyManagementPermissions.Write,
+            "管理限时诊断策略",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             EnumCatalogPermissions.Read,
             "查询枚举与常量目录",
             AuthorizationScope.Host),
@@ -62,6 +70,17 @@ internal sealed class SettingsAuthorizationContributor
             "setting",
             51,
             ConfigEntryManagementPermissions.Read),
+        new NavigationDefinition(
+            "diagnostic-policy",
+            null,
+            "diagnostic-policy",
+            "/settings/diagnostic-policy",
+            "diagnostic-policy",
+            "限时诊断",
+            "Diagnostic Policy",
+            "monitor",
+            54,
+            DiagnosticPolicyManagementPermissions.Read),
         new NavigationDefinition(
             "enum-catalogs",
             null,

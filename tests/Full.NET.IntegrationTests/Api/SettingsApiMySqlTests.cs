@@ -55,4 +55,14 @@ public sealed class SettingsApiMySqlTests
 
         await SettingsGridPreferenceAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_diagnostic_policy_management_follows_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await DiagnosticPolicyAssertions.VerifyAsync(factory);
+    }
 }

@@ -105,6 +105,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/settings/config-entries'
   },
   {
+    componentKey: 'diagnostic-policy',
+    routeName: 'diagnostic-policy',
+    path: '/settings/diagnostic-policy'
+  },
+  {
     componentKey: 'enum-catalogs',
     routeName: 'enum-catalogs',
     path: '/settings/enum-catalogs'

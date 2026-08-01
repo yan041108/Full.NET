@@ -103,7 +103,7 @@ describe('Settings 数据字典契约', () => {
     })).toBe(false);
   });
 
-  it('导航白名单发布 dict-types、tenant-dict-types 与 config-entries 组件键', () => {
+  it('导航白名单发布 dict-types、tenant-dict-types、config-entries 与 diagnostic-policy 组件键', () => {
     const catalog = createAdminNavigationCatalog();
     expect(catalog.localNavigationFor('dict-types')).toEqual({
       componentKey: 'dict-types',
@@ -119,6 +119,11 @@ describe('Settings 数据字典契约', () => {
       componentKey: 'config-entries',
       routeName: 'config-entries',
       path: '/settings/config-entries'
+    });
+    expect(catalog.localNavigationFor('diagnostic-policy')).toEqual({
+      componentKey: 'diagnostic-policy',
+      routeName: 'diagnostic-policy',
+      path: '/settings/diagnostic-policy'
     });
   });
 });

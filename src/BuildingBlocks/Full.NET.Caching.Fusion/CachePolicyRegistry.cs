@@ -21,6 +21,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
         var policies = new Dictionary<string, CacheEntryPolicy>(StringComparer.OrdinalIgnoreCase)
         {
             [CacheEntryNames.TenantResolution] = CreateDefaultTenantResolution(options),
+            [CacheEntryNames.DiagnosticPolicy] = CreateDefaultDiagnosticPolicy(options),
         };
 
         foreach (var (entryName, definition) in options.Entries)
@@ -94,6 +95,20 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
 
         return options;
     }
+
+
+    private static CacheEntryPolicy CreateDefaultDiagnosticPolicy(CacheOptions options) =>
+        new(
+            CacheEntryNames.DiagnosticPolicy,
+            OwnerModule: "settings",
+            CacheConsistencyClass.ImportantBusiness,
+            L1Duration: TimeSpan.FromSeconds(30),
+            L2Duration: TimeSpan.FromMinutes(2),
+            Jitter: options.Jitter,
+            NegativeDuration: TimeSpan.FromSeconds(15),
+            FailSafeEnabled: false,
+            RequiresVersionRecheck: false,
+            MaxSerializedBytes: 65_536);
 
     private static CacheEntryPolicy CreateDefaultTenantResolution(CacheOptions options) =>
         new(

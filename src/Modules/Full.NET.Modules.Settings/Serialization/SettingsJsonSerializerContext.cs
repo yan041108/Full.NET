@@ -25,4 +25,7 @@ namespace Full.NET.Modules.Settings.Serialization;
 [JsonSerializable(typeof(GridColumnPreference[]))]
 [JsonSerializable(typeof(UpdateGridPreferenceRequest))]
 [JsonSerializable(typeof(GridPreferenceResponse))]
+[JsonSerializable(typeof(DiagnosticPolicyResponse))]
+[JsonSerializable(typeof(UpdateDiagnosticPolicyRequest))]
+[JsonSerializable(typeof(RestoreDiagnosticPolicyRequest))]
 internal partial class SettingsJsonSerializerContext : JsonSerializerContext;

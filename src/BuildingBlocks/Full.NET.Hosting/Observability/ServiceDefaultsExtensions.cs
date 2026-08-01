@@ -123,6 +123,7 @@ public static class ServiceDefaultsExtensions
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<HttpOperationLogOptions>,
             HttpOperationLogOptionsValidator>());
+        builder.Services.TryAddSingleton<IDiagnosticPolicyStore, DefaultDiagnosticPolicyStore>();
         builder.Services.TryAddSingleton<HttpOperationLogEmitter>();
 
         builder.Services.AddServiceDiscovery();

@@ -5,7 +5,11 @@ using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Settings.Contracts;
+using Full.NET.Abstractions.Auditing;
+using Full.NET.Hosting.Observability;
+using Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 using Full.NET.Modules.Settings.Features.ManageHostDictTypes;
+using Full.NET.Modules.Settings.Persistence;
 using Full.NET.Modules.Settings.Resources;
 using Full.NET.Modules.Settings.Serialization;
 using Microsoft.AspNetCore.Builder;
@@ -51,6 +55,13 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddScoped<Features.QueryHostEnumCatalogs.HostEnumCatalogQueryService>();
         services.TryAddScoped<
             Features.ManageMyGridPreferences.MyGridPreferenceService>();
+        services.TryAddScoped<
+            ITransactionalDomainAuditWriter<DiagnosticPolicyAuditWrite>,
+            DiagnosticPolicyAuditWriter>();
+        services.TryAddScoped<DiagnosticPolicyCacheInvalidator>();
+        services.TryAddScoped<DiagnosticPolicyManagementService>();
+        services.RemoveAll<IDiagnosticPolicyStore>();
+        services.AddSingleton<IDiagnosticPolicyStore, DiagnosticPolicyStore>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -66,5 +77,6 @@ public sealed class SettingsModule : IFullNetModule
         Features.ManageHostConfigEntries.Endpoint.Map(endpoints);
         Features.QueryHostEnumCatalogs.Endpoint.Map(endpoints);
         Features.ManageMyGridPreferences.Endpoint.Map(endpoints);
+        Features.ManageDiagnosticPolicy.Endpoint.Map(endpoints);
     }
 }

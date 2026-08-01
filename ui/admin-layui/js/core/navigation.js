@@ -111,6 +111,7 @@ const presentation = new Map([
     titleKey: 'navigation.tenantDictTypes.title',
     captionKey: 'navigation.tenantDictTypes.caption'
   }],
+  ['diagnostic-policy', { view: 'diagnostic-policy', iconClass: 'layui-icon-chart', titleKey: 'navigation.diagnosticPolicy.title', captionKey: 'navigation.diagnosticPolicy.caption' }],
   ['config-entries', {
     view: 'config-entries',
     iconClass: 'layui-icon-set',

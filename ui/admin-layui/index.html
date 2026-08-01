@@ -512,6 +512,32 @@
               <div data-config-entries-directory></div>
             </section>
           </main>
+<main data-route-view="diagnostic-policy" class="fn-tenants" hidden>
+            <section class="fn-tenants__heading">
+              <div>
+                <p data-i18n="diagnosticPolicy.eyebrow"></p>
+                <h1 data-route-heading tabindex="-1" data-i18n="diagnosticPolicy.title"></h1>
+                <span data-i18n="diagnosticPolicy.description"></span>
+              </div>
+            </section>
+            <div class="fn-context-problem" data-diagnostic-policy-problem role="alert" hidden>
+              <strong translate="no"></strong><span></span>
+            </div>
+            <section class="fn-tenants__create" data-permission="settings.diagnostic-policy.write">
+              <div><small>01</small><h2 data-i18n="diagnosticPolicy.actionsTitle"></h2></div>
+              <p class="layui-word-aux" data-i18n="diagnosticPolicy.hint"></p>
+              <button
+                class="layui-btn"
+                type="button"
+                data-diagnostic-policy-restore
+                data-i18n="diagnosticPolicy.restore"
+              ></button>
+            </section>
+            <section class="fn-tenants__ledger">
+              <header><div><small>02</small><h2 data-i18n="diagnosticPolicy.directoryTitle"></h2></div></header>
+              <div data-diagnostic-policy-directory></div>
+            </section>
+          </main>
 
           <main data-route-view="host-files" class="fn-tenants" hidden>
             <section class="fn-tenants__heading">

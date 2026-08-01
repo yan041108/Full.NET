@@ -105,6 +105,11 @@ export function createAppRouter(
         component: () => import('../views/TenantDictTypesView.vue')
       },
       {
+        name: 'diagnostic-policy',
+        path: '/settings/diagnostic-policy',
+        component: () => import('../views/DiagnosticPolicyView.vue')
+      },
+      {
         name: 'config-entries',
         path: '/settings/config-entries',
         component: () => import('../views/ConfigEntriesView.vue')

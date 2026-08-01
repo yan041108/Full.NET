@@ -51,7 +51,7 @@ public sealed class HttpOperationLogTests
         {
             SuccessSampleRate = 0.5,
         };
-        var emitter = new HttpOperationLogEmitter(new StaticOptionsMonitor(options));
+        var emitter = new HttpOperationLogEmitter(new StaticOptionsMonitor(options), new DefaultDiagnosticPolicyStore());
         var first = emitter.ShouldSampleSuccess("orders/{id}", "trace-a");
         var second = emitter.ShouldSampleSuccess("orders/{id}", "trace-a");
         Assert.AreEqual(first, second);
@@ -75,7 +75,7 @@ public sealed class HttpOperationLogTests
                 await Task.CompletedTask;
             },
             new StaticOptionsMonitor(options),
-            new HttpOperationLogEmitter(new StaticOptionsMonitor(options)),
+            new HttpOperationLogEmitter(new StaticOptionsMonitor(options), new DefaultDiagnosticPolicyStore()),
             collector);
 
         var httpContext = new DefaultHttpContext();
@@ -106,7 +106,7 @@ public sealed class HttpOperationLogTests
                 return Task.CompletedTask;
             },
             new StaticOptionsMonitor(options),
-            new HttpOperationLogEmitter(new StaticOptionsMonitor(options)),
+            new HttpOperationLogEmitter(new StaticOptionsMonitor(options), new DefaultDiagnosticPolicyStore()),
             collector);
 
         await middleware.InvokeAsync(new DefaultHttpContext
@@ -134,7 +134,7 @@ public sealed class HttpOperationLogTests
                 return Task.CompletedTask;
             },
             new StaticOptionsMonitor(options),
-            new HttpOperationLogEmitter(new StaticOptionsMonitor(options)),
+            new HttpOperationLogEmitter(new StaticOptionsMonitor(options), new DefaultDiagnosticPolicyStore()),
             collector);
 
         await middleware.InvokeAsync(new DefaultHttpContext

@@ -40,8 +40,8 @@
         "followStaticImports": true
       },
       "budget": {
-        "minifiedBytes": 198567,
-        "gzipBytes": 54392,
+        "minifiedBytes": 215797,
+        "gzipBytes": 58574,
         "maxRegressionPercent": 5
       }
     },

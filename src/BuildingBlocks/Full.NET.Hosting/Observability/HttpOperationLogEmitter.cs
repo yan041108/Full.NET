@@ -11,12 +11,16 @@ namespace Full.NET.Hosting.Observability;
 public sealed class HttpOperationLogEmitter
 {
     private readonly IOptionsMonitor<HttpOperationLogOptions> _options;
+    private readonly IDiagnosticPolicyStore _diagnosticPolicyStore;
     private int _bestEffortInFlight;
     private int _priorityInFlight;
 
-    public HttpOperationLogEmitter(IOptionsMonitor<HttpOperationLogOptions> options)
+    public HttpOperationLogEmitter(
+        IOptionsMonitor<HttpOperationLogOptions> options,
+        IDiagnosticPolicyStore diagnosticPolicyStore)
     {
         _options = options;
+        _diagnosticPolicyStore = diagnosticPolicyStore;
     }
 
     public double ResolveSuccessSampleRate()
@@ -24,6 +28,23 @@ public sealed class HttpOperationLogEmitter
         var options = _options.CurrentValue;
         return options.SuccessSampleRate
             ?? HttpOperationLogProfile.ResolveSuccessSampleRate(options.CapacityProfile);
+    }
+
+    public async ValueTask<double> ResolveSuccessSampleRateAsync(
+        string? diagnosticGroup,
+        string? endpoint,
+        string? traceId,
+        Guid? tenantId,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await _diagnosticPolicyStore.GetCurrentAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return snapshot.ResolveSuccessSampleRateOverride(
+                   diagnosticGroup,
+                   endpoint,
+                   traceId,
+                   tenantId)
+               ?? ResolveSuccessSampleRate();
     }
 
     /// <summary>
@@ -50,7 +71,8 @@ public sealed class HttpOperationLogEmitter
 
     public bool TryEnterBestEffort()
     {
-        var capacity = _options.CurrentValue.BestEffortCapacity;
+        var capacity = _diagnosticPolicyStore.Current.ResolveBestEffortCapacity(
+            _options.CurrentValue.BestEffortCapacity);
         while (true)
         {
             var current = Volatile.Read(ref _bestEffortInFlight);

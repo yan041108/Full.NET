@@ -89,6 +89,9 @@
       },
       "049": {
         "filter": "FullyQualifiedName~Migration049TenancyDomainAuditRecoveryTests.MySql_|FullyQualifiedName~Migration049TenancyDomainAuditRecoveryTests.SqlServer_"
+      },
+      "050": {
+        "filter": "FullyQualifiedName~Migration050SettingsDomainAuditRecoveryTests.MySql_|FullyQualifiedName~Migration050SettingsDomainAuditRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [

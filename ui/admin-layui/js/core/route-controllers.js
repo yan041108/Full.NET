@@ -52,7 +52,13 @@ export function createLayuiRouteControllerDefinitions(root, options) {
         canWrite: options.canWriteTenantDictTypes
       }
     )],
-    ['/settings/config-entries', defineController(
+    ['/settings/diagnostic-policy', defineController(
+      () => import('./diagnostic-policy.js'),
+      'createDiagnosticPolicyController',
+      root,
+      sharedOptions
+    )],
+  ['/settings/config-entries', defineController(
       () => import('./config-entries.js'),
       'createConfigEntriesController',
       root,

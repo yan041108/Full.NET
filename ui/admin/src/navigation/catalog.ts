@@ -90,6 +90,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.configEntries.title',
     captionKey: 'navigation.configEntries.caption'
   }],
+  ['diagnostic-policy', {
+    titleKey: 'navigation.diagnosticPolicy.title',
+    captionKey: 'navigation.diagnosticPolicy.caption'
+  }],
   ['enum-catalogs', {
     titleKey: 'navigation.enumCatalogs.title',
     captionKey: 'navigation.enumCatalogs.caption'
