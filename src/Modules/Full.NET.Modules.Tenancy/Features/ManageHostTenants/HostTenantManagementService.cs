@@ -12,13 +12,10 @@ internal sealed class HostTenantManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    IOutboxWriter outboxWriter,
     HostTenantQueryService tenantQueries,
     IClock clock,
     TenantCacheInvalidator cacheInvalidator)
 {
-    private const string TenantChangedEventType = "fullnet.tenancy.tenant.changed";
-
     public async Task<Result<TenantSummary>> UpdateAsync(
         Guid tenantId,
         UpdateHostTenantRequest request,
@@ -30,7 +27,12 @@ internal sealed class HostTenantManagementService(
             .ConfigureAwait(false);
         if (result.IsSuccess && result.Value is { } tenant)
         {
-            await cacheInvalidator.InvalidateLocalAsync(tenant.Id, tenant.Domain)
+            // Expand/Cutover：提交成功后直接失效，不再写入缓存专用 Outbox。
+            // 业务已提交：不得把请求取消令牌传给失效路径。
+            await cacheInvalidator.InvalidateAfterCommitAsync(
+                    tenant.Id,
+                    tenant.Domain,
+                    CancellationToken.None)
                 .ConfigureAwait(false);
         }
 
@@ -47,7 +49,10 @@ internal sealed class HostTenantManagementService(
             .ConfigureAwait(false);
         if (result.IsSuccess && result.Value is { } tenant)
         {
-            await cacheInvalidator.InvalidateLocalAsync(tenant.Id, tenant.Domain)
+            await cacheInvalidator.InvalidateAfterCommitAsync(
+                    tenant.Id,
+                    tenant.Domain,
+                    CancellationToken.None)
                 .ConfigureAwait(false);
         }
 
@@ -177,9 +182,6 @@ internal sealed class HostTenantManagementService(
             return VersionConflict();
         }
 
-        await WriteTenantChangedEventAsync(existing, cancellationToken)
-            .ConfigureAwait(false);
-
         return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -231,21 +233,9 @@ internal sealed class HostTenantManagementService(
             return NotFound();
         }
 
-        await WriteTenantChangedEventAsync(existing, cancellationToken)
-            .ConfigureAwait(false);
-
         return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
             .ConfigureAwait(false);
     }
-
-    private Task WriteTenantChangedEventAsync(
-        TenantResolutionRecord tenant,
-        CancellationToken cancellationToken) =>
-        outboxWriter.AddAsync(
-            TenantChangedEventType,
-            1,
-            new TenantChangedIntegrationEvent(tenant.Id, tenant.Domain),
-            cancellationToken);
 
     private static Result<TenantSummary> NotFound() =>
         Result<TenantSummary>.Failure(new Error(

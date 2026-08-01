@@ -4,6 +4,10 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.Modules.Tenancy;
 
+/// <summary>
+/// 兼容排空：消费升级前已入库的租户开通 Outbox，并执行幂等缓存失效。
+/// 新写入路径不再产生该缓存专用消息。
+/// </summary>
 internal sealed class TenantProvisionedCacheInvalidationHandler(
     IIntegrationEventSerializer serializer,
     TenantCacheInvalidator invalidator) : IIntegrationEventHandler

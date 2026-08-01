@@ -167,7 +167,7 @@ internal static class TenancyHostTenantManagementAssertions
         Assert.AreEqual("更新后名称", updated.Name);
         Assert.AreEqual(created.Version + 1, updated.Version);
         Assert.AreEqual(
-            outboxCountBeforeUpdate + 1,
+            outboxCountBeforeUpdate,
             await CountTenantChangedEventsAsync(factory, cancellationToken));
 
         using var staleRequest = CreateBearerJsonRequest(
@@ -183,7 +183,7 @@ internal static class TenancyHostTenantManagementAssertions
             TenancyErrorCodes.VersionConflict,
             problem.RootElement.GetProperty("code").GetString());
         Assert.AreEqual(
-            outboxCountBeforeUpdate + 1,
+            outboxCountBeforeUpdate,
             await CountTenantChangedEventsAsync(factory, cancellationToken));
     }
 
@@ -222,7 +222,7 @@ internal static class TenancyHostTenantManagementAssertions
         Assert.IsNotNull(disabled);
         Assert.IsFalse(disabled.IsActive);
         Assert.AreEqual(
-            outboxCountBeforeDisable + 1,
+            outboxCountBeforeDisable,
             await CountTenantChangedEventsAsync(factory, cancellationToken));
 
         using var availableRequest = new HttpRequestMessage(

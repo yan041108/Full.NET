@@ -1,41 +1,19 @@
-extern alias workerhost;
-
-using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Dapper;
-using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
-using Full.NET.Abstractions.Time;
-using Full.NET.Abstractions.Results;
 using Full.NET.Caching.Fusion;
-using Full.NET.Composition;
 using Full.NET.Data.Abstractions;
-using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
-using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
-using Full.NET.Modules.Organization.Contracts;
-using Full.NET.IntegrationTests.Migrations;
-using Full.NET.Serialization.MessagePack;
 using Full.NET.Modules.Tenancy.Contracts;
-using Full.NET.Realtime;
-using Full.NET.Realtime.SignalR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using ZiggyCreatures.Caching.Fusion;
-using ZiggyCreatures.Caching.Fusion.Backplane;
-using WorkerHost = workerhost::Full.NET.Host.Worker;
 using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Caching;
@@ -45,7 +23,7 @@ namespace Full.NET.IntegrationTests.Caching;
 public sealed class CacheConsistencyTests
 {
     [TestMethod]
-    public async Task SqlServer_provisioning_clears_negative_domain_cache_before_outbox_processing()
+    public async Task SqlServer_provisioning_clears_negative_domain_cache_without_cache_outbox()
     {
         await VerifyProvisioningInvalidatesLocalNegativeCacheAsync(
             DatabaseProvider.SqlServer,
@@ -53,7 +31,7 @@ public sealed class CacheConsistencyTests
     }
 
     [TestMethod]
-    public async Task MySql_provisioning_clears_negative_domain_cache_before_outbox_processing()
+    public async Task MySql_provisioning_clears_negative_domain_cache_without_cache_outbox()
     {
         await VerifyProvisioningInvalidatesLocalNegativeCacheAsync(
             DatabaseProvider.MySql,
@@ -61,7 +39,7 @@ public sealed class CacheConsistencyTests
     }
 
     [TestMethod]
-    public async Task SqlServer_provisioning_with_redis_backplane_eventually_repairs_secondary_negative_cache()
+    public async Task SqlServer_provisioning_with_redis_backplane_repairs_secondary_without_cache_outbox()
     {
         await VerifyRedisBackplaneRepairsSecondaryNodeAsync(
             DatabaseProvider.SqlServer,
@@ -69,7 +47,7 @@ public sealed class CacheConsistencyTests
     }
 
     [TestMethod]
-    public async Task MySql_provisioning_with_redis_backplane_eventually_repairs_secondary_negative_cache()
+    public async Task MySql_provisioning_with_redis_backplane_repairs_secondary_without_cache_outbox()
     {
         await VerifyRedisBackplaneRepairsSecondaryNodeAsync(
             DatabaseProvider.MySql,
@@ -104,13 +82,7 @@ public sealed class CacheConsistencyTests
         using var secondaryFactory = primaryFactory.CreateIsolatedFactory();
         await primaryFactory.InitializeAsync();
         await secondaryFactory.InitializeAsync();
-        var pendingOutboxBeforeProvision = await CountPendingOutboxAsync(
-            databaseProvider,
-            connectionString);
-        var deadLetteredOutboxBeforeProvision = await CountDeadLetteredOutboxAsync(
-            databaseProvider,
-            connectionString);
-        var retryScheduledOutboxBeforeProvision = await CountRetryScheduledOutboxAsync(
+        var cacheOutboxBeforeProvision = await CountTenantCacheOutboxAsync(
             databaseProvider,
             connectionString);
 
@@ -123,14 +95,15 @@ public sealed class CacheConsistencyTests
             domain);
 
         Assert.AreEqual(
-            pendingOutboxBeforeProvision + 1,
-            await CountPendingOutboxAsync(databaseProvider, connectionString));
+            cacheOutboxBeforeProvision,
+            await CountTenantCacheOutboxAsync(databaseProvider, connectionString),
+            "开通成功后不得再写入租户缓存专用 Outbox。");
 
         var localTenant = await AssertTenantFoundAsync(primaryFactory, domain);
         Assert.AreEqual(provisioned.Id, localTenant.Id);
         Assert.AreEqual(identifier, localTenant.Identifier);
 
-        // 第二节点仍未消费 Outbox，因此这里只锁定“跨节点修复尚未发生”的陈旧窗口。
+        // 无 Redis Backplane 时，第二节点仍可保留负缓存，直到后续跨节点失效路径介入。
         await AssertTenantMissingAsync(secondaryFactory, domain);
     }
 
@@ -153,16 +126,7 @@ public sealed class CacheConsistencyTests
         await primaryFactory.InitializeAsync();
         await secondaryFactory.InitializeAsync();
         AssertDistinctCacheInstances(primaryFactory, secondaryFactory);
-        var pendingOutboxBeforeProvision = await CountPendingOutboxAsync(
-            databaseProvider,
-            connectionString);
-        var deadLetteredOutboxBeforeProvision = await CountDeadLetteredOutboxAsync(
-            databaseProvider,
-            connectionString);
-        var retryScheduledOutboxBeforeProvision = await CountRetryScheduledOutboxAsync(
-            databaseProvider,
-            connectionString);
-        var processedOutboxBeforeProvision = await CountProcessedOutboxAsync(
+        var cacheOutboxBeforeProvision = await CountTenantCacheOutboxAsync(
             databaseProvider,
             connectionString);
 
@@ -172,107 +136,20 @@ public sealed class CacheConsistencyTests
         secondaryFactory.ClearBackplaneEvents();
 
         var provisioned = await ProvisionTenantAsync(primaryFactory, identifier, domain);
-        var provisionedOutboxId = await GetLatestTenantProvisionedOutboxIdAsync(
-            databaseProvider,
-            connectionString);
         Assert.AreEqual(
-            pendingOutboxBeforeProvision + 1,
-            await CountPendingOutboxAsync(databaseProvider, connectionString));
-        Assert.AreEqual(
-            deadLetteredOutboxBeforeProvision,
-            await CountDeadLetteredOutboxAsync(databaseProvider, connectionString));
-        Assert.AreEqual(
-            retryScheduledOutboxBeforeProvision,
-            await CountRetryScheduledOutboxAsync(databaseProvider, connectionString));
+            cacheOutboxBeforeProvision,
+            await CountTenantCacheOutboxAsync(databaseProvider, connectionString),
+            "开通成功后不得再写入租户缓存专用 Outbox。");
         var localTenant = await AssertTenantFoundAsync(primaryFactory, domain);
         Assert.AreEqual(provisioned.Id, localTenant.Id);
 
-        // 共享 L2/标签版本可能让第二节点在 Outbox 消费前提前看见新租户；
-        // 本场景只要求 Outbox 最终仍发出可观测的跨节点精确失效通知。
-        using (var failingWorkerHost = BuildWorkerHost(
-                         CreateWorkerConfiguration(
-                             databaseProvider,
-                             connectionString,
-                             redisConnectionString)))
-        {
-            var failingWorkerCache =
-                failingWorkerHost.Services.GetRequiredService<IFusionCache>();
-            failingWorkerCache.RemoveBackplane();
-            failingWorkerCache.SetupBackplane(new ThrowingBackplane());
-            Assert.IsTrue(
-                failingWorkerCache.HasBackplane,
-                "失败路径必须保留 Backplane，才能验证广播异常不会被当作成功确认。");
-            await CreateProcessor(failingWorkerHost.Services)
-                .ProcessOnceAsync(CancellationToken.None);
-        }
-
-        var failedAttempt = await GetOutboxStateAsync(
-            databaseProvider,
-            connectionString,
-            provisionedOutboxId);
-        Assert.IsNull(
-            failedAttempt.ProcessedAtUtc,
-            "Backplane 不可达时不得把当前租户事件标记为已处理。");
-        Assert.IsNull(
-            failedAttempt.DeadLetteredAtUtc,
-            "首次 Backplane 发布失败应进入重试，而不是直接进入死信。");
-        Assert.IsNotNull(
-            failedAttempt.NextAttemptAtUtc,
-            "Backplane 发布失败后当前租户事件必须释放租约并安排重试。");
-        Assert.IsGreaterThanOrEqualTo(
-            retryScheduledOutboxBeforeProvision + pendingOutboxBeforeProvision + 1,
-            await CountRetryScheduledOutboxAsync(databaseProvider, connectionString),
-            "Backplane 发布失败后 Outbox 必须释放租约并安排重试。");
-        await MakeOutboxRetriesDueAsync(databaseProvider, connectionString);
-
-        using var workerHost = BuildWorkerHost(
-            CreateWorkerConfiguration(
-                databaseProvider,
-                connectionString,
-                redisConnectionString));
-        var workerCache = workerHost.Services.GetRequiredService<IFusionCache>();
-        Assert.IsTrue(
-            workerCache.HasBackplane,
-            "Worker 缓存实例必须连接 Redis Backplane，才能完成跨节点失效广播。");
-        var workerBackplaneEvents = new ConcurrentQueue<string>();
-        workerCache.Events.Backplane.MessagePublished += (_, args) =>
-            workerBackplaneEvents.Enqueue(
-                $"{args.Message.Action}:{args.Message.CacheKey ?? "<null>"}");
-        var processor = CreateProcessor(workerHost.Services);
-        await processor.ProcessOnceAsync(CancellationToken.None);
-        var successfulAttempt = await GetOutboxStateAsync(
-            databaseProvider,
-            connectionString,
-            provisionedOutboxId);
-        Assert.IsNotNull(
-            successfulAttempt.ProcessedAtUtc,
-            "Backplane 恢复后当前租户事件必须成功确认。");
-        Assert.IsNull(successfulAttempt.DeadLetteredAtUtc);
-        Assert.AreEqual(
-            0L,
-            await CountPendingOutboxAsync(databaseProvider, connectionString),
-            "Worker 处理后仍残留可领取的 Outbox 消息，说明缓存修复链路并未真正完成。");
-        Assert.AreEqual(
-            deadLetteredOutboxBeforeProvision,
-            await CountDeadLetteredOutboxAsync(databaseProvider, connectionString),
-            "Worker 不应把租户创建事件送入死信；若这里增长，需优先排查处理器匹配或反序列化失败。");
-        Assert.IsLessThanOrEqualTo(
-            retryScheduledOutboxBeforeProvision,
-            await CountRetryScheduledOutboxAsync(databaseProvider, connectionString),
-            "Worker 不应把租户创建事件释放回重试队列；若这里增长，需优先排查处理器运行期异常。");
-        Assert.IsGreaterThanOrEqualTo(
-            processedOutboxBeforeProvision + pendingOutboxBeforeProvision + 1,
-            await CountProcessedOutboxAsync(databaseProvider, connectionString),
-            "Worker 未把租户创建事件标记为已处理，说明缓存修复链路尚未走到成功确认阶段。");
         var secondaryDomainRemove = await WaitForBackplaneObservationAsync(
             secondaryFactory,
             "received",
             domainCacheKey);
         Assert.IsNotNull(
             secondaryDomainRemove,
-            "Secondary 节点在 Worker 处理后仍未收到域名解析 key 的 backplane 删除通知。"
-            + Environment.NewLine
-            + $"Worker events: {string.Join(" | ", workerBackplaneEvents)}"
+            "Secondary 节点在提交后直接失效后仍未收到域名解析 key 的 backplane 删除通知。"
             + Environment.NewLine
             + $"Primary events: {DescribeBackplaneEvents(primaryFactory)}"
             + Environment.NewLine
@@ -288,44 +165,38 @@ public sealed class CacheConsistencyTests
         Assert.AreEqual(provisioned.Id, secondaryTenant.Id);
         Assert.AreEqual(identifier, secondaryTenant.Identifier);
 
+        var cacheOutboxBeforeUpdate = await CountTenantCacheOutboxAsync(
+            databaseProvider,
+            connectionString);
         var updated = await UpdateTenantAsync(
             primaryFactory,
             provisioned.Id,
             provisioned.Version,
             $"{identifier}-updated");
-        var changedOutboxId = await GetLatestTenantChangedOutboxIdAsync(
-            databaseProvider,
-            connectionString);
-        var changedBeforeWorker = await GetOutboxStateAsync(
-            databaseProvider,
-            connectionString,
-            changedOutboxId);
-        Assert.IsNull(
-            changedBeforeWorker.ProcessedAtUtc,
-            "共享 L2 即使让 secondary 提前收敛，也不得把尚未由 Worker 可靠发布的事件误记为已处理。");
-        Assert.IsNull(changedBeforeWorker.DeadLetteredAtUtc);
-        await processor.ProcessOnceAsync(CancellationToken.None);
-        var changedAfterWorker = await GetOutboxStateAsync(
-            databaseProvider,
-            connectionString,
-            changedOutboxId);
-        Assert.IsNotNull(
-            changedAfterWorker.ProcessedAtUtc,
-            "Worker 恢复后必须正式确认 TenantChanged 事件，不能只依赖共享 L2 的偶然提前收敛。");
+        Assert.AreEqual(
+            cacheOutboxBeforeUpdate,
+            await CountTenantCacheOutboxAsync(databaseProvider, connectionString),
+            "更新成功后不得再写入租户缓存专用 Outbox。");
         var secondaryUpdatedTenant = await WaitForTenantAsync(
             secondaryFactory,
             domain,
             tenant => tenant.Name == updated.Name,
-            "Secondary 节点未在 TenantChanged Outbox 消费后观察到更新后的名称。");
+            "Secondary 节点未在提交后直接失效后观察到更新后的名称。");
         Assert.AreEqual(updated.Version, secondaryUpdatedTenant.Version);
 
+        var cacheOutboxBeforeDisable = await CountTenantCacheOutboxAsync(
+            databaseProvider,
+            connectionString);
         var disabled = await DisableTenantAsync(primaryFactory, provisioned.Id);
         Assert.IsFalse(disabled.IsActive);
-        await processor.ProcessOnceAsync(CancellationToken.None);
+        Assert.AreEqual(
+            cacheOutboxBeforeDisable,
+            await CountTenantCacheOutboxAsync(databaseProvider, connectionString),
+            "禁用成功后不得再写入租户缓存专用 Outbox。");
         await WaitForTenantMissingAsync(
             secondaryFactory,
             domain,
-            "Secondary 节点未在 TenantChanged Outbox 消费后观察到停用状态。");
+            "Secondary 节点未在提交后直接失效后观察到停用状态。");
     }
 
     private static async Task VerifyPrimaryNodeStaysCorrectWhenRedisIsUnavailableAsync(
@@ -568,7 +439,7 @@ public sealed class CacheConsistencyTests
         return null;
     }
 
-    private static async Task<long> CountPendingOutboxAsync(
+    private static async Task<long> CountTenantCacheOutboxAsync(
         DatabaseProvider databaseProvider,
         string connectionString)
     {
@@ -577,126 +448,9 @@ public sealed class CacheConsistencyTests
             """
             SELECT COUNT(*)
             FROM fn_outbox_message
-            WHERE ProcessedAtUtc IS NULL
-              AND DeadLetteredAtUtc IS NULL
-              AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= CURRENT_TIMESTAMP)
-            """);
-    }
-
-    private static async Task<long> CountProcessedOutboxAsync(
-        DatabaseProvider databaseProvider,
-        string connectionString)
-    {
-        await using var connection = CreateConnection(databaseProvider, connectionString);
-        return await connection.QuerySingleAsync<long>(
-            """
-            SELECT COUNT(*)
-            FROM fn_outbox_message
-            WHERE ProcessedAtUtc IS NOT NULL
-              AND DeadLetteredAtUtc IS NULL
-            """);
-    }
-
-    private static async Task<Guid> GetLatestTenantProvisionedOutboxIdAsync(
-        DatabaseProvider databaseProvider,
-        string connectionString)
-    {
-        await using var connection = CreateConnection(databaseProvider, connectionString);
-        var sql = databaseProvider == DatabaseProvider.SqlServer
-            ? """
-              SELECT TOP (1) Id
-              FROM fn_outbox_message
-              WHERE MessageType = 'fullnet.tenancy.tenant.provisioned'
-              ORDER BY OccurredAtUtc DESC, Id DESC
-              """
-            : """
-              SELECT Id
-              FROM fn_outbox_message
-              WHERE MessageType = 'fullnet.tenancy.tenant.provisioned'
-              ORDER BY OccurredAtUtc DESC, Id DESC
-              LIMIT 1
-              """;
-        return await connection.QuerySingleAsync<Guid>(sql);
-    }
-
-    private static async Task<Guid> GetLatestTenantChangedOutboxIdAsync(
-        DatabaseProvider databaseProvider,
-        string connectionString)
-    {
-        await using var connection = CreateConnection(databaseProvider, connectionString);
-        var sql = databaseProvider == DatabaseProvider.SqlServer
-            ? """
-              SELECT TOP (1) Id
-              FROM fn_outbox_message
-              WHERE MessageType = 'fullnet.tenancy.tenant.changed'
-              ORDER BY OccurredAtUtc DESC, Id DESC
-              """
-            : """
-              SELECT Id
-              FROM fn_outbox_message
-              WHERE MessageType = 'fullnet.tenancy.tenant.changed'
-              ORDER BY OccurredAtUtc DESC, Id DESC
-              LIMIT 1
-              """;
-        return await connection.QuerySingleAsync<Guid>(sql);
-    }
-
-    private static async Task<OutboxState> GetOutboxStateAsync(
-        DatabaseProvider databaseProvider,
-        string connectionString,
-        Guid messageId)
-    {
-        await using var connection = CreateConnection(databaseProvider, connectionString);
-        return await connection.QuerySingleAsync<OutboxState>(
-            """
-            SELECT ProcessedAtUtc, DeadLetteredAtUtc, NextAttemptAtUtc
-            FROM fn_outbox_message
-            WHERE Id = @MessageId
-            """,
-            new { MessageId = messageId });
-    }
-
-    private static async Task<long> CountDeadLetteredOutboxAsync(
-        DatabaseProvider databaseProvider,
-        string connectionString)
-    {
-        await using var connection = CreateConnection(databaseProvider, connectionString);
-        return await connection.QuerySingleAsync<long>(
-            """
-            SELECT COUNT(*)
-            FROM fn_outbox_message
-            WHERE ProcessedAtUtc IS NULL
-              AND DeadLetteredAtUtc IS NOT NULL
-            """);
-    }
-
-    private static async Task<long> CountRetryScheduledOutboxAsync(
-        DatabaseProvider databaseProvider,
-        string connectionString)
-    {
-        await using var connection = CreateConnection(databaseProvider, connectionString);
-        return await connection.QuerySingleAsync<long>(
-            """
-            SELECT COUNT(*)
-            FROM fn_outbox_message
-            WHERE ProcessedAtUtc IS NULL
-              AND DeadLetteredAtUtc IS NULL
-              AND NextAttemptAtUtc IS NOT NULL
-            """);
-    }
-
-    private static async Task MakeOutboxRetriesDueAsync(
-        DatabaseProvider databaseProvider,
-        string connectionString)
-    {
-        await using var connection = CreateConnection(databaseProvider, connectionString);
-        await connection.ExecuteAsync(
-            """
-            UPDATE fn_outbox_message
-            SET NextAttemptAtUtc = CURRENT_TIMESTAMP
-            WHERE ProcessedAtUtc IS NULL
-              AND DeadLetteredAtUtc IS NULL
-              AND NextAttemptAtUtc IS NOT NULL
+            WHERE MessageType IN (
+                'fullnet.tenancy.tenant.provisioned',
+                'fullnet.tenancy.tenant.changed')
             """);
     }
 
@@ -706,109 +460,6 @@ public sealed class CacheConsistencyTests
             [$"{CacheOptions.SectionName}:RedisConnectionString"] = redisConnectionString,
             ["ConnectionStrings:redis"] = redisConnectionString,
         };
-
-    private sealed record OutboxState(
-        DateTimeOffset? ProcessedAtUtc,
-        DateTimeOffset? DeadLetteredAtUtc,
-        DateTimeOffset? NextAttemptAtUtc);
-
-    private sealed class ThrowingBackplane : IFusionCacheBackplane
-    {
-        public void Subscribe(BackplaneSubscriptionOptions options)
-        {
-        }
-
-        public ValueTask SubscribeAsync(BackplaneSubscriptionOptions options) =>
-            ValueTask.CompletedTask;
-
-        public void Unsubscribe()
-        {
-        }
-
-        public ValueTask UnsubscribeAsync() => ValueTask.CompletedTask;
-
-        public void Publish(
-            BackplaneMessage message,
-            FusionCacheEntryOptions options,
-            CancellationToken token = default) =>
-            throw new InvalidOperationException("Simulated backplane publication failure.");
-
-        public ValueTask PublishAsync(
-            BackplaneMessage message,
-            FusionCacheEntryOptions options,
-            CancellationToken token = default) =>
-            ValueTask.FromException(
-                new InvalidOperationException("Simulated backplane publication failure."));
-
-        public void Dispose()
-        {
-        }
-    }
-
-    private static IConfiguration CreateWorkerConfiguration(
-        DatabaseProvider databaseProvider,
-        string connectionString,
-        string redisConnectionString) =>
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                [$"{DatabaseOptions.SectionName}:Provider"] = databaseProvider.ToString(),
-                [$"{DatabaseOptions.SectionName}:ConnectionString"] = connectionString,
-                [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] =
-                    MySqlGuidStorageMode.Binary16.ToString(),
-                [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
-                [$"{CacheOptions.SectionName}:RedisConnectionString"] = redisConnectionString,
-                [$"{RealtimeOptions.SectionName}:RedisBackplaneConnectionString"] =
-                    redisConnectionString,
-                ["ConnectionStrings:redis"] = redisConnectionString,
-            })
-            .Build();
-
-    private static IHost BuildWorkerHost(IConfiguration configuration)
-    {
-        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
-        {
-            ApplicationName = "Full.NET.IntegrationTests.Caching.Worker",
-            EnvironmentName = "Testing",
-        });
-        builder.Configuration.AddConfiguration(configuration);
-        var services = builder.Services;
-        services.AddLogging();
-        services.AddRouting();
-        services.AddScoped<CurrentTenantAccessor>();
-        services.AddScoped<ICurrentTenant>(provider =>
-            provider.GetRequiredService<CurrentTenantAccessor>());
-        services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
-        services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
-        services.AddSingleton<
-            ITenantOrganizationUnitDirectory,
-            EmptyTenantOrganizationUnitDirectory>();
-        services.AddSingleton<
-            IIdentityOrganizationUnitDirectory,
-            EmptyIdentityOrganizationUnitDirectory>();
-        services.AddFullNetDapper(configuration, "Testing");
-        services.AddFullNetMessagePack();
-        services.AddFullNetCaching(configuration, "Testing");
-        // 与正式 Worker 宿主对齐：Realtime Publisher 需要完整 Host 生命周期服务。
-        services.AddFullNetRealtimePublisher(configuration, "Testing");
-        services.AddFullNetApplicationModules(
-            builder.Configuration,
-            FullNetHostProfile.Worker);
-        return builder.Build();
-    }
-
-    private static WorkerHost.OutboxProcessor CreateProcessor(IServiceProvider services) => new(
-        services.GetRequiredService<IServiceScopeFactory>(),
-        services.GetRequiredService<IClock>(),
-        Options.Create(new WorkerHost.OutboxWorkerOptions
-        {
-            BatchSize = 20,
-            LeaseSeconds = 30,
-            PollMilliseconds = 1000,
-            MaxAttempts = 3,
-        }),
-        NullLogger<WorkerHost.OutboxProcessor>.Instance);
 
     private static DbConnection CreateConnection(
         DatabaseProvider databaseProvider,
@@ -848,46 +499,5 @@ public sealed class CacheConsistencyTests
             " | ",
             events.Select(item =>
                 $"{item.Direction}:{item.Action}:{item.CacheKey ?? "<null>"}:{item.SourceId}"));
-    }
-
-    private sealed class EmptyTenantOrganizationUnitDirectory
-        : ITenantOrganizationUnitDirectory
-    {
-        public Task<TenantOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
-            Guid tenantId,
-            Guid unitId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<TenantOrganizationUnitDirectoryEntry?>(null);
-    }
-
-    private sealed class EmptyIdentityOrganizationUnitDirectory
-        : IIdentityOrganizationUnitDirectory
-    {
-        public Task<IdentityOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
-            Guid tenantId,
-            Guid unitId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IdentityOrganizationUnitDirectoryEntry?>(null);
-    }
-
-    private sealed class NonHttpApiResultMapper : IApiResultMapper
-    {
-        public IResult Map<T>(Result<T> result, HttpContext httpContext) =>
-            throw new NotSupportedException("The non-HTTP integration fixture does not map API results.");
-
-        public IResult MapException(Exception exception, HttpContext httpContext) =>
-            throw new NotSupportedException("The non-HTTP integration fixture does not map API exceptions.");
-    }
-
-    private sealed class TestHostEnvironment : IHostEnvironment
-    {
-        public string EnvironmentName { get; set; } = "Testing";
-
-        public string ApplicationName { get; set; } = "Full.NET.IntegrationTests";
-
-        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
-
-        public IFileProvider ContentRootFileProvider { get; set; } =
-            new NullFileProvider();
     }
 }

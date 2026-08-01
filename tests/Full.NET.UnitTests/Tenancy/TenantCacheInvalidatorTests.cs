@@ -1,9 +1,8 @@
 using System.Diagnostics.Metrics;
 using Full.NET.Caching.Fusion;
 using Full.NET.Modules.Tenancy;
-using Full.NET.Modules.Tenancy.Contracts;
-using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -15,58 +14,135 @@ namespace Full.NET.UnitTests.Tenancy;
 
 [TestClass]
 [DoNotParallelize]
-public sealed class TenantChangedCacheInvalidationHandlerTests
+public sealed class TenantCacheInvalidatorTests
 {
     [TestMethod]
-    public async Task HandleAsync_WhenCachePropagationFails_PropagatesFailure()
+    public async Task InvalidateAfterCommitAsync_RemovesLocalEntries_AndRecordsSuccess()
     {
-        var invalidationMeasurements = new List<InvalidationMeasurement>();
-        using var listener = CreateInvalidationListener(
-            invalidationMeasurements);
+        var measurements = new List<InvalidationMeasurement>();
+        using var listener = CreateInvalidationListener(measurements);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFusionCache().AsHybridCache();
+        await using var provider = services.BuildServiceProvider();
+        var hybridCache = provider.GetRequiredService<HybridCache>();
+        var fusionCache = provider.GetRequiredService<IFusionCache>();
+        const string environmentName = "Testing";
+        var tenantId = Guid.CreateVersion7();
+        const string domain = "direct.localhost";
+        var tenantKey = CacheKeyBuilder.TenantResolutionById(environmentName, tenantId);
+        var domainKey = CacheKeyBuilder.TenantResolutionByDomain(environmentName, domain);
+        await hybridCache.SetAsync(tenantKey, "stale-tenant");
+        await hybridCache.SetAsync(domainKey, "stale-domain");
+
+        var invalidator = new TenantCacheInvalidator(
+            fusionCache,
+            new TestHostEnvironment(environmentName),
+            CachePolicyRegistry.Create(new CacheOptions()),
+            NullLogger<TenantCacheInvalidator>.Instance);
+
+        await invalidator.InvalidateAfterCommitAsync(
+            tenantId,
+            domain,
+            CancellationToken.None);
+
+        Assert.AreEqual(
+            "fresh-tenant",
+            await hybridCache.GetOrCreateAsync(
+                tenantKey,
+                _ => ValueTask.FromResult("fresh-tenant")));
+        Assert.AreEqual(
+            "fresh-domain",
+            await hybridCache.GetOrCreateAsync(
+                domainKey,
+                _ => ValueTask.FromResult("fresh-domain")));
+        var distributedSuccess = measurements.Single(item =>
+            item.Name == "fullnet.cache.invalidation.duration"
+            && item.Tags.Any(tag =>
+                tag.Key == "scope"
+                && Equals(tag.Value, "distributed")));
+        Assert.AreEqual(
+            "success",
+            distributedSuccess.Tags.Single(tag => tag.Key == "outcome").Value);
+    }
+
+    [TestMethod]
+    public async Task InvalidateAfterCommitAsync_ClearsLocalEvenWhenDistributedFails()
+    {
+        var measurements = new List<InvalidationMeasurement>();
+        using var listener = CreateInvalidationListener(measurements);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFusionCache()
+            .WithSystemTextJsonSerializer()
+            .AsHybridCache();
+        await using var provider = services.BuildServiceProvider();
+        var hybridCache = provider.GetRequiredService<HybridCache>();
+        var cache = provider.GetRequiredService<IFusionCache>();
+        cache.SetupDistributedCache(new ThrowingDistributedCache());
+        const string environmentName = "Testing";
+        var tenantId = Guid.CreateVersion7();
+        const string domain = "fail.localhost";
+        var tenantKey = CacheKeyBuilder.TenantResolutionById(environmentName, tenantId);
+        var domainKey = CacheKeyBuilder.TenantResolutionByDomain(environmentName, domain);
+        await hybridCache.SetAsync(tenantKey, "stale-tenant");
+        await hybridCache.SetAsync(domainKey, "stale-domain");
+        var invalidator = new TenantCacheInvalidator(
+            cache,
+            new TestHostEnvironment(environmentName),
+            CachePolicyRegistry.Create(new CacheOptions()),
+            NullLogger<TenantCacheInvalidator>.Instance);
+
+        await invalidator.InvalidateAfterCommitAsync(
+            tenantId,
+            domain,
+            CancellationToken.None);
+
+        Assert.AreEqual(
+            "fresh-tenant",
+            await hybridCache.GetOrCreateAsync(
+                tenantKey,
+                _ => ValueTask.FromResult("fresh-tenant")));
+        Assert.AreEqual(
+            "fresh-domain",
+            await hybridCache.GetOrCreateAsync(
+                domainKey,
+                _ => ValueTask.FromResult("fresh-domain")));
+        AssertFailedDistributedInvalidation(measurements);
+        Assert.IsTrue(
+            measurements.Any(item =>
+                item.Name == "fullnet.cache.invalidation.duration"
+                && item.Tags.Any(tag =>
+                    tag.Key == "scope"
+                    && Equals(tag.Value, "local"))
+                && item.Tags.Any(tag =>
+                    tag.Key == "outcome"
+                    && Equals(tag.Value, "success"))));
+    }
+
+    [TestMethod]
+    public async Task InvalidateDistributedAsync_PropagatesFailures_ForCompatDrain()
+    {
+        var measurements = new List<InvalidationMeasurement>();
+        using var listener = CreateInvalidationListener(measurements);
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddFusionCache();
         await using var provider = services.BuildServiceProvider();
         var cache = provider.GetRequiredService<IFusionCache>();
         cache.SetupBackplane(new ThrowingBackplane());
-        var serializer = new MessagePackIntegrationEventSerializer();
-        var handler = new TenantChangedCacheInvalidationHandler(
-            serializer,
-            new TenantCacheInvalidator(
-                cache,
-                new TestHostEnvironment("Testing"),
-                CachePolicyRegistry.Create(new CacheOptions()),
-                NullLogger<TenantCacheInvalidator>.Instance));
-        var payload = serializer.Serialize(new TenantChangedIntegrationEvent(
-            Guid.CreateVersion7(),
-            "acme.localhost"));
+        var invalidator = new TenantCacheInvalidator(
+            cache,
+            new TestHostEnvironment("Testing"),
+            CachePolicyRegistry.Create(new CacheOptions()),
+            NullLogger<TenantCacheInvalidator>.Instance);
 
         await Assert.ThrowsExactlyAsync<FusionCacheBackplaneException>(
-            () => handler.HandleAsync(payload, CancellationToken.None));
-        AssertFailedDistributedInvalidation(invalidationMeasurements);
-
-        var distributedServices = new ServiceCollection();
-        distributedServices.AddLogging();
-        distributedServices
-            .AddFusionCache()
-            .WithSystemTextJsonSerializer();
-        await using var distributedProvider =
-            distributedServices.BuildServiceProvider();
-        var distributedCache =
-            distributedProvider.GetRequiredService<IFusionCache>();
-        distributedCache.SetupDistributedCache(new ThrowingDistributedCache());
-        var distributedHandler = new TenantChangedCacheInvalidationHandler(
-            serializer,
-            new TenantCacheInvalidator(
-                distributedCache,
-                new TestHostEnvironment("Testing"),
-                CachePolicyRegistry.Create(new CacheOptions()),
-                NullLogger<TenantCacheInvalidator>.Instance));
-
-        await Assert.ThrowsExactlyAsync<FusionCacheDistributedCacheException>(
-            () => distributedHandler.HandleAsync(
-                payload,
+            () => invalidator.InvalidateDistributedAsync(
+                Guid.CreateVersion7(),
+                "compat.localhost",
                 CancellationToken.None));
+        AssertFailedDistributedInvalidation(measurements);
     }
 
     private static void AssertFailedDistributedInvalidation(
@@ -214,3 +290,4 @@ public sealed class TenantChangedCacheInvalidationHandlerTests
                 new InvalidOperationException("模拟 L2 缓存写入失败。"));
     }
 }
+

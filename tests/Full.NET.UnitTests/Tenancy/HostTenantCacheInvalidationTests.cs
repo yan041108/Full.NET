@@ -11,6 +11,7 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using ZiggyCreatures.Caching.Fusion;
@@ -22,7 +23,7 @@ namespace Full.NET.UnitTests.Tenancy;
 public sealed class HostTenantCacheInvalidationTests
 {
     [TestMethod]
-    public async Task UpdateAsync_InvalidatesLocalCacheOnlyAfterTransactionReturns()
+    public async Task UpdateAsync_InvalidatesCacheDirectlyAfterCommit_WithoutOutbox()
     {
         var invalidationMeasurements = new List<InvalidationMeasurement>();
         using var listener = CreateInvalidationListener(
@@ -90,12 +91,10 @@ public sealed class HostTenantCacheInvalidationTests
                     domainKey,
                     _ => ValueTask.FromResult("fresh-domain")));
         });
-        var outboxWriter = Substitute.For<IOutboxWriter>();
         var service = new HostTenantManagementService(
             queryExecutor,
             commandExecutor,
             transaction,
-            outboxWriter,
             new HostTenantQueryService(
                 queryExecutor,
                 Options.Create(new DatabaseOptions
@@ -106,7 +105,8 @@ public sealed class HostTenantCacheInvalidationTests
             new TenantCacheInvalidator(
                 fusionCache,
                 new TestHostEnvironment(environmentName),
-                CachePolicyRegistry.Create(new CacheOptions())));
+                CachePolicyRegistry.Create(new CacheOptions()),
+                NullLogger<TenantCacheInvalidator>.Instance));
 
         var result = await service.UpdateAsync(
             tenantId,
@@ -114,14 +114,6 @@ public sealed class HostTenantCacheInvalidationTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsTrue(transaction.ObservedBeforeCommit);
-        await outboxWriter.Received(1).AddAsync(
-            "fullnet.tenancy.tenant.changed",
-            1,
-            Arg.Is<TenantChangedIntegrationEvent>(integrationEvent =>
-                integrationEvent != null
-                && integrationEvent.TenantId == tenantId
-                && integrationEvent.Domain == domain),
-            Arg.Any<CancellationToken>());
         Assert.AreEqual(
             "fresh-tenant",
             await hybridCache.GetOrCreateAsync(
@@ -132,14 +124,24 @@ public sealed class HostTenantCacheInvalidationTests
             await hybridCache.GetOrCreateAsync(
                 domainKey,
                 _ => ValueTask.FromResult("fresh-domain")));
-        var localSuccess = invalidationMeasurements.Single(item =>
+        var distributedSuccess = invalidationMeasurements.Single(item =>
             item.Tags.Any(tag =>
                 tag.Key == "scope"
-                && Equals(tag.Value, "local")));
-        Assert.AreEqual("fullnet.cache.invalidation.duration", localSuccess.Name);
+                && Equals(tag.Value, "distributed")));
+        Assert.AreEqual("fullnet.cache.invalidation.duration", distributedSuccess.Name);
         Assert.AreEqual(
             "success",
-            localSuccess.Tags.Single(tag => tag.Key == "outcome").Value);
+            distributedSuccess.Tags.Single(tag => tag.Key == "outcome").Value);
+        Assert.IsTrue(
+            invalidationMeasurements.Any(item =>
+                item.Name == "fullnet.cache.invalidation.duration"
+                && item.Tags.Any(tag =>
+                    tag.Key == "scope"
+                    && Equals(tag.Value, "local"))
+                && item.Tags.Any(tag =>
+                    tag.Key == "outcome"
+                    && Equals(tag.Value, "success"))),
+            "提交后失效必须先记录本地 L1 成功指标。");
     }
 
     private static MeterListener CreateInvalidationListener(

@@ -14,13 +14,10 @@ namespace Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 internal sealed class Handler(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
-    IOutboxWriter outboxWriter,
     IClock clock,
     IIdGenerator idGenerator)
     : ICommandHandler<ProvisionTenantCommand, TenantSummary>
 {
-    private const string EventType = "fullnet.tenancy.tenant.provisioned";
-
     public async Task<Result<TenantSummary>> HandleAsync(
         ProvisionTenantCommand command,
         CancellationToken cancellationToken)
@@ -110,15 +107,8 @@ internal sealed class Handler(
                 $"Tenant insert affected {affectedRows} rows instead of one.");
         }
 
-        await outboxWriter.AddAsync(
-                EventType,
-                1,
-                new TenantProvisionedIntegrationEvent(
-                    tenant.Id,
-                    tenant.Identifier,
-                    tenant.Domain),
-                cancellationToken)
-            .ConfigureAwait(false);
+        // Expand/Cutover：开通成功后由服务层直接失效缓存；不再写入缓存专用 Outbox。
+        // 旧消息类型与兼容 Handler 保留，仅用于排空升级前已入库消息。
 
         return Result<TenantSummary>.Success(new TenantSummary(
             tenant.Id,

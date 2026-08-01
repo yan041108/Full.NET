@@ -4,7 +4,10 @@ using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.Modules.Tenancy;
 
-/// <summary>消费已提交的租户变更事实并可靠传播缓存失效。</summary>
+/// <summary>
+/// 兼容排空：消费升级前已入库的租户变更 Outbox，并执行幂等缓存失效。
+/// 新写入路径不再产生该消息。
+/// </summary>
 internal sealed class TenantChangedCacheInvalidationHandler(
     IIntegrationEventSerializer serializer,
     TenantCacheInvalidator invalidator) : IIntegrationEventHandler

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.UnitTests.Tenancy;
@@ -93,7 +94,8 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
             new TenantCacheInvalidator(
                 fusionCache,
                 new TestHostEnvironment(environmentName),
-                CachePolicyRegistry.Create(new CacheOptions())));
+                CachePolicyRegistry.Create(new CacheOptions()),
+                NullLogger<TenantCacheInvalidator>.Instance));
         var payload = serializer.Serialize(new TenantProvisionedIntegrationEvent(
             tenantId,
             "acme",
@@ -142,7 +144,8 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
             new TenantCacheInvalidator(
                 fusionCache,
                 new TestHostEnvironment(environmentName),
-                CachePolicyRegistry.Create(new CacheOptions())));
+                CachePolicyRegistry.Create(new CacheOptions()),
+                NullLogger<TenantCacheInvalidator>.Instance));
 
         var result = await service.ProvisionAsync(
             new ProvisionTenantRequest(

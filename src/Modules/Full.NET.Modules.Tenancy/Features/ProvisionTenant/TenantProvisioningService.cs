@@ -26,9 +26,11 @@ internal sealed class TenantProvisioningService(
 
         if (result.IsSuccess && result.Value is { } tenant)
         {
-            await cacheInvalidator.InvalidateLocalAsync(
+            // 业务已提交：不得把请求取消令牌传给失效路径，否则客户端断开会使负缓存残留。
+            await cacheInvalidator.InvalidateAfterCommitAsync(
                     tenant.Id,
-                    tenant.Domain)
+                    tenant.Domain,
+                    CancellationToken.None)
                 .ConfigureAwait(false);
         }
 

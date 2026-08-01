@@ -293,7 +293,7 @@ public sealed class DevelopmentSeedTests
                 "fn_tenancy_tenant",
                 "Identifier = 'local'"));
         Assert.AreEqual(
-            1L,
+            0L,
             await CountAsync(
                 options,
                 "fn_outbox_message",
