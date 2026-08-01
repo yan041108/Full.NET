@@ -5,6 +5,7 @@ using Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
 using Full.NET.Modules.CodeGeneration.Features.ManageHostTemplates;
 using Full.NET.Modules.CodeGeneration.Features.NormalizeCrudSchema;
 using Full.NET.Modules.CodeGeneration.Features.PreviewCrudGeneration;
+using Full.NET.Modules.CodeGeneration.Git;
 using Full.NET.Modules.CodeGeneration.Retention;
 using Full.NET.Modules.CodeGeneration.Serialization;
 using Full.NET.Modules.Identity.Contracts;
@@ -57,6 +58,15 @@ public sealed class CodeGenerationModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<CodeGenerationCheckpointRetentionOptions>,
             CodeGenerationCheckpointRetentionOptionsValidator>());
+        services.AddOptions<CodeGenerationGitOptions>()
+            .Bind(configuration.GetSection(CodeGenerationGitOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<CodeGenerationGitOptions>,
+            CodeGenerationGitOptionsValidator>());
+        services.TryAddSingleton<ICodeGenerationGitCommandRunner,
+            ProcessCodeGenerationGitCommandRunner>();
+        services.TryAddScoped<CodeGenerationGitWorkspaceService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

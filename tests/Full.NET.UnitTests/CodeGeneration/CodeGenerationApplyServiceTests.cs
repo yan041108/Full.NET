@@ -421,6 +421,7 @@ public sealed class CodeGenerationApplyServiceTests
                 WorkspaceRoot = workspaceRoot,
             }),
             applyGate,
+            CodeGenerationGitWorkspaceTestSupport.CreateDisabled(workspaceRoot),
             new FixedClock(Now),
             new FixedIdGenerator(ApplyRunId));
         return new ApplyFixture(

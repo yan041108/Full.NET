@@ -2,12 +2,7 @@
 
 - 日期：2026-08-02
 - 代码基线：`main` @ `e171c44`
-- 状态：**建议稿**（未经 Spec 批准，不得进入实施计划或生产代码）
-- 上游证据：[Host Apply 验证](codegeneration-host-apply-2026-07-31.md)、[产品 Rollback 验证](codegeneration-product-rollback-2026-08-02.md)、[多实例互斥验证](codegeneration-distributed-workspace-gate-2026-08-02.md)
-
-## 1. 结论
-
-当前 Apply/Rollback 仅支持 **绝对本地** `WorkspaceRoot`（启动期校验禁止 UNC/远程路径）。生产多实例常把生成工作区放在共享 PVC 或每 Pod 独立 clone；下一合理切片是在 **不改变现有 Manifest-last 写盘内核** 的前提下，为 opt-in 部署增加 **受控 Git 同步边界**（fetch/checkout 与 commit/push 分离、与 Apply Gate 串行），而非把客户端路径或任意 URL 写入 HTTP 契约。
+- 状态：**已关闭** → Spec [2026-08-02-codegeneration-remote-git-design.md](../superpowers/specs/2026-08-02-codegeneration-remote-git-design.md)（Approved）`WorkspaceRoot`（启动期校验禁止 UNC/远程路径）。生产多实例常把生成工作区放在共享 PVC 或每 Pod 独立 clone；下一合理切片是在 **不改变现有 Manifest-last 写盘内核** 的前提下，为 opt-in 部署增加 **受控 Git 同步边界**（fetch/checkout 与 commit/push 分离、与 Apply Gate 串行），而非把客户端路径或任意 URL 写入 HTTP 契约。
 
 总体能力在 Spec 批准与双端 E2E 前仍保持 `Build-verified`。
 

@@ -89,6 +89,10 @@ public static class CodeGenerationRunErrorCodes
     public const string RollbackBusy = "codegen.run.rollback_busy";
 
     public const string RollbackFailed = "codegen.run.rollback_failed";
+
+    public const string GitSyncFailed = "codegen.run.git_sync_failed";
+
+    public const string GitPublishFailed = "codegen.run.git_publish_failed";
 }
 
 /// <summary>

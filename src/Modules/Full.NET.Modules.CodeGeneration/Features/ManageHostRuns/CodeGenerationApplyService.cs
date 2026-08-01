@@ -5,6 +5,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.CodeGeneration.Generation;
 using Full.NET.Modules.CodeGeneration.Configuration;
 using Full.NET.Modules.CodeGeneration.Contracts;
+using Full.NET.Modules.CodeGeneration.Git;
 using Full.NET.Modules.CodeGeneration.Features.ManageHostTemplates;
 using Full.NET.Modules.CodeGeneration.Features.NormalizeCrudSchema;
 using Full.NET.Modules.CodeGeneration.Persistence;
@@ -22,6 +23,7 @@ internal sealed class CodeGenerationApplyService(
     CodeGenerationSchemaNormalizer schemaNormalizer,
     IOptions<CodeGenerationApplyOptions> options,
     CodeGenerationApplyGate applyGate,
+    CodeGenerationGitWorkspaceService gitWorkspace,
     IClock clock,
     IIdGenerator idGenerator)
 {
@@ -116,6 +118,17 @@ internal sealed class CodeGenerationApplyService(
 
         try
         {
+            var syncError = await gitWorkspace
+                .SynchronizeAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (syncError is not null)
+            {
+                return Failure(
+                    syncError.Code,
+                    syncError.Message,
+                    syncError.Type);
+            }
+
             var runId = idGenerator.NewId();
             var startedAtUtc = clock.UtcNow;
             var insertedRows = await commandExecutor.ExecuteAsync(
@@ -242,6 +255,12 @@ internal sealed class CodeGenerationApplyService(
                     CancellationToken.None)
                 .ConfigureAwait(false);
             EnsureAffectedOne(completedRows, "completion");
+
+            await gitWorkspace.PublishAsync(
+                    $"codegen(apply): {normalized.Value.Schema.ModuleKey}/"
+                    + $"{normalized.Value.Schema.EntityKey} run {runId:N}",
+                    CancellationToken.None)
+                .ConfigureAwait(false);
 
             var changedCount = plan.Actions.Count(action =>
                 action.Kind != GenerationWriteActionKind.Unchanged);

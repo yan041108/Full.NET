@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.CodeGeneration.Generation;
 using Full.NET.Modules.CodeGeneration.Configuration;
 using Full.NET.Modules.CodeGeneration.Contracts;
+using Full.NET.Modules.CodeGeneration.Git;
 using Full.NET.Modules.CodeGeneration.Persistence;
 using Microsoft.Extensions.Options;
 
@@ -19,6 +20,7 @@ internal sealed class CodeGenerationRollbackService(
     IQueryExecutor queryExecutor,
     IOptions<CodeGenerationApplyOptions> options,
     CodeGenerationApplyGate applyGate,
+    CodeGenerationGitWorkspaceService gitWorkspace,
     IClock clock,
     IIdGenerator idGenerator)
 {
@@ -95,6 +97,17 @@ internal sealed class CodeGenerationRollbackService(
 
         try
         {
+            var syncError = await gitWorkspace
+                .SynchronizeAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (syncError is not null)
+            {
+                return Failure(
+                    syncError.Code,
+                    syncError.Message,
+                    syncError.Type);
+            }
+
             // 目标摘要在写盘前即可由检查点 PreviousManifest 确定；插入后再 Restore。
             GenerationRollbackCheckpoint checkpoint;
             try
@@ -225,6 +238,12 @@ internal sealed class CodeGenerationRollbackService(
                     CancellationToken.None)
                 .ConfigureAwait(false);
             EnsureAffectedOne(completedRows, "completion");
+
+            await gitWorkspace.PublishAsync(
+                    $"codegen(rollback): {apply.ModuleKey}/{apply.EntityKey} "
+                    + $"apply {request.ApplyRunId:N}",
+                    CancellationToken.None)
+                .ConfigureAwait(false);
 
             var changedCount = plan.Actions.Count(action =>
                 action.Kind != GenerationWriteActionKind.Unchanged);

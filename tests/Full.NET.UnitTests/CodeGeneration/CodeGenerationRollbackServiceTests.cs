@@ -480,6 +480,7 @@ public sealed class CodeGenerationRollbackServiceTests
                 WorkspaceRoot = workspaceRoot,
             }),
             gate ?? CodeGenerationApplyGateTestSupport.CreateLocalGate(@"C:\workspaces\codegen"),
+            CodeGenerationGitWorkspaceTestSupport.CreateDisabled(workspaceRoot),
             new FixedClock(Now),
             new FixedIdGenerator(RollbackRunId));
 
