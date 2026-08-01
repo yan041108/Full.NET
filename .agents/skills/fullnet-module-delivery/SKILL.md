@@ -55,7 +55,8 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 - 从受信任上下文取得租户，不信任普通请求提供的 TenantId。
 - 在 Endpoint 声明授权，在 Handler 或领域边界再次保护敏感业务不变量。
-- SQL、缓存键、Outbox 和实时分组都必须包含租户边界。
+- SQL、缓存键和实时分组都必须包含租户边界。
+- 写入 Outbox 的消息同样必须携带租户边界。
 - 管理员跨租户能力必须显式命名、授权和审计。
 
 ### Dapper 与双数据库
@@ -71,10 +72,13 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 ### 事务、事件与缓存
 
-- 业务写入与 Outbox 在同一事务中提交，外部调用不得进入数据库事务。
+- 重要业务事件才允许 Outbox：仅把需要事务耦合、可幂等消费的业务 Integration Event 写入 Outbox，并与业务状态同一事务提交；外部调用不得进入数据库事务。
 - 跨进程可靠事件使用带版本元数据的 MessagePack；进程内调用不要序列化。
-- 只有存在重复读取与明确失效点时才使用 FusionCache。
-- 缓存失效由提交后的 Outbox 事件触发，保证多实例 L1/L2 与 Backplane 一致；不要在提交前删除缓存。
+- 只有存在重复读取与明确失效点时才使用 FusionCache；缓存条目必须按 `C0/S0-L2/S1/S2/N0` 分类，细节见交付地图与 ADR-0005、总体 Spec §13。
+- 缓存失效不写 Outbox：事务提交后直接删除 L1/L2 并广播 Backplane；不要在提交前删除缓存，删除或通知失败由 TTL、版本与权威源收敛。
+- 不可变判断：
+  - `Cache invalidation: commit database state -> remove current L1/shared L2 -> publish Backplane.`
+  - `Outbox admission: only durable, transaction-coupled business Integration Events with idempotent consumers.`
 - 明确幂等、重试、租约、毒消息、取消和失败恢复，不把至少一次交付写成恰好一次。
 
 ## 5. 保持 API 与兼容边界
@@ -106,7 +110,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 6. 检查是否命中规则演进触发条件；只有已有 Skill 出现真实缺口或处于里程碑集中复盘时才执行 Skills 复盘，普通任务只输出一行未触发结论。
 7. 存量不兼容名称只可在 `contracts/naming/naming-debt.json` 按类型、值和文件精确登记，并给出移除里程碑；禁止通配、目录豁免或让新生成代码继承债务。
 
-本地 Integration 只运行影响集：普通模块、认证、租户、Outbox 和缓存执行对应 SQL Server/MySQL 聚焦测试；共享宿主与 Composition 执行 Smoke；测试矩阵已登记恢复集的迁移执行对应双库恢复测试和受影响模块测试，未登记迁移安全降级到 migrations 分片并追加可识别的受影响模块；迁移 Runner 执行 migrations 分片，Integration 工具执行 tooling。完整集合只保留给 `main` CI，不在本地任务中运行。
+本地 Integration 只运行影响集：普通模块、认证与租户走对应 SQL Server/MySQL 聚焦测试；后台消息队列基础设施与 FusionCache 基础设施各自使用登记过的聚焦集；共享宿主与 Composition 执行 Smoke；测试矩阵已登记恢复集的迁移执行对应双库恢复测试和受影响模块测试，未登记迁移安全降级到 migrations 分片并追加可识别的受影响模块；迁移 Runner 执行 migrations 分片，Integration 工具执行 tooling。完整集合只保留给 `main` CI，不在本地任务中运行。
 
 ## 按需决策速查
 
@@ -115,11 +119,11 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 | 新业务状态与写入 | Domain、Command、Validator、Handler、双库 SQL/测试 | 与当前用例无关的通用仓储 |
 | 新数据库结构 | SQL Server/MySQL DbUp 迁移与回归测试 | 单库迁移或运行时自动建表 |
 | 新数据库/API/消息命名 | Naming Profile、`Full.NET.Data.CodeGeneration`、`pnpm test:naming` | 自行截断、通配债务或复制存量旧名称 |
-| 跨模块可靠通知 | Contract 事件、MessagePack、事务 Outbox、Handler | 事务提交前直接推送 |
-| 高频读且有失效事件 | FusionCache 键、提交后失效、多实例验证 | 没有失效策略的永久缓存 |
+| 跨模块可靠通知 | Contract 事件、MessagePack、事务 Outbox、Handler | 事务提交前直接推送；缓存/Audit/日志 Outbox |
+| 高频读且有失效点 | FusionCache 键、分类策略、提交后直接删 L1/L2 与 Backplane、多实例验证 | 没有失效策略的永久缓存；缓存 Outbox |
 | 标准 Web API | 授权、验证、Result 映射、ProblemDetails | 默认 Admin.NET 包络 |
 | 旧管理端迁移 | Compatibility 适配与兼容测试 | 让兼容模型反向进入核心 |
-| 无结构变化的只读查询 | Query、Handler、参数化 SQL、API/单元测试 | 不需要的迁移、Outbox 或缓存 |
+| 无结构变化的只读查询 | Query、Handler、参数化 SQL、API/单元测试 | 不需要的迁移；也不要为只读路径强行加 Outbox |
 
 ## 常见错误
 
@@ -127,7 +131,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 - 只完成 Endpoint 和表，遗漏注册、权限、租户、序列化或测试。
 - SQL Server 通过后假定 MySQL 等价，未运行真实集成测试。
 - 把 FluentValidation 当授权系统，或信任客户端传入的租户标识。
-- 在事务内调用外部服务，或提交前发布事件、删除缓存。
+- 在事务内调用外部服务，提交前发布事件/删除缓存，或用 Outbox 承载缓存失效。
 - 把所有结果包装成 HTTP 200，破坏 ProblemDetails 和客户端语义。
 - 更新代码后忘记更新中文注释、路线图状态、许可证通知或测试数量。
 - 创建没有真实消费者的 Provider、SignalR、gRPC 或 AI 抽象。

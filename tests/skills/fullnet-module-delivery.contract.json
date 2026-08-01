@@ -26,7 +26,18 @@
     "Full.NET.Data.CodeGeneration",
     "PrimaryKeyTypeMapping",
     "BINARY(16)",
-    "CLUSTERED"
+    "CLUSTERED",
+    "缓存失效不写 Outbox",
+    "事务提交后直接删除 L1/L2 并广播 Backplane",
+    "重要业务事件才允许 Outbox",
+    "C0/S0-L2/S1/S2/N0",
+    "ADR-0005",
+    "§13"
+  ],
+  "forbidden_terms": [
+    "缓存失效由提交后的 Outbox",
+    "缓存失效由 Outbox",
+    "提交后失效 Handler"
   ],
   "scenarios": [
     {
@@ -53,7 +64,14 @@
         "MessagePack",
         "FusionCache",
         "提交后",
-        "租户"
+        "租户",
+        "缓存失效不写 Outbox",
+        "Backplane",
+        "重要业务事件才允许 Outbox"
+      ],
+      "forbidden_terms": [
+        "缓存失效由提交后的 Outbox",
+        "由 Outbox 事件触发"
       ]
     },
     {
