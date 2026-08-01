@@ -125,6 +125,7 @@ internal sealed class CodeGenerationApplyService(
                         Id = runId,
                         preview.TemplateId,
                         preview.TemplateVersion,
+                        SourceApplyRunId = (Guid?)null,
                         OperationKind = CodeGenerationRunOperationKinds.Apply,
                         Status = CodeGenerationRunStatuses.Running,
                         normalized.Value.Schema.ModuleKey,

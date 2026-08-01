@@ -112,6 +112,7 @@ internal sealed class CodeGenerationRunService(
                     Id = runId,
                     request.TemplateId,
                     request.TemplateVersion,
+                    SourceApplyRunId = (Guid?)null,
                     OperationKind = CodeGenerationRunOperationKinds.Preview,
                     Status = CodeGenerationRunStatuses.Succeeded,
                     normalized.Value.Schema.ModuleKey,
@@ -197,6 +198,7 @@ internal sealed class CodeGenerationRunService(
                     TemplateVersion = hasCompleteTemplateReference
                         ? templateVersion
                         : null,
+                    SourceApplyRunId = (Guid?)null,
                     OperationKind = CodeGenerationRunOperationKinds.Preview,
                     Status = CodeGenerationRunStatuses.Failed,
                     ModuleKey = (string?)null,

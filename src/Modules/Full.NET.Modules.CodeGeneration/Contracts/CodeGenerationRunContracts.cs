@@ -12,6 +12,11 @@ public static class CodeGenerationRunPermissions
     public const string Execute = "codegen.runs.execute";
 
     public const string Apply = "codegen.runs.apply";
+
+    /// <summary>
+    /// 回滚已成功 Apply；不得复用 apply/execute 权限。
+    /// </summary>
+    public const string Rollback = "codegen.runs.rollback";
 }
 
 /// <summary>
@@ -22,6 +27,8 @@ public static class CodeGenerationRunOperationKinds
     public const string Preview = "preview";
 
     public const string Apply = "apply";
+
+    public const string Rollback = "rollback";
 }
 
 /// <summary>
@@ -65,6 +72,23 @@ public static class CodeGenerationRunErrorCodes
     public const string ApplyBusy = "codegen.run.apply_busy";
 
     public const string ApplyFailed = "codegen.run.apply_failed";
+
+    public const string RollbackDisabled = "codegen.run.rollback_disabled";
+
+    public const string InvalidRollbackApply =
+        "codegen.run.invalid_rollback_apply";
+
+    public const string RollbackAlreadyApplied =
+        "codegen.run.rollback_already_applied";
+
+    public const string RollbackCheckpointMissing =
+        "codegen.run.rollback_checkpoint_missing";
+
+    public const string RollbackConflict = "codegen.run.rollback_conflict";
+
+    public const string RollbackBusy = "codegen.run.rollback_busy";
+
+    public const string RollbackFailed = "codegen.run.rollback_failed";
 }
 
 /// <summary>
@@ -100,6 +124,22 @@ public sealed record CodeGenerationRunApplyResponse(
     string ManifestSha256);
 
 /// <summary>
+/// 表示回滚已成功 Apply 的请求；仅允许 applyRunId，禁止客户端指定路径。
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CodeGenerationRunRollbackRequest(Guid ApplyRunId);
+
+/// <summary>
+/// 表示工作区逆向提交后的稳定摘要，不暴露服务器路径或生成源码。
+/// </summary>
+public sealed record CodeGenerationRunRollbackResponse(
+    Guid RunId,
+    Guid ApplyRunId,
+    int ArtifactCount,
+    int ChangedArtifactCount,
+    string ManifestSha256);
+
+/// <summary>
 /// 表示不包含 Schema、源码或异常正文的代码生成运行摘要。
 /// </summary>
 public sealed record CodeGenerationRunResponse(
@@ -116,4 +156,5 @@ public sealed record CodeGenerationRunResponse(
     string? ErrorCode,
     Guid RequestedByUserId,
     DateTimeOffset StartedAtUtc,
-    DateTimeOffset FinishedAtUtc);
+    DateTimeOffset FinishedAtUtc,
+    Guid? SourceApplyRunId);

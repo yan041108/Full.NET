@@ -32,4 +32,9 @@ internal sealed class CodeGenerationRunRecord
     public DateTimeOffset StartedAtUtc { get; init; }
 
     public DateTimeOffset FinishedAtUtc { get; init; }
+
+    /// <summary>
+    /// 回滚运行指向的成功 Apply Id；preview/apply 必须为空。
+    /// </summary>
+    public Guid? SourceApplyRunId { get; init; }
 }

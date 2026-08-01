@@ -35,6 +35,10 @@ internal sealed class CodeGenerationAuthorizationContributor
             CodeGenerationRunPermissions.Apply,
             "应用已审查的代码生成预览",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            CodeGenerationRunPermissions.Rollback,
+            "回滚已成功的代码生成 Apply",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =

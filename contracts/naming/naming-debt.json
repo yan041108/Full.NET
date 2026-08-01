@@ -876,6 +876,27 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/050_SettingsDomainAudit.sql",
       "reason": "050 使用固定存储过程收敛 TenantId 复合索引缺失或形状错误的状态；对象名均为脚本常量，并由 MySQL 迁移恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/051_CodeGenerationRollback.sql",
+      "reason": "051 在新增 SourceApplyRunId 的同一批次通过固定 EXEC 完成列添加、CHECK 重建与过滤唯一索引创建，避免 SQL Server 编译期列解析失败；由双库 Rollback 恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/051_CodeGenerationRollback.sql",
+      "reason": "051 的条件 DROP CHECK/INDEX 与过滤唯一索引尚不能由静态扫描器完整解析；固定对象已人工审查，并由双库 Rollback 恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/051_CodeGenerationRollback.sql",
+      "reason": "051 使用固定存储过程收敛 SourceApplyRunId、CHECK 与生成列唯一索引；对象名均为脚本常量，并由 MySQL 迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

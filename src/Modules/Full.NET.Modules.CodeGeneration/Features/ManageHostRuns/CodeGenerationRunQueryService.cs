@@ -101,5 +101,6 @@ internal sealed class CodeGenerationRunQueryService(
             record.ErrorCode,
             record.RequestedByUserId,
             record.StartedAtUtc,
-            record.FinishedAtUtc);
+            record.FinishedAtUtc,
+            record.SourceApplyRunId);
 }
