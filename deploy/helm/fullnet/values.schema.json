@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Full.NET Helm values",
+  "type": "object",
+  "required": [
+    "production",
+    "roles",
+    "databaseConnectionBudget",
+    "edgeProtection",
+    "database",
+    "cache",
+    "realtime",
+    "dataProtection",
+    "api",
+    "worker",
+    "migrator"
+  ],
+  "properties": {
+    "production": { "type": "boolean" },
+    "roles": {
+      "type": "object",
+      "required": ["api", "worker", "migrator"],
+      "properties": {
+        "api": { "type": "boolean" },
+        "worker": { "type": "boolean" },
+        "migrator": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "databaseConnectionBudget": {
+      "type": "object",
+      "required": ["total", "apiMaxPoolSize", "workerMaxPoolSize", "migrationReserve"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 1 },
+        "apiMaxPoolSize": { "type": "integer", "minimum": 1 },
+        "workerMaxPoolSize": { "type": "integer", "minimum": 1 },
+        "migrationReserve": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "edgeProtection": {
+      "type": "object",
+      "required": [
+        "declared",
+        "provider",
+        "globalRateLimitPerSecond",
+        "globalBurst",
+        "globalConcurrentConnections",
+        "unavailablePolicy"
+      ],
+      "properties": {
+        "declared": { "type": "boolean" },
+        "provider": {
+          "type": "string",
+          "enum": ["", "CDN", "WAF", "APIGateway", "DistributedRateLimit"]
+        },
+        "globalRateLimitPerSecond": { "type": "integer", "minimum": 0 },
+        "globalBurst": { "type": "integer", "minimum": 0 },
+        "globalConcurrentConnections": { "type": "integer", "minimum": 0 },
+        "authDimension": { "type": "string" },
+        "anonymousDimension": { "type": "string" },
+        "unavailablePolicy": {
+          "type": "string",
+          "enum": ["fail-closed", "fail-open"]
+        },
+        "secretName": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "annotations": { "type": "object" }
+      }
+    },
+    "api": {
+      "type": "object",
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 2 },
+        "hpa": {
+          "type": "object",
+          "properties": {
+            "minReplicas": { "type": "integer", "minimum": 2 },
+            "maxReplicas": { "type": "integer", "minimum": 2 }
+          }
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 2 },
+        "maxConcurrency": { "type": "integer", "const": 1 },
+        "hpa": {
+          "type": "object",
+          "properties": {
+            "minReplicas": { "type": "integer", "minimum": 2 },
+            "maxReplicas": { "type": "integer", "minimum": 2 }
+          }
+        }
+      }
+    },
+    "realtime": {
+      "type": "object",
+      "properties": {
+        "transportMode": {
+          "type": "string",
+          "enum": ["Default", "WebSocketsOnly"]
+        },
+        "skipNegotiation": { "type": "boolean" },
+        "requireSessionAffinity": { "type": "boolean" }
+      }
+    }
+  }
+}

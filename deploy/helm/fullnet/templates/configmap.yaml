@@ -1,0 +1,21 @@
+{{- include "fullnet.validate" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fullnet.fullname" . }}-config
+  labels:
+    {{- include "fullnet.labels" . | nindent 4 }}
+data:
+  Database__Provider: {{ .Values.database.provider | quote }}
+  ASPNETCORE_URLS: "http://+:8080"
+  Realtime__TransportMode: {{ .Values.realtime.transportMode | quote }}
+  Realtime__SkipNegotiation: {{ .Values.realtime.skipNegotiation | quote }}
+  Realtime__RequireSessionAffinity: {{ .Values.realtime.requireSessionAffinity | quote }}
+  DataProtection__ApplicationName: {{ .Values.dataProtection.applicationName | quote }}
+  Jobs__Worker__MaxConcurrency: {{ .Values.worker.maxConcurrency | quote }}
+  OutboxWorker__MaxConcurrency: {{ .Values.worker.maxConcurrency | quote }}
+  RateLimiting__GlobalApiPermitLimitPerMinute: {{ .Values.applicationRateLimiting.globalApiPermitLimitPerMinutePerReplica | quote }}
+  FULLNET_CAPACITY_STATUS: "Capacity-not-verified"
+{{- if .Values.roles.worker }}
+  Realtime__Enabled: "true"
+{{- end }}

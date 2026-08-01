@@ -1,0 +1,8 @@
+# 反例：生产缺少全局 Edge 声明。
+edgeProtection:
+  declared: false
+  provider: ""
+  globalRateLimitPerSecond: 0
+  globalBurst: 0
+  globalConcurrentConnections: 0
+  unavailablePolicy: fail-closed

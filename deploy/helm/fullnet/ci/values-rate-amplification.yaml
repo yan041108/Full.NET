@@ -1,0 +1,18 @@
+# 反例：应用限流按 maxReplicas 放大后超过全局 Edge 额度。
+applicationRateLimiting:
+  globalApiPermitLimitPerMinutePerReplica: 1000
+edgeProtection:
+  declared: true
+  provider: WAF
+  globalRateLimitPerSecond: 10
+  globalBurst: 20
+  globalConcurrentConnections: 100
+  unavailablePolicy: fail-closed
+  secretName: fullnet-edge
+  serviceName: fullnet-edge
+dataProtection:
+  existingClaimName: fullnet-data-protection-rwx
+roles:
+  api: true
+  worker: false
+  migrator: false

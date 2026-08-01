@@ -1,0 +1,47 @@
+{{- include "fullnet.validate" . -}}
+{{- if and .Values.roles.api .Values.api.ingress.enabled }}
+{{- $affinity := include "fullnet.sessionAffinityEnabled" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "fullnet.fullname" . }}-api
+  labels:
+    {{- include "fullnet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.api.ingress.bodySize | quote }}
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: {{ .Values.api.ingress.proxyConnectTimeout | quote }}
+    nginx.ingress.kubernetes.io/proxy-send-timeout: {{ .Values.api.ingress.proxySendTimeout | quote }}
+    nginx.ingress.kubernetes.io/proxy-read-timeout: {{ .Values.api.ingress.proxyReadTimeout | quote }}
+    # 仅 ingress-nginx 本地 limit-* 不能宣称全局额度；全局额度由 edgeProtection 声明。
+    {{- if eq $affinity "true" }}
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "fullnet_affinity"
+    nginx.ingress.kubernetes.io/session-cookie-path: "/"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+    {{- end }}
+    {{- /* 禁止信任任意客户端 X-Forwarded-For：由入口可信代理链计算真实客户端键。 */}}
+    nginx.ingress.kubernetes.io/use-forwarded-headers: {{ .Values.api.ingress.useForwardedHeaders | quote }}
+    {{- with .Values.edgeProtection.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.api.ingress.className | quote }}
+  {{- if .Values.api.ingress.tlsSecretName }}
+  tls:
+    - hosts:
+        - {{ .Values.api.ingress.host | quote }}
+      secretName: {{ .Values.api.ingress.tlsSecretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.api.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "fullnet.fullname" . }}-api
+                port:
+                  number: {{ .Values.api.service.port }}
+{{- end }}

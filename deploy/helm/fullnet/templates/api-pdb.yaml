@@ -1,0 +1,16 @@
+{{- include "fullnet.validate" . -}}
+{{- if and .Values.roles.api .Values.api.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "fullnet.fullname" . }}-api
+  labels:
+    {{- include "fullnet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: {{ .Values.api.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "fullnet.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+{{- end }}

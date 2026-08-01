@@ -1,0 +1,13 @@
+**/.git
+**/bin/
+**/obj/
+**/node_modules/
+**/App_Data/
+artifacts/
+tests/
+docs/
+clients/
+.agents/
+.task-snapshots/
+*.md
+!README.md

@@ -1,0 +1,200 @@
+# Full.NET 生产 Helm 默认值。生产以三个独立 Release 启用单一角色；
+# production=true 时禁止同一 Release 同时启用多个角色。
+
+production: true
+
+roles:
+  api: false
+  worker: false
+  migrator: false
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: ""
+  repository: fullnet
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+  # 各角色镜像名：{repository}-api|worker|migrator
+  pullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1654
+  runAsGroup: 1654
+  fsGroup: 1654
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+database:
+  provider: SqlServer # SqlServer | MySql
+  connectionSecretName: fullnet-database
+  connectionSecretKey: connectionString
+
+cache:
+  redisSecretName: fullnet-cache-redis
+  redisSecretKey: connectionString
+
+realtime:
+  redisSecretName: fullnet-realtime-redis
+  redisSecretKey: connectionString
+  transportMode: Default # Default | WebSocketsOnly
+  skipNegotiation: false
+  requireSessionAffinity: true
+
+files:
+  s3SecretName: fullnet-s3
+
+dataProtection:
+  applicationName: Full.NET
+  # 优先引用已有 RWX Claim；否则仅在 StorageClass 已验证 RWX/快照/备份时创建 PVC。
+  existingClaimName: ""
+  certificateSecretName: fullnet-dp-cert
+  persistence:
+    create: false
+    storageClassName: ""
+    storageClassVerifiedRwxSnapshotBackup: false
+    size: 1Gi
+    accessModes:
+      - ReadWriteMany
+
+databaseConnectionBudget:
+  # api(12)*40 + worker(8)*10 + migrationReserve(20) = 580；默认留余量。
+  total: 600
+  apiMaxPoolSize: 40
+  workerMaxPoolSize: 10
+  migrationReserve: 20
+
+edgeProtection:
+  # 生产必须声明已部署的全局 Edge 能力；Chart 只引用 Secret/Service/注解。
+  declared: false
+  provider: "" # CDN | WAF | APIGateway | DistributedRateLimit
+  globalRateLimitPerSecond: 0
+  globalBurst: 0
+  globalConcurrentConnections: 0
+  authDimension: client_id
+  anonymousDimension: client_ip
+  unavailablePolicy: fail-closed # fail-open | fail-closed
+  secretName: ""
+  serviceName: ""
+  annotations: {}
+
+# 应用内每实例限流（纵深防御）；扩到 maxReplicas 后总和不得超过全局额度。
+applicationRateLimiting:
+  globalApiPermitLimitPerMinutePerReplica: 100
+
+api:
+  replicaCount: 3
+  terminationGracePeriodSeconds: 60
+  preStopSleepSeconds: 10
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 12
+    targetCPUUtilizationPercentage: 70
+    customMetrics:
+      enabled: false
+      adapterInstalledAndVerified: false
+      query: ""
+      metricName: ""
+  pdb:
+    enabled: true
+    minAvailable: 2
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  ingress:
+    enabled: true
+    className: nginx
+    host: fullnet.example.com
+    tlsSecretName: ""
+    bodySize: 32m
+    proxyConnectTimeout: "10"
+    proxySendTimeout: "60"
+    proxyReadTimeout: "60"
+    # 可信代理链由集群入口配置；禁止信任任意客户端 X-Forwarded-For。
+    useForwardedHeaders: true
+    trustedProxyAnnotationKey: nginx.ingress.kubernetes.io/configuration-snippet
+  topologySpreadConstraints:
+    enabled: true
+    maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+
+worker:
+  replicaCount: 2
+  maxConcurrency: 1
+  terminationGracePeriodSeconds: 90
+  preStopSleepSeconds: 15
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    customMetrics:
+      enabled: false
+      adapterInstalledAndVerified: false
+      query: ""
+      metricName: ""
+  pdb:
+    enabled: true
+    minAvailable: 1
+  topologySpreadConstraints:
+    enabled: true
+    maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+
+migrator:
+  backoffLimit: 1
+  activeDeadlineSeconds: 1800
+  hookWeight: "-5"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  seedArgs: []
+
+networkPolicy:
+  enabled: true
+  # 仅允许入口来自 ingress-nginx 命名空间与同 Release 标签；出口放行 DNS 与外部依赖。
+  ingressNamespace: ingress-nginx
+  ingressPodSelector:
+    app.kubernetes.io/name: ingress-nginx
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,14 @@
+roles:
+  api: false
+  worker: false
+  migrator: true
+
+edgeProtection:
+  declared: true
+  provider: WAF
+  globalRateLimitPerSecond: 100
+  globalBurst: 200
+  globalConcurrentConnections: 5000
+  unavailablePolicy: fail-closed
+  secretName: fullnet-edge
+  serviceName: fullnet-edge

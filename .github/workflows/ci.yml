@@ -52,6 +52,14 @@ jobs:
       - name: Verify SQL safety governance
         run: pnpm test:sql-safety
 
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Verify Helm and release contracts
+        run: pnpm test:helm
+
       - name: Test shared and admin client packages
         run: |
           pnpm test:workspace

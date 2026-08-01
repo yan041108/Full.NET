@@ -1,0 +1,13 @@
+apiVersion: v2
+name: fullnet
+description: Full.NET modular monolith production Helm chart (API / Worker / Migrator roles only)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+# Chart 不安装数据库、Redis、S3、可观测性后端、WAF 或分布式限流服务。
+keywords:
+  - fullnet
+  - modular-monolith
+home: https://github.com/full-net/Full.NET
+maintainers:
+  - name: Full.NET

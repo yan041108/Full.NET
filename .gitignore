@@ -23,3 +23,5 @@ test-results/
 **/App_Data/
 tests/e2e/admin-real-stack/.stack-state.json
 tests/e2e/admin-real-stack/playwright/.auth/
+
+artifacts/

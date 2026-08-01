@@ -1,0 +1,8 @@
+# 反例：启用自定义 HPA 指标但未声明已验证的 Metrics Adapter。
+api:
+  hpa:
+    customMetrics:
+      enabled: true
+      adapterInstalledAndVerified: false
+      metricName: http_requests_in_flight
+      query: "1"

@@ -1,0 +1,6 @@
+# 反例：连接预算不足，模板必须 fail。
+databaseConnectionBudget:
+  total: 10
+  apiMaxPoolSize: 40
+  workerMaxPoolSize: 10
+  migrationReserve: 20

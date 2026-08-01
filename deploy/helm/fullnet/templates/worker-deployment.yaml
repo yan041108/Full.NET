@@ -1,0 +1,100 @@
+{{- include "fullnet.validate" . -}}
+{{- if .Values.roles.worker }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fullnet.fullname" . }}-worker
+  labels:
+    {{- include "fullnet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "fullnet.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "fullnet.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ include "fullnet.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      containers:
+        - name: worker
+          image: {{ include "fullnet.image" (dict "root" . "role" "worker") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "fullnet.fullname" . }}-config
+          env:
+            - name: Database__ConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.connectionSecretName }}
+                  key: {{ .Values.database.connectionSecretKey }}
+            - name: Cache__RedisConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cache.redisSecretName }}
+                  key: {{ .Values.cache.redisSecretKey }}
+            - name: Realtime__RedisBackplaneConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.realtime.redisSecretName }}
+                  key: {{ .Values.realtime.redisSecretKey }}
+            - name: DataProtection__KeyRingPath
+              value: /var/fullnet/data-protection-keys
+          volumeMounts:
+            - name: data-protection
+              mountPath: /var/fullnet/data-protection-keys
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            exec:
+              command: ["dotnet", "--info"]
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["dotnet", "--info"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["dotnet", "--info"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep {{ .Values.worker.preStopSleepSeconds }}"]
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: data-protection
+          persistentVolumeClaim:
+            claimName: {{ if .Values.dataProtection.existingClaimName }}{{ .Values.dataProtection.existingClaimName }}{{ else }}{{ include "fullnet.fullname" . }}-data-protection{{ end }}
+      {{- if .Values.worker.topologySpreadConstraints.enabled }}
+      topologySpreadConstraints:
+        - maxSkew: {{ .Values.worker.topologySpreadConstraints.maxSkew }}
+          topologyKey: {{ .Values.worker.topologySpreadConstraints.topologyKey }}
+          whenUnsatisfiable: {{ .Values.worker.topologySpreadConstraints.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              {{- include "fullnet.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: worker
+      {{- end }}
+{{- end }}

@@ -1,0 +1,19 @@
+{{- include "fullnet.validate" . -}}
+{{- if and (or .Values.roles.api .Values.roles.worker) .Values.dataProtection.persistence.create (eq .Values.dataProtection.existingClaimName "") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "fullnet.fullname" . }}-data-protection
+  labels:
+    {{- include "fullnet.labels" . | nindent 4 }}
+    fullnet.io/component: data-protection
+spec:
+  accessModes:
+    {{- toYaml .Values.dataProtection.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.dataProtection.persistence.size | quote }}
+  {{- if .Values.dataProtection.persistence.storageClassName }}
+  storageClassName: {{ .Values.dataProtection.persistence.storageClassName | quote }}
+  {{- end }}
+{{- end }}

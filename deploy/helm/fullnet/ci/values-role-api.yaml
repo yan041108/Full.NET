@@ -1,0 +1,19 @@
+roles:
+  api: true
+  worker: false
+  migrator: false
+
+dataProtection:
+  existingClaimName: fullnet-data-protection-rwx
+
+edgeProtection:
+  declared: true
+  provider: WAF
+  globalRateLimitPerSecond: 100
+  globalBurst: 200
+  globalConcurrentConnections: 5000
+  unavailablePolicy: fail-closed
+  secretName: fullnet-edge
+  serviceName: fullnet-edge
+  annotations:
+    fullnet.io/edge-protection: "external-waf"

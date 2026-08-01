@@ -1,0 +1,16 @@
+{{- include "fullnet.validate" . -}}
+{{- if and .Values.roles.worker .Values.worker.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "fullnet.fullname" . }}-worker
+  labels:
+    {{- include "fullnet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  minAvailable: {{ .Values.worker.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "fullnet.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+{{- end }}

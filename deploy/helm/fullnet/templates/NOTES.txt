@@ -1,0 +1,14 @@
+{{- include "fullnet.validate" . -}}
+Full.NET Helm release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Role(s): api={{ .Values.roles.api }} worker={{ .Values.roles.worker }} migrator={{ .Values.roles.migrator }}
+Capacity status: Capacity-not-verified
+
+Production release order (Invoke-FullNetRelease.ps1):
+  1) fullnet-migrator (Job hook completes)
+  2) fullnet-worker (consumer ready)
+  3) fullnet-api (rolling ready)
+
+This Chart does NOT install databases, Redis, S3, Loki, Tempo, WAF, or distributed rate-limit services.
+Secrets expected: {{ .Values.database.connectionSecretName }}, {{ .Values.cache.redisSecretName }}, {{ .Values.realtime.redisSecretName }}, {{ .Values.files.s3SecretName }}
+Database connection budget need={{ include "fullnet.connectionBudgetNeeded" . }} / total={{ .Values.databaseConnectionBudget.total }}

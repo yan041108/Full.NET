@@ -1,0 +1,37 @@
+{{- include "fullnet.validate" . -}}
+{{- if and .Values.roles.api .Values.api.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "fullnet.fullname" . }}-api
+  labels:
+    {{- include "fullnet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "fullnet.fullname" . }}-api
+  minReplicas: {{ .Values.api.hpa.minReplicas }}
+  maxReplicas: {{ .Values.api.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.hpa.targetCPUUtilizationPercentage }}
+    {{- if .Values.api.hpa.customMetrics.enabled }}
+    - type: Object
+      object:
+        metric:
+          name: {{ .Values.api.hpa.customMetrics.metricName | quote }}
+        describedObject:
+          apiVersion: v1
+          kind: Service
+          name: {{ include "fullnet.fullname" . }}-api
+        target:
+          type: Value
+          value: {{ .Values.api.hpa.customMetrics.query | quote }}
+    {{- end }}
+{{- end }}

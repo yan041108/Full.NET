@@ -1,0 +1,5 @@
+# 反例：在非 WebSocketsOnly+SkipNegotiation 时关闭亲和。
+realtime:
+  transportMode: Default
+  skipNegotiation: false
+  requireSessionAffinity: false
