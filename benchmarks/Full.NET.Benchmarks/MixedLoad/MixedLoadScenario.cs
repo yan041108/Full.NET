@@ -42,14 +42,14 @@ public static class MixedLoadScenarioCatalog
             HttpStatusCode.OK,
             ExpectedAuditWrites: MixedLoadAuditWriteProfile.Access),
         new(
-            "jwt-write-outbox",
+            "jwt-write-direct-cache-invalidation",
             15,
             MixedLoadAuthentication.Jwt,
             MixedLoadOperation.Write,
             HttpMethod.Put.Method,
             "/api/v1/tenancy/tenants/{tenantId}",
             HttpStatusCode.OK,
-            ProducesOutbox: true,
+            ProducesOutbox: false,
             ExpectedAuditWrites:
                 MixedLoadAuditWriteProfile.Access
                 | MixedLoadAuditWriteProfile.Operation),
@@ -63,14 +63,14 @@ public static class MixedLoadScenarioCatalog
             HttpStatusCode.OK,
             ExpectedAuditWrites: MixedLoadAuditWriteProfile.Access),
         new(
-            "api-key-write-outbox",
+            "api-key-write-direct-cache-invalidation",
             15,
             MixedLoadAuthentication.ApiKey,
             MixedLoadOperation.Write,
             HttpMethod.Put.Method,
             "/api/v1/tenancy/tenants/{tenantId}",
             HttpStatusCode.OK,
-            ProducesOutbox: true,
+            ProducesOutbox: false,
             ExpectedAuditWrites:
                 MixedLoadAuditWriteProfile.Access
                 | MixedLoadAuditWriteProfile.Operation),
@@ -117,7 +117,7 @@ public static class MixedLoadScenarioCatalog
             HttpMethod.Put.Method,
             "/api/v1/tenancy/tenants/{tenantId}",
             HttpStatusCode.OK,
-            ProducesOutbox: true,
+            ProducesOutbox: false,
             ExpectedAuditWrites:
                 MixedLoadAuditWriteProfile.Access
                 | MixedLoadAuditWriteProfile.Operation),

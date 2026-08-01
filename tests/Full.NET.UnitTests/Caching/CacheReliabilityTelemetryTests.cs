@@ -105,6 +105,54 @@ public sealed class CacheReliabilityTelemetryTests
     }
 
     [TestMethod]
+    public void Recovery_related_policy_events_stay_low_cardinality()
+    {
+        using var capture = new MetricCapture();
+
+        CacheReliabilityTelemetry.RecordPolicyEvent(
+            "tenancy",
+            "s1",
+            "invalidate_after_commit",
+            "success");
+        CacheReliabilityTelemetry.RecordPolicyEvent(
+            "tenancy",
+            "s0_l2",
+            "bypass",
+            "authority_refill");
+        CacheReliabilityTelemetry.RecordLocalInvalidation(
+            TimeSpan.FromMilliseconds(2),
+            succeeded: true);
+        CacheReliabilityTelemetry.RecordDistributedInvalidation(
+            TimeSpan.FromMilliseconds(8),
+            succeeded: false);
+
+        var policyEvents = capture.LongMeasurements
+            .Where(item => item.Name == "fullnet.cache.policy.events")
+            .ToArray();
+        Assert.HasCount(2, policyEvents);
+        Assert.IsTrue(
+            policyEvents.All(item =>
+                item.Tags.Select(tag => tag.Key)
+                    .OrderBy(key => key, StringComparer.Ordinal)
+                    .SequenceEqual(
+                    [
+                        "consistency_class",
+                        "operation",
+                        "owner_module",
+                        "result",
+                    ])));
+
+        var durations = capture.DoubleMeasurements
+            .Where(item => item.Name == "fullnet.cache.invalidation.duration")
+            .ToArray();
+        Assert.IsTrue(
+            durations.All(item =>
+                item.Tags.Select(tag => tag.Key)
+                    .OrderBy(key => key, StringComparer.Ordinal)
+                    .SequenceEqual(["outcome", "scope"])));
+    }
+
+    [TestMethod]
     public void Fusion_events_record_stale_hits_and_backplane_recovery()
     {
         using var capture = new MetricCapture();
