@@ -1,7 +1,7 @@
 # CodeGeneration 检查点保留清理验证记录
 
 - 日期：2026-08-02
-- 代码基线：`main` @ 待提交
+- 代码基线：`main` @ `b2c80a3`
 - 状态：**Build-verified**
 - Spec：[2026-08-02-codegeneration-checkpoint-retention-design.md](../superpowers/specs/2026-08-02-codegeneration-checkpoint-retention-design.md)
 - 任务快照：`codegeneration-checkpoint-retention-20260802`

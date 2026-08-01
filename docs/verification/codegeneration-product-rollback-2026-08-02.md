@@ -29,11 +29,11 @@ Host 代码生成产品 Rollback 首切片已交付并保持 `Build-verified`：
 
 ## 真实栈 E2E 状态
 
-`host-code-generation-templates` 在干净真实栈上 Vue/Layui **4/4** 通过：成功 Apply 后确认回滚、工作区 Manifest 清空为 `artifacts=[]`、受限 Host 账号 Rollback 返回 `403 authorization.permission_denied`。总体 CodeGeneration 能力仍保持 `Build-verified`（未标 `Verified`）：检查点保留清理、多实例、远程 Git 与生产默认启用未交付。
+`host-code-generation-templates` 在干净真实栈上 Vue/Layui **4/4** 通过：成功 Apply 后确认回滚、工作区 Manifest 清空为 `artifacts=[]`、受限 Host 账号 Rollback 返回 `403 authorization.permission_denied`。总体 CodeGeneration 能力仍保持 `Build-verified`（未标 `Verified`）：检查点保留清理已交付（见 [codegeneration-checkpoint-retention-2026-08-02.md](codegeneration-checkpoint-retention-2026-08-02.md)）；多实例工作区互斥、远程 Git 与生产默认启用未交付。
 
 ## 未交付
 
-检查点保留/清理、容量配额、多实例共享盘、Worker 调度、远程 Git、链式回滚、回滚后删除检查点、默认生产启用。
+多实例共享盘/分布式互斥、远程 Git、链式回滚、回滚后删除检查点、默认生产启用、容量配额（`MaxCheckpointCount`）。
 
 ## 治理复盘
 
