@@ -1,9 +1,11 @@
 using System.Diagnostics.Metrics;
+using Full.NET.Abstractions.Auditing;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.Tenancy.Auditing;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 using Full.NET.Modules.Tenancy.Persistence;
@@ -106,7 +108,9 @@ public sealed class HostTenantCacheInvalidationTests
                 fusionCache,
                 new TestHostEnvironment(environmentName),
                 CachePolicyRegistry.Create(new CacheOptions()),
-                NullLogger<TenantCacheInvalidator>.Instance));
+                NullLogger<TenantCacheInvalidator>.Instance),
+            // UpdateAsync 不触碰 B0 域内审计写入器；此处只需满足构造函数依赖。
+            Substitute.For<ITransactionalDomainAuditWriter<TenancyDomainAuditWrite>>());
 
         var result = await service.UpdateAsync(
             tenantId,

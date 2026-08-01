@@ -1,7 +1,9 @@
+using Full.NET.Abstractions.Auditing;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Tenancy.Auditing;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
 
@@ -14,7 +16,8 @@ internal sealed class HostTenantManagementService(
     ICommandTransaction transaction,
     HostTenantQueryService tenantQueries,
     IClock clock,
-    TenantCacheInvalidator cacheInvalidator)
+    TenantCacheInvalidator cacheInvalidator,
+    ITransactionalDomainAuditWriter<TenancyDomainAuditWrite> domainAuditWriter)
 {
     public async Task<Result<TenantSummary>> UpdateAsync(
         Guid tenantId,
@@ -232,6 +235,20 @@ internal sealed class HostTenantManagementService(
         {
             return NotFound();
         }
+
+        // B0 域内审计：必须在业务 UPDATE 所在的同一事务内写入，禁用与审计同提交、
+        // 同回滚；写入器不开启新事务也不经过 Outbox。写入失败会向上抛出并回滚本次禁用。
+        await domainAuditWriter.WriteAsync(
+                new TenancyDomainAuditWrite(
+                    TenancyDomainAuditActionKeys.HostTenantDisable,
+                    tenantId,
+                    tenantId,
+                    TenancyDomainAuditOutcomes.Success,
+                    ActorUserId: null,
+                    ActorDisplayName: null,
+                    DiffSummaryJson: null),
+                cancellationToken)
+            .ConfigureAwait(false);
 
         return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
             .ConfigureAwait(false);

@@ -848,6 +848,20 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/048_FilesUploadState.sql",
       "reason": "048 使用固定存储过程收敛 StorageState 列缺失、可空、空值与检查约束缺失状态；对象名和 pending/ready 状态码均为脚本常量，并由 MySQL 半完成恢复与 Files 真实栈测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/049_TenancyDomainAudit.sql",
+      "reason": "049 的条件 DROP INDEX 尚不能由静态扫描器完整解析，固定对象已人工审查并由 B0 同事务审计与迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/049_TenancyDomainAudit.sql",
+      "reason": "049 使用固定存储过程收敛 TenantId 复合索引缺失或形状错误的状态；对象名均为脚本常量，并由 MySQL 迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 966,
+      "minimum": 974,
       "timeout": "10m"
     },
     "compatibility": {
@@ -86,6 +86,9 @@
       },
       "048": {
         "filter": "FullyQualifiedName~Migration048FilesUploadStateRecoveryTests.MySql_|FullyQualifiedName~Migration048FilesUploadStateRecoveryTests.SqlServer_"
+      },
+      "049": {
+        "filter": "FullyQualifiedName~Migration049TenancyDomainAuditRecoveryTests.MySql_|FullyQualifiedName~Migration049TenancyDomainAuditRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -96,7 +99,7 @@
     ],
     "shards": {
       "smoke": {
-        "filter": "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox",
+        "filter": "FullyQualifiedName~SqlServer_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract|FullyQualifiedName~SqlServer_provisioning_is_atomic_without_cache_outbox|FullyQualifiedName~MySql_provisioning_is_atomic_without_cache_outbox",
         "minimum": 8,
         "timeout": "15m"
       },
@@ -112,16 +115,16 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 90,
+        "minimum": 92,
         "timeout": "90m"
       },
       "infrastructure": {
         "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations",
-        "minimum": 91,
+        "minimum": 94,
         "timeout": "60m"
       },
       "full": {
-        "minimum": 275,
+        "minimum": 280,
         "timeout": "90m"
       }
     }

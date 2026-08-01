@@ -1,4 +1,5 @@
 using FluentValidation;
+using Full.NET.Abstractions.Auditing;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
@@ -6,6 +7,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Auditing;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.GetCurrentTenant;
 using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
@@ -58,6 +60,9 @@ public sealed class TenancyModule : IFullNetModule
                 Features.ChangeTenantContext.Command,
                 TenantContextTokenResponse>,
             Features.ChangeTenantContext.Handler>();
+        services.TryAddScoped<
+            ITransactionalDomainAuditWriter<TenancyDomainAuditWrite>,
+            TenancyDomainAuditWriter>();
         services.AddScoped<Features.ManageHostTenants.HostTenantQueryService>();
         services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();

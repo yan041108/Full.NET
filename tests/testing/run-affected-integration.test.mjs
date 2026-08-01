@@ -282,8 +282,8 @@ test('验证阶段只在切片边界运行普通模块并在合并阶段追加 S
           + '|FullyQualifiedName~MySql_migration_is_idempotent_and_creates_binary_outbox_schema'
           + '|FullyQualifiedName~Login_and_current_user_follow_secure_http_contract'
           + '|FullyQualifiedName~Anonymous_current_tenant_endpoint_returns_minimal_standard_http_contract'
-          + '|FullyQualifiedName~SqlServer_provisioning_is_atomic_and_writes_binary_outbox'
-          + '|FullyQualifiedName~MySql_provisioning_is_atomic_and_writes_binary_outbox',
+          + '|FullyQualifiedName~SqlServer_provisioning_is_atomic_without_cache_outbox'
+          + '|FullyQualifiedName~MySql_provisioning_is_atomic_without_cache_outbox',
         kind: 'filter',
         name: 'smoke'
       }

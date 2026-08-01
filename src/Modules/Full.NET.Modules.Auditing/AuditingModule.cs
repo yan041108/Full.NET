@@ -47,6 +47,8 @@ public sealed class AuditingModule : IFullNetModule
             AuditingErrorResourceSource>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        // 目录在模块注册阶段以实例形式立即构造，重复 ActionKey 会在宿主启动时直接抛出。
+        services.TryAddSingleton(AuditReliabilityCatalog.CreateDefault());
         services.TryAddScoped<IAuditWriteCapturePolicy, CaptureAllAuditWritesPolicy>();
         services.TryAddScoped<AuditWriteBuffer>();
         services.TryAddScoped<AuditWriteBatchWriter>();
