@@ -1406,6 +1406,7 @@ test('访问日志列表在两端保持一致', async ({ page }, testInfo) => {
     if (route.request().method() !== 'GET') {
       return route.fallback();
     }
+    // Vue/Layui 均走 cursor 端点；响应用 cursor 页契约而非旧分页字段。
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -1423,9 +1424,8 @@ test('访问日志列表在两端保持一致', async ({ page }, testInfo) => {
           clientIpFingerprint: 'abc',
           isAuthenticated: true
         }],
-        page: 1,
-        pageSize: 20,
-        total: 1
+        nextCursor: null,
+        hasMore: false
       })
     });
   });

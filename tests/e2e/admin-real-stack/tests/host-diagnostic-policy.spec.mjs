@@ -53,6 +53,15 @@ test('Host 管理员可加载并恢复限时诊断策略', async ({ page, reques
   expect(updated.isDefault).toBeFalsy();
   expect(updated.pressureState).toBe('Degraded');
 
+  // 提交后再次 GET，确认权威读路径已收敛（避免只断言写响应内存快照）。
+  const verifyResponse = await request.get(`${apiBaseUrl}/api/v1/settings/diagnostic-policy`, {
+    headers: { Authorization: `Bearer ${accessToken}`, Origin: origin }
+  });
+  expect(verifyResponse.ok()).toBeTruthy();
+  const verified = await verifyResponse.json();
+  expect(verified.pressureState).toBe('Degraded');
+  expect(verified.isDefault).toBeFalsy();
+
   await loginAsHostAdmin(page);
   const navigation = page.getByRole('navigation', { name: '主导航' });
   await expect(navigation.getByRole('link', { name: /限时诊断/ })).toBeVisible();
@@ -63,8 +72,16 @@ test('Host 管理员可加载并恢复限时诊断策略', async ({ page, reques
     : page.locator('.diagnostic-policy-view');
   await expect(view.getByRole('heading', { name: '限时诊断策略', exact: true })).toBeVisible();
   await expect(view.getByText('Degraded', { exact: true })).toBeVisible();
+  const restoreWait = page.waitForResponse(response =>
+    response.url().includes('/api/v1/settings/diagnostic-policy/restore')
+    && response.request().method() === 'POST');
   await view.getByRole('button', { name: /恢复安全默认/ }).click();
-  await expect(view.getByText('安全默认', { exact: true })).toBeVisible({ timeout: 15_000 });
+  const restoreResponse = await restoreWait;
+  expect(restoreResponse.ok()).toBeTruthy();
+  await expect(view.getByText('Normal', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(view.locator('[data-diagnostic-policy-state="default"]')).toBeVisible({
+    timeout: 15_000
+  });
 });
 
 test('受限 Host 账号访问诊断策略 API 被拒绝且导航裁剪', async ({

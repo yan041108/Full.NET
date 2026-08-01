@@ -41,13 +41,14 @@ export function createDiagnosticPolicyController(root, options) {
     if (changing || !canWrite()) return;
     changing = true;
     try {
-      await request('/api/v1/settings/diagnostic-policy/restore', {
+      const restored = await request('/api/v1/settings/diagnostic-policy/restore', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ configEntryVersion: currentVersion })
       });
+      currentVersion = Number(restored?.configEntryVersion ?? 0);
+      renderDirectory(directory, restored, translation());
       notify(translation().t('diagnosticPolicy.restoreSuccess'), 1);
-      await load();
     } catch (problem) {
       showProblem(root, problem, translation().t('diagnosticPolicy.operationFailed'));
     } finally {
@@ -81,6 +82,7 @@ function renderDirectory(directory, policy, translation) {
     ruleCount: String(policy?.activeRules?.length ?? 0)
   });
   const state = document.createElement('span');
+  state.dataset.diagnosticPolicyState = policy?.isDefault ? 'default' : 'active';
   state.textContent = policy?.isDefault
     ? translation.t('diagnosticPolicy.defaultState')
     : translation.t('diagnosticPolicy.activeState');

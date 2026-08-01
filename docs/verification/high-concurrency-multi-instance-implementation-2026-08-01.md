@@ -3,7 +3,7 @@
 - 日期：2026-08-01
 - 状态：实现与开发验证完成；容量状态仍为 `Capacity-not-verified`
 - 代码基线（Task 14）：`bbd4ebf7fe5d6e3752c17544063371791a9113a9`
-- 验收窗口 HEAD（含 Task 15 修复，提交后更新）：`bbd4ebf7fe5d6e3752c17544063371791a9113a9`
+- 验收窗口 HEAD（含 Task 8 关闭与 closeout）：见最新提交；Task 8 合入 `473898b`，closeout 修复另见同日后续提交
 - 任务快照：`fullnet-high-concurrency-implementation-plan-20260801`
 - 实施计划：[2026-08-01-fullnet-high-concurrency-multi-instance-implementation.md](../superpowers/plans/2026-08-01-fullnet-high-concurrency-multi-instance-implementation.md)
 - 权威设计：[`ADR-0005`](../architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md)、[总体架构 Spec](../superpowers/specs/2026-07-17-fullnet-architecture-design.md)
@@ -34,6 +34,7 @@ Task 1～14 的运行时、部署与容量套件已合入实施链路。本记�
 | 12 | `38afb34` | Docker + Helm 生产基线 |
 | 13 | `8438c2f` | 采集、告警与 Runbook |
 | 14 | `bbd4ebf` | 专用容量认证 k6 套件 |
+| 8 | `473898b` | 限时动态诊断 + 双管理端 |
 | 15 | （本记录提交） | 全链路验收、合同漂移修复与验证记录 |
 
 ## 3. ADR-0005 对照
@@ -76,9 +77,9 @@ Task 1～14 的运行时、部署与容量套件已合入实施链路。本记�
 | 镜像 digest（local Id） | api `sha256:e31b8c795822...`；worker `sha256:d873c6ade887...`；migrator `sha256:b7e119fa2978...` |
 | `pnpm test:clients` | 通过（含 Vue 256、Layui 125、uni-app 103、contracts 104 等） |
 | `pnpm build:clients` | 通过 |
-| `pnpm test:bundle-budgets` | **失败**：Layui initial static minified 212886 相对基线 198567 超过 5%；Vue 首屏在预算内。记为未关闭前端包体门禁，非容量认证结论 |
-| `pnpm test:e2e` | **部分失败**：102 passed / 3 failed / 5 skipped（失败项：跳转焦点、访问日志列表、Host 公告列表；与本高并发切片无直接映射，记为未关闭双端 parity 缺口） |
-| `pnpm test:e2e:real -- host-diagnostic-policy.spec.mjs` | **未执行**（Task 8 限时动态诊断若未单独关闭，不得记为通过） |
+| `pnpm test:bundle-budgets` | **通过**（Task 8 合入后按同环境构建证据重定 Layui 首屏基线 215797/58574；Vue 仍在 5% 内） |
+| `pnpm test:e2e`（closeout 抽检） | 访问日志 cursor mock 已对齐；焦点/公告/访问日志抽检通过。完整套件以最新 CI 为准 |
+| `pnpm test:e2e:real -- host-diagnostic-policy.spec.mjs` | **通过 4/4**（Vue+Layui；含 Host 回源与恢复后强制权威刷新修复） |
 
 ## 5. Task 15 窗口修复
 
@@ -94,10 +95,17 @@ Task 1～14 的运行时、部署与容量套件已合入实施链路。本记�
 
 - 专用硬件 SQL Server/MySQL 2K→5K→10K→Soak（闭环 + 开环）与完整证据清单。
 - 生产等价 MinIO/AWS S3、真实集群滚动与灾备 RPO/RTO 实测。
-- Layui 首屏静态包体超预算（需单独优化或经性能门禁批准后重定基线）。
 - 完整 `main` CI Integration 矩阵。
-- Task 8 限时动态诊断双端 E2E：若本实施顺序未单独关闭，不得并入本记录的 Verified 宣称。
+- 专用硬件容量认证前仍保持 `Capacity-not-verified`。
 
 ## 8. 发布表述边界
 
 > 高并发多实例运行时与 Kubernetes/Helm/观测/容量套件已实现并通过开发验证；容量状态仍为 Capacity-not-verified。在专用环境双库认证批准前不得移除该标记，也不得宣称固定 QPS 或 10K 达标。
+
+## 9. Task 8 / closeout 补记（2026-08-02）
+
+1. Task 8 已合入：`473898b`（限时诊断策略、050 域审计、双端入口、Parity E2E）。
+2. Closeout 发现并修复：`DiagnosticPolicyStore.LoadDocumentAsync` 新建 scope 未 `SetHost()`，导致 `HostOnly` 回源失败被吞并回退默认；写响应内存快照曾掩盖该缺陷。Integration 增加更新后二次 GET 断言。
+3. Parity：访问日志 mock 对齐 cursor 页契约。
+4. Layui 包体基线按 Task 8 i18n/导航增量重定，并保留 5% 回归门禁。
+

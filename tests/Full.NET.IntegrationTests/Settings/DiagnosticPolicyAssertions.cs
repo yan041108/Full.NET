@@ -148,6 +148,18 @@ internal static class DiagnosticPolicyAssertions
         Assert.IsFalse(updated.IsDefault);
         Assert.HasCount(1, updated.ActiveRules);
 
+        using var rereadRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/settings/diagnostic-policy");
+        rereadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var rereadResponse = await client.SendAsync(rereadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, rereadResponse.StatusCode);
+        var reread = await rereadResponse.Content.ReadFromJsonAsync<DiagnosticPolicyResponse>(
+            cancellationToken);
+        Assert.IsNotNull(reread);
+        Assert.AreEqual("Degraded", reread.PressureState);
+        Assert.IsFalse(reread.IsDefault);
+
         Assert.IsGreaterThan(
             0,
             await CountDomainAuditRowsAsync(factory, cancellationToken));

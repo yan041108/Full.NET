@@ -65,7 +65,11 @@ async function restore(): Promise<void> {
         <p>
           {{ t('diagnosticPolicy.pressureLabel') }}:
           <ElTag>{{ policy.pressureState }}</ElTag>
-          <ElTag v-if="policy.isDefault" type="success">
+          <ElTag
+            v-if="policy.isDefault"
+            type="success"
+            data-diagnostic-policy-state="default"
+          >
             {{ t('diagnosticPolicy.defaultState') }}
           </ElTag>
         </p>
