@@ -35,6 +35,10 @@ internal static class CodeGenerationRunAssertions
             $"codegen-run-applier-{Guid.NewGuid():N}",
             [CodeGenerationRunPermissions.Apply],
             cancellationToken);
+        var roller = await factory.CreateHostIdentityAsync(
+            $"codegen-run-roller-{Guid.NewGuid():N}",
+            [CodeGenerationRunPermissions.Rollback],
+            cancellationToken);
         var reviewer = await factory.CreateHostIdentityAsync(
             $"codegen-run-reviewer-{Guid.NewGuid():N}",
             [
@@ -95,6 +99,7 @@ internal static class CodeGenerationRunAssertions
             reader,
             executor,
             applier,
+            roller,
             reviewer,
             tracked.RunId,
             applyWorkspaceRoot,
@@ -174,6 +179,7 @@ internal static class CodeGenerationRunAssertions
         HostTestIdentity reader,
         HostTestIdentity executor,
         HostTestIdentity applier,
+        HostTestIdentity roller,
         HostTestIdentity reviewer,
         Guid inlinePreviewRunId,
         string workspaceRoot,
@@ -315,6 +321,7 @@ internal static class CodeGenerationRunAssertions
             Assert.AreEqual(applier.UserId, run.RequestedByUserId);
             Assert.AreEqual(applied.ArtifactCount, run.ArtifactCount);
             Assert.AreEqual(applied.ManifestSha256, run.ManifestSha256);
+            Assert.IsNull(run.SourceApplyRunId);
             Assert.IsNull(run.ErrorCode);
         }
 
@@ -335,6 +342,128 @@ internal static class CodeGenerationRunAssertions
         Assert.IsFalse(
             invalidBody.Contains(workspaceRoot, StringComparison.OrdinalIgnoreCase),
             "Apply 错误不得暴露服务器工作区路径。");
+
+        await VerifyRollbackAsync(
+            client,
+            reader,
+            applier,
+            roller,
+            applied,
+            inlinePreviewRunId,
+            workspaceRoot,
+            cancellationToken);
+    }
+
+    private static async Task VerifyRollbackAsync(
+        HttpClient client,
+        HostTestIdentity reader,
+        HostTestIdentity applier,
+        HostTestIdentity roller,
+        CodeGenerationRunApplyResponse applied,
+        Guid invalidApplyRunId,
+        string workspaceRoot,
+        CancellationToken cancellationToken)
+    {
+        using (var applierCannotRollback = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       $"{RunsPath}/rollback",
+                       applier.AccessToken,
+                       new CodeGenerationRunRollbackRequest(applied.RunId)),
+                   cancellationToken))
+        {
+            Assert.AreEqual(
+                HttpStatusCode.Forbidden,
+                applierCannotRollback.StatusCode);
+        }
+
+        using (var invalid = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       $"{RunsPath}/rollback",
+                       roller.AccessToken,
+                       new CodeGenerationRunRollbackRequest(invalidApplyRunId)),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.BadRequest, invalid.StatusCode);
+            Assert.AreEqual(
+                CodeGenerationRunErrorCodes.InvalidRollbackApply,
+                await ReadCodeAsync(invalid, cancellationToken));
+        }
+
+        CodeGenerationRunRollbackResponse rolledBack;
+        string rollbackBody;
+        using (var rollback = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       $"{RunsPath}/rollback",
+                       roller.AccessToken,
+                       new CodeGenerationRunRollbackRequest(applied.RunId)),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, rollback.StatusCode);
+            rollbackBody = await rollback.Content.ReadAsStringAsync(
+                cancellationToken);
+            rolledBack = JsonSerializer.Deserialize<
+                CodeGenerationRunRollbackResponse>(
+                rollbackBody,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            Assert.IsNotNull(rolledBack);
+            Assert.AreEqual(applied.RunId, rolledBack.ApplyRunId);
+            Assert.AreEqual(0, rolledBack.ArtifactCount);
+            Assert.IsTrue(rolledBack.ChangedArtifactCount > 0);
+            Assert.AreEqual(64, rolledBack.ManifestSha256.Length);
+        }
+
+        Assert.IsFalse(
+            rollbackBody.Contains(
+                workspaceRoot,
+                StringComparison.OrdinalIgnoreCase),
+            "Rollback 响应不得暴露服务器工作区路径。");
+        var manifestPath = Path.Combine(
+            workspaceRoot,
+            GenerationWorkspaceStore.ManifestRelativePath);
+        Assert.AreEqual(
+            GenerationManifest.Create([]).ToJson(),
+            await File.ReadAllTextAsync(manifestPath, cancellationToken));
+        Assert.IsTrue(Directory.Exists(Path.Combine(
+            workspaceRoot,
+            GenerationRollbackCheckpointStore.RootRelativePath,
+            applied.RunId.ToString("N"))));
+
+        using (var getRollback = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       $"{RunsPath}/{rolledBack.RunId:D}",
+                       reader.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, getRollback.StatusCode);
+            var run = await getRollback.Content.ReadFromJsonAsync<
+                CodeGenerationRunResponse>(cancellationToken);
+            Assert.IsNotNull(run);
+            Assert.AreEqual(
+                CodeGenerationRunOperationKinds.Rollback,
+                run.OperationKind);
+            Assert.AreEqual(CodeGenerationRunStatuses.Succeeded, run.Status);
+            Assert.AreEqual(applied.RunId, run.SourceApplyRunId);
+            Assert.AreEqual(roller.UserId, run.RequestedByUserId);
+            Assert.AreEqual(0, run.ArtifactCount);
+            Assert.IsNull(run.TemplateId);
+            Assert.IsNull(run.ErrorCode);
+        }
+
+        using var duplicate = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"{RunsPath}/rollback",
+                roller.AccessToken,
+                new CodeGenerationRunRollbackRequest(applied.RunId)),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, duplicate.StatusCode);
+        Assert.AreEqual(
+            CodeGenerationRunErrorCodes.RollbackAlreadyApplied,
+            await ReadCodeAsync(duplicate, cancellationToken));
     }
 
     private static HttpRequestMessage Authorized(

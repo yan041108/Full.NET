@@ -9,6 +9,9 @@
     "/api/v1/code-generation/runs/apply": {
       "post": ["200", "400", "401", "404", "409", "500"]
     },
+    "/api/v1/code-generation/runs/rollback": {
+      "post": ["200", "400", "401", "403", "409", "500"]
+    },
     "/api/v1/code-generation/runs/{runId}": {
       "get": ["200", "404"]
     }
@@ -33,6 +36,16 @@
       "changedArtifactCount",
       "manifestSha256"
     ],
+    "CodeGenerationRunRollbackRequest": [
+      "applyRunId"
+    ],
+    "CodeGenerationRunRollbackResponse": [
+      "runId",
+      "applyRunId",
+      "artifactCount",
+      "changedArtifactCount",
+      "manifestSha256"
+    ],
     "CodeGenerationRunResponse": [
       "id",
       "templateId",
@@ -47,7 +60,8 @@
       "errorCode",
       "requestedByUserId",
       "startedAtUtc",
-      "finishedAtUtc"
+      "finishedAtUtc",
+      "sourceApplyRunId"
     ]
   }
 }
