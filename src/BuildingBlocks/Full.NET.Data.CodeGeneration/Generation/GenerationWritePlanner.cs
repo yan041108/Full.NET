@@ -11,48 +11,68 @@ public static class GenerationWritePlanner
         GenerationManifest? previousManifest = null)
     {
         ArgumentNullException.ThrowIfNull(artifacts);
+        var orderedArtifacts = ValidateAndOrderArtifacts(artifacts);
+        var desiredContents = orderedArtifacts.ToDictionary(
+            artifact => artifact.RelativePath,
+            artifact => artifact.Content,
+            StringComparer.Ordinal);
+        return PlanFromDesiredContents(
+            desiredContents,
+            existingFiles,
+            previousManifest);
+    }
+
+    /// <summary>
+    /// 按路径与内容对规划写盘动作；供正向生成与逆向回滚共享，避免伪造 GeneratedArtifactKind。
+    /// </summary>
+    internal static GenerationWritePlan PlanFromDesiredContents(
+        IReadOnlyDictionary<string, string> desiredContents,
+        IReadOnlyDictionary<string, string> existingFiles,
+        GenerationManifest? previousManifest = null)
+    {
+        ArgumentNullException.ThrowIfNull(desiredContents);
         ArgumentNullException.ThrowIfNull(existingFiles);
 
-        var orderedArtifacts = ValidateAndOrderArtifacts(artifacts);
+        var orderedDesired = ValidateAndOrderDesiredContents(desiredContents);
         var currentFiles = ValidateCurrentFiles(existingFiles);
         var desiredManifestEntries = new List<GenerationManifestEntry>(
-            orderedArtifacts.Count);
+            orderedDesired.Count);
         var desiredPaths = new HashSet<string>(StringComparer.Ordinal);
         var desiredPortablePaths = new HashSet<string>(
             StringComparer.OrdinalIgnoreCase);
         var actions = new List<GenerationWriteAction>(
-            orderedArtifacts.Count
+            orderedDesired.Count
             + (previousManifest?.Artifacts.Count ?? 0));
         var hasConflict = false;
 
-        foreach (var artifact in orderedArtifacts)
+        foreach (var desired in orderedDesired)
         {
-            desiredPaths.Add(artifact.RelativePath);
-            desiredPortablePaths.Add(artifact.RelativePath);
-            var desiredSha256 = GenerationContentHash.Compute(artifact.Content);
+            desiredPaths.Add(desired.RelativePath);
+            desiredPortablePaths.Add(desired.RelativePath);
+            var desiredSha256 = GenerationContentHash.Compute(desired.Content);
             desiredManifestEntries.Add(
                 new GenerationManifestEntry(
-                    artifact.RelativePath,
+                    desired.RelativePath,
                     desiredSha256));
 
             currentFiles.TryGetValue(
-                artifact.RelativePath,
+                desired.RelativePath,
                 out var existingFile);
             var existingSha256 = existingFile is null
                 ? null
                 : GenerationContentHash.Compute(existingFile.Content);
             var kind = Classify(
-                artifact.RelativePath,
-                artifact.Content,
+                desired.RelativePath,
+                desired.Content,
                 desiredSha256,
                 existingFile,
                 existingSha256,
                 previousManifest);
             hasConflict |= kind == GenerationWriteActionKind.Conflict;
             actions.Add(new GenerationWriteAction(
-                artifact.RelativePath,
+                desired.RelativePath,
                 kind,
-                artifact.Content,
+                desired.Content,
                 existingSha256,
                 desiredSha256));
         }
@@ -195,6 +215,38 @@ public static class GenerationWritePlanner
         return ordered;
     }
 
+    private static IReadOnlyList<DesiredContent> ValidateAndOrderDesiredContents(
+        IReadOnlyDictionary<string, string> desiredContents)
+    {
+        var ordered = desiredContents
+            .Select(pair =>
+            {
+                var relativePath = GenerationArtifactPath.Validate(
+                    pair.Key,
+                    nameof(desiredContents));
+                ArgumentNullException.ThrowIfNull(pair.Value);
+                return new DesiredContent(relativePath, pair.Value);
+            })
+            .OrderBy(
+                item => item.RelativePath,
+                StringComparer.Ordinal)
+            .ToArray();
+
+        var portablePaths = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var item in ordered)
+        {
+            if (!portablePaths.Add(item.RelativePath))
+            {
+                throw new ArgumentException(
+                    $"期望内容包含重复或不可移植的路径别名：{item.RelativePath}",
+                    nameof(desiredContents));
+            }
+        }
+
+        return ordered;
+    }
+
     private static IReadOnlyDictionary<string, CurrentFile> ValidateCurrentFiles(
         IReadOnlyDictionary<string, string> existingFiles)
     {
@@ -220,6 +272,10 @@ public static class GenerationWritePlanner
     }
 
     private sealed record CurrentFile(
+        string RelativePath,
+        string Content);
+
+    private sealed record DesiredContent(
         string RelativePath,
         string Content);
 }

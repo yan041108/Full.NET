@@ -59,6 +59,54 @@ public static class GenerationWorkspaceStore
             }
         }
 
+        return await CaptureExistingFilesAsync(
+            fullRoot,
+            pathsToCapture,
+            previousManifest,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// 按中立路径集合捕获工作区快照；供逆向回滚复用，避免伪造 GeneratedArtifactKind。
+    /// </summary>
+    internal static async Task<GenerationWorkspaceSnapshot> CapturePathsAsync(
+        string workspaceRoot,
+        IEnumerable<string> relativePaths,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(relativePaths);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var fullRoot = GenerationWorkspacePath.NormalizeRoot(workspaceRoot);
+        RejectPendingManifestRecovery(fullRoot);
+        RejectPendingDeleteRecovery(fullRoot);
+        var previousManifest = await ReadManifestAsync(
+            fullRoot,
+            cancellationToken);
+        var pathsToCapture = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var relativePath in relativePaths)
+        {
+            var validated = GenerationArtifactPath.Validate(
+                relativePath,
+                nameof(relativePaths));
+            RejectInternalPath(validated);
+            pathsToCapture.Add(validated);
+        }
+
+        return await CaptureExistingFilesAsync(
+            fullRoot,
+            pathsToCapture,
+            previousManifest,
+            cancellationToken);
+    }
+
+    private static async Task<GenerationWorkspaceSnapshot>
+        CaptureExistingFilesAsync(
+            string fullRoot,
+            IReadOnlyCollection<string> pathsToCapture,
+            GenerationManifest? previousManifest,
+            CancellationToken cancellationToken)
+    {
         var existingFiles = new Dictionary<string, string>(
             StringComparer.Ordinal);
         foreach (var relativePath in pathsToCapture.OrderBy(

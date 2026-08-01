@@ -1,6 +1,6 @@
 # CodeGeneration Rollback Workspace Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在不开放 Rollback HTTP/API 的前提下，提供一个只接受已验证 checkpoint 的原子工作区逆向执行内核，并在任何人工漂移、过期 checkpoint 或取消窗口中 fail-closed。
 
@@ -32,23 +32,23 @@
 - Produces: `GenerationRollbackWorkspace.PlanAsync(string workspaceRoot, GenerationRollbackCheckpoint checkpoint, CancellationToken cancellationToken = default)` returning `Task<GenerationWritePlan>`.
 - Adds internal capture/planner entry points for neutral path sets and desired path/content pairs; existing public artifact capture/planning remains source-compatible and delegates to the same core.
 
-- [ ] **Step 1: Write the reverse-plan RED**
+- [x] **Step 1: Write the reverse-plan RED**
 
   Create a real workspace whose current files and Manifest equal `checkpoint.AppliedManifest`. Cover an update, an artifact created by Apply that must be deleted, and an artifact deleted by Apply that must be recreated; assert the reverse plan targets the exact previous content and Manifest.
 
-- [ ] **Step 2: Run the focused RED**
+- [x] **Step 2: Run the focused RED**
 
   Run `dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --no-restore --filter FullyQualifiedName~GenerationRollbackWorkspaceTests` and confirm failure is caused only by the absent rollback workspace type.
 
-- [ ] **Step 3: Implement the minimal planner**
+- [x] **Step 3: Implement the minimal planner**
 
   Refactor the existing Store capture into one internal path-based core so rollback does not invent a false `GeneratedArtifactKind`. Capture the union of current applied paths and desired previous paths, require the captured Manifest JSON to equal `checkpoint.AppliedManifest.ToJson()`, then delegate path/content classification to a shared internal `GenerationWritePlanner` core. When `PreviousManifest` is null, target `GenerationManifest.Create([])`.
 
-- [ ] **Step 4: Add stale-state fail-closed cases**
+- [x] **Step 4: Add stale-state fail-closed cases**
 
   Cover later Manifest replacement, current file modification, current file deletion, current path casing alias and reparse point. Every case must return a conflict plan or throw `GenerationWorkspaceConflictException` before creating staged files.
 
-- [ ] **Step 5: Re-run planner and existing writer suites**
+- [x] **Step 5: Re-run planner and existing writer suites**
 
   Require the new suite plus `GenerationWritePlannerTests`, `GenerationWorkspaceStoreTests` and `GenerationRollbackCheckpointStoreTests` to remain GREEN.
 
@@ -62,19 +62,19 @@
 - Produces: `GenerationRollbackWorkspace.RestoreAsync(string workspaceRoot, GenerationRollbackCheckpoint checkpoint, CancellationToken cancellationToken = default)` returning `Task<GenerationWritePlan>`.
 - Preserves: existing `GenerationWorkspaceStore` cancellation, recovery and conflict semantics.
 
-- [ ] **Step 1: Write successful restore REDs**
+- [x] **Step 1: Write successful restore REDs**
 
   Prove a mixed create/update/delete Apply can be restored byte-for-byte for all previously owned content. Prove first-Apply rollback deletes all generated artifacts and leaves a valid empty Manifest.
 
-- [ ] **Step 2: Write ordering and cancellation REDs**
+- [x] **Step 2: Write ordering and cancellation REDs**
 
   Prove stale checkpoint and modified workspace cause zero mutation；取消在进入 Restore 前或规划期间发生时也必须零写入。继续运行现有 writer cancellation suites，证明首个不可逆提交后的取消仍由唯一 `GenerationWorkspaceStore` 完成自一致 Manifest；不要为 Rollback 复制测试钩子或提交算法。
 
-- [ ] **Step 3: Implement minimal execution**
+- [x] **Step 3: Implement minimal execution**
 
   Call `PlanAsync`; if the plan is conflicted, return it without writing. Otherwise call only `GenerationWorkspaceStore.ApplyAsync` and return the applied plan. Do not delete checkpoint evidence or mutate any database record.
 
-- [ ] **Step 4: Re-run the complete Generation workspace focus**
+- [x] **Step 4: Re-run the complete Generation workspace focus**
 
   Run rollback workspace, checkpoint, planner, generation workspace and workspace store Unit suites; require zero failures and zero build warnings/errors.
 
@@ -90,27 +90,27 @@
 - Produces no public runtime API.
 - Leaves database authority, rollback run state, permission, endpoint, dual-admin clients, retention and cross-instance recovery open.
 
-- [ ] **Step 1: Inspect the affected Integration plan**
+- [x] **Step 1: Inspect the affected Integration plan**
 
   Run `pnpm test:integration:affected:plan -- --snapshot codegeneration-rollback-workspace-20260801 --phase inner`; verify the selector never schedules full Integration locally.
 
-- [ ] **Step 2: Run final affected verification after the queue freezes**
+- [x] **Step 2: Run final affected verification after the queue freezes**
 
   Run focused Unit and naming gates, then one fresh affected inner during development and one slice after final file freeze. Do not run complete Unit or complete Integration locally.
 
-- [ ] **Step 3: Record the exact capability boundary**
+- [x] **Step 3: Record the exact capability boundary**
 
   State only that an internal verified-checkpoint rollback executor exists. Keep overall capability `Build-verified` and explicitly list absent database success authority, Rollback API/permission/UI, retention, multi-instance scheduling and production rollout.
 
-- [ ] **Step 4: Final audit and review**
+- [x] **Step 4: Final audit and review**
 
   Run fresh Unit discovery if methods changed, update only `eng/testing/test-matrix.json`, run `git diff --check`, verify runner/Docker residual zero, and obtain an independent security/recovery review with no open Critical/Important findings.
 
 ## Acceptance Checklist
 
-- [ ] Reverse planning requires the current Manifest to equal the checkpoint Applied Manifest.
-- [ ] Update/create/delete reversal restores all previously owned content without overwriting user drift.
-- [ ] A first-Apply rollback produces no managed artifacts and a documented canonical empty Manifest.
-- [ ] Existing workspace locking, staging, deletion recovery, cancellation and Manifest-last semantics are reused unchanged.
-- [ ] No database authority, public API, permission, client, migration or cleanup behavior is introduced.
-- [ ] Documentation distinguishes “internal rollback executor” from “product Rollback delivered”.
+- [x] Reverse planning requires the current Manifest to equal the checkpoint Applied Manifest.
+- [x] Update/create/delete reversal restores all previously owned content without overwriting user drift.
+- [x] A first-Apply rollback produces no managed artifacts and a documented canonical empty Manifest.
+- [x] Existing workspace locking, staging, deletion recovery, cancellation and Manifest-last semantics are reused unchanged.
+- [x] No database authority, public API, permission, client, migration or cleanup behavior is introduced.
+- [x] Documentation distinguishes “internal rollback executor” from “product Rollback delivered”.
