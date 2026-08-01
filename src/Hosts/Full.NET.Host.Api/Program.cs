@@ -5,6 +5,7 @@ using Full.NET.Hosting.Forwarding;
 using Full.NET.Hosting.Observability;
 using Full.NET.Hosting.OpenApi;
 using Full.NET.Hosting.RateLimiting;
+using Full.NET.Hosting.Security;
 using Full.NET.Localization;
 using Full.NET.Modularity.Modules;
 using Full.NET.Realtime.SignalR;
@@ -13,6 +14,7 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddFullNetServiceDefaults();
+builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environment);
 builder.Services.AddFullNetTrustedProxyForwarding(builder.Configuration);
 builder.Services.AddFullNetOpenApi();
 builder.Services.AddFullNetRateLimiter(builder.Configuration);

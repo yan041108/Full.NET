@@ -6,6 +6,7 @@ using Full.NET.Composition;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
+using Full.NET.Hosting.Security;
 using Full.NET.Host.Worker;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MessagePack;
@@ -32,6 +33,7 @@ if (commandLine.VersionRetirement is not null)
 }
 
 builder.AddFullNetServiceDefaults();
+builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environment);
 builder.Services.AddFullNetDapper(
     builder.Configuration,
     builder.Environment.EnvironmentName);

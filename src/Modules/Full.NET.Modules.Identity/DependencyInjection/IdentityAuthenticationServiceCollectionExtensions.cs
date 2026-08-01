@@ -4,7 +4,6 @@ using Full.NET.Modules.Identity.Features.ManageTotp;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -31,7 +30,7 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
         services.TryAddSingleton<IdentityAuthenticationRegistrationMarker>();
         services.TryAddScoped<AccessSessionValidator>();
         services.TryAddScoped<FullNetJwtBearerEvents>();
-        services.AddDataProtection();
+        // Data Protection 由宿主 AddFullNetDataProtection 统一配置共享 Key Ring，禁止此处裸注册。
         services.TryAddSingleton<TotpSecretProtector>();
 
         var enableTotpStrongReauthentication = configuration.GetValue(
