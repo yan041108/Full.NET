@@ -2,14 +2,12 @@
 
 - 日期：2026-08-02
 - 代码基线：`main` @ `de0080f`
-- 状态：**已确认** → Spec [2026-08-02-codegeneration-product-rollback-design.md](../superpowers/specs/2026-08-02-codegeneration-product-rollback-design.md)（Approved for implementation）
+- 状态：**已关闭**（见[验证记录](codegeneration-product-rollback-2026-08-02.md)） → Spec [2026-08-02-codegeneration-product-rollback-design.md](../superpowers/specs/2026-08-02-codegeneration-product-rollback-design.md)（Approved for implementation）
 - 上游证据：[回滚检查点与内部逆向执行验证](codegeneration-apply-rollback-checkpoint-2026-08-01.md)、[Host Apply 验证](codegeneration-host-apply-2026-07-31.md)
 
 ## 1. 结论
 
-内部已验证检查点与 `GenerationRollbackWorkspace` 已具备，可在本地工作区对已读校验的 checkpoint 做 fail-closed 逆向写盘。**产品 Rollback 尚未开始**：无 HTTP/API、无独立权限、无 DB 回滚运行态、无 Vue/Layui 入口。
-
-建议下一纵向切片交付「以 DB `apply/succeeded` 为资格权威、复用现有内部执行器、双管理端同步」的最小产品 Rollback；保留清理、多实例调度、远程仓库与生产默认启用继续排除。总体能力在切片关闭前仍保持 `Build-verified`；两端 E2E 通过前不得标 `Verified`。
+首切片已交付产品 Rollback（HTTP/API、`codegen.runs.rollback`、051、共享 Apply Gate、Vue/Layui）并保持 `Build-verified`；见[验证记录](codegeneration-product-rollback-2026-08-02.md)。检查点保留清理、多实例调度、远程仓库与生产默认启用仍排除；不标 `Verified`。
 
 ## 2. 已具备的基础设施（不得重写）
 
@@ -18,7 +16,7 @@
 | `GenerationRollbackCheckpointStore` | Apply 写盘前原子发布；路径 `{WorkspaceRoot}/.fullnet/codegeneration-rollback-checkpoints/{applyRunId:N}` |
 | `GenerationRollbackWorkspace.PlanAsync/RestoreAsync` | 要求当前 Manifest ≡ `AppliedManifest`；无冲突时只调用 `GenerationWorkspaceStore.ApplyAsync`；不查 DB、不删检查点 |
 | Host Apply | `CodeGeneration:Apply` opt-in、绝对本地 `WorkspaceRoot`、`CodeGenerationApplyGate` 单进程互斥、`fn_codegeneration_run` + 045/046 |
-| 权限面（现有） | `codegen.runs.read` / `execute` / `apply`；无 `rollback` |
+| 权限面 | `codegen.runs.read` / `execute` / `apply` / `rollback`（本切片已交付） |
 
 关键不变量：本地 checkpoint 存在 ≠ 可产品回滚；资格权威必须是数据库中成功收敛的 Apply 运行。
 

@@ -256,7 +256,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     && response.url().endsWith('/api/v1/code-generation/runs/rollback')
   );
   await runHistory(view, clientKind)
-    .getByRole('button', { name: '??? Apply', exact: true })
+    .getByRole('button', { name: '回滚此 Apply', exact: true })
     .first()
     .click();
   await confirmRollback(page, clientKind);
