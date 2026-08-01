@@ -458,6 +458,7 @@ public sealed class CacheConsistencyTests
         string redisConnectionString) => new()
         {
             [$"{CacheOptions.SectionName}:RedisConnectionString"] = redisConnectionString,
+            ["Realtime:AllowSharedRedisInDevelopment"] = "true",
             ["ConnectionStrings:redis"] = redisConnectionString,
         };
 

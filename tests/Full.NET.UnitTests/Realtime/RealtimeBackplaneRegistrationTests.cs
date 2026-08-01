@@ -287,7 +287,121 @@ public sealed class RealtimeBackplaneRegistrationTests
 
         CollectionAssert.Contains(
             exception.Failures.ToArray(),
-            "Realtime publishing outside the API host requires Realtime:RedisBackplaneConnectionString or ConnectionStrings:redis.");
+            "Realtime publishing outside the API host requires Realtime:RedisBackplaneConnectionString "
+            + "(or ConnectionStrings:redis when Realtime:AllowSharedRedisInDevelopment=true).");
+    }
+
+    [TestMethod]
+    public void Production_rejects_shared_cache_and_realtime_redis_connection_strings()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cache:RedisConnectionString"] = "127.0.0.1:6379",
+                [$"{RealtimeOptions.SectionName}:RedisBackplaneConnectionString"] =
+                    "127.0.0.1:6379",
+            })
+            .Build();
+
+        var exception = Assert.ThrowsExactly<OptionsValidationException>(() =>
+            services.AddFullNetRealtimeSignalR(configuration, "Production"));
+
+        StringAssert.Contains(
+            exception.Failures.First(),
+            "must differ");
+    }
+
+    [TestMethod]
+    public void Development_allows_shared_redis_when_explicitly_opted_in()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFullNetRealtimeSignalR(
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Cache:RedisConnectionString"] = "127.0.0.1:6379",
+                    [$"{RealtimeOptions.SectionName}:RedisBackplaneConnectionString"] =
+                        "127.0.0.1:6379",
+                    [$"{RealtimeOptions.SectionName}:AllowSharedRedisInDevelopment"] =
+                        "true",
+                })
+                .Build(),
+            "Development");
+
+        using var provider = services.BuildServiceProvider();
+        Assert.AreEqual(
+            "127.0.0.1:6379",
+            provider.GetRequiredService<IOptions<RealtimeOptions>>()
+                .Value
+                .RedisBackplaneConnectionString);
+    }
+
+    [TestMethod]
+    public void Production_does_not_fall_back_to_shared_connection_strings_redis()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFullNetRealtimeSignalR(
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:redis"] = "127.0.0.1:6379",
+                })
+                .Build(),
+            "Production");
+
+        using var provider = services.BuildServiceProvider();
+        Assert.IsNull(
+            provider.GetRequiredService<IOptions<RealtimeOptions>>()
+                .Value
+                .RedisBackplaneConnectionString);
+        Assert.IsFalse(provider
+            .GetServices<IOptions<HealthCheckServiceOptions>>()
+            .SelectMany(options => options.Value.Registrations)
+            .Any(registration => registration.Name == "realtime-backplane"));
+    }
+
+    [TestMethod]
+    public void WebSocketsOnly_skip_negotiation_allows_disabling_session_affinity()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFullNetRealtimeSignalR(
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [$"{RealtimeOptions.SectionName}:TransportMode"] = "WebSocketsOnly",
+                    [$"{RealtimeOptions.SectionName}:SkipNegotiation"] = "true",
+                    [$"{RealtimeOptions.SectionName}:RequireSessionAffinity"] = "false",
+                })
+                .Build(),
+            "Testing");
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<RealtimeOptions>>().Value;
+        Assert.AreEqual(RealtimeTransportMode.WebSocketsOnly, options.TransportMode);
+        Assert.IsTrue(options.SkipNegotiation);
+        Assert.IsFalse(options.RequireSessionAffinity);
+    }
+
+    [TestMethod]
+    public void Default_transport_rejects_disabled_session_affinity()
+    {
+        var exception = Assert.ThrowsExactly<OptionsValidationException>(() =>
+            new ServiceCollection().AddFullNetRealtimeSignalR(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        [$"{RealtimeOptions.SectionName}:RequireSessionAffinity"] = "false",
+                    })
+                    .Build(),
+                "Testing"));
+
+        StringAssert.Contains(
+            exception.Failures.First(),
+            "RequireSessionAffinity");
     }
 
     [TestMethod]

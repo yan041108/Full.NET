@@ -111,8 +111,6 @@ public sealed class HealthEndpointTests
                 MySqlGuidStorageMode.Binary16.ToString(),
             [$"{CacheOptions.SectionName}:RedisConnectionString"] =
                 "127.0.0.1:1,abortConnect=false,connectTimeout=500,syncTimeout=500",
-            ["ConnectionStrings:redis"] =
-                "127.0.0.1:1,abortConnect=false,connectTimeout=500,syncTimeout=500",
         });
         var cacheOptions = app.Services
             .GetRequiredService<IOptions<CacheOptions>>()
@@ -131,10 +129,12 @@ public sealed class HealthEndpointTests
         CollectionAssert.Contains(registrations, "distributed-cache");
         using var client = app.GetTestClient();
 
+        using var firstReady = await client.GetAsync("/health/ready");
         using var ready = await client.GetAsync("/health/ready");
         using var startup = await client.GetAsync("/health/startup");
         using var live = await client.GetAsync("/health/live");
 
+        Assert.AreEqual(HttpStatusCode.OK, firstReady.StatusCode);
         Assert.AreEqual(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
         Assert.AreEqual(HttpStatusCode.OK, startup.StatusCode);
         Assert.AreEqual(HttpStatusCode.OK, live.StatusCode);
@@ -167,10 +167,12 @@ public sealed class HealthEndpointTests
         CollectionAssert.DoesNotContain(registrations, "distributed-cache");
         using var client = app.GetTestClient();
 
+        using var firstReady = await client.GetAsync("/health/ready");
         using var ready = await client.GetAsync("/health/ready");
         using var startup = await client.GetAsync("/health/startup");
         using var live = await client.GetAsync("/health/live");
 
+        Assert.AreEqual(HttpStatusCode.OK, firstReady.StatusCode);
         Assert.AreEqual(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
         Assert.AreEqual(HttpStatusCode.OK, startup.StatusCode);
         Assert.AreEqual(HttpStatusCode.OK, live.StatusCode);
@@ -257,6 +259,7 @@ public sealed class HealthEndpointTests
             {
                 settings[$"{Full.NET.Caching.Fusion.CacheOptions.SectionName}:RedisConnectionString"] =
                     redisConnectionString;
+                settings[$"{RealtimeOptions.SectionName}:AllowSharedRedisInDevelopment"] = "true";
                 settings["ConnectionStrings:redis"] = redisConnectionString;
             }
 

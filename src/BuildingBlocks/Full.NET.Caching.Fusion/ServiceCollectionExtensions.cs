@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
@@ -13,6 +14,9 @@ namespace Full.NET.Caching.Fusion;
 
 public static class ServiceCollectionExtensions
 {
+    // 与 RealtimeOptions.SectionName 对齐，避免 BuildingBlocks 循环引用。
+    private const string RealtimeSectionName = "Realtime";
+
     public static IServiceCollection AddFullNetCaching(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -24,9 +28,21 @@ public static class ServiceCollectionExtensions
 
         var cacheOptions = new CacheOptions();
         configuration.GetSection(CacheOptions.SectionName).Bind(cacheOptions);
-        cacheOptions.RedisConnectionString = ResolveRedisConnectionString(configuration, cacheOptions);
+        var allowSharedRedis = configuration.GetValue(
+            $"{RealtimeSectionName}:AllowSharedRedisInDevelopment",
+            defaultValue: false);
+        cacheOptions.RedisConnectionString = ResolveRedisConnectionString(
+            configuration,
+            cacheOptions,
+            environment,
+            allowSharedRedis);
 
         Validate(cacheOptions);
+        EnsureIsolatedFromRealtime(
+            configuration,
+            cacheOptions,
+            environment,
+            allowSharedRedis);
 
         // 启动期构建注册表，未知/非法条目立即失败，避免首个请求才暴露配置错误。
         var policyRegistry = CachePolicyRegistry.Create(cacheOptions);
@@ -43,10 +59,13 @@ public static class ServiceCollectionExtensions
             });
             services.AddFusionCacheStackExchangeRedisBackplane(options =>
                 options.Configuration = redisConnectionString);
+            services.TryAddSingleton<DistributedCacheHealthCheck>();
             services.AddHealthChecks()
-                .AddCheck<DistributedCacheHealthCheck>(
+                .Add(new HealthCheckRegistration(
                     "distributed-cache",
-                    tags: ["ready"]);
+                    sp => sp.GetRequiredService<DistributedCacheHealthCheck>(),
+                    failureStatus: null,
+                    tags: ["ready"]));
         }
 
         services
@@ -83,14 +102,97 @@ public static class ServiceCollectionExtensions
 
     private static string? ResolveRedisConnectionString(
         IConfiguration configuration,
-        CacheOptions options)
+        CacheOptions options,
+        string environment,
+        bool allowSharedRedisInDevelopment)
     {
-        var connectionString = string.IsNullOrWhiteSpace(options.RedisConnectionString)
-            ? configuration.GetConnectionString("redis")
-            : options.RedisConnectionString;
+        if (!string.IsNullOrWhiteSpace(options.RedisConnectionString))
+        {
+            return options.RedisConnectionString.Trim();
+        }
 
-        return string.IsNullOrWhiteSpace(connectionString) ? null : connectionString;
+        // 生产禁止静默回退共享 ConnectionStrings:redis。
+        if (IsProductionLike(environment) || !allowSharedRedisInDevelopment)
+        {
+            return null;
+        }
+
+        var connectionString = configuration.GetConnectionString("redis");
+        return string.IsNullOrWhiteSpace(connectionString) ? null : connectionString.Trim();
     }
+
+    private static void EnsureIsolatedFromRealtime(
+        IConfiguration configuration,
+        CacheOptions options,
+        string environment,
+        bool allowSharedRedisInDevelopment)
+    {
+        if (string.IsNullOrWhiteSpace(options.RedisConnectionString))
+        {
+            return;
+        }
+
+        var realtimeConnectionString = ResolveRealtimeConnectionStringForComparison(
+            configuration,
+            environment,
+            allowSharedRedisInDevelopment);
+        if (string.IsNullOrWhiteSpace(realtimeConnectionString))
+        {
+            return;
+        }
+
+        if (!string.Equals(
+                options.RedisConnectionString.Trim(),
+                realtimeConnectionString.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!IsProductionLike(environment) && allowSharedRedisInDevelopment)
+        {
+            return;
+        }
+
+        throw new OptionsValidationException(
+            CacheOptions.SectionName,
+            typeof(CacheOptions),
+            [
+                "Cache:RedisConnectionString and Realtime:RedisBackplaneConnectionString must differ in Production/Staging; "
+                + "shared Redis is only allowed in Development/Testing when Realtime:AllowSharedRedisInDevelopment=true.",
+            ]);
+    }
+
+    private static string? ResolveRealtimeConnectionStringForComparison(
+        IConfiguration configuration,
+        string environment,
+        bool allowSharedRedisInDevelopment)
+    {
+        var dedicated = configuration[
+            $"{RealtimeSectionName}:RedisBackplaneConnectionString"];
+        if (!string.IsNullOrWhiteSpace(dedicated))
+        {
+            return dedicated.Trim();
+        }
+
+        if (IsProductionLike(environment) || !allowSharedRedisInDevelopment)
+        {
+            return null;
+        }
+
+        var shared = configuration.GetConnectionString("redis");
+        return string.IsNullOrWhiteSpace(shared) ? null : shared.Trim();
+    }
+
+    private static bool IsProductionLike(string environment) =>
+        string.Equals(
+            environment,
+            Environments.Production,
+            StringComparison.OrdinalIgnoreCase)
+        || string.Equals(
+            environment,
+            Environments.Staging,
+            StringComparison.OrdinalIgnoreCase);
 
     private static void Validate(CacheOptions options)
     {

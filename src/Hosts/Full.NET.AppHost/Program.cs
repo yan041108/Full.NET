@@ -50,6 +50,8 @@ builder
     .WithReference(redis)
     .WithEnvironment("Database__Provider", provider)
     .WithEnvironment("Database__MySqlGuidStorageMode", "Binary16")
+    // 本地 Aspire 仍共用一个 Redis；生产隔离由显式 Cache/Realtime 连接串门禁强制。
+    .WithEnvironment("Realtime__AllowSharedRedisInDevelopment", "true")
     .WaitForCompletion(migrator);
 
 builder
@@ -58,6 +60,7 @@ builder
     .WithReference(redis)
     .WithEnvironment("Database__Provider", provider)
     .WithEnvironment("Database__MySqlGuidStorageMode", "Binary16")
+    .WithEnvironment("Realtime__AllowSharedRedisInDevelopment", "true")
     .WaitForCompletion(migrator);
 
 builder.Build().Run();

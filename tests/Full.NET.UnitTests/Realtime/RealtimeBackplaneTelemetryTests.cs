@@ -32,6 +32,10 @@ public sealed class RealtimeBackplaneTelemetryTests
             _ => Task.FromException(
                 new OperationCanceledException("Redis endpoint secret")));
 
+        var degraded = await healthCheck.CheckHealthAsync(
+            new HealthCheckContext());
+        Assert.AreEqual(HealthStatus.Degraded, degraded.Status);
+
         var result = await healthCheck.CheckHealthAsync(
             new HealthCheckContext());
 
@@ -55,6 +59,7 @@ public sealed class RealtimeBackplaneTelemetryTests
             _ => Task.FromException(
                 new TimeoutException("Redis endpoint secret")));
 
+        _ = await healthCheck.CheckHealthAsync(new HealthCheckContext());
         var result = await healthCheck.CheckHealthAsync(
             new HealthCheckContext());
 
@@ -78,6 +83,7 @@ public sealed class RealtimeBackplaneTelemetryTests
             _ => Task.FromException(
                 new InvalidOperationException("Redis endpoint secret")));
 
+        _ = await healthCheck.CheckHealthAsync(new HealthCheckContext());
         var result = await healthCheck.CheckHealthAsync(
             new HealthCheckContext());
 
@@ -157,19 +163,20 @@ public sealed class RealtimeBackplaneTelemetryTests
         string outcome,
         long expectedState)
     {
-        var state = capture.LongMeasurements.Single(item =>
+        // 滞回探测会记录多次；断言取最后一次结果。
+        var state = capture.LongMeasurements.Last(item =>
             item.Name ==
             "fullnet.realtime.backplane.readiness.state");
         Assert.AreEqual(expectedState, state.Value);
         Assert.IsEmpty(state.Tags);
 
-        var checks = capture.LongMeasurements.Single(item =>
+        var checks = capture.LongMeasurements.Last(item =>
             item.Name ==
             "fullnet.realtime.backplane.readiness.checks");
         Assert.AreEqual(1L, checks.Value);
         AssertOutcomeTag(checks.Tags, outcome);
 
-        var duration = capture.DoubleMeasurements.Single(item =>
+        var duration = capture.DoubleMeasurements.Last(item =>
             item.Name ==
             "fullnet.realtime.backplane.readiness.duration");
         Assert.IsGreaterThanOrEqualTo(0d, duration.Value);

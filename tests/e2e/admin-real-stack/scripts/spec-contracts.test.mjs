@@ -128,7 +128,8 @@ test('真实栈必须按生产角色分离启动并清理 Worker', async () => {
   assert.match(source, /activeStack\.workerProcess\.kill\(\)/u);
   assert.match(
     source,
-    /Realtime__RedisBackplaneConnectionString:\s*redisConnectionString/u
+    /Realtime__RedisBackplaneConnectionString:\s*redisConnectionString/u,
+    /Realtime__AllowSharedRedisInDevelopment:\s*'true'/u,
   );
 });
 

@@ -19,6 +19,86 @@ namespace Full.NET.IntegrationTests.Realtime;
 public sealed class RealtimeRedisBackplaneRecoveryTests
 {
     [TestMethod]
+    public async Task SqlServer_cache_redis_outage_does_not_block_realtime_delivery()
+    {
+        await VerifyCacheOutageDoesNotBlockRealtimeAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    private static async Task VerifyCacheOutageDoesNotBlockRealtimeAsync(
+        DatabaseProvider provider,
+        string connectionString)
+    {
+        var cachePort = ReserveFreeTcpPort();
+        var realtimePort = ReserveFreeTcpPort();
+        await using var cacheRedis = new RedisBuilder("redis:8.6")
+            .WithPortBinding(cachePort, 6379)
+            .Build();
+        await using var realtimeRedis = new RedisBuilder("redis:8.6")
+            .WithPortBinding(realtimePort, 6379)
+            .Build();
+        await cacheRedis.StartAsync();
+        await realtimeRedis.StartAsync();
+        var cacheConnection =
+            $"{cacheRedis.GetConnectionString()},connectTimeout=1000,syncTimeout=1000";
+        var realtimeConnection =
+            $"{realtimeRedis.GetConnectionString()},connectTimeout=1000,syncTimeout=1000";
+        var settings = new Dictionary<string, string?>
+        {
+            [$"{Full.NET.Caching.Fusion.CacheOptions.SectionName}:RedisConnectionString"] =
+                cacheConnection,
+            [$"{RealtimeOptions.SectionName}:RedisBackplaneConnectionString"] =
+                realtimeConnection,
+            [$"{RealtimeOptions.SectionName}:AllowSharedRedisInDevelopment"] = "false",
+        };
+        using var subscriberFactory = new FullNetApiFactory(
+            provider,
+            connectionString,
+            settings);
+        using var publisherFactory = subscriberFactory.CreateIsolatedFactory();
+        await subscriberFactory.InitializeAsync();
+        await publisherFactory.InitializeAsync();
+        using var healthClient = subscriberFactory.CreateClientForHost("localhost");
+        await WaitForHealthStatusAsync(
+            healthClient,
+            HttpStatusCode.OK,
+            TimeSpan.FromSeconds(20));
+
+        var identity = await subscriberFactory.CreateHostIdentityAsync(
+            $"realtime-isolation-{Guid.NewGuid():N}",
+            []);
+        var receivedMessages = Channel.CreateUnbounded<RealtimeMessage>();
+        await using var connection = new HubConnectionBuilder()
+            .WithUrl(
+                "http://localhost/hubs/notifications",
+                options =>
+                {
+                    options.AccessTokenProvider = () =>
+                        Task.FromResult<string?>(identity.AccessToken);
+                    options.Transports = HttpTransportType.LongPolling;
+                    options.HttpMessageHandlerFactory = _ =>
+                        subscriberFactory.Server.CreateHandler();
+                })
+            .Build();
+        using var subscription = connection.On<RealtimeMessage>(
+            "ReceiveMessageAsync",
+            message => receivedMessages.Writer.TryWrite(message));
+        await connection.StartAsync();
+
+        await cacheRedis.StopAsync();
+        var publisher = publisherFactory.Services
+            .GetRequiredService<IRealtimePublisher>();
+        await PublishUntilReceivedAsync(
+            publisher,
+            identity.UserId,
+            receivedMessages.Reader,
+            $"realtime.cache-outage.{Guid.NewGuid():N}",
+            TimeSpan.FromSeconds(20));
+        Assert.AreEqual(HubConnectionState.Connected, connection.State);
+    }
+
+    [TestMethod]
     public async Task SqlServer_backplane_recovers_cross_node_delivery_without_restarting_hosts()
     {
         await VerifyBackplaneRecoveryAsync(

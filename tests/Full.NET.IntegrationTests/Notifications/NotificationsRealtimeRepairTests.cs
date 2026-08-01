@@ -265,6 +265,8 @@ public sealed class NotificationsRealtimeRepairTests
                     redisConnectionString,
                 [$"{RealtimeOptions.SectionName}:RedisBackplaneConnectionString"] =
                     redisConnectionString,
+                [$"{RealtimeOptions.SectionName}:AllowSharedRedisInDevelopment"] =
+                    "true",
                 ["ConnectionStrings:redis"] = redisConnectionString,
                 ["Files:Local:RootPath"] = Path.Combine(
                     Path.GetTempPath(),

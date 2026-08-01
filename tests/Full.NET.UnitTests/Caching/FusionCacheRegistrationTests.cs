@@ -49,4 +49,40 @@ public sealed class FusionCacheRegistrationTests
                 "cache-secret-value",
                 StringComparison.Ordinal));
     }
+
+    [TestMethod]
+    public void AddFullNetCaching_Production_rejects_shared_realtime_redis()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cache:RedisConnectionString"] = "127.0.0.1:6379",
+                ["Realtime:RedisBackplaneConnectionString"] = "127.0.0.1:6379",
+            })
+            .Build();
+
+        var exception = Assert.ThrowsExactly<OptionsValidationException>(() =>
+            new ServiceCollection().AddFullNetCaching(configuration, "Production"));
+
+        StringAssert.Contains(exception.Failures.First(), "must differ");
+    }
+
+    [TestMethod]
+    public void AddFullNetCaching_Production_ignores_shared_connection_strings_fallback()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:redis"] = "127.0.0.1:6379",
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFullNetCaching(configuration, "Production");
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsNull(
+            provider.GetRequiredService<IOptions<CacheOptions>>().Value.RedisConnectionString);
+    }
 }

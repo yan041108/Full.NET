@@ -8,6 +8,8 @@ internal sealed class DistributedCacheHealthCheck(
     IOptions<CacheOptions> cacheOptions) : IHealthCheck
 {
     private const string ProbeKey = "fullnet:health:ready:missing-probe";
+    private const int UnhealthyFailureThreshold = 2;
+    private int _consecutiveFailures;
 
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -19,6 +21,7 @@ internal sealed class DistributedCacheHealthCheck(
         {
             if (string.IsNullOrWhiteSpace(cacheOptions.Value.RedisConnectionString))
             {
+                Interlocked.Exchange(ref _consecutiveFailures, 0);
                 return HealthCheckResult.Healthy();
             }
 
@@ -35,23 +38,34 @@ internal sealed class DistributedCacheHealthCheck(
                 configuration).WaitAsync(timeout.Token);
             if (!connection.IsConnected)
             {
-                return HealthCheckResult.Unhealthy("分布式缓存健康检查失败。");
+                return Fail("分布式缓存健康检查失败。");
             }
 
             _ = await connection.GetDatabase().StringGetAsync(ProbeKey).WaitAsync(timeout.Token);
+            Interlocked.Exchange(ref _consecutiveFailures, 0);
             return HealthCheckResult.Healthy();
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return HealthCheckResult.Unhealthy("分布式缓存健康检查超时。");
+            return Fail("分布式缓存健康检查超时。");
         }
         catch (RedisException)
         {
-            return HealthCheckResult.Unhealthy("分布式缓存健康检查失败。");
+            return Fail("分布式缓存健康检查失败。");
         }
         catch (InvalidOperationException)
         {
-            return HealthCheckResult.Unhealthy("分布式缓存健康检查失败。");
+            return Fail("分布式缓存健康检查失败。");
         }
+    }
+
+    private HealthCheckResult Fail(string description)
+    {
+        // 单次抖动返回 Degraded（ready 仍 200）；连续失败才 Unhealthy，避免全集群同时 NotReady。
+        // 检查必须以 Singleton 注册，否则 Transient 实例会丢掉滞回计数。
+        var failures = Interlocked.Increment(ref _consecutiveFailures);
+        return failures >= UnhealthyFailureThreshold
+            ? HealthCheckResult.Unhealthy(description)
+            : HealthCheckResult.Degraded(description);
     }
 }

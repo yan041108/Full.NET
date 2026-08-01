@@ -94,6 +94,8 @@ internal sealed class FullNetApiFactory(
                 Path.GetTempPath(),
                 "fullnet-files-integration",
                 _cacheInstanceId),
+            // Testing 常与 Cache 共用同一 Testcontainer Redis；生产隔离由专用连接串门禁保证。
+            ["Realtime:AllowSharedRedisInDevelopment"] = "true",
         };
 
         if (settingsOverrides is null)

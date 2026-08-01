@@ -9,17 +9,29 @@
 
 ```json
 {
+  "Cache": {
+    "RedisConnectionString": "cache-redis:6379"
+  },
   "Realtime": {
     "Enabled": true,
     "HubPath": "/hubs/notifications",
-    "RedisBackplaneConnectionString": "redis:6379"
+    "RedisBackplaneConnectionString": "realtime-redis:6379",
+    "AllowSharedRedisInDevelopment": false,
+    "TransportMode": "Default",
+    "SkipNegotiation": false,
+    "RequireSessionAffinity": true
   }
 }
 ```
 
-未设置专用连接时可复用 `ConnectionStrings:redis`。生产连接由平台统一设置
-`AbortOnConnectFail=false`，并使用
+Production/Staging 必须显式配置 `Realtime:RedisBackplaneConnectionString`，且不得与
+`Cache:RedisConnectionString` 相同。Development/Testing 仅在
+`Realtime:AllowSharedRedisInDevelopment=true` 时可回退 `ConnectionStrings:redis` 或与 Cache
+共用。`TransportMode=Default` 要求 Ingress 会话亲和；只有
+`WebSocketsOnly + SkipNegotiation=true` 才允许 `RequireSessionAffinity=false`。
+生产连接由平台统一设置 `AbortOnConnectFail=false`，并使用
 `fullnet:{environment}:signalr:` Channel Prefix；短暂中断后 API 节点会继续尝试重连。
+ready 探针对单次 Redis 抖动返回 Degraded（HTTP 200），连续失败才 Unhealthy（503）。
 环境名会直接成为 Channel Prefix 的单一命名段，只允许 ASCII 字母、数字和中间连字符，
 且必须以字母或数字开头、结尾；空白、冒号、斜杠、Unicode 或首尾连字符会在服务注册阶段
 失败关闭。API 与 Worker 必须使用完全相同的规范环境名，禁止依赖修剪或字符替换把两个原始值

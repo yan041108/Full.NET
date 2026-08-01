@@ -20,6 +20,7 @@ internal static class RealtimeRedisConfiguration
         var configuration = ConfigurationOptions.Parse(connectionString);
         // Backplane 短暂中断不应迫使 API 宿主重启；投递失败仍由调用 Task 原样暴露。
         configuration.AbortOnConnectFail = false;
+        // 前缀含应用名 fullnet + 环境，避免跨应用/跨环境通道碰撞；物理隔离仍靠独立连接串。
         configuration.ChannelPrefix = RedisChannel.Literal(
             $"fullnet:{environmentName.ToLowerInvariant()}:signalr:");
         return configuration;

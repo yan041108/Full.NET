@@ -137,6 +137,7 @@ export async function bootstrapStack() {
     Database__MySqlGuidStorageMode: 'Binary16',
     Cache__RedisConnectionString: redisConnectionString,
     Realtime__RedisBackplaneConnectionString: redisConnectionString,
+    Realtime__AllowSharedRedisInDevelopment: 'true',
     UuidBinaryContract__MaintenanceMode: 'true',
     UuidBinaryContract__BackupVerified: 'true',
     UuidBinaryContract__LegacyWritersStopped: 'true',
