@@ -460,10 +460,17 @@ internal static class CodeGenerationRunAssertions
                 roller.AccessToken,
                 new CodeGenerationRunRollbackRequest(applied.RunId)),
             cancellationToken);
-        Assert.AreEqual(HttpStatusCode.Conflict, duplicate.StatusCode);
-        Assert.AreEqual(
-            CodeGenerationRunErrorCodes.RollbackAlreadyApplied,
-            await ReadCodeAsync(duplicate, cancellationToken));
+        Assert.AreEqual(HttpStatusCode.OK, duplicate.StatusCode);
+        var replay = JsonSerializer.Deserialize<
+            CodeGenerationRunRollbackResponse>(
+            await duplicate.Content.ReadAsStringAsync(cancellationToken),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        Assert.IsNotNull(replay);
+        Assert.AreEqual(rolledBack.RunId, replay.RunId);
+        Assert.AreEqual(rolledBack.ApplyRunId, replay.ApplyRunId);
+        Assert.AreEqual(rolledBack.ArtifactCount, replay.ArtifactCount);
+        Assert.AreEqual(rolledBack.ManifestSha256, replay.ManifestSha256);
+        Assert.AreEqual(0, replay.ChangedArtifactCount);
     }
 
     private static HttpRequestMessage Authorized(

@@ -67,6 +67,20 @@ public static class GenerationWorkspaceStore
     }
 
     /// <summary>
+    /// 读取当前工作区清单；缺失时返回规范空 Manifest。
+    /// </summary>
+    public static async Task<GenerationManifest> ReadManifestOrEmptyAsync(
+        string workspaceRoot,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fullRoot = GenerationWorkspacePath.NormalizeRoot(workspaceRoot);
+        var manifest = await ReadManifestAsync(fullRoot, cancellationToken)
+            .ConfigureAwait(false);
+        return manifest ?? GenerationManifest.Create([]);
+    }
+
+    /// <summary>
     /// 按中立路径集合捕获工作区快照；供逆向回滚复用，避免伪造 GeneratedArtifactKind。
     /// </summary>
     internal static async Task<GenerationWorkspaceSnapshot> CapturePathsAsync(

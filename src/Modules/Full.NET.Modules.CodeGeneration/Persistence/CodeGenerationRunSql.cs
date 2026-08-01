@@ -50,6 +50,17 @@ internal static class CodeGenerationRunSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindRunningRollbackBySourceApplyRunId = new(
+        "codegen.run.find_running_rollback_by_source",
+        $$"""
+        SELECT {{Projection}}
+        FROM fn_codegeneration_run
+        WHERE SourceApplyRunId = @SourceApplyRunId
+          AND OperationKind = 'rollback'
+          AND Status = 'running'
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement CompleteApply = new(
         "codegen.run.complete_apply",
         """

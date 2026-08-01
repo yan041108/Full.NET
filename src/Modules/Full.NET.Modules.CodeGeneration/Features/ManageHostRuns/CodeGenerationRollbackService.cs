@@ -56,6 +56,20 @@ internal sealed class CodeGenerationRollbackService(
                 ErrorType.Validation);
         }
 
+        var runningRollback = await queryExecutor
+            .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
+                new { SourceApplyRunId = request.ApplyRunId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (runningRollback is not null)
+        {
+            return Failure(
+                CodeGenerationRunErrorCodes.RollbackBusy,
+                "Another code generation apply or rollback is in progress.",
+                ErrorType.Conflict);
+        }
+
         var existingRollback = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
@@ -64,10 +78,10 @@ internal sealed class CodeGenerationRollbackService(
             .ConfigureAwait(false);
         if (existingRollback is not null)
         {
-            return Failure(
-                CodeGenerationRunErrorCodes.RollbackAlreadyApplied,
-                "The selected code generation apply was already rolled back.",
-                ErrorType.Conflict);
+            return await TryReplaySucceededRollbackAsync(
+                    existingRollback,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (!await applyGate.TryEnterAsync(cancellationToken)
@@ -215,7 +229,7 @@ internal sealed class CodeGenerationRollbackService(
             var changedCount = plan.Actions.Count(action =>
                 action.Kind != GenerationWriteActionKind.Unchanged);
             return Result<CodeGenerationRunRollbackResponse>.Success(
-                new CodeGenerationRunRollbackResponse(
+                ToResponse(
                     runId,
                     request.ApplyRunId,
                     targetManifest.Artifacts.Count,
@@ -226,6 +240,66 @@ internal sealed class CodeGenerationRollbackService(
         {
             applyGate.Release();
         }
+    }
+
+    private async Task<Result<CodeGenerationRunRollbackResponse>> TryReplaySucceededRollbackAsync(
+        CodeGenerationRunRecord existingRollback,
+        CancellationToken cancellationToken)
+    {
+        if (existingRollback.SourceApplyRunId is null
+            || existingRollback.ManifestSha256 is null)
+        {
+            return Failure(
+                CodeGenerationRunErrorCodes.RollbackConflict,
+                "The code generation workspace contains conflicts.",
+                ErrorType.Conflict);
+        }
+
+        GenerationManifest currentManifest;
+        try
+        {
+            currentManifest = await GenerationWorkspaceStore.ReadManifestOrEmptyAsync(
+                    options.Value.WorkspaceRoot,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is
+            IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or JsonException)
+        {
+            return Failure(
+                CodeGenerationRunErrorCodes.RollbackConflict,
+                "The code generation workspace contains conflicts.",
+                ErrorType.Conflict);
+        }
+
+        var currentSha256 = CodeGenerationRunSummary.ComputeManifestSha256(
+            currentManifest);
+        if (!string.Equals(
+                currentSha256,
+                existingRollback.ManifestSha256,
+                StringComparison.Ordinal))
+        {
+            return Failure(
+                CodeGenerationRunErrorCodes.RollbackConflict,
+                "The code generation workspace contains conflicts.",
+                ErrorType.Conflict);
+        }
+
+        return Result<CodeGenerationRunRollbackResponse>.Success(
+            ToResponse(
+                existingRollback.Id,
+                existingRollback.SourceApplyRunId.Value,
+                existingRollback.ArtifactCount,
+                changedArtifactCount: 0,
+                existingRollback.ManifestSha256));
     }
 
     private async Task FailAsync(
@@ -245,6 +319,19 @@ internal sealed class CodeGenerationRollbackService(
             .ConfigureAwait(false);
         EnsureAffectedOne(affectedRows, "failure completion");
     }
+
+    private static CodeGenerationRunRollbackResponse ToResponse(
+        Guid runId,
+        Guid applyRunId,
+        int artifactCount,
+        int changedArtifactCount,
+        string manifestSha256) =>
+        new(
+            runId,
+            applyRunId,
+            artifactCount,
+            changedArtifactCount,
+            manifestSha256);
 
     private static void EnsureAffectedOne(int affectedRows, string operation)
     {

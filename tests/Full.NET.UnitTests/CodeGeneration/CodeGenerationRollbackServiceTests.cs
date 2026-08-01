@@ -131,7 +131,69 @@ public sealed class CodeGenerationRollbackServiceTests
     }
 
     [TestMethod]
-    public async Task Already_succeeded_rollback_is_rejected_without_mutation()
+    public async Task Succeeded_rollback_replays_idempotently_without_mutation()
+    {
+        using var workspace = new TemporaryDirectory();
+        var emptyManifestSha = CodeGenerationRunSummary.ComputeManifestSha256(
+            GenerationManifest.Create([]));
+        Directory.CreateDirectory(Path.Combine(workspace.Path, ".fullnet"));
+        await File.WriteAllTextAsync(
+            Path.Combine(
+                workspace.Path,
+                GenerationWorkspaceStore.ManifestRelativePath),
+            GenerationManifest.Create([]).ToJson());
+
+        var command = Substitute.For<ICommandExecutor>();
+        var query = Substitute.For<IQueryExecutor>();
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(CreateSucceededApplyRecord());
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((CodeGenerationRunRecord?)null);
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new CodeGenerationRunRecord
+            {
+                Id = RollbackRunId,
+                OperationKind = CodeGenerationRunOperationKinds.Rollback,
+                Status = CodeGenerationRunStatuses.Succeeded,
+                SourceApplyRunId = ApplyRunId,
+                ModuleKey = "catalog",
+                EntityKey = "product",
+                SchemaSha256 = new string('a', 64),
+                ArtifactCount = 0,
+                ManifestSha256 = emptyManifestSha,
+                RequestedByUserId = ActorUserId,
+                StartedAtUtc = Now,
+                FinishedAtUtc = Now,
+            });
+        var service = CreateService(workspace.Path, command, query);
+
+        var result = await service.RollbackAsync(
+            ActorUserId,
+            new CodeGenerationRunRollbackRequest(ApplyRunId));
+
+        Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+        Assert.AreEqual(RollbackRunId, result.Value!.RunId);
+        Assert.AreEqual(ApplyRunId, result.Value.ApplyRunId);
+        Assert.AreEqual(0, result.Value.ArtifactCount);
+        Assert.AreEqual(0, result.Value.ChangedArtifactCount);
+        Assert.AreEqual(emptyManifestSha, result.Value.ManifestSha256);
+        await command.DidNotReceive().ExecuteAsync(
+            Arg.Any<SqlStatement>(),
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Succeeded_rollback_with_drifted_workspace_returns_conflict()
     {
         using var workspace = new TemporaryDirectory();
         var command = Substitute.For<ICommandExecutor>();
@@ -142,6 +204,11 @@ public sealed class CodeGenerationRollbackServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(CreateSucceededApplyRecord());
         query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((CodeGenerationRunRecord?)null);
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
@@ -150,6 +217,53 @@ public sealed class CodeGenerationRollbackServiceTests
                 Id = RollbackRunId,
                 OperationKind = CodeGenerationRunOperationKinds.Rollback,
                 Status = CodeGenerationRunStatuses.Succeeded,
+                SourceApplyRunId = ApplyRunId,
+                ModuleKey = "catalog",
+                EntityKey = "product",
+                SchemaSha256 = new string('a', 64),
+                ArtifactCount = 0,
+                ManifestSha256 = CodeGenerationRunSummary.ComputeManifestSha256(
+                    GenerationManifest.Create([])),
+                RequestedByUserId = ActorUserId,
+                StartedAtUtc = Now,
+                FinishedAtUtc = Now,
+            });
+        var fixture = await CreatePreparedFixtureAsync(workspace.Path, command, query);
+
+        var result = await fixture.Service.RollbackAsync(
+            ActorUserId,
+            new CodeGenerationRunRollbackRequest(ApplyRunId));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(
+            CodeGenerationRunErrorCodes.RollbackConflict,
+            result.Error!.Code);
+        await command.DidNotReceive().ExecuteAsync(
+            Arg.Any<SqlStatement>(),
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Running_rollback_is_rejected_as_busy()
+    {
+        using var workspace = new TemporaryDirectory();
+        var command = Substitute.For<ICommandExecutor>();
+        var query = Substitute.For<IQueryExecutor>();
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(CreateSucceededApplyRecord());
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new CodeGenerationRunRecord
+            {
+                Id = RollbackRunId,
+                OperationKind = CodeGenerationRunOperationKinds.Rollback,
+                Status = CodeGenerationRunStatuses.Running,
                 SourceApplyRunId = ApplyRunId,
                 ModuleKey = "catalog",
                 EntityKey = "product",
@@ -168,7 +282,7 @@ public sealed class CodeGenerationRollbackServiceTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(
-            CodeGenerationRunErrorCodes.RollbackAlreadyApplied,
+            CodeGenerationRunErrorCodes.RollbackBusy,
             result.Error!.Code);
         await command.DidNotReceive().ExecuteAsync(
             Arg.Any<SqlStatement>(),
@@ -189,6 +303,11 @@ public sealed class CodeGenerationRollbackServiceTests
             .Returns(CreateSucceededApplyRecord());
         query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((CodeGenerationRunRecord?)null);
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns((CodeGenerationRunRecord?)null);
@@ -221,6 +340,11 @@ public sealed class CodeGenerationRollbackServiceTests
             .Returns(CreateSucceededApplyRecord());
         query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((CodeGenerationRunRecord?)null);
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns((CodeGenerationRunRecord?)null);
@@ -292,7 +416,8 @@ public sealed class CodeGenerationRollbackServiceTests
 
     private static async Task<RollbackFixture> CreatePreparedFixtureAsync(
         string workspaceRoot,
-        ICommandExecutor command)
+        ICommandExecutor command,
+        IQueryExecutor? queryOverride = null)
     {
         const string relativePath = "Backend/Product.g.cs";
         const string appliedContent = "applied-product\n";
@@ -317,17 +442,26 @@ public sealed class CodeGenerationRollbackServiceTests
             plan);
         await GenerationWorkspaceStore.ApplyAsync(workspaceRoot, plan);
 
-        var query = Substitute.For<IQueryExecutor>();
-        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
-                CodeGenerationRunSql.FindById,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(CreateSucceededApplyRecord());
-        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
-                CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns((CodeGenerationRunRecord?)null);
+        var query = queryOverride ?? Substitute.For<IQueryExecutor>();
+        if (queryOverride is null)
+        {
+            query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                    CodeGenerationRunSql.FindById,
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(CreateSucceededApplyRecord());
+            query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                    CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns((CodeGenerationRunRecord?)null);
+            query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                    CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns((CodeGenerationRunRecord?)null);
+        }
+
         var service = CreateService(workspaceRoot, command, query);
         return new RollbackFixture(service, relativePath);
     }
