@@ -402,7 +402,7 @@ public sealed class CodeGenerationApplyServiceTests
                 CreatedByUserId = ActorUserId,
                 Version = 3,
             });
-        var applyGate = new CodeGenerationApplyGate();
+        var applyGate = CodeGenerationApplyGateTestSupport.CreateLocalGate(workspaceRoot);
         var service = new CodeGenerationApplyService(
             command,
             query,

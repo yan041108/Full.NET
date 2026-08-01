@@ -10,4 +10,9 @@ internal sealed class CodeGenerationApplyOptions
     public bool Enabled { get; set; }
 
     public string WorkspaceRoot { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 启用后通过数据库会话锁在多个 API 实例间串行化同一工作区的 Apply/Rollback。
+    /// </summary>
+    public bool DistributedGateEnabled { get; set; }
 }

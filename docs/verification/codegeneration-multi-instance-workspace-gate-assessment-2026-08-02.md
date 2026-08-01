@@ -2,7 +2,7 @@
 
 - 日期：2026-08-02
 - 代码基线：`main` @ `b2c80a3`
-- 状态：**建议稿**（待用户确认边界后进入 Spec）
+- 状态：**已关闭** → Spec [2026-08-02-codegeneration-distributed-workspace-gate-design.md](../superpowers/specs/2026-08-02-codegeneration-distributed-workspace-gate-design.md)（Approved）
 - 上游证据：[产品 Rollback 验证](codegeneration-product-rollback-2026-08-02.md)、[检查点保留清理验证](codegeneration-checkpoint-retention-2026-08-02.md)
 
 ## 1. 结论

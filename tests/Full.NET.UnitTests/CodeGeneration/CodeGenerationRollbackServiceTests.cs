@@ -224,7 +224,7 @@ public sealed class CodeGenerationRollbackServiceTests
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns((CodeGenerationRunRecord?)null);
-        var gate = new CodeGenerationApplyGate();
+        var gate = CodeGenerationApplyGateTestSupport.CreateLocalGate(@"C:\workspaces\codegen");
         Assert.IsTrue(await gate.TryEnterAsync(CancellationToken.None));
         var service = CreateService(workspace.Path, command, query, gate);
 
@@ -345,7 +345,7 @@ public sealed class CodeGenerationRollbackServiceTests
                 Enabled = true,
                 WorkspaceRoot = workspaceRoot,
             }),
-            gate ?? new CodeGenerationApplyGate(),
+            gate ?? CodeGenerationApplyGateTestSupport.CreateLocalGate(@"C:\workspaces\codegen"),
             new FixedClock(Now),
             new FixedIdGenerator(RollbackRunId));
 
