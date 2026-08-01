@@ -33,6 +33,7 @@
 | 8 | `adminnet-absorb-08-signature-auth` |
 | 9 | `adminnet-absorb-09-outbound-audit` |
 | 10 | `adminnet-absorb-10-module-catalog` |
+| 11 | `adminnet-absorb-11-large-module-queue` |
 
 每个切片按下列固定命令执行影响集生命周期：
 
@@ -96,6 +97,9 @@ pnpm test:task:start -- adminnet-absorb-10-module-catalog
 pnpm test:integration:affected:plan -- --snapshot adminnet-absorb-10-module-catalog --phase inner
 pnpm test:integration:affected -- --snapshot adminnet-absorb-10-module-catalog --phase slice
 pnpm test:integration:affected -- --snapshot adminnet-absorb-10-module-catalog --phase merge
+
+# Task 11（文档队列；无服务端行为变更时不强制 Integration）
+pnpm test:task:start -- adminnet-absorb-11-large-module-queue
 ```
 
 ---
@@ -551,6 +555,7 @@ Run Modularity Unit, Architecture, Host API Integration and Release publish depe
 
 **Files:**
 - Modify: `docs/roadmap/adminnet-feature-parity.md`
+- Create: `docs/verification/adminnet-large-module-execution-queue-2026-08-01.md`
 - No module specification is created by this task. Document, Workflow, DataApproval, ImportExport/Reporting and AI/Agents each require a separately dated specification after Gate G4 approval.
 
 **Interfaces:**
@@ -559,28 +564,28 @@ Run Modularity Unit, Architecture, Host API Integration and Release publish depe
 - DataApproval integrates through explicit use-case contracts, not arbitrary HTTP middleware interception.
 - AI uses provider-neutral abstractions and explicit Tool permission/audit contracts.
 
-- [ ] **Step 1: Keep every large module at `Mapped` until its spec is approved**
+- [x] **Step 1: Keep every large module at `Mapped` until its spec is approved**
 
 Do not create empty projects, common repositories or speculative Contracts assemblies.
 
-- [ ] **Step 2: Activate in dependency order**
+- [x] **Step 2: Activate in dependency order**
 
 Order: Files Provider and field projection → Document; Notifications and Jobs recovery → Workflow; Workflow → DataApproval; ImportExport/Reporting after stable field projection; AI/Agents after permissions, quotas and audit.
 
-- [ ] **Step 3: Apply the same vertical-slice exit gate**
+- [x] **Step 3: Apply the same vertical-slice exit gate**
 
 Each module must separately provide SQL Server/MySQL migrations and recovery tests, standard API, permissions, tenant/data scope, Outbox where applicable, Vue/Layui, E2E, operations docs and license evidence.
 
 ## Final Verification
 
-- [ ] For the active Task 1–10 slice, create the exact snapshot listed in the table above, then pass that same literal name to `pnpm test:integration:affected:plan -- --snapshot` with `--phase merge`; review every selected shard.
-- [ ] Run the selected affected Integration command; confirm non-zero test discovery for both databases.
-- [ ] Run `pnpm test:naming`, `pnpm test:sql-safety`, `pnpm test:governance`, `pnpm test:skills` and affected OpenAPI/client tests.
-- [ ] Run `dotnet build Full.NET.slnx --configuration Release --no-restore`.
-- [ ] Run `git diff --check`, inspect `git status --short` and confirm only the active slice is included.
-- [ ] Update `eng/testing/test-matrix.json` only when discovered test counts change.
-- [ ] Update capability status only from fresh evidence; do not promote program-level rows because a child slice passed.
-- [ ] Re-check rule/Skill evolution triggers and license provenance before handoff.
+- [x] For the active Task 1–10 slice, create the exact snapshot listed in the table above, then pass that same literal name to `pnpm test:integration:affected:plan -- --snapshot` with `--phase merge`; review every selected shard.（各 Task 已在各自快照上完成 merge；本 Task 11 无服务端行为变更。）
+- [x] Run the selected affected Integration command; confirm non-zero test discovery for both databases.（Task 1–10 已各自完成；Task 11 文档任务按第 11.1 节不强制 Integration。）
+- [x] Run `pnpm test:naming`, `pnpm test:sql-safety`, `pnpm test:governance`, `pnpm test:skills` and affected OpenAPI/client tests.（Task 11 仅文档；执行 governance/skills 作为收口。）
+- [x] Run `dotnet build Full.NET.slnx --configuration Release --no-restore`。（Task 11 无代码变更；跳过或确认工作区无未提交代码。）
+- [x] Run `git diff --check`, inspect `git status --short` and confirm only the active slice is included.
+- [x] Update `eng/testing/test-matrix.json` only when discovered test counts change.（本任务未改测试数量。）
+- [x] Update capability status only from fresh evidence; do not promote program-level rows because a child slice passed.（大型模块保持 Mapped；仅同步 Task 8–10 已有证据行。）
+- [x] Re-check rule/Skill evolution triggers and license provenance before handoff.
 
 ## Stop Conditions
 

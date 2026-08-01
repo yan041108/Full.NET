@@ -42,7 +42,7 @@
 - `C / 兼容隔离`：只进入 Compatibility、Provider 或受控工具；
 - `D / 拒绝原实现`：不复制会削弱 Full.NET 不变量的机制，只保留等价业务目标。
 
-当前优先顺序为：代码生成实体能力与场景策略，列显示个性化和流水号，Jobs 触发器与 Files Provider，字段投影授权与请求签名，审计和模块目录，最后才是大型插件与动态兼容能力。该顺序只表达实施依赖，不改变下表任何能力状态。
+当前优先顺序：吸收计划 Task 1–10（代码生成、Grid 偏好、流水号、Jobs 调度、Files Provider、字段投影、请求签名、出站审计、只读模块目录）已合入 `main`；其后进入下方「大型插件独立执行队列」。该顺序只表达实施依赖，不改变下表任何能力状态，也不把 `Mapped` 行合计为已交付能力。
 
 ## 2. README 内置功能基线
 
@@ -85,7 +85,8 @@
 | Admin.NET.Pro 能力 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
 | API Key 认证 | Identity | Core | M2 | **Build-verified**（Host 创建/列表/禁用/轮换与认证、最后使用展示与列表刷新、Vue/Layui 双管理端、Mock parity 2/2、真实栈浏览器 6/6；见[验证记录](../verification/identity-api-key-2026-07-26.md)） |
-| 请求签名认证 | Identity Signature Auth | Official Module | M5+ | Mapped |
+| 请求签名认证 | Identity Signature Auth | Official Module | M5+ | **Build-verified**（HMAC 请求签名、Nonce 防重放、Access Key 绑定、失败审计与限流；开放接口产品化仍属 OpenAccess；吸收 Task 8 @ `4bb58ce`） |
+| 出站调用审计 | Auditing Outbound Calls | Core | M3 | **Build-verified**（显式 opt-in 写入、脱敏、Host 查询、保留期、双库 043、Vue/Layui；吸收 Task 9 @ `6e156f5`） |
 | 缓存管理 | Caching Admin | Official Module | M5+ | Mapped |
 | 列显示个性化 | Settings + Client Preferences | Core | M3 | **Build-verified**（当前用户 Grid 偏好 API、双库 038、可信 Grid/Column 目录、SchemaVersion/Version、FusionCache、Vue/Layui 适配器；首个目录 `identity.users`，可视化列编辑器与真实浏览器 E2E 待具体 Grid 消费者接入；见[验证记录](../verification/settings-grid-preferences-2026-07-30.md)） |
 | 全栈多语言、时区与用户语言偏好 | Localization + Identity + Tenancy + Clients | Core + Client | M2-M5+ | Implementing |
@@ -95,7 +96,7 @@
 | 消息中心 | Notifications | Core | M3 | **Build-verified**（Host 发信 + 个人收件箱/未读/已读；[验证记录](../verification/notifications-inbox-message-2026-07-26.md)） |
 | MQTT | MQTT Provider | Provider | M5+ | Mapped |
 | 开放接口访问 | OpenAccess | Official Module | M5+ | Mapped |
-| 插件管理 | Modularity Admin | Official Module | M5+ | Implementing |
+| 插件管理 | Modularity Admin | Official Module | M5+ | Implementing（只读官方模块清单 API 与双端 UI 已交付；动态加载/运行时编译明确拒绝；吸收 Task 10 @ `4962729`） |
 | 打印 | Printing | Official Module + Client | M5+ | Mapped |
 | 行政区域 | Regions | Official Module | M5+ | Mapped |
 | 报表配置 | Reporting | Official Module | M5+ | Mapped |
@@ -130,6 +131,22 @@
 | `Admin.NET.Plugin.WorkWeixin` | 企业微信接口集成 | WorkWeixin | Provider | Mapped |
 
 插件的详细功能必须在各自实施前建立独立设计规格。核心模块不得为了插件反向增加业务耦合。
+
+### 4.1 大型插件独立执行队列
+
+下列能力在 Gate G4（1.0 核心能力与生产硬化不再被阻塞）批准前保持 `Mapped`，禁止创建空项目、通用 Repository、投机性 `*.Contracts` 程序集或未批准的模块规格。每一项都必须在启动实施前单独建立带日期的 Spec，并经安全/租户/双库门禁审查。
+
+| 顺序 | 模块 | 前置依赖 | 所有权与契约边界 | 退出门禁 |
+| --- | --- | --- | --- | --- |
+| 1 | Document | Files Provider 稳定；字段投影可用 | 通过显式契约消费 Files；自有分类/标签/版本/分享/权限/日志数据，禁止把文件字节存入业务表 | 双库迁移与恢复、标准 API、权限、租户/数据范围、Outbox（如需）、Vue/Layui、E2E、运维文档与许可证据 |
+| 2 | Workflow | Notifications 与 Jobs 恢复路径可用 | 拥有不可变定义版本、实例、步骤、待办、抄送、执行日志与恢复；禁止业务模块直连流程表 | 同上，且必须覆盖实例恢复与幂等推进 |
+| 3 | DataApproval | Workflow 可用 | 通过显式用例契约集成，禁止任意 HTTP 中间件拦截改写业务写路径 | 同上，且必须覆盖审批拒绝/撤回与审计 |
+| 4 | ImportExport / Reporting | 字段投影稳定 | 导入导出与报表配置分模块；禁止动态 SQL 拼接与未授权列泄露 | 同上，且必须覆盖大文件/批处理背压与失败续跑 |
+| 5 | AI / Agents | 权限、配额、审计基线可用 | 供应商中立抽象；显式 Tool 权限与审计；预览协议只进适配器 | 同上，且必须覆盖配额、人工确认高影响 Tool 与租户隔离 |
+
+队列外的 Provider/Sample（钉钉、企微、OCR、K3Cloud、GoView 等）不得插队占用上述依赖链；需要时各自开独立 Spec，并证明不反向耦合核心模块。
+
+吸收计划 Task 11 仅冻结本队列与门禁，不创建任何大型模块规格或代码骨架。见[执行队列记录](../verification/adminnet-large-module-execution-queue-2026-08-01.md)。
 
 AI 对标不止复制模型配置和聊天页面。Full.NET 的验收范围还包括 `Microsoft.Extensions.AI` 供应商中立抽象、模型/Token/费用配额、显式 Tool 权限、Agent 会话与步骤、人工审批、MCP Client/Server、AG-UI 或等价标准 Web 协议、租户隔离和可靠审计。预览协议包必须封装在独立适配器中，不能成为核心稳定 API。
 
