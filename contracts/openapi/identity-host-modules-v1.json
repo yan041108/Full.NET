@@ -1,0 +1,45 @@
+{
+  "id": "identity-host-modules-v1",
+  "version": 1,
+  "description": "Host 只读官方模块清单 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/modules",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.modules.read",
+          "successStatus": 200,
+          "responseSchema": "ModuleCatalogEntryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/modules/{moduleKey}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.modules.read",
+          "successStatus": 200,
+          "responseSchema": "ModuleCatalogEntryResponse",
+          "errorStatuses": [
+            404
+          ]
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "ModuleCatalogEntryResponse": {
+      "properties": [
+        "moduleKey",
+        "displayName",
+        "version",
+        "dependencies",
+        "hostProfiles",
+        "sourceClassification",
+        "healthCapability"
+      ]
+    }
+  }
+}

@@ -43,6 +43,8 @@ public static class FullNetModuleCatalog
                     services.AddFullNetModule(module, configuration);
                 }
 
+                // 只读模块清单必须在全部模块注册后物化，禁止运行时再追加或编译加载。
+                services.AddFullNetModuleCatalogSnapshot(CreateOfficialDescriptor);
                 break;
 
             case FullNetHostProfile.Migrator:
@@ -89,4 +91,31 @@ public static class FullNetModuleCatalog
         new CodeGenerationModule(),
         new SerialNumbersModule(),
     ];
+
+    private static readonly string[] OfficialHostProfiles =
+    [
+        nameof(FullNetHostProfile.Api),
+        nameof(FullNetHostProfile.Worker),
+        nameof(FullNetHostProfile.Migrator),
+    ];
+
+    /// <summary>
+    /// 由已注册模块生成官方描述符；版本取程序集版本，不暴露路径或载荷。
+    /// </summary>
+    private static FullNetModuleDescriptor CreateOfficialDescriptor(IFullNetModule module)
+    {
+        var assemblyVersion = module.GetType().Assembly.GetName().Version;
+        var version = assemblyVersion is null
+            ? "0.0.0"
+            : $"{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}";
+
+        return FullNetModuleDescriptor.Create(
+            module.Name,
+            module.Name,
+            version,
+            module.Dependencies,
+            OfficialHostProfiles,
+            FullNetModuleSourceClassification.Official,
+            FullNetModuleHealthCapability.None);
+    }
 }

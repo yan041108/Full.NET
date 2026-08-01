@@ -61,6 +61,7 @@
   <data name="identity.signature.access_key_disabled" xml:space="preserve"><value>The access key is disabled or rotated.</value></data>
   <data name="identity.signature.access_key_expired" xml:space="preserve"><value>The access key has expired.</value></data>
   <data name="identity.signature.tenant_scope_mismatch" xml:space="preserve"><value>The access key does not match the tenant scope.</value></data>
+  <data name="identity.modules.not_found" xml:space="preserve"><value>The module catalog entry was not found.</value></data>
   <data name="identity.field_projection.invalid" xml:space="preserve"><value>The field projection resource or field keys are invalid.</value></data>
   <data name="identity.field_projection.version_conflict" xml:space="preserve"><value>The role field grants changed concurrently.</value></data>
 </root>

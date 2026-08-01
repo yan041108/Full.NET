@@ -195,6 +195,9 @@ public static class IdentityErrorCodes
     /// <summary>Access Key 与租户作用域不匹配。</summary>
     public const string SignatureTenantScopeMismatch = "identity.signature.tenant_scope_mismatch";
 
+    /// <summary>目标模块不在只读清单中。</summary>
+    public const string ModuleCatalogNotFound = "identity.modules.not_found";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -258,5 +261,6 @@ public static class IdentityErrorCodes
         SignatureAccessKeyDisabled,
         SignatureAccessKeyExpired,
         SignatureTenantScopeMismatch,
+        ModuleCatalogNotFound,
     ]);
 }

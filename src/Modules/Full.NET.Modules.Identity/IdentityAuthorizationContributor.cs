@@ -82,6 +82,10 @@ internal sealed class IdentityAuthorizationContributor
             IdentityApiKeyManagementPermissions.Write,
             "管理 Host API Key",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            ModuleCatalogPermissions.Read,
+            "查看官方模块清单",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -130,6 +134,17 @@ internal sealed class IdentityAuthorizationContributor
             "key",
             36,
             IdentityApiKeyManagementPermissions.Read),
+        new NavigationDefinition(
+            "modules",
+            null,
+            "modules",
+            "/identity/modules",
+            "modules",
+            "模块清单",
+            "Modules",
+            "appstore",
+            38,
+            ModuleCatalogPermissions.Read),
         new NavigationDefinition(
             "roles",
             null,

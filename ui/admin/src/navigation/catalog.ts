@@ -42,6 +42,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.apiKeys.title',
     captionKey: 'navigation.apiKeys.caption'
   }],
+  ['modules', {
+    titleKey: 'navigation.modules.title',
+    captionKey: 'navigation.modules.caption'
+  }],
   ['roles', {
     titleKey: 'navigation.roles.title',
     captionKey: 'navigation.roles.caption'

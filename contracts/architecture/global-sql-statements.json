@@ -35,6 +35,17 @@
       ]
     },
     {
+      "statementName": "auditing.insert_outbound_call_log",
+      "declaration": "Full.NET.Modules.Auditing.Persistence.OutboundCallLogSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Persistence/OutboundCallLogSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "出站调用审计由调用方显式 opt-in 写入，可能发生在 Host 或租户上下文，写入值显式携带当前可用的租户标识。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_outbound_call",
+        "@TenantId"
+      ]
+    },
+    {
       "statementName": "auditing.insert_request_audit_batch.access",
       "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.Access",
       "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
@@ -144,6 +155,18 @@
         "FROM fn_identity_api_key AS apiKey",
         "identityUser.ScopeKey = 'host'",
         "identityUser.TenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "identity.find_api_key_for_signature_authentication",
+      "declaration": "Full.NET.Modules.Identity.Persistence.ApiKeySql.FindForSignatureAuthentication",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/ApiKeySql.cs",
+      "category": "host_catalog",
+      "reason": "签名认证发生在可信请求上下文建立之前；SQL 按 AccessKeyId 查找候选密钥，Host/租户作用域由服务层在验签后显式裁决。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_api_key AS apiKey",
+        "INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = apiKey.UserId",
+        "apiKey.KeyPrefix = @AccessKeyId"
       ]
     },
     {
@@ -289,11 +312,47 @@
       "declaration": "Full.NET.Modules.Identity.Persistence.ApiKeySql.TouchLastUsed",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/ApiKeySql.cs",
       "category": "host_catalog",
-      "reason": "认证成功后更新 API Key 使用时间时尚无请求租户，EXISTS 子句必须保证 Key 归属 Host 用户。",
+      "reason": "认证成功后按已解析的 API Key Id 更新使用时间，此时尚无请求租户；Host 边界已在查找语句中强制。",
       "requiredSqlFragments": [
         "UPDATE fn_identity_api_key",
-        "identityUser.ScopeKey = 'host'",
-        "identityUser.TenantId IS NULL"
+        "WHERE Id = @ApiKeyId",
+        "AND IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "identity.exists_signature_nonce",
+      "declaration": "Full.NET.Modules.Identity.Persistence.SignatureNonceSql.Exists",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/SignatureNonceSql.cs",
+      "category": "host_catalog",
+      "reason": "签名 Nonce 防重放查询发生在认证主体建立之前，必须使用 Global 作用域并按 AccessKeyId 与摘要精确匹配。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_signature_nonce",
+        "AccessKeyId = @AccessKeyId",
+        "NonceDigest = @NonceDigest"
+      ]
+    },
+    {
+      "statementName": "identity.exists_signature_nonce.mysql",
+      "declaration": "Full.NET.Modules.Identity.Persistence.SignatureNonceSql.ExistsMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/SignatureNonceSql.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 变体的签名 Nonce 防重放查询同样发生在认证主体建立之前。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_signature_nonce",
+        "AccessKeyId = @AccessKeyId",
+        "NonceDigest = @NonceDigest"
+      ]
+    },
+    {
+      "statementName": "identity.insert_signature_nonce",
+      "declaration": "Full.NET.Modules.Identity.Persistence.SignatureNonceSql.TryInsert",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/SignatureNonceSql.cs",
+      "category": "host_catalog",
+      "reason": "签名 Nonce 写入发生在认证主体建立之前，用于防重放且不依赖请求租户上下文。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_identity_signature_nonce",
+        "@AccessKeyId",
+        "@NonceDigest"
       ]
     },
     {

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modularity.Modules;
 
@@ -55,6 +56,31 @@ public static class ModuleExtensions
         }
 
         return app;
+    }
+
+    /// <summary>
+    /// 读取服务集合中已注册的模块注册表实例，供 Composition 在装配期物化只读清单。
+    /// </summary>
+    public static FullNetModuleRegistry GetFullNetModuleRegistry(
+        this IServiceCollection services) =>
+        GetRegisteredRegistry(services);
+
+    /// <summary>
+    /// 基于当前注册表物化不可变模块清单，并注册为单例供 Host 只读查询。
+    /// </summary>
+    public static IServiceCollection AddFullNetModuleCatalogSnapshot(
+        this IServiceCollection services,
+        Func<IFullNetModule, FullNetModuleDescriptor> descriptorFactory)
+    {
+        ArgumentNullException.ThrowIfNull(descriptorFactory);
+        var registry = GetRegisteredRegistry(services);
+        var snapshot = FullNetModuleCatalogSnapshot.FromRegistry(
+            registry,
+            descriptorFactory);
+        // Api Profile 必须替换 AddFullNetModularity 注册的空清单。
+        services.RemoveAll<IFullNetModuleCatalog>();
+        services.AddSingleton<IFullNetModuleCatalog>(snapshot);
+        return services;
     }
 
     internal static FullNetModuleRegistry GetRegisteredRegistry(

@@ -15,6 +15,18 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class DependencyRulesTests
 {
+    private static readonly string[] ForbiddenRuntimeDynamicTokens =
+    [
+        "CSharpCompilation",
+        "CSharpSyntaxTree",
+        "CSharpScript",
+        "Microsoft.CodeAnalysis.CSharp.Scripting",
+        "ApplicationPartManager",
+        "ApplicationParts.Add",
+        "Assembly.LoadFrom",
+        "Assembly.LoadFile",
+    ];
+
     private static readonly Assembly[] BuildingBlockAssemblies =
     [
         typeof(Full.NET.Abstractions.Results.Result<>).Assembly,
@@ -62,6 +74,34 @@ public sealed class DependencyRulesTests
         Assert.IsTrue(
             result.IsSuccessful,
             $"BuildingBlocks depending on Modules: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void Production_source_rejects_runtime_dynamic_csharp_and_application_part_mutation()
+    {
+        var root = FindRepositoryRoot();
+        var sourceRoot = Path.Combine(root, "src");
+        var offenders = Directory
+            .EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !IsBuildOutputPath(path))
+            .Where(path => !IsApprovedCompatibilityPath(path))
+            .Select(path => new
+            {
+                Path = Path.GetRelativePath(root, path).Replace('\\', '/'),
+                Content = File.ReadAllText(path),
+            })
+            .Where(file => ForbiddenRuntimeDynamicTokens.Any(token =>
+                file.Content.Contains(token, StringComparison.Ordinal)))
+            .Select(file => file.Path)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "生产代码禁止运行时动态 C# 编译或 ApplicationPart 变更："
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, offenders));
     }
 
     [TestMethod]
@@ -1082,6 +1122,12 @@ public sealed class DependencyRulesTests
         return buildOutputSegments.Any(segment => path.Contains(
             segment,
             StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsApprovedCompatibilityPath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        return normalized.Contains("/src/Compatibility/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? GetLogicalModuleName(string? projectName)

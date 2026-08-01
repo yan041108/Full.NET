@@ -58,6 +58,13 @@ public sealed class FullNetModuleCatalogTests
             string.Join(
                 Environment.NewLine,
                 modules.Select(module => module.FullName)));
+
+        var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
+        Assert.HasCount(10, catalog.List());
+        Assert.IsNotNull(catalog.FindByKey("Identity"));
+        Assert.AreEqual(
+            FullNetModuleSourceClassification.Official,
+            catalog.FindByKey("Identity")!.SourceClassification);
     }
 
     [TestMethod]

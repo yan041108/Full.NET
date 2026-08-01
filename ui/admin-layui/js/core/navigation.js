@@ -45,6 +45,12 @@ const presentation = new Map([
     titleKey: 'navigation.apiKeys.title',
     captionKey: 'navigation.apiKeys.caption'
   }],
+  ['modules', {
+    view: 'modules',
+    iconClass: 'layui-icon-app',
+    titleKey: 'navigation.modules.title',
+    captionKey: 'navigation.modules.caption'
+  }],
   ['roles', {
     view: 'roles',
     iconClass: 'layui-icon-group',

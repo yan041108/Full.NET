@@ -95,7 +95,7 @@
 | 消息中心 | Notifications | Core | M3 | **Build-verified**（Host 发信 + 个人收件箱/未读/已读；[验证记录](../verification/notifications-inbox-message-2026-07-26.md)） |
 | MQTT | MQTT Provider | Provider | M5+ | Mapped |
 | 开放接口访问 | OpenAccess | Official Module | M5+ | Mapped |
-| 插件管理 | Modularity Admin | Official Module | M5+ | Mapped |
+| 插件管理 | Modularity Admin | Official Module | M5+ | Implementing |
 | 打印 | Printing | Official Module + Client | M5+ | Mapped |
 | 行政区域 | Regions | Official Module | M5+ | Mapped |
 | 报表配置 | Reporting | Official Module | M5+ | Mapped |

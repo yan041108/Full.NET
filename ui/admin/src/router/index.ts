@@ -50,6 +50,11 @@ export function createAppRouter(
         component: () => import('../views/ApiKeysView.vue')
       },
       {
+        name: 'modules',
+        path: '/identity/modules',
+        component: () => import('../views/ModuleCatalogView.vue')
+      },
+      {
         name: 'roles',
         path: '/identity/roles',
         component: () => import('../views/RolesView.vue')

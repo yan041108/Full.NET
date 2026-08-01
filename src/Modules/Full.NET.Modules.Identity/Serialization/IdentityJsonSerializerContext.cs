@@ -53,4 +53,7 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(PagedResult<HostApiKeyResponse>))]
 [JsonSerializable(typeof(HostDashboardSummaryResponse))]
 [JsonSerializable(typeof(HostDashboardActivityResponse))]
+[JsonSerializable(typeof(ModuleCatalogEntryResponse))]
+[JsonSerializable(typeof(ModuleCatalogEntryResponse[]))]
+[JsonSerializable(typeof(IReadOnlyList<ModuleCatalogEntryResponse>))]
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

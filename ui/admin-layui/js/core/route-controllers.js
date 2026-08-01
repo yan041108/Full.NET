@@ -133,6 +133,12 @@ export function createLayuiRouteControllerDefinitions(root, options) {
         canWrite: options.canWrite
       }
     )],
+    ['/identity/modules', defineController(
+      () => import('./module-catalog.js'),
+      'createModuleCatalogController',
+      root,
+      sharedOptions
+    )],
     ['/identity/users', defineController(
       () => import('./users.js'),
       'createUsersController',

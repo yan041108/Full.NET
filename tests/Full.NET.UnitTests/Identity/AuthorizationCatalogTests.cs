@@ -21,6 +21,7 @@ public sealed class AuthorizationCatalogTests
                 "identity.api_keys.write",
                 "identity.menus.read",
                 "identity.menus.write",
+                "identity.modules.read",
                 "identity.navigation.read",
                 "identity.role_field_grants.read",
                 "identity.role_field_grants.write",
@@ -43,13 +44,13 @@ public sealed class AuthorizationCatalogTests
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
-        var navigation = catalog.Navigation.Single(item => item.Id == "api-keys");
+        var navigation = catalog.Navigation.Single(item => item.Id == "modules");
 
-        Assert.AreEqual("api-keys", navigation.RouteName);
-        Assert.AreEqual("/identity/api-keys", navigation.Path);
-        Assert.AreEqual("api-keys", navigation.ComponentKey);
+        Assert.AreEqual("modules", navigation.RouteName);
+        Assert.AreEqual("/identity/modules", navigation.Path);
+        Assert.AreEqual("modules", navigation.ComponentKey);
         Assert.AreEqual(
-            IdentityApiKeyManagementPermissions.Read,
+            ModuleCatalogPermissions.Read,
             navigation.RequiredPermission);
     }
 

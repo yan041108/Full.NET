@@ -320,6 +320,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<HostApiKeyManagementService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<
+            IdentityFeatures.QueryHostModuleCatalog.HostModuleCatalogQueryService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<
             IdentityFeatures.GetHostDashboardSummary.HostDashboardQueryService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserDirectory>(ServiceLifetime.Scoped),

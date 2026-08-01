@@ -135,4 +135,14 @@ public sealed class IdentityApiMySqlTests
 
         await IdentitySignatureAuthenticationAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_module_catalog_follows_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await IdentityModuleCatalogAssertions.VerifyAsync(factory);
+    }
 }

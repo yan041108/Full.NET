@@ -380,6 +380,14 @@ export type {
 } from './auditing-outbound-call-logs.js';
 
 export {
+  isIdentityModuleCatalogEntry
+} from './identity-module-catalog.js';
+
+export type {
+  IdentityModuleCatalogEntry
+} from './identity-module-catalog.js';
+
+export {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
   ROLE_DATA_SCOPE_KINDS,
   isHostRole,
