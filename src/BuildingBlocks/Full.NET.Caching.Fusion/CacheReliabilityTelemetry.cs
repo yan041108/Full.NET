@@ -22,6 +22,8 @@ public static class CacheReliabilityTelemetry
             "fullnet.cache.backplane.circuit.transitions");
     private static readonly Counter<long> BackplaneRecoveries =
         Meter.CreateCounter<long>("fullnet.cache.backplane.recoveries");
+    private static readonly Counter<long> PolicyEvents =
+        Meter.CreateCounter<long>("fullnet.cache.policy.events");
 
     /// <summary>记录仅修复当前节点的缓存失效结果。</summary>
     public static void RecordLocalInvalidation(
@@ -34,6 +36,38 @@ public static class CacheReliabilityTelemetry
         TimeSpan duration,
         bool succeeded) =>
         RecordInvalidation("distributed", duration, succeeded);
+
+    /// <summary>
+    /// 记录策略级缓存事件。标签仅允许 owner_module、consistency_class、operation、result。
+    /// </summary>
+    public static void RecordPolicyEvent(
+        string ownerModule,
+        string consistencyClass,
+        string operation,
+        string result)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerModule);
+        ArgumentException.ThrowIfNullOrWhiteSpace(consistencyClass);
+        ArgumentException.ThrowIfNullOrWhiteSpace(operation);
+        ArgumentException.ThrowIfNullOrWhiteSpace(result);
+
+        try
+        {
+            PolicyEvents.Add(
+                1,
+                new TagList
+                {
+                    { "owner_module", ownerModule },
+                    { "consistency_class", consistencyClass },
+                    { "operation", operation },
+                    { "result", result },
+                });
+        }
+        catch (Exception)
+        {
+            // 指标消费者属于旁路；其失败不得覆盖缓存语义或原始异常。
+        }
+    }
 
     internal static void RecordStaleHit()
     {

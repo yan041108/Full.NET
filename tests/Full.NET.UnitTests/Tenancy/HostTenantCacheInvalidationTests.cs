@@ -105,7 +105,8 @@ public sealed class HostTenantCacheInvalidationTests
             Substitute.For<IClock>(),
             new TenantCacheInvalidator(
                 fusionCache,
-                new TestHostEnvironment(environmentName)));
+                new TestHostEnvironment(environmentName),
+                CachePolicyRegistry.Create(new CacheOptions())));
 
         var result = await service.UpdateAsync(
             tenantId,

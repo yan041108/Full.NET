@@ -25,6 +25,8 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddFusionCache().AsHybridCache();
+        services.AddSingleton<ICachePolicyRegistry>(
+            CachePolicyRegistry.Create(new CacheOptions()));
         services.AddSingleton<IHostEnvironment>(
             new TestHostEnvironment("Testing"));
         services.AddSingleton<IIntegrationEventSerializer,
@@ -90,7 +92,8 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
             serializer,
             new TenantCacheInvalidator(
                 fusionCache,
-                new TestHostEnvironment(environmentName)));
+                new TestHostEnvironment(environmentName),
+                CachePolicyRegistry.Create(new CacheOptions())));
         var payload = serializer.Serialize(new TenantProvisionedIntegrationEvent(
             tenantId,
             "acme",
@@ -138,7 +141,8 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
             new CancellingCommandDispatcher(requestCancellation, tenant),
             new TenantCacheInvalidator(
                 fusionCache,
-                new TestHostEnvironment(environmentName)));
+                new TestHostEnvironment(environmentName),
+                CachePolicyRegistry.Create(new CacheOptions())));
 
         var result = await service.ProvisionAsync(
             new ProvisionTenantRequest(

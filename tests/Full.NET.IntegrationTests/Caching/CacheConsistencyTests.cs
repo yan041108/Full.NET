@@ -23,6 +23,8 @@ using Full.NET.Modules.Organization.Contracts;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Serialization.MessagePack;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Realtime;
+using Full.NET.Realtime.SignalR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -187,20 +189,20 @@ public sealed class CacheConsistencyTests
 
         // 共享 L2/标签版本可能让第二节点在 Outbox 消费前提前看见新租户；
         // 本场景只要求 Outbox 最终仍发出可观测的跨节点精确失效通知。
-        await using (var failingWorkerServices = BuildWorkerServices(
+        using (var failingWorkerHost = BuildWorkerHost(
                          CreateWorkerConfiguration(
                              databaseProvider,
                              connectionString,
                              redisConnectionString)))
         {
             var failingWorkerCache =
-                failingWorkerServices.GetRequiredService<IFusionCache>();
+                failingWorkerHost.Services.GetRequiredService<IFusionCache>();
             failingWorkerCache.RemoveBackplane();
             failingWorkerCache.SetupBackplane(new ThrowingBackplane());
             Assert.IsTrue(
                 failingWorkerCache.HasBackplane,
                 "失败路径必须保留 Backplane，才能验证广播异常不会被当作成功确认。");
-            await CreateProcessor(failingWorkerServices)
+            await CreateProcessor(failingWorkerHost.Services)
                 .ProcessOnceAsync(CancellationToken.None);
         }
 
@@ -223,12 +225,12 @@ public sealed class CacheConsistencyTests
             "Backplane 发布失败后 Outbox 必须释放租约并安排重试。");
         await MakeOutboxRetriesDueAsync(databaseProvider, connectionString);
 
-        await using var workerServices = BuildWorkerServices(
+        using var workerHost = BuildWorkerHost(
             CreateWorkerConfiguration(
                 databaseProvider,
                 connectionString,
                 redisConnectionString));
-        var workerCache = workerServices.GetRequiredService<IFusionCache>();
+        var workerCache = workerHost.Services.GetRequiredService<IFusionCache>();
         Assert.IsTrue(
             workerCache.HasBackplane,
             "Worker 缓存实例必须连接 Redis Backplane，才能完成跨节点失效广播。");
@@ -236,7 +238,7 @@ public sealed class CacheConsistencyTests
         workerCache.Events.Backplane.MessagePublished += (_, args) =>
             workerBackplaneEvents.Enqueue(
                 $"{args.Message.Action}:{args.Message.CacheKey ?? "<null>"}");
-        var processor = CreateProcessor(workerServices);
+        var processor = CreateProcessor(workerHost.Services);
         await processor.ProcessOnceAsync(CancellationToken.None);
         var successfulAttempt = await GetOutboxStateAsync(
             databaseProvider,
@@ -756,16 +758,23 @@ public sealed class CacheConsistencyTests
                     MySqlGuidStorageMode.Binary16.ToString(),
                 [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] = "30",
                 [$"{CacheOptions.SectionName}:RedisConnectionString"] = redisConnectionString,
+                [$"{RealtimeOptions.SectionName}:RedisBackplaneConnectionString"] =
+                    redisConnectionString,
                 ["ConnectionStrings:redis"] = redisConnectionString,
             })
             .Build();
 
-    private static ServiceProvider BuildWorkerServices(IConfiguration configuration)
+    private static IHost BuildWorkerHost(IConfiguration configuration)
     {
-        var services = new ServiceCollection();
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            ApplicationName = "Full.NET.IntegrationTests.Caching.Worker",
+            EnvironmentName = "Testing",
+        });
+        builder.Configuration.AddConfiguration(configuration);
+        var services = builder.Services;
         services.AddLogging();
         services.AddRouting();
-        services.AddSingleton<IHostEnvironment, TestHostEnvironment>();
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
@@ -781,17 +790,15 @@ public sealed class CacheConsistencyTests
         services.AddFullNetDapper(configuration, "Testing");
         services.AddFullNetMessagePack();
         services.AddFullNetCaching(configuration, "Testing");
+        // 与正式 Worker 宿主对齐：Realtime Publisher 需要完整 Host 生命周期服务。
+        services.AddFullNetRealtimePublisher(configuration, "Testing");
         services.AddFullNetApplicationModules(
-            configuration,
+            builder.Configuration,
             FullNetHostProfile.Worker);
-        return services.BuildServiceProvider(new ServiceProviderOptions
-        {
-            ValidateOnBuild = true,
-            ValidateScopes = true,
-        });
+        return builder.Build();
     }
 
-    private static WorkerHost.OutboxProcessor CreateProcessor(ServiceProvider services) => new(
+    private static WorkerHost.OutboxProcessor CreateProcessor(IServiceProvider services) => new(
         services.GetRequiredService<IServiceScopeFactory>(),
         services.GetRequiredService<IClock>(),
         Options.Create(new WorkerHost.OutboxWorkerOptions

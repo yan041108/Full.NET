@@ -33,7 +33,8 @@ public sealed class TenantChangedCacheInvalidationHandlerTests
             serializer,
             new TenantCacheInvalidator(
                 cache,
-                new TestHostEnvironment("Testing")));
+                new TestHostEnvironment("Testing"),
+                CachePolicyRegistry.Create(new CacheOptions())));
         var payload = serializer.Serialize(new TenantChangedIntegrationEvent(
             Guid.CreateVersion7(),
             "acme.localhost"));
@@ -56,7 +57,8 @@ public sealed class TenantChangedCacheInvalidationHandlerTests
             serializer,
             new TenantCacheInvalidator(
                 distributedCache,
-                new TestHostEnvironment("Testing")));
+                new TestHostEnvironment("Testing"),
+                CachePolicyRegistry.Create(new CacheOptions())));
 
         await Assert.ThrowsExactlyAsync<FusionCacheDistributedCacheException>(
             () => distributedHandler.HandleAsync(

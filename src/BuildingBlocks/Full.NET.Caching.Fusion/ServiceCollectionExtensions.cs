@@ -28,7 +28,11 @@ public static class ServiceCollectionExtensions
 
         Validate(cacheOptions);
 
+        // 启动期构建注册表，未知/非法条目立即失败，避免首个请求才暴露配置错误。
+        var policyRegistry = CachePolicyRegistry.Create(cacheOptions);
+
         services.AddSingleton(Options.Create(cacheOptions));
+        services.AddSingleton<ICachePolicyRegistry>(policyRegistry);
 
         if (cacheOptions.RedisConnectionString is { } redisConnectionString)
         {

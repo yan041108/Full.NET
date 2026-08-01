@@ -65,6 +65,46 @@ public sealed class CacheReliabilityTelemetryTests
     }
 
     [TestMethod]
+    public void Policy_events_use_only_owner_consistency_operation_and_result_tags()
+    {
+        using var capture = new MetricCapture();
+
+        CacheReliabilityTelemetry.RecordPolicyEvent(
+            "tenancy",
+            "s1",
+            "invalidate_local",
+            "success");
+        CacheReliabilityTelemetry.RecordPolicyEvent(
+            "tenancy",
+            "s1",
+            "bypass",
+            "version_mismatch");
+
+        var events = capture.LongMeasurements
+            .Where(item => item.Name == "fullnet.cache.policy.events")
+            .ToArray();
+        Assert.HasCount(2, events);
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "owner_module",
+                "consistency_class",
+                "operation",
+                "result",
+            },
+            events[0].Tags.Select(tag => tag.Key).ToArray());
+        Assert.AreEqual("tenancy", events[0].Tags.Single(tag => tag.Key == "owner_module").Value);
+        Assert.AreEqual("s1", events[0].Tags.Single(tag => tag.Key == "consistency_class").Value);
+        Assert.AreEqual(
+            "invalidate_local",
+            events[0].Tags.Single(tag => tag.Key == "operation").Value);
+        Assert.AreEqual("success", events[0].Tags.Single(tag => tag.Key == "result").Value);
+        Assert.AreEqual(
+            "version_mismatch",
+            events[1].Tags.Single(tag => tag.Key == "result").Value);
+    }
+
+    [TestMethod]
     public void Fusion_events_record_stale_hits_and_backplane_recovery()
     {
         using var capture = new MetricCapture();
