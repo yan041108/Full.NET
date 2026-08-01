@@ -13,4 +13,8 @@ namespace Full.NET.Modules.Auditing.Serialization;
 [JsonSerializable(typeof(PagedResult<OperationLogResponse>))]
 [JsonSerializable(typeof(ExceptionLogResponse))]
 [JsonSerializable(typeof(PagedResult<ExceptionLogResponse>))]
+[JsonSerializable(typeof(OutboundCallLogResponse))]
+[JsonSerializable(typeof(PagedResult<OutboundCallLogResponse>))]
+[JsonSerializable(typeof(OutboundCallAuditProbeRequest))]
+[JsonSerializable(typeof(OutboundCallAuditRequest))]
 internal partial class AuditingJsonSerializerContext : JsonSerializerContext;

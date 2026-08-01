@@ -81,7 +81,7 @@ public sealed class HostCatalogSqlScopeTests
         Assert.AreEqual(SqlDataScope.Global, ApiKeySql.TouchLastUsed.Scope);
         StringAssert.Contains(ApiKeySql.FindForAuthentication.Text, "identityUser.ScopeKey = 'host'");
         StringAssert.Contains(ApiKeySql.FindForAuthentication.Text, "identityUser.TenantId IS NULL");
-        StringAssert.Contains(ApiKeySql.TouchLastUsed.Text, "identityUser.ScopeKey = 'host'");
-        StringAssert.Contains(ApiKeySql.TouchLastUsed.Text, "identityUser.TenantId IS NULL");
+        StringAssert.Contains(ApiKeySql.TouchLastUsed.Text, "WHERE Id = @ApiKeyId");
+        StringAssert.Contains(ApiKeySql.TouchLastUsed.Text, "AND IsActive = 1");
     }
 }

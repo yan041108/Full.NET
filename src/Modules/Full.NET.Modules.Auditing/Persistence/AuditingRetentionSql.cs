@@ -47,6 +47,20 @@ internal static class AuditingRetentionSql
         """,
         SqlDataScope.HostOnly);
 
+    private static readonly SqlStatement DeleteOutboundSqlServer = new(
+        "auditing.retention.delete_outbound.sql_server",
+        """
+        ;WITH Candidates AS
+        (
+            SELECT TOP (@BatchSize) Id
+            FROM fn_auditing_outbound_call WITH (UPDLOCK, READPAST, ROWLOCK)
+            WHERE OccurredAtUtc < @CutoffUtc
+            ORDER BY OccurredAtUtc, Id
+        )
+        DELETE FROM Candidates;
+        """,
+        SqlDataScope.HostOnly);
+
     private static readonly SqlStatement SelectAccessIdsMySql = new(
         "auditing.retention.select_access_ids.my_sql",
         """
@@ -83,6 +97,18 @@ internal static class AuditingRetentionSql
         """,
         SqlDataScope.HostOnly);
 
+    private static readonly SqlStatement SelectOutboundIdsMySql = new(
+        "auditing.retention.select_outbound_ids.my_sql",
+        """
+        SELECT Id
+        FROM fn_auditing_outbound_call
+        WHERE OccurredAtUtc < @CutoffUtc
+        ORDER BY OccurredAtUtc, Id
+        LIMIT @BatchSize
+        FOR UPDATE SKIP LOCKED;
+        """,
+        SqlDataScope.HostOnly);
+
     private static readonly SqlStatement DeleteAccessIdsMySql = new(
         "auditing.retention.delete_access_ids.my_sql",
         """
@@ -107,6 +133,14 @@ internal static class AuditingRetentionSql
         """,
         SqlDataScope.HostOnly);
 
+    private static readonly SqlStatement DeleteOutboundIdsMySql = new(
+        "auditing.retention.delete_outbound_ids.my_sql",
+        """
+        DELETE FROM fn_auditing_outbound_call
+        WHERE Id IN @Ids;
+        """,
+        SqlDataScope.HostOnly);
+
     public static SqlStatement GetSqlServerDelete(
         AuditingRetentionCategory category) =>
         category switch
@@ -114,6 +148,7 @@ internal static class AuditingRetentionSql
             AuditingRetentionCategory.Access => DeleteAccessSqlServer,
             AuditingRetentionCategory.Operation => DeleteOperationSqlServer,
             AuditingRetentionCategory.Exception => DeleteExceptionSqlServer,
+            AuditingRetentionCategory.Outbound => DeleteOutboundSqlServer,
             _ => throw new ArgumentOutOfRangeException(nameof(category)),
         };
 
@@ -124,6 +159,7 @@ internal static class AuditingRetentionSql
             AuditingRetentionCategory.Access => SelectAccessIdsMySql,
             AuditingRetentionCategory.Operation => SelectOperationIdsMySql,
             AuditingRetentionCategory.Exception => SelectExceptionIdsMySql,
+            AuditingRetentionCategory.Outbound => SelectOutboundIdsMySql,
             _ => throw new ArgumentOutOfRangeException(nameof(category)),
         };
 
@@ -134,6 +170,7 @@ internal static class AuditingRetentionSql
             AuditingRetentionCategory.Access => DeleteAccessIdsMySql,
             AuditingRetentionCategory.Operation => DeleteOperationIdsMySql,
             AuditingRetentionCategory.Exception => DeleteExceptionIdsMySql,
+            AuditingRetentionCategory.Outbound => DeleteOutboundIdsMySql,
             _ => throw new ArgumentOutOfRangeException(nameof(category)),
         };
 }

@@ -121,6 +121,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
   ['exception-logs', {
     titleKey: 'navigation.exceptionLogs.title',
     captionKey: 'navigation.exceptionLogs.caption'
+  }],
+  ['outbound-call-logs', {
+    titleKey: 'navigation.outboundCallLogs.title',
+    captionKey: 'navigation.outboundCallLogs.caption'
   }]
 ]);
 

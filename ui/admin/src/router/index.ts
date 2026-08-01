@@ -149,6 +149,11 @@ export function createAppRouter(
         path: '/auditing/exception-logs',
         component: () => import('../views/ExceptionLogsView.vue')
       },
+      {
+        name: 'outbound-call-logs',
+        path: '/auditing/outbound-call-logs',
+        component: () => import('../views/OutboundCallLogsView.vue')
+      },
       { path: '/403', component: loadStatusView, props: { code: '403' } },
       { path: '/404', component: loadStatusView, props: { code: '404' } },
       { path: '/500', component: loadStatusView, props: { code: '500' } },

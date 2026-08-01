@@ -21,6 +21,10 @@ internal sealed class AuditingAuthorizationContributor
             ExceptionLogPermissions.Read,
             "查询异常日志",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            OutboundCallLogPermissions.Read,
+            "查询出站调用审计",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -58,5 +62,16 @@ internal sealed class AuditingAuthorizationContributor
             "warning",
             62,
             ExceptionLogPermissions.Read),
+        new NavigationDefinition(
+            "outbound-call-logs",
+            null,
+            "outbound-call-logs",
+            "/auditing/outbound-call-logs",
+            "outbound-call-logs",
+            "出站调用审计",
+            "Outbound Call Logs",
+            "connection",
+            63,
+            OutboundCallLogPermissions.Read),
     ];
 }

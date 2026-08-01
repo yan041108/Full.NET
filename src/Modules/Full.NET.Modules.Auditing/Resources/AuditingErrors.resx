@@ -8,6 +8,7 @@
   <data name="auditing.access_log.cursor_invalid" xml:space="preserve"><value>访问日志游标无效或与当前筛选条件不匹配。</value></data>
   <data name="auditing.operation_log.not_found" xml:space="preserve"><value>未找到该操作日志记录。</value></data>
   <data name="auditing.exception_log.not_found" xml:space="preserve"><value>未找到该异常日志记录。</value></data>
+  <data name="auditing.outbound_call.not_found" xml:space="preserve"><value>未找到该出站调用审计记录。</value></data>
   <data name="auditing.query.contains_time_range_required" xml:space="preserve"><value>Contains 查询必须同时提供开始和结束时间。</value></data>
   <data name="auditing.query.time_range_invalid" xml:space="preserve"><value>开始时间不能晚于结束时间。</value></data>
   <data name="auditing.query.contains_time_range_exceeded" xml:space="preserve"><value>Contains 查询的时间范围超过服务端允许的上限。</value></data>

@@ -370,6 +370,16 @@ export type {
 } from './auditing-exception-logs.js';
 
 export {
+  isAuditingOutboundCallLog,
+  isAuditingOutboundCallLogPage
+} from './auditing-outbound-call-logs.js';
+
+export type {
+  AuditingOutboundCallLog,
+  AuditingOutboundCallLogPage
+} from './auditing-outbound-call-logs.js';
+
+export {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
   ROLE_DATA_SCOPE_KINDS,
   isHostRole,

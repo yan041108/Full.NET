@@ -112,6 +112,12 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       root,
       sharedOptions
     )],
+    ['/auditing/outbound-call-logs', defineController(
+      () => import('./outbound-call-logs.js'),
+      'createOutboundCallLogsController',
+      root,
+      sharedOptions
+    )],
     ['/identity/online-sessions', defineController(
       () => import('./online-sessions.js'),
       'createOnlineSessionsController',

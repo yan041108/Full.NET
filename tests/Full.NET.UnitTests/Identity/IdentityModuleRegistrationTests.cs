@@ -133,7 +133,7 @@ public sealed class IdentityModuleRegistrationTests
                 .GetAllSchemesAsync())
             .OrderBy(scheme => scheme.Name, StringComparer.Ordinal)
             .ToArray();
-        Assert.HasCount(3, schemes);
+        Assert.HasCount(4, schemes);
         AssertScheme<ApiKeyAuthenticationHandler>(
             schemes,
             ApiKeyAuthenticationDefaults.AuthenticationScheme);
@@ -143,6 +143,9 @@ public sealed class IdentityModuleRegistrationTests
         AssertScheme<PolicySchemeHandler>(
             schemes,
             SmartAuthenticationDefaults.AuthenticationScheme);
+        AssertScheme<SignatureAuthenticationHandler>(
+            schemes,
+            SignatureAuthenticationDefaults.AuthenticationScheme);
 
         var jwt = provider
             .GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
@@ -231,6 +234,7 @@ public sealed class IdentityModuleRegistrationTests
             PasswordReauthenticationProvider>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<TotpEnrollmentService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<ApiKeyAuthenticationService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<SignatureAuthenticationService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<RsaSigningKeyRing>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
             IRandomTokenGenerator,
@@ -239,6 +243,8 @@ public sealed class IdentityModuleRegistrationTests
             IAccessTokenIssuer,
             JwtAccessTokenIssuer>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<ApiKeyAuthenticationHandler>(
+            ServiceLifetime.Transient),
+        RegistrationExpectation.Self<SignatureAuthenticationHandler>(
             ServiceLifetime.Transient),
 
         RegistrationExpectation.Type<

@@ -55,4 +55,14 @@ public sealed class AuditingApiMySqlTests
 
         await AuditingRetentionAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_outbound_call_log_query_follows_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await AuditingOutboundCallAssertions.VerifyAsync(factory);
+    }
 }

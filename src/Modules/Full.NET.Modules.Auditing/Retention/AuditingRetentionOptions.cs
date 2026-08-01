@@ -17,6 +17,8 @@ internal sealed class AuditingRetentionOptions
 
     public int ExceptionRetentionDays { get; set; } = 90;
 
+    public int OutboundRetentionDays { get; set; } = 90;
+
     public int BatchSize { get; set; } = 200;
 
     public int MaxBatchesPerRun { get; set; } = 15;
@@ -49,6 +51,12 @@ internal sealed class AuditingRetentionOptionsValidator
             1,
             3650,
             "Auditing:Retention:ExceptionRetentionDays",
+            failures);
+        ValidateRange(
+            options.OutboundRetentionDays,
+            1,
+            3650,
+            "Auditing:Retention:OutboundRetentionDays",
             failures);
         ValidateRange(
             options.BatchSize,

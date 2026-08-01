@@ -43,6 +43,10 @@ internal static class AuditingRetentionTelemetry
                 result.ExceptionDeleted,
                 "exception",
                 provider);
+            RecordDeletedRows(
+                result.OutboundDeleted,
+                "outbound",
+                provider);
             RunDuration.Record(
                 duration.TotalSeconds,
                 CreateProviderTag(provider),

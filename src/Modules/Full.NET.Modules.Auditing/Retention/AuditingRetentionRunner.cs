@@ -11,18 +11,20 @@ internal enum AuditingRetentionCategory
     Access,
     Operation,
     Exception,
+    Outbound,
 }
 
 internal sealed record AuditingRetentionResult(
     int AccessDeleted,
     int OperationDeleted,
     int ExceptionDeleted,
+    int OutboundDeleted,
     int BatchesExecuted)
 {
-    public static AuditingRetentionResult Empty { get; } = new(0, 0, 0, 0);
+    public static AuditingRetentionResult Empty { get; } = new(0, 0, 0, 0, 0);
 
     public int TotalDeleted =>
-        AccessDeleted + OperationDeleted + ExceptionDeleted;
+        AccessDeleted + OperationDeleted + ExceptionDeleted + OutboundDeleted;
 }
 
 internal sealed class AuditingRetentionRunner(
@@ -37,6 +39,7 @@ internal sealed class AuditingRetentionRunner(
         AuditingRetentionCategory.Access,
         AuditingRetentionCategory.Operation,
         AuditingRetentionCategory.Exception,
+        AuditingRetentionCategory.Outbound,
     ];
 
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
@@ -57,9 +60,10 @@ internal sealed class AuditingRetentionRunner(
             now.AddDays(-options.AccessRetentionDays),
             now.AddDays(-options.OperationRetentionDays),
             now.AddDays(-options.ExceptionRetentionDays),
+            now.AddDays(-options.OutboundRetentionDays),
         };
-        var active = new[] { true, true, true };
-        var deleted = new int[3];
+        var active = new[] { true, true, true, true };
+        var deleted = new int[4];
         var batches = 0;
 
         while (batches < options.MaxBatchesPerRun && active.Any(value => value))
@@ -98,6 +102,7 @@ internal sealed class AuditingRetentionRunner(
             deleted[(int)AuditingRetentionCategory.Access],
             deleted[(int)AuditingRetentionCategory.Operation],
             deleted[(int)AuditingRetentionCategory.Exception],
+            deleted[(int)AuditingRetentionCategory.Outbound],
             batches);
     }
 

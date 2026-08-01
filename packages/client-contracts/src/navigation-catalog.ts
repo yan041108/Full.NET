@@ -143,6 +143,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     componentKey: 'exception-logs',
     routeName: 'exception-logs',
     path: '/auditing/exception-logs'
+  },
+  {
+    componentKey: 'outbound-call-logs',
+    routeName: 'outbound-call-logs',
+    path: '/auditing/outbound-call-logs'
   }
 ] as const;
 

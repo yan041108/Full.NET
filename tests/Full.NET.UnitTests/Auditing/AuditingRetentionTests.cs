@@ -24,6 +24,7 @@ public sealed class AuditingRetentionTests
         Assert.AreEqual(30, options.AccessRetentionDays);
         Assert.AreEqual(365, options.OperationRetentionDays);
         Assert.AreEqual(90, options.ExceptionRetentionDays);
+        Assert.AreEqual(90, options.OutboundRetentionDays);
         Assert.AreEqual(200, options.BatchSize);
         Assert.AreEqual(15, options.MaxBatchesPerRun);
         Assert.AreEqual(3600, options.PollSeconds);
@@ -34,6 +35,7 @@ public sealed class AuditingRetentionTests
                 ["Auditing:Retention:AccessRetentionDays"] = "0",
                 ["Auditing:Retention:OperationRetentionDays"] = "3651",
                 ["Auditing:Retention:ExceptionRetentionDays"] = "0",
+                ["Auditing:Retention:OutboundRetentionDays"] = "0",
                 ["Auditing:Retention:BatchSize"] = "2001",
                 ["Auditing:Retention:MaxBatchesPerRun"] = "0",
                 ["Auditing:Retention:PollSeconds"] = "59",
@@ -41,7 +43,7 @@ public sealed class AuditingRetentionTests
         var exception = Assert.ThrowsExactly<OptionsValidationException>(
             invalid.GetRequiredService<IStartupValidator>().Validate);
 
-        Assert.AreEqual(6, exception.Failures.Count());
+        Assert.AreEqual(7, exception.Failures.Count());
     }
 
     [TestMethod]
@@ -80,6 +82,8 @@ public sealed class AuditingRetentionTests
                     new Queue<int>([1]),
                 ["auditing.retention.delete_exception.sql_server"] =
                     new Queue<int>([0]),
+                ["auditing.retention.delete_outbound.sql_server"] =
+                    new Queue<int>([0]),
             });
         var runner = CreateRunner(
             DatabaseProvider.SqlServer,
@@ -105,12 +109,13 @@ public sealed class AuditingRetentionTests
                 "auditing.retention.delete_access.sql_server",
                 "auditing.retention.delete_operation.sql_server",
                 "auditing.retention.delete_exception.sql_server",
-                "auditing.retention.delete_access.sql_server",
+                "auditing.retention.delete_outbound.sql_server",
             },
             command.Statements.Select(statement => statement.Name).ToArray());
-        Assert.AreEqual(4, result.AccessDeleted);
+        Assert.AreEqual(2, result.AccessDeleted);
         Assert.AreEqual(1, result.OperationDeleted);
         Assert.AreEqual(0, result.ExceptionDeleted);
+        Assert.AreEqual(0, result.OutboundDeleted);
         Assert.AreEqual(4, result.BatchesExecuted);
         Assert.AreEqual(
             new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero),
@@ -133,6 +138,8 @@ public sealed class AuditingRetentionTests
                     new Queue<IReadOnlyList<Guid>>([[]]),
                 ["auditing.retention.select_exception_ids.my_sql"] =
                     new Queue<IReadOnlyList<Guid>>([[]]),
+                ["auditing.retention.select_outbound_ids.my_sql"] =
+                    new Queue<IReadOnlyList<Guid>>([[]]),
             });
         var command = new RecordingCommandExecutor();
         var transaction = new RecordingTransaction();
@@ -151,7 +158,7 @@ public sealed class AuditingRetentionTests
             },
             CancellationToken.None);
 
-        Assert.AreEqual(3, transaction.ExecutionCount);
+        Assert.AreEqual(4, transaction.ExecutionCount);
         Assert.AreEqual(1, result.AccessDeleted);
         Assert.AreEqual(1, result.TotalDeleted);
         Assert.AreEqual(

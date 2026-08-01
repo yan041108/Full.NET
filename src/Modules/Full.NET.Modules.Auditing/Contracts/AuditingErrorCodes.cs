@@ -20,6 +20,9 @@ public static class AuditingErrorCodes
     /// <summary>目标异常日志不存在。</summary>
     public const string ExceptionLogNotFound = "auditing.exception_log.not_found";
 
+    /// <summary>目标出站调用审计不存在。</summary>
+    public const string OutboundCallLogNotFound = "auditing.outbound_call.not_found";
+
     /// <summary>Contains 查询缺少完整的 UTC 时间范围。</summary>
     public const string ContainsTimeRangeRequired =
         "auditing.query.contains_time_range_required";
@@ -41,6 +44,7 @@ public static class AuditingErrorCodes
         AccessLogCursorInvalid,
         OperationLogNotFound,
         ExceptionLogNotFound,
+        OutboundCallLogNotFound,
         ContainsTimeRangeRequired,
         TimeRangeInvalid,
         ContainsTimeRangeExceeded,

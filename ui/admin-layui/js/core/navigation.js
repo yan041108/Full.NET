@@ -164,6 +164,12 @@ const presentation = new Map([
     iconClass: 'layui-icon-close',
     titleKey: 'navigation.exceptionLogs.title',
     captionKey: 'navigation.exceptionLogs.caption'
+  }],
+  ['outbound-call-logs', {
+    view: 'outbound-call-logs',
+    iconClass: 'layui-icon-link',
+    titleKey: 'navigation.outboundCallLogs.title',
+    captionKey: 'navigation.outboundCallLogs.caption'
   }]
 ]);
 

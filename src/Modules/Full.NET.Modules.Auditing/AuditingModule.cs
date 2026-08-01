@@ -6,6 +6,7 @@ using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
+using Full.NET.Modules.Auditing.Features.WriteOutboundCallLogs;
 using Full.NET.Modules.Auditing.Middleware;
 using Full.NET.Modules.Auditing.Retention;
 using Full.NET.Modules.Auditing.Resources;
@@ -52,10 +53,12 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddScoped<AccessLogWriter>();
         services.TryAddScoped<OperationLogWriter>();
         services.TryAddScoped<ExceptionLogWriter>();
+        services.TryAddScoped<OutboundCallAuditHandler>();
         services.TryAddSingleton<AuditingContainsTimeRangePolicy>();
         services.TryAddScoped<Features.QueryHostAccessLogs.HostAccessLogQueryService>();
         services.TryAddScoped<Features.QueryHostOperationLogs.HostOperationLogQueryService>();
         services.TryAddScoped<Features.QueryHostExceptionLogs.HostExceptionLogQueryService>();
+        services.TryAddScoped<Features.QueryHostOutboundCallLogs.HostOutboundCallLogQueryService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostDashboardAuditMetricsReader,
             HostDashboard.HostDashboardAuditMetricsReader>());
@@ -70,8 +73,10 @@ public sealed class AuditingModule : IFullNetModule
         Features.QueryHostAccessLogs.Endpoint.Map(endpoints);
         Features.QueryHostOperationLogs.Endpoint.Map(endpoints);
         Features.QueryHostExceptionLogs.Endpoint.Map(endpoints);
+        Features.QueryHostOutboundCallLogs.Endpoint.Map(endpoints);
         var environment = endpoints.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
         Features.TriggerExceptionProbe.Endpoint.Map(endpoints, environment);
+        Features.TriggerOutboundCallProbe.Endpoint.Map(endpoints, environment);
     }
 
     /// <summary>

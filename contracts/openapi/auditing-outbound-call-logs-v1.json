@@ -1,0 +1,56 @@
+{
+  "id": "auditing-outbound-call-logs-v1",
+  "version": 1,
+  "description": "Host 出站调用审计查询 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/auditing/outbound-call-logs",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.outbound_calls.read",
+          "successStatus": 200,
+          "responseSchema": "OutboundCallLogResponse",
+          "queryParameters": [
+            "fromUtc",
+            "toUtc",
+            "operationContains"
+          ],
+          "errorStatuses": [
+            400
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/outbound-call-logs/{outboundCallLogId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.outbound_calls.read",
+          "successStatus": 200,
+          "responseSchema": "OutboundCallLogResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OutboundCallLogResponse": {
+      "properties": [
+        "id",
+        "occurredAtUtc",
+        "providerKey",
+        "operationKey",
+        "destinationHostCategory",
+        "statusCode",
+        "succeeded",
+        "durationMs",
+        "retryCount",
+        "traceId",
+        "safeErrorCode",
+        "tenantId",
+        "userId"
+      ]
+    }
+  }
+}

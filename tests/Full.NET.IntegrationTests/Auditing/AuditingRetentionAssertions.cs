@@ -47,9 +47,10 @@ internal static class AuditingRetentionAssertions
             Assert.AreEqual(1, first.AccessDeleted);
             Assert.AreEqual(1, first.OperationDeleted);
             Assert.AreEqual(1, first.ExceptionDeleted);
+            Assert.AreEqual(0, first.OutboundDeleted);
             Assert.AreEqual(3, first.BatchesExecuted);
             Assert.AreEqual(
-                new RetentionCounts { OldCount = 3, FreshCount = 3 },
+                new RetentionCounts { OldCount = 5, FreshCount = 4 },
                 await ReadCountsAsync(
                     services.GetRequiredService<IQueryExecutor>(),
                     traceId,
@@ -60,9 +61,9 @@ internal static class AuditingRetentionAssertions
                 CreateOptions(10),
                 cancellationToken);
 
-            Assert.AreEqual(3, second.TotalDeleted);
+            Assert.AreEqual(5, second.TotalDeleted);
             Assert.AreEqual(
-                new RetentionCounts { OldCount = 0, FreshCount = 3 },
+                new RetentionCounts { OldCount = 0, FreshCount = 4 },
                 await ReadCountsAsync(
                     services.GetRequiredService<IQueryExecutor>(),
                     traceId,
@@ -82,6 +83,7 @@ internal static class AuditingRetentionAssertions
             AccessRetentionDays = 30,
             OperationRetentionDays = 30,
             ExceptionRetentionDays = 30,
+            OutboundRetentionDays = 30,
             BatchSize = 1,
             MaxBatchesPerRun = maxBatchesPerRun,
         };
@@ -178,6 +180,34 @@ internal static class AuditingRetentionAssertions
                 TraceId = traceId,
             },
             cancellationToken);
+        await command.ExecuteAsync(
+            new SqlStatement(
+                "test.auditing.retention.insert_outbound_fixtures",
+                """
+                INSERT INTO fn_auditing_outbound_call
+                    (Id, OccurredAtUtc, ProviderKey, OperationKey, DestinationHostCategory,
+                     StatusCode, Succeeded, DurationMs, RetryCount, TraceId, SafeErrorCode,
+                     TenantId, UserId)
+                VALUES
+                    (@OldFirstId, @OldFirst, 'retention.probe', 'old-1', 'host.old-1',
+                     500, 0, 1, 0, @TraceId, 'retention.old', NULL, NULL),
+                    (@OldSecondId, @OldSecond, 'retention.probe', 'old-2', 'host.old-2',
+                     500, 0, 1, 0, @TraceId, 'retention.old', NULL, NULL),
+                    (@FreshId, @Fresh, 'retention.probe', 'fresh', 'host.fresh',
+                     200, 1, 1, 0, @TraceId, NULL, NULL, NULL)
+                """,
+                SqlDataScope.HostOnly),
+            new
+            {
+                OldFirstId = Guid.CreateVersion7(),
+                OldSecondId = Guid.CreateVersion7(),
+                FreshId = Guid.CreateVersion7(),
+                OldFirst = oldFirst,
+                OldSecond = oldSecond,
+                Fresh = now,
+                TraceId = traceId,
+            },
+            cancellationToken);
     }
 
     private static async Task<RetentionCounts> ReadCountsAsync(
@@ -197,12 +227,16 @@ internal static class AuditingRetentionAssertions
                        WHERE TraceId = @TraceId AND OccurredAtUtc < @CutoffUtc)
                     + (SELECT COUNT(*) FROM fn_auditing_exception_log
                        WHERE TraceId = @TraceId AND OccurredAtUtc < @CutoffUtc)
+                    + (SELECT COUNT(*) FROM fn_auditing_outbound_call
+                       WHERE TraceId = @TraceId AND OccurredAtUtc < @CutoffUtc)
                         AS OldCount,
                     (SELECT COUNT(*) FROM fn_auditing_access_log
                      WHERE TraceId = @TraceId AND OccurredAtUtc >= @CutoffUtc)
                     + (SELECT COUNT(*) FROM fn_auditing_operation_log
                        WHERE TraceId = @TraceId AND OccurredAtUtc >= @CutoffUtc)
                     + (SELECT COUNT(*) FROM fn_auditing_exception_log
+                       WHERE TraceId = @TraceId AND OccurredAtUtc >= @CutoffUtc)
+                    + (SELECT COUNT(*) FROM fn_auditing_outbound_call
                        WHERE TraceId = @TraceId AND OccurredAtUtc >= @CutoffUtc)
                         AS FreshCount
                 """,
