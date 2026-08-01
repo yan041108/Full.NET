@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 
@@ -39,6 +40,12 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<AuditingQueryOptions>,
             AuditingQueryOptionsValidator>());
+        services.AddOptions<AuditMicroBatchOptions>()
+            .Bind(configuration.GetSection(AuditMicroBatchOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<AuditMicroBatchOptions>,
+            AuditMicroBatchOptionsValidator>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             AuditingAuthorizationContributor>());
@@ -52,10 +59,18 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddScoped<IAuditWriteCapturePolicy, CaptureAllAuditWritesPolicy>();
         services.TryAddScoped<AuditWriteBuffer>();
         services.TryAddScoped<AuditWriteBatchWriter>();
+        // B1 协调器必须单例：Middleware/Outbound 与 HostedService 共享同一有界 Channel。
+        services.TryAddSingleton<AuditMicroBatchCoordinator>();
+        services.AddHostedService(provider =>
+            provider.GetRequiredService<AuditMicroBatchCoordinator>());
         services.TryAddScoped<AccessLogWriter>();
         services.TryAddScoped<OperationLogWriter>();
         services.TryAddScoped<ExceptionLogWriter>();
-        services.TryAddScoped<OutboundCallAuditHandler>();
+        services.TryAddScoped(provider => new OutboundCallAuditHandler(
+            provider.GetRequiredService<AuditMicroBatchCoordinator>(),
+            provider.GetRequiredService<IIdGenerator>(),
+            provider.GetRequiredService<IClock>(),
+            provider.GetRequiredService<ILogger<OutboundCallAuditHandler>>()));
         services.TryAddSingleton<AuditingContainsTimeRangePolicy>();
         services.TryAddScoped<Features.QueryHostAccessLogs.HostAccessLogQueryService>();
         services.TryAddScoped<Features.QueryHostOperationLogs.HostOperationLogQueryService>();
@@ -68,6 +83,10 @@ public sealed class AuditingModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 AuditingJsonSerializerContext.Default));
+        services
+            .AddOpenTelemetry()
+            .WithMetrics(metrics =>
+                metrics.AddMeter(AuditMicroBatchTelemetry.MeterName));
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

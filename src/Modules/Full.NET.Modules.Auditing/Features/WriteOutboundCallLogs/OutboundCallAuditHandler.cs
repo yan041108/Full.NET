@@ -1,19 +1,33 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
-using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Auditing.Contracts;
+using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 using Full.NET.Modules.Auditing.Persistence;
 using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Auditing.Features.WriteOutboundCallLogs;
 
-/// <summary>显式 opt-in 出站调用审计写入；调用方只提交安全元数据。</summary>
-public sealed class OutboundCallAuditHandler(
-    ICommandExecutor commandExecutor,
-    IIdGenerator idGenerator,
-    IClock clock,
-    ILogger<OutboundCallAuditHandler> logger)
+/// <summary>显式 opt-in 出站调用审计；写入走 B1 微批并等待批次结果。</summary>
+public sealed class OutboundCallAuditHandler
 {
+    private readonly AuditMicroBatchCoordinator _coordinator;
+    private readonly IIdGenerator _idGenerator;
+    private readonly IClock _clock;
+    private readonly ILogger<OutboundCallAuditHandler> _logger;
+
+    // 构造函数保持 internal，避免把内部微批协调器暴露为公共契约。
+    internal OutboundCallAuditHandler(
+        AuditMicroBatchCoordinator coordinator,
+        IIdGenerator idGenerator,
+        IClock clock,
+        ILogger<OutboundCallAuditHandler> logger)
+    {
+        _coordinator = coordinator;
+        _idGenerator = idGenerator;
+        _clock = clock;
+        _logger = logger;
+    }
+
     public async Task RecordAsync(
         OutboundCallAuditRequest request,
         CancellationToken cancellationToken = default)
@@ -22,21 +36,19 @@ public sealed class OutboundCallAuditHandler(
         var sanitized = Sanitize(request);
         if (sanitized.HadSensitiveInput)
         {
-            logger.LogWarning(
+            _logger.LogWarning(
                 "Outbound call audit input contained sensitive markers for provider {ProviderKey}.",
                 sanitized.Record.ProviderKey);
         }
 
         var record = sanitized.Record with
         {
-            Id = idGenerator.NewId(),
-            OccurredAtUtc = clock.UtcNow,
+            Id = _idGenerator.NewId(),
+            OccurredAtUtc = _clock.UtcNow,
         };
 
-        await commandExecutor.ExecuteAsync(
-                OutboundCallLogSql.Insert,
-                record,
-                cancellationToken)
+        // 调用契约要求等待批次结果；失败 fail-open，不写 Outbox。
+        _ = await _coordinator.EnqueueOutboundAsync(record, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -76,8 +88,8 @@ public sealed class OutboundCallAuditHandler(
         var sanitized = Sanitize(request);
         return sanitized.Record with
         {
-            Id = idGenerator.NewId(),
-            OccurredAtUtc = clock.UtcNow,
+            Id = _idGenerator.NewId(),
+            OccurredAtUtc = _clock.UtcNow,
         };
     }
 

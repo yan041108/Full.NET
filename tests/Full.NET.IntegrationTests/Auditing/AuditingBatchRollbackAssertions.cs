@@ -1,7 +1,6 @@
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
-using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Full.NET.IntegrationTests.Auditing;
 
 /// <summary>
-/// 使用第二条 INSERT 的约束失败验证请求级 Audit 批次不会留下已执行的第一条记录。
+/// 验证 B1 微批：同批失败整批回滚，毒记录二分隔离后健康行可提交。
 /// </summary>
 internal static class AuditingBatchRollbackAssertions
 {
@@ -21,20 +20,25 @@ internal static class AuditingBatchRollbackAssertions
         await using var scope = factory.Services.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
 
-        var traceId = $"rollback-{Guid.NewGuid():N}";
-        var buffer = scope.ServiceProvider.GetRequiredService<AuditWriteBuffer>();
-        buffer.Capture(
-            new AccessLogWriteModel(
+        var writer = scope.ServiceProvider.GetRequiredService<AuditWriteBatchWriter>();
+        var queryExecutor = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+
+        var healthyTrace = $"b1-ok-{Guid.NewGuid():N}";
+        var poisonTrace = $"b1-poison-{Guid.NewGuid():N}";
+        var healthy = AuditWriteEnvelope.ForOperation(
+            new OperationLogWriteModel(
+                "auditing.microbatch.healthy",
                 "POST",
                 "/api/v1/auditing/rollback-probe",
-                500,
+                200,
                 1,
+                true,
                 null,
                 null,
-                traceId,
+                healthyTrace,
                 null,
-                true));
-        buffer.Capture(
+                "auditing.rollback.probe"));
+        var poison = AuditWriteEnvelope.ForOperation(
             new OperationLogWriteModel(
                 null!,
                 "POST",
@@ -44,33 +48,41 @@ internal static class AuditingBatchRollbackAssertions
                 false,
                 null,
                 null,
-                traceId,
+                poisonTrace,
                 null,
                 "auditing.rollback.probe"));
 
-        var succeeded = await scope.ServiceProvider
-            .GetRequiredService<AuditWriteBatchWriter>()
-            .TryWriteAsync(buffer, cancellationToken);
+        await writer.WriteMicroBatchAsync([healthy, poison], cancellationToken);
 
-        Assert.IsFalse(succeeded);
-        var persistedRows = await scope.ServiceProvider
-            .GetRequiredService<IQueryExecutor>()
-            .QuerySingleOrDefaultAsync<long>(
-                new SqlStatement(
-                    "test.auditing.count_rolled_back_request_batch",
-                    """
-                    SELECT
-                        (SELECT COUNT(*)
-                         FROM fn_auditing_access_log
-                         WHERE TraceId = @TraceId)
-                        +
-                        (SELECT COUNT(*)
-                         FROM fn_auditing_operation_log
-                         WHERE TraceId = @TraceId)
-                    """,
-                    SqlDataScope.Global),
-                new { TraceId = traceId },
-                cancellationToken);
-        Assert.AreEqual(0L, persistedRows);
+        Assert.IsTrue((await healthy.Completion.Task).Succeeded);
+        var poisonResult = await poison.Completion.Task;
+        Assert.IsFalse(poisonResult.Succeeded);
+        Assert.IsTrue(poisonResult.Poisoned);
+
+        var healthyCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+            new SqlStatement(
+                "test.auditing.count_b1_healthy_after_poison_split",
+                """
+                SELECT COUNT(*)
+                FROM fn_auditing_operation_log
+                WHERE TraceId = @TraceId
+                """,
+                SqlDataScope.Global),
+            new { TraceId = healthyTrace },
+            cancellationToken);
+        var poisonCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+            new SqlStatement(
+                "test.auditing.count_b1_poison_after_isolation",
+                """
+                SELECT COUNT(*)
+                FROM fn_auditing_operation_log
+                WHERE TraceId = @TraceId
+                """,
+                SqlDataScope.Global),
+            new { TraceId = poisonTrace },
+            cancellationToken);
+
+        Assert.AreEqual(1L, healthyCount);
+        Assert.AreEqual(0L, poisonCount);
     }
 }

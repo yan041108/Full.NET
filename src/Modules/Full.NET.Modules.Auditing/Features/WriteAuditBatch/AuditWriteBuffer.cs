@@ -28,6 +28,7 @@ internal sealed class CaptureAllAuditWritesPolicy : IAuditWriteCapturePolicy
 
 /// <summary>
 /// 在单个请求作用域内保存最多三类 Audit 模型，容量不会随请求量或重试次数增长。
+/// Operation/Exception 退出时入 B1 微批；Access 仍同步直写，待 Task 7 迁入 B2。
 /// </summary>
 internal sealed class AuditWriteBuffer
 {
@@ -93,7 +94,7 @@ internal sealed class AuditWriteBuffer
 }
 
 /// <summary>
-/// 请求退出时交给批量 Writer 的不可变 Audit 快照。
+/// 请求退出时的不可变快照：Access 走过渡同步路径，Operation/Exception 走 B1 Channel。
 /// </summary>
 internal sealed record AuditWriteBatch(
     AccessLogWriteModel? Access,
