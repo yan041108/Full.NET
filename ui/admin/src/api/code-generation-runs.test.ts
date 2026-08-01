@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   applyTrackedCodeGeneration,
   listCodeGenerationRuns,
-  previewTrackedCodeGeneration
+  previewTrackedCodeGeneration,
+  rollbackTrackedCodeGeneration
 } from './code-generation-runs';
 
 afterEach(() => {
@@ -92,5 +93,30 @@ describe('Vue 代码生成运行 API', () => {
     await expect(listCodeGenerationRuns('failed'))
       .rejects.toThrow('client.invalid_code_generation_run_page');
     expect(fetchMock.mock.calls[0][0]).toContain('status=failed');
+  });
+
+  it('只提交 Apply 运行标识并严格校验 Rollback 摘要', async () => {
+    const applyRunId = '0198f36e-f7a7-7c52-9cbb-774e67411213';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      runId: '0198f36e-f7a7-7c52-9cbb-774e67411215',
+      applyRunId,
+      artifactCount: 0,
+      changedArtifactCount: 2,
+      manifestSha256: 'c'.repeat(64)
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await rollbackTrackedCodeGeneration({ applyRunId });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/code-generation/runs/rollback'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ applyRunId })
+      })
+    );
   });
 });

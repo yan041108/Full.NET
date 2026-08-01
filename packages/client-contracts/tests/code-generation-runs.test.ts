@@ -5,7 +5,9 @@ import {
   isCodeGenerationRunPage,
   isCodeGenerationRunPreviewRequest,
   isCodeGenerationRunPreviewResponse,
-  isCodeGenerationRunResponse
+  isCodeGenerationRunResponse,
+  isCodeGenerationRunRollbackRequest,
+  isCodeGenerationRunRollbackResponse
 } from '../src/code-generation-runs';
 
 describe('code-generation run contracts', () => {
@@ -45,7 +47,8 @@ describe('code-generation run contracts', () => {
     errorCode: null,
     requestedByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411211',
     startedAtUtc: '2026-07-31T05:00:00Z',
-    finishedAtUtc: '2026-07-31T05:00:01Z'
+    finishedAtUtc: '2026-07-31T05:00:01Z',
+    sourceApplyRunId: null
   };
 
   it('accepts exactly one inline or template source', () => {
@@ -143,6 +146,37 @@ describe('code-generation run contracts', () => {
       page: 0,
       pageSize: 101,
       total: -1
+    })).toBe(false);
+  });
+
+  it('accepts rollback summaries with zero artifacts', () => {
+    expect(isCodeGenerationRunRollbackRequest({
+      applyRunId: run.id
+    })).toBe(true);
+    expect(isCodeGenerationRunRollbackRequest({
+      applyRunId: run.id,
+      workspaceRoot: 'C:/source'
+    })).toBe(false);
+    expect(isCodeGenerationRunRollbackResponse({
+      runId: '0198f36e-f7a7-7c52-9cbb-774e67411215',
+      applyRunId: run.id,
+      artifactCount: 0,
+      changedArtifactCount: 2,
+      manifestSha256: 'c'.repeat(64)
+    })).toBe(true);
+    expect(isCodeGenerationRunResponse({
+      ...run,
+      operationKind: 'rollback',
+      artifactCount: 0,
+      sourceApplyRunId: run.id,
+      templateId: null,
+      templateVersion: null
+    })).toBe(true);
+    expect(isCodeGenerationRunResponse({
+      ...run,
+      operationKind: 'rollback',
+      artifactCount: 0,
+      sourceApplyRunId: null
     })).toBe(false);
   });
 });

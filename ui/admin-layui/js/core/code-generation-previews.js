@@ -42,6 +42,8 @@ export function createCodeGenerationPreviewsController(root, options) {
     options.hasPermission?.('codegen.runs.execute') === true;
   const canApplyRuns =
     options.hasPermission?.('codegen.runs.apply') === true;
+  const canRollbackRuns =
+    options.hasPermission?.('codegen.runs.rollback') === true;
   const confirm = options.confirm ?? confirmAction;
   let changing = false;
   let currentArtifacts = [];
@@ -144,6 +146,16 @@ export function createCodeGenerationPreviewsController(root, options) {
         actor.textContent =
           `${run.requestedByUserId} · ${run.finishedAtUtc}`;
         article.append(title, status, id, summary, hashes, actor);
+        if (canRollbackRuns
+          && run.operationKind === 'apply'
+          && run.status === 'succeeded') {
+          const rollback = runHistory.ownerDocument.createElement('button');
+          rollback.type = 'button';
+          rollback.className = 'layui-btn layui-btn-warm layui-btn-xs';
+          rollback.dataset.codegenRollback = run.id;
+          rollback.textContent = translation().t('codeGeneration.rollback');
+          article.append(rollback);
+        }
         fragment.append(article);
       });
       runHistory.replaceChildren(fragment);
@@ -355,6 +367,33 @@ export function createCodeGenerationPreviewsController(root, options) {
     }
   };
 
+const onRollback = async event => {
+    const button = event.target instanceof Element
+      ? event.target.closest('[data-codegen-rollback]')
+      : null;
+    const applyRunId = button?.dataset.codegenRollback;
+    if (!canRollbackRuns || changing || !applyRunId) return;
+    const accepted = await confirm(translation().t(
+      'codeGeneration.rollbackConfirm',
+      { id: applyRunId }
+    ));
+    if (!accepted) return;
+    changing = true;
+    try {
+      await runsApi.rollback({ applyRunId });
+      await loadRuns();
+      hideProblem(root);
+    } catch (problem) {
+      showProblem(
+        root,
+        problem,
+        translation().t('codeGeneration.invalidInput')
+      );
+    } finally {
+      changing = false;
+    }
+  };
+
   const onApply = async () => {
     const reviewed = reviewedPreview;
     if (!canApplyRuns
@@ -408,6 +447,7 @@ export function createCodeGenerationPreviewsController(root, options) {
   form?.querySelector('[name="schema"]')
     ?.addEventListener('input', invalidateReviewedPreview);
   applyButton?.addEventListener('click', onApply);
+  runHistory?.addEventListener('click', onRollback);
   artifacts?.addEventListener('click', onArtifactClick);
   templateForm?.addEventListener('submit', onTemplateSubmit);
   templateUpdate?.addEventListener('click', onTemplateUpdate);

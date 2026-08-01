@@ -90,7 +90,8 @@ describe('Layui 代码生成预览控制器', () => {
         errorCode: null,
         requestedByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411211',
         startedAtUtc: '2026-07-31T05:00:00Z',
-        finishedAtUtc: '2026-07-31T05:00:01Z'
+        finishedAtUtc: '2026-07-31T05:00:01Z',
+        sourceApplyRunId: null
       }],
       page: 1,
       pageSize: 20,
@@ -187,7 +188,8 @@ describe('Layui 代码生成预览控制器', () => {
       hasPermission: permission => [
         'codegen.templates.read',
         'codegen.runs.execute',
-        'codegen.runs.apply'
+        'codegen.runs.apply',
+        'codegen.runs.rollback'
       ].includes(permission)
     });
     await controller.load();

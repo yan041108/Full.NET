@@ -1,10 +1,13 @@
 import {
   isCodeGenerationRunApplyResponse,
   isCodeGenerationRunPage,
+  isCodeGenerationRunRollbackResponse,
   isCodeGenerationRunPreviewResponse,
   type CodeGenerationRunApplyRequest,
   type CodeGenerationRunApplyResponse,
   type CodeGenerationRunPage,
+  type CodeGenerationRunRollbackRequest,
+  type CodeGenerationRunRollbackResponse,
   type CodeGenerationRunPreviewRequest,
   type CodeGenerationRunPreviewResponse,
   type CodeGenerationRunStatus
@@ -42,6 +45,24 @@ export async function applyTrackedCodeGeneration(
   );
   if (!isCodeGenerationRunApplyResponse(value)) {
     throw new Error('client.invalid_code_generation_run_apply');
+  }
+
+  return value;
+}
+
+export async function rollbackTrackedCodeGeneration(
+  input: CodeGenerationRunRollbackRequest
+): Promise<CodeGenerationRunRollbackResponse> {
+  const value = await request<unknown>(
+    '/api/v1/code-generation/runs/rollback',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input)
+    }
+  );
+  if (!isCodeGenerationRunRollbackResponse(value)) {
+    throw new Error('client.invalid_code_generation_run_rollback');
   }
 
   return value;

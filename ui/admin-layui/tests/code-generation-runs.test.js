@@ -28,6 +28,13 @@ describe('Layui 代码生成运行 API', () => {
         artifactCount: 8,
         changedArtifactCount: 3,
         manifestSha256: 'b'.repeat(64)
+      })
+      .mockResolvedValueOnce({
+        runId: '0198f36e-f7a7-7c52-9cbb-774e67411215',
+        applyRunId: runId,
+        artifactCount: 0,
+        changedArtifactCount: 2,
+        manifestSha256: 'c'.repeat(64)
       });
     const api = createCodeGenerationRunsApi(request);
 
@@ -37,6 +44,7 @@ describe('Layui 代码生成运行 API', () => {
     });
     await api.list('succeeded');
     await api.apply({ previewRunId: runId });
+    await api.rollback({ applyRunId: runId });
 
     expect(request.mock.calls.map(([path, options]) => [
       path,
@@ -47,7 +55,8 @@ describe('Layui 代码生成运行 API', () => {
         '/api/v1/code-generation/runs?page=1&pageSize=20&status=succeeded',
         'GET'
       ],
-      ['/api/v1/code-generation/runs/apply', 'POST']
+      ['/api/v1/code-generation/runs/apply', 'POST'],
+      ['/api/v1/code-generation/runs/rollback', 'POST']
     ]);
   });
 
@@ -83,6 +92,7 @@ function createRun(id) {
     errorCode: null,
     requestedByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411211',
     startedAtUtc: '2026-07-31T05:00:00Z',
-    finishedAtUtc: '2026-07-31T05:00:01Z'
+    finishedAtUtc: '2026-07-31T05:00:01Z',
+    sourceApplyRunId: null
   };
 }

@@ -523,7 +523,9 @@ export {
   isCodeGenerationRunPage,
   isCodeGenerationRunPreviewRequest,
   isCodeGenerationRunPreviewResponse,
-  isCodeGenerationRunResponse
+  isCodeGenerationRunResponse,
+  isCodeGenerationRunRollbackRequest,
+  isCodeGenerationRunRollbackResponse
 } from './code-generation-runs.js';
 
 export type {
@@ -534,6 +536,8 @@ export type {
   CodeGenerationRunPreviewRequest,
   CodeGenerationRunPreviewResponse,
   CodeGenerationRunResponse,
+  CodeGenerationRunRollbackRequest,
+  CodeGenerationRunRollbackResponse,
   CodeGenerationRunStatus
 } from './code-generation-runs.js';
 

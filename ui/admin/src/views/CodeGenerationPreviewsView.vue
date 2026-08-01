@@ -16,7 +16,8 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import {
   applyTrackedCodeGeneration,
   listCodeGenerationRuns,
-  previewTrackedCodeGeneration
+  previewTrackedCodeGeneration,
+  rollbackTrackedCodeGeneration
 } from '../api/code-generation-runs';
 import {
   createCodeGenerationTemplate,
@@ -104,6 +105,7 @@ const templateChanging = ref(false);
 const runs = ref<CodeGenerationRunResponse[]>([]);
 const runLoading = ref(false);
 const applying = ref(false);
+const rollingBackId = ref<string>();
 const reviewedPreview = ref<{
   runId: string;
   templateId: string;
@@ -119,6 +121,7 @@ const canWriteTemplates = computed(
 const canReadRuns = computed(() => session.can('codegen.runs.read'));
 const canExecuteRuns = computed(() => session.can('codegen.runs.execute'));
 const canApplyRuns = computed(() => session.can('codegen.runs.apply'));
+const canRollbackRuns = computed(() => session.can('codegen.runs.rollback'));
 
 const selectedArtifact = computed<CodeGenerationPreviewArtifact | undefined>(
   () => preview.value?.artifacts.find(
@@ -369,6 +372,42 @@ async function applyReviewedPreview(): Promise<void> {
     problem.value = readProblem(error, 'client.codegen_apply_failed');
   } finally {
     applying.value = false;
+  }
+}
+
+async function rollbackApply(run: CodeGenerationRunResponse): Promise<void> {
+  if (!canRollbackRuns.value
+    || rollingBackId.value
+    || run.operationKind !== 'apply'
+    || run.status !== 'succeeded') {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('codeGeneration.rollbackConfirm', { id: run.id }),
+      t('codeGeneration.rollback'),
+      {
+        type: 'warning',
+        confirmButtonText: t('codeGeneration.rollback'),
+        cancelButtonText: t('status.back')
+      }
+    );
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') return;
+    problem.value = readProblem(error, 'client.codegen_rollback_failed');
+    return;
+  }
+
+  rollingBackId.value = run.id;
+  problem.value = undefined;
+  try {
+    await rollbackTrackedCodeGeneration({ applyRunId: run.id });
+    await loadRuns();
+  } catch (error: unknown) {
+    problem.value = readProblem(error, 'client.codegen_rollback_failed');
+  } finally {
+    rollingBackId.value = undefined;
   }
 }
 
@@ -646,6 +685,20 @@ function readProblem(
           <small translate="no">
             {{ run.requestedByUserId }} · {{ run.finishedAtUtc }}
           </small>
+          <ElButton
+            v-if="canRollbackRuns
+              && run.operationKind === 'apply'
+              && run.status === 'succeeded'"
+            type="warning"
+            plain
+            size="small"
+            data-testid="codegen-rollback"
+            :loading="rollingBackId === run.id"
+            :disabled="!!rollingBackId"
+            @click="rollbackApply(run)"
+          >
+            {{ t('codeGeneration.rollback') }}
+          </ElButton>
         </article>
       </div>
     </ElCard>

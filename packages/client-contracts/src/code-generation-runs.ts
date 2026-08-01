@@ -5,7 +5,7 @@ import {
   type CodeGenerationPreviewResponse
 } from './code-generation-previews.js';
 
-export type CodeGenerationRunOperationKind = 'preview' | 'apply';
+export type CodeGenerationRunOperationKind = 'preview' | 'apply' | 'rollback';
 
 export type CodeGenerationRunStatus = 'running' | 'succeeded' | 'failed';
 
@@ -38,6 +38,18 @@ export interface CodeGenerationRunApplyResponse {
   manifestSha256: string;
 }
 
+export interface CodeGenerationRunRollbackRequest {
+  applyRunId: string;
+}
+
+export interface CodeGenerationRunRollbackResponse {
+  runId: string;
+  applyRunId: string;
+  artifactCount: number;
+  changedArtifactCount: number;
+  manifestSha256: string;
+}
+
 export interface CodeGenerationRunResponse {
   id: string;
   templateId: string | null;
@@ -53,6 +65,7 @@ export interface CodeGenerationRunResponse {
   requestedByUserId: string;
   startedAtUtc: string;
   finishedAtUtc: string;
+  sourceApplyRunId: string | null;
 }
 
 export interface CodeGenerationRunPage {
@@ -80,7 +93,8 @@ const runKeys = new Set([
   'errorCode',
   'requestedByUserId',
   'startedAtUtc',
-  'finishedAtUtc'
+  'finishedAtUtc',
+  'sourceApplyRunId'
 ]);
 
 export function isCodeGenerationRunPreviewRequest(
@@ -139,6 +153,34 @@ export function isCodeGenerationRunApplyResponse(
     && isSha256(value.manifestSha256);
 }
 
+
+export function isCodeGenerationRunRollbackRequest(
+  value: unknown
+): value is CodeGenerationRunRollbackRequest {
+  return isRecord(value)
+    && hasOnlyKeys(value, new Set(['applyRunId']))
+    && isUuid(value.applyRunId);
+}
+
+export function isCodeGenerationRunRollbackResponse(
+  value: unknown
+): value is CodeGenerationRunRollbackResponse {
+  return isRecord(value)
+    && hasOnlyKeys(value, new Set([
+      'runId',
+      'applyRunId',
+      'artifactCount',
+      'changedArtifactCount',
+      'manifestSha256'
+    ]))
+    && isUuid(value.runId)
+    && isUuid(value.applyRunId)
+    && Number.isSafeInteger(value.artifactCount)
+    && (value.artifactCount as number) >= 0
+    && Number.isSafeInteger(value.changedArtifactCount)
+    && (value.changedArtifactCount as number) >= 0
+    && isSha256(value.manifestSha256);
+}
 export function isCodeGenerationRunResponse(
   value: unknown
 ): value is CodeGenerationRunResponse {
@@ -147,24 +189,31 @@ export function isCodeGenerationRunResponse(
     || !isUuid(value.id)
     || !hasTemplatePair(value.templateId, value.templateVersion)
     || (value.operationKind !== 'preview'
-      && value.operationKind !== 'apply')
+      && value.operationKind !== 'apply'
+      && value.operationKind !== 'rollback')
     || !isUuid(value.requestedByUserId)
     || !isDateTime(value.startedAtUtc)
     || !isDateTime(value.finishedAtUtc)
-    || Date.parse(value.finishedAtUtc) < Date.parse(value.startedAtUtc)) {
+    || Date.parse(value.finishedAtUtc) < Date.parse(value.startedAtUtc)
+    || !hasSourceApplyPair(value.operationKind, value.sourceApplyRunId)) {
     return false;
   }
 
   if (value.status === 'running' || value.status === 'succeeded') {
+    const minArtifacts = value.operationKind === 'rollback' ? 0 : 1;
     return (value.operationKind !== 'apply'
         || (isUuid(value.templateId)
           && Number.isSafeInteger(value.templateVersion)))
-      && (value.status !== 'running' || value.operationKind === 'apply')
+      && (value.operationKind !== 'rollback'
+        || (value.templateId === null && value.templateVersion === null))
+      && (value.status !== 'running'
+        || value.operationKind === 'apply'
+        || value.operationKind === 'rollback')
       && isNonEmptyString(value.moduleKey)
       && isNonEmptyString(value.entityKey)
       && isSha256(value.schemaSha256)
       && Number.isSafeInteger(value.artifactCount)
-      && (value.artifactCount as number) > 0
+      && (value.artifactCount as number) >= minArtifacts
       && isSha256(value.manifestSha256)
       && value.errorCode === null;
   }
@@ -194,6 +243,17 @@ export function isCodeGenerationRunPage(
     && (value.pageSize as number) <= 100
     && Number.isSafeInteger(value.total)
     && (value.total as number) >= 0;
+}
+
+function hasSourceApplyPair(
+  operationKind: unknown,
+  sourceApplyRunId: unknown
+): boolean {
+  if (operationKind === 'rollback') {
+    return isUuid(sourceApplyRunId);
+  }
+
+  return sourceApplyRunId === null;
 }
 
 function hasTemplatePair(
