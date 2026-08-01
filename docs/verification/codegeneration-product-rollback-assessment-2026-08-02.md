@@ -2,7 +2,7 @@
 
 - 日期：2026-08-02
 - 代码基线：`main` @ `de0080f`
-- 状态：**建议稿**（未经 Spec 批准，不得进入实施计划或生产代码）
+- 状态：**已确认** → Spec [2026-08-02-codegeneration-product-rollback-design.md](../superpowers/specs/2026-08-02-codegeneration-product-rollback-design.md)（Approved for implementation）
 - 上游证据：[回滚检查点与内部逆向执行验证](codegeneration-apply-rollback-checkpoint-2026-08-01.md)、[Host Apply 验证](codegeneration-host-apply-2026-07-31.md)
 
 ## 1. 结论
