@@ -1,4 +1,3 @@
-using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 
@@ -8,9 +7,8 @@ namespace Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 internal enum AuditWriteKinds
 {
     None = 0,
-    Access = 1,
-    Operation = 2,
-    Exception = 4,
+    Operation = 1,
+    Exception = 2,
 }
 
 /// <summary>
@@ -27,13 +25,11 @@ internal sealed class CaptureAllAuditWritesPolicy : IAuditWriteCapturePolicy
 }
 
 /// <summary>
-/// 在单个请求作用域内保存最多三类 Audit 模型，容量不会随请求量或重试次数增长。
-/// Operation/Exception 退出时入 B1 微批；Access 仍同步直写，待 Task 7 迁入 B2。
+/// 在单个请求作用域内保存 B1 Operation/Exception 槽位；Access 已迁入 Hosting B2 流。
 /// </summary>
 internal sealed class AuditWriteBuffer
 {
     private readonly IAuditWriteCapturePolicy _capturePolicy;
-    private AccessLogWriteModel? _access;
     private OperationLogWriteModel? _operation;
     private ExceptionLogWriteModel? _exception;
 
@@ -45,16 +41,6 @@ internal sealed class AuditWriteBuffer
     public AuditWriteBuffer(IAuditWriteCapturePolicy capturePolicy)
     {
         _capturePolicy = capturePolicy;
-    }
-
-    public void Capture(AccessLogWriteModel model)
-    {
-        if (!_capturePolicy.ShouldCapture(AuditWriteKinds.Access))
-        {
-            return;
-        }
-
-        _access = CaptureOnce(_access, model, AuditWriteKinds.Access);
     }
 
     public void Capture(OperationLogWriteModel model)
@@ -77,7 +63,7 @@ internal sealed class AuditWriteBuffer
         _exception = CaptureOnce(_exception, model, AuditWriteKinds.Exception);
     }
 
-    public AuditWriteBatch Snapshot() => new(_access, _operation, _exception);
+    public AuditWriteBatch Snapshot() => new(_operation, _exception);
 
     private static T CaptureOnce<T>(T? existing, T model, AuditWriteKinds kind)
         where T : class
@@ -94,20 +80,17 @@ internal sealed class AuditWriteBuffer
 }
 
 /// <summary>
-/// 请求退出时的不可变快照：Access 走过渡同步路径，Operation/Exception 走 B1 Channel。
+/// 请求退出时的不可变快照：Operation/Exception 走 B1 Channel。
 /// </summary>
 internal sealed record AuditWriteBatch(
-    AccessLogWriteModel? Access,
     OperationLogWriteModel? Operation,
     ExceptionLogWriteModel? Exception)
 {
     public AuditWriteKinds Kinds =>
-        (Access is null ? AuditWriteKinds.None : AuditWriteKinds.Access)
-        | (Operation is null ? AuditWriteKinds.None : AuditWriteKinds.Operation)
+        (Operation is null ? AuditWriteKinds.None : AuditWriteKinds.Operation)
         | (Exception is null ? AuditWriteKinds.None : AuditWriteKinds.Exception);
 
     public int Count =>
-        (Access is null ? 0 : 1)
-        + (Operation is null ? 0 : 1)
+        (Operation is null ? 0 : 1)
         + (Exception is null ? 0 : 1);
 }

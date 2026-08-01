@@ -965,7 +965,6 @@ internal sealed class MixedLoadAuditWriteCapturePolicy(
             : MixedLoadAuditWritePolicy.ParseToken(value);
         var requested = kind switch
         {
-            AuditWriteKinds.Access => MixedLoadAuditWriteProfile.Access,
             AuditWriteKinds.Operation => MixedLoadAuditWriteProfile.Operation,
             AuditWriteKinds.Exception => MixedLoadAuditWriteProfile.Exception,
             _ => MixedLoadAuditWriteProfile.None,

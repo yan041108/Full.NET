@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text;
 using Full.NET.Data.Abstractions;
-using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Persistence;
@@ -9,50 +8,12 @@ using Full.NET.Modules.Auditing.Persistence;
 namespace Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 
 /// <summary>
-/// B1 多行 INSERT 与过渡期 Access 单行 INSERT 的 SQL 构造。
-/// Access 不属于 B1；仅保留到 Task 7 B2 接管前的同步路径。
+/// B1 多行 INSERT 的 SQL 构造。Access 写入已迁出，生产默认不再逐请求写业务主库。
 /// </summary>
 internal static class AuditWriteBatchSql
 {
     // SQL Server 参数上限约 2100；预留下限避免单批撑破。
     public const int MaxSqlParameters = 2000;
-
-    public static readonly SqlStatement AccessInsert = new(
-        "auditing.insert_request_audit_batch.access",
-        """
-        INSERT INTO fn_auditing_access_log
-            (Id, OccurredAtUtc, HttpMethod, RequestPath, StatusCode, DurationMs,
-             UserId, TenantId, TraceId, ClientIpFingerprint, IsAuthenticated)
-        VALUES
-            (@AccessId, @OccurredAtUtc, @AccessHttpMethod, @AccessRequestPath,
-             @AccessStatusCode, @AccessDurationMs, @AccessUserId, @AccessTenantId,
-             @AccessTraceId, @AccessClientIpFingerprint, @AccessIsAuthenticated)
-        """,
-        SqlDataScope.Global);
-
-    public static (SqlStatement Statement, Dictionary<string, object?> Parameters) BuildAccess(
-        AccessLogWriteModel access,
-        Guid id,
-        DateTimeOffset occurredAtUtc)
-    {
-        ArgumentNullException.ThrowIfNull(access);
-        return (
-            AccessInsert,
-            new Dictionary<string, object?>
-            {
-                ["AccessId"] = id,
-                ["OccurredAtUtc"] = occurredAtUtc,
-                ["AccessHttpMethod"] = access.HttpMethod,
-                ["AccessRequestPath"] = access.RequestPath,
-                ["AccessStatusCode"] = access.StatusCode,
-                ["AccessDurationMs"] = access.DurationMs,
-                ["AccessUserId"] = access.UserId,
-                ["AccessTenantId"] = access.TenantId,
-                ["AccessTraceId"] = access.TraceId,
-                ["AccessClientIpFingerprint"] = access.ClientIpFingerprint,
-                ["AccessIsAuthenticated"] = access.IsAuthenticated,
-            });
-    }
 
     public static (SqlStatement? Statement, Dictionary<string, object?> Parameters, int ParameterCount)
         BuildOperations(

@@ -2,7 +2,6 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
-using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
@@ -21,30 +20,11 @@ public sealed class AuditingWritePathTests
     public void Request_buffer_rejects_duplicate_categories()
     {
         var buffer = new AuditWriteBuffer();
-        buffer.Capture(CreateAccessModel());
+        buffer.Capture(CreateOperationModel("op-1"));
 
         Assert.ThrowsExactly<InvalidOperationException>(
-            () => buffer.Capture(CreateAccessModel()));
+            () => buffer.Capture(CreateOperationModel("op-2")));
         Assert.AreEqual(1, buffer.Snapshot().Count);
-    }
-
-    [TestMethod]
-    public async Task Access_transitional_path_writes_single_insert()
-    {
-        var transaction = new RecordingCommandTransaction();
-        var executor = new RecordingCommandExecutor();
-        var writer = CreateWriter(transaction, executor);
-
-        var succeeded = await writer.TryWriteAccessAsync(
-            CreateAccessModel(),
-            CancellationToken.None);
-
-        Assert.IsTrue(succeeded);
-        Assert.AreEqual(1, transaction.ExecutionCount);
-        Assert.AreEqual(1, executor.ExecutionCount);
-        Assert.AreEqual(
-            "auditing.insert_request_audit_batch.access",
-            executor.Statement!.Name);
     }
 
     [TestMethod]
@@ -182,7 +162,6 @@ public sealed class AuditingWritePathTests
             },
             flushGate);
 
-        // 第一条进入 flush 并阻塞；第二条占满 Channel；第三条入队超时 fail-open。
         var first = harness.Coordinator.FlushImportantAsync(
             CreateOperationModel("held-1"),
             null,
@@ -202,20 +181,6 @@ public sealed class AuditingWritePathTests
         Assert.IsFalse(second.IsCompleted);
         flushGate.TrySetResult();
         await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
-    {
-        var started = DateTime.UtcNow;
-        while (!condition())
-        {
-            if (DateTime.UtcNow - started > timeout)
-            {
-                throw new TimeoutException("Condition was not met before timeout.");
-            }
-
-            await Task.Delay(10);
-        }
     }
 
     [TestMethod]
@@ -241,50 +206,29 @@ public sealed class AuditingWritePathTests
         };
         var middleware = new AuditWriteCoordinatorMiddleware(_ =>
         {
-            buffer.Capture(CreateAccessModel());
             buffer.Capture(CreateOperationModel("abort-safe"));
             return Task.CompletedTask;
         });
 
-        await middleware.InvokeAsync(
-                context,
-                buffer,
-                harness.Writer,
-                harness.Coordinator)
+        await middleware.InvokeAsync(context, buffer, harness.Coordinator)
             .WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.IsGreaterThanOrEqualTo(2, harness.Executor.ExecutionCount);
+        Assert.IsGreaterThanOrEqualTo(1, harness.Executor.ExecutionCount);
         Assert.IsFalse(harness.Executor.CancellationToken.IsCancellationRequested);
     }
 
-    [TestMethod]
-    public async Task Access_does_not_enter_b1_channel()
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
     {
-        await using var harness = await MicroBatchHarness.CreateAsync(
-            new AuditMicroBatchOptions
+        var started = DateTime.UtcNow;
+        while (!condition())
+        {
+            if (DateTime.UtcNow - started > timeout)
             {
-                Capacity = 8,
-                MaxBatchRows = 8,
-                MaxBatchBytes = 1_000_000,
-                MaxBatchDelay = TimeSpan.FromMilliseconds(20),
-                EnqueueTimeout = TimeSpan.FromSeconds(1),
-                ShutdownFlushTimeout = TimeSpan.FromSeconds(1),
-            });
+                throw new TimeoutException("Condition was not met before timeout.");
+            }
 
-        var buffer = new AuditWriteBuffer();
-        buffer.Capture(CreateAccessModel());
-        var middleware = new AuditWriteCoordinatorMiddleware(_ => Task.CompletedTask);
-
-        await middleware.InvokeAsync(
-            new DefaultHttpContext(),
-            buffer,
-            harness.Writer,
-            harness.Coordinator);
-
-        Assert.AreEqual(1, harness.Executor.ExecutionCount);
-        Assert.AreEqual(
-            "auditing.insert_request_audit_batch.access",
-            harness.Executor.Statement!.Name);
+            await Task.Delay(10);
+        }
     }
 
     private static AuditWriteBatchWriter CreateWriter(
@@ -296,18 +240,6 @@ public sealed class AuditingWritePathTests
             new FixedClock(),
             new SequenceIdGenerator(),
             NullLogger<AuditWriteBatchWriter>.Instance);
-
-    private static AccessLogWriteModel CreateAccessModel() =>
-        new(
-            "GET",
-            "/api/v1/platform/host-dashboard-summary",
-            StatusCodes.Status200OK,
-            10,
-            Guid.CreateVersion7(),
-            null,
-            "trace",
-            "fingerprint",
-            true);
 
     private static OperationLogWriteModel CreateOperationModel(string actionKey) =>
         new(

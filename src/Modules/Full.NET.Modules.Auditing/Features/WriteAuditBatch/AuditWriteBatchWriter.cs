@@ -2,7 +2,6 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
-using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Persistence;
@@ -11,8 +10,8 @@ using Microsoft.Extensions.Logging;
 namespace Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 
 /// <summary>
-/// 持久化 Access（过渡期同步）与 B1 微批（Operation/Exception/Outbound）。
-/// 微批失败默认 fail-open；毒记录二分隔离后其余可提交；禁止降级写 Outbox。
+/// 持久化 B1 微批（Operation/Exception/Outbound）。
+/// 失败默认 fail-open；毒记录二分隔离后其余可提交；禁止降级写 Outbox。
 /// </summary>
 internal sealed class AuditWriteBatchWriter(
     ICommandTransaction transaction,
@@ -21,30 +20,6 @@ internal sealed class AuditWriteBatchWriter(
     IIdGenerator idGenerator,
     ILogger<AuditWriteBatchWriter> logger)
 {
-    public async Task<bool> TryWriteAccessAsync(
-        AccessLogWriteModel access,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(access);
-        try
-        {
-            var (statement, parameters) = AuditWriteBatchSql.BuildAccess(
-                access,
-                idGenerator.NewId(),
-                clock.UtcNow);
-            var affected = await transaction.ExecuteAsync(
-                    token => commandExecutor.ExecuteAsync(statement, parameters, token),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return affected == 1;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "Failed to persist transitional access audit.");
-            return false;
-        }
-    }
-
     /// <summary>
     /// 将一批 B1 信封写入审计库；同批各表共享一次事务。失败时二分隔离毒记录。
     /// </summary>

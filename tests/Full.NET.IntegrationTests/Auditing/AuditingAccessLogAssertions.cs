@@ -82,27 +82,15 @@ internal static class AuditingAccessLogAssertions
             adminToken,
             cancellationToken);
 
-        using var probeRequest = new HttpRequestMessage(
-            HttpMethod.Get,
-            "/api/v1/settings/enum-catalogs");
-        probeRequest.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            adminToken);
-        using var probeResponse = await client.SendAsync(probeRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, probeResponse.StatusCode);
-
-        using var secondProbeRequest = new HttpRequestMessage(
-            HttpMethod.Get,
-            "/api/v1/settings/enum-catalogs");
-        secondProbeRequest.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            adminToken);
-        using var secondProbeResponse = await client.SendAsync(
-            secondProbeRequest,
-            cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, secondProbeResponse.StatusCode);
-
+        // 生产默认不再逐请求写 Access 表；查询/保留契约通过显式种子行验证。
         var referenceUtc = DateTimeOffset.UtcNow;
+        await SeedAccessLogRowsAsync(
+            factory,
+            path: "/api/v1/settings/enum-catalogs",
+            occurredAtUtc: referenceUtc,
+            count: 2,
+            cancellationToken);
+
         var timeRangeQuery = CreateTimeRangeQuery(
             referenceUtc.AddHours(-12),
             referenceUtc.AddHours(1));
@@ -158,6 +146,38 @@ internal static class AuditingAccessLogAssertions
         Assert.AreEqual(
             AuditingErrorCodes.AccessLogNotFound,
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task SeedAccessLogRowsAsync(
+        FullNetApiFactory factory,
+        string path,
+        DateTimeOffset occurredAtUtc,
+        int count,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var executor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        for (var i = 0; i < count; i++)
+        {
+            await executor.ExecuteAsync(
+                InsertCursorTieAccessLog,
+                new
+                {
+                    Id = Guid.CreateVersion7(),
+                    OccurredAtUtc = occurredAtUtc.AddMilliseconds(-i),
+                    HttpMethod = "GET",
+                    RequestPath = path,
+                    StatusCode = 200,
+                    DurationMs = 1 + i,
+                    UserId = (Guid?)null,
+                    TenantId = (Guid?)null,
+                    TraceId = $"seed-access-{Guid.NewGuid():N}",
+                    ClientIpFingerprint = (string?)null,
+                    IsAuthenticated = true,
+                },
+                cancellationToken);
+        }
     }
 
     private static async Task VerifyCursorQueryAsync(

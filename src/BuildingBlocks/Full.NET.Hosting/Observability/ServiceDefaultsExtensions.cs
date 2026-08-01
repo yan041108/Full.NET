@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Full.NET.Hosting.Api;
 using Full.NET.Hosting.Serialization;
 using Full.NET.Localization;
@@ -13,7 +12,6 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Serilog;
-using Serilog.Events;
 using Serilog.Formatting.Compact;
 
 namespace Full.NET.Hosting.Observability;
@@ -104,6 +102,7 @@ public static class ServiceDefaultsExtensions
         var openTelemetry = builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
                 .AddMeter(FullNetAsyncLogMonitor.MeterName)
+                .AddMeter(HttpOperationLogTelemetry.MeterName)
                 .AddMeter(ResourceErrorMessageLocalizer.MeterName)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
@@ -118,6 +117,14 @@ public static class ServiceDefaultsExtensions
             openTelemetry.UseOtlpExporter();
         }
 
+        builder.Services.AddOptions<HttpOperationLogOptions>()
+            .Bind(builder.Configuration.GetSection(HttpOperationLogOptions.SectionName))
+            .ValidateOnStart();
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<HttpOperationLogOptions>,
+            HttpOperationLogOptionsValidator>());
+        builder.Services.TryAddSingleton<HttpOperationLogEmitter>();
+
         builder.Services.AddServiceDiscovery();
         builder.Services.ConfigureHttpClientDefaults(httpClient =>
         {
@@ -128,23 +135,10 @@ public static class ServiceDefaultsExtensions
         return builder;
     }
 
+    /// <summary>
+    /// 注册普通 HTTP Operation Log（B2）中间件，替代 Serilog RequestLogging 的重复 Access 摘要。
+    /// </summary>
     public static IApplicationBuilder UseFullNetRequestLogging(
         this IApplicationBuilder app) =>
-        app.UseSerilogRequestLogging(options =>
-        {
-            options.MessageTemplate =
-                "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
-            options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
-            {
-                diagnosticContext.Set("RequestHost", httpContext.Request.Host.Host);
-                diagnosticContext.Set(
-                    "TraceId",
-                    Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier);
-
-                if (httpContext.Items.TryGetValue("FullNet.TenantId", out var tenantId))
-                {
-                    diagnosticContext.Set("TenantId", tenantId);
-                }
-            };
-        });
+        app.UseMiddleware<HttpOperationLogMiddleware>();
 }

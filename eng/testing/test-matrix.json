@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 977,
+      "minimum": 982,
       "timeout": "10m"
     },
     "compatibility": {
@@ -105,12 +105,12 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 47,
+        "minimum": 48,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 47,
+        "minimum": 48,
         "timeout": "60m"
       },
       "migrations": {
@@ -124,7 +124,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 280,
+        "minimum": 282,
         "timeout": "90m"
       }
     }

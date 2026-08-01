@@ -3,7 +3,6 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Auditing.Features.WriteAuditBatch;
-using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Auditing.Features.WriteExceptionLogs;
 using Full.NET.Modules.Auditing.Features.WriteOperationLogs;
 using Full.NET.Modules.Auditing.Features.WriteOutboundCallLogs;
@@ -63,7 +62,6 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddSingleton<AuditMicroBatchCoordinator>();
         services.AddHostedService(provider =>
             provider.GetRequiredService<AuditMicroBatchCoordinator>());
-        services.TryAddScoped<AccessLogWriter>();
         services.TryAddScoped<OperationLogWriter>();
         services.TryAddScoped<ExceptionLogWriter>();
         services.TryAddScoped(provider => new OutboundCallAuditHandler(
@@ -130,7 +128,6 @@ public sealed class AuditingModule : IFullNetModule
         if (stage == ModulePipelineStage.BeforeEndpoints)
         {
             app.UseMiddleware<AuditWriteCoordinatorMiddleware>();
-            app.UseMiddleware<AccessLogMiddleware>();
             app.UseMiddleware<OperationLogMiddleware>();
             app.UseMiddleware<ExceptionLogMiddleware>();
         }
