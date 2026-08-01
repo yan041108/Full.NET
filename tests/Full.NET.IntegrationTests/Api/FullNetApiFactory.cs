@@ -30,6 +30,8 @@ internal sealed class FullNetApiFactory(
 {
     public const string TestPassword = "FullNet!2026Integration";
 
+    public DatabaseProvider Provider => provider;
+
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
     private readonly string _cacheInstanceId = $"integration-{Guid.NewGuid():N}";
     private readonly List<BackplaneEventObservation> _backplaneEvents = [];

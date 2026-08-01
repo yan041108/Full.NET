@@ -724,6 +724,20 @@
       "removalMilestone": "M1.0"
     },
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/042_IdentitySignatureNonce.sql",
+      "reason": "042 使用 INFORMATION_SCHEMA 与 PREPARE 收敛 Nonce 唯一索引的缺失与列序；对象名与 DDL 来自脚本内固定常量，并由 MySQL 畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/042_IdentitySignatureNonce.sql",
+      "reason": "042 的条件 DROP INDEX 尚不能由静态扫描器完整解析；固定对象已人工审查，并由 SQL Server 畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "unsupported_sql",
       "value": "unsupported_ddl",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/044_CodeGenerationTemplate.sql",

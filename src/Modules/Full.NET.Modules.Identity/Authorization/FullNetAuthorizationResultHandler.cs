@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Http;
@@ -20,6 +21,17 @@ internal sealed class FullNetAuthorizationResultHandler(IApiResultMapper resultM
     {
         if (authorizeResult.Challenged)
         {
+            if (context.Features.Get<SignatureAuthenticationFailureFeature>() is
+                { } signatureFailure)
+            {
+                await resultMapper.Map(
+                        Result<object?>.Failure(signatureFailure.Error),
+                        context)
+                    .ExecuteAsync(context)
+                    .ConfigureAwait(false);
+                return;
+            }
+
             // 先执行认证方案的 Challenge 以保留 WWW-Authenticate，再补充统一错误正文。
             await _fallback.HandleAsync(next, context, policy, authorizeResult)
                 .ConfigureAwait(false);

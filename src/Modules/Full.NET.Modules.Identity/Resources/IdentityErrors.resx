@@ -50,4 +50,17 @@
   <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>API Key 绑定的 Host 用户已禁用。</value></data>
   <data name="identity.field_projection.invalid" xml:space="preserve"><value>字段投影资源或字段键无效。</value></data>
   <data name="identity.field_projection.version_conflict" xml:space="preserve"><value>角色字段授权已被并发修改。</value></data>
+  <data name="identity.signature.missing_headers" xml:space="preserve"><value>签名认证请求头不完整。</value></data>
+  <data name="identity.signature.invalid_version" xml:space="preserve"><value>签名协议版本无效。</value></data>
+  <data name="identity.signature.invalid_timestamp" xml:space="preserve"><value>签名时间戳格式无效。</value></data>
+  <data name="identity.signature.timestamp_expired" xml:space="preserve"><value>签名时间戳已过期。</value></data>
+  <data name="identity.signature.timestamp_in_future" xml:space="preserve"><value>签名时间戳超出允许的未来窗口。</value></data>
+  <data name="identity.signature.invalid_nonce" xml:space="preserve"><value>签名 Nonce 无效。</value></data>
+  <data name="identity.signature.replay_detected" xml:space="preserve"><value>检测到签名 Nonce 重放。</value></data>
+  <data name="identity.signature.invalid_encoding" xml:space="preserve"><value>请求路径或 Query 编码不符合签名规范。</value></data>
+  <data name="identity.signature.invalid_signature" xml:space="preserve"><value>请求签名无效。</value></data>
+  <data name="identity.signature.access_key_not_found" xml:space="preserve"><value>Access Key 不存在。</value></data>
+  <data name="identity.signature.access_key_disabled" xml:space="preserve"><value>Access Key 已禁用或轮换。</value></data>
+  <data name="identity.signature.access_key_expired" xml:space="preserve"><value>Access Key 已过期。</value></data>
+  <data name="identity.signature.tenant_scope_mismatch" xml:space="preserve"><value>Access Key 与租户作用域不匹配。</value></data>
 </root>

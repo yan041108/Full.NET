@@ -38,7 +38,8 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<PagedResult<HostUserResponse>>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Read);
+        .RequireOpenAccessAuthentication(IdentityUserManagementPermissions.Read)
+        .RequireRateLimiting(IdentityModule.SignatureAuthenticationRateLimitPolicy);
 
         group.MapGet("/export", async (
             HostUserQueryService queries,
@@ -56,7 +57,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<IReadOnlyList<HostUserResponse>>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Export);
+        .RequireOpenAccessAuthentication(IdentityUserManagementPermissions.Export);
 
         group.MapGet("/{userId:guid}", async (
             Guid userId,

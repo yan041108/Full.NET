@@ -52,6 +52,9 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
 
         services.TryAddScoped<TotpEnrollmentService>();
         services.TryAddScoped<ApiKeyAuthenticationService>();
+        services.TryAddScoped<SignatureAuthenticationService>();
+        services.AddOptions<SignatureAuthenticationOptions>()
+            .Bind(configuration.GetSection(SignatureAuthenticationOptions.SectionName));
         services.TryAddSingleton<RsaSigningKeyRing>();
         services.TryAddSingleton<IRandomTokenGenerator, CryptographicTokenGenerator>();
         services.TryAddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
@@ -81,6 +84,9 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
             .AddJwtBearer(options => options.MapInboundClaims = false)
             .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
                 ApiKeyAuthenticationDefaults.AuthenticationScheme,
+                _ => { })
+            .AddScheme<AuthenticationSchemeOptions, SignatureAuthenticationHandler>(
+                SignatureAuthenticationDefaults.AuthenticationScheme,
                 _ => { });
         services.AddOptions<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme)

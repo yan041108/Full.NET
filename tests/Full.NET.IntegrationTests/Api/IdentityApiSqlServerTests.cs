@@ -125,4 +125,14 @@ public sealed class IdentityApiSqlServerTests
 
         await IdentityApiKeyAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_signature_authentication_follows_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await IdentitySignatureAuthenticationAssertions.VerifyAsync(factory);
+    }
 }

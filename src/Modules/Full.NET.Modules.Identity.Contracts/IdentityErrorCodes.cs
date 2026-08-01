@@ -156,6 +156,45 @@ public static class IdentityErrorCodes
     /// <summary>API Key 绑定的 Host 用户已禁用。</summary>
     public const string ApiKeyUserInactive = "identity.api_keys.user_inactive";
 
+    /// <summary>签名认证请求头不完整。</summary>
+    public const string SignatureMissingHeaders = "identity.signature.missing_headers";
+
+    /// <summary>签名协议版本无效。</summary>
+    public const string SignatureInvalidVersion = "identity.signature.invalid_version";
+
+    /// <summary>签名时间戳格式无效。</summary>
+    public const string SignatureInvalidTimestamp = "identity.signature.invalid_timestamp";
+
+    /// <summary>签名时间戳已过期。</summary>
+    public const string SignatureTimestampExpired = "identity.signature.timestamp_expired";
+
+    /// <summary>签名时间戳超出未来窗口。</summary>
+    public const string SignatureTimestampInFuture = "identity.signature.timestamp_in_future";
+
+    /// <summary>签名 Nonce 无效。</summary>
+    public const string SignatureInvalidNonce = "identity.signature.invalid_nonce";
+
+    /// <summary>检测到签名 Nonce 重放。</summary>
+    public const string SignatureReplayDetected = "identity.signature.replay_detected";
+
+    /// <summary>路径或 Query 编码不符合签名规范。</summary>
+    public const string SignatureInvalidEncoding = "identity.signature.invalid_encoding";
+
+    /// <summary>请求签名无效。</summary>
+    public const string SignatureInvalidSignature = "identity.signature.invalid_signature";
+
+    /// <summary>Access Key 不存在。</summary>
+    public const string SignatureAccessKeyNotFound = "identity.signature.access_key_not_found";
+
+    /// <summary>Access Key 已禁用或轮换。</summary>
+    public const string SignatureAccessKeyDisabled = "identity.signature.access_key_disabled";
+
+    /// <summary>Access Key 已过期。</summary>
+    public const string SignatureAccessKeyExpired = "identity.signature.access_key_expired";
+
+    /// <summary>Access Key 与租户作用域不匹配。</summary>
+    public const string SignatureTenantScopeMismatch = "identity.signature.tenant_scope_mismatch";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -206,5 +245,18 @@ public static class IdentityErrorCodes
         ApiKeyInvalidPermissions,
         ApiKeyUserNotFound,
         ApiKeyUserInactive,
+        SignatureMissingHeaders,
+        SignatureInvalidVersion,
+        SignatureInvalidTimestamp,
+        SignatureTimestampExpired,
+        SignatureTimestampInFuture,
+        SignatureInvalidNonce,
+        SignatureReplayDetected,
+        SignatureInvalidEncoding,
+        SignatureInvalidSignature,
+        SignatureAccessKeyNotFound,
+        SignatureAccessKeyDisabled,
+        SignatureAccessKeyExpired,
+        SignatureTenantScopeMismatch,
     ]);
 }

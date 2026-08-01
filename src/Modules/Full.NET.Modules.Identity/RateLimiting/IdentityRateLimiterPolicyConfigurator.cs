@@ -1,6 +1,7 @@
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -56,6 +57,21 @@ internal sealed class IdentityRateLimiterPolicyConfigurator(
                     QueueLimit = 0,
                     AutoReplenishment = true,
                 }));
+        rateLimiter.AddPolicy(
+            IdentityModule.SignatureAuthenticationRateLimitPolicy,
+            httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Request.Headers[SignatureAuthenticationOptions.AccessKeyIdHeader]
+                    .ToString()
+                    is { Length: > 0 } accessKeyId
+                    ? accessKeyId
+                    : httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 120,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true,
+                }));
     }
 
     public void Configure(RateLimitPolicyErrorCodes registry)
@@ -66,6 +82,9 @@ internal sealed class IdentityRateLimiterPolicyConfigurator(
             IdentityErrorCodes.AuthenticationRateLimited);
         registry.MapPolicy(
             "identity-super-administrator-write",
+            IdentityErrorCodes.AuthenticationRateLimited);
+        registry.MapPolicy(
+            IdentityModule.SignatureAuthenticationRateLimitPolicy,
             IdentityErrorCodes.AuthenticationRateLimited);
     }
 }

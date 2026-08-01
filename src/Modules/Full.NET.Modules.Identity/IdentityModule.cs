@@ -26,6 +26,9 @@ public sealed class IdentityModule : IFullNetModule
     /// </summary>
     internal const string SessionMutationRateLimitPolicy = "identity-session-mutation";
 
+    /// <summary>开放接口签名认证限流策略。</summary>
+    internal const string SignatureAuthenticationRateLimitPolicy = "identity-signature-auth";
+
     /// <summary>
     /// 浏览器管理端使用的精确来源 CORS 策略名称。
     /// </summary>

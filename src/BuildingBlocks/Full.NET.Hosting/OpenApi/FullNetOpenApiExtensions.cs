@@ -65,6 +65,15 @@ public static class FullNetOpenApiExtensions
             In = ParameterLocation.Header,
             Description = "通过 Authorization: ApiKey {secret} 传递 Host API Key。"
         };
+        document.Components.SecuritySchemes["Signature"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.ApiKey,
+            In = ParameterLocation.Header,
+            Name = "X-FullNET-Access-Key-Id",
+            Description =
+                "请求签名认证。需同时提供 X-FullNET-Access-Key-Id、X-FullNET-Timestamp、"
+                + "X-FullNET-Nonce、X-FullNET-Signature 与 X-FullNET-Signature-Version=1。"
+        };
 
         return Task.CompletedTask;
     }

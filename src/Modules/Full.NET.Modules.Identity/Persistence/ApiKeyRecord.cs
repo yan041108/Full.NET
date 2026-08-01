@@ -65,6 +65,14 @@ internal sealed class ApiKeyAuthenticationRow
 
     public string DisplayName { get; set; } = string.Empty;
 
+    public string KeyPrefix { get; set; } = string.Empty;
+
+    public string KeyHash { get; set; } = string.Empty;
+
+    public string ScopeKey { get; set; } = string.Empty;
+
+    public Guid? TenantId { get; set; }
+
     public string PermissionsJson { get; set; } = string.Empty;
 
     public DateTimeOffset? ExpiresAtUtc { get; set; }

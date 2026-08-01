@@ -47,6 +47,10 @@ internal static class ApiKeySql
                apiKey.UserId,
                identityUser.Username,
                identityUser.DisplayName,
+               apiKey.KeyPrefix,
+               apiKey.KeyHash,
+               identityUser.ScopeKey,
+               identityUser.TenantId,
                apiKey.PermissionsJson,
                apiKey.ExpiresAtUtc,
                apiKey.IsActive,
@@ -62,6 +66,30 @@ internal static class ApiKeySql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement FindForSignatureAuthentication = new(
+        "identity.find_api_key_for_signature_authentication",
+        """
+        SELECT apiKey.Id AS ApiKeyId,
+               apiKey.UserId,
+               identityUser.Username,
+               identityUser.DisplayName,
+               apiKey.KeyPrefix,
+               apiKey.KeyHash,
+               identityUser.ScopeKey,
+               identityUser.TenantId,
+               apiKey.PermissionsJson,
+               apiKey.ExpiresAtUtc,
+               apiKey.IsActive,
+               apiKey.LastUsedAtUtc,
+               identityUser.SecurityStamp,
+               identityUser.IsActive AS UserIsActive,
+               identityUser.LockoutEndUtc AS UserLockoutEndUtc
+        FROM fn_identity_api_key AS apiKey
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = apiKey.UserId
+        WHERE apiKey.KeyPrefix = @AccessKeyId
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement TouchLastUsed = new(
         "identity.touch_api_key_last_used",
         """
@@ -71,13 +99,6 @@ internal static class ApiKeySql
         WHERE Id = @ApiKeyId
           AND IsActive = 1
           AND (LastUsedAtUtc IS NULL OR LastUsedAtUtc <= @LastUsedBeforeUtc)
-          AND EXISTS (
-              SELECT 1
-              FROM fn_identity_user AS identityUser
-              WHERE identityUser.Id = fn_identity_api_key.UserId
-                AND identityUser.ScopeKey = 'host'
-                AND identityUser.TenantId IS NULL
-          )
         """,
         SqlDataScope.Global);
 
