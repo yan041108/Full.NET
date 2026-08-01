@@ -1,7 +1,7 @@
 # 高并发模块化单体多实例改造评估与路线建议
 
 - 日期：2026-08-01
-- 状态：封板评估证据（架构决策已上收总体 Spec 与 ADR-0005；唯一活动实施计划已生成，运行时实现与容量认证待执行）
+- 状态：封板评估证据（架构决策已上收总体 Spec 与 ADR-0005；运行时/部署/容量套件已按实施计划落地并通过开发验证，见[实施验证记录](high-concurrency-multi-instance-implementation-2026-08-01.md)；容量认证仍为 `Capacity-not-verified`）
 - 原始代码评估基线：`6e156f59c5ff314610c07d46472172a7a89d6e49`
 - 本轮文档补充复核基线：`e2ee63c8a925592339b16953867b6da5a504a339`
 - 原始任务快照：`high-concurrency-multi-instance-assessment-20260801`
@@ -34,7 +34,7 @@ Full.NET 已经选择强化型模块化单体，并将 API、Worker、Migrator �
 
 这里的“单体”表示业务模块默认同进程、同发布边界运行，不表示只能有一个进程或一台服务器。成熟部署应使用同一 API 制品的多个无状态副本，通过负载均衡共同服务；Worker 使用数据库租约和幂等语义安全运行多个副本。
 
-本次进一步冻结三条目标边界：**缓存同步不使用 Outbox，普通日志写入不使用 Outbox，重要 HTTP Operation Audit/Exception Audit/Outbound Audit 不使用 Outbox**。缓存采用“直接 L1/L2 失效 + Redis Backplane 快速通知 + TTL/版本与权威源兜底”；Outbox 只用于必须与业务事务原子提交、允许至少一次投递并要求可靠重试的重要业务事件。普通 HTTP Operation Log 每个进入 Web 应用的请求最多生成一条结构化完成事件，可通过配置关闭、采样或只记录摘要，默认进入 Loki/OpenSearch/对象存储等日志平台，不写业务主库；日志或 Audit 确需入库时不得默认逐条建立数据库执行，应按 B0 业务事务内批量、B1 等待式跨请求微批、B2 非等待异步批量分层。总体架构 Spec、ADR-0005 和项目规则已经完成同步，但运行时代码与部署资产仍待后续实施。
+本次进一步冻结三条目标边界：**缓存同步不使用 Outbox，普通日志写入不使用 Outbox，重要 HTTP Operation Audit/Exception Audit/Outbound Audit 不使用 Outbox**。缓存采用“直接 L1/L2 失效 + Redis Backplane 快速通知 + TTL/版本与权威源兜底”；Outbox 只用于必须与业务事务原子提交、允许至少一次投递并要求可靠重试的重要业务事件。普通 HTTP Operation Log 每个进入 Web 应用的请求最多生成一条结构化完成事件，可通过配置关闭、采样或只记录摘要，默认进入 Loki/OpenSearch/对象存储等日志平台，不写业务主库；日志或 Audit 确需入库时不得默认逐条建立数据库执行，应按 B0 业务事务内批量、B1 等待式跨请求微批、B2 非等待异步批量分层。总体架构 Spec、ADR-0005 和项目规则已经完成同步；运行时、Helm/观测与容量套件已按实施计划交付并通过开发验证，容量状态仍为 `Capacity-not-verified`（见[实施验证记录](high-concurrency-multi-instance-implementation-2026-08-01.md)）。
 
 ### 2.2 不推荐方向
 

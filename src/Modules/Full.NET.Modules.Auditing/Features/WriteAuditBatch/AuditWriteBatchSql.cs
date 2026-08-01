@@ -9,11 +9,54 @@ namespace Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 
 /// <summary>
 /// B1 多行 INSERT 的 SQL 构造。Access 写入已迁出，生产默认不再逐请求写业务主库。
+/// 动态 VALUES 只能克隆固定 Global 原型，禁止运行时 new SqlStatement 改变作用域元数据。
 /// </summary>
 internal static class AuditWriteBatchSql
 {
     // SQL Server 参数上限约 2100；预留下限避免单批撑破。
     public const int MaxSqlParameters = 2000;
+
+    public static readonly SqlStatement OperationPrototype = new(
+        "auditing.microbatch.insert_operation_log",
+        """
+        INSERT INTO fn_auditing_operation_log
+            (Id, OccurredAtUtc, ActionKey, HttpMethod, RequestPath, StatusCode,
+             DurationMs, Succeeded, UserId, TenantId, TraceId,
+             ClientIpFingerprint, PermissionCode)
+        VALUES
+        (@o0_Id, @OccurredAtUtc, @o0_ActionKey, @o0_HttpMethod, @o0_RequestPath, @o0_StatusCode,
+         @o0_DurationMs, @o0_Succeeded, @o0_UserId, @o0_TenantId, @o0_TraceId,
+         @o0_ClientIpFingerprint, @o0_PermissionCode)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ExceptionPrototype = new(
+        "auditing.microbatch.insert_exception_log",
+        """
+        INSERT INTO fn_auditing_exception_log
+            (Id, OccurredAtUtc, ExceptionType, Message, StackTrace,
+             HttpMethod, RequestPath, UserId, TenantId, TraceId,
+             ClientIpFingerprint)
+        VALUES
+        (@e0_Id, @OccurredAtUtc, @e0_ExceptionType, @e0_Message, @e0_StackTrace,
+         @e0_HttpMethod, @e0_RequestPath, @e0_UserId, @e0_TenantId, @e0_TraceId,
+         @e0_ClientIpFingerprint)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement OutboundPrototype = new(
+        "auditing.microbatch.insert_outbound_call",
+        """
+        INSERT INTO fn_auditing_outbound_call
+            (Id, OccurredAtUtc, ProviderKey, OperationKey, DestinationHostCategory,
+             StatusCode, Succeeded, DurationMs, RetryCount, TraceId, SafeErrorCode,
+             TenantId, UserId)
+        VALUES
+        (@b0_Id, @b0_OccurredAtUtc, @b0_ProviderKey, @b0_OperationKey, @b0_DestinationHostCategory,
+         @b0_StatusCode, @b0_Succeeded, @b0_DurationMs, @b0_RetryCount, @b0_TraceId, @b0_SafeErrorCode,
+         @b0_TenantId, @b0_UserId)
+        """,
+        SqlDataScope.Global);
 
     public static (SqlStatement? Statement, Dictionary<string, object?> Parameters, int ParameterCount)
         BuildOperations(
@@ -85,10 +128,7 @@ internal static class AuditWriteBatchSql
         }
 
         parameters["OccurredAtUtc"] = occurredAtUtc;
-        var statement = new SqlStatement(
-            "auditing.microbatch.insert_operation_log",
-            sql.ToString(),
-            SqlDataScope.Global);
+        var statement = OperationPrototype with { Text = sql.ToString() };
         return (statement, parameters, parameters.Count);
     }
 
@@ -156,10 +196,7 @@ internal static class AuditWriteBatchSql
         }
 
         parameters["OccurredAtUtc"] = occurredAtUtc;
-        var statement = new SqlStatement(
-            "auditing.microbatch.insert_exception_log",
-            sql.ToString(),
-            SqlDataScope.Global);
+        var statement = ExceptionPrototype with { Text = sql.ToString() };
         return (statement, parameters, parameters.Count);
     }
 
@@ -234,10 +271,7 @@ internal static class AuditWriteBatchSql
             parameters[prefix + "_UserId"] = model.UserId;
         }
 
-        var statement = new SqlStatement(
-            "auditing.microbatch.insert_outbound_call",
-            sql.ToString(),
-            SqlDataScope.Global);
+        var statement = OutboundPrototype with { Text = sql.ToString() };
         return (statement, parameters, parameters.Count);
     }
 }

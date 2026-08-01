@@ -30,6 +30,9 @@ public sealed class GlobalSqlStatementCatalogTests
         "Full.NET.Modules.Organization.Persistence.TenantScopedSqlComposer.ApplyDataScopeFilter",
         "Full.NET.Modules.Auditing.Persistence.AuditingSqlServerPageStatementBuilder.CreateVariants",
         "Full.NET.Modules.Auditing.Persistence.AuditingSqlServerPageStatementBuilder.CreateListVariants",
+        "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildOperations",
+        "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildExceptions",
+        "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildOutbounds",
     ];
 
     private static readonly JsonSerializerOptions JsonOptions = new()

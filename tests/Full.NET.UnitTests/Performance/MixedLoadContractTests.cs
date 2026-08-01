@@ -30,7 +30,7 @@ public sealed class MixedLoadContractTests
     }
 
     [TestMethod]
-    public void Manifest_covers_authentication_reads_writes_audit_and_outbox()
+    public void Manifest_covers_authentication_reads_writes_audit_and_direct_cache_invalidation()
     {
         var scenarios = MixedLoadScenarioCatalog.Default;
 
@@ -48,7 +48,12 @@ public sealed class MixedLoadContractTests
             scenario.Authentication == MixedLoadAuthentication.ApiKey
             && scenario.Operation == MixedLoadOperation.Write));
         Assert.IsTrue(scenarios.Any(scenario => scenario.IsAuditQuery));
-        Assert.IsTrue(scenarios.Any(scenario => scenario.ProducesOutbox));
+        // Tenancy 写路径已改为提交后直接缓存失效，不得再通过 Outbox 冒充缓存同步。
+        Assert.IsTrue(scenarios.Any(scenario =>
+            scenario.Operation == MixedLoadOperation.Write
+            && scenario.Name.Contains("direct-cache-invalidation", StringComparison.Ordinal)
+            && !scenario.ProducesOutbox));
+        Assert.IsFalse(scenarios.Any(scenario => scenario.ProducesOutbox));
         Assert.IsTrue(scenarios.Any(scenario =>
             scenario.IsExpectedValidationFailure
             && scenario.ExpectedStatusCode == HttpStatusCode.BadRequest));
@@ -65,9 +70,9 @@ public sealed class MixedLoadContractTests
             new[]
             {
                 "jwt-read:25",
-                "jwt-write-outbox:15",
+                "jwt-write-direct-cache-invalidation:15",
                 "api-key-read:25",
-                "api-key-write-outbox:15",
+                "api-key-write-direct-cache-invalidation:15",
                 "audit-list:10",
                 "validation-failure:10",
             },

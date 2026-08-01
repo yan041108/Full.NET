@@ -36,6 +36,10 @@ public static class MixedLoadAuditWritePolicy
     private const string ExceptionStatement = "auditing.insert_exception_log";
     private const string BatchStatementPrefix =
         "auditing.insert_request_audit_batch.";
+    private const string MicrobatchOperationStatement =
+        "auditing.microbatch.insert_operation_log";
+    private const string MicrobatchExceptionStatement =
+        "auditing.microbatch.insert_exception_log";
 
     /// <summary>
     /// 判断当前 profile 是否应实际执行给定 Statement；非 Audit Statement 始终执行。
@@ -71,6 +75,8 @@ public static class MixedLoadAuditWritePolicy
             AccessStatement => [AccessStatement],
             OperationStatement => [OperationStatement],
             ExceptionStatement => [ExceptionStatement],
+            MicrobatchOperationStatement => [OperationStatement],
+            MicrobatchExceptionStatement => [ExceptionStatement],
             $"{BatchStatementPrefix}access" => [AccessStatement],
             $"{BatchStatementPrefix}operation" => [OperationStatement],
             $"{BatchStatementPrefix}exception" => [ExceptionStatement],

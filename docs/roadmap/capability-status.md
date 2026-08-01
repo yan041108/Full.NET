@@ -1,4 +1,4 @@
-﻿﻿# Full.NET 当前能力状态矩�?
+﻿﻿﻿# Full.NET 当前能力状态矩�?
 
 - 快照日期：2026-08-01
 - 基线提交：本文件所在提�?
@@ -103,7 +103,7 @@
 12. **M5+ 最后阶�?Decision Gate**——当前只�?Outbox。Kafka/CDC Relay 必须排在现有硬化和核心业务模块之后，并满足真�?SLA、轮询瓶颈、双�?CDC 运维和事件目录门禁；不得按瞬�?QPS 动态切换可靠性语义�?
 13. **P2：后续业务能�?*——用户管理切片退出后，再排角色、菜单、Organization �?L5 业务翻译样例�?
 14. **已完成：Admin.NET 吸收程序 Task 1–11**——代码生成、Grid 偏好、流水号、Jobs 调度、Files Provider、字段投影、请求签名、出站审计、只读模块目录已合入 `main`；大型插件（Document/Workflow/DataApproval/ImportExport/Reporting/AI）保持 `Mapped`，须 Gate G4 + 日期化 Spec 后才可开工（见[执行队列验证](../verification/adminnet-large-module-execution-queue-2026-08-01.md)）。
-15. **已批准设计：高并发多实例与日志基础设施**——总体 Spec 与 [`ADR-0005`](../architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md) 已冻结 Kubernetes + Helm、99.9% SLO、缓存/Audit/Outbox、日志逻辑分组、共享状态、发布灾备和 P4 容量认证边界；[多实例模块化单体评估](../verification/high-concurrency-modular-monolith-multi-instance-assessment-2026-08-01.md)与[日志基础设施高并发评估](../verification/logging-foundation-high-concurrency-assessment-2026-08-01.md)保留为证据。`eng/load` 已提供专用容量认证 k6 套件与静态合同（模板见[容量认证模板](../verification/high-concurrency-capacity-certification-template.md)），状态仍为 `Capacity-not-verified`；禁止把套件存在或本地静态校验表述为“已通过 10K 认证”。
+15. **已批准设计：高并发多实例与日志基础设施**——总体 Spec 与 [`ADR-0005`](../architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md) 已冻结 Kubernetes + Helm、99.9% SLO、缓存/Audit/Outbox、日志逻辑分组、共享状态、发布灾备和 P4 容量认证边界；[多实例模块化单体评估](../verification/high-concurrency-modular-monolith-multi-instance-assessment-2026-08-01.md)与[日志基础设施高并发评估](../verification/logging-foundation-high-concurrency-assessment-2026-08-01.md)保留为证据。`eng/load` 已提供专用容量认证 k6 套件与静态合同（模板见[容量认证模板](../verification/high-concurrency-capacity-certification-template.md)）；Task 1～14 运行时/部署资产已落地并通过[实施验证记录](../verification/high-concurrency-multi-instance-implementation-2026-08-01.md)的开发验收，状态仍为 `Capacity-not-verified`；禁止把套件存在或本地静态校验表述为“已通过 10K 认证”。
 
 ## 5. 关联文档
 

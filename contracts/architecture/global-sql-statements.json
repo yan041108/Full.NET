@@ -46,90 +46,36 @@
       ]
     },
     {
-      "statementName": "auditing.insert_request_audit_batch.access",
-      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.Access",
+      "statementName": "auditing.microbatch.insert_operation_log",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.OperationPrototype",
       "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
       "category": "cross_context_audit_write",
-      "reason": "访问审计批量写入覆盖匿名、Host 与租户请求，租户标识作为审计值显式写入。",
-      "requiredSqlFragments": [
-        "INSERT INTO fn_auditing_access_log",
-        "@AccessTenantId"
-      ]
-    },
-    {
-      "statementName": "auditing.insert_request_audit_batch.access_exception",
-      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.AccessException",
-      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
-      "category": "cross_context_audit_write",
-      "reason": "访问与异常审计需要在同一批次覆盖匿名、Host 与租户请求，并分别显式携带租户标识。",
-      "requiredSqlFragments": [
-        "INSERT INTO fn_auditing_access_log",
-        "@AccessTenantId",
-        "INSERT INTO fn_auditing_exception_log",
-        "@ExceptionTenantId"
-      ]
-    },
-    {
-      "statementName": "auditing.insert_request_audit_batch.access_operation",
-      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.AccessOperation",
-      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
-      "category": "cross_context_audit_write",
-      "reason": "访问与操作审计需要在同一批次覆盖 Host 与租户请求，并分别显式携带租户标识。",
-      "requiredSqlFragments": [
-        "INSERT INTO fn_auditing_access_log",
-        "@AccessTenantId",
-        "INSERT INTO fn_auditing_operation_log",
-        "@OperationTenantId"
-      ]
-    },
-    {
-      "statementName": "auditing.insert_request_audit_batch.access_operation_exception",
-      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.AccessOperationException",
-      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
-      "category": "cross_context_audit_write",
-      "reason": "完整请求审计批次需要同时写入访问、操作与异常记录，并为每类记录显式携带租户标识。",
-      "requiredSqlFragments": [
-        "INSERT INTO fn_auditing_access_log",
-        "@AccessTenantId",
-        "INSERT INTO fn_auditing_operation_log",
-        "@OperationTenantId",
-        "INSERT INTO fn_auditing_exception_log",
-        "@ExceptionTenantId"
-      ]
-    },
-    {
-      "statementName": "auditing.insert_request_audit_batch.exception",
-      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.Exception",
-      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
-      "category": "cross_context_audit_write",
-      "reason": "异常审计批量写入覆盖匿名、Host 与租户请求，租户标识作为审计值显式写入。",
-      "requiredSqlFragments": [
-        "INSERT INTO fn_auditing_exception_log",
-        "@ExceptionTenantId"
-      ]
-    },
-    {
-      "statementName": "auditing.insert_request_audit_batch.operation",
-      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.Operation",
-      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
-      "category": "cross_context_audit_write",
-      "reason": "操作审计批量写入覆盖 Host 与租户请求，租户标识作为审计值显式写入。",
+      "reason": "B1 操作审计微批写入覆盖 Host 与租户请求，租户标识作为审计值显式写入，不得依赖当前 SqlTenantBinding。",
       "requiredSqlFragments": [
         "INSERT INTO fn_auditing_operation_log",
-        "@OperationTenantId"
+        "@o0_TenantId"
       ]
     },
     {
-      "statementName": "auditing.insert_request_audit_batch.operation_exception",
-      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.OperationException",
+      "statementName": "auditing.microbatch.insert_exception_log",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.ExceptionPrototype",
       "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
       "category": "cross_context_audit_write",
-      "reason": "操作与异常审计需要在同一批次覆盖 Host 与租户请求，并分别显式携带租户标识。",
+      "reason": "B1 异常审计微批写入覆盖匿名、Host 与租户请求，租户标识作为审计值显式写入。",
       "requiredSqlFragments": [
-        "INSERT INTO fn_auditing_operation_log",
-        "@OperationTenantId",
         "INSERT INTO fn_auditing_exception_log",
-        "@ExceptionTenantId"
+        "@e0_TenantId"
+      ]
+    },
+    {
+      "statementName": "auditing.microbatch.insert_outbound_call",
+      "declaration": "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.OutboundPrototype",
+      "file": "src/Modules/Full.NET.Modules.Auditing/Features/WriteAuditBatch/AuditWriteBatchSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "B1 出站调用审计微批由调用方显式 opt-in，可能发生在 Host 或租户上下文，租户标识作为审计值显式写入。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_auditing_outbound_call",
+        "@b0_TenantId"
       ]
     },
     {
