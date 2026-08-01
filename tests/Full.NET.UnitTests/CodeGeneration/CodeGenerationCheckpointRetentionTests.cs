@@ -28,6 +28,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
         Assert.AreEqual(7, options.RetentionDays);
         Assert.AreEqual(3600, options.PollSeconds);
         Assert.AreEqual(20, options.MaxDeletesPerRun);
+        Assert.AreEqual(0, options.MaxCheckpointCount);
 
         using var invalid = CreateProvider(
             new Dictionary<string, string?>
@@ -35,17 +36,19 @@ public sealed class CodeGenerationCheckpointRetentionTests
                 ["CodeGeneration:CheckpointRetention:RetentionDays"] = "0",
                 ["CodeGeneration:CheckpointRetention:PollSeconds"] = "59",
                 ["CodeGeneration:CheckpointRetention:MaxDeletesPerRun"] = "0",
+                ["CodeGeneration:CheckpointRetention:MaxCheckpointCount"] = "-1",
             });
         var exception = Assert.ThrowsExactly<OptionsValidationException>(
             invalid.GetRequiredService<IStartupValidator>().Validate);
 
-        Assert.AreEqual(3, exception.Failures.Count());
+        Assert.AreEqual(4, exception.Failures.Count());
     }
 
     [TestMethod]
     public async Task Disabled_retention_does_not_query_database()
     {
-        var query = new RecordingQueryExecutor([]);
+        var query = new RecordingQueryExecutor(
+            new Dictionary<string, IReadOnlyList<CodeGenerationCheckpointCleanupCandidate>>());
         var runner = CreateRunner(
             query,
             enabledApply: false,
@@ -70,12 +73,16 @@ public sealed class CodeGenerationCheckpointRetentionTests
             plan);
 
         var query = new RecordingQueryExecutor(
-        [
-            new CodeGenerationCheckpointCleanupCandidate
+            new Dictionary<string, IReadOnlyList<CodeGenerationCheckpointCleanupCandidate>>
             {
-                ApplyRunId = ApplyRunId,
-            },
-        ]);
+                [CodeGenerationRunSql.ListEligibleCheckpointCleanupSqlServer.Name] =
+                [
+                    new CodeGenerationCheckpointCleanupCandidate
+                    {
+                        ApplyRunId = ApplyRunId,
+                    },
+                ],
+            });
         var runner = CreateRunner(query, enabledApply: true, workspaceRoot: workspace.Path);
         var result = await runner.RunOnceAsync(
             new CodeGenerationCheckpointRetentionOptions
@@ -90,7 +97,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
         Assert.AreEqual(1, result.Deleted);
         Assert.AreEqual(0, result.Skipped);
         Assert.AreEqual(0, result.Failed);
-        Assert.IsFalse(Directory.Exists(workspace.GetCheckpointPath()));
+        Assert.IsFalse(Directory.Exists(workspace.GetCheckpointPath(ApplyRunId)));
     }
 
     [TestMethod]
@@ -113,12 +120,16 @@ public sealed class CodeGenerationCheckpointRetentionTests
         workspace.Write("backend/Product.g.cs", "drifted-content\n");
 
         var query = new RecordingQueryExecutor(
-        [
-            new CodeGenerationCheckpointCleanupCandidate
+            new Dictionary<string, IReadOnlyList<CodeGenerationCheckpointCleanupCandidate>>
             {
-                ApplyRunId = ApplyRunId,
-            },
-        ]);
+                [CodeGenerationRunSql.ListEligibleCheckpointCleanupSqlServer.Name] =
+                [
+                    new CodeGenerationCheckpointCleanupCandidate
+                    {
+                        ApplyRunId = ApplyRunId,
+                    },
+                ],
+            });
         var runner = CreateRunner(query, enabledApply: true, workspaceRoot: workspace.Path);
         var result = await runner.RunOnceAsync(
             new CodeGenerationCheckpointRetentionOptions
@@ -131,7 +142,49 @@ public sealed class CodeGenerationCheckpointRetentionTests
         Assert.AreEqual(1, result.Scanned);
         Assert.AreEqual(0, result.Deleted);
         Assert.AreEqual(1, result.Skipped);
-        Assert.IsTrue(Directory.Exists(workspace.GetCheckpointPath()));
+        Assert.IsTrue(Directory.Exists(workspace.GetCheckpointPath(ApplyRunId)));
+    }
+
+    [TestMethod]
+    public async Task Runner_deletes_overflow_checkpoints_when_count_exceeds_max()
+    {
+        var olderApplyRunId = Guid.Parse("0198f7b3-34af-704c-8d2e-fc6aec9bf201");
+        var newerApplyRunId = Guid.Parse("0198f7b3-34af-704c-8d2e-fc6aec9bf202");
+        using var workspace = new RetentionWorkspace();
+        await workspace.CreateCheckpointAsync(olderApplyRunId);
+        await workspace.CreateCheckpointAsync(newerApplyRunId);
+
+        var query = new RecordingQueryExecutor(
+            new Dictionary<string, IReadOnlyList<CodeGenerationCheckpointCleanupCandidate>>
+            {
+                [
+                    CodeGenerationRunSql.ListEligibleCheckpointCleanupSqlServer.Name
+                ] = [],
+                [
+                    CodeGenerationRunSql.ListCapacityOverflowCheckpointCleanupSqlServer.Name
+                ] =
+                [
+                    new CodeGenerationCheckpointCleanupCandidate
+                    {
+                        ApplyRunId = olderApplyRunId,
+                    },
+                ],
+            });
+        var runner = CreateRunner(query, enabledApply: true, workspaceRoot: workspace.Path);
+        var result = await runner.RunOnceAsync(
+            new CodeGenerationCheckpointRetentionOptions
+            {
+                Enabled = true,
+                RetentionDays = 365,
+                MaxCheckpointCount = 1,
+                MaxDeletesPerRun = 5,
+            },
+            CancellationToken.None);
+
+        Assert.AreEqual(1, result.Scanned);
+        Assert.AreEqual(1, result.Deleted);
+        Assert.IsFalse(Directory.Exists(workspace.GetCheckpointPath(olderApplyRunId)));
+        Assert.IsTrue(Directory.Exists(workspace.GetCheckpointPath(newerApplyRunId)));
     }
 
     private static CodeGenerationCheckpointRetentionRunner CreateRunner(
@@ -169,7 +222,8 @@ public sealed class CodeGenerationCheckpointRetentionTests
     }
 
     private sealed class RecordingQueryExecutor(
-        IReadOnlyList<CodeGenerationCheckpointCleanupCandidate> candidates)
+        IReadOnlyDictionary<string, IReadOnlyList<CodeGenerationCheckpointCleanupCandidate>>
+            candidatesByStatement)
         : IQueryExecutor
     {
         public List<SqlStatement> Statements { get; } = [];
@@ -187,8 +241,13 @@ public sealed class CodeGenerationCheckpointRetentionTests
             CancellationToken cancellationToken = default)
         {
             Statements.Add(statement);
-            return Task.FromResult<IReadOnlyList<T>>(
-                candidates.Cast<T>().ToArray());
+            if (candidatesByStatement.TryGetValue(statement.Name, out var candidates))
+            {
+                return Task.FromResult<IReadOnlyList<T>>(
+                    candidates.Cast<T>().ToArray());
+            }
+
+            return Task.FromResult<IReadOnlyList<T>>([]);
         }
     }
 
@@ -233,6 +292,15 @@ public sealed class CodeGenerationCheckpointRetentionTests
                 snapshot.PreviousManifest);
         }
 
+        public async Task CreateCheckpointAsync(Guid applyRunId)
+        {
+            var plan = await CreateCheckpointPlanAsync();
+            await GenerationRollbackCheckpointStore.CreateAsync(
+                Path,
+                applyRunId,
+                plan);
+        }
+
         public void Write(string relativePath, string content)
         {
             var fullPath = System.IO.Path.Combine(
@@ -242,13 +310,13 @@ public sealed class CodeGenerationCheckpointRetentionTests
             File.WriteAllText(fullPath, content);
         }
 
-        public string GetCheckpointPath() =>
+        public string GetCheckpointPath(Guid applyRunId) =>
             System.IO.Path.Combine(
                 Path,
                 GenerationRollbackCheckpointStore.RootRelativePath.Replace(
                     '/',
                     System.IO.Path.DirectorySeparatorChar),
-                ApplyRunId.ToString("N"));
+                applyRunId.ToString("N"));
 
         public void Dispose()
         {

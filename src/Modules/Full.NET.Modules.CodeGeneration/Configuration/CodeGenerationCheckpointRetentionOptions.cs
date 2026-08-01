@@ -19,6 +19,11 @@ internal sealed class CodeGenerationCheckpointRetentionOptions
     public int PollSeconds { get; set; } = 3600;
 
     public int MaxDeletesPerRun { get; set; } = 20;
+
+    /// <summary>
+    /// 磁盘检查点目录上限；0 表示不按数量触发清理。
+    /// </summary>
+    public int MaxCheckpointCount { get; set; }
 }
 
 internal sealed class CodeGenerationCheckpointRetentionOptionsValidator
@@ -47,6 +52,12 @@ internal sealed class CodeGenerationCheckpointRetentionOptionsValidator
             500,
             "CodeGeneration:CheckpointRetention:MaxDeletesPerRun",
             failures);
+        if (options.MaxCheckpointCount is < 0 or > 100_000)
+        {
+            failures.Add(
+                "CodeGeneration:CheckpointRetention:MaxCheckpointCount "
+                + "must be between 0 and 100000.");
+        }
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success

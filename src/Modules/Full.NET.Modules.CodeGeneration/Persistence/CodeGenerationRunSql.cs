@@ -183,4 +183,35 @@ internal static class CodeGenerationRunSql
         LIMIT @Take
         """,
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListCapacityOverflowCheckpointCleanupSqlServer = new(
+        "codegen.run.list_capacity_overflow_checkpoint_cleanup.sql_server",
+        """
+        SELECT TOP (@Take) a.Id AS ApplyRunId
+        FROM fn_codegeneration_run a
+        INNER JOIN fn_codegeneration_run r
+            ON r.SourceApplyRunId = a.Id
+        WHERE a.OperationKind = 'apply'
+          AND a.Status = 'succeeded'
+          AND r.OperationKind = 'rollback'
+          AND r.Status = 'succeeded'
+        ORDER BY r.FinishedAtUtc ASC, a.Id
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListCapacityOverflowCheckpointCleanupMySql = new(
+        "codegen.run.list_capacity_overflow_checkpoint_cleanup.my_sql",
+        """
+        SELECT a.Id AS ApplyRunId
+        FROM fn_codegeneration_run a
+        INNER JOIN fn_codegeneration_run r
+            ON r.SourceApplyRunId = a.Id
+        WHERE a.OperationKind = 'apply'
+          AND a.Status = 'succeeded'
+          AND r.OperationKind = 'rollback'
+          AND r.Status = 'succeeded'
+        ORDER BY r.FinishedAtUtc ASC, a.Id
+        LIMIT @Take
+        """,
+        SqlDataScope.HostOnly);
 }

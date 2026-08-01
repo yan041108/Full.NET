@@ -14,7 +14,7 @@ Worker 后台按 DB 资格与 `RetentionDays` 冷却期清理已成功产品回�
 
 | 项 | 结果 |
 | --- | --- |
-| `TryDeleteAsync` + Runner 单元测试 | 5/5 |
+| `TryDeleteAsync` + Runner 单元测试 | 5/5（含 MaxCheckpointCount 见 [codegeneration-checkpoint-max-count-2026-08-02.md](codegeneration-checkpoint-max-count-2026-08-02.md)） |
 | CodeGeneration affected inner（双 Provider） | 32/32 |
 
 ## 规则/Skill

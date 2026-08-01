@@ -22,6 +22,7 @@
 | `RetentionDays` | `7` | 成功 Rollback 终态后至少经过的天数 |
 | `PollSeconds` | `3600` | Worker 轮询间隔 |
 | `MaxDeletesPerRun` | `20` | 单次扫描上限 |
+| `MaxCheckpointCount` | `0` | 磁盘检查点目录上限；`0` 禁用数量触发 |
 
 执行前必须同时满足：`CodeGeneration:Apply:Enabled = true` 且 `WorkspaceRoot` 为已存在的本地绝对路径。
 
