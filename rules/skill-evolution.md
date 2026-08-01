@@ -91,9 +91,9 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | 候选 | 状态/次数 | 当前证据 | 下一升级触发 |
 | --- | --- | --- | --- |
 | `fullnet-dual-database-change` | 观察 / 11 | 双库迁移、Tenancy SQL/API、Identity 授权、语言偏好、Seed 审计与 Jobs Provider-neutral 主动续租 SQL 均覆盖；008/009 已用真实 MySQL/SQL Server 验证 23 列 Expand/Contract、维护窗口拒绝、schema-mode 门禁、显式聚集与未记账半完成恢复 | 完成生产等价停止写入＋备份恢复演练，或第二个破坏性双库迁移复用后，按测试先行评估从模块交付 Skill 拆分；仍缺真实恢复介质与 RTO/RPO 停止条件 |
-| `fullnet-outbox-event-delivery` | 候选 / 2 | TenantProvisioned 与 TenantChanged 均使用事务 Outbox、版本化 MessagePack；TenantChanged 的 L2 删除或 Backplane 失败会传播到 Worker 并触发 Outbox 重试 | 第二个业务模块交付可靠事件时升级，验证跨模块复用后的输入、重试和停止条件 |
+| `fullnet-outbox-event-delivery` | 候选 / 1 | TenantProvisioned 是符合 ADR-0005 准入的重要业务事件；TenantChanged 只服务缓存失效，已从可复用 Outbox 证据中排除并登记为待迁移实现 | 第二个业务模块交付符合准入的重要可靠事件时升级，验证跨模块复用后的输入、重试和停止条件 |
 | `fullnet-api-compatibility` | 自动化优先 / 5 | ProblemDetails、Admin.NET Mapper、本地化认证 Challenge/429 已有真实 API 测试；冻结夹具比较器以及 PR base SHA / `main` push before SHA CI 会阻止 v1 路径、操作、安全字段与 schema 被静默破坏 | 等首个多客户端生成或真实 SDK 消费者落地后，再评估剩余人工决策是否足以形成 Skill；机械兼容检查继续保留在脚本、测试与 CI |
-| `fullnet-cache-feature` | 候选 / 3 | FusionCache 双抽象、租户 ID/域名 key 与 tag 失效、提交后本机修复、事务 Outbox 驱动的 Redis Backplane 多实例可靠失效及失败重试均已落地 | 独立业务模块采用第二种缓存模型时，基于两类消费者边界按测试先行评估升级；当前创建新 Skill 会扩大本任务范围 |
+| `fullnet-cache-feature` | 候选 / 3 | FusionCache 双抽象、租户 ID/域名 key 与 tag 失效已落地；ADR-0005 已冻结 C0/S0-L2/S1/S2/N0 与“直接 L1/L2 + Backplane + TTL/版本/权威源”，现有缓存失效 Outbox 属待迁移技术债而非目标证据 | 完成首个模块移除缓存 Outbox并通过多实例失败注入后，再结合第二种缓存模型按测试先行评估升级 |
 | `fullnet-release-verification` | 自动化优先 / 12 | uni-app 三目标构建、fresh H5 E2E、许可与漏洞门禁已落地；共享 Hosting 全量 Integration 曾在 Docker Desktop 停止时产生 172 项环境失败，本次 SQL Server/MySQL 审计聚焦也在容器创建前因 daemon 停止各失败 3 项；两次均在启动并预热 Engine 后原命令精确复跑通过 | 优先把 Docker Engine readiness、冷启动预热和环境失败分类收敛进 Integration preflight/脚本，不创建判断型 Skill |
 | `fullnet-realtime-feature` | 候选 / 3 | SignalR/MessagePack Hub、Notifications 提交后尽力推送、两个真实 API 宿主与专用 Redis 故障恢复，以及 Vue/Layui 认证连接、切上下文重连、通知刷新与失败降级均有自动化证据 | 第二个独立业务模块消费实时发布，或生产多副本编排与真实浏览器断网恢复形成完整生产流程后，再按测试先行评估升级；当前创建新 Skill 会扩大本任务范围 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |

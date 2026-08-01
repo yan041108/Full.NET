@@ -102,7 +102,7 @@ fullnet_super_administrator = true
 
 每个 Endpoint 仍必须声明精确权限。未知权限、未声明权限或作用域不匹配必须拒绝，禁止将超级管理员实现为“授权处理器无条件成功”。
 
-当前实现通过 JWT `OnTokenValidated` 对每个受保护请求读取权威 Session/User 记录，同时核对 `sub`、`sid`、SecurityStamp、账号/锁定状态、Refresh Session 活性、ActorScope、EffectiveScope 与 TenantId。该 S0 判定暂不使用缓存，因此授予、撤销、刷新轮换和上下文切换后旧 Access Token 会立即失效；未来若引入缓存，必须先建立同步本机失效和可靠跨节点传播。
+当前实现通过 JWT `OnTokenValidated` 对每个受保护请求读取权威 Session/User 记录，同时核对 `sub`、`sid`、SecurityStamp、账号/锁定状态、Refresh Session 活性、ActorScope、EffectiveScope 与 TenantId。该 C0 权威判定暂不使用缓存，因此授予、撤销、刷新轮换和上下文切换后旧 Access Token 会立即失效；未来若引入缓存，只能评估 S0-L2，并必须先证明提交后直接清理 L2、TTL/版本兜底和源故障 fail-closed。
 
 ### 5.3 客户端契约
 
@@ -126,7 +126,7 @@ fullnet_super_administrator = true
 - 并发版本检查，防止两个请求同时移除最后一个超级管理员；
 - 授予、撤销、禁用、恢复和失败原因全部审计；
 - 变更用户安全戳并撤销目标账号全部活动 Session；
-- 缓存按 S0 安全数据处理，禁止 Fail-Safe，提交后先清本机再通过 Outbox/Backplane 修复其他节点。
+- 缓存按 S0-L2/C0 安全数据处理，禁止 L1 与 Fail-Safe；事务提交后当前实例直接清理 L2，必要时通过版本/权威源复核，缓存失效禁止使用 Outbox。统一 Backplane 可以保留，但纯 S0-L2 的正确性不依赖 L1 通知。
 
 第一阶段远程写入口仅允许 Development/Testing 通过 `Identity:EnableRemoteSuperAdministratorManagement=true` 显式开启，并要求当前密码重认证。Production 须同时满足：[ADR-0004](../../architecture/adr/ADR-0004-production-super-admin-strong-reauth.md) 规定的 TOTP 强认证 Provider（`Identity:EnableTotpStrongReauthentication=true`）、操作者已登记 TOTP，以及请求中的当前密码与验证码；禁止只修改配置绕过。只读列表与审计仍受 Host 精确权限保护。
 

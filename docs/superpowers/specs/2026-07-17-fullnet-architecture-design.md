@@ -4,8 +4,11 @@
 - 硬化补充：[`2026-07-18-architecture-hardening-design.md`](2026-07-18-architecture-hardening-design.md)
 - 2026-07-22 巡检增补：[`../../verification/architecture-review-2026-07-22.md`](../../verification/architecture-review-2026-07-22.md)
 - 架构演进决策：[`ADR-0002：强化型模块化单体与按证据拆分`](../../architecture/adr/ADR-0002-modular-monolith-evolution.md)
+- 高并发生产决策：[`ADR-0005：高并发模块化单体多实例生产基线`](../../architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md)
+- 高并发评估证据：[`2026-08-01 高并发模块化单体多实例改造评估`](../../verification/high-concurrency-modular-monolith-multi-instance-assessment-2026-08-01.md)
 - 当前能力：[`../../roadmap/capability-status.md`](../../roadmap/capability-status.md)
 - 日期：2026-07-17
+- 高并发多实例封板：2026-08-01
 - 项目目录：`G:\wwwroot\github_fork\Full.NET`
 - 产品名称：Full.NET
 - 最终发布许可证：MIT
@@ -48,6 +51,8 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - 业务代码只依赖 `ILogger<T>`；高频日志使用 `LoggerMessage` 源生成，Serilog 负责异步有界结构化输出。
 - SignalR 通过实时通信抽象接入；官方客户端优先 MessagePack Hub Protocol，同时保留 JSON 客户端兼容。
 - AI 核心保持模型供应商中立；Agent、MCP、AG-UI 等能力必须位于独立模块或协议适配层。
+- 成熟生产参考拓扑采用 Kubernetes + Helm，强化型模块化单体以 API、Worker、Migrator 运行角色多实例部署；应用 Chart 不安装生产数据库、Redis、对象存储和可观测性后端。
+- 月度可用性 SLO 为 `99.9%`。单体 `1 万个同时在途动态请求` 是正式容量认证目标，不是开发机功能交付门禁，也不等同于固定 QPS 承诺。
 
 ### 2.3 长期功能基线
 
@@ -66,6 +71,7 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 5. 同一套业务模块可在单机、标准分离和多实例模式中部署。
 6. 安全、多租户和审计是默认能力，不依赖项目团队重复实现。
 7. 生成的代码是普通可维护代码，不被运行时代码生成器锁定。
+8. 以多实例正确性、明确资源预算和过载自保支撑正式环境容量认证；未在专用硬件验证前只声明 `Capacity-not-verified`，不得宣称达到 1 万在途。
 
 ### 3.2 非目标
 
@@ -79,6 +85,10 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - 同时完整支持所有关系型数据库；
 - 用缓存代替数据库一致性；
 - 直接把 Admin.NET.Core 的大合集结构复制到新框架。
+- 为容量目标提前全面微服务化、引入 Kafka/CDC 或服务网格；
+- 跨地域双活、数据库读副本或分片；
+- 由应用 Helm Chart 承载生产数据库、Redis、对象存储或日志平台；
+- 把 `99.99%` 可用性、开发机 1 万在途压测或特定硬件 QPS 作为 Full.NET 1.0 默认承诺。
 
 上述能力以后只能以独立模块、Provider、模板或示例项目加入，不得污染核心 BuildingBlocks。电商不属于 Admin.NET 功能对标基线，只作为 Full.NET 架构示例或独立产品场景。
 
@@ -314,11 +324,11 @@ MessagePack 集成事件使用显式 `[MessagePackObject]` 和整数 `[Key(n)]`�
 
 ### 6.5 Auditing
 
-提供登录、操作、异常、API、数据变更和慢 SQL 审计，以及查询、保留、清理和脱敏策略。
+提供登录、操作、异常、API、数据变更和慢 SQL 审计，以及查询、保留、清理和脱敏策略。审计按 B0 Domain Audit、B1 重要 HTTP Operation/Exception Audit 和 B2 普通 HTTP Operation Log/Access/诊断遥测分流；三类记录的可靠性、阻塞和保留语义不得混用。
 
 ### 6.6 Files
 
-提供文件元数据、上传、下载、删除、临时文件、权限和本地存储默认实现。S3、MinIO、OSS、COS 等作为独立 Provider。
+提供文件元数据、上传、下载、删除、临时文件、权限和本地存储默认实现。S3、MinIO、OSS、COS 等作为独立 Provider；成熟生产参考拓扑使用集群外 S3 兼容对象存储，本地文件 Provider 只用于开发、测试或明确的单机部署。
 
 ### 6.7 Notifications
 
@@ -419,12 +429,15 @@ WHERE TenantId = @TenantId
 打开连接
 -> 开始事务
 -> 业务写入
--> 写入 Outbox
+-> 按准入条件写入 Domain Audit
+-> 仅在产生重要业务 Integration Event 时写入 Outbox
 -> 提交
 -> 释放连接
 ```
 
 Query 默认不启动显式事务。Outbox 记录与业务数据在同一事务提交，由 Worker 按至少一次语义发布。处理器使用事件 ID 或业务幂等键防止重复副作用。
+
+Outbox 只承载需要与业务事务原子提交、可靠重试和跨模块/跨进程交付的重要业务 Integration Event。缓存失效、日志、Metrics、Trace、普通 HTTP Operation Log 和 Audit 均不使用 Outbox；Domain Audit 若要求“无审计不成功”，必须作为业务事实直接加入同一数据库事务，而不是转换为 Outbox 消息。
 
 Outbox 默认用 MessagePack 保存二进制载荷，并将消息类型、模式版本和内容类型保存为独立列。Worker 根据 `MessageType + SchemaVersion` 选择唯一处理器；处理器通过统一 `IIntegrationEventSerializer` 反序列化强类型事件。Outbox 处理路径不解析 JSON，也不启用 Typeless 反序列化。
 
@@ -559,9 +572,21 @@ FusionCache 是 Full.NET 唯一缓存实现，通过 `.AsHybridCache()` 同时�
 
 业务模块一般使用 `HybridCache` 的获取、设置、删除和 Tag 失效能力。只有需要 Fail-Safe、软硬超时、Eager Refresh、Adaptive Caching、Auto-Recovery、事件或高级诊断时才直接使用 `IFusionCache`。
 
+成熟生产必须暴露两个独立 Redis 连接边界：`Cache/Backplane` 与 `Realtime`。开发环境可以共用同一 Redis；生产默认物理隔离，只有容量、故障域和恢复证据证明安全时才允许同机部署，并仍须保持独立连接、前缀、配额和告警。
+
 ### 13.3 安全缓存策略
 
-全局默认关闭 Fail-Safe。用户会话、用户禁用状态、权限、租户启停状态和 API Key 不允许返回长时间过期数据。字典、普通配置和只读展示投影可以显式启用 Fail-Safe，并必须声明最大陈旧时间。
+缓存按一致性与陈旧预算静态分类，不根据瞬时并发切换语义：
+
+| 类别 | 典型数据 | 缓存形态 | 失效与回退 |
+| --- | --- | --- | --- |
+| C0 权威强一致决策 | 余额扣减、库存占用、关键状态迁移、必须立即生效的精确授权 | 禁用 L1；L2 只能作提示或带版本复核，必要时完全绕过 | 权威源完成决策；不可用时 fail-closed |
+| S0-L2 共享即时缓存 | 不能接受节点间 L1 漂移的安全/配置读取 | 禁用 L1，只用 Redis L2 | 直接删除/更新 L2；Redis 失败时读权威源或 fail-closed；TTL/版本限制失败窗口 |
+| S1 重要业务缓存 | 订单读模型、权限目录、租户/配置/字典等行为投影 | L1 + L2 + Backplane | 当前实例删除 L1/L2，Backplane 通知其他实例，短 TTL/版本兜底 |
+| S2 可降级展示 | 非关键统计、推荐、展示聚合 | L1 + L2，可选 Backplane/后台刷新 | 允许声明上限内的有界陈旧和 Fail-Safe |
+| N0 不缓存 | 低频、高敏感、变化快且收益低的数据 | 无 L1/L2 | 直接读取权威源，以查询、索引、限流和连接预算治理 |
+
+全局默认关闭 Fail-Safe。只有 S2 可按条目显式启用并声明最大陈旧时间；C0、S0-L2、S1 不允许以 Fail-Safe、Background Refresh 或陈旧 L1 作为正确性证明。S0-L2 只消除节点间 L1 漂移，不等于数据库与 Redis 强一致；要求数据库提交后任何读取都绝不能看到旧值时，必须选择 C0/N0。
 
 缓存键格式：
 
@@ -575,16 +600,14 @@ fullnet:{environment}:{tenantId}:{module}:{resource}:{id}:{version}
 
 ```text
 业务事务提交
--> Outbox 事件
--> Worker 调用 FusionCache Remove/RemoveByTag
--> 删除 L2
--> Backplane 通知所有节点
--> 各节点清除 L1
+-> 当前实例直接 Remove/RemoveByTag，清除 L1 与 Redis L2
+-> Redis Backplane 快速通知其他实例清除 L1
+-> TTL、缓存版本与权威数据源校验兜底
 ```
 
-Outbox 保证失败后重试，Backplane 负责多节点本地缓存同步，两者职责不同。
+缓存失效禁止使用 Outbox。提交后的本机 L1/L2 删除可以在当前实例同一调用链执行，但不加入已提交业务事务，也不把 Redis 成功伪装成数据库原子性；删除或通知失败必须计量、告警并由短 TTL、版本门禁或权威源读取收敛。重复删除 L1/L2 必须幂等，不得因此主动触发一次数据库回填。
 
-缓存按一致性分级：权限、用户禁用/安全戳、租户启停/到期、API Key 和 Session 属于安全关键数据，写事务提交后必须同步清除当前进程缓存，再由 Outbox/Backplane 修复其他节点；授权决定不能只依赖可能陈旧的 L1。业务关键配置声明最大陈旧窗口；字典和展示投影才可按上限使用 Fail-Safe 或 Background Refresh。Background Refresh 只优化延迟，不是正确性保证。
+L2 未命中后的回填默认依赖 FusionCache 的单实例合并与合理 TTL；只有“源查询昂贵 + 热点键 + 并发击穿证据”同时成立时才增加带租约和超时的分布式锁。锁获得者双检 L2 后回源并回填，未获得者短暂等待后重读 L2 或按类别回退；禁止给所有缓存键机械加分布式锁。
 
 ## 14. API 与错误模型
 
@@ -636,15 +659,70 @@ JSON 统一使用 System.Text.Json 的 Web 默认语义和 UTF-8 输出。每个
 
 默认启用 HTTPS、CORS 白名单、限流、安全响应头、输入长度限制、文件校验、SQL 参数化、日志脱敏和敏感操作审计。真实密钥和连接字符串不得进入仓库，由环境变量、Secret Store 或 Vault Provider 提供。
 
+### 15.4 多实例 Data Protection
+
+所有 API 副本必须使用稳定且一致的 `ApplicationName`，共享持久化 Data Protection Key Ring，并对静态 Key 使用 X.509 证书加密。Kubernetes 参考实现采用专用 RWX 持久卷；Key Ring、历史证书及私钥备份必须纳入恢复演练，滚动升级期间保留能够解密现有 Cookie、CSRF Token 和临时令牌的历史材料。禁止把 Data Protection Key Ring 放入可驱逐的缓存 Redis、容器临时文件系统或某个 Pod 的本地卷。
+
 ## 16. 可观测性与高并发日志
 
-Full.NET 使用 OpenTelemetry 标准关联日志、Trace 和 Metrics，不绑定单一监控平台。业务代码只调用 `ILogger<T>`，高频路径和固定模板使用 `[LoggerMessage]` 源生成；禁止业务模块直接调用 Serilog 静态 API。
+Full.NET 使用 OpenTelemetry 标准关联 Log、Trace 和 Metrics，不绑定单一查询平台。业务代码只调用 `ILogger<T>`，高频固定模板使用 `[LoggerMessage]` 源生成；禁止业务模块直接调用 Serilog 静态 API、指定物理文件名、数据库表或具体 Sink。
 
-默认日志管道为 `ILogger<T> -> Serilog -> 异步有界 Sink -> JSON Console/集中式平台`。文件和网络 Sink 不在请求线程同步写入；队列必须有容量上限、使用率指标和丢弃计数，Debug/Information 在过载时允许按策略丢弃以保护业务吞吐。Error/Critical 使用独立容量、独立指标和本地短期 Spool/可靠 Sink 的高优先级通道；高优先级通道耗尽时进入健康降级和告警，但不默认阻塞请求线程同步写网络。登录、授权、资金、租户、配置和 Agent 工具调用等审计记录不属于普通运行日志，必须通过数据库事务或 Outbox 可靠保存，不能因日志队列满而丢失。
+### 16.1 四维分类与逻辑流
 
-每个 HTTP 请求默认只产生一条汇总访问日志；生产环境不默认记录完整请求体、响应体或高基数对象。日志输出在应用结束时有界刷新，不能无限等待慢 Sink。
+每条结构化日志同时具有以下四个维度：
 
-结构化日志包含 `TraceId`、`SpanId`、`TenantId`、`UserId`、`Module`、`RequestPath`、`ElapsedMs` 和 `ResultCode`，但不得记录密码、Token、Cookie、完整证件号或银行卡信息。
+1. `Level`：Trace、Debug、Information、Warning、Error、Critical；
+2. `LogClass`：Access、HttpOperation、Diagnostic、Business、System、Security、Audit；
+3. `ReliabilityClass`：B0、B1、B2 或普通运行通道；
+4. `DataClassification`：Public、Internal、Restricted、Secret。
+
+固定逻辑流为 `access/http-operation`、`diagnostic`、`operational-priority`、`security`、`audit`。逻辑分组由 `LogClass`、`DiagnosticGroup`、`EventId/EventName`、`SourceContext` 等低基数字段表达；平台可据此路由到不同 Loki Stream、OpenSearch Index 或对象存储归档，但程序员不得在业务代码里选择文件或物理分区。
+
+程序员在任意代码行添加的调试诊断日志属于 `Diagnostic`。使用 `ILogger<T>` + 结构化模板，并填写受治理的 `EventId/EventName` 与低基数 `DiagnosticGroup`；统一携带 `TraceId`、`SpanId`、`TenantId`、`Module` 和 `SourceContext`。生产默认关闭 Trace/Debug，通过受保护的管理 API 按命名空间、Endpoint、TraceId、租户或诊断组临时开启；配置与变更 Audit 在同一数据库事务提交，当前实例立即刷新，经 Redis Backplane 快速通知其他实例，并由配置版本与 TTL 兜底，不使用 Outbox。每个开关强制 TTL、操作者、原因、速率/字节上限，禁止无限期全局开启。
+
+### 16.2 普通 HTTP Operation Log
+
+普通 HTTP Operation Log 是 B2 可观测日志，不是 Domain Audit，也不是重要 HTTP Operation Audit。每个进入 Web 应用并完成的请求最多产生一条汇总记录，合并应用 Access 摘要，主要字段包括：
+
+- `TraceId/SpanId`、路由模板、Controller/Action/Endpoint、HTTP Method、规范化 URL/Host/Scheme；
+- 状态码、业务结果码、`ElapsedMs`、客户端取消/异常类型；
+- 可信代理解析后的客户端 IP、来源 URL（`Referer`，仅在存在且通过清洗时）、协议和受控 User-Agent 摘要；
+- 经 Endpoint 白名单和字段投影后的请求/响应摘要。
+
+生产默认 `Enabled=true`、`CaptureMode=Summary`。成功请求使用确定性采样；错误、慢请求和安全事件进入独立 Priority 通道且不参加成功采样，但 Priority 仍是容量有界、可观测丢弃的运行日志，不构成不可丢承诺；要求持久证据的事件必须进入 B1/B0。`SanitizedPayload` 只能由 Endpoint 显式白名单启用，必须限制字段、长度、嵌套深度和集合数量；密码、Token、Cookie、Authorization、签名、完整证件号/银行卡号等 Secret 永不记录，nonce 只允许 HMAC 摘要。禁止复制 Furion Logging Monitor 那种每请求输出完整系统信息、全部 Header、请求体和响应体的大文本块作为生产默认。
+
+框架必须提供六档部署初始模板：`S [0,1K)`、`M [1K,5K)`、`L [5K,10K)`、`XL [10K,50K)`、`XXL [50K,100K)`、`Ultra >=100K`。Profile 只控制成功请求/Trace 的起始采样、Payload 捕获和事件/字节容量预算，不改变 B0/B1/B2 可靠性语义，也不得按瞬时在途数自动抖动切档。面向 1 万在途边界的生产初始参考为 `Enabled=true`、`CaptureMode=Summary`、`CapacityProfile=XL`，该档只是保守起始保护值，最终选择还必须结合经认证的事件/秒、字节/秒和日志后端预算，仍须由目标硬件校准。
+
+### 16.3 Audit 与批量写入
+
+| 类别 | 典型内容 | 保存方式 | 请求失败语义 |
+| --- | --- | --- | --- |
+| B0 Domain Audit | 权限/超管、租户、资金、订单或其他要求“无审计不成功”的领域变更 | 与业务状态在同一数据库事务直接写入 | fail-closed |
+| B1 重要 HTTP Operation/Exception Audit | 重要管理操作、敏感导出/删除、高风险文件、手工重放/修复及异常审计 | 有界跨请求微批直接写审计库；请求等待所属批次写入尝试 | 默认 fail-open + 告警 |
+| B2 普通 HTTP Operation/Access/Diagnostic | 普通请求、访问与诊断遥测 | 异步有界日志管道/日志平台，可采样 | 不阻塞业务 |
+
+Audit 不使用 Outbox。B0 与业务事务原子写；B1 批写器必须定义容量、最大批量、最大等待、关闭排空、失败重试上限、降级、指标与告警，使用一次数据库往返写入一批记录，禁止每条记录单独开连接执行。B1 若被要求 fail-closed，必须重新建模为 B0。Outbox 仍只服务重要业务 Integration Event。
+
+首批强制 Audit 目录覆盖：认证与会话；权限、角色和超级管理员；租户；生产配置和动态诊断开关；支付、订单、资金、库存的重要写；敏感导出/删除；高风险文件；手工重放、死信和运维修复。HTTP 请求本身不因存在 Audit 而经过 Outbox。
+
+### 16.4 管道、压力状态与保留
+
+成熟生产参考管道为：
+
+```text
+应用 JSON stdout
+-> Fluent Bit DaemonSet（磁盘缓冲）
+-> Loki（热查询）/ 对象存储（长期归档）
+
+OTLP
+-> OpenTelemetry Collector
+-> Tempo + Prometheus
+-> Grafana
+```
+
+OpenSearch、Seq 或其他 APM 可以替换查询后端，应用侧字段和可靠性契约不随平台变化。应用日志管道、优先日志通道和 Audit 批写器都必须有界并暴露队列深度、字节数、丢弃数、批次耗时和失败数。压力状态固定为 `Normal -> Degraded -> Critical -> Recovering`，只允许逐级收缩 B2/Best Effort 的采样和 Payload；不得降级 B0/B1 语义，也不得默认在请求线程同步写网络或磁盘。
+
+默认保留期：Diagnostic 3 天、普通 HTTP Operation/Access 14 天、Warning/Error 运行日志 30 天、Security 90 天、Trace 7 天、重要 HTTP Operation Audit 365 天、Exception Audit 90 天；Domain Audit 按模块法规与业务策略确定。Metrics 热数据默认 30 天，长期数据采用降采样。具体项目可因法规延长，但缩短 Audit 保留期必须经过安全与合规评审。
 
 追踪链路覆盖：
 
@@ -653,7 +731,7 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
      -> Outbox -> Worker -> 外部 HTTP 服务
 ```
 
-指标至少覆盖请求量、耗时、错误率、登录失败、SQL 耗时、慢 SQL、缓存命中率、日志队列深度/容量/丢弃数、任务积压、Outbox 积压、通知成功率和文件上传失败率。
+指标至少覆盖请求量、在途请求、耗时、错误率、登录失败、SQL 耗时、慢 SQL、数据库连接池等待、缓存 L1/L2 命中与失效通知延迟、日志/Audit 队列深度/容量/丢弃或失败数、任务积压及最老年龄、Outbox 积压、通知成功率和文件上传失败率。
 
 健康端点：
 
@@ -669,7 +747,7 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 
 服务端使用强类型 `Hub<TClient>`。租户、用户、角色和业务对象采用有命名空间的组名，所有加入组操作重新验证租户和权限。官方 .NET/Vue 客户端优先使用 MessagePack Hub Protocol，普通浏览器和兼容客户端可继续选择 JSON。服务端限制消息大小、连接数、调用速率和流持续时间，并支持取消和断线重连。
 
-单实例使用本机 SignalR；自建多实例使用同机房 Redis Backplane，开发环境可以与 FusionCache 共用 Redis，生产环境至少隔离前缀和连接配置，高负载时使用独立实例。在线状态使用 Redis TTL 或可替换 Presence Store，不保存在某一台 API 的进程内存。
+单实例使用本机 SignalR；自建多实例使用同机房 Redis Backplane。开发环境可以与 FusionCache 共用 Redis；生产参考拓扑使用独立 `Realtime` Redis，与 `Cache/Backplane` Redis 分离，例外必须有容量和故障域证据。除非客户端被约束为 WebSockets-only 且启用 `SkipNegotiation`，负载均衡入口必须为 SignalR 保持连接亲和；在线状态使用 Redis TTL 或可替换 Presence Store，不保存在某一台 API 的进程内存。
 
 ## 18. AI 与 Agentic Web
 
@@ -722,11 +800,13 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 
 ### 20.5 性能基线
 
-建立单行查询、分页、批量写入、权限检查、租户解析、Token、System.Text.Json 源生成、MessagePack、gRPC 契约、日志热路径和 Outbox 的可重复 Benchmark。发布门禁比较相对退化，不承诺脱离环境的固定 QPS。序列化基准必须使用 Full.NET 的真实分页、树形权限、租户和事件 DTO，不能只引用第三方项目的微基准结论。
+建立单行查询、分页、批量写入、权限检查、租户解析、Token、System.Text.Json 源生成、MessagePack、gRPC 契约、日志热路径和 Outbox 的可重复 Benchmark。日常开发只要求按高并发目标完成正确性、资源边界、可观测性和轻量回归验证，不要求在没有目标硬件的开发机达到 2K/5K/10K 在途或固定 QPS。未完成正式容量认证时状态必须为 `Capacity-not-verified`。
 
 性能变更必须记录场景、数据规模、并发、预热、时长、运行环境、Provider、基线提交、吞吐、错误率、P50/P95/P99 与受影响资源指标。请求链优先减少数据库和网络往返；Dapper 仅按稳定 Statement 名称暴露低基数指标。认证撤销、租户隔离、Audit/Outbox 可靠性和双库兼容是性能优化的硬停止条件，不能用缓存、fire-and-forget 或单库执行计划换取表面吞吐。
 
-轮询 Worker 在取得满批次时应立即继续领取，未满批次才进入 Poll 等待；并发必须有租约、顺序键、作用域和连接池预算。管理端以路由动态导入和依赖按需加载控制首包，发布验证同时记录 minified、gzip 与可用时的 Brotli，并以相对基线退化作为门禁。详细执行规则见 [`rules/performance-engineering.md`](../../../rules/performance-engineering.md)，重复工作流使用项目 Skill `$fullnet-performance-hardening`。
+轮询 Worker 在取得满批次时应立即继续领取，未满批次才进入 Poll 等待；并发必须有租约、顺序键、作用域和连接池预算。管理端以路由动态导入和依赖按需加载控制首包，发布验证同时记录 minified、gzip 与可用时的 Brotli，并以相对基线退化作为门禁。
+
+`1 万个同时在途动态请求` 只在 P4 专用硬件和生产等价 Kubernetes 拓扑认证：依次执行 2K、5K、10K 台阶，包含稳态、长时间 Soak、N+1 副本故障、依赖故障注入和 SQL Server/MySQL 分 Provider 认证，记录吞吐、错误率、P50/P95/P99、在途数、队列、连接池、数据库/Redis/GC/CPU/内存。只有该证据完整时才允许声明 10K 能力；设计同步、多实例正确性、资源治理和适用的 Kubernetes 生产门禁完成后，可以保守流量进入 `Capacity-not-verified`，不得把上线本身当作容量证明。详细执行规则见 [`rules/performance-engineering.md`](../../../rules/performance-engineering.md)，重复工作流使用项目 Skill `$fullnet-performance-hardening`。
 
 ## 21. 运行与部署
 
@@ -740,23 +820,54 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 支持三种运行拓扑，均保持 API、Worker、Migrator 的职责边界：
 
 1. 开发编排：AppHost 启动独立 API、Worker、Migrator 进程及其依赖；
-2. 标准生产：API、Worker 独立运行，Migrator 作为发布前一次性作业；
-3. 多实例生产：多个 API 和 Worker 共享数据库与 Redis，Migrator 仍作为独立发布作业。
+2. 标准分离：API、Worker 独立运行，Migrator 作为发布前一次性作业；
+3. 成熟生产：Kubernetes + Helm 部署多个 API/Worker，Migrator 仍是发布管线控制的一次性 Job。
 
 禁止为了减少部署单元把迁移、Seed 或可靠后台消费静默放回 API 进程。若某个业务模块需要独立宿主，仍必须先满足第 4.1 节和 ADR-0002 的拆分门禁。
 
-生产发布顺序：
+### 21.1 Kubernetes 参考基线
+
+- 集群至少 3 个 Worker Node；API 最少 2 副本，配置 Pod Anti-Affinity/Topology Spread、`PodDisruptionBudget minAvailable: 1`、requests/limits、非 root、只读根文件系统、专用 ServiceAccount 和 NetworkPolicy；
+- API Deployment 使用 RollingUpdate，`maxUnavailable: 0`、`maxSurge: 1`，并同时实现 startup/readiness/liveness、`preStop`、终止宽限期和停止接收新请求后的排空；
+- Worker 独立 Deployment，生产最少 2 副本以提供接管能力，但 Outbox/Jobs 默认 `MaxConcurrency=1`；扩缩容优先看积压深度和最老消息年龄，并受数据库总连接预算约束；
+- Migrator 由发布管线以一次性 Job 运行，具有单一执行权、超时和失败阻断；API/Worker 不执行迁移或 Production Seed；
+- Ingress/Gateway 负责 TLS、可信代理、全局连接/请求/Body 限制、WAF、外层限流和超时；应用继续保留 Endpoint、本实例和下游资源限制，二者共同构成过载保护；
+- HPA 以 CPU、内存、在途请求、队列和延迟等稳定指标扩容，但最大副本数必须先满足 `API 最大副本 × 每实例连接上限 + Worker/Migrator/运维连接 <= 数据库安全连接预算`；达到下游预算后必须排队、限流或快速失败，禁止无限扩 Pod 压垮数据库；
+- 应用 Helm Chart 只安装 Full.NET 的 Deployment、Service、Ingress、Config、RBAC 和必要 PVC 引用，不安装生产数据库、Redis、对象存储、Loki、Tempo、Prometheus 或 Grafana。
+
+生产密钥由外部 Secret 管理系统注入。Data Protection 使用专用共享 RWX PVC + X.509；文件进入外部 S3 兼容对象存储；Cache/Backplane Redis 与 Realtime Redis 默认物理分离。所有状态依赖必须有独立高可用、备份、恢复和容量责任人。
+
+### 21.2 发布与回滚
+
+生产发布采用 Expand/Contract 和消费者优先：
 
 ```text
-部署新镜像
--> 运行 Migrator
--> 确认迁移成功
--> 启动 API/Worker
--> 健康检查
--> 切换流量
+构建并签名不可变镜像
+-> 配置与依赖预检
+-> 执行向后兼容的 Expand 迁移
+-> 部署兼容新旧事件/Schema 的 Worker 消费者
+-> 滚动部署 API 并观察错误率、P99、连接池和队列
+-> 排空旧 Pod，保留可回滚镜像与旧契约
+-> 经过兼容窗口后在独立发布执行 Contract 迁移
 ```
 
-Docker 镜像采用多阶段构建、非 root 用户、最小端口、健康检查，并支持只读文件系统；生产密钥不进入镜像。
+若迁移、健康、错误率、P99、数据库/Redis 饱和或队列最老年龄触发停止条件，必须停止推进并回滚应用；已经执行的 Expand 迁移保持兼容，禁止在同一窗口强行破坏性回滚数据库。Docker 镜像采用多阶段构建、非 root 用户、最小端口和只读文件系统；生产密钥不进入镜像。
+
+### 21.3 可用性与恢复目标
+
+月度可用性 SLO 为 `99.9%`，按“符合准入的业务请求中，在 Endpoint 超时预算内得到非 5xx/非基础设施拒绝结果”的比例计算；客户端认证/权限/验证或明确业务拒绝不计为坏事件，系统过载产生的 429、网关/应用超时和超预算成功均计为坏事件。默认月度错误预算约 43 分 50 秒，计划维护也计入，除非具体项目合同显式另订；必须按多窗口 Burn Rate 告警。参考恢复目标如下；更严格的项目合同必须通过独立容量和灾备设计提高，不得静默改写框架默认：
+
+| 资产 | RPO | RTO | 基线 |
+| --- | --- | --- | --- |
+| 业务数据库与 Domain Audit | 同城高可用故障 RPO 0；备份恢复不超过 5 分钟 | 30 分钟 | 高可用、PITR/日志备份、双库恢复演练 |
+| Data Protection Key Ring 与历史证书 | 0 | 15 分钟 | 共享持久化、加密、备份及解密演练 |
+| 对象存储已确认文件 | 0 | 30 分钟 | 版本化/复制或等价耐久策略 |
+| Redis Cache/Backplane | 不承诺持久数据 RPO | 15 分钟 | 可重建；故障期间按缓存类别回退 |
+| Redis Realtime | 不保存离线业务事实 | 15 分钟 | 连接重建；离线事实由数据库/通知记录承担 |
+| 普通日志 | 以 Fluent Bit 磁盘 Spool 容量为丢失预算 | 60 分钟 | 查询后端恢复后续传 |
+| Audit 查询库 | 按 B0/B1 数据库策略 | 30 分钟 | 双库备份、恢复与保留验证 |
+
+受控 Production 只有在设计同步、多实例正确性、资源治理、Kubernetes 部署、双库、恢复和回滚门禁通过后，才可以保守流量上线并明确标记 `Capacity-not-verified`；这不授权宣传 10K 容量。正式 10K 声明必须完成第 20.5 节专用环境认证。
 
 ## 22. 参考项目映射与演进
 
@@ -827,7 +938,7 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 
 ### M4：1.0 加固
 
-双数据库测试矩阵、Vue/Layui 双管理端 E2E、uni-app 三目标构建、性能基线、Docker 部署、升级文档、安全审查和 MIT 发布检查。
+双数据库测试矩阵、Vue/Layui 双管理端 E2E、uni-app 三目标构建、性能基线、Kubernetes + Helm 成熟生产基线、滚动发布/恢复演练、升级文档、安全审查和 MIT 发布检查。容量认证作为独立 P4 在专用硬件执行；未完成时只允许标记 `Capacity-not-verified`。
 
 ### M5+：Admin.NET 全量功能对标
 
@@ -847,11 +958,16 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - Vue 与 Layui 两套管理端都可以完成核心管理流程，并分别通过权限和 E2E 验收；
 - uni-app 可以分别构建 H5、微信小程序和支付宝小程序基础客户端；
 - Docker 可以启动完整开发环境；
+- Kubernetes + Helm 可以按 API/Worker/Migrator 角色部署多实例，完成滚动发布、排空、故障接管和受控回滚演练；
 - 日志、Trace、Metrics 和健康检查可用；
+- 普通 HTTP Operation Log、Diagnostic、B0/B1 Audit 按逻辑分组、脱敏、批写和可靠性契约分流，缓存与日志/Audit 均不借用 Outbox；
+- Data Protection Key Ring、对象存储、Cache/Backplane Redis 与 Realtime Redis 满足多实例共享和恢复边界；
 - 对外 JSON 热路径使用 System.Text.Json 源生成，Outbox 使用带版本元数据的 MessagePack 二进制载荷；
 - SignalR 实时通道具备租户隔离、MessagePack 客户端和 Redis 多实例验证；
 - 架构、集成、生成器和 E2E 测试通过；
 - 仓库满足 MIT 和第三方许可证发布要求。
+
+上述 1.0 验收不自动证明 1 万同时在途。只有第 20.5 节专用容量环境的 2K/5K/10K、Soak、N+1、故障注入和双 Provider 证据完成后，才能把容量状态从 `Capacity-not-verified` 提升为已认证。
 
 1.0 验收不等于 Admin.NET 全量功能对标完成。长期对标完成标准是功能矩阵中所有适用项达到 `Verified`，或者经过设计评审明确记录为 `Not Applicable` 并给出替代方案。
 
@@ -872,6 +988,8 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 11. 开放协议的标准格式优先于内部偏好；MCP、AG-UI 等要求 JSON/SSE 时必须保持协议兼容。
 12. API、Worker、Migrator 必须保持运行角色分离；角色分离不等于业务服务拆分，AppHost 不承载业务能力。
 13. 局部模块拆分必须先满足第 4.1 节全部门禁并通过独立 ADR；禁止以“未来可能扩容”或“团队可能增长”代替可测量证据。
+14. Outbox 只承载重要业务 Integration Event；缓存失效、日志、Trace、Metrics、普通 HTTP Operation Log 和 Audit 不使用 Outbox。
+15. 开发阶段以万级在途为设计目标，但容量声明只能来自专用生产等价环境；没有证据时必须如实标记 `Capacity-not-verified`。
 
 ## 27. 参考资料
 
@@ -883,6 +1001,11 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - [EF Core Performance](https://learn.microsoft.com/ef/core/performance/)
 - [System.Text.Json Source Generation](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/source-generation)
 - [gRPC Performance Best Practices](https://learn.microsoft.com/aspnet/core/grpc/performance?view=aspnetcore-10.0)
+- [ASP.NET Core Data Protection configuration](https://learn.microsoft.com/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0)
+- [ASP.NET Core SignalR hosting and scaling](https://learn.microsoft.com/aspnet/core/signalr/scale?view=aspnetcore-10.0)
+- [Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+- [Kubernetes Pod Disruption Budgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
+- [Grafana Loki storage](https://grafana.com/docs/loki/latest/operations/storage/)
 - [MessagePack-CSharp](https://github.com/MessagePack-CSharp/MessagePack-CSharp)
 - [High-performance logging in .NET](https://learn.microsoft.com/dotnet/core/extensions/logging/high-performance-logging)
 - [Serilog.Sinks.Async](https://github.com/serilog/serilog-sinks-async)

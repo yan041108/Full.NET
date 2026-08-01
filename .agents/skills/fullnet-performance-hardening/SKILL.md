@@ -18,6 +18,7 @@ description: Use when analyzing or changing Full.NET request latency, throughput
 3. 记录基线提交、Release 配置和原始结果位置；BenchmarkDotNet 必须保留运行环境。
 4. 先写会失败的预算、回归测试或可复现实验，再改实现。
 5. 缺少真实 SQL Server/MySQL 环境时停止数据库性能结论，只报告静态风险与未验证项。
+6. 开发阶段不要求达到 1 万同时在途；开发门禁验证高并发设计、正确性、资源上限和轻量回归。固定容量只能在专用容量环境认证，认证前标记 `Capacity-not-verified`，不得承诺固定 QPS。
 
 ## 2. 定位请求链
 
@@ -47,12 +48,15 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 - Session、API Key、安全戳、租户状态属于安全关键数据。
 - 任何缓存方案先写明撤销时效、源故障、失效事件和 fail-closed 行为。
 - 禁止为了命中率开启 Fail-Safe 或让陈旧 L1 独立作出授权决定。
+- 缓存失效禁止使用 Outbox。业务事务提交后，当前实例直接失效 L1/L2，再由 Redis Backplane 通知其他实例清理 L1，并以 TTL、版本和权威数据源回退兜底；分布式锁只用于昂贵热点回填防击穿。
 
-### 审计与高频写入
+### 审计、日志与高频写入
 
-- 先区分合规 Audit、可靠业务记录和可采样访问遥测。
-- 合规 Audit 必须进入数据库事务或 Outbox；禁止使用无界队列、无人观察任务或普通日志替代。
-- 异步缓冲必须同时定义有界容量、背压、关闭排空、崩溃丢失预算和自监控；缺少可靠性决策时停止异步化。
+- 先按可靠性分为 B0 Domain Audit、B1 重要 HTTP Operation/Exception Audit、B2 普通 HTTP Operation Log/Access/诊断遥测；三类记录不得因同名而共用可靠性语义。
+- B0 Domain Audit 与业务状态在同一数据库事务直接写入；若同一事务还写重要业务 Integration Event 的 Outbox，两者仍是独立事实，Audit 不使用 Outbox。
+- B1 采用有界跨请求微批直接写入审计库，请求等待所属批次的写入尝试，默认 `fail-open` 并告警；要求“无审计不成功”的动作必须改为 B0，而不是增强 B1 或改走 Outbox。
+- B2 使用有界异步日志管道和集中式平台，可按策略采样或丢弃，不写 Outbox，也不得伪装成合规 Audit。
+- 所有异步缓冲必须同时定义有界容量、背压、关闭排空、崩溃丢失预算和自监控；缺少可靠性决策时停止异步化。
 
 ### Outbox 与 Jobs
 
@@ -97,7 +101,7 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 | 看到 async 就认为没有阻塞 | 统计实际同步等待与下游 I/O |
 | 只跑序列化微基准 | 先比较数据库与网络往返 |
 | 缓存认证结果但忽略撤销 | 明确撤销 SLA、事件失效和 fail-closed |
-| 用 fire-and-forget 优化 Audit | 先满足事务/Outbox 与崩溃恢复 |
+| 用 fire-and-forget 优化 Audit | 先按 B0/B1/B2 分类，再选择同事务或有界微批；Audit 不使用 Outbox |
 | 盲目增加并行度或 BatchSize | 验证租约、顺序、连接池和尾延迟 |
 | 只在一个数据库看执行计划 | SQL Server/MySQL 成对验证 |
 | 只看未压缩 JS 大小 | 同时记录 minified、gzip、Brotli 与首屏请求 |

@@ -42,13 +42,14 @@
 - 业务模块物理拓扑默认采用“一个主项目＋按证据可选 Contracts/传输适配项目”；小功能、CRUD、实体、菜单和用例只能作为主项目内的垂直切片，禁止按功能机械增加 `.csproj`；项目拆分门禁见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节与[总体架构 Spec §4.2](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#42-解决方案结构)。
 - 业务数据访问默认使用 Dapper 与显式 SQL，未经明确架构决策不得引入 EF Core；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 5 节。
 - Dapper 辅助能力只允许通过 Full.NET 自有边界使用，业务模块禁止直连数据库、通用 Repository 或自动 CRUD；禁用清单与验证以 [`rules/development-quality.md`](rules/development-quality.md) R-20260718-dapper-tooling-boundary 为准。
-- 当前可靠业务 Integration Event 只通过事务 Outbox 发布；CDC Relay/Kafka 排在当前硬化和核心业务之后，必须经真实 SLA、瓶颈与双库运维门禁，且不得按瞬时 QPS 动态改变可靠性语义；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 6 节与[总体架构 Spec §9.1](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)。
+- 当前需要事务原子性和可靠重试的重要业务 Integration Event 只通过事务 Outbox 发布；缓存失效、日志、Trace、Metrics、普通 HTTP Operation Log 和 Audit 禁止使用 Outbox。CDC Relay/Kafka 排在当前硬化和核心业务之后，必须经真实 SLA、瓶颈与双库运维门禁，且不得按瞬时 QPS 动态改变可靠性语义；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 6、8、9 节与[总体架构 Spec §9.1](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)。
 - 数据库正式支持 SQL Server 与 MySQL，数据库行为变更必须同时验证两者；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 5、11 节。
 - Full.NET 官方表逻辑主键为应用端生成的 UUID v7，C# 与业务模块只使用 `Guid`；物理类型、字节序、聚集索引与转换边界以 [`rules/naming-conventions.md`](rules/naming-conventions.md) 第 4、5 节为准。
 - 数据库表采用 `{owner}_{module}_{entity}`（官方 OwnerKey 固定为 `fn`，`sys` 保留，禁止运行时动态表前缀），列使用 PascalCase 与 Dapper 投影直接映射；完整命名以 [`rules/naming-conventions.md`](rules/naming-conventions.md) 为准。
 - 对外 HTTP API 使用标准状态码与 ProblemDetails，Admin.NET 统一包络只存在于兼容适配层；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 7 节。
 - JSON 使用 System.Text.Json，内部高性能序列化按既定边界使用 MessagePack，服务契约可使用 gRPC；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 7 节。
-- 缓存以 FusionCache 为唯一实现并通过 `.AsHybridCache()` 暴露双抽象；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 8 节。
+- 缓存以 FusionCache 为唯一实现并通过 `.AsHybridCache()` 暴露双抽象；多实例失效采用当前实例 L1/L2 删除 + Redis Backplane + TTL/版本/权威源兜底，强一致类别禁用 L1；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 8 节。
+- 成熟生产参考采用 Kubernetes + Helm 的模块化单体多实例拓扑，月度可用性 SLO 为 99.9%；开发阶段以 1 万同时在途为设计目标但不承担容量达标门禁，专用生产等价环境认证前必须标记 `Capacity-not-verified`。正式边界见 [`ADR-0005`](docs/architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md) 与[总体架构 Spec §20.5](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#205-性能基线)。
 - 后续功能以 Admin.NET 为功能参考目标，但实现必须遵守 Full.NET 的架构、安全和发布许可边界；对标方式见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节。
 - 默认引导账号属于受保护的 `host-administrator` 超级管理员系统角色，动态投影授权目录权限且不得绕过租户隔离、账号/会话状态、精确 Endpoint 权限、审计与最后一名保护；细则以 [`rules/development-quality.md`](rules/development-quality.md) R-20260718-super-administrator-boundary 为准。
 - 后台管理功能必须在 Vue 与 Layui 双管理端按同一模块同步开发，双端权限、租户、错误处理、关键流程与 E2E 全部通过后才可标记 `Verified`；细则见 [`rules/client-frontend.md`](rules/client-frontend.md) 第 2 节。

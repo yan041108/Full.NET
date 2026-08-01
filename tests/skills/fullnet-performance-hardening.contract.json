@@ -24,6 +24,10 @@
     "BenchmarkDotNet",
     "执行计划",
     "包体",
+    "缓存失效禁止使用 Outbox",
+    "Audit 不使用 Outbox",
+    "Capacity-not-verified",
+    "专用容量环境",
     "停止条件"
   ],
   "scenarios": [
@@ -41,10 +45,35 @@
       "name": "审计热路径",
       "prompt": "把同步审计写入改成异步以降低接口延迟。",
       "required_terms": [
-        "可靠性",
+        "Domain Audit",
+        "同一数据库事务",
+        "重要 HTTP Operation/Exception Audit",
+        "微批",
+        "直接写入",
         "有界",
         "背压",
-        "Outbox"
+        "fail-open"
+      ]
+    },
+    {
+      "name": "多实例缓存失效",
+      "prompt": "优化 FusionCache 多实例缓存同步并减少数据库压力。",
+      "required_terms": [
+        "L1",
+        "L2",
+        "Backplane",
+        "TTL",
+        "缓存失效禁止使用 Outbox"
+      ]
+    },
+    {
+      "name": "万级在途开发边界",
+      "prompt": "开发机没有目标硬件，是否必须在开发阶段证明一万同时在途。",
+      "required_terms": [
+        "开发阶段不要求达到 1 万同时在途",
+        "专用容量环境",
+        "Capacity-not-verified",
+        "不得承诺固定 QPS"
       ]
     },
     {

@@ -2,6 +2,7 @@
 
 - 日期：2026-07-18
 - 状态：已批准；依据项目所有者“后续按推荐方案自动确认”的授权纳入基线
+- 2026-08-01 高并发修订：缓存与 Audit/日志边界按 [`ADR-0005`](../../architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md) 更新
 - 范围：吸收外部交叉审查中可被仓库证据证实的改进，不改写既有核心选型
 - 非范围：本次只完善文档和计划，不修改代码、SQL、配置或测试
 
@@ -21,7 +22,7 @@
 |---|---|---|
 | MessagePack + Outbox 版本风险 | 部分接受，P1 | 已有 `SchemaVersion`、整数 Key、尾部追加和精确版本路由；“DTO 加字段必然失败”并不准确。真实缺口是蓝绿期间多版本共存、旧消息升级、版本退役和毒消息闭环 |
 | 双数据库方言地狱 | 接受，P0/P1 | 允许数据库专用 SQL，但必须成对实现、语义一致并双库测试；禁止把专有语法隐藏在通用 Handler。JSON 聚合/变更默认放应用层 |
-| FusionCache 失效时序 | 部分接受，P1 | 全局 Fail-Safe 已关闭；Background Refresh 不能作为权限正确性机制。真实缺口是提交到 Outbox/Backplane 生效之间的陈旧窗口 |
+| FusionCache 失效时序 | 部分接受，P1 | 全局 Fail-Safe 已关闭；Background Refresh 不能作为权限正确性机制。目标路径不使用 Outbox，真实缺口是数据库提交到当前实例 L1/L2 删除、Backplane 通知以及 TTL/版本/权威源兜底收敛之间的窗口 |
 | 租户上下文与刷新竞态 | 部分接受，P1 | Refresh 已以服务端 Session 的 `ActiveTenantId` 为权威，不信任 JWT 租户。需补切换/刷新线性化和跨 Tab 共用 Cookie 的刷新竞争验证 |
 | Seed 与 Migration 回滚 | 部分接受，P0 | Baseline/Overlay 设计已完整，真实问题是尚未实施。拒绝通用 Seed Down；开发重置使用临时库重建/备份恢复，数据修正向前演进 |
 | Layui 现代化代价 | 部分接受，P1 | Layui 端已有 Vite/Vitest；不降低功能、权限和关键流程对等要求。允许交互机制不同，收敛 headless 规则，不共享 UI 组件 |
@@ -82,11 +83,13 @@ Provider 隔离不引入已长期停更且不能解决 SQL 语义差异的 `Dapp
 
 | 等级 | 典型数据 | 规则 |
 |---|---|---|
-| S0 安全关键 | 权限、用户禁用、安全戳、租户启停/到期、API Key、Session | Fail-Safe 关闭；授权决定不得只依赖可能陈旧的 L1；写事务提交后同步清除当前进程，再写/保留 Outbox 负责跨节点修复；使用极短 TTL 或直接查权威存储 |
-| S1 业务关键 | 配置开关、套餐限制、工作流状态 | 明确最大陈旧窗口；提交后本机失效 + Outbox/Backplane；必要时关键写后读走权威存储 |
-| S2 展示/参考 | 字典、只读投影、非安全统计 | 可使用有界 Fail-Safe、Eager/Background Refresh，但必须声明最大陈旧时间 |
+| C0 权威强一致 | 余额扣减、库存占用、关键状态迁移、必须立即生效的精确授权 | 禁用 L1；L2 只作提示或带权威版本复核，必要时完全绕过；权威源不可用时 fail-closed |
+| S0-L2 共享即时 | 不能接受节点间 L1 漂移的安全/配置读取 | 禁用 L1，只使用 Redis L2；提交后直接删除/更新 L2，以 TTL/版本限制失败窗口 |
+| S1 重要业务 | 配置开关、套餐限制、订单读模型、权限目录 | L1 + L2 + Backplane；提交后当前实例直接删 L1/L2 并通知其他实例，短 TTL/版本兜底；默认关闭 Fail-Safe |
+| S2 可降级展示 | 字典、只读投影、非安全统计 | L1 + L2；可使用有界 Fail-Safe、Eager/Background Refresh，但必须声明最大陈旧时间 |
+| N0 不缓存 | 低频、高敏感、变化快且收益低的数据 | 不建立 L1/L2，直接读取权威源 |
 
-Background Refresh 只优化延迟，不证明正确性。多实例验证必须覆盖“数据库已提交但失效尚未消费”、Redis 不可用、Worker 延迟和节点持有旧 L1 的场景。
+缓存失效禁止使用 Outbox。Background Refresh 只优化延迟，不证明正确性。多实例验证必须覆盖“数据库已提交但当前实例删除或 Backplane 通知失败”、Redis 不可用、进程在失效后退出和其他节点持有旧 L1 的场景，并证明 TTL、版本或权威源边界可以收敛。
 
 ## 6. 模块生命周期与宿主 Profile
 
@@ -148,7 +151,7 @@ Full.NET 官方模块使用 `fn`，项目业务模块使用脚手架阶段冻结
 
 普通运行日志采用双通道：Debug/Information/常规 Warning 进入有界批量异步通道；Error/Critical 进入有独立容量、独立指标和本地短期 Spool/可靠 Sink 的高优先级通道。高优先级通道耗尽时触发健康降级和告警，不默认阻塞请求线程同步写网络或磁盘。
 
-Audit 不是日志等级。登录、授权、资金、租户、配置和 Agent 副作用审计继续通过数据库事务或 Outbox 保存，并拥有独立保留、查询和外部导出 Provider；Kafka/Event Hub 可作为 Provider，不成为核心强制依赖。
+Audit 不是日志等级，也不使用 Outbox。要求“无审计不成功”的 B0 Domain Audit 与业务状态在同一数据库事务直接写入；B1 重要 HTTP Operation/Exception Audit 通过有界跨请求微批直接写审计库并默认 fail-open + 告警；B2 普通 HTTP Operation/Access/诊断进入有界日志管道并可采样。三类记录拥有独立保留、查询和外部导出边界，详细语义以总体架构 Spec §16 与 ADR-0005 为准。
 
 ## 12. 真实链路 E2E 与工具链
 

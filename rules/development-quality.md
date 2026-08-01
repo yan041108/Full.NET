@@ -168,7 +168,7 @@
 6. 锁、租约、批大小和并行度必须有边界，且在崩溃、超时和时钟偏差下能恢复。
 7. 乐观并发失败后若重读状态并重试，必须重新验证账号活动状态、安全戳、权限、租户边界和业务前置条件中受并发影响的部分；禁止只替换版本号后继续执行高权限操作。
 8. 已发布 Outbox 事件必须保留稳定消息类型和正整数 `SchemaVersion`。出现第二个版本时必须提供并行旧版本 Handler 或显式相邻版本升级链，并记录兼容/退役窗口；未知版本、永久失败和超过最大重试的毒消息必须进入可查询、可审计重放的死信路径，不能永久阻塞批次。
-9. 同进程模块内部事件使用类型化 Contract/Dispatcher，不得为未来吞吐假设默认进入外部 Broker。当前可靠业务 Integration Event 只允许通过与业务数据同事务的 Outbox 发布；不得根据瞬时 QPS 动态切换到可靠性更弱的链路。
+9. 同进程模块内部事件使用类型化 Contract/Dispatcher，不得为未来吞吐假设默认进入外部 Broker。当前需要事务原子性和可靠重试的重要业务 Integration Event 只允许通过与业务数据同事务的 Outbox 发布；不得根据瞬时 QPS 动态切换到可靠性更弱的链路。缓存失效、日志、Trace、Metrics、普通 HTTP Operation Log 和 Audit 禁止使用 Outbox；Domain Audit 必须作为业务事实直接写入业务事务。
 10. CDC Relay 与直接 Kafka 属于 M5+ Decision Gate：只有 Outbox 双库生产闭环、真实消费者与 SLA、轮询瓶颈基准、SQL Server CDC/MySQL Binlog 运维能力以及独立 ADR/Spec/计划全部具备后才允许实现。CDC/Kafka 端到端仍按至少一次与消费幂等设计，禁止宣称 Exactly-Once；轮询 Worker 与 CDC Relay 不得同时拥有同一事件流。
 11. 直接 Broker 发布只能承载经事件目录批准的可丢失、可重算且不要求业务事务原子性的流量；禁止在 `finally`、无人观察的后台任务或无界缓冲中 fire-and-forget。详细边界见[总体架构 Spec §9.1](../docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)。
 
@@ -206,11 +206,14 @@
 
 1. 缓存以 FusionCache 为唯一实现，并通过 `.AsHybridCache()` 暴露双抽象；禁止再引入独立缓存实现造成语义分叉。
 2. 缓存键必须包含环境、模块、租户、版本和业务标识中的必要维度，禁止不同租户或不同契约版本共享同一键空间。
-3. 权限、用户禁用/安全戳、租户启停/到期、API Key 和 Session 属于安全关键缓存：Fail-Safe 必须关闭，授权决定不得只依赖可能陈旧的 L1；写事务提交后先同步清除当前进程，再通过 Outbox/Backplane 修复其他节点。Background Refresh 不能作为安全正确性证明。
-4. 每项缓存必须定义过期、失效、空值、降级和源故障行为。多实例部署必须验证分布式缓存与失效通知，而非只测单机内存。
-5. SignalR Hub 必须鉴权；组名和连接映射必须包含租户边界。横向扩展时必须采用受支持的背板并限制消息大小、频率和连接资源。
-6. 健康检查必须注册真实依赖并区分存活、就绪与启动完成；`ready`/`startup` 空检查集合不得返回可供编排器采用的成功信号。当前数据库、已配置的 Redis/Backplane 和必要初始化必须有短超时、无副作用的检查，并以依赖失败集成测试验证 HTTP 状态；健康响应不得泄露连接串、SQL 或异常堆栈。
-7. 基础设施不可用时必须定义 fail-fast 或降级策略，禁止静默切换到可能造成数据不一致的本地实现。
+3. 缓存必须归入 C0 权威强一致、S0-L2 共享即时、S1 重要业务、S2 可降级展示或 N0 不缓存。权限、用户禁用/安全戳、租户启停/到期、API Key 和 Session 等安全关键数据的 Fail-Safe 必须关闭，授权决定不得只依赖可能陈旧的 L1；C0/S0-L2 必须禁用 L1，N0 直接读取权威源。Background Refresh 不能作为安全正确性证明。
+4. 缓存失效禁止使用 Outbox。业务事务提交后，当前实例必须直接失效 L1/L2，再由 Redis Backplane 通知其他实例清理 L1，以 TTL、版本和权威源读取兜底；重复删除必须幂等且不得主动触发数据库回填。只有昂贵热点回填存在击穿证据时才允许增加带租约和超时的分布式锁。
+5. 每项缓存必须定义类别、过期、最大陈旧、失效、空值、降级和源故障行为。多实例部署必须验证分布式缓存、失效通知延迟、通知丢失后的收敛和 Redis 故障，而非只测单机内存。
+6. SignalR Hub 必须鉴权；组名和连接映射必须包含租户边界。横向扩展时必须采用受支持的背板并限制消息大小、频率和连接资源；除 WebSockets-only + `SkipNegotiation` 外，入口必须保持连接亲和。
+7. 健康检查必须注册真实依赖并区分存活、就绪与启动完成；`ready`/`startup` 空检查集合不得返回可供编排器采用的成功信号。当前数据库、已配置的 Redis/Backplane 和必要初始化必须有短超时、无副作用的检查，并以依赖失败集成测试验证 HTTP 状态；健康响应不得泄露连接串、SQL 或异常堆栈。
+8. 基础设施不可用时必须定义 fail-fast 或降级策略，禁止静默切换到可能造成数据不一致的本地实现。
+9. 多实例 Data Protection 必须使用稳定 `ApplicationName`、共享持久化 Key Ring 和静态加密，历史 Key/证书必须可恢复；禁止使用 Pod 本地卷或可驱逐缓存 Redis。生产文件必须使用外部对象存储，不得依赖某个 API 实例本地磁盘。
+10. 生产必须暴露独立 `Cache/Backplane` 与 `Realtime` Redis 连接边界；默认物理隔离，开发可共用，生产同机例外必须具备容量与故障域证据。
 
 ## 9. 日志、指标与高并发
 
@@ -218,9 +221,14 @@
 2. 高并发路径禁止同步网络日志、无界队列和每请求刷新；日志管道必须有容量、背压、丢弃策略和自监控指标。
 3. 必须统一关联 `TraceId`、租户标识、用户标识和业务标识，但敏感字段必须脱敏或哈希。
 4. 错误日志应记录一次且位于最有处理上下文的边界，禁止每层重复记录同一异常。
-5. Error/Critical 必须拥有独立容量、独立指标和可靠降级路径，不得与可丢弃的 Debug/Information 共用唯一过载命运；同时禁止为了日志可靠性默认阻塞请求线程同步写网络或磁盘。Audit 必须走数据库事务或 Outbox，不能以日志等级代替。
+5. Error/Critical 必须拥有独立容量、独立指标和可靠降级路径，不得与可丢弃的 Debug/Information 共用唯一过载命运；同时禁止为了日志可靠性默认阻塞请求线程同步写网络或磁盘。
 6. OpenTelemetry 指标与追踪必须控制标签基数；禁止使用用户 ID、URL 原文或异常消息作为高基数标签。
 7. 性能优化必须先定义指标、数据规模和基线；BenchmarkDotNet 结果必须记录运行环境，不能用 Debug 构建得出结论。
+8. 日志必须按 `Level`、`LogClass`、`ReliabilityClass`、`DataClassification` 四维分类，并使用 `DiagnosticGroup`、`EventId/EventName` 和 `SourceContext` 做低基数逻辑分组；业务代码禁止指定日志文件、数据库表或具体 Sink。
+9. 普通 HTTP Operation Log 属于 B2 可观测日志，每请求最多一条汇总，生产默认 `Summary`；请求/响应 Payload 只允许 Endpoint 白名单和字段投影，必须脱敏并限制长度、深度和集合数量。
+10. Audit 不使用 Outbox。B0 Domain Audit 必须与业务状态在同一数据库事务直接写入并 fail-closed；B1 重要 HTTP Operation/Exception Audit 使用有界跨请求微批直接写审计库，请求等待写入尝试并默认 fail-open + 告警；B2 普通访问/诊断走有界日志管道并可采样。禁止每条日志或 Audit 单独开连接写库。
+11. 生产动态诊断只能由受保护管理接口按命名空间、Endpoint、TraceId、租户或诊断组临时开启，必须具有 TTL、操作者、原因、速率/字节上限和 Audit；传播使用当前实例刷新 + Redis Backplane + 版本/TTL，不使用 Outbox，禁止无限期全局 Debug/Trace。
+12. 日志过载状态只能收缩 B2/Best Effort；不得降低 B0/B1 可靠性语义或把同步网络/磁盘写入移到请求线程。
 
 ## 10. AI 集成与 Agentic Web
 
