@@ -35,6 +35,7 @@ public sealed class CodeGenerationModule : IFullNetModule
         services.TryAddScoped<CodeGenerationRunService>();
         services.TryAddScoped<CodeGenerationRunQueryService>();
         services.TryAddScoped<CodeGenerationApplyService>();
+        services.TryAddScoped<CodeGenerationRollbackService>();
         services.TryAddSingleton<CodeGenerationApplyGate>();
         services.TryAddScoped<CodeGenerationTemplateQueryService>();
         services.TryAddScoped<CodeGenerationTemplateManagementService>();

@@ -70,6 +70,9 @@ public sealed class CodeGenerationPreviewServiceTests
             descriptor.ServiceType == typeof(CodeGenerationApplyService)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
         Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(CodeGenerationRollbackService)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType
                 == typeof(IValidateOptions<CodeGenerationApplyOptions>)
             && descriptor.ImplementationType

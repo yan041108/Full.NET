@@ -41,6 +41,17 @@ internal static class CodeGenerationRunSummary
             .ToLowerInvariant();
     }
 
+    /// <summary>
+    /// 计算回滚后工作区 GenerationManifest 的稳定摘要；空清单合法。
+    /// </summary>
+    public static string ComputeManifestSha256(GenerationManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        return Convert.ToHexString(
+                SHA256.HashData(StrictUtf8.GetBytes(manifest.ToJson())))
+            .ToLowerInvariant();
+    }
+
     private static string ComputeContentSha256(string content) =>
         Convert.ToHexString(
                 SHA256.HashData(StrictUtf8.GetBytes(content)))

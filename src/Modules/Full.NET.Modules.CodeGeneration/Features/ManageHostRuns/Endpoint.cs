@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Routing;
 namespace Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
 
 /// <summary>
-/// 映射 Host 代码生成受跟踪预览与只读运行目录端点。
+/// 映射 Host 代码生成预览、Apply、Rollback 与只读运行目录端点。
 /// </summary>
 internal static class Endpoint
 {
@@ -74,6 +74,34 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status500InternalServerError)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationRunPermissions.Apply));
+
+        group.MapPost("/rollback", async (
+            CodeGenerationRunRollbackRequest request,
+            CodeGenerationRollbackService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.RollbackAsync(
+                    actorUserId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<CodeGenerationRunRollbackResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status500InternalServerError)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            CodeGenerationRunPermissions.Rollback));
 
         group.MapGet("", async (
             int? page,
