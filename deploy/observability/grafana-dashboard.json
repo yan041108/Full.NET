@@ -1,0 +1,84 @@
+{
+  "title": "Full.NET High Concurrency",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["fullnet", "capacity-not-verified"],
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "query": "label_values(up{application=\"Full.NET\"}, instance)",
+        "refresh": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP P50/P95/P99",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket{application=\"Full.NET\"}[5m])) by (le))"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{application=\"Full.NET\"}[5m])) by (le))"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_request_duration_seconds_bucket{application=\"Full.NET\"}[5m])) by (le))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Audit B1 queue / failures",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "fullnet_audit_microbatch_queue_depth" },
+        { "expr": "rate(fullnet_audit_microbatch_failures_total[5m])" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Async log drops (priority vs best effort)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "rate(fullnet_async_log_dropped_total{stream=\"priority\"}[5m])" },
+        { "expr": "rate(fullnet_async_log_dropped_total{stream=\"best_effort\"}[5m])" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Outbox/Jobs backlog age",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "fullnet_outbox_oldest_message_age_seconds" },
+        { "expr": "fullnet_jobs_oldest_age_seconds" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache invalidation duration",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(fullnet_cache_invalidation_duration_ms_bucket[5m])) by (le))"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Capacity status",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 16 },
+      "options": { "textMode": "value" },
+      "targets": [
+        {
+          "expr": "vector(1)",
+          "legendFormat": "Capacity-not-verified"
+        }
+      ]
+    }
+  ]
+}

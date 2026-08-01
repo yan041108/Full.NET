@@ -1,0 +1,110 @@
+# OpenTelemetry Collector values overlay for Full.NET.
+mode: deployment
+replicaCount: 2
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+  processors:
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 512
+      spike_limit_mib: 128
+    batch:
+      send_batch_size: 1024
+      timeout: 5s
+    attributes/drop_high_cardinality:
+      actions:
+        - key: DiagnosticGroup
+          action: delete
+        - key: tenant_id
+          action: delete
+        - key: user_id
+          action: delete
+
+  extensions:
+    file_storage:
+      directory: /var/otel-collector/storage
+      timeout: 10s
+      compaction:
+        on_start: true
+        directory: /var/otel-collector/storage
+        max_transaction_size: 65536
+    health_check:
+      endpoint: 0.0.0.0:13133
+
+  exporters:
+    otlp/tempo:
+      endpoint: tempo.observability.svc:4317
+      tls:
+        insecure: false
+      retry_on_failure:
+        enabled: true
+        initial_interval: 1s
+        max_interval: 30s
+        max_elapsed_time: 300s
+      sending_queue:
+        enabled: true
+        storage: file_storage
+        num_consumers: 4
+        queue_size: 2048
+    prometheusremotewrite:
+      endpoint: http://prometheus.observability.svc:9090/api/v1/write
+      tls:
+        insecure: false
+      retry_on_failure:
+        enabled: true
+        initial_interval: 1s
+        max_interval: 30s
+        max_elapsed_time: 300s
+      sending_queue:
+        enabled: true
+        storage: file_storage
+        num_consumers: 2
+        queue_size: 1024
+
+  service:
+    extensions: [file_storage, health_check]
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch, attributes/drop_high_cardinality]
+        exporters: [otlp/tempo]
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter, batch, attributes/drop_high_cardinality]
+        exporters: [prometheusremotewrite]
+    telemetry:
+      logs:
+        level: info
+
+extraVolumes:
+  - name: otel-storage
+    emptyDir:
+      sizeLimit: 2Gi
+
+extraVolumeMounts:
+  - name: otel-storage
+    mountPath: /var/otel-collector/storage
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+fullnetContract:
+  memoryLimiter: true
+  batch: true
+  retry: true
+  fileStorage: true
+  recursiveSinkWriteback: false
+  durableAuditDuplication: false

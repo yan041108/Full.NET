@@ -30,6 +30,7 @@
     "test:sql-safety": "node --test tests/sql/*.test.mjs",
     "test:helm": "node --test tests/deployment/helm-contract.test.mjs tests/deployment/release-order-contract.test.mjs tests/deployment/container-image-contract.test.mjs",
     "test:container-images": "node scripts/testing/run-container-image-contracts.mjs",
+    "test:observability-deploy": "node --test tests/deployment/observability-contract.test.mjs",
     "test:uuid-storage": "node --test tests/database/uuid-storage-contract.test.mjs",
     "test:pre-v1-naming": "node --test tests/naming/pre-v1-name-map.test.mjs",
     "test:localization": "node --test tests/localization-contract.test.mjs",

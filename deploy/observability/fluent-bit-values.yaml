@@ -1,0 +1,149 @@
+# Fluent Bit values overlay for Full.NET (platform-managed DaemonSet/Deployment).
+# Application emits Compact JSON stdout only; this is not a Durable Audit pipeline.
+
+fullnameOverride: fullnet-fluent-bit
+
+config:
+  service: |
+    [SERVICE]
+        Flush         1
+        Daemon        Off
+        Log_Level     info
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        storage.path  /var/fluent-bit/buffer
+        storage.sync  normal
+        storage.checksum off
+        storage.backlog.mem_limit 64MB
+        storage.max_chunks_up 128
+        Mem_Buf_Limit 64MB
+
+  inputs: |
+    [INPUT]
+        Name              tail
+        Tag               fullnet.b2.*
+        Path              /var/log/containers/*fullnet*.log
+        Parser            docker
+        DB                /var/fluent-bit/tail-b2.db
+        Mem_Buf_Limit     32MB
+        Skip_Long_Lines   On
+        Refresh_Interval  5
+        storage.type      filesystem
+
+    [INPUT]
+        Name              tail
+        Tag               fullnet.priority.*
+        Path              /var/log/containers/*fullnet*.log
+        Parser            docker
+        DB                /var/fluent-bit/tail-priority.db
+        Mem_Buf_Limit     16MB
+        Skip_Long_Lines   On
+        Refresh_Interval  5
+        storage.type      filesystem
+
+  filters: |
+    [FILTER]
+        Name                parser
+        Match               fullnet.*
+        Key_Name            log
+        Parser              fullnet_compact_json
+        Reserve_Data        On
+
+    [FILTER]
+        Name                grep
+        Match               fullnet.b2.*
+        Regex               reliability.class B2|BestEffort
+
+    [FILTER]
+        Name                grep
+        Match               fullnet.priority.*
+        Regex               log.stream Priority|reliability.class Priority
+
+    [FILTER]
+        Name                modify
+        Match               fullnet.*
+        Remove              tenant_id
+        Remove              user_id
+        Remove              DiagnosticGroup
+
+  outputs: |
+    [OUTPUT]
+        Name                forward
+        Match               fullnet.priority.*
+        Host                loki-priority.observability.svc
+        Port                24224
+        Retry_Limit         5
+        storage.total_limit_size 256MB
+        tls                 On
+        tls.verify          On
+
+    [OUTPUT]
+        Name                forward
+        Match               fullnet.b2.*
+        Host                loki-besteffort.observability.svc
+        Port                24224
+        Retry_Limit         3
+        storage.total_limit_size 512MB
+        tls                 On
+        tls.verify          On
+
+    [OUTPUT]
+        Name                s3
+        Match               fullnet.b2.*
+        bucket              fullnet-log-archive
+        region              us-east-1
+        total_file_size     32M
+        upload_timeout      5m
+        store_dir           /var/fluent-bit/s3-buffer
+        retry_limit         5
+        compression         gzip
+
+  customParsers: |
+    [PARSER]
+        Name        fullnet_compact_json
+        Format      json
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
+extraVolumes:
+  - name: fluent-bit-buffer
+    emptyDir:
+      sizeLimit: 2Gi
+
+extraVolumeMounts:
+  - name: fluent-bit-buffer
+    mountPath: /var/fluent-bit
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+fullnetContract:
+  applicationStdoutFormat: compact-json
+  durableAuditViaFluentBit: false
+  recursiveSinkWriteback: false
+  diskBuffer: true
+  memoryLimit: true
+  corruptChunkIsolation: true
+  retryLimit: true
+  tls: true
+  requiredLogFields:
+    - timestamp
+    - level
+    - message
+    - application
+    - instance
+    - trace_id
+    - span_id
+    - log.class
+    - log.stream
+    - reliability.class
+    - data.classification
+    - DiagnosticGroup
+    - EventName

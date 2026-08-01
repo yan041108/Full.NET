@@ -60,6 +60,9 @@ jobs:
       - name: Verify Helm and release contracts
         run: pnpm test:helm
 
+      - name: Verify observability deploy contracts
+        run: pnpm test:observability-deploy
+
       - name: Test shared and admin client packages
         run: |
           pnpm test:workspace

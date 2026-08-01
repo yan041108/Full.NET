@@ -1,0 +1,130 @@
+groups:
+  - name: fullnet-high-concurrency
+    rules:
+      - alert: FullNetErrorCriticalStorm
+        expr: sum(rate(log_events_total{level=~"Error|Critical",application="Full.NET"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Full.NET Error/Critical log storm
+
+      - alert: FullNetBestEffortLogDrop
+        expr: increase(fullnet_async_log_dropped_total{stream="best_effort"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: B2/Best Effort log queue drops detected
+
+      - alert: FullNetPriorityLogDrop
+        expr: increase(fullnet_async_log_dropped_total{stream="priority"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Priority log queue drops detected
+
+      - alert: FullNetFluentBitSpoolHigh
+        expr: fluentbit_storage_chunks_up / fluentbit_storage_chunks_total > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Fluent Bit spool occupancy high
+
+      - alert: FullNetFluentBitDiskFull
+        expr: kubelet_volume_stats_available_bytes{persistentvolumeclaim=~".*fluent-bit.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Fluent Bit buffer volume full
+
+      - alert: FullNetAuditB1QueuePressure
+        expr: fullnet_audit_microbatch_queue_depth > 3000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Audit B1 micro-batch queue pressure
+
+      - alert: FullNetAuditB1WaitOrFailure
+        expr: |
+          increase(fullnet_audit_microbatch_failures_total[5m]) > 0
+          or histogram_quantile(0.99, sum(rate(fullnet_audit_microbatch_wait_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Audit B1 wait/failure regression
+
+      - alert: FullNetCacheInvalidationStaleWindow
+        expr: histogram_quantile(0.99, sum(rate(fullnet_cache_invalidation_duration_ms_bucket[5m])) by (le)) > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cache invalidation P99 / stale window elevated
+
+      - alert: FullNetRedisReconnectOrEviction
+        expr: |
+          increase(redis_connected_clients[5m]) < 0
+          or increase(redis_evicted_keys_total[5m]) > 100
+          or redis_replication_lag_seconds > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redis reconnect/eviction/replication lag
+
+      - alert: FullNetDatabaseConnectionWait
+        expr: histogram_quantile(0.95, sum(rate(fullnet_db_connection_wait_seconds_bucket[5m])) by (le)) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Database connection pool wait elevated
+
+      - alert: FullNetOutboxJobsBacklogAge
+        expr: max(fullnet_outbox_oldest_message_age_seconds) > 300 or max(fullnet_jobs_oldest_age_seconds) > 300
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Outbox/Jobs backlog age exceeds 5 minutes
+
+      - alert: FullNetEdgeGlobalRateRejected
+        expr: increase(edge_rate_limit_rejected_total{scope="global"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Edge global rate/connection budget rejections
+
+      - alert: FullNetWafOrExternalLimiterDown
+        expr: up{job=~"waf|ddos|distributed-rate-limit"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: WAF/DDoS or external rate-limit service unavailable
+
+      - alert: FullNetHpaAtMaxReplicas
+        expr: |
+          kube_horizontalpodautoscaler_status_current_replicas{horizontalpodautoscaler=~".*fullnet-(api|worker).*"}
+          >=
+          kube_horizontalpodautoscaler_spec_max_replicas{horizontalpodautoscaler=~".*fullnet-(api|worker).*"}
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Full.NET HPA sitting at maxReplicas
+
+      - alert: FullNetPdbUnsatisfied
+        expr: kube_poddisruptionbudget_status_pod_disruptions_allowed{poddisruptionbudget=~".*fullnet.*"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Full.NET PDB currently unsatisfied / no disruptions allowed
