@@ -35,7 +35,7 @@ test('Host 租户套餐 OpenAPI 夹具结构完整且路径唯一', async () => 
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^tenancy\.tenant_packages\.(read|write)$/u);
+      assert.match(operation.permission, /^tenancy\.tenant_packages\.(read|create|update|disable)$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -55,8 +55,8 @@ test('Host 租户套餐 OpenAPI 夹具与 C# 契约和端点源码一致', async
   assert.match(contractsSource, /record TenantPackageSummary/u);
   assert.match(contractsSource, /record CreateHostTenantPackageRequest/u);
   assert.match(contractsSource, /record UpdateHostTenantPackageRequest/u);
-  assert.match(contractsSource, /tenancy\.tenant_packages\.read/u);
-  assert.match(contractsSource, /tenancy\.tenant_packages\.write/u);
+  assert.match(contractsSource, /tenancy\.tenant_packages\.create/u);
+  assert.match(contractsSource, /tenancy\.tenant_packages\.disable/u);
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/tenancy\/tenant-packages"\)/u);
 
   const relativeRoutes = new Map([

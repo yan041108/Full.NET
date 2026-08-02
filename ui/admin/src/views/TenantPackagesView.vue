@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -10,8 +10,8 @@ import {
 } from 'element-plus';
 import type { FullNetProblemDetails, HostTenantPackage } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
-import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   createHostTenantPackage,
   disableHostTenantPackage,
@@ -19,7 +19,6 @@ import {
   updateHostTenantPackage
 } from '../api/tenant-packages';
 
-const session = useSessionStore();
 const { t } = useAdminI18n();
 const packages = ref<HostTenantPackage[]>([]);
 const code = ref('');
@@ -28,7 +27,6 @@ const description = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('tenancy.tenant_packages.write'));
 
 onMounted(load);
 
@@ -146,7 +144,8 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+    <PermissionGate code="tenancy.tenant_packages.create">
+      <el-card class="art-form-card" shadow="never">
       <div class="art-form-grid art-form-grid--cols-3" aria-labelledby="create-package-title">
         <div><h2 id="create-package-title">{{ t('tenantPackages.createTitle') }}</h2></div>
         <label>
@@ -164,6 +163,7 @@ function toProblem(
         <el-button type="primary" :loading="changing" @click="create">{{ t('tenantPackages.create') }}</el-button>
       </div>
     </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -188,16 +188,19 @@ function toProblem(
           {{ t(pkg.isActive ? 'tenantPackages.active' : 'tenantPackages.inactive') }}
         </el-tag>
         <div class="art-data-row__actions">
-          <el-button v-if="canWrite" plain :disabled="changing" @click="edit(pkg)">{{ t('tenantPackages.edit') }}</el-button>
-          <el-button
-            v-if="canWrite && pkg.isActive"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(pkg)"
-          >
-            {{ t('tenantPackages.disable') }}
-          </el-button>
+          <PermissionGate code="tenancy.tenant_packages.update">
+            <el-button plain :disabled="changing" @click="edit(pkg)">{{ t('tenantPackages.edit') }}</el-button>
+          </PermissionGate>
+          <PermissionGate v-if="pkg.isActive" code="tenancy.tenant_packages.disable">
+            <el-button
+              type="danger"
+              plain
+              :disabled="changing"
+              @click="disable(pkg)"
+            >
+              {{ t('tenantPackages.disable') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

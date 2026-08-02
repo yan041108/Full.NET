@@ -37,8 +37,16 @@ internal sealed class TenancyAuthorizationContributor
             "查询租户套餐",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            TenancyTenantPackagePermissions.Write,
-            "管理租户套餐",
+            TenancyTenantPackagePermissions.Create,
+            "创建 Host 租户套餐",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantPackagePermissions.Update,
+            "更新 Host 租户套餐",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantPackagePermissions.Disable,
+            "禁用 Host 租户套餐",
             AuthorizationScope.Host),
         new PermissionDefinition(
             TenantsSwitch,
@@ -116,5 +124,26 @@ internal sealed class TenancyAuthorizationContributor
             "分配套餐",
             "assign-package",
             40),
+        new AuthorizationActionDefinition(
+            "tenancy.tenant_packages.create",
+            "tenant-packages",
+            TenancyTenantPackagePermissions.Create,
+            "创建套餐",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "tenancy.tenant_packages.update",
+            "tenant-packages",
+            TenancyTenantPackagePermissions.Update,
+            "编辑套餐",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "tenancy.tenant_packages.disable",
+            "tenant-packages",
+            TenancyTenantPackagePermissions.Disable,
+            "禁用套餐",
+            "disable",
+            30),
     ];
 }

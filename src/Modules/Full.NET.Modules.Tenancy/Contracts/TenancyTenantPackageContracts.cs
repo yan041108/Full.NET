@@ -6,7 +6,16 @@ public static class TenancyTenantPackagePermissions
     /// <summary>分页查询套餐目录与详情。</summary>
     public const string Read = "tenancy.tenant_packages.read";
 
-    /// <summary>创建、更新与禁用套餐。</summary>
+    /// <summary>创建 Host 租户套餐。</summary>
+    public const string Create = "tenancy.tenant_packages.create";
+
+    /// <summary>更新 Host 租户套餐显示信息。</summary>
+    public const string Update = "tenancy.tenant_packages.update";
+
+    /// <summary>禁用 Host 租户套餐。</summary>
+    public const string Disable = "tenancy.tenant_packages.disable";
+
+    /// <summary>迁移 061 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "tenancy.tenant_packages.write";
 }
 

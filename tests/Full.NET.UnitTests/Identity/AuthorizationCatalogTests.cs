@@ -50,8 +50,10 @@ public sealed class AuthorizationCatalogTests
                 "identity.users.update",
                 "platform.dashboard.read",
                 "tenancy.host_tenants.read",
+                "tenancy.tenant_packages.create",
+                "tenancy.tenant_packages.disable",
                 "tenancy.tenant_packages.read",
-                "tenancy.tenant_packages.write",
+                "tenancy.tenant_packages.update",
                 "tenancy.tenants.assign_package",
                 "tenancy.tenants.create",
                 "tenancy.tenants.disable",
@@ -264,6 +266,33 @@ public sealed class AuthorizationCatalogTests
             tenantActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == TenancyTenantManagementPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_tenant_packages_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "tenancy.tenant_packages.create",
+            ["update"] = "tenancy.tenant_packages.update",
+            ["disable"] = "tenancy.tenant_packages.disable",
+        };
+
+        var packageActions = catalog.Actions
+            .Where(action => action.NavigationId == "tenant-packages")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            packageActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == TenancyTenantPackagePermissions.Write));
     }
 
     [TestMethod]

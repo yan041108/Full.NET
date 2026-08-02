@@ -4,8 +4,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 namespace Full.NET.ArchitectureTests;
 
 /// <summary>
-/// 粗粒度多操作 .write 权限冻结清单；新增 Endpoint 绑定必须同步更新清单与路线图库存。
-/// </summary>
+/// 绮楃矑搴﹀鎿嶄綔 .write 鏉冮檺鍐荤粨娓呭崟锛涙柊澧?Endpoint 缁戝畾蹇呴』鍚屾鏇存柊娓呭崟涓庤矾绾垮浘搴撳瓨銆?/// </summary>
 internal static class LegacyCoarseActionPermissionRegistry
 {
     private static readonly HashSet<string> RetiredPermissionCodes = new(StringComparer.Ordinal)
@@ -17,6 +16,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         IdentitySessionManagementPermissions.Write,
         IdentityApiKeyManagementPermissions.Write,
         TenancyTenantManagementPermissions.Write,
+        TenancyTenantPackagePermissions.Write,
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -66,8 +66,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/settings/tenant-dict-types/{dictTypeId:guid}/disable|settings.tenant_dict_types.write",
         "POST /api/v1/settings/tenant-dict-types/{dictTypeId:guid}/items/|settings.tenant_dict_types.write",
         "POST /api/v1/settings/tenant-dict-types/|settings.tenant_dict_types.write",
-        "POST /api/v1/tenancy/tenant-packages/{packageId:guid}/disable|tenancy.tenant_packages.write",
-        "POST /api/v1/tenancy/tenant-packages/|tenancy.tenant_packages.write",
         "PUT /api/v1/code-generation/templates/{templateId:guid}|codegen.templates.write",
         "PUT /api/v1/document/host/items/{itemId:guid}|document.host_documents.write",
         "PUT /api/v1/jobs/host-definitions/{definitionId:guid}|jobs.definitions.write",
@@ -87,6 +85,5 @@ internal static class LegacyCoarseActionPermissionRegistry
         "PUT /api/v1/settings/dict-types/{dictTypeId:guid}|settings.dict_types.write",
         "PUT /api/v1/settings/tenant-dict-items/{dictItemId:guid}|settings.tenant_dict_types.write",
         "PUT /api/v1/settings/tenant-dict-types/{dictTypeId:guid}|settings.tenant_dict_types.write",
-        "PUT /api/v1/tenancy/tenant-packages/{packageId:guid}|tenancy.tenant_packages.write",
     };
 }

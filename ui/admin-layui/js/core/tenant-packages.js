@@ -1,6 +1,8 @@
 /**
  * 装配 Host 租户套餐目录视图；支持创建、名称更新与禁用。
  */
+import { applyPermissionVisibility } from './navigation.js';
+
 export function createTenantPackagesController(root, options) {
   const request = options.request;
   const translation = options.translation;
@@ -18,6 +20,9 @@ export function createTenantPackagesController(root, options) {
           Array.isArray(page?.items) ? page.items : [],
           translation()
         );
+        if (typeof options.getPermissions === 'function') {
+          applyPermissionVisibility(root, options.getPermissions());
+        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -171,6 +176,7 @@ function renderDirectory(container, packages, translation) {
     const edit = container.ownerDocument.createElement('button');
     edit.type = 'button';
     edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
+    edit.dataset.permission = 'tenancy.tenant_packages.update';
     edit.dataset.tenantPackagesEdit = pkg.id;
     edit.dataset.version = String(pkg.version ?? 0);
     edit.dataset.name = pkg.name ?? '';
@@ -181,6 +187,7 @@ function renderDirectory(container, packages, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
+      disable.dataset.permission = 'tenancy.tenant_packages.disable';
       disable.dataset.tenantPackagesDisable = pkg.id;
       disable.dataset.code = pkg.code;
       disable.textContent = translation.t('tenantPackages.disable');
