@@ -2,11 +2,11 @@
 
 > **For agentic workers:** Use `fullnet-module-delivery`. RED first.
 
-**Goal:** 双库执行生成 SoftDelete 生命周期 SQL 矩阵，闭合 Admin.NET 生命周期吸收的运行时证据缺口。
+**Goal:** 双库执行生成生命周期 SQL 矩阵（SoftDelete/HardDelete/Immutable），闭合 Admin.NET 生命周期吸收的运行时证据缺口。
 
-**Architecture:** Integration 测试从 `CrudArtifactGenerator` 读取迁移模板与 `ProductSql` 常量，在 Testcontainers 隔离库建表并跑 Create→Update→SoftDelete 序列。
+**Architecture:** Integration 测试从 `CrudArtifactGenerator` 读取迁移模板与 `ProductSql` 常量，在 Testcontainers 隔离库建表并跑 CRUD 序列。
 
-**Spec:** [`docs/superpowers/specs/2026-08-02-codegeneration-lifecycle-runtime-sql-design.md`](../specs/2026-08-02-codegeneration-lifecycle-runtime-sql-design.md)（Approved）
+**Spec:** [`docs/superpowers/specs/2026-08-02-codegeneration-lifecycle-runtime-sql-design.md`](../specs/2026-08-02-codegeneration-lifecycle-runtime-sql-design.md)（Approved — delivered @ `3e250fa`+）
 
 **Snapshot:** `codegeneration-lifecycle-runtime-sql-20260802`
 
@@ -29,3 +29,9 @@
 
 - [x] **Step 1:** Release 编译 + test-matrix +2。
 - [x] **Step 2:** 验证记录与评估状态关闭。
+
+### Task 3: DeleteMode 扩展与 SoftDelete Count/List
+
+- [x] **Step 1:** HardDelete + Immutable 双库矩阵（`c77af59`、`3e250fa`）。
+- [x] **Step 2:** SoftDelete Count/List 软删过滤断言。
+- [x] **Step 3:** Spec/验证记录 closeout；切片闭合。

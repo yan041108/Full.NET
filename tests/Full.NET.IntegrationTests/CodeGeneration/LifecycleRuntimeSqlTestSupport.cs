@@ -219,6 +219,10 @@ internal static class LifecycleRuntimeSqlTestSupport
         var updateSql = RequireSqlConstant(artifacts, "Update");
         var deleteSql = RequireSqlConstant(artifacts, "Delete");
         var findByIdSql = RequireSqlConstant(artifacts, "FindById");
+        var countSql = RequireSqlConstant(artifacts, "Count");
+        var listSql = RequireSqlConstant(
+            artifacts,
+            sqlServer ? "ListSqlServer" : "ListMySql");
 
         var connectionString = await createConnectionStringAsync();
         await using var connection = createConnection(connectionString);
@@ -248,6 +252,18 @@ internal static class LifecycleRuntimeSqlTestSupport
                     DeletedAtUtc = (DateTimeOffset?)null,
                     DeletedById = (Guid?)null,
                 }));
+
+        Assert.AreEqual(
+            1,
+            await connection.ExecuteScalarAsync<int>(
+                countSql,
+                new { TenantId = tenantId }));
+        Assert.AreEqual(
+            1,
+            (await connection.QueryAsync<LifecycleRow>(
+                listSql,
+                new { TenantId = tenantId, Offset = 0, PageSize = 10 }))
+            .Count());
 
         var updatedAt = createdAt.AddMinutes(1);
         Assert.AreEqual(
@@ -296,6 +312,18 @@ internal static class LifecycleRuntimeSqlTestSupport
             findByIdSql,
             new { Id = entityId, TenantId = tenantId });
         Assert.IsNull(activeRow);
+
+        Assert.AreEqual(
+            0,
+            await connection.ExecuteScalarAsync<int>(
+                countSql,
+                new { TenantId = tenantId }));
+        Assert.AreEqual(
+            0,
+            (await connection.QueryAsync<LifecycleRow>(
+                listSql,
+                new { TenantId = tenantId, Offset = 0, PageSize = 10 }))
+            .Count());
 
         Assert.AreEqual(
             0,
