@@ -13,7 +13,7 @@ const session = useSessionStore();
 const { t } = useAdminI18n();
 const policy = ref<DiagnosticPolicy>();
 const loading = ref(false);
-const canWrite = computed(() => session.can('settings.diagnostic-policy.write'));
+const canWrite = computed(() => session.can('settings.diagnostic_policy.write'));
 
 onMounted(load);
 

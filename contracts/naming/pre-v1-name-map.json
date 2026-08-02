@@ -344,6 +344,18 @@
       "legacyValue": "tenancy.not-found",
       "canonicalValue": "tenancy.not_found",
       "compatibilityMode": "client_resource_alias"
+    },
+    {
+      "kind": "permission",
+      "legacyValue": "settings.diagnostic-policy.read",
+      "canonicalValue": "settings.diagnostic_policy.read",
+      "compatibilityMode": "client_resource_alias"
+    },
+    {
+      "kind": "permission",
+      "legacyValue": "settings.diagnostic-policy.write",
+      "canonicalValue": "settings.diagnostic_policy.write",
+      "compatibilityMode": "client_resource_alias"
     }
   ]
 }

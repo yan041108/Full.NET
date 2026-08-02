@@ -98,6 +98,9 @@
       },
       "051": {
         "filter": "FullyQualifiedName~Migration051CodeGenerationRollbackRecoveryTests.MySql_|FullyQualifiedName~Migration051CodeGenerationRollbackRecoveryTests.SqlServer_"
+      },
+      "052": {
+        "filter": "FullyQualifiedName~Migration052IdentityDiagnosticPolicyPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration052IdentityDiagnosticPolicyPermissionRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -124,7 +127,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 98,
+        "minimum": 104,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -133,7 +136,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 302,
+        "minimum": 308,
         "timeout": "90m"
       }
     }

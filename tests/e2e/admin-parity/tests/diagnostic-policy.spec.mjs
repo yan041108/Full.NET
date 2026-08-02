@@ -81,8 +81,8 @@ async function mockAuthenticatedSession(page) {
       permissions: [
         'identity.navigation.read',
         'platform.dashboard.read',
-        'settings.diagnostic-policy.read',
-        'settings.diagnostic-policy.write'
+        'settings.diagnostic_policy.read',
+        'settings.diagnostic_policy.write'
       ],
       sessionId: 'e2e-session-id',
       preferredLocale: 'zh-CN',
@@ -102,7 +102,7 @@ async function mockAuthenticatedSession(page) {
         id: 'diagnostic-policy', parentId: null, routeName: 'diagnostic-policy',
         path: '/settings/diagnostic-policy', componentKey: 'diagnostic-policy',
         title: '限时诊断', caption: 'Host 限时诊断策略', icon: 'monitor',
-        order: 54, requiredPermission: 'settings.diagnostic-policy.read', children: []
+        order: 54, requiredPermission: 'settings.diagnostic_policy.read', children: []
       }
     ])
   }));

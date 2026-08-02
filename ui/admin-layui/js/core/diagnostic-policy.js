@@ -14,7 +14,7 @@ export function createDiagnosticPolicyController(root, options) {
 
   const canWrite = () =>
     typeof hasPermission === 'function'
-      ? hasPermission('settings.diagnostic-policy.write')
+      ? hasPermission('settings.diagnostic_policy.write')
       : false;
 
   const load = async () => {

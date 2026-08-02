@@ -3,20 +3,6 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
-      "kind": "permission",
-      "value": "settings.diagnostic-policy.read",
-      "file": "src/Modules/Full.NET.Modules.Settings/SettingsAuthorizationContributor.cs",
-      "reason": "诊断策略能力已发布 route-shaped 权限码；在角色授权与 API Key 权限 JSON 完成双库兼容迁移前保留精确债务，禁止静默改名导致既有授权失效。",
-      "removalMilestone": "M1.0"
-    },
-    {
-      "kind": "permission",
-      "value": "settings.diagnostic-policy.write",
-      "file": "src/Modules/Full.NET.Modules.Settings/SettingsAuthorizationContributor.cs",
-      "reason": "诊断策略能力已发布 route-shaped 权限码；在角色授权与 API Key 权限 JSON 完成双库兼容迁移前保留精确债务，禁止静默改名导致既有授权失效。",
-      "removalMilestone": "M1.0"
-    },
-    {
       "kind": "unsupported_sql",
       "value": "unsupported_ddl",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/043_AuditingOutboundCall.sql",

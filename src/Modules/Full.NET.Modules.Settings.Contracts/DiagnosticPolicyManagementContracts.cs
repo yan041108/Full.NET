@@ -3,8 +3,8 @@ namespace Full.NET.Modules.Settings.Contracts;
 /// <summary>Host 限时诊断策略权限。</summary>
 public static class DiagnosticPolicyManagementPermissions
 {
-    public const string Read = "settings.diagnostic-policy.read";
-    public const string Write = "settings.diagnostic-policy.write";
+    public const string Read = "settings.diagnostic_policy.read";
+    public const string Write = "settings.diagnostic_policy.write";
 }
 
 /// <summary>诊断策略 API 响应。</summary>
