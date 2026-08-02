@@ -35,16 +35,12 @@ internal static class LegacyCoarseActionPermissionRegistry
         "jobs.schedules.write",
         "codegen.templates.write",
         "serial_numbers.rules.write",
+        "document.host_documents.write",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
         permissionCode.EndsWith(".write", StringComparison.Ordinal)
         && !RetiredPermissionCodes.Contains(permissionCode);
 
-    internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal)
-    {
-        "POST /api/v1/document/host/items/{itemId:guid}/versions|document.host_documents.write",
-        "POST /api/v1/document/host/items/|document.host_documents.write",
-        "PUT /api/v1/document/host/items/{itemId:guid}|document.host_documents.write",
-    };
+    internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal);
 }

@@ -33,8 +33,11 @@ internal static class DocumentAuthorizationAssertions
             [
                 "identity.navigation.read",
                 HostDocumentPermissions.Read,
-                HostDocumentPermissions.Write,
+                HostDocumentPermissions.Create,
+                HostDocumentPermissions.Update,
+                HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Delete,
+                HostDocumentPermissions.Restore,
                 HostDocumentCategoryPermissions.Manage,
                 HostDocumentTagPermissions.Manage,
             ],

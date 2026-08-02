@@ -34,6 +34,26 @@ export async function createHostDocumentItem(
   return value;
 }
 
+export async function updateHostDocumentItem(
+  itemId: string,
+  title: string,
+  description: string | null,
+  version: number
+): Promise<HostDocumentItem> {
+  const value = await request<unknown>(
+    `/api/v1/document/host/items/${encodeURIComponent(itemId)}`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title, description, version })
+    }
+  );
+  if (!isHostDocumentItem(value)) {
+    throw new Error('client.invalid_host_document_item');
+  }
+  return value;
+}
+
 export async function addHostDocumentVersion(
   itemId: string,
   fileId: string

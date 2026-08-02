@@ -64,7 +64,7 @@ internal static class Endpoint
             return Results.Created($"/api/v1/document/host/items/{result.Value!.Id:D}", result.Value);
         })
         .Produces<HostDocumentItemResponse>(StatusCodes.Status201Created)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Create));
 
         group.MapPut("/{itemId:guid}", async (
             Guid itemId,
@@ -84,7 +84,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Update));
 
         group.MapPost("/{itemId:guid}/versions", async (
             Guid itemId,
@@ -104,7 +104,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.AddVersion));
 
         group.MapPost("/{itemId:guid}/delete", async (
             Guid itemId,
@@ -144,7 +144,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Delete));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Restore));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

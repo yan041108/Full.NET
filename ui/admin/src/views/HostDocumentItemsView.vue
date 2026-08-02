@@ -9,9 +9,17 @@ import {
   addHostDocumentVersion,
   createHostDocumentItem,
   deleteHostDocumentItem,
-  listHostDocumentItems
+  listHostDocumentItems,
+  restoreHostDocumentItem,
+  updateHostDocumentItem
 } from '../api/host-document-items';
 import { hostFileContentUrl, uploadHostFile } from '../api/host-files';
+import PermissionGate from '../components/PermissionGate.vue';
+
+interface DeletedDocumentEntry {
+  item: HostDocumentItem;
+  restoreVersion: number;
+}
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -23,8 +31,16 @@ const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const versionFile = ref<File | null>(null);
 const versionTargetId = ref<string>();
-const canWrite = computed(() => session.can('document.host_documents.write'));
+const editingId = ref<string>();
+const recentlyDeleted = ref<DeletedDocumentEntry[]>([]);
+const canCreate = computed(() => session.can('document.host_documents.create'));
+const canUpdate = computed(() => session.can('document.host_documents.update'));
+const canAddVersion = computed(() => session.can('document.host_documents.add_version'));
 const canDelete = computed(() => session.can('document.host_documents.delete'));
+const canRestore = computed(() => session.can('document.host_documents.restore'));
+const editingItem = computed(() =>
+  items.value.find(entry => entry.id === editingId.value)
+);
 
 onMounted(load);
 
@@ -42,7 +58,7 @@ async function load(): Promise<void> {
 }
 
 async function create(): Promise<void> {
-  if (changing.value || !title.value.trim()) return;
+  if (changing.value || !canCreate.value || !title.value.trim()) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -65,7 +81,7 @@ function onVersionFileSelected(event: Event, itemId: string): void {
 }
 
 async function uploadVersion(item: HostDocumentItem): Promise<void> {
-  if (changing.value || !versionFile.value || versionTargetId.value !== item.id) return;
+  if (changing.value || !canAddVersion.value || !versionFile.value || versionTargetId.value !== item.id) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -83,7 +99,7 @@ async function uploadVersion(item: HostDocumentItem): Promise<void> {
 }
 
 async function remove(item: HostDocumentItem): Promise<void> {
-  if (changing.value) return;
+  if (changing.value || !canDelete.value) return;
   try {
     await ElMessageBox.confirm(
       t('hostDocumentItems.confirmDelete', { name: item.title }),
@@ -92,10 +108,67 @@ async function remove(item: HostDocumentItem): Promise<void> {
     );
     changing.value = true;
     await deleteHostDocumentItem(item.id, item.version);
+    recentlyDeleted.value = [
+      { item, restoreVersion: item.version + 1 },
+      ...recentlyDeleted.value.filter(entry => entry.item.id !== item.id)
+    ];
     ElMessage.success(t('hostDocumentItems.deleteSuccess'));
     await load();
   } catch (error: unknown) {
     if (error === 'cancel' || error === 'close') return;
+    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+function startEdit(item: HostDocumentItem): void {
+  editingId.value = item.id;
+  title.value = item.title;
+  description.value = item.description ?? '';
+}
+
+function cancelEdit(): void {
+  editingId.value = undefined;
+  title.value = '';
+  description.value = '';
+}
+
+async function saveEdit(item: HostDocumentItem): Promise<void> {
+  if (changing.value || !canUpdate.value || editingId.value !== item.id) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await updateHostDocumentItem(
+      item.id,
+      title.value.trim(),
+      description.value.trim() || null,
+      item.version
+    );
+    editingId.value = undefined;
+    title.value = '';
+    description.value = '';
+    ElMessage.success(t('hostDocumentItems.updateSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function restoreDeleted(entry: DeletedDocumentEntry): Promise<void> {
+  if (changing.value || !canRestore.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await restoreHostDocumentItem(entry.item.id, entry.restoreVersion);
+    recentlyDeleted.value = recentlyDeleted.value.filter(
+      candidate => candidate.item.id !== entry.item.id
+    );
+    ElMessage.success(t('hostDocumentItems.restoreSuccess'));
+    await load();
+  } catch (error: unknown) {
     problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {
     changing.value = false;
@@ -126,18 +199,42 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+    <el-card v-if="canCreate && !editingId" class="art-form-card" shadow="never">
       <div class="art-form-grid art-form-grid--cols-3" aria-labelledby="create-document-item-title">
         <div><h2 id="create-document-item-title">{{ t('hostDocumentItems.createTitle') }}</h2></div>
         <label>
           <span>{{ t('hostDocumentItems.titleLabel') }}</span>
-          <el-input v-model="title" :placeholder="t('hostDocumentItems.titlePlaceholder')" />
+          <el-input v-model="title" data-testid="host-document-item-title" :placeholder="t('hostDocumentItems.titlePlaceholder')" />
         </label>
         <label>
           <span>{{ t('hostDocumentItems.descriptionLabel') }}</span>
-          <el-input v-model="description" :placeholder="t('hostDocumentItems.descriptionPlaceholder')" />
+          <el-input v-model="description" data-testid="host-document-item-description" :placeholder="t('hostDocumentItems.descriptionPlaceholder')" />
         </label>
-        <el-button type="primary" :loading="changing" @click="create">{{ t('hostDocumentItems.create') }}</el-button>
+        <PermissionGate code="document.host_documents.create">
+          <el-button type="primary" data-testid="host-document-item-create" :loading="changing" @click="create">
+            {{ t('hostDocumentItems.create') }}
+          </el-button>
+        </PermissionGate>
+      </div>
+    </el-card>
+
+    <el-card v-if="editingId && canUpdate" class="art-form-card" shadow="never">
+      <div class="art-form-grid art-form-grid--cols-3" aria-labelledby="edit-document-item-title">
+        <div><h2 id="edit-document-item-title">{{ t('hostDocumentItems.editTitle') }}</h2></div>
+        <label>
+          <span>{{ t('hostDocumentItems.titleLabel') }}</span>
+          <el-input v-model="title" data-testid="host-document-item-edit-title" />
+        </label>
+        <label>
+          <span>{{ t('hostDocumentItems.descriptionLabel') }}</span>
+          <el-input v-model="description" data-testid="host-document-item-edit-description" />
+        </label>
+        <PermissionGate code="document.host_documents.update">
+          <el-button type="primary" data-testid="host-document-item-save" :loading="changing" :disabled="!editingItem" @click="editingItem && saveEdit(editingItem)">
+            {{ t('hostDocumentItems.save') }}
+          </el-button>
+        </PermissionGate>
+        <el-button plain :disabled="changing" @click="cancelEdit">{{ t('hostDocumentItems.cancel') }}</el-button>
       </div>
     </el-card>
 
@@ -167,23 +264,47 @@ function toProblem(
           >
             {{ t('hostDocumentItems.download') }}
           </el-button>
-          <template v-if="canWrite">
+          <PermissionGate code="document.host_documents.update">
+            <el-button plain data-testid="host-document-item-edit" @click="startEdit(item)">
+              {{ t('hostDocumentItems.edit') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate code="document.host_documents.add_version">
             <label>
               <span class="art-sr-heading">{{ t('hostDocumentItems.chooseVersionFile') }}</span>
-              <input type="file" @change="onVersionFileSelected($event, item.id)" />
+              <input type="file" data-testid="host-document-item-version-file" @change="onVersionFileSelected($event, item.id)" />
             </label>
             <el-button
               plain
+              data-testid="host-document-item-upload-version"
               :disabled="changing || !versionFile || versionTargetId !== item.id"
               @click="uploadVersion(item)"
             >
               {{ t('hostDocumentItems.uploadVersion') }}
             </el-button>
-          </template>
-          <el-button v-if="canDelete" type="danger" plain :disabled="changing" @click="remove(item)">
-            {{ t('hostDocumentItems.delete') }}
-          </el-button>
+          </PermissionGate>
+          <PermissionGate code="document.host_documents.delete">
+            <el-button type="danger" plain data-testid="host-document-item-delete" :disabled="changing" @click="remove(item)">
+              {{ t('hostDocumentItems.delete') }}
+            </el-button>
+          </PermissionGate>
         </div>
+      </article>
+    </el-card>
+
+    <el-card v-if="recentlyDeleted.length && canRestore" class="art-table-card" shadow="never">
+      <template #header>
+        <h2>{{ t('hostDocumentItems.recentlyDeletedTitle') }}</h2>
+      </template>
+      <article v-for="entry in recentlyDeleted" :key="entry.item.id" class="art-data-row">
+        <div class="art-data-row__main">
+          <strong translate="no">{{ entry.item.title }}</strong>
+        </div>
+        <PermissionGate code="document.host_documents.restore">
+          <el-button plain data-testid="host-document-item-restore" :disabled="changing" @click="restoreDeleted(entry)">
+            {{ t('hostDocumentItems.restore') }}
+          </el-button>
+        </PermissionGate>
       </article>
     </el-card>
   </section>

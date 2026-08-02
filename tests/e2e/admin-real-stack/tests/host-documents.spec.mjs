@@ -33,17 +33,17 @@ test('Host 管理员可创建文档并绑定新版本', async ({ page }, testInf
   const view = page.locator('.host-document-items-view');
   await expect(view.getByRole('heading', { name: 'Host 文档库', exact: true })).toBeVisible();
 
-  await view.getByPlaceholder('文档标题').fill(title);
-  await view.getByRole('button', { name: '创建文档' }).click();
+  await view.getByTestId('host-document-item-title').fill(title);
+  await view.getByTestId('host-document-item-create').click();
   await expect(view.getByText(title, { exact: true })).toBeVisible();
 
   const row = view.locator('.art-data-row').filter({ hasText: title });
-  await row.locator('input[type="file"]').setInputFiles({
+  await row.getByTestId('host-document-item-version-file').setInputFiles({
     name: `${title}.txt`,
     mimeType: 'text/plain',
     buffer: Buffer.from(`document ${clientKind}`)
   });
-  await row.getByRole('button', { name: '上传新版本' }).click();
+  await row.getByTestId('host-document-item-upload-version').click();
   await expect(row.getByText('当前版本: 1')).toBeVisible({ timeout: 15_000 });
 });
 

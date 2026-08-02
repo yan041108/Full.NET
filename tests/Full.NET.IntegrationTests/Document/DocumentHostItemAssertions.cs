@@ -42,8 +42,11 @@ internal static class DocumentHostItemAssertions
             $"document-writer-{Guid.NewGuid():N}",
             [
                 HostDocumentPermissions.Read,
-                HostDocumentPermissions.Write,
+                HostDocumentPermissions.Create,
+                HostDocumentPermissions.Update,
+                HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Delete,
+                HostDocumentPermissions.Restore,
                 HostFilePermissions.Read,
                 HostFilePermissions.Upload,
             ],

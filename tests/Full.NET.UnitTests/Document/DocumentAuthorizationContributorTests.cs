@@ -17,9 +17,12 @@ public sealed class DocumentAuthorizationContributorTests
             new[]
             {
                 HostDocumentCategoryPermissions.Manage,
+                HostDocumentPermissions.AddVersion,
+                HostDocumentPermissions.Create,
                 HostDocumentPermissions.Delete,
                 HostDocumentPermissions.Read,
-                HostDocumentPermissions.Write,
+                HostDocumentPermissions.Restore,
+                HostDocumentPermissions.Update,
                 HostDocumentTagPermissions.Manage,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
@@ -33,5 +36,21 @@ public sealed class DocumentAuthorizationContributorTests
 
         var tags = catalog.Navigation.Single(item => item.Id == "document-tags");
         Assert.AreEqual(HostDocumentTagPermissions.Manage, tags.RequiredPermission);
+
+        var expectedActions = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = HostDocumentPermissions.Create,
+            ["update"] = HostDocumentPermissions.Update,
+            ["add_version"] = HostDocumentPermissions.AddVersion,
+            ["delete"] = HostDocumentPermissions.Delete,
+            ["restore"] = HostDocumentPermissions.Restore,
+        };
+        var itemActions = catalog.Actions
+            .Where(action => action.NavigationId == "host-document-items")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+        CollectionAssert.AreEquivalent(expectedActions, itemActions);
     }
 }
