@@ -5,11 +5,12 @@
 - 仓库：`Full.NET`
 - 分支：本地 `main`
 - 审查起点：`bd92ea7`
-- 开始时 HEAD：`39b7b3c6203c0571c32a05e45c0a19b21af70ab2`
+- 开始时 HEAD：`ffe19ec`（审查修复提交）
+- Task 0 完成 HEAD：待提交（含 MySQL Binary16 测试修复）
 - 任务快照：`cursor-main-review-20260802`
 - 重点：Admin.NET 吸收 Tasks 8–10、CodeGeneration、Settings 限时诊断策略、迁移 043、共享门禁和双管理端。
 
-本记录只陈述本次窗口获得的新鲜证据。Docker Desktop 未运行，因此不把双库运行时恢复验证描述成通过。
+本记录只陈述本次窗口获得的新鲜证据。Task 0 于 2026-08-02 在 Docker Desktop 可用环境完成双库运行时验证。
 
 ## 2. 已确认并修复的问题
 
@@ -24,6 +25,7 @@
 | P1 | 单元测试、Integration 分片和迁移选择器计数落后于代码 | 更新唯一测试矩阵和矩阵契约：Unit 1052，Integration 302（49/49/98/106） |
 | P1 | `settings.diagnostic-policy.*` 不符合权限码命名门禁，但直接改名会破坏已持久化角色和 API Key 授权 | 保留兼容值并登记精确、限期命名债务；要求后续用 052 双库迁移完成规范化 |
 | P1 | Vue 管理端 Skip Link 激活后没有把焦点移到主内容 | Vue 壳层和登录页显式聚焦 `#main-content`，补充组件断言，聚焦 Playwright 用例通过 |
+| P1 | 生命周期 SQL 运行时 MySQL 测试未使用 Binary16 Guid 连接策略 | `GeneratedLifecycleSqlRuntimeIntegrationTests` 改用 `MySqlConnectionStringPolicy.Create(..., Binary16)` |
 
 ## 3. 新鲜验证结果
 
@@ -46,15 +48,17 @@
 | `pnpm test:observability-deploy` | 5/5 通过 |
 | `pnpm test:load-profiles` | 6/6 通过 |
 | `pnpm test:performance-governance` | 9/9 通过 |
-| Vue Skip Link 聚焦 Playwright | 1/1 通过 |
-| `pnpm test:e2e` | 107 通过、5 个按项目分流跳过、0 失败 |
+| `Migration043AuditingOutboundCallRecoveryTests`（SQL Server/MySQL） | 2/2 通过 |
+| `pnpm test:integration:affected -- --snapshot cursor-main-review-20260802 --phase merge` | 109/109 通过（SQL Server + MySQL 非零发现） |
+| `pnpm test:container-images` | 3/3 契约通过 |
+| `pnpm test:e2e` | 107 通过、5 跳过、0 失败 |
+| Docker/Ryuk/Testcontainers 残留 | `docker ps -a` 空（residual=0） |
 
 ## 4. 尚未关闭的验证缺口
 
-1. `docker info` 无法连接 `dockerDesktopLinuxEngine`，所以本窗口不能运行迁移 043 的 SQL Server/MySQL 恢复测试、affected merge 和容器镜像门禁。
-2. 请求签名仍缺请求体硬上限、配置启动校验和损坏 KeyHash 失败关闭；已进入后续计划，不把当前能力提升为 `Verified`。
-3. 迁移 052 尚未创建。诊断策略权限码债务只有在角色权限和 API Key JSON 均完成双库迁移后才能删除。
+1. 请求签名仍缺请求体硬上限、配置启动校验和损坏 KeyHash 失败关闭；已进入 Task 2，不把当前能力提升为 `Verified`。
+2. 迁移 052 尚未创建。诊断策略权限码债务只有在 Task 1 双库迁移完成后才能删除。
 
 ## 5. 结论
 
-当前修复恢复了编译、架构、命名、SQL 安全、治理、单元测试、客户端和静态 Integration 门禁。合并候选仍需完成 Docker 依赖的 043 双库恢复、affected merge、容器镜像检查和完整 E2E 复跑；完成前状态应保持“代码门禁通过、运行时双库待验证”。
+**Task 0 合并门禁已关闭（Build-verified）。** 审查修复（`ffe19ec`）与 MySQL 生命周期运行时 Binary16 连接修复已通过双库 043 恢复、affected merge（109）、容器镜像契约、静态门禁与 E2E（107）。Task 1（052 权限码规范化）可启动；禁止在未完成 Task 1 前删除 `settings.diagnostic-policy.*` 兼容债务。

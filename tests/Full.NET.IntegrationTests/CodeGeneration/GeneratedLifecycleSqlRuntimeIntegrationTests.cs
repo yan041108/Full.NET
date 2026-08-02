@@ -1,3 +1,5 @@
+using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
 
@@ -20,7 +22,7 @@ public sealed class GeneratedLifecycleSqlRuntimeIntegrationTests
     {
         await LifecycleRuntimeSqlTestSupport.AssertSoftDeleteLifecycleMatrixAsync(
             SharedDatabaseFixture.CreateMySqlDatabaseAsync,
-            static connectionString => new MySqlConnection(connectionString),
+            static connectionString => CreateBinary16MySqlConnection(connectionString),
             sqlServer: false);
     }
 
@@ -38,7 +40,7 @@ public sealed class GeneratedLifecycleSqlRuntimeIntegrationTests
     {
         await LifecycleRuntimeSqlTestSupport.AssertHardDeleteLifecycleMatrixAsync(
             SharedDatabaseFixture.CreateMySqlDatabaseAsync,
-            static connectionString => new MySqlConnection(connectionString),
+            static connectionString => CreateBinary16MySqlConnection(connectionString),
             sqlServer: false);
     }
 
@@ -56,7 +58,7 @@ public sealed class GeneratedLifecycleSqlRuntimeIntegrationTests
     {
         await LifecycleRuntimeSqlTestSupport.AssertImmutableLifecycleMatrixAsync(
             SharedDatabaseFixture.CreateMySqlDatabaseAsync,
-            static connectionString => new MySqlConnection(connectionString),
+            static connectionString => CreateBinary16MySqlConnection(connectionString),
             sqlServer: false);
     }
 
@@ -76,7 +78,14 @@ public sealed class GeneratedLifecycleSqlRuntimeIntegrationTests
         await LifecycleRuntimeSqlTestSupport
             .AssertOrganizationOwnedSoftDeleteLifecycleMatrixAsync(
                 SharedDatabaseFixture.CreateMySqlDatabaseAsync,
-                static connectionString => new MySqlConnection(connectionString),
+                static connectionString => CreateBinary16MySqlConnection(connectionString),
                 sqlServer: false);
     }
+
+    private static MySqlConnection CreateBinary16MySqlConnection(string connectionString) =>
+        new(
+            MySqlConnectionStringPolicy.Create(
+                connectionString,
+                MySqlGuidStorageMode.Binary16,
+                allowUserVariables: false));
 }
