@@ -169,7 +169,7 @@ function toProblem(
           </el-button>
           <template v-if="canWrite">
             <label>
-              <span class="art-sr-heading">{{ t('hostDocumentItems.uploadVersion') }}</span>
+              <span class="art-sr-heading">{{ t('hostDocumentItems.chooseVersionFile') }}</span>
               <input type="file" @change="onVersionFileSelected($event, item.id)" />
             </label>
             <el-button

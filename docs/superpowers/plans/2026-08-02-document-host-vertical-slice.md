@@ -3,7 +3,7 @@
 > **For agents:** 使用 [`fullnet-module-delivery`](../../../.agents/skills/fullnet-module-delivery/SKILL.md)。**Gate G4 批准前不得创建模块代码。** 行为变更必须先失败测试再实现。
 
 - 建立日期：2026-08-02
-- 状态：**Build-verified**（E2E spec 已交付；`Verified` 待真实栈执行）
+- 状态：**Verified**
 - 设计规格：[`2026-08-02-document-module-design.md`](../specs/2026-08-02-document-module-design.md)
 - 建议快照：`document-host-vertical-slice-20260802`
 - 预期迁移号：**053**（开工前必须现场确认两库空闲）

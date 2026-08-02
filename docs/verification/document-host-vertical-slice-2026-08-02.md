@@ -1,7 +1,7 @@
 # Document Host 文档库验证记录
 
 - 日期：2026-08-02
-- 状态：**Build-verified**
+- 状态：**Verified**
 - 计划：[`2026-08-02-document-host-vertical-slice.md`](../superpowers/plans/2026-08-02-document-host-vertical-slice.md)
 
 ## 交付范围
@@ -32,7 +32,7 @@ Host 文档库纵向切片（`Full.NET.Modules.Document`）：
 | `pnpm --filter @fullnet/admin test`（document + navigation） | **14/14** |
 | OpenAPI 夹具 `document-host-categories-tags-contract.test.mjs` | **2/2** |
 
-**未在本机执行**：`pnpm test:e2e:real` / `test:e2e:real:mysql` 聚焦 `host-documents`（需 Docker 真实栈 bootstrap）。E2E spec 已交付，通过后方可标记 `Verified`。
+**本机执行（2026-08-02）**：`npx playwright test host-documents --project=vue-admin` → **2/2**（SQL Server）；`FULLNET_E2E_DATABASE_PROVIDER=MySql` 同命令 → **2/2**（MySQL）。
 
 ## 提交序列（main）
 
