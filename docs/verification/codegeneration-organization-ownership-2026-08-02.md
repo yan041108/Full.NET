@@ -1,7 +1,7 @@
 # CodeGeneration 组织归属（OrganizationUnit）生成验证
 
 - 日期：2026-08-02
-- 代码基线：`main` @ `06fa6d4`
+- 代码基线：`main` @ `c4791b2`
 - 状态：**Build-verified**（双库 Integration 需 Docker/Testcontainers）
 - 设计：[`2026-08-02-codegeneration-organization-ownership-design.md`](../superpowers/specs/2026-08-02-codegeneration-organization-ownership-design.md)
 - 计划：[`2026-08-02-codegeneration-organization-ownership.md`](../superpowers/plans/2026-08-02-codegeneration-organization-ownership.md)
@@ -31,7 +31,7 @@
 | 预览 API/UI | `Preview_organization_owned_*` + 双端 previews E2E | Unit GREEN；Preview/Runs API host/global 互斥 Integration；E2E 需真实栈 |
 | Apply 工作区 | `host-code-generation-templates` 组织归属 Apply E2E | 需真实栈；落盘 Feature 含授权片段 |
 | 模块编译集成 | `ModuleIntegrationCompilationTests.Organization_owned_explicit_backend_compiles_with_organization_references` | Integration GREEN |
-| 双库 SQL 运行时 | `GeneratedLifecycleSqlRuntimeIntegrationTests` 组织归属 SoftDelete (2) | 需 Docker；本地编译通过 |
+| 双库 SQL 运行时 | `GeneratedLifecycleSqlRuntimeIntegrationTests` 组织归属 SoftDelete (2) | 需 Docker 守护进程；本机 `docker info` 客户端可用但 Testcontainers 连接失败（8/8 错误） |
 
 ## 行为要点
 
