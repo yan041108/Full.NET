@@ -49,6 +49,6 @@ Docker teardown: running=0 / residual=0
 ## 证据边界
 
 - 当前双库证据验证迁移模板形状、生成 SQL 安全规则、编译投影和受影响 Integration 集合；
-- `SoftDelete` 显式生命周期 SQL 已在双库隔离环境执行 Create/Update/软删矩阵（见 [codegeneration-lifecycle-runtime-sql-2026-08-02.md](codegeneration-lifecycle-runtime-sql-2026-08-02.md)）；`Immutable`/`HardDelete-only` 变体与更广 E2E 仍待补，因此不标记为 `Verified`；
+- `SoftDelete` 与 `HardDelete` 显式生命周期 SQL 已在双库隔离环境执行 Create/Update/删除矩阵（见 [codegeneration-lifecycle-runtime-sql-2026-08-02.md](codegeneration-lifecycle-runtime-sql-2026-08-02.md)）；`Immutable` 变体与更广 E2E 仍待补，因此不标记为 `Verified`；
 - `Tree`、聚合关系和组织所有权仅完成安全建模与 fail-closed，不计为可执行功能；
 - 本切片没有复制 Admin.NET.Pro 模板或运行时框架代码，只吸收其能力目录和场景划分思想。

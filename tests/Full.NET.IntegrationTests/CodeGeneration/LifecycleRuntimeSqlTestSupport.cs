@@ -1,6 +1,5 @@
 using System.Data.Common;
 using Dapper;
-using System.Text;
 using Full.NET.Data.CodeGeneration.Generation;
 using Full.NET.Data.CodeGeneration.Schema;
 
@@ -11,7 +10,7 @@ namespace Full.NET.IntegrationTests.CodeGeneration;
 /// </summary>
 internal static class LifecycleRuntimeSqlTestSupport
 {
-    internal static FullNetCrudSchema CreateLifecycleSchema() =>
+    internal static FullNetCrudSchema CreateSoftDeleteLifecycleSchema() =>
         FullNetCrudSchema.CreateProject(
             ownerKey: "acme",
             moduleKey: "catalog",
@@ -82,6 +81,38 @@ internal static class LifecycleRuntimeSqlTestSupport
                     IsNullable: true),
             ]);
 
+    internal static FullNetCrudSchema CreateHardDeleteLifecycleSchema() =>
+        FullNetCrudSchema.CreateProject(
+            ownerKey: "acme",
+            moduleKey: "catalog",
+            entityKey: "product",
+            databaseTableName: "acme_catalog_product",
+            rootNamespace: "Acme.Modules.Catalog",
+            clrTypeName: "Product",
+            apiResourceName: "products",
+            permissionResourceName: "products",
+            FullNetCrudDataScope.TenantRequired,
+            new FullNetCrudEntityCapabilities(
+                FullNetCrudDeleteMode.HardDelete,
+                HasCreatedAudit: false,
+                HasUpdatedAudit: false,
+                HasDeletedAudit: false,
+                HasVersion: true,
+                FullNetCrudOwnershipMode.None),
+            FullNetCrudScene.Single,
+            [],
+            [
+                new("Id", "Id", "id", FullNetScalarType.Uuid),
+                new("TenantId", "TenantId", "tenantId", FullNetScalarType.Uuid),
+                new(
+                    "Name",
+                    "Name",
+                    "displayName",
+                    FullNetScalarType.String,
+                    MaxLength: 200),
+                new("Version", "Version", "version", FullNetScalarType.Int64),
+            ]);
+
     internal static IReadOnlyList<GeneratedArtifact> GenerateArtifacts(
         FullNetCrudSchema schema) =>
         CrudArtifactGenerator.Generate(schema);
@@ -140,7 +171,7 @@ internal static class LifecycleRuntimeSqlTestSupport
         Func<string, DbConnection> createConnection,
         bool sqlServer)
     {
-        var schema = CreateLifecycleSchema();
+        var schema = CreateSoftDeleteLifecycleSchema();
         var artifacts = GenerateArtifacts(schema);
         var migrationSql = RequireMigrationSql(artifacts, sqlServer);
         var insertSql = RequireSqlConstant(artifacts, "Insert");
@@ -243,6 +274,100 @@ internal static class LifecycleRuntimeSqlTestSupport
             findByIdSql,
             new { Id = entityId, TenantId = Guid.NewGuid() });
         Assert.IsNull(wrongTenantRow);
+    }
+
+    internal static async Task AssertHardDeleteLifecycleMatrixAsync(
+        Func<Task<string>> createConnectionStringAsync,
+        Func<string, DbConnection> createConnection,
+        bool sqlServer)
+    {
+        var schema = CreateHardDeleteLifecycleSchema();
+        var artifacts = GenerateArtifacts(schema);
+        var migrationSql = RequireMigrationSql(artifacts, sqlServer);
+        var insertSql = RequireSqlConstant(artifacts, "Insert");
+        var updateSql = RequireSqlConstant(artifacts, "Update");
+        var deleteSql = RequireSqlConstant(artifacts, "Delete");
+        var findByIdSql = RequireSqlConstant(artifacts, "FindById");
+
+        var connectionString = await createConnectionStringAsync();
+        await using var connection = createConnection(connectionString);
+        await connection.OpenAsync();
+        await connection.ExecuteAsync(migrationSql);
+
+        var tenantId = Guid.NewGuid();
+        var entityId = Guid.NewGuid();
+
+        Assert.AreEqual(
+            1,
+            await connection.ExecuteAsync(
+                insertSql,
+                new
+                {
+                    Id = entityId,
+                    TenantId = tenantId,
+                    Name = "Probe",
+                    Version = 1L,
+                }));
+
+        Assert.AreEqual(
+            1,
+            await connection.ExecuteAsync(
+                updateSql,
+                new
+                {
+                    Id = entityId,
+                    TenantId = tenantId,
+                    Name = "Updated",
+                    Version = 1L,
+                }));
+
+        Assert.AreEqual(
+            0,
+            await connection.ExecuteAsync(
+                updateSql,
+                new
+                {
+                    Id = entityId,
+                    TenantId = tenantId,
+                    Name = "Stale",
+                    Version = 1L,
+                }));
+
+        Assert.AreEqual(
+            1,
+            await connection.ExecuteAsync(
+                deleteSql,
+                new
+                {
+                    Id = entityId,
+                    TenantId = tenantId,
+                    Version = 2L,
+                }));
+
+        Assert.IsNull(
+            await connection.QuerySingleOrDefaultAsync<LifecycleRow>(
+                findByIdSql,
+                new { Id = entityId, TenantId = tenantId }));
+
+        var physicalCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(1)
+            FROM acme_catalog_product
+            WHERE Id = @Id
+            """,
+            new { Id = entityId });
+        Assert.AreEqual(0, physicalCount);
+
+        Assert.AreEqual(
+            0,
+            await connection.ExecuteAsync(
+                deleteSql,
+                new
+                {
+                    Id = entityId,
+                    TenantId = tenantId,
+                    Version = 2L,
+                }));
     }
 
     private sealed class LifecycleRow
