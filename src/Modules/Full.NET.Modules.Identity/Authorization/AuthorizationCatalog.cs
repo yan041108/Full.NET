@@ -6,15 +6,19 @@ internal sealed class AuthorizationCatalog
 {
     private AuthorizationCatalog(
         IReadOnlyList<PermissionDefinition> permissions,
-        IReadOnlyList<NavigationDefinition> navigation)
+        IReadOnlyList<NavigationDefinition> navigation,
+        IReadOnlyList<AuthorizationActionDefinition> actions)
     {
         Permissions = permissions;
         Navigation = navigation;
+        Actions = actions;
     }
 
     public IReadOnlyList<PermissionDefinition> Permissions { get; }
 
     public IReadOnlyList<NavigationDefinition> Navigation { get; }
+
+    public IReadOnlyList<AuthorizationActionDefinition> Actions { get; }
 
     public static AuthorizationCatalog Create(
         IEnumerable<IAuthorizationCatalogContributor> contributors)
@@ -27,14 +31,27 @@ internal sealed class AuthorizationCatalog
         var navigation = materialized
             .SelectMany(contributor => contributor.Navigation)
             .ToArray();
+        var actions = materialized
+            .SelectMany(contributor => contributor.Actions)
+            .ToArray();
 
         ValidatePermissions(permissions);
         ValidateNavigation(permissions, navigation);
+        ValidateActions(permissions, navigation, actions);
+
+        var navigationOrder = navigation
+            .Select((item, index) => (item.Id, index))
+            .ToDictionary(pair => pair.Id, pair => pair.index, StringComparer.Ordinal);
 
         return new AuthorizationCatalog(
             permissions.OrderBy(item => item.Code, StringComparer.Ordinal).ToArray(),
             navigation
                 .OrderBy(item => item.Order)
+                .ThenBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray(),
+            actions
+                .OrderBy(item => navigationOrder[item.NavigationId])
+                .ThenBy(item => item.Order)
                 .ThenBy(item => item.Id, StringComparer.Ordinal)
                 .ToArray());
     }
@@ -99,6 +116,76 @@ internal sealed class AuthorizationCatalog
         }
 
         EnsureAcyclic(navigation);
+    }
+
+    private static void ValidateActions(
+        IReadOnlyCollection<PermissionDefinition> permissions,
+        IReadOnlyCollection<NavigationDefinition> navigation,
+        IReadOnlyCollection<AuthorizationActionDefinition> actions)
+    {
+        EnsureUnique(
+            actions.Select(item => item.Id),
+            "action id");
+
+        var permissionCodes = permissions
+            .Select(item => item.Code)
+            .ToHashSet(StringComparer.Ordinal);
+        var navigationById = navigation.ToDictionary(
+            item => item.Id,
+            item => item,
+            StringComparer.Ordinal);
+        var clientActionKeys = new HashSet<string>(StringComparer.Ordinal);
+        var actionPermissionCodes = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var action in actions)
+        {
+            if (string.IsNullOrWhiteSpace(action.Id)
+                || string.IsNullOrWhiteSpace(action.NavigationId)
+                || string.IsNullOrWhiteSpace(action.PermissionCode)
+                || string.IsNullOrWhiteSpace(action.Name)
+                || string.IsNullOrWhiteSpace(action.ClientActionKey))
+            {
+                throw new InvalidOperationException(
+                    "Authorization catalog contains an incomplete action definition.");
+            }
+
+            if (!navigationById.TryGetValue(action.NavigationId, out var navigationItem))
+            {
+                throw new InvalidOperationException(
+                    $"Action '{action.Id}' references an unknown navigation.");
+            }
+
+            if (!permissionCodes.Contains(action.PermissionCode))
+            {
+                throw new InvalidOperationException(
+                    $"Action '{action.Id}' requires an unknown permission.");
+            }
+
+            if (string.Equals(
+                action.PermissionCode,
+                navigationItem.RequiredPermission,
+                StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Action '{action.Id}' cannot use the page read permission.");
+            }
+
+            var clientActionKey = $"{action.NavigationId}:{action.ClientActionKey}";
+            if (!clientActionKeys.Add(clientActionKey))
+            {
+                throw new InvalidOperationException(
+                    $"Authorization catalog contains duplicate action client key '{clientActionKey}'.");
+            }
+
+            if (actionPermissionCodes.TryGetValue(action.PermissionCode, out var existingActionId)
+                && !string.Equals(existingActionId, action.Id, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Permission '{action.PermissionCode}' is already bound to action '{existingActionId}'.");
+            }
+
+            actionPermissionCodes[action.PermissionCode] = action.Id;
+        }
     }
 
     private static void EnsureAcyclic(

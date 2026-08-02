@@ -98,6 +98,142 @@ public sealed class AuthorizationCatalogTests
     }
 
     [TestMethod]
+    public void Create_rejects_action_with_unknown_navigation()
+    {
+        var contributor = new StubContributor(
+            [new PermissionDefinition("identity.users.read", "查看用户", AuthorizationScope.Host)],
+            [],
+            [new AuthorizationActionDefinition(
+                "identity.users.create",
+                "missing-users-page",
+                "identity.users.create",
+                "创建用户",
+                "create",
+                10)]);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => AuthorizationCatalog.Create([contributor]));
+    }
+
+    [TestMethod]
+    public void Create_rejects_action_with_unknown_permission()
+    {
+        var contributor = new StubContributor(
+            [new PermissionDefinition("identity.users.read", "查看用户", AuthorizationScope.Host)],
+            [CreateNavigation("users", null, "identity.users.read")],
+            [new AuthorizationActionDefinition(
+                "identity.users.create",
+                "users",
+                "identity.users.create",
+                "创建用户",
+                "create",
+                10)]);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => AuthorizationCatalog.Create([contributor]));
+    }
+
+    [TestMethod]
+    public void Create_rejects_duplicate_action_id()
+    {
+        var contributor = new StubContributor(
+            [
+                new PermissionDefinition("identity.users.read", "查看用户", AuthorizationScope.Host),
+                new PermissionDefinition("identity.users.create", "创建用户", AuthorizationScope.Host),
+                new PermissionDefinition("identity.users.update", "更新用户", AuthorizationScope.Host),
+            ],
+            [CreateNavigation("users", null, "identity.users.read")],
+            [
+                new AuthorizationActionDefinition(
+                    "identity.users.create",
+                    "users",
+                    "identity.users.create",
+                    "创建用户",
+                    "create",
+                    10),
+                new AuthorizationActionDefinition(
+                    "identity.users.create",
+                    "users",
+                    "identity.users.update",
+                    "更新用户",
+                    "update",
+                    20),
+            ]);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => AuthorizationCatalog.Create([contributor]));
+    }
+
+    [TestMethod]
+    public void Create_rejects_duplicate_navigation_and_client_action_key()
+    {
+        var contributor = new StubContributor(
+            [
+                new PermissionDefinition("identity.users.read", "查看用户", AuthorizationScope.Host),
+                new PermissionDefinition("identity.users.create", "创建用户", AuthorizationScope.Host),
+                new PermissionDefinition("identity.users.update", "更新用户", AuthorizationScope.Host),
+            ],
+            [CreateNavigation("users", null, "identity.users.read")],
+            [
+                new AuthorizationActionDefinition(
+                    "identity.users.create",
+                    "users",
+                    "identity.users.create",
+                    "创建用户",
+                    "create",
+                    10),
+                new AuthorizationActionDefinition(
+                    "identity.users.create-alt",
+                    "users",
+                    "identity.users.update",
+                    "更新用户",
+                    "create",
+                    20),
+            ]);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => AuthorizationCatalog.Create([contributor]));
+    }
+
+    [TestMethod]
+    public void Create_sorts_actions_by_navigation_order_action_order_and_id()
+    {
+        var contributor = new StubContributor(
+            [
+                new PermissionDefinition("a.read", "A Read", AuthorizationScope.Host),
+                new PermissionDefinition("a.create", "A Create", AuthorizationScope.Host),
+                new PermissionDefinition("b.read", "B Read", AuthorizationScope.Host),
+                new PermissionDefinition("b.create", "B Create", AuthorizationScope.Host),
+            ],
+            [
+                CreateNavigation("a-page", null, "a.read", order: 10),
+                CreateNavigation("b-page", null, "b.read", order: 20),
+            ],
+            [
+                new AuthorizationActionDefinition(
+                    "b.create",
+                    "b-page",
+                    "b.create",
+                    "B Create",
+                    "create",
+                    10),
+                new AuthorizationActionDefinition(
+                    "a.create",
+                    "a-page",
+                    "a.create",
+                    "A Create",
+                    "create",
+                    10),
+            ]);
+
+        var catalog = AuthorizationCatalog.Create([contributor]);
+
+        CollectionAssert.AreEqual(
+            new[] { "a.create", "b.create" },
+            catalog.Actions.Select(action => action.Id).ToArray());
+    }
+
+    [TestMethod]
     [DataRow(InvalidCatalogKind.DuplicatePermission)]
     [DataRow(InvalidCatalogKind.DuplicateNavigation)]
     [DataRow(InvalidCatalogKind.MissingParent)]
@@ -152,7 +288,8 @@ public sealed class AuthorizationCatalogTests
     private static NavigationDefinition CreateNavigation(
         string id,
         string? parentId,
-        string permission)
+        string permission,
+        int order = 10)
     {
         return new NavigationDefinition(
             id,
@@ -163,18 +300,22 @@ public sealed class AuthorizationCatalogTests
             id,
             id,
             "grid",
-            10,
+            order,
             permission);
     }
 
     private sealed class StubContributor(
         IReadOnlyCollection<PermissionDefinition> permissions,
-        IReadOnlyCollection<NavigationDefinition> navigation)
+        IReadOnlyCollection<NavigationDefinition> navigation,
+        IReadOnlyCollection<AuthorizationActionDefinition>? actions = null)
         : IAuthorizationCatalogContributor
     {
         public IReadOnlyCollection<PermissionDefinition> Permissions { get; } = permissions;
 
         public IReadOnlyCollection<NavigationDefinition> Navigation { get; } = navigation;
+
+        public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
+            actions ?? [];
     }
 
     public enum InvalidCatalogKind

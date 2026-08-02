@@ -14,4 +14,9 @@ public interface IAuthorizationCatalogContributor
     /// 获取当前模块拥有的导航定义。
     /// </summary>
     IReadOnlyCollection<NavigationDefinition> Navigation { get; }
+
+    /// <summary>
+    /// 获取当前模块拥有的页面操作定义；未迁移模块保持空集合。
+    /// </summary>
+    IReadOnlyCollection<AuthorizationActionDefinition> Actions => [];
 }
