@@ -198,6 +198,12 @@ internal sealed class HostRoleManagementService(
             return validationError;
         }
 
+        var hierarchyError = ValidatePageActionHierarchy(normalizedCodes);
+        if (hierarchyError is not null)
+        {
+            return hierarchyError;
+        }
+
         var now = clock.UtcNow;
         var versionRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostRoleVersion,
@@ -340,6 +346,42 @@ internal sealed class HostRoleManagementService(
                 return Result<HostRoleResponse>.Failure(new Error(
                     ValidationErrorCodes.Failed,
                     "Super administrator permissions cannot be assigned to custom roles.",
+                    ErrorType.Validation));
+            }
+        }
+
+        return null;
+    }
+
+    private Result<HostRoleResponse>? ValidatePageActionHierarchy(
+        IReadOnlyList<string> permissionCodes)
+    {
+        var granted = permissionCodes.ToHashSet(StringComparer.Ordinal);
+        var pagePermissionByNavigationId = authorizationCatalog.Navigation
+            .ToDictionary(
+                item => item.Id,
+                item => item.RequiredPermission,
+                StringComparer.Ordinal);
+
+        foreach (var action in authorizationCatalog.Actions)
+        {
+            if (!granted.Contains(action.PermissionCode))
+            {
+                continue;
+            }
+
+            if (!pagePermissionByNavigationId.TryGetValue(
+                    action.NavigationId,
+                    out var pagePermission))
+            {
+                continue;
+            }
+
+            if (!granted.Contains(pagePermission))
+            {
+                return Result<HostRoleResponse>.Failure(new Error(
+                    IdentityErrorCodes.ActionRequiresPage,
+                    "Action permissions require the parent page permission.",
                     ErrorType.Validation));
             }
         }

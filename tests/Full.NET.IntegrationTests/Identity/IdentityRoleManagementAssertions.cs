@@ -22,6 +22,7 @@ internal static class IdentityRoleManagementAssertions
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyAuthorizationTreeRequiresRolesReadAsync(factory, client, cancellationToken);
         await VerifyAuthorizationTreeReturnsUsersActionsAsync(client, cancellationToken);
+        await VerifyPageActionGrantHierarchyAsync(client, cancellationToken);
         await VerifyCreateRejectsDuplicateCodeAsync(client, cancellationToken);
         await VerifySystemRoleUpdateRejectedAsync(client, cancellationToken);
         await VerifyCustomRoleLifecycleAsync(client, cancellationToken);
@@ -82,6 +83,65 @@ internal static class IdentityRoleManagementAssertions
         CollectionAssert.Contains(actionCodes, "identity.users.reset_password");
         Assert.IsFalse(document.RootElement.EnumerateArray().Any(
             element => element.GetProperty("id").GetString() == "super-administrators"));
+    }
+
+    private static async Task VerifyPageActionGrantHierarchyAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var code = $"action-hierarchy-{Guid.NewGuid():N}".ToLowerInvariant();
+
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            adminToken,
+            new CreateHostRoleRequest(code, "操作层级角色"));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<HostRoleResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+
+        using var orphanRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{created.Id:D}/permissions",
+            adminToken,
+            new ReplaceHostRolePermissionsRequest(
+                [IdentityUserManagementPermissions.ResetPassword],
+                created.Version));
+        using var orphanResponse = await client.SendAsync(orphanRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, orphanResponse.StatusCode);
+        using (var problem = JsonDocument.Parse(
+                   await orphanResponse.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.AreEqual(
+                IdentityErrorCodes.ActionRequiresPage,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        using var validRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{created.Id:D}/permissions",
+            adminToken,
+            new ReplaceHostRolePermissionsRequest(
+                [
+                    IdentityUserManagementPermissions.Read,
+                    IdentityUserManagementPermissions.ResetPassword,
+                ],
+                created.Version));
+        using var validResponse = await client.SendAsync(validRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, validResponse.StatusCode);
+        var withPermissions = await validResponse.Content
+            .ReadFromJsonAsync<HostRoleResponse>(cancellationToken);
+        Assert.IsNotNull(withPermissions);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.ResetPassword,
+            },
+            withPermissions.PermissionCodes.ToArray());
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(

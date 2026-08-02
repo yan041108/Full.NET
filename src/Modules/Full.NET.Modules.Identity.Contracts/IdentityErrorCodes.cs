@@ -111,6 +111,9 @@ public static class IdentityErrorCodes
     /// <summary>系统角色受保护，禁止变更。</summary>
     public const string RoleSystemLocked = "identity.roles.system_locked";
 
+    /// <summary>操作权限缺少父页面读取权限。</summary>
+    public const string ActionRequiresPage = "identity.roles.action_requires_page";
+
     /// <summary>字段投影资源或字段键不在服务端稳定目录中。</summary>
     public const string FieldProjectionInvalid = "identity.field_projection.invalid";
 
@@ -239,6 +242,7 @@ public static class IdentityErrorCodes
         RoleCodeExists,
         RoleNotFound,
         RoleSystemLocked,
+        ActionRequiresPage,
         FieldProjectionInvalid,
         FieldProjectionVersionConflict,
         DataScopeInvalidKind,
