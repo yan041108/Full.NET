@@ -32,8 +32,16 @@ internal sealed class NotificationsAuthorizationContributor
             "查询站内信",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            InboxPermissions.Write,
+            InboxPermissions.Send,
             "发送站内信",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            InboxPermissions.MarkRead,
+            "标记站内信已读",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            InboxPermissions.MarkAllRead,
+            "全部标记站内信已读",
             AuthorizationScope.Host),
     ];
 
@@ -85,6 +93,27 @@ internal sealed class NotificationsAuthorizationContributor
             HostAnnouncementPermissions.Publish,
             "发布公告",
             "publish",
+            30),
+        new AuthorizationActionDefinition(
+            "notifications.inbox.send",
+            "inbox-messages",
+            InboxPermissions.Send,
+            "发送站内信",
+            "send",
+            10),
+        new AuthorizationActionDefinition(
+            "notifications.inbox.mark_read",
+            "inbox-messages",
+            InboxPermissions.MarkRead,
+            "标记已读",
+            "mark_read",
+            20),
+        new AuthorizationActionDefinition(
+            "notifications.inbox.mark_all_read",
+            "inbox-messages",
+            InboxPermissions.MarkAllRead,
+            "全部标记已读",
+            "mark_all_read",
             30),
     ];
 }

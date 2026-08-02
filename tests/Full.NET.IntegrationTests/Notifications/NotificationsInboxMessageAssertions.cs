@@ -22,15 +22,19 @@ internal static class NotificationsInboxMessageAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
 
-        await VerifySendRequiresWritePermissionAsync(factory, client, cancellationToken);
+        await VerifySendRequiresSendPermissionAsync(factory, client, cancellationToken);
         await VerifySendListReadAndMarkReadLifecycleAsync(
+            factory,
+            client,
+            cancellationToken);
+        await VerifyExactInboxActionPermissionBoundariesAsync(
             factory,
             client,
             cancellationToken);
         await OpenApiNotificationsInboxMessagesContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
-    private static async Task VerifySendRequiresWritePermissionAsync(
+    private static async Task VerifySendRequiresSendPermissionAsync(
         FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
@@ -139,6 +143,229 @@ internal static class NotificationsInboxMessageAssertions
             currentUser.Id,
             created,
             cancellationToken);
+    }
+
+    private static async Task VerifyExactInboxActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+
+        var readOnlyIdentity = await factory.CreateHostIdentityAsync(
+            $"inbox-read-{Guid.NewGuid():N}"[..24],
+            [InboxPermissions.Read],
+            cancellationToken);
+        var readOnlyTitle = $"只读-{Guid.NewGuid():N}"[..20];
+        await SendInboxMessageAsAdminAsync(
+            client,
+            adminToken,
+            readOnlyIdentity.UserId,
+            readOnlyTitle,
+            "read-only",
+            cancellationToken);
+        var readOnlyPage = await ListInboxMessagesAsync(
+            client,
+            readOnlyIdentity.AccessToken,
+            cancellationToken);
+        var readOnlyMessage = readOnlyPage.Items.Single(item => item.Title == readOnlyTitle);
+        using var readListRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/my-inbox-messages?page=1&pageSize=20");
+        readListRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            readOnlyIdentity.AccessToken);
+        using var readListResponse = await client.SendAsync(readListRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, readListResponse.StatusCode);
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            readOnlyIdentity.AccessToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/host-inbox-messages",
+            cancellationToken,
+            new SendHostInboxMessageRequest(readOnlyIdentity.UserId, "拒绝", "正文"));
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            readOnlyIdentity.AccessToken,
+            HttpMethod.Post,
+            $"/api/v1/notifications/my-inbox-messages/{readOnlyMessage.Id:D}/read",
+            cancellationToken,
+            new { });
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            readOnlyIdentity.AccessToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/my-inbox-messages/read-all",
+            cancellationToken,
+            new { });
+
+        var sendOnlyIdentity = await factory.CreateHostIdentityAsync(
+            $"inbox-send-{Guid.NewGuid():N}"[..24],
+            [
+                InboxPermissions.Read,
+                InboxPermissions.Send,
+            ],
+            cancellationToken);
+        var sendOnlyTitle = $"仅发送-{Guid.NewGuid():N}"[..20];
+        using var sendOnlyRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/host-inbox-messages",
+            sendOnlyIdentity.AccessToken,
+            new SendHostInboxMessageRequest(
+                sendOnlyIdentity.UserId,
+                sendOnlyTitle,
+                "send-only"));
+        using var sendOnlyResponse = await client.SendAsync(sendOnlyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, sendOnlyResponse.StatusCode);
+        var sendOnlyMessage = await sendOnlyResponse.Content.ReadFromJsonAsync<InboxMessageResponse>(
+            cancellationToken);
+        Assert.IsNotNull(sendOnlyMessage);
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            sendOnlyIdentity.AccessToken,
+            HttpMethod.Post,
+            $"/api/v1/notifications/my-inbox-messages/{sendOnlyMessage.Id:D}/read",
+            cancellationToken,
+            new { });
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            sendOnlyIdentity.AccessToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/my-inbox-messages/read-all",
+            cancellationToken,
+            new { });
+
+        var markReadIdentity = await factory.CreateHostIdentityAsync(
+            $"inbox-mark-{Guid.NewGuid():N}"[..24],
+            [
+                InboxPermissions.Read,
+                InboxPermissions.MarkRead,
+            ],
+            cancellationToken);
+        var markReadTitle = $"单条已读-{Guid.NewGuid():N}"[..20];
+        var markReadMessage = await SendInboxMessageAsAdminAsync(
+            client,
+            adminToken,
+            markReadIdentity.UserId,
+            markReadTitle,
+            "mark-read",
+            cancellationToken);
+        using var markReadRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/my-inbox-messages/{markReadMessage.Id:D}/read",
+            markReadIdentity.AccessToken,
+            new { });
+        using var markReadResponse = await client.SendAsync(markReadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, markReadResponse.StatusCode);
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            markReadIdentity.AccessToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/host-inbox-messages",
+            cancellationToken,
+            new SendHostInboxMessageRequest(markReadIdentity.UserId, "拒绝", "正文"));
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            markReadIdentity.AccessToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/my-inbox-messages/read-all",
+            cancellationToken,
+            new { });
+
+        var markAllIdentity = await factory.CreateHostIdentityAsync(
+            $"inbox-all-{Guid.NewGuid():N}"[..24],
+            [
+                InboxPermissions.Read,
+                InboxPermissions.MarkAllRead,
+            ],
+            cancellationToken);
+        var markAllTitle = $"全部已读-{Guid.NewGuid():N}"[..20];
+        await SendInboxMessageAsAdminAsync(
+            client,
+            adminToken,
+            markAllIdentity.UserId,
+            markAllTitle,
+            "mark-all",
+            cancellationToken);
+        using var markAllReadRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/my-inbox-messages/read-all",
+            markAllIdentity.AccessToken,
+            new { });
+        using var markAllReadResponse = await client.SendAsync(markAllReadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, markAllReadResponse.StatusCode);
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            markAllIdentity.AccessToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/host-inbox-messages",
+            cancellationToken,
+            new SendHostInboxMessageRequest(markAllIdentity.UserId, "拒绝", "正文"));
+        await AssertInboxPermissionDeniedAsync(
+            client,
+            markAllIdentity.AccessToken,
+            HttpMethod.Post,
+            $"/api/v1/notifications/my-inbox-messages/{markReadMessage.Id:D}/read",
+            cancellationToken,
+            new { });
+    }
+
+    private static async Task<InboxMessageResponse> SendInboxMessageAsAdminAsync(
+        HttpClient client,
+        string adminToken,
+        Guid recipientUserId,
+        string title,
+        string content,
+        CancellationToken cancellationToken)
+    {
+        using var sendRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/host-inbox-messages",
+            adminToken,
+            new SendHostInboxMessageRequest(recipientUserId, title, content));
+        using var sendResponse = await client.SendAsync(sendRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, sendResponse.StatusCode);
+        var created = await sendResponse.Content.ReadFromJsonAsync<InboxMessageResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+        return created;
+    }
+
+    private static async Task<PagedInboxMessageResponses> ListInboxMessagesAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/my-inbox-messages?page=1&pageSize=20");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedInboxMessageResponses>(
+            cancellationToken);
+        Assert.IsNotNull(page);
+        return page;
+    }
+
+    private static async Task AssertInboxPermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        TRequest body)
+    {
+        using var request = CreateBearerJsonRequest(method, path, accessToken, body);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private sealed record PagedInboxMessageResponses(

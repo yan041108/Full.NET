@@ -30,6 +30,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         DiagnosticPolicyManagementPermissions.Write,
         "files.files.write",
         "notifications.announcements.write",
+        "notifications.inbox.write",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -48,7 +49,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/jobs/host-schedules/{scheduleId:guid}/pause|jobs.schedules.write",
         "POST /api/v1/jobs/host-schedules/{scheduleId:guid}/resume|jobs.schedules.write",
         "POST /api/v1/jobs/host-schedules/|jobs.schedules.write",
-        "POST /api/v1/notifications/host-inbox-messages/|notifications.inbox.write",
         "POST /api/v1/serial-numbers/rules/{ruleId:guid}/disable|serial_numbers.rules.write",
         "POST /api/v1/serial-numbers/rules/{ruleId:guid}/enable|serial_numbers.rules.write",
         "POST /api/v1/serial-numbers/rules/|serial_numbers.rules.write",

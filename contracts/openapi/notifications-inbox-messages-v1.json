@@ -1,6 +1,6 @@
 {
   "id": "notifications-inbox-messages-v1",
-  "version": 1,
+  "version": 2,
   "description": "站内信收件箱 HTTP 契约冻结夹具；与 Notifications 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {
@@ -30,7 +30,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "notifications.inbox.read",
+          "permission": "notifications.inbox.mark_read",
           "successStatus": 200,
           "responseSchema": "InboxMessageResponse"
         }
@@ -41,7 +41,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "notifications.inbox.read",
+          "permission": "notifications.inbox.mark_all_read",
           "successStatus": 200,
           "responseSchema": "InboxUnreadCountResponse"
         }
@@ -52,7 +52,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "notifications.inbox.write",
+          "permission": "notifications.inbox.send",
           "successStatus": 201,
           "requestSchema": "SendHostInboxMessageRequest",
           "responseSchema": "InboxMessageResponse"

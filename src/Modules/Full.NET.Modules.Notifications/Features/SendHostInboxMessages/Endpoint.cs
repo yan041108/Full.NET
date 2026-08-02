@@ -39,7 +39,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<InboxMessageResponse>(StatusCodes.Status201Created)
-        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Send));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

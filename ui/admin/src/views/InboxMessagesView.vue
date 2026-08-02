@@ -5,6 +5,7 @@ import type { FullNetProblemDetails, InboxMessage } from '@fullnet/client-contra
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   getInboxUnreadCount,
   listInboxMessages,
@@ -24,7 +25,9 @@ const content = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('notifications.inbox.write'));
+const canSend = computed(() => session.can('notifications.inbox.send'));
+const canMarkRead = computed(() => session.can('notifications.inbox.mark_read'));
+const canMarkAllRead = computed(() => session.can('notifications.inbox.mark_all_read'));
 const notificationsRealtime = useNotificationsRealtime();
 
 onMounted(load);
@@ -50,7 +53,13 @@ async function load(): Promise<void> {
 }
 
 async function send(): Promise<void> {
-  if (changing.value || !recipientUserId.value.trim() || !title.value.trim() || !content.value.trim()) {
+  if (
+    changing.value
+    || !canSend.value
+    || !recipientUserId.value.trim()
+    || !title.value.trim()
+    || !content.value.trim()
+  ) {
     return;
   }
   changing.value = true;
@@ -74,7 +83,7 @@ async function send(): Promise<void> {
 }
 
 async function markRead(item: InboxMessage): Promise<void> {
-  if (changing.value || item.status === 'read') return;
+  if (changing.value || item.status === 'read' || !canMarkRead.value) return;
   changing.value = true;
   try {
     await markInboxMessageRead(item.id);
@@ -88,7 +97,7 @@ async function markRead(item: InboxMessage): Promise<void> {
 }
 
 async function markAllRead(): Promise<void> {
-  if (changing.value || unreadCount.value === 0) return;
+  if (changing.value || unreadCount.value === 0 || !canMarkAllRead.value) return;
   changing.value = true;
   try {
     await markAllInboxMessagesRead();
@@ -127,38 +136,48 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" shadow="never" class="art-form-card" aria-labelledby="send-inbox-message-title">
-      <div><h2 id="send-inbox-message-title">{{ t('inboxMessages.sendTitle') }}</h2></div>
-      <label>
-        <span>{{ t('inboxMessages.recipientUserId') }}</span>
-        <el-input v-model="recipientUserId" />
-      </label>
-      <label>
-        <span>{{ t('inboxMessages.fieldTitle') }}</span>
-        <el-input v-model="title" maxlength="200" />
-      </label>
-      <label>
-        <span>{{ t('inboxMessages.fieldContent') }}</span>
-        <el-input v-model="content" type="textarea" :rows="3" maxlength="4000" />
-      </label>
-      <el-button
-        type="primary"
-        :loading="changing"
-        :disabled="!recipientUserId.trim() || !title.trim() || !content.trim()"
-        @click="send"
-      >
-        {{ t('inboxMessages.send') }}
-      </el-button>
-    </el-card>
+    <PermissionGate code="notifications.inbox.send">
+      <el-card shadow="never" class="art-form-card" aria-labelledby="send-inbox-message-title">
+        <div><h2 id="send-inbox-message-title">{{ t('inboxMessages.sendTitle') }}</h2></div>
+        <label>
+          <span>{{ t('inboxMessages.recipientUserId') }}</span>
+          <el-input v-model="recipientUserId" data-testid="inbox-messages-recipient" />
+        </label>
+        <label>
+          <span>{{ t('inboxMessages.fieldTitle') }}</span>
+          <el-input v-model="title" maxlength="200" data-testid="inbox-messages-title" />
+        </label>
+        <label>
+          <span>{{ t('inboxMessages.fieldContent') }}</span>
+          <el-input v-model="content" type="textarea" :rows="3" maxlength="4000" data-testid="inbox-messages-content" />
+        </label>
+        <el-button
+          type="primary"
+          data-testid="inbox-messages-send"
+          :loading="changing"
+          :disabled="!recipientUserId.trim() || !title.trim() || !content.trim()"
+          @click="send"
+        >
+          {{ t('inboxMessages.send') }}
+        </el-button>
+      </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
         <div class="art-table-card__header">
           <h2>{{ t('inboxMessages.listTitle') }}</h2>
           <span class="art-table-card__count">{{ unreadCount }}</span>
-          <el-button plain :disabled="changing || unreadCount === 0" @click="markAllRead">
-            {{ t('inboxMessages.markAllRead') }}
-          </el-button>
+          <PermissionGate code="notifications.inbox.mark_all_read">
+            <el-button
+              plain
+              data-testid="inbox-messages-mark-all-read"
+              :disabled="changing || unreadCount === 0"
+              @click="markAllRead"
+            >
+              {{ t('inboxMessages.markAllRead') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </template>
 
@@ -171,7 +190,16 @@ function toProblem(
           <small>{{ t('inboxMessages.createdAt') }}: {{ item.createdAtUtc }}</small>
         </div>
         <div v-if="item.status === 'unread'" class="art-data-row__actions">
-          <el-button plain :disabled="changing" @click="markRead(item)">{{ t('inboxMessages.markRead') }}</el-button>
+          <PermissionGate code="notifications.inbox.mark_read">
+            <el-button
+              plain
+              data-testid="inbox-messages-mark-read"
+              :disabled="changing"
+              @click="markRead(item)"
+            >
+              {{ t('inboxMessages.markRead') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

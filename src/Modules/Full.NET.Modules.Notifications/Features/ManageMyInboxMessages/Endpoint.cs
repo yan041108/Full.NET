@@ -74,7 +74,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<InboxMessageResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.MarkRead));
 
         group.MapPost("/read-all", async (
             MyInboxManagementService service,
@@ -92,7 +92,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<InboxUnreadCountResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.MarkAllRead));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

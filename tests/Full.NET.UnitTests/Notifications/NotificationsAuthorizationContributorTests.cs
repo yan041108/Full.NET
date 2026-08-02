@@ -19,8 +19,10 @@ public sealed class NotificationsAuthorizationContributorTests
                 HostAnnouncementPermissions.Publish,
                 HostAnnouncementPermissions.Read,
                 HostAnnouncementPermissions.Update,
+                InboxPermissions.MarkAllRead,
+                InboxPermissions.MarkRead,
                 InboxPermissions.Read,
-                InboxPermissions.Write,
+                InboxPermissions.Send,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
@@ -36,6 +38,22 @@ public sealed class NotificationsAuthorizationContributorTests
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "host-announcements")
+                .OrderBy(action => action.Order)
+                .Select(action => action.PermissionCode)
+                .ToArray());
+
+        var inboxMessages = catalog.Navigation.Single(item => item.Id == "inbox-messages");
+        Assert.AreEqual(InboxPermissions.Read, inboxMessages.RequiredPermission);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                InboxPermissions.Send,
+                InboxPermissions.MarkRead,
+                InboxPermissions.MarkAllRead,
+            },
+            catalog.Actions
+                .Where(action => action.NavigationId == "inbox-messages")
                 .OrderBy(action => action.Order)
                 .Select(action => action.PermissionCode)
                 .ToArray());

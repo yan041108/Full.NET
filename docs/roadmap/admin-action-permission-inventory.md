@@ -196,13 +196,21 @@
 | `HostAnnouncementsView.vue` | 编辑 | `notifications.announcements.update` | 072 |
 | `HostAnnouncementsView.vue` | 发布 | `notifications.announcements.publish` | 072 |
 
+## W4：Notifications Inbox Messages（073）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `InboxMessagesView.vue` | 页面/列表 | `notifications.inbox.read` | 无 |
+| `InboxMessagesView.vue` | 发送 | `notifications.inbox.send` | 073 |
+| `InboxMessagesView.vue` | 标记已读 | `notifications.inbox.mark_read` | 073 |
+| `InboxMessagesView.vue` | 全部标记已读 | `notifications.inbox.mark_all_read` | 073 |
+
 ## W4–W5：仍需拆分的粗粒度操作权限（冻结清单）
 
 下列 `.write` 权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；W5 同时包含不以 `.write` 命名、但仍承载多个动作的 `delete/manage` 权限。后续门禁必须覆盖这些语义，新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `notifications.inbox.write` | `InboxMessagesView.vue` | W4 |
 | `jobs.definitions.write` / `jobs.schedules.write` | `HostJobsView.vue` | W4 |
 | `codegen.templates.write` | `CodeGenerationPreviewsView.vue` | W4 |
 | `serial_numbers.rules.write` | （API 已交付，Vue 待切片） | W4 |
@@ -234,6 +242,7 @@
 | `settings.diagnostic_policy.write` | **已退役**：不可分配、不可出现在 Endpoint；由 070 展开为 `settings.diagnostic_policy.update` / `restore` |
 | `files.files.write` | **已退役**：不可分配、不可出现在 Endpoint；由 071 展开为 `files.files.upload` / `delete`，并为存量 `read` 补齐 `download` |
 | `notifications.announcements.write` | **已退役**：不可分配、不可出现在 Endpoint；由 072 展开为 `notifications.announcements.create` / `update` / `publish` |
+| `notifications.inbox.write` | **已退役**：不可分配、不可出现在 Endpoint；由 073 展开为 `notifications.inbox.send`，并为存量 `read` 补齐 `mark_read` / `mark_all_read` |
 
 ## 本地 UI（无需权限码）
 

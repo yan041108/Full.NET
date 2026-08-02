@@ -4,7 +4,11 @@ public static class InboxPermissions
 {
     public const string Read = "notifications.inbox.read";
 
-    public const string Write = "notifications.inbox.write";
+    public const string Send = "notifications.inbox.send";
+
+    public const string MarkRead = "notifications.inbox.mark_read";
+
+    public const string MarkAllRead = "notifications.inbox.mark_all_read";
 }
 
 public static class InboxMessageStatuses
