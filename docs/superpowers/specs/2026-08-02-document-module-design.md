@@ -1,6 +1,6 @@
 # Document 模块设计规格
 
-**状态：** Draft — 待 Gate G4 评审批准（批准前不得创建模块代码、迁移或 Endpoint）
+**状态：** Approved for implementation（Gate G4，2026-08-02）
 **日期：** 2026-08-02
 **适用范围：** `Full.NET.Modules.Document`（单主项目垂直切片）、Host/Tenant 文档库、双管理端、SQL Server/MySQL
 
@@ -145,6 +145,6 @@ OpenAPI 独立契约文件；JSON 使用源生成 Context。
 
 | 角色 | 决定 | 日期 |
 | --- | --- | --- |
-| Gate G4 评审 | _待填写_ | _待填写_ |
+| Gate G4 评审 | Approved for implementation | 2026-08-02 |
 
 批准前：路线图状态保持 **`Mapped`**。批准后：更新为 **`Planned`** 并创建实施计划，不得跳过批准直接编码。
