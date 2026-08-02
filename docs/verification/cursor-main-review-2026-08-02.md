@@ -7,6 +7,7 @@
 - 审查起点：`bd92ea7`
 - 开始时 HEAD：`ffe19ec`（审查修复提交）
 - Task 0 完成 HEAD：`33a5e99`
+- 窗口关闭 HEAD：`e4c9c81`（Task 1–4 已分别提交）
 - 任务快照：`cursor-main-review-20260802`
 - 重点：Admin.NET 吸收 Tasks 8–10、CodeGeneration、Settings 限时诊断策略、迁移 043、共享门禁和双管理端。
 
@@ -62,12 +63,12 @@
 
 ## 4. 尚未关闭的验证缺口
 
-1. ~~请求签名仍缺请求体硬上限、配置启动校验和损坏 KeyHash 失败关闭。~~ **Task 2 已于 2026-08-02 完成实现与双库签名 Integration（2/2）、Unit 1057 与合并影响集 affected merge（60/60）；待提交。**
-2. ~~迁移 052 尚未创建。诊断策略权限码债务只有在 Task 1 双库迁移完成后才能删除。~~ **Task 1 已于 2026-08-02 完成双库 052 恢复测试（6/6）与命名门禁；合并影响集 affected merge（60/60）已通过；待提交。**
-3. ~~Tasks 8–10 真实栈验收（Task 3）与 Document 规格（Task 4）尚未开始。~~ **Task 3 已于 2026-08-02 完成**（见 [`adminnet-tasks-8-10-realstack-2026-08-02.md`](adminnet-tasks-8-10-realstack-2026-08-02.md)）。**Task 4 已产出 Document Gate G4 规格草案**（[`2026-08-02-document-module-design.md`](../superpowers/specs/2026-08-02-document-module-design.md)），能力仍为 `Mapped`，待评审批准。
+1. ~~请求签名仍缺请求体硬上限、配置启动校验和损坏 KeyHash 失败关闭。~~ **Task 2 已提交（`82291c1`）。**
+2. ~~迁移 052 / 诊断策略权限码债务。~~ **Task 1 已提交（`732c8c2`）。**
+3. ~~Tasks 8–10 真实栈验收与 Document 规格。~~ **Task 3 已提交（`2d620b9`）；Task 4 规格草案已提交（`e4c9c81`），Document 仍为 `Mapped`，待 Gate G4 批准。**
+
+本审查窗口（Task 0–4）代码与文档交付已闭合；后续实现 Document 模块须等待规格批准。
 
 ## 5. 结论
 
-**Task 0 合并门禁已关闭（Build-verified）。** 审查修复（`ffe19ec`）与 MySQL 生命周期运行时 Binary16 连接修复已通过双库 043 恢复、affected merge（109）、容器镜像契约、静态门禁与 E2E（107）。
-
-**Task 3（Tasks 8–10 真实栈验收）** 已补齐双库聚焦证据。**Task 4（Document Gate G4 规格）** 已提交规格草案，待评审批准后 Document 方可从 `Mapped` 升为 `Planned`。Task 1/2/3 已分别提交（`732c8c2`、`82291c1`、`2d620b9`）。
+**审查窗口已关闭。** Task 0（`33a5e99`）至 Task 4（`e4c9c81`）均已提交：`732c8c2`（052 权限码）、`82291c1`（签名硬化）、`2d620b9`（Tasks 8–10 验收记录）、`e4c9c81`（Document 规格草案）。Document 待 Gate G4 批准后由 `Mapped` 升为 `Planned` 方可开工。
