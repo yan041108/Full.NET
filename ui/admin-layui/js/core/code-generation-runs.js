@@ -2,14 +2,42 @@ import {
   isCodeGenerationRunApplyResponse,
   isCodeGenerationRunPage,
   isCodeGenerationRunRollbackResponse,
-  isCodeGenerationRunPreviewResponse
+  isCodeGenerationRunRollbackChainResponse,
+  isCodeGenerationRunPreviewResponse,
+  buildCodeGenerationRollbackApplyRunIds,
+  isPendingCodeGenerationRollbackApply
 } from '@fullnet/client-contracts';
 
 const runsPath = '/api/v1/code-generation/runs';
 
 export function createCodeGenerationRunsApi(request) {
   return {
-async rollback(input) {
+    async rollbackChain(input) {
+      const value = await request(
+        `${runsPath}/rollback-chain`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input)
+        }
+      );
+      if (!isCodeGenerationRunRollbackChainResponse(value)) {
+        throw new Error('client.invalid_code_generation_run_rollback_chain');
+      }
+      return value;
+    },
+    async rollbackApply(runs, targetApplyRunId) {
+      const applyRunIds = buildCodeGenerationRollbackApplyRunIds(
+        runs,
+        targetApplyRunId
+      );
+      if (applyRunIds.length === 1) {
+        return this.rollback({ applyRunId: applyRunIds[0] });
+      }
+      return this.rollbackChain({ applyRunIds });
+    },
+    isPendingRollbackApply: isPendingCodeGenerationRollbackApply,
+    async rollback(input) {
       const value = await request(
         `${runsPath}/rollback`,
         {

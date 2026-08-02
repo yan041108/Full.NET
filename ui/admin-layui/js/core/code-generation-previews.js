@@ -1,4 +1,5 @@
 import {
+  buildCodeGenerationRollbackApplyRunIds,
   isCodeGenerationPreviewRequest
 } from '@fullnet/client-contracts';
 import {
@@ -48,6 +49,7 @@ export function createCodeGenerationPreviewsController(root, options) {
   let changing = false;
   let currentArtifacts = [];
   let templates = [];
+  let loadedRuns = [];
   let selectedTemplate;
   let reviewedPreview;
 
@@ -125,6 +127,7 @@ export function createCodeGenerationPreviewsController(root, options) {
     if (!canReadRuns || !runHistory) return;
     try {
       const page = await runsApi.list();
+      loadedRuns = page.items;
       const fragment = runHistory.ownerDocument.createDocumentFragment();
       page.items.forEach(run => {
         const article = runHistory.ownerDocument.createElement('article');
@@ -147,8 +150,7 @@ export function createCodeGenerationPreviewsController(root, options) {
           `${run.requestedByUserId} · ${run.finishedAtUtc}`;
         article.append(title, status, id, summary, hashes, actor);
         if (canRollbackRuns
-          && run.operationKind === 'apply'
-          && run.status === 'succeeded') {
+          && runsApi.isPendingRollbackApply(page.items, run)) {
           const rollback = runHistory.ownerDocument.createElement('button');
           rollback.type = 'button';
           rollback.className = 'layui-btn layui-btn-warm layui-btn-xs';
@@ -373,14 +375,33 @@ const onRollback = async event => {
       : null;
     const applyRunId = button?.dataset.codegenRollback;
     if (!canRollbackRuns || changing || !applyRunId) return;
+    let applyRunIds;
+    try {
+      applyRunIds = buildCodeGenerationRollbackApplyRunIds(
+        loadedRuns,
+        applyRunId
+      );
+    } catch {
+      return;
+    }
+    const confirmKey = applyRunIds.length > 1
+      ? 'codeGeneration.rollbackChainConfirm'
+      : 'codeGeneration.rollbackConfirm';
+    const confirmParams = applyRunIds.length > 1
+      ? {
+          id: applyRunId,
+          count: applyRunIds.length,
+          newest: applyRunIds[0]
+        }
+      : { id: applyRunId };
     const accepted = await confirm(translation().t(
-      'codeGeneration.rollbackConfirm',
-      { id: applyRunId }
+      confirmKey,
+      confirmParams
     ));
     if (!accepted) return;
     changing = true;
     try {
-      await runsApi.rollback({ applyRunId });
+      await runsApi.rollbackApply(loadedRuns, applyRunId);
       await loadRuns();
       hideProblem(root);
     } catch (problem) {

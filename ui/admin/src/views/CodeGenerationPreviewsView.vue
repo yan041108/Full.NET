@@ -4,6 +4,8 @@ import { ElButton, ElCard, ElInput, ElMessageBox, ElTag } from 'element-plus';
 import {
   isCodeGenerationPreviewRequest,
   isFullNetProblemDetails,
+  isPendingCodeGenerationRollbackApply,
+  buildCodeGenerationRollbackApplyRunIds,
   type CodeGenerationPreviewArtifact,
   type CodeGenerationPreviewRequest,
   type CodeGenerationPreviewResponse,
@@ -15,9 +17,9 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   applyTrackedCodeGeneration,
+  executeTrackedCodeGenerationRollback,
   listCodeGenerationRuns,
-  previewTrackedCodeGeneration,
-  rollbackTrackedCodeGeneration
+  previewTrackedCodeGeneration
 } from '../api/code-generation-runs';
 import {
   createCodeGenerationTemplate,
@@ -384,8 +386,19 @@ async function rollbackApply(run: CodeGenerationRunResponse): Promise<void> {
   }
 
   try {
+    const applyRunIds = buildCodeGenerationRollbackApplyRunIds(runs.value, run.id);
+    const confirmKey = applyRunIds.length > 1
+      ? 'codeGeneration.rollbackChainConfirm'
+      : 'codeGeneration.rollbackConfirm';
+    const confirmParams = applyRunIds.length > 1
+      ? {
+          id: run.id,
+          count: applyRunIds.length,
+          newest: applyRunIds[0]
+        }
+      : { id: run.id };
     await ElMessageBox.confirm(
-      t('codeGeneration.rollbackConfirm', { id: run.id }),
+      t(confirmKey, confirmParams),
       t('codeGeneration.rollback'),
       {
         type: 'warning',
@@ -402,7 +415,7 @@ async function rollbackApply(run: CodeGenerationRunResponse): Promise<void> {
   rollingBackId.value = run.id;
   problem.value = undefined;
   try {
-    await rollbackTrackedCodeGeneration({ applyRunId: run.id });
+    await executeTrackedCodeGenerationRollback(runs.value, run.id);
     await loadRuns();
   } catch (error: unknown) {
     problem.value = readProblem(error, 'client.codegen_rollback_failed');
@@ -687,8 +700,7 @@ function readProblem(
           </small>
           <ElButton
             v-if="canRollbackRuns
-              && run.operationKind === 'apply'
-              && run.status === 'succeeded'"
+              && isPendingCodeGenerationRollbackApply(runs, run)"
             type="warning"
             plain
             size="small"

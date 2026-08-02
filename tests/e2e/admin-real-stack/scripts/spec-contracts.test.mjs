@@ -161,6 +161,7 @@ test('代码生成真实栈必须使用临时工作区并验证双端确认 Appl
   const spec = await readFile(specPath, 'utf8');
   assert.match(spec, /\/api\/v1\/code-generation\/runs\/apply/u);
   assert.match(spec, /\/api\/v1\/code-generation\/runs\/rollback/u);
+  assert.match(spec, /\/api\/v1\/code-generation\/runs\/rollback-chain/u);
   assert.match(spec, /confirmRollback\(page, clientKind\)/u);
   assert.match(spec, /confirmApply\(page, clientKind\)/u);
   assert.match(spec, /runHistory\(view, clientKind\)/u);

@@ -518,6 +518,11 @@ export {
 } from './code-generation-templates.js';
 
 export {
+  buildCodeGenerationRollbackApplyRunIds,
+  isPendingCodeGenerationRollbackApply
+} from './code-generation-rollback-planning.js';
+
+export {
   isCodeGenerationRunApplyRequest,
   isCodeGenerationRunApplyResponse,
   isCodeGenerationRunPage,
