@@ -28,13 +28,13 @@
 ## 行为要点
 
 - `FullNetCrudOwnershipMode.OrganizationUnit` 可生成可执行产物；Tree/关系场景仍 fail-closed。
+- `OrganizationUnitId` 仅允许与 `TenantRequired` 组合；`HostOnly`/`Global` 在 Schema 层 fail-closed。
 - `OrganizationUnitId` 不出现在 Create/Update 客户端可写契约；Create 通过 `X-FullNet-Organization-Unit-Id` 受信头绑定。
 - Feature 在 Create/Update/Delete 前调用 `IOrganizationOwnedEntityWriteAuthorizer`；列表/详情 SQL 追加 `IDataScopeSqlFilterBuilder.BuildOrganizationUnitFilter`。
 
 ## 未交付
 
 - `Verified` 标记仍待真实栈 E2E 与双库运行时矩阵全绿后关闭
-- Host/Global 作用域与组织列组合
 - Tree/MasterDetail/ManyToMany 组织归属生成
 
 ## 规则/Skill 复盘

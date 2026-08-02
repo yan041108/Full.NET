@@ -392,6 +392,16 @@ public sealed class FullNetCrudSchema
             return;
         }
 
+        if (entityCapabilities.OwnershipMode
+            == FullNetCrudOwnershipMode.OrganizationUnit)
+        {
+            Ensure(
+                dataScope == FullNetCrudDataScope.TenantRequired,
+                "OrganizationUnit 归属要求 TenantRequired 数据作用域；"
+                + "HostOnly 与 Global 不得声明组织列。",
+                nameof(dataScope));
+        }
+
         ValidateCapabilityColumns(columns, entityCapabilities);
     }
 

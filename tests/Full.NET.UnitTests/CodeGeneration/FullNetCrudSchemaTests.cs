@@ -151,6 +151,32 @@ public sealed class FullNetCrudSchemaTests
     }
 
     [TestMethod]
+    public void CreateProject_explicit_host_or_global_scope_rejects_organization_unit_ownership()
+    {
+        var capabilities = new FullNetCrudEntityCapabilities(
+            FullNetCrudDeleteMode.SoftDelete,
+            HasCreatedAudit: true,
+            HasUpdatedAudit: true,
+            HasDeletedAudit: true,
+            HasVersion: true,
+            FullNetCrudOwnershipMode.OrganizationUnit);
+        var hostColumns = CapabilityColumns()
+            .Where(column => column.DatabaseName != "TenantId")
+            .ToArray();
+
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            CreateCapabilitySchema(
+                capabilities,
+                hostColumns,
+                dataScope: FullNetCrudDataScope.HostOnly));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            CreateCapabilitySchema(
+                capabilities,
+                hostColumns,
+                dataScope: FullNetCrudDataScope.Global));
+    }
+
+    [TestMethod]
     public void CreateProject_preserves_explicit_decimal_shape()
     {
         var columns = ProductColumns();
@@ -742,7 +768,8 @@ public sealed class FullNetCrudSchemaTests
         FullNetCrudEntityCapabilities capabilities,
         IReadOnlyList<FullNetColumn> columns,
         FullNetCrudScene scene = FullNetCrudScene.Single,
-        IReadOnlyList<FullNetCrudRelationship>? relationships = null) =>
+        IReadOnlyList<FullNetCrudRelationship>? relationships = null,
+        FullNetCrudDataScope dataScope = FullNetCrudDataScope.TenantRequired) =>
         FullNetCrudSchema.CreateProject(
             ownerKey: "acme",
             moduleKey: "catalog",
@@ -752,7 +779,7 @@ public sealed class FullNetCrudSchemaTests
             clrTypeName: "Product",
             apiResourceName: "products",
             permissionResourceName: "products",
-            FullNetCrudDataScope.TenantRequired,
+            dataScope,
             capabilities,
             scene,
             relationships ?? [],
