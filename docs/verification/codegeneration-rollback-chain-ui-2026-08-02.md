@@ -2,7 +2,7 @@
 
 ## 结论
 
-Vue/Layui 预览工作台已接入 `rollback-chain`：对同一实体待回滚栈上的非栈顶 Apply 自动按 LIFO 前缀调用链式 API；栈顶仍走单次 `rollback`。已回滚 Apply 不再显示回滚按钮。能力仍保持 `Build-verified`（真实栈双端 E2E 链式路径待补）。
+Vue/Layui 预览工作台已接入 `rollback-chain`：对同一实体待回滚栈上的非栈顶 Apply 自动按 LIFO 前缀调用链式 API；栈顶仍走单次 `rollback`。已回滚 Apply 不再显示回滚按钮。能力仍保持 `Build-verified`（真实栈 Vue/Layui 链式回滚 E2E 已覆盖；总体 `Verified` 仍待全量门禁）。
 
 ## 交付
 

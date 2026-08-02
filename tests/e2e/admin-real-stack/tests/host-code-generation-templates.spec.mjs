@@ -251,28 +251,58 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   await expect(runHistory(view, clientKind)).toContainText(applied.runId);
   assertAppliedWorkspaceArtifact(clientArtifactPath);
 
-  const rollbackResponse = page.waitForResponse(response =>
-    response.request().method() === 'POST'
-    && response.url().endsWith('/api/v1/code-generation/runs/rollback')
-  );
-  await runHistory(view, clientKind)
-    .getByRole('button', { name: '回滚此 Apply', exact: true })
-    .first()
-    .click();
-  await confirmRollback(page, clientKind);
-  const rolledBackResponse = await rollbackResponse;
-  expect(rolledBackResponse.ok()).toBeTruthy();
-  const rolledBack = await rolledBackResponse.json();
-  expect(rolledBack.applyRunId).toBe(applied.runId);
-  expect(rolledBack.artifactCount).toBe(0);
-  await expect(runHistory(view, clientKind)).toContainText(rolledBack.runId);
-  assertEmptyWorkspaceManifest();
-
   await templateNameInput(view, clientKind).fill(updatedName);
   await templateUpdateButton(view, clientKind).click();
   await expect(
     view.getByRole('button', { name: new RegExp(`^${updatedName}`) })
   ).toBeVisible();
+
+  const schemaForSecondApply = JSON.parse(await schemaInput(view).inputValue());
+  schemaForSecondApply.columns.push({
+    databaseName: 'Remark',
+    clrPropertyName: 'Remark',
+    jsonPropertyName: 'remark',
+    scalarType: 'String',
+    isNullable: true,
+    maxLength: 500,
+    numericPrecision: null,
+    numericScale: null
+  });
+  await schemaInput(view).fill(JSON.stringify(schemaForSecondApply, null, 2));
+  await view.getByRole('button', { name: '生成预览', exact: true }).click();
+  await expect(view.getByText('acme_catalog_product', { exact: true }))
+    .toBeVisible();
+
+  const secondApplyResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST'
+    && response.url().endsWith('/api/v1/code-generation/runs/apply')
+  );
+  await view.getByRole('button', {
+    name: '应用已审查预览',
+    exact: true
+  }).click();
+  await confirmApply(page, clientKind);
+  const secondAppliedResponse = await secondApplyResponse;
+  expect(secondAppliedResponse.ok()).toBeTruthy();
+  const secondApplied = await secondAppliedResponse.json();
+  await expect(runHistory(view, clientKind)).toContainText(secondApplied.runId);
+
+  const rollbackChainResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST'
+    && response.url().endsWith('/api/v1/code-generation/runs/rollback-chain')
+  );
+  await runHistory(view, clientKind)
+    .locator('article', { hasText: applied.runId })
+    .getByRole('button', { name: '回滚此 Apply', exact: true })
+    .click();
+  await confirmRollback(page, clientKind);
+  const rolledBackChainResponse = await rollbackChainResponse;
+  expect(rolledBackChainResponse.ok()).toBeTruthy();
+  const rolledBackChain = await rolledBackChainResponse.json();
+  expect(rolledBackChain.rollbacks).toHaveLength(2);
+  expect(rolledBackChain.rollbacks[0].applyRunId).toBe(secondApplied.runId);
+  expect(rolledBackChain.rollbacks[1].applyRunId).toBe(applied.runId);
+  assertEmptyWorkspaceManifest();
 
   // 使用创建时的旧版本直连真实 API，验证乐观并发冲突是稳定契约。
   const staleResponse = await request.put(
@@ -365,6 +395,26 @@ test('受限 Host 账号不能读取模板 API 且双端导航保持裁剪', asy
   );
   expect(rollbackDenied.status()).toBe(403);
   expect((await rollbackDenied.json()).code)
+    .toBe('authorization.permission_denied');
+
+  const rollbackChainDenied = await request.post(
+    `${apiBaseUrl}/api/v1/code-generation/runs/rollback-chain`,
+    {
+      data: {
+        applyRunIds: [
+          '018f0f0e-7c36-7b25-8d3a-b2bd5a34d001',
+          '018f0f0e-7c36-7b25-8d3a-b2bd5a34d002'
+        ]
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: adminOrigin(clientKind),
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(rollbackChainDenied.status()).toBe(403);
+  expect((await rollbackChainDenied.json()).code)
     .toBe('authorization.permission_denied');
 
   await loginAsHostViewer(page);
