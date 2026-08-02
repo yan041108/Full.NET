@@ -7,9 +7,7 @@
 
 ## 1. 结论
 
-Admin.NET 生命周期吸收（Task 2）已在生成层确定性产出 `Single` 场景的 update、soft-delete、hard-delete SQL 与编译投影，并通过模板形状、SQL 安全与双 Provider 编译门禁。缺口是**尚未**把代表性生成 SQL **动态应用到隔离 SQL Server/MySQL 数据库**并执行运行时语义矩阵（乐观并发、软删过滤、硬删、审计字段由服务端赋值、租户隔离）。因此 CodeGeneration 生命周期能力仍保持 `Implemented`，不能标 `Verified`。
-
-建议下一纵向切片交付 **双库运行时语义矩阵**：从固定 `FullNetCrudSchema` fixture 生成 SQL，在 Testcontainers 隔离库建表、执行 CRUD 序列并断言行状态；不扩展 HTTP 产品面、不引入 Tree/MasterDetail 可执行产物。
+Admin.NET 生命周期吸收（Task 2）已在生成层确定性产出 `Single` 场景的 update、soft-delete、hard-delete SQL 与编译投影，并通过模板形状、SQL 安全与双 Provider 编译门禁。本切片已交付双库运行时语义矩阵（`9a05033`）；`codegeneration-adminnet-lifecycle` 升至 `Build-verified`。
 
 ## 2. 建议纳入
 

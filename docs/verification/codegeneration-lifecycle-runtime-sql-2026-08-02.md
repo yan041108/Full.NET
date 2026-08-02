@@ -2,7 +2,7 @@
 
 ## 结论
 
-`Single` 场景显式生命周期 fixture 的生成 SQL 已在隔离 SQL Server/MySQL 库通过运行时矩阵，并保持 `Build-verified`：`SoftDelete`（含 Count/List 软删过滤）、`HardDelete` 与 `Immutable` 均已覆盖。演进切片已闭合；本记录 HEAD 见提交 `3e250fa` 及后续 closeout 提交。
+`Single` 场景显式生命周期 fixture 的生成 SQL 已在隔离 SQL Server/MySQL 库通过运行时矩阵，并保持 `Build-verified`：`SoftDelete`（含 Count/List 软删过滤）、`HardDelete` 与 `Immutable` 均已覆盖。演进切片已闭合。
 
 ## 新鲜验证证据
 
