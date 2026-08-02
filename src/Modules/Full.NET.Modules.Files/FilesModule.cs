@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Files.Cleanup;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Resources;
 using Full.NET.Modules.Files.Reconciliation;
 using Full.NET.Modules.Files.Serialization;
@@ -39,6 +40,7 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<Features.ManageHostFiles.HostFileQueryService>();
         services.TryAddScoped<Features.ManageHostFiles.HostFileManagementService>();
+        services.TryAddScoped<IHostFileReferenceReader, Features.HostFileReferences.HostFileReferenceReader>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
