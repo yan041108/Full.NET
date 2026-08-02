@@ -257,13 +257,21 @@
 | `HostDocumentItemsView.vue` | 删除 | `document.host_documents.delete` | 无 |
 | `HostDocumentItemsView.vue` | 恢复 | `document.host_documents.restore` | 078 |
 
+## W5：Document Categories（079）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `DocumentCategoriesView.vue` | 页面 | `document.categories.read` | 079 |
+| `DocumentCategoriesView.vue` | 创建 | `document.categories.create` | 079 |
+| `DocumentCategoriesView.vue` | 更新 | `document.categories.update` | 079 |
+| `DocumentCategoriesView.vue` | 删除 | `document.categories.delete` | 079 |
+
 ## W4–W5：仍需拆分的粗粒度操作权限（冻结清单）
 
 下列 `.write` 权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；W5 同时包含不以 `.write` 命名、但仍承载多个动作的 `delete/manage` 权限。后续门禁必须覆盖这些语义，新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `document.categories.manage` | `DocumentCategoriesView.vue`（创建/编辑/删除共用） | W5 |
 | `document.tags.manage` | `DocumentTagsView.vue`（创建/编辑/删除共用） | W5 |
 
 ## 退役权限
@@ -295,6 +303,7 @@
 | `codegen.templates.write` | **已退役**：不可分配、不可出现在 Endpoint；由 076 展开为 `codegen.templates.create` / `update` / `delete` |
 | `serial_numbers.rules.write` | **已退役**：不可分配、不可出现在 Endpoint；由 077 展开为 `serial_numbers.rules.create` / `update` / `enable` / `disable`；`serial_numbers.rules.read` 补齐 `preview` |
 | `document.host_documents.write` | **已退役**：不可分配、不可出现在 Endpoint；由 078 展开为 `document.host_documents.create` / `update` / `add_version`；`document.host_documents.delete` 补齐 `restore` |
+| `document.categories.manage` | **已退役**：不可分配、不可出现在 Endpoint；由 079 展开为 `document.categories.read` / `create` / `update` / `delete`；`document.host_documents.read` 补齐 `document.categories.read` |
 
 ## 本地 UI（无需权限码）
 

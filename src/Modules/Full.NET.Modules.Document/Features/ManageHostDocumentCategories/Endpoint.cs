@@ -24,7 +24,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<IReadOnlyList<HostDocumentCategoryResponse>>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Read));
 
         group.MapGet("/{categoryId:guid}", async (
             Guid categoryId,
@@ -37,7 +37,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostDocumentCategoryResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Read));
 
         group.MapPost("/", async (
             CreateHostDocumentCategoryRequest request,
@@ -57,7 +57,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<HostDocumentCategoryResponse>(StatusCodes.Status201Created)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Manage));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Create));
 
         group.MapPut("/{categoryId:guid}", async (
             Guid categoryId,
@@ -72,7 +72,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostDocumentCategoryResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Manage));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Update));
 
         group.MapPost("/{categoryId:guid}/delete", async (
             Guid categoryId,
@@ -92,7 +92,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<bool>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Manage));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Delete));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

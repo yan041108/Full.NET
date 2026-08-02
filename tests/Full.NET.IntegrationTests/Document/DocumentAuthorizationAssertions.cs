@@ -22,6 +22,7 @@ internal static class DocumentAuthorizationAssertions
             [
                 "identity.navigation.read",
                 HostDocumentPermissions.Read,
+                HostDocumentCategoryPermissions.Read,
             ],
             cancellationToken);
 
@@ -38,7 +39,10 @@ internal static class DocumentAuthorizationAssertions
                 HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Delete,
                 HostDocumentPermissions.Restore,
-                HostDocumentCategoryPermissions.Manage,
+                HostDocumentCategoryPermissions.Read,
+                HostDocumentCategoryPermissions.Create,
+                HostDocumentCategoryPermissions.Update,
+                HostDocumentCategoryPermissions.Delete,
                 HostDocumentTagPermissions.Manage,
             ],
             cancellationToken);
@@ -55,6 +59,13 @@ internal static class DocumentAuthorizationAssertions
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        }
+
+        using (var categoryListResponse = await client.SendAsync(
+                   Authorized(HttpMethod.Get, "/api/v1/document/host/categories", token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, categoryListResponse.StatusCode);
         }
 
         using (var createResponse = await client.SendAsync(
@@ -109,7 +120,7 @@ internal static class DocumentAuthorizationAssertions
             cancellationToken);
         Assert.IsNotNull(navigation);
         Assert.IsTrue(navigation.Any(item => item.Id == "host-document-items"));
-        Assert.IsFalse(navigation.Any(item => item.Id == "document-categories"));
+        Assert.IsTrue(navigation.Any(item => item.Id == "document-categories"));
         Assert.IsFalse(navigation.Any(item => item.Id == "document-tags"));
     }
 

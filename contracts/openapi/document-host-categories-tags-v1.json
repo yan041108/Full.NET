@@ -8,13 +8,13 @@
       "operations": [
         {
           "method": "GET",
-          "permission": "document.host_documents.read",
+          "permission": "document.categories.read",
           "successStatus": 200,
           "responseSchema": "HostDocumentCategoryResponseList"
         },
         {
           "method": "POST",
-          "permission": "document.categories.manage",
+          "permission": "document.categories.create",
           "successStatus": 201,
           "requestSchema": "CreateHostDocumentCategoryRequest",
           "responseSchema": "HostDocumentCategoryResponse"
@@ -26,13 +26,13 @@
       "operations": [
         {
           "method": "GET",
-          "permission": "document.host_documents.read",
+          "permission": "document.categories.read",
           "successStatus": 200,
           "responseSchema": "HostDocumentCategoryResponse"
         },
         {
           "method": "PUT",
-          "permission": "document.categories.manage",
+          "permission": "document.categories.update",
           "successStatus": 200,
           "requestSchema": "UpdateHostDocumentCategoryRequest",
           "responseSchema": "HostDocumentCategoryResponse"
@@ -44,7 +44,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "document.categories.manage",
+          "permission": "document.categories.delete",
           "successStatus": 200
         }
       ]

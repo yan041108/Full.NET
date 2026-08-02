@@ -16,7 +16,10 @@ public sealed class DocumentAuthorizationContributorTests
         CollectionAssert.AreEqual(
             new[]
             {
-                HostDocumentCategoryPermissions.Manage,
+                HostDocumentCategoryPermissions.Create,
+                HostDocumentCategoryPermissions.Delete,
+                HostDocumentCategoryPermissions.Read,
+                HostDocumentCategoryPermissions.Update,
                 HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Create,
                 HostDocumentPermissions.Delete,
@@ -32,12 +35,12 @@ public sealed class DocumentAuthorizationContributorTests
         Assert.AreEqual(HostDocumentPermissions.Read, hostItems.RequiredPermission);
 
         var categories = catalog.Navigation.Single(item => item.Id == "document-categories");
-        Assert.AreEqual(HostDocumentCategoryPermissions.Manage, categories.RequiredPermission);
+        Assert.AreEqual(HostDocumentCategoryPermissions.Read, categories.RequiredPermission);
 
         var tags = catalog.Navigation.Single(item => item.Id == "document-tags");
         Assert.AreEqual(HostDocumentTagPermissions.Manage, tags.RequiredPermission);
 
-        var expectedActions = new Dictionary<string, string>(StringComparer.Ordinal)
+        var expectedItemActions = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["create"] = HostDocumentPermissions.Create,
             ["update"] = HostDocumentPermissions.Update,
@@ -51,6 +54,20 @@ public sealed class DocumentAuthorizationContributorTests
                 action => action.ClientActionKey,
                 action => action.PermissionCode,
                 StringComparer.Ordinal);
-        CollectionAssert.AreEquivalent(expectedActions, itemActions);
+        CollectionAssert.AreEquivalent(expectedItemActions, itemActions);
+
+        var expectedCategoryActions = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = HostDocumentCategoryPermissions.Create,
+            ["update"] = HostDocumentCategoryPermissions.Update,
+            ["delete"] = HostDocumentCategoryPermissions.Delete,
+        };
+        var categoryActions = catalog.Actions
+            .Where(action => action.NavigationId == "document-categories")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+        CollectionAssert.AreEquivalent(expectedCategoryActions, categoryActions);
     }
 }

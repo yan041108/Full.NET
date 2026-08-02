@@ -16,7 +16,10 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentPermissions.AddVersion, "上传 Host 文档新版本", AuthorizationScope.Host),
         new(HostDocumentPermissions.Delete, "删除 Host 文档", AuthorizationScope.Host),
         new(HostDocumentPermissions.Restore, "恢复 Host 文档", AuthorizationScope.Host),
-        new(HostDocumentCategoryPermissions.Manage, "维护 Host 文档分类", AuthorizationScope.Host),
+        new(HostDocumentCategoryPermissions.Read, "读取 Host 文档分类", AuthorizationScope.Host),
+        new(HostDocumentCategoryPermissions.Create, "创建 Host 文档分类", AuthorizationScope.Host),
+        new(HostDocumentCategoryPermissions.Update, "更新 Host 文档分类", AuthorizationScope.Host),
+        new(HostDocumentCategoryPermissions.Delete, "删除 Host 文档分类", AuthorizationScope.Host),
         new(HostDocumentTagPermissions.Manage, "维护 Host 文档标签", AuthorizationScope.Host),
     ];
 
@@ -43,7 +46,7 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "Document Categories",
             "collection",
             72,
-            HostDocumentCategoryPermissions.Manage),
+            HostDocumentCategoryPermissions.Read),
         new NavigationDefinition(
             "document-tags",
             null,
@@ -94,5 +97,26 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "恢复文档",
             "restore",
             50),
+        new AuthorizationActionDefinition(
+            "document.categories.create",
+            "document-categories",
+            HostDocumentCategoryPermissions.Create,
+            "创建分类",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "document.categories.update",
+            "document-categories",
+            HostDocumentCategoryPermissions.Update,
+            "编辑分类",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "document.categories.delete",
+            "document-categories",
+            HostDocumentCategoryPermissions.Delete,
+            "删除分类",
+            "delete",
+            30),
     ];
 }

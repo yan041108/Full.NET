@@ -36,6 +36,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         "codegen.templates.write",
         "serial_numbers.rules.write",
         "document.host_documents.write",
+        "document.categories.manage",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>

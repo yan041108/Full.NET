@@ -45,7 +45,7 @@ test('Host 文档分类与标签 OpenAPI 夹具结构完整且路径唯一', asy
       seen.add(key);
       assert.match(
         operation.permission,
-        /^document\.(host_documents\.read|categories\.manage|tags\.manage)$/u
+        /^document\.(host_documents\.read|categories\.(read|create|update|delete)|tags\.manage)$/u
       );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
