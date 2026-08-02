@@ -1,7 +1,7 @@
 # CodeGeneration 组织归属（OrganizationUnit）生成验证
 
 - 日期：2026-08-02
-- 代码基线：`main` @ `246613a`
+- 代码基线：`main` @ `c3a727d`
 - 状态：**Build-verified**（双库 Integration 需 Docker/Testcontainers）
 - 设计：[`2026-08-02-codegeneration-organization-ownership-design.md`](../superpowers/specs/2026-08-02-codegeneration-organization-ownership-design.md)
 - 计划：[`2026-08-02-codegeneration-organization-ownership.md`](../superpowers/plans/2026-08-02-codegeneration-organization-ownership.md)
@@ -14,6 +14,7 @@
 | 生成器解除 fail-closed | `720223a` | Feature/SQL/Endpoint 片段 + 双库运行时矩阵 |
 | 模块编译集成 | `fca4554` | `validate-module-integration` + `Organization.Contracts` |
 | Host/Global 互斥 | `246613a` | Schema 层拒绝 `organization.unit` 与非租户作用域组合 |
+| CLI/预览互斥 | `c3a727d` | JSON 加载与 Preview API `invalid_schema` |
 
 ## 验证矩阵
 
@@ -23,7 +24,7 @@
 | 生成器产物 | `CrudArtifactGeneratorTests.Generate_organization_owned_*` | Unit GREEN |
 | 生成器回归 | `CrudArtifactGeneratorTests` (26) | Unit GREEN |
 | Schema 互斥 | `FullNetCrudSchemaTests` + `CodeGenerationCliTests` host/global + org | Unit GREEN |
-| 预览 API/UI | `Preview_organization_owned_*` + 双端 previews E2E | Unit GREEN；E2E 需真实栈 |
+| 预览 API/UI | `Preview_organization_owned_*` + 双端 previews E2E | Unit GREEN；Preview API host/global 互斥 Integration；E2E 需真实栈 |
 | Apply 工作区 | `host-code-generation-templates` 组织归属 Apply E2E | 需真实栈；落盘 Feature 含授权片段 |
 | 模块编译集成 | `ModuleIntegrationCompilationTests.Organization_owned_explicit_backend_compiles_with_organization_references` | Integration GREEN |
 | 双库 SQL 运行时 | `GeneratedLifecycleSqlRuntimeIntegrationTests` 组织归属 SoftDelete (2) | 需 Docker；本地编译通过 |

@@ -23,6 +23,10 @@ internal static class CodeGenerationPreviewAssertions
         await VerifyPermissionAsync(factory, client, cancellationToken);
         await VerifyPreviewAsync(factory, client, cancellationToken);
         await VerifyOrganizationOwnedPreviewAsync(factory, client, cancellationToken);
+        await VerifyHostScopeOrganizationOwnershipRejectedAsync(
+            factory,
+            client,
+            cancellationToken);
         await VerifyInvalidSchemaAsync(factory, client, cancellationToken);
         await OpenApiCodeGenerationPreviewsContractAssertions.VerifyAsync(
             client,
@@ -103,6 +107,41 @@ internal static class CodeGenerationPreviewAssertions
             .Content;
         StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer");
         StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
+    }
+
+    private static async Task VerifyHostScopeOrganizationOwnershipRejectedAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        foreach (var dataScope in new[] { "host.only", "global" })
+        {
+            var organizationOwned = CreateOrganizationOwnedPreviewRequest();
+            var invalid = organizationOwned with
+            {
+                DataScope = dataScope,
+                Columns = organizationOwned.Columns
+                    .Where(column =>
+                        !string.Equals(
+                            column.ClrPropertyName,
+                            "TenantId",
+                            StringComparison.Ordinal))
+                    .ToArray(),
+            };
+            using var request = CreateRequest(
+                await factory.CreateHostAccessTokenAsync(
+                    [CodeGenerationPreviewPermissions.Read],
+                    cancellationToken),
+                invalid);
+            using var response = await client.SendAsync(request, cancellationToken);
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            using var problem = JsonDocument.Parse(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                CodeGenerationErrorCodes.InvalidPreviewSchema,
+                problem.RootElement.GetProperty("code").GetString());
+        }
     }
 
     private static async Task VerifyInvalidSchemaAsync(

@@ -289,6 +289,35 @@ public sealed class CodeGenerationPreviewServiceTests
     }
 
     [TestMethod]
+    public void Preview_rejects_organization_unit_ownership_on_host_or_global_scope()
+    {
+        var service = new CodeGenerationPreviewService(
+            new CodeGenerationSchemaNormalizer());
+        foreach (var dataScope in new[] { "host.only", "global" })
+        {
+            var organizationOwned = CreateOrganizationOwnedRequest();
+            var request = organizationOwned with
+            {
+                DataScope = dataScope,
+                Columns = organizationOwned.Columns
+                    .Where(column =>
+                        !string.Equals(
+                            column.ClrPropertyName,
+                            "TenantId",
+                            StringComparison.Ordinal))
+                    .ToArray(),
+            };
+
+            var result = service.Preview(request);
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.AreEqual(
+                CodeGenerationErrorCodes.InvalidPreviewSchema,
+                result.Error!.Code);
+        }
+    }
+
+    [TestMethod]
     public void Schema_contract_rejects_unknown_fields_at_every_nested_level()
     {
         var canonical = JsonSerializer.Serialize(
