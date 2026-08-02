@@ -170,6 +170,11 @@ export function createAppRouter(
         component: () => import('../views/CodeGenerationPreviewsView.vue')
       },
       {
+        name: 'serial-number-rules',
+        path: '/serial-numbers/rules',
+        component: () => import('../views/SerialNumberRulesView.vue')
+      },
+      {
         name: 'access-logs',
         path: '/auditing/access-logs',
         component: () => import('../views/AccessLogsView.vue')

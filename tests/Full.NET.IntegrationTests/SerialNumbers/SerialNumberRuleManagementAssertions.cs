@@ -45,7 +45,11 @@ internal static class SerialNumberRuleManagementAssertions
             $"serial-writer-{Guid.NewGuid():N}",
             [
                 SerialNumberRulePermissions.Read,
-                SerialNumberRulePermissions.Write,
+                SerialNumberRulePermissions.Create,
+                SerialNumberRulePermissions.Update,
+                SerialNumberRulePermissions.Enable,
+                SerialNumberRulePermissions.Disable,
+                SerialNumberRulePermissions.Preview,
             ],
             cancellationToken);
         using (var forbiddenWrite = await client.SendAsync(

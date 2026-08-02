@@ -138,6 +138,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.codeGenerationPreviews.title',
     captionKey: 'navigation.codeGenerationPreviews.caption'
   }],
+  ['serial-number-rules', {
+    titleKey: 'navigation.serialNumberRules.title',
+    captionKey: 'navigation.serialNumberRules.caption'
+  }],
   ['access-logs', {
     titleKey: 'navigation.accessLogs.title',
     captionKey: 'navigation.accessLogs.caption'

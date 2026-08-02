@@ -86,7 +86,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            SerialNumberRulePermissions.Write));
+            SerialNumberRulePermissions.Create));
 
         group.MapPut("/{ruleId:guid}", async (
             Guid ruleId,
@@ -116,7 +116,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            SerialNumberRulePermissions.Write));
+            SerialNumberRulePermissions.Update));
 
         group.MapPost("/{ruleId:guid}/enable", (
             Guid ruleId,
@@ -140,7 +140,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            SerialNumberRulePermissions.Write));
+            SerialNumberRulePermissions.Enable));
 
         group.MapPost("/{ruleId:guid}/disable", (
             Guid ruleId,
@@ -164,7 +164,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            SerialNumberRulePermissions.Write));
+            SerialNumberRulePermissions.Disable));
 
         group.MapPost("/preview", (
             PreviewSerialNumberRequest request,
@@ -177,7 +177,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            SerialNumberRulePermissions.Read));
+            SerialNumberRulePermissions.Preview));
     }
 
     private static async Task<IResult> ChangeStatusAsync(

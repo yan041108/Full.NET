@@ -111,7 +111,15 @@ public static class SerialNumberRulePermissions
 {
     public const string Read = "serial_numbers.rules.read";
 
-    public const string Write = "serial_numbers.rules.write";
+    public const string Create = "serial_numbers.rules.create";
+
+    public const string Update = "serial_numbers.rules.update";
+
+    public const string Enable = "serial_numbers.rules.enable";
+
+    public const string Disable = "serial_numbers.rules.disable";
+
+    public const string Preview = "serial_numbers.rules.preview";
 }
 
 /// <summary>SerialNumbers 模块稳定错误码。</summary>

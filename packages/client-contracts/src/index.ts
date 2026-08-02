@@ -306,6 +306,25 @@ export type {
 } from './host-jobs.js';
 
 export {
+  isPreviewSerialNumberRequest,
+  isSerialNumberPreviewResponse,
+  isSerialNumberRulePage,
+  isSerialNumberRuleResponse
+} from './serial-number-rules.js';
+
+export type {
+  ChangeSerialNumberRuleStatusRequest,
+  CreateSerialNumberRuleRequest,
+  PreviewSerialNumberRequest,
+  SerialNumberPreviewResponse,
+  SerialNumberResetInterval,
+  SerialNumberRulePage,
+  SerialNumberRuleResponse,
+  SerialNumberRuleScope,
+  UpdateSerialNumberRuleRequest
+} from './serial-number-rules.js';
+
+export {
   isInboxMessage,
   isInboxMessagePage,
   isInboxUnreadCount,

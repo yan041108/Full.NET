@@ -235,13 +235,23 @@
 | `CodeGenerationTemplatesView.vue` | 删除 | `codegen.templates.delete` | 076 |
 | `CodeGenerationPreviewsView.vue` | 加载模板到 Schema | `codegen.templates.read` | 无 |
 
+## W4：SerialNumbers Rules（077）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `SerialNumberRulesView.vue` | 页面 | `serial_numbers.rules.read` | 无 |
+| `SerialNumberRulesView.vue` | 创建 | `serial_numbers.rules.create` | 077 |
+| `SerialNumberRulesView.vue` | 更新 | `serial_numbers.rules.update` | 077 |
+| `SerialNumberRulesView.vue` | 启用 | `serial_numbers.rules.enable` | 077 |
+| `SerialNumberRulesView.vue` | 禁用 | `serial_numbers.rules.disable` | 077 |
+| `SerialNumberRulesView.vue` | 预览 | `serial_numbers.rules.preview` | 077 |
+
 ## W4–W5：仍需拆分的粗粒度操作权限（冻结清单）
 
 下列 `.write` 权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；W5 同时包含不以 `.write` 命名、但仍承载多个动作的 `delete/manage` 权限。后续门禁必须覆盖这些语义，新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `serial_numbers.rules.write` | （API 已交付，Vue 待切片） | W4 |
 | `document.host_documents.write` | `HostDocumentItemsView.vue` | W5 |
 | `document.host_documents.delete` | `HostDocumentItemsView.vue`（删除/恢复共用） | W5 |
 | `document.categories.manage` | `DocumentCategoriesView.vue`（创建/编辑/删除共用） | W5 |
@@ -274,6 +284,7 @@
 | `jobs.definitions.write` | **已退役**：不可分配、不可出现在 Endpoint；由 074 展开为 `jobs.definitions.create` / `update` / `disable` / `trigger` |
 | `jobs.schedules.write` | **已退役**：不可分配、不可出现在 Endpoint；由 075 展开为 `jobs.schedules.create` / `update` / `pause` / `resume` |
 | `codegen.templates.write` | **已退役**：不可分配、不可出现在 Endpoint；由 076 展开为 `codegen.templates.create` / `update` / `delete` |
+| `serial_numbers.rules.write` | **已退役**：不可分配、不可出现在 Endpoint；由 077 展开为 `serial_numbers.rules.create` / `update` / `enable` / `disable`；`serial_numbers.rules.read` 补齐 `preview` |
 
 ## 本地 UI（无需权限码）
 

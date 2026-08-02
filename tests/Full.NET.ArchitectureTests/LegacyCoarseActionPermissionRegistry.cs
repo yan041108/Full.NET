@@ -34,6 +34,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         "jobs.definitions.write",
         "jobs.schedules.write",
         "codegen.templates.write",
+        "serial_numbers.rules.write",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -44,10 +45,6 @@ internal static class LegacyCoarseActionPermissionRegistry
     {
         "POST /api/v1/document/host/items/{itemId:guid}/versions|document.host_documents.write",
         "POST /api/v1/document/host/items/|document.host_documents.write",
-        "POST /api/v1/serial-numbers/rules/{ruleId:guid}/disable|serial_numbers.rules.write",
-        "POST /api/v1/serial-numbers/rules/{ruleId:guid}/enable|serial_numbers.rules.write",
-        "POST /api/v1/serial-numbers/rules/|serial_numbers.rules.write",
         "PUT /api/v1/document/host/items/{itemId:guid}|document.host_documents.write",
-        "PUT /api/v1/serial-numbers/rules/{ruleId:guid}|serial_numbers.rules.write",
     };
 }
