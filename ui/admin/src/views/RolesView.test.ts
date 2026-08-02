@@ -149,7 +149,7 @@ describe('Vue 角色管理页', () => {
     });
   });
 
-  it('无 identity.roles.write 时不显示权限管理按钮', async () => {
+  it('无 identity.roles.assign_permissions 时不显示权限管理按钮', async () => {
     const wrapper = mountWithPermissions(['identity.roles.read']);
     await flushPromises();
 
@@ -158,7 +158,7 @@ describe('Vue 角色管理页', () => {
   });
 
   it('打开权限对话框时渲染授权树页面节点', async () => {
-    const wrapper = mountWithPermissions(['identity.roles.write']);
+    const wrapper = mountWithPermissions(['identity.roles.assign_permissions']);
     await flushPromises();
 
     await wrapper.get('[data-testid="role-open-permissions"]').trigger('click');
@@ -179,7 +179,7 @@ describe('Vue 角色管理页', () => {
       pageSize: 20,
       total: 1
     });
-    const wrapper = mountWithPermissions(['identity.roles.write']);
+    const wrapper = mountWithPermissions(['identity.roles.assign_permissions']);
     await flushPromises();
 
     await wrapper.get('[data-testid="role-open-permissions"]').trigger('click');
@@ -201,7 +201,7 @@ describe('Vue 角色管理页', () => {
       pageSize: 20,
       total: 1
     });
-    const wrapper = mountWithPermissions(['identity.roles.write']);
+    const wrapper = mountWithPermissions(['identity.roles.assign_permissions']);
     await flushPromises();
 
     await wrapper.get('[data-testid="role-open-permissions"]').trigger('click');
