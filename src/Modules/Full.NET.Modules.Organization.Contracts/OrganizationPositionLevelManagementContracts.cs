@@ -8,7 +8,16 @@ public static class OrganizationPositionLevelManagementPermissions
     /// <summary>分页查询租户职级列表与详情。</summary>
     public const string Read = "organization.position_levels.read";
 
-    /// <summary>创建、更新与禁用租户职级。</summary>
+    /// <summary>创建租户职级。</summary>
+    public const string Create = "organization.position_levels.create";
+
+    /// <summary>更新租户职级。</summary>
+    public const string Update = "organization.position_levels.update";
+
+    /// <summary>禁用租户职级。</summary>
+    public const string Disable = "organization.position_levels.disable";
+
+    /// <summary>迁移 064 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "organization.position_levels.write";
 }
 

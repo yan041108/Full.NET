@@ -114,13 +114,21 @@
 | `OrgPositionsView.vue` / Layui | 绑定机构 | `organization.positions.assign_unit` | 063 |
 | `OrgPositionsView.vue` / Layui | 绑定职级 | `organization.positions.assign_position_level` | 063 |
 
+## W2：Organization Position Levels（已完成）
+
+| 组件 | 操作 | 目标权限 | 迁移 |
+| --- | --- | --- | --- |
+| `OrgPositionLevelsView.vue` / Layui `org-position-levels.js` | 页面 | `organization.position_levels.read` | 无 |
+| `OrgPositionLevelsView.vue` / Layui | 创建 | `organization.position_levels.create` | 064 |
+| `OrgPositionLevelsView.vue` / Layui | 编辑 | `organization.position_levels.update` | 064 |
+| `OrgPositionLevelsView.vue` / Layui | 禁用 | `organization.position_levels.disable` | 064 |
+
 ## W1–W5：粗粒度 `.write` 仍绑定 Endpoint（冻结清单）
 
 下列权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `organization.position_levels.write` | `OrgPositionLevelsView.vue` | W2 |
 | `organization.user_positions.write` | `OrgUserPositionsView.vue` | W2 |
 | `organization.user_units.write` | `OrgUserUnitsView.vue` | W2 |
 | `settings.dict_types.write` | `DictTypesView.vue` | W3 |
@@ -149,6 +157,7 @@
 | `tenancy.tenant_packages.write` | **已退役**：不可分配、不可出现在 Endpoint；由 061 展开为 `tenancy.tenant_packages.create` / `update` / `disable` |
 | `organization.units.write` | **已退役**：不可分配、不可出现在 Endpoint；由 062 展开为 `organization.units.create` / `update` / `disable` |
 | `organization.positions.write` | **已退役**：不可分配、不可出现在 Endpoint；由 063 展开为 `organization.positions.create` / `update` / `disable` / `assign_unit` / `assign_position_level` |
+| `organization.position_levels.write` | **已退役**：不可分配、不可出现在 Endpoint；由 064 展开为 `organization.position_levels.create` / `update` / `disable` |
 
 ## 本地 UI（无需权限码）
 

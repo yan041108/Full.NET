@@ -34,7 +34,7 @@ test('租户职级 OpenAPI 夹具结构完整且路径唯一', async () => {
       seen.add(key);
       assert.match(
         operation.permission,
-        /^organization\.position_levels\.(read|write)$/u
+        /^organization\.position_levels\.(read|create|update|disable)$/u
       );
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -54,6 +54,11 @@ test('租户职级 OpenAPI 夹具与 C# 契约和端点源码一致', async () =
   assert.match(contractsSource, /record CreateOrganizationPositionLevelRequest/u);
   assert.match(contractsSource, /record UpdateOrganizationPositionLevelRequest/u);
   assert.match(contractsSource, /record OrganizationPositionLevelResponse/u);
+  assert.match(contractsSource, /organization\.position_levels\.read/u);
+  assert.match(contractsSource, /organization\.position_levels\.create/u);
+  assert.match(contractsSource, /organization\.position_levels\.update/u);
+  assert.match(contractsSource, /organization\.position_levels\.disable/u);
+  assert.match(contractsSource, /organization\.position_levels\.write/u);
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/position-levels"\)/u);
 
   const sourceMarkers = new Map([

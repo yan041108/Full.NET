@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { ElButton, ElCard, ElInput, ElMessage, ElMessageBox, ElTag } from 'element-plus';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails,
   type OrganizationPositionLevel
 } from '@fullnet/client-contracts';
-import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createOrganizationPositionLevel,
@@ -14,8 +13,8 @@ import {
   listOrganizationPositionLevels,
   updateOrganizationPositionLevel
 } from '../api/org-position-levels';
+import PermissionGate from '../components/PermissionGate.vue';
 
-const session = useSessionStore();
 const { t } = useAdminI18n();
 const levels = ref<OrganizationPositionLevel[]>([]);
 const code = ref('');
@@ -23,7 +22,6 @@ const name = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('organization.position_levels.write'));
 
 onMounted(load);
 
@@ -117,22 +115,24 @@ function toProblem(
       <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
     </div>
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
-      <div class="art-form-grid art-form-grid--cols-2">
-        <div><h2>{{ t('orgPositionLevels.createTitle') }}</h2></div>
-        <label>
-          <span>{{ t('orgPositionLevels.code') }}</span>
-          <el-input v-model="code" :placeholder="t('orgPositionLevels.codePlaceholder')" />
-        </label>
-        <label>
-          <span>{{ t('orgPositionLevels.name') }}</span>
-          <el-input v-model="name" :placeholder="t('orgPositionLevels.namePlaceholder')" @keyup.enter="create" />
-        </label>
-        <el-button type="primary" :loading="changing" @click="create">
-          {{ t('orgPositionLevels.create') }}
-        </el-button>
-      </div>
-    </el-card>
+    <PermissionGate code="organization.position_levels.create">
+      <el-card class="art-form-card" shadow="never">
+        <div class="art-form-grid art-form-grid--cols-2">
+          <div><h2>{{ t('orgPositionLevels.createTitle') }}</h2></div>
+          <label>
+            <span>{{ t('orgPositionLevels.code') }}</span>
+            <el-input v-model="code" :placeholder="t('orgPositionLevels.codePlaceholder')" />
+          </label>
+          <label>
+            <span>{{ t('orgPositionLevels.name') }}</span>
+            <el-input v-model="name" :placeholder="t('orgPositionLevels.namePlaceholder')" @keyup.enter="create" />
+          </label>
+          <el-button type="primary" :loading="changing" @click="create">
+            {{ t('orgPositionLevels.create') }}
+          </el-button>
+        </div>
+      </el-card>
+    </PermissionGate>
     <el-card class="art-table-card" shadow="never">
       <template #header><h2>{{ t('orgPositionLevels.directoryTitle') }}</h2></template>
       <p v-if="levels.length === 0" class="art-empty-state">
@@ -148,18 +148,21 @@ function toProblem(
           {{ t(level.isActive ? 'orgPositionLevels.active' : 'orgPositionLevels.inactive') }}
         </el-tag>
         <div class="art-data-row__actions">
-          <el-button v-if="canWrite" plain :disabled="changing" @click="edit(level)">
-            {{ t('orgPositionLevels.edit') }}
-          </el-button>
-          <el-button
-            v-if="canWrite && level.isActive"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(level)"
-          >
-            {{ t('orgPositionLevels.disable') }}
-          </el-button>
+          <PermissionGate code="organization.position_levels.update">
+            <el-button plain :disabled="changing" @click="edit(level)">
+              {{ t('orgPositionLevels.edit') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate v-if="level.isActive" code="organization.position_levels.disable">
+            <el-button
+              type="danger"
+              plain
+              :disabled="changing"
+              @click="disable(level)"
+            >
+              {{ t('orgPositionLevels.disable') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

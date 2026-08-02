@@ -28,6 +28,9 @@ internal static class OrganizationPositionManagementAssertions
             cancellationToken);
         await VerifyCreateRejectsDuplicateCodeAsync(client, cancellationToken);
         await VerifyPositionLevelLifecycleAsync(client, cancellationToken);
+        await VerifyExactOrganizationPositionLevelActionPermissionBoundariesAsync(
+            client,
+            cancellationToken);
         await VerifyPositionLevelBindingLifecycleAsync(client, cancellationToken);
         await VerifyPositionUnitBindingLifecycleAsync(client, cancellationToken);
         await VerifyCustomPositionLifecycleAsync(client, cancellationToken);
@@ -164,6 +167,131 @@ internal static class OrganizationPositionManagementAssertions
         using var disabled = JsonDocument.Parse(
             await disableResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.IsFalse(disabled.RootElement.GetProperty("isActive").GetBoolean());
+    }
+
+    private static async Task VerifyExactOrganizationPositionLevelActionPermissionBoundariesAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminTenantToken = await LoginAndEnterAcmeTenantAsync(client, cancellationToken);
+        var code = $"bound-{Guid.NewGuid():N}"[..24].ToLowerInvariant();
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/organization/position-levels",
+            adminTenantToken,
+            new CreateOrganizationPositionLevelRequest(code, "边界测试职级", 10));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content
+            .ReadFromJsonAsync<OrganizationPositionLevelResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+
+        var disableCode = $"dis-{Guid.NewGuid():N}"[..24].ToLowerInvariant();
+        using var disableTargetRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/organization/position-levels",
+            adminTenantToken,
+            new CreateOrganizationPositionLevelRequest(disableCode, "禁用边界职级", 10));
+        using var disableTargetResponse = await client.SendAsync(
+            disableTargetRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, disableTargetResponse.StatusCode);
+        var disableTarget = await disableTargetResponse.Content
+            .ReadFromJsonAsync<OrganizationPositionLevelResponse>(cancellationToken);
+        Assert.IsNotNull(disableTarget);
+
+        var readOnlyToken = await EnterAcmeTenantWithRolePermissionsAsync(
+            client,
+            [OrganizationPositionLevelManagementPermissions.Read],
+            cancellationToken);
+        await AssertOrganizationPositionLevelPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/organization/position-levels",
+            cancellationToken,
+            new CreateOrganizationPositionLevelRequest("denied", "拒绝", 10));
+        await AssertOrganizationPositionLevelPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/organization/position-levels/{created.Id:D}",
+            cancellationToken,
+            new UpdateOrganizationPositionLevelRequest(
+                "拒绝更新",
+                created.DisplayOrder,
+                created.Version));
+        await AssertOrganizationPositionLevelPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/organization/position-levels/{created.Id:D}/disable",
+            cancellationToken);
+
+        var createToken = await EnterAcmeTenantWithRolePermissionsAsync(
+            client,
+            [
+                OrganizationPositionLevelManagementPermissions.Read,
+                OrganizationPositionLevelManagementPermissions.Create,
+            ],
+            cancellationToken);
+        await AssertOrganizationPositionLevelPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Put,
+            $"/api/v1/organization/position-levels/{created.Id:D}",
+            cancellationToken,
+            new UpdateOrganizationPositionLevelRequest(
+                "拒绝更新",
+                created.DisplayOrder,
+                created.Version));
+        await AssertOrganizationPositionLevelPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/organization/position-levels/{created.Id:D}/disable",
+            cancellationToken);
+
+        var disableToken = await EnterAcmeTenantWithRolePermissionsAsync(
+            client,
+            [
+                OrganizationPositionLevelManagementPermissions.Read,
+                OrganizationPositionLevelManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        using var disableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/organization/position-levels/{disableTarget.Id:D}/disable",
+            disableToken,
+            new { });
+        using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode);
+    }
+
+    private static async Task AssertOrganizationPositionLevelPermissionDeniedAsync(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        object? body = null)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            CommonErrorCodes.PermissionDenied,
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task VerifyPositionLevelBindingLifecycleAsync(

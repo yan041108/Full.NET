@@ -61,8 +61,16 @@ internal sealed class OrganizationAuthorizationContributor
             "查看职级",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
-            OrganizationPositionLevelManagementPermissions.Write,
-            "管理职级",
+            OrganizationPositionLevelManagementPermissions.Create,
+            "创建租户职级",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionLevelManagementPermissions.Update,
+            "更新租户职级",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionLevelManagementPermissions.Disable,
+            "禁用租户职级",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
             OrganizationUserPositionManagementPermissions.Read,
@@ -191,5 +199,26 @@ internal sealed class OrganizationAuthorizationContributor
             "绑定职级",
             "assign_position_level",
             50),
+        new AuthorizationActionDefinition(
+            "organization.position_levels.create",
+            "org-position-levels",
+            OrganizationPositionLevelManagementPermissions.Create,
+            "创建职级",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "organization.position_levels.update",
+            "org-position-levels",
+            OrganizationPositionLevelManagementPermissions.Update,
+            "编辑职级",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "organization.position_levels.disable",
+            "org-position-levels",
+            OrganizationPositionLevelManagementPermissions.Disable,
+            "禁用职级",
+            "disable",
+            30),
     ];
 }

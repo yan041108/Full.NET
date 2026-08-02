@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "organization.position_levels.write",
+          "permission": "organization.position_levels.create",
           "successStatus": 201,
           "requestSchema": "CreateOrganizationPositionLevelRequest",
           "responseSchema": "OrganizationPositionLevelResponse"
@@ -32,7 +32,7 @@
         },
         {
           "method": "PUT",
-          "permission": "organization.position_levels.write",
+          "permission": "organization.position_levels.update",
           "successStatus": 200,
           "requestSchema": "UpdateOrganizationPositionLevelRequest",
           "responseSchema": "OrganizationPositionLevelResponse"
@@ -44,7 +44,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "organization.position_levels.write",
+          "permission": "organization.position_levels.disable",
           "successStatus": 200,
           "responseSchema": "OrganizationPositionLevelResponse"
         }

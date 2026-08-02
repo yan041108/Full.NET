@@ -20,6 +20,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         TenancyTenantPackagePermissions.Write,
         OrganizationUnitManagementPermissions.Write,
         OrganizationPositionManagementPermissions.Write,
+        OrganizationPositionLevelManagementPermissions.Write,
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -45,8 +46,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/notifications/host-announcements/{announcementId:guid}/publish|notifications.announcements.write",
         "POST /api/v1/notifications/host-announcements/|notifications.announcements.write",
         "POST /api/v1/notifications/host-inbox-messages/|notifications.inbox.write",
-        "POST /api/v1/organization/position-levels/{positionLevelId:guid}/disable|organization.position_levels.write",
-        "POST /api/v1/organization/position-levels/|organization.position_levels.write",
         "POST /api/v1/organization/user-positions/{assignmentId:guid}/disable|organization.user_positions.write",
         "POST /api/v1/organization/user-positions/|organization.user_positions.write",
         "POST /api/v1/organization/user-units/{assignmentId:guid}/disable|organization.user_units.write",
@@ -70,7 +69,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "PUT /api/v1/jobs/host-definitions/{definitionId:guid}|jobs.definitions.write",
         "PUT /api/v1/jobs/host-schedules/{scheduleId:guid}|jobs.schedules.write",
         "PUT /api/v1/notifications/host-announcements/{announcementId:guid}|notifications.announcements.write",
-        "PUT /api/v1/organization/position-levels/{positionLevelId:guid}|organization.position_levels.write",
         "PUT /api/v1/organization/user-positions/{assignmentId:guid}|organization.user_positions.write",
         "PUT /api/v1/organization/user-units/{assignmentId:guid}|organization.user_units.write",
         "PUT /api/v1/serial-numbers/rules/{ruleId:guid}|serial_numbers.rules.write",
@@ -82,3 +80,4 @@ internal static class LegacyCoarseActionPermissionRegistry
         "PUT /api/v1/settings/tenant-dict-types/{dictTypeId:guid}|settings.tenant_dict_types.write",
     };
 }
+
