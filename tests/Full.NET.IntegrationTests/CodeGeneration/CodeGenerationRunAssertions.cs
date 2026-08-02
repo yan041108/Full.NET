@@ -82,6 +82,11 @@ internal static class CodeGenerationRunAssertions
             Assert.IsTrue(tracked.Preview.Artifacts.Count > 0);
         }
 
+        await VerifyOrganizationOwnedTrackedPreviewAsync(
+            client,
+            executor.AccessToken,
+            cancellationToken);
+
         using (var executorCannotRead = await client.SendAsync(
                    Authorized(
                        HttpMethod.Get,
@@ -172,6 +177,32 @@ internal static class CodeGenerationRunAssertions
         await OpenApiCodeGenerationRunsContractAssertions.VerifyAsync(
             client,
             cancellationToken);
+    }
+
+    private static async Task VerifyOrganizationOwnedTrackedPreviewAsync(
+        HttpClient client,
+        string executorAccessToken,
+        CancellationToken cancellationToken)
+    {
+        using var execute = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"{RunsPath}/preview",
+                executorAccessToken,
+                new CodeGenerationRunPreviewRequest(
+                    null,
+                    null,
+                    CodeGenerationOrganizationOwnedTestSupport.CreatePreviewRequest())),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, execute.StatusCode);
+        var tracked = (await execute.Content.ReadFromJsonAsync<
+            CodeGenerationRunPreviewResponse>(cancellationToken))!;
+        Assert.IsNotNull(tracked);
+        var feature = tracked.Preview.Artifacts
+            .Single(artifact => artifact.Path == "backend/ProductFeature.g.cs")
+            .Content;
+        StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer");
+        StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
     }
 
     private static async Task VerifyApplyAsync(

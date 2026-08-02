@@ -17,6 +17,7 @@
 | CLI/预览互斥 | `c3a727d`–`e7db0ed` | JSON 加载、Preview Service 与 Integration API `invalid_schema` |
 | 场景 fail-closed | `cfae6d8` | Tree/关系 + `organization.unit` 仍拒绝可执行生成 |
 | E2E Schema 助手 | `848c20f` | `organization-owned-codegen-schema.test.mjs` provisioner |
+| Runs 跟踪预览 | 本切片 | `CodeGenerationRunAssertions` 组织归属 `runs/preview` |
 
 ## 验证矩阵
 
@@ -27,7 +28,7 @@
 | 生成器 fail-closed | Tree/关系 + `organization.unit` 仍 `NotSupportedException` | Unit GREEN |
 | 生成器回归 | `CrudArtifactGeneratorTests` (26) | Unit GREEN |
 | Schema 互斥 | `FullNetCrudSchemaTests` + `CodeGenerationCliTests` host/global + org | Unit GREEN |
-| 预览 API/UI | `Preview_organization_owned_*` + 双端 previews E2E | Unit GREEN；Preview API host/global 互斥 Integration；E2E 需真实栈 |
+| 预览 API/UI | `Preview_organization_owned_*` + 双端 previews E2E | Unit GREEN；Preview/Runs API host/global 互斥 Integration；E2E 需真实栈 |
 | Apply 工作区 | `host-code-generation-templates` 组织归属 Apply E2E | 需真实栈；落盘 Feature 含授权片段 |
 | 模块编译集成 | `ModuleIntegrationCompilationTests.Organization_owned_explicit_backend_compiles_with_organization_references` | Integration GREEN |
 | 双库 SQL 运行时 | `GeneratedLifecycleSqlRuntimeIntegrationTests` 组织归属 SoftDelete (2) | 需 Docker；本地编译通过 |

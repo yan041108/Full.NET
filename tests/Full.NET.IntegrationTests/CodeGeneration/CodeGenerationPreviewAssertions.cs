@@ -95,7 +95,7 @@ internal static class CodeGenerationPreviewAssertions
             await factory.CreateHostAccessTokenAsync(
                 [CodeGenerationPreviewPermissions.Read],
                 cancellationToken),
-            CreateOrganizationOwnedPreviewRequest());
+            CodeGenerationOrganizationOwnedTestSupport.CreatePreviewRequest());
         using var response = await client.SendAsync(request, cancellationToken);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -116,7 +116,8 @@ internal static class CodeGenerationPreviewAssertions
     {
         foreach (var dataScope in new[] { "host.only", "global" })
         {
-            var organizationOwned = CreateOrganizationOwnedPreviewRequest();
+            var organizationOwned =
+                CodeGenerationOrganizationOwnedTestSupport.CreatePreviewRequest();
             var invalid = organizationOwned with
             {
                 DataScope = dataScope,
@@ -235,112 +236,4 @@ internal static class CodeGenerationPreviewAssertions
                     null,
                     null),
             ]);
-
-    private static CodeGenerationPreviewRequest CreateOrganizationOwnedPreviewRequest() =>
-        new(
-            "acme",
-            "catalog",
-            "product",
-            "acme_catalog_product",
-            "Acme.Modules.Catalog",
-            "Product",
-            "products",
-            "products",
-            "tenant.required",
-            null,
-            [
-                new("Id", "Id", "id", "uuid", false, null, null, null),
-                new("TenantId", "TenantId", "tenantId", "uuid", false, null, null, null),
-                new(
-                    "OrganizationUnitId",
-                    "OrganizationUnitId",
-                    "organizationUnitId",
-                    "uuid",
-                    false,
-                    null,
-                    null,
-                    null),
-                new(
-                    "Name",
-                    "Name",
-                    "displayName",
-                    "string",
-                    false,
-                    200,
-                    null,
-                    null),
-                new("Version", "Version", "version", "int64", false, null, null, null),
-                new(
-                    "CreatedAtUtc",
-                    "CreatedAtUtc",
-                    "createdAtUtc",
-                    "date.time.utc",
-                    false,
-                    null,
-                    null,
-                    null),
-                new(
-                    "CreatedById",
-                    "CreatedById",
-                    "createdById",
-                    "uuid",
-                    false,
-                    null,
-                    null,
-                    null),
-                new(
-                    "UpdatedAtUtc",
-                    "UpdatedAtUtc",
-                    "updatedAtUtc",
-                    "date.time.utc",
-                    true,
-                    null,
-                    null,
-                    null),
-                new(
-                    "UpdatedById",
-                    "UpdatedById",
-                    "updatedById",
-                    "uuid",
-                    true,
-                    null,
-                    null,
-                    null),
-                new(
-                    "IsDeleted",
-                    "IsDeleted",
-                    "isDeleted",
-                    "boolean",
-                    false,
-                    null,
-                    null,
-                    null),
-                new(
-                    "DeletedAtUtc",
-                    "DeletedAtUtc",
-                    "deletedAtUtc",
-                    "date.time.utc",
-                    true,
-                    null,
-                    null,
-                    null),
-                new(
-                    "DeletedById",
-                    "DeletedById",
-                    "deletedById",
-                    "uuid",
-                    true,
-                    null,
-                    null,
-                    null),
-            ],
-            new CodeGenerationEntityCapabilitiesRequest(
-                "soft.delete",
-                HasCreatedAudit: true,
-                HasUpdatedAudit: true,
-                HasDeletedAudit: true,
-                HasVersion: true,
-                "organization.unit"),
-            "single",
-            []);
 }
