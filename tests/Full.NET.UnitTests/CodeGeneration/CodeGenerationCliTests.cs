@@ -1087,6 +1087,28 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
+    public async Task Explicit_json_host_or_global_scope_rejects_organization_unit_ownership()
+    {
+        foreach (var dataScope in new[] { "host.only", "global" })
+        {
+            using var fixture = CliFixture.Create();
+            var root = JsonNode.Parse(ExplicitScopeSchemaJson(dataScope))!.AsObject();
+            root.Remove("hasVersion");
+            AddExplicitCapabilities(root);
+            AddCapabilityColumns(root["columns"]!.AsArray());
+            File.WriteAllText(
+                fixture.SchemaPath,
+                root.ToJsonString(new() { WriteIndented = true }),
+                new UTF8Encoding(false, true));
+
+            await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
+                CrudSchemaDocument.LoadAsync(
+                    fixture.SchemaPath,
+                    CancellationToken.None));
+        }
+    }
+
+    [TestMethod]
     public async Task Explicit_json_relationship_scene_rejects_cross_scope()
     {
         using var fixture = CliFixture.Create();
