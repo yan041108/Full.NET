@@ -66,7 +66,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<HostRoleResponse>(StatusCodes.Status201Created)
-        .RequireFullNetPermission(IdentityRoleManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Create);
 
         group.MapPut("/{roleId:guid}", async (
             Guid roleId,
@@ -81,7 +81,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostRoleResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityRoleManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Update);
 
         group.MapPut("/{roleId:guid}/permissions", async (
             Guid roleId,
@@ -99,7 +99,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostRoleResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityRoleManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.AssignPermissions);
 
         group.MapPost("/{roleId:guid}/disable", async (
             Guid roleId,
@@ -113,7 +113,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostRoleResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityRoleManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Disable);
 
         group.MapGet("/{roleId:guid}/data-scope", async (
             Guid roleId,
@@ -142,6 +142,6 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostRoleDataScopeResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityRoleManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.AssignDataScope);
     }
 }

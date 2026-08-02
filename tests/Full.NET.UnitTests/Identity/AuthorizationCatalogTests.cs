@@ -25,8 +25,12 @@ public sealed class AuthorizationCatalogTests
                 "identity.navigation.read",
                 "identity.role_field_grants.read",
                 "identity.role_field_grants.write",
+                "identity.roles.assign_data_scope",
+                "identity.roles.assign_permissions",
+                "identity.roles.create",
+                "identity.roles.disable",
                 "identity.roles.read",
-                "identity.roles.write",
+                "identity.roles.update",
                 "identity.sessions.read",
                 "identity.sessions.write",
                 "identity.super_administrators.manage",
@@ -88,6 +92,35 @@ public sealed class AuthorizationCatalogTests
             usersActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == IdentityUserManagementPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_roles_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "identity.roles.create",
+            ["update"] = "identity.roles.update",
+            ["assign-permissions"] = "identity.roles.assign_permissions",
+            ["disable"] = "identity.roles.disable",
+            ["assign-data-scope"] = "identity.roles.assign_data_scope",
+        };
+
+        var rolesActions = catalog.Actions
+            .Where(action => action.NavigationId == "roles")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            rolesActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == IdentityRoleManagementPermissions.Write));
     }
 
     [TestMethod]

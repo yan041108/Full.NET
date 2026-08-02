@@ -63,8 +63,24 @@ internal sealed class IdentityAuthorizationContributor
             "查看 Host 角色",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            IdentityRoleManagementPermissions.Write,
-            "管理 Host 角色",
+            IdentityRoleManagementPermissions.Create,
+            "创建 Host 角色",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleManagementPermissions.Update,
+            "更新 Host 角色",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleManagementPermissions.AssignPermissions,
+            "分配 Host 角色权限",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleManagementPermissions.Disable,
+            "禁用 Host 角色",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleManagementPermissions.AssignDataScope,
+            "配置 Host 角色数据范围",
             AuthorizationScope.Host),
         new PermissionDefinition(
             IdentityUserManagementPermissions.Export,
@@ -251,5 +267,40 @@ internal sealed class IdentityAuthorizationContributor
             "导出用户",
             "export",
             80),
+        new AuthorizationActionDefinition(
+            "identity.roles.create",
+            "roles",
+            IdentityRoleManagementPermissions.Create,
+            "创建角色",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.roles.update",
+            "roles",
+            IdentityRoleManagementPermissions.Update,
+            "编辑角色",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.roles.assign-permissions",
+            "roles",
+            IdentityRoleManagementPermissions.AssignPermissions,
+            "分配权限",
+            "assign-permissions",
+            30),
+        new AuthorizationActionDefinition(
+            "identity.roles.disable",
+            "roles",
+            IdentityRoleManagementPermissions.Disable,
+            "禁用角色",
+            "disable",
+            40),
+        new AuthorizationActionDefinition(
+            "identity.roles.assign-data-scope",
+            "roles",
+            IdentityRoleManagementPermissions.AssignDataScope,
+            "数据范围",
+            "assign-data-scope",
+            50),
     ];
 }
