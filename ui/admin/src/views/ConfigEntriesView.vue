@@ -19,6 +19,7 @@ import {
   SETTINGS_CONFIG_VALUE_KINDS,
   isFullNetProblemDetails
 } from '@fullnet/client-contracts';
+import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -40,7 +41,9 @@ const displayOrder = ref('0');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('settings.config.write'));
+const canCreate = computed(() => session.can('settings.config.create'));
+const canUpdate = computed(() => session.can('settings.config.update'));
+const canDisable = computed(() => session.can('settings.config.disable'));
 const valueKinds = SETTINGS_CONFIG_VALUE_KINDS;
 
 onMounted(load);
@@ -171,7 +174,8 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" shadow="never" class="art-form-card" aria-labelledby="create-config-entry-title">
+    <PermissionGate code="settings.config.create">
+    <el-card shadow="never" class="art-form-card" aria-labelledby="create-config-entry-title">
       <div><h2 id="create-config-entry-title">{{ t('configEntries.createTitle') }}</h2></div>
       <label>
         <span>{{ t('configEntries.configKey') }}</span>
@@ -201,6 +205,7 @@ function toProblem(
       </label>
       <el-button type="primary" :loading="changing" @click="create">{{ t('configEntries.create') }}</el-button>
     </el-card>
+    </PermissionGate>
 
     <el-card shadow="never" class="art-table-card">
       <template #header>
@@ -225,11 +230,11 @@ function toProblem(
           {{ t(entry.isActive ? 'configEntries.active' : 'configEntries.inactive') }}
         </el-tag>
         <div class="art-data-row__actions">
-          <el-button v-if="canWrite" plain :disabled="changing" @click="edit(entry)">
+          <el-button v-if="canUpdate" plain :disabled="changing" @click="edit(entry)">
             {{ t('configEntries.edit') }}
           </el-button>
+          <PermissionGate v-if="entry.isActive" code="settings.config.disable">
           <el-button
-            v-if="canWrite && entry.isActive"
             type="danger"
             plain
             :disabled="changing"
@@ -237,6 +242,7 @@ function toProblem(
           >
             {{ t('configEntries.disable') }}
           </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

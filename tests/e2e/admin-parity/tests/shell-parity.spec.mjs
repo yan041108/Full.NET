@@ -2099,7 +2099,7 @@ test('操作日志列表在两端保持一致', async ({ page }, testInfo) => {
           tenantId: null,
           traceId: 'trace-2',
           clientIpFingerprint: 'def',
-          permissionCode: 'settings.config.write'
+          permissionCode: 'settings.config.create'
         }],
         page: 1,
         pageSize: 20,
@@ -3504,7 +3504,9 @@ function currentUserResponse(activeTenantId = null) {
       'settings.dict_types.update',
       'settings.dict_types.disable',
       'settings.config.read',
-      'settings.config.write',
+      'settings.config.create',
+      'settings.config.update',
+      'settings.config.disable',
       'settings.enums.read',
       'files.files.read',
       'files.files.write',

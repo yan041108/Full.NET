@@ -84,7 +84,7 @@ internal static class Endpoint
         })
         .Produces<ConfigEntryResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            ConfigEntryManagementPermissions.Write));
+            ConfigEntryManagementPermissions.Create));
 
         group.MapPut("/{configEntryId:guid}", async (
             Guid configEntryId,
@@ -100,7 +100,7 @@ internal static class Endpoint
         })
         .Produces<ConfigEntryResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            ConfigEntryManagementPermissions.Write));
+            ConfigEntryManagementPermissions.Update));
 
         group.MapPost("/{configEntryId:guid}/disable", async (
             Guid configEntryId,
@@ -115,6 +115,6 @@ internal static class Endpoint
         })
         .Produces<ConfigEntryResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            ConfigEntryManagementPermissions.Write));
+            ConfigEntryManagementPermissions.Disable));
     }
 }

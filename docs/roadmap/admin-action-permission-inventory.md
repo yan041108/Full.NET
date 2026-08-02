@@ -159,13 +159,21 @@
 | `TenantDictTypesView.vue` / Layui | 编辑类型/字典项 | `settings.tenant_dict_types.update` | 068 |
 | `TenantDictTypesView.vue` / Layui | 禁用类型/字典项 | `settings.tenant_dict_types.disable` | 068 |
 
+## W3：Settings Config Entries（069）
+
+| Vue / Layui 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `ConfigEntriesView.vue` / Layui `config-entries.js` | 页面 | `settings.config.read` | 无 |
+| `ConfigEntriesView.vue` / Layui | 创建配置项 | `settings.config.create` | 069 |
+| `ConfigEntriesView.vue` / Layui | 编辑配置项 | `settings.config.update` | 069 |
+| `ConfigEntriesView.vue` / Layui | 禁用配置项 | `settings.config.disable` | 069 |
+
 ## W1–W5：粗粒度 `.write` 仍绑定 Endpoint（冻结清单）
 
 下列权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `settings.config.write` | `ConfigEntriesView.vue` | W3 |
 | `settings.diagnostic_policy.write` | `DiagnosticPolicyView.vue` | W3 |
 | `files.files.write` | `HostFilesView.vue` | W4 |
 | `notifications.announcements.write` | `HostAnnouncementsView.vue` | W4 |
@@ -194,6 +202,7 @@
 | `organization.user_units.write` | **已退役**：不可分配、不可出现在 Endpoint；由 066 展开为 `organization.user_units.create` / `update` / `disable` |
 | `settings.dict_types.write` | **已退役**：不可分配、不可出现在 Endpoint；由 067 展开为 `settings.dict_types.create` / `update` / `disable` |
 | `settings.tenant_dict_types.write` | **已退役**：不可分配、不可出现在 Endpoint；由 068 展开为 `settings.tenant_dict_types.create` / `update` / `disable` |
+| `settings.config.write` | **已退役**：不可分配、不可出现在 Endpoint；由 069 展开为 `settings.config.create` / `update` / `disable` |
 
 ## 本地 UI（无需权限码）
 

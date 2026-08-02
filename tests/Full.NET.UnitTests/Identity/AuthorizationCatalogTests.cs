@@ -464,6 +464,33 @@ public sealed class AuthorizationCatalogTests
     }
 
     [TestMethod]
+    public void Host_config_entries_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new SettingsAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "settings.config.create",
+            ["update"] = "settings.config.update",
+            ["disable"] = "settings.config.disable",
+        };
+
+        var configActions = catalog.Actions
+            .Where(action => action.NavigationId == "config-entries")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            configActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == ConfigEntryManagementPermissions.Write));
+    }
+
+    [TestMethod]
     public void Tenant_tenant_dict_types_actions_bind_to_exact_permissions()
     {
         var catalog = AuthorizationCatalog.Create(

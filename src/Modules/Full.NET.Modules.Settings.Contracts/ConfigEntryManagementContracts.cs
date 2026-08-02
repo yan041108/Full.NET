@@ -8,7 +8,16 @@ public static class ConfigEntryManagementPermissions
     /// <summary>分页查询配置项列表与详情。</summary>
     public const string Read = "settings.config.read";
 
-    /// <summary>创建、更新与禁用配置项。</summary>
+    /// <summary>创建配置项。</summary>
+    public const string Create = "settings.config.create";
+
+    /// <summary>更新配置项。</summary>
+    public const string Update = "settings.config.update";
+
+    /// <summary>禁用配置项。</summary>
+    public const string Disable = "settings.config.disable";
+
+    /// <summary>迁移 069 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "settings.config.write";
 }
 

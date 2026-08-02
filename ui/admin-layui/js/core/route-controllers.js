@@ -71,7 +71,10 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./config-entries.js'),
       'createConfigEntriesController',
       root,
-      sharedOptions
+      {
+        ...sharedOptions,
+        getPermissions: options.getPermissions
+      }
     )],
     ['/settings/enum-catalogs', defineController(
       () => import('./enum-catalogs.js'),

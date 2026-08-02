@@ -413,6 +413,29 @@ public sealed class EndpointAuthorizationTests
     }
 
     [TestMethod]
+    public void Api_v1_endpoints_do_not_bind_retired_settings_config_write()
+    {
+        using var app = BuildApiApplication();
+
+        var violations = CollectPermissionBindings(app)
+            .Where(binding => string.Equals(
+                binding.PermissionCode,
+                ConfigEntryManagementPermissions.Write,
+                StringComparison.Ordinal))
+            .Select(binding => $"{binding.HttpMethod} {binding.Route} -> {binding.PermissionCode}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        if (violations.Length > 0)
+        {
+            Assert.Fail(
+                "settings.config.write 已退役，下列 Endpoint 仍绑定该权限: "
+                + string.Join(", ", violations));
+        }
+    }
+
+    [TestMethod]
     public void Api_v1_endpoints_do_not_bind_retired_settings_tenant_dict_types_write()
     {
         using var app = BuildApiApplication();

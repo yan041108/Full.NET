@@ -25,6 +25,10 @@ internal static class SettingsConfigEntryManagementAssertions
         await VerifyCreateRejectsDuplicateKeyAndInvalidValueAsync(client, cancellationToken);
         await VerifyUpdateWithOptimisticVersionAsync(client, cancellationToken);
         await VerifyGetByKeyAndDisableAsync(client, cancellationToken);
+        await VerifyExactConfigEntryActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiSettingsConfigEntriesContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -224,6 +228,142 @@ internal static class SettingsConfigEntryManagementAssertions
             cancellationToken);
         Assert.IsNotNull(disabled);
         Assert.IsFalse(disabled.IsActive);
+    }
+
+    private static async Task VerifyExactConfigEntryActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var configKey = $"bound.{Guid.NewGuid():N}"[..20];
+
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/settings/config-entries",
+            adminToken,
+            new CreateConfigEntryRequest(
+                configKey,
+                "边界测试配置",
+                null,
+                ConfigValueKinds.String,
+                "hello",
+                1));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ConfigEntryResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+
+        var disableKey = $"dis.{Guid.NewGuid():N}"[..20];
+        using var disableSeedRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/settings/config-entries",
+            adminToken,
+            new CreateConfigEntryRequest(
+                disableKey,
+                "禁用边界配置",
+                null,
+                ConfigValueKinds.String,
+                "seed",
+                1));
+        using var disableSeedResponse = await client.SendAsync(disableSeedRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, disableSeedResponse.StatusCode);
+        var disableTarget = await disableSeedResponse.Content.ReadFromJsonAsync<ConfigEntryResponse>(
+            cancellationToken);
+        Assert.IsNotNull(disableTarget);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [ConfigEntryManagementPermissions.Read],
+            cancellationToken);
+        await AssertConfigEntryPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/settings/config-entries",
+            cancellationToken,
+            new CreateConfigEntryRequest(
+                $"deny.{Guid.NewGuid():N}"[..20],
+                "拒绝",
+                null,
+                ConfigValueKinds.String,
+                "x",
+                1));
+        await AssertConfigEntryPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/settings/config-entries/{created.Id:D}",
+            cancellationToken,
+            new UpdateConfigEntryRequest("拒绝", null, "x", 1, created.Version));
+        await AssertConfigEntryPermissionDeniedAsync<object?>(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/settings/config-entries/{created.Id:D}/disable",
+            cancellationToken,
+            null);
+
+        var createToken = await factory.CreateHostAccessTokenAsync(
+            [
+                ConfigEntryManagementPermissions.Read,
+                ConfigEntryManagementPermissions.Create,
+            ],
+            cancellationToken);
+        await AssertConfigEntryPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Put,
+            $"/api/v1/settings/config-entries/{created.Id:D}",
+            cancellationToken,
+            new UpdateConfigEntryRequest("拒绝", null, "x", 1, created.Version));
+        await AssertConfigEntryPermissionDeniedAsync<object?>(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/settings/config-entries/{created.Id:D}/disable",
+            cancellationToken,
+            null);
+
+        var disableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                ConfigEntryManagementPermissions.Read,
+                ConfigEntryManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        using var disableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/settings/config-entries/{disableTarget.Id:D}/disable",
+            disableToken,
+            new { });
+        using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode);
+    }
+
+    private static async Task AssertConfigEntryPermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        TRequest? body)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            CommonErrorCodes.PermissionDenied,
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private sealed record PagedConfigEntryResponses(

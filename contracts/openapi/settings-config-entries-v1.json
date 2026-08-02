@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "settings.config.write",
+          "permission": "settings.config.create",
           "successStatus": 201,
           "requestSchema": "CreateConfigEntryRequest",
           "responseSchema": "ConfigEntryResponse"
@@ -43,7 +43,7 @@
         },
         {
           "method": "PUT",
-          "permission": "settings.config.write",
+          "permission": "settings.config.update",
           "successStatus": 200,
           "requestSchema": "UpdateConfigEntryRequest",
           "responseSchema": "ConfigEntryResponse"
@@ -55,7 +55,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "settings.config.write",
+          "permission": "settings.config.disable",
           "successStatus": 200,
           "responseSchema": "ConfigEntryResponse"
         }

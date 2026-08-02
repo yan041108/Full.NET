@@ -29,8 +29,16 @@ internal sealed class SettingsAuthorizationContributor
             "查询系统配置",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            ConfigEntryManagementPermissions.Write,
-            "管理系统配置",
+            ConfigEntryManagementPermissions.Create,
+            "创建系统配置",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            ConfigEntryManagementPermissions.Update,
+            "更新系统配置",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            ConfigEntryManagementPermissions.Disable,
+            "禁用系统配置",
             AuthorizationScope.Host),
         new PermissionDefinition(
             DiagnosticPolicyManagementPermissions.Read,
@@ -163,6 +171,27 @@ internal sealed class SettingsAuthorizationContributor
             "tenant-dict-types",
             TenantDictTypeManagementPermissions.Disable,
             "禁用租户字典",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "settings.config.create",
+            "config-entries",
+            ConfigEntryManagementPermissions.Create,
+            "创建配置",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "settings.config.update",
+            "config-entries",
+            ConfigEntryManagementPermissions.Update,
+            "编辑配置",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "settings.config.disable",
+            "config-entries",
+            ConfigEntryManagementPermissions.Disable,
+            "禁用配置",
             "disable",
             30),
     ];
