@@ -20,4 +20,4 @@
 
 ### Task 3: Closeout
 
-- [ ] 验证记录；评估状态关闭；test-matrix 更新。
+- [x] 验证记录；评估状态关闭；test-matrix 更新。
