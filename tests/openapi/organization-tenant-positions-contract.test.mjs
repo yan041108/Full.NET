@@ -35,7 +35,9 @@ test('租户职位 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^organization\.positions\.(read|write)$/u);
+      assert.match(
+        operation.permission,
+        /^organization\.positions\.(read|create|update|disable|assign_unit|assign_position_level)$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -58,6 +60,11 @@ test('租户职位 OpenAPI 夹具与 C# 契约和端点源码一致', async () =
   assert.match(contractsSource, /record AssignOrganizationPositionLevelRequest/u);
   assert.match(contractsSource, /record OrganizationPositionResponse/u);
   assert.match(contractsSource, /organization\.positions\.read/u);
+  assert.match(contractsSource, /organization\.positions\.create/u);
+  assert.match(contractsSource, /organization\.positions\.update/u);
+  assert.match(contractsSource, /organization\.positions\.disable/u);
+  assert.match(contractsSource, /organization\.positions\.assign_unit/u);
+  assert.match(contractsSource, /organization\.positions\.assign_position_level/u);
   assert.match(contractsSource, /organization\.positions\.write/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/positions"\)/u);

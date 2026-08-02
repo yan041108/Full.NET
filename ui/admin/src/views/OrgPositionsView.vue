@@ -17,6 +17,7 @@ import {
   type OrganizationUnit
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -40,12 +41,13 @@ const name = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('organization.positions.write'));
 const canBindUnits = computed(() => (
-  canWrite.value && session.can('organization.units.read')
+  session.can('organization.positions.assign_unit')
+  && session.can('organization.units.read')
 ));
 const canBindPositionLevels = computed(() => (
-  canWrite.value && session.can('organization.position_levels.read')
+  session.can('organization.positions.assign_position_level')
+  && session.can('organization.position_levels.read')
 ));
 
 onMounted(load);
@@ -209,20 +211,22 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
-      <div class="art-form-grid art-form-grid--cols-2" aria-labelledby="create-title">
-        <div><h2 id="create-title">{{ t('orgPositions.createTitle') }}</h2></div>
-        <label>
-          <span>{{ t('orgPositions.code') }}</span>
-          <el-input v-model="code" :placeholder="t('orgPositions.codePlaceholder')" />
-        </label>
-        <label>
-          <span>{{ t('orgPositions.name') }}</span>
-          <el-input v-model="name" :placeholder="t('orgPositions.namePlaceholder')" @keyup.enter="create" />
-        </label>
-        <el-button type="primary" :loading="changing" @click="create">{{ t('orgPositions.create') }}</el-button>
-      </div>
-    </el-card>
+    <PermissionGate code="organization.positions.create">
+      <el-card class="art-form-card" shadow="never">
+        <div class="art-form-grid art-form-grid--cols-2" aria-labelledby="create-title">
+          <div><h2 id="create-title">{{ t('orgPositions.createTitle') }}</h2></div>
+          <label>
+            <span>{{ t('orgPositions.code') }}</span>
+            <el-input v-model="code" :placeholder="t('orgPositions.codePlaceholder')" />
+          </label>
+          <label>
+            <span>{{ t('orgPositions.name') }}</span>
+            <el-input v-model="name" :placeholder="t('orgPositions.namePlaceholder')" @keyup.enter="create" />
+          </label>
+          <el-button type="primary" :loading="changing" @click="create">{{ t('orgPositions.create') }}</el-button>
+        </div>
+      </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -277,18 +281,21 @@ function toProblem(
           {{ t(position.isActive ? 'orgPositions.active' : 'orgPositions.inactive') }}
         </el-tag>
         <div class="art-data-row__actions">
-          <el-button v-if="canWrite" plain :disabled="changing" @click="edit(position)">
-            {{ t('orgPositions.edit') }}
-          </el-button>
-          <el-button
-            v-if="canWrite && position.isActive"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(position)"
-          >
-            {{ t('orgPositions.disable') }}
-          </el-button>
+          <PermissionGate code="organization.positions.update">
+            <el-button plain :disabled="changing" @click="edit(position)">
+              {{ t('orgPositions.edit') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate v-if="position.isActive" code="organization.positions.disable">
+            <el-button
+              type="danger"
+              plain
+              :disabled="changing"
+              @click="disable(position)"
+            >
+              {{ t('orgPositions.disable') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

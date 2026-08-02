@@ -8,7 +8,22 @@ public static class OrganizationPositionManagementPermissions
     /// <summary>分页查询租户职位列表与详情。</summary>
     public const string Read = "organization.positions.read";
 
-    /// <summary>创建、更新与禁用租户职位。</summary>
+    /// <summary>创建租户职位。</summary>
+    public const string Create = "organization.positions.create";
+
+    /// <summary>更新租户职位。</summary>
+    public const string Update = "organization.positions.update";
+
+    /// <summary>禁用租户职位。</summary>
+    public const string Disable = "organization.positions.disable";
+
+    /// <summary>绑定或解绑职位所属机构。</summary>
+    public const string AssignUnit = "organization.positions.assign_unit";
+
+    /// <summary>绑定或解绑职位所属职级。</summary>
+    public const string AssignPositionLevel = "organization.positions.assign_position_level";
+
+    /// <summary>迁移 063 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "organization.positions.write";
 }
 

@@ -325,6 +325,35 @@ public sealed class AuthorizationCatalogTests
     }
 
     [TestMethod]
+    public void Tenant_org_positions_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new OrganizationAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "organization.positions.create",
+            ["update"] = "organization.positions.update",
+            ["disable"] = "organization.positions.disable",
+            ["assign_unit"] = "organization.positions.assign_unit",
+            ["assign_position_level"] = "organization.positions.assign_position_level",
+        };
+
+        var positionActions = catalog.Actions
+            .Where(action => action.NavigationId == "org-positions")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            positionActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == OrganizationPositionManagementPermissions.Write));
+    }
+
+    [TestMethod]
     public void Create_sorts_permissions_and_navigation_deterministically()
     {
         var contributor = new StubContributor(

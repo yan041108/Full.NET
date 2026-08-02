@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "organization.positions.write",
+          "permission": "organization.positions.create",
           "successStatus": 201,
           "requestSchema": "CreateOrganizationPositionRequest",
           "responseSchema": "OrganizationPositionResponse"
@@ -32,7 +32,7 @@
         },
         {
           "method": "PUT",
-          "permission": "organization.positions.write",
+          "permission": "organization.positions.update",
           "successStatus": 200,
           "requestSchema": "UpdateOrganizationPositionRequest",
           "responseSchema": "OrganizationPositionResponse"
@@ -44,7 +44,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "organization.positions.write",
+          "permission": "organization.positions.disable",
           "successStatus": 200,
           "responseSchema": "OrganizationPositionResponse"
         }
@@ -55,7 +55,7 @@
       "operations": [
         {
           "method": "PUT",
-          "permission": "organization.positions.write",
+          "permission": "organization.positions.assign_unit",
           "successStatus": 200,
           "requestSchema": "AssignOrganizationPositionUnitRequest",
           "responseSchema": "OrganizationPositionResponse"
@@ -67,7 +67,7 @@
       "operations": [
         {
           "method": "PUT",
-          "permission": "organization.positions.write",
+          "permission": "organization.positions.assign_position_level",
           "successStatus": 200,
           "requestSchema": "AssignOrganizationPositionLevelRequest",
           "responseSchema": "OrganizationPositionResponse"

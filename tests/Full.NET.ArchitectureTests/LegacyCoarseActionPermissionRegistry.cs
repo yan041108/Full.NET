@@ -19,6 +19,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         TenancyTenantManagementPermissions.Write,
         TenancyTenantPackagePermissions.Write,
         OrganizationUnitManagementPermissions.Write,
+        OrganizationPositionManagementPermissions.Write,
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -46,8 +47,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/notifications/host-inbox-messages/|notifications.inbox.write",
         "POST /api/v1/organization/position-levels/{positionLevelId:guid}/disable|organization.position_levels.write",
         "POST /api/v1/organization/position-levels/|organization.position_levels.write",
-        "POST /api/v1/organization/positions/{positionId:guid}/disable|organization.positions.write",
-        "POST /api/v1/organization/positions/|organization.positions.write",
         "POST /api/v1/organization/user-positions/{assignmentId:guid}/disable|organization.user_positions.write",
         "POST /api/v1/organization/user-positions/|organization.user_positions.write",
         "POST /api/v1/organization/user-units/{assignmentId:guid}/disable|organization.user_units.write",
@@ -72,9 +71,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "PUT /api/v1/jobs/host-schedules/{scheduleId:guid}|jobs.schedules.write",
         "PUT /api/v1/notifications/host-announcements/{announcementId:guid}|notifications.announcements.write",
         "PUT /api/v1/organization/position-levels/{positionLevelId:guid}|organization.position_levels.write",
-        "PUT /api/v1/organization/positions/{positionId:guid}/position-level|organization.positions.write",
-        "PUT /api/v1/organization/positions/{positionId:guid}/unit|organization.positions.write",
-        "PUT /api/v1/organization/positions/{positionId:guid}|organization.positions.write",
         "PUT /api/v1/organization/user-positions/{assignmentId:guid}|organization.user_positions.write",
         "PUT /api/v1/organization/user-units/{assignmentId:guid}|organization.user_units.write",
         "PUT /api/v1/serial-numbers/rules/{ruleId:guid}|serial_numbers.rules.write",

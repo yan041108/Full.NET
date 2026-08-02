@@ -37,8 +37,24 @@ internal sealed class OrganizationAuthorizationContributor
             "查看职位",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
-            OrganizationPositionManagementPermissions.Write,
-            "管理职位",
+            OrganizationPositionManagementPermissions.Create,
+            "创建租户职位",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionManagementPermissions.Update,
+            "更新租户职位",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionManagementPermissions.Disable,
+            "禁用租户职位",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionManagementPermissions.AssignUnit,
+            "绑定租户职位机构",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionManagementPermissions.AssignPositionLevel,
+            "绑定租户职位职级",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
             OrganizationPositionLevelManagementPermissions.Read,
@@ -140,5 +156,40 @@ internal sealed class OrganizationAuthorizationContributor
             "禁用机构",
             "disable",
             30),
+        new AuthorizationActionDefinition(
+            "organization.positions.create",
+            "org-positions",
+            OrganizationPositionManagementPermissions.Create,
+            "创建职位",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "organization.positions.update",
+            "org-positions",
+            OrganizationPositionManagementPermissions.Update,
+            "编辑职位",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "organization.positions.disable",
+            "org-positions",
+            OrganizationPositionManagementPermissions.Disable,
+            "禁用职位",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "organization.positions.assign_unit",
+            "org-positions",
+            OrganizationPositionManagementPermissions.AssignUnit,
+            "绑定机构",
+            "assign_unit",
+            40),
+        new AuthorizationActionDefinition(
+            "organization.positions.assign_position_level",
+            "org-positions",
+            OrganizationPositionManagementPermissions.AssignPositionLevel,
+            "绑定职级",
+            "assign_position_level",
+            50),
     ];
 }
