@@ -115,7 +115,7 @@ internal sealed class IdentityAuthorizationContributor
             "查看 Host 在线会话",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            IdentitySessionManagementPermissions.Write,
+            IdentitySessionManagementPermissions.Revoke,
             "强制下线 Host 在线会话",
             AuthorizationScope.Host),
         new PermissionDefinition(
@@ -338,5 +338,12 @@ internal sealed class IdentityAuthorizationContributor
             "禁用菜单",
             "disable",
             30),
+        new AuthorizationActionDefinition(
+            "identity.sessions.revoke",
+            "online-sessions",
+            IdentitySessionManagementPermissions.Revoke,
+            "强制下线",
+            "revoke",
+            10),
     ];
 }

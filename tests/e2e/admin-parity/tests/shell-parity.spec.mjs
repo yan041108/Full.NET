@@ -3482,7 +3482,7 @@ function currentUserResponse(activeTenantId = null) {
       'identity.users.read',
       'identity.users.write',
       'identity.sessions.read',
-      'identity.sessions.write',
+      'identity.sessions.revoke',
       'identity.api_keys.read',
       'identity.api_keys.write',
       'platform.dashboard.read',

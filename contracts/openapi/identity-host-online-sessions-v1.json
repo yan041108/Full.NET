@@ -19,7 +19,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "identity.sessions.write",
+          "permission": "identity.sessions.revoke",
           "successStatus": 200,
           "responseSchema": "HostOnlineSessionResponse"
         }

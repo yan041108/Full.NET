@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { ElButton, ElCard, ElMessage, ElMessageBox } from 'element-plus';
 import type { FullNetProblemDetails, HostOnlineSession } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import { listHostOnlineSessions, revokeHostOnlineSession } from '../api/online-sessions';
 
 const session = useSessionStore();
@@ -13,7 +14,6 @@ const items = ref<HostOnlineSession[]>([]);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('identity.sessions.write'));
 
 onMounted(load);
 
@@ -31,7 +31,7 @@ async function load(): Promise<void> {
 }
 
 async function revoke(item: HostOnlineSession): Promise<void> {
-  if (changing.value) return;
+  if (changing.value || !session.can('identity.sessions.revoke')) return;
   try {
     await ElMessageBox.confirm(
       t('onlineSessions.confirmRevoke', { name: item.username }),
@@ -91,16 +91,18 @@ function toProblem(
           <small>{{ t('onlineSessions.createdAt') }}: {{ item.createdAtUtc }}</small>
           <small>{{ t('onlineSessions.expiresAt') }}: {{ item.expiresAtUtc }}</small>
         </div>
-        <div v-if="canWrite" class="art-data-row__actions">
-          <el-button
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="revoke(item)"
-          >
-            {{ t('onlineSessions.revoke') }}
-          </el-button>
-        </div>
+        <PermissionGate code="identity.sessions.revoke">
+          <div class="art-data-row__actions">
+            <el-button
+              type="danger"
+              plain
+              :disabled="changing"
+              @click="revoke(item)"
+            >
+              {{ t('onlineSessions.revoke') }}
+            </el-button>
+          </div>
+        </PermissionGate>
       </article>
     </el-card>
   </section>

@@ -22,6 +22,8 @@ export const HOST_ROLE_ASSIGNABLE_PERMISSIONS = [
   'identity.menus.create',
   'identity.menus.update',
   'identity.menus.disable',
+  'identity.sessions.read',
+  'identity.sessions.revoke',
   'organization.units.read',
   'organization.units.write',
   'organization.user_units.read',

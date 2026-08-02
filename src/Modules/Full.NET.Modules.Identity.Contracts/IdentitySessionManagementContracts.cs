@@ -9,6 +9,9 @@ public static class IdentitySessionManagementPermissions
     public const string Read = "identity.sessions.read";
 
     /// <summary>强制下线指定在线会话。</summary>
+    public const string Revoke = "identity.sessions.revoke";
+
+    /// <summary>迁移 058 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.sessions.write";
 }
 

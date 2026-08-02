@@ -128,7 +128,10 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./online-sessions.js'),
       'createOnlineSessionsController',
       root,
-      sharedOptions
+      {
+        ...sharedOptions,
+        getPermissions: options.getPermissions
+      }
     )],
     ['/identity/api-keys', defineController(
       () => import('./api-keys.js'),

@@ -34,7 +34,7 @@ test('Host 在线会话 OpenAPI 夹具结构完整且路径唯一', async () => 
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^identity\.sessions\.(read|write)$/u);
+      assert.match(operation.permission, /^identity\.sessions\.(read|revoke)$/u);
     }
   }
 });
@@ -46,7 +46,7 @@ test('Host 在线会话 OpenAPI 夹具与 C# 契约和端点源码一致', async
 
   assert.match(contractsSource, /record HostOnlineSessionResponse/u);
   assert.match(contractsSource, /identity\.sessions\.read/u);
-  assert.match(contractsSource, /identity\.sessions\.write/u);
+  assert.match(contractsSource, /identity\.sessions\.revoke/u);
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/online-sessions"\)/u);
 
   const relativeRoutes = new Map([

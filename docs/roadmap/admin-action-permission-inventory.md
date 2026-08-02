@@ -3,7 +3,7 @@
 - 日期：2026-08-02
 - 权威设计：[Vue 页面/操作精确授权](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)
 - 实施计划：[Identity Users 样板](../superpowers/plans/2026-08-02-vue-action-authorization.md)
-- 架构门禁：`LegacyCoarseActionPermissionRegistry` + `EndpointAuthorizationTests`（冻结全部现存 `.write` Endpoint 绑定；禁止 `identity.users.write`、`identity.roles.write`、`identity.role_field_grants.write` 与 `identity.menus.write`）
+- 架构门禁：`LegacyCoarseActionPermissionRegistry` + `EndpointAuthorizationTests`（冻结全部现存 `.write` Endpoint 绑定；禁止 `identity.users.write`、`identity.roles.write`、`identity.role_field_grants.write`、`identity.menus.write` 与 `identity.sessions.write`）
 
 ## 波次
 
@@ -13,7 +13,8 @@
 | W1 | Identity Roles | **已完成** | 迁移 055；见[验证记录](../verification/vue-action-authorization-roles-2026-08-02.md) |
 | W1 | Identity Field Grants | **已完成** | 迁移 056；见[验证记录](../verification/vue-action-authorization-field-grants-2026-08-02.md) |
 | W1 | Identity Menus | **已完成** | 迁移 057；见[验证记录](../verification/vue-action-authorization-menus-2026-08-02.md) |
-| W1 | Identity（Sessions/API Key） | 待排期 | 独立纵向切片 |
+| W1 | Identity Sessions | **已完成** | 迁移 058；见[验证记录](../verification/vue-action-authorization-sessions-2026-08-02.md) |
+| W1 | Identity API Key | 待排期 | 独立纵向切片 |
 | W2 | Tenancy + Organization | 待排期 | 租户/套餐/机构树等 |
 | W3 | Settings + Auditing | 待排期 | 字典/配置/诊断策略/日志只读页 |
 | W4 | Files + Notifications + Jobs + CodeGeneration | 待排期 | 含 `jobs.schedules.write` |
@@ -58,13 +59,19 @@
 | `MenusView.vue` / Layui | 编辑 | `identity.menus.update` | 057 |
 | `MenusView.vue` / Layui | 禁用 | `identity.menus.disable` | 057 |
 
+## W1：Identity Sessions（已完成）
+
+| 组件 | 操作 | 目标权限 | 迁移 |
+| --- | --- | --- | --- |
+| `OnlineSessionsView.vue` / Layui `online-sessions.js` | 页面 | `identity.sessions.read` | 无 |
+| `OnlineSessionsView.vue` / Layui | 强制下线 | `identity.sessions.revoke` | 058 |
+
 ## W1–W5：粗粒度 `.write` 仍绑定 Endpoint（冻结清单）
 
 下列权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `identity.sessions.write` | `OnlineSessionsView.vue` | W1 |
 | `identity.api_keys.write` | `ApiKeysView.vue` | W1 |
 | `tenancy.tenants.write` | `TenantsView.vue` | W2 |
 | `tenancy.tenant_packages.write` | `TenantPackagesView.vue` | W2 |
@@ -93,6 +100,7 @@
 | `identity.roles.write` | **已退役**：不可分配、不可出现在 Endpoint；由 055 展开为精确动作权限 |
 | `identity.role_field_grants.write` | **已退役**：不可分配、不可出现在 Endpoint；由 056 展开为 `identity.role_field_grants.replace` |
 | `identity.menus.write` | **已退役**：不可分配、不可出现在 Endpoint；由 057 展开为 `identity.menus.create` / `update` / `disable` |
+| `identity.sessions.write` | **已退役**：不可分配、不可出现在 Endpoint；由 058 展开为 `identity.sessions.revoke` |
 
 ## 本地 UI（无需权限码）
 

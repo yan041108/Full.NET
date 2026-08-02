@@ -44,6 +44,6 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(IdentitySessionManagementPermissions.Write);
+        .RequireFullNetPermission(IdentitySessionManagementPermissions.Revoke);
     }
 }

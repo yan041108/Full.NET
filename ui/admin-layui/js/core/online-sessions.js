@@ -1,6 +1,8 @@
 /**
  * 装配 Host 在线会话列表与强制下线视图。
  */
+import { applyPermissionVisibility } from './navigation.js';
+
 export function createOnlineSessionsController(root, options) {
   const request = options.request;
   const translation = options.translation;
@@ -17,6 +19,9 @@ export function createOnlineSessionsController(root, options) {
           Array.isArray(page?.items) ? page.items : [],
           translation()
         );
+        if (typeof options.getPermissions === 'function') {
+          applyPermissionVisibility(root, options.getPermissions());
+        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -91,6 +96,7 @@ function renderDirectory(container, items, translation) {
     revoke.type = 'button';
     revoke.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
     revoke.dataset.onlineSessionsRevoke = item.id;
+    revoke.dataset.permission = 'identity.sessions.revoke';
     revoke.dataset.username = item.username ?? '';
     revoke.textContent = translation.t('onlineSessions.revoke');
     actions.append(revoke);

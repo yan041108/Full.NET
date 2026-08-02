@@ -34,7 +34,7 @@ public sealed class AuthorizationCatalogTests
                 "identity.roles.read",
                 "identity.roles.update",
                 "identity.sessions.read",
-                "identity.sessions.write",
+                "identity.sessions.revoke",
                 "identity.super_administrators.manage",
                 "identity.super_administrators.read",
                 "identity.users.assign_roles",
@@ -178,6 +178,31 @@ public sealed class AuthorizationCatalogTests
             menusActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == IdentityMenuManagementPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_online_sessions_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["revoke"] = "identity.sessions.revoke",
+        };
+
+        var sessionActions = catalog.Actions
+            .Where(action => action.NavigationId == "online-sessions")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            sessionActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == IdentitySessionManagementPermissions.Write));
     }
 
     [TestMethod]
