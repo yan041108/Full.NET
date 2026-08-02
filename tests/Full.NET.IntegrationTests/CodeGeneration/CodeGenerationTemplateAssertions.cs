@@ -52,7 +52,9 @@ internal static class CodeGenerationTemplateAssertions
             $"codegen-writer-{Guid.NewGuid():N}",
             [
                 CodeGenerationTemplatePermissions.Read,
-                CodeGenerationTemplatePermissions.Write,
+                CodeGenerationTemplatePermissions.Create,
+                CodeGenerationTemplatePermissions.Update,
+                CodeGenerationTemplatePermissions.Delete,
             ],
             cancellationToken);
         using (var forbiddenWrite = await client.SendAsync(

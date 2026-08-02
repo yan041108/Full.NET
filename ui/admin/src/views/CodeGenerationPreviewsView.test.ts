@@ -82,7 +82,9 @@ describe('Vue 代码生成预览页', () => {
     permissionState.grants = new Set([
       'codegen.previews.read',
       'codegen.templates.read',
-      'codegen.templates.write',
+      'codegen.templates.create',
+      'codegen.templates.update',
+      'codegen.templates.delete',
       'codegen.runs.read',
       'codegen.runs.execute',
       'codegen.runs.apply',
@@ -146,21 +148,7 @@ describe('Vue 代码生成预览页', () => {
     deleteTemplateMock.mockReset().mockResolvedValue();
   });
 
-  it('controls the template directory and write form independently', async () => {
-    permissionState.grants = new Set([
-      'codegen.previews.read',
-      'codegen.templates.write'
-    ]);
-    const writeOnly = mount(CodeGenerationPreviewsView);
-    await flushPromises();
-
-    expect(writeOnly.find('[data-testid="codegen-template-load"]').exists())
-      .toBe(false);
-    expect(writeOnly.find('[data-testid="codegen-template-save"]').exists())
-      .toBe(true);
-    expect(listTemplatesMock).not.toHaveBeenCalled();
-    writeOnly.unmount();
-
+  it('read-only 模板目录只显示加载列表，不显示写入控件', async () => {
     permissionState.grants = new Set([
       'codegen.previews.read',
       'codegen.templates.read'
@@ -171,6 +159,10 @@ describe('Vue 代码生成预览页', () => {
     expect(readOnly.find('[data-testid="codegen-template-load"]').exists())
       .toBe(true);
     expect(readOnly.find('[data-testid="codegen-template-save"]').exists())
+      .toBe(false);
+    expect(readOnly.find('[data-testid="codegen-template-update"]').exists())
+      .toBe(false);
+    expect(readOnly.find('[data-testid="codegen-template-delete"]').exists())
       .toBe(false);
   });
 
@@ -232,7 +224,7 @@ describe('Vue 代码生成预览页', () => {
       .toBe(false);
   });
 
-  it('加载模板到编辑器并以服务端 Version 更新和删除', async () => {
+  it('加载模板到 Schema 编辑器后可生成基于模板的预览', async () => {
     const wrapper = mount(CodeGenerationPreviewsView);
     await flushPromises();
 
@@ -241,21 +233,6 @@ describe('Vue 代码生成预览页', () => {
       .attributes('modelvalue')).toBeUndefined();
     expect((wrapper.get('[data-testid="codegen-schema"]')
       .element as HTMLTextAreaElement).value).toContain('"HostOnly"');
-
-    await wrapper.get('[data-testid="codegen-template-name"]')
-      .setValue('Updated');
-    await wrapper.get('[data-testid="codegen-template-update"]')
-      .trigger('click');
-    await flushPromises();
-    expect(updateTemplateMock).toHaveBeenCalledWith(
-      template.id,
-      expect.objectContaining({ name: 'Updated', version: 1 })
-    );
-
-    await wrapper.get('[data-testid="codegen-template-delete"]')
-      .trigger('click');
-    await flushPromises();
-    expect(deleteTemplateMock).toHaveBeenCalledWith(template.id, 2);
   });
 
   it('requires confirmation before applying a template-backed preview', async () => {

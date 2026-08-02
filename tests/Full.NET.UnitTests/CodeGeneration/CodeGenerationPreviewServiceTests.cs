@@ -27,7 +27,9 @@ public sealed class CodeGenerationPreviewServiceTests
             {
                 CodeGenerationPreviewPermissions.Read,
                 CodeGenerationTemplatePermissions.Read,
-                CodeGenerationTemplatePermissions.Write,
+                CodeGenerationTemplatePermissions.Create,
+                CodeGenerationTemplatePermissions.Update,
+                CodeGenerationTemplatePermissions.Delete,
                 CodeGenerationRunPermissions.Read,
                 CodeGenerationRunPermissions.Execute,
                 CodeGenerationRunPermissions.Apply,
@@ -39,17 +41,23 @@ public sealed class CodeGenerationPreviewServiceTests
         Assert.IsTrue(contributor.Permissions.All(
             permission => permission.Scope == AuthorizationScope.Host));
 
-        var navigation = contributor.Navigation.Single();
-        Assert.AreEqual("code-generation-previews", navigation.Id);
+        var templatesNavigation = contributor.Navigation.Single(
+            item => item.Id == "code-generation-templates");
+        Assert.AreEqual(
+            "/code-generation/templates",
+            templatesNavigation.Path);
+        Assert.AreEqual(
+            CodeGenerationTemplatePermissions.Read,
+            templatesNavigation.RequiredPermission);
+
+        var previewsNavigation = contributor.Navigation.Single(
+            item => item.Id == "code-generation-previews");
         Assert.AreEqual(
             "/code-generation/previews",
-            navigation.Path);
-        Assert.AreEqual(
-            "code-generation-previews",
-            navigation.ComponentKey);
+            previewsNavigation.Path);
         Assert.AreEqual(
             CodeGenerationPreviewPermissions.Read,
-            navigation.RequiredPermission);
+            previewsNavigation.RequiredPermission);
     }
 
     [TestMethod]

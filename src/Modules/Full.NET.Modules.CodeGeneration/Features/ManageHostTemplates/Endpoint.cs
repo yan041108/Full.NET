@@ -85,7 +85,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            CodeGenerationTemplatePermissions.Write));
+            CodeGenerationTemplatePermissions.Create));
 
         group.MapPut("/{templateId:guid}", async (
             Guid templateId,
@@ -114,7 +114,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            CodeGenerationTemplatePermissions.Write));
+            CodeGenerationTemplatePermissions.Update));
 
         group.MapPost("/{templateId:guid}/delete", async (
             Guid templateId,
@@ -145,7 +145,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            CodeGenerationTemplatePermissions.Write));
+            CodeGenerationTemplatePermissions.Delete));
     }
 
     private static bool TryResolveUserId(

@@ -22,10 +22,7 @@ import {
   previewTrackedCodeGeneration
 } from '../api/code-generation-runs';
 import {
-  createCodeGenerationTemplate,
-  deleteCodeGenerationTemplate,
-  listCodeGenerationTemplates,
-  updateCodeGenerationTemplate
+  listCodeGenerationTemplates
 } from '../api/code-generation-templates';
 
 const session = useSessionStore();
@@ -100,10 +97,7 @@ const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const templates = ref<CodeGenerationTemplateResponse[]>([]);
 const selectedTemplate = ref<CodeGenerationTemplateResponse>();
-const templateName = ref('');
-const templateDescription = ref('');
 const templateLoading = ref(false);
-const templateChanging = ref(false);
 const runs = ref<CodeGenerationRunResponse[]>([]);
 const runLoading = ref(false);
 const applying = ref(false);
@@ -116,9 +110,6 @@ const reviewedPreview = ref<{
 }>();
 const canReadTemplates = computed(
   () => session.can('codegen.templates.read')
-);
-const canWriteTemplates = computed(
-  () => session.can('codegen.templates.write')
 );
 const canReadRuns = computed(() => session.can('codegen.runs.read'));
 const canExecuteRuns = computed(() => session.can('codegen.runs.execute'));
@@ -173,87 +164,7 @@ async function loadTemplates(): Promise<void> {
 function loadTemplate(template: CodeGenerationTemplateResponse): void {
   invalidateReviewedPreview();
   selectedTemplate.value = template;
-  templateName.value = template.name;
-  templateDescription.value = template.description ?? '';
   schemaText.value = JSON.stringify(template.schema, null, 2);
-}
-
-async function saveTemplate(): Promise<void> {
-  const schema = readSchema();
-  if (!schema || templateChanging.value) {
-    return;
-  }
-
-  templateChanging.value = true;
-  problem.value = undefined;
-  try {
-    const saved = await createCodeGenerationTemplate({
-      name: templateName.value,
-      description: templateDescription.value.trim() || null,
-      schema
-    });
-    upsertTemplate(saved);
-    loadTemplate(saved);
-  } catch (error: unknown) {
-    problem.value = readProblem(
-      error,
-      'client.codegen_template_save_failed'
-    );
-  } finally {
-    templateChanging.value = false;
-  }
-}
-
-async function updateTemplate(): Promise<void> {
-  const selected = selectedTemplate.value;
-  const schema = readSchema();
-  if (!selected || !schema || templateChanging.value) {
-    return;
-  }
-
-  templateChanging.value = true;
-  problem.value = undefined;
-  try {
-    const saved = await updateCodeGenerationTemplate(selected.id, {
-      name: templateName.value,
-      description: templateDescription.value.trim() || null,
-      schema,
-      version: selected.version
-    });
-    upsertTemplate(saved);
-    loadTemplate(saved);
-  } catch (error: unknown) {
-    problem.value = readProblem(
-      error,
-      'client.codegen_template_update_failed'
-    );
-  } finally {
-    templateChanging.value = false;
-  }
-}
-
-async function removeTemplate(): Promise<void> {
-  const selected = selectedTemplate.value;
-  if (!selected || templateChanging.value) {
-    return;
-  }
-
-  templateChanging.value = true;
-  problem.value = undefined;
-  try {
-    await deleteCodeGenerationTemplate(selected.id, selected.version);
-    templates.value = templates.value.filter(
-      template => template.id !== selected.id
-    );
-    selectedTemplate.value = undefined;
-  } catch (error: unknown) {
-    problem.value = readProblem(
-      error,
-      'client.codegen_template_delete_failed'
-    );
-  } finally {
-    templateChanging.value = false;
-  }
 }
 
 function readSchema(): CodeGenerationPreviewRequest | undefined {
@@ -271,18 +182,6 @@ function readSchema(): CodeGenerationPreviewRequest | undefined {
   }
 
   return input;
-}
-
-function upsertTemplate(saved: CodeGenerationTemplateResponse): void {
-  const index = templates.value.findIndex(
-    template => template.id === saved.id
-  );
-  if (index < 0) {
-    templates.value = [saved, ...templates.value];
-    return;
-  }
-
-  templates.value.splice(index, 1, saved);
 }
 
 async function generatePreview(): Promise<void> {
@@ -473,10 +372,10 @@ function readProblem(
     </div>
 
     <ElCard
-      v-if="canReadTemplates || canWriteTemplates"
+      v-if="canReadTemplates"
       shadow="never"
       class="codegen-workbench__templates"
-      :aria-busy="templateLoading || templateChanging"
+      :aria-busy="templateLoading"
     >
       <template #header>
         <div class="codegen-workbench__card-heading">
@@ -485,7 +384,6 @@ function readProblem(
             <h2>{{ t('codeGeneration.templatesTitle') }}</h2>
           </div>
           <ElButton
-            v-if="canReadTemplates"
             plain
             :loading="templateLoading"
             @click="loadTemplates"
@@ -494,72 +392,24 @@ function readProblem(
           </ElButton>
         </div>
       </template>
-      <div
-        class="codegen-workbench__template-grid"
-        :class="{ 'is-write-only': !canReadTemplates }"
-      >
-        <nav
-          v-if="canReadTemplates"
-          :aria-label="t('codeGeneration.templatesTitle')"
+      <nav :aria-label="t('codeGeneration.templatesTitle')">
+        <p v-if="templates.length === 0" class="art-empty-state">
+          {{ t('codeGeneration.templatesEmpty') }}
+        </p>
+        <button
+          v-for="template in templates"
+          :key="template.id"
+          type="button"
+          data-testid="codegen-template-load"
+          :class="{ 'is-active': selectedTemplate?.id === template.id }"
+          @click="loadTemplate(template)"
         >
-          <p v-if="templates.length === 0" class="art-empty-state">
-            {{ t('codeGeneration.templatesEmpty') }}
-          </p>
-          <button
-            v-for="template in templates"
-            :key="template.id"
-            type="button"
-            data-testid="codegen-template-load"
-            :class="{ 'is-active': selectedTemplate?.id === template.id }"
-            @click="loadTemplate(template)"
-          >
-            <strong>{{ template.name }}</strong>
-            <small translate="no">
-              v{{ template.version }} · {{ template.schemaSha256.slice(0, 12) }}
-            </small>
-          </button>
-        </nav>
-        <div v-if="canWriteTemplates" class="codegen-workbench__template-form">
-          <ElInput
-            v-model="templateName"
-            data-testid="codegen-template-name"
-            maxlength="128"
-            :placeholder="t('codeGeneration.templateName')"
-          />
-          <ElInput
-            v-model="templateDescription"
-            type="textarea"
-            :rows="2"
-            maxlength="512"
-            :placeholder="t('codeGeneration.templateDescription')"
-          />
-          <div>
-            <ElButton
-              data-testid="codegen-template-save"
-              :disabled="templateChanging || !templateName.trim()"
-              @click="saveTemplate"
-            >
-              {{ t('codeGeneration.templateSave') }}
-            </ElButton>
-            <ElButton
-              data-testid="codegen-template-update"
-              :disabled="templateChanging || !selectedTemplate"
-              @click="updateTemplate"
-            >
-              {{ t('codeGeneration.templateUpdate') }}
-            </ElButton>
-            <ElButton
-              type="danger"
-              plain
-              data-testid="codegen-template-delete"
-              :disabled="templateChanging || !selectedTemplate"
-              @click="removeTemplate"
-            >
-              {{ t('codeGeneration.templateDelete') }}
-            </ElButton>
-          </div>
-        </div>
-      </div>
+          <strong>{{ template.name }}</strong>
+          <small translate="no">
+            v{{ template.version }} · {{ template.schemaSha256.slice(0, 12) }}
+          </small>
+        </button>
+      </nav>
     </ElCard>
 
     <div class="codegen-workbench__grid">

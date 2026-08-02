@@ -23,8 +23,16 @@ internal sealed class CodeGenerationAuthorizationContributor
             "读取代码生成模板",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            CodeGenerationTemplatePermissions.Write,
-            "管理代码生成模板",
+            CodeGenerationTemplatePermissions.Create,
+            "创建代码生成模板",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            CodeGenerationTemplatePermissions.Update,
+            "更新代码生成模板",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            CodeGenerationTemplatePermissions.Delete,
+            "删除代码生成模板",
             AuthorizationScope.Host),
         new PermissionDefinition(
             CodeGenerationRunPermissions.Read,
@@ -47,6 +55,17 @@ internal sealed class CodeGenerationAuthorizationContributor
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
     [
         new NavigationDefinition(
+            "code-generation-templates",
+            null,
+            "code-generation-templates",
+            "/code-generation/templates",
+            "code-generation-templates",
+            "代码生成模板",
+            "Code Generation Templates",
+            "files",
+            69,
+            CodeGenerationTemplatePermissions.Read),
+        new NavigationDefinition(
             "code-generation-previews",
             null,
             "code-generation-previews",
@@ -57,5 +76,30 @@ internal sealed class CodeGenerationAuthorizationContributor
             "code",
             70,
             CodeGenerationPreviewPermissions.Read),
+    ];
+
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
+    [
+        new AuthorizationActionDefinition(
+            "codegen.templates.create",
+            "code-generation-templates",
+            CodeGenerationTemplatePermissions.Create,
+            "创建模板",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "codegen.templates.update",
+            "code-generation-templates",
+            CodeGenerationTemplatePermissions.Update,
+            "编辑模板",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "codegen.templates.delete",
+            "code-generation-templates",
+            CodeGenerationTemplatePermissions.Delete,
+            "删除模板",
+            "delete",
+            30),
     ];
 }

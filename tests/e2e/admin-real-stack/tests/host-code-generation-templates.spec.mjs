@@ -53,10 +53,40 @@ function codeGenerationView(page, clientKind) {
     : page.locator('.codegen-workbench');
 }
 
+function codeGenerationTemplatesView(page, clientKind) {
+  return clientKind === 'layui'
+    ? page.locator('[data-route-view="code-generation-previews"]')
+    : page.locator('.code-generation-templates-view');
+}
+
+async function openTemplateWorkspace(page, clientKind) {
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  if (clientKind === 'layui') {
+    await navigation.getByRole('link', { name: /代码生成/ }).click();
+    return;
+  }
+  await navigation.getByRole('link', { name: /代码生成模板/ }).click();
+}
+
+async function openPreviewWorkspace(page, clientKind) {
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  if (clientKind === 'layui') {
+    await navigation.getByRole('link', { name: /代码生成/ }).click();
+    return;
+  }
+  await navigation.getByRole('link', { name: /代码生成预览/ }).click();
+}
+
 function templateNameInput(view, clientKind) {
   return clientKind === 'layui'
     ? view.locator('[name="templateName"]')
     : view.getByTestId('codegen-template-name');
+}
+
+function templateSchemaInput(view, clientKind) {
+  return clientKind === 'layui'
+    ? view.getByRole('textbox', { name: 'Schema 输入', exact: true })
+    : view.getByTestId('codegen-template-schema');
 }
 
 function templateSaveButton(view, clientKind) {
@@ -171,16 +201,18 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   const updatedName = `${templateName}-updated`;
 
   await loginAsHostAdmin(page);
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('link', { name: /代码生成/ })
-    .click();
+  await openTemplateWorkspace(page, clientKind);
 
-  let view = codeGenerationView(page, clientKind);
+  let templateView = codeGenerationTemplatesView(page, clientKind);
   await expect(
-    view.getByRole('heading', { name: 'CRUD 产物预览', exact: true })
+    templateView.getByRole('heading', {
+      name: clientKind === 'layui' ? 'CRUD 产物预览' : '代码生成模板',
+      exact: true
+    })
   ).toBeVisible();
-  const explicitSchema = JSON.parse(await schemaInput(view).inputValue());
+  const explicitSchema = clientKind === 'layui'
+    ? JSON.parse(await schemaInput(codeGenerationView(page, clientKind)).inputValue())
+    : JSON.parse(await templateSchemaInput(templateView, clientKind).inputValue());
   delete explicitSchema.hasVersion;
   explicitSchema.dataScope = 'tenant.required';
   explicitSchema.entityCapabilities = {
@@ -193,11 +225,14 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   };
   explicitSchema.scene = 'single';
   explicitSchema.relationships = [];
-  await schemaInput(view).fill(JSON.stringify(explicitSchema, null, 2));
-  await templateNameInput(view, clientKind).fill(templateName);
-  await templateSaveButton(view, clientKind).click();
+  const schemaTarget = clientKind === 'layui'
+    ? schemaInput(codeGenerationView(page, clientKind))
+    : templateSchemaInput(templateView);
+  await schemaTarget.fill(JSON.stringify(explicitSchema, null, 2));
+  await templateNameInput(templateView, clientKind).fill(templateName);
+  await templateSaveButton(templateView, clientKind).click();
   await expect(
-    view.getByRole('button', { name: new RegExp(`^${templateName}`) })
+    templateView.getByRole('button', { name: new RegExp(`^${templateName}`) })
   ).toBeVisible();
 
   const created = await templateByName(
@@ -209,38 +244,50 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   expect(created).toBeTruthy();
   expect(created.version).toBe(1);
 
-  // 刷新页面后重新从数据库加载，避免只验证前端内存状态。
   await page.reload();
-  view = codeGenerationView(page, clientKind);
-  const persistedButton = view.getByRole(
+  if (clientKind !== 'layui') {
+    await openTemplateWorkspace(page, clientKind);
+  }
+  templateView = codeGenerationTemplatesView(page, clientKind);
+  const persistedButton = templateView.getByRole(
     'button',
     { name: new RegExp(`^${templateName}`) }
   );
   await expect(persistedButton).toBeVisible();
   await persistedButton.click();
-  const persistedSchema = JSON.parse(await schemaInput(view).inputValue());
+
+  let previewView = codeGenerationView(page, clientKind);
+  if (clientKind !== 'layui') {
+    await openPreviewWorkspace(page, clientKind);
+    previewView = codeGenerationView(page, clientKind);
+    await previewView
+      .getByTestId('codegen-template-load')
+      .filter({ hasText: templateName })
+      .click();
+  }
+  const persistedSchema = JSON.parse(await schemaInput(previewView).inputValue());
   expect(persistedSchema.hasVersion).toBeUndefined();
   expect(persistedSchema.dataScope).toBe('tenant.required');
   expect(persistedSchema.entityCapabilities.deleteMode)
     .toBe('hard.delete');
-  await view.getByRole('button', { name: '生成预览', exact: true }).click();
-  await expect(view.getByText('acme_catalog_product', { exact: true }))
+  await previewView.getByRole('button', { name: '生成预览', exact: true }).click();
+  await expect(previewView.getByText('acme_catalog_product', { exact: true }))
     .toBeVisible();
   const clientArtifactPath = 'clients/vue/products.generated.ts';
-  await view
+  await previewView
     .getByRole('navigation', { name: '生成产物' })
     .getByRole('button', {
       name: new RegExp(clientArtifactPath.replaceAll('.', '\\.'))
     })
     .click();
-  await expect(generatedContent(view, clientKind))
+  await expect(generatedContent(previewView, clientKind))
     .toContainText('/api/v1/catalog/products');
 
   const applyResponse = page.waitForResponse(response =>
     response.request().method() === 'POST'
     && response.url().endsWith('/api/v1/code-generation/runs/apply')
   );
-  await view.getByRole('button', {
+  await previewView.getByRole('button', {
     name: '应用已审查预览',
     exact: true
   }).click();
@@ -250,16 +297,32 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   const applied = await appliedResponse.json();
   expect(applied.previewRunId).toBeTruthy();
   expect(applied.artifactCount).toBeGreaterThan(0);
-  await expect(runHistory(view, clientKind)).toContainText(applied.runId);
+  await expect(runHistory(previewView, clientKind)).toContainText(applied.runId);
   assertAppliedWorkspaceArtifact(clientArtifactPath);
 
-  await templateNameInput(view, clientKind).fill(updatedName);
-  await templateUpdateButton(view, clientKind).click();
+  if (clientKind !== 'layui') {
+    await openTemplateWorkspace(page, clientKind);
+    templateView = codeGenerationTemplatesView(page, clientKind);
+    await templateView
+      .getByTestId('codegen-template-load')
+      .filter({ hasText: templateName })
+      .click();
+  }
+  await templateNameInput(templateView, clientKind).fill(updatedName);
+  await templateUpdateButton(templateView, clientKind).click();
   await expect(
-    view.getByRole('button', { name: new RegExp(`^${updatedName}`) })
+    templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
   ).toBeVisible();
 
-  const schemaForSecondApply = JSON.parse(await schemaInput(view).inputValue());
+  if (clientKind !== 'layui') {
+    await openPreviewWorkspace(page, clientKind);
+    previewView = codeGenerationView(page, clientKind);
+    await previewView
+      .getByTestId('codegen-template-load')
+      .filter({ hasText: updatedName })
+      .click();
+  }
+  const schemaForSecondApply = JSON.parse(await schemaInput(previewView).inputValue());
   schemaForSecondApply.columns.push({
     databaseName: 'Remark',
     clrPropertyName: 'Remark',
@@ -270,16 +333,16 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     numericPrecision: null,
     numericScale: null
   });
-  await schemaInput(view).fill(JSON.stringify(schemaForSecondApply, null, 2));
-  await view.getByRole('button', { name: '生成预览', exact: true }).click();
-  await expect(view.getByText('acme_catalog_product', { exact: true }))
+  await schemaInput(previewView).fill(JSON.stringify(schemaForSecondApply, null, 2));
+  await previewView.getByRole('button', { name: '生成预览', exact: true }).click();
+  await expect(previewView.getByText('acme_catalog_product', { exact: true }))
     .toBeVisible();
 
   const secondApplyResponse = page.waitForResponse(response =>
     response.request().method() === 'POST'
     && response.url().endsWith('/api/v1/code-generation/runs/apply')
   );
-  await view.getByRole('button', {
+  await previewView.getByRole('button', {
     name: '应用已审查预览',
     exact: true
   }).click();
@@ -287,13 +350,13 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   const secondAppliedResponse = await secondApplyResponse;
   expect(secondAppliedResponse.ok()).toBeTruthy();
   const secondApplied = await secondAppliedResponse.json();
-  await expect(runHistory(view, clientKind)).toContainText(secondApplied.runId);
+  await expect(runHistory(previewView, clientKind)).toContainText(secondApplied.runId);
 
   const rollbackChainResponse = page.waitForResponse(response =>
     response.request().method() === 'POST'
     && response.url().endsWith('/api/v1/code-generation/runs/rollback-chain')
   );
-  await runHistory(view, clientKind)
+  await runHistory(previewView, clientKind)
     .locator('article', { hasText: applied.runId })
     .getByRole('button', { name: '回滚此 Apply', exact: true })
     .click();
@@ -306,7 +369,6 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   expect(rolledBackChain.rollbacks[1].applyRunId).toBe(applied.runId);
   assertEmptyWorkspaceManifest();
 
-  // 使用创建时的旧版本直连真实 API，验证乐观并发冲突是稳定契约。
   const staleResponse = await request.put(
     `${apiBaseUrl}/api/v1/code-generation/templates/${created.id}`,
     {
@@ -327,9 +389,17 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   expect((await staleResponse.json()).code)
     .toBe('codegen.template.version_conflict');
 
-  await templateDeleteButton(view, clientKind).click();
+  if (clientKind !== 'layui') {
+    await openTemplateWorkspace(page, clientKind);
+    templateView = codeGenerationTemplatesView(page, clientKind);
+    await templateView
+      .getByTestId('codegen-template-load')
+      .filter({ hasText: updatedName })
+      .click();
+  }
+  await templateDeleteButton(templateView, clientKind).click();
   await expect(
-    view.getByRole('button', { name: new RegExp(`^${updatedName}`) })
+    templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
   ).toHaveCount(0);
 
   const deletedResponse = await request.get(
@@ -355,18 +425,33 @@ test('Host 管理员可 Apply 组织归属模板并落盘写入授权 Feature', 
   const featureArtifactPath = 'backend/ProductFeature.g.cs';
 
   await loginAsHostAdmin(page);
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('link', { name: /代码生成/ })
-    .click();
+  await openTemplateWorkspace(page, clientKind);
 
-  const view = codeGenerationView(page, clientKind);
+  const templateView = codeGenerationTemplatesView(page, clientKind);
   const explicitSchema = toOrganizationOwnedExplicitSchema(
-    JSON.parse(await schemaInput(view).inputValue())
+    JSON.parse(
+      clientKind === 'layui'
+        ? await schemaInput(codeGenerationView(page, clientKind)).inputValue()
+        : await templateSchemaInput(templateView).inputValue()
+    )
   );
-  await schemaInput(view).fill(JSON.stringify(explicitSchema, null, 2));
-  await templateNameInput(view, clientKind).fill(templateName);
-  await templateSaveButton(view, clientKind).click();
+  const schemaTarget = clientKind === 'layui'
+    ? schemaInput(codeGenerationView(page, clientKind))
+    : templateSchemaInput(templateView);
+  await schemaTarget.fill(JSON.stringify(explicitSchema, null, 2));
+  await templateNameInput(templateView, clientKind).fill(templateName);
+  await templateSaveButton(templateView, clientKind).click();
+
+  if (clientKind !== 'layui') {
+    await openPreviewWorkspace(page, clientKind);
+  }
+  const view = codeGenerationView(page, clientKind);
+  if (clientKind !== 'layui') {
+    await view
+      .getByTestId('codegen-template-load')
+      .filter({ hasText: templateName })
+      .click();
+  }
   await view.getByRole('button', { name: '生成预览', exact: true }).click();
   await expect(view.getByText('acme_catalog_product', { exact: true }))
     .toBeVisible({ timeout: 15_000 });

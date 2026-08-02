@@ -9,7 +9,11 @@ public static class CodeGenerationTemplatePermissions
 {
     public const string Read = "codegen.templates.read";
 
-    public const string Write = "codegen.templates.write";
+    public const string Create = "codegen.templates.create";
+
+    public const string Update = "codegen.templates.update";
+
+    public const string Delete = "codegen.templates.delete";
 }
 
 /// <summary>

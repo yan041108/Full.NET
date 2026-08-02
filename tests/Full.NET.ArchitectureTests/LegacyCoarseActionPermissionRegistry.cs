@@ -33,6 +33,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         "notifications.inbox.write",
         "jobs.definitions.write",
         "jobs.schedules.write",
+        "codegen.templates.write",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -41,14 +42,11 @@ internal static class LegacyCoarseActionPermissionRegistry
 
     internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal)
     {
-        "POST /api/v1/code-generation/templates/{templateId:guid}/delete|codegen.templates.write",
-        "POST /api/v1/code-generation/templates/|codegen.templates.write",
         "POST /api/v1/document/host/items/{itemId:guid}/versions|document.host_documents.write",
         "POST /api/v1/document/host/items/|document.host_documents.write",
         "POST /api/v1/serial-numbers/rules/{ruleId:guid}/disable|serial_numbers.rules.write",
         "POST /api/v1/serial-numbers/rules/{ruleId:guid}/enable|serial_numbers.rules.write",
         "POST /api/v1/serial-numbers/rules/|serial_numbers.rules.write",
-        "PUT /api/v1/code-generation/templates/{templateId:guid}|codegen.templates.write",
         "PUT /api/v1/document/host/items/{itemId:guid}|document.host_documents.write",
         "PUT /api/v1/serial-numbers/rules/{ruleId:guid}|serial_numbers.rules.write",
     };

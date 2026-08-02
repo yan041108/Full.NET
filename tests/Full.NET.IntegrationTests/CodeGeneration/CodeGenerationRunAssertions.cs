@@ -42,7 +42,9 @@ internal static class CodeGenerationRunAssertions
         var reviewer = await factory.CreateHostIdentityAsync(
             $"codegen-run-reviewer-{Guid.NewGuid():N}",
             [
-                CodeGenerationTemplatePermissions.Write,
+                CodeGenerationTemplatePermissions.Create,
+                CodeGenerationTemplatePermissions.Update,
+                CodeGenerationTemplatePermissions.Delete,
                 CodeGenerationRunPermissions.Execute,
             ],
             cancellationToken);
