@@ -4,7 +4,7 @@
 
 Host 代码生成工作台已完成受控本地 Apply 纵向切片，并保持 `Build-verified`：请求只接受成功且来源于持久化模板的 `previewRunId`，服务端重新生成并复核 Schema/Manifest 摘要后，才可写入运维配置的本地工作区。功能默认关闭，具有独立权限、单进程互斥、Manifest 所有权与恢复语义；运行记录先写 `apply/running`，再以双库单行保护 SQL 收敛到 `succeeded/failed`。
 
-本切片不包含 Worker/队列化执行、跨实例调度、回滚、远程 Git 写入、模块接入或生产发布启用。
+本切片仅覆盖 Apply 首交付边界；不含 Worker/队列化执行或模块接入。后续演进已独立交付：产品 Rollback（见 [codegeneration-product-rollback-2026-08-02.md](codegeneration-product-rollback-2026-08-02.md)）、多实例互斥、远程 Git、检查点保留与生产 Helm 启用路径。
 
 ## 安全与兼容边界
 
