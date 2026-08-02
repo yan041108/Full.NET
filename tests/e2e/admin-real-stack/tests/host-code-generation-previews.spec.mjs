@@ -7,6 +7,7 @@ import {
   loginHostAdminAccessToken,
   statusPath
 } from './support/real-stack-auth.mjs';
+import { toOrganizationOwnedExplicitSchema } from './support/organization-owned-codegen-schema.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
 const previewRequest = {
@@ -177,100 +178,8 @@ test('Host 管理员可预览组织归属 Schema 并生成写入授权片段', a
     .click();
 
   const view = codeGenerationView(page, clientKind);
-  const explicitSchema = JSON.parse(await schemaInput(view).inputValue());
-  delete explicitSchema.hasVersion;
-  explicitSchema.dataScope = 'tenant.required';
-  explicitSchema.entityCapabilities = {
-    deleteMode: 'soft.delete',
-    hasCreatedAudit: true,
-    hasUpdatedAudit: true,
-    hasDeletedAudit: true,
-    hasVersion: true,
-    ownershipMode: 'organization.unit'
-  };
-  explicitSchema.scene = 'single';
-  explicitSchema.relationships = [];
-  explicitSchema.columns.push({
-    databaseName: 'OrganizationUnitId',
-    clrPropertyName: 'OrganizationUnitId',
-    jsonPropertyName: 'organizationUnitId',
-    scalarType: 'uuid',
-    isNullable: false,
-    maxLength: null,
-    numericPrecision: null,
-    numericScale: null
-  });
-  explicitSchema.columns.push(
-    {
-      databaseName: 'CreatedAtUtc',
-      clrPropertyName: 'CreatedAtUtc',
-      jsonPropertyName: 'createdAtUtc',
-      scalarType: 'date.time.utc',
-      isNullable: false,
-      maxLength: null,
-      numericPrecision: null,
-      numericScale: null
-    },
-    {
-      databaseName: 'CreatedById',
-      clrPropertyName: 'CreatedById',
-      jsonPropertyName: 'createdById',
-      scalarType: 'uuid',
-      isNullable: false,
-      maxLength: null,
-      numericPrecision: null,
-      numericScale: null
-    },
-    {
-      databaseName: 'UpdatedAtUtc',
-      clrPropertyName: 'UpdatedAtUtc',
-      jsonPropertyName: 'updatedAtUtc',
-      scalarType: 'date.time.utc',
-      isNullable: true,
-      maxLength: null,
-      numericPrecision: null,
-      numericScale: null
-    },
-    {
-      databaseName: 'UpdatedById',
-      clrPropertyName: 'UpdatedById',
-      jsonPropertyName: 'updatedById',
-      scalarType: 'uuid',
-      isNullable: true,
-      maxLength: null,
-      numericPrecision: null,
-      numericScale: null
-    },
-    {
-      databaseName: 'IsDeleted',
-      clrPropertyName: 'IsDeleted',
-      jsonPropertyName: 'isDeleted',
-      scalarType: 'boolean',
-      isNullable: false,
-      maxLength: null,
-      numericPrecision: null,
-      numericScale: null
-    },
-    {
-      databaseName: 'DeletedAtUtc',
-      clrPropertyName: 'DeletedAtUtc',
-      jsonPropertyName: 'deletedAtUtc',
-      scalarType: 'date.time.utc',
-      isNullable: true,
-      maxLength: null,
-      numericPrecision: null,
-      numericScale: null
-    },
-    {
-      databaseName: 'DeletedById',
-      clrPropertyName: 'DeletedById',
-      jsonPropertyName: 'deletedById',
-      scalarType: 'uuid',
-      isNullable: true,
-      maxLength: null,
-      numericPrecision: null,
-      numericScale: null
-    }
+  const explicitSchema = toOrganizationOwnedExplicitSchema(
+    JSON.parse(await schemaInput(view).inputValue())
   );
   await schemaInput(view).fill(JSON.stringify(explicitSchema, null, 2));
   await view.getByRole('button', { name: '生成预览', exact: true }).click();

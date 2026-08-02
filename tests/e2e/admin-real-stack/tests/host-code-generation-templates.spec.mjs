@@ -9,6 +9,8 @@ import {
   loginAsHostViewer,
   loginHostAdminAccessToken
 } from './support/real-stack-auth.mjs';
+import { readAppliedWorkspaceArtifact } from './support/codegeneration-workspace.mjs';
+import { toOrganizationOwnedExplicitSchema } from './support/organization-owned-codegen-schema.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
 
@@ -342,6 +344,61 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   expect(deletedResponse.status()).toBe(404);
   expect((await deletedResponse.json()).code)
     .toBe('codegen.template.not_found');
+});
+
+test('Host 管理员可 Apply 组织归属模板并落盘写入授权 Feature', async ({
+  page
+}, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  const suffix = `${clientKind}-${Date.now()}`;
+  const templateName = `e2e-org-owned-${suffix}`;
+  const featureArtifactPath = 'backend/ProductFeature.g.cs';
+
+  await loginAsHostAdmin(page);
+  await page
+    .getByRole('navigation', { name: '主导航' })
+    .getByRole('link', { name: /代码生成/ })
+    .click();
+
+  const view = codeGenerationView(page, clientKind);
+  const explicitSchema = toOrganizationOwnedExplicitSchema(
+    JSON.parse(await schemaInput(view).inputValue())
+  );
+  await schemaInput(view).fill(JSON.stringify(explicitSchema, null, 2));
+  await templateNameInput(view, clientKind).fill(templateName);
+  await templateSaveButton(view, clientKind).click();
+  await view.getByRole('button', { name: '生成预览', exact: true }).click();
+  await expect(view.getByText('acme_catalog_product', { exact: true }))
+    .toBeVisible({ timeout: 15_000 });
+  await view
+    .getByRole('navigation', { name: '生成产物' })
+    .getByRole('button', { name: /backend\/ProductFeature\.g\.cs/ })
+    .click();
+  await expect(generatedContent(view, clientKind))
+    .toContainText('IOrganizationOwnedEntityWriteAuthorizer');
+
+  const applyResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST'
+    && response.url().endsWith('/api/v1/code-generation/runs/apply')
+  );
+  await view.getByRole('button', {
+    name: '应用已审查预览',
+    exact: true
+  }).click();
+  await confirmApply(page, clientKind);
+  const appliedResponse = await applyResponse;
+  expect(appliedResponse.ok()).toBeTruthy();
+  const applied = await appliedResponse.json();
+  expect(applied.artifactCount).toBeGreaterThan(0);
+
+  if (process.env.FULLNET_E2E_SKIP_BOOTSTRAP !== '1') {
+    const featureSource = readAppliedWorkspaceArtifact(featureArtifactPath);
+    expect(featureSource).toContain('IOrganizationOwnedEntityWriteAuthorizer');
+    expect(featureSource).toContain('BuildOrganizationUnitFilter');
+    expect(featureSource).toContain(
+      'OrganizationRequestHeaders.OrganizationUnitId'
+    );
+  }
 });
 
 test('受限 Host 账号不能读取模板 API 且双端导航保持裁剪', async ({

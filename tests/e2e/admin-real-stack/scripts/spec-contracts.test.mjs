@@ -54,7 +54,7 @@ test('代码生成真实栈必须验证受跟踪预览、历史刷新与无源�
   assert.match(source, /not\.toHaveProperty\('schema'\)/u);
   assert.match(source, /not\.toHaveProperty\('content'\)/u);
   assert.match(source, /not\.toHaveProperty\('errorMessage'\)/u);
-  assert.match(source, /ownershipMode: 'organization\.unit'/u);
+  assert.match(source, /toOrganizationOwnedExplicitSchema/u);
   assert.match(source, /IOrganizationOwnedEntityWriteAuthorizer/u);
 });
 
@@ -168,4 +168,6 @@ test('代码生成真实栈必须使用临时工作区并验证双端确认 Appl
   assert.match(spec, /confirmRollback\(page, clientKind\)/u);
   assert.match(spec, /confirmApply\(page, clientKind\)/u);
   assert.match(spec, /runHistory\(view, clientKind\)/u);
+  assert.match(spec, /readAppliedWorkspaceArtifact/u);
+  assert.match(spec, /IOrganizationOwnedEntityWriteAuthorizer/u);
 });

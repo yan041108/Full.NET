@@ -1,7 +1,7 @@
 # CodeGeneration 组织归属（OrganizationUnit）生成验证
 
 - 日期：2026-08-02
-- 代码基线：`main` @ `720223a`
+- 代码基线：`main` @ `0f2e1af`
 - 状态：**Build-verified**（双库 Integration 需 Docker/Testcontainers）
 - 设计：[`2026-08-02-codegeneration-organization-ownership-design.md`](../superpowers/specs/2026-08-02-codegeneration-organization-ownership-design.md)
 - 计划：[`2026-08-02-codegeneration-organization-ownership.md`](../superpowers/plans/2026-08-02-codegeneration-organization-ownership.md)
@@ -21,6 +21,7 @@
 | 生成器产物 | `CrudArtifactGeneratorTests.Generate_organization_owned_*` | Unit GREEN |
 | 生成器回归 | `CrudArtifactGeneratorTests` (26) | Unit GREEN |
 | 预览 API/UI | `Preview_organization_owned_*` + 双端 previews E2E | Unit GREEN；E2E 需真实栈 |
+| Apply 工作区 | `host-code-generation-templates` 组织归属 Apply E2E | 需真实栈；落盘 Feature 含授权片段 |
 | 双库 SQL 运行时 | `GeneratedLifecycleSqlRuntimeIntegrationTests` 组织归属 SoftDelete (2) | 需 Docker；本地编译通过 |
 
 ## 行为要点
@@ -31,7 +32,7 @@
 
 ## 未交付
 
-- Vue/Layui 双端预览 E2E（组织归属 Schema）已覆盖；完整 Apply 运行时与 `Verified` 标记仍待交付
+- 生成模块编译集成与 `Verified` 标记仍待交付
 - Host/Global 作用域与组织列组合
 - Tree/MasterDetail/ManyToMany 组织归属生成
 
