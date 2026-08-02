@@ -17,6 +17,7 @@ import {
   type OrganizationUserPosition
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listOrganizationPositions } from '../api/org-positions';
@@ -42,7 +43,9 @@ const loadingMoreUsers = ref(false);
 const userPage = ref(1);
 const userTotal = ref(0);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('organization.user_positions.write'));
+const canCreate = computed(() => session.can('organization.user_positions.create'));
+const canUpdate = computed(() => session.can('organization.user_positions.update'));
+const canDisable = computed(() => session.can('organization.user_positions.disable'));
 const hasMoreUsers = computed(() => users.value.length < userTotal.value);
 
 onMounted(load);
@@ -54,7 +57,7 @@ async function load(): Promise<void> {
     const [assignmentPage, positionPage, assignableUserPage] = await Promise.all([
       listOrganizationUserPositions(),
       listOrganizationPositions(),
-      canWrite.value
+      canCreate.value
         ? listAssignableOrganizationUserPositionUsers()
             .catch(error => {
               if (isForbidden(error)) {
@@ -87,7 +90,7 @@ async function load(): Promise<void> {
 }
 
 async function loadMoreUsers(): Promise<void> {
-  if (loadingMoreUsers.value || !canWrite.value || !hasMoreUsers.value) {
+  if (loadingMoreUsers.value || !canCreate.value || !hasMoreUsers.value) {
     return;
   }
   loadingMoreUsers.value = true;
@@ -211,7 +214,8 @@ function appendUniqueUsers(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+    <PermissionGate code="organization.user_positions.create">
+    <el-card class="art-form-card" shadow="never">
       <div class="art-form-grid art-form-grid--cols-2 art-form-grid--align-center" aria-labelledby="create-title">
         <div><h2 id="create-title">{{ t('orgUserPositions.createTitle') }}</h2></div>
         <label>
@@ -251,6 +255,7 @@ function appendUniqueUsers(
         <el-button type="primary" :loading="changing" @click="create">{{ t('orgUserPositions.create') }}</el-button>
       </div>
     </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -274,16 +279,18 @@ function appendUniqueUsers(
           </el-tag>
         </div>
         <div class="art-data-row__actions">
+          <PermissionGate code="organization.user_positions.update">
           <el-button
-            v-if="canWrite && assignment.isActive && !assignment.isPrimary"
+            v-if="assignment.isActive && !assignment.isPrimary"
             plain
             :disabled="changing"
             @click="setPrimary(assignment)"
           >
             {{ t('orgUserPositions.setPrimary') }}
           </el-button>
+          </PermissionGate>
+          <PermissionGate v-if="assignment.isActive" code="organization.user_positions.disable">
           <el-button
-            v-if="canWrite && assignment.isActive"
             type="danger"
             plain
             :disabled="changing"
@@ -291,6 +298,7 @@ function appendUniqueUsers(
           >
             {{ t('orgUserPositions.disable') }}
           </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

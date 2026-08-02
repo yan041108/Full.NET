@@ -217,7 +217,10 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./org-user-positions.js'),
       'createOrgUserPositionsController',
       root,
-      sharedOptions
+      {
+        ...sharedOptions,
+        getPermissions: options.getPermissions
+      }
     )]
   ]);
 }

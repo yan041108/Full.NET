@@ -8,7 +8,16 @@ public static class OrganizationUserPositionManagementPermissions
     /// <summary>分页查询用户-职位隶属。</summary>
     public const string Read = "organization.user_positions.read";
 
-    /// <summary>分配、设主职位与取消隶属。</summary>
+    /// <summary>分配用户-职位隶属。</summary>
+    public const string Create = "organization.user_positions.create";
+
+    /// <summary>设为主职位。</summary>
+    public const string Update = "organization.user_positions.update";
+
+    /// <summary>取消用户-职位隶属。</summary>
+    public const string Disable = "organization.user_positions.disable";
+
+    /// <summary>迁移 065 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "organization.user_positions.write";
 }
 

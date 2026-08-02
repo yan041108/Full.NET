@@ -3535,7 +3535,9 @@ function currentUserResponse(activeTenantId = null) {
             'organization.position_levels.update',
             'organization.position_levels.disable',
             'organization.user_positions.read',
-            'organization.user_positions.write',
+            'organization.user_positions.create',
+            'organization.user_positions.update',
+            'organization.user_positions.disable',
             'settings.tenant_dict_types.read',
             'settings.tenant_dict_types.write'
           ]

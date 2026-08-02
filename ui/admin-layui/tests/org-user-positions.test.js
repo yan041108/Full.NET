@@ -55,7 +55,7 @@ describe('Layui 用户职位隶属控制器', () => {
         }
         return {};
       },
-      hasPermission: permission => permission === 'organization.user_positions.write',
+      hasPermission: permission => permission === 'organization.user_positions.create',
       translation: () => ({
         t: key => key,
         locale: 'zh-CN'
@@ -142,7 +142,7 @@ describe('Layui 用户职位隶属控制器', () => {
         }
         return {};
       },
-      hasPermission: permission => permission === 'organization.user_positions.write',
+      hasPermission: permission => permission === 'organization.user_positions.create',
       translation: () => ({
         t: key => key,
         locale: 'zh-CN'
@@ -200,7 +200,7 @@ describe('Layui 用户职位隶属控制器', () => {
           total: 101
         };
       },
-      hasPermission: permission => permission === 'organization.user_positions.write',
+      hasPermission: permission => permission === 'organization.user_positions.create',
       translation: () => ({ locale: 'zh-CN', t: key => key })
     });
 

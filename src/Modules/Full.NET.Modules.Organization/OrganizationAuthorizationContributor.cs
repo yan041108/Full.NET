@@ -77,8 +77,16 @@ internal sealed class OrganizationAuthorizationContributor
             "查看用户职位隶属",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
-            OrganizationUserPositionManagementPermissions.Write,
-            "管理用户职位隶属",
+            OrganizationUserPositionManagementPermissions.Create,
+            "分配用户职位隶属",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationUserPositionManagementPermissions.Update,
+            "设为用户主职位",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationUserPositionManagementPermissions.Disable,
+            "取消用户职位隶属",
             AuthorizationScope.Tenant),
     ];
 
@@ -218,6 +226,27 @@ internal sealed class OrganizationAuthorizationContributor
             "org-position-levels",
             OrganizationPositionLevelManagementPermissions.Disable,
             "禁用职级",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "organization.user_positions.create",
+            "org-user-positions",
+            OrganizationUserPositionManagementPermissions.Create,
+            "分配职位隶属",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "organization.user_positions.update",
+            "org-user-positions",
+            OrganizationUserPositionManagementPermissions.Update,
+            "设为主职位",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "organization.user_positions.disable",
+            "org-user-positions",
+            OrganizationUserPositionManagementPermissions.Disable,
+            "取消职位隶属",
             "disable",
             30),
     ];

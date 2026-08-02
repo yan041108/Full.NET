@@ -32,7 +32,7 @@ internal static class Endpoint
         .Produces<PagedResult<OrganizationAssignableUserResponse>>(
             StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserPositionManagementPermissions.Write));
+            OrganizationUserPositionManagementPermissions.Create));
 
         group.MapGet("/", async (
             int? page,
@@ -77,7 +77,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserPositionManagementPermissions.Write));
+            OrganizationUserPositionManagementPermissions.Create));
 
         group.MapPut("/{assignmentId:guid}", async (
             Guid assignmentId,
@@ -93,7 +93,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserPositionManagementPermissions.Write));
+            OrganizationUserPositionManagementPermissions.Update));
 
         group.MapPost("/{assignmentId:guid}/disable", async (
             Guid assignmentId,
@@ -108,6 +108,6 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserPositionManagementPermissions.Write));
+            OrganizationUserPositionManagementPermissions.Disable));
     }
 }
