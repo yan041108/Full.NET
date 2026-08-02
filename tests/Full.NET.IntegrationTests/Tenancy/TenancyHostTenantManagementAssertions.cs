@@ -35,6 +35,10 @@ internal static class TenancyHostTenantManagementAssertions
             client,
             cancellationToken);
         await VerifyCannotDisableLastActiveTenantAsync(client, cancellationToken);
+        await VerifyExactTenantActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
         await Api.OpenApiHostTenantsContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -285,6 +289,142 @@ internal static class TenancyHostTenantManagementAssertions
             await lastDisableResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
             TenancyErrorCodes.LastActiveTenant,
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyExactTenantActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var identifier = $"bound-{Guid.NewGuid():N}"[..14];
+        var domain = $"{identifier}.localhost";
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/tenancy/tenants",
+            adminToken,
+            new ProvisionTenantRequest(identifier, "边界测试租户", domain));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<TenantSummary>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+
+        var disableIdentifier = $"dis-{Guid.NewGuid():N}"[..14];
+        using var disableTargetRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/tenancy/tenants",
+            adminToken,
+            new ProvisionTenantRequest(
+                disableIdentifier,
+                "禁用边界租户",
+                $"{disableIdentifier}.localhost"));
+        using var disableTargetResponse = await client.SendAsync(
+            disableTargetRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, disableTargetResponse.StatusCode);
+        var disableTarget = await disableTargetResponse.Content.ReadFromJsonAsync<TenantSummary>(
+            cancellationToken);
+        Assert.IsNotNull(disableTarget);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [TenancyTenantManagementPermissions.HostTenantsRead],
+            cancellationToken);
+        await AssertTenantPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/tenancy/tenants",
+            cancellationToken,
+            new ProvisionTenantRequest("denied", "拒绝", "denied.localhost"));
+        await AssertTenantPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/tenancy/tenants/{created.Id:D}",
+            cancellationToken,
+            new UpdateHostTenantRequest("拒绝更新", created.Version));
+        await AssertTenantPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/tenancy/tenants/{created.Id:D}/disable",
+            cancellationToken);
+        await AssertTenantPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/tenancy/tenants/{created.Id:D}/package",
+            cancellationToken,
+            new AssignHostTenantPackageRequest(null, created.Version));
+
+        var createToken = await factory.CreateHostAccessTokenAsync(
+            [
+                TenancyTenantManagementPermissions.HostTenantsRead,
+                TenancyTenantManagementPermissions.Create,
+            ],
+            cancellationToken);
+        await AssertTenantPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Put,
+            $"/api/v1/tenancy/tenants/{created.Id:D}",
+            cancellationToken,
+            new UpdateHostTenantRequest("拒绝更新", created.Version));
+        await AssertTenantPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/tenancy/tenants/{created.Id:D}/disable",
+            cancellationToken);
+        await AssertTenantPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/tenancy/tenants/{created.Id:D}/package",
+            cancellationToken,
+            new AssignHostTenantPackageRequest(null, created.Version));
+
+        var disableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                TenancyTenantManagementPermissions.HostTenantsRead,
+                TenancyTenantManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        using var disableRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/tenancy/tenants/{disableTarget.Id:D}/disable");
+        disableRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            disableToken);
+        using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode);
+    }
+
+    private static async Task AssertTenantPermissionDeniedAsync(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        object? body = null)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            CommonErrorCodes.PermissionDenied,
             problem.RootElement.GetProperty("code").GetString());
     }
 

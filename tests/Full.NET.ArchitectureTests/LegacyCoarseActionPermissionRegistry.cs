@@ -1,4 +1,5 @@
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.ArchitectureTests;
 
@@ -15,6 +16,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         IdentityMenuManagementPermissions.Write,
         IdentitySessionManagementPermissions.Write,
         IdentityApiKeyManagementPermissions.Write,
+        TenancyTenantManagementPermissions.Write,
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -66,9 +68,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/settings/tenant-dict-types/|settings.tenant_dict_types.write",
         "POST /api/v1/tenancy/tenant-packages/{packageId:guid}/disable|tenancy.tenant_packages.write",
         "POST /api/v1/tenancy/tenant-packages/|tenancy.tenant_packages.write",
-        "POST /api/v1/tenancy/tenants/{tenantId:guid}/disable|tenancy.tenants.write",
-        "POST /api/v1/tenancy/tenants/{tenantId:guid}/package|tenancy.tenants.write",
-        "POST /api/v1/tenancy/tenants/|tenancy.tenants.write",
         "PUT /api/v1/code-generation/templates/{templateId:guid}|codegen.templates.write",
         "PUT /api/v1/document/host/items/{itemId:guid}|document.host_documents.write",
         "PUT /api/v1/jobs/host-definitions/{definitionId:guid}|jobs.definitions.write",
@@ -89,6 +88,5 @@ internal static class LegacyCoarseActionPermissionRegistry
         "PUT /api/v1/settings/tenant-dict-items/{dictItemId:guid}|settings.tenant_dict_types.write",
         "PUT /api/v1/settings/tenant-dict-types/{dictTypeId:guid}|settings.tenant_dict_types.write",
         "PUT /api/v1/tenancy/tenant-packages/{packageId:guid}|tenancy.tenant_packages.write",
-        "PUT /api/v1/tenancy/tenants/{tenantId:guid}|tenancy.tenants.write",
     };
 }

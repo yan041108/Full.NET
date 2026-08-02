@@ -2,6 +2,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.UnitTests.Identity;
 
@@ -51,9 +52,12 @@ public sealed class AuthorizationCatalogTests
                 "tenancy.host_tenants.read",
                 "tenancy.tenant_packages.read",
                 "tenancy.tenant_packages.write",
+                "tenancy.tenants.assign_package",
+                "tenancy.tenants.create",
+                "tenancy.tenants.disable",
                 "tenancy.tenants.read",
                 "tenancy.tenants.switch",
-                "tenancy.tenants.write",
+                "tenancy.tenants.update",
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
@@ -232,6 +236,34 @@ public sealed class AuthorizationCatalogTests
             apiKeyActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == IdentityApiKeyManagementPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_tenants_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "tenancy.tenants.create",
+            ["update"] = "tenancy.tenants.update",
+            ["disable"] = "tenancy.tenants.disable",
+            ["assign-package"] = "tenancy.tenants.assign_package",
+        };
+
+        var tenantActions = catalog.Actions
+            .Where(action => action.NavigationId == "tenant-management")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            tenantActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == TenancyTenantManagementPermissions.Write));
     }
 
     [TestMethod]

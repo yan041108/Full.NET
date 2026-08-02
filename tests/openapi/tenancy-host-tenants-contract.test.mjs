@@ -43,7 +43,7 @@ test('Host 租户 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^tenancy\.(host_tenants|tenants)\.(read|write)$/u);
+      assert.match(operation.permission, /^tenancy\.(host_tenants\.read|tenants\.(read|switch|create|update|disable|assign_package))$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -64,8 +64,8 @@ test('Host 租户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
 
   assert.match(contractsSource, /record UpdateHostTenantRequest/u);
   assert.match(contractsSource, /record AssignHostTenantPackageRequest/u);
-  assert.match(contractsSource, /tenancy\.tenants\.read/u);
-  assert.match(contractsSource, /tenancy\.tenants\.write/u);
+  assert.match(contractsSource, /tenancy\.tenants\.create/u);
+  assert.match(contractsSource, /tenancy\.tenants\.assign_package/u);
   assert.match(provisionSource, /record ProvisionTenantRequest/u);
   assert.match(tenantSummarySource, /record TenantSummary/u);
 

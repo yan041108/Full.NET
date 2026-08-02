@@ -11,7 +11,19 @@ public static class TenancyTenantManagementPermissions
     /// <summary>分页查询 Host 租户目录与详情。</summary>
     public const string HostTenantsRead = "tenancy.host_tenants.read";
 
-    /// <summary>创建、更新与禁用租户。</summary>
+    /// <summary>开通 Host 租户。</summary>
+    public const string Create = "tenancy.tenants.create";
+
+    /// <summary>更新 Host 租户显示名称。</summary>
+    public const string Update = "tenancy.tenants.update";
+
+    /// <summary>禁用 Host 租户。</summary>
+    public const string Disable = "tenancy.tenants.disable";
+
+    /// <summary>为 Host 租户分配或解除套餐绑定。</summary>
+    public const string AssignPackage = "tenancy.tenants.assign_package";
+
+    /// <summary>迁移 060 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "tenancy.tenants.write";
 }
 

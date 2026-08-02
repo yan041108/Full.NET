@@ -65,7 +65,7 @@ internal static class Endpoint
                 result.Value);
         })
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            TenancyTenantManagementPermissions.Write));
+            TenancyTenantManagementPermissions.Create));
 
         group.MapPut("/{tenantId:guid}", async (
             Guid tenantId,
@@ -80,7 +80,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            TenancyTenantManagementPermissions.Write));
+            TenancyTenantManagementPermissions.Update));
 
         group.MapPost("/{tenantId:guid}/disable", async (
             Guid tenantId,
@@ -94,7 +94,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            TenancyTenantManagementPermissions.Write));
+            TenancyTenantManagementPermissions.Disable));
 
         group.MapPost("/{tenantId:guid}/package", async (
             Guid tenantId,
@@ -109,6 +109,6 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            TenancyTenantManagementPermissions.Write));
+            TenancyTenantManagementPermissions.AssignPackage));
     }
 }

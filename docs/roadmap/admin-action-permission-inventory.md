@@ -75,13 +75,22 @@
 | `ApiKeysView.vue` / Layui | 轮换 | `identity.api_keys.rotate` | 059 |
 | `ApiKeysView.vue` / Layui | 禁用 | `identity.api_keys.disable` | 059 |
 
+## W2：Tenancy Tenants（已完成）
+
+| 组件 | 操作 | 目标权限 | 迁移 |
+| --- | --- | --- | --- |
+| `TenantsView.vue` / Layui `tenants.js` | 页面 | `tenancy.host_tenants.read` | 无 |
+| `TenantsView.vue` / Layui | 开通 | `tenancy.tenants.create` | 060 |
+| `TenantsView.vue` / Layui | 编辑 | `tenancy.tenants.update` | 060 |
+| `TenantsView.vue` / Layui | 禁用 | `tenancy.tenants.disable` | 060 |
+| `TenantsView.vue` / Layui | 分配套餐 | `tenancy.tenants.assign_package` | 060 |
+
 ## W1–W5：粗粒度 `.write` 仍绑定 Endpoint（冻结清单）
 
 下列权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `tenancy.tenants.write` | `TenantsView.vue` | W2 |
 | `tenancy.tenant_packages.write` | `TenantPackagesView.vue` | W2 |
 | `organization.units.write` | `OrgUnitsView.vue` | W2 |
 | `organization.positions.write` | `OrgPositionsView.vue` | W2 |
@@ -110,6 +119,7 @@
 | `identity.menus.write` | **已退役**：不可分配、不可出现在 Endpoint；由 057 展开为 `identity.menus.create` / `update` / `disable` |
 | `identity.sessions.write` | **已退役**：不可分配、不可出现在 Endpoint；由 058 展开为 `identity.sessions.revoke` |
 | `identity.api_keys.write` | **已退役**：不可分配、不可出现在 Endpoint；由 059 展开为 `identity.api_keys.create` / `disable` / `rotate` |
+| `tenancy.tenants.write` | **已退役**：不可分配、不可出现在 Endpoint；由 060 展开为 `tenancy.tenants.create` / `update` / `disable` / `assign_package` |
 
 ## 本地 UI（无需权限码）
 

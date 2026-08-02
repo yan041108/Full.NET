@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "tenancy.tenants.write",
+          "permission": "tenancy.tenants.create",
           "successStatus": 201,
           "requestSchema": "ProvisionTenantRequest",
           "responseSchema": "TenantSummary"
@@ -32,7 +32,7 @@
         },
         {
           "method": "PUT",
-          "permission": "tenancy.tenants.write",
+          "permission": "tenancy.tenants.update",
           "successStatus": 200,
           "requestSchema": "UpdateHostTenantRequest",
           "responseSchema": "TenantSummary"
@@ -44,7 +44,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "tenancy.tenants.write",
+          "permission": "tenancy.tenants.disable",
           "successStatus": 200,
           "responseSchema": "TenantSummary"
         }
@@ -55,7 +55,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "tenancy.tenants.write",
+          "permission": "tenancy.tenants.assign_package",
           "successStatus": 200,
           "requestSchema": "AssignHostTenantPackageRequest",
           "responseSchema": "TenantSummary"

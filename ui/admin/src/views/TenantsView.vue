@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -16,8 +16,8 @@ import type {
   HostTenantPackage
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
-import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import { listHostTenantPackages } from '../api/tenant-packages';
 import {
   assignHostTenantPackage,
@@ -27,7 +27,6 @@ import {
   updateHostTenant
 } from '../api/tenants';
 
-const session = useSessionStore();
 const { t } = useAdminI18n();
 const tenants = ref<HostTenant[]>([]);
 const packages = ref<HostTenantPackage[]>([]);
@@ -38,7 +37,6 @@ const createPackageId = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('tenancy.tenants.write'));
 
 onMounted(async () => {
   await Promise.all([load(), loadPackages()]);
@@ -183,7 +181,8 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+    <PermissionGate code="tenancy.tenants.create">
+      <el-card class="art-form-card" shadow="never">
       <div class="art-form-grid art-form-grid--cols-5" aria-labelledby="create-title">
         <div><h2 id="create-title">{{ t('tenants.createTitle') }}</h2></div>
         <label>
@@ -207,6 +206,7 @@ function toProblem(
         <el-button type="primary" :loading="changing" @click="create">{{ t('tenants.create') }}</el-button>
       </div>
     </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -230,26 +230,30 @@ function toProblem(
           {{ t(tenant.isActive ? 'tenants.active' : 'tenants.inactive') }}
         </el-tag>
         <div class="art-data-row__actions">
-          <el-select
-            v-if="canWrite"
-            :model-value="tenant.tenantPackageId ?? ''"
-            :placeholder="t('tenants.packageUnassigned')"
-            :disabled="changing"
-            @change="value => assignPackage(tenant, value ? String(value) : null)"
-          >
-            <el-option :label="t('tenants.packageUnassigned')" value="" />
-            <el-option v-for="pkg in packages" :key="pkg.id" :label="pkg.name" :value="pkg.id" />
-          </el-select>
-          <el-button v-if="canWrite" plain :disabled="changing" @click="edit(tenant)">{{ t('tenants.edit') }}</el-button>
-          <el-button
-            v-if="canWrite && tenant.isActive"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(tenant)"
-          >
-            {{ t('tenants.disable') }}
-          </el-button>
+          <PermissionGate code="tenancy.tenants.assign_package">
+            <el-select
+              :model-value="tenant.tenantPackageId ?? ''"
+              :placeholder="t('tenants.packageUnassigned')"
+              :disabled="changing"
+              @change="value => assignPackage(tenant, value ? String(value) : null)"
+            >
+              <el-option :label="t('tenants.packageUnassigned')" value="" />
+              <el-option v-for="pkg in packages" :key="pkg.id" :label="pkg.name" :value="pkg.id" />
+            </el-select>
+          </PermissionGate>
+          <PermissionGate code="tenancy.tenants.update">
+            <el-button plain :disabled="changing" @click="edit(tenant)">{{ t('tenants.edit') }}</el-button>
+          </PermissionGate>
+          <PermissionGate v-if="tenant.isActive" code="tenancy.tenants.disable">
+            <el-button
+              type="danger"
+              plain
+              :disabled="changing"
+              @click="disable(tenant)"
+            >
+              {{ t('tenants.disable') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

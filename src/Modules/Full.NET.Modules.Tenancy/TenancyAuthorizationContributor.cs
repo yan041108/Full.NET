@@ -17,8 +17,20 @@ internal sealed class TenancyAuthorizationContributor
             "查询租户目录",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            TenancyTenantManagementPermissions.Write,
-            "管理租户",
+            TenancyTenantManagementPermissions.Create,
+            "开通 Host 租户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantManagementPermissions.Update,
+            "更新 Host 租户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantManagementPermissions.Disable,
+            "禁用 Host 租户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            TenancyTenantManagementPermissions.AssignPackage,
+            "分配 Host 租户套餐",
             AuthorizationScope.Host),
         new PermissionDefinition(
             TenancyTenantPackagePermissions.Read,
@@ -72,5 +84,37 @@ internal sealed class TenancyAuthorizationContributor
             "collection",
             22,
             TenancyTenantPackagePermissions.Read),
+    ];
+
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
+    [
+        new AuthorizationActionDefinition(
+            "tenancy.tenants.create",
+            "tenant-management",
+            TenancyTenantManagementPermissions.Create,
+            "开通租户",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "tenancy.tenants.update",
+            "tenant-management",
+            TenancyTenantManagementPermissions.Update,
+            "编辑租户",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "tenancy.tenants.disable",
+            "tenant-management",
+            TenancyTenantManagementPermissions.Disable,
+            "禁用租户",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "tenancy.tenants.assign-package",
+            "tenant-management",
+            TenancyTenantManagementPermissions.AssignPackage,
+            "分配套餐",
+            "assign-package",
+            40),
     ];
 }
