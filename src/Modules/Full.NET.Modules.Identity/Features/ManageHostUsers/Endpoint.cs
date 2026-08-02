@@ -97,7 +97,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<HostUserResponse>(StatusCodes.Status201Created)
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Create);
 
         group.MapPut("/{userId:guid}", async (
             Guid userId,
@@ -112,7 +112,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Update);
 
         group.MapPost("/{userId:guid}/disable", async (
             Guid userId,
@@ -126,7 +126,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Disable);
 
         group.MapPost("/{userId:guid}/enable", async (
             Guid userId,
@@ -140,7 +140,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Enable);
 
         group.MapPost("/{userId:guid}/reset-password", async (
             Guid userId,
@@ -155,7 +155,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityUserManagementPermissions.ResetPassword);
 
         group.MapGet("/{userId:guid}/roles", async (
             Guid userId,
@@ -183,7 +183,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Write)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.AssignRoles)
         .Produces<HostUserRolesResponse>(StatusCodes.Status200OK);
     }
 

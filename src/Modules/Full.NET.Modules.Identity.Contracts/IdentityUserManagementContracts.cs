@@ -8,11 +8,29 @@ public static class IdentityUserManagementPermissions
     /// <summary>分页查询 Host 用户列表与详情。</summary>
     public const string Read = "identity.users.read";
 
-    /// <summary>创建、更新、禁用与启用 Host 用户。</summary>
-    public const string Write = "identity.users.write";
+    /// <summary>创建 Host 用户。</summary>
+    public const string Create = "identity.users.create";
+
+    /// <summary>更新 Host 用户基础资料。</summary>
+    public const string Update = "identity.users.update";
+
+    /// <summary>替换 Host 用户角色绑定。</summary>
+    public const string AssignRoles = "identity.users.assign_roles";
+
+    /// <summary>管理员重置 Host 用户密码。</summary>
+    public const string ResetPassword = "identity.users.reset_password";
+
+    /// <summary>禁用 Host 用户。</summary>
+    public const string Disable = "identity.users.disable";
+
+    /// <summary>启用 Host 用户。</summary>
+    public const string Enable = "identity.users.enable";
 
     /// <summary>按当前字段投影导出 Host 用户。</summary>
     public const string Export = "identity.users.export";
+
+    /// <summary>迁移 054 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
+    public const string Write = "identity.users.write";
 }
 
 /// <summary>创建 Host 用户请求。</summary>

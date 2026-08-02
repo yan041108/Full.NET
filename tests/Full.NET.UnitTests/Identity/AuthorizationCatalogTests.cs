@@ -31,9 +31,14 @@ public sealed class AuthorizationCatalogTests
                 "identity.sessions.write",
                 "identity.super_administrators.manage",
                 "identity.super_administrators.read",
+                "identity.users.assign_roles",
+                "identity.users.create",
+                "identity.users.disable",
+                "identity.users.enable",
                 "identity.users.export",
                 "identity.users.read",
-                "identity.users.write",
+                "identity.users.reset_password",
+                "identity.users.update",
                 "platform.dashboard.read",
                 "tenancy.host_tenants.read",
                 "tenancy.tenant_packages.read",
@@ -52,6 +57,37 @@ public sealed class AuthorizationCatalogTests
         Assert.AreEqual(
             ModuleCatalogPermissions.Read,
             navigation.RequiredPermission);
+    }
+
+    [TestMethod]
+    public void Host_users_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "identity.users.create",
+            ["update"] = "identity.users.update",
+            ["assign-roles"] = "identity.users.assign_roles",
+            ["reset-password"] = "identity.users.reset_password",
+            ["disable"] = "identity.users.disable",
+            ["enable"] = "identity.users.enable",
+            ["export"] = "identity.users.export",
+        };
+
+        var usersActions = catalog.Actions
+            .Where(action => action.NavigationId == "users")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            usersActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == IdentityUserManagementPermissions.Write));
     }
 
     [TestMethod]

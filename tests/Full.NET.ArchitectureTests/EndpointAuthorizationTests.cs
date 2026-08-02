@@ -3,6 +3,7 @@ using Full.NET.Composition;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MessagePack;
 using Full.NET.Data.Abstractions;
@@ -20,6 +21,73 @@ public sealed class EndpointAuthorizationTests
 {
     [TestMethod]
     public void Api_v1_endpoints_explicitly_declare_authorization_or_anonymous_intent()
+    {
+        using var app = BuildApiApplication();
+
+        var missingIntentEndpoints = CollectApiV1Endpoints(app)
+            .Where(endpoint => endpoint.Metadata.GetMetadata<IAllowAnonymous>() is null
+                && !endpoint.Metadata.OfType<IAuthorizeData>().Any())
+            .Select(endpoint => endpoint.RoutePattern.RawText)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        if (missingIntentEndpoints.Length > 0)
+        {
+            Assert.Fail(
+                "下列 API Endpoint 没有显式声明 RequireAuthorization(...) 或 AllowAnonymous(): "
+                + string.Join(", ", missingIntentEndpoints));
+        }
+    }
+
+    [TestMethod]
+    public void Api_v1_endpoints_do_not_reference_unknown_fullnet_permissions()
+    {
+        using var app = BuildApiApplication();
+        var knownPermissions = app.Services
+            .GetServices<IAuthorizationCatalogContributor>()
+            .SelectMany(contributor => contributor.Permissions)
+            .Select(permission => permission.Code)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var unknownPermissionEndpoints = CollectApiV1Endpoints(app)
+            .SelectMany(endpoint => endpoint.Metadata
+                .GetOrderedMetadata<IAuthorizeData>()
+                .SelectMany(authorizeData => ExtractPermissionCodes(authorizeData.Policy))
+                .Select(permissionCode => (Route: endpoint.RoutePattern.RawText, permissionCode)))
+            .Where(pair => !knownPermissions.Contains(pair.permissionCode))
+            .Select(pair => $"{pair.Route} -> {pair.permissionCode}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        if (unknownPermissionEndpoints.Length > 0)
+        {
+            Assert.Fail(
+                "下列 API Endpoint 引用了未登记权限: "
+                + string.Join(", ", unknownPermissionEndpoints));
+        }
+    }
+
+    [TestMethod]
+    public void CollectUnknownPermissionCodes_reports_test_only_unknown_permission()
+    {
+        var knownPermissions = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "identity.users.read",
+        };
+
+        var unknownCodes = ExtractPermissionCodes(
+                FullNetPermissionPolicies.For("unknown.permission"))
+            .Where(code => !knownPermissions.Contains(code))
+            .ToArray();
+
+        CollectionAssert.AreEqual(
+            new[] { "unknown.permission" },
+            unknownCodes);
+    }
+
+    private static WebApplication BuildApiApplication()
     {
         var builder = WebApplication.CreateBuilder();
         builder.Environment.EnvironmentName = "Testing";
@@ -52,25 +120,39 @@ public sealed class EndpointAuthorizationTests
         app.MapFullNetHealthEndpoints();
         app.MapFullNetRealtime();
         app.MapFullNetModules();
+        return app;
+    }
 
-        var missingIntentEndpoints = ((IEndpointRouteBuilder)app).DataSources
+    private static IEnumerable<RouteEndpoint> CollectApiV1Endpoints(WebApplication app) =>
+        ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(dataSource => dataSource.Endpoints)
             .OfType<RouteEndpoint>()
             .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith(
                 "/api/v1/",
-                StringComparison.Ordinal) == true)
-            .Where(endpoint => endpoint.Metadata.GetMetadata<IAllowAnonymous>() is null
-                && !endpoint.Metadata.OfType<IAuthorizeData>().Any())
-            .Select(endpoint => endpoint.RoutePattern.RawText)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(path => path, StringComparer.Ordinal)
-            .ToArray();
+                StringComparison.Ordinal) == true);
 
-        if (missingIntentEndpoints.Length > 0)
+    private static IEnumerable<string> ExtractPermissionCodes(string? policyName)
+    {
+        if (string.IsNullOrWhiteSpace(policyName))
         {
-            Assert.Fail(
-                "下列 API Endpoint 没有显式声明 RequireAuthorization(...) 或 AllowAnonymous(): "
-                + string.Join(", ", missingIntentEndpoints));
+            yield break;
+        }
+
+        foreach (var segment in policyName.Split(
+                     ',',
+                     StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (FullNetPermissionPolicies.TryRead(segment, out var permissionCode))
+            {
+                yield return permissionCode;
+                continue;
+            }
+
+            const string openAccessPrefix = "FullNet.OpenAccess:";
+            if (segment.StartsWith(openAccessPrefix, StringComparison.Ordinal))
+            {
+                yield return segment[openAccessPrefix.Length..];
+            }
         }
     }
 }

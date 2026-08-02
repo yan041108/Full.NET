@@ -35,8 +35,28 @@ internal sealed class IdentityAuthorizationContributor
             "查看 Host 用户",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            IdentityUserManagementPermissions.Write,
-            "管理 Host 用户",
+            IdentityUserManagementPermissions.Create,
+            "创建 Host 用户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityUserManagementPermissions.Update,
+            "更新 Host 用户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityUserManagementPermissions.AssignRoles,
+            "分配 Host 用户角色",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityUserManagementPermissions.ResetPassword,
+            "重置 Host 用户密码",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityUserManagementPermissions.Disable,
+            "禁用 Host 用户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityUserManagementPermissions.Enable,
+            "启用 Host 用户",
             AuthorizationScope.Host),
         new PermissionDefinition(
             IdentityRoleManagementPermissions.Read,
@@ -178,5 +198,58 @@ internal sealed class IdentityAuthorizationContributor
             "shield",
             40,
             SuperAdministratorsRead),
+    ];
+
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
+    [
+        new AuthorizationActionDefinition(
+            "identity.users.create",
+            "users",
+            IdentityUserManagementPermissions.Create,
+            "创建用户",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.users.update",
+            "users",
+            IdentityUserManagementPermissions.Update,
+            "更新用户",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.users.assign-roles",
+            "users",
+            IdentityUserManagementPermissions.AssignRoles,
+            "分配角色",
+            "assign-roles",
+            30),
+        new AuthorizationActionDefinition(
+            "identity.users.reset-password",
+            "users",
+            IdentityUserManagementPermissions.ResetPassword,
+            "重置密码",
+            "reset-password",
+            50),
+        new AuthorizationActionDefinition(
+            "identity.users.disable",
+            "users",
+            IdentityUserManagementPermissions.Disable,
+            "禁用用户",
+            "disable",
+            60),
+        new AuthorizationActionDefinition(
+            "identity.users.enable",
+            "users",
+            IdentityUserManagementPermissions.Enable,
+            "启用用户",
+            "enable",
+            70),
+        new AuthorizationActionDefinition(
+            "identity.users.export",
+            "users",
+            IdentityUserManagementPermissions.Export,
+            "导出用户",
+            "export",
+            80),
     ];
 }
