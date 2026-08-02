@@ -44,6 +44,10 @@ internal static class IdentityUserManagementAssertions
         await VerifyEnableUserRestoresLoginAsync(
             client,
             cancellationToken);
+        await VerifyExactActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiHostUsersContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -370,6 +374,313 @@ internal static class IdentityUserManagementAssertions
             loginAfterEnableRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, loginAfterEnableResponse.StatusCode);
+    }
+
+    private static async Task VerifyExactActionPermissionBoundariesAsync(
+        Api.FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var activeUsername = $"action-active-{Guid.NewGuid():N}";
+        var disabledUsername = $"action-disabled-{Guid.NewGuid():N}";
+        var password = Api.FullNetApiFactory.TestPassword;
+
+        var activeUser = await CreateHostUserAsync(
+            client,
+            adminToken,
+            activeUsername,
+            "动作边界活跃用户",
+            password,
+            cancellationToken);
+        var disabledUser = await CreateHostUserAsync(
+            client,
+            adminToken,
+            disabledUsername,
+            "动作边界禁用用户",
+            password,
+            cancellationToken);
+        await PostWithoutBodyAsync(
+            client,
+            adminToken,
+            $"/api/v1/identity/users/{disabledUser.Id:D}/disable",
+            HttpStatusCode.OK,
+            cancellationToken);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [IdentityUserManagementPermissions.Read],
+            cancellationToken);
+        await AssertUsersListAllowedAsync(client, readOnlyToken, cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            new CreateHostUserRequest(
+                $"denied-{Guid.NewGuid():N}",
+                "拒绝创建",
+                password),
+            cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{activeUser.Id:D}",
+            new UpdateHostUserRequest("拒绝更新", activeUser.Version),
+            cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{activeUser.Id:D}/disable",
+            new { },
+            cancellationToken);
+        await AssertPermissionDeniedAsync<object?>(
+            client,
+            readOnlyToken,
+            HttpMethod.Get,
+            "/api/v1/identity/users/export",
+            null,
+            cancellationToken);
+
+        var createToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.Create,
+            ],
+            cancellationToken);
+        var createdByLimited = await CreateHostUserAsync(
+            client,
+            createToken,
+            $"limited-create-{Guid.NewGuid():N}",
+            "受限创建用户",
+            password,
+            cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{createdByLimited.Id:D}/disable",
+            new { },
+            cancellationToken);
+
+        var updateToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.Update,
+            ],
+            cancellationToken);
+        await AssertOkAsync(
+            client,
+            updateToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{activeUser.Id:D}",
+            new UpdateHostUserRequest("受限更新名称", activeUser.Version),
+            cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            updateToken,
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            new CreateHostUserRequest(
+                $"denied-update-{Guid.NewGuid():N}",
+                "拒绝创建",
+                password),
+            cancellationToken);
+
+        var disableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        var disableTarget = await CreateHostUserAsync(
+            client,
+            adminToken,
+            $"disable-target-{Guid.NewGuid():N}",
+            "禁用目标",
+            password,
+            cancellationToken);
+        await PostWithoutBodyAsync(
+            client,
+            disableToken,
+            $"/api/v1/identity/users/{disableTarget.Id:D}/disable",
+            HttpStatusCode.OK,
+            cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            disableToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{disabledUser.Id:D}/enable",
+            new { },
+            cancellationToken);
+
+        var enableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.Enable,
+            ],
+            cancellationToken);
+        await PostWithoutBodyAsync(
+            client,
+            enableToken,
+            $"/api/v1/identity/users/{disabledUser.Id:D}/enable",
+            HttpStatusCode.OK,
+            cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            enableToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{activeUser.Id:D}/disable",
+            new { },
+            cancellationToken);
+
+        var resetToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.ResetPassword,
+            ],
+            cancellationToken);
+        var resetTarget = await CreateHostUserAsync(
+            client,
+            adminToken,
+            $"reset-target-{Guid.NewGuid():N}",
+            "重置密码目标",
+            password,
+            cancellationToken);
+        await PostWithoutBodyAsync(
+            client,
+            resetToken,
+            $"/api/v1/identity/users/{resetTarget.Id:D}/reset-password",
+            HttpStatusCode.OK,
+            cancellationToken,
+            new ResetHostUserPasswordRequest("FullNet!2026Rotate"));
+        await AssertPermissionDeniedAsync(
+            client,
+            resetToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{resetTarget.Id:D}",
+            new UpdateHostUserRequest("拒绝更新", resetTarget.Version),
+            cancellationToken);
+
+        var exportToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.Export,
+            ],
+            cancellationToken);
+        await AssertOkAsync<object?>(
+            client,
+            exportToken,
+            HttpMethod.Get,
+            "/api/v1/identity/users/export",
+            null,
+            cancellationToken);
+        await AssertPermissionDeniedAsync(
+            client,
+            exportToken,
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            new CreateHostUserRequest(
+                $"denied-export-{Guid.NewGuid():N}",
+                "拒绝创建",
+                password),
+            cancellationToken);
+    }
+
+    private static async Task<HostUserResponse> CreateHostUserAsync(
+        HttpClient client,
+        string accessToken,
+        string username,
+        string displayName,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            accessToken,
+            new CreateHostUserRequest(username, displayName, password));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<HostUserResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+        return created;
+    }
+
+    private static async Task AssertUsersListAllowedAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=20");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task AssertPermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        TRequest? body,
+        CancellationToken cancellationToken)
+    {
+        using var request = body is null
+            ? new HttpRequestMessage(method, path)
+            : CreateBearerJsonRequest(method, path, accessToken, body);
+        if (body is null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task AssertOkAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        TRequest? body,
+        CancellationToken cancellationToken)
+    {
+        using var request = body is null
+            ? new HttpRequestMessage(method, path)
+            : CreateBearerJsonRequest(method, path, accessToken, body);
+        if (body is null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task PostWithoutBodyAsync(
+        HttpClient client,
+        string accessToken,
+        string path,
+        HttpStatusCode expectedStatus,
+        CancellationToken cancellationToken,
+        object? body = null)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            path,
+            accessToken,
+            body ?? new { });
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(expectedStatus, response.StatusCode);
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

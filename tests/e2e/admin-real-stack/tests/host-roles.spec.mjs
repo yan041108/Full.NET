@@ -57,3 +57,25 @@ test('受限 Host 账号访问角色 API 被拒绝且导航裁剪', async ({
   await expect(page.getByText('403', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible();
 });
+
+test('Host 管理员在角色授权树可看到用户页面与操作节点', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', '授权树 UI 仅验收 Vue 管理端');
+  await loginAsHostAdmin(page);
+
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  await navigation.getByRole('link', { name: /角色管理/ }).click();
+
+  const customRoleRow = page.getByRole('article').filter({ hasText: 'e2e-host-viewer' });
+  if ((await customRoleRow.count()) === 0) {
+    const firstCustomRole = page.getByRole('article').filter({ hasNotText: 'host-administrator' }).first();
+    await firstCustomRole.getByTestId('role-open-permissions').click();
+  } else {
+    await customRoleRow.getByTestId('role-open-permissions').click();
+  }
+
+  const tree = page.getByTestId('role-permission-tree');
+  await expect(tree).toBeVisible();
+  await expect(tree.getByText('用户管理', { exact: true })).toBeVisible();
+  await expect(tree.getByText('创建用户', { exact: true })).toBeVisible();
+  await expect(tree.getByText('重置密码', { exact: true })).toBeVisible();
+});

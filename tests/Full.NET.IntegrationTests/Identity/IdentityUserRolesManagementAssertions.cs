@@ -22,6 +22,10 @@ internal static class IdentityUserRolesManagementAssertions
 
         await VerifySystemRoleAssignmentRejectedAsync(client, cancellationToken);
         await VerifyCustomRoleAssignmentLifecycleAsync(client, cancellationToken);
+        await VerifyAssignRolesPermissionBoundaryAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiHostUserRolesContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -124,6 +128,86 @@ internal static class IdentityUserRolesManagementAssertions
         Assert.IsNotNull(updatedRoles);
         Assert.AreEqual(1, updatedRoles.RoleIds.Count);
         Assert.AreEqual(createdRole.Id, updatedRoles.RoleIds[0]);
+    }
+
+    private static async Task VerifyAssignRolesPermissionBoundaryAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var username = $"assign-only-{Guid.NewGuid():N}".ToLowerInvariant();
+        var password = FullNetApiFactory.TestPassword;
+        var roleCode = $"assign-only-role-{Guid.NewGuid():N}".ToLowerInvariant();
+
+        using var createUserRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(username, "角色分配边界用户", password));
+        using var createUserResponse = await client.SendAsync(createUserRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createUserResponse.StatusCode);
+        var user = await createUserResponse.Content.ReadFromJsonAsync<HostUserResponse>(
+            cancellationToken);
+        Assert.IsNotNull(user);
+
+        using var createRoleRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            adminToken,
+            new CreateHostRoleRequest(roleCode, "仅分配角色"));
+        using var createRoleResponse = await client.SendAsync(createRoleRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createRoleResponse.StatusCode);
+        var assignableRole = await createRoleResponse.Content.ReadFromJsonAsync<HostRoleResponse>(
+            cancellationToken);
+        Assert.IsNotNull(assignableRole);
+
+        var assignRolesToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.AssignRoles,
+            ],
+            cancellationToken);
+
+        using var getRolesRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/users/{user.Id:D}/roles");
+        getRolesRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            assignRolesToken);
+        using var getRolesResponse = await client.SendAsync(getRolesRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, getRolesResponse.StatusCode);
+        var currentRoles = await getRolesResponse.Content
+            .ReadFromJsonAsync<HostUserRolesResponse>(cancellationToken);
+        Assert.IsNotNull(currentRoles);
+
+        using var replaceRolesRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{user.Id:D}/roles",
+            assignRolesToken,
+            new ReplaceHostUserRolesRequest([assignableRole.Id], currentRoles.Version));
+        using var replaceRolesResponse = await client.SendAsync(
+            replaceRolesRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, replaceRolesResponse.StatusCode);
+
+        using var deniedCreateRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            assignRolesToken,
+            new CreateHostUserRequest(
+                $"denied-assign-{Guid.NewGuid():N}",
+                "拒绝创建",
+                password));
+        using var deniedCreateResponse = await client.SendAsync(
+            deniedCreateRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, deniedCreateResponse.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await deniedCreateResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

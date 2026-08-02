@@ -51,6 +51,7 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
       '051',
       '052',
       '053',
+      '054',
     ]
   );
   for (const selection of Object.values(

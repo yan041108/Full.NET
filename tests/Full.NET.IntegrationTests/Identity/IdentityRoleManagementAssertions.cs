@@ -23,6 +23,7 @@ internal static class IdentityRoleManagementAssertions
         await VerifyAuthorizationTreeRequiresRolesReadAsync(factory, client, cancellationToken);
         await VerifyAuthorizationTreeReturnsUsersActionsAsync(client, cancellationToken);
         await VerifyPageActionGrantHierarchyAsync(client, cancellationToken);
+        await VerifyRolePermissionRevocationDeniesActionAsync(client, cancellationToken);
         await VerifyCreateRejectsDuplicateCodeAsync(client, cancellationToken);
         await VerifySystemRoleUpdateRejectedAsync(client, cancellationToken);
         await VerifyCustomRoleLifecycleAsync(client, cancellationToken);
@@ -142,6 +143,182 @@ internal static class IdentityRoleManagementAssertions
                 IdentityUserManagementPermissions.ResetPassword,
             },
             withPermissions.PermissionCodes.ToArray());
+    }
+
+    private static async Task VerifyRolePermissionRevocationDeniesActionAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var roleCode = $"revoke-disable-{Guid.NewGuid():N}".ToLowerInvariant();
+        var operatorUsername = $"revoke-operator-{Guid.NewGuid():N}".ToLowerInvariant();
+        var targetUsername = $"revoke-target-{Guid.NewGuid():N}".ToLowerInvariant();
+        var password = Api.FullNetApiFactory.TestPassword;
+
+        using var createRoleRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            adminToken,
+            new CreateHostRoleRequest(roleCode, "撤销禁用权限角色"));
+        using var createRoleResponse = await client.SendAsync(createRoleRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createRoleResponse.StatusCode);
+        var role = await createRoleResponse.Content.ReadFromJsonAsync<HostRoleResponse>(
+            cancellationToken);
+        Assert.IsNotNull(role);
+
+        using var grantRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{role.Id:D}/permissions",
+            adminToken,
+            new ReplaceHostRolePermissionsRequest(
+                [
+                    IdentityUserManagementPermissions.Read,
+                    IdentityUserManagementPermissions.Disable,
+                ],
+                role.Version));
+        using var grantResponse = await client.SendAsync(grantRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, grantResponse.StatusCode);
+        var grantedRole = await grantResponse.Content.ReadFromJsonAsync<HostRoleResponse>(
+            cancellationToken);
+        Assert.IsNotNull(grantedRole);
+
+        var operatorUser = await CreateHostUserForRoleTestAsync(
+            client,
+            adminToken,
+            operatorUsername,
+            password,
+            cancellationToken);
+        var targetUser = await CreateHostUserForRoleTestAsync(
+            client,
+            adminToken,
+            targetUsername,
+            password,
+            cancellationToken);
+        await AssignRoleToUserAsync(
+            client,
+            adminToken,
+            operatorUser.Id,
+            role.Id,
+            cancellationToken);
+
+        var operatorToken = await LoginAsUserAsync(
+            client,
+            operatorUsername,
+            password,
+            cancellationToken);
+        using var allowedDisableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{targetUser.Id:D}/disable",
+            operatorToken,
+            new { });
+        using var allowedDisableResponse = await client.SendAsync(
+            allowedDisableRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, allowedDisableResponse.StatusCode);
+
+        using var revokeRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{role.Id:D}/permissions",
+            adminToken,
+            new ReplaceHostRolePermissionsRequest(
+                [IdentityUserManagementPermissions.Read],
+                grantedRole.Version));
+        using var revokeResponse = await client.SendAsync(revokeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, revokeResponse.StatusCode);
+
+        var refreshedTarget = await CreateHostUserForRoleTestAsync(
+            client,
+            adminToken,
+            $"revoke-target-2-{Guid.NewGuid():N}".ToLowerInvariant(),
+            password,
+            cancellationToken);
+        var refreshedToken = await LoginAsUserAsync(
+            client,
+            operatorUsername,
+            password,
+            cancellationToken);
+        using var deniedDisableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{refreshedTarget.Id:D}/disable",
+            refreshedToken,
+            new { });
+        using var deniedDisableResponse = await client.SendAsync(
+            deniedDisableRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, deniedDisableResponse.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await deniedDisableResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task<HostUserResponse> CreateHostUserForRoleTestAsync(
+        HttpClient client,
+        string adminToken,
+        string username,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(username, "角色撤销测试用户", password));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<HostUserResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+        return created;
+    }
+
+    private static async Task AssignRoleToUserAsync(
+        HttpClient client,
+        string adminToken,
+        Guid userId,
+        Guid roleId,
+        CancellationToken cancellationToken)
+    {
+        using var getRolesRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/users/{userId:D}/roles");
+        getRolesRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var getRolesResponse = await client.SendAsync(getRolesRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, getRolesResponse.StatusCode);
+        var currentRoles = await getRolesResponse.Content
+            .ReadFromJsonAsync<HostUserRolesResponse>(cancellationToken);
+        Assert.IsNotNull(currentRoles);
+
+        using var assignRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{userId:D}/roles",
+            adminToken,
+            new ReplaceHostUserRolesRequest([roleId], currentRoles.Version));
+        using var assignResponse = await client.SendAsync(assignRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, assignResponse.StatusCode);
+    }
+
+    private static async Task<string> LoginAsUserAsync(
+        HttpClient client,
+        string username,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        using var loginRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, password)),
+        };
+        loginRequest.Headers.Add("Origin", "http://localhost");
+        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
+        var token = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(
+            cancellationToken);
+        Assert.IsNotNull(token);
+        return token.AccessToken;
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(

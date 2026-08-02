@@ -261,7 +261,8 @@ internal static class IdentityApiKeyAssertions
             new ReplaceHostRolePermissionsRequest(
                 [
                     IdentityApiKeyManagementPermissions.Write,
-                    IdentityUserManagementPermissions.Write,
+                    IdentityUserManagementPermissions.Read,
+                    IdentityUserManagementPermissions.Create,
                 ],
                 role.Version));
         using var grantPermissionResponse = await client.SendAsync(
@@ -320,7 +321,7 @@ internal static class IdentityApiKeyAssertions
             new CreateHostApiKeyRequest(
                 adminUserId,
                 "越权密钥",
-                [IdentityUserManagementPermissions.Write],
+                [IdentityUserManagementPermissions.Create],
                 null));
         using var escalationResponse = await client.SendAsync(
             escalationRequest,

@@ -134,6 +134,131 @@ export async function createHostUserViaApi(request, clientKind, options) {
 }
 
 /**
+ * 经真实 API 创建带精确权限的 Host 角色。
+ * @returns {Promise<{ id: string, code: string, version: number, permissionCodes: string[] }>}
+ */
+export async function createHostRoleWithPermissionsViaApi(request, clientKind, options) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const createResponse = await request.post(`${apiBaseUrl}/api/v1/identity/roles`, {
+    data: {
+      code: options.code,
+      name: options.name
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    }
+  });
+  expect(createResponse.status()).toBe(201);
+  const role = await createResponse.json();
+  const permissionsResponse = await request.put(
+    `${apiBaseUrl}/api/v1/identity/roles/${role.id}/permissions`,
+    {
+      data: {
+        permissionCodes: options.permissionCodes,
+        version: role.version
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(permissionsResponse.ok()).toBeTruthy();
+  const withPermissions = await permissionsResponse.json();
+  return {
+    id: withPermissions.id,
+    code: withPermissions.code,
+    version: withPermissions.version,
+    permissionCodes: withPermissions.permissionCodes
+  };
+}
+
+/**
+ * 经真实 API 为 Host 用户绑定角色。
+ */
+export async function assignHostUserRolesViaApi(request, clientKind, userId, roleIds) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
+  const currentResponse = await request.get(
+    `${apiBaseUrl}/api/v1/identity/users/${encodeURIComponent(userId)}/roles`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin
+      }
+    }
+  );
+  expect(currentResponse.ok()).toBeTruthy();
+  const current = await currentResponse.json();
+  const response = await request.put(
+    `${apiBaseUrl}/api/v1/identity/users/${encodeURIComponent(userId)}/roles`,
+    {
+      data: {
+        roleIds,
+        version: current.version
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+/**
+ * 准备一次性 Host 受限账号：独立角色、用户与密码，避免污染共享 e2e-viewer。
+ * @returns {Promise<{ username: string, password: string, userId: string, roleId: string }>}
+ */
+export async function provisionLimitedHostUserViaApi(request, clientKind, options) {
+  const stamp = Date.now().toString(36);
+  const roleCode = options.roleCode ?? `e2e_role_${stamp}`;
+  const username = options.username ?? `e2e_user_${stamp}`;
+  const password = options.password ?? (process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure');
+  const role = await createHostRoleWithPermissionsViaApi(request, clientKind, {
+    code: roleCode,
+    name: options.roleName ?? 'E2E 受限角色',
+    permissionCodes: options.permissionCodes
+  });
+  const user = await createHostUserViaApi(request, clientKind, {
+    username,
+    displayName: options.displayName ?? 'E2E 受限用户',
+    password
+  });
+  await assignHostUserRolesViaApi(request, clientKind, user.id, [role.id]);
+  return {
+    username: user.username,
+    password,
+    userId: user.id,
+    roleId: role.id
+  };
+}
+
+/** 使用指定凭据登录 Host 管理端并等待动态导航就绪。 */
+export async function loginAsHostUser(page, username, password, baseUrl = '/') {
+  await page.goto(baseUrl);
+  await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
+  await page.getByLabel('账号', { exact: true }).fill(username);
+  await page.getByLabel('密码', { exact: true }).fill(password);
+  await page.getByRole('button', { name: '进入控制台' }).click();
+  await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
+    timeout: 15_000
+  });
+}
+
+/** 使用指定凭据经真实登录 API 获取 Access Token。 */
+export async function loginAccessTokenWithPassword(request, clientKind, username, password) {
+  return loginWithPassword(request, clientKind, username, password);
+}
+
+/**
  * 经真实 API 创建 Host 租户套餐，供真实栈写路径准备数据。
  * @returns {Promise<{ id: string, code: string, name: string, version: number }>}
  */
