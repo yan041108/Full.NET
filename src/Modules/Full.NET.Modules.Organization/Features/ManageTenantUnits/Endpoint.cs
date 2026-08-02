@@ -95,7 +95,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUnitResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUnitManagementPermissions.Write));
+            OrganizationUnitManagementPermissions.Create));
 
         group.MapPut("/{unitId:guid}", async (
             Guid unitId,
@@ -111,7 +111,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUnitResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUnitManagementPermissions.Write));
+            OrganizationUnitManagementPermissions.Update));
 
         group.MapPost("/{unitId:guid}/disable", async (
             Guid unitId,
@@ -126,6 +126,6 @@ internal static class Endpoint
         })
         .Produces<OrganizationUnitResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUnitManagementPermissions.Write));
+            OrganizationUnitManagementPermissions.Disable));
     }
 }

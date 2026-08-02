@@ -3519,7 +3519,9 @@ function currentUserResponse(activeTenantId = null) {
       ...(activeTenantId
         ? [
             'organization.units.read',
-            'organization.units.write',
+            'organization.units.create',
+            'organization.units.update',
+            'organization.units.disable',
             'organization.user_units.read',
             'organization.user_units.write',
             'organization.positions.read',

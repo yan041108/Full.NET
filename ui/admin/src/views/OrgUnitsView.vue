@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -13,8 +13,8 @@ import {
   type OrganizationUnit
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
-import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   createOrganizationUnit,
   disableOrganizationUnit,
@@ -22,7 +22,6 @@ import {
   updateOrganizationUnit
 } from '../api/org-units';
 
-const session = useSessionStore();
 const { t } = useAdminI18n();
 const units = ref<OrganizationUnit[]>([]);
 const code = ref('');
@@ -30,7 +29,6 @@ const name = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('organization.units.write'));
 
 onMounted(load);
 
@@ -139,7 +137,8 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+    <PermissionGate code="organization.units.create">
+      <el-card class="art-form-card" shadow="never">
       <div class="art-form-grid art-form-grid--cols-2" aria-labelledby="create-title">
         <div><h2 id="create-title">{{ t('orgUnits.createTitle') }}</h2></div>
         <label>
@@ -153,6 +152,7 @@ function toProblem(
         <el-button type="primary" :loading="changing" @click="create">{{ t('orgUnits.create') }}</el-button>
       </div>
     </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -173,16 +173,19 @@ function toProblem(
           {{ t(unit.isActive ? 'orgUnits.active' : 'orgUnits.inactive') }}
         </el-tag>
         <div class="art-data-row__actions">
-          <el-button v-if="canWrite" plain :disabled="changing" @click="edit(unit)">{{ t('orgUnits.edit') }}</el-button>
-          <el-button
-            v-if="canWrite && unit.isActive"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(unit)"
-          >
-            {{ t('orgUnits.disable') }}
-          </el-button>
+          <PermissionGate code="organization.units.update">
+            <el-button plain :disabled="changing" @click="edit(unit)">{{ t('orgUnits.edit') }}</el-button>
+          </PermissionGate>
+          <PermissionGate v-if="unit.isActive" code="organization.units.disable">
+            <el-button
+              type="danger"
+              plain
+              :disabled="changing"
+              @click="disable(unit)"
+            >
+              {{ t('orgUnits.disable') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

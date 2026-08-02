@@ -8,7 +8,16 @@ public static class OrganizationUnitManagementPermissions
     /// <summary>分页查询租户机构列表与详情。</summary>
     public const string Read = "organization.units.read";
 
-    /// <summary>创建、更新与禁用租户机构。</summary>
+    /// <summary>创建租户机构。</summary>
+    public const string Create = "organization.units.create";
+
+    /// <summary>更新租户机构。</summary>
+    public const string Update = "organization.units.update";
+
+    /// <summary>禁用租户机构。</summary>
+    public const string Disable = "organization.units.disable";
+
+    /// <summary>迁移 062 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "organization.units.write";
 }
 

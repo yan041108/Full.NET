@@ -5,6 +5,7 @@ using Full.NET.Hosting.Observability;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MessagePack;
 using Full.NET.Data.Abstractions;
@@ -268,6 +269,29 @@ public sealed class EndpointAuthorizationTests
         {
             Assert.Fail(
                 "tenancy.tenant_packages.write 已退役，下列 Endpoint 仍绑定该权限: "
+                + string.Join(", ", violations));
+        }
+    }
+
+    [TestMethod]
+    public void Api_v1_endpoints_do_not_bind_retired_organization_units_write()
+    {
+        using var app = BuildApiApplication();
+
+        var violations = CollectPermissionBindings(app)
+            .Where(binding => string.Equals(
+                binding.PermissionCode,
+                OrganizationUnitManagementPermissions.Write,
+                StringComparison.Ordinal))
+            .Select(binding => $"{binding.HttpMethod} {binding.Route} -> {binding.PermissionCode}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        if (violations.Length > 0)
+        {
+            Assert.Fail(
+                "organization.units.write 已退役，下列 Endpoint 仍绑定该权限: "
                 + string.Join(", ", violations));
         }
     }

@@ -13,8 +13,16 @@ internal sealed class OrganizationAuthorizationContributor
             "查看机构",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
-            OrganizationUnitManagementPermissions.Write,
-            "管理机构",
+            OrganizationUnitManagementPermissions.Create,
+            "创建租户机构",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationUnitManagementPermissions.Update,
+            "更新租户机构",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationUnitManagementPermissions.Disable,
+            "禁用租户机构",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
             OrganizationUserUnitManagementPermissions.Read,
@@ -107,5 +115,30 @@ internal sealed class OrganizationAuthorizationContributor
             "user",
             49,
             OrganizationUserPositionManagementPermissions.Read),
+    ];
+
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
+    [
+        new AuthorizationActionDefinition(
+            "organization.units.create",
+            "org-units",
+            OrganizationUnitManagementPermissions.Create,
+            "创建机构",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "organization.units.update",
+            "org-units",
+            OrganizationUnitManagementPermissions.Update,
+            "编辑机构",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "organization.units.disable",
+            "org-units",
+            OrganizationUnitManagementPermissions.Disable,
+            "禁用机构",
+            "disable",
+            30),
     ];
 }

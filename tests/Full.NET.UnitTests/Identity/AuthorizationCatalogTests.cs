@@ -1,6 +1,8 @@
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Organization;
+using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 
@@ -293,6 +295,33 @@ public sealed class AuthorizationCatalogTests
             packageActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == TenancyTenantPackagePermissions.Write));
+    }
+
+    [TestMethod]
+    public void Tenant_org_units_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new OrganizationAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "organization.units.create",
+            ["update"] = "organization.units.update",
+            ["disable"] = "organization.units.disable",
+        };
+
+        var unitActions = catalog.Actions
+            .Where(action => action.NavigationId == "org-units")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            unitActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == OrganizationUnitManagementPermissions.Write));
     }
 
     [TestMethod]

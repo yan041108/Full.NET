@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-        "minimum": 1059,
+        "minimum": 1060,
       "timeout": "10m"
     },
     "compatibility": {
@@ -16,7 +16,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 58,
+      "minimum": 59,
       "timeout": "10m"
     }
   },
@@ -128,6 +128,9 @@
       },
       "061": {
         "filter": "FullyQualifiedName~Migration061TenancyTenantPackageActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration061TenancyTenantPackageActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "062": {
+        "filter": "FullyQualifiedName~Migration062OrganizationUnitActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration062OrganizationUnitActionPermissionsRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -154,7 +157,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 154,
+        "minimum": 160,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -163,7 +166,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 364,
+        "minimum": 370,
         "timeout": "90m"
       }
     }
