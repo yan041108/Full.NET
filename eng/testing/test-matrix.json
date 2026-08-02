@@ -126,11 +126,11 @@
       },
       "infrastructure": {
         "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations",
-        "minimum": 97,
+        "minimum": 99,
         "timeout": "60m"
       },
       "full": {
-        "minimum": 285,
+        "minimum": 287,
         "timeout": "90m"
       }
     }

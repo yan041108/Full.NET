@@ -2,7 +2,7 @@
 
 - 日期：2026-08-02
 - 代码基线：`main` @ `7abfa48`
-- 状态：**建议稿**（未经 Spec 批准，不得进入实施计划或生产代码）
+- 状态：**已关闭** → Spec [design](../superpowers/specs/2026-08-02-codegeneration-lifecycle-runtime-sql-design.md)（Approved）
 - 上游证据：[Admin.NET 生命周期吸收验证](codegeneration-adminnet-lifecycle-2026-07-30.md)、[产品 Rollback 演进闭合](codegeneration-product-rollback-2026-08-02.md)
 
 ## 1. 结论

@@ -3,7 +3,7 @@
 - 日期：2026-07-30
 - 基线：`975da1ee9c0e073e6cfbf0bd2c2cd530063d8313`
 - 任务快照：`adminnet-absorb-02-codegen-lifecycle`
-- 状态：`Implemented`
+- 状态：`Build-verified`
 - 对应计划：[Admin.NET 设计吸收改造实施计划 Task 2](../superpowers/plans/2026-07-30-adminnet-design-absorption-program.md#task-2-生成软删除审计并发和场景安全-sql)
 
 ## 已落地
@@ -49,6 +49,6 @@ Docker teardown: running=0 / residual=0
 ## 证据边界
 
 - 当前双库证据验证迁移模板形状、生成 SQL 安全规则、编译投影和受影响 Integration 集合；
-- 尚未把任意生成 Schema 的 update、soft-delete、hard-delete SQL 动态应用到 SQL Server/MySQL 并执行运行时语义矩阵，因此状态保持 `Implemented`，不标记为 `Verified`；
+- `SoftDelete` 显式生命周期 SQL 已在双库隔离环境执行 Create/Update/软删矩阵（见 [codegeneration-lifecycle-runtime-sql-2026-08-02.md](codegeneration-lifecycle-runtime-sql-2026-08-02.md)）；`Immutable`/`HardDelete-only` 变体与更广 E2E 仍待补，因此不标记为 `Verified`；
 - `Tree`、聚合关系和组织所有权仅完成安全建模与 fail-closed，不计为可执行功能；
 - 本切片没有复制 Admin.NET.Pro 模板或运行时框架代码，只吸收其能力目录和场景划分思想。
