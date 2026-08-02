@@ -1,273 +1,174 @@
 # Full.NET 客户端交付路线图
 
-- 建立日期：2026-07-17
-- 状态：Implementing
-- 详细设计：[`../superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md`](../superpowers/specs/2026-07-17-multi-client-frontend-strategy-design.md)
-- UI 框架设计：[`../superpowers/specs/2026-07-18-client-ui-framework-design.md`](../superpowers/specs/2026-07-18-client-ui-framework-design.md)
-- 多语言设计：[`../superpowers/specs/2026-07-17-full-stack-localization-design.md`](../superpowers/specs/2026-07-17-full-stack-localization-design.md)
-- 多语言计划：[`../superpowers/plans/2026-07-17-full-stack-localization.md`](../superpowers/plans/2026-07-17-full-stack-localization.md)
-- 总功能矩阵：[`adminnet-feature-parity.md`](adminnet-feature-parity.md)
-- 全项目当前状态：[`capability-status.md`](capability-status.md)
-
-本文件维护客户端细节；全项目对外能力状态以 `capability-status.md` 为唯一总览，避免把客户端壳层完成误读为完整后台功能完成。
+> **2026-08-02 决策：** Vue 3 管理端是后台产品唯一持续交付线；Layui 管理端进入存量冻结，不再新增功能，也不参与后续能力的 `Verified` 门槛。此前“Vue/Layui 长期并行”决策由本路线图和 [`rules/client-frontend.md`](../../rules/client-frontend.md) 替代，历史验证记录继续保留为当时证据。
 
 ## 1. 交付目标
 
-Full.NET 同时维护两套功能范围一致的后台管理端，并按平台职责提供业务客户端：
+客户端按真实产品形态分工，不再为同一后台业务维护两套实现：
 
-| 轨道 | 目录 | 交付责任 | 优先级 |
-|---|---|---|---:|
-| A | `ui/admin` | Vue 3 主管理端，完整后台功能 | P0 |
-| B | `ui/admin-layui` | Layui JS/HTML 管理端，与 Vue 后台功能对等；**长期并行**（非退役候选） | P0 |
-| C | `clients/uniapp` | H5、微信小程序、支付宝小程序 | P1 |
-| D | `clients/flutter` | Android、iOS、Windows、macOS、Linux | P2 |
-| E | `clients/maui-template` | C#/Windows 企业项目按需模板 | 决策门禁 |
+| 轨道 | 目录 | 定位 | 优先级 |
+| --- | --- | --- | --- |
+| Vue 管理端 | `ui/admin` | 唯一后台产品交付线；Vue 3 + TypeScript + Vite + Element Plus + Art Design Pro 基线 | P0 |
+| Layui 存量端 | `ui/admin-layui` | 冻结的历史实现；只接受明确授权的安全、许可、迁移或退役任务 | Frozen |
+| 共享 Web 契约 | `packages/client-contracts`、`packages/admin-i18n`、`packages/design-tokens` | OpenAPI/ProblemDetails/权限/租户/运行时校验和设计令牌 | P0 |
+| uni-app | `clients/uniapp` | H5、微信小程序、支付宝小程序业务客户端 | P1 |
+| Flutter | `clients/flutter` | Android/iOS 原生与 Windows/macOS/Linux 桌面端 | P2 |
+| .NET MAUI | 尚未创建 | 仅在 C#/Windows 企业需求命中独立决策门禁后建立模板 | Decision Gate |
 
-P0 的两套管理端必须按同一后台模块同步开发。P1/P2 不承担完整后台功能，只实现面向终端用户和现场业务的流程。
+Vue 管理端必须优先形成完整、可访问、可真实验收的业务闭环。所有客户端继续通过 OpenAPI、标准状态码、ProblemDetails、稳定权限码和租户语义与服务端解耦，不共享具体 UI 组件。
 
-### 当前实现快照
+## 2. 当前实现快照
 
-| 范围 | 当前状态 | 已完成 | 尚未完成 |
-|---|---|---|---|
-| C0 浏览器契约 | Implemented | pnpm 工作区、共享 ProblemDetails、设计令牌、Vue/原生 JS 适配、许可证清单、全仓库语言治理清单、服务端资源本地化 | OpenAPI 漂移、分页/文件契约、uni-app 与 Dart 适配 |
-| C1 双管理端壳层 | Build-verified | Art Design Pro 已迁入 Vue；Layui clean-room 对等壳层（布局/设置/标签/搜索/通知/聊天演示）；登录/刷新/退出、租户、权限导航、ProblemDetails、双端 E2E **76** 项执行（**38** 唯一场景 × Vue/Layui）；Layui 单测 **80/80**、Vue **135/135**；见[迁移验收](../verification/admin-art-design-pro.md) | NVDA、200% 缩放、强制颜色人工验收；通知/聊天真实 API；Tiptap 富文本 |
-| C2 业务模块 | Designing（已批准） | 功能波次和双端同步门禁；[用户管理纵向切片计划](../superpowers/plans/2026-07-21-identity-user-management-vertical-slice.md) 已获所有者批准 | 首刀为 Identity **用户管理**（列表/详情/创建/更新/禁用）；角色/菜单/Organization 排在其后；Layui **长期并行**，切片必须双端同步 |
-| C3 uni-app 基础客户端 | Implementing / Build-verified | Vue 3/TypeScript、Vue I18n、规范语言适配、pages/manifest、本地资源、HTTP/ProblemDetails、账号偏好原子提交、uni-ui/easycom/主题令牌、真实设置页迁移、103 项单测、类型检查、三目标 CLI 构建和 6 项 H5 E2E | 微信/支付宝开发者工具、真机、真实登录/租户/会话流程和平台发布清单 |
-| C4 Flutter 业务客户端 | Designing | Flutter 3.44、Material 3 + Cupertino、平台边界和多语言统一设计 | Flutter 工程、设计令牌、原生资源与平台构建验证 |
+| 能力 | 状态 | 当前证据 | 下一缺口 |
+| --- | --- | --- | --- |
+| C0 公共契约 | Build-verified | 会话、ProblemDetails、租户、导航、主要模块 API 客户端与运行时校验已存在 | 授权树和逐操作权限契约 |
+| C1 Vue 壳层 | Build-verified | Art Design Pro 壳层、路由、主题、导航、会话、国际化与现有模块页面 | 富文本、人工辅助技术验收、进一步视觉收敛 |
+| C1-Legacy Layui | Frozen | 历史壳层、页面、测试和真实栈证据保留 | 不再补齐功能；另行制定退役计划 |
+| C2 后台业务 | Implementing | Identity、Tenancy、Organization、Settings、Auditing、Files、Notifications、CodeGeneration 等已有 Vue 切片 | 逐页面/逐操作授权；未完成模块继续只做 Vue |
+| C3 uni-app | Build-verified foundation | 三目标工程与基础契约已建立 | 真实业务纵向样例和发布验证 |
+| C4 Flutter | Designing | 框架、组件与设计令牌边界已确定 | 工程基线和首个真实业务样例 |
 
-“C0 浏览器契约 Implemented”只表示本计划限定的浏览器部分已实现，不代表 C0 的四类客户端退出条件已经满足。C1 的 Art 壳层对等、真实认证、租户、权限、管理端自有及组件文案、HTTP 协商、账号偏好、服务端错误本地化与自动可访问性流程已经通过验证；真实辅助技术、200% 缩放和强制颜色仍待完成，因此保持 `Build-verified`，不提前标记为 `Verified`。
+测试发现数量只维护在 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json)，本路线图不复制门槛数字。
 
-### 横向多语言状态
+## 3. 完成状态
 
-多语言是跨 C0-C5 的横向轨道，不以任意单一客户端完成代替其他端：
+| 状态 | 判定 |
+| --- | --- |
+| `Mapped` | 已有功能归属、依赖与风险映射 |
+| `Designing` | API、页面和验收场景正在设计 |
+| `Implementing` | 服务端、共享契约或 Vue 已开始实现，但纵向切片未关闭 |
+| `Implemented` | 服务端和 Vue 目标功能均已实现，完整验收尚未结束 |
+| `Build-verified` | 聚焦 Unit/Architecture/契约/构建和受影响集已通过，但发布、人工或生产等价证据仍缺失 |
+| `Verified` | 服务端双库、精确权限、租户、Vue 错误处理/可访问性/关键流程和真实栈 E2E 全部通过 |
+| `Frozen` | 存量成果保留但停止功能扩张，不承诺与活动产品线对等 |
 
-| 阶段 | 当前状态 | 交付 |
-|---|---|---|
-| L0 统一语言治理 | Implemented | 已实现 BCP 47 清单、平台映射、术语、资源 Schema 与缺键门禁 |
-| L1 ASP.NET Core | Implemented | 已实现 Accept-Language、规范别名、CultureScope、模块 .resx、响应头、本地化 ProblemDetails、结构化 violations 与 Admin.NET 兼容映射 |
-| L2 双管理端补齐 | Implemented | Element Plus/Day.js、Layui 公开 i18n、逐请求 Accept-Language、账号偏好与租户默认语言、双端保存失败回滚及 E2E |
-| L3 uni-app | Implementing / Build-verified | Vue I18n、zh-CN↔zh-Hans 映射、pages/manifest、uni-ui 设置页、H5/微信/支付宝 CLI 构建与 6 项 H5 浏览器冒烟；两个小程序开发者工具未执行 |
-| L4 Flutter | Designing | gen_l10n/ARB、请求语言、平台资源、移动/桌面构建 |
-| L5 业务内容与异步 | Mapped | 翻译表、通知/报表、Realtime、AI 输出语言 |
-| L6 MAUI | Decision Gate | 命中既有门禁后使用 .resx 和平台资源 |
+Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、`Build-verified` 或 `Verified`。但任何任务也不得把未验证的 Vue 能力借 Layui 历史证据误报为已完成。
 
-## 2. 完成状态
+## 4. Vue 后台交付门禁
 
-管理端功能分别记录两个状态：
+每个后台纵向切片按以下顺序关闭：
 
-| 状态 | 含义 |
-|---|---|
-| `Mapped` | 已确定归属，尚未建立客户端规格 |
-| `Designing` | API、页面和双端验收场景正在设计 |
-| `Implementing` | 至少一个管理端已开始实现，但双端尚未全部完成 |
-| `Implemented` | Vue 与 Layui 功能均已实现，尚未通过完整验收 |
-| `Verified` | 双端权限、租户、错误处理、关键流程和 E2E 均通过 |
-| `Not Applicable` | 经设计评审确认某一端不适用，且已有等价替代交互 |
+1. 冻结 OpenAPI、ProblemDetails、权限码、租户和并发语义；
+2. 为页面和每个服务端业务操作定义稳定权限码；
+3. Endpoint 显式绑定精确权限，未知或缺失授权失败关闭；
+4. 更新 `packages/client-contracts` 的类型与不可信 JSON 校验；
+5. Vue 使用本地可信路由/组件白名单和响应式权限门，无权限业务按钮不进入 DOM；
+6. Unit 覆盖页面、单操作授权、撤销和错误；
+7. SQL Server/MySQL Integration 覆盖权限、租户和直接 API 403；
+8. Vue Mock/真实栈 E2E 覆盖关键流程、权限隐藏、绕过拒绝、可访问性和错误恢复；
+9. 受影响集、Vue 生产构建、客户端审计和许可证门禁通过后更新状态。
 
-禁止将 Vue 单端完成标记为管理端 `Implemented` 或 `Verified`。
+详细权限模型见 [Vue 页面/操作授权设计](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)和[实施计划](../superpowers/plans/2026-08-02-vue-action-authorization.md)。
 
-## 3. 双管理端同步开发门禁
-
-每个后台模块使用同一纵向切片交付：
-
-1. 后端 API、权限码、分页、ProblemDetails 和 OpenAPI 契约先进入可测试状态；
-2. 同时写出 Vue 与 Layui 的关键 E2E 场景，场景名称和业务断言保持一致；
-3. 分别实现两套页面、状态管理和框架适配；
-4. 对比查询、详情、创建、修改、删除、批量操作、导入导出等适用流程；
-5. 两端分别执行无权限、跨租户、验证失败、并发冲突和会话失效场景；
-6. 双端 E2E、OpenAPI 漂移检查和许可证检查通过后更新矩阵。
-
-允许同一短周期内先在 Vue 或 Layui 验证复杂交互，但功能不得带着另一端欠账跨越里程碑退出门禁。
-
-### 3.1 Layui 轨道决策（2026-07-21 已确认）
-
-项目所有者确认：Layui 管理端与 Vue 主管理端 **长期并行**，不是历史兼容过渡层，**不设退役窗口**。
-
-- `rules/client-frontend.md` 双端同步与 `Verified` 门槛继续强制；
-- 禁止将 Layui 降为“尽力而为”、单端先行合入里程碑、或仅文档声明对等而未做验收；
-- 后续若改退役策略，必须书面决策并同步修订本路线图与 `client-frontend` 规则。
-- 证据：[`external-review-2026-07-21.md`](../verification/external-review-2026-07-21.md) 决策附录。
-
-## 4. 阶段计划
+## 5. 阶段计划
 
 ### C0：公共客户端契约底座
 
-**目标：** 让所有客户端使用同一 API、安全和错误语义。
+持续维护：
 
-**交付：**
+- 标准 HTTP、ProblemDetails、CSRF、会话刷新与跨 Tab 协调；
+- 可信租户上下文、动态导航结构校验与本地组件白名单；
+- 页面/操作授权树、稳定权限码和权限撤销版本；
+- OpenAPI 漂移、Source Generation JSON 与 TypeScript 运行时校验；
+- 统一设计令牌、多语言机器码边界和许可证审计。
 
-- 固定 OpenAPI 输出和破坏性变更检查；
-- 定义分页、ProblemDetails 扩展、文件上传下载和取消契约；
-- 建立 TypeScript、原生 JavaScript、uni-app 和 Dart 客户端生成/适配入口；
-- 定义浏览器、小程序、原生应用各自的认证和令牌存储策略；
-- 建立共享权限码、菜单元数据、业务术语和设计令牌源；
-- 建立共享 BCP 47 语言清单、回退、平台映射、错误资源完整性和术语源；
-- 建立客户端依赖、图标、字体、SDK 和生成器许可证清单。
+**退出条件：** Vue 不自行猜测服务端协议；未知导航、权限和 JSON 结构失败关闭；所有公共契约由测试冻结。
 
-**退出条件：** 四种目标客户端都能调用同一个测试 API，并一致解析成功、验证失败、未授权、禁止访问、并发冲突和服务器错误；相同语言请求返回相同稳定 code，展示文本与 Content-Language 符合语言契约。
+### C1：Vue 管理壳层
 
-### C1：Vue/Layui 双管理端壳层
+技术基线：Vue 3、TypeScript、Vite、Element Plus、Pinia、Vue Router、Art Design Pro；ECharts 按需加载；Tiptap Core 按明确计划接入。
 
-**目标：** 两套管理端具备相同的会话、租户、权限和导航基础。
+必须具备：登录/退出/刷新、租户切换、动态导航、全局错误、403/404/500、主题/布局、键盘与窄屏可用、受控通知与实时连接、精确页面/按钮权限。
 
-**交付：**
+**退出条件：** Vue 在真实 API 上完成核心会话与管理路径；模板 Mock、任意动态组件和未经审计资产不进入发布物。
 
-- Vue 3 + TypeScript + Vite + Element Plus 工程，以固定提交的 MIT Art Design Pro 作为管理壳层和通用交互基线；ECharts 作为标准图表引擎；
-- Layui 2 + HTML/CSS/原生 JavaScript 工程，核心资源本地化；
-- 基于公开页面体验形成 Full.NET 原创设计令牌和后台壳层，不复制 layuiAdmin 产品资产；
-- 登录、退出、刷新会话、租户选择、菜单、按钮权限、403/404/500 页面；
-- ProblemDetails 统一处理、请求取消、重复提交保护和 TraceId 展示；
-- 两套管理端的响应式布局、主题令牌、国际化入口和可访问性基线；
-- Element Plus/Day.js 与 Layui 组件语言、Accept-Language 和账号语言偏好同步；
-- Vue/Layui 相同场景的 Playwright E2E。
+### C2：后台核心模块
 
-**退出条件：** 两端都能完成登录、租户切换、权限菜单和退出流程；Art Design Pro 迁入不替换 Full.NET 认证、请求、租户和导航白名单契约；Layui 生产产物不依赖 Vue/React 等 SPA 运行时。
+| 波次 | 后台能力 | 当前状态 | 下一动作 |
+| --- | --- | --- | --- |
+| C2.1 | 用户、角色、菜单、超级管理员、在线会话、API Key | Implementing | 先完成 Users 页面/操作权限样板，再迁移剩余 Identity 资源 |
+| C2.2 | 租户、套餐、机构、职位、职级、用户隶属 | Build-verified slices | 按资源拆分粗粒度写权限并补 Vue 单操作 E2E |
+| C2.3 | 配置、字典、枚举、Grid 偏好、审计 | Build-verified slices | 完成 Vue 体验与精确操作权限，不再建设 Layui |
+| C2.4 | Files、Notifications、Jobs、CodeGeneration | Implementing | 完成 Vue 管理页、逐操作权限和运维闭环 |
+| C2.5 | Document 及后续 Admin.NET 吸收模块 | Designing/Implementing | 每个模块独立 Spec/Plan，只交付 Vue 后台 |
 
-### C2：双管理端核心模块对标
+**退出条件：** Full.NET 1.0 范围内后台能力的服务端、双库、Vue 和真实栈验收完成；权限授权页面可以独立选择每个页面和业务操作。
 
-后端模块按照下表逐波交付。每一行都要求 Vue 与 Layui 同步进入相同完成状态。
+### C3：Layui 冻结与退役治理
 
-| 波次 | 后台能力 | Vue | Layui | 后端依赖 | 相对规模 |
-|---|---|---|---|---|---|
-| C2.1 | 用户、角色、菜单、按钮权限、受保护超级管理员 | Implementing | Implementing | Identity | L |
-| C2.1 | 租户、套餐、租户切换 | Implementing | Implementing | Tenancy | L |
-| C2.1 | 组织、职位、数据范围 | Implementing | Implementing | Organization | L |
-| C2.2 | 字典、系统配置、枚举元数据 | Build-verified | Build-verified | Settings | M |
-| C2.2 | 访问日志（HTTP 汇总） | Build-verified | Build-verified | Auditing | M |
-| C2.2 | 操作日志（已认证写操作） | Build-verified | Build-verified | Auditing | M |
-| C2.2 | 异常日志 | Build-verified | Build-verified | Auditing | M |
-| C2.2 | Host API Key 管理 | Build-verified | Build-verified | Identity | M |
-| C2.2 | 用户 Grid/Column 展示偏好适配器 | Build-verified | Build-verified | Settings + Client Preferences | S |
-| C2.2 | 在线用户、公告、站内通知 | Mapped | Mapped | Realtime + Notifications | L |
-| C2.3 | 文件、对象存储和预览 | Mapped | Mapped | Files + Storage Provider | L |
-| C2.3 | 任务调度、执行记录和重试 | Mapped | Mapped | Jobs | L |
-| C2.3 | 代码生成预览、Host 模板、受控 Apply 与运行记录 | Verified | Verified | CodeGeneration + Naming Profile | XL |
-| C2.4 | 工作台、统计和监控入口 | Mapped | Mapped | Dashboard Contracts | L |
+- 禁止新增页面、业务按钮、API Adapter、共享契约消费、生成模板和功能对等 E2E；
+- 保留历史源代码和验证记录，防止无授权破坏性删除；
+- Critical/High 安全修复、许可证处置和迁移辅助必须单独授权并保持最小范围；
+- 另行评估归档、只读发布、移出默认工作区或最终删除的时点和迁移说明。
 
-规模只表示相对拆分需要，不是工期承诺：`M` 应拆成至少一个可独立验收切片，`L` 至少两个，`XL` 必须先建立独立设计和多阶段计划。
+**退出条件：** 新功能 diff 不包含 `ui/admin-layui/**`；CI 和文档不再把 Layui 当成产品完成门槛。
 
-**退出条件：** 纳入 Full.NET 1.0 的后台功能全部达到双端 `Verified`；后续官方模块继续复用同一门禁。
+### C4：uni-app H5/微信/支付宝
 
-超级管理员按[专用设计](../superpowers/specs/2026-07-18-super-administrator-design.md)和[实施计划](../superpowers/plans/2026-07-18-super-administrator.md)交付。Vue/Layui 必须同步覆盖系统角色只读标识、授予/撤销确认、最后一名保护、会话失效和审计入口；客户端标记不能绕过服务端权限或租户边界。
+继续使用 uni-app Vue 3 + uni-ui，分别验证 H5、微信小程序和支付宝小程序构建。优先选择能复用现有 OpenAPI/权限/租户契约的真实业务样例，不复制后台管理功能。
 
-当前两端已消费 `isSuperAdministrator` 契约并完成超级管理员列表、授予、撤销确认、最后一名错误呈现和审计入口；服务端逐请求会话校验、远程 API、当前密码重认证、可追责事务审计和双库保护均已落地。Production MFA/强认证、账号禁用/删除路径、完整用户/角色 CRUD 与真实后端浏览器链路尚未完成，因此 C2.1 为 `Implementing`，不能标记 `Verified`。
+### C5：Flutter 原生移动与桌面
 
-代码生成在进入首个双端 CRUD 样例前必须先完成 [`命名治理实施计划`](../superpowers/plans/2026-07-18-naming-governance.md) 的 Profile、门禁和共用命名内核。Vue、Layui、SQL 和后端模板只能消费同一逻辑/物理名称映射，禁止各端自行转换大小写、单复数或项目表前缀。
+采用 Flutter Material 3 + Cupertino + Full.NET 设计令牌，为手机、平板和桌面提供自适应业务客户端。Flutter 不重复承担 H5，功能按真实客户端需求选择，不追求后台全量对等。
 
-### C3：uni-app H5/微信/支付宝基础客户端
+### C6：Vue 代码生成与高级能力
 
-**目标：** 用一套 Vue 3 + TypeScript 业务代码覆盖三个目标。
+- 同一 `FullNetCrudSchema` 生成后端、双库 SQL、精确动作权限、TypeScript API、Vue 页面和基础测试；
+- CRUD 默认生成 `read/create/update/delete`，其他动作必须由 Schema 明确声明；
+- 不再新增 Layui 页面、JavaScript API 或路由生成能力；
+- Realtime、文件、导入导出、打印、表单设计器、大屏和 AI/Agent 工作台分别建立 Vue 适配切片。
 
-**交付顺序：**
+### C7：.NET MAUI 决策门禁
 
-1. 工程、环境配置、路由、Pinia、`uni.request` 适配和 ProblemDetails；
-2. Vue I18n、`uni.getLocale/setLocale/onLocaleChange`、`zh-CN ↔ zh-Hans` 映射、pages/manifest 资源和请求语言；
-3. 引入官方 uni-ui、建立 easycom 和 Full.NET 设计令牌映射，再实现启动页、普通登录、租户选择、首页、个人中心、账号安全、错误与离线页；
-4. H5 Cookie/CSRF 流程；
-5. 微信小程序 `code` 登录适配和后端 Provider 对接；
-6. 支付宝小程序授权码登录适配和后端 Provider 对接；
-7. 文件、扫码、分享、订阅消息和支付按独立 Provider 规格增加；
-8. 三目标分别构建、真机/开发者工具多语言冒烟和发布清单。
+只有真实 C#/Windows 企业需求、Flutter 不适配证据、维护团队与发布目标明确时才建立 MAUI 模板，并新增独立 ADR；否则保持未创建。
 
-**退出条件：** H5、微信小程序、支付宝小程序分别完成 uni-ui 组件构建、登录、租户、核心 API、会话失效和错误展示验证；默认依赖中不存在原版 uView 2 或第二套全量 UI 组件库。
+## 6. 后端里程碑映射
 
-### C4：Flutter 原生移动与 PC 桌面
+| 里程碑 | 客户端交付 |
+| --- | --- |
+| M0/M1 | 公共协议、会话、ProblemDetails、Vue 最小壳层 |
+| M2 | Identity/Tenancy/Organization、RBAC、页面/操作授权、Vue 核心流程 |
+| M3 | Settings/Auditing/Files/Notifications/Jobs/CodeGeneration Vue 页面；uni-app 基础客户端 |
+| M4 | Vue 后台 1.0 全部验证、Layui 退役治理、uni-app 三目标、客户端安全/许可/E2E 加固 |
+| M5+ | 后续 Admin.NET 模块 Vue 对标、Flutter、AI/Agentic Web、按需 MAUI |
 
-**目标：** 一套 Dart 代码覆盖原生移动端和三类桌面系统。
+## 7. CI 与质量门禁
 
-**交付顺序：**
+| 变化范围 | 必须执行 |
+| --- | --- |
+| 公共契约 | client-contracts 类型检查/测试、OpenAPI 漂移、消费者受影响测试 |
+| Vue 后台模块 | Vue typecheck、Unit、生产构建、对应 Mock/真实栈 E2E、权限直接 API 403 |
+| 权限/数据库行为 | Unit、Architecture、SQL Server/MySQL Integration、迁移恢复、Vue 权限 E2E |
+| Layui 冻结端 | 新功能必须零 diff；明确例外任务运行其聚焦测试并记录授权 |
+| uni-app | 三目标构建；H5 真实浏览器 E2E |
+| Flutter | format、analyze、test 和目标平台构建 |
+| 第三方依赖 | 许可证、漏洞、资产来源和发布物审计 |
 
-1. 使用 Flutter 3.44 创建工程，启用 Material 3，建立 Cupertino 自适应层、Full.NET `ThemeExtension`、路由、OpenAPI Dart 客户端、ProblemDetails 和安全存储；
-2. `gen_l10n/ARB`、`flutter_localizations`、请求语言、账号偏好和各平台应用元数据；
-3. OAuth 2.0/OIDC Authorization Code + PKCE、租户选择、首页、个人中心和错误页；
-4. Android 与 Windows 本地开发和打包基线；
-5. 在 macOS 构建节点验证 iOS、macOS、签名和公证；
-6. 在 Linux 构建节点验证 Linux 桌面包；
-7. 键鼠、可调整窗口、文件、打印、托盘、深链和自动更新按平台适配；
-8. 通知、Realtime、支付和设备能力按独立功能规格增加。
+本地只执行任务快照命中的影响集，完整集合保留给 `main` CI 互斥分片。测试数量只维护在测试矩阵。
 
-**退出条件：** 每个声明支持的平台都有对应构建节点、安装包、签名策略、登录/租户/API 冒烟和升级回滚说明。没有完成构建验证的平台不得在发布说明中宣称支持。
+## 8. 主要风险与控制
 
-### C5：双管理端生成与高级能力
+| 风险 | 控制 |
+| --- | --- |
+| 粗粒度 `*.write` 造成越权 | 每个服务端业务动作独立权限；存量按资源迁移；Architecture 禁止新增多动作粗权限 |
+| 只隐藏按钮、直接 API 可绕过 | Vue 不渲染 + Endpoint 同权限码 + 直接 API 403 Integration/E2E |
+| 授权页与真实 Endpoint 漂移 | 代码拥有的 Authorization Catalog；目录—Endpoint—Vue 一致性门禁 |
+| 动态导航成为任意组件加载 | 严格运行时校验 + 本地组件/路由白名单；未知标识拒绝 |
+| Layui 继续消耗主线资源 | 冻结目录零新增；不参与 `Verified`；例外需所有者授权 |
+| 公共契约演进破坏冻结客户端 | 记录为退役债务，不反向限制 Vue/服务端正确设计 |
+| Admin.NET/layuiAdmin 许可污染 | 只参考功能和公开体验；禁止复制未获 MIT 再发布授权的源码/资产 |
+| Vue 模板覆盖 Full.NET 安全层 | 保留自有认证、权限、租户、ProblemDetails 和 OpenAPI 边界，禁止模板 Mock 替换 |
 
-**目标：** 把双管理端维护成本控制在可持续范围。
+## 9. 下一批可执行计划
 
-**交付：**
+按以下顺序推进：
 
-- 同一 `FullNetSchema` 同时生成 Vue 与 Layui CRUD；
-- 生成两端的 API 调用、列表、表单、详情、权限码和 E2E 骨架；
-- 为 Realtime、文件、导入导出、打印、表单设计器、大屏和 AI/Agent 工作台分别建立双端适配；
-- 生成器快照和编译/E2E 测试阻止模板漂移。
+1. 执行[Vue 页面/操作精确授权计划](../superpowers/plans/2026-08-02-vue-action-authorization.md)，以 Identity Users 关闭首个完整样板；
+2. 建立全后台页面/操作权限清单，并按 Identity → Tenancy/Organization → Settings/Auditing → Files/Notifications/Jobs/CodeGeneration → Document 分波次清零粗权限；
+3. 后续 Admin.NET 吸收任务只创建 Vue 页面和 Vue E2E，修订模板/计划中的 Layui 新增项；
+4. 调整客户端 CI/脚本，把 Layui 从新增功能聚合门禁移到冻结/退役检查；
+5. 为 Layui 制定独立退役计划，决定归档、只读发布、迁移说明和最终移除条件；
+6. 在 Vue 主线继续推进 Tiptap、ECharts 业务图表、可访问性和统一视觉体验；
+7. 按真实业务需求推进 uni-app，再启动 Flutter 首个纵向样例。
 
-**退出条件：** 同一示例模块生成两套可运行管理页面，人工只补充业务特有交互，重新生成不会覆盖手写扩展。
-
-### C6：.NET MAUI 决策门禁
-
-只有实际合同、团队或设备集成需求明确命中以下条件时才执行：
-
-- 必须使用 C#/.NET；
-- 平台范围接受 Android、iOS、Windows、macOS，不要求官方 Linux 支持；
-- Windows 原生或已有 MAUI 资产的收益足以覆盖第二套客户端维护成本；
-- 已明确负责人、CI 构建节点和功能维护范围。
-
-命中后先建立架构决策记录和独立实现计划，不能复制 Flutter 全量范围作为默认承诺。
-
-## 5. 后端里程碑映射
-
-| 后端里程碑 | 客户端必须完成 |
-|---|---|
-| M2 | C0 契约底座、C1 双管理端壳层、C2.1 对应核心模块 |
-| M3 | C2.2/C2.3 双管理端、C3 uni-app 基础客户端、双管理端代码生成首个样例 |
-| M4 | Full.NET 1.0 范围内双管理端全部验证、uni-app 三目标构建、客户端安全/许可证/E2E 加固 |
-| M5+ | C4 Flutter、C5 高级能力、后续 Admin.NET 模块双管理端对标、按需 C6 MAUI |
-
-Flutter 作为明确路线进入 M5+，但 C0 的 Dart 契约验证可以提前完成，避免后端 API 在 1.0 后才发现不适合原生客户端。
-
-## 6. CI 与质量门禁
-
-| 变更范围 | 必须运行 |
-|---|---|
-| OpenAPI/公共模型 | 全部在维护客户端的生成和契约测试 |
-| 语言清单、错误码或资源 | 资源 Schema/缺键检查、后端双语言 API、全部在维护客户端语言契约 |
-| 后台模块 | Vue + Layui 类型/静态检查、单元测试、生产构建、对应双端 E2E |
-| Vue 独有基础设施 | Vue 检查 + 与共享契约相关的 Layui 冒烟 |
-| Layui 独有基础设施 | Layui 检查 + 与共享契约相关的 Vue 冒烟 |
-| uni-app | H5、`mp-weixin`、`mp-alipay` 分别构建和平台适配测试 |
-| Flutter | `flutter analyze`、单元/Widget 测试、受影响平台构建 |
-| 依赖与静态资源 | 锁文件、漏洞、许可证、资源来源和 CSP 检查 |
-
-## 7. 主要风险与控制
-
-| 风险 | 控制措施 |
-|---|---|
-| 双管理端进度逐渐分叉 | 同一模块双端切片、双状态列、双端 E2E 作为统一退出门禁 |
-| Layui 代码退化为全局脚本 | 核心能力模块化、禁止内联业务脚本、静态检查和单元测试 |
-| Vue/Layui 会话与安全修复需要维护两份 | 提取无框架 headless 契约、状态机和共享协议夹具；DOM、路由器和 UI 组件继续独立 |
-| Mock E2E 掩盖 Cookie/CORS/中间件问题 | 保留快速 Mock 契约层，新增真实 API、数据库、Redis 的最小 Playwright 安全套件 |
-| 为追求一致而复制 UI 组件 | 只共享契约、令牌和场景，不共享框架 UI 源码 |
-| 多端认证采用最低共同标准 | 浏览器、小程序、原生应用分别采用适合平台的令牌策略 |
-| Art Design Pro 模板覆盖既有安全层 | 只迁入经审计的壳层/主题/组件；认证、请求、租户、权限、导航白名单和 E2E 继续由 Full.NET 拥有 |
-| ECharts 增大首屏和无障碍不足 | 只从 `echarts/core` 注册所需图表，路由级懒加载，提供数据表/文本摘要和减弱动画 |
-| 富文本造成 XSS、Base64 膨胀或编辑器锁定 | Tiptap Core 双端 Adapter；服务端白名单净化；图片走 Files API；首期保存可迁移的净化 HTML |
-| uni-app 条件编译散落 | 平台差异集中在 `platform/`，共享页面禁止直接访问平台专属 API |
-| uni-ui 与其他整套组件库混用 | uni-ui 是唯一默认基础库；补充库必须通过真实缺口、三目标、许可证和体积 ADR |
-| Flutter 插件缺少桌面实现 | 引入前建立平台支持和许可证矩阵，允许平台适配替代 |
-| Flutter UI 被第三方组件库锁定 | Material 3/Cupertino 和 ThemeExtension 拥有主题；重型组件逐项适配，不决定应用架构 |
-| 各端语言清单、错误文本或术语漂移 | 共享治理清单、稳定 code、平台原生资源和跨资源 CI；禁止业务逻辑比较翻译文本 |
-| Worker/通知并行处理串语言 | 每项后台渲染显式 CultureScope/Locale，离开作用域恢复并执行并发测试 |
-| MAUI 与 Flutter重复建设 | 决策门禁、独立维护责任和范围，不默认创建模板 |
-| Admin.NET 或 layuiAdmin 参考代码污染 MIT 发布 | 采用洁净室独立实现，只参考通用体验；layuiAdmin 默认禁止复制源码/资产，任何直接复用都必须先取得允许公开 MIT 再发布的书面授权 |
-
-## 8. 下一批可执行计划
-
-1. 先执行 L0/L1：建立仓库语言治理、ASP.NET Core 请求本地化、本地化 ProblemDetails 与结构化 violations；
-2. 执行 L2：补齐 Element Plus/Day.js、Layui 组件语言、Accept-Language 和账号/租户偏好；
-3. 先按[架构硬化实施计划](../superpowers/plans/2026-07-18-architecture-hardening.md)完成浏览器 headless 契约层、跨 Tab 刷新协调和真实后端双管理端 Playwright 安全套件；
-4. 执行 [Vue Art Design Pro 迁移计划](../superpowers/plans/2026-07-18-vue-art-design-pro-adoption.md)，先锁住 Full.NET 安全契约，再迁入壳层和 ECharts 图表层；
-5. 在 Windows Edge + NVDA、200% 缩放和强制颜色模式下完成人工验收，使 C1 具备进入 `Verified` 的剩余证据；
-6. Identity 用户/角色/菜单、Tenancy **Host 租户管理**（见[验证记录](../verification/tenancy-host-tenant-management-2026-07-23.md)）与 **Host 租户套餐目录**（见[验证记录](../verification/tenancy-host-tenant-package-management-2026-07-23.md)）及 Organization 机构切片已按双管理端纵向交付；不得把完整 C2.1 误标为 `Verified`；
-7. **已完成 Build-verified：** [uni-app uni-ui 引入计划](../superpowers/plans/2026-07-18-uniapp-uni-ui-adoption.md)已交付 easycom、主题令牌、三目标组件冒烟和首个真实设置页；平台工具验收仍归入下一项；
-8. 继续执行 L3 uni-app 平台验收：在微信与支付宝开发者工具完成真实登录/API/错误/会话冒烟；当前仅为 `Implementing / Build-verified`；
-9. Files 与 Notifications 进入公告/站内通知纵向切片时执行[富文本基础计划](../superpowers/plans/2026-07-18-rich-text-editor-foundation.md)，同步完成服务端净化、媒体引用及 Vue/Layui 双端闭环；
-10. OpenAPI Dart 契约验证完成且具备目标构建节点后执行 [Flutter UI 基础计划](../superpowers/plans/2026-07-18-flutter-ui-foundation.md)；
-11. 每个计划结束时同步更新本路线图的 Vue/Layui 独立状态列、L0-L6 和全项目能力状态矩阵。
+每个计划结束时只更新真实受影响的状态与验证记录，不以计划存在、历史 Layui 证据或局部构建替代 Vue 真实验收。

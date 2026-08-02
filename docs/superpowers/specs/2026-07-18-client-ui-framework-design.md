@@ -5,14 +5,16 @@
 - 决策来源：项目所有者确认 Vue 采用 Art Design Pro 基线、uni-app 采用 uni-ui、Flutter 采用官方 Material 3 + Cupertino
 - 当前实现边界：本文是选型与迁移规格，不代表三个 UI 基线均已集成
 
+> **2026-08-02 修订：** Vue 成为后台管理唯一持续交付线；Layui 进入存量冻结。下文涉及 Layui 的选型和已实现状态仅保留历史背景，后续实现与验收以 [`rules/client-frontend.md`](../../../rules/client-frontend.md) 为准。
+
 ## 1. 最终选择
 
 | 客户端 | 默认 UI 基线 | 使用方式 | 当前状态 |
 |---|---|---|---|
 | Vue 主管理端 | Art Design Pro + Element Plus | 固定 MIT 上游提交，选择性迁入壳层、主题、布局和通用交互 | 已选型，尚未迁入 |
 | Vue 图表 | Apache ECharts 6.1 | `echarts/core` 模块化注册、异步加载和 Full.NET 主题 | 已选型，尚未引入 |
-| 双管理端富文本 | Tiptap Core 3.28 | Vue/Core 双 Adapter + 服务端 HTML 净化 | 已选型，尚未引入 |
-| Layui 管理端 | Layui 2 | Full.NET clean-room 独立实现，功能与 Vue 对等 | 已实现壳层 |
+| Vue 富文本 | Tiptap Core 3.28 | Vue Adapter + 服务端 HTML 净化 | 已选型，尚未引入 |
+| Layui 存量端 | Layui 2 | 已实现 clean-room 历史壳层；停止新增功能 | Frozen |
 | uni-app | DCloud uni-ui | npm 依赖 + easycom，作为唯一默认基础组件库 | 已选型，尚未引入 |
 | Flutter | Flutter 3.44 Material 3 + Cupertino | 官方组件 + `ThemeExtension` + 自适应封装 | 已选型，工程尚未创建 |
 
@@ -35,7 +37,7 @@ Art Design Pro 作为 Vue 管理端真正的框架基线，而不只是截图参
 - 内存 Access Token、HttpOnly Refresh Cookie、CSRF、精确 CORS 和单次 Refresh 协调；
 - 服务端导航到本地组件/路由的精确白名单；
 - `/api/v1/me`、账号语言偏好、租户上下文和标准 HTTP 状态码；
-- Vue/Layui 同场景 E2E、真实后端安全 E2E 和本地化资源治理。
+- Vue 组件/真实后端安全 E2E、逐页面/逐操作权限和本地化资源治理。
 
 Art Design Pro 的 Mock、axios 封装、认证、持久化 Token、演示接口、动态路径组件加载和后端响应包络不得进入上述边界。
 
@@ -53,11 +55,11 @@ Apache ECharts 为 Apache-2.0，实际引入时登记许可证、NOTICE 和内�
 
 ### 2.5 富文本：Tiptap Core
 
-默认富文本引擎采用 `@tiptap/vue-3@3.28.0`、`@tiptap/starter-kit@3.28.0` 和按需 MIT 扩展，不采用 Art Design Pro 自带的 wangEditor 作为隐式默认。Tiptap Core 为 Headless，Vue 使用 Vue Adapter，Layui 使用 Core/DOM Adapter；两端共享允许的格式、链接、图片和 HTML 契约，不共享框架 UI。
+默认富文本引擎采用 `@tiptap/vue-3@3.28.0`、`@tiptap/starter-kit@3.28.0` 和按需 MIT 扩展，不采用 Art Design Pro 自带的 wangEditor 作为隐式默认。Tiptap Core 为 Headless，Vue 使用 Vue Adapter；不再实现 Layui Core/DOM Adapter。允许的格式、链接、图片和 HTML 契约由服务端与 Vue 共同冻结，不依赖编辑器私有模型。
 
 首期持久化服务端白名单净化后的 HTML，避免把编辑器私有 JSON 变成公共永久契约。服务端以自有 `IRichTextSanitizer` 隔离实现，首个候选实现固定为 MIT `HtmlSanitizer@9.0.892`，并采用显式收紧的标签、属性和协议白名单，不依赖其默认集合。图片、附件和视频引用必须先进入 Files API，内容只保存稳定资源标记，不保存临时签名 URL；禁止 Base64/Data URL 和未经授权的远程资源。服务端必须再次净化标签、属性、URL 协议和 CSS；客户端净化只能改善体验，不能成为安全边界。Tiptap Pro 扩展需要订阅，默认禁止进入 MIT 框架；协作、评论、版本和 AI 编辑另建规格。
 
-富文本能力不属于 C1 管理壳层退出条件，必须等 Files 与 Notifications 的公告/站内通知真实切片进入开发时纵向落地。只有服务端净化、媒体租户授权、Vue/Layui Adapter、双数据库和真实后端 E2E 全部通过后才可标记为 `Verified`。
+富文本能力不属于 C1 管理壳层退出条件，必须等 Files 与 Notifications 的公告/站内通知真实切片进入开发时纵向落地。只有服务端净化、媒体租户授权、Vue Adapter、双数据库和真实后端 E2E 全部通过后才可标记为 `Verified`。
 
 ## 3. uni-app：uni-ui 作为唯一默认基础库
 
@@ -93,11 +95,11 @@ Flutter Web 不承担 Full.NET H5；移动/桌面 UI 不复制完整管理后台
 `packages/design-tokens` 保持语义来源，分别输出或映射：
 
 - Vue：CSS Variables，供 Art Design Pro/Element Plus 覆盖层消费；
-- Layui：CSS Variables，保持独立组件实现；
+- Layui：冻结现有 CSS Variables 输出，不再扩展组件实现；
 - uni-app：`uni.scss` 变量和跨端安全 CSS；
 - Flutter：Dart 常量、`ColorScheme`、`TextTheme` 和 `ThemeExtension`。
 
-共享的是语义和验证样例，不共享 Vue、Layui、uni-ui 或 Flutter 组件源码。
+共享的是语义和验证样例，不共享 Vue、uni-ui 或 Flutter 组件源码；冻结 Layui 只保留既有映射。
 
 ## 6. 状态与验收
 
@@ -106,7 +108,7 @@ Flutter Web 不承担 Full.NET H5；移动/桌面 UI 不复制完整管理后台
 1. 依赖或选择性源码已进入锁文件/仓库并完成许可证登记；
 2. 原有认证、租户、权限、ProblemDetails 和多语言契约没有回退；
 3. 对应目标完成类型检查、单测、生产构建和平台 E2E/冒烟；
-4. Vue/Layui 后台功能继续满足双端门禁；
+4. Vue 后台满足逐页面/逐操作权限、可访问性和真实栈门禁；Layui 不参与新功能验收；
 5. 包体积、静态资源来源、可访问性和高危漏洞检查通过。
 
 ## 7. 实施计划

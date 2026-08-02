@@ -57,7 +57,7 @@
 | 机构管理 | Organization | Core | M2 | **Build-verified**（租户机构树 CRUD；见[验证记录](../verification/organization-unit-management-2026-07-21.md)） |
 | 职位管理 | Organization | Core | M2 | **Build-verified**（租户职位 CRUD、机构与职级绑定/解绑、职级目录 CRUD、双库 Integration、双端 parity 及双库双端真实栈写入；完整 `main` CI 与发布前人工验收待补） |
 | 用户职位隶属 | Organization | Core | M2 | **Build-verified**（租户用户-职位分配；正式可分配 Host 用户候选目录支持双库分页、精确写权限与双端按需加载；双管理端、双数据库真实栈分配/设主/取消/API 回读已通过；见[验证记录](../verification/organization-user-position-assignment-2026-07-25.md)） |
-| 菜单与按钮权限管理 | Identity | Core | M2 | Build-verified（[菜单验证](../verification/identity-menu-management-2026-07-21.md)；按钮权限仍非目标） |
+| 菜单、页面与按钮权限管理 | Identity | Core | M2 | **Implementing**（菜单/页面导航已 Build-verified；逐操作授权已于 2026-08-02 批准，要求角色按模块/页面/操作授权、Vue 无权限按钮不渲染、直接 API 403；见[设计](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)与[计划](../superpowers/plans/2026-08-02-vue-action-authorization.md)） |
 | 角色与数据授权 | Identity + Organization | Core | M2 | **Build-verified**（Host 角色/权限/数据范围、用户-角色分配与运行时机构过滤；[验证记录](../verification/identity-role-data-authorization-2026-07-26.md)、[收口计划](../superpowers/plans/2026-07-26-identity-role-data-authorization-parity-closure.md)） |
 | 字典管理 | Settings | Core | M3 | **Build-verified**（字典类型 + 字典项 Host CRUD 与双端 UI；见[验证记录](../verification/settings-dictionary-2026-07-25.md)、[类型切片](../superpowers/plans/2026-07-25-settings-dictionary-vertical-slice.md)、[项 UI 切片](../superpowers/plans/2026-07-25-settings-dict-items-ui-vertical-slice.md)） |
 | 访问日志 | Auditing | Core | M3 | Build-verified |
@@ -138,7 +138,7 @@
 
 | 顺序 | 模块 | 前置依赖 | 所有权与契约边界 | 退出门禁 |
 | --- | --- | --- | --- | --- |
-| 1 | Document | Files Provider 稳定；字段投影可用 | 通过显式契约消费 Files；自有分类/标签/版本/分享/权限/日志数据，禁止把文件字节存入业务表 | 双库迁移与恢复、标准 API、权限、租户/数据范围、Outbox（如需）、Vue/Layui、E2E、运维文档与许可证据；**2026-08-02 规格草案**见[Document 设计](../superpowers/specs/2026-08-02-document-module-design.md)（待 Gate G4 批准） |
+| 1 | Document | Files Provider 稳定；字段投影可用 | 通过显式契约消费 Files；自有分类/标签/版本/分享/权限/日志数据，禁止把文件字节存入业务表 | 双库迁移与恢复、标准 API、逐页面/逐操作权限、租户/数据范围、Outbox（如需）、Vue、E2E、运维文档与许可证据；**2026-08-02 规格草案**见[Document 设计](../superpowers/specs/2026-08-02-document-module-design.md)（待 Gate G4 批准） |
 | 2 | Workflow | Notifications 与 Jobs 恢复路径可用 | 拥有不可变定义版本、实例、步骤、待办、抄送、执行日志与恢复；禁止业务模块直连流程表 | 同上，且必须覆盖实例恢复与幂等推进 |
 | 3 | DataApproval | Workflow 可用 | 通过显式用例契约集成，禁止任意 HTTP 中间件拦截改写业务写路径 | 同上，且必须覆盖审批拒绝/撤回与审计 |
 | 4 | ImportExport / Reporting | 字段投影稳定 | 导入导出与报表配置分模块；禁止动态 SQL 拼接与未授权列泄露 | 同上，且必须覆盖大文件/批处理背压与失败续跑 |
@@ -157,21 +157,21 @@ Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、Mess
 | Admin.NET.Pro 资产/交付需求 | Full.NET 对标 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
 | `Web` Vue3 管理端 | `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus；Art Design Pro 壳层已迁入（见[验证](../verification/admin-art-design-pro.md)） | Client | M2-M4 | Build-verified |
-| JS/HTML 完整管理端 | `ui/admin-layui`：Layui 2 + HTML/CSS/原生 JavaScript；Art 对等壳层 | Client | M2-M4，与 Vue 同步 | Build-verified |
+| JS/HTML 存量管理端 | `ui/admin-layui`：历史 Layui 2 + HTML/CSS/原生 JavaScript 实现；2026-08-02 起停止新增功能 | Frozen Client | 仅安全/许可/迁移/退役例外 | Frozen |
 | `App` H5/小程序资产 | `clients/uniapp`：H5、微信小程序、支付宝小程序；默认 uni-ui | Client | M3-M4 | Implementing |
 | 原生移动端 | `clients/flutter`：Flutter 3.44 Material 3 + Cupertino；Android、iOS | Client | M5+ | Designing |
 | `Web_Desktop`/PC 桌面需求 | `clients/flutter`：Flutter 3.44 Material 3 + Cupertino；Windows、macOS、Linux | Client | M5+ | Designing |
 | .NET MAUI 交付 | `clients/maui-template`：命中 C#/Windows 企业项目门禁后按需建立 | Provider/Template | M5+ 按需 | Mapped |
-| `Web_Artd` | Vue/Layui 设计令牌与可替换主题能力，不再维护第三套完整管理端 | Client | M4/M5+ | Mapped |
+| `Web_Artd` | Vue 设计令牌与可替换主题能力，不再维护第二套完整后台产品线 | Client | M4/M5+ | Mapped |
 | `GoView` | 可视化大屏客户端 | Client | M5+ | Mapped |
 
-Vue 与 Layui 覆盖相同的后台管理功能，采用同一模块的双端纵向切片同步开发。客户端功能只有在两端的入口、权限、租户、状态反馈、错误处理、关键流程和 E2E 都通过后才能标记为 `Verified`。视觉样式可以重新设计，不要求像素级复制；差异必须有显式记录和等价交互。
+Vue 是后台管理唯一持续交付线。后台功能只有在服务端双库、页面/逐操作权限、租户、状态反馈、错误处理、可访问性、Vue 关键流程和真实栈 E2E 全部通过后才能标记为 `Verified`。Layui 历史实现保留为冻结证据，不再要求功能对等，也不得阻塞 Vue 主线。
 
-登录/会话与最小 RBAC 已有 API 集成测试和 Mock 双端 E2E，但尚缺真实后端参与的浏览器 Cookie/CORS/CSRF/并发刷新链路，因此统一保留为 `Implemented`；真实栈门禁完成后再恢复 `Verified`。
+登录/会话与最小 RBAC 的历史双端证据继续有效，但后续状态只根据服务端、共享契约和 Vue 的新鲜证据更新；Cookie/CORS/CSRF/并发刷新、权限撤销和直接 API 403 仍必须由真实栈验证。
 
-uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信/支付宝业务客户端，Flutter 负责原生移动和 PC 桌面。详细阶段、依赖和双端状态矩阵见 [`client-delivery-roadmap.md`](client-delivery-roadmap.md)。
+uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信/支付宝业务客户端，Flutter 负责原生移动和 PC 桌面。详细阶段和依赖见 [`client-delivery-roadmap.md`](client-delivery-roadmap.md)。
 
-多语言不以管理端两套语言选择器作为完成标准。ASP.NET Core、Vue/Layui 组件库、uni-app、Flutter、用户/租户偏好以及服务端通知/报表必须分别达到对应阶段的退出条件；稳定错误码、权限码、审计 code 和 Agent Tool Schema 不本地化。详细边界见[全栈多语言设计](../superpowers/specs/2026-07-17-full-stack-localization-design.md)。
+多语言不以管理端语言选择器作为完成标准。ASP.NET Core、Vue 组件库、uni-app、Flutter、用户/租户偏好以及服务端通知/报表必须分别达到对应阶段的退出条件；冻结 Layui 不新增本地化功能。稳定错误码、权限码、审计 code 和 Agent Tool Schema 不本地化。详细边界见[全栈多语言设计](../superpowers/specs/2026-07-17-full-stack-localization-design.md)。
 
 ## 6. 验收规则
 
@@ -182,7 +182,7 @@ uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信
 3. 关键业务流程与 Admin.NET.Pro 基线逐项比较；
 4. 差异是有意设计并记录，不是遗漏；
 5. SQL Server 和 MySQL 的适用测试通过；
-6. API 契约、前端交互和错误处理通过测试；后台管理功能还必须分别通过 Vue 与 Layui 验收；
+6. API 契约、Vue 前端交互、逐页面/逐操作权限、错误处理、可访问性和真实栈 E2E 通过；Layui 不再参与新增功能验收；
 7. 来源、许可证和直接复用情况已经登记；
 8. 文档和升级说明已经完成。
 

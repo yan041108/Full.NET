@@ -97,11 +97,12 @@ Skill 内只保留必要的 `SKILL.md`、`agents/openai.yaml`、`references/`、
 | `fullnet-release-verification` | 自动化优先 / 12 | uni-app 三目标构建、fresh H5 E2E、许可与漏洞门禁已落地；共享 Hosting 全量 Integration 曾在 Docker Desktop 停止时产生 172 项环境失败，本次 SQL Server/MySQL 审计聚焦也在容器创建前因 daemon 停止各失败 3 项；两次均在启动并预热 Engine 后原命令精确复跑通过 | 优先把 Docker Engine readiness、冷启动预热和环境失败分类收敛进 Integration preflight/脚本，不创建判断型 Skill |
 | `fullnet-realtime-feature` | 候选 / 3 | SignalR/MessagePack Hub、Notifications 提交后尽力推送、两个真实 API 宿主与专用 Redis 故障恢复，以及 Vue/Layui 认证连接、切上下文重连、通知刷新与失败降级均有自动化证据 | 第二个独立业务模块消费实时发布，或生产多副本编排与真实浏览器断网恢复形成完整生产流程后，再按测试先行评估升级；当前创建新 Skill 会扩大本任务范围 |
 | `fullnet-agentic-feature` | 等待真实实现 / 0 | 只有 AI、Agent、MCP、Agentic Web 架构约束 | 首个显式授权 Agent Tool 验收后评估 |
-| `fullnet-dual-admin-feature` | 候选 / 11 | Identity 会话、租户切换、权限导航、国际化/可访问性之外，租户套餐、Settings、Auditing 访问/操作日志与 Host API Key 均按同一“contracts 守卫 + admin-i18n 双语 + Vue/Layui 双实现 + shell-parity 双端场景”模式交付；API Key 额外验证一次性明文不进入 Web Storage | 首个含列表、表单、权限与租户边界的双端业务 CRUD 达到 `Verified` 后评估升级 |
 | `fullnet-localization-delivery` | 候选 / 5 | L0-L2 之上，L3 uni-app 已落地规范语言/别名、Vue I18n、偏好原子提交、ProblemDetails、三目标构建与 H5 E2E；小程序开发者工具未安装，跨平台停止条件未闭合 | L2 落地首个双库可翻译业务数据，或完成微信/支付宝真实工具验收后评估升级 |
 | `fullnet-seed-data-delivery` | 候选 / 5 | Identity 作为第二个模块复用 Contributor、稳定错误码与 Scoped 多实现，并由 Migrator 完成迁移后 Profile 编排、失败阻断、兼容别名与 Host 依赖门禁；Task 3A 已将场景查看者移出发布物并改为 API 健康后的测试脚本幂等创建，Architecture 与三宿主发布物扫描已锁定边界；当前机器缺容器运行时，更新后的双库真实栈未验证 | 在 SQL Server/MySQL 完成 Baseline/Development/Demo/Test 与新场景准备脚本 E2E 后，按测试先行评估升级 |
 
 候选只在里程碑集中复盘时更新原行，禁止创建近义候选。候选升级后移入“当前项目 Skill”并删除原候选行。
+
+`fullnet-dual-admin-feature` 候选已于 2026-08-02 退役：项目所有者终止 Vue/Layui 双端同步开发并冻结 Layui，后续后台交付由 Vue 单一产品线承担；历史双端证据不再用于升级 Skill。
 
 ## 9. 候选记录模板
 

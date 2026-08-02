@@ -4,9 +4,9 @@
 
 **Goal:** 在不复制 Admin.NET.Pro 技术耦合和高风险动态机制的前提下，把源码复核确认的高价值设计分波次吸收到 Full.NET。
 
-**Architecture:** 以现有模块化单体、Dapper 显式 SQL、SQL Server/MySQL 双库、标准 HTTP、事务 Outbox、FusionCache 和 Vue/Layui 双管理端为唯一实现基线。计划先增强生成模型，再交付独立产品切片，最后处理字段授权、签名认证和模块治理；Document、Workflow、AI 等大型模块保持独立规格和计划。
+**Architecture:** 以现有模块化单体、Dapper 显式 SQL、SQL Server/MySQL 双库、标准 HTTP、事务 Outbox、FusionCache 和 Vue 单一后台产品线为唯一实现基线。计划先增强生成模型，再交付独立产品切片，随后落实逐页面/逐操作授权、字段授权、签名认证和模块治理；Document、Workflow、AI 等大型模块保持独立规格和计划。Layui 自 2026-08-02 起冻结，既有 Task 的双端记录只保留历史证据。
 
-**Tech Stack:** .NET 10、ASP.NET Core Minimal API、Dapper、DbUp、SQL Server、MySQL、System.Text.Json Source Generation、MessagePack Outbox、FusionCache、Vue 3、Layui、MSTest、Vitest、Playwright。
+**Tech Stack:** .NET 10、ASP.NET Core Minimal API、Dapper、DbUp、SQL Server、MySQL、System.Text.Json Source Generation、MessagePack Outbox、FusionCache、Vue 3、TypeScript、Element Plus、MSTest、Vitest、Playwright；Layui 仅为冻结存量。
 
 ## Global Constraints
 
@@ -15,7 +15,8 @@
 - 业务模块只能使用 Dapper 和 Full.NET 自有 SQL 执行边界；禁止引入 SqlSugar、通用 Repository、动态 C#、运行时任意 WebAPI 或任意 SQL Parser。
 - 租户 SQL 必须同时使用 `SqlDataScope.TenantRequired`、`SqlTenantBinding.CurrentTenantId` 和真实 `TenantId = @TenantId` 条件。
 - 数据库变更必须同时提供 SQL Server/MySQL 迁移、半完成恢复测试和真实双库 Integration。
-- 后台管理功能必须同步交付 Vue/Layui，并通过权限、租户、错误处理、Mock parity 和真实栈 E2E。
+- 新后台管理功能只交付 Vue，并通过逐页面/逐操作权限、租户、错误处理、可访问性和真实栈 E2E；禁止新增或扩展 Layui 页面、按钮、适配器、生成模板和功能对等测试。
+- 每个调用受保护 API、读取敏感数据、导出或产生业务副作用的 Vue 操作必须使用独立稳定权限码；角色授权页必须按模块/页面/操作授权，Endpoint 使用同一权限码失败关闭。
 - 每个任务从同一任务快照执行 `inner -> slice -> merge` 影响集；完整 Integration 只由 `main` CI 分片执行。
 - 状态只有在完整验收后才能更新为 `Verified`；计划存在、代码提交或局部构建通过均不构成完成证据。
 
@@ -34,6 +35,7 @@
 | 9 | `adminnet-absorb-09-outbound-audit` |
 | 10 | `adminnet-absorb-10-module-catalog` |
 | 11 | `adminnet-absorb-11-large-module-queue` |
+| 12 | `admin-action-permissions-identity-users-20260802` |
 
 每个切片按下列固定命令执行影响集生命周期：
 
@@ -112,6 +114,7 @@ pnpm test:task:start -- adminnet-absorb-11-large-module-queue
 | G1 生成基础 | 当前 CodeGeneration 安全写盘和模块接入门禁保持通过 | 实体能力/场景模型能够确定性生成并完成双库模板测试 |
 | G2 产品切片 | G1 通过 | Grid Preferences、SerialNumbers、Jobs Trigger、Files Provider 分别形成可运行纵向切片 |
 | G3 安全扩展 | 对字段授权和请求签名已有批准规格 | 字段投影不泄漏、签名防重放、认证失败审计通过 |
+| G3.1 精确后台授权 | 页面/操作授权设计已批准 | 角色能逐页面/逐操作授权，Vue 无权限不渲染，直接 API 403，未知 Endpoint/权限失败关闭 |
 | G4 M5+ 模块 | 1.0 核心能力和生产硬化不再被阻塞 | 每个大型模块有独立 Spec、Plan、双库/双端/安全验收 |
 
 ### Task 1: 扩展代码生成实体能力模型
@@ -580,7 +583,39 @@ Order: Files Provider and field projection → Document; Notifications and Jobs 
 
 - [x] **Step 3: Apply the same vertical-slice exit gate**
 
-Each module must separately provide SQL Server/MySQL migrations and recovery tests, standard API, permissions, tenant/data scope, Outbox where applicable, Vue/Layui, E2E, operations docs and license evidence.
+Each module must separately provide SQL Server/MySQL migrations and recovery tests, standard API, exact page/action permissions, tenant/data scope, Outbox where applicable, Vue, E2E, operations docs and license evidence. Layui is frozen and must not receive new module work.
+
+### Task 12: 建立 Vue 页面/操作精确授权并清零粗粒度权限
+
+**Files:**
+- Create: `docs/superpowers/specs/2026-08-02-vue-action-authorization-design.md`
+- Create: `docs/superpowers/plans/2026-08-02-vue-action-authorization.md`
+- Create during implementation: `docs/roadmap/admin-action-permission-inventory.md`
+- Modify: `rules/client-frontend.md`
+- Modify: `rules/development-quality.md`
+- Modify: `docs/roadmap/client-delivery-roadmap.md`
+
+**Interfaces:**
+- Authorization hierarchy: module/navigation page → stable page permission → stable action permissions.
+- Client boundary: Vue does not render unauthorized business actions; local-only controls do not enter the permission catalog.
+- Server boundary: every management Endpoint binds a known exact permission; bypass requests return `403 authorization.permission_denied`.
+- Persistence: roles keep exact codes in `fn_identity_role_permission`; coarse codes are expanded by independently recoverable SQL Server/MySQL migrations per resource.
+
+- [x] **Step 1: Approve the design and Vue-only delivery decision**
+
+The owner approved Vue as the sole active admin delivery track and froze Layui. The detailed design explicitly rejects Admin.NET's URL permission codes, super-administrator bypass and unknown-route allow behavior.
+
+- [ ] **Step 2: Execute the Identity Users reference slice**
+
+Follow [`2026-08-02-vue-action-authorization.md`](2026-08-02-vue-action-authorization.md) Tasks 1–9. Do not mark the slice complete until role-tree grants, exact Vue button absence, direct API 403, SQL Server/MySQL migration recovery and Architecture gates are all fresh GREEN.
+
+- [ ] **Step 3: Inventory and migrate every active Vue business action**
+
+Follow Task 10 of the detailed plan. Migrate in waves: remaining Identity → Tenancy/Organization → Settings/Auditing → Files/Notifications/Jobs/CodeGeneration → Document and later modules. Each resource owns its exact codes, compatibility expansion and E2E; no broad permission migration may guess high-risk grants across unrelated resources.
+
+- [ ] **Step 4: Retire Layui from active delivery gates**
+
+Update CI and generator aggregation in an independent focused plan so new feature checks do not select Layui. Preserve the frozen source and historical evidence until a separately approved retirement plan decides archival or deletion.
 
 ## Final Verification
 

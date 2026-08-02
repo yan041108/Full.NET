@@ -72,7 +72,7 @@ public sealed record AuthorizationActionDefinition(
 - `ClientActionKey`：Vue 本地操作白名单键，不是组件路径；
 - `Order`：页面内稳定排序。
 
-`IAuthorizationCatalogContributor` 新增 `Actions` 集合。目录创建时必须验证：ID 唯一、`NavigationId` 已知、权限码已知、同一权限不得被两个不同操作歧义占用、页面读取权限不能被注册为页面内副作用动作、操作不可形成孤立目录项。
+`IAuthorizationCatalogContributor` 新增带空集合默认实现的 `Actions`，尚未迁移的模块无需机械修改；只有拥有页面业务操作的 Contributor 显式覆盖。目录创建时必须验证：ID 唯一、`NavigationId` 已知、权限码已知、同一权限不得被两个不同操作歧义占用、页面读取权限不能被注册为页面内副作用动作、操作不可形成孤立目录项。
 
 ### 3.3 Endpoint 绑定
 
@@ -209,7 +209,7 @@ identity.users.enable
 
 1. 仅有页面读取权限：用户能进入页面，看不到任何未授权业务按钮；
 2. 单独授予一个动作：只出现该按钮，其他按钮不进入 DOM；
-3. 手工调用未授权动作 API：返回 `403` 和稳定 `authorization.denied`；
+3. 手工调用未授权动作 API：返回 `403` 和稳定 `authorization.permission_denied`；
 4. 撤销权限：会话/快照失效后按钮消失，直接 API 同步拒绝；
 5. 角色授权树能分别选择页面和每个业务动作，父子不变量由前后端同时保护；
 6. 未知权限、未知操作、孤立页面和未声明授权 Endpoint 在启动或架构测试阶段失败；

@@ -46,12 +46,11 @@
 - Create: `src/Modules/Full.NET.Modules.Identity.Contracts/AuthorizationActionDefinition.cs`
 - Modify: `src/Modules/Full.NET.Modules.Identity.Contracts/IAuthorizationCatalogContributor.cs`
 - Modify: `src/Modules/Full.NET.Modules.Identity/Authorization/AuthorizationCatalog.cs`
-- Modify: every existing `*AuthorizationContributor.cs` only to add `Actions => []` until its resource is migrated
 - Test: `tests/Full.NET.UnitTests/Identity/AuthorizationCatalogTests.cs`
 
 **Interfaces:**
 - Produces: `AuthorizationActionDefinition(string Id, string NavigationId, string PermissionCode, string Name, string ClientActionKey, int Order)`
-- Produces: `IAuthorizationCatalogContributor.Actions`
+- Produces: `IAuthorizationCatalogContributor.Actions` with an empty default implementation so unmigrated modules remain source-compatible
 - Preserves: existing `Permissions` and `Navigation` ordering and validation
 
 - [ ] **Step 1: Write failing catalog tests**
@@ -90,7 +89,7 @@ Expected: compilation/test failure because `AuthorizationActionDefinition` and `
 
 - [ ] **Step 3: Implement the immutable action definition and validation**
 
-Create the record exactly as frozen in the design. Extend the catalog constructor and `Create` method with `Actions`, validate all required strings, known navigation/permission references and uniqueness, then expose a deterministically sorted `IReadOnlyList<AuthorizationActionDefinition>`.
+Create the record exactly as frozen in the design. Add `Actions => []` as a default interface member, then extend the catalog constructor and `Create` method with `Actions`, validate all required strings, known navigation/permission references and uniqueness, and expose a deterministically sorted `IReadOnlyList<AuthorizationActionDefinition>`.
 
 - [ ] **Step 4: Run GREEN and commit**
 
@@ -212,10 +211,10 @@ git commit -m "feat(identity): expose role authorization tree"
 
 **Files:**
 - Modify: `src/Modules/Full.NET.Modules.Identity/Features/ManageHostRoles/HostRoleManagementService.cs`
-- Modify: `src/Modules/Full.NET.Modules.Identity/Contracts/IdentityErrorCodes.cs`
+- Modify: `src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs`
 - Modify: `src/Modules/Full.NET.Modules.Identity/Resources/IdentityErrors.resx`
 - Modify: `src/Modules/Full.NET.Modules.Identity/Resources/IdentityErrors.en-US.resx`
-- Test: `tests/Full.NET.UnitTests/Identity/HostRoleManagementServiceTests.cs`
+- Create: `tests/Full.NET.UnitTests/Identity/HostRoleManagementServiceTests.cs`
 - Test: `tests/Full.NET.IntegrationTests/Identity/IdentityRoleManagementAssertions.cs`
 
 **Interfaces:**
@@ -361,8 +360,8 @@ git commit -m "feat(admin): add reactive action permission gate"
 **Files:**
 - Modify: `ui/admin/src/views/RolesView.vue`
 - Create: `ui/admin/src/views/RolesView.test.ts`
-- Modify: `ui/admin/src/i18n/locales/zh-CN.ts`
-- Modify: `ui/admin/src/i18n/locales/en-US.ts`
+- Modify: `packages/admin-i18n/src/messages.ts`
+- Modify: `packages/admin-i18n/tests/i18n.test.ts`
 
 **Interfaces:**
 - Consumes: `GET /api/v1/identity/authorization-tree`
@@ -371,7 +370,7 @@ git commit -m "feat(admin): add reactive action permission gate"
 
 - [ ] **Step 1: Write RED Vue tests**
 
-Cover tree rendering, page-only grant, single-action grant, action auto-selecting page, page deselection clearing actions, future unknown stored permission blocking save, and no permission-management button without the exact role grant permission.
+Cover tree rendering, page-only grant, single-action grant, action auto-selecting page, page deselection clearing actions, future unknown stored permission blocking save, and no permission-management button without the current `identity.roles.write` permission. The following Identity Roles wave replaces this coarse gate with `identity.roles.assign_permissions`; do not claim Roles action granularity complete in the Users slice.
 
 - [ ] **Step 2: Run RED**
 
@@ -547,7 +546,7 @@ The Identity Users slice is complete only when:
 - role grants show page and individual Users actions;
 - Vue read-only users see the page and no business action controls;
 - each single action grant exposes exactly one action;
-- direct adjacent APIs return `403 authorization.denied`;
+- direct adjacent APIs return `403 authorization.permission_denied`;
 - role and API Key old permissions are expanded on SQL Server/MySQL and recovery reruns converge;
 - unknown permissions and undeclared Endpoint authorization fail Architecture Tests;
 - `ui/admin-layui/**` has no diff;
