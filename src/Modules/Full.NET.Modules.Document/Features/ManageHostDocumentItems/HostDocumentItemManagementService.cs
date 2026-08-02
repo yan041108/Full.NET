@@ -1,0 +1,358 @@
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Document.Persistence;
+using Full.NET.Modules.Files.Contracts;
+
+namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
+
+internal sealed class HostDocumentItemManagementService(
+    IQueryExecutor queryExecutor,
+    ICommandExecutor commandExecutor,
+    ICommandTransaction transaction,
+    IHostFileReferenceReader hostFileReferenceReader,
+    IClock clock,
+    IIdGenerator idGenerator)
+{
+    public Task<Result<HostDocumentItemResponse>> CreateAsync(
+        Guid actorUserId,
+        CreateHostDocumentItemRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return Task.FromResult(Invalid());
+        }
+
+        return transaction.ExecuteAsync(
+            token => CreateCoreAsync(actorUserId, request, token),
+            cancellationToken);
+    }
+
+    public Task<Result<HostDocumentItemResponse>> UpdateAsync(
+        Guid itemId,
+        Guid actorUserId,
+        UpdateHostDocumentItemRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title) || request.Version < 1)
+        {
+            return Task.FromResult(Invalid());
+        }
+
+        return transaction.ExecuteAsync(
+            token => UpdateCoreAsync(itemId, actorUserId, request, token),
+            cancellationToken);
+    }
+
+    public Task<Result<HostDocumentItemResponse>> AddVersionAsync(
+        Guid itemId,
+        Guid actorUserId,
+        AddHostDocumentVersionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.FileId == Guid.Empty)
+        {
+            return Task.FromResult(Invalid());
+        }
+
+        return transaction.ExecuteAsync(
+            token => AddVersionCoreAsync(itemId, actorUserId, request.FileId, token),
+            cancellationToken);
+    }
+
+    public Task<Result<bool>> DeleteAsync(
+        Guid itemId,
+        Guid actorUserId,
+        DeleteHostDocumentItemRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.Version < 1)
+        {
+            return Task.FromResult(Result<bool>.Failure(InvalidError()));
+        }
+
+        return transaction.ExecuteAsync(
+            token => DeleteCoreAsync(itemId, actorUserId, request.Version, token),
+            cancellationToken);
+    }
+
+    public Task<Result<HostDocumentItemResponse>> RestoreAsync(
+        Guid itemId,
+        Guid actorUserId,
+        RestoreHostDocumentItemRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.Version < 1)
+        {
+            return Task.FromResult(Invalid());
+        }
+
+        return transaction.ExecuteAsync(
+            token => RestoreCoreAsync(itemId, actorUserId, request.Version, token),
+            cancellationToken);
+    }
+
+    private async Task<Result<HostDocumentItemResponse>> CreateCoreAsync(
+        Guid actorUserId,
+        CreateHostDocumentItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        var id = idGenerator.NewId();
+        var now = clock.UtcNow;
+        await commandExecutor.ExecuteAsync(
+                DocumentItemSql.Insert,
+                new
+                {
+                    Id = id,
+                    Title = request.Title.Trim(),
+                    Description = request.Description?.Trim(),
+                    CreatedAtUtc = now,
+                    CreatedByUserId = actorUserId,
+                    Version = 1L,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return Result<HostDocumentItemResponse>.Success(
+            new HostDocumentItemResponse(
+                id,
+                request.Title.Trim(),
+                request.Description?.Trim(),
+                null,
+                null,
+                now,
+                actorUserId,
+                null,
+                null,
+                1));
+    }
+
+    private async Task<Result<HostDocumentItemResponse>> UpdateCoreAsync(
+        Guid itemId,
+        Guid actorUserId,
+        UpdateHostDocumentItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false) is null)
+        {
+            return NotFound();
+        }
+
+        var now = clock.UtcNow;
+        var affected = await commandExecutor.ExecuteAsync(
+                DocumentItemSql.Update,
+                new
+                {
+                    Id = itemId,
+                    Title = request.Title.Trim(),
+                    Description = request.Description?.Trim(),
+                    UpdatedAtUtc = now,
+                    UpdatedByUserId = actorUserId,
+                    Version = request.Version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            return VersionConflict();
+        }
+
+        return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<HostDocumentItemResponse>> AddVersionCoreAsync(
+        Guid itemId,
+        Guid actorUserId,
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (item is null)
+        {
+            return NotFound();
+        }
+
+        var fileReference = await hostFileReferenceReader
+            .GetReadyReferenceAsync(fileId, cancellationToken)
+            .ConfigureAwait(false);
+        if (fileReference is null)
+        {
+            return InvalidFileReference();
+        }
+
+        var versionNumber = await queryExecutor.QuerySingleOrDefaultAsync<int>(
+                DocumentItemSql.NextVersionNumber,
+                new { DocumentItemId = itemId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        var versionId = idGenerator.NewId();
+        var now = clock.UtcNow;
+        await commandExecutor.ExecuteAsync(
+                DocumentItemSql.InsertVersion,
+                new
+                {
+                    Id = versionId,
+                    DocumentItemId = itemId,
+                    FileId = fileReference.FileId,
+                    VersionNumber = versionNumber,
+                    ContentHash = fileReference.ContentHash,
+                    SizeBytes = fileReference.SizeBytes,
+                    UploadedByUserId = actorUserId,
+                    CreatedAtUtc = now,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var affected = await commandExecutor.ExecuteAsync(
+                DocumentItemSql.SetCurrentVersion,
+                new
+                {
+                    Id = itemId,
+                    CurrentVersionId = versionId,
+                    UpdatedAtUtc = now,
+                    UpdatedByUserId = actorUserId,
+                    Version = item.Version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            return VersionConflict();
+        }
+
+        return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<bool>> DeleteCoreAsync(
+        Guid itemId,
+        Guid actorUserId,
+        long version,
+        CancellationToken cancellationToken)
+    {
+        if (await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false) is null)
+        {
+            return Result<bool>.Failure(NotFoundError());
+        }
+
+        var affected = await commandExecutor.ExecuteAsync(
+                DocumentItemSql.SoftDelete,
+                new
+                {
+                    Id = itemId,
+                    DeletedAtUtc = clock.UtcNow,
+                    DeletedByUserId = actorUserId,
+                    Version = version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        return affected == 1
+            ? Result<bool>.Success(true)
+            : Result<bool>.Failure(VersionConflictError());
+    }
+
+    private async Task<Result<HostDocumentItemResponse>> RestoreCoreAsync(
+        Guid itemId,
+        Guid actorUserId,
+        long version,
+        CancellationToken cancellationToken)
+    {
+        var existing = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                DocumentItemSql.FindAnyById,
+                new { Id = itemId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        var now = clock.UtcNow;
+        var affected = await commandExecutor.ExecuteAsync(
+                DocumentItemSql.Restore,
+                new
+                {
+                    Id = itemId,
+                    UpdatedAtUtc = now,
+                    UpdatedByUserId = actorUserId,
+                    Version = version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            return VersionConflict();
+        }
+
+        return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private Task<DocumentItemDetailRecord?> FindActiveAsync(
+        Guid itemId,
+        CancellationToken cancellationToken) =>
+        queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+            DocumentItemSql.FindActiveById,
+            new { Id = itemId },
+            cancellationToken);
+
+    private async Task<Result<HostDocumentItemResponse>> ReloadActiveAsync(
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        var record = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+        return record is null
+            ? NotFound()
+            : Result<HostDocumentItemResponse>.Success(Map(record));
+    }
+
+    private static HostDocumentItemResponse Map(DocumentItemDetailRecord record) =>
+        new(
+            record.Id,
+            record.Title,
+            record.Description,
+            record.CategoryId,
+            record.VersionId is null
+                ? null
+                : new HostDocumentVersionResponse(
+                    record.VersionId.Value,
+                    record.VersionNumber!.Value,
+                    record.FileId!.Value,
+                    record.ContentHash,
+                    record.SizeBytes!.Value,
+                    record.VersionCreatedAtUtc!.Value,
+                    record.UploadedByUserId!.Value),
+            record.CreatedAtUtc,
+            record.CreatedByUserId,
+            record.UpdatedAtUtc,
+            record.UpdatedByUserId,
+            record.Version);
+
+    private static Result<HostDocumentItemResponse> Invalid() =>
+        Result<HostDocumentItemResponse>.Failure(InvalidError());
+
+    private static Result<HostDocumentItemResponse> NotFound() =>
+        Result<HostDocumentItemResponse>.Failure(NotFoundError());
+
+    private static Result<HostDocumentItemResponse> VersionConflict() =>
+        Result<HostDocumentItemResponse>.Failure(VersionConflictError());
+
+    private static Result<HostDocumentItemResponse> InvalidFileReference() =>
+        Result<HostDocumentItemResponse>.Failure(
+            new Error(
+                DocumentErrorCodes.InvalidFileReference,
+                "The referenced file is unavailable.",
+                ErrorType.Validation));
+
+    private static Error InvalidError() =>
+        new(DocumentErrorCodes.Invalid, "The document item request is invalid.", ErrorType.Validation);
+
+    private static Error NotFoundError() =>
+        new(DocumentErrorCodes.NotFound, "Document item was not found.", ErrorType.NotFound);
+
+    private static Error VersionConflictError() =>
+        new(DocumentErrorCodes.VersionConflict, "Document item was updated by another operation.", ErrorType.Conflict);
+}

@@ -7,6 +7,7 @@ using Full.NET.Modules.Settings;
 using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Files;
+using Full.NET.Modules.Document;
 using Full.NET.Modules.Tenancy;
 using NetArchTest.Rules;
 
@@ -60,6 +61,8 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
         typeof(AuditingModule).Assembly,
         typeof(FilesModule).Assembly,
+        typeof(Full.NET.Modules.Files.Contracts.FilesErrorCodes).Assembly,
+        typeof(DocumentModule).Assembly,
         typeof(SerialNumbersModule).Assembly,
     ];
 
@@ -870,6 +873,15 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Document_declares_identity_and_files_as_explicit_module_dependencies()
+    {
+        var module = new DocumentModule();
+
+        CollectionAssert.Contains(module.Dependencies.ToArray(), "Identity");
+        CollectionAssert.Contains(module.Dependencies.ToArray(), "Files");
+    }
+
+    [TestMethod]
     public void ProductionTypes_DoNotExposeServiceLocatorMembers()
     {
         var allowedTypes = new HashSet<Type>
@@ -1225,6 +1237,8 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
         typeof(AuditingModule).Assembly,
         typeof(FilesModule).Assembly,
+        typeof(Full.NET.Modules.Files.Contracts.FilesErrorCodes).Assembly,
+        typeof(DocumentModule).Assembly,
         typeof(SerialNumbersModule).Assembly,
         HostApi,
         HostMigrator,

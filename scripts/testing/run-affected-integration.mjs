@@ -21,6 +21,7 @@ const smokeFilter = testMatrix.integration.shards.smoke.filter;
 const focusedModules = new Set([
   'Auditing',
   'CodeGeneration',
+  'Document',
   'Files',
   'Jobs',
   'Notifications',

@@ -6,6 +6,7 @@ using Full.NET.Modules.Organization;
 using Full.NET.Modules.Settings;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Files;
+using Full.NET.Modules.Document;
 using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Jobs;
 using Full.NET.Modules.CodeGeneration;
@@ -83,6 +84,7 @@ public static class FullNetModuleCatalog
         new IdentityModule(),
         new AuditingModule(),
         new FilesModule(),
+        new DocumentModule(),
         new NotificationsModule(),
         new JobsModule(),
         new TenancyModule(),
