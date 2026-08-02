@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { ElButton, ElCard, ElMessage, ElTag } from 'element-plus';
+import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -13,7 +14,7 @@ const session = useSessionStore();
 const { t } = useAdminI18n();
 const policy = ref<DiagnosticPolicy>();
 const loading = ref(false);
-const canWrite = computed(() => session.can('settings.diagnostic_policy.write'));
+const canRestore = computed(() => session.can('settings.diagnostic_policy.restore'));
 
 onMounted(load);
 
@@ -29,7 +30,7 @@ async function load(): Promise<void> {
 }
 
 async function restore(): Promise<void> {
-  if (!policy.value || !canWrite.value) return;
+  if (!policy.value || !canRestore.value) return;
   loading.value = true;
   try {
     policy.value = await restoreDiagnosticPolicy(policy.value.configEntryVersion);
@@ -54,9 +55,11 @@ async function restore(): Promise<void> {
       <template #header>
         <div class="diagnostic-policy-view__toolbar">
           <strong>{{ t('diagnosticPolicy.actionsTitle') }}</strong>
-          <ElButton :disabled="!canWrite || loading" @click="restore">
+          <PermissionGate code="settings.diagnostic_policy.restore">
+          <ElButton :disabled="loading" @click="restore">
             {{ t('diagnosticPolicy.restore') }}
           </ElButton>
+          </PermissionGate>
         </div>
       </template>
       <p class="hint">{{ t('diagnosticPolicy.hint') }}</p>

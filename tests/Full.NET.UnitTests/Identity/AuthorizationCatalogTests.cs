@@ -464,6 +464,32 @@ public sealed class AuthorizationCatalogTests
     }
 
     [TestMethod]
+    public void Host_diagnostic_policy_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new SettingsAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["update"] = "settings.diagnostic_policy.update",
+            ["restore"] = "settings.diagnostic_policy.restore",
+        };
+
+        var diagnosticPolicyActions = catalog.Actions
+            .Where(action => action.NavigationId == "diagnostic-policy")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            diagnosticPolicyActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == DiagnosticPolicyManagementPermissions.Write));
+    }
+
+    [TestMethod]
     public void Host_config_entries_actions_bind_to_exact_permissions()
     {
         var catalog = AuthorizationCatalog.Create(

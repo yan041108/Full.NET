@@ -3,7 +3,16 @@ namespace Full.NET.Modules.Settings.Contracts;
 /// <summary>Host 限时诊断策略权限。</summary>
 public static class DiagnosticPolicyManagementPermissions
 {
+    /// <summary>查询限时诊断策略。</summary>
     public const string Read = "settings.diagnostic_policy.read";
+
+    /// <summary>更新限时诊断策略。</summary>
+    public const string Update = "settings.diagnostic_policy.update";
+
+    /// <summary>恢复限时诊断策略生产安全默认。</summary>
+    public const string Restore = "settings.diagnostic_policy.restore";
+
+    /// <summary>迁移 070 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "settings.diagnostic_policy.write";
 }
 

@@ -65,7 +65,10 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./diagnostic-policy.js'),
       'createDiagnosticPolicyController',
       root,
-      sharedOptions
+      {
+        ...sharedOptions,
+        getPermissions: options.getPermissions
+      }
     )],
   ['/settings/config-entries', defineController(
       () => import('./config-entries.js'),

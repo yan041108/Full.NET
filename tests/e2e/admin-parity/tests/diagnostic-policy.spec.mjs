@@ -82,7 +82,8 @@ async function mockAuthenticatedSession(page) {
         'identity.navigation.read',
         'platform.dashboard.read',
         'settings.diagnostic_policy.read',
-        'settings.diagnostic_policy.write'
+        'settings.diagnostic_policy.update',
+        'settings.diagnostic_policy.restore'
       ],
       sessionId: 'e2e-session-id',
       preferredLocale: 'zh-CN',

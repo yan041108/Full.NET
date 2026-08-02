@@ -41,7 +41,7 @@ internal static class Endpoint
         })
         .Produces<DiagnosticPolicyResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            DiagnosticPolicyManagementPermissions.Write));
+            DiagnosticPolicyManagementPermissions.Update));
 
         group.MapPost("/restore", async (
             RestoreDiagnosticPolicyRequest request,
@@ -56,6 +56,6 @@ internal static class Endpoint
         })
         .Produces<DiagnosticPolicyResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            DiagnosticPolicyManagementPermissions.Write));
+            DiagnosticPolicyManagementPermissions.Restore));
     }
 }

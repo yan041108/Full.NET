@@ -45,8 +45,12 @@ internal sealed class SettingsAuthorizationContributor
             "查询限时诊断策略",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            DiagnosticPolicyManagementPermissions.Write,
-            "管理限时诊断策略",
+            DiagnosticPolicyManagementPermissions.Update,
+            "更新限时诊断策略",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            DiagnosticPolicyManagementPermissions.Restore,
+            "恢复限时诊断策略",
             AuthorizationScope.Host),
         new PermissionDefinition(
             EnumCatalogPermissions.Read,
@@ -194,5 +198,19 @@ internal sealed class SettingsAuthorizationContributor
             "禁用配置",
             "disable",
             30),
+        new AuthorizationActionDefinition(
+            "settings.diagnostic_policy.update",
+            "diagnostic-policy",
+            DiagnosticPolicyManagementPermissions.Update,
+            "更新诊断策略",
+            "update",
+            10),
+        new AuthorizationActionDefinition(
+            "settings.diagnostic_policy.restore",
+            "diagnostic-policy",
+            DiagnosticPolicyManagementPermissions.Restore,
+            "恢复诊断策略",
+            "restore",
+            20),
     ];
 }

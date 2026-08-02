@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,10 @@ internal static class DiagnosticPolicyAssertions
         await VerifyReadRequiresPermissionAsync(factory, client, cancellationToken);
         await VerifyUpdateRejectsInvalidScopeAndTtlAsync(client, cancellationToken);
         await VerifyUpdateRestoreAndDomainAuditAsync(factory, client, cancellationToken);
+        await VerifyExactDiagnosticPolicyActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
     }
 
     private static async Task VerifyReadRequiresPermissionAsync(
@@ -177,6 +182,97 @@ internal static class DiagnosticPolicyAssertions
         Assert.IsTrue(restored.IsDefault);
         Assert.AreEqual("Normal", restored.PressureState);
         Assert.IsEmpty(restored.ActiveRules);
+    }
+
+    private static async Task VerifyExactDiagnosticPolicyActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var getRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/settings/diagnostic-policy");
+        getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var getResponse = await client.SendAsync(getRequest, cancellationToken);
+        var current = await getResponse.Content.ReadFromJsonAsync<DiagnosticPolicyResponse>(
+            cancellationToken);
+        Assert.IsNotNull(current);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [DiagnosticPolicyManagementPermissions.Read],
+            cancellationToken);
+        await AssertDiagnosticPolicyPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            "/api/v1/settings/diagnostic-policy",
+            cancellationToken,
+            new UpdateDiagnosticPolicyRequest(
+                "Normal",
+                [],
+                current.ConfigEntryVersion));
+        await AssertDiagnosticPolicyPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/settings/diagnostic-policy/restore",
+            cancellationToken,
+            new RestoreDiagnosticPolicyRequest(current.ConfigEntryVersion));
+
+        var updateToken = await factory.CreateHostAccessTokenAsync(
+            [
+                DiagnosticPolicyManagementPermissions.Read,
+                DiagnosticPolicyManagementPermissions.Update,
+            ],
+            cancellationToken);
+        await AssertDiagnosticPolicyPermissionDeniedAsync(
+            client,
+            updateToken,
+            HttpMethod.Post,
+            "/api/v1/settings/diagnostic-policy/restore",
+            cancellationToken,
+            new RestoreDiagnosticPolicyRequest(current.ConfigEntryVersion));
+
+        var restoreToken = await factory.CreateHostAccessTokenAsync(
+            [
+                DiagnosticPolicyManagementPermissions.Read,
+                DiagnosticPolicyManagementPermissions.Restore,
+            ],
+            cancellationToken);
+        using var restoreRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/settings/diagnostic-policy/restore",
+            restoreToken,
+            new RestoreDiagnosticPolicyRequest(current.ConfigEntryVersion));
+        using var restoreResponse = await client.SendAsync(restoreRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, restoreResponse.StatusCode);
+    }
+
+    private static async Task AssertDiagnosticPolicyPermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        TRequest? body)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            CommonErrorCodes.PermissionDenied,
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task<long> CountDomainAuditRowsAsync(
