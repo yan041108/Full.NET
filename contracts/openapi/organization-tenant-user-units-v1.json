@@ -8,7 +8,7 @@
       "operations": [
         {
           "method": "GET",
-          "permission": "organization.user_units.write",
+          "permission": "organization.user_units.create",
           "successStatus": 200,
           "responseSchema": "OrganizationAssignableUserResponsePage"
         }
@@ -25,7 +25,7 @@
         },
         {
           "method": "POST",
-          "permission": "organization.user_units.write",
+          "permission": "organization.user_units.create",
           "successStatus": 201,
           "requestSchema": "CreateOrganizationUserUnitRequest",
           "responseSchema": "OrganizationUserUnitResponse"
@@ -37,7 +37,7 @@
       "operations": [
         {
           "method": "PUT",
-          "permission": "organization.user_units.write",
+          "permission": "organization.user_units.update",
           "successStatus": 200,
           "requestSchema": "UpdateOrganizationUserUnitRequest",
           "responseSchema": "OrganizationUserUnitResponse"
@@ -49,7 +49,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "organization.user_units.write",
+          "permission": "organization.user_units.disable",
           "successStatus": 200,
           "responseSchema": "OrganizationUserUnitResponse"
         }

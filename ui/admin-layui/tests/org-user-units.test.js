@@ -89,7 +89,7 @@ describe('Layui 租户用户-机构隶属控制器', () => {
       });
     const controller = createOrgUserUnitsController(document, {
       request,
-      hasPermission: permission => permission === 'organization.user_units.write',
+      hasPermission: permission => permission === 'organization.user_units.create',
       translation: () => ({ locale: 'zh-CN', t: key => key })
     });
 
@@ -164,7 +164,7 @@ describe('Layui 租户用户-机构隶属控制器', () => {
     });
     const controller = createOrgUserUnitsController(document, {
       request,
-      hasPermission: permission => permission === 'organization.user_units.write',
+      hasPermission: permission => permission === 'organization.user_units.create',
       translation: () => ({ locale: 'zh-CN', t: key => key })
     });
 

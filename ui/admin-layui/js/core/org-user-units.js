@@ -1,11 +1,13 @@
 /**
  * 装配租户用户-机构隶属视图；支持分配、设主部门与取消隶属。
  */
+import { applyPermissionVisibility } from './navigation.js';
+
 export function createOrgUserUnitsController(root, options) {
   const request = options.request;
   const translation = options.translation;
-  const canWrite = () => options.hasPermission?.(
-    'organization.user_units.write'
+  const canCreate = () => options.hasPermission?.(
+    'organization.user_units.create'
   ) === true;
   const form = root.querySelector('[data-org-user-units-create-form]');
   const directory = root.querySelector('[data-org-user-units-directory]');
@@ -13,21 +15,20 @@ export function createOrgUserUnitsController(root, options) {
   const loadMoreUsersButton = root.querySelector(
     '[data-org-user-units-load-more-users]'
   );
-  const unitSelect = root.querySelector('[data-org-user-units-unit]');
+  const unitselect = root.querySelector('[data-org-user-units-unit]');
   let loading;
   let changing = false;
   let loadingMoreUsers = false;
   let users = [];
   let userPage = 1;
   let userTotal = 0;
-  if (form) form.hidden = !canWrite();
 
   const load = async () => {
     if (loading) return await loading;
     loading = Promise.all([
       request('/api/v1/organization/user-units?page=1&pageSize=20'),
       request('/api/v1/organization/units?page=1&pageSize=20'),
-      canWrite()
+      canCreate()
         ? request('/api/v1/organization/user-units/assignable-users?page=1&pageSize=100')
             .catch(problem => {
               if (problem?.status === 403) {
@@ -53,7 +54,7 @@ export function createOrgUserUnitsController(root, options) {
           loadingMoreUsers
         );
         renderSelectOptions(
-          unitSelect,
+          unitselect,
           Array.isArray(unitPage?.items)
             ? unitPage.items.filter(unit => unit.isActive)
             : [],
@@ -65,6 +66,9 @@ export function createOrgUserUnitsController(root, options) {
           Array.isArray(assignmentPage?.items) ? assignmentPage.items : [],
           translation()
         );
+        if (typeof options.getPermissions === 'function') {
+          applyPermissionVisibility(root, options.getPermissions());
+        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -75,18 +79,14 @@ export function createOrgUserUnitsController(root, options) {
   };
 
   const onLoadMoreUsers = async () => {
-    if (loadingMoreUsers || !canWrite() || users.length >= userTotal) return;
+    if (loadingMoreUsers || !canCreate() || users.length >= userTotal) return;
     loadingMoreUsers = true;
     updateLoadMoreButton(loadMoreUsersButton, true, true);
-    const selectedUserId = userSelect?.value ?? '';
     try {
       const nextPage = await request(
         `/api/v1/organization/user-units/assignable-users?page=${userPage + 1}&pageSize=100`
       );
-      users = appendUniqueUsers(
-        users,
-        Array.isArray(nextPage?.items) ? nextPage.items : []
-      );
+      users = appendUniqueUsers(users, Array.isArray(nextPage?.items) ? nextPage.items : []);
       userPage = positiveIntegerOr(nextPage?.page, userPage + 1);
       userTotal = nonNegativeIntegerOr(nextPage?.total, users.length);
       renderSelectOptions(
@@ -95,9 +95,11 @@ export function createOrgUserUnitsController(root, options) {
         user => `${user.displayName} (${user.username})`,
         user => user.id
       );
-      if (userSelect && users.some(user => user.id === selectedUserId)) {
-        userSelect.value = selectedUserId;
-      }
+      updateLoadMoreButton(
+        loadMoreUsersButton,
+        users.length < userTotal,
+        false
+      );
       hideProblem(root);
     } catch (problem) {
       if (problem?.status === 403) {
@@ -117,7 +119,7 @@ export function createOrgUserUnitsController(root, options) {
 
   const onCreate = async event => {
     event.preventDefault();
-    if (changing || !form || !canWrite()) return;
+    if (changing || !form || !canCreate()) return;
     const data = new FormData(form);
     const userId = String(data.get('userId') ?? '').trim();
     const unitId = String(data.get('unitId') ?? '').trim();
@@ -288,6 +290,7 @@ function renderDirectory(container, assignments, translation) {
       const primaryButton = container.ownerDocument.createElement('button');
       primaryButton.type = 'button';
       primaryButton.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      primaryButton.dataset.permission = 'organization.user_units.update';
       primaryButton.dataset.orgUserUnitsPrimary = assignment.id;
       primaryButton.dataset.version = String(assignment.version ?? 0);
       primaryButton.textContent = translation.t('orgUserUnits.setPrimary');
@@ -297,6 +300,7 @@ function renderDirectory(container, assignments, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-sm';
+      disable.dataset.permission = 'organization.user_units.disable';
       disable.dataset.orgUserUnitsDisable = assignment.id;
       disable.dataset.label = `${assignment.displayName ?? ''} / ${assignment.unitName ?? ''}`;
       disable.textContent = translation.t('orgUserUnits.disable');

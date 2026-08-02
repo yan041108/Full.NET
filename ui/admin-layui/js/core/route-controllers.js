@@ -211,7 +211,10 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./org-user-units.js'),
       'createOrgUserUnitsController',
       root,
-      sharedOptions
+      {
+        ...sharedOptions,
+        getPermissions: options.getPermissions
+      }
     )],
     ['/organization/user-positions', defineController(
       () => import('./org-user-positions.js'),

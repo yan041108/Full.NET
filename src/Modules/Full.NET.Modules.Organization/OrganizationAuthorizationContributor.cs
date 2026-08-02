@@ -29,8 +29,16 @@ internal sealed class OrganizationAuthorizationContributor
             "查看用户机构隶属",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
-            OrganizationUserUnitManagementPermissions.Write,
-            "管理用户机构隶属",
+            OrganizationUserUnitManagementPermissions.Create,
+            "分配用户机构隶属",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationUserUnitManagementPermissions.Update,
+            "设为用户主部门",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationUserUnitManagementPermissions.Disable,
+            "取消用户机构隶属",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
             OrganizationPositionManagementPermissions.Read,
@@ -170,6 +178,27 @@ internal sealed class OrganizationAuthorizationContributor
             "org-units",
             OrganizationUnitManagementPermissions.Disable,
             "禁用机构",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "organization.user_units.create",
+            "org-user-units",
+            OrganizationUserUnitManagementPermissions.Create,
+            "分配机构隶属",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "organization.user_units.update",
+            "org-user-units",
+            OrganizationUserUnitManagementPermissions.Update,
+            "设为主部门",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "organization.user_units.disable",
+            "org-user-units",
+            OrganizationUserUnitManagementPermissions.Disable,
+            "取消机构隶属",
             "disable",
             30),
         new AuthorizationActionDefinition(

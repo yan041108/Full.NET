@@ -47,7 +47,9 @@ export const HOST_ROLE_ASSIGNABLE_PERMISSIONS = [
   'organization.user_positions.update',
   'organization.user_positions.disable',
   'organization.user_units.read',
-  'organization.user_units.write',
+  'organization.user_units.create',
+  'organization.user_units.update',
+  'organization.user_units.disable',
   'tenancy.tenants.read',
   'tenancy.tenants.switch'
 ] as const;

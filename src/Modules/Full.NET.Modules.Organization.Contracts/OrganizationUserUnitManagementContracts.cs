@@ -8,7 +8,16 @@ public static class OrganizationUserUnitManagementPermissions
     /// <summary>分页查询用户-机构隶属。</summary>
     public const string Read = "organization.user_units.read";
 
-    /// <summary>分配、设主部门与取消隶属。</summary>
+    /// <summary>分配用户-机构隶属。</summary>
+    public const string Create = "organization.user_units.create";
+
+    /// <summary>设为主部门。</summary>
+    public const string Update = "organization.user_units.update";
+
+    /// <summary>取消用户-机构隶属。</summary>
+    public const string Disable = "organization.user_units.disable";
+
+    /// <summary>迁移 066 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "organization.user_units.write";
 }
 

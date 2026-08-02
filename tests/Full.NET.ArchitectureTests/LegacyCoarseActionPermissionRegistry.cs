@@ -22,6 +22,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         OrganizationPositionManagementPermissions.Write,
         OrganizationPositionLevelManagementPermissions.Write,
         OrganizationUserPositionManagementPermissions.Write,
+        OrganizationUserUnitManagementPermissions.Write,
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -30,7 +31,6 @@ internal static class LegacyCoarseActionPermissionRegistry
 
     internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal)
     {
-        "GET /api/v1/organization/user-units/assignable-users|organization.user_units.write",
         "POST /api/v1/code-generation/templates/{templateId:guid}/delete|codegen.templates.write",
         "POST /api/v1/code-generation/templates/|codegen.templates.write",
         "POST /api/v1/document/host/items/{itemId:guid}/versions|document.host_documents.write",
@@ -46,8 +46,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/notifications/host-announcements/{announcementId:guid}/publish|notifications.announcements.write",
         "POST /api/v1/notifications/host-announcements/|notifications.announcements.write",
         "POST /api/v1/notifications/host-inbox-messages/|notifications.inbox.write",
-        "POST /api/v1/organization/user-units/{assignmentId:guid}/disable|organization.user_units.write",
-        "POST /api/v1/organization/user-units/|organization.user_units.write",
         "POST /api/v1/serial-numbers/rules/{ruleId:guid}/disable|serial_numbers.rules.write",
         "POST /api/v1/serial-numbers/rules/{ruleId:guid}/enable|serial_numbers.rules.write",
         "POST /api/v1/serial-numbers/rules/|serial_numbers.rules.write",
@@ -67,7 +65,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "PUT /api/v1/jobs/host-definitions/{definitionId:guid}|jobs.definitions.write",
         "PUT /api/v1/jobs/host-schedules/{scheduleId:guid}|jobs.schedules.write",
         "PUT /api/v1/notifications/host-announcements/{announcementId:guid}|notifications.announcements.write",
-        "PUT /api/v1/organization/user-units/{assignmentId:guid}|organization.user_units.write",
         "PUT /api/v1/serial-numbers/rules/{ruleId:guid}|serial_numbers.rules.write",
         "PUT /api/v1/settings/config-entries/{configEntryId:guid}|settings.config.write",
         "PUT /api/v1/settings/diagnostic-policy/|settings.diagnostic_policy.write",

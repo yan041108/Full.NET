@@ -366,6 +366,29 @@ public sealed class EndpointAuthorizationTests
     }
 
     [TestMethod]
+    public void Api_v1_endpoints_do_not_bind_retired_organization_user_units_write()
+    {
+        using var app = BuildApiApplication();
+
+        var violations = CollectPermissionBindings(app)
+            .Where(binding => string.Equals(
+                binding.PermissionCode,
+                OrganizationUserUnitManagementPermissions.Write,
+                StringComparison.Ordinal))
+            .Select(binding => $"{binding.HttpMethod} {binding.Route} -> {binding.PermissionCode}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        if (violations.Length > 0)
+        {
+            Assert.Fail(
+                "organization.user_units.write 已退役，下列 Endpoint 仍绑定该权限: "
+                + string.Join(", ", violations));
+        }
+    }
+
+    [TestMethod]
     public void Api_v1_coarse_write_bindings_match_frozen_inventory_allowlist()
     {
         using var app = BuildApiApplication();
