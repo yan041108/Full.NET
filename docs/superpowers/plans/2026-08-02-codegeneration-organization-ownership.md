@@ -21,3 +21,12 @@
 ### Task 3: Closeout
 
 - [x] 验证记录；评估状态关闭；test-matrix 更新。
+
+### Task 4: Post-closeout supplements（Build-verified 加固）
+
+- [x] 模块编译集成（`fca4554`）
+- [x] Host/Global 互斥 + CLI/Preview API（`246613a`–`e7db0ed`）
+- [x] Tree/关系 fail-closed 回归（`cfae6d8`）
+- [x] E2E Schema 助手 + spec-contracts（`848c20f`–`1f03ccf`）
+- [x] Runs 跟踪预览 Integration（`494cd3f`）
+- [ ] `Verified`：双库 SQL 运行时 + 真实栈 E2E（需 Docker/真实栈环境）
