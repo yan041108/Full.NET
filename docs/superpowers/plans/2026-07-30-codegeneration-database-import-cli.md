@@ -31,11 +31,11 @@
 - Consumes: 现有 `CodeGenerationCli.RunAsync(...)`。
 - Produces: `DatabaseImportCliOptions`，保存 Provider、环境变量名、生成命名、布尔语义和工作区参数。
 
-- [ ] **Step 1: Write argument/security RED**
+- [x] **Step 1: Write argument/security RED**
 
 新增测试，使用完整 `import-database` 参数但不存在的唯一环境变量，断言返回 `64`、工作区不写入，并且错误不包含伪造连接串。再传入禁止的 `--connection-string`，断言返回 `64` 且错误不回显其后的 secret。
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -45,7 +45,7 @@ dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filt
 
 Expected: 新测试因 `import-database` 尚未识别而失败。
 
-- [ ] **Step 3: Implement strict parsing**
+- [x] **Step 3: Implement strict parsing**
 
 命令契约固定为：
 
@@ -68,7 +68,7 @@ fullnet-codegen import-database
 
 所有值参数必须恰好出现一次；布尔值只接受 `true`/`false`；缺失环境变量按用法错误返回 `64`。错误输出只说明参数或环境变量缺失，不输出读取到的值。
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 重复 Step 2 命令，要求现有 Schema 模式和新增失败路径全部通过。
 
@@ -86,11 +86,11 @@ fullnet-codegen import-database
 - Consumes: `DatabaseCrudSchemaImporter.ImportAsync(...)` 和 `CrudGenerationWorkspace.PlanAsync/ApplyAsync(...)`。
 - Produces: `DatabaseCrudImportCommand.ImportAsync(DatabaseImportCliOptions options, string connectionString, CancellationToken cancellationToken)`。
 
-- [ ] **Step 1: Write real dual-provider RED**
+- [x] **Step 1: Write real dual-provider RED**
 
 在 SQL Server 与 MySQL 隔离数据库中分别创建 `acme_catalog_product`，把连接串放入每个测试独有的环境变量，调用公开 `CodeGenerationCli.RunAsync(...)`。断言两种 Provider 都返回 `0`、报告生成动作，且默认预览不会写工作区文件。
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -100,11 +100,11 @@ dotnet test tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c 
 
 Expected: 测试因连接适配器尚未实现而失败。
 
-- [ ] **Step 3: Implement minimal connection adapter**
+- [x] **Step 3: Implement minimal connection adapter**
 
 `DatabaseCrudImportCommand` 根据封闭 Provider 枚举创建 `SqlConnection` 或 `MySqlConnection`，异步打开后调用现有 importer。连接由命令释放；异常继续由 CLI 统一映射，stderr 只输出稳定分类和异常类型，不输出异常消息、连接串或堆栈。
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 重复 Step 2 命令，要求 SQL Server/MySQL 均通过且无跳过。
 
@@ -119,11 +119,11 @@ Expected: 测试因连接适配器尚未实现而失败。
 - Consumes: Tasks 1–2 的稳定命令与测试证据。
 - Produces: 唯一测试门槛和如实的 CodeGeneration 能力状态。
 
-- [ ] **Step 1: Update canonical counts and status**
+- [x] **Step 1: Update canonical counts and status**
 
 只把实际新增的 Unit/Infrastructure/Full 最低发现数写入 `eng/testing/test-matrix.json`。路线图把“元数据导入 CLI”移入已完成证据，继续保留整库扫描、模块/页面模板和完整业务纵向生成作为开放项。
 
-- [ ] **Step 2: Run layered verification**
+- [x] **Step 2: Run layered verification**
 
 ```powershell
 pnpm test:dotnet:unit
