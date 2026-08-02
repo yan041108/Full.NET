@@ -104,6 +104,9 @@
       },
       "053": {
         "filter": "FullyQualifiedName~Migration053DocumentHostFoundationRecoveryTests.MySql_|FullyQualifiedName~Migration053DocumentHostFoundationRecoveryTests.SqlServer_"
+      },
+      "054": {
+        "filter": "FullyQualifiedName~Migration054IdentityUserActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration054IdentityUserActionPermissionsRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -130,7 +133,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 106,
+        "minimum": 112,
         "timeout": "90m"
       },
       "infrastructure": {
