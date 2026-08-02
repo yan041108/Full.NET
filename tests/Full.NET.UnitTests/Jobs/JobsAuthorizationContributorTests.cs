@@ -8,7 +8,7 @@ namespace Full.NET.UnitTests.Jobs;
 public sealed class JobsAuthorizationContributorTests
 {
     [TestMethod]
-    public void Contributor_publishes_exact_host_job_definition_permissions_and_actions()
+    public void Contributor_publishes_exact_host_job_permissions_actions_and_navigation()
     {
         var catalog = AuthorizationCatalog.Create([new JobsAuthorizationContributor()]);
 
@@ -21,13 +21,18 @@ public sealed class JobsAuthorizationContributorTests
                 HostJobPermissions.DefinitionsTrigger,
                 HostJobPermissions.DefinitionsUpdate,
                 HostJobPermissions.ExecutionsRead,
+                HostJobPermissions.SchedulesCreate,
+                HostJobPermissions.SchedulesPause,
                 HostJobPermissions.SchedulesRead,
-                HostJobPermissions.SchedulesWrite,
+                HostJobPermissions.SchedulesResume,
+                HostJobPermissions.SchedulesUpdate,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
         var hostJobs = catalog.Navigation.Single(item => item.Id == "host-jobs");
         Assert.AreEqual(HostJobPermissions.DefinitionsRead, hostJobs.RequiredPermission);
+        var hostSchedules = catalog.Navigation.Single(item => item.Id == "host-job-schedules");
+        Assert.AreEqual(HostJobPermissions.SchedulesRead, hostSchedules.RequiredPermission);
 
         CollectionAssert.AreEqual(
             new[]
@@ -39,6 +44,20 @@ public sealed class JobsAuthorizationContributorTests
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "host-jobs")
+                .OrderBy(action => action.Order)
+                .Select(action => action.PermissionCode)
+                .ToArray());
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                HostJobPermissions.SchedulesCreate,
+                HostJobPermissions.SchedulesUpdate,
+                HostJobPermissions.SchedulesPause,
+                HostJobPermissions.SchedulesResume,
+            },
+            catalog.Actions
+                .Where(action => action.NavigationId == "host-job-schedules")
                 .OrderBy(action => action.Order)
                 .Select(action => action.PermissionCode)
                 .ToArray());

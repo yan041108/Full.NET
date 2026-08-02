@@ -126,6 +126,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.hostJobs.title',
     captionKey: 'navigation.hostJobs.caption'
   }],
+  ['host-job-schedules', {
+    titleKey: 'navigation.hostJobSchedules.title',
+    captionKey: 'navigation.hostJobSchedules.caption'
+  }],
   ['code-generation-previews', {
     titleKey: 'navigation.codeGenerationPreviews.title',
     captionKey: 'navigation.codeGenerationPreviews.caption'

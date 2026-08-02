@@ -167,6 +167,9 @@
       },
       "074": {
         "filter": "FullyQualifiedName~Migration074JobsDefinitionActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration074JobsDefinitionActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "075": {
+        "filter": "FullyQualifiedName~Migration075JobsScheduleActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration075JobsScheduleActionPermissionsRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -193,7 +196,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 234,
+        "minimum": 240,
         "timeout": "90m"
       },
       "infrastructure": {

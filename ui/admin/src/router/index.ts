@@ -155,6 +155,11 @@ export function createAppRouter(
         component: () => import('../views/HostJobsView.vue')
       },
       {
+        name: 'host-job-schedules',
+        path: '/jobs/host-schedules',
+        component: () => import('../views/HostJobSchedulesView.vue')
+      },
+      {
         name: 'code-generation-previews',
         path: '/code-generation/previews',
         component: () => import('../views/CodeGenerationPreviewsView.vue')

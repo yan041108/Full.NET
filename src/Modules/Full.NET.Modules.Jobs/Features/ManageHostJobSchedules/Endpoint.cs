@@ -81,7 +81,7 @@ internal static class Endpoint
         })
         .Produces<HostJobScheduleResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(
-            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesWrite));
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesCreate));
 
         group.MapPut("/{scheduleId:guid}", async (
             Guid scheduleId,
@@ -106,7 +106,7 @@ internal static class Endpoint
         })
         .Produces<HostJobScheduleResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(
-            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesWrite));
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesUpdate));
 
         MapStateChange(group, "pause", enable: false);
         MapStateChange(group, "resume", enable: true);
@@ -147,7 +147,10 @@ internal static class Endpoint
         })
         .Produces<HostJobScheduleResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(
-            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesWrite));
+            FullNetPermissionPolicies.For(
+                enable
+                    ? HostJobPermissions.SchedulesResume
+                    : HostJobPermissions.SchedulesPause));
     }
 
     private static bool TryResolveUserId(

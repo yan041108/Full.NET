@@ -215,13 +215,22 @@
 | `HostJobsView.vue` | 禁用 | `jobs.definitions.disable` | 074 |
 | `HostJobsView.vue` | 手动触发 | `jobs.definitions.trigger` | 074 |
 
+## W4：Jobs Schedules（075）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `HostJobSchedulesView.vue` | 页面 | `jobs.schedules.read` | 无 |
+| `HostJobSchedulesView.vue` | 创建 | `jobs.schedules.create` | 075 |
+| `HostJobSchedulesView.vue` | 编辑 | `jobs.schedules.update` | 075 |
+| `HostJobSchedulesView.vue` | 暂停 | `jobs.schedules.pause` | 075 |
+| `HostJobSchedulesView.vue` | 恢复 | `jobs.schedules.resume` | 075 |
+
 ## W4–W5：仍需拆分的粗粒度操作权限（冻结清单）
 
 下列 `.write` 权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；W5 同时包含不以 `.write` 命名、但仍承载多个动作的 `delete/manage` 权限。后续门禁必须覆盖这些语义，新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `jobs.schedules.write` | `HostJobsView.vue` | W4 |
 | `codegen.templates.write` | `CodeGenerationPreviewsView.vue` | W4 |
 | `serial_numbers.rules.write` | （API 已交付，Vue 待切片） | W4 |
 | `document.host_documents.write` | `HostDocumentItemsView.vue` | W5 |
@@ -254,6 +263,7 @@
 | `notifications.announcements.write` | **已退役**：不可分配、不可出现在 Endpoint；由 072 展开为 `notifications.announcements.create` / `update` / `publish` |
 | `notifications.inbox.write` | **已退役**：不可分配、不可出现在 Endpoint；由 073 展开为 `notifications.inbox.send`，并为存量 `read` 补齐 `mark_read` / `mark_all_read` |
 | `jobs.definitions.write` | **已退役**：不可分配、不可出现在 Endpoint；由 074 展开为 `jobs.definitions.create` / `update` / `disable` / `trigger` |
+| `jobs.schedules.write` | **已退役**：不可分配、不可出现在 Endpoint；由 075 展开为 `jobs.schedules.create` / `update` / `pause` / `resume` |
 
 ## 本地 UI（无需权限码）
 

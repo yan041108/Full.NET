@@ -37,7 +37,7 @@ function isValidJobsPermission(permission) {
   if (permission === 'jobs.executions.read') {
     return true;
   }
-  return /^jobs\.schedules\.(read|write)$/u.test(permission);
+  return /^jobs\.schedules\.(read|create|update|pause|resume)$/u.test(permission);
 }
 
 test('Host 任务 OpenAPI 夹具结构完整且路径唯一', async () => {
@@ -81,7 +81,10 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     'jobs.definitions.trigger',
     'jobs.executions.read',
     'jobs.schedules.read',
-    'jobs.schedules.write'
+    'jobs.schedules.create',
+    'jobs.schedules.update',
+    'jobs.schedules.pause',
+    'jobs.schedules.resume'
   ]) {
     assert.ok(contractsSource.includes(permission), `C# 契约缺少权限码：${permission}`);
   }

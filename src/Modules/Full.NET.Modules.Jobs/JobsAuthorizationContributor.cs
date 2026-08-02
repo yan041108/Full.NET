@@ -39,8 +39,20 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "查询任务计划",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            HostJobPermissions.SchedulesWrite,
-            "管理任务计划",
+            HostJobPermissions.SchedulesCreate,
+            "创建任务计划",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.SchedulesUpdate,
+            "更新任务计划",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.SchedulesPause,
+            "暂停任务计划",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.SchedulesResume,
+            "恢复任务计划",
             AuthorizationScope.Host),
     ];
 
@@ -52,11 +64,22 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "host-jobs",
             "/jobs/host-definitions",
             "host-jobs",
-            "任务调度",
+            "任务定义",
             "Jobs",
             "timer",
             57,
             HostJobPermissions.DefinitionsRead),
+        new NavigationDefinition(
+            "host-job-schedules",
+            null,
+            "host-job-schedules",
+            "/jobs/host-schedules",
+            "host-job-schedules",
+            "任务计划",
+            "Jobs",
+            "calendar",
+            58,
+            HostJobPermissions.SchedulesRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -88,6 +111,34 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             HostJobPermissions.DefinitionsTrigger,
             "手动触发任务",
             "trigger",
+            40),
+        new AuthorizationActionDefinition(
+            "jobs.schedules.create",
+            "host-job-schedules",
+            HostJobPermissions.SchedulesCreate,
+            "创建任务计划",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "jobs.schedules.update",
+            "host-job-schedules",
+            HostJobPermissions.SchedulesUpdate,
+            "编辑任务计划",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "jobs.schedules.pause",
+            "host-job-schedules",
+            HostJobPermissions.SchedulesPause,
+            "暂停任务计划",
+            "pause",
+            30),
+        new AuthorizationActionDefinition(
+            "jobs.schedules.resume",
+            "host-job-schedules",
+            HostJobPermissions.SchedulesResume,
+            "恢复任务计划",
+            "resume",
             40),
     ];
 }

@@ -84,7 +84,7 @@
         },
         {
           "method": "POST",
-          "permission": "jobs.schedules.write",
+          "permission": "jobs.schedules.create",
           "successStatus": 201,
           "requestSchema": "CreateHostJobScheduleRequest",
           "responseSchema": "HostJobScheduleResponse"
@@ -102,7 +102,7 @@
         },
         {
           "method": "PUT",
-          "permission": "jobs.schedules.write",
+          "permission": "jobs.schedules.update",
           "successStatus": 200,
           "requestSchema": "UpdateHostJobScheduleRequest",
           "responseSchema": "HostJobScheduleResponse"
@@ -114,7 +114,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "jobs.schedules.write",
+          "permission": "jobs.schedules.pause",
           "successStatus": 200,
           "requestSchema": "ChangeHostJobScheduleStateRequest",
           "responseSchema": "HostJobScheduleResponse"
@@ -126,7 +126,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "jobs.schedules.write",
+          "permission": "jobs.schedules.resume",
           "successStatus": 200,
           "requestSchema": "ChangeHostJobScheduleStateRequest",
           "responseSchema": "HostJobScheduleResponse"

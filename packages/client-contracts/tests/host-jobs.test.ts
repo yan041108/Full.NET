@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isChangeHostJobScheduleStateRequest,
   isCreateHostJobDefinitionRequest,
+  isCreateHostJobScheduleRequest,
   isDisableHostJobDefinitionRequest,
   isHostJobDefinition,
   isHostJobDefinitionPage,
   isHostJobExecution,
   isHostJobExecutionPage,
-  isUpdateHostJobDefinitionRequest
+  isHostJobSchedule,
+  isHostJobSchedulePage,
+  isUpdateHostJobDefinitionRequest,
+  isUpdateHostJobScheduleRequest
 } from '../src/host-jobs';
 
 describe('host-jobs contracts', () => {
@@ -62,5 +67,46 @@ describe('host-jobs contracts', () => {
   it('rejects invalid job keys', () => {
     expect(isHostJobDefinition({ ...definition, id: 'bad' })).toBe(false);
     expect(isHostJobExecution({ ...execution, status: 'unknown' })).toBe(false);
+  });
+
+  it('accepts valid host job schedule payloads', () => {
+    const schedule = {
+      id: '01912345-6789-7abc-8def-0123456789ad',
+      jobDefinitionId: definition.id,
+      triggerKind: 'cron',
+      cronExpression: '0 9 * * *',
+      timeZoneId: 'UTC',
+      oneTimeAtUtc: null,
+      misfirePolicy: 'skip',
+      isEnabled: true,
+      nextExecutionAtUtc: '2026-08-03T09:00:00Z',
+      lastExecutionAtUtc: null,
+      completedAtUtc: null,
+      createdAtUtc: '2026-07-26T00:00:00Z',
+      updatedAtUtc: null,
+      version: 1
+    };
+
+    expect(isHostJobSchedule(schedule)).toBe(true);
+    expect(isHostJobSchedulePage({
+      items: [schedule],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    })).toBe(true);
+    expect(isCreateHostJobScheduleRequest({
+      jobDefinitionId: definition.id,
+      triggerKind: 'cron',
+      timeZoneId: 'UTC',
+      misfirePolicy: 'skip',
+      cronExpression: '0 9 * * *'
+    })).toBe(true);
+    expect(isUpdateHostJobScheduleRequest({
+      triggerKind: 'cron',
+      timeZoneId: 'UTC',
+      misfirePolicy: 'skip',
+      version: 1
+    })).toBe(true);
+    expect(isChangeHostJobScheduleStateRequest({ version: 1 })).toBe(true);
   });
 });

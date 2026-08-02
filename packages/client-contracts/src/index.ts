@@ -273,24 +273,36 @@ export type {
 } from './host-announcements.js';
 
 export {
+  JOB_MISFIRE_POLICIES,
+  JOB_TRIGGER_KINDS,
   JOBS_WELL_KNOWN_KEYS,
+  isChangeHostJobScheduleStateRequest,
   isCreateHostJobDefinitionRequest,
+  isCreateHostJobScheduleRequest,
   isDisableHostJobDefinitionRequest,
   isHostJobDefinition,
   isHostJobDefinitionPage,
   isHostJobExecution,
   isHostJobExecutionPage,
-  isUpdateHostJobDefinitionRequest
+  isHostJobSchedule,
+  isHostJobSchedulePage,
+  isUpdateHostJobDefinitionRequest,
+  isUpdateHostJobScheduleRequest
 } from './host-jobs.js';
 
 export type {
+  ChangeHostJobScheduleStateRequest,
   CreateHostJobDefinitionRequest,
+  CreateHostJobScheduleRequest,
   DisableHostJobDefinitionRequest,
   HostJobDefinition,
   HostJobDefinitionPage,
   HostJobExecution,
   HostJobExecutionPage,
-  UpdateHostJobDefinitionRequest
+  HostJobSchedule,
+  HostJobSchedulePage,
+  UpdateHostJobDefinitionRequest,
+  UpdateHostJobScheduleRequest
 } from './host-jobs.js';
 
 export {

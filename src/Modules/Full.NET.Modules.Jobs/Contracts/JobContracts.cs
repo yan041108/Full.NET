@@ -16,7 +16,13 @@ public static class HostJobPermissions
 
     public const string SchedulesRead = "jobs.schedules.read";
 
-    public const string SchedulesWrite = "jobs.schedules.write";
+    public const string SchedulesCreate = "jobs.schedules.create";
+
+    public const string SchedulesUpdate = "jobs.schedules.update";
+
+    public const string SchedulesPause = "jobs.schedules.pause";
+
+    public const string SchedulesResume = "jobs.schedules.resume";
 }
 
 public static class JobsWellKnownKeys

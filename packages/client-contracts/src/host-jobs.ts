@@ -55,6 +55,129 @@ export const JOBS_WELL_KNOWN_KEYS = {
   ping: 'jobs.ping'
 } as const;
 
+export const JOB_TRIGGER_KINDS = {
+  cron: 'cron',
+  oneTime: 'one_time'
+} as const;
+
+export const JOB_MISFIRE_POLICIES = {
+  skip: 'skip',
+  fireOnce: 'fire_once'
+} as const;
+
+export interface HostJobSchedule {
+  id: string;
+  jobDefinitionId: string;
+  triggerKind: string;
+  cronExpression: string | null;
+  timeZoneId: string;
+  oneTimeAtUtc: string | null;
+  misfirePolicy: string;
+  isEnabled: boolean;
+  nextExecutionAtUtc: string | null;
+  lastExecutionAtUtc: string | null;
+  completedAtUtc: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+  version: number;
+}
+
+export interface HostJobSchedulePage {
+  items: HostJobSchedule[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface CreateHostJobScheduleRequest {
+  jobDefinitionId: string;
+  triggerKind: string;
+  cronExpression?: string | null;
+  timeZoneId: string;
+  oneTimeAtUtc?: string | null;
+  misfirePolicy: string;
+}
+
+export interface UpdateHostJobScheduleRequest {
+  triggerKind: string;
+  cronExpression?: string | null;
+  timeZoneId: string;
+  oneTimeAtUtc?: string | null;
+  misfirePolicy: string;
+  version: number;
+}
+
+export interface ChangeHostJobScheduleStateRequest {
+  version: number;
+}
+
+export function isHostJobSchedule(value: unknown): value is HostJobSchedule {
+  return isRecord(value)
+    && isGuid(value.id)
+    && isGuid(value.jobDefinitionId)
+    && isNonEmptyString(value.triggerKind)
+    && (value.cronExpression === null || typeof value.cronExpression === 'string')
+    && isNonEmptyString(value.timeZoneId)
+    && (value.oneTimeAtUtc === null || typeof value.oneTimeAtUtc === 'string')
+    && isNonEmptyString(value.misfirePolicy)
+    && typeof value.isEnabled === 'boolean'
+    && (value.nextExecutionAtUtc === null || typeof value.nextExecutionAtUtc === 'string')
+    && (value.lastExecutionAtUtc === null || typeof value.lastExecutionAtUtc === 'string')
+    && (value.completedAtUtc === null || typeof value.completedAtUtc === 'string')
+    && typeof value.createdAtUtc === 'string'
+    && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
+    && Number.isInteger(value.version);
+}
+
+export function isHostJobSchedulePage(
+  value: unknown
+): value is HostJobSchedulePage {
+  return isRecord(value)
+    && Array.isArray(value.items)
+    && value.items.every(isHostJobSchedule)
+    && Number.isInteger(value.page)
+    && Number.isInteger(value.pageSize)
+    && Number.isInteger(value.total);
+}
+
+export function isCreateHostJobScheduleRequest(
+  value: unknown
+): value is CreateHostJobScheduleRequest {
+  return isRecord(value)
+    && isGuid(value.jobDefinitionId)
+    && isNonEmptyString(value.triggerKind)
+    && isNonEmptyString(value.timeZoneId)
+    && isNonEmptyString(value.misfirePolicy)
+    && (value.cronExpression === undefined
+      || value.cronExpression === null
+      || typeof value.cronExpression === 'string')
+    && (value.oneTimeAtUtc === undefined
+      || value.oneTimeAtUtc === null
+      || typeof value.oneTimeAtUtc === 'string');
+}
+
+export function isUpdateHostJobScheduleRequest(
+  value: unknown
+): value is UpdateHostJobScheduleRequest {
+  return isRecord(value)
+    && isNonEmptyString(value.triggerKind)
+    && isNonEmptyString(value.timeZoneId)
+    && isNonEmptyString(value.misfirePolicy)
+    && Number.isInteger(value.version)
+    && (value.cronExpression === undefined
+      || value.cronExpression === null
+      || typeof value.cronExpression === 'string')
+    && (value.oneTimeAtUtc === undefined
+      || value.oneTimeAtUtc === null
+      || typeof value.oneTimeAtUtc === 'string');
+}
+
+export function isChangeHostJobScheduleStateRequest(
+  value: unknown
+): value is ChangeHostJobScheduleStateRequest {
+  return isRecord(value) && Number.isInteger(value.version);
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isHostJobDefinition(value: unknown): value is HostJobDefinition {
