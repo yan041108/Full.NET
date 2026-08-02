@@ -90,6 +90,15 @@ export {
 export type { NavigationNode } from './authorization.js';
 
 export {
+  isAuthorizationTreePageArray
+} from './authorization-tree.js';
+
+export type {
+  AuthorizationTreeAction,
+  AuthorizationTreePage
+} from './authorization-tree.js';
+
+export {
   isTenantContextSummaryArray,
   isTenantContextTokenResponse
 } from './tenancy.js';

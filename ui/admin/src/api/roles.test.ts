@@ -3,6 +3,7 @@ import { request } from './http';
 import {
   createHostRole,
   disableHostRole,
+  getAuthorizationTree,
   getHostRoleDataScope,
   listHostRoles,
   replaceHostRolePermissions,
@@ -28,6 +29,29 @@ const sampleRole = {
 
 describe('Vue Host 角色 API', () => {
   beforeEach(() => requestMock.mockReset());
+
+  it('校验授权树响应', async () => {
+    requestMock.mockResolvedValueOnce([
+      {
+        id: 'users',
+        title: '用户管理',
+        permissionCode: 'identity.users.read',
+        order: 10,
+        actions: [
+          {
+            id: 'identity.users.reset-password',
+            name: '重置密码',
+            permissionCode: 'identity.users.reset_password',
+            order: 50
+          }
+        ],
+        children: []
+      }
+    ]);
+
+    await expect(getAuthorizationTree()).resolves.toHaveLength(1);
+    expect(requestMock).toHaveBeenCalledWith('/api/v1/identity/authorization-tree');
+  });
 
   it('校验分页列表响应', async () => {
     requestMock.mockResolvedValueOnce({

@@ -1,9 +1,11 @@
 import {
+  isAuthorizationTreePageArray,
   isFieldProjectionCatalog,
   isHostRole,
   isHostRoleFieldGrants,
   isHostRoleDataScope,
   isHostRolePage,
+  type AuthorizationTreePage,
   type HostRole,
   type FieldProjectionResourceDefinition,
   type HostRoleFieldGrants,
@@ -12,6 +14,15 @@ import {
   type RoleDataScopeKind
 } from '@fullnet/client-contracts';
 import { request } from './http';
+
+export async function getAuthorizationTree(): Promise<AuthorizationTreePage[]> {
+  const value = await request<unknown>('/api/v1/identity/authorization-tree');
+  if (!isAuthorizationTreePageArray(value)) {
+    throw new Error('client.invalid_authorization_tree');
+  }
+
+  return value;
+}
 
 export async function listHostRoles(
   page = 1,
