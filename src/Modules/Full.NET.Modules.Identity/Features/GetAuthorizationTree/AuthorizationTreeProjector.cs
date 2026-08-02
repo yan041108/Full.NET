@@ -5,15 +5,14 @@ namespace Full.NET.Modules.Identity.Features.GetAuthorizationTree;
 
 internal sealed class AuthorizationTreeProjector(AuthorizationCatalog catalog)
 {
-    public IReadOnlyList<AuthorizationTreePageResponse> ProjectHostTree()
+    public IReadOnlyList<AuthorizationTreeModuleResponse> ProjectHostTree()
     {
-        var hostPermissions = catalog.Permissions
-            .Where(permission => permission.Scope.HasFlag(AuthorizationScope.Host))
+        var assignablePermissions = catalog.Permissions
+            .Where(IsAssignablePermission)
             .Select(permission => permission.Code)
             .ToHashSet(StringComparer.Ordinal);
         var actionsByNavigation = catalog.Actions
-            .Where(action => hostPermissions.Contains(action.PermissionCode)
-                && !IsNonAssignablePermission(action.PermissionCode))
+            .Where(action => assignablePermissions.Contains(action.PermissionCode))
             .GroupBy(action => action.NavigationId, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
@@ -28,8 +27,7 @@ internal sealed class AuthorizationTreeProjector(AuthorizationCatalog catalog)
                     .ToArray(),
                 StringComparer.Ordinal);
         var childrenByParent = catalog.Navigation
-            .Where(definition => hostPermissions.Contains(definition.RequiredPermission)
-                && !IsNonAssignablePermission(definition.RequiredPermission))
+            .Where(definition => assignablePermissions.Contains(definition.RequiredPermission))
             .GroupBy(definition => definition.ParentId ?? string.Empty, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
@@ -38,8 +36,33 @@ internal sealed class AuthorizationTreeProjector(AuthorizationCatalog catalog)
                     .ThenBy(definition => definition.Id, StringComparer.Ordinal)
                     .ToArray(),
                 StringComparer.Ordinal);
+        var pagesByModule = catalog.Modules.ToDictionary(
+            module => module.Key,
+            _ => new List<AuthorizationTreePageResponse>(),
+            StringComparer.Ordinal);
 
-        return ProjectPages(string.Empty, childrenByParent, actionsByNavigation);
+        foreach (var page in ProjectPages(string.Empty, childrenByParent, actionsByNavigation))
+        {
+            if (!catalog.NavigationModuleKeys.TryGetValue(page.Id, out var moduleKey)
+                || !pagesByModule.TryGetValue(moduleKey, out var pages))
+            {
+                throw new InvalidOperationException(
+                    $"Authorization tree page '{page.Id}' is not owned by a known module.");
+            }
+
+            pages.Add(page);
+        }
+
+        return catalog.Modules
+            .Select(module => new AuthorizationTreeModuleResponse(
+                module.Key,
+                module.Title,
+                module.Order,
+                pagesByModule.TryGetValue(module.Key, out var pages)
+                    ? pages
+                    : []))
+            .Where(module => module.Pages.Count > 0)
+            .ToArray();
     }
 
     private static IReadOnlyList<AuthorizationTreePageResponse> ProjectPages(
@@ -65,8 +88,10 @@ internal sealed class AuthorizationTreeProjector(AuthorizationCatalog catalog)
             .ToArray();
     }
 
-    private static bool IsNonAssignablePermission(string permissionCode) =>
-        permissionCode.StartsWith(
+    private static bool IsAssignablePermission(PermissionDefinition permission) =>
+        !permission.Code.StartsWith(
             "identity.super_administrators.",
-            StringComparison.Ordinal);
+            StringComparison.Ordinal)
+        && (permission.Scope.HasFlag(AuthorizationScope.Host)
+            || permission.Scope == AuthorizationScope.Tenant);
 }

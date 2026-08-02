@@ -1,10 +1,17 @@
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Auditing;
+using Full.NET.Modules.CodeGeneration;
+using Full.NET.Modules.Document;
+using Full.NET.Modules.Files;
+using Full.NET.Modules.Jobs;
+using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Settings;
 using Full.NET.Modules.Settings.Contracts;
+using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 
@@ -75,6 +82,63 @@ public sealed class AuthorizationCatalogTests
         Assert.AreEqual(
             ModuleCatalogPermissions.Read,
             navigation.RequiredPermission);
+    }
+
+    [TestMethod]
+    public void Built_in_contributors_publish_unique_module_definitions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+        [
+            new IdentityAuthorizationContributor(),
+            new TenancyAuthorizationContributor(),
+            new OrganizationAuthorizationContributor(),
+            new SettingsAuthorizationContributor(),
+            new FilesAuthorizationContributor(),
+            new NotificationsAuthorizationContributor(),
+            new JobsAuthorizationContributor(),
+            new CodeGenerationAuthorizationContributor(),
+            new SerialNumbersAuthorizationContributor(),
+            new DocumentAuthorizationContributor(),
+            new AuditingAuthorizationContributor(),
+        ]);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "identity",
+                "tenancy",
+                "organization",
+                "settings",
+                "files",
+                "notifications",
+                "jobs",
+                "code-generation",
+                "serial-numbers",
+                "document",
+                "auditing",
+            },
+            catalog.Modules.Select(module => module.Key).ToArray());
+        Assert.AreEqual(
+            catalog.Navigation.Count,
+            catalog.NavigationModuleKeys.Count);
+    }
+
+    [TestMethod]
+    public void Create_rejects_duplicate_module_keys()
+    {
+        var contributor = new StubContributor(
+            [new PermissionDefinition("a.read", "A", AuthorizationScope.Host)],
+            [CreateNavigation("a", null, "a.read", 1)],
+            module: new AuthorizationModuleDefinition("dup", "重复", 1));
+        var duplicate = new StubContributor(
+            [new PermissionDefinition("b.read", "B", AuthorizationScope.Host)],
+            [CreateNavigation("b", null, "b.read", 2)],
+            module: new AuthorizationModuleDefinition("dup", "重复", 2));
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(
+            () => AuthorizationCatalog.Create([contributor, duplicate]));
+
+        StringAssert.Contains(exception.Message, "module key");
     }
 
     [TestMethod]
@@ -841,9 +905,13 @@ public sealed class AuthorizationCatalogTests
     private sealed class StubContributor(
         IReadOnlyCollection<PermissionDefinition> permissions,
         IReadOnlyCollection<NavigationDefinition> navigation,
-        IReadOnlyCollection<AuthorizationActionDefinition>? actions = null)
+        IReadOnlyCollection<AuthorizationActionDefinition>? actions = null,
+        AuthorizationModuleDefinition? module = null)
         : IAuthorizationCatalogContributor
     {
+        public AuthorizationModuleDefinition Module { get; } =
+            module ?? new AuthorizationModuleDefinition("test", "测试模块", 1);
+
         public IReadOnlyCollection<PermissionDefinition> Permissions { get; } = permissions;
 
         public IReadOnlyCollection<NavigationDefinition> Navigation { get; } = navigation;

@@ -9,6 +9,9 @@ namespace Full.NET.Modules.CodeGeneration;
 internal sealed class CodeGenerationAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("code-generation", "代码生成", 80);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(

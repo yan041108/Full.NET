@@ -33,19 +33,26 @@ describe('Vue Host 角色 API', () => {
   it('校验授权树响应', async () => {
     requestMock.mockResolvedValueOnce([
       {
-        id: 'users',
-        title: '用户管理',
-        permissionCode: 'identity.users.read',
+        id: 'identity',
+        title: '身份与权限',
         order: 10,
-        actions: [
+        pages: [
           {
-            id: 'identity.users.reset-password',
-            name: '重置密码',
-            permissionCode: 'identity.users.reset_password',
-            order: 50
+            id: 'users',
+            title: '用户管理',
+            permissionCode: 'identity.users.read',
+            order: 10,
+            actions: [
+              {
+                id: 'identity.users.reset-password',
+                name: '重置密码',
+                permissionCode: 'identity.users.reset_password',
+                order: 50
+              }
+            ],
+            children: []
           }
-        ],
-        children: []
+        ]
       }
     ]);
 

@@ -6,6 +6,11 @@ namespace Full.NET.Modules.Identity.Contracts;
 public interface IAuthorizationCatalogContributor
 {
     /// <summary>
+    /// 获取当前贡献者所属的授权模块定义。
+    /// </summary>
+    AuthorizationModuleDefinition Module { get; }
+
+    /// <summary>
     /// 获取当前模块拥有的权限定义。
     /// </summary>
     IReadOnlyCollection<PermissionDefinition> Permissions { get; }

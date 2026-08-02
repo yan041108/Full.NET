@@ -40,25 +40,32 @@ const userId = '019bc2b1-2a40-7cc3-8992-a80de51bf296';
 
 const sampleTree = [
   {
-    id: 'users',
-    title: '用户管理',
-    permissionCode: 'identity.users.read',
+    id: 'identity',
+    title: '身份与权限',
     order: 10,
-    actions: [
+    pages: [
       {
-        id: 'identity.users.create',
-        name: '创建用户',
-        permissionCode: 'identity.users.create',
-        order: 10
-      },
-      {
-        id: 'identity.users.reset-password',
-        name: '重置密码',
-        permissionCode: 'identity.users.reset_password',
-        order: 50
+        id: 'users',
+        title: '用户管理',
+        permissionCode: 'identity.users.read',
+        order: 10,
+        actions: [
+          {
+            id: 'identity.users.create',
+            name: '创建用户',
+            permissionCode: 'identity.users.create',
+            order: 10
+          },
+          {
+            id: 'identity.users.reset-password',
+            name: '重置密码',
+            permissionCode: 'identity.users.reset_password',
+            order: 50
+          }
+        ],
+        children: []
       }
-    ],
-    children: []
+    ]
   }
 ];
 
@@ -97,7 +104,7 @@ function mountWithPermissions(permissions: string[]) {
 
 describe('角色授权树选择规则', () => {
   const nodes = buildPermissionTreeNodes(sampleTree);
-  const pageNode = nodes[0]!;
+  const pageNode = nodes[0]!.children![0]!;
   const createAction = pageNode.children?.[0]!;
   const resetAction = pageNode.children?.[1]!;
 
@@ -174,6 +181,7 @@ describe('Vue 角色管理页', () => {
     await flushPromises();
 
     expect(treeMock).toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="role-permission-tree"]').text()).toContain('身份与权限');
     expect(wrapper.get('[data-testid="role-permission-tree"]').text()).toContain('用户管理');
     expect(wrapper.get('[data-testid="role-permission-tree"]').text()).toContain('创建用户');
   });

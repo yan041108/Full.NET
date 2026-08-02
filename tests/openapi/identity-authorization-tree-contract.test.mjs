@@ -48,8 +48,10 @@ test('授权树契约与源码端点及响应类型对齐', async () => {
 
   assert.match(endpointSource, /\/api\/v1\/identity\/authorization-tree/u);
   assert.match(endpointSource, /IdentityRoleManagementPermissions\.Read/u);
+  assert.match(contractsSource, /AuthorizationTreeModuleResponse/u);
   assert.match(contractsSource, /AuthorizationTreePageResponse/u);
   assert.match(contractsSource, /AuthorizationTreeActionResponse/u);
-  assert.ok(contract.schemas.AuthorizationTreePageResponseCollection);
+  assert.ok(contract.schemas.AuthorizationTreeModuleResponseCollection);
+  assert.ok(contract.schemas.AuthorizationTreePageResponse);
   assert.ok(contract.schemas.AuthorizationTreeActionResponse);
 });

@@ -5,6 +5,9 @@ namespace Full.NET.Modules.Jobs;
 
 internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("jobs", "任务调度", 70);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(

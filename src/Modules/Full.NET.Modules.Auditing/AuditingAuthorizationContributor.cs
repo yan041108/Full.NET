@@ -7,6 +7,9 @@ namespace Full.NET.Modules.Auditing;
 internal sealed class AuditingAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("auditing", "审计日志", 110);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(

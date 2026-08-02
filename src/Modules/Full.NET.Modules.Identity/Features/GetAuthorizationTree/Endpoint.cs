@@ -16,6 +16,6 @@ internal static class Endpoint
                     Results.Ok(projector.ProjectHostTree()))
             .WithTags("Identity")
             .RequireFullNetPermission(IdentityRoleManagementPermissions.Read)
-            .Produces<AuthorizationTreePageResponse[]>(StatusCodes.Status200OK);
+            .Produces<AuthorizationTreeModuleResponse[]>(StatusCodes.Status200OK);
     }
 }

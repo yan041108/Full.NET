@@ -12,6 +12,7 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(UpdateLocaleRequest))]
 [JsonSerializable(typeof(LocalePreferenceResponse))]
 [JsonSerializable(typeof(NavigationNodeResponse[]))]
+[JsonSerializable(typeof(AuthorizationTreeModuleResponse[]))]
 [JsonSerializable(typeof(AuthorizationTreePageResponse[]))]
 [JsonSerializable(typeof(AuthorizationTreeActionResponse))]
 [JsonSerializable(typeof(TenantContextTokenResponse))]

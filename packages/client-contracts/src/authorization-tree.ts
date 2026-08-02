@@ -1,6 +1,14 @@
+const moduleIdPattern = /^[a-z][a-z0-9-]{0,63}$/;
 const pageIdPattern = /^[a-z][a-z0-9-]{0,63}$/;
 const actionIdPattern = /^[a-z][a-z0-9.-]{0,127}$/;
 const permissionPattern = /^[a-z][a-z0-9_]*(?:[.-][a-z][a-z0-9_]*)+$/;
+
+const moduleKeys = new Set([
+  'id',
+  'order',
+  'pages',
+  'title'
+]);
 
 const pageKeys = new Set([
   'actions',
@@ -46,9 +54,47 @@ export interface AuthorizationTreePage {
   children: AuthorizationTreePage[];
 }
 
+/** 角色授权页使用的模块目录节点。 */
+export interface AuthorizationTreeModule {
+  id: string;
+  title: string;
+  order: number;
+  pages: AuthorizationTreePage[];
+}
+
 /**
- * 校验不可信 JSON 是否为 Host 授权树页面数组。
+ * 校验不可信 JSON 是否为 Host 授权树模块数组。
  * 拒绝可执行元数据、缺字段、重复标识与异常嵌套。
+ */
+export function isAuthorizationTreeModuleArray(
+  value: unknown
+): value is AuthorizationTreeModule[] {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+
+  const moduleIds = new Set<string>();
+  const pageIds = new Set<string>();
+  const actionIds = new Set<string>();
+  const actionPermissionCodes = new Set<string>();
+  return value.every(module => isAuthorizationTreeModule(
+    module,
+    moduleIds,
+    pageIds,
+    actionIds,
+    actionPermissionCodes
+  ));
+}
+
+/** 将模块树扁平化为页面数组，供仅关心页面目录的调用方复用。 */
+export function flattenAuthorizationTreePages(
+  modules: readonly AuthorizationTreeModule[]
+): AuthorizationTreePage[] {
+  return modules.flatMap(module => module.pages);
+}
+
+/**
+ * @deprecated 使用 isAuthorizationTreeModuleArray。
  */
 export function isAuthorizationTreePageArray(
   value: unknown
@@ -61,6 +107,36 @@ export function isAuthorizationTreePageArray(
   const actionIds = new Set<string>();
   const actionPermissionCodes = new Set<string>();
   return value.every(page => isAuthorizationTreePage(
+    page,
+    pageIds,
+    actionIds,
+    actionPermissionCodes
+  ));
+}
+
+function isAuthorizationTreeModule(
+  value: unknown,
+  moduleIds: Set<string>,
+  pageIds: Set<string>,
+  actionIds: Set<string>,
+  actionPermissionCodes: Set<string>
+): value is AuthorizationTreeModule {
+  if (!isRecord(value)
+    || !hasOnlyKeys(value, moduleKeys)
+    || hasForbiddenKeys(value)
+    || typeof value.id !== 'string'
+    || value.id.length === 0
+    || !moduleIdPattern.test(value.id)
+    || moduleIds.has(value.id)
+    || !isDisplayText(value.title)
+    || typeof value.order !== 'number'
+    || !Number.isInteger(value.order)
+    || !Array.isArray(value.pages)) {
+    return false;
+  }
+
+  moduleIds.add(value.id);
+  return value.pages.every(page => isAuthorizationTreePage(
     page,
     pageIds,
     actionIds,

@@ -17,7 +17,7 @@ import {
 import type { TreeInstance, TreeKey } from 'element-plus';
 import {
   ROLE_DATA_SCOPE_KINDS,
-  type AuthorizationTreePage,
+  type AuthorizationTreeModule,
   type FieldProjectionFieldDefinition,
   type FullNetProblemDetails,
   type HostRole,
@@ -143,9 +143,9 @@ async function openPermissions(role: HostRole): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    const pages = await getAuthorizationTree();
-    permissionTreeNodes.value = buildPermissionTreeNodes(pages);
-    const catalog = collectCatalogPermissionCodes(pages);
+    const modules = await getAuthorizationTree();
+    permissionTreeNodes.value = buildPermissionTreeNodes(modules);
+    const catalog = collectCatalogPermissionCodes(modules);
     selectedPermissions.value = [...role.permissionCodes];
     unknownPermissions.value = findUnknownPermissionCodes(role.permissionCodes, catalog);
     editingRole.value = role;

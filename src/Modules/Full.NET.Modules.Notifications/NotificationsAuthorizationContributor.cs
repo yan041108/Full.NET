@@ -6,6 +6,9 @@ namespace Full.NET.Modules.Notifications;
 internal sealed class NotificationsAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("notifications", "通知中心", 60);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(

@@ -13,6 +13,9 @@ internal sealed class FilesAuthorizationContributor
     : IAuthorizationCatalogContributor
 
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("files", "文件管理", 50);
+
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
 

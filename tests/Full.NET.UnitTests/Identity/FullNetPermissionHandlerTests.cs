@@ -124,6 +124,9 @@ public sealed class FullNetPermissionHandlerTests
 
     private sealed class HostOnlyContributor : IAuthorizationCatalogContributor
     {
+        public AuthorizationModuleDefinition Module { get; } =
+            new("host-only", "Host 专用", 99);
+
         public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
         [new PermissionDefinition("host.only", "仅 Host", AuthorizationScope.Host)];
 

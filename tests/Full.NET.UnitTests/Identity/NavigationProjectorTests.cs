@@ -64,6 +64,9 @@ public sealed class NavigationProjectorTests
 
     private sealed class StubContributor : IAuthorizationCatalogContributor
     {
+        public AuthorizationModuleDefinition Module { get; } =
+            new("test", "测试模块", 1);
+
         public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
         [
             new PermissionDefinition("parent.read", "Parent", AuthorizationScope.Host),

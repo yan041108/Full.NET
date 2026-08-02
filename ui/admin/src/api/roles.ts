@@ -1,11 +1,11 @@
 import {
-  isAuthorizationTreePageArray,
+  isAuthorizationTreeModuleArray,
   isFieldProjectionCatalog,
   isHostRole,
   isHostRoleFieldGrants,
   isHostRoleDataScope,
   isHostRolePage,
-  type AuthorizationTreePage,
+  type AuthorizationTreeModule,
   type HostRole,
   type FieldProjectionResourceDefinition,
   type HostRoleFieldGrants,
@@ -15,9 +15,9 @@ import {
 } from '@fullnet/client-contracts';
 import { request } from './http';
 
-export async function getAuthorizationTree(): Promise<AuthorizationTreePage[]> {
+export async function getAuthorizationTree(): Promise<AuthorizationTreeModule[]> {
   const value = await request<unknown>('/api/v1/identity/authorization-tree');
-  if (!isAuthorizationTreePageArray(value)) {
+  if (!isAuthorizationTreeModuleArray(value)) {
     throw new Error('client.invalid_authorization_tree');
   }
 

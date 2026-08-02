@@ -1,6 +1,6 @@
 {
   "id": "identity-authorization-tree-v1",
-  "version": 1,
+  "version": 2,
   "description": "Host 角色授权树 HTTP 契约冻结夹具；与 AuthorizationTreeContracts 和 GetAuthorizationTree.Endpoint 对齐。",
   "paths": [
     {
@@ -10,13 +10,21 @@
           "method": "GET",
           "permission": "identity.roles.read",
           "successStatus": 200,
-          "responseSchema": "AuthorizationTreePageResponseCollection"
+          "responseSchema": "AuthorizationTreeModuleResponseCollection"
         }
       ]
     }
   ],
   "schemas": {
-    "AuthorizationTreePageResponseCollection": {
+    "AuthorizationTreeModuleResponseCollection": {
+      "properties": [
+        "id",
+        "title",
+        "order",
+        "pages"
+      ]
+    },
+    "AuthorizationTreePageResponse": {
       "properties": [
         "id",
         "title",

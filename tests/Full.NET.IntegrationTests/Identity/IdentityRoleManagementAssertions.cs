@@ -76,7 +76,9 @@ internal static class IdentityRoleManagementAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var document = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
-        var usersPage = document.RootElement.EnumerateArray()
+        var identityModule = document.RootElement.EnumerateArray()
+            .Single(element => element.GetProperty("id").GetString() == "identity");
+        var usersPage = identityModule.GetProperty("pages").EnumerateArray()
             .Single(element => element.GetProperty("id").GetString() == "users");
         Assert.AreEqual(
             "identity.users.read",
@@ -86,8 +88,9 @@ internal static class IdentityRoleManagementAssertions
             .Select(element => element.GetProperty("permissionCode").GetString())
             .ToArray();
         CollectionAssert.Contains(actionCodes, "identity.users.reset_password");
-        Assert.IsFalse(document.RootElement.EnumerateArray().Any(
-            element => element.GetProperty("id").GetString() == "super-administrators"));
+        Assert.IsFalse(document.RootElement.EnumerateArray()
+            .SelectMany(module => module.GetProperty("pages").EnumerateArray())
+            .Any(element => element.GetProperty("id").GetString() == "super-administrators"));
     }
 
     private static async Task VerifyPageActionGrantHierarchyAsync(

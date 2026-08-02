@@ -3,6 +3,8 @@ using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.GetAuthorizationTree;
+using Full.NET.Modules.Organization;
+using Full.NET.Modules.Settings;
 using Full.NET.Modules.Tenancy;
 
 namespace Full.NET.UnitTests.Identity;
@@ -11,25 +13,42 @@ namespace Full.NET.UnitTests.Identity;
 public sealed class AuthorizationTreeProjectorTests
 {
     [TestMethod]
-    public void ProjectHostTree_orders_pages_and_actions_deterministically()
+    public void ProjectHostTree_orders_modules_pages_and_actions_deterministically()
     {
         var catalog = AuthorizationCatalog.Create([new StubContributor()]);
         var projector = new AuthorizationTreeProjector(catalog);
 
         var result = projector.ProjectHostTree();
 
+        Assert.AreEqual("test", result.Single().Id);
         CollectionAssert.AreEqual(
-            new[] { "standalone", "parent" },
-            result.Select(page => page.Id).ToArray());
+            new[] { "standalone", "parent", "tenant-only" },
+            result.Single().Pages.Select(page => page.Id).ToArray());
         CollectionAssert.AreEqual(
             new[] { "a", "b" },
-            result.Single(page => page.Id == "parent").Children.Select(page => page.Id).ToArray());
+            result.Single().Pages.Single(page => page.Id == "parent").Children
+                .Select(page => page.Id).ToArray());
         CollectionAssert.AreEqual(
             new[] { "standalone.create", "standalone.export" },
-            result.Single(page => page.Id == "standalone").Actions.Select(action => action.Id).ToArray());
+            result.Single().Pages.Single(page => page.Id == "standalone").Actions
+                .Select(action => action.Id).ToArray());
         Assert.AreEqual(
             "standalone.read",
-            result.Single(page => page.Id == "standalone").PermissionCode);
+            result.Single().Pages.Single(page => page.Id == "standalone").PermissionCode);
+    }
+
+    [TestMethod]
+    public void ProjectHostTree_exposes_module_nodes_without_permission_codes()
+    {
+        var properties = typeof(AuthorizationTreeModuleResponse)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToArray();
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Id", "Order", "Pages", "Title" },
+            properties);
+        Assert.IsFalse(properties.Contains("PermissionCode", StringComparer.Ordinal));
     }
 
     [TestMethod]
@@ -39,29 +58,33 @@ public sealed class AuthorizationTreeProjectorTests
             [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
         var projector = new AuthorizationTreeProjector(catalog);
 
-        var pages = projector.ProjectHostTree();
-        var permissionCodes = pages
+        var pages = projector.ProjectHostTree()
+            .SelectMany(module => module.Pages)
             .SelectMany(FlattenPages)
+            .ToArray();
+        var permissionCodes = pages
             .SelectMany(page => page.Actions.Select(action => action.PermissionCode)
                 .Prepend(page.PermissionCode))
             .ToArray();
 
-        Assert.IsFalse(pages.SelectMany(FlattenPages).Any(page => page.Id == "super-administrators"));
+        Assert.IsFalse(pages.Any(page => page.Id == "super-administrators"));
         Assert.IsFalse(permissionCodes.Any(
             code => code.StartsWith("identity.super_administrators.", StringComparison.Ordinal)));
     }
 
     [TestMethod]
-    public void ProjectHostTree_filters_tenant_only_permissions()
+    public void ProjectHostTree_includes_tenant_only_pages_for_cross_context_host_roles()
     {
         var catalog = AuthorizationCatalog.Create([new StubContributor()]);
         var projector = new AuthorizationTreeProjector(catalog);
 
         var result = projector.ProjectHostTree();
 
-        Assert.IsFalse(result.Any(page => page.Id == "tenant-only"));
-        Assert.IsFalse(result.SelectMany(FlattenPages).Any(
-            page => page.Actions.Any(action => action.PermissionCode == "tenant.action")));
+        Assert.IsTrue(result.Single().Pages.Any(page => page.Id == "tenant-only"));
+        Assert.IsTrue(result.SelectMany(module => module.Pages)
+            .SelectMany(FlattenPages)
+            .Any(page => page.Actions.Any(
+                action => action.PermissionCode == "tenant.action")));
     }
 
     [TestMethod]
@@ -92,7 +115,8 @@ public sealed class AuthorizationTreeProjectorTests
         var projector = new AuthorizationTreeProjector(catalog);
 
         var usersPage = projector.ProjectHostTree()
-            .Single(page => page.Id == "users");
+            .Single(module => module.Id == "identity")
+            .Pages.Single(page => page.Id == "users");
 
         CollectionAssert.AreEqual(
             new[]
@@ -109,6 +133,25 @@ public sealed class AuthorizationTreeProjectorTests
         Assert.AreEqual("identity.users.read", usersPage.PermissionCode);
     }
 
+    [TestMethod]
+    public void ProjectHostTree_groups_organization_and_settings_pages_under_tenant_modules()
+    {
+        var catalog = AuthorizationCatalog.Create(
+        [
+            new IdentityAuthorizationContributor(),
+            new OrganizationAuthorizationContributor(),
+            new SettingsAuthorizationContributor(),
+        ]);
+        var projector = new AuthorizationTreeProjector(catalog);
+
+        var result = projector.ProjectHostTree();
+        var organizationModule = result.Single(module => module.Id == "organization");
+        var settingsModule = result.Single(module => module.Id == "settings");
+
+        Assert.IsTrue(organizationModule.Pages.Any(page => page.Id == "org-units"));
+        Assert.IsTrue(settingsModule.Pages.Any(page => page.Id == "tenant-dict-types"));
+    }
+
     private static IEnumerable<AuthorizationTreePageResponse> FlattenPages(
         AuthorizationTreePageResponse page)
     {
@@ -121,6 +164,9 @@ public sealed class AuthorizationTreeProjectorTests
 
     private sealed class StubContributor : IAuthorizationCatalogContributor
     {
+        public AuthorizationModuleDefinition Module { get; } =
+            new("test", "测试模块", 1);
+
         public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
         [
             new PermissionDefinition("parent.read", "Parent", AuthorizationScope.Host),

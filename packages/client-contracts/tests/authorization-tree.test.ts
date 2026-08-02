@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { isAuthorizationTreePageArray } from '../src/authorization-tree';
+import {
+  isAuthorizationTreeModuleArray,
+  isAuthorizationTreePageArray
+} from '../src/authorization-tree';
 
 const usersPage = {
   id: 'users',
@@ -17,7 +20,55 @@ const usersPage = {
   children: []
 };
 
-describe('Host 授权树客户端契约', () => {
+const identityModule = {
+  id: 'identity',
+  title: '身份与权限',
+  order: 10,
+  pages: [usersPage]
+};
+
+describe('Host 授权树模块契约', () => {
+  it('接受完整模块/页面/操作结构', () => {
+    expect(isAuthorizationTreeModuleArray([identityModule])).toBe(true);
+    expect(isAuthorizationTreeModuleArray([
+      {
+        ...identityModule,
+        pages: [{
+          ...usersPage,
+          children: [{
+            id: 'roles',
+            title: '角色管理',
+            permissionCode: 'identity.roles.read',
+            order: 20,
+            actions: [],
+            children: []
+          }]
+        }]
+      }
+    ])).toBe(true);
+  });
+
+  it('拒绝非数组、缺字段与重复模块标识', () => {
+    expect(isAuthorizationTreeModuleArray(null)).toBe(false);
+    expect(isAuthorizationTreeModuleArray({})).toBe(false);
+    expect(isAuthorizationTreeModuleArray([{ ...identityModule, id: '' }])).toBe(false);
+    expect(isAuthorizationTreeModuleArray([identityModule, identityModule])).toBe(false);
+    expect(isAuthorizationTreeModuleArray([{ ...identityModule, pages: 'users' }])).toBe(false);
+  });
+
+  it('拒绝可执行元数据与未知字段', () => {
+    expect(isAuthorizationTreeModuleArray([{
+      ...identityModule,
+      componentKey: 'identity'
+    }])).toBe(false);
+    expect(isAuthorizationTreeModuleArray([{
+      ...identityModule,
+      extra: true
+    }])).toBe(false);
+  });
+});
+
+describe('Host 授权树页面契约（兼容）', () => {
   it('接受完整页面与操作结构', () => {
     expect(isAuthorizationTreePageArray([usersPage])).toBe(true);
     expect(isAuthorizationTreePageArray([

@@ -5,14 +5,22 @@ namespace Full.NET.Modules.Identity.Authorization;
 internal sealed class AuthorizationCatalog
 {
     private AuthorizationCatalog(
+        IReadOnlyList<AuthorizationModuleDefinition> modules,
+        IReadOnlyDictionary<string, string> navigationModuleKeys,
         IReadOnlyList<PermissionDefinition> permissions,
         IReadOnlyList<NavigationDefinition> navigation,
         IReadOnlyList<AuthorizationActionDefinition> actions)
     {
+        Modules = modules;
+        NavigationModuleKeys = navigationModuleKeys;
         Permissions = permissions;
         Navigation = navigation;
         Actions = actions;
     }
+
+    public IReadOnlyList<AuthorizationModuleDefinition> Modules { get; }
+
+    public IReadOnlyDictionary<string, string> NavigationModuleKeys { get; }
 
     public IReadOnlyList<PermissionDefinition> Permissions { get; }
 
@@ -25,6 +33,23 @@ internal sealed class AuthorizationCatalog
     {
         ArgumentNullException.ThrowIfNull(contributors);
         var materialized = contributors.ToArray();
+        var modules = materialized
+            .Select(contributor => contributor.Module)
+            .OrderBy(module => module.Order)
+            .ThenBy(module => module.Key, StringComparer.Ordinal)
+            .ToArray();
+        var navigationModuleKeys = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var contributor in materialized)
+        {
+            foreach (var navigationItem in contributor.Navigation)
+            {
+                if (!navigationModuleKeys.TryAdd(navigationItem.Id, contributor.Module.Key))
+                {
+                    throw new InvalidOperationException(
+                        $"Authorization catalog contains duplicate navigation id '{navigationItem.Id}'.");
+                }
+            }
+        }
         var permissions = materialized
             .SelectMany(contributor => contributor.Permissions)
             .ToArray();
@@ -35,6 +60,7 @@ internal sealed class AuthorizationCatalog
             .SelectMany(contributor => contributor.Actions)
             .ToArray();
 
+        ValidateModules(modules);
         ValidatePermissions(permissions);
         ValidateNavigation(permissions, navigation);
         ValidateActions(permissions, navigation, actions);
@@ -48,6 +74,8 @@ internal sealed class AuthorizationCatalog
             .ToDictionary(pair => pair.Id, pair => pair.index, StringComparer.Ordinal);
 
         return new AuthorizationCatalog(
+            modules,
+            navigationModuleKeys,
             permissions.OrderBy(item => item.Code, StringComparer.Ordinal).ToArray(),
             orderedNavigation,
             actions
@@ -55,6 +83,24 @@ internal sealed class AuthorizationCatalog
                 .ThenBy(item => item.Order)
                 .ThenBy(item => item.Id, StringComparer.Ordinal)
                 .ToArray());
+    }
+
+    private static void ValidateModules(
+        IReadOnlyCollection<AuthorizationModuleDefinition> modules)
+    {
+        foreach (var module in modules)
+        {
+            if (string.IsNullOrWhiteSpace(module.Key)
+                || string.IsNullOrWhiteSpace(module.Title))
+            {
+                throw new InvalidOperationException(
+                    "Authorization catalog contains an incomplete module definition.");
+            }
+        }
+
+        EnsureUnique(
+            modules.Select(item => item.Key),
+            "module key");
     }
 
     private static void ValidatePermissions(

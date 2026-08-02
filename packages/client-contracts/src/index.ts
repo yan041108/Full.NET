@@ -90,11 +90,14 @@ export {
 export type { NavigationNode } from './authorization.js';
 
 export {
+  flattenAuthorizationTreePages,
+  isAuthorizationTreeModuleArray,
   isAuthorizationTreePageArray
 } from './authorization-tree.js';
 
 export type {
   AuthorizationTreeAction,
+  AuthorizationTreeModule,
   AuthorizationTreePage
 } from './authorization-tree.js';
 

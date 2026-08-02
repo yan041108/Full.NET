@@ -1,6 +1,19 @@
 namespace Full.NET.Modules.Identity.Contracts;
 
 /// <summary>
+/// 角色授权页使用的模块目录节点。
+/// </summary>
+/// <param name="Id">稳定模块标识。</param>
+/// <param name="Title">中文模块标题。</param>
+/// <param name="Order">同级排序值。</param>
+/// <param name="Pages">模块内可授权页面。</param>
+public sealed record AuthorizationTreeModuleResponse(
+    string Id,
+    string Title,
+    int Order,
+    IReadOnlyList<AuthorizationTreePageResponse> Pages);
+
+/// <summary>
 /// 角色授权页使用的页面目录节点。
 /// </summary>
 /// <param name="Id">稳定页面标识。</param>

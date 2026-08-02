@@ -6,6 +6,9 @@ namespace Full.NET.Modules.Organization;
 internal sealed class OrganizationAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("organization", "组织机构", 30);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(

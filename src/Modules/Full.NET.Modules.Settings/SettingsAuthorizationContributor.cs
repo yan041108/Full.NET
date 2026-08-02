@@ -6,6 +6,9 @@ namespace Full.NET.Modules.Settings;
 internal sealed class SettingsAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("settings", "系统设置", 40);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(

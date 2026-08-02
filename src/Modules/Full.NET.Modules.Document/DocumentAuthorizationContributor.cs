@@ -5,6 +5,9 @@ namespace Full.NET.Modules.Document;
 
 internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("document", "文档中心", 100);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new(HostDocumentPermissions.Read, "读取 Host 文档库", AuthorizationScope.Host),

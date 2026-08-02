@@ -5,6 +5,9 @@ namespace Full.NET.Modules.Identity;
 internal sealed class IdentityAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("identity", "身份与权限", 10);
+
     internal const string DashboardRead = "platform.dashboard.read";
     internal const string NavigationRead = "identity.navigation.read";
     internal const string SuperAdministratorsRead =

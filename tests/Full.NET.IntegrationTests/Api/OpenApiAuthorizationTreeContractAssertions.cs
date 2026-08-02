@@ -102,11 +102,11 @@ internal static class OpenApiAuthorizationTreeContractAssertions
             return true;
         }
 
-        if (schemaName == "AuthorizationTreePageResponseCollection")
+        if (schemaName == "AuthorizationTreeModuleResponseCollection")
         {
             foreach (var candidate in openApiSchemas.EnumerateObject())
             {
-                if (!candidate.Name.Contains("AuthorizationTreePageResponse", StringComparison.Ordinal))
+                if (!candidate.Name.Contains("AuthorizationTreeModuleResponse", StringComparison.Ordinal))
                 {
                     continue;
                 }

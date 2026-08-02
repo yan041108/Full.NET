@@ -6,6 +6,9 @@ namespace Full.NET.Modules.Tenancy;
 internal sealed class TenancyAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("tenancy", "租户管理", 20);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(

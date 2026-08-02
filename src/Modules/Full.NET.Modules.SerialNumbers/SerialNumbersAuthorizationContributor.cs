@@ -6,6 +6,9 @@ namespace Full.NET.Modules.SerialNumbers;
 internal sealed class SerialNumbersAuthorizationContributor
     : IAuthorizationCatalogContributor
 {
+    public AuthorizationModuleDefinition Module { get; } =
+        new("serial-numbers", "序列号", 90);
+
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         new PermissionDefinition(
