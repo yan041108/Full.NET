@@ -16,8 +16,16 @@ internal sealed class NotificationsAuthorizationContributor
             "查询公告",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            HostAnnouncementPermissions.Write,
-            "管理公告",
+            HostAnnouncementPermissions.Create,
+            "创建公告",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostAnnouncementPermissions.Update,
+            "更新公告",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostAnnouncementPermissions.Publish,
+            "发布公告",
             AuthorizationScope.Host),
         new PermissionDefinition(
             InboxPermissions.Read,
@@ -53,5 +61,30 @@ internal sealed class NotificationsAuthorizationContributor
             "message",
             56,
             InboxPermissions.Read),
+    ];
+
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
+    [
+        new AuthorizationActionDefinition(
+            "notifications.announcements.create",
+            "host-announcements",
+            HostAnnouncementPermissions.Create,
+            "创建公告",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "notifications.announcements.update",
+            "host-announcements",
+            HostAnnouncementPermissions.Update,
+            "编辑公告",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "notifications.announcements.publish",
+            "host-announcements",
+            HostAnnouncementPermissions.Publish,
+            "发布公告",
+            "publish",
+            30),
     ];
 }

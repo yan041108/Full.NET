@@ -1,6 +1,6 @@
 {
   "id": "notifications-host-announcements-v1",
-  "version": 1,
+  "version": 2,
   "description": "Host 公告 HTTP 契约冻结夹具；与 Notifications 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {
@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "notifications.announcements.write",
+          "permission": "notifications.announcements.create",
           "successStatus": 201,
           "requestSchema": "CreateHostAnnouncementRequest",
           "responseSchema": "HostAnnouncementResponse"
@@ -32,7 +32,7 @@
         },
         {
           "method": "PUT",
-          "permission": "notifications.announcements.write",
+          "permission": "notifications.announcements.update",
           "successStatus": 200,
           "requestSchema": "UpdateHostAnnouncementRequest",
           "responseSchema": "HostAnnouncementResponse"
@@ -44,7 +44,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "notifications.announcements.write",
+          "permission": "notifications.announcements.publish",
           "successStatus": 200,
           "requestSchema": "PublishHostAnnouncementRequest",
           "responseSchema": "HostAnnouncementResponse"

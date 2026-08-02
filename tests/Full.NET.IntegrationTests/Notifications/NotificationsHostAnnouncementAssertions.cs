@@ -27,6 +27,10 @@ internal static class NotificationsHostAnnouncementAssertions
             factory,
             client,
             cancellationToken);
+        await VerifyExactAnnouncementActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiNotificationsHostAnnouncementsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -143,6 +147,181 @@ internal static class NotificationsHostAnnouncementAssertions
             cancellationToken);
         Assert.IsNotNull(page);
         Assert.IsTrue(page.Items.Any(item => item.Id == created.Id));
+    }
+
+    private static async Task VerifyExactAnnouncementActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var title = $"边界公告-{Guid.NewGuid():N}"[..24];
+        var content = "边界测试正文";
+
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            adminToken,
+            new CreateHostAnnouncementRequest(title, content));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [HostAnnouncementPermissions.Read],
+            cancellationToken);
+        using var readListRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/host-announcements?page=1&pageSize=20");
+        readListRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            readOnlyToken);
+        using var readListResponse = await client.SendAsync(readListRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, readListResponse.StatusCode);
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            cancellationToken,
+            new CreateHostAnnouncementRequest("拒绝创建", "正文"));
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/notifications/host-announcements/{created.Id:D}",
+            cancellationToken,
+            new UpdateHostAnnouncementRequest("拒绝更新", "正文", created.Version));
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{created.Id:D}/publish",
+            cancellationToken,
+            new PublishHostAnnouncementRequest(created.Version));
+
+        var createOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostAnnouncementPermissions.Read,
+                HostAnnouncementPermissions.Create,
+            ],
+            cancellationToken);
+        var createOnlyTitle = $"仅创建-{Guid.NewGuid():N}"[..24];
+        using var createOnlyRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            createOnlyToken,
+            new CreateHostAnnouncementRequest(createOnlyTitle, "create-only"));
+        using var createOnlyResponse = await client.SendAsync(createOnlyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createOnlyResponse.StatusCode);
+        var createOnlyAnnouncement = await createOnlyResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(createOnlyAnnouncement);
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            createOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/notifications/host-announcements/{createOnlyAnnouncement.Id:D}",
+            cancellationToken,
+            new UpdateHostAnnouncementRequest("拒绝", "正文", createOnlyAnnouncement.Version));
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            createOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{createOnlyAnnouncement.Id:D}/publish",
+            cancellationToken,
+            new PublishHostAnnouncementRequest(createOnlyAnnouncement.Version));
+
+        var updateOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostAnnouncementPermissions.Read,
+                HostAnnouncementPermissions.Update,
+            ],
+            cancellationToken);
+        using var updateOnlyRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/notifications/host-announcements/{created.Id:D}",
+            updateOnlyToken,
+            new UpdateHostAnnouncementRequest("更新仅更新", "正文", created.Version));
+        using var updateOnlyResponse = await client.SendAsync(updateOnlyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updateOnlyResponse.StatusCode);
+        var updatedByUpdateOnly = await updateOnlyResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(updatedByUpdateOnly);
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            updateOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            cancellationToken,
+            new CreateHostAnnouncementRequest("拒绝", "正文"));
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            updateOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{created.Id:D}/publish",
+            cancellationToken,
+            new PublishHostAnnouncementRequest(updatedByUpdateOnly.Version));
+
+        var publishTargetTitle = $"发布目标-{Guid.NewGuid():N}"[..24];
+        using var publishSeedRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            adminToken,
+            new CreateHostAnnouncementRequest(publishTargetTitle, "publish-only"));
+        using var publishSeedResponse = await client.SendAsync(publishSeedRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, publishSeedResponse.StatusCode);
+        var publishTarget = await publishSeedResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(publishTarget);
+
+        var publishOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostAnnouncementPermissions.Read,
+                HostAnnouncementPermissions.Publish,
+            ],
+            cancellationToken);
+        using var publishOnlyRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{publishTarget.Id:D}/publish",
+            publishOnlyToken,
+            new PublishHostAnnouncementRequest(publishTarget.Version));
+        using var publishOnlyResponse = await client.SendAsync(publishOnlyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, publishOnlyResponse.StatusCode);
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            publishOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            cancellationToken,
+            new CreateHostAnnouncementRequest("拒绝", "正文"));
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            publishOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/notifications/host-announcements/{publishTarget.Id:D}",
+            cancellationToken,
+            new UpdateHostAnnouncementRequest("拒绝", "正文", publishTarget.Version + 1));
+    }
+
+    private static async Task AssertAnnouncementPermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        TRequest body)
+    {
+        using var request = CreateBearerJsonRequest(method, path, accessToken, body);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private sealed record PagedHostAnnouncementResponses(

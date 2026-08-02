@@ -187,13 +187,21 @@
 | `HostFilesView.vue` | 下载 | `files.files.download` | 071 |
 | `HostFilesView.vue` | 删除 | `files.files.delete` | 071 |
 
+## W4：Notifications Host Announcements（072）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `HostAnnouncementsView.vue` | 页面 | `notifications.announcements.read` | 无 |
+| `HostAnnouncementsView.vue` | 创建 | `notifications.announcements.create` | 072 |
+| `HostAnnouncementsView.vue` | 编辑 | `notifications.announcements.update` | 072 |
+| `HostAnnouncementsView.vue` | 发布 | `notifications.announcements.publish` | 072 |
+
 ## W4–W5：仍需拆分的粗粒度操作权限（冻结清单）
 
 下列 `.write` 权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；W5 同时包含不以 `.write` 命名、但仍承载多个动作的 `delete/manage` 权限。后续门禁必须覆盖这些语义，新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `notifications.announcements.write` | `HostAnnouncementsView.vue` | W4 |
 | `notifications.inbox.write` | `InboxMessagesView.vue` | W4 |
 | `jobs.definitions.write` / `jobs.schedules.write` | `HostJobsView.vue` | W4 |
 | `codegen.templates.write` | `CodeGenerationPreviewsView.vue` | W4 |
@@ -225,6 +233,7 @@
 | `settings.config.write` | **已退役**：不可分配、不可出现在 Endpoint；由 069 展开为 `settings.config.create` / `update` / `disable` |
 | `settings.diagnostic_policy.write` | **已退役**：不可分配、不可出现在 Endpoint；由 070 展开为 `settings.diagnostic_policy.update` / `restore` |
 | `files.files.write` | **已退役**：不可分配、不可出现在 Endpoint；由 071 展开为 `files.files.upload` / `delete`，并为存量 `read` 补齐 `download` |
+| `notifications.announcements.write` | **已退役**：不可分配、不可出现在 Endpoint；由 072 展开为 `notifications.announcements.create` / `update` / `publish` |
 
 ## 本地 UI（无需权限码）
 

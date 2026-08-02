@@ -71,7 +71,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<HostAnnouncementResponse>(StatusCodes.Status201Created)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Create));
 
         group.MapPut("/{announcementId:guid}", async (
             Guid announcementId,
@@ -95,7 +95,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostAnnouncementResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Update));
 
         group.MapPost("/{announcementId:guid}/publish", async (
             Guid announcementId,
@@ -119,7 +119,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostAnnouncementResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Publish));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

@@ -12,6 +12,7 @@ import type { FullNetProblemDetails, HostAnnouncement } from '@fullnet/client-co
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   createHostAnnouncement,
   listHostAnnouncements,
@@ -29,7 +30,12 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const editingId = ref<string>();
-const canWrite = computed(() => session.can('notifications.announcements.write'));
+const canCreate = computed(() => session.can('notifications.announcements.create'));
+const canUpdate = computed(() => session.can('notifications.announcements.update'));
+const canPublish = computed(() => session.can('notifications.announcements.publish'));
+const showForm = computed(() =>
+  editingId.value ? canUpdate.value : canCreate.value
+);
 const notificationsRealtime = useNotificationsRealtime();
 
 onMounted(load);
@@ -51,7 +57,7 @@ async function load(): Promise<void> {
 }
 
 async function create(): Promise<void> {
-  if (changing.value || !title.value.trim() || !content.value.trim()) {
+  if (changing.value || !title.value.trim() || !content.value.trim() || !canCreate.value) {
     return;
   }
   changing.value = true;
@@ -86,7 +92,7 @@ function cancelEdit(): void {
 
 async function saveEdit(): Promise<void> {
   const item = items.value.find(entry => entry.id === editingId.value);
-  if (!item || changing.value) {
+  if (!item || changing.value || !canUpdate.value) {
     return;
   }
   changing.value = true;
@@ -109,7 +115,7 @@ async function saveEdit(): Promise<void> {
 }
 
 async function publish(item: HostAnnouncement): Promise<void> {
-  if (changing.value || item.status !== 'draft') {
+  if (changing.value || item.status !== 'draft' || !canPublish.value) {
     return;
   }
   try {
@@ -162,20 +168,21 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" shadow="never" class="art-form-card" aria-labelledby="host-announcement-form-title">
+    <el-card v-if="showForm" shadow="never" class="art-form-card" aria-labelledby="host-announcement-form-title">
       <div><h2 id="host-announcement-form-title">{{ editingId ? t('hostAnnouncements.editTitle') : t('hostAnnouncements.createTitle') }}</h2></div>
       <label>
         <span>{{ t('hostAnnouncements.fieldTitle') }}</span>
-        <el-input v-model="title" maxlength="200" />
+        <el-input v-model="title" maxlength="200" data-testid="host-announcements-title" />
       </label>
       <label>
         <span>{{ t('hostAnnouncements.fieldContent') }}</span>
-        <el-input v-model="content" type="textarea" :rows="4" maxlength="4000" />
+        <el-input v-model="content" type="textarea" :rows="4" maxlength="4000" data-testid="host-announcements-content" />
       </label>
       <div class="art-data-row__actions">
         <el-button v-if="editingId" plain @click="cancelEdit">{{ t('status.back') }}</el-button>
         <el-button
           type="primary"
+          data-testid="host-announcements-submit"
           :loading="changing"
           :disabled="!title.trim() || !content.trim()"
           @click="editingId ? saveEdit() : create()"
@@ -202,9 +209,28 @@ function toProblem(
           <small>{{ t('hostAnnouncements.createdAt') }}: {{ item.createdAtUtc }}</small>
           <small v-if="item.publishedAtUtc">{{ t('hostAnnouncements.publishedAt') }}: {{ item.publishedAtUtc }}</small>
         </div>
-        <div v-if="canWrite && item.status === 'draft'" class="art-data-row__actions">
-          <el-button plain :disabled="changing" @click="startEdit(item)">{{ t('hostAnnouncements.edit') }}</el-button>
-          <el-button type="primary" plain :disabled="changing" @click="publish(item)">{{ t('hostAnnouncements.publish') }}</el-button>
+        <div v-if="item.status === 'draft'" class="art-data-row__actions">
+          <PermissionGate code="notifications.announcements.update">
+            <el-button
+              plain
+              data-testid="host-announcements-edit"
+              :disabled="changing"
+              @click="startEdit(item)"
+            >
+              {{ t('hostAnnouncements.edit') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate code="notifications.announcements.publish">
+            <el-button
+              type="primary"
+              plain
+              data-testid="host-announcements-publish"
+              :disabled="changing"
+              @click="publish(item)"
+            >
+              {{ t('hostAnnouncements.publish') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

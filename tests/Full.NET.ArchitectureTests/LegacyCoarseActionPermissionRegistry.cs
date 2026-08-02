@@ -29,6 +29,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         ConfigEntryManagementPermissions.Write,
         DiagnosticPolicyManagementPermissions.Write,
         "files.files.write",
+        "notifications.announcements.write",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -47,8 +48,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/jobs/host-schedules/{scheduleId:guid}/pause|jobs.schedules.write",
         "POST /api/v1/jobs/host-schedules/{scheduleId:guid}/resume|jobs.schedules.write",
         "POST /api/v1/jobs/host-schedules/|jobs.schedules.write",
-        "POST /api/v1/notifications/host-announcements/{announcementId:guid}/publish|notifications.announcements.write",
-        "POST /api/v1/notifications/host-announcements/|notifications.announcements.write",
         "POST /api/v1/notifications/host-inbox-messages/|notifications.inbox.write",
         "POST /api/v1/serial-numbers/rules/{ruleId:guid}/disable|serial_numbers.rules.write",
         "POST /api/v1/serial-numbers/rules/{ruleId:guid}/enable|serial_numbers.rules.write",
@@ -57,7 +56,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "PUT /api/v1/document/host/items/{itemId:guid}|document.host_documents.write",
         "PUT /api/v1/jobs/host-definitions/{definitionId:guid}|jobs.definitions.write",
         "PUT /api/v1/jobs/host-schedules/{scheduleId:guid}|jobs.schedules.write",
-        "PUT /api/v1/notifications/host-announcements/{announcementId:guid}|notifications.announcements.write",
         "PUT /api/v1/serial-numbers/rules/{ruleId:guid}|serial_numbers.rules.write",
     };
 }
