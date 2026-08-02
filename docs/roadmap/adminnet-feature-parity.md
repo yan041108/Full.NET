@@ -85,8 +85,8 @@
 | Admin.NET.Pro 能力 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
 | API Key 认证 | Identity | Core | M2 | **Build-verified**（Host 创建/列表/禁用/轮换与认证、最后使用展示与列表刷新、Vue/Layui 双管理端、Mock parity 2/2、真实栈浏览器 6/6；见[验证记录](../verification/identity-api-key-2026-07-26.md)） |
-| 请求签名认证 | Identity Signature Auth | Official Module | M5+ | **Build-verified**（HMAC 请求签名、Nonce 防重放、Access Key 绑定、失败审计与限流；开放接口产品化仍属 OpenAccess；吸收 Task 8 @ `4bb58ce`） |
-| 出站调用审计 | Auditing Outbound Calls | Core | M3 | **Build-verified**（显式 opt-in 写入、脱敏、Host 查询、保留期、双库 043、Vue/Layui；吸收 Task 9 @ `6e156f5`） |
+| 请求签名认证 | Identity Signature Auth | Official Module | M5+ | **Build-verified**（HMAC、Nonce、Access Key、失败审计；2026-08-02 双库真实栈 Integration **2/2**；OpenAccess 产品化仍属 `Mapped`；见[验收记录](../verification/adminnet-tasks-8-10-realstack-2026-08-02.md)） |
+| 出站调用审计 | Auditing Outbound Calls | Core | M3 | **Build-verified**（opt-in 写入、脱敏、Host 查询、043 恢复、Outbound 保留；2026-08-02 双库 **6/6** 聚焦；见[验收记录](../verification/adminnet-tasks-8-10-realstack-2026-08-02.md)） |
 | 缓存管理 | Caching Admin | Official Module | M5+ | Mapped |
 | 列显示个性化 | Settings + Client Preferences | Core | M3 | **Build-verified**（当前用户 Grid 偏好 API、双库 038、可信 Grid/Column 目录、SchemaVersion/Version、FusionCache、Vue/Layui 适配器；首个目录 `identity.users`，可视化列编辑器与真实浏览器 E2E 待具体 Grid 消费者接入；见[验证记录](../verification/settings-grid-preferences-2026-07-30.md)） |
 | 全栈多语言、时区与用户语言偏好 | Localization + Identity + Tenancy + Clients | Core + Client | M2-M5+ | Implementing |
@@ -96,7 +96,7 @@
 | 消息中心 | Notifications | Core | M3 | **Build-verified**（Host 发信 + 个人收件箱/未读/已读；[验证记录](../verification/notifications-inbox-message-2026-07-26.md)） |
 | MQTT | MQTT Provider | Provider | M5+ | Mapped |
 | 开放接口访问 | OpenAccess | Official Module | M5+ | Mapped |
-| 插件管理 | Modularity Admin | Official Module | M5+ | Implementing（只读官方模块清单 API 与双端 UI 已交付；动态加载/运行时编译明确拒绝；吸收 Task 10 @ `4962729`） |
+| 插件管理 | Modularity Admin | Official Module | M5+ | Implementing（只读官方模块清单 API 与双端 UI；Architecture 禁止 Roslyn/ApplicationPart；2026-08-02 双库 Integration **2/2**；见[验收记录](../verification/adminnet-tasks-8-10-realstack-2026-08-02.md)） |
 | 打印 | Printing | Official Module + Client | M5+ | Mapped |
 | 行政区域 | Regions | Official Module | M5+ | Mapped |
 | 报表配置 | Reporting | Official Module | M5+ | Mapped |

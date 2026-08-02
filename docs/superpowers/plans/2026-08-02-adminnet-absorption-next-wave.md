@@ -104,7 +104,7 @@ Task 0 未完成不得开始 Task 1；Task 1/2 可分窗口开发，但共享构
 3. Task 10：真实 Host API 验证目录权限拒绝、只读快照、双端渲染；扫描发布产物确认没有 Roslyn/动态 ApplicationPart 路径。
 4. 只依据新鲜证据更新 `docs/roadmap/capability-status.md`、`docs/roadmap/adminnet-feature-parity.md` 和总吸收计划。测试数量只更新 `eng/testing/test-matrix.json`。
 
-**验收：** 两库、两管理端、权限拒绝和恢复路径均有非零发现；未满足生产边界的能力继续保持 `Build-verified`。
+**验收：** 两库、两管理端、权限拒绝和恢复路径均有非零发现；未满足生产边界的能力继续保持 `Build-verified`。**2026-08-02 已完成验收并记录于 [`docs/verification/adminnet-tasks-8-10-realstack-2026-08-02.md`](../verification/adminnet-tasks-8-10-realstack-2026-08-02.md)。**
 
 ## Task 4：大型模块 Gate G4 规格化
 
