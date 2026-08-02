@@ -1,9 +1,9 @@
 # CodeGeneration 产品 Rollback 首切片设计
 
-**状态：** Approved for implementation  
-**日期：** 2026-08-02  
-**基线：** `main` @ `b2bba13`  
-**上游建议稿：** [codegeneration-product-rollback-assessment-2026-08-02.md](../../verification/codegeneration-product-rollback-assessment-2026-08-02.md)  
+**状态：** Approved for implementation
+**日期：** 2026-08-02
+**基线：** `main` @ `b2bba13`
+**上游建议稿：** [codegeneration-product-rollback-assessment-2026-08-02.md](../../verification/codegeneration-product-rollback-assessment-2026-08-02.md)
 **适用范围：** Host 代码生成运行目录、本地 Apply 工作区、双库迁移、Vue/Layui 管理端
 
 ## 1. 决策摘要

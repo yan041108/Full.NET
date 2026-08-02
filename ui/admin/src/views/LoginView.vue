@@ -37,10 +37,18 @@ async function submit(): Promise<void> {
     submitting.value = false;
   }
 }
+
+function focusMainContent(): void {
+  document.getElementById('main-content')?.focus();
+}
 </script>
 
 <template>
-  <a class="skip-link" href="#main-content">{{ t('a11y.skipToMain') }}</a>
+  <a
+    class="skip-link"
+    href="#main-content"
+    @click.prevent="focusMainContent"
+  >{{ t('a11y.skipToMain') }}</a>
   <div class="art-login-page">
     <ArtLoginLeftPanel />
 

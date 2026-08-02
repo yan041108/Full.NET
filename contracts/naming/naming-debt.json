@@ -3,6 +3,34 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "kind": "permission",
+      "value": "settings.diagnostic-policy.read",
+      "file": "src/Modules/Full.NET.Modules.Settings/SettingsAuthorizationContributor.cs",
+      "reason": "诊断策略能力已发布 route-shaped 权限码；在角色授权与 API Key 权限 JSON 完成双库兼容迁移前保留精确债务，禁止静默改名导致既有授权失效。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "settings.diagnostic-policy.write",
+      "file": "src/Modules/Full.NET.Modules.Settings/SettingsAuthorizationContributor.cs",
+      "reason": "诊断策略能力已发布 route-shaped 权限码；在角色授权与 API Key 权限 JSON 完成双库兼容迁移前保留精确债务，禁止静默改名导致既有授权失效。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/043_AuditingOutboundCall.sql",
+      "reason": "043 的条件 DROP INDEX 尚不能由静态扫描器完整解析；两个固定索引已人工审查，并由 SQL Server 缺失及畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/043_AuditingOutboundCall.sql",
+      "reason": "043 使用固定存储过程收敛出站审计时间线与 Provider 索引；对象名均为脚本内常量，并由 MySQL 缺失及畸形索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "table",
       "value": "fn_tenant_tenant",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/001_Foundation.sql",

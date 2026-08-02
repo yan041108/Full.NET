@@ -187,6 +187,17 @@
       "backupVerified": true,
       "reviewer": "architecture-hardening-task-2",
       "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/051_CodeGenerationRollback.sql",
+      "line": 41,
+      "actual": "DROP COLUMN",
+      "reason": "051 重跑时先移除仅由 OperationKind、Status 与 SourceApplyRunId 推导的生成列，再以规范表达式重建，避免异常中间态保留错误的成功回滚唯一键。",
+      "risk": "生成列没有独立业务数据；051 双库恢复测试验证重建后原运行记录和成功回滚唯一约束保持有效。",
+      "backupVerified": true,
+      "reviewer": "cursor-main-review-20260802",
+      "removalMilestone": "M1.0"
     }
   ]
 }

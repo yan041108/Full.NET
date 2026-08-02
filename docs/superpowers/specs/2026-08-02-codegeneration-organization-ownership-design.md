@@ -1,8 +1,8 @@
 # CodeGeneration 组织归属（OrganizationUnit）生成设计
 
-**状态：** Approved for implementation  
-**日期：** 2026-08-02  
-**基线：** `main` @ `2006106`  
+**状态：** Approved for implementation
+**日期：** 2026-08-02
+**基线：** `main` @ `2006106`
 **上游建议稿：** [codegeneration-organization-ownership-assessment-2026-08-02.md](../../verification/codegeneration-organization-ownership-assessment-2026-08-02.md)
 
 ## 1. 决策摘要

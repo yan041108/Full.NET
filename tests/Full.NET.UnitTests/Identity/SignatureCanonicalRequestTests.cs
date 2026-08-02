@@ -7,6 +7,18 @@ namespace Full.NET.UnitTests.Identity;
 [TestClass]
 public sealed class SignatureCanonicalRequestTests
 {
+    [TestMethod]
+    public void Unix_timestamp_parser_rejects_values_outside_DateTimeOffset_range()
+    {
+        Assert.IsFalse(SignatureCanonicalRequest.TryParseUnixTimestamp(
+            long.MaxValue.ToString(),
+            out _));
+        Assert.IsTrue(SignatureCanonicalRequest.TryParseUnixTimestamp(
+            "0",
+            out var epoch));
+        Assert.AreEqual(DateTimeOffset.UnixEpoch, epoch);
+    }
+
     private static readonly byte[] SampleBody = "payload"u8.ToArray();
 
     [TestMethod]

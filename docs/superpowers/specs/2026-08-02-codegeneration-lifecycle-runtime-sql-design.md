@@ -1,9 +1,9 @@
 # CodeGeneration 生命周期 SQL 运行时语义矩阵设计
 
-**状态：** Approved — delivered  
-**日期：** 2026-08-02  
-**基线：** `main` @ `3e250fa`  
-**上游建议稿：** [codegeneration-lifecycle-runtime-sql-assessment-2026-08-02.md](../../verification/codegeneration-lifecycle-runtime-sql-assessment-2026-08-02.md)  
+**状态：** Approved — delivered
+**日期：** 2026-08-02
+**基线：** `main` @ `3e250fa`
+**上游建议稿：** [codegeneration-lifecycle-runtime-sql-assessment-2026-08-02.md](../../verification/codegeneration-lifecycle-runtime-sql-assessment-2026-08-02.md)
 **适用范围：** `Full.NET.Data.CodeGeneration` 生成 SQL、Integration Testcontainers 双库
 
 ## 1. 决策摘要

@@ -290,4 +290,3 @@ public sealed class TenantCacheInvalidatorTests
                 new InvalidOperationException("模拟 L2 缓存写入失败。"));
     }
 }
-

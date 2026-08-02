@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-        "minimum": 1024,
+        "minimum": 1052,
       "timeout": "10m"
     },
     "compatibility": {
@@ -72,6 +72,9 @@
       "042": {
         "filter": "FullyQualifiedName~Migration042IdentitySignatureNonceRecoveryTests.MySql_|FullyQualifiedName~Migration042IdentitySignatureNonceRecoveryTests.SqlServer_"
       },
+      "043": {
+        "filter": "FullyQualifiedName~Migration043AuditingOutboundCallRecoveryTests.MySql_|FullyQualifiedName~Migration043AuditingOutboundCallRecoveryTests.SqlServer_"
+      },
       "044": {
         "filter": "FullyQualifiedName~Migration044CodeGenerationTemplateRecoveryTests.MySql_|FullyQualifiedName~Migration044CodeGenerationTemplateRecoveryTests.SqlServer_"
       },
@@ -111,26 +114,26 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 48,
+        "minimum": 49,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 48,
+        "minimum": 49,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 92,
+        "minimum": 98,
         "timeout": "90m"
       },
       "infrastructure": {
         "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations",
-        "minimum": 103,
+        "minimum": 106,
         "timeout": "60m"
       },
       "full": {
-        "minimum": 294,
+        "minimum": 302,
         "timeout": "90m"
       }
     }

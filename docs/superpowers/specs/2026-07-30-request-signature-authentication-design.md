@@ -1,7 +1,7 @@
 # 请求签名认证与开放访问审计设计
 
-**状态：** Approved for implementation  
-**日期：** 2026-07-30  
+**状态：** Approved for implementation
+**日期：** 2026-07-30
 **适用范围：** Identity 模块开放 API、Host/Tenant 作用域 API Key、双库 Nonce 防重放、认证审计与 OpenAPI
 
 ## 1. 决策摘要

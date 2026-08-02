@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Http;
@@ -30,6 +31,26 @@ internal static class SignatureCanonicalRequest
 
     public static string NormalizeMethod(string method) =>
         method.Trim().ToUpperInvariant();
+
+    public static bool TryParseUnixTimestamp(
+        string value,
+        out DateTimeOffset timestamp)
+    {
+        timestamp = default;
+        if (!long.TryParse(
+                value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var timestampSeconds)
+            || timestampSeconds < DateTimeOffset.MinValue.ToUnixTimeSeconds()
+            || timestampSeconds > DateTimeOffset.MaxValue.ToUnixTimeSeconds())
+        {
+            return false;
+        }
+
+        timestamp = DateTimeOffset.FromUnixTimeSeconds(timestampSeconds);
+        return true;
+    }
 
     public static string NormalizePath(PathString pathBase, PathString path)
     {

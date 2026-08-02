@@ -108,4 +108,3 @@ Task 1～14 的运行时、部署与容量套件已合入实施链路。本记�
 2. Closeout 发现并修复：`DiagnosticPolicyStore.LoadDocumentAsync` 新建 scope 未 `SetHost()`，导致 `HostOnly` 回源失败被吞并回退默认；写响应内存快照曾掩盖该缺陷。Integration 增加更新后二次 GET 断言。
 3. Parity：访问日志 mock 对齐 cursor 页契约。
 4. Layui 包体基线按 Task 8 i18n/导航增量重定，并保留 5% 回归门禁。
-

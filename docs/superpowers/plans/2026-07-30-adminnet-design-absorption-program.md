@@ -477,21 +477,23 @@ Use Host Users as the first vertical consumer. Do not batch-convert all modules 
 - Signature: HMAC-SHA256 with fixed-time comparison.
 - Replay boundary: atomic unique `(AccessKeyId, Nonce)` with bounded expiry; cache may accelerate but never replace persistence.
 
-- [ ] **Step 1: Approve the wire-contract spec**
+- [x] **Step 1: Approve the wire-contract spec**
 
 Confirm that migration `042` is unused in both providers; otherwise stop and rebase all later paired reservations. Freeze header names, canonicalization, clock-skew range, nonce length, body hashing, key rotation, challenge ProblemDetails and logging redaction.
 
-- [ ] **Step 2: Write RED canonicalization and replay tests**
+- [x] **Step 2: Write RED canonicalization and replay tests**
 
 Cover query ordering, percent encoding, empty body, changed content, expired/future timestamp, repeated nonce, rotated/disabled key, tenant mismatch and concurrent replay.
 
-- [ ] **Step 3: Implement handler using existing API Key records**
+- [x] **Step 3: Implement handler using existing API Key records**
 
 Reuse hashed key identity and permission scope; never store or log the raw secret, client signature, full authorization header or unbounded request body.
 
-- [ ] **Step 4: Verify dual database and proxy boundary**
+- [x] **Step 4: Verify dual database and proxy boundary**
 
 Run SQL Server/MySQL authentication tests plus trusted-proxy, rate-limit, audit redaction and OpenAPI contract checks.
+
+已由 `4bb58ce` 完成并进入 `Build-verified`。2026-08-02 主分支审查另补 Unix 时间戳越界失败关闭；开放访问产品化、请求体上限和损坏 KeyHash 失败关闭仍列入下一波安全硬化，不据此提升为 `Verified`。
 
 ### Task 9: 扩展审计分类而不复制敏感正文
 
@@ -509,21 +511,23 @@ Run SQL Server/MySQL authentication tests plus trusted-proxy, rate-limit, audit 
 - Records: provider key, operation key, destination host category, status, duration, retry count, trace ID and bounded safe error code.
 - Excludes by default: request/response bodies, authorization headers, cookies, tokens, connection strings and raw exception serialization.
 
-- [ ] **Step 1: Write RED redaction and truncation tests**
+- [x] **Step 1: Write RED redaction and truncation tests**
 
 Confirm that migration `043` is unused in both providers; otherwise stop and rebase the reservation. Use payloads containing passwords, bearer tokens, API keys, cookies, connection strings and PII; assert none enter persistence or logs.
 
-- [ ] **Step 2: Implement opt-in typed audit handler**
+- [x] **Step 2: Implement opt-in typed audit handler**
 
 Providers emit structured safe metadata. Do not install a global handler that buffers every request/response body.
 
-- [ ] **Step 3: Add retention and query support**
+- [x] **Step 3: Add retention and query support**
 
 Extend Auditing retention with a separate outbound-call retention setting and bounded pagination.
 
 - [ ] **Step 4: Verify**
 
 Run Auditing Unit/Integration, retention, logging throughput contract and Release build.
+
+`6e156f5` 已完成步骤 1–3。2026-08-02 主分支审查补充 043 双库索引恢复测试和幂等修复；步骤 4 保持未勾选，直到 Docker 可用环境完成新的 SQL Server/MySQL 恢复用例和 affected merge。
 
 ### Task 10: 建立只读模块清单，拒绝运行时动态 C#
 
@@ -539,17 +543,19 @@ Run Auditing Unit/Integration, retention, logging throughput contract and Releas
 - Descriptor fields: stable module key, display name, version, dependencies, host profiles, source classification and health capability.
 - Explicitly absent: C# source, assembly bytes, runtime compile, arbitrary load path or dynamic endpoint registration.
 
-- [ ] **Step 1: Write RED descriptor and architecture tests**
+- [x] **Step 1: Write RED descriptor and architecture tests**
 
 Reject duplicate module keys, dependency cycles, unknown profiles and descriptors with absolute paths. Add a source scan rejecting production calls to Roslyn runtime compilation or dynamic ApplicationPart mutation outside an approved compatibility project.
 
-- [ ] **Step 2: Implement immutable registry snapshot**
+- [x] **Step 2: Implement immutable registry snapshot**
 
 Build descriptors from registered modules at composition time. The Host API is read-only and protected by a dedicated permission.
 
-- [ ] **Step 3: Verify module topology**
+- [x] **Step 3: Verify module topology**
 
 Run Modularity Unit, Architecture, Host API Integration and Release publish dependency scans.
+
+已由 `4962729` 完成并进入 `Build-verified`；运行时动态 C#、动态 ApplicationPart 和任意程序集路径继续保持拒绝。
 
 ### Task 11: 为大型插件能力建立独立执行队列
 

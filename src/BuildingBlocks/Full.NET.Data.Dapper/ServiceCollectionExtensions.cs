@@ -101,6 +101,7 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
 
         services.AddSingleton<DbConnectionFactory>();
+        services.AddSingleton<IDatabaseSessionLock, DapperDatabaseSessionLock>();
         services.AddScoped<DbSession>();
         services.AddScoped<DapperSqlExecutor>();
         services.AddScoped<IQueryExecutor>(provider =>

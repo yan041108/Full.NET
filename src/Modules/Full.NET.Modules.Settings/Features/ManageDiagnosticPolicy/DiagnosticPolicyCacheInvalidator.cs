@@ -28,7 +28,9 @@ internal sealed class DiagnosticPolicyCacheInvalidator(
         var key = BuildCacheKey(environment.EnvironmentName);
         try
         {
-            var local = new FusionCacheEntryOptions().SetSkipDistributedCache(
+            var local = policies
+                .CreateEntryOptions(CacheEntryNames.DiagnosticPolicy)
+                .SetSkipDistributedCache(
                 skip: true,
                 skipBackplaneNotifications: true);
             await cache.RemoveAsync(key, local, token: cancellationToken).ConfigureAwait(false);
@@ -41,13 +43,11 @@ internal sealed class DiagnosticPolicyCacheInvalidator(
 
         try
         {
-            var distributed = new FusionCacheEntryOptions
-            {
-                AllowBackgroundDistributedCacheOperations = false,
-                ReThrowDistributedCacheExceptions = true,
-                AllowBackgroundBackplaneOperations = false,
-                ReThrowBackplaneExceptions = true,
-            };
+            var distributed = policies.CreateEntryOptions(CacheEntryNames.DiagnosticPolicy);
+            distributed.AllowBackgroundDistributedCacheOperations = false;
+            distributed.ReThrowDistributedCacheExceptions = true;
+            distributed.AllowBackgroundBackplaneOperations = false;
+            distributed.ReThrowBackplaneExceptions = true;
             await cache.RemoveAsync(key, distributed, token: cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)

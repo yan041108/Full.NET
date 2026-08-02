@@ -31,6 +31,7 @@ public sealed class CodeGenerationPreviewServiceTests
                 CodeGenerationRunPermissions.Read,
                 CodeGenerationRunPermissions.Execute,
                 CodeGenerationRunPermissions.Apply,
+                CodeGenerationRunPermissions.Rollback,
             },
             contributor.Permissions
                 .Select(permission => permission.Code)

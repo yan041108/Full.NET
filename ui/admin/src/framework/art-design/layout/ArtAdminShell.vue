@@ -188,6 +188,10 @@ function closeMobileNav(): void {
   mobileNavOpen.value = false;
 }
 
+function focusMainContent(): void {
+  document.getElementById('main-content')?.focus();
+}
+
 function syncActiveMenuGroup(path: string = route.path): void {
   activeMenuGroupId.value = resolveActiveGroupId(navigationGroups.value, path);
 }
@@ -275,7 +279,11 @@ watch(navigationGroups, () => {
     :data-component-locale="elementLocaleName"
     :data-art-tab-style="settings.tabStyle"
   >
-    <a class="skip-link" href="#main-content">{{ props.translate('a11y.skipToMain') }}</a>
+    <a
+      class="skip-link"
+      href="#main-content"
+      @click.prevent="focusMainContent"
+    >{{ props.translate('a11y.skipToMain') }}</a>
 
     <button
       v-if="mobileNavOpen"

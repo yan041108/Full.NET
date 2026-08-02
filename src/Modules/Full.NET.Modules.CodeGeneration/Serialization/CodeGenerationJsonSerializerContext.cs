@@ -22,6 +22,8 @@ namespace Full.NET.Modules.CodeGeneration.Serialization;
 [JsonSerializable(typeof(CodeGenerationRunApplyResponse))]
 [JsonSerializable(typeof(CodeGenerationRunRollbackRequest))]
 [JsonSerializable(typeof(CodeGenerationRunRollbackResponse))]
+[JsonSerializable(typeof(CodeGenerationRunRollbackChainRequest))]
+[JsonSerializable(typeof(CodeGenerationRunRollbackChainResponse))]
 [JsonSerializable(typeof(CodeGenerationRunResponse))]
 [JsonSerializable(typeof(PagedResult<CodeGenerationRunResponse>))]
 [JsonSerializable(typeof(CodeGenerationRelationshipRequest))]

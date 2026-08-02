@@ -49,7 +49,9 @@ internal sealed partial class SignatureAuthenticationService(
                 ErrorType.Unauthorized);
         }
 
-        if (!long.TryParse(headers.Timestamp, out var timestampSeconds))
+        if (!SignatureCanonicalRequest.TryParseUnixTimestamp(
+                headers.Timestamp,
+                out var requestTime))
         {
             return Failure(
                 IdentitySignatureErrorCodes.InvalidTimestamp,
@@ -57,7 +59,6 @@ internal sealed partial class SignatureAuthenticationService(
         }
 
         var now = clock.UtcNow;
-        var requestTime = DateTimeOffset.FromUnixTimeSeconds(timestampSeconds);
         var skew = TimeSpan.FromSeconds(
             Math.Clamp(
                 settings.ClockSkewSeconds,
