@@ -20,8 +20,12 @@ public sealed class CodeGenerationRollbackServiceTests
         "0198f36e-f7a7-7c52-9cbb-774e67411311");
     private static readonly Guid ApplyRunId = Guid.Parse(
         "0198f36e-f7a7-7c52-9cbb-774e67411312");
+    private static readonly Guid ApplyRunId2 = Guid.Parse(
+        "0198f36e-f7a7-7c52-9cbb-774e67411315");
     private static readonly Guid RollbackRunId = Guid.Parse(
         "0198f36e-f7a7-7c52-9cbb-774e67411313");
+    private static readonly Guid RollbackRunId2 = Guid.Parse(
+        "0198f36e-f7a7-7c52-9cbb-774e67411316");
     private static readonly DateTimeOffset Now = new(
         2026,
         8,
@@ -123,6 +127,91 @@ public sealed class CodeGenerationRollbackServiceTests
             workspace.Path,
             GenerationRollbackCheckpointStore.RootRelativePath,
             ApplyRunId.ToString("N"))));
+    }
+
+    [TestMethod]
+    public async Task Rollback_chain_restores_workspace_in_lifo_order()
+    {
+        using var workspace = new TemporaryDirectory();
+        var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(
+                CodeGenerationRunSql.Insert,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        command.ExecuteAsync(
+                CodeGenerationRunSql.CompleteRollback,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        var fixture = await CreateChainFixtureAsync(workspace.Path, command);
+        var service = CreateService(
+            workspace.Path,
+            command,
+            fixture.Query,
+            idGenerator: new SequentialIdGenerator(RollbackRunId, RollbackRunId2));
+
+        var result = await service.RollbackChainAsync(
+            ActorUserId,
+            new CodeGenerationRunRollbackChainRequest(
+                [ApplyRunId2, ApplyRunId]));
+
+        Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+        Assert.HasCount(2, result.Value!.Rollbacks);
+        Assert.AreEqual(RollbackRunId, result.Value.Rollbacks[0].RunId);
+        Assert.AreEqual(ApplyRunId2, result.Value.Rollbacks[0].ApplyRunId);
+        Assert.AreEqual(RollbackRunId2, result.Value.Rollbacks[1].RunId);
+        Assert.AreEqual(ApplyRunId, result.Value.Rollbacks[1].ApplyRunId);
+        Assert.AreEqual(
+            GenerationManifest.Create([]).ToJson(),
+            await File.ReadAllTextAsync(Path.Combine(
+                workspace.Path,
+                GenerationWorkspaceStore.ManifestRelativePath)));
+    }
+
+    [TestMethod]
+    public async Task Rollback_chain_rejects_out_of_order_apply_runs()
+    {
+        using var workspace = new TemporaryDirectory();
+        var command = Substitute.For<ICommandExecutor>();
+        var fixture = await CreateChainFixtureAsync(workspace.Path, command);
+        var service = CreateService(
+            workspace.Path,
+            command,
+            fixture.Query,
+            idGenerator: new SequentialIdGenerator(RollbackRunId, RollbackRunId2));
+
+        var result = await service.RollbackChainAsync(
+            ActorUserId,
+            new CodeGenerationRunRollbackChainRequest(
+                [ApplyRunId, ApplyRunId2]));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(
+            CodeGenerationRunErrorCodes.InvalidRollbackChain,
+            result.Error!.Code);
+        await command.DidNotReceive().ExecuteAsync(
+            Arg.Any<SqlStatement>(),
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Rollback_chain_rejects_single_apply_run()
+    {
+        using var workspace = new TemporaryDirectory();
+        var command = Substitute.For<ICommandExecutor>();
+        var query = Substitute.For<IQueryExecutor>();
+        var service = CreateService(workspace.Path, command, query);
+
+        var result = await service.RollbackChainAsync(
+            ActorUserId,
+            new CodeGenerationRunRollbackChainRequest([ApplyRunId]));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(
+            CodeGenerationRunErrorCodes.InvalidRollbackChain,
+            result.Error!.Code);
     }
 
     [TestMethod]
@@ -502,12 +591,100 @@ public sealed class CodeGenerationRollbackServiceTests
         return new RollbackFixture(service, relativePath);
     }
 
+    private static async Task<ChainFixture> CreateChainFixtureAsync(
+        string workspaceRoot,
+        ICommandExecutor command)
+    {
+        const string relativePath = "Backend/Product.g.cs";
+        const string firstContent = "first-product\n";
+        const string secondContent = "second-product\n";
+        var firstArtifacts = new[]
+        {
+            new GeneratedArtifact(
+                relativePath,
+                GeneratedArtifactKind.Backend,
+                firstContent),
+        };
+        var firstSnapshot = await GenerationWorkspaceStore.CaptureAsync(
+            workspaceRoot,
+            firstArtifacts);
+        var firstPlan = GenerationWritePlanner.Plan(
+            firstArtifacts,
+            firstSnapshot.ExistingFiles,
+            firstSnapshot.PreviousManifest);
+        Assert.IsTrue(firstPlan.CanApply);
+        await GenerationRollbackCheckpointStore.CreateAsync(
+            workspaceRoot,
+            ApplyRunId,
+            firstPlan);
+        await GenerationWorkspaceStore.ApplyAsync(workspaceRoot, firstPlan);
+
+        var secondArtifacts = new[]
+        {
+            new GeneratedArtifact(
+                relativePath,
+                GeneratedArtifactKind.Backend,
+                secondContent),
+        };
+        var secondSnapshot = await GenerationWorkspaceStore.CaptureAsync(
+            workspaceRoot,
+            secondArtifacts);
+        var secondPlan = GenerationWritePlanner.Plan(
+            secondArtifacts,
+            secondSnapshot.ExistingFiles,
+            secondSnapshot.PreviousManifest);
+        Assert.IsTrue(secondPlan.CanApply);
+        await GenerationRollbackCheckpointStore.CreateAsync(
+            workspaceRoot,
+            ApplyRunId2,
+            secondPlan);
+        await GenerationWorkspaceStore.ApplyAsync(workspaceRoot, secondPlan);
+
+        var query = Substitute.For<IQueryExecutor>();
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var id = Read<Guid>(call.ArgAt<object>(1)!, "Id");
+                return id switch
+                {
+                    _ when id == ApplyRunId => CreateSucceededApplyRecord(
+                        ApplyRunId,
+                        Now.AddMinutes(-2)),
+                    _ when id == ApplyRunId2 => CreateSucceededApplyRecord(
+                        ApplyRunId2,
+                        Now.AddMinutes(-1)),
+                    _ => null,
+                };
+            });
+        query.QueryAsync<Guid>(
+                CodeGenerationRunSql.ListPendingRollbackApplies,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns([ApplyRunId2, ApplyRunId]);
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((CodeGenerationRunRecord?)null);
+        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((CodeGenerationRunRecord?)null);
+
+        return new ChainFixture(query);
+    }
+
     private static CodeGenerationRollbackService CreateService(
         string workspaceRoot,
         ICommandExecutor command,
         IQueryExecutor query,
         CodeGenerationApplyGate? gate = null,
-        CodeGenerationCheckpointRetentionOptions? retention = null) =>
+        CodeGenerationCheckpointRetentionOptions? retention = null,
+        IIdGenerator? idGenerator = null) =>
         new(
             command,
             query,
@@ -520,13 +697,15 @@ public sealed class CodeGenerationRollbackServiceTests
             gate ?? CodeGenerationApplyGateTestSupport.CreateLocalGate(@"C:\workspaces\codegen"),
             CodeGenerationGitWorkspaceTestSupport.CreateDisabled(workspaceRoot),
             new FixedClock(Now),
-            new FixedIdGenerator(RollbackRunId),
+            idGenerator ?? new FixedIdGenerator(RollbackRunId),
             NullLogger<CodeGenerationRollbackService>.Instance);
 
-    private static CodeGenerationRunRecord CreateSucceededApplyRecord() =>
+    private static CodeGenerationRunRecord CreateSucceededApplyRecord(
+        Guid id,
+        DateTimeOffset finishedAtUtc) =>
         new()
         {
-            Id = ApplyRunId,
+            Id = id,
             TemplateId = Guid.Parse("0198f36e-f7a7-7c52-9cbb-774e67411314"),
             TemplateVersion = 3,
             OperationKind = CodeGenerationRunOperationKinds.Apply,
@@ -537,9 +716,12 @@ public sealed class CodeGenerationRollbackServiceTests
             ArtifactCount = 1,
             ManifestSha256 = new string('b', 64),
             RequestedByUserId = ActorUserId,
-            StartedAtUtc = Now.AddMinutes(-1),
-            FinishedAtUtc = Now.AddSeconds(-30),
+            StartedAtUtc = finishedAtUtc.AddMinutes(-1),
+            FinishedAtUtc = finishedAtUtc,
         };
+
+    private static CodeGenerationRunRecord CreateSucceededApplyRecord() =>
+        CreateSucceededApplyRecord(ApplyRunId, Now.AddSeconds(-30));
 
     private static T Read<T>(object parameters, string name) =>
         (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
@@ -554,9 +736,18 @@ public sealed class CodeGenerationRollbackServiceTests
         public Guid NewId() => id;
     }
 
+    private sealed class SequentialIdGenerator(params Guid[] ids) : IIdGenerator
+    {
+        private readonly Queue<Guid> _remaining = new(ids);
+
+        public Guid NewId() => _remaining.Dequeue();
+    }
+
     private sealed record RollbackFixture(
         CodeGenerationRollbackService Service,
         string RelativePath);
+
+    private sealed record ChainFixture(IQueryExecutor Query);
 
     private sealed class TemporaryDirectory : IDisposable
     {

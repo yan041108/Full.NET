@@ -15,4 +15,9 @@ internal sealed class CodeGenerationApplyOptions
     /// 启用后通过数据库会话锁在多个 API 实例间串行化同一工作区的 Apply/Rollback。
     /// </summary>
     public bool DistributedGateEnabled { get; set; }
+
+    /// <summary>
+    /// 单次 rollback-chain 请求允许的最大 Apply 数量。
+    /// </summary>
+    public int MaxRollbackChainLength { get; set; } = 16;
 }

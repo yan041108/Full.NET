@@ -111,163 +111,386 @@ internal sealed class CodeGenerationRollbackService(
                     syncError.Type);
             }
 
-            // 目标摘要在写盘前即可由检查点 PreviousManifest 确定；插入后再 Restore。
-            GenerationRollbackCheckpoint checkpoint;
-            try
-            {
-                checkpoint = await GenerationRollbackCheckpointStore.ReadAsync(
-                        options.Value.WorkspaceRoot,
-                        request.ApplyRunId,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception) when (exception is
-                DirectoryNotFoundException
-                or FileNotFoundException
-                or ArgumentException
-                or IOException
-                or UnauthorizedAccessException
-                or JsonException)
-            {
-                return Failure(
-                    CodeGenerationRunErrorCodes.RollbackCheckpointMissing,
-                    "The rollback checkpoint is unavailable.",
-                    ErrorType.Conflict);
-            }
-
-            var targetManifest = checkpoint.PreviousManifest
-                ?? GenerationManifest.Create([]);
-            var manifestSha256 = CodeGenerationRunSummary.ComputeManifestSha256(
-                targetManifest);
-            var runId = idGenerator.NewId();
-            var startedAtUtc = clock.UtcNow;
-            var insertedRows = await commandExecutor.ExecuteAsync(
-                    CodeGenerationRunSql.Insert,
-                    new
-                    {
-                        Id = runId,
-                        TemplateId = (Guid?)null,
-                        TemplateVersion = (long?)null,
-                        SourceApplyRunId = request.ApplyRunId,
-                        OperationKind = CodeGenerationRunOperationKinds.Rollback,
-                        Status = CodeGenerationRunStatuses.Running,
-                        apply.ModuleKey,
-                        apply.EntityKey,
-                        apply.SchemaSha256,
-                        ArtifactCount = targetManifest.Artifacts.Count,
-                        ManifestSha256 = manifestSha256,
-                        ErrorCode = (string?)null,
-                        RequestedByUserId = actorUserId,
-                        StartedAtUtc = startedAtUtc,
-                        FinishedAtUtc = startedAtUtc,
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
-            EnsureAffectedOne(insertedRows, "insert");
-
-            GenerationWritePlan plan;
-            try
-            {
-                plan = await GenerationRollbackWorkspace.RestoreAsync(
-                        options.Value.WorkspaceRoot,
-                        checkpoint,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
-            {
-                await FailAsync(
-                        runId,
-                        CodeGenerationRunErrorCodes.RollbackFailed,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                throw;
-            }
-            catch (GenerationWorkspaceConflictException)
-            {
-                await FailAsync(
-                        runId,
-                        CodeGenerationRunErrorCodes.RollbackConflict,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                return Failure(
-                    CodeGenerationRunErrorCodes.RollbackConflict,
-                    "The code generation workspace contains conflicts.",
-                    ErrorType.Conflict);
-            }
-            catch (Exception exception) when (exception is
-                DirectoryNotFoundException
-                or IOException
-                or UnauthorizedAccessException
-                or ArgumentException)
-            {
-                await FailAsync(
-                        runId,
-                        CodeGenerationRunErrorCodes.RollbackFailed,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                return Failure(
-                    CodeGenerationRunErrorCodes.RollbackFailed,
-                    "The code generation rollback failed.",
-                    ErrorType.Unexpected);
-            }
-
-            if (!plan.CanApply)
-            {
-                await FailAsync(
-                        runId,
-                        CodeGenerationRunErrorCodes.RollbackConflict,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                return Failure(
-                    CodeGenerationRunErrorCodes.RollbackConflict,
-                    "The code generation workspace contains conflicts.",
-                    ErrorType.Conflict);
-            }
-
-            var completedRows = await commandExecutor.ExecuteAsync(
-                    CodeGenerationRunSql.CompleteRollback,
-                    new
-                    {
-                        Id = runId,
-                        FinishedAtUtc = clock.UtcNow,
-                    },
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-            EnsureAffectedOne(completedRows, "completion");
-
-            await gitWorkspace.PublishAsync(
-                    $"codegen(rollback): {apply.ModuleKey}/{apply.EntityKey} "
-                    + $"apply {request.ApplyRunId:N}",
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-
-            await TryDeleteCheckpointAfterSucceededRollbackAsync(
+            return await ExecuteNewRollbackAsync(
+                    actorUserId,
+                    apply,
                     request.ApplyRunId,
                     cancellationToken)
                 .ConfigureAwait(false);
-
-            var changedCount = plan.Actions.Count(action =>
-                action.Kind != GenerationWriteActionKind.Unchanged);
-            return Result<CodeGenerationRunRollbackResponse>.Success(
-                ToResponse(
-                    runId,
-                    request.ApplyRunId,
-                    targetManifest.Artifacts.Count,
-                    changedCount,
-                    manifestSha256));
         }
         finally
         {
             applyGate.Release();
         }
     }
+
+    public async Task<Result<CodeGenerationRunRollbackChainResponse>> RollbackChainAsync(
+        Guid actorUserId,
+        CodeGenerationRunRollbackChainRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!options.Value.Enabled)
+        {
+            return FailureChain(
+                CodeGenerationRunErrorCodes.RollbackDisabled,
+                "Code generation rollback is disabled.",
+                ErrorType.Conflict);
+        }
+
+        var validation = await ValidateRollbackChainAsync(
+                request.ApplyRunIds,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!validation.IsSuccess)
+        {
+            return Result<CodeGenerationRunRollbackChainResponse>.Failure(
+                validation.Error!);
+        }
+
+        foreach (var applyRunId in request.ApplyRunIds)
+        {
+            var runningRollback = await queryExecutor
+                .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                    CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
+                    new { SourceApplyRunId = applyRunId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (runningRollback is not null)
+            {
+                return FailureChain(
+                    CodeGenerationRunErrorCodes.RollbackBusy,
+                    "Another code generation apply or rollback is in progress.",
+                    ErrorType.Conflict);
+            }
+        }
+
+        if (!await applyGate.TryEnterAsync(cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return FailureChain(
+                CodeGenerationRunErrorCodes.RollbackBusy,
+                "Another code generation apply or rollback is in progress.",
+                ErrorType.Conflict);
+        }
+
+        try
+        {
+            var syncError = await gitWorkspace
+                .SynchronizeAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (syncError is not null)
+            {
+                return FailureChain(
+                    syncError.Code,
+                    syncError.Message,
+                    syncError.Type);
+            }
+
+            var rollbacks = new List<CodeGenerationRunRollbackResponse>(
+                request.ApplyRunIds.Count);
+            foreach (var apply in validation.Value!)
+            {
+                var existingRollback = await queryExecutor
+                    .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                        CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
+                        new { SourceApplyRunId = apply.Id },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (existingRollback is not null)
+                {
+                    var replay = await TryReplaySucceededRollbackAsync(
+                            existingRollback,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!replay.IsSuccess)
+                    {
+                        return Result<CodeGenerationRunRollbackChainResponse>.Failure(
+                            replay.Error!);
+                    }
+
+                    rollbacks.Add(replay.Value!);
+                    continue;
+                }
+
+                var step = await ExecuteNewRollbackAsync(
+                        actorUserId,
+                        apply,
+                        apply.Id,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!step.IsSuccess)
+                {
+                    return Result<CodeGenerationRunRollbackChainResponse>.Failure(
+                        step.Error!);
+                }
+
+                rollbacks.Add(step.Value!);
+            }
+
+            return Result<CodeGenerationRunRollbackChainResponse>.Success(
+                new CodeGenerationRunRollbackChainResponse(rollbacks));
+        }
+        finally
+        {
+            applyGate.Release();
+        }
+    }
+
+    private async Task<Result<IReadOnlyList<CodeGenerationRunRecord>>>
+        ValidateRollbackChainAsync(
+            IReadOnlyList<Guid> applyRunIds,
+            CancellationToken cancellationToken)
+    {
+        if (applyRunIds.Count < 2)
+        {
+            return InvalidChain(
+                "A rollback chain must include at least two apply runs.");
+        }
+
+        if (applyRunIds.Count > options.Value.MaxRollbackChainLength)
+        {
+            return InvalidChain(
+                "The rollback chain exceeds the configured maximum length.");
+        }
+
+        if (applyRunIds.Distinct().Count() != applyRunIds.Count)
+        {
+            return InvalidChain(
+                "The rollback chain contains duplicate apply runs.");
+        }
+
+        var applies = new List<CodeGenerationRunRecord>(applyRunIds.Count);
+        foreach (var applyRunId in applyRunIds)
+        {
+            var apply = await queryExecutor
+                .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                    CodeGenerationRunSql.FindById,
+                    new { Id = applyRunId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (apply is null
+                || apply.OperationKind != CodeGenerationRunOperationKinds.Apply
+                || apply.Status != CodeGenerationRunStatuses.Succeeded
+                || apply.ModuleKey is null
+                || apply.EntityKey is null
+                || apply.SchemaSha256 is null)
+            {
+                return InvalidChain(
+                    "The rollback chain contains an apply that cannot be rolled back.");
+            }
+
+            applies.Add(apply);
+        }
+
+        var moduleKey = applies[0].ModuleKey!;
+        var entityKey = applies[0].EntityKey!;
+        if (!applies.All(item =>
+                item.ModuleKey == moduleKey
+                && item.EntityKey == entityKey))
+        {
+            return InvalidChain(
+                "The rollback chain must target a single module and entity.");
+        }
+
+        var pendingApplyRunIds = (await queryExecutor
+                .QueryAsync<Guid>(
+                    CodeGenerationRunSql.ListPendingRollbackApplies,
+                    new
+                    {
+                        ModuleKey = moduleKey,
+                        EntityKey = entityKey,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false))
+            .ToList();
+        for (var index = 0; index < applyRunIds.Count; index++)
+        {
+            if (index >= pendingApplyRunIds.Count
+                || pendingApplyRunIds[index] != applyRunIds[index])
+            {
+                return InvalidChain(
+                    "The rollback chain is not in the required LIFO order.");
+            }
+        }
+
+        return Result<IReadOnlyList<CodeGenerationRunRecord>>.Success(applies);
+    }
+
+    private async Task<Result<CodeGenerationRunRollbackResponse>> ExecuteNewRollbackAsync(
+        Guid actorUserId,
+        CodeGenerationRunRecord apply,
+        Guid applyRunId,
+        CancellationToken cancellationToken)
+    {
+        // 目标摘要在写盘前即可由检查点 PreviousManifest 确定；插入后再 Restore。
+        GenerationRollbackCheckpoint checkpoint;
+        try
+        {
+            checkpoint = await GenerationRollbackCheckpointStore.ReadAsync(
+                    options.Value.WorkspaceRoot,
+                    applyRunId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is
+            DirectoryNotFoundException
+            or FileNotFoundException
+            or ArgumentException
+            or IOException
+            or UnauthorizedAccessException
+            or JsonException)
+        {
+            return Failure(
+                CodeGenerationRunErrorCodes.RollbackCheckpointMissing,
+                "The rollback checkpoint is unavailable.",
+                ErrorType.Conflict);
+        }
+
+        var targetManifest = checkpoint.PreviousManifest
+            ?? GenerationManifest.Create([]);
+        var manifestSha256 = CodeGenerationRunSummary.ComputeManifestSha256(
+            targetManifest);
+        var runId = idGenerator.NewId();
+        var startedAtUtc = clock.UtcNow;
+        var insertedRows = await commandExecutor.ExecuteAsync(
+                CodeGenerationRunSql.Insert,
+                new
+                {
+                    Id = runId,
+                    TemplateId = (Guid?)null,
+                    TemplateVersion = (long?)null,
+                    SourceApplyRunId = applyRunId,
+                    OperationKind = CodeGenerationRunOperationKinds.Rollback,
+                    Status = CodeGenerationRunStatuses.Running,
+                    apply.ModuleKey,
+                    apply.EntityKey,
+                    apply.SchemaSha256,
+                    ArtifactCount = targetManifest.Artifacts.Count,
+                    ManifestSha256 = manifestSha256,
+                    ErrorCode = (string?)null,
+                    RequestedByUserId = actorUserId,
+                    StartedAtUtc = startedAtUtc,
+                    FinishedAtUtc = startedAtUtc,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        EnsureAffectedOne(insertedRows, "insert");
+
+        GenerationWritePlan plan;
+        try
+        {
+            plan = await GenerationRollbackWorkspace.RestoreAsync(
+                    options.Value.WorkspaceRoot,
+                    checkpoint,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            await FailAsync(
+                    runId,
+                    CodeGenerationRunErrorCodes.RollbackFailed,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            throw;
+        }
+        catch (GenerationWorkspaceConflictException)
+        {
+            await FailAsync(
+                    runId,
+                    CodeGenerationRunErrorCodes.RollbackConflict,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            return Failure(
+                CodeGenerationRunErrorCodes.RollbackConflict,
+                "The code generation workspace contains conflicts.",
+                ErrorType.Conflict);
+        }
+        catch (Exception exception) when (exception is
+            DirectoryNotFoundException
+            or IOException
+            or UnauthorizedAccessException
+            or ArgumentException)
+        {
+            await FailAsync(
+                    runId,
+                    CodeGenerationRunErrorCodes.RollbackFailed,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            return Failure(
+                CodeGenerationRunErrorCodes.RollbackFailed,
+                "The code generation rollback failed.",
+                ErrorType.Unexpected);
+        }
+
+        if (!plan.CanApply)
+        {
+            await FailAsync(
+                    runId,
+                    CodeGenerationRunErrorCodes.RollbackConflict,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            return Failure(
+                CodeGenerationRunErrorCodes.RollbackConflict,
+                "The code generation workspace contains conflicts.",
+                ErrorType.Conflict);
+        }
+
+        var completedRows = await commandExecutor.ExecuteAsync(
+                CodeGenerationRunSql.CompleteRollback,
+                new
+                {
+                    Id = runId,
+                    FinishedAtUtc = clock.UtcNow,
+                },
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        EnsureAffectedOne(completedRows, "completion");
+
+        await gitWorkspace.PublishAsync(
+                $"codegen(rollback): {apply.ModuleKey}/{apply.EntityKey} "
+                + $"apply {applyRunId:N}",
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        await TryDeleteCheckpointAfterSucceededRollbackAsync(
+                applyRunId,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var changedCount = plan.Actions.Count(action =>
+            action.Kind != GenerationWriteActionKind.Unchanged);
+        return Result<CodeGenerationRunRollbackResponse>.Success(
+            ToResponse(
+                runId,
+                applyRunId,
+                targetManifest.Artifacts.Count,
+                changedCount,
+                manifestSha256));
+    }
+
+    private static Result<IReadOnlyList<CodeGenerationRunRecord>> InvalidChain(
+        string message) =>
+        Result<IReadOnlyList<CodeGenerationRunRecord>>.Failure(
+            new Error(
+                CodeGenerationRunErrorCodes.InvalidRollbackChain,
+                message,
+                ErrorType.Validation));
+
+    private static Result<CodeGenerationRunRollbackChainResponse> FailureChain(
+        string code,
+        string message,
+        ErrorType type) =>
+        Result<CodeGenerationRunRollbackChainResponse>.Failure(
+            new Error(code, message, type));
 
     private async Task<Result<CodeGenerationRunRollbackResponse>> TryReplaySucceededRollbackAsync(
         CodeGenerationRunRecord existingRollback,

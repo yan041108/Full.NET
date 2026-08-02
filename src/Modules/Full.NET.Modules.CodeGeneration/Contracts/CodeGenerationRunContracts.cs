@@ -90,6 +90,9 @@ public static class CodeGenerationRunErrorCodes
 
     public const string RollbackFailed = "codegen.run.rollback_failed";
 
+    public const string InvalidRollbackChain =
+        "codegen.run.invalid_rollback_chain";
+
     public const string GitSyncFailed = "codegen.run.git_sync_failed";
 
     public const string GitPublishFailed = "codegen.run.git_publish_failed";
@@ -142,6 +145,19 @@ public sealed record CodeGenerationRunRollbackResponse(
     int ArtifactCount,
     int ChangedArtifactCount,
     string ManifestSha256);
+
+/// <summary>
+/// 表示按 LIFO 顺序回滚多个已成功 Apply；禁止客户端指定路径。
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CodeGenerationRunRollbackChainRequest(
+    IReadOnlyList<Guid> ApplyRunIds);
+
+/// <summary>
+/// 表示链式回滚各步的稳定摘要集合。
+/// </summary>
+public sealed record CodeGenerationRunRollbackChainResponse(
+    IReadOnlyList<CodeGenerationRunRollbackResponse> Rollbacks);
 
 /// <summary>
 /// 表示不包含 Schema、源码或异常正文的代码生成运行摘要。

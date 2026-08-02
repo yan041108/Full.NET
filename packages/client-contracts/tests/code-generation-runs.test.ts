@@ -7,7 +7,9 @@ import {
   isCodeGenerationRunPreviewResponse,
   isCodeGenerationRunResponse,
   isCodeGenerationRunRollbackRequest,
-  isCodeGenerationRunRollbackResponse
+  isCodeGenerationRunRollbackResponse,
+  isCodeGenerationRunRollbackChainRequest,
+  isCodeGenerationRunRollbackChainResponse
 } from '../src/code-generation-runs';
 
 describe('code-generation run contracts', () => {
@@ -178,5 +180,34 @@ describe('code-generation run contracts', () => {
       artifactCount: 0,
       sourceApplyRunId: null
     })).toBe(false);
+  });
+
+  it('accepts rollback chain summaries', () => {
+    const applyRunId = '0198f36e-f7a7-7c52-9cbb-774e67411214';
+    const secondApplyRunId = '0198f36e-f7a7-7c52-9cbb-774e67411216';
+    expect(isCodeGenerationRunRollbackChainRequest({
+      applyRunIds: [applyRunId, secondApplyRunId]
+    })).toBe(true);
+    expect(isCodeGenerationRunRollbackChainRequest({
+      applyRunIds: [applyRunId]
+    })).toBe(false);
+    expect(isCodeGenerationRunRollbackChainResponse({
+      rollbacks: [
+        {
+          runId: '0198f36e-f7a7-7c52-9cbb-774e67411215',
+          applyRunId: secondApplyRunId,
+          artifactCount: 1,
+          changedArtifactCount: 1,
+          manifestSha256: 'b'.repeat(64)
+        },
+        {
+          runId: '0198f36e-f7a7-7c52-9cbb-774e67411217',
+          applyRunId,
+          artifactCount: 0,
+          changedArtifactCount: 1,
+          manifestSha256: 'c'.repeat(64)
+        }
+      ]
+    })).toBe(true);
   });
 });

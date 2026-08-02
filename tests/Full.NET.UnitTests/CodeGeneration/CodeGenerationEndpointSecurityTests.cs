@@ -62,4 +62,29 @@ public sealed class CodeGenerationEndpointSecurityTests
                 CodeGenerationRunPermissions.Rollback),
             authorization[0].Policy);
     }
+
+    [TestMethod]
+    public async Task Rollback_chain_endpoint_requires_independent_rollback_permission()
+    {
+        var builder = WebApplication.CreateBuilder();
+        var module = new CodeGenerationModule();
+        module.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddSingleton(Substitute.For<IApiResultMapper>());
+        await using var app = builder.Build();
+        module.MapEndpoints(app);
+
+        var endpoint = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(endpoint => endpoint.RoutePattern.RawText
+                == "/api/v1/code-generation/runs/rollback-chain");
+        var authorization = endpoint.Metadata
+            .GetOrderedMetadata<IAuthorizeData>();
+
+        Assert.HasCount(1, authorization);
+        Assert.AreEqual(
+            FullNetPermissionPolicies.For(
+                CodeGenerationRunPermissions.Rollback),
+            authorization[0].Policy);
+    }
 }

@@ -61,6 +61,25 @@ internal static class CodeGenerationRunSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListPendingRollbackApplies = new(
+        "codegen.run.list_pending_rollback_applies",
+        """
+        SELECT a.Id
+        FROM fn_codegeneration_run a
+        WHERE a.OperationKind = 'apply'
+          AND a.Status = 'succeeded'
+          AND a.ModuleKey = @ModuleKey
+          AND a.EntityKey = @EntityKey
+          AND NOT EXISTS (
+              SELECT 1
+              FROM fn_codegeneration_run r
+              WHERE r.SourceApplyRunId = a.Id
+                AND r.OperationKind = 'rollback'
+                AND r.Status = 'succeeded')
+        ORDER BY a.StartedAtUtc DESC, a.Id
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement CompleteApply = new(
         "codegen.run.complete_apply",
         """

@@ -2,7 +2,7 @@
 
 - 日期：2026-08-02
 - 代码基线：`main` @ `4863c6b`
-- 状态：**开放**（待用户确认边界后写 Spec）
+- 状态：**已关闭** → Spec [design](../superpowers/specs/2026-08-02-codegeneration-rollback-chain-design.md)（Approved）
 - 上游：[产品 Rollback 验证](codegeneration-product-rollback-2026-08-02.md)、[幂等验证](codegeneration-rollback-idempotency-2026-08-02.md)
 
 ## 1. 结论

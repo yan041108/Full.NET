@@ -43,6 +43,12 @@ internal sealed class CodeGenerationApplyOptionsValidator
             return Failure();
         }
 
+        if (options.MaxRollbackChainLength is < 2 or > 64)
+        {
+            return ValidateOptionsResult.Fail(
+                "CodeGeneration:Apply:MaxRollbackChainLength must be between 2 and 64 when enabled.");
+        }
+
         return ValidateOptionsResult.Success;
     }
 

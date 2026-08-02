@@ -50,6 +50,14 @@ export interface CodeGenerationRunRollbackResponse {
   manifestSha256: string;
 }
 
+export interface CodeGenerationRunRollbackChainRequest {
+  applyRunIds: string[];
+}
+
+export interface CodeGenerationRunRollbackChainResponse {
+  rollbacks: CodeGenerationRunRollbackResponse[];
+}
+
 export interface CodeGenerationRunResponse {
   id: string;
   templateId: string | null;
@@ -181,6 +189,27 @@ export function isCodeGenerationRunRollbackResponse(
     && (value.changedArtifactCount as number) >= 0
     && isSha256(value.manifestSha256);
 }
+
+export function isCodeGenerationRunRollbackChainRequest(
+  value: unknown
+): value is CodeGenerationRunRollbackChainRequest {
+  return isRecord(value)
+    && hasOnlyKeys(value, new Set(['applyRunIds']))
+    && Array.isArray(value.applyRunIds)
+    && value.applyRunIds.length >= 2
+    && value.applyRunIds.every(isUuid);
+}
+
+export function isCodeGenerationRunRollbackChainResponse(
+  value: unknown
+): value is CodeGenerationRunRollbackChainResponse {
+  return isRecord(value)
+    && hasOnlyKeys(value, new Set(['rollbacks']))
+    && Array.isArray(value.rollbacks)
+    && value.rollbacks.length >= 2
+    && value.rollbacks.every(isCodeGenerationRunRollbackResponse);
+}
+
 export function isCodeGenerationRunResponse(
   value: unknown
 ): value is CodeGenerationRunResponse {

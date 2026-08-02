@@ -103,6 +103,34 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationRunPermissions.Rollback));
 
+        group.MapPost("/rollback-chain", async (
+            CodeGenerationRunRollbackChainRequest request,
+            CodeGenerationRollbackService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.RollbackChainAsync(
+                    actorUserId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<CodeGenerationRunRollbackChainResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status500InternalServerError)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            CodeGenerationRunPermissions.Rollback));
+
         group.MapGet("", async (
             int? page,
             int? pageSize,

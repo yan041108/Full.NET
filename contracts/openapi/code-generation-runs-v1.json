@@ -12,6 +12,9 @@
     "/api/v1/code-generation/runs/rollback": {
       "post": ["200", "400", "401", "403", "409", "500"]
     },
+    "/api/v1/code-generation/runs/rollback-chain": {
+      "post": ["200", "400", "401", "403", "409", "500"]
+    },
     "/api/v1/code-generation/runs/{runId}": {
       "get": ["200", "404"]
     }
@@ -45,6 +48,12 @@
       "artifactCount",
       "changedArtifactCount",
       "manifestSha256"
+    ],
+    "CodeGenerationRunRollbackChainRequest": [
+      "applyRunIds"
+    ],
+    "CodeGenerationRunRollbackChainResponse": [
+      "rollbacks"
     ],
     "CodeGenerationRunResponse": [
       "id",
