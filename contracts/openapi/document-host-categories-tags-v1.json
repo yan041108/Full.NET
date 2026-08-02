@@ -54,13 +54,13 @@
       "operations": [
         {
           "method": "GET",
-          "permission": "document.host_documents.read",
+          "permission": "document.tags.read",
           "successStatus": 200,
           "responseSchema": "HostDocumentTagResponseList"
         },
         {
           "method": "POST",
-          "permission": "document.tags.manage",
+          "permission": "document.tags.create",
           "successStatus": 201,
           "requestSchema": "CreateHostDocumentTagRequest",
           "responseSchema": "HostDocumentTagResponse"
@@ -72,13 +72,13 @@
       "operations": [
         {
           "method": "GET",
-          "permission": "document.host_documents.read",
+          "permission": "document.tags.read",
           "successStatus": 200,
           "responseSchema": "HostDocumentTagResponse"
         },
         {
           "method": "PUT",
-          "permission": "document.tags.manage",
+          "permission": "document.tags.update",
           "successStatus": 200,
           "requestSchema": "UpdateHostDocumentTagRequest",
           "responseSchema": "HostDocumentTagResponse"
@@ -90,7 +90,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "document.tags.manage",
+          "permission": "document.tags.delete",
           "successStatus": 200
         }
       ]

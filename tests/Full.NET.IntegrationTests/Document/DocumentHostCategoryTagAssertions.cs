@@ -21,6 +21,7 @@ internal static class DocumentHostCategoryTagAssertions
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyCreateOnlyCannotListCategoriesAsync(factory, client, cancellationToken);
+        await VerifyCreateOnlyCannotListTagsAsync(factory, client, cancellationToken);
         var manager = await factory.CreateHostIdentityAsync(
             $"document-taxonomy-{Guid.NewGuid():N}",
             [
@@ -28,7 +29,10 @@ internal static class DocumentHostCategoryTagAssertions
                 HostDocumentCategoryPermissions.Create,
                 HostDocumentCategoryPermissions.Update,
                 HostDocumentCategoryPermissions.Delete,
-                HostDocumentTagPermissions.Manage,
+                HostDocumentTagPermissions.Read,
+                HostDocumentTagPermissions.Create,
+                HostDocumentTagPermissions.Update,
+                HostDocumentTagPermissions.Delete,
             ],
             cancellationToken);
 
@@ -58,6 +62,15 @@ internal static class DocumentHostCategoryTagAssertions
                 cancellationToken));
         using var response = await client.SendAsync(request, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+
+        using var tagRequest = new HttpRequestMessage(HttpMethod.Get, TagsPath);
+        tagRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            await factory.CreateHostAccessTokenAsync(
+                ["platform.dashboard.read"],
+                cancellationToken));
+        using var tagResponse = await client.SendAsync(tagRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, tagResponse.StatusCode);
     }
 
     private static async Task VerifyCreateOnlyCannotListCategoriesAsync(
@@ -70,6 +83,21 @@ internal static class DocumentHostCategoryTagAssertions
             "Bearer",
             await factory.CreateHostAccessTokenAsync(
                 [HostDocumentCategoryPermissions.Create],
+                cancellationToken));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    private static async Task VerifyCreateOnlyCannotListTagsAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, TagsPath);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            await factory.CreateHostAccessTokenAsync(
+                [HostDocumentTagPermissions.Create],
                 cancellationToken));
         using var response = await client.SendAsync(request, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);

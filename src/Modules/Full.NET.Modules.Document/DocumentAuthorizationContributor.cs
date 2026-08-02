@@ -20,7 +20,10 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentCategoryPermissions.Create, "创建 Host 文档分类", AuthorizationScope.Host),
         new(HostDocumentCategoryPermissions.Update, "更新 Host 文档分类", AuthorizationScope.Host),
         new(HostDocumentCategoryPermissions.Delete, "删除 Host 文档分类", AuthorizationScope.Host),
-        new(HostDocumentTagPermissions.Manage, "维护 Host 文档标签", AuthorizationScope.Host),
+        new(HostDocumentTagPermissions.Read, "读取 Host 文档标签", AuthorizationScope.Host),
+        new(HostDocumentTagPermissions.Create, "创建 Host 文档标签", AuthorizationScope.Host),
+        new(HostDocumentTagPermissions.Update, "更新 Host 文档标签", AuthorizationScope.Host),
+        new(HostDocumentTagPermissions.Delete, "删除 Host 文档标签", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -57,7 +60,7 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "Document Tags",
             "price-tag",
             73,
-            HostDocumentTagPermissions.Manage),
+            HostDocumentTagPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -116,6 +119,27 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "document-categories",
             HostDocumentCategoryPermissions.Delete,
             "删除分类",
+            "delete",
+            30),
+        new AuthorizationActionDefinition(
+            "document.tags.create",
+            "document-tags",
+            HostDocumentTagPermissions.Create,
+            "创建标签",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "document.tags.update",
+            "document-tags",
+            HostDocumentTagPermissions.Update,
+            "编辑标签",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "document.tags.delete",
+            "document-tags",
+            HostDocumentTagPermissions.Delete,
+            "删除标签",
             "delete",
             30),
     ];

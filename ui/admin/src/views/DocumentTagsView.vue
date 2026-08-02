@@ -11,6 +11,7 @@ import {
   listHostDocumentTags,
   updateHostDocumentTag
 } from '../api/host-document-tags';
+import PermissionGate from '../components/PermissionGate.vue';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -19,7 +20,9 @@ const name = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canManage = computed(() => session.can('document.tags.manage'));
+const canCreate = computed(() => session.can('document.tags.create'));
+const canUpdate = computed(() => session.can('document.tags.update'));
+const canDelete = computed(() => session.can('document.tags.delete'));
 
 onMounted(load);
 
@@ -36,7 +39,7 @@ async function load(): Promise<void> {
 }
 
 async function create(): Promise<void> {
-  if (changing.value || !name.value.trim()) return;
+  if (changing.value || !canCreate.value || !name.value.trim()) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -52,7 +55,7 @@ async function create(): Promise<void> {
 }
 
 async function edit(tag: HostDocumentTag): Promise<void> {
-  if (changing.value) return;
+  if (changing.value || !canUpdate.value) return;
   try {
     const result = await ElMessageBox.prompt(
       t('documentTags.editTitle'),
@@ -72,7 +75,7 @@ async function edit(tag: HostDocumentTag): Promise<void> {
 }
 
 async function remove(tag: HostDocumentTag): Promise<void> {
-  if (changing.value) return;
+  if (changing.value || !canDelete.value) return;
   try {
     await ElMessageBox.confirm(
       t('documentTags.confirmDelete', { name: tag.name }),
@@ -111,14 +114,18 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canManage" class="art-form-card" shadow="never">
+    <el-card v-if="canCreate" class="art-form-card" shadow="never">
       <div class="art-form-grid art-form-grid--cols-3" aria-labelledby="create-document-tag-title">
         <div><h2 id="create-document-tag-title">{{ t('documentTags.createTitle') }}</h2></div>
         <label>
           <span>{{ t('documentTags.name') }}</span>
-          <el-input v-model="name" :placeholder="t('documentTags.namePlaceholder')" />
+          <el-input v-model="name" data-testid="document-tag-name" :placeholder="t('documentTags.namePlaceholder')" />
         </label>
-        <el-button type="primary" :loading="changing" @click="create">{{ t('documentTags.create') }}</el-button>
+        <PermissionGate code="document.tags.create">
+          <el-button type="primary" data-testid="document-tag-create" :loading="changing" @click="create">
+            {{ t('documentTags.create') }}
+          </el-button>
+        </PermissionGate>
       </div>
     </el-card>
 
@@ -136,11 +143,17 @@ function toProblem(
         <div class="art-data-row__main">
           <strong translate="no">{{ tag.name }}</strong>
         </div>
-        <div v-if="canManage" class="art-data-row__actions">
-          <el-button plain :disabled="changing" @click="edit(tag)">{{ t('documentTags.edit') }}</el-button>
-          <el-button type="danger" plain :disabled="changing" @click="remove(tag)">
-            {{ t('documentTags.delete') }}
-          </el-button>
+        <div class="art-data-row__actions">
+          <PermissionGate code="document.tags.update">
+            <el-button plain data-testid="document-tag-edit" :disabled="changing" @click="edit(tag)">
+              {{ t('documentTags.edit') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate code="document.tags.delete">
+            <el-button type="danger" plain data-testid="document-tag-delete" :disabled="changing" @click="remove(tag)">
+              {{ t('documentTags.delete') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

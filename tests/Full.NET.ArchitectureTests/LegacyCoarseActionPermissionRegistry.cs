@@ -37,6 +37,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         "serial_numbers.rules.write",
         "document.host_documents.write",
         "document.categories.manage",
+        "document.tags.manage",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>

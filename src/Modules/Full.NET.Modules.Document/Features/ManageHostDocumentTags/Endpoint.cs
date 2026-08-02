@@ -24,7 +24,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<IReadOnlyList<HostDocumentTagResponse>>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Read));
 
         group.MapGet("/{tagId:guid}", async (
             Guid tagId,
@@ -37,7 +37,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostDocumentTagResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Read));
 
         group.MapPost("/", async (
             CreateHostDocumentTagRequest request,
@@ -57,7 +57,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<HostDocumentTagResponse>(StatusCodes.Status201Created)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Manage));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Create));
 
         group.MapPut("/{tagId:guid}", async (
             Guid tagId,
@@ -72,7 +72,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostDocumentTagResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Manage));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Update));
 
         group.MapPost("/{tagId:guid}/delete", async (
             Guid tagId,
@@ -92,7 +92,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<bool>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Manage));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Delete));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

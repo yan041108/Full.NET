@@ -23,6 +23,7 @@ internal static class DocumentAuthorizationAssertions
                 "identity.navigation.read",
                 HostDocumentPermissions.Read,
                 HostDocumentCategoryPermissions.Read,
+                HostDocumentTagPermissions.Read,
             ],
             cancellationToken);
 
@@ -43,7 +44,10 @@ internal static class DocumentAuthorizationAssertions
                 HostDocumentCategoryPermissions.Create,
                 HostDocumentCategoryPermissions.Update,
                 HostDocumentCategoryPermissions.Delete,
-                HostDocumentTagPermissions.Manage,
+                HostDocumentTagPermissions.Read,
+                HostDocumentTagPermissions.Create,
+                HostDocumentTagPermissions.Update,
+                HostDocumentTagPermissions.Delete,
             ],
             cancellationToken);
         await VerifyManagerNavigationAsync(client, manager.AccessToken, cancellationToken);
@@ -66,6 +70,13 @@ internal static class DocumentAuthorizationAssertions
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, categoryListResponse.StatusCode);
+        }
+
+        using (var tagListResponse = await client.SendAsync(
+                   Authorized(HttpMethod.Get, "/api/v1/document/host/tags", token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, tagListResponse.StatusCode);
         }
 
         using (var createResponse = await client.SendAsync(
@@ -121,7 +132,7 @@ internal static class DocumentAuthorizationAssertions
         Assert.IsNotNull(navigation);
         Assert.IsTrue(navigation.Any(item => item.Id == "host-document-items"));
         Assert.IsTrue(navigation.Any(item => item.Id == "document-categories"));
-        Assert.IsFalse(navigation.Any(item => item.Id == "document-tags"));
+        Assert.IsTrue(navigation.Any(item => item.Id == "document-tags"));
     }
 
     private static async Task VerifyManagerNavigationAsync(
