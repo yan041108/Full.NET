@@ -45,7 +45,7 @@ test('Host 角色 OpenAPI 夹具结构完整且路径唯一', async () => {
       seen.add(key);
       assert.match(
         operation.permission,
-        /^identity\.(roles\.(read|write)|role_field_grants\.(read|write))$/u
+        /^identity\.(roles\.(read|create|update|assign_permissions|disable|assign_data_scope)|role_field_grants\.(read|write))$/u
       );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
@@ -74,7 +74,11 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(contractsSource, /record ReplaceHostRolePermissionsRequest/u);
   assert.match(contractsSource, /record HostRoleResponse/u);
   assert.match(contractsSource, /identity\.roles\.read/u);
-  assert.match(contractsSource, /identity\.roles\.write/u);
+  assert.match(contractsSource, /identity\.roles\.create/u);
+  assert.match(contractsSource, /identity\.roles\.update/u);
+  assert.match(contractsSource, /identity\.roles\.assign_permissions/u);
+  assert.match(contractsSource, /identity\.roles\.disable/u);
+  assert.match(contractsSource, /identity\.roles\.assign_data_scope/u);
   assert.match(contractsSource, /identity\.role_field_grants\.read/u);
   assert.match(contractsSource, /identity\.role_field_grants\.write/u);
 

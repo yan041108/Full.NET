@@ -25,7 +25,7 @@
         },
         {
           "method": "POST",
-          "permission": "identity.roles.write",
+          "permission": "identity.roles.create",
           "successStatus": 201,
           "requestSchema": "CreateHostRoleRequest",
           "responseSchema": "HostRoleResponse"
@@ -43,7 +43,7 @@
         },
         {
           "method": "PUT",
-          "permission": "identity.roles.write",
+          "permission": "identity.roles.update",
           "successStatus": 200,
           "requestSchema": "UpdateHostRoleRequest",
           "responseSchema": "HostRoleResponse"
@@ -73,7 +73,7 @@
       "operations": [
         {
           "method": "PUT",
-          "permission": "identity.roles.write",
+          "permission": "identity.roles.assign_permissions",
           "successStatus": 200,
           "requestSchema": "ReplaceHostRolePermissionsRequest",
           "responseSchema": "HostRoleResponse"
@@ -85,7 +85,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "identity.roles.write",
+          "permission": "identity.roles.disable",
           "successStatus": 200,
           "responseSchema": "HostRoleResponse"
         }

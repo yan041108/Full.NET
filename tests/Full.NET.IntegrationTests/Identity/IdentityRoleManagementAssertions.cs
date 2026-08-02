@@ -27,6 +27,10 @@ internal static class IdentityRoleManagementAssertions
         await VerifyCreateRejectsDuplicateCodeAsync(client, cancellationToken);
         await VerifySystemRoleUpdateRejectedAsync(client, cancellationToken);
         await VerifyCustomRoleLifecycleAsync(client, cancellationToken);
+        await VerifyExactRoleActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiHostRolesContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -485,6 +489,267 @@ internal static class IdentityRoleManagementAssertions
             cancellationToken);
         Assert.IsNotNull(disabled);
         Assert.IsFalse(disabled.IsActive);
+    }
+
+    private static async Task VerifyExactRoleActionPermissionBoundariesAsync(
+        Api.FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var targetCode = $"boundary-target-{Guid.NewGuid():N}".ToLowerInvariant();
+
+        using var createTargetRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            adminToken,
+            new CreateHostRoleRequest(targetCode, "动作边界目标角色"));
+        using var createTargetResponse = await client.SendAsync(createTargetRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createTargetResponse.StatusCode);
+        var targetRole = await createTargetResponse.Content.ReadFromJsonAsync<HostRoleResponse>(
+            cancellationToken);
+        Assert.IsNotNull(targetRole);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [IdentityRoleManagementPermissions.Read],
+            cancellationToken);
+        await AssertRolesListAllowedAsync(client, readOnlyToken, cancellationToken);
+        await AssertRolePermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            new CreateHostRoleRequest($"denied-{Guid.NewGuid():N}", "拒绝创建"),
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{targetRole.Id:D}",
+            new UpdateHostRoleRequest("拒绝更新", targetRole.Version),
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{targetRole.Id:D}/permissions",
+            new ReplaceHostRolePermissionsRequest(
+                [IdentityUserManagementPermissions.Read],
+                targetRole.Version),
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync<object?>(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/roles/{targetRole.Id:D}/disable",
+            null,
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{targetRole.Id:D}/data-scope",
+            new UpdateHostRoleDataScopeRequest(
+                RoleDataScopeKinds.Self,
+                null,
+                targetRole.Version),
+            cancellationToken);
+
+        var createToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityRoleManagementPermissions.Read,
+                IdentityRoleManagementPermissions.Create,
+            ],
+            cancellationToken);
+        var createdByLimited = await CreateHostRoleWithTokenAsync(
+            client,
+            createToken,
+            $"limited-create-{Guid.NewGuid():N}",
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{targetRole.Id:D}",
+            new UpdateHostRoleRequest("拒绝更新", targetRole.Version),
+            cancellationToken);
+
+        var updateToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityRoleManagementPermissions.Read,
+                IdentityRoleManagementPermissions.Update,
+            ],
+            cancellationToken);
+        await AssertRoleOkAsync(
+            client,
+            updateToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{targetRole.Id:D}",
+            new UpdateHostRoleRequest("受限更新名称", targetRole.Version),
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync(
+            client,
+            updateToken,
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            new CreateHostRoleRequest($"denied-update-{Guid.NewGuid():N}", "拒绝创建"),
+            cancellationToken);
+
+        var assignPermissionsToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityRoleManagementPermissions.Read,
+                IdentityRoleManagementPermissions.AssignPermissions,
+            ],
+            cancellationToken);
+        await AssertRoleOkAsync(
+            client,
+            assignPermissionsToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{createdByLimited.Id:D}/permissions",
+            new ReplaceHostRolePermissionsRequest(
+                [IdentityUserManagementPermissions.Read],
+                createdByLimited.Version),
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync<object?>(
+            client,
+            assignPermissionsToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/roles/{createdByLimited.Id:D}/disable",
+            null,
+            cancellationToken);
+
+        var disableTarget = await CreateHostRoleWithTokenAsync(
+            client,
+            adminToken,
+            $"disable-target-{Guid.NewGuid():N}",
+            cancellationToken);
+        var disableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityRoleManagementPermissions.Read,
+                IdentityRoleManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        await AssertRoleOkAsync<object?>(
+            client,
+            disableToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/roles/{disableTarget.Id:D}/disable",
+            null,
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync(
+            client,
+            disableToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{disableTarget.Id:D}",
+            new UpdateHostRoleRequest("拒绝更新", disableTarget.Version),
+            cancellationToken);
+
+        var dataScopeTarget = await CreateHostRoleWithTokenAsync(
+            client,
+            adminToken,
+            $"scope-target-{Guid.NewGuid():N}",
+            cancellationToken);
+        var dataScopeToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityRoleManagementPermissions.Read,
+                IdentityRoleManagementPermissions.AssignDataScope,
+            ],
+            cancellationToken);
+        await AssertRoleOkAsync(
+            client,
+            dataScopeToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{dataScopeTarget.Id:D}/data-scope",
+            new UpdateHostRoleDataScopeRequest(
+                RoleDataScopeKinds.Self,
+                null,
+                dataScopeTarget.Version),
+            cancellationToken);
+        await AssertRolePermissionDeniedAsync(
+            client,
+            dataScopeToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{dataScopeTarget.Id:D}/permissions",
+            new ReplaceHostRolePermissionsRequest(
+                [IdentityUserManagementPermissions.Read],
+                dataScopeTarget.Version),
+            cancellationToken);
+    }
+
+    private static async Task<HostRoleResponse> CreateHostRoleWithTokenAsync(
+        HttpClient client,
+        string accessToken,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            accessToken,
+            new CreateHostRoleRequest(code.ToLowerInvariant(), "动作边界角色"));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<HostRoleResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+        return created;
+    }
+
+    private static async Task AssertRolesListAllowedAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/roles?page=1&pageSize=20");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task AssertRolePermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        TRequest? body,
+        CancellationToken cancellationToken)
+    {
+        using var request = body is null
+            ? new HttpRequestMessage(method, path)
+            : CreateBearerJsonRequest(method, path, accessToken, body);
+        if (body is null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task AssertRoleOkAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        TRequest? body,
+        CancellationToken cancellationToken)
+    {
+        using var request = body is null
+            ? new HttpRequestMessage(method, path)
+            : CreateBearerJsonRequest(method, path, accessToken, body);
+        if (body is null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

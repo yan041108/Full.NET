@@ -2,8 +2,11 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   loginAccessToken,
+  loginAccessTokenWithPassword,
   loginAsHostAdmin,
+  loginAsHostUser,
   loginAsHostViewer,
+  provisionLimitedHostUserViaApi,
   statusPath
 } from './support/real-stack-auth.mjs';
 
@@ -78,4 +81,89 @@ test('Host 管理员在角色授权树可看到用户页面与操作节点', asy
   await expect(tree.getByText('用户管理', { exact: true })).toBeVisible();
   await expect(tree.getByText('创建用户', { exact: true })).toBeVisible();
   await expect(tree.getByText('重置密码', { exact: true })).toBeVisible();
+});
+
+test('Vue 只读角色可见目录但无业务操作按钮', async ({
+  page,
+  request
+}, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', '精确按钮权限仅验收 Vue 管理端');
+  const limited = await provisionLimitedHostUserViaApi(request, testInfo.project.metadata.clientKind, {
+    permissionCodes: [
+      'platform.dashboard.read',
+      'identity.navigation.read',
+      'identity.roles.read'
+    ]
+  });
+
+  await loginAsHostUser(page, limited.username, limited.password);
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  await navigation.getByRole('link', { name: /角色管理/ }).click();
+
+  const view = page.locator('.roles-view');
+  await expect(view.getByRole('heading', { name: '角色管理', exact: true })).toBeVisible();
+  await expect(view.getByTestId('roles-create-form')).toHaveCount(0);
+  await expect(view.getByTestId('roles-action-edit')).toHaveCount(0);
+  await expect(view.getByTestId('role-open-permissions')).toHaveCount(0);
+  await expect(view.getByTestId('roles-action-data-scope')).toHaveCount(0);
+  await expect(view.getByTestId('roles-action-disable')).toHaveCount(0);
+});
+
+test('Vue 仅禁用权限用户只显示禁用按钮', async ({
+  page,
+  request
+}, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', '精确按钮权限仅验收 Vue 管理端');
+  const limited = await provisionLimitedHostUserViaApi(request, testInfo.project.metadata.clientKind, {
+    permissionCodes: [
+      'platform.dashboard.read',
+      'identity.navigation.read',
+      'identity.roles.read',
+      'identity.roles.disable'
+    ]
+  });
+
+  await loginAsHostUser(page, limited.username, limited.password);
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  await navigation.getByRole('link', { name: /角色管理/ }).click();
+
+  const view = page.locator('.roles-view');
+  await expect(view.getByRole('heading', { name: '角色管理', exact: true })).toBeVisible();
+  await expect(view.getByTestId('roles-create-form')).toHaveCount(0);
+  await expect(view.getByTestId('roles-action-edit')).toHaveCount(0);
+  await expect(view.getByTestId('role-open-permissions')).toHaveCount(0);
+  await expect(view.getByTestId('roles-action-data-scope')).toHaveCount(0);
+  const activeRow = view.getByRole('article').filter({ hasText: '有效' }).first();
+  await expect(activeRow.getByTestId('roles-action-disable')).toBeVisible();
+});
+
+test('仅页面读权限调用相邻写 API 返回 authorization.permission_denied', async ({
+  request
+}, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
+  const limited = await provisionLimitedHostUserViaApi(request, clientKind, {
+    permissionCodes: ['identity.roles.read']
+  });
+  const accessToken = await loginAccessTokenWithPassword(
+    request,
+    clientKind,
+    limited.username,
+    limited.password
+  );
+
+  const response = await request.post(`${apiBaseUrl}/api/v1/identity/roles`, {
+    data: {
+      code: `denied-${Date.now()}`,
+      name: '拒绝创建'
+    },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    }
+  });
+  expect(response.status()).toBe(403);
+  const problem = await response.json();
+  expect(problem.code).toBe('authorization.permission_denied');
 });

@@ -14,7 +14,7 @@
         },
         {
           "method": "PUT",
-          "permission": "identity.roles.write",
+          "permission": "identity.roles.assign_data_scope",
           "successStatus": 200,
           "requestSchema": "UpdateHostRoleDataScopeRequest",
           "responseSchema": "HostRoleDataScopeResponse"

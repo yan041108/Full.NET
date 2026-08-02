@@ -49,6 +49,7 @@ import {
   updateHostRoleDataScope
 } from '../api/roles';
 import { listOrganizationUnits } from '../api/org-units';
+import PermissionGate from '../components/PermissionGate.vue';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -75,7 +76,6 @@ const assignableFields = ref<FieldProjectionFieldDefinition[]>([]);
 const selectedFieldKeys = ref<string[]>([]);
 const orgUnits = ref<OrganizationUnit[]>([]);
 const dataScopeKinds = ROLE_DATA_SCOPE_KINDS;
-const canWrite = computed(() => session.can('identity.roles.write'));
 const canSavePermissions = computed(() => unknownPermissions.value.length === 0);
 const canReadFieldGrants = computed(() => session.can('identity.role_field_grants.read'));
 const canWriteFieldGrants = computed(() => session.can('identity.role_field_grants.write'));
@@ -359,22 +359,24 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
-      <div class="art-form-grid art-form-grid--cols-2" aria-labelledby="create-title">
-        <div>
-          <h2 id="create-title">{{ t('roles.createTitle') }}</h2>
+    <PermissionGate code="identity.roles.create">
+      <el-card class="art-form-card" shadow="never" data-testid="roles-create-form">
+        <div class="art-form-grid art-form-grid--cols-2" aria-labelledby="create-title">
+          <div>
+            <h2 id="create-title">{{ t('roles.createTitle') }}</h2>
+          </div>
+          <label>
+            <span>{{ t('roles.code') }}</span>
+            <el-input v-model="code" :placeholder="t('roles.codePlaceholder')" />
+          </label>
+          <label>
+            <span>{{ t('roles.name') }}</span>
+            <el-input v-model="name" :placeholder="t('roles.namePlaceholder')" @keyup.enter="create" />
+          </label>
+          <el-button type="primary" :loading="changing" @click="create">{{ t('roles.create') }}</el-button>
         </div>
-        <label>
-          <span>{{ t('roles.code') }}</span>
-          <el-input v-model="code" :placeholder="t('roles.codePlaceholder')" />
-        </label>
-        <label>
-          <span>{{ t('roles.name') }}</span>
-          <el-input v-model="name" :placeholder="t('roles.namePlaceholder')" @keyup.enter="create" />
-        </label>
-        <el-button type="primary" :loading="changing" @click="create">{{ t('roles.create') }}</el-button>
-      </div>
-    </el-card>
+      </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -398,33 +400,48 @@ function toProblem(
           </el-tag>
         </div>
         <div class="art-data-row__actions">
-          <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="edit(role)">
-            {{ t('roles.edit') }}
-          </el-button>
-          <el-button
-            v-if="canWrite && !role.isSystem"
-            plain
-            :disabled="changing"
-            data-testid="role-open-permissions"
-            @click="openPermissions(role)"
-          >
-            {{ t('roles.permissions') }}
-          </el-button>
-          <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="openDataScope(role)">
-            {{ t('roles.dataScope') }}
-          </el-button>
+          <PermissionGate code="identity.roles.update">
+            <el-button v-if="!role.isSystem" plain :disabled="changing" data-testid="roles-action-edit" @click="edit(role)">
+              {{ t('roles.edit') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate code="identity.roles.assign_permissions">
+            <el-button
+              v-if="!role.isSystem"
+              plain
+              :disabled="changing"
+              data-testid="role-open-permissions"
+              @click="openPermissions(role)"
+            >
+              {{ t('roles.permissions') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate code="identity.roles.assign_data_scope">
+            <el-button
+              v-if="!role.isSystem"
+              plain
+              :disabled="changing"
+              data-testid="roles-action-data-scope"
+              @click="openDataScope(role)"
+            >
+              {{ t('roles.dataScope') }}
+            </el-button>
+          </PermissionGate>
           <el-button v-if="canReadFieldGrants && !role.isSystem" plain :disabled="changing" @click="openFieldGrants(role)">
             {{ t('roles.fieldGrants') }}
           </el-button>
-          <el-button
-            v-if="canWrite && role.isActive && !role.isSystem"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(role)"
-          >
-            {{ t('roles.disable') }}
-          </el-button>
+          <PermissionGate v-if="role.isActive" code="identity.roles.disable">
+            <el-button
+              v-if="!role.isSystem"
+              type="danger"
+              plain
+              :disabled="changing"
+              data-testid="roles-action-disable"
+              @click="disable(role)"
+            >
+              {{ t('roles.disable') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>
