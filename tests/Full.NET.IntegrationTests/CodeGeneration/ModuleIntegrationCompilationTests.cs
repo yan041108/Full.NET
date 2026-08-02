@@ -270,6 +270,74 @@ public sealed class ModuleIntegrationCompilationTests
     }
 
     [TestMethod]
+    public async Task Organization_owned_explicit_backend_compiles_with_organization_references()
+    {
+        var sourceRepositoryRoot = FindRepositoryRoot();
+        var testRoot = CreateTestRoot();
+        var repositoryRoot = Path.Combine(testRoot, "repository");
+        var moduleDirectory = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Acme.Modules.Catalog");
+        Directory.CreateDirectory(moduleDirectory);
+        var schemaPath = Path.Combine(testRoot, "schema.json");
+        var targetPath = Path.Combine(testRoot, "target.json");
+        File.WriteAllText(
+            schemaPath,
+            CreateOrganizationOwnedExplicitSchemaJson(),
+            new UTF8Encoding(false, true));
+        File.WriteAllText(
+            targetPath,
+            CreateTargetJson(
+                "Catalog",
+                "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj",
+                "src/Modules/Acme.Modules.Catalog/CatalogModule.cs"),
+            new UTF8Encoding(false, true));
+        File.WriteAllText(
+            Path.Combine(
+                moduleDirectory,
+                "Acme.Modules.Catalog.csproj"),
+            CreateCompilableModuleProject(
+                sourceRepositoryRoot,
+                includeOrganizationContracts: true),
+            new UTF8Encoding(false, true));
+        var before = CaptureAllFiles(repositoryRoot);
+        var temporaryBuilds = CaptureTemporaryBuildDirectories();
+        try
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+
+            var exitCode = await CodeGenerationCli.RunAsync(
+                ValidationArguments(
+                    schemaPath,
+                    repositoryRoot,
+                    targetPath),
+                output,
+                error);
+
+            Assert.AreEqual(0, exitCode, error.ToString());
+            StringAssert.Contains(
+                output.ToString(),
+                "Validated ModuleCompilation "
+                + "src/Modules/Acme.Modules.Catalog/"
+                + "Acme.Modules.Catalog.csproj");
+            Assert.AreEqual(string.Empty, error.ToString());
+            CollectionAssert.AreEquivalent(
+                before.ToArray(),
+                CaptureAllFiles(repositoryRoot).ToArray());
+            CollectionAssert.AreEquivalent(
+                temporaryBuilds,
+                CaptureTemporaryBuildDirectories());
+        }
+        finally
+        {
+            Directory.Delete(testRoot, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public async Task Existing_generated_entity_sources_are_replaced_during_validation()
     {
         var sourceRepositoryRoot = FindRepositoryRoot();
@@ -548,6 +616,108 @@ public sealed class ModuleIntegrationCompilationTests
         }
         """;
 
+    private static string CreateOrganizationOwnedExplicitSchemaJson() =>
+        """
+        {
+          "ownerKey": "acme",
+          "moduleKey": "catalog",
+          "entityKey": "org_probe",
+          "databaseTableName": "acme_catalog_org_probe",
+          "rootNamespace": "Acme.Modules.Catalog",
+          "clrTypeName": "OrgProbe",
+          "apiResourceName": "org-probes",
+          "permissionResourceName": "org_probes",
+          "dataScope": "tenant.required",
+          "entityCapabilities": {
+            "deleteMode": "soft.delete",
+            "hasCreatedAudit": true,
+            "hasUpdatedAudit": true,
+            "hasDeletedAudit": true,
+            "hasVersion": true,
+            "ownershipMode": "organization.unit"
+          },
+          "columns": [
+            {
+              "databaseName": "Id",
+              "clrPropertyName": "Id",
+              "jsonPropertyName": "id",
+              "scalarType": "uuid"
+            },
+            {
+              "databaseName": "TenantId",
+              "clrPropertyName": "TenantId",
+              "jsonPropertyName": "tenantId",
+              "scalarType": "uuid"
+            },
+            {
+              "databaseName": "OrganizationUnitId",
+              "clrPropertyName": "OrganizationUnitId",
+              "jsonPropertyName": "organizationUnitId",
+              "scalarType": "uuid"
+            },
+            {
+              "databaseName": "Name",
+              "clrPropertyName": "Name",
+              "jsonPropertyName": "name",
+              "scalarType": "string",
+              "maxLength": 200
+            },
+            {
+              "databaseName": "Version",
+              "clrPropertyName": "Version",
+              "jsonPropertyName": "version",
+              "scalarType": "int64"
+            },
+            {
+              "databaseName": "CreatedAtUtc",
+              "clrPropertyName": "CreatedAtUtc",
+              "jsonPropertyName": "createdAtUtc",
+              "scalarType": "date.time.utc"
+            },
+            {
+              "databaseName": "CreatedById",
+              "clrPropertyName": "CreatedById",
+              "jsonPropertyName": "createdById",
+              "scalarType": "uuid"
+            },
+            {
+              "databaseName": "UpdatedAtUtc",
+              "clrPropertyName": "UpdatedAtUtc",
+              "jsonPropertyName": "updatedAtUtc",
+              "scalarType": "date.time.utc",
+              "isNullable": true
+            },
+            {
+              "databaseName": "UpdatedById",
+              "clrPropertyName": "UpdatedById",
+              "jsonPropertyName": "updatedById",
+              "scalarType": "uuid",
+              "isNullable": true
+            },
+            {
+              "databaseName": "IsDeleted",
+              "clrPropertyName": "IsDeleted",
+              "jsonPropertyName": "isDeleted",
+              "scalarType": "boolean"
+            },
+            {
+              "databaseName": "DeletedAtUtc",
+              "clrPropertyName": "DeletedAtUtc",
+              "jsonPropertyName": "deletedAtUtc",
+              "scalarType": "date.time.utc",
+              "isNullable": true
+            },
+            {
+              "databaseName": "DeletedById",
+              "clrPropertyName": "DeletedById",
+              "jsonPropertyName": "deletedById",
+              "scalarType": "uuid",
+              "isNullable": true
+            }
+          ]
+        }
+        """;
+
     private static async Task AssertGeneratedClientSyntaxAsync(
         string schemaPath,
         string testRoot)
@@ -604,7 +774,8 @@ public sealed class ModuleIntegrationCompilationTests
     }
 
     private static string CreateCompilableModuleProject(
-        string repositoryRoot)
+        string repositoryRoot,
+        bool includeOrganizationContracts = false)
     {
         string Project(string relativePath) =>
             Path.Combine(
@@ -612,6 +783,13 @@ public sealed class ModuleIntegrationCompilationTests
                 relativePath.Replace(
                     '/',
                     Path.DirectorySeparatorChar));
+
+        var organizationReference = includeOrganizationContracts
+            ? $$"""
+
+                <ProjectReference Include="{{Project("src/Modules/Full.NET.Modules.Organization.Contracts/Full.NET.Modules.Organization.Contracts.csproj")}}" />
+            """
+            : string.Empty;
 
         return $$"""
         <Project Sdk="Microsoft.NET.Sdk">
@@ -624,7 +802,7 @@ public sealed class ModuleIntegrationCompilationTests
             <ProjectReference Include="{{Project("src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj")}}" />
             <ProjectReference Include="{{Project("src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj")}}" />
             <ProjectReference Include="{{Project("src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj")}}" />
-            <ProjectReference Include="{{Project("src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj")}}" />
+            <ProjectReference Include="{{Project("src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj")}}" />{{organizationReference}}
           </ItemGroup>
         </Project>
         """;

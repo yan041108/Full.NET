@@ -130,7 +130,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 293,
+        "minimum": 294,
         "timeout": "90m"
       }
     }
