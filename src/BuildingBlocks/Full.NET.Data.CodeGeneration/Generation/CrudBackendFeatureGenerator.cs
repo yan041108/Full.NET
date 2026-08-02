@@ -788,6 +788,45 @@ internal static class CrudBackendFeatureGenerator
             """,
             _ => string.Empty,
         };
+        var conflictMethods = schema.HasVersion
+            ? GenerateExplicitConflictMethods(schema, idParameter)
+            : string.Empty;
+        var isOrganizationOwned =
+            CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema);
+        var organizationFeatureUsings = isOrganizationOwned
+            ? CrudOrganizationOwnershipGenerator.FeatureUsings()
+            : string.Empty;
+        var organizationDataScopeComposer = isOrganizationOwned
+            ? CrudOrganizationOwnershipGenerator.DataScopeComposerClass()
+            : string.Empty;
+        var listMethod = isOrganizationOwned
+            ? CrudOrganizationOwnershipGenerator.QueryListMethod(schema)
+            : GenerateDefaultQueryListMethod(schema);
+        var getByIdMethod = isOrganizationOwned
+            ? CrudOrganizationOwnershipGenerator.QueryGetByIdMethod(schema, idParameter)
+            : GenerateDefaultQueryGetByIdMethod(schema, idParameter);
+        var findByIdMethod = isOrganizationOwned
+            ? CrudOrganizationOwnershipGenerator.InternalFindByIdMethod(schema, idParameter)
+            : $$"""
+
+                internal Task<Result<{{schema.ClrTypeName}}Response>> FindByIdAsync(
+                    Guid {{idParameter}},
+                    CancellationToken cancellationToken = default) =>
+                    GetByIdAsync({{idParameter}}, cancellationToken);
+            """;
+        var queryServiceConstructorParameters = string.Join(
+            ",\n",
+            new[]
+            {
+                "IQueryExecutor queryExecutor",
+                "IMultiResultQueryExecutor multiResultQueryExecutor",
+                "IOptions<DatabaseOptions> databaseOptions",
+            }
+            .Concat(isOrganizationOwned
+                ? CrudOrganizationOwnershipGenerator
+                    .QueryServiceConstructorParameters()
+                    .Split(",\n", StringSplitOptions.TrimEntries)
+                : []));
         var managementConstructorParameters = string.Join(
             ",\n",
             new[]
@@ -805,22 +844,46 @@ internal static class CrudBackendFeatureGenerator
             [
                 "IClock clock",
                 "IIdGenerator idGenerator",
-            ]));
+            ])
+            .Concat(isOrganizationOwned
+                ? [CrudOrganizationOwnershipGenerator.ManagementConstructorParameters()]
+                : []));
+        var createAsyncParameters = isOrganizationOwned
+            ? $"""
+              Create{schema.ClrTypeName}Request request,
+              Guid actorUserId,
+              Guid organizationUnitId,
+              CancellationToken cancellationToken = default
+              """
+            : $"""
+              Create{schema.ClrTypeName}Request request,
+              Guid actorUserId,
+              CancellationToken cancellationToken = default
+              """;
+        var createCoreParameters = createAsyncParameters;
+        var createCoreAuthorization = isOrganizationOwned
+            ? CrudOrganizationOwnershipGenerator.CreateAuthorizationBlock(schema)
+            : string.Empty;
         var updateMethods = schema.EntityCapabilities.CanUpdate
             ? GenerateExplicitUpdateMethods(
                 schema,
                 idParameter,
                 contextGuardLine,
-                validationCall)
+                validationCall,
+                isOrganizationOwned
+                    ? CrudOrganizationOwnershipGenerator.UpdateAuthorizationBlock(
+                        schema,
+                        idParameter)
+                    : string.Empty)
             : string.Empty;
         var deleteMethods = schema.EntityCapabilities.CanDelete
             ? GenerateExplicitDeleteMethods(
                 schema,
                 idParameter,
-                contextGuardLine)
-            : string.Empty;
-        var conflictMethods = schema.HasVersion
-            ? GenerateExplicitConflictMethods(schema, idParameter)
+                contextGuardLine,
+                isOrganizationOwned
+                    ? CrudOrganizationOwnershipGenerator.DeleteAuthorizationBlock(schema)
+                    : string.Empty)
             : string.Empty;
 
         return Normalize(
@@ -838,73 +901,17 @@ internal static class CrudBackendFeatureGenerator
             using Full.NET.Abstractions.Tenancy;
             using Full.NET.Abstractions.Time;
             using Full.NET.Data.Abstractions;
+            using Full.NET.Modules.Identity.Contracts;
             using Microsoft.Extensions.Options;
-
+            {{organizationFeatureUsings}}
             namespace {{schema.RootNamespace}}.Generated;
 
             internal sealed class {{schema.ClrTypeName}}QueryService(
-                IQueryExecutor queryExecutor,
-                IMultiResultQueryExecutor multiResultQueryExecutor,
-                IOptions<DatabaseOptions> databaseOptions)
+            {{IndentLines(queryServiceConstructorParameters, 4)}})
             {
-                public async Task<Result<PagedResult<{{schema.ClrTypeName}}Response>>> ListAsync(
-                    int page,
-                    int pageSize,
-                    CancellationToken cancellationToken = default)
-                {
-                    page = Math.Max(page, 1);
-                    pageSize = Math.Clamp(pageSize, 1, 100);
-                    var offset = (long)(page - 1) * pageSize;
-                    var statement = databaseOptions.Value.Provider switch
-                    {
-                        DatabaseProvider.SqlServer =>
-                            {{schema.ClrTypeName}}Sql.PageSqlServerStatement,
-                        DatabaseProvider.MySql =>
-                            {{schema.ClrTypeName}}Sql.PageMySqlStatement,
-                        _ => throw new InvalidOperationException(
-                            "The configured database provider is not supported."),
-                    };
-                    var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
-                            statement,
-                            new { Offset = offset, PageSize = pageSize },
-                            async (reader, _) =>
-                            {
-                                var total = await reader.ReadSingleOrDefaultAsync<long>()
-                                    .ConfigureAwait(false);
-                                var rows = await reader
-                                    .ReadAsync<{{schema.ClrTypeName}}Record>()
-                                    .ConfigureAwait(false);
-                                return (Total: total, Rows: rows);
-                            },
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    return Result<PagedResult<{{schema.ClrTypeName}}Response>>.Success(
-                        new PagedResult<{{schema.ClrTypeName}}Response>(
-                            pageResult.Rows.Select(Map).ToArray(),
-                            page,
-                            pageSize,
-                            pageResult.Total));
-                }
-
-                public async Task<Result<{{schema.ClrTypeName}}Response>> GetByIdAsync(
-                    Guid {{idParameter}},
-                    CancellationToken cancellationToken = default)
-                {
-                    var record = await queryExecutor
-                        .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
-                            {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                            new { Id = {{idParameter}} },
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    return record is null
-                        ? NotFound()
-                        : Result<{{schema.ClrTypeName}}Response>.Success(Map(record));
-                }
-
-                internal Task<Result<{{schema.ClrTypeName}}Response>> FindByIdAsync(
-                    Guid {{idParameter}},
-                    CancellationToken cancellationToken = default) =>
-                    GetByIdAsync({{idParameter}}, cancellationToken);
+            {{IndentLines(listMethod, 4)}}
+            {{IndentLines(getByIdMethod, 4)}}
+            {{IndentLines(findByIdMethod, 4)}}
 
                 private static {{schema.ClrTypeName}}Response Map(
                     {{schema.ClrTypeName}}Record record) =>
@@ -918,26 +925,27 @@ internal static class CrudBackendFeatureGenerator
 
                 private static Result<{{schema.ClrTypeName}}Response> NotFound() =>
                     {{schema.ClrTypeName}}FeatureErrors.NotFound();
+            {{organizationDataScopeComposer}}
             }
 
             internal sealed class {{schema.ClrTypeName}}ManagementService(
             {{IndentLines(managementConstructorParameters, 4)}})
             {
                 public Task<Result<{{schema.ClrTypeName}}Response>> CreateAsync(
-                    Create{{schema.ClrTypeName}}Request request,
-                    Guid actorUserId,
-                    CancellationToken cancellationToken = default) =>
+                    {{createAsyncParameters}}) =>
                     transaction.ExecuteAsync(
-                        token => CreateCoreAsync(request, actorUserId, token),
+                        token => CreateCoreAsync(
+                            request,
+                            actorUserId,
+                            {{(isOrganizationOwned ? "organizationUnitId," : string.Empty)}}
+                            token),
                         cancellationToken);
 
                 private async Task<Result<{{schema.ClrTypeName}}Response>> CreateCoreAsync(
-                    Create{{schema.ClrTypeName}}Request request,
-                    Guid actorUserId,
-                    CancellationToken cancellationToken)
+                    {{createCoreParameters}})
                 {
             {{contextGuardLine}}
-            {{IndentLines(validationCall, 8)}}        var {{idParameter}} = idGenerator.NewId();
+            {{IndentLines(createCoreAuthorization, 8)}}{{IndentLines(validationCall, 8)}}        var {{idParameter}} = idGenerator.NewId();
                     var affectedRows = await commandExecutor.ExecuteAsync(
                             {{schema.ClrTypeName}}Sql.InsertStatement,
                             new
@@ -977,11 +985,76 @@ internal static class CrudBackendFeatureGenerator
             """);
     }
 
+    private static string GenerateDefaultQueryListMethod(FullNetCrudSchema schema) =>
+        $$"""
+
+                public async Task<Result<PagedResult<{{schema.ClrTypeName}}Response>>> ListAsync(
+                    int page,
+                    int pageSize,
+                    CancellationToken cancellationToken = default)
+                {
+                    page = Math.Max(page, 1);
+                    pageSize = Math.Clamp(pageSize, 1, 100);
+                    var offset = (long)(page - 1) * pageSize;
+                    var statement = databaseOptions.Value.Provider switch
+                    {
+                        DatabaseProvider.SqlServer =>
+                            {{schema.ClrTypeName}}Sql.PageSqlServerStatement,
+                        DatabaseProvider.MySql =>
+                            {{schema.ClrTypeName}}Sql.PageMySqlStatement,
+                        _ => throw new InvalidOperationException(
+                            "The configured database provider is not supported."),
+                    };
+                    var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
+                            statement,
+                            new { Offset = offset, PageSize = pageSize },
+                            async (reader, _) =>
+                            {
+                                var total = await reader.ReadSingleOrDefaultAsync<long>()
+                                    .ConfigureAwait(false);
+                                var rows = await reader
+                                    .ReadAsync<{{schema.ClrTypeName}}Record>()
+                                    .ConfigureAwait(false);
+                                return (Total: total, Rows: rows);
+                            },
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    return Result<PagedResult<{{schema.ClrTypeName}}Response>>.Success(
+                        new PagedResult<{{schema.ClrTypeName}}Response>(
+                            pageResult.Rows.Select(Map).ToArray(),
+                            page,
+                            pageSize,
+                            pageResult.Total));
+                }
+        """;
+
+    private static string GenerateDefaultQueryGetByIdMethod(
+        FullNetCrudSchema schema,
+        string idParameter) =>
+        $$"""
+
+                public async Task<Result<{{schema.ClrTypeName}}Response>> GetByIdAsync(
+                    Guid {{idParameter}},
+                    CancellationToken cancellationToken = default)
+                {
+                    var record = await queryExecutor
+                        .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
+                            {{schema.ClrTypeName}}Sql.FindByIdStatement,
+                            new { Id = {{idParameter}} },
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    return record is null
+                        ? NotFound()
+                        : Result<{{schema.ClrTypeName}}Response>.Success(Map(record));
+                }
+        """;
+
     private static string GenerateExplicitUpdateMethods(
         FullNetCrudSchema schema,
         string idParameter,
         string contextGuardLine,
-        string validationCall)
+        string validationCall,
+        string authorizationBlock = "")
     {
         var updateFailure = schema.HasVersion
             ? $$"""
@@ -1013,7 +1086,7 @@ internal static class CrudBackendFeatureGenerator
                 CancellationToken cancellationToken)
             {
         {{contextGuardLine}}
-        {{IndentLines(validationCall, 4)}}        var affectedRows = await commandExecutor.ExecuteAsync(
+        {{IndentLines(authorizationBlock, 4)}}{{IndentLines(validationCall, 4)}}        var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.UpdateStatement,
                         new
                         {
@@ -1039,7 +1112,8 @@ internal static class CrudBackendFeatureGenerator
     private static string GenerateExplicitDeleteMethods(
         FullNetCrudSchema schema,
         string idParameter,
-        string contextGuardLine)
+        string contextGuardLine,
+        string authorizationBlock = "")
     {
         var requestParameter = schema.HasVersion
             ? $",\n            Delete{schema.ClrTypeName}Request request"
@@ -1081,6 +1155,7 @@ internal static class CrudBackendFeatureGenerator
                     return existing;
                 }
 
+        {{IndentLines(authorizationBlock, 8)}}
                 var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.DeleteStatement,
                         new
@@ -1146,36 +1221,41 @@ internal static class CrudBackendFeatureGenerator
             && schema.HasVersion
             ? $"[JsonSerializable(typeof(Delete{schema.ClrTypeName}Request))]\n"
             : string.Empty;
+        var isOrganizationOwned =
+            CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema);
+        var organizationEndpointUsings = isOrganizationOwned
+            ? CrudOrganizationOwnershipGenerator.EndpointUsings()
+            : string.Empty;
+        var listEndpointHandler = isOrganizationOwned
+            ? $$"""
+                    group.MapGet("/", async (
+                        ClaimsPrincipal principal,
+                        int? page,
+                        int? pageSize,
+                        {{schema.ClrTypeName}}QueryService queries,
+                        IApiResultMapper mapper,
+                        HttpContext httpContext,
+                        CancellationToken cancellationToken) =>
+                    {
+                        if (!TryResolveActor(
+                                principal,
+                                out var actorUserId,
+                                out var isSuperAdministrator))
+                        {
+                            return Results.Unauthorized();
+                        }
 
-        return Normalize(
-            $$"""
-            #nullable enable
-
-            using System;
-            using System.Security.Claims;
-            using System.Text.Json;
-            using System.Text.Json.Serialization;
-            using System.Threading;
-            using Full.NET.Abstractions.Ids;
-            using Full.NET.Abstractions.Results;
-            using Full.NET.Abstractions.Time;
-            using Full.NET.Hosting.Api;
-            using Full.NET.Modules.Identity.Contracts;
-            using Microsoft.AspNetCore.Builder;
-            using Microsoft.AspNetCore.Http;
-            using Microsoft.AspNetCore.Routing;
-            using Microsoft.Extensions.DependencyInjection;
-            using Microsoft.Extensions.DependencyInjection.Extensions;
-
-            namespace {{schema.RootNamespace}}.Generated;
-
-            internal static class {{schema.ClrTypeName}}Endpoint
-            {
-                internal static void Map(IEndpointRouteBuilder endpoints)
-                {
-                    var group = endpoints.MapGroup("{{apiPath}}")
-                        .WithTags("{{moduleTag}}");
-
+                        var result = await queries.ListAsync(
+                                actorUserId,
+                                isSuperAdministrator,
+                                page ?? 1,
+                                pageSize ?? 20,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        return mapper.Map(result, httpContext);
+                    })
+                """
+            : $$"""
                     group.MapGet("/", async (
                         int? page,
                         int? pageSize,
@@ -1191,11 +1271,35 @@ internal static class CrudBackendFeatureGenerator
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
-                    .Produces<PagedResult<{{schema.ClrTypeName}}Response>>(
-                        StatusCodes.Status200OK)
-                    .RequireAuthorization(FullNetPermissionPolicies.For(
-                        {{schema.ClrTypeName}}Permissions.Read));
+                """;
+        var getByIdEndpointHandler = isOrganizationOwned
+            ? $$"""
+                    group.MapGet("{{itemRoute}}", async (
+                        Guid {{idParameter}},
+                        ClaimsPrincipal principal,
+                        {{schema.ClrTypeName}}QueryService queries,
+                        IApiResultMapper mapper,
+                        HttpContext httpContext,
+                        CancellationToken cancellationToken) =>
+                    {
+                        if (!TryResolveActor(
+                                principal,
+                                out var actorUserId,
+                                out var isSuperAdministrator))
+                        {
+                            return Results.Unauthorized();
+                        }
 
+                        var result = await queries.GetByIdAsync(
+                                {{idParameter}},
+                                actorUserId,
+                                isSuperAdministrator,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        return mapper.Map(result, httpContext);
+                    })
+                """
+            : $$"""
                     group.MapGet("{{itemRoute}}", async (
                         Guid {{idParameter}},
                         {{schema.ClrTypeName}}QueryService queries,
@@ -1209,10 +1313,46 @@ internal static class CrudBackendFeatureGenerator
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
-                    .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
-                    .RequireAuthorization(FullNetPermissionPolicies.For(
-                        {{schema.ClrTypeName}}Permissions.Read));
+                """;
+        var createEndpointHandler = isOrganizationOwned
+            ? $$"""
+                    group.MapPost("/", async (
+                        Create{{schema.ClrTypeName}}Request request,
+                        ClaimsPrincipal principal,
+                        {{schema.ClrTypeName}}ManagementService service,
+                        IApiResultMapper mapper,
+                        HttpContext httpContext,
+                        CancellationToken cancellationToken) =>
+                    {
+                        if (!TryResolveActorUserId(principal, out var actorUserId))
+                        {
+                            return Results.Unauthorized();
+                        }
 
+                        if (!TryResolveOrganizationUnitId(
+                                httpContext,
+                                out var organizationUnitId))
+                        {
+                            return Results.BadRequest();
+                        }
+
+                        var result = await service.CreateAsync(
+                                request,
+                                actorUserId,
+                                organizationUnitId,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        if (!result.IsSuccess)
+                        {
+                            return mapper.Map(result, httpContext);
+                        }
+
+                        return Results.Created(
+                            $"{{apiPath}}/{result.Value!.Id:D}",
+                            result.Value);
+                    })
+                """
+            : $$"""
                     group.MapPost("/", async (
                         Create{{schema.ClrTypeName}}Request request,
                         ClaimsPrincipal principal,
@@ -1240,6 +1380,53 @@ internal static class CrudBackendFeatureGenerator
                             $"{{apiPath}}/{result.Value!.Id:D}",
                             result.Value);
                     })
+                """;
+        var endpointActorResolverMethods = isOrganizationOwned
+            ? CrudOrganizationOwnershipGenerator.EndpointActorResolverMethods()
+            : string.Empty;
+
+        return Normalize(
+            $$"""
+            #nullable enable
+
+            using System;
+            using System.Security.Claims;
+            using System.Text.Json;
+            using System.Text.Json.Serialization;
+            using System.Threading;
+            using Full.NET.Abstractions.Ids;
+            using Full.NET.Abstractions.Results;
+            using Full.NET.Abstractions.Time;
+            using Full.NET.Hosting.Api;
+            using Full.NET.Modules.Identity.Contracts;
+            using Microsoft.AspNetCore.Builder;
+            {{organizationEndpointUsings}}
+            using Microsoft.AspNetCore.Http;
+            using Microsoft.AspNetCore.Routing;
+            using Microsoft.Extensions.DependencyInjection;
+            using Microsoft.Extensions.DependencyInjection.Extensions;
+
+            namespace {{schema.RootNamespace}}.Generated;
+
+            internal static class {{schema.ClrTypeName}}Endpoint
+            {
+                internal static void Map(IEndpointRouteBuilder endpoints)
+                {
+                    var group = endpoints.MapGroup("{{apiPath}}")
+                        .WithTags("{{moduleTag}}");
+
+            {{IndentLines(listEndpointHandler, 8)}}
+                    .Produces<PagedResult<{{schema.ClrTypeName}}Response>>(
+                        StatusCodes.Status200OK)
+                    .RequireAuthorization(FullNetPermissionPolicies.For(
+                        {{schema.ClrTypeName}}Permissions.Read));
+
+            {{IndentLines(getByIdEndpointHandler, 8)}}
+                    .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
+                    .RequireAuthorization(FullNetPermissionPolicies.For(
+                        {{schema.ClrTypeName}}Permissions.Read));
+
+            {{IndentLines(createEndpointHandler, 8)}}
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status201Created)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Write));
@@ -1253,6 +1440,7 @@ internal static class CrudBackendFeatureGenerator
                         principal.FindFirstValue(
                             FullNetIdentityClaimTypes.Subject),
                         out actorUserId);
+            {{endpointActorResolverMethods}}
             }
 
             public static class {{schema.ClrTypeName}}GeneratedFeatureExtensions
@@ -1377,6 +1565,24 @@ internal static class CrudBackendFeatureGenerator
                 FindById,
                 {{statementScope}},
                 {{tenantBinding}});
+
+            public static readonly SqlStatement CountStatement = new(
+                "{{schema.ModuleKey}}.count_{{schema.PermissionResourceName}}",
+                Count,
+                {{statementScope}},
+                {{tenantBinding}});
+
+            public static readonly SqlStatement ListSqlServerStatement = new(
+                "{{schema.ModuleKey}}.list_{{schema.PermissionResourceName}}.sql_server.rows",
+                ListSqlServer,
+                {{statementScope}},
+                {{tenantBinding}});
+
+            public static readonly SqlStatement ListMySqlStatement = new(
+                "{{schema.ModuleKey}}.list_{{schema.PermissionResourceName}}.my_sql.rows",
+                ListMySql,
+                {{statementScope}},
+                {{tenantBinding}});
             """,
             $$"""
             public static readonly SqlStatement PageSqlServerStatement = new(
@@ -1446,6 +1652,7 @@ internal static class CrudBackendFeatureGenerator
                     "IsDeleted" => "IsDeleted = false",
                     "DeletedAtUtc" => "DeletedAtUtc = (DateTimeOffset?)null",
                     "DeletedById" => "DeletedById = (Guid?)null",
+                    "OrganizationUnitId" => "OrganizationUnitId = organizationUnitId",
                     "Version" => $"Version = {InitialValue(column)}",
                     _ => $"request.{column.ClrPropertyName}",
                 }));

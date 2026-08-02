@@ -668,7 +668,7 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
-    public void Generate_rejects_relational_and_organization_ownership_until_safe_ports_exist()
+    public void Generate_rejects_relational_ownership_until_aggregate_semantics_exist()
     {
         var relationship = new FullNetCrudRelationship(
             PrincipalEntityKey: "product",
@@ -680,16 +680,50 @@ public sealed class CrudArtifactGeneratorTests
         var relational = CreateExplicitLifecycleSchema(
             scene: FullNetCrudScene.MasterDetail,
             relationships: [relationship]);
-        var organizationOwned = CreateExplicitLifecycleSchema(
-            ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit);
 
         var relationalError = Assert.ThrowsExactly<NotSupportedException>(() =>
             CrudArtifactGenerator.Generate(relational));
-        var ownershipError = Assert.ThrowsExactly<NotSupportedException>(() =>
-            CrudArtifactGenerator.Generate(organizationOwned));
 
         StringAssert.Contains(relationalError.Message, "聚合事务");
-        StringAssert.Contains(ownershipError.Message, "可信组织");
+    }
+
+    [TestMethod]
+    public void Generate_organization_owned_soft_delete_emits_authorization_and_scope_fragments()
+    {
+        var artifacts = CrudArtifactGenerator.Generate(
+            CreateExplicitLifecycleSchema(
+                ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit));
+        var contracts = Artifact(artifacts, "backend/ProductContracts.g.cs");
+        var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
+        var endpoint = Artifact(artifacts, "backend/ProductEndpoint.g.cs");
+        var sql = Artifact(artifacts, "backend/ProductSql.g.cs");
+        var sqlServer = Artifact(
+            artifacts,
+            "templates/migrations/SqlServer/CreateProduct.sql.template");
+        var vue = Artifact(artifacts, "clients/vue/products.generated.ts");
+
+        StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer writeAuthorizer");
+        StringAssert.Contains(feature, "IDataScopeSqlFilterBuilder dataScopeFilterBuilder");
+        StringAssert.Contains(feature, "EnsureCanWriteAsync");
+        StringAssert.Contains(feature, "OrganizationUnitId = organizationUnitId");
+        StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
+        StringAssert.Contains(sql, "CountStatement");
+        StringAssert.Contains(sql, "ListSqlServerStatement");
+        StringAssert.Contains(endpoint, "OrganizationRequestHeaders.OrganizationUnitId");
+        StringAssert.Contains(endpoint, "TryResolveOrganizationUnitId");
+        StringAssert.Contains(sqlServer, "OrganizationUnitId");
+        var createContractStart = contracts.IndexOf(
+            "public sealed record CreateProductRequest(",
+            StringComparison.Ordinal);
+        var createContractEnd = contracts.IndexOf(
+            "public sealed record UpdateProductRequest(",
+            createContractStart,
+            StringComparison.Ordinal);
+        var createContract = contracts[
+            createContractStart..createContractEnd];
+        Assert.IsFalse(createContract.Contains(
+            "OrganizationUnitId",
+            StringComparison.Ordinal));
     }
 
     [TestMethod]

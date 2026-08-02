@@ -1012,13 +1012,6 @@ public static class CrudArtifactGenerator
             return;
         }
 
-        if (schema.EntityCapabilities.OwnershipMode
-            == FullNetCrudOwnershipMode.OrganizationUnit)
-        {
-            throw new NotSupportedException(
-                "组织归属生成必须先提供可信组织写入授权端口，禁止把请求字段作为授权事实。");
-        }
-
         if (schema.Scene == FullNetCrudScene.Tree)
         {
             throw new NotSupportedException(

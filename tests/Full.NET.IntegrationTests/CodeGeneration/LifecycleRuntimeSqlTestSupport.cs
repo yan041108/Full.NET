@@ -81,6 +81,131 @@ internal static class LifecycleRuntimeSqlTestSupport
                     IsNullable: true),
             ]);
 
+    internal static FullNetCrudSchema CreateOrganizationOwnedSoftDeleteLifecycleSchema() =>
+        FullNetCrudSchema.CreateProject(
+            ownerKey: "acme",
+            moduleKey: "catalog",
+            entityKey: "product",
+            databaseTableName: "acme_catalog_product",
+            rootNamespace: "Acme.Modules.Catalog",
+            clrTypeName: "Product",
+            apiResourceName: "products",
+            permissionResourceName: "products",
+            FullNetCrudDataScope.TenantRequired,
+            new FullNetCrudEntityCapabilities(
+                FullNetCrudDeleteMode.SoftDelete,
+                HasCreatedAudit: true,
+                HasUpdatedAudit: true,
+                HasDeletedAudit: true,
+                HasVersion: true,
+                FullNetCrudOwnershipMode.OrganizationUnit),
+            FullNetCrudScene.Single,
+            [],
+            [
+                new("Id", "Id", "id", FullNetScalarType.Uuid),
+                new("TenantId", "TenantId", "tenantId", FullNetScalarType.Uuid),
+                new(
+                    "OrganizationUnitId",
+                    "OrganizationUnitId",
+                    "organizationUnitId",
+                    FullNetScalarType.Uuid),
+                new(
+                    "Name",
+                    "Name",
+                    "displayName",
+                    FullNetScalarType.String,
+                    MaxLength: 200),
+                new("Version", "Version", "version", FullNetScalarType.Int64),
+                new(
+                    "CreatedAtUtc",
+                    "CreatedAtUtc",
+                    "createdAtUtc",
+                    FullNetScalarType.DateTimeUtc),
+                new(
+                    "CreatedById",
+                    "CreatedById",
+                    "createdById",
+                    FullNetScalarType.Uuid),
+                new(
+                    "UpdatedAtUtc",
+                    "UpdatedAtUtc",
+                    "updatedAtUtc",
+                    FullNetScalarType.DateTimeUtc,
+                    IsNullable: true),
+                new(
+                    "UpdatedById",
+                    "UpdatedById",
+                    "updatedById",
+                    FullNetScalarType.Uuid,
+                    IsNullable: true),
+                new(
+                    "IsDeleted",
+                    "IsDeleted",
+                    "isDeleted",
+                    FullNetScalarType.Boolean),
+                new(
+                    "DeletedAtUtc",
+                    "DeletedAtUtc",
+                    "deletedAtUtc",
+                    FullNetScalarType.DateTimeUtc,
+                    IsNullable: true),
+                new(
+                    "DeletedById",
+                    "DeletedById",
+                    "deletedById",
+                    FullNetScalarType.Uuid,
+                    IsNullable: true),
+            ]);
+
+    internal static async Task AssertOrganizationOwnedSoftDeleteLifecycleMatrixAsync(
+        Func<Task<string>> createConnectionStringAsync,
+        Func<string, DbConnection> createConnection,
+        bool sqlServer)
+    {
+        var schema = CreateOrganizationOwnedSoftDeleteLifecycleSchema();
+        var artifacts = GenerateArtifacts(schema);
+        var migrationSql = RequireMigrationSql(artifacts, sqlServer);
+        var insertSql = RequireSqlConstant(artifacts, "Insert");
+        var findByIdSql = RequireSqlConstant(artifacts, "FindById");
+
+        var connectionString = await createConnectionStringAsync();
+        await using var connection = createConnection(connectionString);
+        await connection.OpenAsync();
+        await connection.ExecuteAsync(migrationSql);
+
+        var tenantId = Guid.NewGuid();
+        var organizationUnitId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var entityId = Guid.NewGuid();
+        var createdAt = DateTimeOffset.UtcNow;
+
+        Assert.AreEqual(
+            1,
+            await connection.ExecuteAsync(
+                insertSql,
+                new
+                {
+                    Id = entityId,
+                    TenantId = tenantId,
+                    OrganizationUnitId = organizationUnitId,
+                    Name = "Probe",
+                    Version = 1L,
+                    CreatedAtUtc = createdAt,
+                    CreatedById = actorId,
+                    UpdatedAtUtc = (DateTimeOffset?)null,
+                    UpdatedById = (Guid?)null,
+                    IsDeleted = false,
+                    DeletedAtUtc = (DateTimeOffset?)null,
+                    DeletedById = (Guid?)null,
+                }));
+
+        var row = await connection.QuerySingleOrDefaultAsync<OrganizationOwnedLifecycleRow>(
+            findByIdSql,
+            new { Id = entityId, TenantId = tenantId });
+        Assert.IsNotNull(row);
+        Assert.AreEqual(organizationUnitId, row!.OrganizationUnitId);
+    }
+
     internal static FullNetCrudSchema CreateHardDeleteLifecycleSchema() =>
         FullNetCrudSchema.CreateProject(
             ownerKey: "acme",
@@ -493,6 +618,17 @@ internal static class LifecycleRuntimeSqlTestSupport
             new { Id = entityId, TenantId = tenantId });
         Assert.AreEqual(entityId, row.Id);
         Assert.AreEqual("Immutable", row.Name);
+    }
+
+    private sealed class OrganizationOwnedLifecycleRow
+    {
+        public Guid Id { get; init; }
+
+        public Guid TenantId { get; init; }
+
+        public Guid OrganizationUnitId { get; init; }
+
+        public string Name { get; init; } = string.Empty;
     }
 
     private sealed class ImmutableRow

@@ -15,8 +15,8 @@
 
 ### Task 2: Generator + runtime matrix
 
-- [ ] **Step 1:** RED — 解除 fail-closed；生成 Feature/SQL 片段测试；Integration 组织归属 SoftDelete 矩阵。
-- [ ] **Step 2:** GREEN — Unit + 双库 Integration。
+- [x] **Step 1:** RED — 解除 fail-closed；生成 Feature/SQL 片段测试；Integration 组织归属 SoftDelete 矩阵。
+- [x] **Step 2:** GREEN — Unit + 双库 Integration。
 
 ### Task 3: Closeout
 

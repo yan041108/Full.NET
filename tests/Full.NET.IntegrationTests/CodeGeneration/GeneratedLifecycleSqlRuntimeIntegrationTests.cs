@@ -59,4 +59,24 @@ public sealed class GeneratedLifecycleSqlRuntimeIntegrationTests
             static connectionString => new MySqlConnection(connectionString),
             sqlServer: false);
     }
+
+    [TestMethod]
+    public async Task SqlServer_generated_organization_owned_soft_delete_sql_executes_matrix()
+    {
+        await LifecycleRuntimeSqlTestSupport
+            .AssertOrganizationOwnedSoftDeleteLifecycleMatrixAsync(
+                SharedDatabaseFixture.CreateSqlServerDatabaseAsync,
+                static connectionString => new SqlConnection(connectionString),
+                sqlServer: true);
+    }
+
+    [TestMethod]
+    public async Task MySql_generated_organization_owned_soft_delete_sql_executes_matrix()
+    {
+        await LifecycleRuntimeSqlTestSupport
+            .AssertOrganizationOwnedSoftDeleteLifecycleMatrixAsync(
+                SharedDatabaseFixture.CreateMySqlDatabaseAsync,
+                static connectionString => new MySqlConnection(connectionString),
+                sqlServer: false);
+    }
 }
