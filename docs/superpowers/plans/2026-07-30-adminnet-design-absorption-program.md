@@ -605,13 +605,13 @@ Each module must separately provide SQL Server/MySQL migrations and recovery tes
 
 The owner approved Vue as the sole active admin delivery track and froze Layui. The detailed design explicitly rejects Admin.NET's URL permission codes, super-administrator bypass and unknown-route allow behavior.
 
-- [ ] **Step 2: Execute the Identity Users reference slice**
+- [x] **Step 2: Execute the Identity Users reference slice**
 
-Follow [`2026-08-02-vue-action-authorization.md`](2026-08-02-vue-action-authorization.md) Tasks 1–9. Do not mark the slice complete until role-tree grants, exact Vue button absence, direct API 403, SQL Server/MySQL migration recovery and Architecture gates are all fresh GREEN.
+Follow [`2026-08-02-vue-action-authorization.md`](2026-08-02-vue-action-authorization.md) Tasks 1–9. Do not mark the slice complete until role-tree grants, exact Vue button absence, direct API 403, SQL Server/MySQL migration recovery and Architecture gates are all fresh GREEN.（2026-08-02 已完成；见 [`vue-action-authorization-2026-08-02.md`](../../verification/vue-action-authorization-2026-08-02.md)。）
 
 - [ ] **Step 3: Inventory and migrate every active Vue business action**
 
-Follow Task 10 of the detailed plan. Migrate in waves: remaining Identity → Tenancy/Organization → Settings/Auditing → Files/Notifications/Jobs/CodeGeneration → Document and later modules. Each resource owns its exact codes, compatibility expansion and E2E; no broad permission migration may guess high-risk grants across unrelated resources.
+Follow Task 10 of the detailed plan. Migrate in waves: remaining Identity → Tenancy/Organization → Settings/Auditing → Files/Notifications/Jobs/CodeGeneration → Document and later modules. Each resource owns its exact codes, compatibility expansion and E2E; no broad permission migration may guess high-risk grants across unrelated resources.（库存见 [`admin-action-permission-inventory.md`](../../roadmap/admin-action-permission-inventory.md)；架构冻结门禁已落地。）
 
 - [ ] **Step 4: Retire Layui from active delivery gates**
 

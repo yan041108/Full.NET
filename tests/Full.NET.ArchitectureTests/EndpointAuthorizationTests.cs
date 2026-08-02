@@ -87,6 +87,100 @@ public sealed class EndpointAuthorizationTests
             unknownCodes);
     }
 
+    [TestMethod]
+    public void Api_v1_endpoints_do_not_bind_retired_identity_users_write()
+    {
+        using var app = BuildApiApplication();
+
+        var violations = CollectPermissionBindings(app)
+            .Where(binding => string.Equals(
+                binding.PermissionCode,
+                IdentityUserManagementPermissions.Write,
+                StringComparison.Ordinal))
+            .Select(binding => $"{binding.HttpMethod} {binding.Route} -> {binding.PermissionCode}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        if (violations.Length > 0)
+        {
+            Assert.Fail(
+                "identity.users.write 已退役，下列 Endpoint 仍绑定该权限: "
+                + string.Join(", ", violations));
+        }
+    }
+
+    [TestMethod]
+    public void Api_v1_coarse_write_bindings_match_frozen_inventory_allowlist()
+    {
+        using var app = BuildApiApplication();
+
+        var currentBindings = CollectPermissionBindings(app)
+            .Where(binding => LegacyCoarseActionPermissionRegistry.IsCoarseWritePermission(
+                binding.PermissionCode))
+            .Select(binding => binding.ToAllowlistKey())
+            .ToHashSet(StringComparer.Ordinal);
+
+        var unexpected = currentBindings
+            .Where(key => !LegacyCoarseActionPermissionRegistry.AllowedBindings.Contains(key))
+            .OrderBy(key => key, StringComparer.Ordinal)
+            .ToArray();
+        var stale = LegacyCoarseActionPermissionRegistry.AllowedBindings
+            .Where(key => !currentBindings.Contains(key))
+            .OrderBy(key => key, StringComparer.Ordinal)
+            .ToArray();
+
+        if (unexpected.Length > 0 || stale.Length > 0)
+        {
+            Assert.Fail(
+                "粗粒度 .write 绑定与冻结清单不一致。"
+                + (unexpected.Length > 0
+                    ? " 新增或未登记: " + string.Join(", ", unexpected)
+                    : string.Empty)
+                + (stale.Length > 0
+                    ? " 清单陈旧: " + string.Join(", ", stale)
+                    : string.Empty));
+        }
+    }
+
+    private static IEnumerable<EndpointPermissionBinding> CollectPermissionBindings(
+        WebApplication app) =>
+        CollectApiV1Endpoints(app)
+            .SelectMany(endpoint =>
+            {
+                var route = endpoint.RoutePattern.RawText ?? string.Empty;
+                var methods = endpoint.Metadata
+                    .GetMetadata<HttpMethodMetadata>()
+                    ?.HttpMethods;
+                if (methods is null || methods.Count == 0)
+                {
+                    methods = ["GET"];
+                }
+
+                var permissionCodes = endpoint.Metadata
+                    .GetOrderedMetadata<IAuthorizeData>()
+                    .SelectMany(authorizeData => ExtractPermissionCodes(authorizeData.Policy))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                if (permissionCodes.Length == 0)
+                {
+                    return [];
+                }
+
+                return methods.SelectMany(method =>
+                    permissionCodes.Select(permissionCode =>
+                        new EndpointPermissionBinding(method, route, permissionCode)));
+            });
+
+    private sealed record EndpointPermissionBinding(
+        string HttpMethod,
+        string Route,
+        string PermissionCode)
+    {
+        public string ToAllowlistKey() =>
+            $"{HttpMethod.ToUpperInvariant()} {Route}|{PermissionCode}";
+    }
+
     private static WebApplication BuildApiApplication()
     {
         var builder = WebApplication.CreateBuilder();
