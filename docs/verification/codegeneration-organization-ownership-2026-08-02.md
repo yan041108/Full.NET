@@ -20,6 +20,7 @@
 | Organization 端口 | `OrganizationOwnedEntityWriteAuthorizerTests` (3) | Unit GREEN |
 | 生成器产物 | `CrudArtifactGeneratorTests.Generate_organization_owned_*` | Unit GREEN |
 | 生成器回归 | `CrudArtifactGeneratorTests` (26) | Unit GREEN |
+| 预览 API/UI | `Preview_organization_owned_*` + 双端 previews E2E | Unit GREEN；E2E 需真实栈 |
 | 双库 SQL 运行时 | `GeneratedLifecycleSqlRuntimeIntegrationTests` 组织归属 SoftDelete (2) | 需 Docker；本地编译通过 |
 
 ## 行为要点
@@ -30,7 +31,7 @@
 
 ## 未交付
 
-- Vue/Layui 双端 E2E 与 `Verified` 标记
+- Vue/Layui 双端预览 E2E（组织归属 Schema）已覆盖；完整 Apply 运行时与 `Verified` 标记仍待交付
 - Host/Global 作用域与组织列组合
 - Tree/MasterDetail/ManyToMany 组织归属生成
 

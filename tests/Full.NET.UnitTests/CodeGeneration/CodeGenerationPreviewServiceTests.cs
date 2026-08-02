@@ -267,6 +267,28 @@ public sealed class CodeGenerationPreviewServiceTests
     }
 
     [TestMethod]
+    public void Preview_organization_owned_emits_write_authorizer_and_scope_fragments()
+    {
+        var service = new CodeGenerationPreviewService(
+            new CodeGenerationSchemaNormalizer());
+        var result = service.Preview(CreateOrganizationOwnedRequest());
+
+        Assert.IsTrue(result.IsSuccess);
+        var feature = result.Value!.Artifacts
+            .Single(artifact => artifact.Path == "backend/ProductFeature.g.cs")
+            .Content;
+        var contracts = result.Value.Artifacts
+            .Single(artifact => artifact.Path == "backend/ProductContracts.g.cs")
+            .Content;
+        StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer");
+        StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
+        StringAssert.Contains(feature, "OrganizationUnitId = organizationUnitId");
+        Assert.IsFalse(contracts.Contains(
+            "CreateProductRequest(\n    string Name,\n    Guid OrganizationUnitId",
+            StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public void Schema_contract_rejects_unknown_fields_at_every_nested_level()
     {
         var canonical = JsonSerializer.Serialize(
@@ -410,5 +432,115 @@ public sealed class CodeGenerationPreviewServiceTests
                 })
                 .ToArray(),
         };
+    }
+
+    private static CodeGenerationPreviewRequest CreateOrganizationOwnedRequest()
+    {
+        return new CodeGenerationPreviewRequest(
+            "acme",
+            "catalog",
+            "product",
+            "acme_catalog_product",
+            "Acme.Modules.Catalog",
+            "Product",
+            "products",
+            "products",
+            "tenant.required",
+            null,
+            [
+                new("Id", "Id", "id", "uuid", false, null, null, null),
+                new("TenantId", "TenantId", "tenantId", "uuid", false, null, null, null),
+                new(
+                    "OrganizationUnitId",
+                    "OrganizationUnitId",
+                    "organizationUnitId",
+                    "uuid",
+                    false,
+                    null,
+                    null,
+                    null),
+                new(
+                    "Name",
+                    "Name",
+                    "displayName",
+                    "string",
+                    false,
+                    200,
+                    null,
+                    null),
+                new("Version", "Version", "version", "int64", false, null, null, null),
+                new(
+                    "CreatedAtUtc",
+                    "CreatedAtUtc",
+                    "createdAtUtc",
+                    "date.time.utc",
+                    false,
+                    null,
+                    null,
+                    null),
+                new(
+                    "CreatedById",
+                    "CreatedById",
+                    "createdById",
+                    "uuid",
+                    false,
+                    null,
+                    null,
+                    null),
+                new(
+                    "UpdatedAtUtc",
+                    "UpdatedAtUtc",
+                    "updatedAtUtc",
+                    "date.time.utc",
+                    true,
+                    null,
+                    null,
+                    null),
+                new(
+                    "UpdatedById",
+                    "UpdatedById",
+                    "updatedById",
+                    "uuid",
+                    true,
+                    null,
+                    null,
+                    null),
+                new(
+                    "IsDeleted",
+                    "IsDeleted",
+                    "isDeleted",
+                    "boolean",
+                    false,
+                    null,
+                    null,
+                    null),
+                new(
+                    "DeletedAtUtc",
+                    "DeletedAtUtc",
+                    "deletedAtUtc",
+                    "date.time.utc",
+                    true,
+                    null,
+                    null,
+                    null),
+                new(
+                    "DeletedById",
+                    "DeletedById",
+                    "deletedById",
+                    "uuid",
+                    true,
+                    null,
+                    null,
+                    null),
+            ],
+            new CodeGenerationEntityCapabilitiesRequest(
+                "soft.delete",
+                HasCreatedAudit: true,
+                HasUpdatedAudit: true,
+                HasDeletedAudit: true,
+                HasVersion: true,
+                "organization.unit"),
+            "single",
+            []);
     }
 }

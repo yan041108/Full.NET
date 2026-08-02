@@ -92,6 +92,10 @@ function generatedContent(view, clientKind) {
     : view.getByTestId('codegen-content').locator('code');
 }
 
+function schemaInput(view) {
+  return view.getByRole('textbox', { name: 'Schema 输入', exact: true });
+}
+
 function runHistory(view, clientKind) {
   return clientKind === 'layui'
     ? view.locator('[data-codegen-run-history]')
@@ -159,6 +163,127 @@ test('Host 管理员可通过双管理端执行受跟踪预览并回读无源码
   expect(persisted).not.toHaveProperty('preview');
   expect(persisted).not.toHaveProperty('content');
   expect(persisted).not.toHaveProperty('errorMessage');
+});
+
+test('Host 管理员可预览组织归属 Schema 并生成写入授权片段', async ({
+  page
+}, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  await loginAsHostAdmin(page);
+
+  await page
+    .getByRole('navigation', { name: '主导航' })
+    .getByRole('link', { name: /代码生成/ })
+    .click();
+
+  const view = codeGenerationView(page, clientKind);
+  const explicitSchema = JSON.parse(await schemaInput(view).inputValue());
+  delete explicitSchema.hasVersion;
+  explicitSchema.dataScope = 'tenant.required';
+  explicitSchema.entityCapabilities = {
+    deleteMode: 'soft.delete',
+    hasCreatedAudit: true,
+    hasUpdatedAudit: true,
+    hasDeletedAudit: true,
+    hasVersion: true,
+    ownershipMode: 'organization.unit'
+  };
+  explicitSchema.scene = 'single';
+  explicitSchema.relationships = [];
+  explicitSchema.columns.push({
+    databaseName: 'OrganizationUnitId',
+    clrPropertyName: 'OrganizationUnitId',
+    jsonPropertyName: 'organizationUnitId',
+    scalarType: 'uuid',
+    isNullable: false,
+    maxLength: null,
+    numericPrecision: null,
+    numericScale: null
+  });
+  explicitSchema.columns.push(
+    {
+      databaseName: 'CreatedAtUtc',
+      clrPropertyName: 'CreatedAtUtc',
+      jsonPropertyName: 'createdAtUtc',
+      scalarType: 'date.time.utc',
+      isNullable: false,
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null
+    },
+    {
+      databaseName: 'CreatedById',
+      clrPropertyName: 'CreatedById',
+      jsonPropertyName: 'createdById',
+      scalarType: 'uuid',
+      isNullable: false,
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null
+    },
+    {
+      databaseName: 'UpdatedAtUtc',
+      clrPropertyName: 'UpdatedAtUtc',
+      jsonPropertyName: 'updatedAtUtc',
+      scalarType: 'date.time.utc',
+      isNullable: true,
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null
+    },
+    {
+      databaseName: 'UpdatedById',
+      clrPropertyName: 'UpdatedById',
+      jsonPropertyName: 'updatedById',
+      scalarType: 'uuid',
+      isNullable: true,
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null
+    },
+    {
+      databaseName: 'IsDeleted',
+      clrPropertyName: 'IsDeleted',
+      jsonPropertyName: 'isDeleted',
+      scalarType: 'boolean',
+      isNullable: false,
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null
+    },
+    {
+      databaseName: 'DeletedAtUtc',
+      clrPropertyName: 'DeletedAtUtc',
+      jsonPropertyName: 'deletedAtUtc',
+      scalarType: 'date.time.utc',
+      isNullable: true,
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null
+    },
+    {
+      databaseName: 'DeletedById',
+      clrPropertyName: 'DeletedById',
+      jsonPropertyName: 'deletedById',
+      scalarType: 'uuid',
+      isNullable: true,
+      maxLength: null,
+      numericPrecision: null,
+      numericScale: null
+    }
+  );
+  await schemaInput(view).fill(JSON.stringify(explicitSchema, null, 2));
+  await view.getByRole('button', { name: '生成预览', exact: true }).click();
+  await expect(view.getByText('acme_catalog_product', { exact: true }))
+    .toBeVisible({ timeout: 15_000 });
+  await view
+    .getByRole('navigation', { name: '生成产物' })
+    .getByRole('button', { name: /backend\/ProductFeature\.g\.cs/ })
+    .click();
+  await expect(generatedContent(view, clientKind))
+    .toContainText('IOrganizationOwnedEntityWriteAuthorizer');
+  await expect(generatedContent(view, clientKind))
+    .toContainText('BuildOrganizationUnitFilter');
 });
 
 test('受限 Host 账号访问预览 API 被拒绝且双端导航裁剪', async ({

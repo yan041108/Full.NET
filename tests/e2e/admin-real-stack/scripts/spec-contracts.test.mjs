@@ -54,6 +54,8 @@ test('代码生成真实栈必须验证受跟踪预览、历史刷新与无源�
   assert.match(source, /not\.toHaveProperty\('schema'\)/u);
   assert.match(source, /not\.toHaveProperty\('content'\)/u);
   assert.match(source, /not\.toHaveProperty\('errorMessage'\)/u);
+  assert.match(source, /ownershipMode: 'organization\.unit'/u);
+  assert.match(source, /IOrganizationOwnedEntityWriteAuthorizer/u);
 });
 
 test('职位真实栈场景必须覆盖机构与职级写入并从 API 回读', async () => {

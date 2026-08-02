@@ -22,6 +22,7 @@ internal static class CodeGenerationPreviewAssertions
         await VerifyAnonymousRequestAsync(client, cancellationToken);
         await VerifyPermissionAsync(factory, client, cancellationToken);
         await VerifyPreviewAsync(factory, client, cancellationToken);
+        await VerifyOrganizationOwnedPreviewAsync(factory, client, cancellationToken);
         await VerifyInvalidSchemaAsync(factory, client, cancellationToken);
         await OpenApiCodeGenerationPreviewsContractAssertions.VerifyAsync(
             client,
@@ -79,6 +80,29 @@ internal static class CodeGenerationPreviewAssertions
             artifact.Kind == "vue_client"));
         Assert.IsTrue(preview.Artifacts.Any(artifact =>
             artifact.Kind == "layui_client"));
+    }
+
+    private static async Task VerifyOrganizationOwnedPreviewAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateRequest(
+            await factory.CreateHostAccessTokenAsync(
+                [CodeGenerationPreviewPermissions.Read],
+                cancellationToken),
+            CreateOrganizationOwnedPreviewRequest());
+        using var response = await client.SendAsync(request, cancellationToken);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var preview = await response.Content
+            .ReadFromJsonAsync<CodeGenerationPreviewResponse>(cancellationToken);
+        Assert.IsNotNull(preview);
+        var feature = preview!.Artifacts
+            .Single(artifact => artifact.Path == "backend/ProductFeature.g.cs")
+            .Content;
+        StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer");
+        StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
     }
 
     private static async Task VerifyInvalidSchemaAsync(
@@ -172,4 +196,112 @@ internal static class CodeGenerationPreviewAssertions
                     null,
                     null),
             ]);
+
+    private static CodeGenerationPreviewRequest CreateOrganizationOwnedPreviewRequest() =>
+        new(
+            "acme",
+            "catalog",
+            "product",
+            "acme_catalog_product",
+            "Acme.Modules.Catalog",
+            "Product",
+            "products",
+            "products",
+            "tenant.required",
+            null,
+            [
+                new("Id", "Id", "id", "uuid", false, null, null, null),
+                new("TenantId", "TenantId", "tenantId", "uuid", false, null, null, null),
+                new(
+                    "OrganizationUnitId",
+                    "OrganizationUnitId",
+                    "organizationUnitId",
+                    "uuid",
+                    false,
+                    null,
+                    null,
+                    null),
+                new(
+                    "Name",
+                    "Name",
+                    "displayName",
+                    "string",
+                    false,
+                    200,
+                    null,
+                    null),
+                new("Version", "Version", "version", "int64", false, null, null, null),
+                new(
+                    "CreatedAtUtc",
+                    "CreatedAtUtc",
+                    "createdAtUtc",
+                    "date.time.utc",
+                    false,
+                    null,
+                    null,
+                    null),
+                new(
+                    "CreatedById",
+                    "CreatedById",
+                    "createdById",
+                    "uuid",
+                    false,
+                    null,
+                    null,
+                    null),
+                new(
+                    "UpdatedAtUtc",
+                    "UpdatedAtUtc",
+                    "updatedAtUtc",
+                    "date.time.utc",
+                    true,
+                    null,
+                    null,
+                    null),
+                new(
+                    "UpdatedById",
+                    "UpdatedById",
+                    "updatedById",
+                    "uuid",
+                    true,
+                    null,
+                    null,
+                    null),
+                new(
+                    "IsDeleted",
+                    "IsDeleted",
+                    "isDeleted",
+                    "boolean",
+                    false,
+                    null,
+                    null,
+                    null),
+                new(
+                    "DeletedAtUtc",
+                    "DeletedAtUtc",
+                    "deletedAtUtc",
+                    "date.time.utc",
+                    true,
+                    null,
+                    null,
+                    null),
+                new(
+                    "DeletedById",
+                    "DeletedById",
+                    "deletedById",
+                    "uuid",
+                    true,
+                    null,
+                    null,
+                    null),
+            ],
+            new CodeGenerationEntityCapabilitiesRequest(
+                "soft.delete",
+                HasCreatedAudit: true,
+                HasUpdatedAudit: true,
+                HasDeletedAudit: true,
+                HasVersion: true,
+                "organization.unit"),
+            "single",
+            []);
 }
