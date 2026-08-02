@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -13,12 +13,11 @@ import {
 } from 'element-plus';
 import type { FullNetProblemDetails, HostRole, HostUser } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
-import { useSessionStore } from '../auth/session';
+import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createHostUser, disableHostUser, enableHostUser, exportHostUsers, getHostUserRoles, listHostUsers, replaceHostUserRoles, resetHostUserPassword, updateHostUser } from '../api/users';
 import { listHostRoles } from '../api/roles';
 
-const session = useSessionStore();
 const { t } = useAdminI18n();
 const users = ref<HostUser[]>([]);
 const username = ref('');
@@ -32,8 +31,6 @@ const editingUser = ref<HostUser>();
 const assignableRoles = ref<HostRole[]>([]);
 const selectedRoleIds = ref<string[]>([]);
 const rolesVersion = ref(0);
-const canWrite = computed(() => session.can('identity.users.write'));
-const canExport = computed(() => session.can('identity.users.export'));
 
 onMounted(load);
 
@@ -247,41 +244,50 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
-      <div class="art-form-grid" aria-labelledby="create-title">
-        <div>
-          <h2 id="create-title">{{ t('users.createTitle') }}</h2>
+    <PermissionGate code="identity.users.create">
+      <el-card class="art-form-card" shadow="never" data-testid="users-create-form">
+        <div class="art-form-grid" aria-labelledby="create-title">
+          <div>
+            <h2 id="create-title">{{ t('users.createTitle') }}</h2>
+          </div>
+          <label>
+            <span>{{ t('users.username') }}</span>
+            <el-input v-model="username" :placeholder="t('users.usernamePlaceholder')" />
+          </label>
+          <label>
+            <span>{{ t('users.displayName') }}</span>
+            <el-input v-model="displayName" :placeholder="t('users.displayNamePlaceholder')" />
+          </label>
+          <label>
+            <span>{{ t('users.password') }}</span>
+            <el-input
+              v-model="password"
+              type="password"
+              show-password
+              :placeholder="t('users.passwordPlaceholder')"
+              @keyup.enter="create"
+            />
+          </label>
+          <el-button type="primary" :loading="changing" @click="create">{{ t('users.create') }}</el-button>
         </div>
-        <label>
-          <span>{{ t('users.username') }}</span>
-          <el-input v-model="username" :placeholder="t('users.usernamePlaceholder')" />
-        </label>
-        <label>
-          <span>{{ t('users.displayName') }}</span>
-          <el-input v-model="displayName" :placeholder="t('users.displayNamePlaceholder')" />
-        </label>
-        <label>
-          <span>{{ t('users.password') }}</span>
-          <el-input
-            v-model="password"
-            type="password"
-            show-password
-            :placeholder="t('users.passwordPlaceholder')"
-            @keyup.enter="create"
-          />
-        </label>
-        <el-button type="primary" :loading="changing" @click="create">{{ t('users.create') }}</el-button>
-      </div>
-    </el-card>
+      </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
         <div class="art-table-card__header">
           <h2>{{ t('users.directoryTitle') }}</h2>
           <span class="art-table-card__count">{{ users.length }}</span>
-          <el-button v-if="canExport" plain :disabled="changing" @click="exportUsers">
-            {{ t('users.export') }}
-          </el-button>
+          <PermissionGate code="identity.users.export">
+            <el-button
+              data-testid="users-action-export"
+              plain
+              :disabled="changing"
+              @click="exportUsers"
+            >
+              {{ t('users.export') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </template>
 
@@ -305,48 +311,58 @@ function toProblem(
           {{ t(user.isActive ? 'users.active' : 'users.inactive') }}
         </el-tag>
         <div class="art-data-row__actions">
-          <el-button
-            v-if="canWrite"
-            plain
-            :disabled="changing"
-            @click="openRoles(user)"
-          >
-            {{ t('users.roles') }}
-          </el-button>
-          <el-button
-            v-if="canWrite"
-            plain
-            :disabled="changing"
-            @click="edit(user)"
-          >
-            {{ t('users.edit') }}
-          </el-button>
-          <el-button
-            v-if="canWrite && user.isActive"
-            plain
-            :disabled="changing"
-            @click="resetPassword(user)"
-          >
-            {{ t('users.resetPassword') }}
-          </el-button>
-          <el-button
-            v-if="canWrite && user.isActive"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(user)"
-          >
-            {{ t('users.disable') }}
-          </el-button>
-          <el-button
-            v-if="canWrite && !user.isActive"
-            type="success"
-            plain
-            :disabled="changing"
-            @click="enable(user)"
-          >
-            {{ t('users.enable') }}
-          </el-button>
+          <PermissionGate code="identity.users.assign_roles">
+            <el-button
+              data-testid="users-action-roles"
+              plain
+              :disabled="changing"
+              @click="openRoles(user)"
+            >
+              {{ t('users.roles') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate code="identity.users.update">
+            <el-button
+              data-testid="users-action-edit"
+              plain
+              :disabled="changing"
+              @click="edit(user)"
+            >
+              {{ t('users.edit') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate v-if="user.isActive" code="identity.users.reset_password">
+            <el-button
+              data-testid="users-action-reset-password"
+              plain
+              :disabled="changing"
+              @click="resetPassword(user)"
+            >
+              {{ t('users.resetPassword') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate v-if="user.isActive" code="identity.users.disable">
+            <el-button
+              data-testid="users-action-disable"
+              type="danger"
+              plain
+              :disabled="changing"
+              @click="disable(user)"
+            >
+              {{ t('users.disable') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate v-if="!user.isActive" code="identity.users.enable">
+            <el-button
+              data-testid="users-action-enable"
+              type="success"
+              plain
+              :disabled="changing"
+              @click="enable(user)"
+            >
+              {{ t('users.enable') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>
@@ -367,10 +383,17 @@ function toProblem(
         </el-checkbox>
       </el-checkbox-group>
       <template #footer>
-        <el-button @click="rolesVisible = false">{{ t('status.back') }}</el-button>
-        <el-button type="primary" :loading="changing" @click="saveRoles">
-          {{ t('users.saveRoles') }}
-        </el-button>
+        <el-button data-testid="users-roles-cancel" @click="rolesVisible = false">{{ t('status.back') }}</el-button>
+        <PermissionGate code="identity.users.assign_roles">
+          <el-button
+            data-testid="users-roles-save"
+            type="primary"
+            :loading="changing"
+            @click="saveRoles"
+          >
+            {{ t('users.saveRoles') }}
+          </el-button>
+        </PermissionGate>
       </template>
     </el-dialog>
   </section>
