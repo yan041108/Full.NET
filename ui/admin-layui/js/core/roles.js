@@ -163,6 +163,7 @@ export function createRolesController(root, options) {
         fieldGrantsButton.dataset.rolesFieldGrants,
         translation(),
         request,
+        options.hasPermission?.('identity.role_field_grants.replace') === true,
         async (resourceKey, fieldKeys, version) => {
           changing = true;
           try {
@@ -454,7 +455,7 @@ function openDataScopeDialog(roleId, translation, request, confirm) {
     });
 }
 
-function openFieldGrantsDialog(roleId, translation, request, confirm) {
+function openFieldGrantsDialog(roleId, translation, request, canSave, confirm) {
   const resourceKey = 'identity.host_users';
   return Promise.all([
     request('/api/v1/identity/field-projections/catalog'),
@@ -478,18 +479,27 @@ function openFieldGrantsDialog(roleId, translation, request, confirm) {
     });
 
     if (!globalThis.layui?.layer?.open) {
-      void confirm(resourceKey, [...selected].sort(), grants?.version ?? 0);
+      if (canSave) {
+        void confirm(resourceKey, [...selected].sort(), grants?.version ?? 0);
+      }
       return;
     }
 
+    const buttons = canSave
+      ? [translation.t('roles.saveFieldGrants'), translation.t('status.back')]
+      : [translation.t('status.back')];
     document.body.appendChild(content);
     globalThis.layui.layer.open({
       type: 1,
       title: translation.t('roles.fieldGrantsTitle'),
       area: ['560px', '420px'],
       content,
-      btn: [translation.t('roles.saveFieldGrants'), translation.t('status.back')],
+      btn: buttons,
       yes(index) {
+        if (!canSave) {
+          globalThis.layui.layer.close(index);
+          return;
+        }
         const fieldKeys = [...content.querySelectorAll('input:checked')]
           .map(input => input.value)
           .sort();

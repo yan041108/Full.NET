@@ -78,7 +78,6 @@ const orgUnits = ref<OrganizationUnit[]>([]);
 const dataScopeKinds = ROLE_DATA_SCOPE_KINDS;
 const canSavePermissions = computed(() => unknownPermissions.value.length === 0);
 const canReadFieldGrants = computed(() => session.can('identity.role_field_grants.read'));
-const canWriteFieldGrants = computed(() => session.can('identity.role_field_grants.write'));
 const inTenantContext = computed(() => !!session.currentUser?.tenantId);
 
 onMounted(load);
@@ -298,7 +297,7 @@ async function openFieldGrants(role: HostRole): Promise<void> {
 
 async function saveFieldGrants(): Promise<void> {
   const role = editingRole.value;
-  if (!role || changing.value || !canWriteFieldGrants.value) return;
+  if (!role || changing.value || !session.can('identity.role_field_grants.replace')) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -511,9 +510,11 @@ function toProblem(
       </el-checkbox-group>
       <template #footer>
         <el-button @click="fieldGrantsVisible = false">{{ t('status.back') }}</el-button>
-        <el-button v-if="canWriteFieldGrants" type="primary" :loading="changing" @click="saveFieldGrants">
-          {{ t('roles.saveFieldGrants') }}
-        </el-button>
+        <PermissionGate code="identity.role_field_grants.replace">
+          <el-button type="primary" :loading="changing" data-testid="roles-save-field-grants" @click="saveFieldGrants">
+            {{ t('roles.saveFieldGrants') }}
+          </el-button>
+        </PermissionGate>
       </template>
     </el-dialog>
   </section>

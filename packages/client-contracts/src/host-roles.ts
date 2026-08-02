@@ -17,7 +17,7 @@ export const HOST_ROLE_ASSIGNABLE_PERMISSIONS = [
   'identity.roles.disable',
   'identity.roles.assign_data_scope',
   'identity.role_field_grants.read',
-  'identity.role_field_grants.write',
+  'identity.role_field_grants.replace',
   'identity.menus.read',
   'identity.menus.write',
   'organization.units.read',

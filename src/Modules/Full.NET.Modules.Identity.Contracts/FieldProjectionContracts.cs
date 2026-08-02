@@ -14,6 +14,9 @@ public static class IdentityRoleFieldGrantPermissions
     public const string Read = "identity.role_field_grants.read";
 
     /// <summary>替换角色字段授权。</summary>
+    public const string Replace = "identity.role_field_grants.replace";
+
+    /// <summary>迁移 056 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.role_field_grants.write";
 }
 

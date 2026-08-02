@@ -16,6 +16,7 @@ internal static class IdentityRoleFieldGrantAssertions
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        await VerifyExactFieldGrantPermissionBoundariesAsync(factory, client, cancellationToken);
         var adminToken = await LoginAsync(
             client,
             "admin",
@@ -116,6 +117,76 @@ internal static class IdentityRoleFieldGrantAssertions
         CollectionAssert.DoesNotContain(
             projectedUser.ProjectedFields.EffectiveFieldKeys.ToArray(),
             "lockout_end_utc");
+    }
+
+    private static async Task VerifyExactFieldGrantPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsync(
+            client,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        var suffix = Guid.NewGuid().ToString("N");
+        var role = await SendAsync<HostRoleResponse>(
+            client,
+            HttpMethod.Post,
+            "/api/v1/identity/roles",
+            adminToken,
+            new CreateHostRoleRequest($"field-grant-{suffix}", "字段授权边界角色"),
+            HttpStatusCode.Created,
+            cancellationToken);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [IdentityRoleFieldGrantPermissions.Read],
+            cancellationToken);
+        await SendAsync<FieldProjectionResourceDefinition[]>(
+            client,
+            HttpMethod.Get,
+            "/api/v1/identity/field-projections/catalog",
+            readOnlyToken,
+            null,
+            HttpStatusCode.OK,
+            cancellationToken);
+        await SendAsync<HostRoleFieldGrantsResponse>(
+            client,
+            HttpMethod.Get,
+            $"/api/v1/identity/roles/{role.Id:D}/field-grants?resourceKey={FieldProjectionResourceKeys.HostUsers}",
+            readOnlyToken,
+            null,
+            HttpStatusCode.OK,
+            cancellationToken);
+        await SendAsync<HostRoleFieldGrantsResponse>(
+            client,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{role.Id:D}/field-grants",
+            readOnlyToken,
+            new ReplaceHostRoleFieldGrantsRequest(
+                FieldProjectionResourceKeys.HostUsers,
+                ["preferred_locale"],
+                role.Version),
+            HttpStatusCode.Forbidden,
+            cancellationToken);
+
+        var replaceToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityRoleFieldGrantPermissions.Read,
+                IdentityRoleFieldGrantPermissions.Replace,
+            ],
+            cancellationToken);
+        await SendAsync<HostRoleFieldGrantsResponse>(
+            client,
+            HttpMethod.Put,
+            $"/api/v1/identity/roles/{role.Id:D}/field-grants",
+            replaceToken,
+            new ReplaceHostRoleFieldGrantsRequest(
+                FieldProjectionResourceKeys.HostUsers,
+                ["preferred_locale"],
+                role.Version),
+            HttpStatusCode.OK,
+            cancellationToken);
     }
 
     private static async Task<string> LoginAsync(

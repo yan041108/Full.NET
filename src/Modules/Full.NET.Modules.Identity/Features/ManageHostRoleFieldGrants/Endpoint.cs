@@ -59,7 +59,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostRoleFieldGrantsResponse>()
-        .RequireFullNetPermission(IdentityRoleFieldGrantPermissions.Write);
+        .RequireFullNetPermission(IdentityRoleFieldGrantPermissions.Replace);
     }
 
     private static bool TryGetSubject(ClaimsPrincipal principal, out Guid userId)

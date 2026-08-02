@@ -51,8 +51,8 @@ describe('Host 角色客户端契约', () => {
     })).toBe(true);
     expect(ROLE_DATA_SCOPE_KINDS).toContain('identity.data_scope.custom');
     expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).toContain('identity.roles.create');
-    expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).toContain('identity.roles.assign_permissions');
-    expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).not.toContain('identity.roles.write');
+    expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).toContain('identity.role_field_grants.replace');
+    expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).not.toContain('identity.role_field_grants.write');
     expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).toContain('identity.users.create');
     expect(HOST_ROLE_ASSIGNABLE_PERMISSIONS).not.toContain('identity.users.write');
   });

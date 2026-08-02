@@ -24,7 +24,7 @@ public sealed class AuthorizationCatalogTests
                 "identity.modules.read",
                 "identity.navigation.read",
                 "identity.role_field_grants.read",
-                "identity.role_field_grants.write",
+                "identity.role_field_grants.replace",
                 "identity.roles.assign_data_scope",
                 "identity.roles.assign_permissions",
                 "identity.roles.create",
@@ -107,6 +107,7 @@ public sealed class AuthorizationCatalogTests
             ["assign-permissions"] = "identity.roles.assign_permissions",
             ["disable"] = "identity.roles.disable",
             ["assign-data-scope"] = "identity.roles.assign_data_scope",
+            ["replace-field-grants"] = "identity.role_field_grants.replace",
         };
 
         var rolesActions = catalog.Actions
@@ -121,6 +122,33 @@ public sealed class AuthorizationCatalogTests
             rolesActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == IdentityRoleManagementPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_role_field_grants_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["replace-field-grants"] = "identity.role_field_grants.replace",
+        };
+
+        var fieldGrantActions = catalog.Actions
+            .Where(action => action.PermissionCode.StartsWith(
+                "identity.role_field_grants.",
+                StringComparison.Ordinal))
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            fieldGrantActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == IdentityRoleFieldGrantPermissions.Write));
     }
 
     [TestMethod]

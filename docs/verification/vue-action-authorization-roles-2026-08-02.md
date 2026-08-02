@@ -33,7 +33,6 @@
 
 ## 明确未做（后续 W1 子切片）
 
-- `identity.role_field_grants.write` 拆分（字段授权保存仍用粗粒度写权限）
 - Identity Menus / Sessions / API Keys 粗粒度 `.write` 清零
 - Layui Users 页仍使用 `identity.users.write` 门控（Users 切片未改 Layui）
 

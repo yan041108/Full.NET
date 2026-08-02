@@ -91,8 +91,8 @@ internal sealed class IdentityAuthorizationContributor
             "读取角色字段授权",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            IdentityRoleFieldGrantPermissions.Write,
-            "管理角色字段授权",
+            IdentityRoleFieldGrantPermissions.Replace,
+            "替换角色字段授权",
             AuthorizationScope.Host),
         new PermissionDefinition(
             IdentityMenuManagementPermissions.Read,
@@ -302,5 +302,12 @@ internal sealed class IdentityAuthorizationContributor
             "数据范围",
             "assign-data-scope",
             50),
+        new AuthorizationActionDefinition(
+            "identity.role_field_grants.replace",
+            "roles",
+            IdentityRoleFieldGrantPermissions.Replace,
+            "字段授权",
+            "replace-field-grants",
+            60),
     ];
 }

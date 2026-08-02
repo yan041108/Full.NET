@@ -61,7 +61,7 @@
         },
         {
           "method": "PUT",
-          "permission": "identity.role_field_grants.write",
+          "permission": "identity.role_field_grants.replace",
           "successStatus": 200,
           "requestSchema": "ReplaceHostRoleFieldGrantsRequest",
           "responseSchema": "HostRoleFieldGrantsResponse"
