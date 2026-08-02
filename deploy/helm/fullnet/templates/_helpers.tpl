@@ -120,6 +120,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     {{- fail "production worker.maxConcurrency must remain 1." -}}
   {{- end -}}
 {{- end -}}
+
+{{- $codegenEnabled := or .Values.codeGeneration.apply.enabled (and .Values.production .Values.codeGeneration.apply.enabledWhenProduction) -}}
+{{- if and $codegenEnabled (or .Values.roles.api .Values.roles.worker) -}}
+  {{- if and (eq .Values.codeGeneration.workspace.existingClaimName "") (not .Values.codeGeneration.workspace.persistence.create) -}}
+    {{- fail "CodeGeneration Apply requires codeGeneration.workspace.existingClaimName or workspace.persistence.create with storageClassVerifiedRwxSnapshotBackup=true." -}}
+  {{- end -}}
+  {{- if and .Values.codeGeneration.workspace.persistence.create (not .Values.codeGeneration.workspace.persistence.storageClassVerifiedRwxSnapshotBackup) -}}
+    {{- fail "creating a CodeGeneration workspace PVC requires workspace.persistence.storageClassVerifiedRwxSnapshotBackup=true." -}}
+  {{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "fullnet.sessionAffinityEnabled" -}}
@@ -128,4 +138,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- else -}}
 true
 {{- end -}}
+{{- end -}}
+
+{{- define "fullnet.codeGenerationApplyEnabled" -}}
+{{- if .Values.codeGeneration.apply.enabled -}}true{{- else if and .Values.production .Values.codeGeneration.apply.enabledWhenProduction -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{- define "fullnet.codeGenerationWorkspaceClaimName" -}}
+{{- if .Values.codeGeneration.workspace.existingClaimName -}}
+{{- .Values.codeGeneration.workspace.existingClaimName -}}
+{{- else -}}
+{{- include "fullnet.fullname" . }}-codegeneration-workspace{{- end -}}
 {{- end -}}

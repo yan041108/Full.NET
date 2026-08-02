@@ -40,6 +40,7 @@ test('Helm chart files required by Task 12 exist', async () => {
     'deploy/helm/fullnet/templates/worker-pdb.yaml',
     'deploy/helm/fullnet/templates/migrator-job.yaml',
     'deploy/helm/fullnet/templates/data-protection-pvc.yaml',
+    'deploy/helm/fullnet/templates/codegeneration-workspace-pvc.yaml',
     'deploy/helm/fullnet/templates/configmap.yaml',
     'deploy/helm/fullnet/templates/serviceaccount.yaml',
     'deploy/helm/fullnet/templates/networkpolicy.yaml',
@@ -64,6 +65,8 @@ test('values encode production replica, HPA, MaxConcurrency and budget keys', as
   assert.match(values, /workerMaxPoolSize:/);
   assert.match(values, /migrationReserve:/);
   assert.match(values, /edgeProtection:/);
+  assert.match(values, /codeGeneration:/);
+  assert.match(values, /enabledWhenProduction:/);
   assert.doesNotMatch(values, /\bredis:\s*$/m);
   assert.doesNotMatch(values, /bitnami/i);
 });

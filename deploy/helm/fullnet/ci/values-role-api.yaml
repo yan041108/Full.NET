@@ -6,6 +6,10 @@ roles:
 dataProtection:
   existingClaimName: fullnet-data-protection-rwx
 
+codeGeneration:
+  workspace:
+    existingClaimName: fullnet-codegeneration-rwx
+
 edgeProtection:
   declared: true
   provider: WAF

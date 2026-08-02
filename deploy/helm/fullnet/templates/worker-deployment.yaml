@@ -60,6 +60,10 @@ spec:
               mountPath: /var/fullnet/data-protection-keys
             - name: tmp
               mountPath: /tmp
+{{- if eq (include "fullnet.codeGenerationApplyEnabled" .) "true" }}
+            - name: codegeneration-workspace
+              mountPath: {{ .Values.codeGeneration.apply.workspaceRoot }}
+{{- end }}
           startupProbe:
             exec:
               command: ["dotnet", "--info"]
@@ -87,6 +91,11 @@ spec:
         - name: data-protection
           persistentVolumeClaim:
             claimName: {{ if .Values.dataProtection.existingClaimName }}{{ .Values.dataProtection.existingClaimName }}{{ else }}{{ include "fullnet.fullname" . }}-data-protection{{ end }}
+{{- if eq (include "fullnet.codeGenerationApplyEnabled" .) "true" }}
+        - name: codegeneration-workspace
+          persistentVolumeClaim:
+            claimName: {{ include "fullnet.codeGenerationWorkspaceClaimName" . }}
+{{- end }}
       {{- if .Values.worker.topologySpreadConstraints.enabled }}
       topologySpreadConstraints:
         - maxSkew: {{ .Values.worker.topologySpreadConstraints.maxSkew }}

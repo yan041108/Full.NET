@@ -16,6 +16,17 @@ data:
   OutboxWorker__MaxConcurrency: {{ .Values.worker.maxConcurrency | quote }}
   RateLimiting__GlobalApiPermitLimitPerMinute: {{ .Values.applicationRateLimiting.globalApiPermitLimitPerMinutePerReplica | quote }}
   FULLNET_CAPACITY_STATUS: "Capacity-not-verified"
+{{- if eq (include "fullnet.codeGenerationApplyEnabled" .) "true" }}
+  CodeGeneration__Apply__Enabled: "true"
+  CodeGeneration__Apply__WorkspaceRoot: {{ .Values.codeGeneration.apply.workspaceRoot | quote }}
+  CodeGeneration__Apply__DistributedGateEnabled: {{ .Values.codeGeneration.apply.distributedGateEnabled | quote }}
+  CodeGeneration__Apply__MaxRollbackChainLength: {{ .Values.codeGeneration.apply.maxRollbackChainLength | quote }}
+  CodeGeneration__CheckpointRetention__Enabled: {{ .Values.codeGeneration.checkpointRetention.enabled | quote }}
+  CodeGeneration__CheckpointRetention__RetentionDays: {{ .Values.codeGeneration.checkpointRetention.retentionDays | quote }}
+  CodeGeneration__CheckpointRetention__PollSeconds: {{ .Values.codeGeneration.checkpointRetention.pollSeconds | quote }}
+  CodeGeneration__CheckpointRetention__MaxDeletesPerRun: {{ .Values.codeGeneration.checkpointRetention.maxDeletesPerRun | quote }}
+  CodeGeneration__CheckpointRetention__MaxCheckpointCount: {{ .Values.codeGeneration.checkpointRetention.maxCheckpointCount | quote }}
+{{- end }}
 {{- if .Values.roles.worker }}
   Realtime__Enabled: "true"
 {{- end }}

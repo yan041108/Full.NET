@@ -1,0 +1,15 @@
+{{- include "fullnet.validate" . -}}
+{{- if and (eq (include "fullnet.codeGenerationApplyEnabled" .) "true") .Values.codeGeneration.workspace.persistence.create }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "fullnet.fullname" . }}-codegeneration-workspace
+  labels:
+    {{- include "fullnet.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.codeGeneration.workspace.persistence.size }}
+{{- end }}

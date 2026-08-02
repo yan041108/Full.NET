@@ -195,6 +195,28 @@ networkPolicy:
   ingressPodSelector:
     app.kubernetes.io/name: ingress-nginx
 
+# Host 代码生成 Apply/Rollback 工作区。代码默认禁用；生产 Release 可通过
+# enabledWhenProduction 自动注入 Enabled=true，但仍须 RWX 工作区卷。
+codeGeneration:
+  apply:
+    enabled: false
+    enabledWhenProduction: true
+    workspaceRoot: /var/fullnet/codegeneration
+    distributedGateEnabled: true
+    maxRollbackChainLength: 16
+  checkpointRetention:
+    enabled: true
+    retentionDays: 7
+    pollSeconds: 300
+    maxDeletesPerRun: 32
+    maxCheckpointCount: 128
+  workspace:
+    existingClaimName: ""
+    persistence:
+      create: false
+      storageClassVerifiedRwxSnapshotBackup: false
+      size: 5Gi
+
 nodeSelector: {}
 tolerations: []
 affinity: {}
