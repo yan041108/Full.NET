@@ -33,7 +33,7 @@ test('Host API Key OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^identity\.api_keys\.(read|write)$/u);
+      assert.match(operation.permission, /^identity\.api_keys\.(read|create|disable|rotate)$/u);
       assert.ok(contract.schemas[operation.responseSchema]);
     }
   }
@@ -48,7 +48,9 @@ test('Host API Key OpenAPI 夹具与 C# 契约和端点源码一致', async () =
   assert.match(contractsSource, /record HostApiKeyResponse/u);
   assert.match(contractsSource, /record CreateHostApiKeyResponse/u);
   assert.match(contractsSource, /identity\.api_keys\.read/u);
-  assert.match(contractsSource, /identity\.api_keys\.write/u);
+  assert.match(contractsSource, /identity\.api_keys\.create/u);
+  assert.match(contractsSource, /identity\.api_keys\.disable/u);
+  assert.match(contractsSource, /identity\.api_keys\.rotate/u);
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/api-keys"\)/u);
 
   const routeMarkers = new Map([

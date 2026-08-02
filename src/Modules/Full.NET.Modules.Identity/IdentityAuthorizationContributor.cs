@@ -123,8 +123,16 @@ internal sealed class IdentityAuthorizationContributor
             "查看 Host API Key",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            IdentityApiKeyManagementPermissions.Write,
-            "管理 Host API Key",
+            IdentityApiKeyManagementPermissions.Create,
+            "创建 Host API Key",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityApiKeyManagementPermissions.Disable,
+            "禁用 Host API Key",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityApiKeyManagementPermissions.Rotate,
+            "轮换 Host API Key",
             AuthorizationScope.Host),
         new PermissionDefinition(
             ModuleCatalogPermissions.Read,
@@ -345,5 +353,26 @@ internal sealed class IdentityAuthorizationContributor
             "强制下线",
             "revoke",
             10),
+        new AuthorizationActionDefinition(
+            "identity.api_keys.create",
+            "api-keys",
+            IdentityApiKeyManagementPermissions.Create,
+            "创建 API Key",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.api_keys.disable",
+            "api-keys",
+            IdentityApiKeyManagementPermissions.Disable,
+            "禁用 API Key",
+            "disable",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.api_keys.rotate",
+            "api-keys",
+            IdentityApiKeyManagementPermissions.Rotate,
+            "轮换 API Key",
+            "rotate",
+            30),
     ];
 }

@@ -17,8 +17,10 @@ public sealed class AuthorizationCatalogTests
         CollectionAssert.AreEqual(
             new[]
             {
+                "identity.api_keys.create",
+                "identity.api_keys.disable",
                 "identity.api_keys.read",
-                "identity.api_keys.write",
+                "identity.api_keys.rotate",
                 "identity.menus.create",
                 "identity.menus.disable",
                 "identity.menus.read",
@@ -203,6 +205,33 @@ public sealed class AuthorizationCatalogTests
             sessionActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == IdentitySessionManagementPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_api_keys_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "identity.api_keys.create",
+            ["disable"] = "identity.api_keys.disable",
+            ["rotate"] = "identity.api_keys.rotate",
+        };
+
+        var apiKeyActions = catalog.Actions
+            .Where(action => action.NavigationId == "api-keys")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            apiKeyActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == IdentityApiKeyManagementPermissions.Write));
     }
 
     [TestMethod]

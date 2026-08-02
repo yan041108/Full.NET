@@ -30,6 +30,10 @@ internal static class IdentityApiKeyAssertions
         await VerifyDelegatedManagerCannotExceedEffectivePermissionsAsync(
             client,
             cancellationToken);
+        await VerifyExactApiKeyActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiIdentityApiKeysContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -260,7 +264,8 @@ internal static class IdentityApiKeyAssertions
             adminToken,
             new ReplaceHostRolePermissionsRequest(
                 [
-                    IdentityApiKeyManagementPermissions.Write,
+                    IdentityApiKeyManagementPermissions.Create,
+                    IdentityApiKeyManagementPermissions.Read,
                     IdentityUserManagementPermissions.Read,
                     IdentityUserManagementPermissions.Create,
                 ],
@@ -307,7 +312,10 @@ internal static class IdentityApiKeyAssertions
             $"/api/v1/identity/roles/{role.Id:D}/permissions",
             adminToken,
             new ReplaceHostRolePermissionsRequest(
-                [IdentityApiKeyManagementPermissions.Write],
+                [
+                    IdentityApiKeyManagementPermissions.Create,
+                    IdentityApiKeyManagementPermissions.Read,
+                ],
                 grantedRole.Version));
         using var revokePermissionResponse = await client.SendAsync(
             revokePermissionRequest,
@@ -331,6 +339,138 @@ internal static class IdentityApiKeyAssertions
             await escalationResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
             CommonErrorCodes.PermissionDenied,
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyExactApiKeyActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var adminUserId = await ResolveAdminUserIdAsync(client, adminToken, cancellationToken);
+        var targetKey = await CreateApiKeyWithTokenAsync(
+            client,
+            adminToken,
+            adminUserId,
+            cancellationToken);
+        var disableTarget = await CreateApiKeyWithTokenAsync(
+            client,
+            adminToken,
+            adminUserId,
+            cancellationToken);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [IdentityApiKeyManagementPermissions.Read],
+            cancellationToken);
+        await AssertApiKeyPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/identity/api-keys",
+            cancellationToken);
+        await AssertApiKeyPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/api-keys/{targetKey.Key.Id:D}/disable",
+            cancellationToken);
+        await AssertApiKeyPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/api-keys/{targetKey.Key.Id:D}/rotate",
+            cancellationToken);
+
+        var createToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityApiKeyManagementPermissions.Read,
+                IdentityApiKeyManagementPermissions.Create,
+            ],
+            cancellationToken);
+        await AssertApiKeyPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/api-keys/{targetKey.Key.Id:D}/disable",
+            cancellationToken);
+        await AssertApiKeyPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/api-keys/{targetKey.Key.Id:D}/rotate",
+            cancellationToken);
+
+        var disableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityApiKeyManagementPermissions.Read,
+                IdentityApiKeyManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        using var disableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/api-keys/{disableTarget.Key.Id:D}/disable",
+            disableToken,
+            new { });
+        using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode);
+
+        await AssertApiKeyPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/api-keys/{targetKey.Key.Id:D}/rotate",
+            cancellationToken);
+    }
+
+    private static async Task<CreateHostApiKeyResponse> CreateApiKeyWithTokenAsync(
+        HttpClient client,
+        string accessToken,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/api-keys",
+            accessToken,
+            new CreateHostApiKeyRequest(
+                userId,
+                $"边界-{Guid.NewGuid():N}",
+                [IdentityUserManagementPermissions.Read],
+                null));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content
+            .ReadFromJsonAsync<CreateHostApiKeyResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+        return created;
+    }
+
+    private static async Task AssertApiKeyPermissionDeniedAsync(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        using var request = method == HttpMethod.Post
+            && path.EndsWith("/api/v1/identity/api-keys", StringComparison.Ordinal)
+            ? CreateBearerJsonRequest(
+                method,
+                path,
+                accessToken,
+                new CreateHostApiKeyRequest(
+                    Guid.Empty,
+                    "拒绝",
+                    [IdentityUserManagementPermissions.Read],
+                    null))
+            : CreateBearerJsonRequest(method, path, accessToken, new { });
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
             problem.RootElement.GetProperty("code").GetString());
     }
 

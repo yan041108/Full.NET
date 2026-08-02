@@ -38,6 +38,7 @@ describe('Layui Host API Key 控制器', () => {
       request,
       translation: () => ({ locale: 'zh-CN', t: key => key }),
       canWrite: () => true,
+      hasPermission: () => true,
       clipboard,
       confirm: async () => true
     });
@@ -104,12 +105,13 @@ describe('Layui Host API Key 控制器', () => {
         }]
       }),
       translation: () => ({ locale: 'zh-CN', t: key => key }),
-      canWrite: () => false
+      hasPermission: permission => permission === 'identity.api_keys.read',
+      getPermissions: () => ['identity.api_keys.read']
     });
 
     await controller.load();
 
-    expect(document.querySelector('[data-api-keys-disable]')).toBeNull();
+    expect(document.querySelector('[data-api-keys-disable]')?.hidden).toBe(true);
     controller.dispose();
   });
 
@@ -151,7 +153,8 @@ describe('Layui Host API Key 控制器', () => {
     const controller = createApiKeysController(document, {
       request,
       translation: () => ({ locale: 'zh-CN', t: key => key }),
-      canWrite: () => false
+      canWrite: () => false,
+      hasPermission: () => false,
     });
 
     await controller.load();

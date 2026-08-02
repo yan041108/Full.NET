@@ -60,7 +60,7 @@ internal static class Endpoint
                 $"/api/v1/identity/api-keys/{result.Value!.Key.Id:D}",
                 result.Value);
         })
-        .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Create);
 
         group.MapPost("/{apiKeyId:guid}/disable", async (
             Guid apiKeyId,
@@ -73,7 +73,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Disable);
 
         group.MapPost("/{apiKeyId:guid}/rotate", async (
             Guid apiKeyId,
@@ -91,7 +91,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Rotate);
     }
 
     private static Guid ResolveUserId(System.Security.Claims.ClaimsPrincipal principal) =>

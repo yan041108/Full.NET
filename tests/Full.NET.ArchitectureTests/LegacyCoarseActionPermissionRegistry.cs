@@ -14,6 +14,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         IdentityRoleFieldGrantPermissions.Write,
         IdentityMenuManagementPermissions.Write,
         IdentitySessionManagementPermissions.Write,
+        IdentityApiKeyManagementPermissions.Write,
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -30,9 +31,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/document/host/items/|document.host_documents.write",
         "POST /api/v1/files/host-files/{fileId:guid}/delete|files.files.write",
         "POST /api/v1/files/host-files/|files.files.write",
-        "POST /api/v1/identity/api-keys/{apiKeyId:guid}/disable|identity.api_keys.write",
-        "POST /api/v1/identity/api-keys/{apiKeyId:guid}/rotate|identity.api_keys.write",
-        "POST /api/v1/identity/api-keys/|identity.api_keys.write",
         "POST /api/v1/jobs/host-definitions/{definitionId:guid}/disable|jobs.definitions.write",
         "POST /api/v1/jobs/host-definitions/{definitionId:guid}/trigger|jobs.definitions.write",
         "POST /api/v1/jobs/host-definitions/|jobs.definitions.write",

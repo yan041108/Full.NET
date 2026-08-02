@@ -139,7 +139,8 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       root,
       {
         ...sharedOptions,
-        canWrite: options.canWrite
+        hasPermission: options.hasPermission,
+        getPermissions: options.getPermissions
       }
     )],
     ['/identity/modules', defineController(

@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "identity.api_keys.write",
+          "permission": "identity.api_keys.create",
           "successStatus": 201,
           "responseSchema": "CreateHostApiKeyResponse"
         }
@@ -25,7 +25,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "identity.api_keys.write",
+          "permission": "identity.api_keys.disable",
           "successStatus": 200,
           "responseSchema": "HostApiKeyResponse"
         }
@@ -36,7 +36,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "identity.api_keys.write",
+          "permission": "identity.api_keys.rotate",
           "successStatus": 200,
           "responseSchema": "CreateHostApiKeyResponse"
         }

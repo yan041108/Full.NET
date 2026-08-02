@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { ElButton, ElCard, ElMessage, ElMessageBox, ElTag } from 'element-plus';
 import type { FullNetProblemDetails, HostApiKey } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   createHostApiKey,
   disableHostApiKey,
@@ -23,7 +24,6 @@ const secret = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('identity.api_keys.write'));
 
 onMounted(load);
 
@@ -51,7 +51,7 @@ async function load(): Promise<void> {
 }
 
 async function create(): Promise<void> {
-  if (changing.value) return;
+  if (changing.value || !session.can('identity.api_keys.create')) return;
   const permissions = [...new Set(
     permissionsText.value
       .split(/[\n,]+/)
@@ -92,7 +92,7 @@ async function copySecret(): Promise<void> {
 }
 
 async function rotate(item: HostApiKey): Promise<void> {
-  if (changing.value || !item.isActive) return;
+  if (changing.value || !item.isActive || !session.can('identity.api_keys.rotate')) return;
   try {
     await ElMessageBox.confirm(
       t('apiKeys.confirmRotate', { name: item.displayName }),
@@ -119,7 +119,7 @@ async function rotate(item: HostApiKey): Promise<void> {
 }
 
 async function disable(item: HostApiKey): Promise<void> {
-  if (changing.value || !item.isActive) return;
+  if (changing.value || !item.isActive || !session.can('identity.api_keys.disable')) return;
   try {
     await ElMessageBox.confirm(
       t('apiKeys.confirmDisable', { name: item.displayName }),
@@ -167,49 +167,51 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <ElCard v-if="canWrite" class="art-card">
-      <template #header><h2>{{ t('apiKeys.createTitle') }}</h2></template>
-      <form
-        class="art-form-grid"
-        data-testid="api-key-create-form"
-        @submit.prevent="create"
-      >
-        <label>
-          <span>{{ t('apiKeys.fieldUserId') }}</span>
-          <input
-            v-model="userId"
-            data-testid="api-key-user-id"
-            required
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </label>
-        <label>
-          <span>{{ t('apiKeys.fieldDisplayName') }}</span>
-          <input v-model="displayName" data-testid="api-key-display-name" required />
-        </label>
-        <label class="art-span-2">
-          <span>{{ t('apiKeys.fieldPermissions') }}</span>
-          <textarea
-            v-model="permissionsText"
-            data-testid="api-key-permissions"
-            required
-            rows="3"
-            spellcheck="false"
-          />
-          <small>{{ t('apiKeys.permissionsHint') }}</small>
-        </label>
-        <label>
-          <span>{{ t('apiKeys.fieldExpiresAt') }}</span>
-          <input v-model="expiresAt" type="datetime-local" />
-        </label>
-        <div class="art-form-actions">
-          <ElButton type="primary" native-type="submit" :loading="changing">
-            {{ t('apiKeys.create') }}
-          </ElButton>
-        </div>
-      </form>
-    </ElCard>
+    <PermissionGate code="identity.api_keys.create">
+      <ElCard class="art-card">
+        <template #header><h2>{{ t('apiKeys.createTitle') }}</h2></template>
+        <form
+          class="art-form-grid"
+          data-testid="api-key-create-form"
+          @submit.prevent="create"
+        >
+          <label>
+            <span>{{ t('apiKeys.fieldUserId') }}</span>
+            <input
+              v-model="userId"
+              data-testid="api-key-user-id"
+              required
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+          <label>
+            <span>{{ t('apiKeys.fieldDisplayName') }}</span>
+            <input v-model="displayName" data-testid="api-key-display-name" required />
+          </label>
+          <label class="art-span-2">
+            <span>{{ t('apiKeys.fieldPermissions') }}</span>
+            <textarea
+              v-model="permissionsText"
+              data-testid="api-key-permissions"
+              required
+              rows="3"
+              spellcheck="false"
+            />
+            <small>{{ t('apiKeys.permissionsHint') }}</small>
+          </label>
+          <label>
+            <span>{{ t('apiKeys.fieldExpiresAt') }}</span>
+            <input v-model="expiresAt" type="datetime-local" />
+          </label>
+          <div class="art-form-actions">
+            <ElButton type="primary" native-type="submit" :loading="changing">
+              {{ t('apiKeys.create') }}
+            </ElButton>
+          </div>
+        </form>
+      </ElCard>
+    </PermissionGate>
 
     <ElCard v-if="secret" class="art-card" data-testid="api-key-secret">
       <template #header><h2>{{ t('apiKeys.secretTitle') }}</h2></template>
@@ -246,13 +248,17 @@ function toProblem(
             {{ item.isActive ? t('apiKeys.statusActive') : t('apiKeys.statusDisabled') }}
           </ElTag>
         </div>
-        <div v-if="canWrite && item.isActive" class="art-data-row__actions">
-          <ElButton plain :disabled="changing" @click="rotate(item)">
-            {{ t('apiKeys.rotate') }}
-          </ElButton>
-          <ElButton type="danger" plain :disabled="changing" @click="disable(item)">
-            {{ t('apiKeys.disable') }}
-          </ElButton>
+        <div v-if="item.isActive" class="art-data-row__actions">
+          <PermissionGate code="identity.api_keys.rotate">
+            <ElButton plain :disabled="changing" @click="rotate(item)">
+              {{ t('apiKeys.rotate') }}
+            </ElButton>
+          </PermissionGate>
+          <PermissionGate code="identity.api_keys.disable">
+            <ElButton type="danger" plain :disabled="changing" @click="disable(item)">
+              {{ t('apiKeys.disable') }}
+            </ElButton>
+          </PermissionGate>
         </div>
       </article>
     </ElCard>

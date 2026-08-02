@@ -6,7 +6,16 @@ public static class IdentityApiKeyManagementPermissions
     /// <summary>分页查询 Host API Key。</summary>
     public const string Read = "identity.api_keys.read";
 
-    /// <summary>创建、禁用与轮换 Host API Key。</summary>
+    /// <summary>创建 Host API Key。</summary>
+    public const string Create = "identity.api_keys.create";
+
+    /// <summary>禁用 Host API Key。</summary>
+    public const string Disable = "identity.api_keys.disable";
+
+    /// <summary>轮换 Host API Key。</summary>
+    public const string Rotate = "identity.api_keys.rotate";
+
+    /// <summary>迁移 059 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.api_keys.write";
 }
 
