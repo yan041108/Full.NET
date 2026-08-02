@@ -1,7 +1,7 @@
 # CodeGeneration 组织归属（OrganizationUnit）生成验证
 
 - 日期：2026-08-02
-- 代码基线：`main` @ `a6974b1`
+- 代码基线：`main` @ `848c20f`
 - 状态：**Build-verified**（双库 Integration 需 Docker/Testcontainers）
 - 设计：[`2026-08-02-codegeneration-organization-ownership-design.md`](../superpowers/specs/2026-08-02-codegeneration-organization-ownership-design.md)
 - 计划：[`2026-08-02-codegeneration-organization-ownership.md`](../superpowers/plans/2026-08-02-codegeneration-organization-ownership.md)
@@ -16,7 +16,7 @@
 | Host/Global 互斥 | `246613a` | Schema 层拒绝 `organization.unit` 与非租户作用域组合 |
 | CLI/预览互斥 | `c3a727d`–`e7db0ed` | JSON 加载、Preview Service 与 Integration API `invalid_schema` |
 | 场景 fail-closed | `cfae6d8` | Tree/关系 + `organization.unit` 仍拒绝可执行生成 |
-| E2E Schema 助手 | provisioner Node 测试 | `organization-owned-codegen-schema.test.mjs` |
+| E2E Schema 助手 | `848c20f` | `organization-owned-codegen-schema.test.mjs` provisioner |
 
 ## 验证矩阵
 
