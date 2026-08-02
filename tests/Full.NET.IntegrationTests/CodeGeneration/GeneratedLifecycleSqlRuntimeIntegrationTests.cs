@@ -41,4 +41,22 @@ public sealed class GeneratedLifecycleSqlRuntimeIntegrationTests
             static connectionString => new MySqlConnection(connectionString),
             sqlServer: false);
     }
+
+    [TestMethod]
+    public async Task SqlServer_generated_immutable_sql_executes_create_and_read_matrix()
+    {
+        await LifecycleRuntimeSqlTestSupport.AssertImmutableLifecycleMatrixAsync(
+            SharedDatabaseFixture.CreateSqlServerDatabaseAsync,
+            static connectionString => new SqlConnection(connectionString),
+            sqlServer: true);
+    }
+
+    [TestMethod]
+    public async Task MySql_generated_immutable_sql_executes_create_and_read_matrix()
+    {
+        await LifecycleRuntimeSqlTestSupport.AssertImmutableLifecycleMatrixAsync(
+            SharedDatabaseFixture.CreateMySqlDatabaseAsync,
+            static connectionString => new MySqlConnection(connectionString),
+            sqlServer: false);
+    }
 }

@@ -113,6 +113,47 @@ internal static class LifecycleRuntimeSqlTestSupport
                 new("Version", "Version", "version", FullNetScalarType.Int64),
             ]);
 
+    internal static FullNetCrudSchema CreateImmutableLifecycleSchema() =>
+        FullNetCrudSchema.CreateProject(
+            ownerKey: "acme",
+            moduleKey: "catalog",
+            entityKey: "product",
+            databaseTableName: "acme_catalog_product",
+            rootNamespace: "Acme.Modules.Catalog",
+            clrTypeName: "Product",
+            apiResourceName: "products",
+            permissionResourceName: "products",
+            FullNetCrudDataScope.TenantRequired,
+            new FullNetCrudEntityCapabilities(
+                FullNetCrudDeleteMode.Immutable,
+                HasCreatedAudit: true,
+                HasUpdatedAudit: false,
+                HasDeletedAudit: false,
+                HasVersion: false,
+                FullNetCrudOwnershipMode.None),
+            FullNetCrudScene.Single,
+            [],
+            [
+                new("Id", "Id", "id", FullNetScalarType.Uuid),
+                new("TenantId", "TenantId", "tenantId", FullNetScalarType.Uuid),
+                new(
+                    "Name",
+                    "Name",
+                    "displayName",
+                    FullNetScalarType.String,
+                    MaxLength: 200),
+                new(
+                    "CreatedAtUtc",
+                    "CreatedAtUtc",
+                    "createdAtUtc",
+                    FullNetScalarType.DateTimeUtc),
+                new(
+                    "CreatedById",
+                    "CreatedById",
+                    "createdById",
+                    FullNetScalarType.Uuid),
+            ]);
+
     internal static IReadOnlyList<GeneratedArtifact> GenerateArtifacts(
         FullNetCrudSchema schema) =>
         CrudArtifactGenerator.Generate(schema);
@@ -368,6 +409,69 @@ internal static class LifecycleRuntimeSqlTestSupport
                     TenantId = tenantId,
                     Version = 2L,
                 }));
+    }
+
+    internal static async Task AssertImmutableLifecycleMatrixAsync(
+        Func<Task<string>> createConnectionStringAsync,
+        Func<string, DbConnection> createConnection,
+        bool sqlServer)
+    {
+        var schema = CreateImmutableLifecycleSchema();
+        var artifacts = GenerateArtifacts(schema);
+        var sqlSource = artifacts
+            .Single(artifact =>
+                artifact.RelativePath.EndsWith(
+                    "ProductSql.g.cs",
+                    StringComparison.Ordinal))
+            .Content;
+        Assert.IsFalse(
+            sqlSource.Contains(
+                "public const string Update",
+                StringComparison.Ordinal));
+        Assert.IsFalse(
+            sqlSource.Contains(
+                "public const string Delete",
+                StringComparison.Ordinal));
+
+        var migrationSql = RequireMigrationSql(artifacts, sqlServer);
+        var insertSql = RequireSqlConstant(artifacts, "Insert");
+        var findByIdSql = RequireSqlConstant(artifacts, "FindById");
+
+        var connectionString = await createConnectionStringAsync();
+        await using var connection = createConnection(connectionString);
+        await connection.OpenAsync();
+        await connection.ExecuteAsync(migrationSql);
+
+        var tenantId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var entityId = Guid.NewGuid();
+        var createdAt = DateTimeOffset.UtcNow;
+
+        Assert.AreEqual(
+            1,
+            await connection.ExecuteAsync(
+                insertSql,
+                new
+                {
+                    Id = entityId,
+                    TenantId = tenantId,
+                    Name = "Immutable",
+                    CreatedAtUtc = createdAt,
+                    CreatedById = actorId,
+                }));
+
+        var row = await connection.QuerySingleAsync<ImmutableRow>(
+            findByIdSql,
+            new { Id = entityId, TenantId = tenantId });
+        Assert.AreEqual(entityId, row.Id);
+        Assert.AreEqual("Immutable", row.Name);
+    }
+
+    private sealed class ImmutableRow
+    {
+        public Guid Id { get; init; }
+
+        public string Name { get; init; } = string.Empty;
     }
 
     private sealed class LifecycleRow
