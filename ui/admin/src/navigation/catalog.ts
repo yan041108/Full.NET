@@ -102,6 +102,18 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.hostFiles.title',
     captionKey: 'navigation.hostFiles.caption'
   }],
+  ['host-document-items', {
+    titleKey: 'navigation.hostDocumentItems.title',
+    captionKey: 'navigation.hostDocumentItems.caption'
+  }],
+  ['document-categories', {
+    titleKey: 'navigation.documentCategories.title',
+    captionKey: 'navigation.documentCategories.caption'
+  }],
+  ['document-tags', {
+    titleKey: 'navigation.documentTags.title',
+    captionKey: 'navigation.documentTags.caption'
+  }],
   ['host-announcements', {
     titleKey: 'navigation.hostAnnouncements.title',
     captionKey: 'navigation.hostAnnouncements.caption'

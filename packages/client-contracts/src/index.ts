@@ -181,6 +181,47 @@ export type {
 } from './host-files.js';
 
 export {
+  isHostDocumentCategory,
+  isHostDocumentCategoryList
+} from './host-document-categories.js';
+
+export type {
+  CreateHostDocumentCategoryRequest,
+  DeleteHostDocumentCategoryRequest,
+  HostDocumentCategory,
+  UpdateHostDocumentCategoryRequest
+} from './host-document-categories.js';
+
+export {
+  isHostDocumentItem,
+  isHostDocumentItemPage,
+  isHostDocumentVersion
+} from './host-document-items.js';
+
+export type {
+  AddHostDocumentVersionRequest,
+  CreateHostDocumentItemRequest,
+  DeleteHostDocumentItemRequest,
+  HostDocumentItem,
+  HostDocumentItemPage,
+  HostDocumentVersion,
+  RestoreHostDocumentItemRequest,
+  UpdateHostDocumentItemRequest
+} from './host-document-items.js';
+
+export {
+  isHostDocumentTag,
+  isHostDocumentTagList
+} from './host-document-tags.js';
+
+export type {
+  CreateHostDocumentTagRequest,
+  DeleteHostDocumentTagRequest,
+  HostDocumentTag,
+  UpdateHostDocumentTagRequest
+} from './host-document-tags.js';
+
+export {
   isHostDashboardActivity,
   isHostDashboardSummary
 } from './platform-dashboard.js';

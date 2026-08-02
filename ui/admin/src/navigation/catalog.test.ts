@@ -71,5 +71,10 @@ describe('Vue 本地导航目录', () => {
       titleKey: 'navigation.codeGenerationPreviews.title',
       captionKey: 'navigation.codeGenerationPreviews.caption'
     });
+    expect(localNavigationFor('host-document-items')).toMatchObject({
+      path: '/document/host-items',
+      titleKey: 'navigation.hostDocumentItems.title',
+      captionKey: 'navigation.hostDocumentItems.caption'
+    });
   });
 });

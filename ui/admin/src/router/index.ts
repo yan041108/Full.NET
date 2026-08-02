@@ -125,6 +125,21 @@ export function createAppRouter(
         component: () => import('../views/HostFilesView.vue')
       },
       {
+        name: 'host-document-items',
+        path: '/document/host-items',
+        component: () => import('../views/HostDocumentItemsView.vue')
+      },
+      {
+        name: 'document-categories',
+        path: '/document/categories',
+        component: () => import('../views/DocumentCategoriesView.vue')
+      },
+      {
+        name: 'document-tags',
+        path: '/document/tags',
+        component: () => import('../views/DocumentTagsView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')
