@@ -84,7 +84,8 @@ export function initializeAdminApp(root = document, options = {}) {
         ?.includes('identity.api_keys.write') === true,
       canWriteTenantDictTypes: () => latestSnapshot.currentUser?.permissions
         ?.includes('settings.tenant_dict_types.write') === true,
-      getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null
+      getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null,
+      getPermissions: () => latestSnapshot.currentUser?.permissions ?? []
     }),
     isActive: route => latestSnapshot.state === 'authenticated'
       && currentRoute() === route

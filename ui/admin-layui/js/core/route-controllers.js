@@ -157,7 +157,8 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       root,
       {
         ...sharedOptions,
-        getTenantId: options.getTenantId
+        getTenantId: options.getTenantId,
+        getPermissions: options.getPermissions
       }
     )],
     ['/identity/menus', defineController(

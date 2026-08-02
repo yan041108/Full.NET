@@ -1,4 +1,5 @@
 import { HOST_ROLE_ASSIGNABLE_PERMISSIONS, ROLE_DATA_SCOPE_KINDS } from '@fullnet/client-contracts';
+import { applyPermissionVisibility } from './navigation.js';
 
 /**
  * 装配 Host 角色管理视图；系统角色只读，自定义角色支持权限替换。
@@ -20,6 +21,9 @@ export function createRolesController(root, options) {
           Array.isArray(page?.items) ? page.items : [],
           translation()
         );
+        if (typeof options.getPermissions === 'function') {
+          applyPermissionVisibility(root, options.getPermissions());
+        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -258,6 +262,7 @@ function renderDirectory(container, roles, translation) {
       const edit = container.ownerDocument.createElement('button');
       edit.type = 'button';
       edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      edit.dataset.permission = 'identity.roles.update';
       edit.dataset.rolesEdit = role.id;
       edit.dataset.version = String(role.version ?? 0);
       edit.dataset.name = role.name ?? '';
@@ -266,6 +271,7 @@ function renderDirectory(container, roles, translation) {
       const permissions = container.ownerDocument.createElement('button');
       permissions.type = 'button';
       permissions.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      permissions.dataset.permission = 'identity.roles.assign_permissions';
       permissions.dataset.rolesPermissions = role.id;
       permissions.dataset.version = String(role.version ?? 0);
       permissions.dataset.permissionCodes = (role.permissionCodes ?? []).join(',');
@@ -274,6 +280,7 @@ function renderDirectory(container, roles, translation) {
       const dataScope = container.ownerDocument.createElement('button');
       dataScope.type = 'button';
       dataScope.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      dataScope.dataset.permission = 'identity.roles.assign_data_scope';
       dataScope.dataset.rolesDataScope = role.id;
       dataScope.dataset.version = String(role.version ?? 0);
       dataScope.textContent = translation.t('roles.dataScope');
@@ -281,6 +288,7 @@ function renderDirectory(container, roles, translation) {
       const fieldGrants = container.ownerDocument.createElement('button');
       fieldGrants.type = 'button';
       fieldGrants.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      fieldGrants.dataset.permission = 'identity.role_field_grants.read';
       fieldGrants.dataset.rolesFieldGrants = role.id;
       fieldGrants.textContent = translation.t('roles.fieldGrants');
       actions.append(fieldGrants);
@@ -289,6 +297,7 @@ function renderDirectory(container, roles, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
+      disable.dataset.permission = 'identity.roles.disable';
       disable.dataset.rolesDisable = role.id;
       disable.dataset.code = role.code;
       disable.textContent = translation.t('roles.disable');

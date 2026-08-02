@@ -3,14 +3,15 @@
 - 日期：2026-08-02
 - 权威设计：[Vue 页面/操作精确授权](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)
 - 实施计划：[Identity Users 样板](../superpowers/plans/2026-08-02-vue-action-authorization.md)
-- 架构门禁：`LegacyCoarseActionPermissionRegistry` + `EndpointAuthorizationTests`（冻结全部现存 `.write` Endpoint 绑定；禁止 `identity.users.write`）
+- 架构门禁：`LegacyCoarseActionPermissionRegistry` + `EndpointAuthorizationTests`（冻结全部现存 `.write` Endpoint 绑定；禁止 `identity.users.write` 与 `identity.roles.write`）
 
 ## 波次
 
 | 波次 | 模块 | 状态 | 计划 |
 | --- | --- | --- | --- |
 | W0 | Identity Users | **已完成** | 迁移 054；见[验证记录](../verification/vue-action-authorization-2026-08-02.md) |
-| W1 | Identity（Roles/Menus/Sessions/API Key/Field Grants） | 待排期 | 独立纵向切片 |
+| W1 | Identity Roles | **已完成** | 迁移 055；见[验证记录](../verification/vue-action-authorization-roles-2026-08-02.md) |
+| W1 | Identity（Menus/Sessions/API Key/Field Grants） | 待排期 | 独立纵向切片 |
 | W2 | Tenancy + Organization | 待排期 | 租户/套餐/机构树等 |
 | W3 | Settings + Auditing | 待排期 | 字典/配置/诊断策略/日志只读页 |
 | W4 | Files + Notifications + Jobs + CodeGeneration | 待排期 | 含 `jobs.schedules.write` |
@@ -27,7 +28,18 @@
 | `UsersView.vue` | 重置密码 | ~~`identity.users.write`~~ | `identity.users.reset_password` | 054 |
 | `UsersView.vue` | 禁用/启用 | ~~`identity.users.write`~~ | `identity.users.disable` / `enable` | 054 |
 | `UsersView.vue` | 导出 | ~~`identity.users.write`~~ | `identity.users.export` | 054 |
-| `RolesView.vue` | 权限树 | `identity.roles.write`（粗粒度门控） | `identity.roles.assign_permissions` 等 | W1 |
+
+## W1：Identity Roles（已完成）
+
+| 组件 | 操作 | 目标权限 | 迁移 |
+| --- | --- | --- | --- |
+| `RolesView.vue` / Layui `roles.js` | 页面 | `identity.roles.read` | 无 |
+| `RolesView.vue` / Layui | 创建 | `identity.roles.create` | 055 |
+| `RolesView.vue` / Layui | 编辑 | `identity.roles.update` | 055 |
+| `RolesView.vue` / Layui | 权限树 | `identity.roles.assign_permissions` | 055 |
+| `RolesView.vue` / Layui | 数据范围 | `identity.roles.assign_data_scope` | 055 |
+| `RolesView.vue` / Layui | 禁用 | `identity.roles.disable` | 055 |
+| `RolesView.vue` | 字段授权 | `identity.role_field_grants.read` / `write` | 待 Field Grants 切片 |
 
 ## W1–W5：粗粒度 `.write` 仍绑定 Endpoint（冻结清单）
 
@@ -35,8 +47,7 @@
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `identity.roles.write` | `RolesView.vue` | W1 |
-| `identity.role_field_grants.write` | `RolesView.vue` | W1 |
+| `identity.role_field_grants.write` | `RolesView.vue` | W1（Field Grants 子切片） |
 | `identity.menus.write` | `MenusView.vue` | W1 |
 | `identity.sessions.write` | `OnlineSessionsView.vue` | W1 |
 | `identity.api_keys.write` | `ApiKeysView.vue` | W1 |
@@ -64,6 +75,7 @@
 | 权限码 | 状态 |
 | --- | --- |
 | `identity.users.write` | **已退役**：不可分配、不可出现在 Endpoint；由 054 展开为精确动作权限 |
+| `identity.roles.write` | **已退役**：不可分配、不可出现在 Endpoint；由 055 展开为精确动作权限 |
 
 ## 本地 UI（无需权限码）
 

@@ -4,7 +4,7 @@ import { createRolesController } from '../js/core/roles.js';
 describe('Layui Host 角色控制器', () => {
   it('加载目录并提交创建表单', async () => {
     document.body.innerHTML = `
-      <form data-roles-create-form>
+      <form data-roles-create-form data-permission="identity.roles.create">
         <input name="code">
         <input name="name">
       </form>
@@ -66,6 +66,10 @@ describe('Layui Host 角色控制器', () => {
 
     await controller.load();
     expect(document.querySelector('[data-roles-directory] code')?.textContent).toBe('support');
+    expect(document.querySelector('[data-roles-create-form]')?.dataset.permission)
+      .toBe('identity.roles.create');
+    expect(document.querySelector('[data-roles-edit]')?.dataset.permission)
+      .toBe('identity.roles.update');
 
     document.querySelector('[data-roles-create-form]')
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
