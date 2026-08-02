@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -11,11 +11,13 @@ import {
   ElMessageBox,
   ElOption,
   ElSelect,
-  ElTag
+  ElTag,
+  ElTree
 } from 'element-plus';
+import type { TreeInstance, TreeKey } from 'element-plus';
 import {
-  HOST_ROLE_ASSIGNABLE_PERMISSIONS,
   ROLE_DATA_SCOPE_KINDS,
+  type AuthorizationTreePage,
   type FieldProjectionFieldDefinition,
   type FullNetProblemDetails,
   type HostRole,
@@ -24,10 +26,19 @@ import {
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
+import {
+  applyPermissionNodeCheck,
+  buildPermissionTreeNodes,
+  collectCatalogPermissionCodes,
+  findUnknownPermissionCodes,
+  permissionCodesToCheckedNodeIds,
+  type PermissionTreeNode
+} from '../auth/authorization-tree-selection';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createHostRole,
   disableHostRole,
+  getAuthorizationTree,
   getFieldProjectionCatalog,
   getHostRoleDataScope,
   getHostRoleFieldGrants,
@@ -51,7 +62,10 @@ const permissionsVisible = ref(false);
 const dataScopeVisible = ref(false);
 const fieldGrantsVisible = ref(false);
 const editingRole = ref<HostRole>();
+const permissionTreeNodes = ref<PermissionTreeNode[]>([]);
 const selectedPermissions = ref<string[]>([]);
+const unknownPermissions = ref<string[]>([]);
+const permissionTreeRef = ref<TreeInstance>();
 const selectedDataScopeKind = ref<RoleDataScopeKind>('identity.data_scope.all');
 const selectedUnitIds = ref<string[]>([]);
 const dataScopeVersion = ref(0);
@@ -61,8 +75,8 @@ const assignableFields = ref<FieldProjectionFieldDefinition[]>([]);
 const selectedFieldKeys = ref<string[]>([]);
 const orgUnits = ref<OrganizationUnit[]>([]);
 const dataScopeKinds = ROLE_DATA_SCOPE_KINDS;
-const assignablePermissions = HOST_ROLE_ASSIGNABLE_PERMISSIONS;
 const canWrite = computed(() => session.can('identity.roles.write'));
+const canSavePermissions = computed(() => unknownPermissions.value.length === 0);
 const canReadFieldGrants = computed(() => session.can('identity.role_field_grants.read'));
 const canWriteFieldGrants = computed(() => session.can('identity.role_field_grants.write'));
 const inTenantContext = computed(() => !!session.currentUser?.tenantId);
@@ -125,16 +139,49 @@ async function edit(role: HostRole): Promise<void> {
   }
 }
 
-function openPermissions(role: HostRole): void {
-  if (role.isSystem) return;
-  editingRole.value = role;
-  selectedPermissions.value = [...role.permissionCodes];
-  permissionsVisible.value = true;
+async function openPermissions(role: HostRole): Promise<void> {
+  if (role.isSystem || changing.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const pages = await getAuthorizationTree();
+    permissionTreeNodes.value = buildPermissionTreeNodes(pages);
+    const catalog = collectCatalogPermissionCodes(pages);
+    selectedPermissions.value = [...role.permissionCodes];
+    unknownPermissions.value = findUnknownPermissionCodes(role.permissionCodes, catalog);
+    editingRole.value = role;
+    permissionsVisible.value = true;
+    await nextTick();
+    syncPermissionTreeChecks();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'roles.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+function syncPermissionTreeChecks(): void {
+  const checkedNodeIds = permissionCodesToCheckedNodeIds(
+    new Set(selectedPermissions.value),
+    permissionTreeNodes.value
+  );
+  permissionTreeRef.value?.setCheckedKeys(checkedNodeIds, false);
+}
+
+function onPermissionTreeCheck(
+  node: PermissionTreeNode,
+  state: { checkedKeys: TreeKey[] }
+): void {
+  const checked = state.checkedKeys.map(String).includes(node.id);
+  selectedPermissions.value = [
+    ...applyPermissionNodeCheck(new Set(selectedPermissions.value), node, checked)
+  ];
+  void nextTick(() => syncPermissionTreeChecks());
 }
 
 async function savePermissions(): Promise<void> {
   const role = editingRole.value;
-  if (!role || changing.value) return;
+  if (!role || changing.value || !canSavePermissions.value) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -354,7 +401,13 @@ function toProblem(
           <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="edit(role)">
             {{ t('roles.edit') }}
           </el-button>
-          <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="openPermissions(role)">
+          <el-button
+            v-if="canWrite && !role.isSystem"
+            plain
+            :disabled="changing"
+            data-testid="role-open-permissions"
+            @click="openPermissions(role)"
+          >
             {{ t('roles.permissions') }}
           </el-button>
           <el-button v-if="canWrite && !role.isSystem" plain :disabled="changing" @click="openDataScope(role)">
@@ -376,15 +429,34 @@ function toProblem(
       </article>
     </el-card>
 
-    <el-dialog v-model="permissionsVisible" :title="t('roles.permissionsTitle')" width="520px">
-      <el-checkbox-group v-model="selectedPermissions" class="art-dialog-grid">
-        <el-checkbox v-for="permission in assignablePermissions" :key="permission" :label="permission" translate="no">
-          {{ permission }}
-        </el-checkbox>
-      </el-checkbox-group>
+    <el-dialog v-model="permissionsVisible" :title="t('roles.permissionsTitle')" width="560px">
+      <p v-if="unknownPermissions.length > 0" class="art-inline-alert" role="alert" data-testid="role-unknown-permissions">
+        <strong>{{ t('roles.unknownPermissionsTitle') }}</strong>
+        <span>{{ t('roles.unknownPermissionsHint') }}</span>
+        <code v-for="permission in unknownPermissions" :key="permission" translate="no">{{ permission }}</code>
+      </p>
+      <el-tree
+        ref="permissionTreeRef"
+        data-testid="role-permission-tree"
+        :data="permissionTreeNodes"
+        node-key="id"
+        show-checkbox
+        check-strictly
+        default-expand-all
+        :props="{ label: 'label', children: 'children' }"
+        @check="onPermissionTreeCheck"
+      />
       <template #footer>
         <el-button @click="permissionsVisible = false">{{ t('status.back') }}</el-button>
-        <el-button type="primary" :loading="changing" @click="savePermissions">{{ t('roles.savePermissions') }}</el-button>
+        <el-button
+          data-testid="role-save-permissions"
+          type="primary"
+          :loading="changing"
+          :disabled="!canSavePermissions"
+          @click="savePermissions"
+        >
+          {{ t('roles.savePermissions') }}
+        </el-button>
       </template>
     </el-dialog>
 

@@ -1,0 +1,155 @@
+import type {
+  AuthorizationTreeAction,
+  AuthorizationTreePage
+} from '@fullnet/client-contracts';
+
+/** Element Plus 树节点，仅承载目录展示与权限码映射。 */
+export interface PermissionTreeNode {
+  id: string;
+  label: string;
+  permissionCode: string;
+  kind: 'page' | 'action';
+  pagePermissionCode?: string;
+  children?: PermissionTreeNode[];
+}
+
+/** 将服务端授权树投影为本地树节点。 */
+export function buildPermissionTreeNodes(
+  pages: readonly AuthorizationTreePage[]
+): PermissionTreeNode[] {
+  return pages.map(page => projectPageNode(page));
+}
+
+/** 收集授权树中的全部已知权限码。 */
+export function collectCatalogPermissionCodes(
+  pages: readonly AuthorizationTreePage[]
+): Set<string> {
+  const codes = new Set<string>();
+  for (const page of pages) {
+    collectPagePermissionCodes(page, codes);
+  }
+
+  return codes;
+}
+
+/** 返回角色已存但当前目录未知的权限码。 */
+export function findUnknownPermissionCodes(
+  permissionCodes: readonly string[],
+  catalog: ReadonlySet<string>
+): string[] {
+  return permissionCodes.filter(code => !catalog.has(code));
+}
+
+/** 按页面/操作父子规则更新精确权限集合。 */
+export function applyPermissionNodeCheck(
+  selected: ReadonlySet<string>,
+  node: PermissionTreeNode,
+  checked: boolean
+): Set<string> {
+  const next = new Set(selected);
+  if (node.kind === 'action') {
+    if (checked) {
+      next.add(node.permissionCode);
+      if (node.pagePermissionCode) {
+        next.add(node.pagePermissionCode);
+      }
+    } else {
+      next.delete(node.permissionCode);
+    }
+
+    return next;
+  }
+
+  if (checked) {
+    next.add(node.permissionCode);
+    return next;
+  }
+
+  next.delete(node.permissionCode);
+  for (const code of collectSubtreePermissionCodes(node)) {
+    next.delete(code);
+  }
+
+  return next;
+}
+
+/** 将精确权限集合映射为树节点勾选键。 */
+export function permissionCodesToCheckedNodeIds(
+  selected: ReadonlySet<string>,
+  nodes: readonly PermissionTreeNode[]
+): string[] {
+  const checked: string[] = [];
+  for (const node of flattenPermissionTreeNodes(nodes)) {
+    if (selected.has(node.permissionCode)) {
+      checked.push(node.id);
+    }
+  }
+
+  return checked;
+}
+
+export function flattenPermissionTreeNodes(
+  nodes: readonly PermissionTreeNode[]
+): PermissionTreeNode[] {
+  const flattened: PermissionTreeNode[] = [];
+  for (const node of nodes) {
+    flattened.push(node);
+    if (node.children?.length) {
+      flattened.push(...flattenPermissionTreeNodes(node.children));
+    }
+  }
+
+  return flattened;
+}
+
+function projectPageNode(page: AuthorizationTreePage): PermissionTreeNode {
+  const children: PermissionTreeNode[] = [
+    ...page.actions.map(action => projectActionNode(page.permissionCode, action)),
+    ...buildPermissionTreeNodes(page.children)
+  ];
+
+  return {
+    id: `page:${page.id}`,
+    label: page.title,
+    permissionCode: page.permissionCode,
+    kind: 'page',
+    children: children.length > 0 ? children : undefined
+  };
+}
+
+function projectActionNode(
+  pagePermissionCode: string,
+  action: AuthorizationTreeAction
+): PermissionTreeNode {
+  return {
+    id: `action:${action.id}`,
+    label: action.name,
+    permissionCode: action.permissionCode,
+    kind: 'action',
+    pagePermissionCode
+  };
+}
+
+function collectPagePermissionCodes(
+  page: AuthorizationTreePage,
+  codes: Set<string>
+): void {
+  codes.add(page.permissionCode);
+  for (const action of page.actions) {
+    codes.add(action.permissionCode);
+  }
+
+  for (const child of page.children) {
+    collectPagePermissionCodes(child, codes);
+  }
+}
+
+function collectSubtreePermissionCodes(node: PermissionTreeNode): string[] {
+  const codes: string[] = [];
+  for (const child of node.children ?? []) {
+    codes.push(child.permissionCode);
+    codes.push(...collectSubtreePermissionCodes(child));
+  }
+
+  return codes;
+}
