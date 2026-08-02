@@ -71,7 +71,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<HostJobDefinitionResponse>(StatusCodes.Status201Created)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsWrite));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsCreate));
 
         group.MapPut("/{definitionId:guid}", async (
             Guid definitionId,
@@ -95,7 +95,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostJobDefinitionResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsWrite));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsUpdate));
 
         group.MapPost("/{definitionId:guid}/disable", async (
             Guid definitionId,
@@ -119,7 +119,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostJobDefinitionResponse>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsWrite));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsDisable));
 
         group.MapPost("/{definitionId:guid}/trigger", async (
             Guid definitionId,
@@ -140,7 +140,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<HostJobExecutionResponse>(StatusCodes.Status201Created)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsWrite));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsTrigger));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

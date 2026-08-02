@@ -4,7 +4,13 @@ public static class HostJobPermissions
 {
     public const string DefinitionsRead = "jobs.definitions.read";
 
-    public const string DefinitionsWrite = "jobs.definitions.write";
+    public const string DefinitionsCreate = "jobs.definitions.create";
+
+    public const string DefinitionsUpdate = "jobs.definitions.update";
+
+    public const string DefinitionsDisable = "jobs.definitions.disable";
+
+    public const string DefinitionsTrigger = "jobs.definitions.trigger";
 
     public const string ExecutionsRead = "jobs.executions.read";
 

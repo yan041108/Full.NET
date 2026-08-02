@@ -30,6 +30,16 @@ async function loadContract() {
   return JSON.parse(await readFile(contractPath, 'utf8'));
 }
 
+function isValidJobsPermission(permission) {
+  if (/^jobs\.definitions\.(read|create|update|disable|trigger)$/u.test(permission)) {
+    return true;
+  }
+  if (permission === 'jobs.executions.read') {
+    return true;
+  }
+  return /^jobs\.schedules\.(read|write)$/u.test(permission);
+}
+
 test('Host 任务 OpenAPI 夹具结构完整且路径唯一', async () => {
   const contract = await loadContract();
   assert.equal(contract.id, 'jobs-host-definitions-v1');
@@ -45,10 +55,7 @@ test('Host 任务 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(
-        operation.permission,
-        /^jobs\.(definitions|executions|schedules)\.(read|write)$/u
-      );
+      assert.ok(isValidJobsPermission(operation.permission), `非法权限码：${operation.permission}`);
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
       }
@@ -68,7 +75,10 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
 
   for (const permission of [
     'jobs.definitions.read',
-    'jobs.definitions.write',
+    'jobs.definitions.create',
+    'jobs.definitions.update',
+    'jobs.definitions.disable',
+    'jobs.definitions.trigger',
     'jobs.executions.read',
     'jobs.schedules.read',
     'jobs.schedules.write'

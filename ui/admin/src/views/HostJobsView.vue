@@ -14,6 +14,7 @@ import type { FullNetProblemDetails, HostJobDefinition, HostJobExecution } from 
 import { isFullNetProblemDetails, JOBS_WELL_KNOWN_KEYS } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   createHostJobDefinition,
   disableHostJobDefinition,
@@ -35,8 +36,14 @@ const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const editingId = ref<string>();
 const selectedDefinitionId = ref<string>();
-const canWrite = computed(() => session.can('jobs.definitions.write'));
+const canCreate = computed(() => session.can('jobs.definitions.create'));
+const canUpdate = computed(() => session.can('jobs.definitions.update'));
+const canDisable = computed(() => session.can('jobs.definitions.disable'));
+const canTrigger = computed(() => session.can('jobs.definitions.trigger'));
 const canReadExecutions = computed(() => session.can('jobs.executions.read'));
+const showForm = computed(() =>
+  editingId.value ? canUpdate.value : canCreate.value
+);
 
 onMounted(load);
 
@@ -63,7 +70,7 @@ async function loadExecutions(definitionId: string): Promise<void> {
 }
 
 async function create(): Promise<void> {
-  if (changing.value || !displayName.value.trim()) {
+  if (changing.value || !canCreate.value || !displayName.value.trim()) {
     return;
   }
   changing.value = true;
@@ -102,7 +109,7 @@ function cancelEdit(): void {
 
 async function saveEdit(): Promise<void> {
   const item = definitions.value.find(entry => entry.id === editingId.value);
-  if (!item || changing.value) {
+  if (!item || changing.value || !canUpdate.value) {
     return;
   }
   changing.value = true;
@@ -125,7 +132,7 @@ async function saveEdit(): Promise<void> {
 }
 
 async function trigger(item: HostJobDefinition): Promise<void> {
-  if (changing.value || !item.isEnabled) {
+  if (changing.value || !item.isEnabled || !canTrigger.value) {
     return;
   }
   changing.value = true;
@@ -145,7 +152,7 @@ async function trigger(item: HostJobDefinition): Promise<void> {
 }
 
 async function disable(item: HostJobDefinition): Promise<void> {
-  if (changing.value || !item.isEnabled) {
+  if (changing.value || !item.isEnabled || !canDisable.value) {
     return;
   }
   try {
@@ -196,28 +203,28 @@ function toProblem(
       <p>{{ t('hostJobs.description') }}</p>
     </header>
 
-    <ElCard v-if="canWrite" class="art-card">
+    <ElCard v-if="showForm" class="art-card">
       <template #header>
         <h2>{{ editingId ? t('hostJobs.editTitle') : t('hostJobs.createTitle') }}</h2>
       </template>
       <form class="art-form-grid" @submit.prevent="editingId ? saveEdit() : create()">
         <label v-if="!editingId">
           <span>{{ t('hostJobs.fieldJobKey') }}</span>
-          <ElSelect v-model="jobKey" :disabled="changing">
+          <ElSelect v-model="jobKey" :disabled="changing" data-testid="host-jobs-job-key">
             <ElOption :label="JOBS_WELL_KNOWN_KEYS.ping" :value="JOBS_WELL_KNOWN_KEYS.ping" />
           </ElSelect>
         </label>
         <label>
           <span>{{ t('hostJobs.fieldDisplayName') }}</span>
-          <ElInput v-model="displayName" :disabled="changing" />
+          <ElInput v-model="displayName" :disabled="changing" data-testid="host-jobs-display-name" />
         </label>
         <label class="art-span-2">
           <span>{{ t('hostJobs.fieldDescription') }}</span>
-          <ElInput v-model="description" type="textarea" :rows="3" :disabled="changing" />
+          <ElInput v-model="description" type="textarea" :rows="3" :disabled="changing" data-testid="host-jobs-description" />
         </label>
         <div class="art-form-actions">
           <ElButton v-if="editingId" @click="cancelEdit">{{ t('hostJobs.cancel') }}</ElButton>
-          <ElButton type="primary" native-type="submit" :loading="changing">
+          <ElButton type="primary" native-type="submit" data-testid="host-jobs-submit" :loading="changing">
             {{ editingId ? t('hostJobs.save') : t('hostJobs.create') }}
           </ElButton>
         </div>
@@ -238,10 +245,22 @@ function toProblem(
               {{ item.isEnabled ? t('hostJobs.statusEnabled') : t('hostJobs.statusDisabled') }}
             </ElTag>
           </div>
-          <div class="art-list-actions" v-if="canWrite && item.isEnabled">
-            <ElButton size="small" @click="startEdit(item)">{{ t('hostJobs.edit') }}</ElButton>
-            <ElButton size="small" type="primary" @click="trigger(item)">{{ t('hostJobs.trigger') }}</ElButton>
-            <ElButton size="small" type="danger" @click="disable(item)">{{ t('hostJobs.disable') }}</ElButton>
+          <div v-if="item.isEnabled" class="art-list-actions">
+            <PermissionGate code="jobs.definitions.update">
+              <ElButton size="small" data-testid="host-jobs-edit" @click="startEdit(item)">
+                {{ t('hostJobs.edit') }}
+              </ElButton>
+            </PermissionGate>
+            <PermissionGate code="jobs.definitions.trigger">
+              <ElButton size="small" type="primary" data-testid="host-jobs-trigger" @click="trigger(item)">
+                {{ t('hostJobs.trigger') }}
+              </ElButton>
+            </PermissionGate>
+            <PermissionGate code="jobs.definitions.disable">
+              <ElButton size="small" type="danger" data-testid="host-jobs-disable" @click="disable(item)">
+                {{ t('hostJobs.disable') }}
+              </ElButton>
+            </PermissionGate>
           </div>
           <ElButton
             v-if="canReadExecutions"

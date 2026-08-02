@@ -31,6 +31,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         "files.files.write",
         "notifications.announcements.write",
         "notifications.inbox.write",
+        "jobs.definitions.write",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -43,9 +44,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/code-generation/templates/|codegen.templates.write",
         "POST /api/v1/document/host/items/{itemId:guid}/versions|document.host_documents.write",
         "POST /api/v1/document/host/items/|document.host_documents.write",
-        "POST /api/v1/jobs/host-definitions/{definitionId:guid}/disable|jobs.definitions.write",
-        "POST /api/v1/jobs/host-definitions/{definitionId:guid}/trigger|jobs.definitions.write",
-        "POST /api/v1/jobs/host-definitions/|jobs.definitions.write",
         "POST /api/v1/jobs/host-schedules/{scheduleId:guid}/pause|jobs.schedules.write",
         "POST /api/v1/jobs/host-schedules/{scheduleId:guid}/resume|jobs.schedules.write",
         "POST /api/v1/jobs/host-schedules/|jobs.schedules.write",
@@ -54,7 +52,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/serial-numbers/rules/|serial_numbers.rules.write",
         "PUT /api/v1/code-generation/templates/{templateId:guid}|codegen.templates.write",
         "PUT /api/v1/document/host/items/{itemId:guid}|document.host_documents.write",
-        "PUT /api/v1/jobs/host-definitions/{definitionId:guid}|jobs.definitions.write",
         "PUT /api/v1/jobs/host-schedules/{scheduleId:guid}|jobs.schedules.write",
         "PUT /api/v1/serial-numbers/rules/{ruleId:guid}|serial_numbers.rules.write",
     };

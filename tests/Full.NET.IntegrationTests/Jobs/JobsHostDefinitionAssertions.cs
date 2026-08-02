@@ -28,6 +28,11 @@ internal static class JobsHostDefinitionAssertions
         var definition = await VerifyCreateTriggerAndExecutionLifecycleAsync(
             client,
             cancellationToken);
+        definition = await VerifyExactJobDefinitionActionPermissionBoundariesAsync(
+            factory,
+            client,
+            definition,
+            cancellationToken);
         await JobsMultiWorkerClaimAssertions.VerifyAsync(
             factory,
             definition.Id,
@@ -164,6 +169,209 @@ internal static class JobsHostDefinitionAssertions
             invalidKeyProblem.RootElement.GetProperty("code").GetString());
 
         return updated;
+    }
+
+    private static async Task<HostJobDefinitionResponse> VerifyExactJobDefinitionActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        HostJobDefinitionResponse definition,
+        CancellationToken cancellationToken)
+    {
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [HostJobPermissions.DefinitionsRead],
+            cancellationToken);
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/jobs/host-definitions?page=1&pageSize=20");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            readOnlyToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/jobs/host-definitions",
+            cancellationToken,
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "拒绝", null));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}",
+            cancellationToken,
+            new UpdateHostJobDefinitionRequest("拒绝", null, definition.Version));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/disable",
+            cancellationToken,
+            new DisableHostJobDefinitionRequest(definition.Version));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/trigger",
+            cancellationToken,
+            new { });
+
+        var createOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostJobPermissions.DefinitionsRead,
+                HostJobPermissions.DefinitionsCreate,
+            ],
+            cancellationToken);
+        using var createOnlyRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/jobs/host-definitions",
+            createOnlyToken,
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "重复键", null));
+        using var createOnlyResponse = await client.SendAsync(createOnlyRequest, cancellationToken);
+        Assert.AreNotEqual(HttpStatusCode.Forbidden, createOnlyResponse.StatusCode);
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            createOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}",
+            cancellationToken,
+            new UpdateHostJobDefinitionRequest("拒绝", null, definition.Version));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            createOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/trigger",
+            cancellationToken,
+            new { });
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            createOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/disable",
+            cancellationToken,
+            new DisableHostJobDefinitionRequest(definition.Version));
+
+        var updateOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostJobPermissions.DefinitionsRead,
+                HostJobPermissions.DefinitionsUpdate,
+            ],
+            cancellationToken);
+        using var updateOnlyRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}",
+            updateOnlyToken,
+            new UpdateHostJobDefinitionRequest("边界更新", "正文", definition.Version));
+        using var updateOnlyResponse = await client.SendAsync(updateOnlyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updateOnlyResponse.StatusCode);
+        var updated = await updateOnlyResponse.Content.ReadFromJsonAsync<HostJobDefinitionResponse>(
+            cancellationToken);
+        Assert.IsNotNull(updated);
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            updateOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/jobs/host-definitions",
+            cancellationToken,
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "拒绝", null));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            updateOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/trigger",
+            cancellationToken,
+            new { });
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            updateOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/disable",
+            cancellationToken,
+            new DisableHostJobDefinitionRequest(updated.Version));
+
+        var triggerOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostJobPermissions.DefinitionsRead,
+                HostJobPermissions.DefinitionsTrigger,
+            ],
+            cancellationToken);
+        using var triggerOnlyRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/trigger",
+            triggerOnlyToken,
+            new { });
+        using var triggerOnlyResponse = await client.SendAsync(triggerOnlyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, triggerOnlyResponse.StatusCode);
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            triggerOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/jobs/host-definitions",
+            cancellationToken,
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "拒绝", null));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            triggerOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}",
+            cancellationToken,
+            new UpdateHostJobDefinitionRequest("拒绝", null, updated.Version));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            triggerOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/disable",
+            cancellationToken,
+            new DisableHostJobDefinitionRequest(updated.Version));
+
+        var disableOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostJobPermissions.DefinitionsRead,
+                HostJobPermissions.DefinitionsDisable,
+            ],
+            cancellationToken);
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            disableOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/jobs/host-definitions",
+            cancellationToken,
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "拒绝", null));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            disableOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}",
+            cancellationToken,
+            new UpdateHostJobDefinitionRequest("拒绝", null, updated.Version));
+        await AssertJobDefinitionPermissionDeniedAsync(
+            client,
+            disableOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{definition.Id:D}/trigger",
+            cancellationToken,
+            new { });
+
+        return updated;
+    }
+
+    private static async Task AssertJobDefinitionPermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        TRequest body)
+    {
+        using var request = CreateBearerJsonRequest(method, path, accessToken, body);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task VerifyDisableAsync(

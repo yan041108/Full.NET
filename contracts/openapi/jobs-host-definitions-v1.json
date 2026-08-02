@@ -1,6 +1,6 @@
 {
   "id": "jobs-host-definitions-v1",
-  "version": 1,
+  "version": 2,
   "description": "Host 任务定义与执行 HTTP 契约冻结夹具；与 Jobs 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {
@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "jobs.definitions.write",
+          "permission": "jobs.definitions.create",
           "successStatus": 201,
           "requestSchema": "CreateHostJobDefinitionRequest",
           "responseSchema": "HostJobDefinitionResponse"
@@ -32,7 +32,7 @@
         },
         {
           "method": "PUT",
-          "permission": "jobs.definitions.write",
+          "permission": "jobs.definitions.update",
           "successStatus": 200,
           "requestSchema": "UpdateHostJobDefinitionRequest",
           "responseSchema": "HostJobDefinitionResponse"
@@ -44,7 +44,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "jobs.definitions.write",
+          "permission": "jobs.definitions.disable",
           "successStatus": 200,
           "requestSchema": "DisableHostJobDefinitionRequest",
           "responseSchema": "HostJobDefinitionResponse"
@@ -56,7 +56,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "jobs.definitions.write",
+          "permission": "jobs.definitions.trigger",
           "successStatus": 201,
           "responseSchema": "HostJobExecutionResponse"
         }

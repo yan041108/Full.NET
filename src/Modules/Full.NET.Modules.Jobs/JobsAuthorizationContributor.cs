@@ -15,8 +15,20 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "查询任务定义",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            HostJobPermissions.DefinitionsWrite,
-            "管理任务定义",
+            HostJobPermissions.DefinitionsCreate,
+            "创建任务定义",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.DefinitionsUpdate,
+            "更新任务定义",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.DefinitionsDisable,
+            "禁用任务定义",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.DefinitionsTrigger,
+            "手动触发任务",
             AuthorizationScope.Host),
         new PermissionDefinition(
             HostJobPermissions.ExecutionsRead,
@@ -45,5 +57,37 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "timer",
             57,
             HostJobPermissions.DefinitionsRead),
+    ];
+
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
+    [
+        new AuthorizationActionDefinition(
+            "jobs.definitions.create",
+            "host-jobs",
+            HostJobPermissions.DefinitionsCreate,
+            "创建任务定义",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "jobs.definitions.update",
+            "host-jobs",
+            HostJobPermissions.DefinitionsUpdate,
+            "编辑任务定义",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "jobs.definitions.disable",
+            "host-jobs",
+            HostJobPermissions.DefinitionsDisable,
+            "禁用任务定义",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "jobs.definitions.trigger",
+            "host-jobs",
+            HostJobPermissions.DefinitionsTrigger,
+            "手动触发任务",
+            "trigger",
+            40),
     ];
 }
