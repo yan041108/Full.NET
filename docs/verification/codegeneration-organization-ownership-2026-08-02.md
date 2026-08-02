@@ -1,7 +1,7 @@
 # CodeGeneration 组织归属（OrganizationUnit）生成验证
 
 - 日期：2026-08-02
-- 代码基线：`main` @ `e7db0ed`
+- 代码基线：`main` @ `f5b0571`
 - 状态：**Build-verified**（双库 Integration 需 Docker/Testcontainers）
 - 设计：[`2026-08-02-codegeneration-organization-ownership-design.md`](../superpowers/specs/2026-08-02-codegeneration-organization-ownership-design.md)
 - 计划：[`2026-08-02-codegeneration-organization-ownership.md`](../superpowers/plans/2026-08-02-codegeneration-organization-ownership.md)
@@ -14,7 +14,7 @@
 | 生成器解除 fail-closed | `720223a` | Feature/SQL/Endpoint 片段 + 双库运行时矩阵 |
 | 模块编译集成 | `fca4554` | `validate-module-integration` + `Organization.Contracts` |
 | Host/Global 互斥 | `246613a` | Schema 层拒绝 `organization.unit` 与非租户作用域组合 |
-| CLI/预览互斥 | `c3a727d` | JSON 加载与 Preview API `invalid_schema` |
+| CLI/预览互斥 | `c3a727d`–`e7db0ed` | JSON 加载、Preview Service 与 Integration API `invalid_schema` |
 
 ## 验证矩阵
 
@@ -22,6 +22,7 @@
 |------|------|------|
 | Organization 端口 | `OrganizationOwnedEntityWriteAuthorizerTests` (3) | Unit GREEN |
 | 生成器产物 | `CrudArtifactGeneratorTests.Generate_organization_owned_*` | Unit GREEN |
+| 生成器 fail-closed | Tree/关系 + `organization.unit` 仍 `NotSupportedException` | Unit GREEN |
 | 生成器回归 | `CrudArtifactGeneratorTests` (26) | Unit GREEN |
 | Schema 互斥 | `FullNetCrudSchemaTests` + `CodeGenerationCliTests` host/global + org | Unit GREEN |
 | 预览 API/UI | `Preview_organization_owned_*` + 双端 previews E2E | Unit GREEN；Preview API host/global 互斥 Integration；E2E 需真实栈 |
@@ -39,7 +40,7 @@
 ## 未交付
 
 - `Verified` 标记仍待真实栈 E2E 与双库运行时矩阵全绿后关闭
-- Tree/MasterDetail/ManyToMany 组织归属生成
+- Tree/MasterDetail/ManyToMany 组织归属可执行生成（当前 fail-closed，非首切片范围）
 
 ## 规则/Skill 复盘
 

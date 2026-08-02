@@ -727,6 +727,40 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
+    public void Generate_rejects_tree_scene_even_when_organization_unit_owned()
+    {
+        var error = Assert.ThrowsExactly<NotSupportedException>(() =>
+            CrudArtifactGenerator.Generate(
+                CreateExplicitLifecycleSchema(
+                    scene: FullNetCrudScene.Tree,
+                    ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit)));
+
+        StringAssert.Contains(error.Message, "同租户父节点");
+        StringAssert.Contains(error.Message, "环");
+    }
+
+    [TestMethod]
+    public void Generate_rejects_relational_scene_even_when_organization_unit_owned()
+    {
+        var relationship = new FullNetCrudRelationship(
+            PrincipalEntityKey: "product",
+            PrincipalColumnName: "Id",
+            PrincipalDataScope: FullNetCrudDataScope.TenantRequired,
+            DependentEntityKey: "product_item",
+            DependentColumnName: "ProductId",
+            DependentDataScope: FullNetCrudDataScope.TenantRequired);
+        var relational = CreateExplicitLifecycleSchema(
+            scene: FullNetCrudScene.MasterDetail,
+            relationships: [relationship],
+            ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit);
+
+        var error = Assert.ThrowsExactly<NotSupportedException>(() =>
+            CrudArtifactGenerator.Generate(relational));
+
+        StringAssert.Contains(error.Message, "聚合事务");
+    }
+
+    [TestMethod]
     public void Generate_builds_valid_client_identifier_for_kebab_case_resource()
     {
         var artifacts = CrudArtifactGenerator.Generate(
@@ -1055,6 +1089,16 @@ public sealed class CrudArtifactGeneratorTests
                 "OrganizationUnitId",
                 "organizationUnitId",
                 FullNetScalarType.Uuid));
+        }
+
+        if (scene == FullNetCrudScene.Tree)
+        {
+            columns.Add(new(
+                "ParentId",
+                "ParentId",
+                "parentId",
+                FullNetScalarType.Uuid,
+                IsNullable: true));
         }
 
         return FullNetCrudSchema.CreateProject(
