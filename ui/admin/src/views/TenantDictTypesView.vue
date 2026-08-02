@@ -14,6 +14,7 @@ import type {
   SettingsDictType
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -37,7 +38,9 @@ const displayOrder = ref('0');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('settings.tenant_dict_types.write'));
+const canCreate = computed(() => session.can('settings.tenant_dict_types.create'));
+const canUpdate = computed(() => session.can('settings.tenant_dict_types.update'));
+const canDisable = computed(() => session.can('settings.tenant_dict_types.disable'));
 
 const selectedType = ref<SettingsDictType>();
 const dictItems = ref<SettingsDictItem[]>([]);
@@ -288,7 +291,8 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
+    <PermissionGate code="settings.tenant_dict_types.create">
+    <el-card class="art-form-card" shadow="never">
       <div class="art-form-grid art-form-grid--cols-3" aria-labelledby="create-dict-type-title">
         <div><h2 id="create-dict-type-title">{{ t('dictTypes.createTitle') }}</h2></div>
         <label>
@@ -310,6 +314,7 @@ function toProblem(
         <el-button type="primary" :loading="changing" @click="create">{{ t('dictTypes.create') }}</el-button>
       </div>
     </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -337,9 +342,9 @@ function toProblem(
           <el-button plain :disabled="changing || itemsLoading" @click="openItems(dictType)">
             {{ t('dictItems.manage') }}
           </el-button>
-          <el-button v-if="canWrite" plain :disabled="changing" @click="edit(dictType)">{{ t('dictTypes.edit') }}</el-button>
+          <el-button v-if="canUpdate" plain :disabled="changing" @click="edit(dictType)">{{ t('dictTypes.edit') }}</el-button>
+          <PermissionGate v-if="dictType.isActive" code="settings.tenant_dict_types.disable">
           <el-button
-            v-if="canWrite && dictType.isActive"
             type="danger"
             plain
             :disabled="changing"
@@ -347,6 +352,7 @@ function toProblem(
           >
             {{ t('dictTypes.disable') }}
           </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>
@@ -365,8 +371,8 @@ function toProblem(
         </div>
       </template>
 
+      <PermissionGate code="settings.tenant_dict_types.create">
       <div
-        v-if="canWrite"
         class="art-form-grid art-form-grid--cols-3"
         aria-labelledby="create-dict-item-title"
         data-dict-items-create-form
@@ -390,6 +396,7 @@ function toProblem(
         </label>
         <el-button type="primary" :loading="changing" @click="createItem">{{ t('dictItems.create') }}</el-button>
       </div>
+      </PermissionGate>
 
       <h3>{{ t('dictItems.directoryTitle') }}</h3>
       <p v-if="dictItems.length === 0" class="art-empty-state" data-dict-items-empty>
@@ -410,11 +417,11 @@ function toProblem(
             {{ t(item.isActive ? 'dictItems.active' : 'dictItems.inactive') }}
           </el-tag>
           <div class="art-data-row__actions">
-            <el-button v-if="canWrite" plain :disabled="changing" @click="editItem(item)">
+            <el-button v-if="canUpdate" plain :disabled="changing" @click="editItem(item)">
               {{ t('dictItems.edit') }}
             </el-button>
+            <PermissionGate v-if="item.isActive" code="settings.tenant_dict_types.disable">
             <el-button
-              v-if="canWrite && item.isActive"
               type="danger"
               plain
               :disabled="changing"
@@ -422,6 +429,7 @@ function toProblem(
             >
               {{ t('dictItems.disable') }}
             </el-button>
+            </PermissionGate>
           </div>
         </article>
       </div>

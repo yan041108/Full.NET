@@ -58,7 +58,7 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       root,
       {
         ...sharedOptions,
-        canWrite: options.canWriteTenantDictTypes
+        getPermissions: options.getPermissions
       }
     )],
     ['/settings/diagnostic-policy', defineController(

@@ -8,6 +8,15 @@ public static class TenantDictTypeManagementPermissions
     /// <summary>租户上下文中分页查询字典类型与详情。</summary>
     public const string Read = "settings.tenant_dict_types.read";
 
-    /// <summary>租户上下文中创建、更新与禁用字典类型及字典项。</summary>
+    /// <summary>分配租户字典类型与字典项。</summary>
+    public const string Create = "settings.tenant_dict_types.create";
+
+    /// <summary>更新租户字典类型与字典项。</summary>
+    public const string Update = "settings.tenant_dict_types.update";
+
+    /// <summary>禁用租户字典类型与字典项。</summary>
+    public const string Disable = "settings.tenant_dict_types.disable";
+
+    /// <summary>迁移 068 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "settings.tenant_dict_types.write";
 }

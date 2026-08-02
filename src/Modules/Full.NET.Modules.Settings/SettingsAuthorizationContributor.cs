@@ -49,8 +49,16 @@ internal sealed class SettingsAuthorizationContributor
             "查询租户数据字典",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
-            TenantDictTypeManagementPermissions.Write,
-            "管理租户数据字典",
+            TenantDictTypeManagementPermissions.Create,
+            "创建租户数据字典",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            TenantDictTypeManagementPermissions.Update,
+            "更新租户数据字典",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            TenantDictTypeManagementPermissions.Disable,
+            "禁用租户数据字典",
             AuthorizationScope.Tenant),
     ];
 
@@ -134,6 +142,27 @@ internal sealed class SettingsAuthorizationContributor
             "dict-types",
             DictTypeManagementPermissions.Disable,
             "禁用字典",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "settings.tenant_dict_types.create",
+            "tenant-dict-types",
+            TenantDictTypeManagementPermissions.Create,
+            "创建租户字典",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "settings.tenant_dict_types.update",
+            "tenant-dict-types",
+            TenantDictTypeManagementPermissions.Update,
+            "编辑租户字典",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "settings.tenant_dict_types.disable",
+            "tenant-dict-types",
+            TenantDictTypeManagementPermissions.Disable,
+            "禁用租户字典",
             "disable",
             30),
     ];

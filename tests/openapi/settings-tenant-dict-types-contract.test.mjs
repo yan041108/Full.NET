@@ -47,7 +47,10 @@ test('租户数据字典 OpenAPI 夹具结构完整且路径唯一', async () =>
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^settings\.tenant_dict_types\.(read|write)$/u);
+      assert.match(
+        operation.permission,
+        /^settings\.tenant_dict_types\.(read|create|update|disable)$/u
+      );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -75,6 +78,9 @@ test('租户数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', asyn
   assert.match(dictItemContractsSource, /record CreateDictItemRequest/u);
   assert.match(dictItemContractsSource, /record UpdateDictItemRequest/u);
   assert.match(tenantDictTypeContractsSource, /settings\.tenant_dict_types\.read/u);
+  assert.match(tenantDictTypeContractsSource, /settings\.tenant_dict_types\.create/u);
+  assert.match(tenantDictTypeContractsSource, /settings\.tenant_dict_types\.update/u);
+  assert.match(tenantDictTypeContractsSource, /settings\.tenant_dict_types\.disable/u);
   assert.match(tenantDictTypeContractsSource, /settings\.tenant_dict_types\.write/u);
   assert.match(
     tenantDictTypeEndpointSource,

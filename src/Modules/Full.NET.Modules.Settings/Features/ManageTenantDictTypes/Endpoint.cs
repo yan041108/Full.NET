@@ -69,7 +69,7 @@ internal static class Endpoint
         })
         .Produces<DictTypeResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            TenantDictTypeManagementPermissions.Write));
+            TenantDictTypeManagementPermissions.Create));
 
         group.MapPut("/{dictTypeId:guid}", async (
             Guid dictTypeId,
@@ -85,7 +85,7 @@ internal static class Endpoint
         })
         .Produces<DictTypeResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            TenantDictTypeManagementPermissions.Write));
+            TenantDictTypeManagementPermissions.Update));
 
         group.MapPost("/{dictTypeId:guid}/disable", async (
             Guid dictTypeId,
@@ -100,6 +100,6 @@ internal static class Endpoint
         })
         .Produces<DictTypeResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            TenantDictTypeManagementPermissions.Write));
+            TenantDictTypeManagementPermissions.Disable));
     }
 }

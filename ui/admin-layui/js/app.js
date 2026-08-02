@@ -80,8 +80,6 @@ export function initializeAdminApp(root = document, options = {}) {
       translation: () => translation,
       hasPermission: permission => latestSnapshot.currentUser?.permissions
         ?.includes(permission) === true,
-      canWriteTenantDictTypes: () => latestSnapshot.currentUser?.permissions
-        ?.includes('settings.tenant_dict_types.write') === true,
       getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null,
       getPermissions: () => latestSnapshot.currentUser?.permissions ?? []
     }),

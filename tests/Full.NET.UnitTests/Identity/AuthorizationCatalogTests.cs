@@ -464,6 +464,33 @@ public sealed class AuthorizationCatalogTests
     }
 
     [TestMethod]
+    public void Tenant_tenant_dict_types_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new SettingsAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "settings.tenant_dict_types.create",
+            ["update"] = "settings.tenant_dict_types.update",
+            ["disable"] = "settings.tenant_dict_types.disable",
+        };
+
+        var tenantDictTypeActions = catalog.Actions
+            .Where(action => action.NavigationId == "tenant-dict-types")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            tenantDictTypeActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == TenantDictTypeManagementPermissions.Write));
+    }
+
+    [TestMethod]
     public void Create_sorts_permissions_and_navigation_deterministically()
     {
         var contributor = new StubContributor(

@@ -3543,7 +3543,9 @@ function currentUserResponse(activeTenantId = null) {
             'organization.user_positions.update',
             'organization.user_positions.disable',
             'settings.tenant_dict_types.read',
-            'settings.tenant_dict_types.write'
+            'settings.tenant_dict_types.create',
+            'settings.tenant_dict_types.update',
+            'settings.tenant_dict_types.disable'
           ]
         : [])
     ],
