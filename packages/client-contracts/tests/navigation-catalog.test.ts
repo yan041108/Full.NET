@@ -36,6 +36,16 @@ describe('headless 管理端导航目录', () => {
       routeName: 'code-generation-previews',
       path: '/code-generation/previews'
     });
+    expect(catalog.localNavigationFor('host-document-items')).toEqual({
+      componentKey: 'host-document-items',
+      routeName: 'host-document-items',
+      path: '/document/host-items'
+    });
+    expect(catalog.localNavigationFor('document-categories')).toEqual({
+      componentKey: 'document-categories',
+      routeName: 'document-categories',
+      path: '/document/categories'
+    });
   });
 
   it('只接受已发布的 componentKey、routeName 与 path 组合', () => {

@@ -120,6 +120,21 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/files/host-files'
   },
   {
+    componentKey: 'host-document-items',
+    routeName: 'host-document-items',
+    path: '/document/host-items'
+  },
+  {
+    componentKey: 'document-categories',
+    routeName: 'document-categories',
+    path: '/document/categories'
+  },
+  {
+    componentKey: 'document-tags',
+    routeName: 'document-tags',
+    path: '/document/tags'
+  },
+  {
     componentKey: 'host-announcements',
     routeName: 'host-announcements',
     path: '/notifications/host-announcements'

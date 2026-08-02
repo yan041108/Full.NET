@@ -25,4 +25,14 @@ public sealed class DocumentApiSqlServerTests
 
         await DocumentHostCategoryTagAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_document_authorization_follows_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await DocumentAuthorizationAssertions.VerifyAsync(factory);
+    }
 }

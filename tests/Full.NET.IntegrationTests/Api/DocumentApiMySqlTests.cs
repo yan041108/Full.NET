@@ -25,4 +25,14 @@ public sealed class DocumentApiMySqlTests
 
         await DocumentHostCategoryTagAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Host_document_authorization_follows_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await DocumentAuthorizationAssertions.VerifyAsync(factory);
+    }
 }

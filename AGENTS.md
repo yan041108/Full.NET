@@ -52,8 +52,8 @@
 - 成熟生产参考采用 Kubernetes + Helm 的模块化单体多实例拓扑，月度可用性 SLO 为 99.9%；开发阶段以 1 万同时在途为设计目标但不承担容量达标门禁，专用生产等价环境认证前必须标记 `Capacity-not-verified`。正式边界见 [`ADR-0005`](docs/architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md) 与[总体架构 Spec §20.5](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#205-性能基线)。
 - 后续功能以 Admin.NET 为功能参考目标，但实现必须遵守 Full.NET 的架构、安全和发布许可边界；对标方式见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节。
 - 默认引导账号属于受保护的 `host-administrator` 超级管理员系统角色，动态投影授权目录权限且不得绕过租户隔离、账号/会话状态、精确 Endpoint 权限、审计与最后一名保护；细则以 [`rules/development-quality.md`](rules/development-quality.md) R-20260718-super-administrator-boundary 为准。
-- 后台管理功能必须在 Vue 与 Layui 双管理端按同一模块同步开发，双端权限、租户、错误处理、关键流程与 E2E 全部通过后才可标记 `Verified`；细则见 [`rules/client-frontend.md`](rules/client-frontend.md) 第 2 节。
-- Vue 主管理端、Layui 管理端、uni-app 与原生/桌面端的框架、UI 组件库、许可与资产来源边界见 [`rules/client-frontend.md`](rules/client-frontend.md)。
+- Vue 主管理端 `ui/admin` 是后台产品的唯一持续交付线；Layui 管理端 `ui/admin-layui` 自 2026-08-02 起进入存量冻结，禁止新增或扩展业务功能，也不再参与新功能的 `Verified` 门槛；只有明确授权的安全修复、迁移或退役任务可以修改。细则见 [`rules/client-frontend.md`](rules/client-frontend.md) 第 2、5 节。
+- 后台页面与所有调用受保护 API、读取敏感数据或产生业务副作用的操作必须使用独立稳定权限码；无权限时 Vue 不创建对应操作入口，直接绕过客户端调用仍必须由精确 Endpoint 权限失败关闭；角色授权页必须能按“模块/页面/操作”分层授权。细则见 [`rules/client-frontend.md`](rules/client-frontend.md) 第 3 节与 [`rules/development-quality.md`](rules/development-quality.md) R-20260802-admin-action-authorization。
 - 多语言采用“统一治理、平台原生实现”，全栈使用规范 BCP 47 语言标签与稳定机器码，业务逻辑不得依赖翻译文本，完成状态按跨端验证如实标记；细则以 [`rules/development-quality.md`](rules/development-quality.md) R-20260717-full-stack-localization-boundary 为准。
 - 种子数据采用“生产安全 Baseline＋环境 Overlay”，Production 只允许 Baseline，API/Worker 不得启动播种，Contributor 必须幂等且通过双库验证；细则以 [`rules/development-quality.md`](rules/development-quality.md) R-20260717-seed-data-boundary 为准。
 
@@ -64,7 +64,7 @@
 - [`rules/development-quality.md`](rules/development-quality.md)：常见遗漏防护和完成定义。
 - [`rules/performance-engineering.md`](rules/performance-engineering.md)：性能证据、请求链、双库、Worker 与客户端包体门禁。
 - [`rules/naming-conventions.md`](rules/naming-conventions.md)：数据库、C#、API、机器码、配置、缓存和生成器的统一命名边界。
-- [`rules/client-frontend.md`](rules/client-frontend.md)：Vue/Layui 双管理端、uni-app、Flutter 与桌面端的框架、UI、许可与验收边界。
+- [`rules/client-frontend.md`](rules/client-frontend.md)：Vue 单一后台交付线、Layui 存量冻结、逐页面/逐操作权限，以及 uni-app、Flutter 与桌面端的框架、UI、许可和验收边界。
 - [`rules/rule-evolution.md`](rules/rule-evolution.md)：自动复盘、规则升级、冲突与退役机制。
 - [`rules/skill-evolution.md`](rules/skill-evolution.md)：项目 Skills 候选、测试先行、升级与退役机制。
 - [`.agents/skills/fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)：完整业务模块纵向交付流程。
