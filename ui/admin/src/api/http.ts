@@ -6,5 +6,6 @@ const http = createHttpClient(apiBaseUrl);
 export const configureAuthentication = http.configureAuthentication.bind(http);
 export const configureRequestLocale = http.configureRequestLocale.bind(http);
 export const request = http.request.bind(http);
+export const requestBlob = http.requestBlob.bind(http);
 
 export { http };

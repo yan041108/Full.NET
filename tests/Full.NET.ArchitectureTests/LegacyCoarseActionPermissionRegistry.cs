@@ -26,8 +26,9 @@ internal static class LegacyCoarseActionPermissionRegistry
         OrganizationUserUnitManagementPermissions.Write,
         DictTypeManagementPermissions.Write,
         TenantDictTypeManagementPermissions.Write,
-        ConfigEntryManagementPermissions.Write,
-        DiagnosticPolicyManagementPermissions.Write,
+        ConfigEntryManagementPermissions.Write,
+        DiagnosticPolicyManagementPermissions.Write,
+        "files.files.write",
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -40,8 +41,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/code-generation/templates/|codegen.templates.write",
         "POST /api/v1/document/host/items/{itemId:guid}/versions|document.host_documents.write",
         "POST /api/v1/document/host/items/|document.host_documents.write",
-        "POST /api/v1/files/host-files/{fileId:guid}/delete|files.files.write",
-        "POST /api/v1/files/host-files/|files.files.write",
         "POST /api/v1/jobs/host-definitions/{definitionId:guid}/disable|jobs.definitions.write",
         "POST /api/v1/jobs/host-definitions/{definitionId:guid}/trigger|jobs.definitions.write",
         "POST /api/v1/jobs/host-definitions/|jobs.definitions.write",

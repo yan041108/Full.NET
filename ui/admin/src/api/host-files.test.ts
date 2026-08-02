@@ -1,9 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
-import { deleteHostFile, listHostFiles, uploadHostFile } from './host-files';
+import { request, requestBlob } from './http';
+import {
+  deleteHostFile,
+  downloadHostFileContent,
+  listHostFiles,
+  openHostFileBlob,
+  uploadHostFile
+} from './host-files';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
+vi.mock('./http', () => ({
+  request: vi.fn(),
+  requestBlob: vi.fn()
+}));
 const requestMock = vi.mocked(request);
+const requestBlobMock = vi.mocked(requestBlob);
 
 const sampleFile = {
   id: '01912345-6789-7abc-8def-0123456789ab',
@@ -49,5 +59,29 @@ describe('Vue Host 文件 API', () => {
       `/api/v1/files/host-files/${sampleFile.id}/delete`,
       { method: 'POST' }
     );
+  });
+
+  it('下载文件内容使用认证 Blob 客户端', async () => {
+    const blob = new Blob(['hello'], { type: 'text/plain' });
+    requestBlobMock.mockResolvedValueOnce(blob);
+    await expect(downloadHostFileContent(sampleFile.id)).resolves.toBe(blob);
+    expect(requestBlobMock).toHaveBeenCalledWith(
+      `/api/v1/files/host-files/${sampleFile.id}/content`
+    );
+  });
+
+  it('打开 Blob 时创建并回收对象 URL', () => {
+    const blob = new Blob(['hello'], { type: 'text/plain' });
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:temp');
+    const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const open = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+
+    openHostFileBlob(blob);
+
+    expect(createUrl).toHaveBeenCalledWith(blob);
+    expect(open).toHaveBeenCalledWith('blob:temp', '_blank', 'noopener,noreferrer');
+    createUrl.mockRestore();
+    revokeUrl.mockRestore();
+    open.mockRestore();
   });
 });

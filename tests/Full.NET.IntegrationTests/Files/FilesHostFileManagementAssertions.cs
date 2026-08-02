@@ -34,6 +34,10 @@ internal static class FilesHostFileManagementAssertions
             factory,
             client,
             cancellationToken);
+        await VerifyExactHostFileActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiFilesHostFilesContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -306,6 +310,181 @@ internal static class FilesHostFileManagementAssertions
             missingDownloadRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, missingDownloadResponse.StatusCode);
+    }
+
+    private static async Task VerifyExactHostFileActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var payload = Encoding.UTF8.GetBytes($"files-boundary-{Guid.NewGuid():N}");
+        var fileName = "boundary.txt";
+
+        using var uploadContent = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(payload);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        uploadContent.Add(fileContent, "file", fileName);
+        using var uploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/files/host-files")
+        {
+            Content = uploadContent,
+        };
+        uploadRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var uploadResponse = await client.SendAsync(uploadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, uploadResponse.StatusCode);
+        var created = await uploadResponse.Content.ReadFromJsonAsync<HostFileResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [HostFilePermissions.Read, HostFilePermissions.Download],
+            cancellationToken);
+        using var readOnlyDownloadRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/files/host-files/{created.Id:D}/content");
+        readOnlyDownloadRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            readOnlyToken);
+        using var readOnlyDownloadResponse = await client.SendAsync(
+            readOnlyDownloadRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, readOnlyDownloadResponse.StatusCode);
+
+        var listOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [HostFilePermissions.Read],
+            cancellationToken);
+        await AssertHostFilePermissionDeniedAsync(
+            client,
+            listOnlyToken,
+            HttpMethod.Get,
+            $"/api/v1/files/host-files/{created.Id:D}/content",
+            cancellationToken);
+        using var deniedUploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/files/host-files")
+        {
+            Content = uploadContent,
+        };
+        deniedUploadRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            listOnlyToken);
+        using var deniedUploadResponse = await client.SendAsync(
+            deniedUploadRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, deniedUploadResponse.StatusCode);
+        await AssertHostFilePermissionDeniedAsync(
+            client,
+            listOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/files/host-files/{created.Id:D}/delete",
+            cancellationToken,
+            new { });
+
+        var uploadToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostFilePermissions.Read,
+                HostFilePermissions.Upload,
+            ],
+            cancellationToken);
+        using var uploadOnlyContent = new MultipartFormDataContent();
+        var uploadOnlyFile = new ByteArrayContent(Encoding.UTF8.GetBytes("upload-only"));
+        uploadOnlyFile.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        uploadOnlyContent.Add(uploadOnlyFile, "file", "upload-only.txt");
+        using var uploadOnlyRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/files/host-files")
+        {
+            Content = uploadOnlyContent,
+        };
+        uploadOnlyRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            uploadToken);
+        using var uploadOnlyResponse = await client.SendAsync(uploadOnlyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, uploadOnlyResponse.StatusCode);
+        await AssertHostFilePermissionDeniedAsync(
+            client,
+            uploadToken,
+            HttpMethod.Post,
+            $"/api/v1/files/host-files/{created.Id:D}/delete",
+            cancellationToken,
+            new { });
+
+        var deleteTargetPayload = Encoding.UTF8.GetBytes($"delete-target-{Guid.NewGuid():N}");
+        using var deleteSeedContent = new MultipartFormDataContent();
+        var deleteSeedFile = new ByteArrayContent(deleteTargetPayload);
+        deleteSeedFile.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        deleteSeedContent.Add(deleteSeedFile, "file", "delete-target.txt");
+        using var deleteSeedRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/files/host-files")
+        {
+            Content = deleteSeedContent,
+        };
+        deleteSeedRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var deleteSeedResponse = await client.SendAsync(deleteSeedRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, deleteSeedResponse.StatusCode);
+        var deleteTarget = await deleteSeedResponse.Content.ReadFromJsonAsync<HostFileResponse>(
+            cancellationToken);
+        Assert.IsNotNull(deleteTarget);
+
+        var deleteToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostFilePermissions.Read,
+                HostFilePermissions.Delete,
+            ],
+            cancellationToken);
+        using var deleteRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/files/host-files/{deleteTarget.Id:D}/delete",
+            deleteToken,
+            new { });
+        using var deleteResponse = await client.SendAsync(deleteRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, deleteResponse.StatusCode);
+    }
+
+    private static async Task AssertHostFilePermissionDeniedAsync(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task AssertHostFilePermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        TRequest body)
+        where TRequest : class
+    {
+        using var request = CreateBearerJsonRequest(method, path, accessToken, body);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task VerifyDeletedBlobCleanupAsync(

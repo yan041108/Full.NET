@@ -175,7 +175,7 @@ internal static class Endpoint
 
         .DisableAntiforgery()
 
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Upload));
 
 
 
@@ -237,7 +237,7 @@ internal static class Endpoint
 
         .Produces(StatusCodes.Status200OK)
 
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Read));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Download));
 
 
 
@@ -265,7 +265,7 @@ internal static class Endpoint
 
         .Produces<HostFileResponse>(StatusCodes.Status200OK)
 
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Write));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Delete));
 
     }
 

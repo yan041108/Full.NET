@@ -178,13 +178,21 @@
 | API / 未来编辑入口 | 更新策略 | `settings.diagnostic_policy.update` | 070 |
 | `DiagnosticPolicyView.vue` | 恢复安全默认 | `settings.diagnostic_policy.restore` | 070 |
 
+## W4：Files Host Files（071）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `HostFilesView.vue` | 页面 | `files.files.read` | 无 |
+| `HostFilesView.vue` | 上传 | `files.files.upload` | 071 |
+| `HostFilesView.vue` | 下载 | `files.files.download` | 071 |
+| `HostFilesView.vue` | 删除 | `files.files.delete` | 071 |
+
 ## W4–W5：仍需拆分的粗粒度操作权限（冻结清单）
 
 下列 `.write` 权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；W5 同时包含不以 `.write` 命名、但仍承载多个动作的 `delete/manage` 权限。后续门禁必须覆盖这些语义，新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
-| `files.files.write` | `HostFilesView.vue` | W4 |
 | `notifications.announcements.write` | `HostAnnouncementsView.vue` | W4 |
 | `notifications.inbox.write` | `InboxMessagesView.vue` | W4 |
 | `jobs.definitions.write` / `jobs.schedules.write` | `HostJobsView.vue` | W4 |
@@ -216,6 +224,7 @@
 | `settings.tenant_dict_types.write` | **已退役**：不可分配、不可出现在 Endpoint；由 068 展开为 `settings.tenant_dict_types.create` / `update` / `disable` |
 | `settings.config.write` | **已退役**：不可分配、不可出现在 Endpoint；由 069 展开为 `settings.config.create` / `update` / `disable` |
 | `settings.diagnostic_policy.write` | **已退役**：不可分配、不可出现在 Endpoint；由 070 展开为 `settings.diagnostic_policy.update` / `restore` |
+| `files.files.write` | **已退役**：不可分配、不可出现在 Endpoint；由 071 展开为 `files.files.upload` / `delete`，并为存量 `read` 补齐 `download` |
 
 ## 本地 UI（无需权限码）
 

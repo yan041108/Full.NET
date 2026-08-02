@@ -5,10 +5,12 @@ import type { FullNetProblemDetails, HostFile } from '@fullnet/client-contracts'
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   deleteHostFile,
-  hostFileContentUrl,
+  downloadHostFileContent,
   listHostFiles,
+  openHostFileBlob,
   uploadHostFile
 } from '../api/host-files';
 
@@ -19,7 +21,9 @@ const selectedFile = ref<File | null>(null);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
-const canWrite = computed(() => session.can('files.files.write'));
+const canUpload = computed(() => session.can('files.files.upload'));
+const canDownload = computed(() => session.can('files.files.download'));
+const canDelete = computed(() => session.can('files.files.delete'));
 
 onMounted(load);
 
@@ -42,7 +46,7 @@ function onFileSelected(event: Event): void {
 }
 
 async function upload(): Promise<void> {
-  if (changing.value || !selectedFile.value) return;
+  if (changing.value || !selectedFile.value || !canUpload.value) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -58,7 +62,7 @@ async function upload(): Promise<void> {
 }
 
 async function remove(item: HostFile): Promise<void> {
-  if (changing.value) return;
+  if (changing.value || !canDelete.value) return;
   try {
     await ElMessageBox.confirm(
       t('hostFiles.confirmDelete', { name: item.originalFileName }),
@@ -81,8 +85,18 @@ async function remove(item: HostFile): Promise<void> {
   }
 }
 
-function download(item: HostFile): void {
-  window.open(hostFileContentUrl(item.id), '_blank', 'noopener,noreferrer');
+async function download(item: HostFile): Promise<void> {
+  if (changing.value || !canDownload.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const blob = await downloadHostFileContent(item.id);
+    openHostFileBlob(blob);
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'hostFiles.operationFailed');
+  } finally {
+    changing.value = false;
+  }
 }
 
 function toProblem(
@@ -105,16 +119,24 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" shadow="never" class="art-form-card" aria-labelledby="upload-host-file-title">
-      <div><h2 id="upload-host-file-title">{{ t('hostFiles.uploadTitle') }}</h2></div>
-      <label>
-        <span>{{ t('hostFiles.chooseFile') }}</span>
-        <input type="file" @change="onFileSelected" />
-      </label>
-      <el-button type="primary" :loading="changing" :disabled="!selectedFile" @click="upload">
-        {{ t('hostFiles.upload') }}
-      </el-button>
-    </el-card>
+    <PermissionGate code="files.files.upload">
+      <el-card shadow="never" class="art-form-card" aria-labelledby="upload-host-file-title">
+        <div><h2 id="upload-host-file-title">{{ t('hostFiles.uploadTitle') }}</h2></div>
+        <label>
+          <span>{{ t('hostFiles.chooseFile') }}</span>
+          <input type="file" data-testid="host-files-file-input" @change="onFileSelected" />
+        </label>
+        <el-button
+          type="primary"
+          data-testid="host-files-upload"
+          :loading="changing"
+          :disabled="!selectedFile"
+          @click="upload"
+        >
+          {{ t('hostFiles.upload') }}
+        </el-button>
+      </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -133,16 +155,27 @@ function toProblem(
           <small>{{ t('hostFiles.createdAt') }}: {{ item.createdAtUtc }}</small>
         </div>
         <div class="art-data-row__actions">
-          <el-button plain @click="download(item)">{{ t('hostFiles.download') }}</el-button>
-          <el-button
-            v-if="canWrite"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="remove(item)"
-          >
-            {{ t('hostFiles.delete') }}
-          </el-button>
+          <PermissionGate code="files.files.download">
+            <el-button
+              plain
+              data-testid="host-files-download"
+              :disabled="changing"
+              @click="download(item)"
+            >
+              {{ t('hostFiles.download') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate code="files.files.delete">
+            <el-button
+              type="danger"
+              plain
+              data-testid="host-files-delete"
+              :disabled="changing"
+              @click="remove(item)"
+            >
+              {{ t('hostFiles.delete') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

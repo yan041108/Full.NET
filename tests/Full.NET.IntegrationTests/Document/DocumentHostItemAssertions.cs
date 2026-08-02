@@ -45,7 +45,7 @@ internal static class DocumentHostItemAssertions
                 HostDocumentPermissions.Write,
                 HostDocumentPermissions.Delete,
                 HostFilePermissions.Read,
-                HostFilePermissions.Write,
+                HostFilePermissions.Upload,
             ],
             cancellationToken);
 

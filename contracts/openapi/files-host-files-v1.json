@@ -1,6 +1,6 @@
 {
   "id": "files-host-files-v1",
-  "version": 1,
+  "version": 2,
   "description": "Host 文件元数据 HTTP 契约冻结夹具；与 Files 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {
@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "files.files.write",
+          "permission": "files.files.upload",
           "successStatus": 201,
           "responseSchema": "HostFileResponse"
         }
@@ -36,7 +36,7 @@
       "operations": [
         {
           "method": "GET",
-          "permission": "files.files.read",
+          "permission": "files.files.download",
           "successStatus": 200
         }
       ]
@@ -46,7 +46,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "files.files.write",
+          "permission": "files.files.delete",
           "successStatus": 200,
           "responseSchema": "HostFileResponse"
         }

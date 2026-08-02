@@ -4,7 +4,7 @@ import {
   type HostFile,
   type HostFilePage
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { request, requestBlob } from './http';
 
 export async function listHostFiles(
   page = 1,
@@ -43,7 +43,21 @@ export async function deleteHostFile(id: string): Promise<HostFile> {
   return value;
 }
 
-export function hostFileContentUrl(id: string): string {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
-  return `${apiBaseUrl}/api/v1/files/host-files/${encodeURIComponent(id)}/content`;
+/** 使用已认证客户端拉取文件内容，避免在 URL 中暴露令牌。 */
+export async function downloadHostFileContent(id: string): Promise<Blob> {
+  return requestBlob(
+    `/api/v1/files/host-files/${encodeURIComponent(id)}/content`
+  );
+}
+
+/** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
+export function openHostFileBlob(blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!opened) {
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

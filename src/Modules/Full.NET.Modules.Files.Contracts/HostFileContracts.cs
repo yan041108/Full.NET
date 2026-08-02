@@ -4,7 +4,9 @@ namespace Full.NET.Modules.Files.Contracts;
 public static class HostFilePermissions
 {
     public const string Read = "files.files.read";
-    public const string Write = "files.files.write";
+    public const string Upload = "files.files.upload";
+    public const string Download = "files.files.download";
+    public const string Delete = "files.files.delete";
 }
 
 public sealed record HostFileResponse(
