@@ -47,7 +47,10 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./dict-types.js'),
       'createDictTypesController',
       root,
-      sharedOptions
+      {
+        ...sharedOptions,
+        getPermissions: options.getPermissions
+      }
     )],
     ['/settings/tenant-dict-types', defineController(
       () => import('./tenant-dict-types.js'),

@@ -57,7 +57,7 @@ internal static class Endpoint
         })
         .Produces<DictItemResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            DictTypeManagementPermissions.Write));
+            DictTypeManagementPermissions.Create));
 
         var itemGroup = endpoints.MapGroup("/api/v1/settings/dict-items")
             .WithTags("Settings");
@@ -76,7 +76,7 @@ internal static class Endpoint
         })
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            DictTypeManagementPermissions.Write));
+            DictTypeManagementPermissions.Update));
 
         itemGroup.MapPost("/{dictItemId:guid}/disable", async (
             Guid dictItemId,
@@ -91,6 +91,6 @@ internal static class Endpoint
         })
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            DictTypeManagementPermissions.Write));
+            DictTypeManagementPermissions.Disable));
     }
 }

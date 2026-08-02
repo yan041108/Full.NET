@@ -3,6 +3,8 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Settings;
+using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 
@@ -432,6 +434,33 @@ public sealed class AuthorizationCatalogTests
             userUnitActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == OrganizationUserUnitManagementPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_dict_types_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new SettingsAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "settings.dict_types.create",
+            ["update"] = "settings.dict_types.update",
+            ["disable"] = "settings.dict_types.disable",
+        };
+
+        var dictTypeActions = catalog.Actions
+            .Where(action => action.NavigationId == "dict-types")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            dictTypeActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == DictTypeManagementPermissions.Write));
     }
 
     [TestMethod]

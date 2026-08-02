@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "settings.dict_types.write",
+          "permission": "settings.dict_types.create",
           "successStatus": 201,
           "requestSchema": "CreateDictTypeRequest",
           "responseSchema": "DictTypeResponse"
@@ -32,7 +32,7 @@
         },
         {
           "method": "PUT",
-          "permission": "settings.dict_types.write",
+          "permission": "settings.dict_types.update",
           "successStatus": 200,
           "requestSchema": "UpdateDictTypeRequest",
           "responseSchema": "DictTypeResponse"
@@ -44,7 +44,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "settings.dict_types.write",
+          "permission": "settings.dict_types.disable",
           "successStatus": 200,
           "responseSchema": "DictTypeResponse"
         }
@@ -61,7 +61,7 @@
         },
         {
           "method": "POST",
-          "permission": "settings.dict_types.write",
+          "permission": "settings.dict_types.create",
           "successStatus": 201,
           "requestSchema": "CreateDictItemRequest",
           "responseSchema": "DictItemResponse"
@@ -73,7 +73,7 @@
       "operations": [
         {
           "method": "PUT",
-          "permission": "settings.dict_types.write",
+          "permission": "settings.dict_types.update",
           "successStatus": 200,
           "requestSchema": "UpdateDictItemRequest",
           "responseSchema": "DictItemResponse"
@@ -85,7 +85,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "settings.dict_types.write",
+          "permission": "settings.dict_types.disable",
           "successStatus": 200,
           "responseSchema": "DictItemResponse"
         }

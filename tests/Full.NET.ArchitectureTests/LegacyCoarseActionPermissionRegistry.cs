@@ -1,5 +1,6 @@
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.ArchitectureTests;
@@ -23,6 +24,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         OrganizationPositionLevelManagementPermissions.Write,
         OrganizationUserPositionManagementPermissions.Write,
         OrganizationUserUnitManagementPermissions.Write,
+        DictTypeManagementPermissions.Write,
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -52,10 +54,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/settings/config-entries/{configEntryId:guid}/disable|settings.config.write",
         "POST /api/v1/settings/config-entries/|settings.config.write",
         "POST /api/v1/settings/diagnostic-policy/restore|settings.diagnostic_policy.write",
-        "POST /api/v1/settings/dict-items/{dictItemId:guid}/disable|settings.dict_types.write",
-        "POST /api/v1/settings/dict-types/{dictTypeId:guid}/disable|settings.dict_types.write",
-        "POST /api/v1/settings/dict-types/{dictTypeId:guid}/items/|settings.dict_types.write",
-        "POST /api/v1/settings/dict-types/|settings.dict_types.write",
         "POST /api/v1/settings/tenant-dict-items/{dictItemId:guid}/disable|settings.tenant_dict_types.write",
         "POST /api/v1/settings/tenant-dict-types/{dictTypeId:guid}/disable|settings.tenant_dict_types.write",
         "POST /api/v1/settings/tenant-dict-types/{dictTypeId:guid}/items/|settings.tenant_dict_types.write",
@@ -68,8 +66,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "PUT /api/v1/serial-numbers/rules/{ruleId:guid}|serial_numbers.rules.write",
         "PUT /api/v1/settings/config-entries/{configEntryId:guid}|settings.config.write",
         "PUT /api/v1/settings/diagnostic-policy/|settings.diagnostic_policy.write",
-        "PUT /api/v1/settings/dict-items/{dictItemId:guid}|settings.dict_types.write",
-        "PUT /api/v1/settings/dict-types/{dictTypeId:guid}|settings.dict_types.write",
         "PUT /api/v1/settings/tenant-dict-items/{dictItemId:guid}|settings.tenant_dict_types.write",
         "PUT /api/v1/settings/tenant-dict-types/{dictTypeId:guid}|settings.tenant_dict_types.write",
     };

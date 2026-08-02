@@ -8,7 +8,16 @@ public static class DictTypeManagementPermissions
     /// <summary>分页查询字典类型列表与详情。</summary>
     public const string Read = "settings.dict_types.read";
 
-    /// <summary>创建、更新与禁用字典类型及字典项。</summary>
+    /// <summary>创建字典类型与字典项。</summary>
+    public const string Create = "settings.dict_types.create";
+
+    /// <summary>更新字典类型与字典项。</summary>
+    public const string Update = "settings.dict_types.update";
+
+    /// <summary>禁用字典类型与字典项。</summary>
+    public const string Disable = "settings.dict_types.disable";
+
+    /// <summary>迁移 067 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "settings.dict_types.write";
 }
 

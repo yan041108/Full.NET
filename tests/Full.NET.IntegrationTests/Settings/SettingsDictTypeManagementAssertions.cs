@@ -26,6 +26,10 @@ internal static class SettingsDictTypeManagementAssertions
         await VerifyUpdateWithOptimisticVersionAsync(client, cancellationToken);
         await VerifyDisableRejectsActiveItemsAsync(client, cancellationToken);
         await VerifyDictItemLifecycleAsync(client, cancellationToken);
+        await VerifyExactDictTypeActionPermissionBoundariesAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiSettingsDictTypesContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -285,6 +289,160 @@ internal static class SettingsDictTypeManagementAssertions
         Assert.AreEqual(
             SettingsErrorCodes.DictItemVersionConflict,
             itemVersionProblem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyExactDictTypeActionPermissionBoundariesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var code = $"bound-{Guid.NewGuid():N}"[..12];
+
+        using var createTypeRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/settings/dict-types",
+            adminToken,
+            new CreateDictTypeRequest(code, "边界测试字典", null, 1));
+        using var createTypeResponse = await client.SendAsync(createTypeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createTypeResponse.StatusCode);
+        var dictType = await createTypeResponse.Content.ReadFromJsonAsync<DictTypeResponse>(
+            cancellationToken);
+        Assert.IsNotNull(dictType);
+
+        var itemValue = $"iv-{Guid.NewGuid():N}"[..10];
+        using var createItemRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/settings/dict-types/{dictType.Id:D}/items",
+            adminToken,
+            new CreateDictItemRequest("边界项", itemValue, null, 1));
+        using var createItemResponse = await client.SendAsync(createItemRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createItemResponse.StatusCode);
+        var dictItem = await createItemResponse.Content.ReadFromJsonAsync<DictItemResponse>(
+            cancellationToken);
+        Assert.IsNotNull(dictItem);
+
+        var disableCode = $"dis-{Guid.NewGuid():N}"[..12];
+        using var disableTypeRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/settings/dict-types",
+            adminToken,
+            new CreateDictTypeRequest(disableCode, "禁用边界字典", null, 1));
+        using var disableTypeResponse = await client.SendAsync(disableTypeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, disableTypeResponse.StatusCode);
+        var disableType = await disableTypeResponse.Content.ReadFromJsonAsync<DictTypeResponse>(
+            cancellationToken);
+        Assert.IsNotNull(disableType);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [DictTypeManagementPermissions.Read],
+            cancellationToken);
+        await AssertDictTypePermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/settings/dict-types",
+            cancellationToken,
+            new CreateDictTypeRequest("denied", "拒绝", null, 1));
+        await AssertDictTypePermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/settings/dict-types/{dictType.Id:D}",
+            cancellationToken,
+            new UpdateDictTypeRequest("拒绝", null, 1, dictType.Version));
+        await AssertDictTypePermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/settings/dict-types/{dictType.Id:D}/items",
+            cancellationToken,
+            new CreateDictItemRequest("拒绝", "denied", null, 1));
+        await AssertDictTypePermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/settings/dict-items/{dictItem.Id:D}",
+            cancellationToken,
+            new UpdateDictItemRequest("拒绝", null, 1, dictItem.Version));
+        await AssertDictTypePermissionDeniedAsync<object?>(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/settings/dict-items/{dictItem.Id:D}/disable",
+            cancellationToken,
+            null);
+
+        var createToken = await factory.CreateHostAccessTokenAsync(
+            [
+                DictTypeManagementPermissions.Read,
+                DictTypeManagementPermissions.Create,
+            ],
+            cancellationToken);
+        await AssertDictTypePermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Put,
+            $"/api/v1/settings/dict-types/{dictType.Id:D}",
+            cancellationToken,
+            new UpdateDictTypeRequest("拒绝", null, 1, dictType.Version));
+        await AssertDictTypePermissionDeniedAsync<object?>(
+            client,
+            createToken,
+            HttpMethod.Post,
+            $"/api/v1/settings/dict-items/{dictItem.Id:D}/disable",
+            cancellationToken,
+            null);
+
+        var disableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                DictTypeManagementPermissions.Read,
+                DictTypeManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        using var disableItemRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/settings/dict-items/{dictItem.Id:D}/disable",
+            disableToken,
+            new { });
+        using var disableItemResponse = await client.SendAsync(disableItemRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disableItemResponse.StatusCode);
+
+        using var disableTypeBoundaryRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/settings/dict-types/{disableType.Id:D}/disable",
+            disableToken,
+            new { });
+        using var disableTypeBoundaryResponse = await client.SendAsync(
+            disableTypeBoundaryRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disableTypeBoundaryResponse.StatusCode);
+    }
+
+    private static async Task AssertDictTypePermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken,
+        TRequest? body)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            CommonErrorCodes.PermissionDenied,
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private sealed record PagedDictItemResponses(

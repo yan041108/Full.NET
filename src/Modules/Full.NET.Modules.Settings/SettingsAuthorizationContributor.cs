@@ -13,8 +13,16 @@ internal sealed class SettingsAuthorizationContributor
             "查询数据字典",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            DictTypeManagementPermissions.Write,
-            "管理数据字典",
+            DictTypeManagementPermissions.Create,
+            "创建数据字典",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            DictTypeManagementPermissions.Update,
+            "更新数据字典",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            DictTypeManagementPermissions.Disable,
+            "禁用数据字典",
             AuthorizationScope.Host),
         new PermissionDefinition(
             ConfigEntryManagementPermissions.Read,
@@ -103,5 +111,30 @@ internal sealed class SettingsAuthorizationContributor
             "collection",
             53,
             TenantDictTypeManagementPermissions.Read),
+    ];
+
+    public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
+    [
+        new AuthorizationActionDefinition(
+            "settings.dict_types.create",
+            "dict-types",
+            DictTypeManagementPermissions.Create,
+            "创建字典",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "settings.dict_types.update",
+            "dict-types",
+            DictTypeManagementPermissions.Update,
+            "编辑字典",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "settings.dict_types.disable",
+            "dict-types",
+            DictTypeManagementPermissions.Disable,
+            "禁用字典",
+            "disable",
+            30),
     ];
 }
