@@ -911,6 +911,13 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/051_CodeGenerationRollback.sql",
       "reason": "051 使用固定存储过程收敛 SourceApplyRunId、CHECK 与生成列唯一索引；对象名均为脚本常量，并由 MySQL 迁移恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/053_DocumentHostFoundation.sql",
+      "reason": "053 使用固定存储过程收敛 Host 文档分类、标签、版本与列表索引；对象名均为脚本常量，并由 MySQL 缺失列表索引恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }
