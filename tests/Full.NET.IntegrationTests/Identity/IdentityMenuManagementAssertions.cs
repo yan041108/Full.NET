@@ -22,6 +22,7 @@ internal static class IdentityMenuManagementAssertions
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyCreateRejectsDuplicateRouteNameAsync(client, cancellationToken);
         await VerifyCustomMenuLifecycleAndNavigationProjectionAsync(client, cancellationToken);
+        await VerifyExactMenuActionPermissionBoundariesAsync(factory, client, cancellationToken);
         await OpenApiHostMenusContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -169,6 +170,232 @@ internal static class IdentityMenuManagementAssertions
         Assert.IsFalse(
             NavigationContainsRouteName(navigationAfterDisableDocument.RootElement, routeName),
             "Disabled menu should not project into navigation.");
+    }
+
+    private static async Task VerifyExactMenuActionPermissionBoundariesAsync(
+        Api.FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var routeName = $"boundary-{Guid.NewGuid():N}".ToLowerInvariant();
+
+        using var createTargetRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/menus",
+            adminToken,
+            CreateSampleMenuRequest(routeName));
+        using var createTargetResponse = await client.SendAsync(createTargetRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createTargetResponse.StatusCode);
+        var targetMenu = await createTargetResponse.Content.ReadFromJsonAsync<HostMenuResponse>(
+            cancellationToken);
+        Assert.IsNotNull(targetMenu);
+
+        var readOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [IdentityMenuManagementPermissions.Read],
+            cancellationToken);
+        await AssertMenusListAllowedAsync(client, readOnlyToken, cancellationToken);
+        await AssertMenuPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/identity/menus",
+            CreateSampleMenuRequest($"denied-{Guid.NewGuid():N}"),
+            cancellationToken);
+        await AssertMenuPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/menus/{targetMenu.Id:D}",
+            new UpdateHostMenuRequest(
+                null,
+                targetMenu.Path,
+                targetMenu.ComponentKey,
+                "拒绝更新",
+                targetMenu.Caption,
+                targetMenu.Icon,
+                targetMenu.DisplayOrder,
+                targetMenu.RequiredPermission,
+                targetMenu.Version),
+            cancellationToken);
+        await AssertMenuPermissionDeniedAsync<object?>(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/menus/{targetMenu.Id:D}/disable",
+            null,
+            cancellationToken);
+
+        var createToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityMenuManagementPermissions.Read,
+                IdentityMenuManagementPermissions.Create,
+            ],
+            cancellationToken);
+        var createdByLimited = await CreateHostMenuWithTokenAsync(
+            client,
+            createToken,
+            $"limited-{Guid.NewGuid():N}",
+            cancellationToken);
+        await AssertMenuPermissionDeniedAsync(
+            client,
+            createToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/menus/{targetMenu.Id:D}",
+            new UpdateHostMenuRequest(
+                null,
+                targetMenu.Path,
+                targetMenu.ComponentKey,
+                "拒绝更新",
+                targetMenu.Caption,
+                targetMenu.Icon,
+                targetMenu.DisplayOrder,
+                targetMenu.RequiredPermission,
+                targetMenu.Version),
+            cancellationToken);
+
+        var updateToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityMenuManagementPermissions.Read,
+                IdentityMenuManagementPermissions.Update,
+            ],
+            cancellationToken);
+        await AssertMenuOkAsync(
+            client,
+            updateToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/menus/{targetMenu.Id:D}",
+            new UpdateHostMenuRequest(
+                null,
+                targetMenu.Path,
+                targetMenu.ComponentKey,
+                "受限更新标题",
+                targetMenu.Caption,
+                targetMenu.Icon,
+                targetMenu.DisplayOrder,
+                targetMenu.RequiredPermission,
+                targetMenu.Version),
+            cancellationToken);
+        await AssertMenuPermissionDeniedAsync(
+            client,
+            updateToken,
+            HttpMethod.Post,
+            "/api/v1/identity/menus",
+            CreateSampleMenuRequest($"denied-update-{Guid.NewGuid():N}"),
+            cancellationToken);
+
+        var disableTarget = await CreateHostMenuWithTokenAsync(
+            client,
+            adminToken,
+            $"disable-target-{Guid.NewGuid():N}",
+            cancellationToken);
+        var disableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityMenuManagementPermissions.Read,
+                IdentityMenuManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        await AssertMenuOkAsync<object?>(
+            client,
+            disableToken,
+            HttpMethod.Post,
+            $"/api/v1/identity/menus/{disableTarget.Id:D}/disable",
+            null,
+            cancellationToken);
+        await AssertMenuPermissionDeniedAsync(
+            client,
+            disableToken,
+            HttpMethod.Put,
+            $"/api/v1/identity/menus/{createdByLimited.Id:D}",
+            new UpdateHostMenuRequest(
+                null,
+                createdByLimited.Path,
+                createdByLimited.ComponentKey,
+                "拒绝更新",
+                createdByLimited.Caption,
+                createdByLimited.Icon,
+                createdByLimited.DisplayOrder,
+                createdByLimited.RequiredPermission,
+                createdByLimited.Version),
+            cancellationToken);
+    }
+
+    private static async Task<HostMenuResponse> CreateHostMenuWithTokenAsync(
+        HttpClient client,
+        string accessToken,
+        string routeName,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/menus",
+            accessToken,
+            CreateSampleMenuRequest(routeName));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<HostMenuResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+        return created;
+    }
+
+    private static async Task AssertMenusListAllowedAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/menus?page=1&pageSize=20");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task AssertMenuPermissionDeniedAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        TRequest? body,
+        CancellationToken cancellationToken)
+    {
+        using var request = body is null
+            ? new HttpRequestMessage(method, path)
+            : CreateBearerJsonRequest(method, path, accessToken, body);
+        if (body is null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task AssertMenuOkAsync<TRequest>(
+        HttpClient client,
+        string accessToken,
+        HttpMethod method,
+        string path,
+        TRequest? body,
+        CancellationToken cancellationToken)
+    {
+        using var request = body is null
+            ? new HttpRequestMessage(method, path)
+            : CreateBearerJsonRequest(method, path, accessToken, body);
+        if (body is null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.IsTrue(
+            response.StatusCode is HttpStatusCode.OK or HttpStatusCode.Created,
+            $"Expected success but received {(int)response.StatusCode}");
     }
 
     private static CreateHostMenuRequest CreateSampleMenuRequest(string routeName) =>

@@ -14,7 +14,7 @@
         },
         {
           "method": "POST",
-          "permission": "identity.menus.write",
+          "permission": "identity.menus.create",
           "successStatus": 201,
           "requestSchema": "CreateHostMenuRequest",
           "responseSchema": "HostMenuResponse"
@@ -32,7 +32,7 @@
         },
         {
           "method": "PUT",
-          "permission": "identity.menus.write",
+          "permission": "identity.menus.update",
           "successStatus": 200,
           "requestSchema": "UpdateHostMenuRequest",
           "responseSchema": "HostMenuResponse"
@@ -44,7 +44,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "identity.menus.write",
+          "permission": "identity.menus.disable",
           "successStatus": 200,
           "responseSchema": "HostMenuResponse"
         }

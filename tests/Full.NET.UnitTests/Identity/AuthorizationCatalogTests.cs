@@ -19,8 +19,10 @@ public sealed class AuthorizationCatalogTests
             {
                 "identity.api_keys.read",
                 "identity.api_keys.write",
+                "identity.menus.create",
+                "identity.menus.disable",
                 "identity.menus.read",
-                "identity.menus.write",
+                "identity.menus.update",
                 "identity.modules.read",
                 "identity.navigation.read",
                 "identity.role_field_grants.read",
@@ -149,6 +151,33 @@ public sealed class AuthorizationCatalogTests
             fieldGrantActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == IdentityRoleFieldGrantPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_menus_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "identity.menus.create",
+            ["update"] = "identity.menus.update",
+            ["disable"] = "identity.menus.disable",
+        };
+
+        var menusActions = catalog.Actions
+            .Where(action => action.NavigationId == "menus")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            menusActions);
+        Assert.IsFalse(catalog.Permissions.Any(
+            permission => permission.Code == IdentityMenuManagementPermissions.Write));
     }
 
     [TestMethod]

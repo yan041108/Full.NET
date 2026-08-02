@@ -165,7 +165,10 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./menus.js'),
       'createMenusController',
       root,
-      sharedOptions
+      {
+        ...sharedOptions,
+        getPermissions: options.getPermissions
+      }
     )],
     ['/organization/units', defineController(
       () => import('./org-units.js'),

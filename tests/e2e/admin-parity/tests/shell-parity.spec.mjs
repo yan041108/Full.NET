@@ -3468,7 +3468,9 @@ function currentUserResponse(activeTenantId = null) {
     permissions: [
       'identity.navigation.read',
       'identity.menus.read',
-      'identity.menus.write',
+      'identity.menus.create',
+      'identity.menus.update',
+      'identity.menus.disable',
       'identity.roles.read',
       'identity.roles.create',
       'identity.roles.update',

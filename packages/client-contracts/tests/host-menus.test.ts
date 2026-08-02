@@ -47,6 +47,7 @@ describe('Host 菜单客户端契约', () => {
     })).toBe(true);
     expect(HOST_MENU_COMPONENT_OPTIONS.some(entry => entry.componentKey === 'menus'))
       .toBe(true);
-    expect(HOST_MENU_ASSIGNABLE_PERMISSIONS).toContain('identity.menus.write');
+    expect(HOST_MENU_ASSIGNABLE_PERMISSIONS).toContain('identity.menus.read');
+    expect(HOST_MENU_ASSIGNABLE_PERMISSIONS).not.toContain('identity.menus.write');
   });
 });

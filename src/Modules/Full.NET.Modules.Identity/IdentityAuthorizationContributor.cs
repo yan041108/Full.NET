@@ -99,8 +99,16 @@ internal sealed class IdentityAuthorizationContributor
             "查看 Host 菜单",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            IdentityMenuManagementPermissions.Write,
-            "管理 Host 菜单",
+            IdentityMenuManagementPermissions.Create,
+            "创建 Host 菜单",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityMenuManagementPermissions.Update,
+            "更新 Host 菜单",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityMenuManagementPermissions.Disable,
+            "禁用 Host 菜单",
             AuthorizationScope.Host),
         new PermissionDefinition(
             IdentitySessionManagementPermissions.Read,
@@ -309,5 +317,26 @@ internal sealed class IdentityAuthorizationContributor
             "字段授权",
             "replace-field-grants",
             60),
+        new AuthorizationActionDefinition(
+            "identity.menus.create",
+            "menus",
+            IdentityMenuManagementPermissions.Create,
+            "创建菜单",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.menus.update",
+            "menus",
+            IdentityMenuManagementPermissions.Update,
+            "编辑菜单",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.menus.disable",
+            "menus",
+            IdentityMenuManagementPermissions.Disable,
+            "禁用菜单",
+            "disable",
+            30),
     ];
 }

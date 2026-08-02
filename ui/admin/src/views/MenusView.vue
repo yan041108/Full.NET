@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -18,6 +18,7 @@ import {
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   createHostMenu,
   disableHostMenu,
@@ -42,7 +43,6 @@ const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const componentOptions = HOST_MENU_COMPONENT_OPTIONS;
 const assignablePermissions = HOST_MENU_ASSIGNABLE_PERMISSIONS;
-const canWrite = computed(() => session.can('identity.menus.write'));
 
 watch(componentKey, value => {
   const entry = componentOptions.find(option => option.componentKey === value);
@@ -65,7 +65,7 @@ async function load(): Promise<void> {
 }
 
 async function create(): Promise<void> {
-  if (changing.value || !routeName.value.trim() || !title.value.trim()) {
+  if (changing.value || !session.can('identity.menus.create') || !routeName.value.trim() || !title.value.trim()) {
     return;
   }
   changing.value = true;
@@ -95,7 +95,7 @@ async function create(): Promise<void> {
 }
 
 async function edit(menu: HostMenu): Promise<void> {
-  if (changing.value || menu.isSystem) return;
+  if (changing.value || menu.isSystem || !session.can('identity.menus.update')) return;
   try {
     const result = await ElMessageBox.prompt(
       t('menus.editTitle'),
@@ -129,7 +129,7 @@ async function edit(menu: HostMenu): Promise<void> {
 }
 
 async function disable(menu: HostMenu): Promise<void> {
-  if (changing.value || !menu.isActive || menu.isSystem) return;
+  if (changing.value || !menu.isActive || menu.isSystem || !session.can('identity.menus.disable')) return;
   try {
     await ElMessageBox.confirm(
       t('menus.confirmDisable', { name: menu.routeName }),
@@ -168,32 +168,34 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card v-if="canWrite" class="art-form-card" shadow="never">
-      <div class="art-form-grid" aria-labelledby="create-title">
-        <div><h2 id="create-title">{{ t('menus.createTitle') }}</h2></div>
-        <label>
-          <span>{{ t('menus.routeName') }}</span>
-          <el-input v-model="routeName" :placeholder="t('menus.routeNamePlaceholder')" />
-        </label>
-        <label>
-          <span>{{ t('menus.componentKey') }}</span>
-          <el-select v-model="componentKey">
-            <el-option v-for="option in componentOptions" :key="option.componentKey" :label="option.componentKey" :value="option.componentKey" />
-          </el-select>
-        </label>
-        <label>
-          <span>{{ t('menus.titleField') }}</span>
-          <el-input v-model="title" :placeholder="t('menus.titlePlaceholder')" />
-        </label>
-        <label>
-          <span>{{ t('menus.requiredPermission') }}</span>
-          <el-select v-model="requiredPermission">
-            <el-option v-for="permission in assignablePermissions" :key="permission" :label="permission" :value="permission" />
-          </el-select>
-        </label>
-        <el-button type="primary" :loading="changing" @click="create">{{ t('menus.create') }}</el-button>
-      </div>
-    </el-card>
+    <PermissionGate code="identity.menus.create">
+      <el-card class="art-form-card" shadow="never">
+        <div class="art-form-grid" aria-labelledby="create-title">
+          <div><h2 id="create-title">{{ t('menus.createTitle') }}</h2></div>
+          <label>
+            <span>{{ t('menus.routeName') }}</span>
+            <el-input v-model="routeName" :placeholder="t('menus.routeNamePlaceholder')" />
+          </label>
+          <label>
+            <span>{{ t('menus.componentKey') }}</span>
+            <el-select v-model="componentKey">
+              <el-option v-for="option in componentOptions" :key="option.componentKey" :label="option.componentKey" :value="option.componentKey" />
+            </el-select>
+          </label>
+          <label>
+            <span>{{ t('menus.titleField') }}</span>
+            <el-input v-model="title" :placeholder="t('menus.titlePlaceholder')" />
+          </label>
+          <label>
+            <span>{{ t('menus.requiredPermission') }}</span>
+            <el-select v-model="requiredPermission">
+              <el-option v-for="permission in assignablePermissions" :key="permission" :label="permission" :value="permission" />
+            </el-select>
+          </label>
+          <el-button type="primary" :loading="changing" @click="create">{{ t('menus.create') }}</el-button>
+        </div>
+      </el-card>
+    </PermissionGate>
 
     <el-card class="art-table-card" shadow="never">
       <template #header>
@@ -217,16 +219,19 @@ function toProblem(
           </el-tag>
         </div>
         <div class="art-data-row__actions">
-          <el-button v-if="canWrite && !menu.isSystem" plain :disabled="changing" @click="edit(menu)">{{ t('menus.edit') }}</el-button>
-          <el-button
-            v-if="canWrite && menu.isActive && !menu.isSystem"
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(menu)"
-          >
-            {{ t('menus.disable') }}
-          </el-button>
+          <PermissionGate v-if="!menu.isSystem" code="identity.menus.update">
+            <el-button plain :disabled="changing" @click="edit(menu)">{{ t('menus.edit') }}</el-button>
+          </PermissionGate>
+          <PermissionGate v-if="menu.isActive && !menu.isSystem" code="identity.menus.disable">
+            <el-button
+              type="danger"
+              plain
+              :disabled="changing"
+              @click="disable(menu)"
+            >
+              {{ t('menus.disable') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </article>
     </el-card>

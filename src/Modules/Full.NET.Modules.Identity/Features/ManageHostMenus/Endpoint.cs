@@ -66,7 +66,7 @@ internal static class Endpoint
                 result.Value);
         })
         .Produces<HostMenuResponse>(StatusCodes.Status201Created)
-        .RequireFullNetPermission(IdentityMenuManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityMenuManagementPermissions.Create);
 
         group.MapPut("/{menuId:guid}", async (
             Guid menuId,
@@ -81,7 +81,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostMenuResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityMenuManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityMenuManagementPermissions.Update);
 
         group.MapPost("/{menuId:guid}/disable", async (
             Guid menuId,
@@ -95,6 +95,6 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostMenuResponse>(StatusCodes.Status200OK)
-        .RequireFullNetPermission(IdentityMenuManagementPermissions.Write);
+        .RequireFullNetPermission(IdentityMenuManagementPermissions.Disable);
     }
 }

@@ -35,7 +35,7 @@ test('Host 菜单 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^identity\.menus\.(read|write)$/u);
+      assert.match(operation.permission, /^identity\.menus\.(read|create|update|disable)$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -56,7 +56,9 @@ test('Host 菜单 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(contractsSource, /record UpdateHostMenuRequest/u);
   assert.match(contractsSource, /record HostMenuResponse/u);
   assert.match(contractsSource, /identity\.menus\.read/u);
-  assert.match(contractsSource, /identity\.menus\.write/u);
+  assert.match(contractsSource, /identity\.menus\.create/u);
+  assert.match(contractsSource, /identity\.menus\.update/u);
+  assert.match(contractsSource, /identity\.menus\.disable/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/menus"\)/u);
 

@@ -12,7 +12,6 @@ export const HOST_MENU_ASSIGNABLE_PERMISSIONS = [
   'identity.roles.read',
   'identity.roles.write',
   'identity.menus.read',
-  'identity.menus.write',
   'organization.units.read',
   'organization.units.write',
   'organization.user_units.read',

@@ -12,6 +12,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         IdentityUserManagementPermissions.Write,
         IdentityRoleManagementPermissions.Write,
         IdentityRoleFieldGrantPermissions.Write,
+        IdentityMenuManagementPermissions.Write,
     };
 
     internal static bool IsCoarseWritePermission(string permissionCode) =>
@@ -31,8 +32,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/identity/api-keys/{apiKeyId:guid}/disable|identity.api_keys.write",
         "POST /api/v1/identity/api-keys/{apiKeyId:guid}/rotate|identity.api_keys.write",
         "POST /api/v1/identity/api-keys/|identity.api_keys.write",
-        "POST /api/v1/identity/menus/{menuId:guid}/disable|identity.menus.write",
-        "POST /api/v1/identity/menus/|identity.menus.write",
         "POST /api/v1/identity/online-sessions/{sessionId:guid}/revoke|identity.sessions.write",
         "POST /api/v1/jobs/host-definitions/{definitionId:guid}/disable|jobs.definitions.write",
         "POST /api/v1/jobs/host-definitions/{definitionId:guid}/trigger|jobs.definitions.write",
@@ -74,7 +73,6 @@ internal static class LegacyCoarseActionPermissionRegistry
         "POST /api/v1/tenancy/tenants/|tenancy.tenants.write",
         "PUT /api/v1/code-generation/templates/{templateId:guid}|codegen.templates.write",
         "PUT /api/v1/document/host/items/{itemId:guid}|document.host_documents.write",
-        "PUT /api/v1/identity/menus/{menuId:guid}|identity.menus.write",
         "PUT /api/v1/jobs/host-definitions/{definitionId:guid}|jobs.definitions.write",
         "PUT /api/v1/jobs/host-schedules/{scheduleId:guid}|jobs.schedules.write",
         "PUT /api/v1/notifications/host-announcements/{announcementId:guid}|notifications.announcements.write",

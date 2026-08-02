@@ -8,7 +8,16 @@ public static class IdentityMenuManagementPermissions
     /// <summary>分页查询 Host 菜单列表与详情。</summary>
     public const string Read = "identity.menus.read";
 
-    /// <summary>创建、更新与禁用 Host 菜单。</summary>
+    /// <summary>创建 Host 菜单。</summary>
+    public const string Create = "identity.menus.create";
+
+    /// <summary>更新 Host 菜单。</summary>
+    public const string Update = "identity.menus.update";
+
+    /// <summary>禁用 Host 菜单。</summary>
+    public const string Disable = "identity.menus.disable";
+
+    /// <summary>迁移 057 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.menus.write";
 }
 
