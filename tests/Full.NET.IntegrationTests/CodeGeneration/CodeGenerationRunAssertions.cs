@@ -86,6 +86,10 @@ internal static class CodeGenerationRunAssertions
             client,
             executor.AccessToken,
             cancellationToken);
+        await VerifyHostScopeOrganizationOwnershipRejectedOnRunsPreviewAsync(
+            client,
+            executor.AccessToken,
+            cancellationToken);
 
         using (var executorCannotRead = await client.SendAsync(
                    Authorized(
@@ -203,6 +207,43 @@ internal static class CodeGenerationRunAssertions
             .Content;
         StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer");
         StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
+    }
+
+    private static async Task VerifyHostScopeOrganizationOwnershipRejectedOnRunsPreviewAsync(
+        HttpClient client,
+        string executorAccessToken,
+        CancellationToken cancellationToken)
+    {
+        foreach (var dataScope in new[] { "host.only", "global" })
+        {
+            var organizationOwned =
+                CodeGenerationOrganizationOwnedTestSupport.CreatePreviewRequest();
+            var invalid = organizationOwned with
+            {
+                DataScope = dataScope,
+                Columns = organizationOwned.Columns
+                    .Where(column =>
+                        !string.Equals(
+                            column.ClrPropertyName,
+                            "TenantId",
+                            StringComparison.Ordinal))
+                    .ToArray(),
+            };
+            using var response = await client.SendAsync(
+                AuthorizedJson(
+                    HttpMethod.Post,
+                    $"{RunsPath}/preview",
+                    executorAccessToken,
+                    new CodeGenerationRunPreviewRequest(
+                        null,
+                        null,
+                        invalid)),
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual(
+                CodeGenerationErrorCodes.InvalidPreviewSchema,
+                await ReadCodeAsync(response, cancellationToken));
+        }
     }
 
     private static async Task VerifyApplyAsync(
