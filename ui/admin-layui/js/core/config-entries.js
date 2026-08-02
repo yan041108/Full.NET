@@ -1,8 +1,6 @@
 /**
  * 装配 Host 系统配置目录视图；支持创建、值更新与禁用。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createConfigEntriesController(root, options) {
   const request = options.request;
   const translation = options.translation;
@@ -20,9 +18,6 @@ export function createConfigEntriesController(root, options) {
           Array.isArray(page?.items) ? page.items : [],
           translation()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -187,7 +182,6 @@ function renderDirectory(container, entries, translation) {
     const edit = container.ownerDocument.createElement('button');
     edit.type = 'button';
     edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-    edit.dataset.permission = 'settings.config.update';
     edit.dataset.configEntriesEdit = entry.id;
     edit.dataset.version = String(entry.version ?? 0);
     edit.dataset.value = entry.value ?? '';
@@ -200,7 +194,6 @@ function renderDirectory(container, entries, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
-      disable.dataset.permission = 'settings.config.disable';
       disable.dataset.configEntriesDisable = entry.id;
       disable.dataset.configKey = entry.configKey;
       disable.textContent = translation.t('configEntries.disable');

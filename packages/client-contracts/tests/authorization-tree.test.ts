@@ -65,6 +65,27 @@ describe('Host 授权树客户端契约', () => {
     ])).toBe(false);
   });
 
+  it('拒绝页面读取权限伪装成操作以及重复操作权限', () => {
+    expect(isAuthorizationTreePageArray([{
+      ...usersPage,
+      actions: [{
+        ...usersPage.actions[0],
+        permissionCode: usersPage.permissionCode
+      }]
+    }])).toBe(false);
+    expect(isAuthorizationTreePageArray([{
+      ...usersPage,
+      actions: [
+        usersPage.actions[0],
+        {
+          ...usersPage.actions[0],
+          id: 'identity.users.force-signout',
+          permissionCode: usersPage.actions[0].permissionCode
+        }
+      ]
+    }])).toBe(false);
+  });
+
   it('拒绝可执行元数据、未知字段与异常嵌套', () => {
     expect(isAuthorizationTreePageArray([{
       ...usersPage,

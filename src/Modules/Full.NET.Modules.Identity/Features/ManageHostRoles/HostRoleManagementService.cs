@@ -191,7 +191,18 @@ internal sealed class HostRoleManagementService(
             return SystemLocked();
         }
 
-        var normalizedCodes = NormalizePermissionCodes(request.PermissionCodes);
+        var suppliedCodes = request.PermissionCodes ?? [];
+        if (suppliedCodes.Any(string.IsNullOrWhiteSpace))
+        {
+            return InvalidPermissionSet();
+        }
+
+        var normalizedCodes = NormalizePermissionCodes(suppliedCodes);
+        if (normalizedCodes.Distinct(StringComparer.Ordinal).Count() != normalizedCodes.Length)
+        {
+            return InvalidPermissionSet();
+        }
+
         var validationError = ValidateAssignablePermissions(normalizedCodes);
         if (validationError is not null)
         {
@@ -236,6 +247,9 @@ internal sealed class HostRoleManagementService(
                 .ConfigureAwait(false);
         }
 
+        await InvalidateRoleMembersAsync(roleId, now, cancellationToken)
+            .ConfigureAwait(false);
+
         return await LoadResponseAsync(roleId, cancellationToken).ConfigureAwait(false);
     }
 
@@ -269,7 +283,32 @@ internal sealed class HostRoleManagementService(
             return SystemLocked();
         }
 
+        await InvalidateRoleMembersAsync(roleId, now, cancellationToken)
+            .ConfigureAwait(false);
+
         return await LoadResponseAsync(roleId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task InvalidateRoleMembersAsync(
+        Guid roleId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await commandExecutor.ExecuteAsync(
+                IdentitySql.RotateSecurityStampsByRole,
+                new
+                {
+                    RoleId = roleId,
+                    SecurityStamp = idGenerator.NewId().ToString("N"),
+                    UpdatedAtUtc = now,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+                IdentitySql.RevokeSessionsByRole,
+                new { RoleId = roleId, RevokedAtUtc = now },
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<Result<HostRoleResponse>> LoadResponseAsync(
@@ -317,23 +356,23 @@ internal sealed class HostRoleManagementService(
     }
 
     private static string[] NormalizePermissionCodes(
-        IReadOnlyList<string>? permissionCodes) =>
-        (permissionCodes ?? [])
-            .Select(code => code?.Trim() ?? string.Empty)
-            .Where(code => code.Length > 0)
-            .Distinct(StringComparer.Ordinal)
+        IReadOnlyList<string> permissionCodes) =>
+        permissionCodes
+            .Select(code => code.Trim())
             .Order(StringComparer.Ordinal)
             .ToArray();
 
     private Result<HostRoleResponse>? ValidateAssignablePermissions(
         IReadOnlyList<string> permissionCodes)
     {
-        var knownCodes = authorizationCatalog.Permissions
-            .Select(permission => permission.Code)
-            .ToHashSet(StringComparer.Ordinal);
+        var permissionsByCode = authorizationCatalog.Permissions
+            .ToDictionary(
+                permission => permission.Code,
+                permission => permission,
+                StringComparer.Ordinal);
         foreach (var code in permissionCodes)
         {
-            if (!knownCodes.Contains(code))
+            if (!permissionsByCode.ContainsKey(code))
             {
                 return Result<HostRoleResponse>.Failure(new Error(
                     ValidationErrorCodes.Failed,
@@ -394,6 +433,12 @@ internal sealed class HostRoleManagementService(
             IdentityErrorCodes.RoleCodeExists,
             "A host role with this code already exists.",
             ErrorType.Conflict));
+
+    private static Result<HostRoleResponse> InvalidPermissionSet() =>
+        Result<HostRoleResponse>.Failure(new Error(
+            ValidationErrorCodes.Failed,
+            "Permission codes must be non-empty and unique.",
+            ErrorType.Validation));
 
     private static Result<HostRoleResponse> NotFound() =>
         Result<HostRoleResponse>.Failure(new Error(

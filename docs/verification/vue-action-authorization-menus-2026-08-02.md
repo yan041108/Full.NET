@@ -13,7 +13,6 @@
 | Endpoint | POST/PUT/disable 分别绑定 create/update/disable |
 | 迁移 057 | SQL Server/MySQL 恢复 **6/6** |
 | Vue | `PermissionGate` 创建表单与行内操作 + `session.can` 守卫 |
-| Layui | 创建表单与动态按钮 `data-permission` + `applyPermissionVisibility` |
 | Integration | `VerifyExactMenuActionPermissionBoundariesAsync` |
 
 ## 本地验证（2026-08-02）

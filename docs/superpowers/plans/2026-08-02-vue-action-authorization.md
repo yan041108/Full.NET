@@ -8,6 +8,8 @@
 
 **Tech Stack:** .NET 10、ASP.NET Core Minimal API、Dapper、DbUp、SQL Server、MySQL、System.Text.Json Source Generation、Vue 3、TypeScript、Element Plus、Pinia、Vitest、MSTest、Playwright。
 
+> **2026-08-03 状态复核：** Task 1–9 与 Task 10 的 W0–W3 页面/操作权限已落地；生产导航尚未形成模块节点，因此“模块/页面/操作”三级授权仍未完成。本文件中的复选框保留为原始执行剧本，不再作为实时进度源。当前完成/剩余范围以 [`admin-action-permission-inventory.md`](../../roadmap/admin-action-permission-inventory.md) 为准，先执行 [`2026-08-03-vue-action-authorization-w4-w5.md`](2026-08-03-vue-action-authorization-w4-w5.md) Task 0，再继续 W4–W5。Layui 已恢复到 2026-08-02 冻结树并由治理测试阻止后续功能性修改。
+
 ## Global Constraints
 
 - 设计权威：[Vue 单一后台与页面/操作精确授权设计](../specs/2026-08-02-vue-action-authorization-design.md)。

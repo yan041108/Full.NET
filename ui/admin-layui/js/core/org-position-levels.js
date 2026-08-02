@@ -1,8 +1,6 @@
 /**
  * 装配租户职级管理视图；支持创建、名称更新与禁用。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createOrgPositionLevelsController(root, options) {
   const request = options.request;
   const translation = options.translation;
@@ -20,9 +18,6 @@ export function createOrgPositionLevelsController(root, options) {
           Array.isArray(page?.items) ? page.items : [],
           translation()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -161,7 +156,6 @@ function renderDirectory(container, levels, translation) {
       const edit = container.ownerDocument.createElement('button');
       edit.type = 'button';
       edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-      edit.dataset.permission = 'organization.position_levels.update';
       edit.dataset.orgPositionLevelsEdit = level.id;
       edit.dataset.version = String(level.version ?? 0);
       edit.dataset.displayOrder = String(level.displayOrder ?? 0);
@@ -170,7 +164,6 @@ function renderDirectory(container, levels, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-sm';
-      disable.dataset.permission = 'organization.position_levels.disable';
       disable.dataset.orgPositionLevelsDisable = level.id;
       disable.dataset.code = level.code ?? '';
       disable.textContent = translation.t('orgPositionLevels.disable');

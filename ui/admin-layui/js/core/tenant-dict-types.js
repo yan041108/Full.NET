@@ -1,11 +1,10 @@
 /**
  * 装配租户数据字典类型与字典项视图；类型目录支持创建/更新/禁用，选型后管理字典项。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createTenantDictTypesController(root, options) {
   const request = options.request;
   const translation = options.translation;
+  const canWrite = options.canWrite ?? (() => false);
   const form = root.querySelector('[data-tenant-dict-types-create-form]');
   const directory = root.querySelector('[data-tenant-dict-types-directory]');
   const itemsPanel = root.querySelector('[data-tenant-dict-items-panel]');
@@ -20,16 +19,15 @@ export function createTenantDictTypesController(root, options) {
 
   const load = async () => {
     if (loading) return await loading;
+    if (form) form.hidden = !canWrite();
     loading = request('/api/v1/settings/tenant-dict-types?page=1&pageSize=20')
       .then(page => {
         renderDirectory(
           directory,
           Array.isArray(page?.items) ? page.items : [],
-          translation()
+          translation(),
+          canWrite()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
         if (selectedTypeId) {
           const stillExists = (page?.items ?? []).some(item => item.id === selectedTypeId);
@@ -54,11 +52,9 @@ export function createTenantDictTypesController(root, options) {
       renderItemsDirectory(
         itemsDirectory,
         Array.isArray(page?.items) ? page.items : [],
-        translation()
+        translation(),
+        canWrite()
       );
-      if (typeof options.getPermissions === 'function') {
-        applyPermissionVisibility(root, options.getPermissions());
-      }
       hideProblem(root);
     } catch (problem) {
       showProblem(root, problem, translation().t('dictItems.loadFailed'));
@@ -69,7 +65,7 @@ export function createTenantDictTypesController(root, options) {
     selectedTypeId = dictTypeId;
     selectedTypeCode = code ?? '';
     if (itemsPanel) itemsPanel.hidden = false;
-    if (itemsForm) itemsForm.hidden = false;
+    if (itemsForm) itemsForm.hidden = !canWrite();
     if (itemsPanelTitle) {
       itemsPanelTitle.textContent = translation().t('dictItems.panelTitle', {
         name: selectedTypeCode
@@ -91,7 +87,7 @@ export function createTenantDictTypesController(root, options) {
 
   const onCreate = async event => {
     event.preventDefault();
-    if (changing || !form) return;
+    if (changing || !form || !canWrite()) return;
     const data = new FormData(form);
     const code = String(data.get('code') ?? '').trim().toLowerCase();
     const name = String(data.get('name') ?? '').trim();
@@ -121,7 +117,7 @@ export function createTenantDictTypesController(root, options) {
 
   const onCreateItem = async event => {
     event.preventDefault();
-    if (changing || !itemsForm || !selectedTypeId) return;
+    if (changing || !itemsForm || !selectedTypeId || !canWrite()) return;
     const data = new FormData(itemsForm);
     const label = String(data.get('label') ?? '').trim();
     const value = String(data.get('value') ?? '').trim().toLowerCase();
@@ -164,7 +160,7 @@ export function createTenantDictTypesController(root, options) {
     const editButton = event.target instanceof Element
       ? event.target.closest('[data-tenant-dict-types-edit]')
       : undefined;
-    if (editButton && !changing) {
+    if (editButton && !changing && canWrite()) {
       const dictTypeId = editButton.dataset.tenantDictTypesEdit;
       const version = Number(editButton.dataset.version ?? '0');
       const displayOrder = Number(editButton.dataset.displayOrder ?? '0');
@@ -201,7 +197,7 @@ export function createTenantDictTypesController(root, options) {
     const disableButton = event.target instanceof Element
       ? event.target.closest('[data-tenant-dict-types-disable]')
       : undefined;
-    if (!disableButton || changing) return;
+    if (!disableButton || changing || !canWrite()) return;
     const dictTypeId = disableButton.dataset.tenantDictTypesDisable;
     const code = disableButton.dataset.code ?? '';
     const message = translation().t('dictTypes.confirmDisable', { name: code });
@@ -226,7 +222,7 @@ export function createTenantDictTypesController(root, options) {
     const editButton = event.target instanceof Element
       ? event.target.closest('[data-tenant-dict-items-edit]')
       : undefined;
-    if (editButton && !changing) {
+    if (editButton && !changing && canWrite()) {
       const dictItemId = editButton.dataset.tenantDictItemsEdit;
       const version = Number(editButton.dataset.version ?? '0');
       const displayOrder = Number(editButton.dataset.displayOrder ?? '0');
@@ -263,7 +259,7 @@ export function createTenantDictTypesController(root, options) {
     const disableButton = event.target instanceof Element
       ? event.target.closest('[data-tenant-dict-items-disable]')
       : undefined;
-    if (!disableButton || changing) return;
+    if (!disableButton || changing || !canWrite()) return;
     const dictItemId = disableButton.dataset.tenantDictItemsDisable;
     const value = disableButton.dataset.value ?? '';
     const message = translation().t('dictItems.confirmDisable', { name: value });
@@ -309,7 +305,7 @@ function jsonRequest(body) {
   };
 }
 
-function renderDirectory(container, dictTypes, translation) {
+function renderDirectory(container, dictTypes, translation, canWrite) {
   if (!container) return;
   if (dictTypes.length === 0) {
     const empty = container.ownerDocument.createElement('p');
@@ -350,22 +346,22 @@ function renderDirectory(container, dictTypes, translation) {
     manage.dataset.code = dictType.code ?? '';
     manage.textContent = translation.t('dictItems.manage');
     actions.append(manage);
-    const edit = container.ownerDocument.createElement('button');
-    edit.type = 'button';
-    edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-    edit.dataset.permission = 'settings.tenant_dict_types.update';
-    edit.dataset.tenantDictTypesEdit = dictType.id;
-    edit.dataset.version = String(dictType.version ?? 0);
-    edit.dataset.displayOrder = String(dictType.displayOrder ?? 0);
-    edit.dataset.name = dictType.name ?? '';
-    edit.dataset.description = dictType.description ?? '';
-    edit.textContent = translation.t('dictTypes.edit');
-    actions.append(edit);
-    if (dictType.isActive) {
+    if (canWrite) {
+      const edit = container.ownerDocument.createElement('button');
+      edit.type = 'button';
+      edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      edit.dataset.tenantDictTypesEdit = dictType.id;
+      edit.dataset.version = String(dictType.version ?? 0);
+      edit.dataset.displayOrder = String(dictType.displayOrder ?? 0);
+      edit.dataset.name = dictType.name ?? '';
+      edit.dataset.description = dictType.description ?? '';
+      edit.textContent = translation.t('dictTypes.edit');
+      actions.append(edit);
+    }
+    if (canWrite && dictType.isActive) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
-      disable.dataset.permission = 'settings.tenant_dict_types.disable';
       disable.dataset.tenantDictTypesDisable = dictType.id;
       disable.dataset.code = dictType.code;
       disable.textContent = translation.t('dictTypes.disable');
@@ -377,7 +373,7 @@ function renderDirectory(container, dictTypes, translation) {
   container.replaceChildren(fragment);
 }
 
-function renderItemsDirectory(container, items, translation) {
+function renderItemsDirectory(container, items, translation, canWrite) {
   if (!container) return;
   if (items.length === 0) {
     const empty = container.ownerDocument.createElement('p');
@@ -412,22 +408,22 @@ function renderItemsDirectory(container, items, translation) {
     state.textContent = translation.t(item.isActive ? 'dictItems.active' : 'dictItems.inactive');
     const actions = container.ownerDocument.createElement('div');
     actions.className = 'fn-tenants__actions';
-    const edit = container.ownerDocument.createElement('button');
-    edit.type = 'button';
-    edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-    edit.dataset.permission = 'settings.tenant_dict_types.update';
-    edit.dataset.tenantDictItemsEdit = item.id;
-    edit.dataset.version = String(item.version ?? 0);
-    edit.dataset.displayOrder = String(item.displayOrder ?? 0);
-    edit.dataset.label = item.label ?? '';
-    edit.dataset.color = item.color ?? '';
-    edit.textContent = translation.t('dictItems.edit');
-    actions.append(edit);
-    if (item.isActive) {
+    if (canWrite) {
+      const edit = container.ownerDocument.createElement('button');
+      edit.type = 'button';
+      edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
+      edit.dataset.tenantDictItemsEdit = item.id;
+      edit.dataset.version = String(item.version ?? 0);
+      edit.dataset.displayOrder = String(item.displayOrder ?? 0);
+      edit.dataset.label = item.label ?? '';
+      edit.dataset.color = item.color ?? '';
+      edit.textContent = translation.t('dictItems.edit');
+      actions.append(edit);
+    }
+    if (canWrite && item.isActive) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
-      disable.dataset.permission = 'settings.tenant_dict_types.disable';
       disable.dataset.tenantDictItemsDisable = item.id;
       disable.dataset.value = item.value ?? '';
       disable.textContent = translation.t('dictItems.disable');

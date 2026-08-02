@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Composition;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.CodeGeneration;
+using Full.NET.Modules.Document;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Jobs;
@@ -47,6 +48,7 @@ public sealed class FullNetModuleCatalogTests
                 typeof(AuditingModule),
                 typeof(CodeGenerationModule),
                 typeof(FilesModule),
+                typeof(DocumentModule),
                 typeof(JobsModule),
                 typeof(NotificationsModule),
                 typeof(TenancyModule),
@@ -60,11 +62,12 @@ public sealed class FullNetModuleCatalogTests
                 modules.Select(module => module.FullName)));
 
         var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
-        Assert.HasCount(10, catalog.List());
+        Assert.HasCount(11, catalog.List());
         Assert.IsNotNull(catalog.FindByKey("Identity"));
         Assert.AreEqual(
             FullNetModuleSourceClassification.Official,
             catalog.FindByKey("Identity")!.SourceClassification);
+        Assert.IsNotNull(catalog.FindByKey("Document"));
     }
 
     [TestMethod]

@@ -1,8 +1,6 @@
 /**
  * 装配租户机构管理视图；支持创建、名称更新与禁用。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createOrgUnitsController(root, options) {
   const request = options.request;
   const translation = options.translation;
@@ -20,9 +18,6 @@ export function createOrgUnitsController(root, options) {
           Array.isArray(page?.items) ? page.items : [],
           translation()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -170,7 +165,6 @@ function renderDirectory(container, units, translation) {
       const edit = container.ownerDocument.createElement('button');
       edit.type = 'button';
       edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-      edit.dataset.permission = 'organization.units.update';
       edit.dataset.orgUnitsEdit = unit.id;
       edit.dataset.version = String(unit.version ?? 0);
       edit.dataset.displayOrder = String(unit.displayOrder ?? 0);
@@ -180,7 +174,6 @@ function renderDirectory(container, units, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-sm';
-      disable.dataset.permission = 'organization.units.disable';
       disable.dataset.orgUnitsDisable = unit.id;
       disable.dataset.code = unit.code ?? '';
       disable.textContent = translation.t('orgUnits.disable');

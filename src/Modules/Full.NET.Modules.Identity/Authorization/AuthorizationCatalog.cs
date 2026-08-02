@@ -39,16 +39,17 @@ internal sealed class AuthorizationCatalog
         ValidateNavigation(permissions, navigation);
         ValidateActions(permissions, navigation, actions);
 
-        var navigationOrder = navigation
+        var orderedNavigation = navigation
+            .OrderBy(item => item.Order)
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        var navigationOrder = orderedNavigation
             .Select((item, index) => (item.Id, index))
             .ToDictionary(pair => pair.Id, pair => pair.index, StringComparer.Ordinal);
 
         return new AuthorizationCatalog(
             permissions.OrderBy(item => item.Code, StringComparer.Ordinal).ToArray(),
-            navigation
-                .OrderBy(item => item.Order)
-                .ThenBy(item => item.Id, StringComparer.Ordinal)
-                .ToArray(),
+            orderedNavigation,
             actions
                 .OrderBy(item => navigationOrder[item.NavigationId])
                 .ThenBy(item => item.Order)
@@ -82,9 +83,10 @@ internal sealed class AuthorizationCatalog
         EnsureUnique(
             navigation.Select(item => item.Id),
             "navigation id");
-        var permissionCodes = permissions
-            .Select(item => item.Code)
-            .ToHashSet(StringComparer.Ordinal);
+        var permissionsByCode = permissions.ToDictionary(
+            item => item.Code,
+            item => item,
+            StringComparer.Ordinal);
         var navigationIds = navigation
             .Select(item => item.Id)
             .ToHashSet(StringComparer.Ordinal);
@@ -102,7 +104,7 @@ internal sealed class AuthorizationCatalog
                     "Authorization catalog contains an incomplete navigation definition.");
             }
 
-            if (!permissionCodes.Contains(item.RequiredPermission))
+            if (!permissionsByCode.ContainsKey(item.RequiredPermission))
             {
                 throw new InvalidOperationException(
                     $"Navigation '{item.Id}' requires an unknown permission.");
@@ -127,9 +129,10 @@ internal sealed class AuthorizationCatalog
             actions.Select(item => item.Id),
             "action id");
 
-        var permissionCodes = permissions
-            .Select(item => item.Code)
-            .ToHashSet(StringComparer.Ordinal);
+        var permissionsByCode = permissions.ToDictionary(
+            item => item.Code,
+            item => item,
+            StringComparer.Ordinal);
         var navigationById = navigation.ToDictionary(
             item => item.Id,
             item => item,
@@ -155,10 +158,17 @@ internal sealed class AuthorizationCatalog
                     $"Action '{action.Id}' references an unknown navigation.");
             }
 
-            if (!permissionCodes.Contains(action.PermissionCode))
+            if (!permissionsByCode.TryGetValue(action.PermissionCode, out var actionPermission))
             {
                 throw new InvalidOperationException(
                     $"Action '{action.Id}' requires an unknown permission.");
+            }
+
+            var pagePermission = permissionsByCode[navigationItem.RequiredPermission];
+            if ((actionPermission.Scope & pagePermission.Scope) != actionPermission.Scope)
+            {
+                throw new InvalidOperationException(
+                    $"Action '{action.Id}' exceeds the parent page authorization scope.");
             }
 
             if (string.Equals(

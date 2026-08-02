@@ -1,8 +1,6 @@
 /**
  * 装配 Host 数据字典类型与字典项视图；类型目录支持创建/更新/禁用，选型后管理字典项。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createDictTypesController(root, options) {
   const request = options.request;
   const translation = options.translation;
@@ -27,9 +25,6 @@ export function createDictTypesController(root, options) {
           Array.isArray(page?.items) ? page.items : [],
           translation()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
         if (selectedTypeId) {
           const stillExists = (page?.items ?? []).some(item => item.id === selectedTypeId);
@@ -56,9 +51,6 @@ export function createDictTypesController(root, options) {
         Array.isArray(page?.items) ? page.items : [],
         translation()
       );
-      if (typeof options.getPermissions === 'function') {
-        applyPermissionVisibility(root, options.getPermissions());
-      }
       hideProblem(root);
     } catch (problem) {
       showProblem(root, problem, translation().t('dictItems.loadFailed'));
@@ -353,7 +345,6 @@ function renderDirectory(container, dictTypes, translation) {
     const edit = container.ownerDocument.createElement('button');
     edit.type = 'button';
     edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-    edit.dataset.permission = 'settings.dict_types.update';
     edit.dataset.dictTypesEdit = dictType.id;
     edit.dataset.version = String(dictType.version ?? 0);
     edit.dataset.displayOrder = String(dictType.displayOrder ?? 0);
@@ -365,7 +356,6 @@ function renderDirectory(container, dictTypes, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
-      disable.dataset.permission = 'settings.dict_types.disable';
       disable.dataset.dictTypesDisable = dictType.id;
       disable.dataset.code = dictType.code;
       disable.textContent = translation.t('dictTypes.disable');
@@ -415,7 +405,6 @@ function renderItemsDirectory(container, items, translation) {
     const edit = container.ownerDocument.createElement('button');
     edit.type = 'button';
     edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-    edit.dataset.permission = 'settings.dict_types.update';
     edit.dataset.dictItemsEdit = item.id;
     edit.dataset.version = String(item.version ?? 0);
     edit.dataset.displayOrder = String(item.displayOrder ?? 0);
@@ -427,7 +416,6 @@ function renderItemsDirectory(container, items, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
-      disable.dataset.permission = 'settings.dict_types.disable';
       disable.dataset.dictItemsDisable = item.id;
       disable.dataset.value = item.value ?? '';
       disable.textContent = translation.t('dictItems.disable');

@@ -26,7 +26,7 @@ describe('Layui 限时诊断策略控制器', () => {
       translation: () => ({
         t: (key, params = {}) => `${key}:${JSON.stringify(params)}`
       }),
-      hasPermission: code => code === 'settings.diagnostic_policy.restore'
+      hasPermission: code => code === 'settings.diagnostic_policy.write'
     });
 
     await vi.waitFor(() => {

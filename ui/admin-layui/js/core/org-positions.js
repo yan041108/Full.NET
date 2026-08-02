@@ -1,17 +1,15 @@
 /**
  * 装配租户职位管理视图；支持创建、名称更新与禁用。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createOrgPositionsController(root, options) {
   const request = options.request;
   const translation = options.translation;
   const form = root.querySelector('[data-org-positions-create-form]');
   const directory = root.querySelector('[data-org-positions-directory]');
   const hasPermission = options.hasPermission ?? (() => true);
-  const canBindUnits = () => hasPermission('organization.positions.assign_unit')
+  const canBindUnits = () => hasPermission('organization.positions.write')
     && hasPermission('organization.units.read');
-  const canBindPositionLevels = () => hasPermission('organization.positions.assign_position_level')
+  const canBindPositionLevels = () => hasPermission('organization.positions.write')
     && hasPermission('organization.position_levels.read');
   let loading;
   let changing = false;
@@ -48,9 +46,6 @@ export function createOrgPositionsController(root, options) {
           canBindPositionLevels(),
           translation()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -268,7 +263,6 @@ function renderDirectory(
     actions.className = 'fn-org-units__actions';
     if (position.isActive && canBindUnits) {
       const unitLabel = container.ownerDocument.createElement('label');
-      unitLabel.dataset.permission = 'organization.positions.assign_unit';
       const unitSelect = container.ownerDocument.createElement('select');
       unitSelect.className = 'layui-input';
       unitSelect.setAttribute('aria-label', translation.t('orgPositions.unit'));
@@ -290,7 +284,6 @@ function renderDirectory(
     }
     if (position.isActive && canBindPositionLevels) {
       const positionLevelLabel = container.ownerDocument.createElement('label');
-      positionLevelLabel.dataset.permission = 'organization.positions.assign_position_level';
       const positionLevelSelect = container.ownerDocument.createElement('select');
       positionLevelSelect.className = 'layui-input';
       positionLevelSelect.setAttribute(
@@ -317,7 +310,6 @@ function renderDirectory(
       const edit = container.ownerDocument.createElement('button');
       edit.type = 'button';
       edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-      edit.dataset.permission = 'organization.positions.update';
       edit.dataset.orgPositionsEdit = position.id;
       edit.dataset.version = String(position.version ?? 0);
       edit.dataset.displayOrder = String(position.displayOrder ?? 0);
@@ -327,7 +319,6 @@ function renderDirectory(
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-sm';
-      disable.dataset.permission = 'organization.positions.disable';
       disable.dataset.orgPositionsDisable = position.id;
       disable.dataset.code = position.code ?? '';
       disable.textContent = translation.t('orgPositions.disable');

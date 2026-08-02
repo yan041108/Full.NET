@@ -29,28 +29,19 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./tenants.js'),
       'createTenantsController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/tenant-packages', defineController(
       () => import('./tenant-packages.js'),
       'createTenantPackagesController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/settings/dict-types', defineController(
       () => import('./dict-types.js'),
       'createDictTypesController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/settings/tenant-dict-types', defineController(
       () => import('./tenant-dict-types.js'),
@@ -58,26 +49,20 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       root,
       {
         ...sharedOptions,
-        getPermissions: options.getPermissions
+        canWrite: options.canWriteTenantDictTypes
       }
     )],
     ['/settings/diagnostic-policy', defineController(
       () => import('./diagnostic-policy.js'),
       'createDiagnosticPolicyController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
   ['/settings/config-entries', defineController(
       () => import('./config-entries.js'),
       'createConfigEntriesController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/settings/enum-catalogs', defineController(
       () => import('./enum-catalogs.js'),
@@ -143,10 +128,7 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       () => import('./online-sessions.js'),
       'createOnlineSessionsController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/identity/api-keys', defineController(
       () => import('./api-keys.js'),
@@ -154,8 +136,7 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       root,
       {
         ...sharedOptions,
-        hasPermission: options.hasPermission,
-        getPermissions: options.getPermissions
+        canWrite: options.canWrite
       }
     )],
     ['/identity/modules', defineController(
@@ -176,63 +157,44 @@ export function createLayuiRouteControllerDefinitions(root, options) {
       root,
       {
         ...sharedOptions,
-        getTenantId: options.getTenantId,
-        getPermissions: options.getPermissions
+        getTenantId: options.getTenantId
       }
     )],
     ['/identity/menus', defineController(
       () => import('./menus.js'),
       'createMenusController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/organization/units', defineController(
       () => import('./org-units.js'),
       'createOrgUnitsController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/organization/positions', defineController(
       () => import('./org-positions.js'),
       'createOrgPositionsController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/organization/position-levels', defineController(
       () => import('./org-position-levels.js'),
       'createOrgPositionLevelsController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/organization/user-units', defineController(
       () => import('./org-user-units.js'),
       'createOrgUserUnitsController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )],
     ['/organization/user-positions', defineController(
       () => import('./org-user-positions.js'),
       'createOrgUserPositionsController',
       root,
-      {
-        ...sharedOptions,
-        getPermissions: options.getPermissions
-      }
+      sharedOptions
     )]
   ]);
 }

@@ -80,8 +80,11 @@ export function initializeAdminApp(root = document, options = {}) {
       translation: () => translation,
       hasPermission: permission => latestSnapshot.currentUser?.permissions
         ?.includes(permission) === true,
-      getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null,
-      getPermissions: () => latestSnapshot.currentUser?.permissions ?? []
+      canWrite: () => latestSnapshot.currentUser?.permissions
+        ?.includes('identity.api_keys.write') === true,
+      canWriteTenantDictTypes: () => latestSnapshot.currentUser?.permissions
+        ?.includes('settings.tenant_dict_types.write') === true,
+      getTenantId: () => latestSnapshot.currentUser?.tenantId ?? null
     }),
     isActive: route => latestSnapshot.state === 'authenticated'
       && currentRoute() === route

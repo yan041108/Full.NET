@@ -13,7 +13,6 @@
 | Endpoint | `PUT .../field-grants` 绑定 replace |
 | 迁移 056 | SQL Server/MySQL 恢复 **6/6** |
 | Vue | `PermissionGate` 保存按钮 + `session.can` 守卫 |
-| Layui | 对话框保存按钮按 replace 权限裁剪 |
 | Integration | `VerifyExactFieldGrantPermissionBoundariesAsync` |
 
 ## 本地验证（2026-08-02）

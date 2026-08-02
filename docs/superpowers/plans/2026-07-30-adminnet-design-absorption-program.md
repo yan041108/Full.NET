@@ -611,7 +611,7 @@ Follow [`2026-08-02-vue-action-authorization.md`](2026-08-02-vue-action-authoriz
 
 - [ ] **Step 3: Inventory and migrate every active Vue business action**
 
-Follow Task 10 of the detailed plan. Migrate in waves: remaining Identity → Tenancy/Organization → Settings/Auditing → Files/Notifications/Jobs/CodeGeneration → Document and later modules. Each resource owns its exact codes, compatibility expansion and E2E; no broad permission migration may guess high-risk grants across unrelated resources.（库存见 [`admin-action-permission-inventory.md`](../../roadmap/admin-action-permission-inventory.md)；架构冻结门禁已落地。）
+Follow Task 10 of the detailed plan. Migrate in waves: remaining Identity → Tenancy/Organization → Settings/Auditing → Files/Notifications/Jobs/CodeGeneration → Document and later modules. Each resource owns its exact codes, compatibility expansion and E2E; no broad permission migration may guess high-risk grants across unrelated resources.（W0–W3 已完成；库存见 [`admin-action-permission-inventory.md`](../../roadmap/admin-action-permission-inventory.md)；剩余 W4–W5 按 [`2026-08-03-vue-action-authorization-w4-w5.md`](2026-08-03-vue-action-authorization-w4-w5.md) 顺序执行；架构冻结门禁已落地。）
 
 - [ ] **Step 4: Retire Layui from active delivery gates**
 

@@ -1,24 +1,26 @@
 # 后台粗粒度权限清零库存
 
-- 日期：2026-08-02
+- 日期：2026-08-03
 - 权威设计：[Vue 页面/操作精确授权](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)
-- 实施计划：[Identity Users 样板](../superpowers/plans/2026-08-02-vue-action-authorization.md)
+- 实施计划：[Identity Users 样板](../superpowers/plans/2026-08-02-vue-action-authorization.md)、[三级授权补齐与 W4–W5](../superpowers/plans/2026-08-03-vue-action-authorization-w4-w5.md)
 - 架构门禁：`LegacyCoarseActionPermissionRegistry` + `EndpointAuthorizationTests`（冻结全部现存 `.write` Endpoint 绑定；W1 Identity 粗粒度写权限已全部退役）
+- 客户端边界：只登记和交付 `ui/admin` Vue；`ui/admin-layui` 固定在 2026-08-02 冻结树，由 `tests/governance/layui-freeze.test.mjs` 阻止功能性修改。
 
 ## 波次
 
 | 波次 | 模块 | 状态 | 计划 |
 | --- | --- | --- | --- |
+| 前置 | 角色授权模块分组 | **待补齐** | 当前只有页面/操作两级；先执行 W4–W5 计划 Task 0，并让 Host 角色树可选择跨上下文 Tenant 权限 |
 | W0 | Identity Users | **已完成** | 迁移 054；见[验证记录](../verification/vue-action-authorization-2026-08-02.md) |
 | W1 | Identity Roles | **已完成** | 迁移 055；见[验证记录](../verification/vue-action-authorization-roles-2026-08-02.md) |
 | W1 | Identity Field Grants | **已完成** | 迁移 056；见[验证记录](../verification/vue-action-authorization-field-grants-2026-08-02.md) |
 | W1 | Identity Menus | **已完成** | 迁移 057；见[验证记录](../verification/vue-action-authorization-menus-2026-08-02.md) |
 | W1 | Identity Sessions | **已完成** | 迁移 058；见[验证记录](../verification/vue-action-authorization-sessions-2026-08-02.md) |
 | W1 | Identity API Keys | **已完成** | 迁移 059；见[验证记录](../verification/vue-action-authorization-api-keys-2026-08-02.md) |
-| W2 | Tenancy + Organization | 待排期 | 租户/套餐/机构树等 |
-| W3 | Settings + Auditing | 待排期 | 字典/配置/诊断策略/日志只读页 |
-| W4 | Files + Notifications + Jobs + CodeGeneration | 待排期 | 含 `jobs.schedules.write` |
-| W5 | Document 及后续官方模块 | 待排期 | Document 已 `Verified` 切片，操作拆分另开 |
+| W2 | Tenancy + Organization | **已完成** | 迁移 060–066；对应验证记录位于 `docs/verification/vue-action-authorization-*` |
+| W3 | Settings | **已完成** | 迁移 067–070；字典、租户字典、配置与诊断策略已拆分 |
+| W4 | Files + Notifications + Jobs + CodeGeneration | **已规划** | 按 W4–W5 计划 Tasks 1–6 串行执行，含 `jobs.schedules.write` |
+| W5 | SerialNumbers + Document 及后续官方模块 | **已规划** | 按 W4–W5 计划 Tasks 7–10 串行执行 |
 
 ## W0：Identity Users（已完成）
 
@@ -30,155 +32,155 @@
 | `UsersView.vue` | 角色 | ~~`identity.users.write`~~ | `identity.users.assign_roles` | 054 |
 | `UsersView.vue` | 重置密码 | ~~`identity.users.write`~~ | `identity.users.reset_password` | 054 |
 | `UsersView.vue` | 禁用/启用 | ~~`identity.users.write`~~ | `identity.users.disable` / `enable` | 054 |
-| `UsersView.vue` | 导出 | ~~`identity.users.write`~~ | `identity.users.export` | 054 |
+| `UsersView.vue` | 导出 | `identity.users.export` | 同左（原本已独立） | 无 |
 
 ## W1：Identity Roles（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `RolesView.vue` / Layui `roles.js` | 页面 | `identity.roles.read` | 无 |
-| `RolesView.vue` / Layui | 创建 | `identity.roles.create` | 055 |
-| `RolesView.vue` / Layui | 编辑 | `identity.roles.update` | 055 |
-| `RolesView.vue` / Layui | 权限树 | `identity.roles.assign_permissions` | 055 |
-| `RolesView.vue` / Layui | 数据范围 | `identity.roles.assign_data_scope` | 055 |
-| `RolesView.vue` / Layui | 禁用 | `identity.roles.disable` | 055 |
+| `RolesView.vue` | 页面 | `identity.roles.read` | 无 |
+| `RolesView.vue` | 创建 | `identity.roles.create` | 055 |
+| `RolesView.vue` | 编辑 | `identity.roles.update` | 055 |
+| `RolesView.vue` | 权限树 | `identity.roles.assign_permissions` | 055 |
+| `RolesView.vue` | 数据范围 | `identity.roles.assign_data_scope` | 055 |
+| `RolesView.vue` | 禁用 | `identity.roles.disable` | 055 |
 
 ## W1：Identity Field Grants（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `RolesView.vue` / Layui | 查看字段授权 | `identity.role_field_grants.read` | 无 |
-| `RolesView.vue` / Layui | 保存字段授权 | `identity.role_field_grants.replace` | 056 |
+| `RolesView.vue` | 查看字段授权 | `identity.role_field_grants.read` | 无 |
+| `RolesView.vue` | 保存字段授权 | `identity.role_field_grants.replace` | 056 |
 
 ## W1：Identity Menus（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `MenusView.vue` / Layui `menus.js` | 页面 | `identity.menus.read` | 无 |
-| `MenusView.vue` / Layui | 创建 | `identity.menus.create` | 057 |
-| `MenusView.vue` / Layui | 编辑 | `identity.menus.update` | 057 |
-| `MenusView.vue` / Layui | 禁用 | `identity.menus.disable` | 057 |
+| `MenusView.vue` | 页面 | `identity.menus.read` | 无 |
+| `MenusView.vue` | 创建 | `identity.menus.create` | 057 |
+| `MenusView.vue` | 编辑 | `identity.menus.update` | 057 |
+| `MenusView.vue` | 禁用 | `identity.menus.disable` | 057 |
 
 ## W1：Identity Sessions（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `OnlineSessionsView.vue` / Layui `online-sessions.js` | 页面 | `identity.sessions.read` | 无 |
-| `OnlineSessionsView.vue` / Layui | 强制下线 | `identity.sessions.revoke` | 058 |
+| `OnlineSessionsView.vue` | 页面 | `identity.sessions.read` | 无 |
+| `OnlineSessionsView.vue` | 强制下线 | `identity.sessions.revoke` | 058 |
 
 ## W1：Identity API Keys（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `ApiKeysView.vue` / Layui `api-keys.js` | 页面 | `identity.api_keys.read` | 无 |
-| `ApiKeysView.vue` / Layui | 创建 | `identity.api_keys.create` | 059 |
-| `ApiKeysView.vue` / Layui | 轮换 | `identity.api_keys.rotate` | 059 |
-| `ApiKeysView.vue` / Layui | 禁用 | `identity.api_keys.disable` | 059 |
+| `ApiKeysView.vue` | 页面 | `identity.api_keys.read` | 无 |
+| `ApiKeysView.vue` | 创建 | `identity.api_keys.create` | 059 |
+| `ApiKeysView.vue` | 轮换 | `identity.api_keys.rotate` | 059 |
+| `ApiKeysView.vue` | 禁用 | `identity.api_keys.disable` | 059 |
 
 ## W2：Tenancy Tenants（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `TenantsView.vue` / Layui `tenants.js` | 页面 | `tenancy.host_tenants.read` | 无 |
-| `TenantsView.vue` / Layui | 开通 | `tenancy.tenants.create` | 060 |
-| `TenantsView.vue` / Layui | 编辑 | `tenancy.tenants.update` | 060 |
-| `TenantsView.vue` / Layui | 禁用 | `tenancy.tenants.disable` | 060 |
-| `TenantsView.vue` / Layui | 分配套餐 | `tenancy.tenants.assign_package` | 060 |
+| `TenantsView.vue` | 页面 | `tenancy.host_tenants.read` | 无 |
+| `TenantsView.vue` | 开通 | `tenancy.tenants.create` | 060 |
+| `TenantsView.vue` | 编辑 | `tenancy.tenants.update` | 060 |
+| `TenantsView.vue` | 禁用 | `tenancy.tenants.disable` | 060 |
+| `TenantsView.vue` | 分配套餐 | `tenancy.tenants.assign_package` | 060 |
 
 ## W2：Tenancy Tenant Packages（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `TenantPackagesView.vue` / Layui `tenant-packages.js` | 页面 | `tenancy.tenant_packages.read` | 无 |
-| `TenantPackagesView.vue` / Layui | 创建 | `tenancy.tenant_packages.create` | 061 |
-| `TenantPackagesView.vue` / Layui | 编辑 | `tenancy.tenant_packages.update` | 061 |
-| `TenantPackagesView.vue` / Layui | 禁用 | `tenancy.tenant_packages.disable` | 061 |
+| `TenantPackagesView.vue` | 页面 | `tenancy.tenant_packages.read` | 无 |
+| `TenantPackagesView.vue` | 创建 | `tenancy.tenant_packages.create` | 061 |
+| `TenantPackagesView.vue` | 编辑 | `tenancy.tenant_packages.update` | 061 |
+| `TenantPackagesView.vue` | 禁用 | `tenancy.tenant_packages.disable` | 061 |
 
 ## W2：Organization Units（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `OrgUnitsView.vue` / Layui `org-units.js` | 页面 | `organization.units.read` | 无 |
-| `OrgUnitsView.vue` / Layui | 创建 | `organization.units.create` | 062 |
-| `OrgUnitsView.vue` / Layui | 编辑 | `organization.units.update` | 062 |
-| `OrgUnitsView.vue` / Layui | 禁用 | `organization.units.disable` | 062 |
+| `OrgUnitsView.vue` | 页面 | `organization.units.read` | 无 |
+| `OrgUnitsView.vue` | 创建 | `organization.units.create` | 062 |
+| `OrgUnitsView.vue` | 编辑 | `organization.units.update` | 062 |
+| `OrgUnitsView.vue` | 禁用 | `organization.units.disable` | 062 |
 
 ## W2：Organization Positions（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `OrgPositionsView.vue` / Layui `org-positions.js` | 页面 | `organization.positions.read` | 无 |
-| `OrgPositionsView.vue` / Layui | 创建 | `organization.positions.create` | 063 |
-| `OrgPositionsView.vue` / Layui | 编辑 | `organization.positions.update` | 063 |
-| `OrgPositionsView.vue` / Layui | 禁用 | `organization.positions.disable` | 063 |
-| `OrgPositionsView.vue` / Layui | 绑定机构 | `organization.positions.assign_unit` | 063 |
-| `OrgPositionsView.vue` / Layui | 绑定职级 | `organization.positions.assign_position_level` | 063 |
+| `OrgPositionsView.vue` | 页面 | `organization.positions.read` | 无 |
+| `OrgPositionsView.vue` | 创建 | `organization.positions.create` | 063 |
+| `OrgPositionsView.vue` | 编辑 | `organization.positions.update` | 063 |
+| `OrgPositionsView.vue` | 禁用 | `organization.positions.disable` | 063 |
+| `OrgPositionsView.vue` | 绑定机构 | `organization.positions.assign_unit` | 063 |
+| `OrgPositionsView.vue` | 绑定职级 | `organization.positions.assign_position_level` | 063 |
 
 ## W2：Organization Position Levels（已完成）
 
 | 组件 | 操作 | 目标权限 | 迁移 |
 | --- | --- | --- | --- |
-| `OrgPositionLevelsView.vue` / Layui `org-position-levels.js` | 页面 | `organization.position_levels.read` | 无 |
-| `OrgPositionLevelsView.vue` / Layui | 创建 | `organization.position_levels.create` | 064 |
-| `OrgPositionLevelsView.vue` / Layui | 编辑 | `organization.position_levels.update` | 064 |
-| `OrgPositionLevelsView.vue` / Layui | 禁用 | `organization.position_levels.disable` | 064 |
+| `OrgPositionLevelsView.vue` | 页面 | `organization.position_levels.read` | 无 |
+| `OrgPositionLevelsView.vue` | 创建 | `organization.position_levels.create` | 064 |
+| `OrgPositionLevelsView.vue` | 编辑 | `organization.position_levels.update` | 064 |
+| `OrgPositionLevelsView.vue` | 禁用 | `organization.position_levels.disable` | 064 |
 
 ## W2：Organization User Positions（065）
 
-| Vue / Layui 入口 | 操作 | 权限码 | 迁移 |
+| Vue 入口 | 操作 | 权限码 | 迁移 |
 | --- | --- | --- | --- |
-| `OrgUserPositionsView.vue` / Layui `org-user-positions.js` | 页面 | `organization.user_positions.read` | 无 |
-| `OrgUserPositionsView.vue` / Layui | 分配 / 可分配用户 | `organization.user_positions.create` | 065 |
-| `OrgUserPositionsView.vue` / Layui | 设为主职位 | `organization.user_positions.update` | 065 |
-| `OrgUserPositionsView.vue` / Layui | 取消隶属 | `organization.user_positions.disable` | 065 |
+| `OrgUserPositionsView.vue` | 页面 | `organization.user_positions.read` | 无 |
+| `OrgUserPositionsView.vue` | 分配 / 可分配用户 | `organization.user_positions.create` | 065 |
+| `OrgUserPositionsView.vue` | 设为主职位 | `organization.user_positions.update` | 065 |
+| `OrgUserPositionsView.vue` | 取消隶属 | `organization.user_positions.disable` | 065 |
 
 ## W2：Organization User Units（066）
 
-| Vue / Layui 入口 | 操作 | 权限码 | 迁移 |
+| Vue 入口 | 操作 | 权限码 | 迁移 |
 | --- | --- | --- | --- |
-| `OrgUserUnitsView.vue` / Layui `org-user-units.js` | 页面 | `organization.user_units.read` | 无 |
-| `OrgUserUnitsView.vue` / Layui | 分配 / 可分配用户 | `organization.user_units.create` | 066 |
-| `OrgUserUnitsView.vue` / Layui | 设为主部门 | `organization.user_units.update` | 066 |
-| `OrgUserUnitsView.vue` / Layui | 取消隶属 | `organization.user_units.disable` | 066 |
+| `OrgUserUnitsView.vue` | 页面 | `organization.user_units.read` | 无 |
+| `OrgUserUnitsView.vue` | 分配 / 可分配用户 | `organization.user_units.create` | 066 |
+| `OrgUserUnitsView.vue` | 设为主部门 | `organization.user_units.update` | 066 |
+| `OrgUserUnitsView.vue` | 取消隶属 | `organization.user_units.disable` | 066 |
 
 ## W3：Settings Dict Types（067）
 
-| Vue / Layui 入口 | 操作 | 权限码 | 迁移 |
+| Vue 入口 | 操作 | 权限码 | 迁移 |
 | --- | --- | --- | --- |
-| `DictTypesView.vue` / Layui `dict-types.js` | 页面 | `settings.dict_types.read` | 无 |
-| `DictTypesView.vue` / Layui | 创建类型/字典项 | `settings.dict_types.create` | 067 |
-| `DictTypesView.vue` / Layui | 编辑类型/字典项 | `settings.dict_types.update` | 067 |
-| `DictTypesView.vue` / Layui | 禁用类型/字典项 | `settings.dict_types.disable` | 067 |
+| `DictTypesView.vue` | 页面 | `settings.dict_types.read` | 无 |
+| `DictTypesView.vue` | 创建类型/字典项 | `settings.dict_types.create` | 067 |
+| `DictTypesView.vue` | 编辑类型/字典项 | `settings.dict_types.update` | 067 |
+| `DictTypesView.vue` | 禁用类型/字典项 | `settings.dict_types.disable` | 067 |
 
 ## W3：Settings Tenant Dict Types（068）
 
-| Vue / Layui 入口 | 操作 | 权限码 | 迁移 |
+| Vue 入口 | 操作 | 权限码 | 迁移 |
 | --- | --- | --- | --- |
-| `TenantDictTypesView.vue` / Layui `tenant-dict-types.js` | 页面 | `settings.tenant_dict_types.read` | 无 |
-| `TenantDictTypesView.vue` / Layui | 创建类型/字典项 | `settings.tenant_dict_types.create` | 068 |
-| `TenantDictTypesView.vue` / Layui | 编辑类型/字典项 | `settings.tenant_dict_types.update` | 068 |
-| `TenantDictTypesView.vue` / Layui | 禁用类型/字典项 | `settings.tenant_dict_types.disable` | 068 |
+| `TenantDictTypesView.vue` | 页面 | `settings.tenant_dict_types.read` | 无 |
+| `TenantDictTypesView.vue` | 创建类型/字典项 | `settings.tenant_dict_types.create` | 068 |
+| `TenantDictTypesView.vue` | 编辑类型/字典项 | `settings.tenant_dict_types.update` | 068 |
+| `TenantDictTypesView.vue` | 禁用类型/字典项 | `settings.tenant_dict_types.disable` | 068 |
 
 ## W3：Settings Config Entries（069）
 
-| Vue / Layui 入口 | 操作 | 权限码 | 迁移 |
+| Vue 入口 | 操作 | 权限码 | 迁移 |
 | --- | --- | --- | --- |
-| `ConfigEntriesView.vue` / Layui `config-entries.js` | 页面 | `settings.config.read` | 无 |
-| `ConfigEntriesView.vue` / Layui | 创建配置项 | `settings.config.create` | 069 |
-| `ConfigEntriesView.vue` / Layui | 编辑配置项 | `settings.config.update` | 069 |
-| `ConfigEntriesView.vue` / Layui | 禁用配置项 | `settings.config.disable` | 069 |
+| `ConfigEntriesView.vue` | 页面 | `settings.config.read` | 无 |
+| `ConfigEntriesView.vue` | 创建配置项 | `settings.config.create` | 069 |
+| `ConfigEntriesView.vue` | 编辑配置项 | `settings.config.update` | 069 |
+| `ConfigEntriesView.vue` | 禁用配置项 | `settings.config.disable` | 069 |
 
 ## W3：Settings Diagnostic Policy（070）
 
-| Vue / Layui 入口 | 操作 | 权限码 | 迁移 |
+| Vue 入口 | 操作 | 权限码 | 迁移 |
 | --- | --- | --- | --- |
-| `DiagnosticPolicyView.vue` / Layui `diagnostic-policy.js` | 页面 | `settings.diagnostic_policy.read` | 无 |
+| `DiagnosticPolicyView.vue` | 页面 | `settings.diagnostic_policy.read` | 无 |
 | API / 未来编辑入口 | 更新策略 | `settings.diagnostic_policy.update` | 070 |
-| `DiagnosticPolicyView.vue` / Layui | 恢复安全默认 | `settings.diagnostic_policy.restore` | 070 |
+| `DiagnosticPolicyView.vue` | 恢复安全默认 | `settings.diagnostic_policy.restore` | 070 |
 
-## W1–W5：粗粒度 `.write` 仍绑定 Endpoint（冻结清单）
+## W4–W5：仍需拆分的粗粒度操作权限（冻结清单）
 
-下列权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；新增 Endpoint 必须先扩展库存并指定目标拆分波次。
+下列 `.write` 权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；W5 同时包含不以 `.write` 命名、但仍承载多个动作的 `delete/manage` 权限。后续门禁必须覆盖这些语义，新增 Endpoint 必须先扩展库存并指定目标拆分波次。
 
 | 权限码 | Vue 入口（示例） | 波次 |
 | --- | --- | --- |
@@ -189,6 +191,9 @@
 | `codegen.templates.write` | `CodeGenerationPreviewsView.vue` | W4 |
 | `serial_numbers.rules.write` | （API 已交付，Vue 待切片） | W4 |
 | `document.host_documents.write` | `HostDocumentItemsView.vue` | W5 |
+| `document.host_documents.delete` | `HostDocumentItemsView.vue`（删除/恢复共用） | W5 |
+| `document.categories.manage` | `DocumentCategoriesView.vue`（创建/编辑/删除共用） | W5 |
+| `document.tags.manage` | `DocumentTagsView.vue`（创建/编辑/删除共用） | W5 |
 
 ## 退役权限
 

@@ -1,17 +1,21 @@
 /**
- * 装配 Host 限时诊断策略只读视图；恢复权限可恢复生产安全默认。
+ * 装配 Host 限时诊断策略只读视图；写权限可恢复生产安全默认。
  * 禁止自由填写 Sink、索引名或 Metrics 标签。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createDiagnosticPolicyController(root, options) {
   const request = options.request;
   const translation = options.translation;
+  const hasPermission = options.hasPermission;
   const directory = root.querySelector('[data-diagnostic-policy-directory]');
   const restoreButton = root.querySelector('[data-diagnostic-policy-restore]');
   let loading;
   let changing = false;
   let currentVersion = 0;
+
+  const canWrite = () =>
+    typeof hasPermission === 'function'
+      ? hasPermission('settings.diagnostic_policy.write')
+      : false;
 
   const load = async () => {
     if (loading) return await loading;
@@ -19,8 +23,9 @@ export function createDiagnosticPolicyController(root, options) {
       .then(policy => {
         currentVersion = Number(policy?.configEntryVersion ?? 0);
         renderDirectory(directory, policy, translation());
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
+        if (restoreButton) {
+          restoreButton.hidden = !canWrite();
+          restoreButton.disabled = !canWrite();
         }
         hideProblem(root);
       })
@@ -33,7 +38,7 @@ export function createDiagnosticPolicyController(root, options) {
 
   const onRestore = async event => {
     event.preventDefault();
-    if (changing) return;
+    if (changing || !canWrite()) return;
     changing = true;
     try {
       const restored = await request('/api/v1/settings/diagnostic-policy/restore', {

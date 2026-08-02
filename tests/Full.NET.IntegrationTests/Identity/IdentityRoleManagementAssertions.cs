@@ -236,22 +236,38 @@ internal static class IdentityRoleManagementAssertions
             $"revoke-target-2-{Guid.NewGuid():N}".ToLowerInvariant(),
             password,
             cancellationToken);
+        using var deniedDisableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/users/{refreshedTarget.Id:D}/disable",
+            operatorToken,
+            new { });
+        using var deniedDisableResponse = await client.SendAsync(
+            deniedDisableRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, deniedDisableResponse.StatusCode);
+
         var refreshedToken = await LoginAsUserAsync(
             client,
             operatorUsername,
             password,
             cancellationToken);
-        using var deniedDisableRequest = CreateBearerJsonRequest(
+        var postRevocationTarget = await CreateHostUserForRoleTestAsync(
+            client,
+            adminToken,
+            $"revoke-target-3-{Guid.NewGuid():N}".ToLowerInvariant(),
+            password,
+            cancellationToken);
+        using var forbiddenDisableRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
-            $"/api/v1/identity/users/{refreshedTarget.Id:D}/disable",
+            $"/api/v1/identity/users/{postRevocationTarget.Id:D}/disable",
             refreshedToken,
             new { });
-        using var deniedDisableResponse = await client.SendAsync(
-            deniedDisableRequest,
+        using var forbiddenDisableResponse = await client.SendAsync(
+            forbiddenDisableRequest,
             cancellationToken);
-        Assert.AreEqual(HttpStatusCode.Forbidden, deniedDisableResponse.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenDisableResponse.StatusCode);
         using var problem = JsonDocument.Parse(
-            await deniedDisableResponse.Content.ReadAsStringAsync(cancellationToken));
+            await forbiddenDisableResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
             "authorization.permission_denied",
             problem.RootElement.GetProperty("code").GetString());

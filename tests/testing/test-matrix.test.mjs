@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -12,6 +13,12 @@ import {
 
 test('测试矩阵集中定义三个快速套件和完整 Integration 分片', () => {
   const matrix = loadTestMatrix();
+  const recoveryMigrationNumbers = readdirSync(
+    new URL('../Full.NET.IntegrationTests/Migrations/', import.meta.url)
+  )
+    .map(fileName => /^Migration(\d{3}).*RecoveryTests\.cs$/.exec(fileName)?.[1])
+    .filter(Boolean)
+    .sort();
 
   assert.deepEqual(Object.keys(matrix.dotnetSuites), [
     'unit',
@@ -26,33 +33,7 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
   assert.ok(matrix.integration.mainPartitions.length > 1);
   assert.deepEqual(
     Object.keys(matrix.integration.migrationSelections),
-    [
-      '008',
-      '009',
-      '010',
-      '011',
-      '034',
-      '035',
-      '036',
-      '037',
-      '038',
-      '039',
-      '040',
-      '041',
-      '042',
-      '043',
-      '044',
-      '045',
-      '046',
-      '047',
-      '048',
-      '049',
-      '050',
-      '051',
-      '052',
-      '053',
-      '054',
-    ]
+    ['008', '009', '010', '011', ...recoveryMigrationNumbers]
   );
   for (const selection of Object.values(
     matrix.integration.migrationSelections

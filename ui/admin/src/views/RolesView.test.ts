@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { nextTick } from 'vue';
 import RolesView from './RolesView.vue';
 import { useSessionStore } from '../auth/session';
 import {
@@ -12,6 +13,7 @@ import {
 } from '../auth/authorization-tree-selection';
 import {
   getAuthorizationTree,
+  getHostRoleDataScope,
   listHostRoles,
   replaceHostRolePermissions
 } from '../api/roles';
@@ -32,6 +34,7 @@ vi.mock('../api/roles', () => ({
 
 const listMock = vi.mocked(listHostRoles);
 const treeMock = vi.mocked(getAuthorizationTree);
+const dataScopeMock = vi.mocked(getHostRoleDataScope);
 const replacePermissionsMock = vi.mocked(replaceHostRolePermissions);
 const userId = '019bc2b1-2a40-7cc3-8992-a80de51bf296';
 
@@ -142,6 +145,12 @@ describe('Vue 角色管理页', () => {
       total: 1
     });
     treeMock.mockReset().mockResolvedValue(sampleTree);
+    dataScopeMock.mockReset().mockResolvedValue({
+      roleId: customRole.id,
+      dataScopeKind: 'identity.data_scope.all',
+      unitIds: [],
+      version: customRole.version
+    });
     replacePermissionsMock.mockReset().mockResolvedValue({
       ...customRole,
       permissionCodes: ['identity.users.read'],
@@ -214,5 +223,41 @@ describe('Vue 角色管理页', () => {
       ['identity.users.create', 'identity.users.read'],
       3
     );
+  });
+
+  it('权限对话框打开后撤权会移除保存按钮', async () => {
+    const wrapper = mountWithPermissions(['identity.roles.assign_permissions']);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-open-permissions"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="role-save-permissions"]').exists()).toBe(true);
+
+    const session = useSessionStore();
+    session.currentUser = {
+      ...session.currentUser!,
+      permissions: []
+    };
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="role-save-permissions"]').exists()).toBe(false);
+  });
+
+  it('数据范围对话框打开后撤权会移除保存按钮', async () => {
+    const wrapper = mountWithPermissions(['identity.roles.assign_data_scope']);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="roles-action-data-scope"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="roles-save-data-scope"]').exists()).toBe(true);
+
+    const session = useSessionStore();
+    session.currentUser = {
+      ...session.currentUser!,
+      permissions: []
+    };
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="roles-save-data-scope"]').exists()).toBe(false);
   });
 });

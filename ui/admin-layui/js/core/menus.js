@@ -2,7 +2,6 @@ import {
   HOST_MENU_ASSIGNABLE_PERMISSIONS,
   HOST_MENU_COMPONENT_OPTIONS
 } from '@fullnet/client-contracts';
-import { applyPermissionVisibility } from './navigation.js';
 
 /**
  * 装配 Host 菜单管理视图；系统菜单只读，自定义菜单支持标题更新与禁用。
@@ -34,9 +33,6 @@ export function createMenusController(root, options) {
           Array.isArray(page?.items) ? page.items : [],
           translation()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -202,7 +198,6 @@ function renderDirectory(container, menus, translation) {
       edit.type = 'button';
       edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
       edit.dataset.menusEdit = menu.id;
-      edit.dataset.permission = 'identity.menus.update';
       edit.dataset.version = String(menu.version ?? 0);
       edit.dataset.title = menu.title ?? '';
       edit.dataset.parentId = menu.parentId ?? '';
@@ -220,7 +215,6 @@ function renderDirectory(container, menus, translation) {
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
       disable.dataset.menusDisable = menu.id;
-      disable.dataset.permission = 'identity.menus.disable';
       disable.dataset.routeName = menu.routeName;
       disable.textContent = translation.t('menus.disable');
       actions.append(disable);

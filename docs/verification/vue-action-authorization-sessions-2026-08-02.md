@@ -13,7 +13,6 @@
 | Endpoint | `POST .../revoke` 绑定 revoke |
 | 迁移 058 | SQL Server/MySQL 恢复 **6/6** |
 | Vue | `PermissionGate` 强制下线按钮 + `session.can` 守卫 |
-| Layui | 动态按钮 `data-permission` + `applyPermissionVisibility` |
 | Integration | `VerifyExactSessionRevokePermissionBoundariesAsync` |
 
 ## 本地验证（2026-08-02）

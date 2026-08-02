@@ -13,7 +13,6 @@
 | Endpoint | POST/create、POST/disable、POST/rotate 分别绑定精确权限 |
 | 迁移 059 | SQL Server/MySQL 恢复 **6/6** |
 | Vue | `PermissionGate` 创建表单与行内操作 + `session.can` 守卫 |
-| Layui | 表单与动态按钮 `data-permission` + `applyPermissionVisibility` |
 | Integration | `VerifyExactApiKeyActionPermissionBoundariesAsync`；委派管理员越权用例同步动作权限层级 |
 
 ## 本地验证（2026-08-02）

@@ -15,6 +15,7 @@ using Full.NET.Modules.Identity.DependencyInjection;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
+using Full.NET.Modules.Identity.Features.GetAuthorizationTree;
 using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
@@ -264,6 +265,8 @@ public sealed class IdentityModuleRegistrationTests
             IIdentitySessionContextService,
             IdentitySessionContextService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<NavigationProjector>(
+            ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<AuthorizationTreeProjector>(
             ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
             IAuthorizationHandler,

@@ -59,13 +59,20 @@ export function isAuthorizationTreePageArray(
 
   const pageIds = new Set<string>();
   const actionIds = new Set<string>();
-  return value.every(page => isAuthorizationTreePage(page, pageIds, actionIds));
+  const actionPermissionCodes = new Set<string>();
+  return value.every(page => isAuthorizationTreePage(
+    page,
+    pageIds,
+    actionIds,
+    actionPermissionCodes
+  ));
 }
 
 function isAuthorizationTreePage(
   value: unknown,
   pageIds: Set<string>,
-  actionIds: Set<string>
+  actionIds: Set<string>,
+  actionPermissionCodes: Set<string>
 ): value is AuthorizationTreePage {
   if (!isRecord(value)
     || !hasOnlyKeys(value, pageKeys)
@@ -89,18 +96,27 @@ function isAuthorizationTreePage(
   if (!value.actions.every(action => isAuthorizationTreeAction(
     action,
     actionIds,
-    pageActionIds
+    pageActionIds,
+    actionPermissionCodes,
+    value.permissionCode
   ))) {
     return false;
   }
 
-  return value.children.every(child => isAuthorizationTreePage(child, pageIds, actionIds));
+  return value.children.every(child => isAuthorizationTreePage(
+    child,
+    pageIds,
+    actionIds,
+    actionPermissionCodes
+  ));
 }
 
 function isAuthorizationTreeAction(
   value: unknown,
   globalActionIds: Set<string>,
-  pageActionIds: Set<string>
+  pageActionIds: Set<string>,
+  globalActionPermissionCodes: Set<string>,
+  pagePermissionCode: string
 ): value is AuthorizationTreeAction {
   if (!isRecord(value)
     || !hasOnlyKeys(value, actionKeys)
@@ -113,6 +129,8 @@ function isAuthorizationTreeAction(
     || !isDisplayText(value.name)
     || typeof value.permissionCode !== 'string'
     || !permissionPattern.test(value.permissionCode)
+    || value.permissionCode === pagePermissionCode
+    || globalActionPermissionCodes.has(value.permissionCode)
     || typeof value.order !== 'number'
     || !Number.isInteger(value.order)) {
     return false;
@@ -120,6 +138,7 @@ function isAuthorizationTreeAction(
 
   globalActionIds.add(value.id);
   pageActionIds.add(value.id);
+  globalActionPermissionCodes.add(value.permissionCode);
   return true;
 }
 

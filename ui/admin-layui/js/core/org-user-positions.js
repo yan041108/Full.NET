@@ -1,13 +1,11 @@
 /**
  * 装配租户用户-职位隶属视图；支持分配、设主职位与取消隶属。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createOrgUserPositionsController(root, options) {
   const request = options.request;
   const translation = options.translation;
-  const canCreate = () => options.hasPermission?.(
-    'organization.user_positions.create'
+  const canWrite = () => options.hasPermission?.(
+    'organization.user_positions.write'
   ) === true;
   const form = root.querySelector('[data-org-user-positions-create-form]');
   const directory = root.querySelector('[data-org-user-positions-directory]');
@@ -22,13 +20,14 @@ export function createOrgUserPositionsController(root, options) {
   let users = [];
   let userPage = 1;
   let userTotal = 0;
+  if (form) form.hidden = !canWrite();
 
   const load = async () => {
     if (loading) return await loading;
     loading = Promise.all([
       request('/api/v1/organization/user-positions?page=1&pageSize=20'),
       request('/api/v1/organization/positions?page=1&pageSize=20'),
-      canCreate()
+      canWrite()
         ? request('/api/v1/organization/user-positions/assignable-users?page=1&pageSize=100')
             .catch(problem => {
               if (problem?.status === 403) {
@@ -66,9 +65,6 @@ export function createOrgUserPositionsController(root, options) {
           Array.isArray(assignmentPage?.items) ? assignmentPage.items : [],
           translation()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -79,14 +75,18 @@ export function createOrgUserPositionsController(root, options) {
   };
 
   const onLoadMoreUsers = async () => {
-    if (loadingMoreUsers || !canCreate() || users.length >= userTotal) return;
+    if (loadingMoreUsers || !canWrite() || users.length >= userTotal) return;
     loadingMoreUsers = true;
     updateLoadMoreButton(loadMoreUsersButton, true, true);
+    const selectedUserId = userSelect?.value ?? '';
     try {
       const nextPage = await request(
         `/api/v1/organization/user-positions/assignable-users?page=${userPage + 1}&pageSize=100`
       );
-      users = appendUniqueUsers(users, Array.isArray(nextPage?.items) ? nextPage.items : []);
+      users = appendUniqueUsers(
+        users,
+        Array.isArray(nextPage?.items) ? nextPage.items : []
+      );
       userPage = positiveIntegerOr(nextPage?.page, userPage + 1);
       userTotal = nonNegativeIntegerOr(nextPage?.total, users.length);
       renderSelectOptions(
@@ -95,11 +95,9 @@ export function createOrgUserPositionsController(root, options) {
         user => `${user.displayName} (${user.username})`,
         user => user.id
       );
-      updateLoadMoreButton(
-        loadMoreUsersButton,
-        users.length < userTotal,
-        false
-      );
+      if (userSelect && users.some(user => user.id === selectedUserId)) {
+        userSelect.value = selectedUserId;
+      }
       hideProblem(root);
     } catch (problem) {
       if (problem?.status === 403) {
@@ -119,7 +117,7 @@ export function createOrgUserPositionsController(root, options) {
 
   const onCreate = async event => {
     event.preventDefault();
-    if (changing || !form || !canCreate()) return;
+    if (changing || !form || !canWrite()) return;
     const data = new FormData(form);
     const userId = String(data.get('userId') ?? '').trim();
     const positionId = String(data.get('positionId') ?? '').trim();
@@ -290,7 +288,6 @@ function renderDirectory(container, assignments, translation) {
       const primaryButton = container.ownerDocument.createElement('button');
       primaryButton.type = 'button';
       primaryButton.className = 'layui-btn layui-btn-primary layui-btn-sm';
-      primaryButton.dataset.permission = 'organization.user_positions.update';
       primaryButton.dataset.orgUserPositionsPrimary = assignment.id;
       primaryButton.dataset.version = String(assignment.version ?? 0);
       primaryButton.textContent = translation.t('orgUserPositions.setPrimary');
@@ -300,7 +297,6 @@ function renderDirectory(container, assignments, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-sm';
-      disable.dataset.permission = 'organization.user_positions.disable';
       disable.dataset.orgUserPositionsDisable = assignment.id;
       disable.dataset.label = `${assignment.displayName ?? ''} / ${assignment.positionName ?? ''}`;
       disable.textContent = translation.t('orgUserPositions.disable');

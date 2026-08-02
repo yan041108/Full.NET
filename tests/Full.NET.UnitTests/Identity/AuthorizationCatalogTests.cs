@@ -623,6 +623,51 @@ public sealed class AuthorizationCatalogTests
     }
 
     [TestMethod]
+    public void Create_rejects_action_outside_parent_page_scope()
+    {
+        var contributor = new StubContributor(
+            [
+                new PermissionDefinition("identity.users.read", "查看用户", AuthorizationScope.Host),
+                new PermissionDefinition("organization.units.create", "创建机构", AuthorizationScope.Tenant),
+            ],
+            [CreateNavigation("users", null, "identity.users.read")],
+            [new AuthorizationActionDefinition(
+                "identity.users.create",
+                "users",
+                "organization.units.create",
+                "创建用户",
+                "create",
+                10)]);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => AuthorizationCatalog.Create([contributor]));
+    }
+
+    [TestMethod]
+    public void Create_rejects_action_scope_that_exceeds_parent_page_scope()
+    {
+        var contributor = new StubContributor(
+            [
+                new PermissionDefinition("identity.users.read", "查看用户", AuthorizationScope.Host),
+                new PermissionDefinition(
+                    "identity.users.create",
+                    "创建用户",
+                    AuthorizationScope.Host | AuthorizationScope.Tenant),
+            ],
+            [CreateNavigation("users", null, "identity.users.read")],
+            [new AuthorizationActionDefinition(
+                "identity.users.create",
+                "users",
+                "identity.users.create",
+                "创建用户",
+                "create",
+                10)]);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => AuthorizationCatalog.Create([contributor]));
+    }
+
+    [TestMethod]
     public void Create_rejects_duplicate_action_id()
     {
         var contributor = new StubContributor(
@@ -695,8 +740,8 @@ public sealed class AuthorizationCatalogTests
                 new PermissionDefinition("b.create", "B Create", AuthorizationScope.Host),
             ],
             [
-                CreateNavigation("a-page", null, "a.read", order: 10),
                 CreateNavigation("b-page", null, "b.read", order: 20),
+                CreateNavigation("a-page", null, "a.read", order: 10),
             ],
             [
                 new AuthorizationActionDefinition(

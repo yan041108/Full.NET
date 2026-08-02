@@ -58,7 +58,7 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 8. Vue Mock/真实栈 E2E 覆盖关键流程、权限隐藏、绕过拒绝、可访问性和错误恢复；
 9. 受影响集、Vue 生产构建、客户端审计和许可证门禁通过后更新状态。
 
-详细权限模型见 [Vue 页面/操作授权设计](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)和[实施计划](../superpowers/plans/2026-08-02-vue-action-authorization.md)。
+详细权限模型见 [Vue 页面/操作授权设计](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)、[Identity Users 样板计划](../superpowers/plans/2026-08-02-vue-action-authorization.md)和[三级授权补齐与 W4–W5 计划](../superpowers/plans/2026-08-03-vue-action-authorization-w4-w5.md)。
 
 ## 5. 阶段计划
 

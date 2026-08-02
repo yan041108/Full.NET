@@ -1,8 +1,6 @@
 /**
  * 装配 Host 租户管理视图；支持开通、名称更新与禁用。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createTenantsController(root, options) {
   const request = options.request;
   const translation = options.translation;
@@ -29,9 +27,6 @@ export function createTenantsController(root, options) {
           activePackages,
           translation()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -223,7 +218,6 @@ function renderDirectory(container, tenants, packages, translation) {
     actions.className = 'fn-tenants__actions';
     const packageSelect = container.ownerDocument.createElement('select');
     packageSelect.className = 'layui-input';
-    packageSelect.dataset.permission = 'tenancy.tenants.assign_package';
     packageSelect.dataset.tenantsPackage = tenant.id;
     packageSelect.dataset.version = String(tenant.version ?? 0);
     const emptyOption = container.ownerDocument.createElement('option');
@@ -241,7 +235,6 @@ function renderDirectory(container, tenants, packages, translation) {
     const edit = container.ownerDocument.createElement('button');
     edit.type = 'button';
     edit.className = 'layui-btn layui-btn-primary layui-btn-sm';
-    edit.dataset.permission = 'tenancy.tenants.update';
     edit.dataset.tenantsEdit = tenant.id;
     edit.dataset.version = String(tenant.version ?? 0);
     edit.dataset.name = tenant.name ?? '';
@@ -251,7 +244,6 @@ function renderDirectory(container, tenants, packages, translation) {
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
-      disable.dataset.permission = 'tenancy.tenants.disable';
       disable.dataset.tenantsDisable = tenant.id;
       disable.dataset.identifier = tenant.identifier;
       disable.textContent = translation.t('tenants.disable');

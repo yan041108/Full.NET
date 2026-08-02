@@ -334,9 +334,28 @@ internal static class IdentityApiKeyAssertions
         using var escalationResponse = await client.SendAsync(
             escalationRequest,
             cancellationToken);
-        Assert.AreEqual(HttpStatusCode.Forbidden, escalationResponse.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, escalationResponse.StatusCode);
+
+        var refreshedDelegatedToken = await LoginAsync(
+            client,
+            username,
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        using var refreshedEscalationRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/api-keys",
+            refreshedDelegatedToken,
+            new CreateHostApiKeyRequest(
+                adminUserId,
+                "越权密钥",
+                [IdentityUserManagementPermissions.Create],
+                null));
+        using var refreshedEscalationResponse = await client.SendAsync(
+            refreshedEscalationRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, refreshedEscalationResponse.StatusCode);
         using var problem = JsonDocument.Parse(
-            await escalationResponse.Content.ReadAsStringAsync(cancellationToken));
+            await refreshedEscalationResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
             CommonErrorCodes.PermissionDenied,
             problem.RootElement.GetProperty("code").GetString());

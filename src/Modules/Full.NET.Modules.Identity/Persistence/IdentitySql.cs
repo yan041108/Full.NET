@@ -779,6 +779,39 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement RevokeSessionsByRole = new(
+        "identity.revoke_sessions_by_role",
+        """
+        UPDATE fn_identity_refresh_session
+        SET RevokedAtUtc = @RevokedAtUtc,
+            Version = Version + 1
+        WHERE RevokedAtUtc IS NULL
+          AND UserId IN
+          (
+              SELECT UserId
+              FROM fn_identity_user_role
+              WHERE RoleId = @RoleId
+          )
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RotateSecurityStampsByRole = new(
+        "identity.rotate_security_stamps_by_role",
+        """
+        UPDATE fn_identity_user
+        SET SecurityStamp = @SecurityStamp,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE ScopeKey = 'host'
+          AND Id IN
+          (
+              SELECT UserId
+              FROM fn_identity_user_role
+              WHERE RoleId = @RoleId
+          )
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement GetUserAuthorization = new(
         "identity.get_actor_authorization",
         """

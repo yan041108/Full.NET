@@ -180,7 +180,12 @@ function onPermissionTreeCheck(
 
 async function savePermissions(): Promise<void> {
   const role = editingRole.value;
-  if (!role || changing.value || !canSavePermissions.value) return;
+  if (
+    !role
+    || changing.value
+    || !canSavePermissions.value
+    || !session.can('identity.roles.assign_permissions')
+  ) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -248,7 +253,7 @@ async function onDataScopeKindChange(kind: RoleDataScopeKind): Promise<void> {
 
 async function saveDataScope(): Promise<void> {
   const role = editingRole.value;
-  if (!role || changing.value) return;
+  if (!role || changing.value || !session.can('identity.roles.assign_data_scope')) return;
   changing.value = true;
   problem.value = undefined;
   try {
@@ -464,15 +469,17 @@ function toProblem(
       />
       <template #footer>
         <el-button @click="permissionsVisible = false">{{ t('status.back') }}</el-button>
-        <el-button
-          data-testid="role-save-permissions"
-          type="primary"
-          :loading="changing"
-          :disabled="!canSavePermissions"
-          @click="savePermissions"
-        >
-          {{ t('roles.savePermissions') }}
-        </el-button>
+        <PermissionGate code="identity.roles.assign_permissions">
+          <el-button
+            data-testid="role-save-permissions"
+            type="primary"
+            :loading="changing"
+            :disabled="!canSavePermissions"
+            @click="savePermissions"
+          >
+            {{ t('roles.savePermissions') }}
+          </el-button>
+        </PermissionGate>
       </template>
     </el-dialog>
 
@@ -497,7 +504,16 @@ function toProblem(
       </section>
       <template #footer>
         <el-button @click="dataScopeVisible = false">{{ t('status.back') }}</el-button>
-        <el-button type="primary" :loading="changing" @click="saveDataScope">{{ t('roles.saveDataScope') }}</el-button>
+        <PermissionGate code="identity.roles.assign_data_scope">
+          <el-button
+            data-testid="roles-save-data-scope"
+            type="primary"
+            :loading="changing"
+            @click="saveDataScope"
+          >
+            {{ t('roles.saveDataScope') }}
+          </el-button>
+        </PermissionGate>
       </template>
     </el-dialog>
 

@@ -1,12 +1,10 @@
 /**
  * 装配 Host API Key 管理视图；明文只保存在当前控制器内存与一次性展示节点中。
  */
-import { applyPermissionVisibility } from './navigation.js';
-
 export function createApiKeysController(root, options) {
   const request = options.request;
   const translation = options.translation;
-  const hasPermission = options.hasPermission ?? (() => false);
+  const canWrite = options.canWrite ?? (() => false);
   const clipboard = options.clipboard ?? globalThis.navigator?.clipboard;
   const confirm = options.confirm ?? confirmAction;
   const form = root.querySelector('[data-api-keys-form]');
@@ -25,11 +23,9 @@ export function createApiKeysController(root, options) {
         renderDirectory(
           directory,
           Array.isArray(page?.items) ? page.items : [],
-          translation()
+          translation(),
+          canWrite()
         );
-        if (typeof options.getPermissions === 'function') {
-          applyPermissionVisibility(root, options.getPermissions());
-        }
         hideProblem(root);
       })
       .catch(problem => {
@@ -41,7 +37,7 @@ export function createApiKeysController(root, options) {
 
   const onSubmit = async event => {
     event.preventDefault();
-    if (changing || !form || !hasPermission('identity.api_keys.create')) return;
+    if (changing || !form || !canWrite()) return;
     const data = new FormData(form);
     const userId = String(data.get('userId') ?? '').trim();
     const displayName = String(data.get('displayName') ?? '').trim();
@@ -95,7 +91,7 @@ export function createApiKeysController(root, options) {
     const disableButton = event.target instanceof Element
       ? event.target.closest('[data-api-keys-disable]')
       : undefined;
-    if (disableButton && !changing && hasPermission('identity.api_keys.disable')) {
+    if (disableButton && !changing && canWrite()) {
       const accepted = await confirm(
         translation().t('apiKeys.confirmDisable', {
           name: disableButton.dataset.displayName ?? ''
@@ -122,7 +118,7 @@ export function createApiKeysController(root, options) {
     const rotateButton = event.target instanceof Element
       ? event.target.closest('[data-api-keys-rotate]')
       : undefined;
-    if (!rotateButton || changing || !hasPermission('identity.api_keys.rotate')) return;
+    if (!rotateButton || changing || !canWrite()) return;
     const accepted = await confirm(
       translation().t('apiKeys.confirmRotate', {
         name: rotateButton.dataset.displayName ?? ''
@@ -175,7 +171,7 @@ export function createApiKeysController(root, options) {
   };
 }
 
-function renderDirectory(container, items, translation) {
+function renderDirectory(container, items, translation, canWrite) {
   if (!container) return;
   if (items.length === 0) {
     const empty = container.ownerDocument.createElement('p');
@@ -206,21 +202,19 @@ function renderDirectory(container, items, translation) {
         : translation.t('apiKeys.statusDisabled'))
     );
     article.append(identity);
-    if (item.isActive) {
+    if (canWrite && item.isActive) {
       const actions = container.ownerDocument.createElement('div');
       actions.className = 'fn-tenants__actions';
       const rotate = container.ownerDocument.createElement('button');
       rotate.type = 'button';
       rotate.className = 'layui-btn layui-btn-primary layui-btn-sm';
       rotate.dataset.apiKeysRotate = item.id ?? '';
-      rotate.dataset.permission = 'identity.api_keys.rotate';
       rotate.dataset.displayName = item.displayName ?? '';
       rotate.textContent = translation.t('apiKeys.rotate');
       const disable = container.ownerDocument.createElement('button');
       disable.type = 'button';
       disable.className = 'layui-btn layui-btn-danger layui-btn-primary layui-btn-sm';
       disable.dataset.apiKeysDisable = item.id ?? '';
-      disable.dataset.permission = 'identity.api_keys.disable';
       disable.dataset.displayName = item.displayName ?? '';
       disable.textContent = translation.t('apiKeys.disable');
       actions.append(rotate, disable);
