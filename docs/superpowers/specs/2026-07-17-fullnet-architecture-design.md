@@ -44,7 +44,7 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - 数据访问采用 Dapper-first，不以 EF Core 作为默认运行时依赖。
 - 数据迁移采用 DbUp 和可审查的 SQL 脚本。
 - 最终公开仓库使用 MIT License，并维护第三方许可清单。
-- 管理端同时建设 Vue 3 主管理端与 Layui 2 原生 JS/HTML 管理端，两端覆盖相同后台功能并同步验收；所有客户端通过 OpenAPI 与后端解耦。
+- Vue 3 管理端是后台产品唯一持续交付线；Layui 2 原生 JS/HTML 管理端自 2026-08-02 起作为存量冻结客户端，不再新增功能或参与新能力验收；所有客户端通过 OpenAPI 与后端解耦。
 - H5、微信小程序和支付宝小程序采用 uni-app Vue 3；原生移动端和 Windows/macOS/Linux 桌面端默认采用 Flutter，.NET MAUI 仅作为命中决策门禁后的可选模板。
 - 外部 REST JSON 统一使用 System.Text.Json 源代码生成；Newtonsoft.Json 只允许作为可选兼容 Provider。
 - 同进程模块调用不序列化；跨进程同步调用使用 gRPC + Protobuf；可靠异步事件默认使用 MessagePack，不使用 JSON 载荷。
@@ -340,7 +340,7 @@ MessagePack 集成事件使用显式 `[MessagePackObject]` 和整数 `[Key(n)]`�
 
 ### 6.9 CodeGeneration
 
-提供数据库元数据读取、模型定义、后端、SQL、Vue/Layui 双管理端页面、多平台 API 客户端和测试生成，是快速交付的核心能力。`Full.NET.Data.CodeGeneration` 是不依赖 Web 的生成引擎和 CLI 基础；当前已实现嵌入 Naming Profile 的表名、索引/约束确定性摘要和稳定协议校验纯函数，元数据读取、模板渲染、CLI 与双管理端生成仍按 M3 纵向样例推进。`Full.NET.Modules.CodeGeneration` 负责权限、任务记录、模板管理和后台页面 API，不重复实现模板引擎。
+提供数据库元数据读取、模型定义、后端、SQL、Vue 管理页面、多平台 API 客户端和测试生成，是快速交付的核心能力。`Full.NET.Data.CodeGeneration` 是不依赖 Web 的生成引擎和 CLI 基础；当前已实现嵌入 Naming Profile 的表名、索引/约束确定性摘要和稳定协议校验纯函数，元数据读取、模板渲染、CLI 与 Vue 纵向样例继续推进；既有 Layui 生成产物冻结，不再扩展。`Full.NET.Modules.CodeGeneration` 负责权限、任务记录、模板管理和后台页面 API，不重复实现模板引擎。
 
 ## 7. Dapper-first 数据层
 
@@ -538,7 +538,7 @@ Version
 
 ### 12.2 生成内容
 
-生成器可以创建实体、DTO、Command、Query、Handler、Validator、Endpoint、权限、参数化 SQL、分页 SQL、Vue/Layui 页面、TypeScript/JavaScript API 客户端和基础测试，并分阶段扩展 uni-app 与 Dart 客户端。生成的 SQL 自动包含适用的租户、软删除、审计和并发字段规则，并通过同一命名内核生成表、列、约束和稳定协议码。
+生成器可以创建实体、DTO、Command、Query、Handler、Validator、Endpoint、逐操作权限、参数化 SQL、分页 SQL、Vue 页面、TypeScript API 客户端和基础测试，并分阶段扩展 uni-app 与 Dart 客户端。既有 Layui 页面/JavaScript 产物只保留冻结回归，不接受新能力。生成的 SQL 自动包含适用的租户、软删除、审计和并发字段规则，并通过同一命名内核生成表、列、约束和稳定协议码。
 
 ### 12.3 防覆盖策略
 
@@ -769,9 +769,9 @@ Agent 运行保存会话、步骤、工具参数摘要、模型、Token、费用
 
 ## 19. 客户端
 
-Vue 主管理端放在 `ui/admin`，采用 Vue 3、TypeScript、Vite 和 Element Plus，并以 MIT Art Design Pro 作为管理壳层、主题、布局与通用交互基线。Apache ECharts 是标准图表引擎，使用 `echarts/core` 模块化注册、路由级懒加载和 Full.NET 主题；富文本默认使用 MIT Tiptap Core，由 Vue/Layui 分别建立 Adapter，不采用 Art Design Pro 自带编辑器作为隐式默认，也不引入 Tiptap 付费 Pro 扩展。采用方式是固定上游版本后审计并选择性迁入，不直接用其 Mock、认证、请求、动态路由或后端约定替换 Full.NET 的安全与协议层；导入代码、修改声明和许可证通知必须可追踪。JS/HTML 管理端放在 `ui/admin-layui`，采用 Layui 2、HTML、CSS 和原生 JavaScript。两套管理端覆盖相同后台功能并按同一后端模块同步开发，不要求像素一致，也不得共享框架相关 UI 组件源码。layuiAdmin 可以作为公开页面的布局和交互参考，但其静态主题并非 MIT 资产，未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制其源码和产品资产。
+Vue 主管理端放在 `ui/admin`，采用 Vue 3、TypeScript、Vite 和 Element Plus，并以 MIT Art Design Pro 作为管理壳层、主题、布局与通用交互基线。Apache ECharts 是标准图表引擎，使用 `echarts/core` 模块化注册、路由级懒加载和 Full.NET 主题；富文本默认使用 MIT Tiptap Core，不采用 Art Design Pro 自带编辑器作为隐式默认，也不引入 Tiptap 付费 Pro 扩展。采用方式是固定上游版本后审计并选择性迁入，不直接用其 Mock、认证、请求、动态路由或后端约定替换 Full.NET 的安全与协议层；导入代码、修改声明和许可证通知必须可追踪。`ui/admin-layui` 保留已实现的 Layui 2、HTML、CSS 和原生 JavaScript 历史成果，但自 2026-08-02 起冻结，不再新增页面、业务操作、适配器、生成模板或对等 E2E。layuiAdmin 仍只可作为公开页面的功能/交互参考；未经允许公开源码并以 MIT 再发布的明确书面授权，禁止复制其源码和产品资产。
 
-双管理端首版页面覆盖登录、用户、角色、权限、菜单、组织、租户、配置、字典、审计、文件、通知、任务和代码生成。每个后台功能必须分别记录 Vue 与 Layui 的实现状态，只有两端的权限、流程、错误处理和关键 E2E 都通过后，客户端功能才可标记为 `Verified`。Admin.NET.Pro 的页面可作为交互验收基准，但视觉设计、状态模型和 API 接入应围绕 Full.NET 模块边界重新整理。
+后台首版页面覆盖登录、用户、角色、权限、菜单、组织、租户、配置、字典、审计、文件、通知、任务和代码生成。每个后台功能按服务端、共享契约和 Vue 分别记录状态；只有 Vue 的页面/逐操作权限、租户、流程、错误处理、可访问性和关键真实栈 E2E 都通过后，客户端功能才可标记为 `Verified`。角色授权按模块、页面和操作展示同一权威目录，无权限业务按钮不进入 DOM，直接 API 仍由精确 Endpoint 权限失败关闭。Admin.NET.Pro 的页面可作为功能与交互验收基准，但视觉设计、状态模型和 API 接入围绕 Full.NET 模块边界重新实现。
 
 H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 uni-app Vue 3 和官方 uni-ui 作为默认组件库；原版 uView 2 不进入默认依赖，也不允许两套全量 UI 组件库长期并存。原生 Android/iOS 和 Windows/macOS/Linux 桌面端放在 `clients/flutter`，以 Flutter 3.44 的 Material 3、Cupertino 和 Full.NET 设计令牌构建自适应组件层，不绑定第三方整套 UI 框架。Flutter 不再重复承担 H5，uni-app 默认不再重复输出原生 App。.NET MAUI 只在 C#/Windows 企业项目的真实需求命中决策门禁时建立模板，不与 Flutter 长期维护全功能对等实现。
 
@@ -796,7 +796,7 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 - API 契约测试验证 OpenAPI、状态码、ProblemDetails、权限和兼容性；
 - 兼容性测试验证 Admin.NET 响应适配、真实 HTTP 状态码及文件、流、SignalR、健康检查等排除规则；
 - 生成器使用 Golden File 测试，并编译生成结果、执行集成测试；
-- Playwright 分为快速 Mock 契约层和最小真实栈层。Mock 层覆盖双端一致场景；真实 API、数据库与 Redis 层覆盖 Cookie、精确 CORS、CSRF、登录、并发刷新、租户切换、退出和 ProblemDetails，二者不能互相替代。
+- Playwright 分为快速 Mock 契约层和最小真实栈层。Mock 层覆盖 Vue 组件与协议场景；真实 API、数据库与 Redis 层覆盖 Cookie、精确 CORS、CSRF、登录、并发刷新、租户切换、逐页面/逐操作权限、直接 API 403、退出和 ProblemDetails，二者不能互相替代。Layui 历史场景只作为冻结基线，不参与新增功能退出门槛。
 
 ### 20.5 性能基线
 
@@ -930,15 +930,15 @@ Dapper、DbUp、SQL Server/MySQL、租户上下文、事务、MessagePack Outbox
 
 ### M2：核心后台能力
 
-Tenancy、Identity、Organization、RBAC、数据范围、菜单、Realtime 抽象、SignalR/MessagePack、Redis Backplane，以及 Vue/Layui 双管理端核心流程。
+Tenancy、Identity、Organization、RBAC、数据范围、菜单、Realtime 抽象、SignalR/MessagePack、Redis Backplane，以及 Vue 管理端核心流程与逐页面/逐操作授权。
 
 ### M3：快速交付能力
 
-Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板、CRM 示例、Vue/Layui 双管理端对应页面，以及 uni-app H5/微信/支付宝基础客户端。
+Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板、CRM 示例、Vue 管理端对应页面，以及 uni-app H5/微信/支付宝基础客户端。
 
 ### M4：1.0 加固
 
-双数据库测试矩阵、Vue/Layui 双管理端 E2E、uni-app 三目标构建、性能基线、Kubernetes + Helm 成熟生产基线、滚动发布/恢复演练、升级文档、安全审查和 MIT 发布检查。容量认证作为独立 P4 在专用硬件执行；未完成时只允许标记 `Capacity-not-verified`。
+双数据库测试矩阵、Vue 管理端权限与真实栈 E2E、Layui 存量退役治理、uni-app 三目标构建、性能基线、Kubernetes + Helm 成熟生产基线、滚动发布/恢复演练、升级文档、安全审查和 MIT 发布检查。容量认证作为独立 P4 在专用硬件执行；未完成时只允许标记 `Capacity-not-verified`。
 
 ### M5+：Admin.NET 全量功能对标
 
@@ -955,7 +955,7 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - Dapper 事务、并发控制和 Outbox 可靠；
 - FusionCache 单机和 Redis 多实例模式可用；
 - 代码生成能生成可编译、可运行的 CRUD 前后端；
-- Vue 与 Layui 两套管理端都可以完成核心管理流程，并分别通过权限和 E2E 验收；
+- Vue 管理端可以完成核心管理流程，页面与业务操作均可独立授权，并通过权限、可访问性和真实栈 E2E 验收；Layui 不再是 1.0 验收条件；
 - uni-app 可以分别构建 H5、微信小程序和支付宝小程序基础客户端；
 - Docker 可以启动完整开发环境；
 - Kubernetes + Helm 可以按 API/Worker/Migrator 角色部署多实例，完成滚动发布、排空、故障接管和受控回滚演练；
