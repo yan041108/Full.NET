@@ -121,7 +121,7 @@ Task 0 未完成不得开始 Task 1；Task 1/2 可分窗口开发，但共享构
 - Vue/Layui 同步交付和真实栈 E2E；
 - 许可、对象存储成本、病毒扫描/内容安全以及退出条件。
 
-**验收：** Spec 获得明确批准并把能力从 `Mapped` 提升到 `Planned`；否则保持 `Mapped`，不进入实现。
+**验收：** Spec 获得明确批准并把能力从 `Mapped` 提升到 `Planned`；否则保持 `Mapped`，不进入实现。**2026-08-02 已产出 Document 规格草案** [`docs/superpowers/specs/2026-08-02-document-module-design.md`](../superpowers/specs/2026-08-02-document-module-design.md)，待 Gate G4 评审。
 
 ## 每个 Task 的固定交付门禁
 

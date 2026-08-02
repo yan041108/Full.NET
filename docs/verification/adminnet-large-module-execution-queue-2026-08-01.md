@@ -9,6 +9,8 @@
 
 吸收计划 Task 1–10 已合入 `main`。Document、Workflow、DataApproval、ImportExport/Reporting、AI/Agents 进入独立执行队列，在 Gate G4 批准并各自形成带日期 Spec 之前保持 `Mapped`。
 
+**2026-08-02 更新：** Document 已提交 Gate G4 规格草案 [`2026-08-02-document-module-design.md`](../superpowers/specs/2026-08-02-document-module-design.md)，状态仍为 `Mapped`，待评审批准后升为 `Planned`。
+
 本任务**未**创建：
 
 - 空模块项目或投机性 `*.Contracts` 程序集；

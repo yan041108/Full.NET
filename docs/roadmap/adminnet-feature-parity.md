@@ -122,7 +122,7 @@
 | `Admin.NET.Plugin.Ai` | AI 模型配置、对话、Agent、工具调用、MCP 与 Agentic Web | AI + Agents + AgenticWeb | Official Module + Provider + Protocol Adapter | Mapped |
 | `Admin.NET.Plugin.DataApproval` | 数据变更审批 | DataApproval | Official Module | Mapped |
 | `Admin.NET.Plugin.DingTalk` | 钉钉组织、消息和接口 | DingTalk | Provider | Mapped |
-| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | Mapped |
+| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | Mapped（Gate G4 规格草案见[Document 设计](../superpowers/specs/2026-08-02-document-module-design.md)，**待批准**；批准前禁止实现） |
 | `Admin.NET.Plugin.GoView` | 可视化大屏 | GoView | Official Module + Client | Mapped |
 | `Admin.NET.Plugin.K3Cloud` | 金蝶云星空接口集成 | K3Cloud | Provider + Sample | Mapped |
 | `Admin.NET.Plugin.PaddleOCR` | OCR 识别 | OCR | Provider | Mapped |
@@ -138,7 +138,7 @@
 
 | 顺序 | 模块 | 前置依赖 | 所有权与契约边界 | 退出门禁 |
 | --- | --- | --- | --- | --- |
-| 1 | Document | Files Provider 稳定；字段投影可用 | 通过显式契约消费 Files；自有分类/标签/版本/分享/权限/日志数据，禁止把文件字节存入业务表 | 双库迁移与恢复、标准 API、权限、租户/数据范围、Outbox（如需）、Vue/Layui、E2E、运维文档与许可证据 |
+| 1 | Document | Files Provider 稳定；字段投影可用 | 通过显式契约消费 Files；自有分类/标签/版本/分享/权限/日志数据，禁止把文件字节存入业务表 | 双库迁移与恢复、标准 API、权限、租户/数据范围、Outbox（如需）、Vue/Layui、E2E、运维文档与许可证据；**2026-08-02 规格草案**见[Document 设计](../superpowers/specs/2026-08-02-document-module-design.md)（待 Gate G4 批准） |
 | 2 | Workflow | Notifications 与 Jobs 恢复路径可用 | 拥有不可变定义版本、实例、步骤、待办、抄送、执行日志与恢复；禁止业务模块直连流程表 | 同上，且必须覆盖实例恢复与幂等推进 |
 | 3 | DataApproval | Workflow 可用 | 通过显式用例契约集成，禁止任意 HTTP 中间件拦截改写业务写路径 | 同上，且必须覆盖审批拒绝/撤回与审计 |
 | 4 | ImportExport / Reporting | 字段投影稳定 | 导入导出与报表配置分模块；禁止动态 SQL 拼接与未授权列泄露 | 同上，且必须覆盖大文件/批处理背压与失败续跑 |
