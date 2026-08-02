@@ -10,6 +10,8 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentPermissions.Read, "读取 Host 文档库", AuthorizationScope.Host),
         new(HostDocumentPermissions.Write, "维护 Host 文档库", AuthorizationScope.Host),
         new(HostDocumentPermissions.Delete, "删除或恢复 Host 文档", AuthorizationScope.Host),
+        new(HostDocumentCategoryPermissions.Manage, "维护 Host 文档分类", AuthorizationScope.Host),
+        new(HostDocumentTagPermissions.Manage, "维护 Host 文档标签", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } = [];

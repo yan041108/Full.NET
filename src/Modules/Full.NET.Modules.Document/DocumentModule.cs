@@ -31,12 +31,20 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();
+        services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagQueryService>();
+        services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagManagementService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 DocumentJsonSerializerContext.Default));
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) =>
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
         Features.ManageHostDocumentItems.Endpoint.Map(endpoints);
+        Features.ManageHostDocumentCategories.Endpoint.Map(endpoints);
+        Features.ManageHostDocumentTags.Endpoint.Map(endpoints);
+    }
 }

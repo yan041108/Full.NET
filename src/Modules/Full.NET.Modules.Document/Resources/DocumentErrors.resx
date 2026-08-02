@@ -8,4 +8,16 @@
   <data name="document.host_document.not_found" xml:space="preserve"><value>未找到该文档。</value></data>
   <data name="document.host_document.version_conflict" xml:space="preserve"><value>文档已被其他操作更新，请刷新后重试。</value></data>
   <data name="document.host_document.invalid_file_reference" xml:space="preserve"><value>引用的文件不可用。</value></data>
+  <data name="document.host_category.invalid" xml:space="preserve"><value>分类请求无效。</value></data>
+  <data name="document.host_category.not_found" xml:space="preserve"><value>未找到该分类。</value></data>
+  <data name="document.host_category.name_exists" xml:space="preserve"><value>同级分类名称已存在。</value></data>
+  <data name="document.host_category.invalid_parent" xml:space="preserve"><value>父级分类无效。</value></data>
+  <data name="document.host_category.version_conflict" xml:space="preserve"><value>分类已被其他操作更新，请刷新后重试。</value></data>
+  <data name="document.host_category.has_children" xml:space="preserve"><value>分类下仍有子分类。</value></data>
+  <data name="document.host_category.in_use" xml:space="preserve"><value>分类仍被文档引用。</value></data>
+  <data name="document.host_tag.invalid" xml:space="preserve"><value>标签请求无效。</value></data>
+  <data name="document.host_tag.not_found" xml:space="preserve"><value>未找到该标签。</value></data>
+  <data name="document.host_tag.name_exists" xml:space="preserve"><value>标签名称已存在。</value></data>
+  <data name="document.host_tag.version_conflict" xml:space="preserve"><value>标签已被其他操作更新，请刷新后重试。</value></data>
+  <data name="document.host_tag.in_use" xml:space="preserve"><value>标签仍被文档引用。</value></data>
 </root>

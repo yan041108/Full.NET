@@ -1,0 +1,125 @@
+{
+  "id": "document-host-categories-tags-v1",
+  "version": 1,
+  "description": "Host 文档分类与标签 HTTP 契约冻结夹具；与 Document 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/categories",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentCategoryResponseList"
+        },
+        {
+          "method": "POST",
+          "permission": "document.categories.manage",
+          "successStatus": 201,
+          "requestSchema": "CreateHostDocumentCategoryRequest",
+          "responseSchema": "HostDocumentCategoryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/categories/{categoryId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentCategoryResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "document.categories.manage",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostDocumentCategoryRequest",
+          "responseSchema": "HostDocumentCategoryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/categories/{categoryId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.categories.manage",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/tags",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentTagResponseList"
+        },
+        {
+          "method": "POST",
+          "permission": "document.tags.manage",
+          "successStatus": 201,
+          "requestSchema": "CreateHostDocumentTagRequest",
+          "responseSchema": "HostDocumentTagResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/tags/{tagId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentTagResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "document.tags.manage",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostDocumentTagRequest",
+          "responseSchema": "HostDocumentTagResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/tags/{tagId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.tags.manage",
+          "successStatus": 200
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateHostDocumentCategoryRequest": {
+      "properties": ["name", "parentId", "sortOrder"]
+    },
+    "UpdateHostDocumentCategoryRequest": {
+      "properties": ["name", "parentId", "sortOrder", "version"]
+    },
+    "HostDocumentCategoryResponse": {
+      "properties": ["id", "parentId", "name", "sortOrder", "createdAtUtc", "updatedAtUtc", "version"]
+    },
+    "HostDocumentCategoryResponseList": {
+      "properties": []
+    },
+    "CreateHostDocumentTagRequest": {
+      "properties": ["name"]
+    },
+    "UpdateHostDocumentTagRequest": {
+      "properties": ["name", "version"]
+    },
+    "HostDocumentTagResponse": {
+      "properties": ["id", "name", "createdAtUtc", "updatedAtUtc", "version"]
+    },
+    "HostDocumentTagResponseList": {
+      "properties": []
+    }
+  }
+}
