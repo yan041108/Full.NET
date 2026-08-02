@@ -49,6 +49,8 @@
   <data name="identity.api_keys.user_not_found" xml:space="preserve"><value>The host user bound to the API key was not found.</value></data>
   <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>The host user bound to the API key is inactive.</value></data>
   <data name="identity.signature.missing_headers" xml:space="preserve"><value>Signature authentication headers are incomplete.</value></data>
+  <data name="identity.signature.duplicate_headers" xml:space="preserve"><value>Signature authentication headers are duplicated.</value></data>
+  <data name="identity.signature.request_body_too_large" xml:space="preserve"><value>The signed request body exceeds the allowed limit.</value></data>
   <data name="identity.signature.invalid_version" xml:space="preserve"><value>The signature protocol version is invalid.</value></data>
   <data name="identity.signature.invalid_timestamp" xml:space="preserve"><value>The signature timestamp format is invalid.</value></data>
   <data name="identity.signature.timestamp_expired" xml:space="preserve"><value>The signature timestamp has expired.</value></data>

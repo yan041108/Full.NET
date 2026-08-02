@@ -7,6 +7,10 @@ internal static class IdentitySignatureErrorCodes
 {
     public const string MissingHeaders = IdentityErrorCodes.SignatureMissingHeaders;
 
+    public const string DuplicateHeaders = IdentityErrorCodes.SignatureDuplicateHeaders;
+
+    public const string RequestBodyTooLarge = IdentityErrorCodes.SignatureRequestBodyTooLarge;
+
     public const string InvalidVersion = IdentityErrorCodes.SignatureInvalidVersion;
 
     public const string InvalidTimestamp = IdentityErrorCodes.SignatureInvalidTimestamp;

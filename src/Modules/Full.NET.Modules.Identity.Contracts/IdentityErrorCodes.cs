@@ -159,6 +159,12 @@ public static class IdentityErrorCodes
     /// <summary>签名认证请求头不完整。</summary>
     public const string SignatureMissingHeaders = "identity.signature.missing_headers";
 
+    /// <summary>签名认证请求头重复。</summary>
+    public const string SignatureDuplicateHeaders = "identity.signature.duplicate_headers";
+
+    /// <summary>签名请求体超过允许上限。</summary>
+    public const string SignatureRequestBodyTooLarge = "identity.signature.request_body_too_large";
+
     /// <summary>签名协议版本无效。</summary>
     public const string SignatureInvalidVersion = "identity.signature.invalid_version";
 
@@ -249,6 +255,8 @@ public static class IdentityErrorCodes
         ApiKeyUserNotFound,
         ApiKeyUserInactive,
         SignatureMissingHeaders,
+        SignatureDuplicateHeaders,
+        SignatureRequestBodyTooLarge,
         SignatureInvalidVersion,
         SignatureInvalidTimestamp,
         SignatureTimestampExpired,

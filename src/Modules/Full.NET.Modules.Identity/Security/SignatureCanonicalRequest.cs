@@ -127,24 +127,89 @@ internal static class SignatureCanonicalRequest
 
     public static async Task<byte[]> ReadBodyAsync(
         HttpRequest request,
+        int maxBodyBytes,
         CancellationToken cancellationToken)
     {
         request.EnableBuffering();
-        if (request.Body.CanSeek)
+        var originalPosition = request.Body.CanSeek ? request.Body.Position : 0L;
+        try
         {
-            request.Body.Position = 0;
-        }
+            if (request.ContentLength is long contentLength && contentLength > maxBodyBytes)
+            {
+                throw new SignatureCanonicalizationException(
+                    IdentitySignatureErrorCodes.RequestBodyTooLarge,
+                    "The request body exceeds the configured signature limit.");
+            }
 
-        using var memory = new MemoryStream();
-        await request.Body.CopyToAsync(memory, cancellationToken).ConfigureAwait(false);
-        var bytes = memory.ToArray();
-        if (request.Body.CanSeek)
+            if (request.Body.CanSeek)
+            {
+                request.Body.Position = 0;
+            }
+
+            var initialCapacity = request.ContentLength is long bodyLength and > 0
+                ? (int)Math.Min(bodyLength, int.MaxValue)
+                : 0;
+            using var memory = new MemoryStream(initialCapacity);
+            var buffer = new byte[8_192];
+            var totalBytes = 0;
+            while (true)
+            {
+                var read = await request.Body
+                    .ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
+                    .ConfigureAwait(false);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                totalBytes += read;
+                if (totalBytes > maxBodyBytes)
+                {
+                    throw new SignatureCanonicalizationException(
+                        IdentitySignatureErrorCodes.RequestBodyTooLarge,
+                        "The request body exceeds the configured signature limit.");
+                }
+
+                memory.Write(buffer, 0, read);
+            }
+
+            return memory.ToArray();
+        }
+        finally
         {
-            request.Body.Position = 0;
+            if (request.Body.CanSeek)
+            {
+                request.Body.Position = originalPosition;
+            }
         }
-
-        return bytes;
     }
+
+    public static bool TryParseSigningKeyBytes(
+        string keyHashHex,
+        out byte[] signingKeyBytes)
+    {
+        signingKeyBytes = [];
+        if (string.IsNullOrWhiteSpace(keyHashHex) || keyHashHex.Length != 64)
+        {
+            return false;
+        }
+
+        try
+        {
+            signingKeyBytes = Convert.FromHexString(keyHashHex);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return signingKeyBytes.Length == 32;
+    }
+
+    public static byte[] ParseSigningKeyBytes(string keyHashHex) =>
+        TryParseSigningKeyBytes(keyHashHex, out var signingKeyBytes)
+            ? signingKeyBytes
+            : throw new FormatException("The access key hash is not valid hexadecimal.");
 
     public static string ComputeSignature(string canonicalString, byte[] signingKeyBytes)
     {
@@ -152,9 +217,6 @@ internal static class SignatureCanonicalRequest
         var hash = HMACSHA256.HashData(signingKeyBytes, canonicalBytes);
         return Convert.ToHexStringLower(hash);
     }
-
-    public static byte[] ParseSigningKeyBytes(string keyHashHex) =>
-        Convert.FromHexString(keyHashHex);
 
     public static bool FixedTimeEqualsSignatures(string expected, string actual)
     {

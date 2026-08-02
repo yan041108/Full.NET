@@ -51,6 +51,8 @@
   <data name="identity.field_projection.invalid" xml:space="preserve"><value>字段投影资源或字段键无效。</value></data>
   <data name="identity.field_projection.version_conflict" xml:space="preserve"><value>角色字段授权已被并发修改。</value></data>
   <data name="identity.signature.missing_headers" xml:space="preserve"><value>签名认证请求头不完整。</value></data>
+  <data name="identity.signature.duplicate_headers" xml:space="preserve"><value>签名认证请求头重复。</value></data>
+  <data name="identity.signature.request_body_too_large" xml:space="preserve"><value>签名认证请求体超过允许上限。</value></data>
   <data name="identity.signature.invalid_version" xml:space="preserve"><value>签名协议版本无效。</value></data>
   <data name="identity.signature.invalid_timestamp" xml:space="preserve"><value>签名时间戳格式无效。</value></data>
   <data name="identity.signature.timestamp_expired" xml:space="preserve"><value>签名时间戳已过期。</value></data>

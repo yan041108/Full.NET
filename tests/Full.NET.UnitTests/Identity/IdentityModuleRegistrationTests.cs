@@ -209,6 +209,9 @@ public sealed class IdentityModuleRegistrationTests
             IValidateOptions<IdentityOptions>,
             IdentityOptionsValidator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
+            IValidateOptions<SignatureAuthenticationOptions>,
+            SignatureAuthenticationOptionsValidator>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Type<
             IClock,
             Full.NET.Abstractions.Time.SystemClock>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<

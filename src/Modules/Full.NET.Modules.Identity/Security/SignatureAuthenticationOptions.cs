@@ -26,9 +26,19 @@ internal sealed class SignatureAuthenticationOptions
     /// <summary>Nonce 记录在时间戳窗口之外的额外保留秒数。</summary>
     public int NonceRetentionSeconds { get; set; } = 300;
 
+    /// <summary>签名验签允许读取的最大请求体字节数；默认 1 MiB。</summary>
+    public int MaxBodyBytes { get; set; } = 1_048_576;
+
     public int MinNonceLength { get; set; } = 16;
 
     public int MaxNonceLength { get; set; } = 64;
+
+    /// <summary>Access Key 公开标识最大长度，与 KeyPrefix 列一致。</summary>
+    public int MaxAccessKeyIdLength { get; set; } = 16;
+
+    public const int MinBodyBytesLimit = 1;
+
+    public const int MaxBodyBytesLimit = 10_485_760;
 
     public int MinClockSkewSeconds => 30;
 

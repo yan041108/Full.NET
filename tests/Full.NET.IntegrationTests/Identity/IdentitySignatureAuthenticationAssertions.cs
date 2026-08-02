@@ -65,6 +65,20 @@ internal static class IdentitySignatureAuthenticationAssertions
             client,
             created,
             cancellationToken);
+        await VerifyOversizedBodyIsRejectedAsync(
+            factory,
+            client,
+            created,
+            cancellationToken);
+        await VerifyDuplicateHeadersAreRejectedAsync(
+            client,
+            created,
+            cancellationToken);
+        await VerifyCorruptKeyHashIsRejectedAsync(
+            factory,
+            client,
+            created,
+            cancellationToken);
         await VerifyRotatedDisabledAndExpiredKeysAsync(
             factory,
             client,
@@ -464,6 +478,92 @@ internal static class IdentitySignatureAuthenticationAssertions
         Assert.IsNotNull(latest);
         Assert.IsFalse(latest.Contains(created.Secret, StringComparison.Ordinal));
         Assert.IsFalse(latest.Contains(new string('a', 64), StringComparison.Ordinal));
+    }
+
+    private static async Task VerifyDuplicateHeadersAreRejectedAsync(
+        HttpClient client,
+        CreateHostApiKeyResponse created,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=1");
+        ApplySignatureHeaders(
+            request,
+            created.Secret,
+            created.Key.KeyPrefix,
+            "/api/v1/identity/users?page=1&pageSize=1");
+        request.Headers.Remove(SignatureAuthenticationOptions.NonceHeader);
+        request.Headers.TryAddWithoutValidation(
+            SignatureAuthenticationOptions.NonceHeader,
+            new[] { "nonceabcdefghijklm", "nonceabcdefghijklmn" });
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        await AssertProblemCodeAsync(
+            response,
+            IdentityErrorCodes.SignatureDuplicateHeaders,
+            cancellationToken);
+    }
+
+    private static async Task VerifyCorruptKeyHashIsRejectedAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CreateHostApiKeyResponse created,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var executor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        await executor.ExecuteAsync(
+            new SqlStatement(
+                "integration.identity.corrupt_api_key_hash",
+                """
+                UPDATE fn_identity_api_key
+                SET KeyHash = @KeyHash
+                WHERE Id = @ApiKeyId
+                """,
+                SqlDataScope.Global),
+            new
+            {
+                ApiKeyId = created.Key.Id,
+                KeyHash = "not-a-valid-hash-value-0123456789abcdef",
+            },
+            cancellationToken);
+
+        using var response = await SendSignedAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=1",
+            created.Secret,
+            created.Key.KeyPrefix,
+            cancellationToken: cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        await AssertProblemCodeAsync(
+            response,
+            IdentityErrorCodes.SignatureAccessKeyDisabled,
+            cancellationToken);
+    }
+
+    private static async Task VerifyOversizedBodyIsRejectedAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CreateHostApiKeyResponse created,
+        CancellationToken cancellationToken)
+    {
+        var payload = new byte[1_048_577];
+        Random.Shared.NextBytes(payload);
+        using var response = await SendSignedAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/identity/users?page=1&pageSize=1",
+            created.Secret,
+            created.Key.KeyPrefix,
+            body: payload,
+            cancellationToken: cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        await AssertProblemCodeAsync(
+            response,
+            IdentityErrorCodes.SignatureRequestBodyTooLarge,
+            cancellationToken);
     }
 
     private static async Task<HttpResponseMessage> SendSignedAsync(

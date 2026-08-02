@@ -52,8 +52,6 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
         services.TryAddScoped<TotpEnrollmentService>();
         services.TryAddScoped<ApiKeyAuthenticationService>();
         services.TryAddScoped<SignatureAuthenticationService>();
-        services.AddOptions<SignatureAuthenticationOptions>()
-            .Bind(configuration.GetSection(SignatureAuthenticationOptions.SectionName));
         services.TryAddSingleton<RsaSigningKeyRing>();
         services.TryAddSingleton<IRandomTokenGenerator, CryptographicTokenGenerator>();
         services.TryAddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();

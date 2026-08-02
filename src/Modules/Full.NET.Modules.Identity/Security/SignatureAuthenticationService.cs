@@ -32,13 +32,13 @@ internal sealed partial class SignatureAuthenticationService(
         HttpContext httpContext,
         CancellationToken cancellationToken = default)
     {
-        var headers = ParseHeaders(httpContext.Request.Headers);
+        var settings = options.Value;
+        var headers = ParseHeaders(httpContext.Request.Headers, settings);
         if (headers.Error is not null)
         {
             return SignatureAuthenticationResult.Failure(headers.Error);
         }
 
-        var settings = options.Value;
         if (!string.Equals(
                 headers.SignatureVersion,
                 SignatureAuthenticationOptions.SupportedVersion,
@@ -176,6 +176,7 @@ internal sealed partial class SignatureAuthenticationService(
                 httpContext.Request.QueryString);
             var body = await SignatureCanonicalRequest.ReadBodyAsync(
                     httpContext.Request,
+                    settings.MaxBodyBytes,
                     cancellationToken)
                 .ConfigureAwait(false);
             var contentHash = SignatureCanonicalRequest.ComputeContentHash(body);
@@ -193,7 +194,28 @@ internal sealed partial class SignatureAuthenticationService(
             return Failure(exception.ErrorCode, ErrorType.Unauthorized);
         }
 
-        var signingKey = SignatureCanonicalRequest.ParseSigningKeyBytes(row.KeyHash);
+        var signingKey = SignatureCanonicalRequest.TryParseSigningKeyBytes(
+            row.KeyHash,
+            out var signingKeyBytes)
+            ? signingKeyBytes
+            : null;
+        if (signingKey is null)
+        {
+            await WriteAuditAsync(
+                    row.UserId,
+                    headers.AccessKeyId,
+                    "signature_authentication",
+                    IdentitySignatureErrorCodes.AccessKeyDisabled,
+                    false,
+                    httpContext,
+                    row.TenantId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return Failure(
+                IdentitySignatureErrorCodes.AccessKeyDisabled,
+                ErrorType.Unauthorized);
+        }
+
         var expectedSignature = SignatureCanonicalRequest.ComputeSignature(
             canonicalString,
             signingKey);
@@ -406,7 +428,9 @@ internal sealed partial class SignatureAuthenticationService(
     }
 
     private static (string AccessKeyId, string Timestamp, string Nonce, string Signature, string SignatureVersion, Guid? TenantId, Error? Error)
-        ParseHeaders(IHeaderDictionary headers)
+        ParseHeaders(
+            IHeaderDictionary headers,
+            SignatureAuthenticationOptions settings)
     {
         var hasAny = HasHeader(headers, SignatureAuthenticationOptions.AccessKeyIdHeader)
             || HasHeader(headers, SignatureAuthenticationOptions.TimestampHeader)
@@ -418,35 +442,58 @@ internal sealed partial class SignatureAuthenticationService(
             return default;
         }
 
-        if (!TryGetRequiredHeader(headers, SignatureAuthenticationOptions.AccessKeyIdHeader, out var accessKeyId)
-            || !TryGetRequiredHeader(headers, SignatureAuthenticationOptions.TimestampHeader, out var timestamp)
-            || !TryGetRequiredHeader(headers, SignatureAuthenticationOptions.NonceHeader, out var nonce)
-            || !TryGetRequiredHeader(headers, SignatureAuthenticationOptions.SignatureHeader, out var signature)
+        if (!TryGetRequiredHeader(headers, SignatureAuthenticationOptions.AccessKeyIdHeader, out var accessKeyId, out var headerError)
+            || !TryGetRequiredHeader(headers, SignatureAuthenticationOptions.TimestampHeader, out var timestamp, out headerError)
+            || !TryGetRequiredHeader(headers, SignatureAuthenticationOptions.NonceHeader, out var nonce, out headerError)
+            || !TryGetRequiredHeader(headers, SignatureAuthenticationOptions.SignatureHeader, out var signature, out headerError)
             || !TryGetRequiredHeader(
                 headers,
                 SignatureAuthenticationOptions.SignatureVersionHeader,
-                out var signatureVersion))
+                out var signatureVersion,
+                out headerError))
         {
             return (default!, default!, default!, default!, default!, null,
-                new Error(
+                headerError ?? new Error(
                     IdentitySignatureErrorCodes.MissingHeaders,
                     "Signature headers are incomplete.",
                     ErrorType.Unauthorized));
         }
 
-        Guid? tenantId = null;
-        if (TryGetRequiredHeader(headers, SignatureAuthenticationOptions.TenantIdHeader, out var tenantValue))
+        if (accessKeyId.Length > settings.MaxAccessKeyIdLength)
         {
-            if (!Guid.TryParse(tenantValue, out var parsedTenantId))
+            return (default!, default!, default!, default!, default!, null,
+                new Error(
+                    IdentitySignatureErrorCodes.AccessKeyNotFound,
+                    "The access key identifier is invalid.",
+                    ErrorType.Unauthorized));
+        }
+
+        Guid? tenantId = null;
+        if (headers.TryGetValue(SignatureAuthenticationOptions.TenantIdHeader, out var tenantValues))
+        {
+            if (tenantValues.Count > 1)
             {
                 return (default!, default!, default!, default!, default!, null,
                     new Error(
-                        IdentitySignatureErrorCodes.TenantScopeMismatch,
-                        "The tenant header is invalid.",
-                        ErrorType.Forbidden));
+                        IdentitySignatureErrorCodes.DuplicateHeaders,
+                        "Signature headers must not be duplicated.",
+                        ErrorType.Unauthorized));
             }
 
-            tenantId = parsedTenantId;
+            var tenantValue = tenantValues.ToString().Trim();
+            if (!string.IsNullOrEmpty(tenantValue))
+            {
+                if (!Guid.TryParse(tenantValue, out var parsedTenantId))
+                {
+                    return (default!, default!, default!, default!, default!, null,
+                        new Error(
+                            IdentitySignatureErrorCodes.TenantScopeMismatch,
+                            "The tenant header is invalid.",
+                            ErrorType.Forbidden));
+                }
+
+                tenantId = parsedTenantId;
+            }
         }
 
         return (accessKeyId, timestamp, nonce, signature, signatureVersion, tenantId, null);
@@ -458,11 +505,22 @@ internal sealed partial class SignatureAuthenticationService(
     private static bool TryGetRequiredHeader(
         IHeaderDictionary headers,
         string name,
-        out string value)
+        out string value,
+        out Error? error)
     {
+        error = null;
         value = string.Empty;
         if (!headers.TryGetValue(name, out var values))
         {
+            return false;
+        }
+
+        if (values.Count > 1)
+        {
+            error = new Error(
+                IdentitySignatureErrorCodes.DuplicateHeaders,
+                "Signature headers must not be duplicated.",
+                ErrorType.Unauthorized);
             return false;
         }
 

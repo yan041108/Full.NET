@@ -110,4 +110,75 @@ public sealed class SignatureCanonicalRequestTests
                 PathString.Empty,
                 new PathString("/api/v1/users/")));
     }
+
+    [TestMethod]
+    public async Task ReadBodyAsync_rejects_known_content_length_above_limit()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Body = new MemoryStream("payload"u8.ToArray());
+        context.Request.ContentLength = 32;
+
+        var exception = await Assert.ThrowsExactlyAsync<SignatureCanonicalizationException>(
+            () => SignatureCanonicalRequest.ReadBodyAsync(context.Request, 16, CancellationToken.None));
+        Assert.AreEqual(
+            IdentitySignatureErrorCodes.RequestBodyTooLarge,
+            exception.ErrorCode);
+        Assert.AreEqual(0, context.Request.Body.Position);
+    }
+
+    [TestMethod]
+    public async Task ReadBodyAsync_rejects_streaming_body_above_limit()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Body = new MemoryStream(new byte[32]);
+        context.Request.ContentLength = null;
+
+        var exception = await Assert.ThrowsExactlyAsync<SignatureCanonicalizationException>(
+            () => SignatureCanonicalRequest.ReadBodyAsync(context.Request, 16, CancellationToken.None));
+        Assert.AreEqual(
+            IdentitySignatureErrorCodes.RequestBodyTooLarge,
+            exception.ErrorCode);
+        Assert.AreEqual(0, context.Request.Body.Position);
+    }
+
+    [TestMethod]
+    public async Task ReadBodyAsync_resets_body_position_after_successful_read()
+    {
+        var payload = "payload"u8.ToArray();
+        var context = new DefaultHttpContext
+        {
+            Request =
+            {
+                Body = new MemoryStream(payload),
+                ContentLength = payload.Length,
+            },
+        };
+        context.Request.Body.Position = 4;
+
+        var body = await SignatureCanonicalRequest.ReadBodyAsync(
+            context.Request,
+            1024,
+            CancellationToken.None);
+
+        CollectionAssert.AreEqual(payload, body);
+        Assert.AreEqual(4, context.Request.Body.Position);
+    }
+
+    [TestMethod]
+    public void TryParseSigningKeyBytes_rejects_invalid_hashes()
+    {
+        Assert.IsFalse(SignatureCanonicalRequest.TryParseSigningKeyBytes(
+            string.Empty,
+            out _));
+        Assert.IsFalse(SignatureCanonicalRequest.TryParseSigningKeyBytes(
+            "not-hex",
+            out _));
+        Assert.IsFalse(SignatureCanonicalRequest.TryParseSigningKeyBytes(
+            new string('a', 63),
+            out _));
+        Assert.IsTrue(SignatureCanonicalRequest.TryParseSigningKeyBytes(
+            TokenHash.Compute("fnk_test-secret-value-0123456789abcd"),
+            out var signingKey));
+        Assert.AreEqual(32, signingKey.Length);
+    }
 }

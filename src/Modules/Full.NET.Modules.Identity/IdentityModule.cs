@@ -6,6 +6,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.DependencyInjection;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
+using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Seeding;
 using Full.NET.Seeding.Abstractions;
 using Microsoft.AspNetCore.Builder;
@@ -59,6 +60,12 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<IdentityOptions>,
             IdentityOptionsValidator>());
+        services.AddOptions<SignatureAuthenticationOptions>()
+            .Bind(configuration.GetSection(SignatureAuthenticationOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<SignatureAuthenticationOptions>,
+            SignatureAuthenticationOptionsValidator>());
         services.TryAddSingleton<IClock, Abstractions.Time.SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<
