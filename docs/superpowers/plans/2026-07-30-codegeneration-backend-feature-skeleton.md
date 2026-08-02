@@ -1,6 +1,6 @@
 # CodeGeneration Backend Feature Skeleton Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 让租户型 CRUD Schema 额外生成可在现有 Full.NET 模块项目中直接编译和显式接入的 Endpoint、应用服务、持久化记录与注册骨架。
 
@@ -31,7 +31,7 @@
 - Consumes: `CrudArtifactGenerator.Generate(FullNetCrudSchema)`.
 - Produces: `backend/{Entity}Record.g.cs`, `backend/{Entity}Feature.g.cs`, and `backend/{Entity}Endpoint.g.cs` for tenant-scoped schemas.
 
-- [ ] **Step 1: Write failing artifact tests**
+- [x] **Step 1: Write failing artifact tests**
 
 Assert the three new paths exist for Catalog/Product and that:
 
@@ -46,7 +46,7 @@ StringAssert.Contains(endpoint, "AddGeneratedProductFeature");
 
 Also assert a valid non-tenant Schema does not emit the three runtime artifacts.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 ```powershell
 dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~CrudArtifactGeneratorTests"
@@ -65,23 +65,23 @@ Expected: FAIL because the backend runtime artifacts and SQL statements do not e
 - Consumes: validated `FullNetCrudSchema`, generated contracts, and existing SQL text.
 - Produces: `GenerateRecord`, `GenerateFeature`, `GenerateEndpoint`, plus tenant-scoped `SqlStatement` declarations in `{Entity}Sql`.
 
-- [ ] **Step 1: Generate the persistence record**
+- [x] **Step 1: Generate the persistence record**
 
 Emit an internal positional `{Entity}Record` using the exact C# property names, types and column order from the Schema.
 
-- [ ] **Step 2: Generate tenant-scoped SQL statements**
+- [x] **Step 2: Generate tenant-scoped SQL statements**
 
 Add `FindById`, one-round-trip SQL Server/MySQL page statements, and executable insert/update/disable statements. Statement IDs use lowercase snake-case segments and provider suffixes `.sql_server` and `.my_sql`.
 
-- [ ] **Step 3: Generate query and management services**
+- [x] **Step 3: Generate query and management services**
 
 The query service clamps page values, selects the provider-specific page statement, consumes count then rows from `IMultiResultQueryExecutor`, and maps records to responses. The management service executes create/update/disable inside `ICommandTransaction`, validates generated string length constraints, injects tenant context and ID/time/version values, and resolves not-found versus version-conflict failures.
 
-- [ ] **Step 4: Generate Endpoint and explicit registration**
+- [x] **Step 4: Generate Endpoint and explicit registration**
 
 Emit list/detail/create/update/disable Minimal API mappings, precise permission policies, standard `201/200` responses, JSON source-generation metadata, and `AddGenerated{Entity}Feature`/`MapGenerated{Entity}Feature` extensions.
 
-- [ ] **Step 5: Verify GREEN except fixture drift**
+- [x] **Step 5: Verify GREEN except fixture drift**
 
 Run the Task 1 command. All behavior assertions must pass; only missing or changed fixture assertions may remain red.
 
@@ -98,11 +98,11 @@ Run the Task 1 command. All behavior assertions must pass; only missing or chang
 - Consumes: deterministic Catalog/Product generator output.
 - Produces: byte-stable fixtures that are compiled automatically by `Full.NET.UnitTests.csproj`.
 
-- [ ] **Step 1: Update exact generated fixtures**
+- [x] **Step 1: Update exact generated fixtures**
 
 Persist all backend outputs with LF endings and no BOM.
 
-- [ ] **Step 2: Run focused generator tests**
+- [x] **Step 2: Run focused generator tests**
 
 ```powershell
 dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~CrudArtifactGeneratorTests"
@@ -121,14 +121,14 @@ Expected: all focused tests pass and the generated C# fixture compiles as part o
 - Consumes: snapshot `codegeneration-backend-feature-skeleton-20260730`.
 - Produces: fresh unit, affected dual-provider, naming, build and workspace evidence.
 
-- [ ] **Step 1: Run CodeGeneration and full unit tests**
+- [x] **Step 1: Run CodeGeneration and full unit tests**
 
 ```powershell
 dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~CodeGeneration"
 pnpm test:dotnet:unit
 ```
 
-- [ ] **Step 2: Run naming and affected slice**
+- [x] **Step 2: Run naming and affected slice**
 
 ```powershell
 pnpm test:naming
@@ -136,7 +136,7 @@ pnpm test:integration:affected:plan -- --snapshot codegeneration-backend-feature
 pnpm test:integration:affected -- --snapshot codegeneration-backend-feature-skeleton-20260730 --phase slice
 ```
 
-- [ ] **Step 3: Run final static checks**
+- [x] **Step 3: Run final static checks**
 
 ```powershell
 dotnet build src/BuildingBlocks/Full.NET.Data.CodeGeneration/Full.NET.Data.CodeGeneration.csproj -c Release --no-restore

@@ -1,6 +1,6 @@
 # CodeGeneration Dual Admin Page Models Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 为代码生成器补齐 Vue 与 Layui 双管理端 CRUD 页面模型，使宿主页面可以直接复用同一套分页、权限、写入、乐观并发和错误处理契约。
 
@@ -29,7 +29,7 @@
 - Consumes: `CrudArtifactGenerator.Generate(FullNetCrudSchema schema)`.
 - Produces: `clients/vue/{resource}-page.generated.ts` and `clients/layui/{resource}-page.generated.js`.
 
-- [ ] **Step 1: Write failing artifact and contract tests**
+- [x] **Step 1: Write failing artifact and contract tests**
 
 Add assertions that both page-model paths exist and verify:
 
@@ -44,7 +44,7 @@ StringAssert.Contains(layuiPage, "version: item.version");
 
 Also assert stable load/operation failure codes, no route/menu mutation API, and valid kebab-case resource imports.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -65,7 +65,7 @@ Expected: FAIL because the two page-model artifacts do not exist.
 - Consumes: `FullNetCrudSchema`, the existing generated API module beside each page model, and injected permission/error/state callbacks.
 - Produces: `CrudClientPageModelGenerator.GenerateVue(FullNetCrudSchema)` and `GenerateLayui(FullNetCrudSchema)`.
 
-- [ ] **Step 1: Add the two generated artifacts**
+- [x] **Step 1: Add the two generated artifacts**
 
 `CrudArtifactGenerator.Generate` adds:
 
@@ -80,15 +80,15 @@ new GeneratedArtifact(
     CrudClientPageModelGenerator.GenerateVue(schema)),
 ```
 
-- [ ] **Step 2: Implement the Vue model**
+- [x] **Step 2: Implement the Vue model**
 
 Generate a Composition API model with readonly state, computed read/write permission, guarded `load/create/update/disable` actions, current-row version forwarding, and injected `onProblem` callback. `update` accepts `Omit<Update{Entity}Request, 'version'>` when the Schema has `Version`.
 
-- [ ] **Step 3: Implement the Layui model**
+- [x] **Step 3: Implement the Layui model**
 
 Generate an ES module exposing immutable snapshots and guarded `load/create/update/disable` actions. State changes are published through `onStateChange`; errors are published through `onProblem`; DOM rendering remains the host controller's responsibility.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run the Task 1 command and require all `CrudArtifactGeneratorTests` to pass except the fixture drift test, which remains red until Task 3.
 
@@ -103,11 +103,11 @@ Run the Task 1 command and require all `CrudArtifactGeneratorTests` to pass exce
 - Consumes: deterministic output from `CrudClientPageModelGenerator`.
 - Produces: byte-for-byte Catalog/Product fixtures covering tenant-scoped and versioned CRUD.
 
-- [ ] **Step 1: Add exact generated fixtures**
+- [x] **Step 1: Add exact generated fixtures**
 
 Persist both generated outputs with LF endings and no BOM. Do not hand-edit the generated contract after it matches the generator output.
 
-- [ ] **Step 2: Run focused generator tests**
+- [x] **Step 2: Run focused generator tests**
 
 Run:
 
@@ -127,20 +127,20 @@ Expected: all focused tests PASS.
 - Consumes: task snapshot `codegeneration-dual-admin-pages-20260730`.
 - Produces: fresh focused, affected-slice, formatting and build evidence.
 
-- [ ] **Step 1: Run all CodeGeneration unit tests**
+- [x] **Step 1: Run all CodeGeneration unit tests**
 
 ```powershell
 dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~CodeGeneration"
 ```
 
-- [ ] **Step 2: Run affected selector and slice**
+- [x] **Step 2: Run affected selector and slice**
 
 ```powershell
 pnpm test:integration:affected:plan -- --snapshot codegeneration-dual-admin-pages-20260730 --phase inner
 pnpm test:integration:affected -- --snapshot codegeneration-dual-admin-pages-20260730 --phase slice
 ```
 
-- [ ] **Step 3: Run static delivery checks**
+- [x] **Step 3: Run static delivery checks**
 
 ```powershell
 dotnet build src/BuildingBlocks/Full.NET.Data.CodeGeneration/Full.NET.Data.CodeGeneration.csproj -c Release --no-restore

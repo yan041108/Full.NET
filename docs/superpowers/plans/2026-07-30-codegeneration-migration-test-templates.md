@@ -1,6 +1,6 @@
 # CodeGeneration Migration And Integration Test Templates Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 为作用域明确的 CRUD Schema 生成 SQL Server/MySQL 成对建表模板和最小数据库集成测试模板，缩短从生成骨架到正式模块迁移的人工路径。
 
@@ -32,7 +32,7 @@
 - Consumes: `FullNetCrudSchema`, `FullNetColumn`, `DatabaseObjectNameBuilder.Build(string)`.
 - Produces: `GenerateSqlServer(FullNetCrudSchema)`, `GenerateMySql(FullNetCrudSchema)` and `GenerateIntegrationTest(FullNetCrudSchema)`.
 
-- [ ] **Step 1: Write the failing artifact and DDL tests**
+- [x] **Step 1: Write the failing artifact and DDL tests**
 
 ```csharp
 CollectionAssert.Contains(paths, "templates/migrations/SqlServer/CreateProduct.sql.template");
@@ -43,7 +43,7 @@ StringAssert.Contains(sqlServer, "PRIMARY KEY NONCLUSTERED (Id)");
 StringAssert.Contains(sqlServer, "ON dbo.acme_catalog_product(TenantId, Id)");
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -53,7 +53,7 @@ dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filt
 
 Expected: the new template paths are absent.
 
-- [ ] **Step 3: Implement deterministic paired DDL rendering**
+- [x] **Step 3: Implement deterministic paired DDL rendering**
 
 Map logical types explicitly:
 
@@ -69,7 +69,7 @@ Decimal     -> visible precision-and-scale review token in the non-executable te
 
 Use `DatabaseObjectNameBuilder` for `PK_` and `IX_` names. Tenant SQL Server templates use a nonclustered primary key plus a clustered `(TenantId, Id)` index; Host/Global templates use a clustered primary key.
 
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 4: Run the focused test and verify GREEN**
 
 Run the Task 1 test command and expect all `CrudArtifactGeneratorTests` to pass.
 
@@ -84,7 +84,7 @@ Run the Task 1 test command and expect all `CrudArtifactGeneratorTests` to pass.
 - Consumes: the provider-paired DDL contract from Task 1.
 - Produces: `templates/tests/ProductMigrationIntegrationTests.cs.template`.
 
-- [ ] **Step 1: Write the failing integration-template test**
+- [x] **Step 1: Write the failing integration-template test**
 
 ```csharp
 StringAssert.Contains(template, "CreateSqlServerDatabaseAsync()");
@@ -93,15 +93,15 @@ StringAssert.Contains(template, "TABLE_NAME = 'acme_catalog_product'");
 StringAssert.Contains(template, "Assert.AreEqual(7,");
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run the Task 1 test command and expect the integration template path to be absent.
 
-- [ ] **Step 3: Generate a compilable copy template**
+- [x] **Step 3: Generate a compilable copy template**
 
 Generate an MSTest class that uses the existing `SharedDatabaseFixture`, opens each provider connection, and checks table existence plus exact column count. The template must tell the adopter to assign a real migration number and remove the `.template` suffix; it must not execute or copy files itself.
 
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 4: Run the focused test and verify GREEN**
 
 Run the Task 1 test command and expect all focused tests to pass.
 
@@ -120,7 +120,7 @@ Run the Task 1 test command and expect all focused tests to pass.
 - Consumes: the complete artifact set from Tasks 1-2.
 - Produces: byte-stable fixtures and truthful roadmap status.
 
-- [ ] **Step 1: Update fixture expectations and generated report**
+- [x] **Step 1: Update fixture expectations and generated report**
 
 The report records:
 
@@ -131,7 +131,7 @@ The report records:
 }
 ```
 
-- [ ] **Step 2: Run focused and complete unit tests**
+- [x] **Step 2: Run focused and complete unit tests**
 
 ```powershell
 dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~CodeGeneration" --no-restore
@@ -140,7 +140,7 @@ pnpm test:dotnet:unit
 
 Expected: zero failures; update only `eng/testing/test-matrix.json` if the discovered unit count increases.
 
-- [ ] **Step 3: Run naming and affected dual-provider verification**
+- [x] **Step 3: Run naming and affected dual-provider verification**
 
 ```powershell
 pnpm test:naming
@@ -150,7 +150,7 @@ pnpm test:integration:affected -- --snapshot codegeneration-migration-test-templ
 
 Expected: naming and the selected CodeGeneration dual-provider set pass.
 
-- [ ] **Step 4: Run final repository checks**
+- [x] **Step 4: Run final repository checks**
 
 ```powershell
 dotnet build src/BuildingBlocks/Full.NET.Data.CodeGeneration/Full.NET.Data.CodeGeneration.csproj -c Release --no-restore

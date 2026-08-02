@@ -30,7 +30,7 @@
 - Consumes: `GenerationManifest.Artifacts`、`GenerationManifest.TryGetSha256`、当前文件快照。
 - Produces: `GenerationWriteActionKind.Delete`；删除动作的 `Content` 与 `DesiredSha256` 为 `null`，`ExistingSha256` 为计划时磁盘摘要。
 
-- [ ] **Step 1: Write failing planner tests**
+- [x] **Step 1: Write failing planner tests**
 
 ```csharp
 [TestMethod]
@@ -56,7 +56,7 @@ public void Plan_unmodified_stale_manifest_entry_creates_delete_action()
 
 同时覆盖：陈旧文件被人工修改时为 `Conflict`；陈旧文件已缺失时无动作；旧清单与期望路径仅大小写不同时为 `Conflict`；所有动作按 ordinal 路径稳定排序。
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -66,7 +66,7 @@ dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filt
 
 Expected: FAIL because `GenerationWriteActionKind.Delete` and stale-entry planning do not exist.
 
-- [ ] **Step 3: Implement minimal planner behavior**
+- [x] **Step 3: Implement minimal planner behavior**
 
 ```csharp
 public enum GenerationWriteActionKind
@@ -88,7 +88,7 @@ public sealed record GenerationWriteAction(
 
 期望产物规划完成后遍历旧清单中不再期望的条目：路径别名或哈希变化生成 `Conflict`，哈希一致生成 `Delete`，磁盘缺失不生成动作。组合动作按 `RelativePath` ordinal 排序。
 
-- [ ] **Step 4: Run planner tests and verify GREEN**
+- [x] **Step 4: Run planner tests and verify GREEN**
 
 Run the command from Step 2.
 
@@ -104,7 +104,7 @@ Expected: all `GenerationWritePlannerTests` pass.
 - Consumes: Task 1 `Delete` action shape and previous manifest entries.
 - Produces: capture includes existing stale owned files; apply revalidates their hashes, deletes them, validates absence, then commits the next manifest.
 
-- [ ] **Step 1: Write failing workspace tests**
+- [x] **Step 1: Write failing workspace tests**
 
 ```csharp
 [TestMethod]
@@ -135,7 +135,7 @@ public async Task Capture_and_apply_deletes_only_unmodified_stale_owned_file()
 
 同时覆盖：捕获后并发修改删除目标时，应用在任何写入前冲突；旧清单声明 `.fullnet/` 路径时捕获失败。
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -145,11 +145,11 @@ dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filt
 
 Expected: FAIL because capture ignores stale paths and apply does not support delete.
 
-- [ ] **Step 3: Implement capture and apply behavior**
+- [x] **Step 3: Implement capture and apply behavior**
 
 读取清单后构造 ordinal 去重的期望路径与旧清单路径并捕获现有文本；对旧清单路径再次执行内部路径拒绝。提交循环按计划动作执行，`Create/Update` 使用已暂存文本，`Delete` 先按 `ExistingSha256` 复验后调用 `File.Delete`。`ValidateDesiredStateAsync` 要求删除目标不存在，其他动作内容等于计划内容。
 
-- [ ] **Step 4: Run workspace and complete CodeGeneration tests**
+- [x] **Step 4: Run workspace and complete CodeGeneration tests**
 
 Run:
 
@@ -168,11 +168,11 @@ Expected: all CodeGeneration tests pass.
 - Consumes: final discovered Unit test count.
 - Produces: the sole minimum-test threshold remains synchronized.
 
-- [ ] **Step 1: Update the Unit minimum**
+- [x] **Step 1: Update the Unit minimum**
 
 Increase `suites.unit.minimum` by the number of newly added test methods. Do not copy the number to README, CI, rules, or Skills.
 
-- [ ] **Step 2: Run focused and affected verification**
+- [x] **Step 2: Run focused and affected verification**
 
 ```powershell
 pnpm test:dotnet:unit -- --no-build
