@@ -1,4 +1,4 @@
-# CodeGeneration 模块编译验证验证记录
+# CodeGeneration 模块编译验证记录
 
 - 日期：2026-07-30（closeout 2026-08-02）
 - 代码基线：`main` @ `8093049`
@@ -13,7 +13,7 @@
 
 | 类别 | 测试 | 结果 |
 |------|------|------|
-| 编译集成 | `ModuleIntegrationCompilationTests` | 本地编译通过；运行时无 Docker 依赖 |
+| 编译集成 | `ModuleIntegrationCompilationTests` (6) | Integration 6/6 GREEN |
 
 ## 规则/Skill 复盘
 
