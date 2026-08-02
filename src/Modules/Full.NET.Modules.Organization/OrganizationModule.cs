@@ -5,6 +5,7 @@ using Full.NET.Localization;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Organization.Authorization;
 using Full.NET.Modules.Organization.DataScope;
 using Full.NET.Modules.Organization.Features.ListAssignableHostUsers;
 using Full.NET.Modules.Organization.Features.ManageTenantPositionLevels;
@@ -61,6 +62,8 @@ public sealed class OrganizationModule : IFullNetModule
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
         services.TryAddScoped<IIdentityOrganizationUnitDirectory>(provider =>
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
+        services.TryAddScoped<IOrganizationOwnedEntityWriteAuthorizer,
+            OrganizationOwnedEntityWriteAuthorizer>();
         services.TryAddSingleton<
             IIdentityOrganizationDataScopeSqlProjection,
             IdentityOrganizationDataScopeSqlProjection>();

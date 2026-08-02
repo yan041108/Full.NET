@@ -10,8 +10,8 @@
 
 ### Task 1: Write authorization port (Organization)
 
-- [ ] **Step 1:** RED — `IOrganizationOwnedEntityWriteAuthorizer` + Organization 实现 + Unit 测试。
-- [ ] **Step 2:** GREEN — 隶属/数据范围拒绝与成功路径。
+- [x] **Step 1:** RED — `IOrganizationOwnedEntityWriteAuthorizer` + Organization 实现 + Unit 测试。
+- [x] **Step 2:** GREEN — 隶属/数据范围拒绝与成功路径。
 
 ### Task 2: Generator + runtime matrix
 

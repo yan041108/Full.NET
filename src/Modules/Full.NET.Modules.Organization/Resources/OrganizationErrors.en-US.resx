@@ -9,6 +9,7 @@
   <data name="organization.user_units.already_assigned" xml:space="preserve"><value>The user is already assigned to this organization unit.</value></data>
   <data name="organization.user_units.not_found" xml:space="preserve"><value>The organization user assignment was not found.</value></data>
   <data name="organization.user_units.user_not_found" xml:space="preserve"><value>The host user was not found.</value></data>
+  <data name="organization.write_access.denied" xml:space="preserve"><value>Write access to this organization unit is denied.</value></data>
   <data name="organization.user_positions.already_assigned" xml:space="preserve"><value>The user is already assigned to this position.</value></data>
   <data name="organization.user_positions.not_found" xml:space="preserve"><value>The organization user position assignment was not found.</value></data>
   <data name="organization.user_positions.user_not_found" xml:space="preserve"><value>The host user was not found.</value></data>

@@ -20,6 +20,9 @@ public static class OrganizationErrorCodes
     /// <summary>目标 Host 用户不存在或已禁用。</summary>
     public const string UserUnitUserNotFound = "organization.user_units.user_not_found";
 
+    /// <summary>actor 对目标机构单元无写入授权。</summary>
+    public const string WriteAccessDenied = "organization.write_access.denied";
+
     /// <summary>职位编码在租户内已存在。</summary>
     public const string PositionCodeExists = "organization.positions.code_exists";
 
@@ -53,6 +56,7 @@ public static class OrganizationErrorCodes
         UserUnitAlreadyAssigned,
         UserUnitNotFound,
         UserUnitUserNotFound,
+        WriteAccessDenied,
         PositionCodeExists,
         PositionNotFound,
         PositionLevelCodeExists,
