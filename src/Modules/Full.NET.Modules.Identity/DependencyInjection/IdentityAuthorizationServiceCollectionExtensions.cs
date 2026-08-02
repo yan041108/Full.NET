@@ -2,6 +2,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.DataScope;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
+using Full.NET.Modules.Identity.Features.GetAuthorizationTree;
 using Full.NET.Modules.Identity.Features.GetNavigation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
@@ -31,6 +32,7 @@ internal static class IdentityAuthorizationServiceCollectionExtensions
             IIdentitySessionContextService,
             IdentitySessionContextService>();
         services.TryAddSingleton<NavigationProjector>();
+        services.TryAddSingleton<AuthorizationTreeProjector>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationHandler,
             FullNetPermissionHandler>());

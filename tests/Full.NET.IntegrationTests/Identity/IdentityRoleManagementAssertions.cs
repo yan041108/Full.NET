@@ -20,12 +20,68 @@ internal static class IdentityRoleManagementAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
+        await VerifyAuthorizationTreeRequiresRolesReadAsync(factory, client, cancellationToken);
+        await VerifyAuthorizationTreeReturnsUsersActionsAsync(client, cancellationToken);
         await VerifyCreateRejectsDuplicateCodeAsync(client, cancellationToken);
         await VerifySystemRoleUpdateRejectedAsync(client, cancellationToken);
         await VerifyCustomRoleLifecycleAsync(client, cancellationToken);
         await OpenApiHostRolesContractAssertions.VerifyAsync(
             client,
             cancellationToken);
+        await OpenApiAuthorizationTreeContractAssertions.VerifyAsync(
+            client,
+            cancellationToken);
+    }
+
+    private static async Task VerifyAuthorizationTreeRequiresRolesReadAsync(
+        Api.FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/authorization-tree");
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            await factory.CreateHostAccessTokenAsync(
+                ["platform.dashboard.read"],
+                cancellationToken));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyAuthorizationTreeReturnsUsersActionsAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/authorization-tree");
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        var usersPage = document.RootElement.EnumerateArray()
+            .Single(element => element.GetProperty("id").GetString() == "users");
+        Assert.AreEqual(
+            "identity.users.read",
+            usersPage.GetProperty("permissionCode").GetString());
+        var actionCodes = usersPage.GetProperty("actions")
+            .EnumerateArray()
+            .Select(element => element.GetProperty("permissionCode").GetString())
+            .ToArray();
+        CollectionAssert.Contains(actionCodes, "identity.users.reset_password");
+        Assert.IsFalse(document.RootElement.EnumerateArray().Any(
+            element => element.GetProperty("id").GetString() == "super-administrators"));
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(

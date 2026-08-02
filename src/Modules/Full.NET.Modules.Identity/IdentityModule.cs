@@ -86,6 +86,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.GetCurrentUser.Endpoint.Map(endpoints);
         Features.UpdateLocale.Endpoint.Map(endpoints);
         Features.GetNavigation.Endpoint.Map(endpoints);
+        Features.GetAuthorizationTree.Endpoint.Map(endpoints);
         Features.ManageSuperAdministrators.Endpoint.Map(endpoints);
         Features.ManageTotp.Endpoint.Map(endpoints);
         Features.ManageHostUsers.Endpoint.Map(endpoints);
