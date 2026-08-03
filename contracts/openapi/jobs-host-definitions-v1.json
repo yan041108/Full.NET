@@ -1,6 +1,6 @@
 {
   "id": "jobs-host-definitions-v1",
-  "version": 2,
+  "version": 1,
   "description": "Host 任务定义与执行 HTTP 契约冻结夹具；与 Jobs 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {

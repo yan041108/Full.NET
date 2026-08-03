@@ -6,7 +6,8 @@ using Full.NET.Modules.Tenancy.Contracts;
 namespace Full.NET.ArchitectureTests;
 
 /// <summary>
-/// 缁鐭戞惔锕€顦块幙宥勭稊 .write 閺夊啴妾洪崘鑽ょ波濞撳懎宕熼敍娑欐煀婢?Endpoint 缂佹垵鐣捐箛鍛淬€忛崥灞绢劄閺囧瓨鏌婂〒鍛礋娑撳氦鐭剧痪鍨禈鎼存挸鐡ㄩ妴?/// </summary>
+/// 冻结粗粒度动作权限边界：退役码不可再绑定 Endpoint；未退役的 `.write`/`.manage` 等多动作权限只能出现在有限 allowlist 中。
+/// </summary>
 internal static class LegacyCoarseActionPermissionRegistry
 {
     private static readonly HashSet<string> RetiredPermissionCodes = new(StringComparer.Ordinal)
@@ -40,9 +41,23 @@ internal static class LegacyCoarseActionPermissionRegistry
         "document.tags.manage",
     };
 
+    internal static bool IsRetiredPermissionCode(string permissionCode) =>
+        RetiredPermissionCodes.Contains(permissionCode);
+
+    internal static bool IsCoarseManagePermission(string permissionCode) =>
+        permissionCode.EndsWith(".manage", StringComparison.Ordinal);
+
     internal static bool IsCoarseWritePermission(string permissionCode) =>
         permissionCode.EndsWith(".write", StringComparison.Ordinal)
         && !RetiredPermissionCodes.Contains(permissionCode);
 
-    internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal);
+    internal static bool IsCoarseActionPermission(string permissionCode) =>
+        IsCoarseWritePermission(permissionCode)
+        || IsCoarseManagePermission(permissionCode);
+
+    internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal)
+    {
+        "POST /api/v1/identity/super-administrators/grant|identity.super_administrators.manage",
+        "POST /api/v1/identity/super-administrators/{targetUserId:guid}/revoke|identity.super_administrators.manage",
+    };
 }

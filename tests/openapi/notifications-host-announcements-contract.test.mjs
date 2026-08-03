@@ -35,7 +35,10 @@ test('Host 公告 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^notifications\.announcements\.(read|write)$/u);
+      assert.match(
+        operation.permission,
+        /^notifications\.announcements\.(read|create|update|publish)$/u
+      );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);

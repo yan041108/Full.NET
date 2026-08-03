@@ -1,6 +1,6 @@
 {
   "id": "identity-authorization-tree-v1",
-  "version": 2,
+  "version": 1,
   "description": "Host 角色授权树 HTTP 契约冻结夹具；与 AuthorizationTreeContracts 和 GetAuthorizationTree.Endpoint 对齐。",
   "paths": [
     {

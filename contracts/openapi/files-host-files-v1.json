@@ -1,6 +1,6 @@
 {
   "id": "files-host-files-v1",
-  "version": 2,
+  "version": 1,
   "description": "Host 文件元数据 HTTP 契约冻结夹具；与 Files 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {

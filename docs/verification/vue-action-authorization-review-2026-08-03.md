@@ -40,4 +40,4 @@ affected slice 命中 Identity、Integration 工具链与测试矩阵，SQL Serv
 - 只开发 `ui/admin`，任何任务不得修改 `ui/admin-layui/**`。
 - 一个资源一个任务快照、一个可审查提交；迁移号只在任务启动时重新确认，不把计划中的候选号视为永久占位。
 - 每个动作同时交付：稳定权限码、页面动作目录、精确 Endpoint 策略、角色/API Key 存量迁移、Vue DOM 失败关闭、直接 API 失败关闭与双库恢复测试。
-- W4–W5 完成前，不得把“所有后台按钮均可独立授权”标记为 Verified。
+- W4–W5 已完成；不得把“所有后台按钮均可独立授权”标记为未完成。剩余粗粒度权限继续按库存与 Architecture 门禁治理。

@@ -11,7 +11,7 @@ const contractPath = path.join(
 );
 const contractsSourcePath = path.join(
   repositoryRoot,
-  'src/Modules/Full.NET.Modules.Files/Contracts/HostFileContracts.cs'
+  'src/Modules/Full.NET.Modules.Files.Contracts/HostFileContracts.cs'
 );
 const endpointSourcePath = path.join(
   repositoryRoot,
@@ -35,7 +35,7 @@ test('Host 文件元数据 OpenAPI 夹具结构完整且路径唯一', async () 
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^files\.files\.(read|write)$/u);
+      assert.match(operation.permission, /^files\.files\.(read|upload|download|delete)$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.responseSchema) {
         assert.ok(contract.schemas[operation.responseSchema]);
@@ -51,7 +51,7 @@ test('Host 文件元数据 OpenAPI 夹具与 C# 契约和端点源码一致', as
 
   assert.match(contractsSource, /record HostFileResponse/u);
   assert.match(contractsSource, /files\.files\.read/u);
-  assert.match(contractsSource, /files\.files\.write/u);
+  assert.match(contractsSource, /files\.files\.upload/u);
   assert.match(
     endpointSource,
     /MapGroup\("\/api\/v1\/files\/host-files"\)/u

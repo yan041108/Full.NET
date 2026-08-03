@@ -1,6 +1,6 @@
 {
   "id": "notifications-host-announcements-v1",
-  "version": 2,
+  "version": 1,
   "description": "Host 公告 HTTP 契约冻结夹具；与 Notifications 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {

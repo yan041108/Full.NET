@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 1093,
+      "minimum": 1100,
       "timeout": "10m"
     },
     "compatibility": {
@@ -16,7 +16,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 75,
+      "minimum": 78,
       "timeout": "10m"
     }
   },
@@ -220,7 +220,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 418,
+        "minimum": 488,
         "timeout": "90m"
       }
     }

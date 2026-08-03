@@ -3,7 +3,7 @@
 - 日期：2026-08-03
 - 权威设计：[Vue 页面/操作精确授权](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)
 - 实施计划：[Identity Users 样板](../superpowers/plans/2026-08-02-vue-action-authorization.md)、[三级授权补齐与 W4–W5](../superpowers/plans/2026-08-03-vue-action-authorization-w4-w5.md)
-- 架构门禁：`LegacyCoarseActionPermissionRegistry` + `EndpointAuthorizationTests`（冻结全部现存 `.write` Endpoint 绑定；W1 Identity 粗粒度写权限已全部退役）
+- 架构门禁：`LegacyCoarseActionPermissionRegistry` + `EndpointAuthorizationTests`（拒绝未登记 `.write`/`.manage` Endpoint 绑定，并禁止绑定已退役粗粒度权限；W4–W5 清零后 allowlist 为空）
 - 客户端边界：只登记和交付 `ui/admin` Vue；`ui/admin-layui` 固定在 2026-08-02 冻结树，由 `tests/governance/layui-freeze.test.mjs` 阻止功能性修改。
 
 ## 波次
@@ -19,8 +19,8 @@
 | W1 | Identity API Keys | **已完成** | 迁移 059；见[验证记录](../verification/vue-action-authorization-api-keys-2026-08-02.md) |
 | W2 | Tenancy + Organization | **已完成** | 迁移 060–066；对应验证记录位于 `docs/verification/vue-action-authorization-*` |
 | W3 | Settings | **已完成** | 迁移 067–070；字典、租户字典、配置与诊断策略已拆分 |
-| W4 | Files + Notifications + Jobs + CodeGeneration | **已规划** | 按 W4–W5 计划 Tasks 1–6 串行执行，含 `jobs.schedules.write` |
-| W5 | SerialNumbers + Document 及后续官方模块 | **已规划** | 按 W4–W5 计划 Tasks 7–10 串行执行 |
+| W4 | Files + Notifications + Jobs + CodeGeneration | **已完成** | 迁移 071–076；见[验证记录](../verification/vue-action-authorization-w4-w5-closeout-2026-08-03.md) |
+| W5 | SerialNumbers + Document 及后续官方模块 | **已完成** | 迁移 077–080；见[验证记录](../verification/vue-action-authorization-w4-w5-closeout-2026-08-03.md) |
 
 ## W0：Identity Users（已完成）
 
@@ -275,13 +275,17 @@
 | `DocumentTagsView.vue` | 更新 | `document.tags.update` | 080 |
 | `DocumentTagsView.vue` | 删除 | `document.tags.delete` | 080 |
 
-## W4–W5：仍需拆分的粗粒度操作权限（冻结清单）
+## W4–W5：粗粒度操作权限清零（已完成）
 
-下列 `.write` 权限仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结；W5 同时包含不以 `.write` 命名、但仍承载多个动作的 `delete/manage` 权限。后续门禁必须覆盖这些语义，新增 Endpoint 必须先扩展库存并指定目标拆分波次。
+W4–W5 计划 Tasks 1–10 已全部交付；库存冻结清单无剩余条目。新增 Endpoint 若需临时承载多动作粗粒度权限，必须先扩展库存、登记 allowlist 并指定退役迁移，否则 Architecture 门禁会失败关闭。
 
-| 权限码 | Vue 入口（示例） | 波次 |
+## 计划外仍冻结的粗粒度权限
+
+下列权限不在 W4–W5 范围内，但仍通过 `LegacyCoarseActionPermissionRegistry.AllowedBindings` 冻结现有 Endpoint 绑定，后续需独立 Spec/Plan 拆分：
+
+| 权限码 | Vue 入口（示例） | 说明 |
 | --- | --- | --- |
-| _（W5 已全部拆分完成）_ | — | — |
+| `identity.super_administrators.manage` | `SuperAdministratorsView.vue`（授予/撤销共用） | 超级管理员治理面；grant/revoke 共用 manage |
 
 ## 退役权限
 

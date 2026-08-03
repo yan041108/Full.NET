@@ -482,12 +482,12 @@ public sealed class EndpointAuthorizationTests
     }
 
     [TestMethod]
-    public void Api_v1_coarse_write_bindings_match_frozen_inventory_allowlist()
+    public void Api_v1_coarse_action_bindings_match_frozen_inventory_allowlist()
     {
         using var app = BuildApiApplication();
 
         var currentBindings = CollectPermissionBindings(app)
-            .Where(binding => LegacyCoarseActionPermissionRegistry.IsCoarseWritePermission(
+            .Where(binding => LegacyCoarseActionPermissionRegistry.IsCoarseActionPermission(
                 binding.PermissionCode))
             .Select(binding => binding.ToAllowlistKey())
             .ToHashSet(StringComparer.Ordinal);
@@ -504,7 +504,7 @@ public sealed class EndpointAuthorizationTests
         if (unexpected.Length > 0 || stale.Length > 0)
         {
             Assert.Fail(
-                "粗粒度 .write 绑定与冻结清单不一致。"
+                "粗粒度 .write/.manage 绑定与冻结清单不一致。"
                 + (unexpected.Length > 0
                     ? " 新增或未登记: " + string.Join(", ", unexpected)
                     : string.Empty)
@@ -512,6 +512,53 @@ public sealed class EndpointAuthorizationTests
                     ? " 清单陈旧: " + string.Join(", ", stale)
                     : string.Empty));
         }
+    }
+
+    [TestMethod]
+    public void Api_v1_endpoints_do_not_bind_retired_coarse_permission_codes()
+    {
+        using var app = BuildApiApplication();
+
+        var violations = CollectPermissionBindings(app)
+            .Where(binding => LegacyCoarseActionPermissionRegistry.IsRetiredPermissionCode(
+                binding.PermissionCode))
+            .Select(binding => $"{binding.HttpMethod} {binding.Route} -> {binding.PermissionCode}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        if (violations.Length > 0)
+        {
+            Assert.Fail(
+                "下列 Endpoint 仍绑定已退役粗粒度权限: "
+                + string.Join(", ", violations));
+        }
+    }
+
+    [TestMethod]
+    public void Legacy_coarse_action_allowlist_does_not_reference_retired_permission_codes()
+    {
+        var violations = LegacyCoarseActionPermissionRegistry.AllowedBindings
+            .Select(key => key.Split('|', 2, StringSplitOptions.TrimEntries))
+            .Where(parts => parts.Length == 2)
+            .Where(parts => LegacyCoarseActionPermissionRegistry.IsRetiredPermissionCode(parts[1]))
+            .Select(parts => parts[1])
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(code => code, StringComparer.Ordinal)
+            .ToArray();
+
+        if (violations.Length > 0)
+        {
+            Assert.Fail(
+                "冻结清单仍引用已退役权限: "
+                + string.Join(", ", violations));
+        }
+    }
+
+    [TestMethod]
+    public void Api_v1_coarse_write_bindings_match_frozen_inventory_allowlist()
+    {
+        Api_v1_coarse_action_bindings_match_frozen_inventory_allowlist();
     }
 
     private static IEnumerable<EndpointPermissionBinding> CollectPermissionBindings(
