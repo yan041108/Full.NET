@@ -3,38 +3,35 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import HostJobSchedulesView from './HostJobSchedulesView.vue';
 import { useSessionStore } from '../auth/session';
-import { listHostJobDefinitions } from '../api/host-jobs';
-import { listHostJobSchedules } from '../api/host-job-schedules';
-
-vi.mock('../api/host-jobs', () => ({
-  listHostJobDefinitions: vi.fn()
-}));
+import {
+  listHostJobScheduleDefinitionOptions,
+  listHostJobSchedules
+} from '../api/host-job-schedules';
 
 vi.mock('../api/host-job-schedules', () => ({
   createHostJobSchedule: vi.fn(),
+  listHostJobScheduleDefinitionOptions: vi.fn(),
   listHostJobSchedules: vi.fn(),
   pauseHostJobSchedule: vi.fn(),
+  previewHostJobScheduleCron: vi.fn(),
   resumeHostJobSchedule: vi.fn(),
   updateHostJobSchedule: vi.fn()
 }));
 
-const definitionsMock = vi.mocked(listHostJobDefinitions);
+const definitionOptionsMock = vi.mocked(listHostJobScheduleDefinitionOptions);
 const schedulesMock = vi.mocked(listHostJobSchedules);
 
-const definition = {
+const definitionOption = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   jobKey: 'jobs.ping',
-  displayName: 'enabled-job',
-  description: 'desc',
-  isEnabled: true,
-  createdAtUtc: '2026-07-26T00:00:00Z',
-  updatedAtUtc: '2026-07-26T00:00:00Z',
-  version: 1
+  displayName: 'enabled-job'
 };
 
 const enabledSchedule = {
   id: '01912345-6789-7abc-8def-0123456789ac',
-  jobDefinitionId: definition.id,
+  jobDefinitionId: definitionOption.id,
+  jobDefinitionJobKey: definitionOption.jobKey,
+  jobDefinitionDisplayName: definitionOption.displayName,
   triggerKind: 'cron',
   cronExpression: '0 9 * * *',
   timeZoneId: 'UTC',
@@ -71,12 +68,7 @@ function mountWithPermissions(permissions: string[]) {
 
 describe('Vue Host 任务计划页', () => {
   beforeEach(() => {
-    definitionsMock.mockReset().mockResolvedValue({
-      items: [definition],
-      page: 1,
-      pageSize: 20,
-      total: 1
-    });
+    definitionOptionsMock.mockReset().mockResolvedValue([definitionOption]);
     schedulesMock.mockReset().mockResolvedValue({
       items: [enabledSchedule],
       page: 1,
@@ -86,45 +78,29 @@ describe('Vue Host 任务计划页', () => {
   });
 
   it('仅有 read 时不显示创建表单与行内操作', async () => {
-    definitionsMock.mockRejectedValue({
-      status: 403,
-      code: 'authorization.permission_denied',
-      title: 'Forbidden'
-    });
     const wrapper = mountWithPermissions(['jobs.schedules.read']);
     await flushPromises();
 
-    expect(definitionsMock).not.toHaveBeenCalled();
+    expect(definitionOptionsMock).not.toHaveBeenCalled();
     expect(schedulesMock).toHaveBeenCalledOnce();
-    expect(wrapper.text()).toContain(enabledSchedule.jobDefinitionId);
+    expect(wrapper.text()).toContain(enabledSchedule.jobDefinitionDisplayName);
     expect(wrapper.find('[data-testid="host-job-schedules-submit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-pause"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-resume"]').exists()).toBe(false);
   });
 
-  it('create 与 definitions.read 同时具备时显示创建表单', async () => {
-    const wrapper = mountWithPermissions([
-      'jobs.schedules.read',
-      'jobs.schedules.create',
-      'jobs.definitions.read'
-    ]);
-    await flushPromises();
-
-    expect(wrapper.find('[data-testid="host-job-schedules-submit"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="host-job-schedules-edit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-job-schedules-pause"]').exists()).toBe(false);
-  });
-
-  it('缺少 definition 目录读取权限时不显示不可用的创建表单', async () => {
+  it('create 权限即可显示创建表单，无需 definitions.read', async () => {
     const wrapper = mountWithPermissions([
       'jobs.schedules.read',
       'jobs.schedules.create'
     ]);
     await flushPromises();
 
-    expect(definitionsMock).not.toHaveBeenCalled();
-    expect(wrapper.find('[data-testid="host-job-schedules-submit"]').exists()).toBe(false);
+    expect(definitionOptionsMock).toHaveBeenCalledOnce();
+    expect(wrapper.find('[data-testid="host-job-schedules-submit"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="host-job-schedules-edit"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-job-schedules-pause"]').exists()).toBe(false);
   });
 
   it('update-only 只显示编辑按钮', async () => {

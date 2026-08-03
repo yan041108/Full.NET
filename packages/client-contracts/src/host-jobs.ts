@@ -68,6 +68,8 @@ export const JOB_MISFIRE_POLICIES = {
 export interface HostJobSchedule {
   id: string;
   jobDefinitionId: string;
+  jobDefinitionJobKey: string;
+  jobDefinitionDisplayName: string;
   triggerKind: string;
   cronExpression: string | null;
   timeZoneId: string;
@@ -111,10 +113,22 @@ export interface ChangeHostJobScheduleStateRequest {
   version: number;
 }
 
+export interface HostJobScheduleDefinitionOption {
+  id: string;
+  jobKey: string;
+  displayName: string;
+}
+
+export interface HostJobScheduleCronPreview {
+  nextExecutionAtUtc: string;
+}
+
 export function isHostJobSchedule(value: unknown): value is HostJobSchedule {
   return isRecord(value)
     && isGuid(value.id)
     && isGuid(value.jobDefinitionId)
+    && isNonEmptyString(value.jobDefinitionJobKey)
+    && isNonEmptyString(value.jobDefinitionDisplayName)
     && isNonEmptyString(value.triggerKind)
     && (value.cronExpression === null || typeof value.cronExpression === 'string')
     && isNonEmptyString(value.timeZoneId)
@@ -176,6 +190,27 @@ export function isChangeHostJobScheduleStateRequest(
   value: unknown
 ): value is ChangeHostJobScheduleStateRequest {
   return isRecord(value) && Number.isInteger(value.version);
+}
+
+export function isHostJobScheduleDefinitionOption(
+  value: unknown
+): value is HostJobScheduleDefinitionOption {
+  return isRecord(value)
+    && isGuid(value.id)
+    && isNonEmptyString(value.jobKey)
+    && isNonEmptyString(value.displayName);
+}
+
+export function isHostJobScheduleDefinitionOptionList(
+  value: unknown
+): value is HostJobScheduleDefinitionOption[] {
+  return Array.isArray(value) && value.every(isHostJobScheduleDefinitionOption);
+}
+
+export function isHostJobScheduleCronPreview(
+  value: unknown
+): value is HostJobScheduleCronPreview {
+  return isRecord(value) && typeof value.nextExecutionAtUtc === 'string';
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

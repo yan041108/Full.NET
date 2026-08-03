@@ -31,6 +31,12 @@ internal static class JobsScheduleAssertions
             client,
             token,
             schedule,
+            definition,
+            cancellationToken);
+        await VerifySelfContainedPermissionBoundaryAsync(
+            factory,
+            client,
+            definition,
             cancellationToken);
         await VerifyCronMaterializationAsync(
             factory,
@@ -86,6 +92,7 @@ internal static class JobsScheduleAssertions
         HttpClient client,
         string token,
         HostJobScheduleResponse schedule,
+        HostJobDefinitionResponse definition,
         CancellationToken cancellationToken)
     {
         using var listRequest = new HttpRequestMessage(
@@ -102,7 +109,13 @@ internal static class JobsScheduleAssertions
             .ReadFromJsonAsync<PagedResult<HostJobScheduleResponse>>(
                 cancellationToken);
         Assert.IsNotNull(page);
-        Assert.IsTrue(page.Items.Any(item => item.Id == schedule.Id));
+        Assert.AreEqual(1, page.Page);
+        Assert.AreEqual(20, page.PageSize);
+        Assert.IsTrue(page.Total >= 1);
+        var listed = page.Items.FirstOrDefault(item => item.Id == schedule.Id);
+        Assert.IsNotNull(listed);
+        Assert.AreEqual(definition.DisplayName, listed.JobDefinitionDisplayName);
+        Assert.AreEqual(definition.JobKey, listed.JobDefinitionJobKey);
 
         using var updateRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
@@ -155,6 +168,99 @@ internal static class JobsScheduleAssertions
         Assert.IsNotNull(resumed);
         Assert.IsTrue(resumed.IsEnabled);
         Assert.IsTrue(resumed.NextExecutionAtUtc > paused.UpdatedAtUtc);
+    }
+
+    private static async Task VerifySelfContainedPermissionBoundaryAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        HostJobDefinitionResponse definition,
+        CancellationToken cancellationToken)
+    {
+        var schedulesOnly = await factory.CreateHostIdentityAsync(
+            $"jobs-schedules-only-{Guid.NewGuid():N}",
+            [
+                HostJobPermissions.SchedulesRead,
+                HostJobPermissions.SchedulesCreate,
+            ],
+            cancellationToken);
+
+        using (var listResponse = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       "/api/v1/jobs/host-schedules?page=1&pageSize=20",
+                       schedulesOnly.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+            var page = await listResponse.Content
+                .ReadFromJsonAsync<PagedResult<HostJobScheduleResponse>>(
+                    cancellationToken);
+            Assert.IsNotNull(page);
+            Assert.IsTrue(page.Total >= 1);
+            Assert.IsFalse(
+                string.IsNullOrWhiteSpace(page.Items[0].JobDefinitionDisplayName));
+        }
+
+        using (var optionsResponse = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       "/api/v1/jobs/host-schedules/definition-options",
+                       schedulesOnly.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, optionsResponse.StatusCode);
+            var options = await optionsResponse.Content
+                .ReadFromJsonAsync<IReadOnlyList<HostJobScheduleDefinitionOptionResponse>>(
+                    cancellationToken);
+            Assert.IsNotNull(options);
+            Assert.IsTrue(options.Any(item => item.Id == definition.Id));
+        }
+
+        using (var cronPreviewResponse = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       "/api/v1/jobs/host-schedules/cron-preview"
+                       + "?cronExpression=0%209%20*%20*%20*&timeZoneId=UTC",
+                       schedulesOnly.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, cronPreviewResponse.StatusCode);
+        }
+
+        using (var definitionsForbidden = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       "/api/v1/jobs/host-definitions?page=1&pageSize=20",
+                       schedulesOnly.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, definitionsForbidden.StatusCode);
+        }
+
+        var readOnly = await factory.CreateHostIdentityAsync(
+            $"jobs-schedules-read-only-{Guid.NewGuid():N}",
+            [HostJobPermissions.SchedulesRead],
+            cancellationToken);
+        using (var optionsForbidden = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       "/api/v1/jobs/host-schedules/definition-options",
+                       readOnly.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, optionsForbidden.StatusCode);
+        }
+    }
+
+    private static HttpRequestMessage Authorized(
+        HttpMethod method,
+        string path,
+        string accessToken)
+    {
+        var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+        return request;
     }
 
     private static async Task VerifyCronMaterializationAsync(

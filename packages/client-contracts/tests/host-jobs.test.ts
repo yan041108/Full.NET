@@ -9,6 +9,9 @@ import {
   isHostJobExecution,
   isHostJobExecutionPage,
   isHostJobSchedule,
+  isHostJobScheduleCronPreview,
+  isHostJobScheduleDefinitionOption,
+  isHostJobScheduleDefinitionOptionList,
   isHostJobSchedulePage,
   isUpdateHostJobDefinitionRequest,
   isUpdateHostJobScheduleRequest
@@ -73,6 +76,8 @@ describe('host-jobs contracts', () => {
     const schedule = {
       id: '01912345-6789-7abc-8def-0123456789ad',
       jobDefinitionId: definition.id,
+      jobDefinitionJobKey: definition.jobKey,
+      jobDefinitionDisplayName: definition.displayName,
       triggerKind: 'cron',
       cronExpression: '0 9 * * *',
       timeZoneId: 'UTC',
@@ -108,5 +113,20 @@ describe('host-jobs contracts', () => {
       version: 1
     })).toBe(true);
     expect(isChangeHostJobScheduleStateRequest({ version: 1 })).toBe(true);
+    expect(isHostJobScheduleDefinitionOption({
+      id: definition.id,
+      jobKey: definition.jobKey,
+      displayName: definition.displayName
+    })).toBe(true);
+    expect(isHostJobScheduleDefinitionOptionList([
+      {
+        id: definition.id,
+        jobKey: definition.jobKey,
+        displayName: definition.displayName
+      }
+    ])).toBe(true);
+    expect(isHostJobScheduleCronPreview({
+      nextExecutionAtUtc: '2026-08-03T09:00:00Z'
+    })).toBe(true);
   });
 });

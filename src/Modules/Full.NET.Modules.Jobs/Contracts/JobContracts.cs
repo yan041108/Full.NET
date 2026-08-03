@@ -82,6 +82,8 @@ public sealed record DisableHostJobDefinitionRequest(int Version);
 public sealed record HostJobScheduleResponse(
     Guid Id,
     Guid JobDefinitionId,
+    string JobDefinitionJobKey,
+    string JobDefinitionDisplayName,
     string TriggerKind,
     string? CronExpression,
     string TimeZoneId,
@@ -112,6 +114,14 @@ public sealed record UpdateHostJobScheduleRequest(
     int Version);
 
 public sealed record ChangeHostJobScheduleStateRequest(int Version);
+
+public sealed record HostJobScheduleDefinitionOptionResponse(
+    Guid Id,
+    string JobKey,
+    string DisplayName);
+
+public sealed record HostJobScheduleCronPreviewResponse(
+    DateTimeOffset NextExecutionAtUtc);
 
 public sealed record HostJobExecutionResponse(
     Guid Id,

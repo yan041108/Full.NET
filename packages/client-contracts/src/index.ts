@@ -285,6 +285,9 @@ export {
   isHostJobExecution,
   isHostJobExecutionPage,
   isHostJobSchedule,
+  isHostJobScheduleCronPreview,
+  isHostJobScheduleDefinitionOption,
+  isHostJobScheduleDefinitionOptionList,
   isHostJobSchedulePage,
   isUpdateHostJobDefinitionRequest,
   isUpdateHostJobScheduleRequest
@@ -300,6 +303,8 @@ export type {
   HostJobExecution,
   HostJobExecutionPage,
   HostJobSchedule,
+  HostJobScheduleCronPreview,
+  HostJobScheduleDefinitionOption,
   HostJobSchedulePage,
   UpdateHostJobDefinitionRequest,
   UpdateHostJobScheduleRequest

@@ -107,6 +107,8 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ],
     ['GET /api/v1/jobs/host-executions', 'MapGet("/",'],
     ['GET /api/v1/jobs/host-schedules', 'MapGet("/",'],
+    ['GET /api/v1/jobs/host-schedules/definition-options', 'MapGet("/definition-options",'],
+    ['GET /api/v1/jobs/host-schedules/cron-preview', 'MapGet("/cron-preview",'],
     ['POST /api/v1/jobs/host-schedules', 'MapPost("/",'],
     ['GET /api/v1/jobs/host-schedules/{scheduleId}', 'MapGet("/{scheduleId:guid}",'],
     ['PUT /api/v1/jobs/host-schedules/{scheduleId}', 'MapPut("/{scheduleId:guid}",'],
@@ -130,7 +132,7 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   }
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {
-    if (schemaName.endsWith('Page')) {
+    if (schemaName.endsWith('Page') || schemaName.endsWith('List')) {
       continue;
     }
     assert.match(contractsSource, new RegExp(`record ${schemaName}\\b`, 'u'));

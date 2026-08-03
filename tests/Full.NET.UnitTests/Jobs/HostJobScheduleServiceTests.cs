@@ -150,7 +150,10 @@ public sealed class HostJobScheduleServiceTests
         var result = await service.ListAsync(
             page: 1,
             pageSize: 20,
-            DefinitionId);
+            jobDefinitionId: DefinitionId,
+            search: null,
+            isEnabled: null,
+            triggerKind: null);
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsNotNull(result.Value);
@@ -189,6 +192,33 @@ public sealed class HostJobScheduleServiceTests
         Assert.AreEqual(4, result.Value.Version);
     }
 
+    [TestMethod]
+    public async Task ListDefinitionOptionsAsync_ReturnsEnabledDefinitionsOnly()
+    {
+        var store = new ScheduleStore();
+        var service = CreateService(store);
+
+        var result = await service.ListDefinitionOptionsAsync();
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Value);
+        Assert.HasCount(1, result.Value);
+        Assert.AreEqual(JobsWellKnownKeys.Ping, result.Value[0].JobKey);
+    }
+
+    [TestMethod]
+    public async Task PreviewCronAsync_ReturnsNextUtcInstant()
+    {
+        var service = CreateService(new ScheduleStore());
+
+        var result = await service.PreviewCronAsync("0 9 * * *", "UTC");
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(
+            new DateTimeOffset(2026, 7, 31, 9, 0, 0, TimeSpan.Zero),
+            result.Value!.NextExecutionAtUtc);
+    }
+
     private static HostJobScheduleService CreateService(ScheduleStore store) =>
         new(
             store,
@@ -201,13 +231,15 @@ public sealed class HostJobScheduleServiceTests
                 Provider = DatabaseProvider.SqlServer,
             }));
 
-    private static JobScheduleRecord ExistingSchedule(
+    private static JobScheduleDetailRecord ExistingSchedule(
         bool isEnabled,
         DateTimeOffset nextExecutionAtUtc) =>
         new()
         {
             Id = ScheduleId,
             JobDefinitionId = DefinitionId,
+            JobDefinitionJobKey = JobsWellKnownKeys.Ping,
+            JobDefinitionDisplayName = "Ping",
             TriggerKind = JobTriggerKinds.Cron,
             CronExpression = "* * * * *",
             TimeZoneId = "UTC",
@@ -222,7 +254,7 @@ public sealed class HostJobScheduleServiceTests
     private sealed class ScheduleStore(bool isDefinitionEnabled = true)
         : IQueryExecutor, ICommandExecutor
     {
-        public JobScheduleRecord? Schedule { get; set; }
+        public JobScheduleDetailRecord? Schedule { get; set; }
 
         public int CommandCount { get; private set; }
 
@@ -238,14 +270,17 @@ public sealed class HostJobScheduleServiceTests
                 {
                     Id = DefinitionId,
                     JobKey = JobsWellKnownKeys.Ping,
+                    DisplayName = "Ping",
                     IsEnabled = isDefinitionEnabled,
                 }
                 : statement == JobSql.FindScheduleById
                     ? Schedule
-                    : statement == JobSql.CountSchedules
-                        ? Schedule is null ? 0L : 1L
-                    : throw new InvalidOperationException(
-                        $"Unexpected query '{statement.Name}'.");
+                : statement == JobSql.FindScheduleDetailById
+                    ? Schedule
+                : statement == JobSql.CountSchedules
+                    ? Schedule is null ? 0L : 1L
+                : throw new InvalidOperationException(
+                    $"Unexpected query '{statement.Name}'.");
             return Task.FromResult((T?)value);
         }
 
@@ -254,15 +289,28 @@ public sealed class HostJobScheduleServiceTests
             object? parameters = null,
             CancellationToken cancellationToken = default)
         {
-            if (statement != JobSql.ListSchedulesSqlServer)
+            if (statement == JobSql.ListSchedulesSqlServer)
             {
-                throw new InvalidOperationException(
-                    $"Unexpected query '{statement.Name}'.");
+                ListStatement = statement;
+                return Task.FromResult<IReadOnlyList<T>>(
+                    Schedule is null ? [] : [(T)(object)Schedule]);
             }
 
-            ListStatement = statement;
-            return Task.FromResult<IReadOnlyList<T>>(
-                Schedule is null ? [] : [(T)(object)Schedule]);
+            if (statement == JobSql.ListEnabledScheduleDefinitionOptions)
+            {
+                return Task.FromResult<IReadOnlyList<T>>(
+                    isDefinitionEnabled
+                        ? [(T)(object)new JobDefinitionOptionRecord
+                        {
+                            Id = DefinitionId,
+                            JobKey = JobsWellKnownKeys.Ping,
+                            DisplayName = "Ping",
+                        }]
+                        : []);
+            }
+
+            throw new InvalidOperationException(
+                $"Unexpected query '{statement.Name}'.");
         }
 
         public Task<int> ExecuteAsync(
@@ -274,11 +322,13 @@ public sealed class HostJobScheduleServiceTests
             var values = ParameterValues(parameters);
             if (statement == JobSql.InsertSchedule)
             {
-                Schedule = new JobScheduleRecord
+                Schedule = new JobScheduleDetailRecord
                 {
                     Id = (Guid)values[nameof(JobScheduleRecord.Id)]!,
                     JobDefinitionId =
                         (Guid)values[nameof(JobScheduleRecord.JobDefinitionId)]!,
+                    JobDefinitionJobKey = JobsWellKnownKeys.Ping,
+                    JobDefinitionDisplayName = "Ping",
                     TriggerKind =
                         (string)values[nameof(JobScheduleRecord.TriggerKind)]!,
                     CronExpression =

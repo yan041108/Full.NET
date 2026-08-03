@@ -213,20 +213,49 @@ internal static class JobSql
             """,
             SqlDataScope.HostOnly);
 
+    private const string ScheduleDetailProjection = """
+        s.Id, s.TenantId, s.JobDefinitionId, s.TriggerKind, s.CronExpression,
+        s.TimeZoneId, s.OneTimeAtUtc, s.MisfirePolicy, s.IsEnabled,
+        s.NextExecutionAtUtc, s.LastExecutionAtUtc, s.CompletedAtUtc,
+        s.CreatedAtUtc, s.CreatedByUserId, s.UpdatedAtUtc, s.UpdatedByUserId,
+        s.Version, d.JobKey AS JobDefinitionJobKey, d.DisplayName AS JobDefinitionDisplayName
+        """;
+
+    private const string ScheduleListWhereClause = """
+        s.TenantId IS NULL
+          AND (@JobDefinitionId IS NULL
+               OR s.JobDefinitionId = @JobDefinitionId)
+          AND (@TriggerKind IS NULL
+               OR s.TriggerKind = @TriggerKind)
+          AND (@IsEnabled IS NULL
+               OR s.IsEnabled = @IsEnabled)
+          AND (@Search IS NULL
+               OR d.DisplayName LIKE @Search
+               OR d.JobKey LIKE @Search)
+        """;
+
+    public static readonly SqlStatement FindScheduleDetailById =
+        new(
+            "jobs.find_host_schedule_detail_by_id",
+            $$"""
+            SELECT {{ScheduleDetailProjection}}
+            FROM fn_jobs_schedule AS s
+            INNER JOIN fn_jobs_definition AS d
+                ON d.Id = s.JobDefinitionId AND d.TenantId IS NULL
+            WHERE s.Id = @Id AND s.TenantId IS NULL
+            """,
+            SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListSchedulesSqlServer =
         new(
             "jobs.list_host_schedules.sql_server",
-            """
-            SELECT Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
-                   TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
-                   NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
-                   CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
-                   Version
-            FROM fn_jobs_schedule
-            WHERE TenantId IS NULL
-              AND (@JobDefinitionId IS NULL
-                   OR JobDefinitionId = @JobDefinitionId)
-            ORDER BY CreatedAtUtc DESC, Id
+            $$"""
+            SELECT {{ScheduleDetailProjection}}
+            FROM fn_jobs_schedule AS s
+            INNER JOIN fn_jobs_definition AS d
+                ON d.Id = s.JobDefinitionId AND d.TenantId IS NULL
+            WHERE {{ScheduleListWhereClause}}
+            ORDER BY s.CreatedAtUtc DESC, s.Id
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """,
             SqlDataScope.HostOnly);
@@ -234,17 +263,13 @@ internal static class JobSql
     public static readonly SqlStatement ListSchedulesMySql =
         new(
             "jobs.list_host_schedules.mysql",
-            """
-            SELECT Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
-                   TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
-                   NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
-                   CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
-                   Version
-            FROM fn_jobs_schedule
-            WHERE TenantId IS NULL
-              AND (@JobDefinitionId IS NULL
-                   OR JobDefinitionId = @JobDefinitionId)
-            ORDER BY CreatedAtUtc DESC, Id
+            $$"""
+            SELECT {{ScheduleDetailProjection}}
+            FROM fn_jobs_schedule AS s
+            INNER JOIN fn_jobs_definition AS d
+                ON d.Id = s.JobDefinitionId AND d.TenantId IS NULL
+            WHERE {{ScheduleListWhereClause}}
+            ORDER BY s.CreatedAtUtc DESC, s.Id
             LIMIT @PageSize OFFSET @Offset
             """,
             SqlDataScope.HostOnly);
@@ -252,12 +277,24 @@ internal static class JobSql
     public static readonly SqlStatement CountSchedules =
         new(
             "jobs.count_host_schedules",
-            """
+            $$"""
             SELECT COUNT(*)
-            FROM fn_jobs_schedule
+            FROM fn_jobs_schedule AS s
+            INNER JOIN fn_jobs_definition AS d
+                ON d.Id = s.JobDefinitionId AND d.TenantId IS NULL
+            WHERE {{ScheduleListWhereClause}}
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListEnabledScheduleDefinitionOptions =
+        new(
+            "jobs.list_enabled_schedule_definition_options",
+            """
+            SELECT Id, JobKey, DisplayName
+            FROM fn_jobs_definition
             WHERE TenantId IS NULL
-              AND (@JobDefinitionId IS NULL
-                   OR JobDefinitionId = @JobDefinitionId)
+              AND IsEnabled = 1
+            ORDER BY DisplayName, JobKey
             """,
             SqlDataScope.HostOnly);
 

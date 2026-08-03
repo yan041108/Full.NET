@@ -60,7 +60,16 @@ internal sealed class JobExecutionRecord
     public string JobKey { get; set; } = string.Empty;
 }
 
-internal sealed class JobScheduleRecord
+internal sealed class JobDefinitionOptionRecord
+{
+    public Guid Id { get; set; }
+
+    public string JobKey { get; set; } = string.Empty;
+
+    public string DisplayName { get; set; } = string.Empty;
+}
+
+internal class JobScheduleRecord
 {
     public Guid Id { get; set; }
 
@@ -95,4 +104,11 @@ internal sealed class JobScheduleRecord
     public Guid? UpdatedByUserId { get; set; }
 
     public int Version { get; set; }
+}
+
+internal sealed class JobScheduleDetailRecord : JobScheduleRecord
+{
+    public string JobDefinitionJobKey { get; set; } = string.Empty;
+
+    public string JobDefinitionDisplayName { get; set; } = string.Empty;
 }

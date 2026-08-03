@@ -25,6 +25,9 @@ internal sealed class HostJobScheduleService(
         int page,
         int pageSize,
         Guid? jobDefinitionId,
+        string? search,
+        bool? isEnabled,
+        string? triggerKind,
         CancellationToken cancellationToken = default)
     {
         if (page < 1 || pageSize is < 1 or > 200)
@@ -39,6 +42,9 @@ internal sealed class HostJobScheduleService(
         var parameters = new
         {
             JobDefinitionId = jobDefinitionId,
+            Search = NormalizeSearch(search),
+            IsEnabled = isEnabled,
+            TriggerKind = NormalizeOptional(triggerKind),
             Offset = (page - 1) * pageSize,
             PageSize = pageSize,
         };
@@ -49,14 +55,14 @@ internal sealed class HostJobScheduleService(
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
-        var records = await queryExecutor.QueryAsync<JobScheduleRecord>(
+        var records = await queryExecutor.QueryAsync<JobScheduleDetailRecord>(
                 statement,
                 parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 JobSql.CountSchedules,
-                new { JobDefinitionId = jobDefinitionId },
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<PagedResult<HostJobScheduleResponse>>.Success(
@@ -65,6 +71,51 @@ internal sealed class HostJobScheduleService(
                 page,
                 pageSize,
                 total));
+    }
+
+    public async Task<Result<IReadOnlyList<HostJobScheduleDefinitionOptionResponse>>>
+        ListDefinitionOptionsAsync(
+            CancellationToken cancellationToken = default)
+    {
+        var records = await queryExecutor
+            .QueryAsync<JobDefinitionOptionRecord>(
+                JobSql.ListEnabledScheduleDefinitionOptions,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return Result<IReadOnlyList<HostJobScheduleDefinitionOptionResponse>>.Success(
+            records.Select(record => new HostJobScheduleDefinitionOptionResponse(
+                record.Id,
+                record.JobKey,
+                record.DisplayName))
+                .ToArray());
+    }
+
+    public Task<Result<HostJobScheduleCronPreviewResponse>> PreviewCronAsync(
+        string cronExpression,
+        string timeZoneId,
+        CancellationToken cancellationToken = default)
+    {
+        _ = cancellationToken;
+        try
+        {
+            var normalizedTimeZone = JobScheduleCalculator.NormalizeTimeZoneId(timeZoneId);
+            var next = JobScheduleCalculator.GetNextCronOccurrence(
+                cronExpression.Trim(),
+                normalizedTimeZone,
+                clock.UtcNow.ToUniversalTime());
+            return Task.FromResult(
+                Result<HostJobScheduleCronPreviewResponse>.Success(
+                    new HostJobScheduleCronPreviewResponse(next)));
+        }
+        catch (Exception)
+        {
+            return Task.FromResult(
+                Result<HostJobScheduleCronPreviewResponse>.Failure(
+                    new Error(
+                        JobsErrorCodes.ScheduleValidationFailed,
+                        "The cron preview request is invalid.",
+                        ErrorType.Validation)));
+        }
     }
 
     public async Task<Result<HostJobScheduleResponse>> GetByIdAsync(
@@ -202,7 +253,11 @@ internal sealed class HostJobScheduleService(
         bool enable,
         CancellationToken cancellationToken)
     {
-        var schedule = await FindRecordAsync(scheduleId, cancellationToken)
+        var schedule = await queryExecutor
+            .QuerySingleOrDefaultAsync<JobScheduleRecord>(
+                JobSql.FindScheduleById,
+                new { Id = scheduleId },
+                cancellationToken)
             .ConfigureAwait(false);
         if (schedule is null)
         {
@@ -257,7 +312,11 @@ internal sealed class HostJobScheduleService(
         UpdateHostJobScheduleRequest request,
         CancellationToken cancellationToken)
     {
-        var schedule = await FindRecordAsync(scheduleId, cancellationToken)
+        var schedule = await queryExecutor
+            .QuerySingleOrDefaultAsync<JobScheduleRecord>(
+                JobSql.FindScheduleById,
+                new { Id = scheduleId },
+                cancellationToken)
             .ConfigureAwait(false);
         if (schedule is null)
         {
@@ -336,13 +395,44 @@ internal sealed class HostJobScheduleService(
             : Result<HostJobScheduleResponse>.Success(Map(schedule));
     }
 
-    private Task<JobScheduleRecord?> FindRecordAsync(
+    private Task<JobScheduleDetailRecord?> FindRecordAsync(
         Guid scheduleId,
         CancellationToken cancellationToken) =>
-        queryExecutor.QuerySingleOrDefaultAsync<JobScheduleRecord>(
-            JobSql.FindScheduleById,
+        queryExecutor.QuerySingleOrDefaultAsync<JobScheduleDetailRecord>(
+            JobSql.FindScheduleDetailById,
             new { Id = scheduleId },
             cancellationToken);
+
+    private static string? NormalizeSearch(string? search)
+    {
+        var trimmed = search?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : $"%{trimmed}%";
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    internal static HostJobScheduleResponse Map(JobScheduleDetailRecord record) =>
+        new(
+            record.Id,
+            record.JobDefinitionId,
+            record.JobDefinitionJobKey,
+            record.JobDefinitionDisplayName,
+            record.TriggerKind,
+            record.CronExpression,
+            record.TimeZoneId,
+            record.OneTimeAtUtc,
+            record.MisfirePolicy,
+            record.IsEnabled,
+            record.NextExecutionAtUtc,
+            record.LastExecutionAtUtc,
+            record.CompletedAtUtc,
+            record.CreatedAtUtc,
+            record.UpdatedAtUtc,
+            record.Version);
 
     private static NormalizedSchedule? Normalize(
         CreateHostJobScheduleRequest request)
@@ -406,23 +496,6 @@ internal sealed class HostJobScheduleService(
             return null;
         }
     }
-
-    internal static HostJobScheduleResponse Map(JobScheduleRecord record) =>
-        new(
-            record.Id,
-            record.JobDefinitionId,
-            record.TriggerKind,
-            record.CronExpression,
-            record.TimeZoneId,
-            record.OneTimeAtUtc,
-            record.MisfirePolicy,
-            record.IsEnabled,
-            record.NextExecutionAtUtc,
-            record.LastExecutionAtUtc,
-            record.CompletedAtUtc,
-            record.CreatedAtUtc,
-            record.UpdatedAtUtc,
-            record.Version);
 
     private static Result<HostJobScheduleResponse> ValidationFailure() =>
         Failure(

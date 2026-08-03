@@ -19,6 +19,9 @@ internal static class Endpoint
             int? page,
             int? pageSize,
             Guid? jobDefinitionId,
+            string? search,
+            bool? isEnabled,
+            string? triggerKind,
             HostJobScheduleService service,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -28,6 +31,9 @@ internal static class Endpoint
                     page ?? 1,
                     pageSize ?? 20,
                     jobDefinitionId,
+                    search,
+                    isEnabled,
+                    triggerKind,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -35,6 +41,40 @@ internal static class Endpoint
         .Produces<PagedResult<HostJobScheduleResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.SchedulesRead));
+
+        group.MapGet("/definition-options", async (
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ListDefinitionOptionsAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<IReadOnlyList<HostJobScheduleDefinitionOptionResponse>>(
+            StatusCodes.Status200OK)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesCreate));
+
+        group.MapGet("/cron-preview", async (
+            string cronExpression,
+            string timeZoneId,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.PreviewCronAsync(
+                    cronExpression,
+                    timeZoneId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<HostJobScheduleCronPreviewResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesCreate));
 
         group.MapGet("/{scheduleId:guid}", async (
             Guid scheduleId,
