@@ -48,7 +48,14 @@ internal sealed class HostUserQueryService(
                 projection,
                 cancellationToken)
             .ConfigureAwait(false);
-        var items = rows.Select(row => Map(row, projectedFields[row.Id])).ToArray();
+        var profiles = await LoadProfilesAsync(
+                rows.Select(row => row.Id).ToArray(),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var items = rows.Select(row => Map(
+            row,
+            projectedFields[row.Id],
+            profiles.GetValueOrDefault(row.Id))).ToArray();
         return Result<PagedResult<HostUserResponse>>.Success(
             new PagedResult<HostUserResponse>(items, page, pageSize, total));
     }
@@ -71,8 +78,15 @@ internal sealed class HostUserQueryService(
                 projection,
                 cancellationToken)
             .ConfigureAwait(false);
+        var profiles = await LoadProfilesAsync(
+                rows.Select(row => row.Id).ToArray(),
+                cancellationToken)
+            .ConfigureAwait(false);
         return Result<IReadOnlyList<HostUserResponse>>.Success(
-            rows.Select(row => Map(row, projectedFields[row.Id])).ToArray());
+            rows.Select(row => Map(
+                row,
+                projectedFields[row.Id],
+                profiles.GetValueOrDefault(row.Id))).ToArray());
     }
 
     public async Task<Result<HostUserResponse>> GetByIdAsync(
@@ -101,12 +115,18 @@ internal sealed class HostUserQueryService(
                 projection,
                 cancellationToken)
             .ConfigureAwait(false);
-        return Result<HostUserResponse>.Success(Map(record, projectedFields[userId]));
+        var profiles = await LoadProfilesAsync([userId], cancellationToken)
+            .ConfigureAwait(false);
+        return Result<HostUserResponse>.Success(Map(
+            record,
+            projectedFields[userId],
+            profiles.GetValueOrDefault(userId)));
     }
 
     private static HostUserResponse Map(
         HostUserListRow row,
-        HostUserProjectedFieldsResponse projectedFields) =>
+        HostUserProjectedFieldsResponse projectedFields,
+        HostUserProfileResponse? profile = null) =>
         new(
             row.Id,
             row.Username,
@@ -115,7 +135,30 @@ internal sealed class HostUserQueryService(
             row.CreatedAtUtc,
             row.UpdatedAtUtc,
             row.Version,
-            projectedFields);
+            projectedFields,
+            profile);
+
+    private async Task<IReadOnlyDictionary<Guid, HostUserProfileResponse?>> LoadProfilesAsync(
+        IReadOnlyList<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<Guid, HostUserProfileResponse?>();
+        }
+
+        var records = await queryExecutor.QueryAsync<HostUserProfileRecord>(
+                IdentitySql.ListHostUserProfilesByIds,
+                new { UserIds = userIds },
+                cancellationToken)
+            .ConfigureAwait(false);
+        var profileMap = records.ToDictionary(
+            record => record.UserId,
+            record => HostUserProfileMapper.ToResponse(record));
+        return userIds.ToDictionary(
+            userId => userId,
+            userId => profileMap.GetValueOrDefault(userId));
+    }
 
     private async Task<IReadOnlyDictionary<Guid, HostUserProjectedFieldsResponse>>
         LoadProjectedFieldsAsync(

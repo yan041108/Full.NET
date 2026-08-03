@@ -359,7 +359,7 @@
 }
 
 .art-settings-modal {
-  background: transparent !important;
+  background: rgb(15 23 42 / 32%) !important;
 }
 
 .art-settings-modal .el-drawer {
@@ -423,41 +423,6 @@
 .art-sidebar--dark .art-sidebar__link:hover {
   color: #ffffff;
   background: rgb(255 255 255 / 8%);
-}
-
-.art-tabs--card {
-  gap: 8px;
-  padding-top: 10px;
-  padding-bottom: 10px;
-}
-
-.art-tabs--card .art-tabs__item {
-  border: 1px solid var(--art-card-border);
-  border-radius: calc(var(--art-custom-radius) / 2);
-  background: var(--art-default-box-color);
-}
-
-.art-tabs--card .art-tabs__item.is-active {
-  border-color: color-mix(in srgb, var(--art-theme-color) 35%, var(--art-card-border));
-}
-
-.art-tabs--google {
-  gap: 0;
-  padding: 0 12px;
-}
-
-.art-tabs--google .art-tabs__item {
-  height: 38px;
-  padding: 0 16px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-}
-
-.art-tabs--google .art-tabs__item.is-active {
-  border-bottom-color: var(--art-theme-color);
-  background: transparent;
 }
 
 @media (max-width: 1000px) {

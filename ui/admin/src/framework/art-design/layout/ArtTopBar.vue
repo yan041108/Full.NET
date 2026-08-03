@@ -249,6 +249,8 @@ onUnmounted(() => {
 
     <slot name="menu" />
 
+    <slot name="tabs" />
+
     <ArtNotificationPanel
       v-model:open="noticeOpen"
       :title="noticeTitle"
@@ -269,14 +271,14 @@ onUnmounted(() => {
       :send-label="chatSendLabel"
       :close-label="chatCloseLabel"
     />
-
-    <slot name="tabs" />
   </header>
 </template>
 
 <style scoped>
 .art-header {
   position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--art-default-box-color);
 }
 

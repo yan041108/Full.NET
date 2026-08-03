@@ -7,6 +7,55 @@ export interface HostUser {
   updatedAtUtc: string | null;
   version: number;
   projectedFields?: HostUserProjectedFields | null;
+  profile?: HostUserProfile | null;
+}
+
+export interface HostUserProfile {
+  nickname: string | null;
+  phoneNumber: string | null;
+  email: string | null;
+  employeeNumber: string | null;
+  gender: string | null;
+  joinDateUtc: string | null;
+  sortOrder: number;
+  idCardType: string | null;
+  idCardNumber: string | null;
+  birthDate: string | null;
+  ethnicity: string | null;
+  address: string | null;
+  graduatedSchool: string | null;
+  educationLevel: string | null;
+  politicalStatus: string | null;
+  officePhone: string | null;
+  emergencyContact: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactAddress: string | null;
+  remark: string | null;
+  version: number;
+}
+
+export interface HostUserProfileWrite {
+  nickname?: string | null;
+  phoneNumber?: string | null;
+  email?: string | null;
+  employeeNumber?: string | null;
+  gender?: string | null;
+  joinDateUtc?: string | null;
+  sortOrder?: number | null;
+  idCardType?: string | null;
+  idCardNumber?: string | null;
+  birthDate?: string | null;
+  ethnicity?: string | null;
+  address?: string | null;
+  graduatedSchool?: string | null;
+  educationLevel?: string | null;
+  politicalStatus?: string | null;
+  officePhone?: string | null;
+  emergencyContact?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactAddress?: string | null;
+  remark?: string | null;
+  version?: number | null;
 }
 
 export interface HostUserProjectedFields {
@@ -26,6 +75,14 @@ export interface HostUserPage {
 export interface UpdateHostUserRequest {
   displayName: string;
   version: number;
+  profile?: HostUserProfileWrite | null;
+}
+
+export interface CreateHostUserRequest {
+  username: string;
+  displayName: string;
+  password: string;
+  profile?: HostUserProfileWrite | null;
 }
 
 export interface ResetHostUserPasswordRequest {
@@ -128,7 +185,33 @@ export function isHostUser(value: unknown): value is HostUser {
     && typeof value.version === 'number'
     && (value.projectedFields === undefined
       || value.projectedFields === null
-      || isHostUserProjectedFields(value.projectedFields));
+      || isHostUserProjectedFields(value.projectedFields))
+    && (value.profile === undefined || value.profile === null || isHostUserProfile(value.profile));
+}
+
+function isHostUserProfile(value: unknown): value is HostUserProfile {
+  return isRecord(value)
+    && (value.nickname === null || typeof value.nickname === 'string')
+    && (value.phoneNumber === null || typeof value.phoneNumber === 'string')
+    && (value.email === null || typeof value.email === 'string')
+    && (value.employeeNumber === null || typeof value.employeeNumber === 'string')
+    && (value.gender === null || typeof value.gender === 'string')
+    && (value.joinDateUtc === null || typeof value.joinDateUtc === 'string')
+    && typeof value.sortOrder === 'number'
+    && (value.idCardType === null || typeof value.idCardType === 'string')
+    && (value.idCardNumber === null || typeof value.idCardNumber === 'string')
+    && (value.birthDate === null || typeof value.birthDate === 'string')
+    && (value.ethnicity === null || typeof value.ethnicity === 'string')
+    && (value.address === null || typeof value.address === 'string')
+    && (value.graduatedSchool === null || typeof value.graduatedSchool === 'string')
+    && (value.educationLevel === null || typeof value.educationLevel === 'string')
+    && (value.politicalStatus === null || typeof value.politicalStatus === 'string')
+    && (value.officePhone === null || typeof value.officePhone === 'string')
+    && (value.emergencyContact === null || typeof value.emergencyContact === 'string')
+    && (value.emergencyContactPhone === null || typeof value.emergencyContactPhone === 'string')
+    && (value.emergencyContactAddress === null || typeof value.emergencyContactAddress === 'string')
+    && (value.remark === null || typeof value.remark === 'string')
+    && typeof value.version === 'number';
 }
 
 function isText(value: unknown): value is string {

@@ -25,7 +25,8 @@ internal static class Endpoint
         {
             var origin = httpContext.Request.Headers.Origin.ToString();
             var requestOrigin = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
-            if (!originValidator.IsAllowed(origin, requestOrigin))
+            var referer = httpContext.Request.Headers.Referer.ToString();
+            if (!originValidator.IsAllowed(origin, requestOrigin, referer))
             {
                 return mapper.Map(
                     Result<TokenResponse>.Failure(new Error(

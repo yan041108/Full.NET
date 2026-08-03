@@ -41,6 +41,12 @@ function hydrateSettings(): void {
 
   hydrated = true;
   const raw = sessionStorage.getItem(storageKey);
+  const validMenuLayouts = new Set<ArtShellSettings['menuLayout']>([
+    'left',
+    'top',
+    'top-left',
+    'dual-menu'
+  ]);
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<ArtShellSettings>;
@@ -59,6 +65,31 @@ function hydrateSettings(): void {
       ...createDefaultArtShellSettings(),
       ...loadLegacySettings()
     };
+  }
+
+  if (!validMenuLayouts.has(settings.value.menuLayout)) {
+    settings.value.menuLayout = 'left';
+  }
+
+  const validMenuStyles = new Set<ArtShellSettings['menuStyle']>([
+    'design',
+    'light',
+    'dark'
+  ]);
+  if (!validMenuStyles.has(settings.value.menuStyle)) {
+    settings.value.menuStyle = 'design';
+  }
+
+  if (
+    !Number.isFinite(settings.value.menuOpenWidth)
+    || settings.value.menuOpenWidth < 180
+    || settings.value.menuOpenWidth > 320
+  ) {
+    settings.value.menuOpenWidth = createDefaultArtShellSettings().menuOpenWidth;
+  }
+
+  if (typeof settings.value.menuCollapsed !== 'boolean') {
+    settings.value.menuCollapsed = createDefaultArtShellSettings().menuCollapsed;
   }
 
   applyArtShellSettingsToDocument(settings.value);

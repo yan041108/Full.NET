@@ -108,7 +108,7 @@ describe('Vue 管理端壳层', () => {
     expect(wrapper.get('.skip-link').attributes('href')).toBe('#main-content');
     await wrapper.get('.skip-link').trigger('click');
     expect(document.activeElement).toBe(wrapper.get('#main-content').element);
-    expect(wrapper.get('nav .art-sidebar__link.is-active').text()).toContain('工作台');
+    expect(wrapper.get('.el-menu-item.is-active .art-sidebar__text').text()).toContain('工作台');
     expect(wrapper.get('[data-route-heading]').attributes('tabindex')).toBe('-1');
 
     await wrapper.get('[data-testid="shell-locale-trigger"]').trigger('click');

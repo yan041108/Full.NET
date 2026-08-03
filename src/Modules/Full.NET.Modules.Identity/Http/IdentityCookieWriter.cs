@@ -6,10 +6,19 @@ namespace Full.NET.Modules.Identity.Http;
 
 internal sealed class IdentityCookieWriter(IOptions<IdentityOptions> options)
 {
-    public const string RefreshCookieName = "__Host-fullnet-refresh";
+    public const string ProductionRefreshCookieName = "__Host-fullnet-refresh";
+    public const string DevelopmentRefreshCookieName = "fullnet-refresh";
     public const string CsrfCookieName = "fullnet-csrf";
 
     private readonly IdentityOptions _options = options.Value;
+
+    /// <summary>
+    /// 生产使用 __Host- 前缀；本地 HTTP 开发改用无前缀名称，否则浏览器会拒绝写入 Secure Cookie。
+    /// </summary>
+    public string RefreshCookieName =>
+        _options.RequireSecureCookies
+            ? ProductionRefreshCookieName
+            : DevelopmentRefreshCookieName;
 
     public void Write(
         HttpResponse response,

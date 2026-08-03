@@ -4,6 +4,7 @@ import {
   isHostUserRoles,
   type HostUser,
   type HostUserPage,
+  type HostUserProfileWrite,
   type HostUserRoles
 } from '@fullnet/client-contracts';
 import { request } from './http';
@@ -30,12 +31,18 @@ export async function exportHostUsers(): Promise<HostUser[]> {
 export async function createHostUser(
   username: string,
   displayName: string,
-  password: string
+  password: string,
+  profile?: HostUserProfileWrite | null
 ): Promise<HostUser> {
   const value = await request<unknown>('/api/v1/identity/users', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username, displayName, password })
+    body: JSON.stringify({
+      username,
+      displayName,
+      password,
+      profile: profile ?? undefined
+    })
   });
   if (!isHostUser(value)) throw new Error('client.invalid_host_user');
   return value;
@@ -62,14 +69,19 @@ export async function enableHostUser(id: string): Promise<HostUser> {
 export async function updateHostUser(
   id: string,
   displayName: string,
-  version: number
+  version: number,
+  profile?: HostUserProfileWrite | null
 ): Promise<HostUser> {
   const value = await request<unknown>(
     `/api/v1/identity/users/${encodeURIComponent(id)}`,
     {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ displayName, version })
+      body: JSON.stringify({
+        displayName,
+        version,
+        profile: profile ?? undefined
+      })
     }
   );
   if (!isHostUser(value)) throw new Error('client.invalid_host_user');

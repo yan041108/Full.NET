@@ -5,6 +5,10 @@ import UsersView from './UsersView.vue';
 import { useSessionStore } from '../auth/session';
 import { getHostUserRoles, listHostUsers } from '../api/users';
 import { listHostRoles } from '../api/roles';
+import { listOrganizationUnits } from '../api/org-units';
+import { listOrganizationUserUnits } from '../api/org-user-units';
+import { listOrganizationUserPositions } from '../api/org-user-positions';
+import { listOrganizationPositions } from '../api/org-positions';
 
 vi.mock('../api/users', () => ({
   createHostUser: vi.fn(),
@@ -32,9 +36,27 @@ vi.mock('../api/roles', () => ({
   updateHostRoleDataScope: vi.fn()
 }));
 
+vi.mock('../api/org-units', () => ({
+  listOrganizationUnits: vi.fn()
+}));
+
+vi.mock('../api/org-positions', () => ({
+  listOrganizationPositions: vi.fn()
+}));
+
+vi.mock('../api/org-user-units', () => ({
+  listOrganizationUserUnits: vi.fn()
+}));
+
+vi.mock('../api/org-user-positions', () => ({
+  listOrganizationUserPositions: vi.fn()
+}));
+
 const listUsersMock = vi.mocked(listHostUsers);
 const listRolesMock = vi.mocked(listHostRoles);
 const getUserRolesMock = vi.mocked(getHostUserRoles);
+const listOrgUnitsMock = vi.mocked(listOrganizationUnits);
+const listUserUnitsMock = vi.mocked(listOrganizationUserUnits);
 const userId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
 const activeUser = {
@@ -80,7 +102,7 @@ describe('Vue 用户管理页', () => {
     listUsersMock.mockReset().mockResolvedValue({
       items: [activeUser, inactiveUser],
       page: 1,
-      pageSize: 20,
+      pageSize: 100,
       total: 2
     });
     listRolesMock.mockReset().mockResolvedValue({
@@ -97,13 +119,37 @@ describe('Vue 用户管理页', () => {
         version: 1
       }],
       page: 1,
-      pageSize: 20,
+      pageSize: 200,
       total: 1
     });
     getUserRolesMock.mockReset().mockResolvedValue({
       userId,
       roleIds: [],
       version: 1
+    });
+    listOrgUnitsMock.mockReset().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 200,
+      total: 0
+    });
+    listUserUnitsMock.mockReset().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 500,
+      total: 0
+    });
+    vi.mocked(listOrganizationPositions).mockReset().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 200,
+      total: 0
+    });
+    vi.mocked(listOrganizationUserPositions).mockReset().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 500,
+      total: 0
     });
   });
 
@@ -112,7 +158,7 @@ describe('Vue 用户管理页', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('活动用户');
-    expect(wrapper.find('[data-testid="users-create-form"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="users-action-create"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-export"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-roles"]').exists()).toBe(false);
@@ -122,7 +168,7 @@ describe('Vue 用户管理页', () => {
   });
 
   it.each([
-    ['identity.users.create', 'users-create-form'],
+    ['identity.users.create', 'users-action-create'],
     ['identity.users.update', 'users-action-edit'],
     ['identity.users.assign_roles', 'users-action-roles'],
     ['identity.users.reset_password', 'users-action-reset-password'],
@@ -134,7 +180,7 @@ describe('Vue 用户管理页', () => {
 
     expect(wrapper.find(`[data-testid="${testId}"]`).exists()).toBe(true);
     const otherIds = [
-      'users-create-form',
+      'users-action-create',
       'users-action-edit',
       'users-action-roles',
       'users-action-reset-password',
@@ -155,14 +201,15 @@ describe('Vue 用户管理页', () => {
     expect(wrapper.find('[data-testid="users-action-disable"]').exists()).toBe(false);
   });
 
-  it('角色分配对话框保留本地取消控件', async () => {
+  it('角色授权入口打开编辑弹窗并保留取消控件', async () => {
     const wrapper = mountUsers(['identity.users.read', 'identity.users.assign_roles']);
     await flushPromises();
 
     await wrapper.get('[data-testid="users-action-roles"]').trigger('click');
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="users-roles-cancel"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="users-roles-save"]').exists()).toBe(true);
+    expect(document.querySelector('[data-testid="users-editor-submit"]')).not.toBeNull();
+    expect(document.body.textContent).toContain('取消');
+    wrapper.unmount();
   });
 });

@@ -37,16 +37,66 @@ public static class IdentityUserManagementPermissions
 public sealed record CreateHostUserRequest(
     string Username,
     string DisplayName,
-    string Password);
+    string Password,
+    HostUserProfileWriteRequest? Profile = null);
 
 /// <summary>更新 Host 用户基础资料请求。</summary>
 public sealed record UpdateHostUserRequest(
     string DisplayName,
-    int Version);
+    int Version,
+    HostUserProfileWriteRequest? Profile = null);
 
 /// <summary>管理员重置 Host 用户密码请求。</summary>
 public sealed record ResetHostUserPasswordRequest(
     string Password);
+
+/// <summary>Host 用户扩展档案响应。</summary>
+public sealed record HostUserProfileResponse(
+    string? Nickname,
+    string? PhoneNumber,
+    string? Email,
+    string? EmployeeNumber,
+    string? Gender,
+    string? JoinDateUtc,
+    int SortOrder,
+    string? IdCardType,
+    string? IdCardNumber,
+    string? BirthDate,
+    string? Ethnicity,
+    string? Address,
+    string? GraduatedSchool,
+    string? EducationLevel,
+    string? PoliticalStatus,
+    string? OfficePhone,
+    string? EmergencyContact,
+    string? EmergencyContactPhone,
+    string? EmergencyContactAddress,
+    string? Remark,
+    int Version);
+
+/// <summary>Host 用户扩展档案写入请求。</summary>
+public sealed record HostUserProfileWriteRequest(
+    string? Nickname,
+    string? PhoneNumber,
+    string? Email,
+    string? EmployeeNumber,
+    string? Gender,
+    string? JoinDateUtc,
+    int? SortOrder,
+    string? IdCardType,
+    string? IdCardNumber,
+    string? BirthDate,
+    string? Ethnicity,
+    string? Address,
+    string? GraduatedSchool,
+    string? EducationLevel,
+    string? PoliticalStatus,
+    string? OfficePhone,
+    string? EmergencyContact,
+    string? EmergencyContactPhone,
+    string? EmergencyContactAddress,
+    string? Remark,
+    int? Version);
 
 /// <summary>Host 用户列表项与详情响应。</summary>
 public sealed record HostUserResponse(
@@ -57,7 +107,8 @@ public sealed record HostUserResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     int Version,
-    HostUserProjectedFieldsResponse? ProjectedFields = null);
+    HostUserProjectedFieldsResponse? ProjectedFields = null,
+    HostUserProfileResponse? Profile = null);
 
 /// <summary>
 /// Host 用户的受限投影；EffectiveFieldKeys 用于区分无授权与有授权但值为空。

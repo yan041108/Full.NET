@@ -33,6 +33,7 @@ export interface IdentitySessionSnapshot {
 export interface IdentitySessionController {
   login(username: string, password: string): Promise<void>;
   restore(): Promise<boolean>;
+  reloadAuthenticatedContext(): Promise<void>;
   switchTenant(tenantId: string | null): Promise<void>;
   changeLocale(locale: SupportedLocale): Promise<void>;
   logout(): Promise<void>;
@@ -149,6 +150,25 @@ export function createIdentitySession(
       }
 
       return false;
+    }
+  }
+
+  async function reloadAuthenticatedContext(): Promise<void> {
+    if (state !== 'authenticated' || token === undefined) {
+      return;
+    }
+
+    const operationGeneration = sessionGeneration;
+    try {
+      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
+        return;
+      }
+
+      notify();
+    } catch {
+      if (operationGeneration === sessionGeneration) {
+        clear();
+      }
     }
   }
 
@@ -428,6 +448,7 @@ export function createIdentitySession(
   return {
     login,
     restore,
+    reloadAuthenticatedContext,
     switchTenant,
     changeLocale,
     logout,

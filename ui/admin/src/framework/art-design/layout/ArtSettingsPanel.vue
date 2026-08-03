@@ -131,6 +131,8 @@ function handleReset(): void {
     :with-header="false"
     :lock-scroll="true"
     :destroy-on-close="false"
+    :close-on-click-modal="true"
+    :close-on-press-escape="true"
     append-to-body
     modal-class="art-settings-modal"
   >

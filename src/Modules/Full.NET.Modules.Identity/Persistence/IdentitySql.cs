@@ -879,6 +879,67 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListHostUserProfilesByIds = new(
+        "identity.list_host_user_profiles_by_ids",
+        """
+        SELECT UserId, Nickname, PhoneNumber, Email, EmployeeNumber, Gender,
+               JoinDateUtc, SortOrder, IdCardType, IdCardNumber, BirthDate,
+               Ethnicity, Address, GraduatedSchool, EducationLevel, PoliticalStatus,
+               OfficePhone, EmergencyContact, EmergencyContactPhone,
+               EmergencyContactAddress, Remark, Version
+        FROM fn_identity_user_profile
+        WHERE UserId IN @UserIds
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertHostUserProfile = new(
+        "identity.insert_host_user_profile",
+        """
+        INSERT INTO fn_identity_user_profile
+            (UserId, Nickname, PhoneNumber, Email, EmployeeNumber, Gender,
+             JoinDateUtc, SortOrder, IdCardType, IdCardNumber, BirthDate,
+             Ethnicity, Address, GraduatedSchool, EducationLevel, PoliticalStatus,
+             OfficePhone, EmergencyContact, EmergencyContactPhone,
+             EmergencyContactAddress, Remark, Version)
+        VALUES
+            (@UserId, @Nickname, @PhoneNumber, @Email, @EmployeeNumber, @Gender,
+             @JoinDateUtc, @SortOrder, @IdCardType, @IdCardNumber, @BirthDate,
+             @Ethnicity, @Address, @GraduatedSchool, @EducationLevel, @PoliticalStatus,
+             @OfficePhone, @EmergencyContact, @EmergencyContactPhone,
+             @EmergencyContactAddress, @Remark, 1)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateHostUserProfile = new(
+        "identity.update_host_user_profile",
+        """
+        UPDATE fn_identity_user_profile
+        SET Nickname = @Nickname,
+            PhoneNumber = @PhoneNumber,
+            Email = @Email,
+            EmployeeNumber = @EmployeeNumber,
+            Gender = @Gender,
+            JoinDateUtc = @JoinDateUtc,
+            SortOrder = @SortOrder,
+            IdCardType = @IdCardType,
+            IdCardNumber = @IdCardNumber,
+            BirthDate = @BirthDate,
+            Ethnicity = @Ethnicity,
+            Address = @Address,
+            GraduatedSchool = @GraduatedSchool,
+            EducationLevel = @EducationLevel,
+            PoliticalStatus = @PoliticalStatus,
+            OfficePhone = @OfficePhone,
+            EmergencyContact = @EmergencyContact,
+            EmergencyContactPhone = @EmergencyContactPhone,
+            EmergencyContactAddress = @EmergencyContactAddress,
+            Remark = @Remark,
+            Version = Version + 1
+        WHERE UserId = @UserId
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListHostUserPreferredLocales = new(
         "identity.list_host_user_preferred_locales",
         """

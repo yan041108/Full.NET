@@ -150,9 +150,24 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/jobs/host-definitions'
   },
   {
+    componentKey: 'host-job-schedules',
+    routeName: 'host-job-schedules',
+    path: '/jobs/host-schedules'
+  },
+  {
+    componentKey: 'code-generation-templates',
+    routeName: 'code-generation-templates',
+    path: '/code-generation/templates'
+  },
+  {
     componentKey: 'code-generation-previews',
     routeName: 'code-generation-previews',
     path: '/code-generation/previews'
+  },
+  {
+    componentKey: 'serial-number-rules',
+    routeName: 'serial-number-rules',
+    path: '/serial-numbers/rules'
   },
   {
     componentKey: 'access-logs',

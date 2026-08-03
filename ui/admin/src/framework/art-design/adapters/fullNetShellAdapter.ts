@@ -1,18 +1,37 @@
 import type { Component } from 'vue';
 import {
+  Bell,
+  DataAnalysis,
+  Document,
+  Files,
   Grid,
-  OfficeBuilding,
-  User,
+  House,
+  List,
   Menu as MenuIcon,
+  Monitor,
+  OfficeBuilding,
   Setting,
-  House
+  Timer,
+  User
 } from '@element-plus/icons-vue';
-import type { NavigationNode } from '@fullnet/client-contracts';
+import {
+  createAdminNavigationCatalog,
+  type NavigationNode
+} from '@fullnet/client-contracts';
 import type { MessageKey } from '@fullnet/admin-i18n';
 import {
   flattenNavigation,
   localNavigationFor
 } from '../../../navigation/catalog';
+
+/** Art 壳层侧栏树节点；目录节点可含 children。 */
+export interface ShellNavigationTreeItem extends ShellNavigationItem {
+  id: string;
+  children: ShellNavigationTreeItem[];
+}
+
+/** 分组目录在 ElMenu 中使用的虚拟路径前缀。 */
+export const SHELL_NAV_GROUP_PATH_PREFIX = '__group__:';
 
 /** Art 壳层展示用的扁平导航项；仅包含已通过白名单校验的页面。 */
 export interface ShellNavigationItem {
@@ -28,6 +47,7 @@ export interface ShellNavigationItem {
 export interface ShellTabItem {
   path: string;
   title: string;
+  icon?: Component;
 }
 
 /** 混合/双栏布局的一级菜单分组；items 仅包含已发布页面。 */
@@ -74,8 +94,72 @@ const navigationGroupRules: NavigationGroupRule[] = [
     id: 'settings',
     titleKey: 'shell.navGroup.settings',
     matchPath: path => path.startsWith('/settings')
+  },
+  {
+    id: 'document',
+    titleKey: 'shell.navGroup.document',
+    matchPath: path => path.startsWith('/document')
+  },
+  {
+    id: 'files',
+    titleKey: 'shell.navGroup.files',
+    matchPath: path => path.startsWith('/files')
+  },
+  {
+    id: 'notifications',
+    titleKey: 'shell.navGroup.notifications',
+    matchPath: path => path.startsWith('/notifications')
+  },
+  {
+    id: 'jobs',
+    titleKey: 'shell.navGroup.jobs',
+    matchPath: path => path.startsWith('/jobs')
+  },
+  {
+    id: 'code-generation',
+    titleKey: 'shell.navGroup.codeGeneration',
+    matchPath: path => path.startsWith('/code-generation')
+  },
+  {
+    id: 'serial-numbers',
+    titleKey: 'shell.navGroup.serialNumbers',
+    matchPath: path => path.startsWith('/serial-numbers')
+  },
+  {
+    id: 'auditing',
+    titleKey: 'shell.navGroup.auditing',
+    matchPath: path => path.startsWith('/auditing')
   }
 ];
+
+const groupIconCatalog: Record<string, Component> = {
+  platform: House,
+  tenancy: OfficeBuilding,
+  identity: User,
+  organization: MenuIcon,
+  settings: Setting,
+  document: Document,
+  files: Files,
+  notifications: Bell,
+  jobs: Timer,
+  'code-generation': DataAnalysis,
+  'serial-numbers': List,
+  auditing: Monitor
+};
+
+const sharedNavigationCatalog = createAdminNavigationCatalog();
+
+function translateNavigationLabel(
+  translate: (key: MessageKey) => string,
+  key: MessageKey,
+  fallback: string
+): string {
+  try {
+    return translate(key);
+  } catch {
+    return fallback;
+  }
+}
 
 const iconCatalog: Record<string, Component> = {
   dashboard: Grid,
@@ -83,7 +167,9 @@ const iconCatalog: Record<string, Component> = {
   users: User,
   menus: MenuIcon,
   roles: Setting,
-  overview: House
+  overview: House,
+  monitor: Monitor,
+  grid: Grid
 };
 
 /**
@@ -94,16 +180,17 @@ function toShellNavigationItem(
   node: NavigationNode,
   translate: (key: MessageKey) => string
 ): ShellNavigationItem | null {
-  const local = localNavigationFor(node.componentKey);
-  if (!local) {
+  const catalogEntry = sharedNavigationCatalog.localNavigationFor(node.componentKey);
+  if (!catalogEntry) {
     return null;
   }
 
-  const title = local.routeName === node.routeName
-    ? translate(local.titleKey)
+  const local = localNavigationFor(node.componentKey);
+  const title = local && local.routeName === node.routeName
+    ? translateNavigationLabel(translate, local.titleKey, node.title)
     : node.title;
-  const caption = local.routeName === node.routeName
-    ? translate(local.captionKey)
+  const caption = local && local.routeName === node.routeName
+    ? translateNavigationLabel(translate, local.captionKey, node.caption)
     : node.caption;
 
   return {
@@ -116,13 +203,36 @@ function toShellNavigationItem(
   };
 }
 
+function mapNavigationTreeToShellItems(
+  navigation: NavigationNode[],
+  translate: (key: MessageKey) => string
+): ShellNavigationItem[] {
+  return flattenNavigation(navigation).flatMap(node => {
+    const item = toShellNavigationItem(node, translate);
+    return item ? [item] : [];
+  });
+}
+
 export function buildShellNavigation(
   options: BuildShellNavigationOptions
 ): ShellNavigationItem[] {
-  return flattenNavigation(options.navigation).flatMap(node => {
-    const item = toShellNavigationItem(node, options.translate);
-    return item ? [item] : [];
-  });
+  const items = mapNavigationTreeToShellItems(
+    options.navigation,
+    options.translate
+  );
+  if (items.length > 0 || options.navigation.length === 0) {
+    return items;
+  }
+
+  // 服务端导航已通过登录白名单，但壳层映射异常时回退服务端标题，避免侧栏空白。
+  return flattenNavigation(options.navigation).map(node => ({
+    path: node.path,
+    routeName: node.routeName,
+    componentKey: node.componentKey,
+    title: node.title,
+    caption: node.caption,
+    icon: resolveShellIcon(node.icon)
+  }));
 }
 
 function buildGroupsFromNavigationTree(
@@ -164,7 +274,7 @@ function buildGroupsFromFlatNavigation(
     grouped.set(rule.id, {
       id: rule.id,
       title: translate(rule.titleKey),
-      icon: Grid,
+      icon: groupIconCatalog[rule.id] ?? Grid,
       items: []
     });
   }
@@ -183,7 +293,11 @@ function buildGroupsFromFlatNavigation(
     }
   }
 
-  return [...grouped.values()].filter(group => group.items.length > 0);
+  return navigationGroupRules
+    .map(rule => grouped.get(rule.id))
+    .filter((group): group is ShellNavigationGroup =>
+      group !== undefined && group.items.length > 0
+    );
 }
 
 /**
@@ -237,6 +351,198 @@ export function resolveShellIcon(icon: string): Component {
   return iconCatalog[icon] ?? Grid;
 }
 
+function toShellNavigationTreeItem(
+  item: ShellNavigationItem,
+  id: string,
+  children: ShellNavigationTreeItem[] = []
+): ShellNavigationTreeItem {
+  return {
+    ...item,
+    id,
+    children
+  };
+}
+
+function groupPath(groupId: string): string {
+  return `${SHELL_NAV_GROUP_PATH_PREFIX}${groupId}`;
+}
+
+function mapServerNavigationTree(
+  navigation: NavigationNode[],
+  translate: (key: MessageKey) => string
+): ShellNavigationTreeItem[] {
+  const mapNode = (node: NavigationNode): ShellNavigationTreeItem | null => {
+    const childNodes = node.children
+      .map(child => mapNode(child))
+      .filter((item): item is ShellNavigationTreeItem => item !== null);
+    const self = toShellNavigationItem(node, translate);
+
+    if (!self && childNodes.length === 0) {
+      return null;
+    }
+
+    if (childNodes.length === 0 && self) {
+      return toShellNavigationTreeItem(self, node.id);
+    }
+
+    if (childNodes.length === 1 && !self) {
+      return childNodes[0]!;
+    }
+
+    const directory: ShellNavigationTreeItem = self
+      ? toShellNavigationTreeItem(self, node.id, childNodes)
+      : {
+          id: node.id,
+          path: groupPath(node.id),
+          routeName: node.id,
+          componentKey: node.id,
+          title: node.title,
+          caption: node.caption,
+          icon: resolveShellIcon(node.icon),
+          children: childNodes
+        };
+
+    return directory;
+  };
+
+  return navigation
+    .map(node => mapNode(node))
+    .filter((item): item is ShellNavigationTreeItem => item !== null);
+}
+
+function buildTreeFromNavigationGroups(
+  groups: ShellNavigationGroup[]
+): ShellNavigationTreeItem[] {
+  const tree: ShellNavigationTreeItem[] = [];
+
+  for (const group of groups) {
+    if (group.items.length === 0) {
+      continue;
+    }
+
+    if (group.items.length === 1) {
+      const [onlyItem] = group.items;
+      tree.push(toShellNavigationTreeItem(onlyItem, onlyItem.path));
+      continue;
+    }
+
+    tree.push({
+      id: group.id,
+      path: groupPath(group.id),
+      routeName: group.id,
+      componentKey: group.id,
+      title: group.title,
+      caption: '',
+      icon: group.icon,
+      children: group.items.map(item => toShellNavigationTreeItem(item, item.path))
+    });
+  }
+
+  return tree;
+}
+
+/**
+ * 生成左侧菜单树；服务端有 children 时优先按树投影，否则按 Admin.NET 风格分组。
+ */
+export function buildShellNavigationTree(
+  options: BuildShellNavigationOptions
+): ShellNavigationTreeItem[] {
+  const hasHierarchy = options.navigation.some(node => node.children.length > 0);
+  if (hasHierarchy) {
+    const tree = mapServerNavigationTree(options.navigation, options.translate);
+    if (tree.length > 0) {
+      return tree;
+    }
+  }
+
+  const groups = buildShellNavigationGroups(options);
+  return buildTreeFromNavigationGroups(groups);
+}
+
+/** 扁平化侧栏树，供标签页与搜索复用。 */
+export function flattenShellNavigationTree(
+  tree: ShellNavigationTreeItem[]
+): ShellNavigationItem[] {
+  const items: ShellNavigationItem[] = [];
+
+  const walk = (nodes: ShellNavigationTreeItem[]): void => {
+    for (const node of nodes) {
+      if (!node.path.startsWith(SHELL_NAV_GROUP_PATH_PREFIX)) {
+        items.push(node);
+      }
+
+      if (node.children.length > 0) {
+        walk(node.children);
+      }
+    }
+  };
+
+  walk(tree);
+  return items;
+}
+
+/** 根据当前路由展开包含激活页的父级目录。 */
+export function resolveDefaultOpenedMenuPaths(
+  tree: ShellNavigationTreeItem[],
+  activePath: string
+): string[] {
+  const opened: string[] = [];
+
+  const containsActivePath = (node: ShellNavigationTreeItem): boolean => {
+    if (node.path === activePath) {
+      return true;
+    }
+
+    return node.children.some(child => containsActivePath(child));
+  };
+
+  for (const node of tree) {
+    if (node.children.length > 0 && containsActivePath(node)) {
+      opened.push(node.path);
+    }
+  }
+
+  return opened;
+}
+
+/** 生成面包屑分段：控制台 / 分组 / 当前页。 */
+export function resolveNavigationBreadcrumb(
+  tree: ShellNavigationTreeItem[],
+  activePath: string,
+  rootLabel: string
+): string[] {
+  const trail: string[] = [];
+
+  const walk = (nodes: ShellNavigationTreeItem[]): boolean => {
+    for (const node of nodes) {
+      if (node.path === activePath) {
+        trail.push(node.title);
+        return true;
+      }
+
+      if (node.children.length > 0 && walk(node.children)) {
+        trail.unshift(node.title);
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  if (!walk(tree)) {
+    return [rootLabel];
+  }
+
+  return [rootLabel, ...trail];
+}
+
+/** 将扁平授权页列表转为无分组的侧栏树。 */
+export function buildFlatShellNavigationTree(
+  items: ShellNavigationItem[]
+): ShellNavigationTreeItem[] {
+  return items.map(item => toShellNavigationTreeItem(item, item.path));
+}
+
 /** 根据当前路径与授权导航生成标签页集合。 */
 export function upsertShellTab(
   tabs: ShellTabItem[],
@@ -252,7 +558,7 @@ export function upsertShellTab(
     return tabs;
   }
 
-  return [...tabs, { path: active.path, title: active.title }];
+  return [...tabs, { path: active.path, title: active.title, icon: active.icon }];
 }
 
 /** 关闭标签页后返回应激活的路径。 */
@@ -277,4 +583,50 @@ export function closeShellTab(
 
   const fallback = nextTabs[Math.max(0, index - 1)] ?? nextTabs[0];
   return { tabs: nextTabs, nextPath: fallback?.path ?? '/' };
+}
+
+export type ShellTabCloseScope = 'current' | 'left' | 'right' | 'other' | 'all';
+
+/** 按右键菜单语义批量关闭标签页。 */
+export function closeShellTabs(
+  tabs: ShellTabItem[],
+  scope: ShellTabCloseScope,
+  targetPath: string,
+  activePath: string
+): { tabs: ShellTabItem[]; nextPath: string } {
+  if (tabs.length === 0) {
+    return { tabs, nextPath: activePath };
+  }
+
+  if (scope === 'current') {
+    return closeShellTab(tabs, targetPath, activePath);
+  }
+
+  const targetIndex = tabs.findIndex(tab => tab.path === targetPath);
+  if (targetIndex < 0) {
+    return { tabs, nextPath: activePath };
+  }
+
+  let nextTabs = tabs;
+  if (scope === 'left') {
+    nextTabs = tabs.filter((_, index) => index >= targetIndex);
+  } else if (scope === 'right') {
+    nextTabs = tabs.filter((_, index) => index <= targetIndex);
+  } else if (scope === 'other') {
+    nextTabs = tabs.filter((_, index) => index === targetIndex);
+  } else if (scope === 'all') {
+    nextTabs = [tabs[targetIndex] ?? tabs[0]!];
+  }
+
+  if (nextTabs.length === 0) {
+    nextTabs = [tabs[targetIndex] ?? tabs[0]!];
+  }
+
+  const nextPath = nextTabs.some(tab => tab.path === activePath)
+    ? activePath
+    : nextTabs[Math.min(targetIndex, nextTabs.length - 1)]?.path
+      ?? nextTabs[0]?.path
+      ?? '/';
+
+  return { tabs: nextTabs, nextPath };
 }

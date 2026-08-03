@@ -9,6 +9,7 @@ describe('useArtShellPreferences', () => {
   beforeEach(() => {
     sessionStorage.clear();
     document.documentElement.removeAttribute('data-art-theme');
+    document.documentElement.classList.remove('dark');
     document.documentElement.style.removeProperty('--el-color-primary');
     useArtShellPreferences().resetSettings();
   });
@@ -71,5 +72,19 @@ describe('applyArtShellSettingsToDocument', () => {
     });
 
     expect(document.documentElement.dataset.artDualMenuShowText).toBe('true');
+  });
+
+  it('暗色主题同步 html.dark 以启用 Element Plus 暗色变量', () => {
+    applyArtShellSettingsToDocument({
+      ...createDefaultArtShellSettings(),
+      themeMode: 'dark'
+    });
+
+    expect(document.documentElement.dataset.artTheme).toBe('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+
+    applyArtShellSettingsToDocument(createDefaultArtShellSettings());
+
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 });

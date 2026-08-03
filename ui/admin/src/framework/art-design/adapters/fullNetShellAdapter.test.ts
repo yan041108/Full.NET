@@ -4,9 +4,14 @@ import type { NavigationNode } from '@fullnet/client-contracts';
 import {
   buildShellNavigation,
   buildShellNavigationGroups,
+  buildShellNavigationTree,
   closeShellTab,
+  closeShellTabs,
   resolveActiveGroupId,
+  resolveDefaultOpenedMenuPaths,
+  resolveNavigationBreadcrumb,
   resolveShellIcon,
+  SHELL_NAV_GROUP_PATH_PREFIX,
   upsertShellTab
 } from './fullNetShellAdapter';
 
@@ -69,6 +74,36 @@ describe('fullNetShellAdapter', () => {
     expect(items.map(item => item.path)).toEqual(['/', '/tenants']);
   });
 
+  it('翻译函数异常时回退服务端标题', () => {
+    const items = buildShellNavigation({
+      navigation: [{
+        id: 'overview',
+        parentId: null,
+        routeName: 'overview',
+        path: '/',
+        componentKey: 'overview',
+        title: '服务端工作台',
+        caption: '服务端概览',
+        icon: 'dashboard',
+        order: 10,
+        requiredPermission: 'platform.dashboard.read',
+        children: []
+      }],
+      translate: () => {
+        throw new Error('translate unavailable');
+      }
+    });
+
+    expect(items).toEqual([{
+      path: '/',
+      routeName: 'overview',
+      componentKey: 'overview',
+      title: '服务端工作台',
+      caption: '服务端概览',
+      icon: expect.anything()
+    }]);
+  });
+
   it('未知图标回退到默认图标组件', () => {
     expect(resolveShellIcon('missing-icon')).toBe(Grid);
   });
@@ -82,8 +117,8 @@ describe('fullNetShellAdapter', () => {
     const second = upsertShellTab(first, navigationItems, '/tenants');
 
     expect(second).toEqual([
-      { path: '/', title: 'navigation.overview.title' },
-      { path: '/tenants', title: 'navigation.tenants.title' }
+      { path: '/', title: 'navigation.overview.title', icon: expect.anything() },
+      { path: '/tenants', title: 'navigation.tenants.title', icon: expect.anything() }
     ]);
   });
 
@@ -163,5 +198,157 @@ describe('fullNetShellAdapter', () => {
 
     expect(resolveActiveGroupId(groups, '/tenants')).toBe('tenancy');
     expect(resolveActiveGroupId(groups, '/')).toBe('platform');
+  });
+
+  it('扁平导航会生成二级侧栏树', () => {
+    const groupedNavigation: NavigationNode[] = [
+      ...navigation,
+      {
+        id: 'tenant-context',
+        parentId: null,
+        routeName: 'tenant-context',
+        path: '/tenant-context',
+        componentKey: 'tenant-context',
+        title: '租户上下文',
+        caption: '租户上下文',
+        icon: 'building',
+        order: 15,
+        requiredPermission: 'tenancy.tenants.read',
+        children: []
+      },
+      {
+        id: 'tenant-packages',
+        parentId: null,
+        routeName: 'tenant-packages',
+        path: '/tenant-packages',
+        componentKey: 'tenant-packages',
+        title: '租户套餐',
+        caption: '租户套餐',
+        icon: 'building',
+        order: 25,
+        requiredPermission: 'tenancy.tenants.read',
+        children: []
+      }
+    ];
+    const tree = buildShellNavigationTree({
+      navigation: groupedNavigation,
+      translate: key => {
+        if (key === 'shell.navGroup.platform') {
+          return '工作台';
+        }
+
+        if (key === 'shell.navGroup.tenancy') {
+          return '租户';
+        }
+
+        return key;
+      }
+    });
+
+    const platformGroup = tree.find(item =>
+      item.path === `${SHELL_NAV_GROUP_PATH_PREFIX}platform`
+    );
+    const tenancyGroup = tree.find(item =>
+      item.path === `${SHELL_NAV_GROUP_PATH_PREFIX}tenancy`
+    );
+
+    expect(platformGroup?.children.map(item => item.path)).toEqual([
+      '/',
+      '/tenant-context'
+    ]);
+    expect(tenancyGroup?.children.map(item => item.path)).toEqual([
+      '/tenants',
+      '/tenant-packages'
+    ]);
+  });
+
+  it('会展开包含当前路由的父级目录', () => {
+    const groupedNavigation: NavigationNode[] = [
+      ...navigation,
+      {
+        id: 'tenant-packages',
+        parentId: null,
+        routeName: 'tenant-packages',
+        path: '/tenant-packages',
+        componentKey: 'tenant-packages',
+        title: '租户套餐',
+        caption: '租户套餐',
+        icon: 'building',
+        order: 25,
+        requiredPermission: 'tenancy.tenants.read',
+        children: []
+      }
+    ];
+    const tree = buildShellNavigationTree({
+      navigation: groupedNavigation,
+      translate: key => key
+    });
+
+    expect(resolveDefaultOpenedMenuPaths(tree, '/tenants')).toEqual([
+      `${SHELL_NAV_GROUP_PATH_PREFIX}tenancy`
+    ]);
+  });
+
+  it('会生成多级面包屑', () => {
+    const groupedNavigation: NavigationNode[] = [
+      ...navigation,
+      {
+        id: 'tenant-packages',
+        parentId: null,
+        routeName: 'tenant-packages',
+        path: '/tenant-packages',
+        componentKey: 'tenant-packages',
+        title: '租户套餐',
+        caption: '租户套餐',
+        icon: 'building',
+        order: 25,
+        requiredPermission: 'tenancy.tenants.read',
+        children: []
+      }
+    ];
+    const tree = buildShellNavigationTree({
+      navigation: groupedNavigation,
+      translate: key => {
+        if (key === 'shell.navGroup.tenancy') {
+          return '租户';
+        }
+
+        return key;
+      }
+    });
+
+    expect(resolveNavigationBreadcrumb(tree, '/tenants', '控制台')).toEqual([
+      '控制台',
+      '租户',
+      'navigation.tenants.title'
+    ]);
+  });
+
+  it('会按右键菜单语义批量关闭标签页', () => {
+    const tabs = [
+      { path: '/', title: '工作台' },
+      { path: '/tenants', title: '租户' },
+      { path: '/users', title: '用户' }
+    ];
+
+    expect(closeShellTabs(tabs, 'left', '/users', '/users')).toEqual({
+      tabs: [{ path: '/users', title: '用户' }],
+      nextPath: '/users'
+    });
+
+    expect(closeShellTabs(tabs, 'right', '/', '/users')).toEqual({
+      tabs: [{ path: '/', title: '工作台' }],
+      nextPath: '/'
+    });
+
+    expect(closeShellTabs(tabs, 'other', '/tenants', '/users')).toEqual({
+      tabs: [{ path: '/tenants', title: '租户' }],
+      nextPath: '/tenants'
+    });
+
+    expect(closeShellTabs(tabs, 'all', '/tenants', '/users')).toEqual({
+      tabs: [{ path: '/tenants', title: '租户' }],
+      nextPath: '/tenants'
+    });
   });
 });

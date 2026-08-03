@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
-import type { ShellNavigationItem } from '../adapters/fullNetShellAdapter';
+import { ElMenu } from 'element-plus';
+import type { ShellNavigationTreeItem } from '../adapters/fullNetShellAdapter';
+import ArtSidebarSubmenu from './ArtSidebarSubmenu.vue';
 
 defineOptions({ name: 'ArtSidebar' });
 
 const props = withDefaults(defineProps<{
-  navigation: ShellNavigationItem[];
+  navigation: ShellNavigationTreeItem[];
   brandTitle: string;
   systemName: string;
   menuCollapsed: boolean;
   menuStyle: 'design' | 'light' | 'dark';
   mainNavigationLabel: string;
+  uniqueOpened: boolean;
+  defaultOpeneds: string[];
   showBrand?: boolean;
 }>(), {
   showBrand: true
@@ -28,8 +32,11 @@ const sidebarClass = computed(() => {
     return 'art-sidebar--dark';
   }
 
-  return '';
+  return 'art-sidebar--light';
 });
+const menuPopperClass = computed(() =>
+  `art-sidebar-menu-popper art-sidebar-menu-popper--${props.menuStyle}`
+);
 </script>
 
 <template>
@@ -50,21 +57,18 @@ const sidebarClass = computed(() => {
     </router-link>
 
     <div class="art-sidebar__menu-scroll" tabindex="0">
-      <nav :aria-label="mainNavigationLabel">
-        <ul class="art-sidebar__menu">
-          <li v-for="item in navigation" :key="item.path">
-            <router-link
-              :to="item.path"
-              class="art-sidebar__link"
-              :class="{ 'is-active': activePath === item.path }"
-              :title="menuCollapsed ? item.title : undefined"
-            >
-              <component :is="item.icon" class="art-sidebar__icon" aria-hidden="true" />
-              <span v-show="!menuCollapsed" class="art-sidebar__text">{{ item.title }}</span>
-            </router-link>
-          </li>
-        </ul>
-      </nav>
+      <ElMenu
+        class="art-sidebar__menu"
+        :class="`art-sidebar__menu--${menuStyle}`"
+        :collapse="menuCollapsed"
+        :default-active="activePath"
+        :unique-opened="uniqueOpened"
+        :default-openeds="defaultOpeneds"
+        :popper-class="menuPopperClass"
+        :aria-label="mainNavigationLabel"
+      >
+        <ArtSidebarSubmenu :items="navigation" />
+      </ElMenu>
     </div>
   </aside>
 </template>
@@ -130,53 +134,80 @@ const sidebarClass = computed(() => {
 }
 
 .art-sidebar__menu {
-  margin: 8px 0 16px;
-  padding: 0 8px;
-  list-style: none;
+  border-right: 0;
+  background: transparent;
 }
 
-.art-sidebar__link {
-  display: flex;
-  align-items: center;
-  width: calc(100% - 16px);
-  min-height: 42px;
-  margin: 4px 8px;
-  padding: 0 12px;
-  border-radius: 6px;
-  color: var(--art-gray-700);
-  text-decoration: none;
-  transition: background 0.2s ease, color 0.2s ease;
+.art-sidebar__menu:not(.el-menu--collapse) {
+  width: 100%;
 }
 
-.art-sidebar.is-collapsed .art-sidebar__link {
-  justify-content: center;
-  width: 42px;
-  margin-inline: auto;
-  padding: 0;
+.art-sidebar.art-sidebar--design {
+  border-right-color: rgb(255 255 255 / 8%);
+  background: linear-gradient(180deg, #1d2b45 0%, #243552 100%);
 }
 
-.art-sidebar__link:hover {
-  background: var(--art-hover-color);
-  color: var(--art-gray-800);
+.art-sidebar.art-sidebar--design .art-sidebar__brand {
+  color: rgb(255 255 255 / 88%);
 }
 
-.art-sidebar__link.is-active {
-  color: var(--art-theme-text);
-  background: var(--art-active-color);
-  font-weight: 600;
+.art-sidebar.art-sidebar--dark {
+  border-right-color: rgb(255 255 255 / 8%);
+  background: #141414;
 }
 
-.art-sidebar__icon {
+.art-sidebar.art-sidebar--dark .art-sidebar__brand {
+  color: rgb(255 255 255 / 78%);
+}
+
+:deep(.art-sidebar__icon) {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  margin-right: 10px;
 }
 
-.art-sidebar__text {
-  margin-left: 10px;
+:deep(.art-sidebar__text) {
   overflow: hidden;
   font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+:deep(.el-menu-item),
+:deep(.el-sub-menu__title) {
+  height: 42px;
+  line-height: 42px;
+  margin: 4px 8px;
+  border-radius: 6px;
+}
+
+:deep(.el-menu-item.is-active) {
+  font-weight: 600;
+}
+
+.art-sidebar--design :deep(.el-menu),
+.art-sidebar--design :deep(.el-menu-item),
+.art-sidebar--design :deep(.el-sub-menu__title) {
+  --el-menu-text-color: rgb(255 255 255 / 88%);
+  --el-menu-hover-text-color: #ffffff;
+  --el-menu-active-color: #ffffff;
+  --el-menu-bg-color: transparent;
+  --el-menu-hover-bg-color: rgb(255 255 255 / 12%);
+}
+
+.art-sidebar--dark :deep(.el-menu),
+.art-sidebar--dark :deep(.el-menu-item),
+.art-sidebar--dark :deep(.el-sub-menu__title) {
+  --el-menu-text-color: rgb(255 255 255 / 78%);
+  --el-menu-hover-text-color: #ffffff;
+  --el-menu-active-color: #ffffff;
+  --el-menu-bg-color: transparent;
+  --el-menu-hover-bg-color: rgb(255 255 255 / 8%);
+}
+
+.art-sidebar--light :deep(.el-menu-item.is-active) {
+  color: var(--art-theme-text);
+  background: var(--art-active-color);
 }
 </style>

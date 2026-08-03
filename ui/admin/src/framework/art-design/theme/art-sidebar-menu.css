@@ -1,0 +1,29 @@
+﻿/* Art Design Pro sidebar ElMenu popper styles */
+
+.art-sidebar-menu-popper.el-popper {
+  border: 1px solid var(--art-card-border);
+  border-radius: 8px;
+  box-shadow: var(--art-shadow-soft);
+}
+
+.art-sidebar-menu-popper--design {
+  --el-menu-bg-color: #243552;
+  --el-menu-text-color: rgb(255 255 255 / 88%);
+  --el-menu-hover-text-color: #ffffff;
+  --el-menu-active-color: #ffffff;
+  --el-menu-hover-bg-color: rgb(255 255 255 / 12%);
+}
+
+.art-sidebar-menu-popper--dark {
+  --el-menu-bg-color: #141414;
+  --el-menu-text-color: rgb(255 255 255 / 78%);
+  --el-menu-hover-text-color: #ffffff;
+  --el-menu-active-color: #ffffff;
+  --el-menu-hover-bg-color: rgb(255 255 255 / 8%);
+}
+
+.art-sidebar-menu-popper .el-menu-item,
+.art-sidebar-menu-popper .el-sub-menu__title {
+  height: 42px;
+  line-height: 42px;
+}

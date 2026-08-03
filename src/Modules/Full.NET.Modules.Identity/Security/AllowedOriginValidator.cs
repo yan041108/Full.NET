@@ -15,20 +15,31 @@ internal sealed class AllowedOriginValidator
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
-    public bool IsAllowed(string? origin, string requestOrigin)
+    public bool IsAllowed(
+        string? origin,
+        string requestOrigin,
+        string? referer = null)
     {
         var normalizedOrigin = TryNormalize(origin);
-        var normalizedRequestOrigin = TryNormalize(requestOrigin);
-        if (normalizedOrigin is null || normalizedRequestOrigin is null)
+        if (normalizedOrigin is not null)
         {
-            return false;
+            var normalizedRequestOrigin = TryNormalize(requestOrigin);
+            if (normalizedRequestOrigin is null)
+            {
+                return false;
+            }
+
+            return string.Equals(
+                    normalizedOrigin,
+                    normalizedRequestOrigin,
+                    StringComparison.OrdinalIgnoreCase)
+                || _allowedOrigins.Contains(normalizedOrigin);
         }
 
-        return string.Equals(
-                normalizedOrigin,
-                normalizedRequestOrigin,
-                StringComparison.OrdinalIgnoreCase)
-            || _allowedOrigins.Contains(normalizedOrigin);
+        // Vite 同源代理等场景下浏览器可能省略 Origin，回退 Referer 白名单校验。
+        var normalizedReferer = TryNormalizeReferer(referer);
+        return normalizedReferer is not null
+            && _allowedOrigins.Contains(normalizedReferer);
     }
 
     private static string? TryNormalize(string? value)
@@ -40,6 +51,19 @@ internal sealed class AllowedOriginValidator
             || !string.IsNullOrEmpty(uri.Query)
             || !string.IsNullOrEmpty(uri.Fragment)
             || uri.AbsolutePath != "/")
+        {
+            return null;
+        }
+
+        return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+    }
+
+    private static string? TryNormalizeReferer(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || !Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            || !string.IsNullOrEmpty(uri.UserInfo))
         {
             return null;
         }

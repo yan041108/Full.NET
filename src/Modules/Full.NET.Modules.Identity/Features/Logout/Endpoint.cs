@@ -24,7 +24,8 @@ internal static class Endpoint
         {
             var origin = httpContext.Request.Headers.Origin.ToString();
             var requestOrigin = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
-            if (!originValidator.IsAllowed(origin, requestOrigin))
+            var referer = httpContext.Request.Headers.Referer.ToString();
+            if (!originValidator.IsAllowed(origin, requestOrigin, referer))
             {
                 return mapper.Map(
                     Result<LogoutResult>.Failure(new Error(
@@ -46,7 +47,7 @@ internal static class Endpoint
                     httpContext);
             }
 
-            var refreshToken = httpContext.Request.Cookies[IdentityCookieWriter.RefreshCookieName]
+            var refreshToken = httpContext.Request.Cookies[cookieWriter.RefreshCookieName]
                 ?? string.Empty;
             if (string.IsNullOrWhiteSpace(refreshToken))
             {

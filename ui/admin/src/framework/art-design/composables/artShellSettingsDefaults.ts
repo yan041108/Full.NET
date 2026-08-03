@@ -80,6 +80,7 @@ export function applyArtShellSettingsToDocument(settings: ArtShellSettings): voi
 
   const root = document.documentElement;
   root.dataset.artTheme = settings.themeMode;
+  root.classList.toggle('dark', settings.themeMode === 'dark');
   root.dataset.artMenuStyle = settings.menuStyle;
   root.dataset.artBoxStyle = settings.boxStyle;
   root.dataset.artContainerWidth = settings.containerWidth;

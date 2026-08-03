@@ -136,6 +136,22 @@ internal sealed class HostUserManagementService(
                 $"Host user insert affected {affectedRows} rows instead of one.");
         }
 
+        HostUserProfileResponse? profileResponse = null;
+        if (request.Profile is not null)
+        {
+            var profileResult = await UpsertProfileAsync(
+                    user.Id,
+                    request.Profile,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!profileResult.IsSuccess)
+            {
+                return Result<HostUserResponse>.Failure(profileResult.Error!);
+            }
+
+            profileResponse = profileResult.Value;
+        }
+
         return Result<HostUserResponse>.Success(
             new HostUserResponse(
                 user.Id,
@@ -144,7 +160,8 @@ internal sealed class HostUserManagementService(
                 user.IsActive,
                 user.CreatedAtUtc,
                 user.UpdatedAtUtc,
-                user.Version));
+                user.Version,
+                Profile: profileResponse));
     }
 
     private async Task<Result<HostUserResponse>> DisableCoreAsync(
@@ -321,6 +338,27 @@ internal sealed class HostUserManagementService(
             return NotFound();
         }
 
+        HostUserProfileResponse? profileResponse = null;
+        if (request.Profile is not null)
+        {
+            var profileResult = await UpsertProfileAsync(
+                    userId,
+                    request.Profile,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!profileResult.IsSuccess)
+            {
+                return Result<HostUserResponse>.Failure(profileResult.Error!);
+            }
+
+            profileResponse = profileResult.Value;
+        }
+        else
+        {
+            profileResponse = await LoadProfileResponseAsync(userId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         return Result<HostUserResponse>.Success(
             new HostUserResponse(
                 updated.Id,
@@ -329,7 +367,8 @@ internal sealed class HostUserManagementService(
                 updated.IsActive,
                 updated.CreatedAtUtc,
                 updated.UpdatedAtUtc,
-                updated.Version));
+                updated.Version,
+                Profile: profileResponse));
     }
 
     private async Task<Result<HostUserResponse>> ResetPasswordCoreAsync(
@@ -413,6 +452,66 @@ internal sealed class HostUserManagementService(
                 updated.CreatedAtUtc,
                 updated.UpdatedAtUtc,
                 updated.Version));
+    }
+
+    private async Task<Result<HostUserProfileResponse?>> UpsertProfileAsync(
+        Guid userId,
+        HostUserProfileWriteRequest profile,
+        CancellationToken cancellationToken)
+    {
+        var existing = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
+                IdentitySql.ListHostUserProfilesByIds,
+                new { UserIds = new[] { userId } },
+                cancellationToken)
+            .ConfigureAwait(false)).FirstOrDefault();
+
+        if (existing is null)
+        {
+            var inserted = await commandExecutor.ExecuteAsync(
+                    IdentitySql.InsertHostUserProfile,
+                    HostUserProfileMapper.ToParameters(userId, profile),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (inserted != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Host user profile insert affected {inserted} rows instead of one.");
+            }
+        }
+        else
+        {
+            var writeRequest = profile with
+            {
+                Version = profile.Version ?? existing.Version
+            };
+            var affected = await commandExecutor.ExecuteAsync(
+                    IdentitySql.UpdateHostUserProfile,
+                    HostUserProfileMapper.ToParameters(userId, writeRequest),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (affected != 1)
+            {
+                return Result<HostUserProfileResponse?>.Failure(new Error(
+                    IdentityErrorCodes.ProfileVersionConflict,
+                    "The host user profile was updated concurrently.",
+                    ErrorType.Conflict));
+            }
+        }
+
+        return Result<HostUserProfileResponse?>.Success(
+            await LoadProfileResponseAsync(userId, cancellationToken).ConfigureAwait(false));
+    }
+
+    private async Task<HostUserProfileResponse?> LoadProfileResponseAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var record = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
+                IdentitySql.ListHostUserProfilesByIds,
+                new { UserIds = new[] { userId } },
+                cancellationToken)
+            .ConfigureAwait(false)).FirstOrDefault();
+        return HostUserProfileMapper.ToResponse(record);
     }
 
     private async Task<bool> IsActiveSuperAdministratorAsync(

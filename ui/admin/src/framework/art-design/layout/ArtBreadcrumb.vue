@@ -2,20 +2,24 @@
 defineOptions({ name: 'ArtBreadcrumb' });
 
 defineProps<{
-  rootLabel: string;
-  currentLabel: string;
+  segments: string[];
 }>();
 </script>
 
 <template>
   <nav class="art-breadcrumb" aria-label="breadcrumb">
     <ul>
-      <li>
-        <span>{{ rootLabel }}</span>
-        <span class="art-breadcrumb__sep" aria-hidden="true">/</span>
-      </li>
-      <li>
-        <strong>{{ currentLabel }}</strong>
+      <li
+        v-for="(segment, index) in segments"
+        :key="`${segment}-${index}`"
+      >
+        <strong v-if="index === segments.length - 1">{{ segment }}</strong>
+        <span v-else>{{ segment }}</span>
+        <span
+          v-if="index < segments.length - 1"
+          class="art-breadcrumb__sep"
+          aria-hidden="true"
+        >/</span>
       </li>
     </ul>
   </nav>

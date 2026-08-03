@@ -67,6 +67,10 @@ export const useSessionStore = defineStore('identity-session', () => {
     await getController().restore();
   }
 
+  async function reloadContext(): Promise<void> {
+    await getController().reloadAuthenticatedContext();
+  }
+
   async function switchTenant(tenantId: string | null): Promise<void> {
     await getController().switchTenant(tenantId);
   }
@@ -126,6 +130,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     can,
     login,
     restore,
+    reloadContext,
     switchTenant,
     changeLocale,
     logout,

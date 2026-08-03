@@ -31,6 +31,7 @@ import {
 } from './notifications/realtime';
 import './framework/art-design/theme/art-theme.css';
 import './framework/art-design/theme/art-layout.css';
+import './framework/art-design/theme/art-sidebar-menu.css';
 import './framework/art-design/theme/art-menu-layouts.css';
 import './framework/art-design/theme/art-settings-panel.css';
 import './framework/art-design/auth/art-login.css';
@@ -44,7 +45,12 @@ const notificationsRealtime = createVueNotificationsRealtime({
   hubPath: resolveFullNetApiUrl(apiBaseUrl, '/hubs/notifications')
 });
 provide(notificationsRealtimeKey, notificationsRealtime);
-const pageRefreshKey = ref(0);
+const pageCacheVersions = ref<Record<string, number>>({});
+
+const pageComponentKey = computed(() => {
+  const version = pageCacheVersions.value[route.path] ?? 0;
+  return `${route.path}#${version}`;
+});
 const { locale, setLocale, setPageTitle, t } = useAdminI18n();
 const elementLocaleController = createElementLocaleController({
   onFallback: setLocale
@@ -68,8 +74,22 @@ const statusTitleKeys = new Map<string, MessageKey>([
 onMounted(() => {
   if (session.state === 'initializing') {
     void session.restore();
+    return;
+  }
+
+  if (session.isAuthenticated && session.navigation.length === 0) {
+    void session.restore();
   }
 });
+
+watch(
+  () => [session.isAuthenticated, session.navigation.length] as const,
+  ([authenticated, navigationCount]) => {
+    if (authenticated && navigationCount === 0) {
+      void session.restore();
+    }
+  }
+);
 
 onUnmounted(() => {
   void notificationsRealtime.dispose();
@@ -129,7 +149,10 @@ const shellLabels = computed(() => ({
 }));
 
 function refreshShellPage(): void {
-  pageRefreshKey.value += 1;
+  pageCacheVersions.value = {
+    ...pageCacheVersions.value,
+    [route.path]: (pageCacheVersions.value[route.path] ?? 0) + 1
+  };
 }
 const activePageTitleKey = computed<MessageKey>(() => {
   const statusKey = statusTitleKeys.get(route.path);
@@ -205,7 +228,10 @@ watch(
 </script>
 
 <template>
-  <el-config-provider :locale="elementLocale">
+  <el-config-provider
+    :locale="elementLocale"
+    :dialog="{ draggable: true }"
+  >
     <div
       v-if="session.state === 'initializing'"
       class="session-boot"
@@ -236,7 +262,11 @@ watch(
       @logout="session.logout"
       @refresh="refreshShellPage"
     >
-      <router-view :key="pageRefreshKey" />
+      <router-view v-slot="{ Component }">
+        <keep-alive :max="20">
+          <component :is="Component" v-if="Component" :key="pageComponentKey" />
+        </keep-alive>
+      </router-view>
     </ArtAdminShell>
     <component
       v-if="showComponentLocaleFixture && session.state === 'authenticated'"

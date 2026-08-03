@@ -36,6 +36,21 @@ describe('headless 管理端导航目录', () => {
       routeName: 'code-generation-previews',
       path: '/code-generation/previews'
     });
+    expect(catalog.localNavigationFor('host-job-schedules')).toEqual({
+      componentKey: 'host-job-schedules',
+      routeName: 'host-job-schedules',
+      path: '/jobs/host-schedules'
+    });
+    expect(catalog.localNavigationFor('code-generation-templates')).toEqual({
+      componentKey: 'code-generation-templates',
+      routeName: 'code-generation-templates',
+      path: '/code-generation/templates'
+    });
+    expect(catalog.localNavigationFor('serial-number-rules')).toEqual({
+      componentKey: 'serial-number-rules',
+      routeName: 'serial-number-rules',
+      path: '/serial-numbers/rules'
+    });
     expect(catalog.localNavigationFor('host-document-items')).toEqual({
       componentKey: 'host-document-items',
       routeName: 'host-document-items',

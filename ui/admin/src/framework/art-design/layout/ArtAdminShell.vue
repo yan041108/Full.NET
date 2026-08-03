@@ -18,10 +18,16 @@ import ArtHorizontalMenu from './ArtHorizontalMenu.vue';
 import ArtMixedMenu from './ArtMixedMenu.vue';
 import ArtDualMenuRail from './ArtDualMenuRail.vue';
 import {
+  buildFlatShellNavigationTree,
   buildShellNavigation,
   buildShellNavigationGroups,
+  buildShellNavigationTree,
   closeShellTab,
+  closeShellTabs,
   resolveActiveGroupId,
+  resolveDefaultOpenedMenuPaths,
+  resolveNavigationBreadcrumb,
+  type ShellTabCloseScope,
   type ShellTabItem,
   upsertShellTab
 } from '../adapters/fullNetShellAdapter';
@@ -116,6 +122,10 @@ const navigationGroups = computed(() => buildShellNavigationGroups({
   navigation: props.navigationTree,
   translate: props.translate
 }));
+const navigationTree = computed(() => buildShellNavigationTree({
+  navigation: props.navigationTree,
+  translate: props.translate
+}));
 const effectiveMenuLayout = computed(() =>
   isMobileViewport.value ? 'left' : settings.value.menuLayout
 );
@@ -127,16 +137,30 @@ const showPrimarySidebar = computed(() =>
 const showDualRail = computed(() => effectiveMenuLayout.value === 'dual-menu');
 const showHorizontalMenu = computed(() => effectiveMenuLayout.value === 'top');
 const showMixedMenu = computed(() => effectiveMenuLayout.value === 'top-left');
-const sidebarNavigation = computed(() => {
+const sidebarNavigationTree = computed(() => {
   if (effectiveMenuLayout.value === 'left') {
-    return navigation.value;
+    return navigationTree.value;
   }
 
   const group = navigationGroups.value.find(
     item => item.id === activeMenuGroupId.value
   );
-  return group?.items ?? navigation.value;
+  if (group?.items.length) {
+    return buildFlatShellNavigationTree(group.items);
+  }
+
+  return buildFlatShellNavigationTree(navigation.value);
 });
+const sidebarDefaultOpeneds = computed(() =>
+  resolveDefaultOpenedMenuPaths(navigationTree.value, route.path)
+);
+const breadcrumbSegments = computed(() =>
+  resolveNavigationBreadcrumb(
+    navigationTree.value,
+    route.path,
+    props.labels.controlPlaneLabel
+  )
+);
 const sidebarShowBrand = computed(() =>
   effectiveMenuLayout.value !== 'dual-menu'
 );
@@ -165,6 +189,14 @@ function activateTab(path: string): void {
 
 function closeTab(path: string): void {
   const result = closeShellTab(tabs.value, path, route.path);
+  tabs.value = result.tabs;
+  if (result.nextPath !== route.path) {
+    void router.push(result.nextPath);
+  }
+}
+
+function closeTabs(scope: ShellTabCloseScope, path: string): void {
+  const result = closeShellTabs(tabs.value, scope, path, route.path);
   tabs.value = result.tabs;
   if (result.nextPath !== route.path) {
     void router.push(result.nextPath);
@@ -309,13 +341,15 @@ watch(navigationGroups, () => {
       :class="{ 'is-open': mobileNavOpen }"
     >
       <ArtSidebar
-        :navigation="sidebarNavigation"
+        :navigation="sidebarNavigationTree"
         :brand-title="labels.brandAria"
         :system-name="labels.systemName"
         :menu-collapsed="sidebarCollapsed"
         :menu-style="settings.menuStyle"
         :main-navigation-label="labels.mainNavigationLabel"
         :show-brand="sidebarShowBrand"
+        :unique-opened="settings.uniqueOpened"
+        :default-openeds="sidebarDefaultOpeneds"
       />
     </div>
 
@@ -374,8 +408,7 @@ watch(navigationGroups, () => {
           <template #breadcrumb>
             <ArtBreadcrumb
               v-if="settings.showBreadcrumb"
-              :root-label="labels.controlPlaneLabel"
-              :current-label="activeTitle"
+              :segments="breadcrumbSegments"
             />
           </template>
           <template #menu>
@@ -400,8 +433,11 @@ watch(navigationGroups, () => {
               :tab-style="settings.tabStyle"
               :tablist-label="labels.pageTabsLabel"
               :format-close-tab-label="title => props.translate('shell.closeTab', { title })"
+              :translate="props.translate"
               @activate="activateTab"
               @close="closeTab"
+              @close-scope="closeTabs"
+              @refresh="emit('refresh')"
             />
           </template>
         </ArtTopBar>

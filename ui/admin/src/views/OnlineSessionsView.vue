@@ -83,7 +83,8 @@ function toProblem(
       </template>
 
       <p v-if="items.length === 0" class="art-empty-state">{{ t('onlineSessions.emptyDirectory') }}</p>
-      <article v-for="item in items" :key="item.id" class="art-data-row">
+      <article v-for="item in items" :key="item.id" class="art-data-row art-data-row--compact">
+        <span class="art-data-row__avatar">{{ item.username.slice(0, 2).toUpperCase() }}</span>
         <div class="art-data-row__main">
           <strong translate="no">{{ item.displayName }}</strong>
           <code translate="no">{{ item.username }}</code>
