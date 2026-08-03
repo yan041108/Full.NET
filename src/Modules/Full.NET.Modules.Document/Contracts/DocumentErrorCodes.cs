@@ -7,6 +7,7 @@ public static class DocumentErrorCodes
     public const string NotFound = "document.host_document.not_found";
     public const string VersionConflict = "document.host_document.version_conflict";
     public const string InvalidFileReference = "document.host_document.invalid_file_reference";
+    public const string NoCurrentVersion = "document.host_document.no_current_version";
     public const string CategoryInvalid = "document.host_category.invalid";
     public const string CategoryNotFound = "document.host_category.not_found";
     public const string CategoryNameExists = "document.host_category.name_exists";
@@ -26,6 +27,7 @@ public static class DocumentErrorCodes
         NotFound,
         VersionConflict,
         InvalidFileReference,
+        NoCurrentVersion,
         CategoryInvalid,
         CategoryNotFound,
         CategoryNameExists,

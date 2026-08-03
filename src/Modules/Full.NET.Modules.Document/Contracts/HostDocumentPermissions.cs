@@ -10,6 +10,8 @@ public static class HostDocumentPermissions
 
     public const string AddVersion = "document.host_documents.add_version";
 
+    public const string Download = "document.host_documents.download";
+
     public const string Delete = "document.host_documents.delete";
 
     public const string Restore = "document.host_documents.restore";

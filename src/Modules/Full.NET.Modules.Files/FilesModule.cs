@@ -41,6 +41,8 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostFiles.HostFileQueryService>();
         services.TryAddScoped<Features.ManageHostFiles.HostFileManagementService>();
         services.TryAddScoped<IHostFileReferenceReader, Features.HostFileReferences.HostFileReferenceReader>();
+        services.TryAddScoped<IHostFileContentReader, Features.HostFileReferences.HostFileContentReader>();
+        services.TryAddScoped<IHostFileUploadWriter, Features.HostFileReferences.HostFileUploadWriter>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

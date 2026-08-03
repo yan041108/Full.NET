@@ -14,6 +14,7 @@ internal sealed class HostDocumentItemManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IHostFileReferenceReader hostFileReferenceReader,
+    IHostFileUploadWriter hostFileUploadWriter,
     IClock clock,
     IIdGenerator idGenerator)
 {
@@ -62,6 +63,44 @@ internal sealed class HostDocumentItemManagementService(
         return transaction.ExecuteAsync(
             token => AddVersionCoreAsync(itemId, actorUserId, request.FileId, token),
             cancellationToken);
+    }
+
+    public async Task<Result<HostDocumentItemResponse>> AddVersionFromUploadAsync(
+        Guid itemId,
+        Guid actorUserId,
+        string originalFileName,
+        string contentType,
+        Stream content,
+        long contentLength,
+        CancellationToken cancellationToken = default)
+    {
+        if (contentLength <= 0)
+        {
+            return Invalid();
+        }
+
+        var uploadResult = await hostFileUploadWriter
+            .UploadAsync(
+                actorUserId,
+                originalFileName,
+                contentType,
+                content,
+                contentLength,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!uploadResult.IsSuccess)
+        {
+            return Result<HostDocumentItemResponse>.Failure(uploadResult.Error!);
+        }
+
+        return await transaction.ExecuteAsync(
+                token => AddVersionCoreAsync(
+                    itemId,
+                    actorUserId,
+                    uploadResult.Value!.FileId,
+                    token),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public Task<Result<bool>> DeleteAsync(

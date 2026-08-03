@@ -165,4 +165,15 @@ internal static class DocumentItemSql
              @UploadedByUserId, @CreatedAtUtc)
         """,
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement IsFileReferenced = new(
+        "document.host_version.is_file_referenced",
+        """
+        SELECT CASE WHEN EXISTS (
+            SELECT 1
+            FROM fn_document_version
+            WHERE FileId = @FileId
+        ) THEN 1 ELSE 0 END
+        """,
+        SqlDataScope.HostOnly);
 }

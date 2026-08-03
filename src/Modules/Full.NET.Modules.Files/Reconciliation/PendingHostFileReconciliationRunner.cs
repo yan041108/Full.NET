@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,7 @@ internal sealed class PendingHostFileReconciliationRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     FileStorageProviderRegistry storageProviders,
+    IEnumerable<IHostFileRetentionContributor> retentionContributors,
     IOptions<DatabaseOptions> databaseOptions,
     IClock clock)
 {
@@ -106,6 +108,13 @@ internal sealed class PendingHostFileReconciliationRunner(
                     continue;
                 }
 
+                if (!exists && await IsFileRetainedByContributorAsync(record.Id, cancellationToken)
+                        .ConfigureAwait(false))
+                {
+                    retainedPublishing++;
+                    continue;
+                }
+
                 var affectedRows = await commandExecutor.ExecuteAsync(
                         exists ? HostFileSql.ReconcileReady : HostFileSql.PurgePending,
                         new
@@ -154,6 +163,21 @@ internal sealed class PendingHostFileReconciliationRunner(
             retainedPublishing,
             concurrentlyCompleted,
             batches);
+    }
+
+    private async Task<bool> IsFileRetainedByContributorAsync(
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        foreach (var contributor in retentionContributors)
+        {
+            if (await contributor.IsFileReferencedAsync(fileId, cancellationToken).ConfigureAwait(false))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private SqlStatement SelectStatement() =>

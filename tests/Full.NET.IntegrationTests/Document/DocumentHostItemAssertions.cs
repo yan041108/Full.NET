@@ -7,7 +7,6 @@ using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Document.Contracts;
-using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Document;
@@ -45,22 +44,20 @@ internal static class DocumentHostItemAssertions
                 HostDocumentPermissions.Create,
                 HostDocumentPermissions.Update,
                 HostDocumentPermissions.AddVersion,
+                HostDocumentPermissions.Download,
                 HostDocumentPermissions.Delete,
                 HostDocumentPermissions.Restore,
-                HostFilePermissions.Read,
-                HostFilePermissions.Upload,
             ],
             cancellationToken);
 
         var created = await CreateItemAsync(client, writer.AccessToken, cancellationToken);
-        var fileId = await UploadHostFileAsync(client, writer.AccessToken, cancellationToken);
-        var withVersion = await AddVersionAsync(
+        var withVersion = await UploadVersionAsync(
             client,
             writer.AccessToken,
             created.Id,
-            fileId,
             cancellationToken);
 
+        await VerifyDownloadUploadBoundaryAsync(factory, client, cancellationToken);
         await VerifyListAndGetAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await VerifyInvalidFileReferenceAsync(client, writer.AccessToken, created.Id, cancellationToken);
         await VerifyDeleteAndRestoreAsync(client, writer.AccessToken, withVersion, cancellationToken);
@@ -88,9 +85,10 @@ internal static class DocumentHostItemAssertions
         return created;
     }
 
-    private static async Task<Guid> UploadHostFileAsync(
+    private static async Task<HostDocumentItemResponse> UploadVersionAsync(
         HttpClient client,
         string token,
+        Guid itemId,
         CancellationToken cancellationToken)
     {
         var payload = Encoding.UTF8.GetBytes($"document-{Guid.NewGuid():N}");
@@ -98,19 +96,82 @@ internal static class DocumentHostItemAssertions
         var fileContent = new ByteArrayContent(payload);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
         uploadContent.Add(fileContent, "file", "document.txt");
-        using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/files/host-files")
+        using var uploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{ItemsPath}/{itemId:D}/versions/upload")
         {
             Content = uploadContent,
         };
         uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var uploadResponse = await client.SendAsync(uploadRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.Created, uploadResponse.StatusCode);
-        var created = await uploadResponse.Content.ReadFromJsonAsync<HostFileResponse>(cancellationToken);
-        Assert.IsNotNull(created);
+        Assert.AreEqual(HttpStatusCode.OK, uploadResponse.StatusCode);
+        var updated = await uploadResponse.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
+        Assert.IsNotNull(updated);
+        Assert.IsNotNull(updated.CurrentVersion);
+        Assert.AreEqual(1, updated.CurrentVersion.VersionNumber);
         Assert.AreEqual(
             Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant(),
-            created.ContentHash);
-        return created.Id;
+            updated.CurrentVersion.ContentHash);
+        Assert.AreEqual(2, updated.Version);
+        return updated;
+    }
+
+    private static async Task VerifyDownloadUploadBoundaryAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var documentOnly = await factory.CreateHostIdentityAsync(
+            $"document-only-{Guid.NewGuid():N}",
+            [
+                HostDocumentPermissions.Read,
+                HostDocumentPermissions.AddVersion,
+                HostDocumentPermissions.Download,
+            ],
+            cancellationToken);
+        var created = await CreateItemAsync(client, documentOnly.AccessToken, cancellationToken);
+        var withVersion = await UploadVersionAsync(
+            client,
+            documentOnly.AccessToken,
+            created.Id,
+            cancellationToken);
+
+        using (var downloadResponse = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       $"{ItemsPath}/{withVersion.Id:D}/content",
+                       documentOnly.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, downloadResponse.StatusCode);
+            var bytes = await downloadResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+            Assert.IsTrue(bytes.Length > 0);
+        }
+
+        var readOnly = await factory.CreateHostIdentityAsync(
+            $"document-read-only-{Guid.NewGuid():N}",
+            [HostDocumentPermissions.Read],
+            cancellationToken);
+        using (var forbiddenDownload = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       $"{ItemsPath}/{withVersion.Id:D}/content",
+                       readOnly.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenDownload.StatusCode);
+        }
+
+        using (var forbiddenUpload = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       $"{ItemsPath}/{created.Id:D}/versions",
+                       readOnly.AccessToken,
+                       new AddHostDocumentVersionRequest(Guid.CreateVersion7())),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenUpload.StatusCode);
+        }
     }
 
     private static async Task<HostDocumentItemResponse> AddVersionAsync(

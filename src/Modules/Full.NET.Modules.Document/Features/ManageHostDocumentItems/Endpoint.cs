@@ -106,6 +106,71 @@ internal static class Endpoint
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.AddVersion));
 
+        group.MapPost("/{itemId:guid}/versions/upload", async (
+            Guid itemId,
+            IFormFile? file,
+            HostDocumentItemManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            if (file is null)
+            {
+                return mapper.Map(
+                    Result<HostDocumentItemResponse>.Failure(new Error(
+                        DocumentErrorCodes.Invalid,
+                        "Multipart file field is required.",
+                        ErrorType.Validation)),
+                    httpContext);
+            }
+
+            await using var stream = file.OpenReadStream();
+            var result = await service.AddVersionFromUploadAsync(
+                    itemId,
+                    userId,
+                    file.FileName,
+                    file.ContentType,
+                    stream,
+                    file.Length,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .DisableAntiforgery()
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.AddVersion));
+
+        group.MapGet("/{itemId:guid}/content", async (
+            Guid itemId,
+            HostDocumentItemQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.OpenCurrentVersionContentAsync(itemId, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(
+                    Result<HostDocumentItemResponse>.Failure(result.Error!),
+                    httpContext);
+            }
+
+            var content = result.Value!;
+            return Results.File(
+                content.Content,
+                content.ContentType,
+                content.OriginalFileName,
+                enableRangeProcessing: true);
+        })
+        .Produces(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Download));
+
         group.MapPost("/{itemId:guid}/delete", async (
             Guid itemId,
             DeleteHostDocumentItemRequest request,

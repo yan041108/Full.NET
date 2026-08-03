@@ -6,18 +6,15 @@ import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
-  addHostDocumentVersion,
   createHostDocumentItem,
   deleteHostDocumentItem,
+  downloadHostDocumentContent,
   listHostDocumentItems,
+  openHostDocumentBlob,
   restoreHostDocumentItem,
-  updateHostDocumentItem
+  updateHostDocumentItem,
+  uploadHostDocumentVersion
 } from '../api/host-document-items';
-import {
-  downloadHostFileContent,
-  openHostFileBlob,
-  uploadHostFile
-} from '../api/host-files';
 import PermissionGate from '../components/PermissionGate.vue';
 
 interface DeletedDocumentEntry {
@@ -40,10 +37,9 @@ const recentlyDeleted = ref<DeletedDocumentEntry[]>([]);
 const canCreate = computed(() => session.can('document.host_documents.create'));
 const canUpdate = computed(() => session.can('document.host_documents.update'));
 const canAddVersion = computed(() => session.can('document.host_documents.add_version'));
-const canUploadFile = computed(() => session.can('files.files.upload'));
 const canDelete = computed(() => session.can('document.host_documents.delete'));
 const canRestore = computed(() => session.can('document.host_documents.restore'));
-const canDownload = computed(() => session.can('files.files.download'));
+const canDownload = computed(() => session.can('document.host_documents.download'));
 const editingItem = computed(() =>
   items.value.find(entry => entry.id === editingId.value)
 );
@@ -90,15 +86,13 @@ async function uploadVersion(item: HostDocumentItem): Promise<void> {
   if (
     changing.value
     || !canAddVersion.value
-    || !canUploadFile.value
     || !versionFile.value
     || versionTargetId.value !== item.id
   ) return;
   changing.value = true;
   problem.value = undefined;
   try {
-    const file = await uploadHostFile(versionFile.value);
-    await addHostDocumentVersion(item.id, file.id);
+    await uploadHostDocumentVersion(item.id, versionFile.value);
     versionFile.value = null;
     versionTargetId.value = undefined;
     ElMessage.success(t('hostDocumentItems.versionSuccess'));
@@ -187,13 +181,13 @@ async function restoreDeleted(entry: DeletedDocumentEntry): Promise<void> {
   }
 }
 
-async function downloadFile(fileId: string): Promise<void> {
+async function downloadFile(itemId: string): Promise<void> {
   if (changing.value || !canDownload.value) return;
   changing.value = true;
   problem.value = undefined;
   try {
-    const blob = await downloadHostFileContent(fileId);
-    openHostFileBlob(blob);
+    const blob = await downloadHostDocumentContent(itemId);
+    openHostDocumentBlob(blob);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {
@@ -279,12 +273,12 @@ function toProblem(
           </small>
         </div>
         <div class="art-data-row__actions">
-          <PermissionGate v-if="item.currentVersion" code="files.files.download">
+          <PermissionGate v-if="item.currentVersion" code="document.host_documents.download">
             <el-button
               plain
               data-testid="host-document-item-download"
               :disabled="changing"
-              @click="downloadFile(item.currentVersion.fileId)"
+              @click="downloadFile(item.id)"
             >
               {{ t('hostDocumentItems.download') }}
             </el-button>
@@ -294,7 +288,7 @@ function toProblem(
               {{ t('hostDocumentItems.edit') }}
             </el-button>
           </PermissionGate>
-          <PermissionGate v-if="canUploadFile" code="document.host_documents.add_version">
+          <PermissionGate v-if="canAddVersion" code="document.host_documents.add_version">
             <label>
               <span class="art-sr-heading">{{ t('hostDocumentItems.chooseVersionFile') }}</span>
               <input type="file" data-testid="host-document-item-version-file" @change="onVersionFileSelected($event, item.id)" />

@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Reconciliation;
 using Full.NET.Modules.Files.Storage;
@@ -155,6 +156,31 @@ public sealed class PendingHostFileReconciliationTests
     }
 
     [TestMethod]
+    public async Task Referenced_file_is_retained_when_blob_is_missing()
+    {
+        var record = new PendingHostFileRecord(
+            Guid.CreateVersion7(), "archive", "host/referenced", DateTimeOffset.UtcNow.AddHours(-1));
+        var queryExecutor = new PendingQueryExecutor(new[] { record });
+        var commandExecutor = Substitute.For<ICommandExecutor>();
+        var retention = Substitute.For<IHostFileRetentionContributor>();
+        retention.IsFileReferencedAsync(record.Id, Arg.Any<CancellationToken>())
+            .Returns(true);
+        var runner = CreateRunner(
+            queryExecutor,
+            commandExecutor,
+            new ProbeStorage("archive", exists: false),
+            [retention]);
+
+        var result = await runner.RunOnceAsync(EnabledOptions(), CancellationToken.None);
+
+        Assert.AreEqual(1, result.Scanned);
+        Assert.AreEqual(1, result.RetainedPublishing);
+        Assert.AreEqual(0, result.Purged);
+        await commandExecutor.DidNotReceiveWithAnyArgs()
+            .ExecuteAsync(default!, default, default);
+    }
+
+    [TestMethod]
     public async Task Reconciliation_fails_closed_when_transition_affects_multiple_rows()
     {
         var record = new PendingHostFileRecord(
@@ -180,7 +206,7 @@ public sealed class PendingHostFileReconciliationTests
         ICommandExecutor commandExecutor,
         ProbeStorage provider,
         DateTimeOffset? now = null) =>
-        CreateRunner(queryExecutor, commandExecutor, [provider], now);
+        CreateRunner(queryExecutor, commandExecutor, [provider], [], now);
 
     private static PendingHostFileReconciliationRunner CreateRunner(
         IQueryExecutor queryExecutor,
@@ -188,12 +214,21 @@ public sealed class PendingHostFileReconciliationTests
         ProbeStorage first,
         ProbeStorage second,
         DateTimeOffset? now = null) =>
-        CreateRunner(queryExecutor, commandExecutor, [first, second], now);
+        CreateRunner(queryExecutor, commandExecutor, [first, second], [], now);
+
+    private static PendingHostFileReconciliationRunner CreateRunner(
+        IQueryExecutor queryExecutor,
+        ICommandExecutor commandExecutor,
+        ProbeStorage provider,
+        IReadOnlyList<IHostFileRetentionContributor> retentionContributors,
+        DateTimeOffset? now = null) =>
+        CreateRunner(queryExecutor, commandExecutor, [provider], retentionContributors, now);
 
     private static PendingHostFileReconciliationRunner CreateRunner(
         IQueryExecutor queryExecutor,
         ICommandExecutor commandExecutor,
         IReadOnlyList<ProbeStorage> providers,
+        IReadOnlyList<IHostFileRetentionContributor> retentionContributors,
         DateTimeOffset? now)
     {
         var clock = Substitute.For<IClock>();
@@ -207,6 +242,7 @@ public sealed class PendingHostFileReconciliationTests
                 {
                     DefaultProviderKey = providers[0].ProviderKey,
                 })),
+            retentionContributors,
             Options.Create(new DatabaseOptions
             {
                 Provider = DatabaseProvider.SqlServer,

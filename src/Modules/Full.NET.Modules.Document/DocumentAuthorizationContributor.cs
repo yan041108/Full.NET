@@ -14,6 +14,7 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentPermissions.Create, "创建 Host 文档", AuthorizationScope.Host),
         new(HostDocumentPermissions.Update, "更新 Host 文档元数据", AuthorizationScope.Host),
         new(HostDocumentPermissions.AddVersion, "上传 Host 文档新版本", AuthorizationScope.Host),
+        new(HostDocumentPermissions.Download, "下载 Host 文档当前版本", AuthorizationScope.Host),
         new(HostDocumentPermissions.Delete, "删除 Host 文档", AuthorizationScope.Host),
         new(HostDocumentPermissions.Restore, "恢复 Host 文档", AuthorizationScope.Host),
         new(HostDocumentCategoryPermissions.Read, "读取 Host 文档分类", AuthorizationScope.Host),
@@ -86,6 +87,13 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "上传新版本",
             "add_version",
             30),
+        new AuthorizationActionDefinition(
+            "document.host_documents.download",
+            "host-document-items",
+            HostDocumentPermissions.Download,
+            "下载当前版本",
+            "download",
+            35),
         new AuthorizationActionDefinition(
             "document.host_documents.delete",
             "host-document-items",

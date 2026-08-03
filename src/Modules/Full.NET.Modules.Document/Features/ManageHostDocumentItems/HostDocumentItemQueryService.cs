@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Persistence;
+using Full.NET.Modules.Files.Contracts;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
@@ -9,6 +10,7 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 internal sealed class HostDocumentItemQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IQueryExecutor queryExecutor,
+    IHostFileContentReader hostFileContentReader,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<HostDocumentItemResponse>>> ListAsync(
@@ -58,6 +60,31 @@ internal sealed class HostDocumentItemQueryService(
         return record is null ? NotFound() : Result<HostDocumentItemResponse>.Success(Map(record));
     }
 
+    public async Task<Result<HostFileContent>> OpenCurrentVersionContentAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default)
+    {
+        var record = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                DocumentItemSql.FindActiveById,
+                new { Id = itemId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null)
+        {
+            return Result<HostFileContent>.Failure(NotFoundError());
+        }
+
+        if (record.FileId is null)
+        {
+            return Result<HostFileContent>.Failure(NoCurrentVersionError());
+        }
+
+        return await hostFileContentReader
+            .OpenReadyContentAsync(record.FileId.Value, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private static HostDocumentItemResponse Map(DocumentItemDetailRecord record) =>
         new(
             record.Id,
@@ -81,6 +108,11 @@ internal sealed class HostDocumentItemQueryService(
             record.Version);
 
     private static Result<HostDocumentItemResponse> NotFound() =>
-        Result<HostDocumentItemResponse>.Failure(
-            new Error(DocumentErrorCodes.NotFound, "Document item was not found.", ErrorType.NotFound));
+        Result<HostDocumentItemResponse>.Failure(NotFoundError());
+
+    private static Error NotFoundError() =>
+        new(DocumentErrorCodes.NotFound, "Document item was not found.", ErrorType.NotFound);
+
+    private static Error NoCurrentVersionError() =>
+        new(DocumentErrorCodes.NoCurrentVersion, "Document item has no downloadable version.", ErrorType.NotFound);
 }

@@ -4,36 +4,30 @@ import { createPinia, setActivePinia } from 'pinia';
 import HostDocumentItemsView from './HostDocumentItemsView.vue';
 import { useSessionStore } from '../auth/session';
 import {
-  addHostDocumentVersion,
   createHostDocumentItem,
   deleteHostDocumentItem,
+  downloadHostDocumentContent,
   listHostDocumentItems,
+  openHostDocumentBlob,
   restoreHostDocumentItem,
-  updateHostDocumentItem
+  updateHostDocumentItem,
+  uploadHostDocumentVersion
 } from '../api/host-document-items';
-import {
-  downloadHostFileContent,
-  openHostFileBlob
-} from '../api/host-files';
 
 vi.mock('../api/host-document-items', () => ({
-  addHostDocumentVersion: vi.fn(),
   createHostDocumentItem: vi.fn(),
   deleteHostDocumentItem: vi.fn(),
+  downloadHostDocumentContent: vi.fn(),
   listHostDocumentItems: vi.fn(),
+  openHostDocumentBlob: vi.fn(),
   restoreHostDocumentItem: vi.fn(),
-  updateHostDocumentItem: vi.fn()
-}));
-
-vi.mock('../api/host-files', () => ({
-  downloadHostFileContent: vi.fn(),
-  openHostFileBlob: vi.fn(),
-  uploadHostFile: vi.fn()
+  updateHostDocumentItem: vi.fn(),
+  uploadHostDocumentVersion: vi.fn()
 }));
 
 const listMock = vi.mocked(listHostDocumentItems);
-const downloadMock = vi.mocked(downloadHostFileContent);
-const openBlobMock = vi.mocked(openHostFileBlob);
+const downloadMock = vi.mocked(downloadHostDocumentContent);
+const openBlobMock = vi.mocked(openHostDocumentBlob);
 const item = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
   title: 'Spec',
@@ -98,17 +92,17 @@ describe('Vue Host 文档库页', () => {
     expect(wrapper.find('[data-testid="host-document-item-download"]').exists()).toBe(false);
   });
 
-  it('只有 Files 下载权限时使用认证请求下载文档版本', async () => {
+  it('具备 Document 下载权限时使用认证请求下载文档', async () => {
     const wrapper = mountWithPermissions([
       'document.host_documents.read',
-      'files.files.download'
+      'document.host_documents.download'
     ]);
     await flushPromises();
 
     await wrapper.get('[data-testid="host-document-item-download"]').trigger('click');
     await flushPromises();
 
-    expect(downloadMock).toHaveBeenCalledWith(item.currentVersion.fileId);
+    expect(downloadMock).toHaveBeenCalledWith(item.id);
     expect(openBlobMock).toHaveBeenCalledOnce();
   });
 
@@ -126,17 +120,10 @@ describe('Vue Host 文档库页', () => {
     expect(wrapper.find('[data-testid="host-document-item-create"]').exists()).toBe(false);
   });
 
-  it('缺少 Files 上传权限时不显示不可用的上传新版本按钮', async () => {
-    const wrapper = mountWithPermissions(['document.host_documents.read', 'document.host_documents.add_version']);
-    await flushPromises();
-    expect(wrapper.find('[data-testid="host-document-item-upload-version"]').exists()).toBe(false);
-  });
-
-  it('add_version 与 Files 上传权限同时具备时显示上传新版本按钮', async () => {
+  it('add_version 权限即可显示上传新版本按钮', async () => {
     const wrapper = mountWithPermissions([
       'document.host_documents.read',
-      'document.host_documents.add_version',
-      'files.files.upload'
+      'document.host_documents.add_version'
     ]);
     await flushPromises();
     expect(wrapper.find('[data-testid="host-document-item-upload-version"]').exists()).toBe(true);

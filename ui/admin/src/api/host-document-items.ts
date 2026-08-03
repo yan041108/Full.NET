@@ -4,7 +4,7 @@ import {
   type HostDocumentItem,
   type HostDocumentItemPage
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { request, requestBlob } from './http';
 
 export async function listHostDocumentItems(
   page = 1,
@@ -52,6 +52,43 @@ export async function updateHostDocumentItem(
     throw new Error('client.invalid_host_document_item');
   }
   return value;
+}
+
+export async function uploadHostDocumentVersion(
+  itemId: string,
+  file: File
+): Promise<HostDocumentItem> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const value = await request<unknown>(
+    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/versions/upload`,
+    {
+      method: 'POST',
+      body: formData
+    }
+  );
+  if (!isHostDocumentItem(value)) {
+    throw new Error('client.invalid_host_document_item');
+  }
+  return value;
+}
+
+export async function downloadHostDocumentContent(itemId: string): Promise<Blob> {
+  return requestBlob(
+    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/content`
+  );
+}
+
+/** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
+export function openHostDocumentBlob(blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!opened) {
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export async function addHostDocumentVersion(

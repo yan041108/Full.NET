@@ -23,6 +23,7 @@ public sealed class DocumentAuthorizationContributorTests
                 HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Create,
                 HostDocumentPermissions.Delete,
+                HostDocumentPermissions.Download,
                 HostDocumentPermissions.Read,
                 HostDocumentPermissions.Restore,
                 HostDocumentPermissions.Update,
@@ -48,6 +49,7 @@ public sealed class DocumentAuthorizationContributorTests
             ["create"] = HostDocumentPermissions.Create,
             ["update"] = HostDocumentPermissions.Update,
             ["add_version"] = HostDocumentPermissions.AddVersion,
+            ["download"] = HostDocumentPermissions.Download,
             ["delete"] = HostDocumentPermissions.Delete,
             ["restore"] = HostDocumentPermissions.Restore,
         };

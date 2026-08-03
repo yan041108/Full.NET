@@ -4,6 +4,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Document.Resources;
 using Full.NET.Modules.Document.Serialization;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -35,6 +36,9 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagManagementService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileRetentionContributor,
+            Features.HostFileReferences.DocumentHostFileRetentionContributor>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
