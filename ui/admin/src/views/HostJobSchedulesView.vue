@@ -46,11 +46,14 @@ const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const editingId = ref<string>();
 const canCreate = computed(() => session.can('jobs.schedules.create'));
+const canReadDefinitions = computed(() => session.can('jobs.definitions.read'));
 const canUpdate = computed(() => session.can('jobs.schedules.update'));
 const canPause = computed(() => session.can('jobs.schedules.pause'));
 const canResume = computed(() => session.can('jobs.schedules.resume'));
 const showForm = computed(() =>
-  editingId.value ? canUpdate.value : canCreate.value
+  editingId.value
+    ? canUpdate.value
+    : canCreate.value && canReadDefinitions.value
 );
 const isCron = computed(() => triggerKind.value === JOB_TRIGGER_KINDS.cron);
 
@@ -60,12 +63,14 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const [definitionPage, schedulePage] = await Promise.all([
-      listHostJobDefinitions(),
-      listHostJobSchedules()
-    ]);
-    definitions.value = definitionPage.items.filter(item => item.isEnabled);
+    const schedulePage = await listHostJobSchedules();
     schedules.value = schedulePage.items;
+    if (canReadDefinitions.value) {
+      const definitionPage = await listHostJobDefinitions();
+      definitions.value = definitionPage.items.filter(item => item.isEnabled);
+    } else {
+      definitions.value = [];
+    }
     if (!jobDefinitionId.value && definitions.value.length) {
       jobDefinitionId.value = definitions.value[0].id;
     }
@@ -213,6 +218,12 @@ function toProblem(
       <h1>{{ t('hostJobSchedules.title') }}</h1>
       <p>{{ t('hostJobSchedules.description') }}</p>
     </header>
+
+    <div v-if="problem" class="art-inline-alert" role="alert">
+      <strong translate="no">{{ problem.code }}</strong>
+      <span>{{ problem.title }}</span>
+      <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
+    </div>
 
     <ElCard v-if="showForm" class="art-card">
       <template #header>

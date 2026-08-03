@@ -226,7 +226,8 @@ function buildUpdateRequest(version: number) {
 
 function toProblem(
   error: unknown,
-  fallbackCode = 'serialNumberRules.operationFailed'
+  fallbackCode: 'serialNumberRules.loadFailed' | 'serialNumberRules.operationFailed'
+    = 'serialNumberRules.operationFailed'
 ): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -241,6 +242,12 @@ function toProblem(
       <h1>{{ t('serialNumberRules.title') }}</h1>
       <p>{{ t('serialNumberRules.description') }}</p>
     </header>
+
+    <div v-if="problem" class="art-inline-alert" role="alert">
+      <strong translate="no">{{ problem.code }}</strong>
+      <span>{{ problem.title }}</span>
+      <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
+    </div>
 
     <ElCard v-if="showForm" class="art-card" :aria-busy="changing">
       <template #header>

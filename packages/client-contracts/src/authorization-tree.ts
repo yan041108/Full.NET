@@ -167,6 +167,7 @@ function isAuthorizationTreePage(
     return false;
   }
 
+  const pagePermissionCode = value.permissionCode;
   pageIds.add(value.id);
   const pageActionIds = new Set<string>();
   if (!value.actions.every(action => isAuthorizationTreeAction(
@@ -174,7 +175,7 @@ function isAuthorizationTreePage(
     actionIds,
     pageActionIds,
     actionPermissionCodes,
-    value.permissionCode
+    pagePermissionCode
   ))) {
     return false;
   }

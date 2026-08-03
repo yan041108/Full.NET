@@ -11,6 +11,10 @@ import {
   restoreHostDocumentItem,
   updateHostDocumentItem
 } from '../api/host-document-items';
+import {
+  downloadHostFileContent,
+  openHostFileBlob
+} from '../api/host-files';
 
 vi.mock('../api/host-document-items', () => ({
   addHostDocumentVersion: vi.fn(),
@@ -22,25 +26,33 @@ vi.mock('../api/host-document-items', () => ({
 }));
 
 vi.mock('../api/host-files', () => ({
-  hostFileContentUrl: vi.fn(() => '/files/mock'),
+  downloadHostFileContent: vi.fn(),
+  openHostFileBlob: vi.fn(),
   uploadHostFile: vi.fn()
 }));
 
 const listMock = vi.mocked(listHostDocumentItems);
+const downloadMock = vi.mocked(downloadHostFileContent);
+const openBlobMock = vi.mocked(openHostFileBlob);
 const item = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
   title: 'Spec',
   description: 'integration',
+  categoryId: null,
   currentVersion: {
     id: '0198f36e-f7a7-7c52-9cbb-774e67411206',
     versionNumber: 1,
     fileId: '0198f36e-f7a7-7c52-9cbb-774e67411207',
+    contentHash: null,
+    sizeBytes: 8,
     createdAtUtc: '2026-07-30T08:00:00Z',
-    createdByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204'
+    uploadedByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204'
   },
+  createdByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204',
   version: 2,
   createdAtUtc: '2026-07-30T08:00:00Z',
-  updatedAtUtc: null
+  updatedAtUtc: null,
+  updatedByUserId: null
 };
 
 function mountWithPermissions(permissions: string[]) {
@@ -71,6 +83,8 @@ describe('Vue Host 文档库页', () => {
       pageSize: 20,
       total: 1
     });
+    downloadMock.mockReset().mockResolvedValue(new Blob(['document']));
+    openBlobMock.mockReset();
   });
 
   it('仅有 read 时不显示写入操作', async () => {
@@ -81,6 +95,21 @@ describe('Vue Host 文档库页', () => {
     expect(wrapper.find('[data-testid="host-document-item-upload-version"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-document-item-delete"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-document-item-restore"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-document-item-download"]').exists()).toBe(false);
+  });
+
+  it('只有 Files 下载权限时使用认证请求下载文档版本', async () => {
+    const wrapper = mountWithPermissions([
+      'document.host_documents.read',
+      'files.files.download'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="host-document-item-download"]').trigger('click');
+    await flushPromises();
+
+    expect(downloadMock).toHaveBeenCalledWith(item.currentVersion.fileId);
+    expect(openBlobMock).toHaveBeenCalledOnce();
   });
 
   it('create-only 只显示创建按钮', async () => {
@@ -97,8 +126,18 @@ describe('Vue Host 文档库页', () => {
     expect(wrapper.find('[data-testid="host-document-item-create"]').exists()).toBe(false);
   });
 
-  it('add_version-only 只显示上传新版本按钮', async () => {
+  it('缺少 Files 上传权限时不显示不可用的上传新版本按钮', async () => {
     const wrapper = mountWithPermissions(['document.host_documents.read', 'document.host_documents.add_version']);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="host-document-item-upload-version"]').exists()).toBe(false);
+  });
+
+  it('add_version 与 Files 上传权限同时具备时显示上传新版本按钮', async () => {
+    const wrapper = mountWithPermissions([
+      'document.host_documents.read',
+      'document.host_documents.add_version',
+      'files.files.upload'
+    ]);
     await flushPromises();
     expect(wrapper.find('[data-testid="host-document-item-upload-version"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="host-document-item-create"]').exists()).toBe(false);

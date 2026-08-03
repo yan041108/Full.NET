@@ -86,25 +86,45 @@ describe('Vue Host 任务计划页', () => {
   });
 
   it('仅有 read 时不显示创建表单与行内操作', async () => {
+    definitionsMock.mockRejectedValue({
+      status: 403,
+      code: 'authorization.permission_denied',
+      title: 'Forbidden'
+    });
     const wrapper = mountWithPermissions(['jobs.schedules.read']);
     await flushPromises();
 
+    expect(definitionsMock).not.toHaveBeenCalled();
+    expect(schedulesMock).toHaveBeenCalledOnce();
+    expect(wrapper.text()).toContain(enabledSchedule.jobDefinitionId);
     expect(wrapper.find('[data-testid="host-job-schedules-submit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-pause"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-resume"]').exists()).toBe(false);
   });
 
-  it('create-only 只显示创建表单', async () => {
+  it('create 与 definitions.read 同时具备时显示创建表单', async () => {
     const wrapper = mountWithPermissions([
       'jobs.schedules.read',
-      'jobs.schedules.create'
+      'jobs.schedules.create',
+      'jobs.definitions.read'
     ]);
     await flushPromises();
 
     expect(wrapper.find('[data-testid="host-job-schedules-submit"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="host-job-schedules-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-pause"]').exists()).toBe(false);
+  });
+
+  it('缺少 definition 目录读取权限时不显示不可用的创建表单', async () => {
+    const wrapper = mountWithPermissions([
+      'jobs.schedules.read',
+      'jobs.schedules.create'
+    ]);
+    await flushPromises();
+
+    expect(definitionsMock).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="host-job-schedules-submit"]').exists()).toBe(false);
   });
 
   it('update-only 只显示编辑按钮', async () => {
@@ -140,5 +160,19 @@ describe('Vue Host 任务计划页', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="host-job-schedules-resume"]').exists()).toBe(false);
+  });
+
+  it('列表加载失败时向用户显示稳定错误码', async () => {
+    schedulesMock.mockRejectedValue({
+      type: 'about:blank',
+      status: 503,
+      code: 'jobs.schedules.unavailable',
+      title: 'Schedules unavailable'
+    });
+
+    const wrapper = mountWithPermissions(['jobs.schedules.read']);
+    await flushPromises();
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('jobs.schedules.unavailable');
   });
 });

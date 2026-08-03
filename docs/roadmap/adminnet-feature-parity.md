@@ -57,7 +57,7 @@
 | 机构管理 | Organization | Core | M2 | **Build-verified**（租户机构树 CRUD；见[验证记录](../verification/organization-unit-management-2026-07-21.md)） |
 | 职位管理 | Organization | Core | M2 | **Build-verified**（租户职位 CRUD、机构与职级绑定/解绑、职级目录 CRUD、双库 Integration、双端 parity 及双库双端真实栈写入；完整 `main` CI 与发布前人工验收待补） |
 | 用户职位隶属 | Organization | Core | M2 | **Build-verified**（租户用户-职位分配；正式可分配 Host 用户候选目录支持双库分页、精确写权限与双端按需加载；双管理端、双数据库真实栈分配/设主/取消/API 回读已通过；见[验证记录](../verification/organization-user-position-assignment-2026-07-25.md)） |
-| 菜单、页面与按钮权限管理 | Identity | Core | M2 | **Verified**（W0–W5 全模块精确动作权限已清零：授权树 API、角色页面/操作树、Vue `PermissionGate` 逐按钮门控、双库迁移 054–080、Architecture 拒绝未登记 `.write`/`.manage` 绑定；见[设计](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)、[W4–W5 计划](../superpowers/plans/2026-08-03-vue-action-authorization-w4-w5.md)、[收口验证](../verification/vue-action-authorization-w4-w5-closeout-2026-08-03.md)；Layui 不参与验收） |
+| 菜单、页面与按钮权限管理 | Identity | Core | M2 | **Build-verified**（W0–W5 全模块精确动作权限已清零：授权树 API、角色“模块/页面/操作”树、Vue `PermissionGate` 逐按钮门控、双库迁移 054–080、Architecture 拒绝未登记 `.write`/`.manage` 绑定；program affected merge 曾在 185/270 中断，完整复跑前不得提升为 `Verified`；见[设计](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)、[W4–W5 计划](../superpowers/plans/2026-08-03-vue-action-authorization-w4-w5.md)、[收口验证](../verification/vue-action-authorization-w4-w5-closeout-2026-08-03.md)；Layui 不参与验收） |
 | 角色与数据授权 | Identity + Organization | Core | M2 | **Build-verified**（Host 角色/权限/数据范围、用户-角色分配与运行时机构过滤；[验证记录](../verification/identity-role-data-authorization-2026-07-26.md)、[收口计划](../superpowers/plans/2026-07-26-identity-role-data-authorization-parity-closure.md)） |
 | 字典管理 | Settings | Core | M3 | **Build-verified**（字典类型 + 字典项 Host CRUD 与双端 UI；见[验证记录](../verification/settings-dictionary-2026-07-25.md)、[类型切片](../superpowers/plans/2026-07-25-settings-dictionary-vertical-slice.md)、[项 UI 切片](../superpowers/plans/2026-07-25-settings-dict-items-ui-vertical-slice.md)） |
 | 访问日志 | Auditing | Core | M3 | Build-verified |
@@ -100,7 +100,7 @@
 | 打印 | Printing | Official Module + Client | M5+ | Mapped |
 | 行政区域 | Regions | Official Module | M5+ | Mapped |
 | 报表配置 | Reporting | Official Module | M5+ | Mapped |
-| 流水号规则 | SerialNumbers | Official Module | M5+ | **Build-verified**（Host 规则 API、纯预览、Host/租户计数器、UTC 日/月/年重置、幂等分配、SQL Server/MySQL 039 与恢复测试；双管理端与真实栈 E2E 待后续切片；见[验证记录](../verification/serial-numbers-2026-07-30.md)） |
+| 流水号规则 | SerialNumbers | Official Module | M5+ | **Build-verified**（Host 规则 API、纯预览、Host/租户计数器、UTC 日/月/年重置、幂等分配、SQL Server/MySQL 039 与恢复测试、Vue 页面及精确操作权限已交付；分页筛选、规则表单体验和独立真实栈 E2E 仍待后续切片；见[验证记录](../verification/serial-numbers-2026-07-30.md)） |
 | 系统升级 | Upgrade Management | Official Module | M5+ | Mapped |
 | 支付宝 | Payments.Alipay | Provider | M5+ | Mapped |
 | 微信生态 | WeChat | Official Module + Provider | M5+ | Mapped |
@@ -122,7 +122,7 @@
 | `Admin.NET.Plugin.Ai` | AI 模型配置、对话、Agent、工具调用、MCP 与 Agentic Web | AI + Agents + AgenticWeb | Official Module + Provider + Protocol Adapter | Mapped |
 | `Admin.NET.Plugin.DataApproval` | 数据变更审批 | DataApproval | Official Module | Mapped |
 | `Admin.NET.Plugin.DingTalk` | 钉钉组织、消息和接口 | DingTalk | Provider | Mapped |
-| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | Mapped（Gate G4 规格草案见[Document 设计](../superpowers/specs/2026-08-02-document-module-design.md)，**待批准**；批准前禁止实现） |
+| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | **Implementing**（Gate G4 已批准，Host 文档/分类/标签/版本基础切片、Vue 与双库验证已交付；分享、预览、持久化回收站、文档级 ACL、版本历史与统计仍未实现，不能把基础切片等同于插件全量对标） |
 | `Admin.NET.Plugin.GoView` | 可视化大屏 | GoView | Official Module + Client | Mapped |
 | `Admin.NET.Plugin.K3Cloud` | 金蝶云星空接口集成 | K3Cloud | Provider + Sample | Mapped |
 | `Admin.NET.Plugin.PaddleOCR` | OCR 识别 | OCR | Provider | Mapped |

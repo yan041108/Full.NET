@@ -4,7 +4,7 @@
 - 基线提交：`d1150e37`（Task 10 Document Tags）+ 收口治理变更
 - 计划：[三级授权补齐与 W4–W5](../superpowers/plans/2026-08-03-vue-action-authorization-w4-w5.md)
 - 设计：[Vue 页面/操作精确授权](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)
-- 状态：**Verified**（Vue 管理端；Layui 冻结，不作为验收证据）
+- 状态：**Build-verified**（Vue 管理端；Layui 冻结，不作为验收证据；affected merge 尚未完整复跑）
 
 ## 交付范围
 
@@ -37,8 +37,9 @@
 ## 明确未做
 
 - Layui 管理端不参与 W4–W5 交付与 `Verified` 认定。
-- 角色授权 UI 的“模块/页面/操作”三级分组（Task 0）与 Host 跨上下文 Tenant 权限选择仍属后续 Identity 体验切片，不阻塞本次“后台按钮均可独立授权”收口。
+- 角色授权 API 与 Vue 已交付“模块/页面/操作”三级分组；它不再属于待办项。
+- 仍需完整复跑同一快照的 affected merge，并补齐本轮审查发现的跨模块操作权限真实栈场景，才能申请 `Verified`。
 
 ## 结论
 
-W4–W5 全部官方后台模块的粗粒度 `.write`/`.manage` 已拆分为精确动作权限并完成双库迁移、Vue `PermissionGate`、OpenAPI 夹具与真实栈 403/导航裁剪验证。`adminnet-feature-parity.md` 中“菜单、页面与按钮权限管理”可标记为 **Verified**。
+W4–W5 全部官方后台模块的粗粒度 `.write`/`.manage` 已拆分为精确动作权限，并完成双库迁移、Vue `PermissionGate`、OpenAPI 夹具与已执行的真实栈 403/导航裁剪验证。由于 program affected merge 未完成，本轮结论保持 **Build-verified**，不得仅凭局部绿色结果提升为 `Verified`。

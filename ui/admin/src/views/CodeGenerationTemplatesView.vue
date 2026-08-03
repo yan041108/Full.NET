@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElInput } from 'element-plus';
+import { ElButton, ElCard, ElInput, ElMessageBox } from 'element-plus';
 import {
   isCodeGenerationPreviewRequest,
   isFullNetProblemDetails,
@@ -40,6 +40,7 @@ const templateName = ref('');
 const templateDescription = ref('');
 const loading = ref(false);
 const changing = ref(false);
+const confirmingDelete = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const canCreate = computed(() => session.can('codegen.templates.create'));
 const canUpdate = computed(() => session.can('codegen.templates.update'));
@@ -120,12 +121,22 @@ async function updateTemplate(): Promise<void> {
 
 async function removeTemplate(): Promise<void> {
   const selected = selectedTemplate.value;
-  if (!selected || changing.value || !canDelete.value) {
+  if (!selected || changing.value || confirmingDelete.value || !canDelete.value) {
     return;
   }
-  changing.value = true;
-  problem.value = undefined;
+  confirmingDelete.value = true;
   try {
+    await ElMessageBox.confirm(
+      t('codeGenerationTemplates.confirmDelete', { name: selected.name }),
+      t('codeGeneration.templateDelete'),
+      {
+        type: 'warning',
+        confirmButtonText: t('codeGeneration.templateDelete'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    changing.value = true;
+    problem.value = undefined;
     await deleteCodeGenerationTemplate(selected.id, selected.version);
     templates.value = templates.value.filter(item => item.id !== selected.id);
     selectedTemplate.value = undefined;
@@ -133,9 +144,13 @@ async function removeTemplate(): Promise<void> {
     templateDescription.value = '';
     schemaText.value = JSON.stringify(defaultSchema, null, 2);
   } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
     problem.value = readProblem(error);
   } finally {
     changing.value = false;
+    confirmingDelete.value = false;
   }
 }
 
@@ -169,7 +184,8 @@ function clientProblem(code: string): FullNetProblemDetails {
 
 function readProblem(
   error: unknown,
-  fallbackCode = 'codeGenerationTemplates.operationFailed'
+  fallbackCode: 'codeGenerationTemplates.loadFailed' | 'codeGenerationTemplates.operationFailed'
+    = 'codeGenerationTemplates.operationFailed'
 ): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -184,6 +200,12 @@ function readProblem(
       <h1>{{ t('codeGenerationTemplates.title') }}</h1>
       <p>{{ t('codeGenerationTemplates.description') }}</p>
     </header>
+
+    <div v-if="problem" class="art-inline-alert" role="alert">
+      <strong translate="no">{{ problem.code }}</strong>
+      <span>{{ problem.title }}</span>
+      <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
+    </div>
 
     <ElCard v-if="showForm" class="art-card" :aria-busy="changing">
       <template #header>
@@ -205,7 +227,7 @@ function readProblem(
             </ElButton>
           </PermissionGate>
           <PermissionGate code="codegen.templates.delete">
-            <ElButton v-if="selectedTemplate" type="danger" plain data-testid="codegen-template-delete" :disabled="changing" @click="removeTemplate">
+            <ElButton v-if="selectedTemplate" type="danger" plain data-testid="codegen-template-delete" :disabled="changing || confirmingDelete" @click="removeTemplate">
               {{ t('codeGeneration.templateDelete') }}
             </ElButton>
           </PermissionGate>

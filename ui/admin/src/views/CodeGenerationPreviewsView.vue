@@ -289,7 +289,7 @@ async function rollbackApply(run: CodeGenerationRunResponse): Promise<void> {
     const confirmKey = applyRunIds.length > 1
       ? 'codeGeneration.rollbackChainConfirm'
       : 'codeGeneration.rollbackConfirm';
-    const confirmParams = applyRunIds.length > 1
+    const confirmParams: Readonly<Record<string, string | number>> = applyRunIds.length > 1
       ? {
           id: run.id,
           count: applyRunIds.length,

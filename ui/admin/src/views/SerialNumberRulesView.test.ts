@@ -116,4 +116,18 @@ describe('Vue 流水号规则页', () => {
     expect(wrapper.find('[data-testid="serial-rule-preview"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="serial-rule-create"]').exists()).toBe(false);
   });
+
+  it('列表加载失败时向用户显示稳定错误码', async () => {
+    listMock.mockRejectedValue({
+      type: 'about:blank',
+      status: 503,
+      code: 'serial_numbers.rules.unavailable',
+      title: 'Rules unavailable'
+    });
+
+    const wrapper = mountWithPermissions(['serial_numbers.rules.read']);
+    await flushPromises();
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('serial_numbers.rules.unavailable');
+  });
 });
