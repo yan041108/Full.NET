@@ -14,10 +14,15 @@ import {
   ElTabs,
   ElTransfer
 } from 'element-plus';
+import type { FormInstance } from 'element-plus';
+import { nextTick, reactive, ref, watch } from 'vue';
 import type { HostUser, HostUserProfileWrite } from '@fullnet/client-contracts';
 import type { MessageKey } from '@fullnet/admin-i18n';
+import { isIdentityPasswordValid } from '../../auth/identity-password-policy';
 
 defineOptions({ name: 'UserEditorDialog' });
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const props = defineProps<{
   open: boolean;
@@ -57,10 +62,159 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
+const basicFormRef = ref<FormInstance>();
+const basicForm = reactive({
+  username: '',
+  displayName: '',
+  password: '',
+  nickname: '',
+  phoneNumber: '',
+  email: '',
+  employeeNumber: '',
+  remark: ''
+});
+const fieldErrors = reactive({
+  username: '',
+  displayName: '',
+  password: '',
+  nickname: '',
+  phoneNumber: '',
+  email: '',
+  employeeNumber: '',
+  remark: ''
+});
+
+function clearFieldErrors(): void {
+  fieldErrors.username = '';
+  fieldErrors.displayName = '';
+  fieldErrors.password = '';
+  fieldErrors.nickname = '';
+  fieldErrors.phoneNumber = '';
+  fieldErrors.email = '';
+  fieldErrors.employeeNumber = '';
+  fieldErrors.remark = '';
+}
+
+function validateUsername(): string {
+  if (props.mode !== 'create') {
+    return '';
+  }
+
+  const username = basicForm.username.trim();
+  if (!username) {
+    return props.translate('users.usernameRequired');
+  }
+  if (username.length < 3 || username.length > 128) {
+    return props.translate('users.usernameInvalid');
+  }
+  return '';
+}
+
+function validateDisplayName(): string {
+  const displayName = basicForm.displayName.trim();
+  if (!displayName) {
+    return props.translate('users.displayNameRequired');
+  }
+  if (displayName.length > 128) {
+    return props.translate('users.displayNameInvalid');
+  }
+  return '';
+}
+
+function validatePassword(): string {
+  if (props.mode !== 'create') {
+    return '';
+  }
+
+  const password = basicForm.password;
+  if (!password) {
+    return props.translate('users.passwordRequired');
+  }
+  if (!isIdentityPasswordValid(password)) {
+    return props.translate('users.passwordInvalid');
+  }
+  return '';
+}
+
+function validateNickname(): string {
+  if (basicForm.nickname.trim().length > 128) {
+    return props.translate('users.nicknameInvalid');
+  }
+  return '';
+}
+
+function validatePhoneNumber(): string {
+  if (basicForm.phoneNumber.trim().length > 32) {
+    return props.translate('users.phoneInvalid');
+  }
+  return '';
+}
+
+function validateEmail(): string {
+  const email = basicForm.email.trim();
+  if (!email) {
+    return '';
+  }
+  if (email.length > 256 || !EMAIL_PATTERN.test(email)) {
+    return props.translate('users.emailInvalid');
+  }
+  return '';
+}
+
+function validateEmployeeNumber(): string {
+  if (basicForm.employeeNumber.trim().length > 64) {
+    return props.translate('users.employeeNumberInvalid');
+  }
+  return '';
+}
+
+function validateRemark(): string {
+  if (basicForm.remark.trim().length > 512) {
+    return props.translate('users.remarkInvalid');
+  }
+  return '';
+}
+
+function applyFieldErrors(): boolean {
+  fieldErrors.username = validateUsername();
+  fieldErrors.displayName = validateDisplayName();
+  fieldErrors.password = validatePassword();
+  fieldErrors.nickname = validateNickname();
+  fieldErrors.phoneNumber = validatePhoneNumber();
+  fieldErrors.email = validateEmail();
+  fieldErrors.employeeNumber = validateEmployeeNumber();
+  fieldErrors.remark = validateRemark();
+
+  return Object.values(fieldErrors).every(error => !error);
+}
+
 const dialogTitle = () => (
   props.mode === 'create'
     ? props.translate('users.createDialogTitle')
     : props.translate('users.editDialogTitle')
+);
+
+function syncBasicFormFromProps(): void {
+  basicForm.username = props.username;
+  basicForm.displayName = props.displayName;
+  basicForm.password = props.password;
+  basicForm.nickname = props.profile.nickname ?? '';
+  basicForm.phoneNumber = props.profile.phoneNumber ?? '';
+  basicForm.email = props.profile.email ?? '';
+  basicForm.employeeNumber = props.profile.employeeNumber ?? '';
+  basicForm.remark = props.profile.remark ?? '';
+}
+
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) {
+      return;
+    }
+    syncBasicFormFromProps();
+    clearFieldErrors();
+    void nextTick(() => basicFormRef.value?.clearValidate());
+  }
 );
 
 function close(): void {
@@ -71,6 +225,99 @@ function close(): void {
 function patchProfile(patch: Partial<HostUserProfileWrite>): void {
   emit('update:profile', { ...props.profile, ...patch });
 }
+
+function onUsernameInput(value: string): void {
+  basicForm.username = value;
+  fieldErrors.username = validateUsername();
+  emit('update:username', value);
+}
+
+function onDisplayNameInput(value: string): void {
+  basicForm.displayName = value;
+  fieldErrors.displayName = validateDisplayName();
+  emit('update:displayName', value);
+}
+
+function onPasswordInput(value: string): void {
+  basicForm.password = value;
+  fieldErrors.password = validatePassword();
+  emit('update:password', value);
+}
+
+function onNicknameInput(value: string): void {
+  basicForm.nickname = value;
+  fieldErrors.nickname = validateNickname();
+  patchProfile({ nickname: value || null });
+}
+
+function onPhoneInput(value: string): void {
+  basicForm.phoneNumber = value;
+  fieldErrors.phoneNumber = validatePhoneNumber();
+  patchProfile({ phoneNumber: value || null });
+}
+
+function onEmailInput(value: string): void {
+  basicForm.email = value;
+  fieldErrors.email = validateEmail();
+  patchProfile({ email: value || null });
+}
+
+function onEmployeeNumberInput(value: string): void {
+  basicForm.employeeNumber = value;
+  fieldErrors.employeeNumber = validateEmployeeNumber();
+  patchProfile({ employeeNumber: value || null });
+}
+
+function onRemarkInput(value: string): void {
+  basicForm.remark = value;
+  fieldErrors.remark = validateRemark();
+  patchProfile({ remark: value || null });
+}
+
+function syncTrimmedValuesToParent(): void {
+  const username = basicForm.username.trim();
+  const displayName = basicForm.displayName.trim();
+  emit('update:username', username);
+  emit('update:displayName', displayName);
+  if (props.mode === 'create') {
+    emit('update:password', basicForm.password);
+  }
+  emit('update:profile', {
+    ...props.profile,
+    nickname: basicForm.nickname.trim() || null,
+    phoneNumber: basicForm.phoneNumber.trim() || null,
+    email: basicForm.email.trim() || null,
+    employeeNumber: basicForm.employeeNumber.trim() || null,
+    remark: basicForm.remark.trim() || null
+  });
+}
+
+function validateBasicForm(): boolean {
+  return applyFieldErrors();
+}
+
+async function onSubmitClick(): Promise<void> {
+  if (props.mode === 'edit' && props.activeTab === 'roles') {
+    emit('submit');
+    return;
+  }
+
+  await nextTick();
+  if (!validateBasicForm()) {
+    if (props.activeTab !== 'basic') {
+      emit('update:activeTab', 'basic');
+    }
+    return;
+  }
+
+  syncTrimmedValuesToParent();
+  emit('submit');
+}
+
+defineExpose({
+  validateBasicForm,
+  onSubmitClick
+});
 </script>
 
 <template>
@@ -92,45 +339,73 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
       </div>
     </template>
 
-    <el-tabs
-      :model-value="activeTab"
-      class="users-editor-dialog__tabs"
-      @update:model-value="emit('update:activeTab', $event as typeof activeTab)"
+    <el-form
+      ref="basicFormRef"
+      data-testid="users-editor-form"
+      :model="basicForm"
+      label-width="96px"
+      class="users-editor-dialog__form"
     >
-      <el-tab-pane :label="translate('users.tabBasic')" name="basic">
-        <el-form label-width="96px" class="users-editor-dialog__form">
+      <el-tabs
+        :model-value="activeTab"
+        class="users-editor-dialog__tabs"
+        @update:model-value="emit('update:activeTab', $event as typeof activeTab)"
+      >
+        <el-tab-pane :label="translate('users.tabBasic')" name="basic">
           <div class="users-editor-dialog__grid">
-            <el-form-item :label="translate('users.username')" required>
+            <el-form-item
+              :label="translate('users.username')"
+              prop="username"
+              required
+              :error="fieldErrors.username || undefined"
+            >
               <el-input
-                :model-value="username"
+                v-model="basicForm.username"
                 :disabled="mode === 'edit'"
                 :placeholder="translate('users.usernamePlaceholder')"
-                @update:model-value="emit('update:username', $event)"
+                @update:model-value="onUsernameInput"
               />
             </el-form-item>
-            <el-form-item :label="translate('users.realName')" required>
+            <el-form-item
+              :label="translate('users.realName')"
+              prop="displayName"
+              required
+              :error="fieldErrors.displayName || undefined"
+            >
               <el-input
-                :model-value="displayName"
+                v-model="basicForm.displayName"
                 :placeholder="translate('users.displayNamePlaceholder')"
-                @update:model-value="emit('update:displayName', $event)"
+                @update:model-value="onDisplayNameInput"
               />
             </el-form-item>
-            <el-form-item :label="translate('users.nickname')">
+            <el-form-item
+              :label="translate('users.nickname')"
+              prop="nickname"
+              :error="fieldErrors.nickname || undefined"
+            >
               <el-input
-                :model-value="profile.nickname ?? ''"
-                @update:model-value="patchProfile({ nickname: $event || null })"
+                v-model="basicForm.nickname"
+                @update:model-value="onNicknameInput"
               />
             </el-form-item>
-            <el-form-item :label="translate('users.phone')">
+            <el-form-item
+              :label="translate('users.phone')"
+              prop="phoneNumber"
+              :error="fieldErrors.phoneNumber || undefined"
+            >
               <el-input
-                :model-value="profile.phoneNumber ?? ''"
-                @update:model-value="patchProfile({ phoneNumber: $event || null })"
+                v-model="basicForm.phoneNumber"
+                @update:model-value="onPhoneInput"
               />
             </el-form-item>
-            <el-form-item :label="translate('users.email')">
+            <el-form-item
+              :label="translate('users.email')"
+              prop="email"
+              :error="fieldErrors.email || undefined"
+            >
               <el-input
-                :model-value="profile.email ?? ''"
-                @update:model-value="patchProfile({ email: $event || null })"
+                v-model="basicForm.email"
+                @update:model-value="onEmailInput"
               />
             </el-form-item>
             <el-form-item :label="translate('users.gender')">
@@ -142,23 +417,29 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
                 <el-radio value="female">{{ translate('users.genderFemale') }}</el-radio>
               </el-radio-group>
             </el-form-item>
-            <el-form-item :label="translate('users.employeeNumber')">
+            <el-form-item
+              :label="translate('users.employeeNumber')"
+              prop="employeeNumber"
+              :error="fieldErrors.employeeNumber || undefined"
+            >
               <el-input
-                :model-value="profile.employeeNumber ?? ''"
-                @update:model-value="patchProfile({ employeeNumber: $event || null })"
+                v-model="basicForm.employeeNumber"
+                @update:model-value="onEmployeeNumberInput"
               />
             </el-form-item>
             <el-form-item
               v-if="mode === 'create'"
               :label="translate('users.password')"
+              prop="password"
               required
+              :error="fieldErrors.password || undefined"
             >
               <el-input
-                :model-value="password"
+                v-model="basicForm.password"
                 type="password"
                 show-password
                 :placeholder="translate('users.passwordPlaceholder')"
-                @update:model-value="emit('update:password', $event)"
+                @update:model-value="onPasswordInput"
               />
             </el-form-item>
             <el-form-item v-else :label="translate('users.status')">
@@ -167,17 +448,21 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
                 disabled
               />
             </el-form-item>
-            <el-form-item class="users-editor-dialog__full" :label="translate('users.remark')">
+            <el-form-item
+              class="users-editor-dialog__full"
+              :label="translate('users.remark')"
+              prop="remark"
+              :error="fieldErrors.remark || undefined"
+            >
               <el-input
-                :model-value="profile.remark ?? ''"
+                v-model="basicForm.remark"
                 type="textarea"
                 :rows="2"
-                @update:model-value="patchProfile({ remark: $event || null })"
+                @update:model-value="onRemarkInput"
               />
             </el-form-item>
           </div>
-        </el-form>
-      </el-tab-pane>
+        </el-tab-pane>
 
       <el-tab-pane
         v-if="canAssignRoles"
@@ -199,7 +484,7 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
       </el-tab-pane>
 
       <el-tab-pane :label="translate('users.tabOrg')" name="org">
-        <el-form label-width="108px" class="users-editor-dialog__form">
+        <div class="users-editor-dialog__form">
           <div class="users-editor-dialog__grid users-editor-dialog__grid--single">
             <el-form-item :label="translate('users.primaryOrg')">
               <el-select
@@ -257,11 +542,11 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
               </el-select>
             </el-form-item>
           </div>
-        </el-form>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane :label="translate('users.tabProfile')" name="profile">
-        <el-form label-width="120px" class="users-editor-dialog__form">
+        <div class="users-editor-dialog__form users-editor-dialog__form--profile">
           <div class="users-editor-dialog__grid">
             <el-form-item :label="translate('users.birthDate')">
               <el-date-picker
@@ -300,7 +585,7 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
               <el-input :model-value="user?.createdAtUtc ?? translate('users.fieldEmpty')" disabled />
             </el-form-item>
           </div>
-        </el-form>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane
@@ -310,7 +595,8 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
       >
         <p class="users-editor-dialog__empty">{{ translate('users.bindingEmpty') }}</p>
       </el-tab-pane>
-    </el-tabs>
+      </el-tabs>
+    </el-form>
 
     <template #footer>
       <div class="users-editor-dialog__footer">
@@ -320,7 +606,7 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
           type="primary"
           :loading="saving"
           data-testid="users-editor-submit"
-          @click="emit('submit')"
+          @click="onSubmitClick"
         >
           {{ translate('users.confirm') }}
         </el-button>
@@ -360,6 +646,10 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
 
 .users-editor-dialog__form {
   padding-top: 8px;
+}
+
+.users-editor-dialog__form--profile :deep(.el-form-item__label) {
+  width: 120px;
 }
 
 .users-editor-dialog__grid {

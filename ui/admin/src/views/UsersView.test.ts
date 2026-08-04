@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { nextTick } from 'vue';
 import UsersView from './UsersView.vue';
 import { useSessionStore } from '../auth/session';
-import { getHostUserRoles, listHostUsers } from '../api/users';
+import { createHostUser, getHostUserRoles, listHostUsers } from '../api/users';
 import { listHostRoles } from '../api/roles';
 import { listOrganizationUnits } from '../api/org-units';
 import { listOrganizationUserUnits } from '../api/org-user-units';
@@ -53,6 +54,7 @@ vi.mock('../api/org-user-positions', () => ({
 }));
 
 const listUsersMock = vi.mocked(listHostUsers);
+const createUserMock = vi.mocked(createHostUser);
 const listRolesMock = vi.mocked(listHostRoles);
 const getUserRolesMock = vi.mocked(getHostUserRoles);
 const listOrgUnitsMock = vi.mocked(listOrganizationUnits);
@@ -99,6 +101,7 @@ function mountUsers(permissions: string[]) {
 
 describe('Vue 用户管理页', () => {
   beforeEach(() => {
+    createUserMock.mockReset();
     listUsersMock.mockReset().mockResolvedValue({
       items: [activeUser, inactiveUser],
       page: 1,
@@ -210,6 +213,24 @@ describe('Vue 用户管理页', () => {
 
     expect(document.querySelector('[data-testid="users-editor-submit"]')).not.toBeNull();
     expect(document.body.textContent).toContain('取消');
+    wrapper.unmount();
+  });
+
+  it('创建用户时缺少必填项会阻止提交', async () => {
+    const wrapper = mountUsers(['identity.users.read', 'identity.users.create']);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-create"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    const submit = document.querySelector('[data-testid="users-editor-submit"]') as HTMLButtonElement;
+    expect(submit).not.toBeNull();
+    await submit.click();
+    await flushPromises();
+    await nextTick();
+
+    expect(createUserMock).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 });
