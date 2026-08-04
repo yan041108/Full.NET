@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import {
   ElButton,
   ElCard,
   ElCheckbox,
+  ElForm,
+  ElFormItem,
   ElMessage,
   ElMessageBox,
   ElOption,
+  ElPagination,
   ElSelect,
+  ElTable,
+  ElTableColumn,
   ElTag
 } from 'element-plus';
+import { Plus } from '@element-plus/icons-vue';
+import type { FormInstance } from 'element-plus';
 import {
   type FullNetProblemDetails,
   type OrganizationAssignableUser,
@@ -17,6 +24,14 @@ import {
   type OrganizationUserPosition
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
+import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
+import {
+  useArtClientPagination,
+  useArtCrudTableLayout
+} from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -29,26 +44,175 @@ import {
   updateOrganizationUserPosition
 } from '../api/org-user-positions';
 
+defineOptions({ name: 'OrgUserPositionsView' });
+
+type AssignmentTableColumnKey = 'username' | 'position' | 'primary' | 'status';
+
+interface AppliedFilters {
+  user: string;
+  position: string;
+  status: '' | 'active' | 'inactive';
+}
+
 const session = useSessionStore();
 const { t } = useAdminI18n();
-const assignments = ref<OrganizationUserPosition[]>([]);
+const allAssignments = ref<OrganizationUserPosition[]>([]);
 const users = ref<OrganizationAssignableUser[]>([]);
 const positions = ref<OrganizationPosition[]>([]);
-const selectedUserId = ref('');
-const selectedPositionId = ref('');
-const isPrimary = ref(false);
 const loading = ref(false);
 const changing = ref(false);
 const loadingMoreUsers = ref(false);
 const userPage = ref(1);
 const userTotal = ref(0);
 const problem = ref<FullNetProblemDetails>();
+const searchForm = ref<Record<string, string | undefined>>({});
+const appliedFilters = ref<AppliedFilters>({ user: '', position: '', status: '' });
+const editorOpen = ref(false);
+const editorFormRef = ref<FormInstance>();
+const editorForm = reactive({
+  userId: '',
+  positionId: '',
+  isPrimary: false
+});
+const fieldErrors = reactive({ userId: '', positionId: '' });
+const columnVisibility = ref<Record<AssignmentTableColumnKey, boolean>>({
+  username: true,
+  position: true,
+  primary: true,
+  status: true
+});
+
+const {
+  tableMainRef,
+  tableHeight,
+  tableSize,
+  tableZebra,
+  tableBorder,
+  tableHeaderBackground,
+  tableHeaderCellStyle,
+  updateTableHeight,
+  watchLoading
+} = useArtCrudTableLayout();
+
 const canCreate = computed(() => session.can('organization.user_positions.create'));
 const canUpdate = computed(() => session.can('organization.user_positions.update'));
 const canDisable = computed(() => session.can('organization.user_positions.disable'));
 const hasMoreUsers = computed(() => users.value.length < userTotal.value);
 
-onMounted(load);
+const filteredAssignments = computed(() => {
+  let rows = allAssignments.value;
+  const filters = appliedFilters.value;
+
+  if (filters.user.trim()) {
+    const keyword = filters.user.trim().toLowerCase();
+    rows = rows.filter(
+      assignment =>
+        assignment.username.toLowerCase().includes(keyword)
+        || assignment.displayName.toLowerCase().includes(keyword)
+    );
+  }
+
+  if (filters.position.trim()) {
+    const keyword = filters.position.trim().toLowerCase();
+    rows = rows.filter(
+      assignment =>
+        assignment.positionCode.toLowerCase().includes(keyword)
+        || assignment.positionName.toLowerCase().includes(keyword)
+    );
+  }
+
+  if (filters.status === 'active') {
+    rows = rows.filter(assignment => assignment.isActive);
+  } else if (filters.status === 'inactive') {
+    rows = rows.filter(assignment => !assignment.isActive);
+  }
+
+  return rows;
+});
+
+const { page, pageSize, total, pagedItems: pagedAssignments, resetPage } = useArtClientPagination(filteredAssignments);
+
+const tableColumns = computed<ArtTableColumnOption[]>({
+  get: () => [
+    { key: 'username', label: t('orgUserPositions.user'), visible: columnVisibility.value.username },
+    {
+      key: 'position',
+      label: t('orgUserPositions.position'),
+      visible: columnVisibility.value.position
+    },
+    { key: 'primary', label: t('orgUserPositions.primary'), visible: columnVisibility.value.primary },
+    { key: 'status', label: t('users.status'), visible: columnVisibility.value.status }
+  ],
+  set: columns => {
+    for (const column of columns) {
+      if (column.key in columnVisibility.value) {
+        columnVisibility.value[column.key as AssignmentTableColumnKey] = column.visible !== false;
+      }
+    }
+  }
+});
+
+const searchItems = computed<ArtSearchBarItem[]>(() => [
+  {
+    key: 'user',
+    label: t('orgUserPositions.user'),
+    placeholder: t('orgUserPositions.searchUserPlaceholder')
+  },
+  {
+    key: 'position',
+    label: t('orgUserPositions.position'),
+    placeholder: t('orgUserPositions.searchPositionPlaceholder')
+  },
+  {
+    key: 'status',
+    label: t('users.status'),
+    type: 'select',
+    placeholder: t('orgUserPositions.searchStatusPlaceholder'),
+    options: [
+      { label: t('orgUserPositions.active'), value: 'active' },
+      { label: t('orgUserPositions.inactive'), value: 'inactive' }
+    ]
+  }
+]);
+
+watchLoading(loading);
+
+onMounted(() => {
+  void load();
+});
+
+function isColumnVisible(key: AssignmentTableColumnKey): boolean {
+  return columnVisibility.value[key];
+}
+
+function rowIndex(index: number): number {
+  return (page.value - 1) * pageSize.value + index + 1;
+}
+
+function clearFieldErrors(): void {
+  fieldErrors.userId = '';
+  fieldErrors.positionId = '';
+}
+
+function validateUserId(): string {
+  if (!editorForm.userId) {
+    return t('orgUserPositions.userRequired');
+  }
+  return '';
+}
+
+function validatePositionId(): string {
+  if (!editorForm.positionId) {
+    return t('orgUserPositions.positionRequired');
+  }
+  return '';
+}
+
+function applyFieldErrors(): boolean {
+  fieldErrors.userId = validateUserId();
+  fieldErrors.positionId = validatePositionId();
+  return !fieldErrors.userId && !fieldErrors.positionId;
+}
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -58,18 +222,17 @@ async function load(): Promise<void> {
       listOrganizationUserPositions(),
       listOrganizationPositions(),
       canCreate.value
-        ? listAssignableOrganizationUserPositionUsers()
-            .catch(error => {
-              if (isForbidden(error)) {
-                return {
-                  items: [] as OrganizationAssignableUser[],
-                  page: 1,
-                  pageSize: 100,
-                  total: 0
-                };
-              }
-              throw error;
-            })
+        ? listAssignableOrganizationUserPositionUsers().catch(error => {
+          if (isForbidden(error)) {
+            return {
+              items: [] as OrganizationAssignableUser[],
+              page: 1,
+              pageSize: 100,
+              total: 0
+            };
+          }
+          throw error;
+        })
         : Promise.resolve({
           items: [] as OrganizationAssignableUser[],
           page: 1,
@@ -77,11 +240,12 @@ async function load(): Promise<void> {
           total: 0
         })
     ]);
-    assignments.value = assignmentPage.items;
+    allAssignments.value = assignmentPage.items;
     users.value = assignableUserPage.items;
     userPage.value = assignableUserPage.page;
     userTotal.value = assignableUserPage.total;
     positions.value = positionPage.items.filter(position => position.isActive);
+    await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'orgUserPositions.loadFailed');
   } finally {
@@ -111,21 +275,44 @@ async function loadMoreUsers(): Promise<void> {
   }
 }
 
-async function create(): Promise<void> {
-  if (changing.value || !selectedUserId.value || !selectedPositionId.value) {
+function handleSearch(params: Record<string, string | undefined>): void {
+  appliedFilters.value = {
+    user: params.user ?? '',
+    position: params.position ?? '',
+    status: (params.status as AppliedFilters['status']) ?? ''
+  };
+  resetPage();
+}
+
+function resetSearch(): void {
+  appliedFilters.value = { user: '', position: '', status: '' };
+  resetPage();
+}
+
+function openCreate(): void {
+  editorForm.userId = '';
+  editorForm.positionId = '';
+  editorForm.isPrimary = false;
+  clearFieldErrors();
+  editorOpen.value = true;
+}
+
+async function submitEditor(): Promise<void> {
+  if (changing.value || !applyFieldErrors()) {
+    return;
+  }
+  if (!canCreate.value) {
     return;
   }
   changing.value = true;
   problem.value = undefined;
   try {
     await createOrganizationUserPosition(
-      selectedUserId.value,
-      selectedPositionId.value,
-      isPrimary.value
+      editorForm.userId,
+      editorForm.positionId,
+      editorForm.isPrimary
     );
-    selectedUserId.value = '';
-    selectedPositionId.value = '';
-    isPrimary.value = false;
+    editorOpen.value = false;
     ElMessage.success(t('orgUserPositions.createSuccess'));
     await load();
   } catch (error: unknown) {
@@ -153,7 +340,9 @@ async function setPrimary(assignment: OrganizationUserPosition): Promise<void> {
 }
 
 async function disable(assignment: OrganizationUserPosition): Promise<void> {
-  if (changing.value || !assignment.isActive) return;
+  if (changing.value || !assignment.isActive) {
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       t('orgUserPositions.confirmDisable', {
@@ -163,7 +352,7 @@ async function disable(assignment: OrganizationUserPosition): Promise<void> {
       {
         type: 'warning',
         confirmButtonText: t('orgUserPositions.disable'),
-        cancelButtonText: t('status.back')
+        cancelButtonText: t('users.cancel')
       }
     );
     changing.value = true;
@@ -171,7 +360,9 @@ async function disable(assignment: OrganizationUserPosition): Promise<void> {
     ElMessage.success(t('orgUserPositions.disableSuccess'));
     await load();
   } catch (error: unknown) {
-    if (error === 'cancel' || error === 'close') return;
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
     problem.value = toProblem(error, 'orgUserPositions.operationFailed');
   } finally {
     changing.value = false;
@@ -214,13 +405,186 @@ function appendUniqueUsers(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <PermissionGate code="organization.user_positions.create">
-    <el-card class="art-form-card" shadow="never">
-      <div class="art-form-grid art-form-grid--cols-2 art-form-grid--align-center" aria-labelledby="create-title">
-        <div><h2 id="create-title">{{ t('orgUserPositions.createTitle') }}</h2></div>
-        <label>
-          <span>{{ t('orgUserPositions.user') }}</span>
-          <el-select v-model="selectedUserId" :placeholder="t('orgUserPositions.userPlaceholder')">
+    <ArtSearchBar
+      v-model="searchForm"
+      :items="searchItems"
+      :default-visible-count="3"
+      :search-label="t('orgUserPositions.query')"
+      :reset-label="t('orgUserPositions.reset')"
+      :expand-label="t('orgUserPositions.expand')"
+      :collapse-label="t('orgUserPositions.collapse')"
+      @search="handleSearch"
+      @reset="resetSearch"
+    />
+
+    <el-card class="art-table-card" shadow="never">
+      <div ref="tableMainRef" class="art-crud-table-main">
+        <ArtTableHeader
+          v-model:columns="tableColumns"
+          v-model:table-size="tableSize"
+          v-model:zebra="tableZebra"
+          v-model:border="tableBorder"
+          v-model:header-background="tableHeaderBackground"
+          :loading="loading"
+          full-class="art-crud-table-main"
+          layout="refresh,size,fullscreen,columns,settings"
+          @refresh="load"
+        >
+          <template #left>
+            <PermissionGate code="organization.user_positions.create">
+              <el-button
+                type="primary"
+                plain
+                :icon="Plus"
+                data-testid="org-user-positions-action-create"
+                @click="openCreate"
+              >
+                {{ t('orgUserPositions.addAssignment') }}
+              </el-button>
+            </PermissionGate>
+          </template>
+        </ArtTableHeader>
+
+        <div class="art-table" :class="{ 'is-empty': pagedAssignments.length === 0 }">
+          <el-table
+            v-loading="loading"
+            :data="pagedAssignments"
+            :height="tableHeight"
+            :size="tableSize"
+            :stripe="tableZebra"
+            :border="tableBorder"
+            :header-cell-style="tableHeaderCellStyle"
+            class="art-crud-data-table"
+            :class="{ 'art-table--header-bg': tableHeaderBackground }"
+          >
+            <el-table-column :label="t('users.columnIndex')" width="72" align="center">
+              <template #default="{ $index }">{{ rowIndex($index) }}</template>
+            </el-table-column>
+
+            <el-table-column :label="t('orgUserPositions.user')" min-width="200">
+              <template #default="{ row }">
+                <div class="art-crud-table-row">
+                  <span class="art-crud-table-row__avatar">{{ row.positionCode.slice(0, 2).toUpperCase() }}</span>
+                  <div>
+                    <div class="art-crud-table-row__name" translate="no">{{ row.displayName }}</div>
+                    <div class="art-crud-table-row__sub" translate="no">{{ row.username }}</div>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column
+              v-if="isColumnVisible('position')"
+              :label="t('orgUserPositions.position')"
+              min-width="180"
+            >
+              <template #default="{ row }">
+                <div translate="no">{{ row.positionName }}</div>
+                <div class="art-crud-table-row__sub" translate="no">{{ row.positionCode }}</div>
+              </template>
+            </el-table-column>
+
+            <el-table-column
+              v-if="isColumnVisible('primary')"
+              :label="t('orgUserPositions.primary')"
+              width="100"
+              align="center"
+            >
+              <template #default="{ row }">
+                <el-tag v-if="row.isPrimary" type="warning">{{ t('orgUserPositions.primary') }}</el-tag>
+                <span v-else>—</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column
+              v-if="isColumnVisible('status')"
+              :label="t('users.status')"
+              width="100"
+              align="center"
+            >
+              <template #default="{ row }">
+                <el-tag :type="row.isActive ? 'success' : 'info'">
+                  {{ t(row.isActive ? 'orgUserPositions.active' : 'orgUserPositions.inactive') }}
+                </el-tag>
+              </template>
+            </el-table-column>
+
+            <el-table-column
+              :label="t('users.columnActions')"
+              width="120"
+              fixed="right"
+              align="center"
+            >
+              <template #default="{ row }">
+                <div class="art-crud-table-actions">
+                  <PermissionGate v-if="canUpdate" code="organization.user_positions.update">
+                    <ArtTableActionButton
+                      v-if="row.isActive && !row.isPrimary"
+                      type="edit"
+                      test-id="org-user-positions-action-set-primary"
+                      :title="t('orgUserPositions.setPrimary')"
+                      :disabled="changing"
+                      @click="setPrimary(row)"
+                    />
+                  </PermissionGate>
+                  <PermissionGate v-if="row.isActive && canDisable" code="organization.user_positions.disable">
+                    <ArtTableActionButton
+                      type="delete"
+                      test-id="org-user-positions-action-disable"
+                      :title="t('orgUserPositions.disable')"
+                      :disabled="changing"
+                      @click="disable(row)"
+                    />
+                  </PermissionGate>
+                </div>
+              </template>
+            </el-table-column>
+
+            <template #empty>{{ t('orgUserPositions.emptyDirectory') }}</template>
+          </el-table>
+
+          <div class="art-table__pagination center custom-pagination">
+            <el-pagination
+              v-model:current-page="page"
+              v-model:page-size="pageSize"
+              :total="total"
+              background
+              layout="total, sizes, prev, pager, next, jumper"
+              :page-sizes="[10, 20, 50, 100]"
+            />
+          </div>
+        </div>
+      </div>
+    </el-card>
+
+    <ArtFormDialog
+      v-model:open="editorOpen"
+      :title="t('orgUserPositions.createDialogTitle')"
+      :saving="changing"
+      :confirm-label="t('users.confirm')"
+      :cancel-label="t('users.cancel')"
+      confirm-test-id="org-user-positions-editor-submit"
+      :show-confirm="canCreate"
+      @confirm="submitEditor"
+    >
+      <el-form
+        ref="editorFormRef"
+        data-testid="org-user-positions-editor-form"
+        :model="editorForm"
+        label-width="96px"
+        class="org-user-positions-editor-form"
+      >
+        <el-form-item
+          :label="t('orgUserPositions.user')"
+          prop="userId"
+          required
+          :error="fieldErrors.userId || undefined"
+        >
+          <el-select
+            v-model="editorForm.userId"
+            :placeholder="t('orgUserPositions.userPlaceholder')"
+            @update:model-value="fieldErrors.userId = validateUserId()"
+          >
             <el-option
               v-for="user in users"
               :key="user.id"
@@ -237,10 +601,18 @@ function appendUniqueUsers(
           >
             {{ t('orgUserPositions.loadMoreUsers') }}
           </el-button>
-        </label>
-        <label>
-          <span>{{ t('orgUserPositions.position') }}</span>
-          <el-select v-model="selectedPositionId" :placeholder="t('orgUserPositions.positionPlaceholder')">
+        </el-form-item>
+        <el-form-item
+          :label="t('orgUserPositions.position')"
+          prop="positionId"
+          required
+          :error="fieldErrors.positionId || undefined"
+        >
+          <el-select
+            v-model="editorForm.positionId"
+            :placeholder="t('orgUserPositions.positionPlaceholder')"
+            @update:model-value="fieldErrors.positionId = validatePositionId()"
+          >
             <el-option
               v-for="position in positions"
               :key="position.id"
@@ -248,59 +620,43 @@ function appendUniqueUsers(
               :value="position.id"
             />
           </el-select>
-        </label>
-        <label>
-          <el-checkbox v-model="isPrimary">{{ t('orgUserPositions.isPrimary') }}</el-checkbox>
-        </label>
-        <el-button type="primary" :loading="changing" @click="create">{{ t('orgUserPositions.create') }}</el-button>
-      </div>
-    </el-card>
-    </PermissionGate>
-
-    <el-card class="art-table-card" shadow="never">
-      <template #header>
-        <div class="art-table-card__header">
-          <h2>{{ t('orgUserPositions.directoryTitle') }}</h2>
-          <span class="art-table-card__count">{{ assignments.length }}</span>
-        </div>
-      </template>
-
-      <p v-if="assignments.length === 0" class="art-empty-state">{{ t('orgUserPositions.emptyDirectory') }}</p>
-      <article v-for="assignment in assignments" :key="assignment.id" class="art-data-row">
-        <span class="art-data-row__avatar">{{ assignment.positionCode.slice(0, 2).toUpperCase() }}</span>
-        <div class="art-data-row__main">
-          <strong translate="no">{{ assignment.displayName }}</strong>
-          <code translate="no">{{ assignment.username }} · {{ assignment.positionName }}</code>
-        </div>
-        <div class="art-tag-group">
-          <el-tag v-if="assignment.isPrimary" type="warning">{{ t('orgUserPositions.primary') }}</el-tag>
-          <el-tag :type="assignment.isActive ? 'success' : 'info'">
-            {{ t(assignment.isActive ? 'orgUserPositions.active' : 'orgUserPositions.inactive') }}
-          </el-tag>
-        </div>
-        <div class="art-data-row__actions">
-          <PermissionGate code="organization.user_positions.update">
-          <el-button
-            v-if="assignment.isActive && !assignment.isPrimary"
-            plain
-            :disabled="changing"
-            @click="setPrimary(assignment)"
-          >
-            {{ t('orgUserPositions.setPrimary') }}
-          </el-button>
-          </PermissionGate>
-          <PermissionGate v-if="assignment.isActive" code="organization.user_positions.disable">
-          <el-button
-            type="danger"
-            plain
-            :disabled="changing"
-            @click="disable(assignment)"
-          >
-            {{ t('orgUserPositions.disable') }}
-          </el-button>
-          </PermissionGate>
-        </div>
-      </article>
-    </el-card>
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="editorForm.isPrimary">{{ t('orgUserPositions.isPrimary') }}</el-checkbox>
+        </el-form-item>
+      </el-form>
+    </ArtFormDialog>
   </section>
 </template>
+
+<style scoped>
+.org-user-positions-view :deep(.art-table-card) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.org-user-positions-view :deep(.art-table-card .el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.org-user-positions-editor-form {
+  padding-top: 8px;
+}
+
+.art-sr-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>

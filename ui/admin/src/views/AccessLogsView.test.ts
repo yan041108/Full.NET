@@ -29,57 +29,55 @@ describe('Vue 访问日志页', () => {
       });
   });
 
-  it('使用游标加载并按服务端顺序追加下一批', async () => {
+  it('挂载时自动拉取全部游标页并按顺序展示', async () => {
     const wrapper = mount(AccessLogsView);
     await flushPromises();
 
     expect(listMock).toHaveBeenNthCalledWith(1);
+    expect(listMock).toHaveBeenNthCalledWith(2, { cursor: 'cursor-next' });
     expect(wrapper.text()).toContain('/first');
-
-    await wrapper.get('[data-testid="access-logs-load-more"]').trigger('click');
-    await flushPromises();
-
-    expect(listMock).toHaveBeenNthCalledWith(2, {
-      cursor: 'cursor-next'
-    });
-    expect(wrapper.findAll('.art-data-row')).toHaveLength(2);
+    expect(wrapper.text()).toContain('/second');
     expect(wrapper.text().indexOf('/first')).toBeLessThan(
-      wrapper.text().indexOf('/second'));
-    expect(wrapper.find('[data-testid="access-logs-load-more"]').exists())
-      .toBe(false);
+      wrapper.text().indexOf('/second')
+    );
+    expect(wrapper.find('.el-pagination').exists()).toBe(true);
   });
 
   it('启用 contains 时显示 24 小时范围并用同一筛选重新加载', async () => {
     const wrapper = mount(AccessLogsView);
     await flushPromises();
+    const callsAfterMount = listMock.mock.calls.length;
 
-    await wrapper.get('[data-testid="access-logs-path-contains"]')
-      .setValue(' /api/v1/settings ');
-
-    const fromInput = wrapper.get(
-      '[data-testid="access-logs-from-utc"]'
-    ).element as HTMLInputElement;
-    const toInput = wrapper.get(
-      '[data-testid="access-logs-to-utc"]'
-    ).element as HTMLInputElement;
-    expect(fromInput.value).not.toBe('');
-    expect(toInput.value).not.toBe('');
-
-    await wrapper.get('[data-testid="access-logs-search"]').trigger('click');
+    const pathInput = wrapper.find('input[placeholder="路径包含"]');
+    await pathInput.setValue(' /api/v1/settings ');
     await flushPromises();
 
-    const request = listMock.mock.calls[1][0];
-    expect(request?.pathContains).toBe('/api/v1/settings');
-    expect(Date.parse(request?.toUtc ?? '')
-      - Date.parse(request?.fromUtc ?? '')).toBe(24 * 60 * 60 * 1000);
+    const fromInput = wrapper.findAll('input').find(input =>
+      input.attributes('placeholder') === '开始时间'
+    )?.element as HTMLInputElement | undefined;
+    const toInput = wrapper.findAll('input').find(input =>
+      input.attributes('placeholder') === '结束时间'
+    )?.element as HTMLInputElement | undefined;
+    expect(fromInput?.value).not.toBe('');
+    expect(toInput?.value).not.toBe('');
 
-    await wrapper.get('[data-testid="access-logs-path-contains"]')
-      .setValue('');
-    expect(fromInput.value).toBe('');
-    expect(toInput.value).toBe('');
-    await wrapper.get('[data-testid="access-logs-search"]').trigger('click');
+    await wrapper.find('.art-search-bar__buttons .el-button--primary').trigger('click');
     await flushPromises();
-    expect(listMock).toHaveBeenNthCalledWith(3);
+
+    const searchCalls = listMock.mock.calls.slice(callsAfterMount);
+    const filteredRequest = searchCalls.map(call => call[0]).find(options => options?.pathContains);
+    expect(filteredRequest?.pathContains).toBe('/api/v1/settings');
+    expect(Date.parse(filteredRequest?.toUtc ?? '')
+      - Date.parse(filteredRequest?.fromUtc ?? '')).toBe(24 * 60 * 60 * 1000);
+
+    const callsBeforeClear = listMock.mock.calls.length;
+    await wrapper.find('.art-search-bar__buttons .el-button').trigger('click');
+    await flushPromises();
+    expect(fromInput?.value).toBe('');
+    expect(toInput?.value).toBe('');
+    await wrapper.find('.art-search-bar__buttons .el-button--primary').trigger('click');
+    await flushPromises();
+    expect(listMock.mock.calls.length).toBeGreaterThan(callsBeforeClear);
   });
 });
 

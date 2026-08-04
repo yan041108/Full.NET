@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import ApiKeysView from './ApiKeysView.vue';
 import { useSessionStore } from '../auth/session';
@@ -69,11 +70,21 @@ describe('Vue API Key 管理页', () => {
     const wrapper = mount(ApiKeysView);
     await flushPromises();
 
-    await wrapper.get('[data-testid="api-key-user-id"]').setValue(userId);
-    await wrapper.get('[data-testid="api-key-display-name"]').setValue('部署流水线');
-    await wrapper.get('[data-testid="api-key-permissions"]')
+    await wrapper.get('[data-testid="api-keys-action-create"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+
+    expect(document.querySelector('[data-testid="api-keys-editor-submit"]')).not.toBeNull();
+
+    const createForm = document.querySelector('[data-testid="api-key-create-form"]');
+    expect(createForm).not.toBeNull();
+    const textInputs = createForm!.querySelectorAll('input.el-input__inner');
+    const permissionsInput = createForm!.querySelector('textarea') as HTMLTextAreaElement;
+    await new DOMWrapper(textInputs[0] as HTMLInputElement).setValue(userId);
+    await new DOMWrapper(textInputs[1] as HTMLInputElement).setValue('部署流水线');
+    await new DOMWrapper(permissionsInput)
       .setValue('platform.dashboard.read,\nplatform.dashboard.read');
-    await wrapper.get('[data-testid="api-key-create-form"]').trigger('submit');
+    await (document.querySelector('[data-testid="api-keys-editor-submit"]') as HTMLButtonElement).click();
     await flushPromises();
 
     expect(createMock).toHaveBeenCalledWith({
@@ -91,15 +102,16 @@ describe('Vue API Key 管理页', () => {
     expect(writeText).toHaveBeenCalledWith('fn_live_once_only');
     expect(Object.values(localStorage)).not.toContain('fn_live_once_only');
     expect(Object.values(sessionStorage)).not.toContain('fn_live_once_only');
+    wrapper.unmount();
   });
 
-  it('只读权限不会呈现创建表单', async () => {
+  it('只读权限不会呈现创建入口', async () => {
     useSessionStore().currentUser!.permissions = ['identity.api_keys.read'];
 
     const wrapper = mount(ApiKeysView);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="api-key-create-form"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="api-keys-action-create"]').exists()).toBe(false);
   });
 
   it('列表刷新会重新加载并格式化最后使用时间', async () => {
@@ -128,7 +140,7 @@ describe('Vue API Key 管理页', () => {
     expect(wrapper.text()).not.toContain('从未');
     listMock.mockClear();
 
-    await wrapper.get('[data-testid="api-keys-refresh"]').trigger('click');
+    await wrapper.get('button[aria-label="刷新"]').trigger('click');
     await flushPromises();
 
     expect(listMock).toHaveBeenCalledTimes(1);

@@ -70,7 +70,7 @@ describe('Vue Host \u516c\u544a\u7ba1\u7406\u9875', () => {
     const wrapper = mountWithPermissions(['notifications.announcements.read']);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="host-announcements-submit"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-announcements-action-create"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-announcements-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-announcements-publish"]').exists()).toBe(false);
   });
@@ -82,7 +82,7 @@ describe('Vue Host \u516c\u544a\u7ba1\u7406\u9875', () => {
     ]);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="host-announcements-submit"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="host-announcements-action-create"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="host-announcements-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-announcements-publish"]').exists()).toBe(false);
   });
@@ -94,7 +94,7 @@ describe('Vue Host \u516c\u544a\u7ba1\u7406\u9875', () => {
     ]);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="host-announcements-submit"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-announcements-action-create"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-announcements-edit"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="host-announcements-publish"]').exists()).toBe(false);
   });
@@ -106,7 +106,7 @@ describe('Vue Host \u516c\u544a\u7ba1\u7406\u9875', () => {
     ]);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="host-announcements-submit"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-announcements-action-create"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-announcements-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-announcements-publish"]').exists()).toBe(true);
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import TenantContextView from './TenantContextView.vue';
 import { useSessionStore } from '../auth/session';
@@ -29,16 +29,23 @@ describe('Vue 租户上下文页面', () => {
       .mockResolvedValue(undefined);
 
     const wrapper = mount(TenantContextView, {
-      global: { plugins: [pinia] }
+      global: { plugins: [pinia] },
+      attachTo: document.body
     });
-    await wrapper.get(`[data-tenant-id="${tenantId}"]`).trigger('click');
+    await flushPromises();
+
+    const button = document.querySelector(`[data-tenant-id="${tenantId}"]`) as HTMLElement;
+    expect(button).not.toBeNull();
+    await button.click();
+    await flushPromises();
 
     expect(wrapper.text()).toContain('Full.NET Host');
     expect(wrapper.text()).toContain('Acme Corporation');
     expect(switchTenant).toHaveBeenCalledWith(tenantId);
+    wrapper.unmount();
   });
 
-  it('没有切换权限时不呈现操作按钮', () => {
+  it('没有切换权限时不呈现操作按钮', async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const session = useSessionStore();
@@ -58,9 +65,12 @@ describe('Vue 租户上下文页面', () => {
     });
 
     const wrapper = mount(TenantContextView, {
-      global: { plugins: [pinia] }
+      global: { plugins: [pinia] },
+      attachTo: document.body
     });
+    await flushPromises();
 
-    expect(wrapper.find('[data-tenant-id]').exists()).toBe(false);
+    expect(document.querySelector('[data-tenant-id]')).toBeNull();
+    wrapper.unmount();
   });
 });

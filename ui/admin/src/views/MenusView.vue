@@ -1,62 +1,314 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import {
   ElButton,
   ElCard,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
   ElMessageBox,
   ElOption,
+  ElPagination,
   ElSelect,
+  ElTable,
+  ElTableColumn,
   ElTag
 } from 'element-plus';
+import { Plus } from '@element-plus/icons-vue';
+import type { FormInstance } from 'element-plus';
 import {
   HOST_MENU_ASSIGNABLE_PERMISSIONS,
   HOST_MENU_COMPONENT_OPTIONS,
-  type FullNetProblemDetails
+  type FullNetProblemDetails,
+  type HostMenu
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
+import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
+import {
+  useArtClientPagination,
+  useArtCrudTableLayout
+} from '../framework/art-design/composables/useArtCrudTableLayout';
+import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import PermissionGate from '../components/PermissionGate.vue';
 import {
   createHostMenu,
   disableHostMenu,
   listHostMenus,
   updateHostMenu
 } from '../api/menus';
-import type { HostMenu } from '@fullnet/client-contracts';
+
+defineOptions({ name: 'MenusView' });
+
+type EditorMode = 'create' | 'edit';
+type MenuTableColumnKey = 'componentKey' | 'requiredPermission' | 'status' | 'displayOrder';
+
+interface AppliedFilters {
+  routeName: string;
+  title: string;
+  componentKey: string;
+  status: '' | 'active' | 'inactive';
+}
+
+const ROUTE_NAME_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
-const menus = ref<HostMenu[]>([]);
-const routeName = ref('');
-const componentKey = ref('overview');
-const path = ref('/');
-const title = ref('');
-const caption = ref('');
-const icon = ref('grid');
-const displayOrder = ref(50);
-const requiredPermission = ref<string>(HOST_MENU_ASSIGNABLE_PERMISSIONS[0]);
+const allMenus = ref<HostMenu[]>([]);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const searchForm = ref<Record<string, string | undefined>>({});
+const appliedFilters = ref<AppliedFilters>({
+  routeName: '',
+  title: '',
+  componentKey: '',
+  status: ''
+});
+const editorOpen = ref(false);
+const editorMode = ref<EditorMode>('create');
+const editingMenu = ref<HostMenu | null>(null);
+const editorFormRef = ref<FormInstance>();
+const editorForm = reactive({
+  routeName: '',
+  componentKey: HOST_MENU_COMPONENT_OPTIONS[0]?.componentKey ?? 'overview',
+  title: '',
+  requiredPermission: HOST_MENU_ASSIGNABLE_PERMISSIONS[0]
+});
+const fieldErrors = reactive({
+  routeName: '',
+  title: '',
+  componentKey: '',
+  requiredPermission: ''
+});
+const columnVisibility = ref<Record<MenuTableColumnKey, boolean>>({
+  componentKey: true,
+  requiredPermission: true,
+  status: true,
+  displayOrder: true
+});
+
 const componentOptions = HOST_MENU_COMPONENT_OPTIONS;
 const assignablePermissions = HOST_MENU_ASSIGNABLE_PERMISSIONS;
 
-watch(componentKey, value => {
-  const entry = componentOptions.find(option => option.componentKey === value);
-  path.value = entry?.path ?? '/';
+const {
+  tableMainRef,
+  tableHeight,
+  tableSize,
+  tableZebra,
+  tableBorder,
+  tableHeaderBackground,
+  tableHeaderCellStyle,
+  updateTableHeight,
+  watchLoading
+} = useArtCrudTableLayout();
+
+const filteredMenus = computed(() => {
+  let rows = allMenus.value;
+  const filters = appliedFilters.value;
+
+  if (filters.routeName.trim()) {
+    const keyword = filters.routeName.trim().toLowerCase();
+    rows = rows.filter(menu => menu.routeName.toLowerCase().includes(keyword));
+  }
+
+  if (filters.title.trim()) {
+    const keyword = filters.title.trim().toLowerCase();
+    rows = rows.filter(menu => menu.title.toLowerCase().includes(keyword));
+  }
+
+  if (filters.componentKey) {
+    rows = rows.filter(menu => menu.componentKey === filters.componentKey);
+  }
+
+  if (filters.status === 'active') {
+    rows = rows.filter(menu => menu.isActive);
+  } else if (filters.status === 'inactive') {
+    rows = rows.filter(menu => !menu.isActive);
+  }
+
+  return rows;
 });
 
-onMounted(load);
+const { page, pageSize, total, pagedItems: pagedMenus, resetPage } = useArtClientPagination(filteredMenus);
+
+const tableColumns = computed<ArtTableColumnOption[]>({
+  get: () => [
+    {
+      key: 'componentKey',
+      label: t('menus.componentKey'),
+      visible: columnVisibility.value.componentKey
+    },
+    {
+      key: 'requiredPermission',
+      label: t('menus.requiredPermission'),
+      visible: columnVisibility.value.requiredPermission
+    },
+    { key: 'status', label: t('users.status'), visible: columnVisibility.value.status },
+    {
+      key: 'displayOrder',
+      label: t('users.columnSortOrder'),
+      visible: columnVisibility.value.displayOrder
+    }
+  ],
+  set: columns => {
+    for (const column of columns) {
+      if (column.key in columnVisibility.value) {
+        columnVisibility.value[column.key as MenuTableColumnKey] = column.visible !== false;
+      }
+    }
+  }
+});
+
+const searchItems = computed<ArtSearchBarItem[]>(() => [
+  {
+    key: 'routeName',
+    label: t('menus.routeName'),
+    placeholder: t('menus.searchRouteNamePlaceholder')
+  },
+  {
+    key: 'title',
+    label: t('menus.titleField'),
+    placeholder: t('menus.searchTitlePlaceholder')
+  },
+  {
+    key: 'componentKey',
+    label: t('menus.componentKey'),
+    type: 'select',
+    placeholder: t('menus.searchComponentPlaceholder'),
+    options: componentOptions.map(option => ({
+      label: option.componentKey,
+      value: option.componentKey
+    }))
+  },
+  {
+    key: 'status',
+    label: t('users.status'),
+    type: 'select',
+    placeholder: t('menus.searchStatusPlaceholder'),
+    options: [
+      { label: t('menus.active'), value: 'active' },
+      { label: t('menus.inactive'), value: 'inactive' }
+    ]
+  }
+]);
+
+const canCreate = computed(() => session.can('identity.menus.create'));
+const canUpdate = computed(() => session.can('identity.menus.update'));
+
+watchLoading(loading);
+
+onMounted(() => {
+  void load();
+});
+
+function isColumnVisible(key: MenuTableColumnKey): boolean {
+  return columnVisibility.value[key];
+}
+
+function rowIndex(index: number): number {
+  return (page.value - 1) * pageSize.value + index + 1;
+}
+
+function normalizeRouteName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+/, '');
+}
+
+function resolvePath(componentKey: string): string {
+  const entry = componentOptions.find(option => option.componentKey === componentKey);
+  return entry?.path ?? '/';
+}
+
+function clearFieldErrors(): void {
+  fieldErrors.routeName = '';
+  fieldErrors.title = '';
+  fieldErrors.componentKey = '';
+  fieldErrors.requiredPermission = '';
+}
+
+function validateRouteName(): string {
+  if (editorMode.value !== 'create') {
+    return '';
+  }
+  const routeName = normalizeRouteName(editorForm.routeName);
+  if (!routeName) {
+    return t('menus.routeNameRequired');
+  }
+  if (!ROUTE_NAME_PATTERN.test(routeName)) {
+    return t('menus.routeNameInvalid');
+  }
+  return '';
+}
+
+function validateTitle(): string {
+  const title = editorForm.title.trim();
+  if (!title) {
+    return t('menus.titleRequired');
+  }
+  return '';
+}
+
+function validateComponentKey(): string {
+  const componentKey = editorForm.componentKey.trim();
+  if (!componentKey) {
+    return t('menus.componentKeyRequired');
+  }
+  if (!componentOptions.some(option => option.componentKey === componentKey)) {
+    return t('menus.componentKeyRequired');
+  }
+  return '';
+}
+
+function validateRequiredPermission(): string {
+  const permission = editorForm.requiredPermission.trim();
+  if (!permission) {
+    return t('menus.permissionRequired');
+  }
+  if (!assignablePermissions.includes(permission as typeof assignablePermissions[number])) {
+    return t('menus.permissionRequired');
+  }
+  return '';
+}
+
+function applyFieldErrors(): boolean {
+  fieldErrors.routeName = validateRouteName();
+  fieldErrors.title = validateTitle();
+  fieldErrors.componentKey = validateComponentKey();
+  fieldErrors.requiredPermission = validateRequiredPermission();
+  return !fieldErrors.routeName
+    && !fieldErrors.title
+    && !fieldErrors.componentKey
+    && !fieldErrors.requiredPermission;
+}
+
+async function fetchAllMenus(): Promise<HostMenu[]> {
+  const pageLimit = 100;
+  const firstPage = await listHostMenus(1, pageLimit);
+  const items = [...firstPage.items];
+  const totalPages = Math.ceil(firstPage.total / pageLimit);
+  for (let current = 2; current <= totalPages; current += 1) {
+    const nextPage = await listHostMenus(current, pageLimit);
+    items.push(...nextPage.items);
+  }
+  return items;
+}
 
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const page = await listHostMenus();
-    menus.value = page.items;
+    allMenus.value = await fetchAllMenus();
+    await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'menus.loadFailed');
   } finally {
@@ -64,27 +316,92 @@ async function load(): Promise<void> {
   }
 }
 
+function handleSearch(params: Record<string, string | undefined>): void {
+  appliedFilters.value = {
+    routeName: params.routeName ?? '',
+    title: params.title ?? '',
+    componentKey: params.componentKey ?? '',
+    status: (params.status as AppliedFilters['status']) ?? ''
+  };
+  resetPage();
+}
+
+function resetSearch(): void {
+  appliedFilters.value = { routeName: '', title: '', componentKey: '', status: '' };
+  resetPage();
+}
+
+function openCreate(): void {
+  editorMode.value = 'create';
+  editingMenu.value = null;
+  editorForm.routeName = '';
+  editorForm.componentKey = componentOptions[0]?.componentKey ?? 'overview';
+  editorForm.title = '';
+  editorForm.requiredPermission = assignablePermissions[0];
+  clearFieldErrors();
+  editorOpen.value = true;
+}
+
+function openEdit(menu: HostMenu): void {
+  if (changing.value || menu.isSystem || !canUpdate.value) {
+    return;
+  }
+  editorMode.value = 'edit';
+  editingMenu.value = menu;
+  editorForm.routeName = menu.routeName;
+  editorForm.componentKey = menu.componentKey;
+  editorForm.title = menu.title;
+  editorForm.requiredPermission = menu.requiredPermission as typeof assignablePermissions[number];
+  clearFieldErrors();
+  editorOpen.value = true;
+}
+
+function onEditorRouteNameBlur(): void {
+  if (editorMode.value !== 'create') {
+    return;
+  }
+  editorForm.routeName = normalizeRouteName(editorForm.routeName);
+  fieldErrors.routeName = validateRouteName();
+}
+
+async function submitEditor(): Promise<void> {
+  if (changing.value) {
+    return;
+  }
+  if (editorMode.value === 'create') {
+    editorForm.routeName = normalizeRouteName(editorForm.routeName);
+  }
+  editorForm.title = editorForm.title.trim();
+  if (!applyFieldErrors()) {
+    return;
+  }
+  if (editorMode.value === 'create') {
+    await create();
+    return;
+  }
+  await saveEdit();
+}
+
 async function create(): Promise<void> {
-  if (changing.value || !session.can('identity.menus.create') || !routeName.value.trim() || !title.value.trim()) {
+  if (!canCreate.value) {
     return;
   }
   changing.value = true;
   problem.value = undefined;
   try {
+    const title = editorForm.title.trim();
     await createHostMenu({
       parentId: null,
-      routeName: routeName.value.trim(),
-      path: path.value,
-      componentKey: componentKey.value,
-      title: title.value.trim(),
-      caption: caption.value.trim() || title.value.trim(),
-      icon: icon.value.trim() || 'grid',
-      displayOrder: displayOrder.value,
-      requiredPermission: requiredPermission.value
+      routeName: editorForm.routeName,
+      path: resolvePath(editorForm.componentKey),
+      componentKey: editorForm.componentKey,
+      title,
+      caption: title,
+      icon: 'grid',
+      displayOrder: 50,
+      requiredPermission: editorForm.requiredPermission
     });
-    routeName.value = '';
-    title.value = '';
-    caption.value = '';
+    editorOpen.value = false;
     ElMessage.success(t('menus.createSuccess'));
     await load();
   } catch (error: unknown) {
@@ -94,34 +411,30 @@ async function create(): Promise<void> {
   }
 }
 
-async function edit(menu: HostMenu): Promise<void> {
-  if (changing.value || menu.isSystem || !session.can('identity.menus.update')) return;
+async function saveEdit(): Promise<void> {
+  const menu = editingMenu.value;
+  if (!canUpdate.value || !menu) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
   try {
-    const result = await ElMessageBox.prompt(
-      t('menus.editTitle'),
-      t('menus.edit'),
-      {
-        inputValue: menu.title,
-        inputPattern: /.+/,
-        showCancelButton: true
-      }
-    );
-    changing.value = true;
+    const title = editorForm.title.trim();
     await updateHostMenu(menu.id, {
       parentId: menu.parentId,
-      path: menu.path,
-      componentKey: menu.componentKey,
-      title: result.value.trim(),
+      path: resolvePath(editorForm.componentKey),
+      componentKey: editorForm.componentKey,
+      title,
       caption: menu.caption,
       icon: menu.icon,
       displayOrder: menu.displayOrder,
-      requiredPermission: menu.requiredPermission,
+      requiredPermission: editorForm.requiredPermission,
       version: menu.version
     });
+    editorOpen.value = false;
     ElMessage.success(t('menus.updateSuccess'));
     await load();
   } catch (error: unknown) {
-    if (error === 'cancel' || error === 'close') return;
     problem.value = toProblem(error, 'menus.operationFailed');
   } finally {
     changing.value = false;
@@ -129,19 +442,27 @@ async function edit(menu: HostMenu): Promise<void> {
 }
 
 async function disable(menu: HostMenu): Promise<void> {
-  if (changing.value || !menu.isActive || menu.isSystem || !session.can('identity.menus.disable')) return;
+  if (changing.value || !menu.isActive || menu.isSystem || !session.can('identity.menus.disable')) {
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       t('menus.confirmDisable', { name: menu.routeName }),
       t('menus.disable'),
-      { type: 'warning', confirmButtonText: t('menus.disable'), cancelButtonText: t('status.back') }
+      {
+        type: 'warning',
+        confirmButtonText: t('menus.disable'),
+        cancelButtonText: t('users.cancel')
+      }
     );
     changing.value = true;
     await disableHostMenu(menu.id);
     ElMessage.success(t('menus.disableSuccess'));
     await load();
   } catch (error: unknown) {
-    if (error === 'cancel' || error === 'close') return;
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
     problem.value = toProblem(error, 'menus.operationFailed');
   } finally {
     changing.value = false;
@@ -168,72 +489,277 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <PermissionGate code="identity.menus.create">
-      <el-card class="art-form-card" shadow="never">
-        <div class="art-form-grid" aria-labelledby="create-title">
-          <div><h2 id="create-title">{{ t('menus.createTitle') }}</h2></div>
-          <label>
-            <span>{{ t('menus.routeName') }}</span>
-            <el-input v-model="routeName" :placeholder="t('menus.routeNamePlaceholder')" />
-          </label>
-          <label>
-            <span>{{ t('menus.componentKey') }}</span>
-            <el-select v-model="componentKey">
-              <el-option v-for="option in componentOptions" :key="option.componentKey" :label="option.componentKey" :value="option.componentKey" />
-            </el-select>
-          </label>
-          <label>
-            <span>{{ t('menus.titleField') }}</span>
-            <el-input v-model="title" :placeholder="t('menus.titlePlaceholder')" />
-          </label>
-          <label>
-            <span>{{ t('menus.requiredPermission') }}</span>
-            <el-select v-model="requiredPermission">
-              <el-option v-for="permission in assignablePermissions" :key="permission" :label="permission" :value="permission" />
-            </el-select>
-          </label>
-          <el-button type="primary" :loading="changing" @click="create">{{ t('menus.create') }}</el-button>
-        </div>
-      </el-card>
-    </PermissionGate>
+    <ArtSearchBar
+      v-model="searchForm"
+      :items="searchItems"
+      :default-visible-count="4"
+      :search-label="t('menus.query')"
+      :reset-label="t('menus.reset')"
+      :expand-label="t('menus.expand')"
+      :collapse-label="t('menus.collapse')"
+      @search="handleSearch"
+      @reset="resetSearch"
+    />
 
     <el-card class="art-table-card" shadow="never">
-      <template #header>
-        <div class="art-table-card__header">
-          <h2>{{ t('menus.directoryTitle') }}</h2>
-          <span class="art-table-card__count">{{ menus.length }}</span>
-        </div>
-      </template>
+      <div ref="tableMainRef" class="art-crud-table-main">
+        <ArtTableHeader
+          v-model:columns="tableColumns"
+          v-model:table-size="tableSize"
+          v-model:zebra="tableZebra"
+          v-model:border="tableBorder"
+          v-model:header-background="tableHeaderBackground"
+          :loading="loading"
+          full-class="art-crud-table-main"
+          layout="refresh,size,fullscreen,columns,settings"
+          @refresh="load"
+        >
+          <template #left>
+            <PermissionGate code="identity.menus.create">
+              <el-button
+                type="primary"
+                plain
+                :icon="Plus"
+                data-testid="menus-action-create"
+                @click="openCreate"
+              >
+                {{ t('menus.addMenu') }}
+              </el-button>
+            </PermissionGate>
+          </template>
+        </ArtTableHeader>
 
-      <p v-if="menus.length === 0" class="art-empty-state">{{ t('menus.emptyDirectory') }}</p>
-      <article v-for="menu in menus" :key="menu.id" class="art-data-row">
-        <span class="art-data-row__avatar">{{ menu.routeName.slice(0, 2).toUpperCase() }}</span>
-        <div class="art-data-row__main">
-          <strong translate="no">{{ menu.title }}</strong>
-          <code translate="no">{{ menu.routeName }} · {{ menu.componentKey }}</code>
-        </div>
-        <div class="art-tag-group">
-          <el-tag v-if="menu.isSystem" type="warning">{{ t('menus.system') }}</el-tag>
-          <el-tag :type="menu.isActive ? 'success' : 'info'">
-            {{ t(menu.isActive ? 'menus.active' : 'menus.inactive') }}
-          </el-tag>
-        </div>
-        <div class="art-data-row__actions">
-          <PermissionGate v-if="!menu.isSystem" code="identity.menus.update">
-            <el-button plain :disabled="changing" @click="edit(menu)">{{ t('menus.edit') }}</el-button>
-          </PermissionGate>
-          <PermissionGate v-if="menu.isActive && !menu.isSystem" code="identity.menus.disable">
-            <el-button
-              type="danger"
-              plain
-              :disabled="changing"
-              @click="disable(menu)"
+        <div class="art-table" :class="{ 'is-empty': pagedMenus.length === 0 }">
+          <el-table
+            v-loading="loading"
+            :data="pagedMenus"
+            :height="tableHeight"
+            :size="tableSize"
+            :stripe="tableZebra"
+            :border="tableBorder"
+            :header-cell-style="tableHeaderCellStyle"
+            class="art-crud-data-table"
+            :class="{ 'art-table--header-bg': tableHeaderBackground }"
+          >
+            <el-table-column :label="t('users.columnIndex')" width="72" align="center">
+              <template #default="{ $index }">{{ rowIndex($index) }}</template>
+            </el-table-column>
+
+            <el-table-column :label="t('menus.routeName')" min-width="220">
+              <template #default="{ row }">
+                <div class="art-crud-table-row">
+                  <span class="art-crud-table-row__avatar">{{ row.routeName.slice(0, 2).toUpperCase() }}</span>
+                  <div>
+                    <div class="art-crud-table-row__name" translate="no">{{ row.title }}</div>
+                    <div class="art-crud-table-row__sub" translate="no">{{ row.routeName }}</div>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column
+              v-if="isColumnVisible('componentKey')"
+              :label="t('menus.componentKey')"
+              min-width="140"
+              prop="componentKey"
+            />
+
+            <el-table-column
+              v-if="isColumnVisible('requiredPermission')"
+              :label="t('menus.requiredPermission')"
+              min-width="200"
+              prop="requiredPermission"
+            />
+
+            <el-table-column
+              v-if="isColumnVisible('status')"
+              :label="t('users.status')"
+              width="120"
+              align="center"
             >
-              {{ t('menus.disable') }}
-            </el-button>
-          </PermissionGate>
+              <template #default="{ row }">
+                <div class="art-tag-group">
+                  <el-tag v-if="row.isSystem" type="warning">{{ t('menus.system') }}</el-tag>
+                  <el-tag :type="row.isActive ? 'success' : 'info'">
+                    {{ t(row.isActive ? 'menus.active' : 'menus.inactive') }}
+                  </el-tag>
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column
+              v-if="isColumnVisible('displayOrder')"
+              :label="t('users.columnSortOrder')"
+              width="88"
+              align="center"
+              prop="displayOrder"
+            />
+
+            <el-table-column
+              :label="t('users.columnActions')"
+              width="120"
+              fixed="right"
+              align="center"
+            >
+              <template #default="{ row }">
+                <div class="art-crud-table-actions">
+                  <PermissionGate v-if="!row.isSystem" code="identity.menus.update">
+                    <ArtTableActionButton
+                      type="edit"
+                      test-id="menus-action-edit"
+                      :title="t('menus.edit')"
+                      :disabled="changing"
+                      @click="openEdit(row)"
+                    />
+                  </PermissionGate>
+                  <PermissionGate v-if="row.isActive && !row.isSystem" code="identity.menus.disable">
+                    <ArtTableActionButton
+                      type="delete"
+                      test-id="menus-action-disable"
+                      :title="t('menus.disable')"
+                      :disabled="changing"
+                      @click="disable(row)"
+                    />
+                  </PermissionGate>
+                </div>
+              </template>
+            </el-table-column>
+
+            <template #empty>{{ t('menus.emptyDirectory') }}</template>
+          </el-table>
+
+          <div class="art-table__pagination center custom-pagination">
+            <el-pagination
+              v-model:current-page="page"
+              v-model:page-size="pageSize"
+              :total="total"
+              background
+              layout="total, sizes, prev, pager, next, jumper"
+              :page-sizes="[10, 20, 50, 100]"
+            />
+          </div>
         </div>
-      </article>
+      </div>
     </el-card>
+
+    <ArtFormDialog
+      v-model:open="editorOpen"
+      :title="editorMode === 'create' ? t('menus.createDialogTitle') : t('menus.editDialogTitle')"
+      :saving="changing"
+      :confirm-label="t('users.confirm')"
+      :cancel-label="t('users.cancel')"
+      confirm-test-id="menus-editor-submit"
+      :show-confirm="editorMode === 'create' ? canCreate : canUpdate"
+      @confirm="submitEditor"
+    >
+      <el-form
+        ref="editorFormRef"
+        data-testid="menus-editor-form"
+        :model="editorForm"
+        label-width="108px"
+        class="menus-editor-form"
+      >
+        <el-form-item
+          v-if="editorMode === 'create'"
+          :label="t('menus.routeName')"
+          prop="routeName"
+          required
+          :error="fieldErrors.routeName || undefined"
+        >
+          <el-input
+            v-model="editorForm.routeName"
+            :placeholder="t('menus.routeNamePlaceholder')"
+            @blur="onEditorRouteNameBlur"
+            @update:model-value="fieldErrors.routeName = validateRouteName()"
+          />
+        </el-form-item>
+        <el-form-item v-else :label="t('menus.routeName')">
+          <el-input v-model="editorForm.routeName" disabled />
+        </el-form-item>
+
+        <el-form-item
+          :label="t('menus.componentKey')"
+          prop="componentKey"
+          required
+          :error="fieldErrors.componentKey || undefined"
+        >
+          <el-select
+            v-model="editorForm.componentKey"
+            @update:model-value="fieldErrors.componentKey = validateComponentKey()"
+          >
+            <el-option
+              v-for="option in componentOptions"
+              :key="option.componentKey"
+              :label="option.componentKey"
+              :value="option.componentKey"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item
+          :label="t('menus.titleField')"
+          prop="title"
+          required
+          :error="fieldErrors.title || undefined"
+        >
+          <el-input
+            v-model="editorForm.title"
+            :placeholder="t('menus.titlePlaceholder')"
+            @update:model-value="fieldErrors.title = validateTitle()"
+          />
+        </el-form-item>
+
+        <el-form-item
+          :label="t('menus.requiredPermission')"
+          prop="requiredPermission"
+          required
+          :error="fieldErrors.requiredPermission || undefined"
+        >
+          <el-select
+            v-model="editorForm.requiredPermission"
+            @update:model-value="fieldErrors.requiredPermission = validateRequiredPermission()"
+          >
+            <el-option
+              v-for="permission in assignablePermissions"
+              :key="permission"
+              :label="permission"
+              :value="permission"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+    </ArtFormDialog>
   </section>
 </template>
+
+<style scoped>
+.menus-view :deep(.art-table-card) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.menus-view :deep(.art-table-card .el-card__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.menus-editor-form {
+  padding-top: 8px;
+}
+
+.art-sr-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>
