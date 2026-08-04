@@ -35,6 +35,12 @@ describe('Host 授权树模块契约', () => {
         ...identityModule,
         pages: [{
           ...usersPage,
+          actions: [{
+            id: 'identity.api_keys.create',
+            name: '创建 API Key',
+            permissionCode: 'identity.api_keys.create',
+            order: 10
+          }],
           children: [{
             id: 'roles',
             title: '角色管理',

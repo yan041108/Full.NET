@@ -68,9 +68,12 @@ test('Host 管理员在角色授权树可看到用户页面与操作节点', asy
   const navigation = page.getByRole('navigation', { name: '主导航' });
   await navigation.getByRole('link', { name: /角色管理/ }).click();
 
-  const customRoleRow = page.getByRole('article').filter({ hasText: 'e2e-host-viewer' });
+  const customRoleRow = page.locator('.roles-data-table tbody tr').filter({ hasText: 'e2e-host-viewer' });
   if ((await customRoleRow.count()) === 0) {
-    const firstCustomRole = page.getByRole('article').filter({ hasNotText: 'host-administrator' }).first();
+    const firstCustomRole = page
+      .locator('.roles-data-table tbody tr')
+      .filter({ hasNotText: 'host-administrator' })
+      .first();
     await firstCustomRole.getByTestId('role-open-permissions').click();
   } else {
     await customRoleRow.getByTestId('role-open-permissions').click();
@@ -133,7 +136,11 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
   await expect(view.getByTestId('roles-action-edit')).toHaveCount(0);
   await expect(view.getByTestId('role-open-permissions')).toHaveCount(0);
   await expect(view.getByTestId('roles-action-data-scope')).toHaveCount(0);
-  const activeRow = view.getByRole('article').filter({ hasText: '有效' }).first();
+  const activeRow = view
+    .locator('.roles-data-table tbody tr')
+    .filter({ hasText: '有效' })
+    .filter({ hasNotText: '系统角色' })
+    .first();
   await expect(activeRow.getByTestId('roles-action-disable')).toBeVisible();
 });
 

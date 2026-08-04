@@ -1,6 +1,6 @@
 const moduleIdPattern = /^[a-z][a-z0-9-]{0,63}$/;
 const pageIdPattern = /^[a-z][a-z0-9-]{0,63}$/;
-const actionIdPattern = /^[a-z][a-z0-9.-]{0,127}$/;
+const actionIdPattern = /^[a-z][a-z0-9._-]{0,127}$/;
 const permissionPattern = /^[a-z][a-z0-9_]*(?:[.-][a-z][a-z0-9_]*)+$/;
 
 const moduleKeys = new Set([

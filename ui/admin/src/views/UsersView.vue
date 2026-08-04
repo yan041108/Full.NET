@@ -122,16 +122,47 @@ const tableSize = ref<'large' | 'default' | 'small'>('default');
 const tableZebra = ref(true);
 const tableBorder = ref(true);
 const tableHeaderBackground = ref(true);
-type UserTableColumnKey = 'gender' | 'phone' | 'createdAt';
+type UserTableColumnKey =
+  | 'gender'
+  | 'roles'
+  | 'org'
+  | 'position'
+  | 'employeeNumber'
+  | 'accountType'
+  | 'sortOrder'
+  | 'phone'
+  | 'createdAt';
 const columnVisibility = ref<Record<UserTableColumnKey, boolean>>({
   gender: true,
+  roles: true,
+  org: true,
+  position: true,
+  employeeNumber: true,
+  accountType: true,
+  sortOrder: true,
   phone: true,
   createdAt: true
 });
+const userRoleLabelsById = ref<Record<string, string>>({});
+let roleLabelsRequestId = 0;
 
 const tableColumns = computed<ArtTableColumnOption[]>({
   get: () => [
     { key: 'gender', label: t('users.gender'), visible: columnVisibility.value.gender },
+    { key: 'roles', label: t('users.columnRoles'), visible: columnVisibility.value.roles },
+    { key: 'org', label: t('users.columnOrg'), visible: columnVisibility.value.org },
+    { key: 'position', label: t('users.columnPosition'), visible: columnVisibility.value.position },
+    {
+      key: 'employeeNumber',
+      label: t('users.employeeNumber'),
+      visible: columnVisibility.value.employeeNumber
+    },
+    {
+      key: 'accountType',
+      label: t('users.accountType'),
+      visible: columnVisibility.value.accountType
+    },
+    { key: 'sortOrder', label: t('users.columnSortOrder'), visible: columnVisibility.value.sortOrder },
     { key: 'phone', label: t('users.phone'), visible: columnVisibility.value.phone },
     { key: 'createdAt', label: t('users.createdAt'), visible: columnVisibility.value.createdAt }
   ],
@@ -323,6 +354,10 @@ watch(loading, () => {
   void nextTick(updateTableHeight);
 });
 
+watch(pagedUsers, users => {
+  void hydrateRoleLabels(users);
+});
+
 function updateTableHeight(): void {
   const container = tableMainRef.value;
   if (!container) {
@@ -403,8 +438,10 @@ async function load(): Promise<void> {
     userUnits.value = referenceBundle.userUnits;
     userPositions.value = referenceBundle.userPositions;
 
+    userRoleLabelsById.value = {};
     allUsers.value = enrichUsers(users);
     total.value = filteredUsers.value.length;
+    await hydrateRoleLabels(pagedUsers.value);
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'users.loadFailed');
@@ -500,9 +537,46 @@ function enrichUsers(source: HostUser[]): UserRow[] {
 
   return source.map(user => ({
     ...user,
-    roleLabels: '',
+    roleLabels: userRoleLabelsById.value[user.id] ?? '',
     orgLabel: primaryOrgMap.get(user.id) ?? t('users.unassignedOrg'),
     positionLabel: primaryPositionMap.get(user.id) ?? t('users.fieldEmpty')
+  }));
+}
+
+async function hydrateRoleLabels(users: HostUser[]): Promise<void> {
+  const pending = users.filter(user => userRoleLabelsById.value[user.id] === undefined);
+  if (pending.length === 0) {
+    return;
+  }
+
+  const roleNameById = new Map(roles.value.map(role => [role.id, role.name]));
+  const requestId = ++roleLabelsRequestId;
+  const entries = await Promise.all(
+    pending.map(async user => {
+      try {
+        const response = await getHostUserRoles(user.id);
+        const labels = response.roleIds
+          .map(roleId => roleNameById.get(roleId) ?? roleId)
+          .join('、');
+        return [user.id, labels || t('users.noRoles')] as const;
+      } catch {
+        return [user.id, t('users.fieldEmpty')] as const;
+      }
+    })
+  );
+
+  if (requestId !== roleLabelsRequestId) {
+    return;
+  }
+
+  const next = { ...userRoleLabelsById.value };
+  for (const [userId, labels] of entries) {
+    next[userId] = labels;
+  }
+  userRoleLabelsById.value = next;
+  allUsers.value = allUsers.value.map(user => ({
+    ...user,
+    roleLabels: next[user.id] ?? user.roleLabels
   }));
 }
 
@@ -857,6 +931,17 @@ function profileText(value: string | null | undefined): string {
   return value?.trim() ? value : t('users.fieldEmpty');
 }
 
+function accountTypeLabel(): string {
+  return t('users.accountTypeHost');
+}
+
+function sortOrderText(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return t('users.fieldEmpty');
+  }
+  return String(value);
+}
+
 function userSubtitle(user: HostUser): string {
   return user.profile?.email?.trim() || user.displayName;
 }
@@ -992,6 +1077,72 @@ function toProblem(
               >
                 <template #default="{ row }">
                   {{ genderLabel(row.profile?.gender) }}
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isColumnVisible('roles')"
+                :label="t('users.columnRoles')"
+                min-width="160"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  {{ row.roleLabels || t('users.fieldEmpty') }}
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isColumnVisible('org')"
+                :label="t('users.columnOrg')"
+                min-width="140"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  {{ row.orgLabel }}
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isColumnVisible('position')"
+                :label="t('users.columnPosition')"
+                min-width="120"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  {{ row.positionLabel }}
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isColumnVisible('employeeNumber')"
+                :label="t('users.employeeNumber')"
+                width="120"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ profileText(row.profile?.employeeNumber) }}
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isColumnVisible('accountType')"
+                :label="t('users.accountType')"
+                width="110"
+                align="center"
+              >
+                <template #default>
+                  {{ accountTypeLabel() }}
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isColumnVisible('sortOrder')"
+                :label="t('users.columnSortOrder')"
+                width="88"
+                align="center"
+              >
+                <template #default="{ row }">
+                  {{ sortOrderText(row.profile?.sortOrder) }}
                 </template>
               </el-table-column>
 

@@ -169,7 +169,7 @@ describe('Vue 角色管理页', () => {
     const wrapper = mountWithPermissions(['identity.roles.read']);
     await flushPromises();
 
-    expect(wrapper.text()).not.toContain('权限');
+    expect(wrapper.find('[data-testid="role-open-permissions"]').exists()).toBe(false);
     expect(treeMock).not.toHaveBeenCalled();
   });
 
