@@ -487,7 +487,7 @@ function toProblem(
                       test-id="org-position-levels-action-edit"
                       :title="t('orgPositionLevels.edit')"
                       :disabled="changing || !row.isActive"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as OrganizationPositionLevel)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive" code="organization.position_levels.disable">
@@ -496,7 +496,7 @@ function toProblem(
                       test-id="org-position-levels-action-disable"
                       :title="t('orgPositionLevels.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as OrganizationPositionLevel)"
                     />
                   </PermissionGate>
                 </div>

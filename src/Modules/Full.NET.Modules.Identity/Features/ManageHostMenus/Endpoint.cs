@@ -33,6 +33,14 @@ internal static class Endpoint
         .Produces<PagedResult<HostMenuResponse>>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
+        group.MapGet("/permission-options", (
+            HostMenuPermissionOptionsQueryService queries) =>
+        {
+            return Results.Ok(queries.List());
+        })
+        .Produces<IReadOnlyList<HostMenuPermissionOptionResponse>>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
+
         group.MapGet("/{menuId:guid}", async (
             Guid menuId,
             HostMenuQueryService queries,

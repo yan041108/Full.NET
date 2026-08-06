@@ -67,6 +67,9 @@ test('Host 菜单 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
       ['GET', 'MapGet("/",'],
       ['POST', 'MapPost("/",']
     ])],
+    ['/api/v1/identity/menus/permission-options', new Map([
+      ['GET', 'MapGet("/permission-options",']
+    ])],
     ['/api/v1/identity/menus/{menuId}', new Map([
       ['GET', 'MapGet("/{menuId:guid}",'],
       ['PUT', 'MapPut("/{menuId:guid}",']

@@ -142,7 +142,7 @@ internal sealed class TenantUnitManagementService(
         {
             if (parsedParentId == unitId)
             {
-                return ValidationFailure("A unit cannot be its own parent.");
+                return ParentCycle();
             }
 
             var parentError = await EnsureParentExistsAsync(parsedParentId, cancellationToken)
@@ -150,6 +150,13 @@ internal sealed class TenantUnitManagementService(
             if (parentError is not null)
             {
                 return parentError;
+            }
+
+            // 沿拟议上级向上游走；若碰到当前节点，说明会挂到自身后代之下形成环。
+            if (await WouldCreateParentCycleAsync(unitId, parsedParentId, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return ParentCycle();
             }
         }
 
@@ -222,6 +229,42 @@ internal sealed class TenantUnitManagementService(
         return null;
     }
 
+    private async Task<bool> WouldCreateParentCycleAsync(
+        Guid unitId,
+        Guid newParentId,
+        CancellationToken cancellationToken)
+    {
+        var links = await queryExecutor.QueryAsync<OrganizationUnitParentLink>(
+                OrganizationSql.ListUnitParentLinks,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        var parentById = links.ToDictionary(link => link.Id, link => link.ParentId);
+        var current = (Guid?)newParentId;
+        var seen = new HashSet<Guid>();
+        while (current is Guid id)
+        {
+            if (id == unitId)
+            {
+                return true;
+            }
+
+            // 已有脏环时也失败关闭，避免无限向上游走。
+            if (!seen.Add(id))
+            {
+                return true;
+            }
+
+            if (!parentById.TryGetValue(id, out var parent))
+            {
+                return false;
+            }
+
+            current = parent;
+        }
+
+        return false;
+    }
+
     private async Task<Result<OrganizationUnitResponse>> ResolveUpdateFailureAsync(
         Guid unitId,
         CancellationToken cancellationToken)
@@ -292,6 +335,12 @@ internal sealed class TenantUnitManagementService(
             IdentityErrorCodes.ProfileVersionConflict,
             "The organization unit was updated concurrently.",
             ErrorType.Conflict));
+
+    private static Result<OrganizationUnitResponse> ParentCycle() =>
+        Result<OrganizationUnitResponse>.Failure(new Error(
+            OrganizationErrorCodes.UnitParentCycle,
+            "The selected parent would create a cycle in the organization tree.",
+            ErrorType.Validation));
 
     private static Result<OrganizationUnitResponse> ValidationFailure(string message) =>
         Result<OrganizationUnitResponse>.Failure(new Error(

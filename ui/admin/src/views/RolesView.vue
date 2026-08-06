@@ -553,7 +553,7 @@ async function savePermissions(): Promise<void> {
       role.version
     );
     permissionsVisible.value = false;
-    editingRole.value = undefined;
+    editingRole.value = null;
     ElMessage.success(t('roles.permissionsSuccess'));
     await load();
   } catch (error: unknown) {
@@ -639,7 +639,7 @@ async function saveDataScope(): Promise<void> {
       session.currentUser?.tenantId ?? null
     );
     dataScopeVisible.value = false;
-    editingRole.value = undefined;
+    editingRole.value = null;
     ElMessage.success(t('roles.dataScopeSuccess'));
     await load();
   } catch (error: unknown) {
@@ -690,7 +690,7 @@ async function saveFieldGrants(): Promise<void> {
       fieldGrantVersion.value
     );
     fieldGrantsVisible.value = false;
-    editingRole.value = undefined;
+    editingRole.value = null;
     ElMessage.success(t('roles.fieldGrantsSuccess'));
     await load();
   } catch (error: unknown) {
@@ -827,7 +827,7 @@ function toProblem(
             <el-table-column :label="t('roles.name')" min-width="220">
               <template #default="{ row }">
                 <div class="roles-table-role">
-                  <span class="roles-table-role__avatar">{{ avatarText(row) }}</span>
+                  <span class="roles-table-role__avatar">{{ avatarText(row as HostRole) }}</span>
                   <div>
                     <div class="roles-table-role__name" translate="no">{{ row.name }}</div>
                     <div v-if="isColumnVisible('code')" class="roles-table-role__sub" translate="no">
@@ -846,7 +846,7 @@ function toProblem(
             >
               <template #default="{ row }">
                 <el-tag size="small" :type="row.isSystem ? 'warning' : 'info'">
-                  {{ roleTypeLabel(row) }}
+                  {{ roleTypeLabel(row as HostRole) }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -900,7 +900,7 @@ function toProblem(
                       type="edit"
                       test-id="roles-action-edit"
                       :title="t('roles.edit')"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as HostRole)"
                     />
                   </PermissionGate>
                   <PermissionGate code="identity.roles.assign_permissions">
@@ -909,7 +909,7 @@ function toProblem(
                       link
                       type="primary"
                       data-testid="role-open-permissions"
-                      @click="openPermissions(row)"
+                  @click="openPermissions(row as HostRole)"
                     >
                       {{ t('roles.permissions') }}
                     </el-button>
@@ -920,7 +920,7 @@ function toProblem(
                       link
                       type="primary"
                       data-testid="roles-action-data-scope"
-                      @click="openDataScope(row)"
+                  @click="openDataScope(row as HostRole)"
                     >
                       {{ t('roles.dataScope') }}
                     </el-button>
@@ -931,7 +931,7 @@ function toProblem(
                       link
                       type="primary"
                       data-testid="roles-action-field-grants"
-                      @click="openFieldGrants(row)"
+                  @click="openFieldGrants(row as HostRole)"
                     >
                       {{ t('roles.fieldGrants') }}
                     </el-button>
@@ -942,7 +942,7 @@ function toProblem(
                       type="delete"
                       test-id="roles-action-disable"
                       :title="t('roles.disable')"
-                      @click="disable(row)"
+                  @click="disable(row as HostRole)"
                     />
                   </PermissionGate>
                 </div>

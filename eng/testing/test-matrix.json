@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 1103,
+      "minimum": 1107,
       "timeout": "10m"
     },
     "compatibility": {
@@ -223,7 +223,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 488,
+        "minimum": 490,
         "timeout": "90m"
       }
     }

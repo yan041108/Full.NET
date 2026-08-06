@@ -5,7 +5,7 @@ using Full.NET.Modules.Identity.Persistence;
 namespace Full.NET.Modules.Identity.Features.GetNavigation;
 
 /// <summary>
-/// 从持久化表加载活动 Host 自定义导航，供 <see cref="NavigationProjector"/> 与代码目录合并。
+/// 从持久化表加载活动 Host 导航（含系统内置项），供 <see cref="NavigationProjector"/> 覆盖代码目录。
 /// </summary>
 internal sealed class HostNavigationDefinitionLoader(IQueryExecutor queryExecutor)
 {

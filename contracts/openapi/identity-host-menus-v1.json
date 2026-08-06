@@ -40,6 +40,17 @@
       ]
     },
     {
+      "path": "/api/v1/identity/menus/permission-options",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.menus.read",
+          "successStatus": 200,
+          "responseSchema": "HostMenuPermissionOptionResponseArray"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/identity/menus/{menuId}/disable",
       "operations": [
         {
@@ -103,6 +114,20 @@
         "page",
         "pageSize",
         "total"
+      ]
+    },
+    "HostMenuPermissionOptionResponseArray": {
+      "properties": [
+        "code",
+        "moduleKey",
+        "moduleTitle",
+        "pageId",
+        "pageTitle",
+        "kind",
+        "displayName",
+        "displayNameKey",
+        "actionId",
+        "actionKey"
       ]
     }
   }

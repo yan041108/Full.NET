@@ -205,7 +205,7 @@ function toProblem(
             <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
               <template #default="{ row }">
                 <PermissionGate code="identity.sessions.revoke">
-                  <el-button type="danger" plain size="small" :disabled="changing" @click="revoke(row)">
+              <el-button type="danger" plain size="small" :disabled="changing" @click="revoke(row as HostOnlineSession)">
                     {{ t('onlineSessions.revoke') }}
                   </el-button>
                 </PermissionGate>

@@ -564,7 +564,7 @@ function toProblem(
                   :aria-label="t('orgPositions.unit')"
                   :disabled="changing"
                   size="small"
-                  @change="assignUnit(row, $event)"
+                @change="assignUnit(row as OrganizationPosition, $event)"
                 >
                   <el-option :label="t('orgPositions.unitUnassigned')" value="" />
                   <el-option
@@ -590,7 +590,7 @@ function toProblem(
                   :aria-label="t('orgPositions.positionLevel')"
                   :disabled="changing"
                   size="small"
-                  @change="assignPositionLevel(row, $event)"
+                @change="assignPositionLevel(row as OrganizationPosition, $event)"
                 >
                   <el-option :label="t('orgPositions.positionLevelUnassigned')" value="" />
                   <el-option
@@ -620,7 +620,7 @@ function toProblem(
                       test-id="org-positions-action-edit"
                       :title="t('orgPositions.edit')"
                       :disabled="changing || !row.isActive"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as OrganizationPosition)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive" code="organization.positions.disable">
@@ -629,7 +629,7 @@ function toProblem(
                       test-id="org-positions-action-disable"
                       :title="t('orgPositions.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as OrganizationPosition)"
                     />
                   </PermissionGate>
                 </div>

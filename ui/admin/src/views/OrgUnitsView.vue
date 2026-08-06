@@ -8,7 +8,9 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElTable,
   ElTableColumn,
   ElTag
@@ -34,6 +36,13 @@ import {
   listOrganizationUnits,
   updateOrganizationUnit
 } from '../api/org-units';
+import {
+  buildOrganizationUnitParentOptions,
+  buildOrganizationUnitTree,
+  filterOrganizationUnitsForTree,
+  wouldCreateOrganizationUnitCycle,
+  type OrganizationUnitTreeNode
+} from '../organization/org-unit-tree';
 
 defineOptions({ name: 'OrgUnitsView' });
 
@@ -60,8 +69,8 @@ const editorOpen = ref(false);
 const editorMode = ref<EditorMode>('create');
 const editingUnit = ref<OrganizationUnit | null>(null);
 const editorFormRef = ref<FormInstance>();
-const editorForm = reactive({ code: '', name: '' });
-const fieldErrors = reactive({ code: '', name: '' });
+const editorForm = reactive({ code: '', name: '', parentId: '' as string | null });
+const fieldErrors = reactive({ code: '', name: '', parentId: '' });
 const columnVisibility = ref<Record<OrgUnitTableColumnKey, boolean>>({
   status: true,
   displayOrder: true
@@ -80,29 +89,43 @@ const {
 } = useArtCrudTableLayout();
 
 const filteredUnits = computed(() => {
-  let rows = allUnits.value;
   const filters = appliedFilters.value;
+  return filterOrganizationUnitsForTree(allUnits.value, unit => {
+    if (filters.code.trim()) {
+      const keyword = filters.code.trim().toLowerCase();
+      if (!unit.code.toLowerCase().includes(keyword)) {
+        return false;
+      }
+    }
 
-  if (filters.code.trim()) {
-    const keyword = filters.code.trim().toLowerCase();
-    rows = rows.filter(unit => unit.code.toLowerCase().includes(keyword));
-  }
+    if (filters.name.trim()) {
+      const keyword = filters.name.trim().toLowerCase();
+      if (!unit.name.toLowerCase().includes(keyword)) {
+        return false;
+      }
+    }
 
-  if (filters.name.trim()) {
-    const keyword = filters.name.trim().toLowerCase();
-    rows = rows.filter(unit => unit.name.toLowerCase().includes(keyword));
-  }
+    if (filters.status === 'active' && !unit.isActive) {
+      return false;
+    }
+    if (filters.status === 'inactive' && unit.isActive) {
+      return false;
+    }
 
-  if (filters.status === 'active') {
-    rows = rows.filter(unit => unit.isActive);
-  } else if (filters.status === 'inactive') {
-    rows = rows.filter(unit => !unit.isActive);
-  }
-
-  return rows;
+    return true;
+  });
 });
 
-const { page, pageSize, total, pagedItems: pagedUnits, resetPage } = useArtClientPagination(filteredUnits);
+const unitTree = computed(() => buildOrganizationUnitTree(filteredUnits.value));
+
+const { page, pageSize, total, pagedItems: pagedUnits, resetPage } = useArtClientPagination(unitTree);
+
+const parentOptions = computed(() =>
+  buildOrganizationUnitParentOptions(
+    allUnits.value,
+    editorMode.value === 'edit' ? editingUnit.value?.id ?? null : null
+  )
+);
 
 const tableColumns = computed<ArtTableColumnOption[]>({
   get: () => [
@@ -175,6 +198,7 @@ function normalizeUnitCode(value: string): string {
 function clearFieldErrors(): void {
   fieldErrors.code = '';
   fieldErrors.name = '';
+  fieldErrors.parentId = '';
 }
 
 function validateCode(): string {
@@ -202,10 +226,33 @@ function validateName(): string {
   return '';
 }
 
+function validateParentId(): string {
+  const parentId = editorForm.parentId || null;
+  if (!parentId) {
+    return '';
+  }
+
+  const parent = allUnits.value.find(unit => unit.id === parentId);
+  if (!parent || !parent.isActive) {
+    return t('orgUnits.parentInvalid');
+  }
+
+  if (
+    editorMode.value === 'edit'
+    && editingUnit.value
+    && wouldCreateOrganizationUnitCycle(allUnits.value, editingUnit.value.id, parentId)
+  ) {
+    return t('orgUnits.parentCycle');
+  }
+
+  return '';
+}
+
 function applyFieldErrors(): boolean {
   fieldErrors.code = validateCode();
   fieldErrors.name = validateName();
-  return !fieldErrors.code && !fieldErrors.name;
+  fieldErrors.parentId = validateParentId();
+  return !fieldErrors.code && !fieldErrors.name && !fieldErrors.parentId;
 }
 
 async function fetchAllUnits(): Promise<OrganizationUnit[]> {
@@ -247,16 +294,24 @@ function resetSearch(): void {
   resetPage();
 }
 
-function openCreate(): void {
+function openCreate(parentId: string | null = null): void {
   editorMode.value = 'create';
   editingUnit.value = null;
   editorForm.code = '';
   editorForm.name = '';
+  editorForm.parentId = parentId;
   clearFieldErrors();
   editorOpen.value = true;
 }
 
-function openEdit(unit: OrganizationUnit): void {
+function openCreateChild(unit: OrganizationUnitTreeNode): void {
+  if (!unit.isActive) {
+    return;
+  }
+  openCreate(unit.id);
+}
+
+function openEdit(unit: OrganizationUnitTreeNode): void {
   if (changing.value || !unit.isActive) {
     return;
   }
@@ -264,6 +319,7 @@ function openEdit(unit: OrganizationUnit): void {
   editingUnit.value = unit;
   editorForm.code = unit.code;
   editorForm.name = unit.name;
+  editorForm.parentId = unit.parentId;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -301,7 +357,12 @@ async function create(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await createOrganizationUnit(editorForm.code, editorForm.name);
+    await createOrganizationUnit(
+      editorForm.code,
+      editorForm.name,
+      10,
+      editorForm.parentId || null
+    );
     editorOpen.value = false;
     ElMessage.success(t('orgUnits.createSuccess'));
     await load();
@@ -320,7 +381,13 @@ async function saveEdit(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await updateOrganizationUnit(unit.id, editorForm.name, unit.displayOrder, unit.version);
+    await updateOrganizationUnit(
+      unit.id,
+      editorForm.name,
+      unit.displayOrder,
+      unit.version,
+      editorForm.parentId || null
+    );
     editorOpen.value = false;
     ElMessage.success(t('orgUnits.updateSuccess'));
     await load();
@@ -331,7 +398,7 @@ async function saveEdit(): Promise<void> {
   }
 }
 
-async function disable(unit: OrganizationUnit): Promise<void> {
+async function disable(unit: OrganizationUnitTreeNode): Promise<void> {
   if (changing.value || !unit.isActive) {
     return;
   }
@@ -411,7 +478,7 @@ function toProblem(
                 plain
                 :icon="Plus"
                 data-testid="org-units-action-create"
-                @click="openCreate"
+                @click="openCreate()"
               >
                 {{ t('orgUnits.addUnit') }}
               </el-button>
@@ -423,6 +490,9 @@ function toProblem(
           <el-table
             v-loading="loading"
             :data="pagedUnits"
+            row-key="id"
+            :tree-props="{ children: 'children' }"
+            default-expand-all
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"
@@ -430,6 +500,7 @@ function toProblem(
             :header-cell-style="tableHeaderCellStyle"
             class="art-crud-data-table"
             :class="{ 'art-table--header-bg': tableHeaderBackground }"
+            data-testid="org-units-tree-table"
           >
             <el-table-column :label="t('users.columnIndex')" width="72" align="center">
               <template #default="{ $index }">{{ rowIndex($index) }}</template>
@@ -470,19 +541,28 @@ function toProblem(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="120"
+              width="160"
               fixed="right"
               align="center"
             >
               <template #default="{ row }">
                 <div class="art-crud-table-actions">
+                  <PermissionGate code="organization.units.create">
+                    <ArtTableActionButton
+                      type="add"
+                      test-id="org-units-action-add-child"
+                      :title="t('orgUnits.addChild')"
+                      :disabled="changing || !row.isActive"
+                  @click="openCreateChild(row as OrganizationUnitTreeNode)"
+                    />
+                  </PermissionGate>
                   <PermissionGate code="organization.units.update">
                     <ArtTableActionButton
                       type="edit"
                       test-id="org-units-action-edit"
                       :title="t('orgUnits.edit')"
                       :disabled="changing || !row.isActive"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as OrganizationUnitTreeNode)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive" code="organization.units.disable">
@@ -491,7 +571,7 @@ function toProblem(
                       test-id="org-units-action-disable"
                       :title="t('orgUnits.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as OrganizationUnitTreeNode)"
                     />
                   </PermissionGate>
                 </div>
@@ -532,6 +612,28 @@ function toProblem(
         label-width="96px"
         class="org-units-editor-form"
       >
+        <el-form-item
+          :label="t('orgUnits.parent')"
+          prop="parentId"
+          :error="fieldErrors.parentId || undefined"
+        >
+          <el-select
+            v-model="editorForm.parentId"
+            clearable
+            filterable
+            data-testid="org-units-editor-parent"
+            :placeholder="t('orgUnits.parentPlaceholder')"
+            @update:model-value="fieldErrors.parentId = validateParentId()"
+          >
+            <el-option
+              v-for="option in parentOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+              :disabled="option.disabled"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item
           v-if="editorMode === 'create'"
           :label="t('orgUnits.code')"

@@ -30,4 +30,5 @@ namespace Full.NET.Modules.Organization.Serialization;
 [JsonSerializable(typeof(UpdateOrganizationUserPositionRequest))]
 [JsonSerializable(typeof(OrganizationUserPositionResponse))]
 [JsonSerializable(typeof(PagedResult<OrganizationUserPositionResponse>))]
+[JsonSerializable(typeof(HostUserManagementOrganizationReferenceResponse))]
 internal partial class OrganizationJsonSerializerContext : JsonSerializerContext;

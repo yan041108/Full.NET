@@ -16,6 +16,7 @@ internal sealed class HostUserQueryService(
         Guid actorUserId,
         int page,
         int pageSize,
+        bool includeProfile,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
@@ -48,10 +49,12 @@ internal sealed class HostUserQueryService(
                 projection,
                 cancellationToken)
             .ConfigureAwait(false);
-        var profiles = await LoadProfilesAsync(
-                rows.Select(row => row.Id).ToArray(),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var profiles = includeProfile
+            ? await LoadProfilesAsync(
+                    rows.Select(row => row.Id).ToArray(),
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : new Dictionary<Guid, HostUserProfileResponse?>();
         var items = rows.Select(row => Map(
             row,
             projectedFields[row.Id],
@@ -62,6 +65,7 @@ internal sealed class HostUserQueryService(
 
     public async Task<Result<IReadOnlyList<HostUserResponse>>> ExportAsync(
         Guid actorUserId,
+        bool includeProfile,
         CancellationToken cancellationToken = default)
     {
         const int exportLimit = 5000;
@@ -78,10 +82,12 @@ internal sealed class HostUserQueryService(
                 projection,
                 cancellationToken)
             .ConfigureAwait(false);
-        var profiles = await LoadProfilesAsync(
-                rows.Select(row => row.Id).ToArray(),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var profiles = includeProfile
+            ? await LoadProfilesAsync(
+                    rows.Select(row => row.Id).ToArray(),
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : new Dictionary<Guid, HostUserProfileResponse?>();
         return Result<IReadOnlyList<HostUserResponse>>.Success(
             rows.Select(row => Map(
                 row,
@@ -92,6 +98,7 @@ internal sealed class HostUserQueryService(
     public async Task<Result<HostUserResponse>> GetByIdAsync(
         Guid actorUserId,
         Guid userId,
+        bool includeProfile,
         CancellationToken cancellationToken = default)
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<HostUserListRow>(
@@ -115,8 +122,9 @@ internal sealed class HostUserQueryService(
                 projection,
                 cancellationToken)
             .ConfigureAwait(false);
-        var profiles = await LoadProfilesAsync([userId], cancellationToken)
-            .ConfigureAwait(false);
+        var profiles = includeProfile
+            ? await LoadProfilesAsync([userId], cancellationToken).ConfigureAwait(false)
+            : new Dictionary<Guid, HostUserProfileResponse?>();
         return Result<HostUserResponse>.Success(Map(
             record,
             projectedFields[userId],

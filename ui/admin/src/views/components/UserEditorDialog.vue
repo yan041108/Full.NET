@@ -6,19 +6,23 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
-  ElOption,
   ElRadio,
   ElRadioGroup,
   ElSelect,
   ElTabPane,
   ElTabs,
-  ElTransfer
+  ElTransfer,
+  ElTreeSelect
 } from 'element-plus';
 import type { FormInstance } from 'element-plus';
-import { nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 import type { HostUser, HostUserProfileWrite } from '@fullnet/client-contracts';
 import type { MessageKey } from '@fullnet/admin-i18n';
 import { isIdentityPasswordValid } from '../../auth/identity-password-policy';
+import {
+  applyDisabledToOrganizationUnitTreeSelectOptions,
+  type OrganizationUnitTreeSelectOption
+} from '../../organization/org-unit-tree';
 
 defineOptions({ name: 'UserEditorDialog' });
 
@@ -35,7 +39,7 @@ const props = defineProps<{
   activeTab: 'basic' | 'roles' | 'org' | 'profile' | 'binding';
   transferRoles: Array<{ key: string; label: string; disabled?: boolean }>;
   selectedRoleIds: string[];
-  orgUnitOptions: Array<{ value: string; label: string }>;
+  orgUnitTreeOptions: OrganizationUnitTreeSelectOption[];
   positionOptions: Array<{ value: string; label: string }>;
   primaryUnitId: string;
   subsidiaryUnitIds: string[];
@@ -44,6 +48,8 @@ const props = defineProps<{
   canAssignRoles: boolean;
   canCreate: boolean;
   canUpdate: boolean;
+  canManageOrganizations: boolean;
+  canManageProfile: boolean;
   translate: (key: MessageKey) => string;
 }>();
 
@@ -61,6 +67,13 @@ const emit = defineEmits<{
   submit: [];
   cancel: [];
 }>();
+
+const subsidiaryUnitTreeOptions = computed(() =>
+  applyDisabledToOrganizationUnitTreeSelectOptions(
+    props.orgUnitTreeOptions,
+    props.primaryUnitId ? new Set([props.primaryUnitId]) : new Set()
+  )
+);
 
 const basicFormRef = ref<FormInstance>();
 const basicForm = reactive({
@@ -226,6 +239,14 @@ function patchProfile(patch: Partial<HostUserProfileWrite>): void {
   emit('update:profile', { ...props.profile, ...patch });
 }
 
+function updateSelectedRoleIds(value: Array<string | number>): void {
+  emit('update:selectedRoleIds', value.map(String));
+}
+
+function updateGender(value: string | number | boolean | null | undefined): void {
+  patchProfile({ gender: typeof value === 'string' && value ? value : null });
+}
+
 function onUsernameInput(value: string): void {
   basicForm.username = value;
   fieldErrors.username = validateUsername();
@@ -379,6 +400,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
+              v-if="canManageProfile"
               :label="translate('users.nickname')"
               prop="nickname"
               :error="fieldErrors.nickname || undefined"
@@ -389,6 +411,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
+              v-if="canManageProfile"
               :label="translate('users.phone')"
               prop="phoneNumber"
               :error="fieldErrors.phoneNumber || undefined"
@@ -399,6 +422,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
+              v-if="canManageProfile"
               :label="translate('users.email')"
               prop="email"
               :error="fieldErrors.email || undefined"
@@ -408,16 +432,17 @@ defineExpose({
                 @update:model-value="onEmailInput"
               />
             </el-form-item>
-            <el-form-item :label="translate('users.gender')">
+            <el-form-item v-if="canManageProfile" :label="translate('users.gender')">
               <el-radio-group
                 :model-value="profile.gender ?? ''"
-                @update:model-value="patchProfile({ gender: $event || null })"
+                @update:model-value="updateGender"
               >
                 <el-radio value="male">{{ translate('users.genderMale') }}</el-radio>
                 <el-radio value="female">{{ translate('users.genderFemale') }}</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item
+              v-if="canManageProfile"
               :label="translate('users.employeeNumber')"
               prop="employeeNumber"
               :error="fieldErrors.employeeNumber || undefined"
@@ -449,6 +474,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
+              v-if="canManageProfile"
               class="users-editor-dialog__full"
               :label="translate('users.remark')"
               prop="remark"
@@ -479,50 +505,45 @@ defineExpose({
           ]"
           :filter-placeholder="translate('users.roleFilterPlaceholder')"
           class="users-editor-dialog__transfer"
-          @update:model-value="emit('update:selectedRoleIds', $event)"
+          @update:model-value="updateSelectedRoleIds"
         />
       </el-tab-pane>
 
-      <el-tab-pane :label="translate('users.tabOrg')" name="org">
+      <el-tab-pane
+        v-if="canManageOrganizations"
+        :label="translate('users.tabOrg')"
+        name="org"
+      >
         <div class="users-editor-dialog__form">
           <div class="users-editor-dialog__grid users-editor-dialog__grid--single">
             <el-form-item :label="translate('users.primaryOrg')">
-              <el-select
+              <el-tree-select
                 :model-value="primaryUnitId || undefined"
-                clearable
+                :data="orgUnitTreeOptions"
+                check-strictly
                 filterable
+                clearable
+                :render-after-expand="false"
                 :placeholder="translate('users.selectPrimaryOrg')"
                 style="width: 100%"
                 @update:model-value="emit('update:primaryUnitId', $event ?? '')"
-              >
-                <el-option
-                  v-for="option in orgUnitOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
+              />
             </el-form-item>
             <el-form-item :label="translate('users.subsidiaryOrgs')">
-              <el-select
+              <el-tree-select
                 :model-value="subsidiaryUnitIds"
+                :data="subsidiaryUnitTreeOptions"
                 multiple
-                clearable
+                check-strictly
                 filterable
+                clearable
                 collapse-tags
                 collapse-tags-tooltip
+                :render-after-expand="false"
                 :placeholder="translate('users.selectSubsidiaryOrgs')"
                 style="width: 100%"
-                @update:model-value="emit('update:subsidiaryUnitIds', $event)"
-              >
-                <el-option
-                  v-for="option in orgUnitOptions"
-                  :key="`sub-${option.value}`"
-                  :label="option.label"
-                  :value="option.value"
-                  :disabled="option.value === primaryUnitId"
-                />
-              </el-select>
+                @update:model-value="emit('update:subsidiaryUnitIds', $event ?? [])"
+              />
             </el-form-item>
             <el-form-item :label="translate('users.positionName')">
               <el-select
@@ -545,7 +566,11 @@ defineExpose({
         </div>
       </el-tab-pane>
 
-      <el-tab-pane :label="translate('users.tabProfile')" name="profile">
+      <el-tab-pane
+        v-if="canManageProfile"
+        :label="translate('users.tabProfile')"
+        name="profile"
+      >
         <div class="users-editor-dialog__form users-editor-dialog__form--profile">
           <div class="users-editor-dialog__grid">
             <el-form-item :label="translate('users.birthDate')">

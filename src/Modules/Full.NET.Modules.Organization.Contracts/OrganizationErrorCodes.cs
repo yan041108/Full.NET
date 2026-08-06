@@ -11,6 +11,9 @@ public static class OrganizationErrorCodes
     /// <summary>目标机构不存在或不属于当前租户。</summary>
     public const string UnitNotFound = "organization.units.not_found";
 
+    /// <summary>新的上级会把机构挂到自身或后代之下，形成环。</summary>
+    public const string UnitParentCycle = "organization.units.parent_cycle";
+
     /// <summary>用户-机构隶属已存在。</summary>
     public const string UserUnitAlreadyAssigned = "organization.user_units.already_assigned";
 
@@ -53,6 +56,7 @@ public static class OrganizationErrorCodes
     [
         UnitCodeExists,
         UnitNotFound,
+        UnitParentCycle,
         UserUnitAlreadyAssigned,
         UserUnitNotFound,
         UserUnitUserNotFound,

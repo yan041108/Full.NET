@@ -528,7 +528,7 @@ function toProblem(
                       test-id="super-admin-action-revoke"
                       :title="t('superAdmin.revoke')"
                       :disabled="changing"
-                      @click="openRevoke(row)"
+                  @click="openRevoke(row as SuperAdministrator)"
                     />
                   </PermissionGate>
                 </div>

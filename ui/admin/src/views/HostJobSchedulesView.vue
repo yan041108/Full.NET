@@ -366,7 +366,7 @@ function toProblem(
             {{
               cronPreviewLoading
                 ? t('hostJobSchedules.cronPreviewLoading')
-                : t('hostJobSchedules.cronPreview', { instant: cronPreviewUtc })
+                : t('hostJobSchedules.cronPreview', { instant: cronPreviewUtc ?? '' })
             }}
           </small>
         </label>

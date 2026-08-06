@@ -4,6 +4,7 @@ import {
   Delete,
   EditPen,
   Key,
+  Plus,
   UserFilled,
   View
 } from '@element-plus/icons-vue';
@@ -12,7 +13,7 @@ import { ElIcon } from 'element-plus';
 defineOptions({ name: 'ArtTableActionButton' });
 
 const props = defineProps<{
-  type: 'edit' | 'delete' | 'view' | 'roles' | 'password';
+  type: 'edit' | 'delete' | 'view' | 'roles' | 'password' | 'add';
   testId?: string;
   title?: string;
 }>();
@@ -26,6 +27,7 @@ const icon = computed(() => {
   if (props.type === 'delete') return Delete;
   if (props.type === 'roles') return UserFilled;
   if (props.type === 'password') return Key;
+  if (props.type === 'add') return Plus;
   return View;
 });
 </script>
@@ -78,6 +80,11 @@ const icon = computed(() => {
 .art-table-action-btn--password {
   background: rgb(230 162 60 / 12%);
   color: #e6a23c;
+}
+
+.art-table-action-btn--add {
+  background: rgb(64 158 255 / 12%);
+  color: var(--art-theme-color);
 }
 
 .art-table-action-btn .el-icon {

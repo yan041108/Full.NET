@@ -916,7 +916,7 @@ function toProblem(
                     test-id="tenant-dict-types-action-manage-items"
                     :title="t('dictItems.manage')"
                     :disabled="changing || itemsLoading"
-                    @click="openItems(row)"
+                  @click="openItems(row as SettingsDictType)"
                   />
                   <PermissionGate v-if="canUpdate" code="settings.tenant_dict_types.update">
                     <ArtTableActionButton
@@ -924,7 +924,7 @@ function toProblem(
                       test-id="tenant-dict-types-action-edit"
                       :title="t('dictTypes.edit')"
                       :disabled="changing || !row.isActive"
-                      @click="openTypeEdit(row)"
+                  @click="openTypeEdit(row as SettingsDictType)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive && canDisable" code="settings.tenant_dict_types.disable">
@@ -933,7 +933,7 @@ function toProblem(
                       test-id="tenant-dict-types-action-disable"
                       :title="t('dictTypes.disable')"
                       :disabled="changing"
-                      @click="disableDictType(row)"
+                  @click="disableDictType(row as SettingsDictType)"
                     />
                   </PermissionGate>
                 </div>
@@ -1088,7 +1088,7 @@ function toProblem(
                       test-id="dict-items-action-edit"
                       :title="t('dictItems.edit')"
                       :disabled="changing || !row.isActive"
-                      @click="openItemEdit(row)"
+                  @click="openItemEdit(row as SettingsDictItem)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive && canDisable" code="settings.tenant_dict_types.disable">
@@ -1097,7 +1097,7 @@ function toProblem(
                       test-id="dict-items-action-disable"
                       :title="t('dictItems.disable')"
                       :disabled="changing"
-                      @click="disableDictItem(row)"
+                  @click="disableDictItem(row as SettingsDictItem)"
                     />
                   </PermissionGate>
                 </div>

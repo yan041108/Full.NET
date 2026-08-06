@@ -340,7 +340,7 @@ function toProblem(
                       test-id="document-tag-edit"
                       :title="t('documentTags.edit')"
                       :disabled="changing"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as HostDocumentTag)"
                     />
                   </PermissionGate>
                   <PermissionGate code="document.tags.delete">
@@ -349,7 +349,7 @@ function toProblem(
                       test-id="document-tag-delete"
                       :title="t('documentTags.delete')"
                       :disabled="changing"
-                      @click="remove(row)"
+                  @click="remove(row as HostDocumentTag)"
                     />
                   </PermissionGate>
                 </div>

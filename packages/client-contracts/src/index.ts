@@ -140,6 +140,7 @@ export {
 export type {
   HostUser,
   HostUserPage,
+  HostUserProfileWrite,
   HostUserProjectedFields,
   HostUserRoles,
   ReplaceHostUserRolesRequest,
@@ -499,9 +500,10 @@ export type {
 } from './host-roles.js';
 
 export {
-  HOST_MENU_ASSIGNABLE_PERMISSIONS,
   HOST_MENU_COMPONENT_OPTIONS,
+  HOST_MENU_ICON_OPTIONS,
   isHostMenu,
+  isHostMenuPermissionOptionArray,
   isHostMenuPage,
   isUpdateHostMenuRequest
 } from './host-menus.js';
@@ -509,6 +511,9 @@ export {
 export type {
   HostMenu,
   HostMenuAssignablePermission,
+  HostMenuIcon,
+  HostMenuPermissionOption,
+  HostMenuPermissionOptionKind,
   HostMenuPage,
   CreateHostMenuRequest,
   UpdateHostMenuRequest

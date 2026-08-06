@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { createMemoryHistory, createRouter } from 'vue-router';
 import TenantContextView from './TenantContextView.vue';
 import { useSessionStore } from '../auth/session';
 
@@ -27,9 +28,14 @@ describe('Vue 租户上下文页面', () => {
     });
     const switchTenant = vi.spyOn(session, 'switchTenant')
       .mockResolvedValue(undefined);
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }]
+    });
+    await router.push('/tenant-context');
 
     const wrapper = mount(TenantContextView, {
-      global: { plugins: [pinia] },
+      global: { plugins: [pinia, router] },
       attachTo: document.body
     });
     await flushPromises();
@@ -42,6 +48,7 @@ describe('Vue 租户上下文页面', () => {
     expect(wrapper.text()).toContain('Full.NET Host');
     expect(wrapper.text()).toContain('Acme Corporation');
     expect(switchTenant).toHaveBeenCalledWith(tenantId);
+    expect(router.currentRoute.value.path).toBe('/');
     wrapper.unmount();
   });
 

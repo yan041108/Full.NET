@@ -219,6 +219,17 @@ public sealed class HostJobScheduleServiceTests
             result.Value!.NextExecutionAtUtc);
     }
 
+    [TestMethod]
+    public async Task PreviewCronAsync_DoesNotSwallowCancellation()
+    {
+        var service = CreateService(new ScheduleStore());
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
+            service.PreviewCronAsync("0 9 * * *", "UTC", source.Token));
+    }
+
     private static HostJobScheduleService CreateService(ScheduleStore store) =>
         new(
             store,

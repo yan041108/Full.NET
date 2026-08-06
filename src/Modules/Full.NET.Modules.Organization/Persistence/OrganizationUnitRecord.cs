@@ -43,3 +43,11 @@ internal sealed class OrganizationUnitListRow
 
     public int Version { get; set; }
 }
+
+/// <summary>仅用于环检测的 Id/ParentId 投影。</summary>
+internal sealed class OrganizationUnitParentLink
+{
+    public Guid Id { get; set; }
+
+    public Guid? ParentId { get; set; }
+}

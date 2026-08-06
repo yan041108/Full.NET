@@ -3,29 +3,27 @@ import { ADMIN_NAVIGATION_CATALOG } from './navigation-catalog.js';
 /** 创建 Host 菜单时可选择的组件键（与服务端白名单一致）。 */
 export const HOST_MENU_COMPONENT_OPTIONS = ADMIN_NAVIGATION_CATALOG;
 
-/** Host 菜单可引用的权限码（与后端 Catalog 校验一致）。 */
-export const HOST_MENU_ASSIGNABLE_PERMISSIONS = [
-  'platform.dashboard.read',
-  'identity.navigation.read',
-  'identity.users.read',
-  'identity.users.write',
-  'identity.roles.read',
-  'identity.roles.write',
-  'identity.menus.read',
-  'organization.units.read',
-  'organization.units.create',
-  'organization.units.update',
-  'organization.units.disable',
-  'organization.user_units.read',
-  'organization.user_units.create',
-  'organization.user_units.update',
-  'organization.user_units.disable',
-  'tenancy.tenants.read',
-  'tenancy.tenants.switch'
+/** Host 菜单可选择的图标键（与侧栏 iconCatalog 对齐）。 */
+export const HOST_MENU_ICON_OPTIONS = [
+  'grid',
+  'dashboard',
+  'overview',
+  'users',
+  'user',
+  'menus',
+  'menu',
+  'roles',
+  'team',
+  'monitor',
+  'building',
+  'key',
+  'appstore',
+  'shield'
 ] as const;
 
-export type HostMenuAssignablePermission =
-  typeof HOST_MENU_ASSIGNABLE_PERMISSIONS[number];
+export type HostMenuIcon = typeof HOST_MENU_ICON_OPTIONS[number];
+export type HostMenuPermissionOptionKind = 'page' | 'action';
+export type HostMenuAssignablePermission = string;
 
 export interface HostMenu {
   id: string;
@@ -43,6 +41,19 @@ export interface HostMenu {
   createdAtUtc: string;
   updatedAtUtc: string | null;
   version: number;
+}
+
+export interface HostMenuPermissionOption {
+  code: string;
+  moduleKey: string;
+  moduleTitle: string;
+  pageId: string;
+  pageTitle: string;
+  kind: HostMenuPermissionOptionKind;
+  displayName: string;
+  displayNameKey: string;
+  actionId?: string | null;
+  actionKey?: string | null;
 }
 
 export interface HostMenuPage {
@@ -74,6 +85,13 @@ export interface UpdateHostMenuRequest {
   displayOrder: number;
   requiredPermission: string;
   version: number;
+}
+
+/** 校验不可信 JSON 是否为 Host 菜单权限选项列表。 */
+export function isHostMenuPermissionOptionArray(
+  value: unknown
+): value is HostMenuPermissionOption[] {
+  return Array.isArray(value) && value.every(isHostMenuPermissionOption);
 }
 
 /** 校验不可信 JSON 是否为 Host 菜单分页结果。 */
@@ -121,6 +139,22 @@ export function isUpdateHostMenuRequest(
     && typeof value.displayOrder === 'number'
     && typeof value.requiredPermission === 'string'
     && typeof value.version === 'number';
+}
+
+function isHostMenuPermissionOption(
+  value: unknown
+): value is HostMenuPermissionOption {
+  return isRecord(value)
+    && isText(value.code)
+    && isText(value.moduleKey)
+    && isText(value.moduleTitle)
+    && isText(value.pageId)
+    && isText(value.pageTitle)
+    && (value.kind === 'page' || value.kind === 'action')
+    && isText(value.displayName)
+    && isText(value.displayNameKey)
+    && (value.actionId === undefined || value.actionId === null || isText(value.actionId))
+    && (value.actionKey === undefined || value.actionKey === null || isText(value.actionKey));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

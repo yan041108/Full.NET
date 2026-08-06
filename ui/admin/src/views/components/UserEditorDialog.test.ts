@@ -1,6 +1,7 @@
-﻿import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
+import type { OrganizationUnitTreeSelectOption } from '../../organization/org-unit-tree';
 import UserEditorDialog from './UserEditorDialog.vue';
 import { messages } from '@fullnet/admin-i18n';
 import type { MessageKey } from '@fullnet/admin-i18n';
@@ -20,7 +21,7 @@ const baseProps = {
   activeTab: 'basic' as const,
   transferRoles: [],
   selectedRoleIds: [] as string[],
-  orgUnitOptions: [],
+  orgUnitTreeOptions: [] as OrganizationUnitTreeSelectOption[],
   positionOptions: [],
   primaryUnitId: '',
   subsidiaryUnitIds: [] as string[],
@@ -29,10 +30,25 @@ const baseProps = {
   canAssignRoles: false,
   canCreate: true,
   canUpdate: false,
+  canManageOrganizations: false,
+  canManageProfile: false,
   translate
 };
 
 describe('UserEditorDialog', () => {
+  it('普通管理员看不到敏感用户档案入口和字段', async () => {
+    const wrapper = mount(UserEditorDialog, {
+      props: baseProps,
+      attachTo: document.body
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain(translate('users.tabProfile'));
+    expect(wrapper.text()).not.toContain(translate('users.phone'));
+    expect(wrapper.text()).not.toContain(translate('users.email'));
+    wrapper.unmount();
+  });
+
   it('创建模式下缺少必填项会阻止校验通过', async () => {
     const wrapper = mount(UserEditorDialog, {
       props: baseProps,

@@ -227,6 +227,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             IDataSeedContributor,
             HostAdministratorSeedContributor>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IDataSeedContributor,
+            HostNavigationCatalogSeedContributor>(ServiceLifetime.Scoped),
 
         RegistrationExpectation.Self<
             IdentityAuthenticationRegistrationMarker>(ServiceLifetime.Singleton),
@@ -316,6 +319,10 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<HostRoleFieldGrantService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostMenuQueryService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<HostMenuPermissionOptionsQueryService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<HostNavigationCatalogSyncService>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostMenuManagementService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostOnlineSessionQueryService>(

@@ -13,7 +13,8 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTag
+  ElTag,
+  ElTreeSelect
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
@@ -43,8 +44,18 @@ import {
   listOrganizationUserUnits,
   updateOrganizationUserUnit
 } from '../api/org-user-units';
+import {
+  buildOrganizationUnitTree,
+  type OrganizationUnitTreeNode
+} from '../organization/org-unit-tree';
 
 defineOptions({ name: 'OrgUserUnitsView' });
+
+interface UnitTreeOption {
+  value: string;
+  label: string;
+  children?: UnitTreeOption[];
+}
 
 type AssignmentTableColumnKey = 'username' | 'unit' | 'primary' | 'status';
 
@@ -98,6 +109,10 @@ const canCreate = computed(() => session.can('organization.user_units.create'));
 const canUpdate = computed(() => session.can('organization.user_units.update'));
 const canDisable = computed(() => session.can('organization.user_units.disable'));
 const hasMoreUsers = computed(() => users.value.length < userTotal.value);
+
+const unitTreeOptions = computed(() =>
+  mapUnitTreeOptions(buildOrganizationUnitTree(units.value))
+);
 
 const filteredAssignments = computed(() => {
   let rows = allAssignments.value;
@@ -210,13 +225,34 @@ function applyFieldErrors(): boolean {
   return !fieldErrors.userId && !fieldErrors.unitId;
 }
 
+function mapUnitTreeOptions(nodes: OrganizationUnitTreeNode[]): UnitTreeOption[] {
+  return nodes.map(node => ({
+    value: node.id,
+    label: `${node.name} (${node.code})`,
+    children: node.children.length > 0 ? mapUnitTreeOptions(node.children) : undefined
+  }));
+}
+
+async function fetchAllUnits(): Promise<OrganizationUnit[]> {
+  const pageLimit = 100;
+  const firstPage = await listOrganizationUnits(1, pageLimit);
+  const items = [...firstPage.items];
+  const totalPages = Math.ceil(firstPage.total / pageLimit);
+  for (let current = 2; current <= totalPages; current += 1) {
+    const nextPage = await listOrganizationUnits(current, pageLimit);
+    items.push(...nextPage.items);
+  }
+
+  return items.filter(unit => unit.isActive);
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const [assignmentPage, unitPage, assignableUserPage] = await Promise.all([
+    const [assignmentPage, unitItems, assignableUserPage] = await Promise.all([
       listOrganizationUserUnits(),
-      listOrganizationUnits(),
+      fetchAllUnits(),
       canCreate.value
         ? listAssignableOrganizationUserUnitUsers().catch(error => {
           if (isForbidden(error)) {
@@ -240,7 +276,7 @@ async function load(): Promise<void> {
     users.value = assignableUserPage.items;
     userPage.value = assignableUserPage.page;
     userTotal.value = assignableUserPage.total;
-    units.value = unitPage.items.filter(unit => unit.isActive);
+    units.value = unitItems;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'orgUserUnits.loadFailed');
@@ -516,7 +552,7 @@ function appendUniqueUsers(
                       test-id="org-user-units-action-set-primary"
                       :title="t('orgUserUnits.setPrimary')"
                       :disabled="changing"
-                      @click="setPrimary(row)"
+                  @click="setPrimary(row as OrganizationUserUnit)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive && canDisable" code="organization.user_units.disable">
@@ -525,7 +561,7 @@ function appendUniqueUsers(
                       test-id="org-user-units-action-disable"
                       :title="t('orgUserUnits.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as OrganizationUserUnit)"
                     />
                   </PermissionGate>
                 </div>
@@ -600,18 +636,16 @@ function appendUniqueUsers(
           required
           :error="fieldErrors.unitId || undefined"
         >
-          <el-select
+          <el-tree-select
             v-model="editorForm.unitId"
+            :data="unitTreeOptions"
+            check-strictly
+            filterable
+            :render-after-expand="false"
             :placeholder="t('orgUserUnits.unitPlaceholder')"
+            style="width: 100%"
             @update:model-value="fieldErrors.unitId = validateUnitId()"
-          >
-            <el-option
-              v-for="unit in units"
-              :key="unit.id"
-              :label="`${unit.name} (${unit.code})`"
-              :value="unit.id"
-            />
-          </el-select>
+          />
         </el-form-item>
         <el-form-item>
           <el-checkbox v-model="editorForm.isPrimary">{{ t('orgUserUnits.isPrimary') }}</el-checkbox>

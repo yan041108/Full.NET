@@ -573,7 +573,7 @@ function toProblem(
                   :placeholder="t('tenants.packageUnassigned')"
                   :disabled="changing"
                   size="small"
-                  @change="value => assignPackage(row, value ? String(value) : null)"
+                @change="value => assignPackage(row as HostTenant, value ? String(value) : null)"
                 >
                   <el-option :label="t('tenants.packageUnassigned')" value="" />
                   <el-option v-for="pkg in packages" :key="pkg.id" :label="pkg.name" :value="pkg.id" />
@@ -611,7 +611,7 @@ function toProblem(
                       test-id="tenants-action-edit"
                       :title="t('tenants.edit')"
                       :disabled="changing || !row.isActive"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as HostTenant)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive" code="tenancy.tenants.disable">
@@ -620,7 +620,7 @@ function toProblem(
                       test-id="tenants-action-disable"
                       :title="t('tenants.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as HostTenant)"
                     />
                   </PermissionGate>
                 </div>

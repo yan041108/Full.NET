@@ -76,6 +76,7 @@ public sealed record HostUserProfileResponse(
 
 /// <summary>Host 用户扩展档案写入请求。</summary>
 public sealed record HostUserProfileWriteRequest(
+    IReadOnlyList<string>? FieldKeys,
     string? Nickname,
     string? PhoneNumber,
     string? Email,

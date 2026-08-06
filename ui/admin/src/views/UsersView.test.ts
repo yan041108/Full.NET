@@ -4,12 +4,25 @@ import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import UsersView from './UsersView.vue';
 import { useSessionStore } from '../auth/session';
-import { createHostUser, getHostUserRoles, listHostUsers } from '../api/users';
+import {
+  createHostUser,
+  getHostUserRoles,
+  listHostUsers,
+  replaceHostUserRoles,
+  updateHostUser
+} from '../api/users';
 import { listHostRoles } from '../api/roles';
-import { listOrganizationUnits } from '../api/org-units';
-import { listOrganizationUserUnits } from '../api/org-user-units';
-import { listOrganizationUserPositions } from '../api/org-user-positions';
-import { listOrganizationPositions } from '../api/org-positions';
+import { getHostUserOrganizationReference } from '../api/host-user-organization-reference';
+
+vi.mock('../api/host-user-organization-reference', () => ({
+  getHostUserOrganizationReference: vi.fn(),
+  updateHostUserOrganizationPosition: vi.fn(),
+  disableHostUserOrganizationPosition: vi.fn(),
+  createHostUserOrganizationUnit: vi.fn(),
+  updateHostUserOrganizationUnit: vi.fn(),
+  disableHostUserOrganizationUnit: vi.fn(),
+  createHostUserOrganizationPosition: vi.fn()
+}));
 
 vi.mock('../api/users', () => ({
   createHostUser: vi.fn(),
@@ -37,29 +50,15 @@ vi.mock('../api/roles', () => ({
   updateHostRoleDataScope: vi.fn()
 }));
 
-vi.mock('../api/org-units', () => ({
-  listOrganizationUnits: vi.fn()
-}));
-
-vi.mock('../api/org-positions', () => ({
-  listOrganizationPositions: vi.fn()
-}));
-
-vi.mock('../api/org-user-units', () => ({
-  listOrganizationUserUnits: vi.fn()
-}));
-
-vi.mock('../api/org-user-positions', () => ({
-  listOrganizationUserPositions: vi.fn()
-}));
-
 const listUsersMock = vi.mocked(listHostUsers);
 const createUserMock = vi.mocked(createHostUser);
+const updateUserMock = vi.mocked(updateHostUser);
+const replaceRolesMock = vi.mocked(replaceHostUserRoles);
 const listRolesMock = vi.mocked(listHostRoles);
 const getUserRolesMock = vi.mocked(getHostUserRoles);
-const listOrgUnitsMock = vi.mocked(listOrganizationUnits);
-const listUserUnitsMock = vi.mocked(listOrganizationUserUnits);
+const getOrgReferenceMock = vi.mocked(getHostUserOrganizationReference);
 const userId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
+const roleId = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
 
 const activeUser = {
   id: userId,
@@ -79,6 +78,8 @@ const inactiveUser = {
   isActive: false
 };
 
+const orgTenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
+
 function mountUsers(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
@@ -96,12 +97,24 @@ function mountUsers(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
+  session.availableTenants = [{
+    id: orgTenantId,
+    identifier: 'local',
+    name: 'Full.NET Local',
+    domain: 'localhost'
+  }];
   return mount(UsersView, { global: { plugins: [pinia] } });
 }
 
 describe('Vue 用户管理页', () => {
   beforeEach(() => {
     createUserMock.mockReset();
+    updateUserMock.mockReset().mockResolvedValue({ ...activeUser, version: 2 });
+    replaceRolesMock.mockReset().mockResolvedValue({
+      userId,
+      roleIds: [roleId],
+      version: 2
+    });
     listUsersMock.mockReset().mockResolvedValue({
       items: [activeUser, inactiveUser],
       page: 1,
@@ -110,7 +123,7 @@ describe('Vue 用户管理页', () => {
     });
     listRolesMock.mockReset().mockResolvedValue({
       items: [{
-        id: 'role-id',
+        id: roleId,
         code: 'support',
         name: '支持角色',
         isSystem: false,
@@ -127,32 +140,14 @@ describe('Vue 用户管理页', () => {
     });
     getUserRolesMock.mockReset().mockResolvedValue({
       userId,
-      roleIds: [],
+      roleIds: [roleId],
       version: 1
     });
-    listOrgUnitsMock.mockReset().mockResolvedValue({
-      items: [],
-      page: 1,
-      pageSize: 200,
-      total: 0
-    });
-    listUserUnitsMock.mockReset().mockResolvedValue({
-      items: [],
-      page: 1,
-      pageSize: 500,
-      total: 0
-    });
-    vi.mocked(listOrganizationPositions).mockReset().mockResolvedValue({
-      items: [],
-      page: 1,
-      pageSize: 200,
-      total: 0
-    });
-    vi.mocked(listOrganizationUserPositions).mockReset().mockResolvedValue({
-      items: [],
-      page: 1,
-      pageSize: 500,
-      total: 0
+    getOrgReferenceMock.mockReset().mockResolvedValue({
+      units: [],
+      positions: [],
+      userUnits: [],
+      userPositions: []
     });
   });
 
@@ -168,6 +163,16 @@ describe('Vue 用户管理页', () => {
     expect(wrapper.find('[data-testid="users-action-reset-password"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-disable"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-enable"]').exists()).toBe(false);
+  });
+
+  it('仅授予职位禁用权限时仍会加载组织参考数据', async () => {
+    mountUsers([
+      'identity.users.read',
+      'organization.user_positions.disable'
+    ]);
+    await flushPromises();
+
+    expect(getOrgReferenceMock).toHaveBeenCalledWith(orgTenantId);
   });
 
   it.each([
@@ -231,6 +236,51 @@ describe('Vue 用户管理页', () => {
     await nextTick();
 
     expect(createUserMock).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('修改资料且角色未变时不得调用角色替换，避免误吊销会话', async () => {
+    const wrapper = mountUsers([
+      'identity.users.read',
+      'identity.users.update',
+      'identity.users.assign_roles'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-edit"]').trigger('click');
+    await flushPromises();
+
+    const submit = document.querySelector(
+      '[data-testid="users-editor-submit"]'
+    ) as HTMLButtonElement;
+    expect(submit).not.toBeNull();
+    await submit.click();
+    await flushPromises();
+
+    expect(updateUserMock).toHaveBeenCalledTimes(1);
+    expect(replaceRolesMock).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('角色页签无改动保存时也不得调用角色替换', async () => {
+    const wrapper = mountUsers([
+      'identity.users.read',
+      'identity.users.assign_roles'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-roles"]').trigger('click');
+    await flushPromises();
+
+    const submit = document.querySelector(
+      '[data-testid="users-editor-submit"]'
+    ) as HTMLButtonElement;
+    expect(submit).not.toBeNull();
+    await submit.click();
+    await flushPromises();
+
+    expect(replaceRolesMock).not.toHaveBeenCalled();
+    expect(updateUserMock).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 });

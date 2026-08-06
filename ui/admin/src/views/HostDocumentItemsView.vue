@@ -412,7 +412,7 @@ function toProblem(
                     </el-button>
                   </PermissionGate>
                   <PermissionGate code="document.host_documents.update">
-                    <el-button plain size="small" data-testid="host-document-item-edit" @click="startEdit(row)">
+              <el-button plain size="small" data-testid="host-document-item-edit" @click="startEdit(row as HostDocumentItem)">
                       {{ t('hostDocumentItems.edit') }}
                     </el-button>
                   </PermissionGate>
@@ -426,13 +426,13 @@ function toProblem(
                       size="small"
                       data-testid="host-document-item-upload-version"
                       :disabled="changing || !versionFile || versionTargetId !== row.id"
-                      @click="uploadVersion(row)"
+                  @click="uploadVersion(row as HostDocumentItem)"
                     >
                       {{ t('hostDocumentItems.uploadVersion') }}
                     </el-button>
                   </PermissionGate>
                   <PermissionGate code="document.host_documents.delete">
-                    <el-button type="danger" plain size="small" data-testid="host-document-item-delete" :disabled="changing" @click="remove(row)">
+              <el-button type="danger" plain size="small" data-testid="host-document-item-delete" :disabled="changing" @click="remove(row as HostDocumentItem)">
                       {{ t('hostDocumentItems.delete') }}
                     </el-button>
                   </PermissionGate>
@@ -489,7 +489,7 @@ function toProblem(
                   size="small"
                   data-testid="host-document-item-restore"
                   :disabled="changing"
-                  @click="findDeletedEntry(row) && restoreDeleted(findDeletedEntry(row)!)"
+                    @click="findDeletedEntry(row as HostDocumentItem) && restoreDeleted(findDeletedEntry(row as HostDocumentItem)!)"
                 >
                   {{ t('hostDocumentItems.restore') }}
                 </el-button>

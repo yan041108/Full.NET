@@ -81,7 +81,13 @@ internal sealed class TenantUserUnitManagementService(
             .ConfigureAwait(false);
         if (existing is not null)
         {
-            return AlreadyAssigned();
+            if (existing.IsActive)
+            {
+                return AlreadyAssigned();
+            }
+
+            return await ReactivateAsync(existing, request.IsPrimary, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var now = clock.UtcNow;
@@ -120,6 +126,52 @@ internal sealed class TenantUserUnitManagementService(
         }
 
         return await assignmentQueries.GetByIdAsync(assignmentId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<OrganizationUserUnitResponse>> ReactivateAsync(
+        OrganizationUserUnitRecord existing,
+        bool isPrimary,
+        CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                OrganizationSql.ReactivateUserUnit,
+                new
+                {
+                    AssignmentId = existing.Id,
+                    IsPrimary = isPrimary,
+                    UpdatedAtUtc = now,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows is < 0 or > 1)
+        {
+            throw new InvalidOperationException(
+                "Organization user-unit reactivation affected rows outside the expected boundary.");
+        }
+
+        if (affectedRows == 0)
+        {
+            return AlreadyAssigned();
+        }
+
+        // 只有重启目标隶属成功后才能清理旧主部门；否则失败结果也会提交前置写入。
+        if (isPrimary)
+        {
+            await commandExecutor.ExecuteAsync(
+                    OrganizationSql.ClearPrimaryUserUnits,
+                    new
+                    {
+                        UserId = existing.UserId,
+                        AssignmentId = existing.Id,
+                        UpdatedAtUtc = now,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await assignmentQueries.GetByIdAsync(existing.Id, cancellationToken)
             .ConfigureAwait(false);
     }
 

@@ -50,6 +50,8 @@ public sealed class TenancyModule : IFullNetModule
             IQueryHandler<GetCurrentTenantQuery, TenantSummary>,
             Features.GetCurrentTenant.Handler>();
         services.AddScoped<ITenantResolver, TenantResolver>();
+        services.AddScoped<IActiveTenantContextResolver>(provider =>
+            (TenantResolver)provider.GetRequiredService<ITenantResolver>());
         services.AddScoped<
             IQueryHandler<
                 Features.GetAvailableTenants.Query,

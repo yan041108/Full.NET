@@ -22,13 +22,14 @@ export async function listOrganizationUnits(
 export async function createOrganizationUnit(
   code: string,
   name: string,
-  displayOrder = 10
+  displayOrder = 10,
+  parentId: string | null = null
 ): Promise<OrganizationUnit> {
   const value = await request<unknown>('/api/v1/organization/units', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      parentId: null,
+      parentId,
       code,
       name,
       displayOrder
@@ -42,7 +43,8 @@ export async function updateOrganizationUnit(
   id: string,
   name: string,
   displayOrder: number,
-  version: number
+  version: number,
+  parentId: string | null = null
 ): Promise<OrganizationUnit> {
   const value = await request<unknown>(
     `/api/v1/organization/units/${encodeURIComponent(id)}`,
@@ -50,7 +52,7 @@ export async function updateOrganizationUnit(
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        parentId: null,
+        parentId,
         name,
         displayOrder,
         version

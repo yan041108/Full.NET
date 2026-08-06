@@ -75,6 +75,9 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
             HostAdministratorSeedContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDataSeedContributor,
+            HostNavigationCatalogSeedContributor>());
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

@@ -50,6 +50,8 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<IUserFieldProjectionResolver, UserFieldProjectionResolver>();
         services.TryAddScoped<HostRoleFieldGrantService>();
         services.TryAddScoped<HostMenuQueryService>();
+        services.TryAddScoped<HostMenuPermissionOptionsQueryService>();
+        services.TryAddScoped<HostNavigationCatalogSyncService>();
         services.TryAddScoped<HostMenuManagementService>();
         services.TryAddScoped<HostOnlineSessionQueryService>();
         services.TryAddScoped<HostOnlineSessionManagementService>();

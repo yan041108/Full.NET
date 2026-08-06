@@ -23,7 +23,8 @@ test('Host 管理员可从真实 API 加载菜单列表', async ({ page }) => {
   await navigation.getByRole('link', { name: /菜单管理/ }).click();
 
   await expect(page.getByRole('heading', { name: '菜单管理', exact: true })).toBeVisible();
-  await expect(page.getByText('尚无 Host 菜单', { exact: true })).toBeVisible();
+  await expect(page.getByText('工作台', { exact: true })).toBeVisible();
+  await expect(page.getByText('尚无 Host 菜单', { exact: true })).toHaveCount(0);
 });
 
 test('受限 Host 账号访问菜单 API 被拒绝且导航裁剪', async ({

@@ -35,6 +35,7 @@ export interface HostUserProfile {
 }
 
 export interface HostUserProfileWrite {
+  fieldKeys?: string[] | null;
   nickname?: string | null;
   phoneNumber?: string | null;
   email?: string | null;

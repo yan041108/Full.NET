@@ -56,7 +56,7 @@ const emit = defineEmits<{
   reset: [];
 }>();
 
-const model = defineModel<Record<string, string | undefined>>({ default: {} });
+const model = defineModel<Record<string, string | undefined>>({ default: () => ({}) });
 const isExpanded = ref(false);
 
 const activeItems = computed(() => props.items.filter(item => !item.hidden));
@@ -110,6 +110,10 @@ function setField(key: string, value: string | undefined): void {
   model.value[key] = value;
 }
 
+function setSelectField(key: string, value: string | number | boolean | undefined): void {
+  setField(key, value === undefined || value === '' ? undefined : String(value));
+}
+
 function handleSearch(): void {
   const output: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(model.value)) {
@@ -159,7 +163,7 @@ function handleReset(): void {
               :model-value="model[item.key] ?? ''"
               clearable
               :placeholder="item.placeholder"
-              @update:model-value="setField(item.key, $event || undefined)"
+              @update:model-value="setSelectField(item.key, $event)"
             >
               <el-option
                 v-for="option in item.options ?? []"
@@ -171,7 +175,7 @@ function handleReset(): void {
             <el-radio-group
               v-else-if="item.type === 'radiogroup'"
               :model-value="model[item.key] ?? ''"
-              @update:model-value="setField(item.key, $event || undefined)"
+              @update:model-value="setSelectField(item.key, $event)"
             >
               <el-radio
                 v-for="option in item.options ?? []"

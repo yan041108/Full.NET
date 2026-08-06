@@ -320,7 +320,7 @@ export function createIdentitySession(
         return;
       }
 
-      // 服务端已切换时不得继续使用旧授权快照；清空状态可阻断错误范围的后续请求。
+      // 服务端上下文已切换时，不得继续使用旧授权快照；失败关闭可阻断跨上下文误授权。
       clear();
       throw error;
     }

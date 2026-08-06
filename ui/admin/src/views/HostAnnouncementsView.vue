@@ -498,7 +498,7 @@ function toProblem(
                       test-id="host-announcements-edit"
                       :title="t('hostAnnouncements.edit')"
                       :disabled="changing"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as HostAnnouncement)"
                     />
                   </PermissionGate>
                   <PermissionGate code="notifications.announcements.publish">
@@ -507,7 +507,7 @@ function toProblem(
                       test-id="host-announcements-publish"
                       :title="t('hostAnnouncements.publish')"
                       :disabled="changing"
-                      @click="publish(row)"
+                  @click="publish(row as HostAnnouncement)"
                     />
                   </PermissionGate>
                 </div>

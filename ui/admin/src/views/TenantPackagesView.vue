@@ -517,7 +517,7 @@ function toProblem(
                       test-id="tenant-packages-action-edit"
                       :title="t('tenantPackages.edit')"
                       :disabled="changing || !row.isActive"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as HostTenantPackage)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive" code="tenancy.tenant_packages.disable">
@@ -526,7 +526,7 @@ function toProblem(
                       test-id="tenant-packages-action-disable"
                       :title="t('tenantPackages.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as HostTenantPackage)"
                     />
                   </PermissionGate>
                 </div>

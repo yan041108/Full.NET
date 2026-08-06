@@ -406,8 +406,36 @@ internal static class IdentitySql
         WHERE Id = @MenuId
           AND ScopeKey = 'host'
           AND TenantId IS NULL
-          AND IsSystem = 0
           AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>更新系统内置菜单的展示与层级字段；路由、组件与权限保持目录锁定。</summary>
+    public static readonly SqlStatement UpdateHostSystemMenu = new(
+        "identity.update_host_system_menu",
+        """
+        UPDATE fn_identity_navigation
+        SET ParentId = @ParentId,
+            Title = @Title,
+            Caption = @Caption,
+            Icon = @Icon,
+            DisplayOrder = @DisplayOrder,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @MenuId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 1
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostMenuRouteNames = new(
+        "identity.list_host_menu_route_names",
+        """
+        SELECT Id, RouteName
+        FROM fn_identity_navigation
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
         """,
         SqlDataScope.HostOnly);
 

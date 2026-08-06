@@ -191,7 +191,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
             <el-table-column :label="t('users.columnActions')" width="100" fixed="right" align="center">
               <template #default="{ row }">
-                <el-button plain size="small" @click="openCatalog(row)">
+              <el-button plain size="small" @click="openCatalog(row as SettingsEnumCatalogSummary)">
                   {{ t('enumCatalogs.select') }}
                 </el-button>
               </template>

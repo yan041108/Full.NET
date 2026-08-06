@@ -62,3 +62,16 @@ public sealed record HostMenuResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     int Version);
+
+/// <summary>Host 菜单可分配权限选项。</summary>
+public sealed record HostMenuPermissionOptionResponse(
+    string Code,
+    string ModuleKey,
+    string ModuleTitle,
+    string PageId,
+    string PageTitle,
+    string Kind,
+    string DisplayName,
+    string DisplayNameKey,
+    string? ActionId = null,
+    string? ActionKey = null);

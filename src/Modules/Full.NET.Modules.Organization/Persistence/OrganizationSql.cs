@@ -74,6 +74,16 @@ internal static class OrganizationSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    public static readonly SqlStatement ListUnitParentLinks = new(
+        "organization.list_unit_parent_links",
+        """
+        SELECT Id, ParentId
+        FROM fn_organization_unit
+        WHERE TenantId = @TenantId
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement InsertUnit = new(
         "organization.insert_unit",
         """
@@ -257,6 +267,22 @@ internal static class OrganizationSql
         WHERE Id = @AssignmentId
           AND TenantId = @TenantId
           AND IsActive = 1
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>重新启用已取消的用户-机构隶属，并同步主部门标记。</summary>
+    public static readonly SqlStatement ReactivateUserUnit = new(
+        "organization.reactivate_user_unit",
+        """
+        UPDATE fn_organization_user_unit
+        SET IsActive = 1,
+            IsPrimary = @IsPrimary,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @AssignmentId
+          AND TenantId = @TenantId
+          AND IsActive = 0
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

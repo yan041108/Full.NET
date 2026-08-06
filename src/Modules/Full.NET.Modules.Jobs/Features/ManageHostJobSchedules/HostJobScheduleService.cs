@@ -95,7 +95,7 @@ internal sealed class HostJobScheduleService(
         string timeZoneId,
         CancellationToken cancellationToken = default)
     {
-        _ = cancellationToken;
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             var normalizedTimeZone = JobScheduleCalculator.NormalizeTimeZoneId(timeZoneId);
@@ -107,16 +107,31 @@ internal sealed class HostJobScheduleService(
                 Result<HostJobScheduleCronPreviewResponse>.Success(
                     new HostJobScheduleCronPreviewResponse(next)));
         }
-        catch (Exception)
+        catch (CronFormatException)
         {
-            return Task.FromResult(
-                Result<HostJobScheduleCronPreviewResponse>.Failure(
-                    new Error(
-                        JobsErrorCodes.ScheduleValidationFailed,
-                        "The cron preview request is invalid.",
-                        ErrorType.Validation)));
+            return InvalidCronPreview();
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return InvalidCronPreview();
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return InvalidCronPreview();
+        }
+        catch (InvalidOperationException)
+        {
+            return InvalidCronPreview();
         }
     }
+
+    private static Task<Result<HostJobScheduleCronPreviewResponse>> InvalidCronPreview() =>
+        Task.FromResult(
+            Result<HostJobScheduleCronPreviewResponse>.Failure(
+                new Error(
+                    JobsErrorCodes.ScheduleValidationFailed,
+                    "The cron preview request is invalid.",
+                    ErrorType.Validation)));
 
     public async Task<Result<HostJobScheduleResponse>> GetByIdAsync(
         Guid scheduleId,

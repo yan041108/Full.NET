@@ -524,7 +524,7 @@ function appendUniqueUsers(
                       test-id="org-user-positions-action-set-primary"
                       :title="t('orgUserPositions.setPrimary')"
                       :disabled="changing"
-                      @click="setPrimary(row)"
+                  @click="setPrimary(row as OrganizationUserPosition)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive && canDisable" code="organization.user_positions.disable">
@@ -533,7 +533,7 @@ function appendUniqueUsers(
                       test-id="org-user-positions-action-disable"
                       :title="t('orgUserPositions.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as OrganizationUserPosition)"
                     />
                   </PermissionGate>
                 </div>

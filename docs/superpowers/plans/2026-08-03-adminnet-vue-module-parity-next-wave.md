@@ -1,5 +1,7 @@
 # Admin.NET Vue Module Parity Next Wave Implementation Plan
 
+> **2026-08-06 审查覆盖说明：** Cursor 已实现 Task 1/2 的部分能力，但尚未关闭 Document 引用对账、Jobs 预览权限以及当前 Identity/Organization WIP 的双库门禁。后续执行顺序和修正后的验收条件以 [`2026-08-06-cursor-adminnet-review-followup.md`](2026-08-06-cursor-adminnet-review-followup.md) 为准；本文件保留模块产品语义，不得据此把 Task 1/2 标记为完成。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`; each task must finish RED→GREEN and verification before starting the next task.
 
 **Goal:** 在不复制 Admin.NET 源码、不破坏 Full.NET 架构边界的前提下，补齐当前 Vue 后台已暴露模块的关键产品能力、合理交互、表字段和精确权限。

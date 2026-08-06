@@ -181,7 +181,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
             <el-table-column :label="t('users.columnActions')" width="100" fixed="right" align="center">
               <template #default="{ row }">
-                <el-button plain size="small" @click="openModule(row)">
+              <el-button plain size="small" @click="openModule(row as IdentityModuleCatalogEntry)">
                   {{ t('moduleCatalog.select') }}
                 </el-button>
               </template>

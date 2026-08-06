@@ -404,7 +404,7 @@ function toProblem(
                       test-id="document-category-edit"
                       :title="t('documentCategories.edit')"
                       :disabled="changing"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as HostDocumentCategory)"
                     />
                   </PermissionGate>
                   <PermissionGate code="document.categories.delete">
@@ -413,7 +413,7 @@ function toProblem(
                       test-id="document-category-delete"
                       :title="t('documentCategories.delete')"
                       :disabled="changing"
-                      @click="remove(row)"
+                  @click="remove(row as HostDocumentCategory)"
                     />
                   </PermissionGate>
                 </div>

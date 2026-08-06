@@ -319,7 +319,7 @@ function toProblem(
                     size="small"
                     data-testid="inbox-messages-mark-read"
                     :disabled="changing"
-                    @click="markRead(row)"
+                  @click="markRead(row as InboxMessage)"
                   >
                     {{ t('inboxMessages.markRead') }}
                   </el-button>

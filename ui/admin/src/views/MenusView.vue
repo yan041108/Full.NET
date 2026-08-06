@@ -13,15 +13,17 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTag
+  ElTag,
+  ElTreeSelect
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import {
-  HOST_MENU_ASSIGNABLE_PERMISSIONS,
   HOST_MENU_COMPONENT_OPTIONS,
+  HOST_MENU_ICON_OPTIONS,
   type FullNetProblemDetails,
-  type HostMenu
+  type HostMenu,
+  type HostMenuIcon
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
@@ -38,6 +40,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createHostMenu,
   disableHostMenu,
+  listHostMenuPermissionOptions,
   listHostMenus,
   updateHostMenu
 } from '../api/menus';
@@ -47,6 +50,12 @@ defineOptions({ name: 'MenusView' });
 type EditorMode = 'create' | 'edit';
 type MenuTableColumnKey = 'componentKey' | 'requiredPermission' | 'status' | 'displayOrder';
 
+interface MenuTreeOption {
+  value: string;
+  label: string;
+  children?: MenuTreeOption[];
+}
+
 interface AppliedFilters {
   routeName: string;
   title: string;
@@ -54,11 +63,27 @@ interface AppliedFilters {
   status: '' | 'active' | 'inactive';
 }
 
+interface MenuEditorForm {
+  routeName: string;
+  componentKey: string;
+  title: string;
+  caption: string;
+  icon: HostMenuIcon | string;
+  parentId: string | null;
+  displayOrder: number;
+  requiredPermission: string;
+}
+
 const ROUTE_NAME_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const allMenus = ref<HostMenu[]>([]);
+const permissionOptions = ref<Array<{
+  code: string;
+  label: string;
+  disabled?: boolean;
+}>>([]);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -73,11 +98,15 @@ const editorOpen = ref(false);
 const editorMode = ref<EditorMode>('create');
 const editingMenu = ref<HostMenu | null>(null);
 const editorFormRef = ref<FormInstance>();
-const editorForm = reactive({
+const editorForm = reactive<MenuEditorForm>({
   routeName: '',
   componentKey: HOST_MENU_COMPONENT_OPTIONS[0]?.componentKey ?? 'overview',
   title: '',
-  requiredPermission: HOST_MENU_ASSIGNABLE_PERMISSIONS[0]
+  caption: '',
+  icon: HOST_MENU_ICON_OPTIONS[0] ?? 'grid',
+  parentId: null as string | null,
+  displayOrder: 50,
+  requiredPermission: ''
 });
 const fieldErrors = reactive({
   routeName: '',
@@ -93,7 +122,24 @@ const columnVisibility = ref<Record<MenuTableColumnKey, boolean>>({
 });
 
 const componentOptions = HOST_MENU_COMPONENT_OPTIONS;
-const assignablePermissions = HOST_MENU_ASSIGNABLE_PERMISSIONS;
+const iconOptions = HOST_MENU_ICON_OPTIONS;
+const menuPermissionOptions = computed(() => {
+  const options = [...permissionOptions.value];
+  const currentCode = editingMenu.value?.requiredPermission ?? editorForm.requiredPermission;
+  if (currentCode && !options.some(option => option.code === currentCode)) {
+    options.push({
+      code: currentCode,
+      label: `[${t('menus.inactive')}] ${currentCode}`,
+      disabled: true
+    });
+  }
+
+  return options;
+});
+
+const parentMenuTreeOptions = computed(() =>
+  buildMenuParentTreeOptions(allMenus.value, editingMenu.value?.id)
+);
 
 const {
   tableMainRef,
@@ -214,6 +260,56 @@ function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
 }
 
+function buildMenuParentTreeOptions(
+  menus: HostMenu[],
+  excludeMenuId?: string
+): MenuTreeOption[] {
+  const excludedIds = new Set<string>();
+  if (excludeMenuId) {
+    excludedIds.add(excludeMenuId);
+    const collectDescendants = (parentId: string): void => {
+      for (const menu of menus) {
+        if (menu.parentId === parentId && !excludedIds.has(menu.id)) {
+          excludedIds.add(menu.id);
+          collectDescendants(menu.id);
+        }
+      }
+    };
+    collectDescendants(excludeMenuId);
+  }
+
+  const nodes = menus
+    .filter(menu => menu.isActive && !excludedIds.has(menu.id))
+    .map(menu => ({
+      id: menu.id,
+      parentId: menu.parentId,
+      value: menu.id,
+      label: `${menu.title} (${menu.routeName})`,
+      displayOrder: menu.displayOrder
+    }));
+
+  const childrenByParent = new Map<string | null, typeof nodes>();
+  for (const node of nodes) {
+    const bucket = childrenByParent.get(node.parentId) ?? [];
+    bucket.push(node);
+    childrenByParent.set(node.parentId, bucket);
+  }
+
+  const walk = (parentId: string | null): MenuTreeOption[] =>
+    (childrenByParent.get(parentId) ?? [])
+      .sort((left, right) =>
+        left.displayOrder - right.displayOrder
+        || left.label.localeCompare(right.label, 'zh-CN'))
+      .map(node => {
+        const children = walk(node.id);
+        return children.length > 0
+          ? { value: node.value, label: node.label, children }
+          : { value: node.value, label: node.label };
+      });
+
+  return walk(null);
+}
+
 function normalizeRouteName(value: string): string {
   return value
     .trim()
@@ -274,7 +370,7 @@ function validateRequiredPermission(): string {
   if (!permission) {
     return t('menus.permissionRequired');
   }
-  if (!assignablePermissions.includes(permission as typeof assignablePermissions[number])) {
+  if (!menuPermissionOptions.value.some(option => option.code === permission)) {
     return t('menus.permissionRequired');
   }
   return '';
@@ -307,7 +403,16 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    allMenus.value = await fetchAllMenus();
+    const [menus, permissions] = await Promise.all([
+      fetchAllMenus(),
+      listHostMenuPermissionOptions()
+    ]);
+    allMenus.value = menus;
+    permissionOptions.value = permissions.map(option => ({
+      code: option.code,
+      label: `[${option.moduleTitle} / ${option.pageTitle}] ${option.displayName}`,
+      disabled: false
+    }));
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'menus.loadFailed');
@@ -337,13 +442,17 @@ function openCreate(): void {
   editorForm.routeName = '';
   editorForm.componentKey = componentOptions[0]?.componentKey ?? 'overview';
   editorForm.title = '';
-  editorForm.requiredPermission = assignablePermissions[0];
+  editorForm.caption = '';
+  editorForm.icon = iconOptions[0] ?? 'grid';
+  editorForm.parentId = null;
+  editorForm.displayOrder = 50;
+  editorForm.requiredPermission = permissionOptions.value[0]?.code ?? '';
   clearFieldErrors();
   editorOpen.value = true;
 }
 
 function openEdit(menu: HostMenu): void {
-  if (changing.value || menu.isSystem || !canUpdate.value) {
+  if (changing.value || !canUpdate.value) {
     return;
   }
   editorMode.value = 'edit';
@@ -351,7 +460,11 @@ function openEdit(menu: HostMenu): void {
   editorForm.routeName = menu.routeName;
   editorForm.componentKey = menu.componentKey;
   editorForm.title = menu.title;
-  editorForm.requiredPermission = menu.requiredPermission as typeof assignablePermissions[number];
+  editorForm.caption = menu.caption;
+  editorForm.icon = menu.icon;
+  editorForm.parentId = menu.parentId;
+  editorForm.displayOrder = menu.displayOrder;
+  editorForm.requiredPermission = menu.requiredPermission;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -390,20 +503,22 @@ async function create(): Promise<void> {
   problem.value = undefined;
   try {
     const title = editorForm.title.trim();
+    const caption = editorForm.caption.trim() || title;
     await createHostMenu({
-      parentId: null,
+      parentId: editorForm.parentId,
       routeName: editorForm.routeName,
       path: resolvePath(editorForm.componentKey),
       componentKey: editorForm.componentKey,
       title,
-      caption: title,
-      icon: 'grid',
-      displayOrder: 50,
+      caption,
+      icon: editorForm.icon,
+      displayOrder: editorForm.displayOrder,
       requiredPermission: editorForm.requiredPermission
     });
     editorOpen.value = false;
     ElMessage.success(t('menus.createSuccess'));
     await load();
+    await session.reloadContext();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'menus.operationFailed');
   } finally {
@@ -420,20 +535,27 @@ async function saveEdit(): Promise<void> {
   problem.value = undefined;
   try {
     const title = editorForm.title.trim();
+    const caption = editorForm.caption.trim() || title;
+    const path = menu.isSystem ? menu.path : resolvePath(editorForm.componentKey);
+    const componentKey = menu.isSystem ? menu.componentKey : editorForm.componentKey;
+    const requiredPermission = menu.isSystem
+      ? menu.requiredPermission
+      : editorForm.requiredPermission;
     await updateHostMenu(menu.id, {
-      parentId: menu.parentId,
-      path: resolvePath(editorForm.componentKey),
-      componentKey: editorForm.componentKey,
+      parentId: editorForm.parentId,
+      path,
+      componentKey,
       title,
-      caption: menu.caption,
-      icon: menu.icon,
-      displayOrder: menu.displayOrder,
-      requiredPermission: editorForm.requiredPermission,
+      caption,
+      icon: editorForm.icon,
+      displayOrder: editorForm.displayOrder,
+      requiredPermission,
       version: menu.version
     });
     editorOpen.value = false;
     ElMessage.success(t('menus.updateSuccess'));
     await load();
+    await session.reloadContext();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'menus.operationFailed');
   } finally {
@@ -442,7 +564,7 @@ async function saveEdit(): Promise<void> {
 }
 
 async function disable(menu: HostMenu): Promise<void> {
-  if (changing.value || !menu.isActive || menu.isSystem || !session.can('identity.menus.disable')) {
+  if (changing.value || !menu.isActive || !session.can('identity.menus.disable')) {
     return;
   }
   try {
@@ -459,6 +581,7 @@ async function disable(menu: HostMenu): Promise<void> {
     await disableHostMenu(menu.id);
     ElMessage.success(t('menus.disableSuccess'));
     await load();
+    await session.reloadContext();
   } catch (error: unknown) {
     if (error === 'cancel' || error === 'close') {
       return;
@@ -603,22 +726,22 @@ function toProblem(
             >
               <template #default="{ row }">
                 <div class="art-crud-table-actions">
-                  <PermissionGate v-if="!row.isSystem" code="identity.menus.update">
+                  <PermissionGate code="identity.menus.update">
                     <ArtTableActionButton
                       type="edit"
                       test-id="menus-action-edit"
                       :title="t('menus.edit')"
                       :disabled="changing"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as HostMenu)"
                     />
                   </PermissionGate>
-                  <PermissionGate v-if="row.isActive && !row.isSystem" code="identity.menus.disable">
+                  <PermissionGate v-if="row.isActive" code="identity.menus.disable">
                     <ArtTableActionButton
                       type="delete"
                       test-id="menus-action-disable"
                       :title="t('menus.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as HostMenu)"
                     />
                   </PermissionGate>
                 </div>
@@ -685,6 +808,7 @@ function toProblem(
         >
           <el-select
             v-model="editorForm.componentKey"
+            :disabled="editorMode === 'edit' && editingMenu?.isSystem === true"
             @update:model-value="fieldErrors.componentKey = validateComponentKey()"
           >
             <el-option
@@ -692,6 +816,28 @@ function toProblem(
               :key="option.componentKey"
               :label="option.componentKey"
               :value="option.componentKey"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item :label="t('menus.parentMenu')">
+          <el-tree-select
+            v-model="editorForm.parentId"
+            :data="parentMenuTreeOptions"
+            clearable
+            check-strictly
+            :render-after-expand="false"
+            :placeholder="t('menus.parentMenuPlaceholder')"
+          />
+        </el-form-item>
+
+        <el-form-item :label="t('menus.icon')" required>
+          <el-select v-model="editorForm.icon">
+            <el-option
+              v-for="icon in iconOptions"
+              :key="icon"
+              :label="icon"
+              :value="icon"
             />
           </el-select>
         </el-form-item>
@@ -709,6 +855,29 @@ function toProblem(
           />
         </el-form-item>
 
+        <el-form-item :label="t('menus.captionField')">
+          <el-input
+            v-model="editorForm.caption"
+            :placeholder="t('menus.captionPlaceholder')"
+          />
+        </el-form-item>
+
+        <el-form-item :label="t('menus.displayOrder')">
+          <el-input
+            v-model.number="editorForm.displayOrder"
+            type="number"
+            :min="0"
+            :max="9999"
+          />
+        </el-form-item>
+
+        <p
+          v-if="editorMode === 'edit' && editingMenu?.isSystem"
+          class="menus-editor-form__hint"
+        >
+          {{ t('menus.systemLockedHint') }}
+        </p>
+
         <el-form-item
           :label="t('menus.requiredPermission')"
           prop="requiredPermission"
@@ -717,13 +886,15 @@ function toProblem(
         >
           <el-select
             v-model="editorForm.requiredPermission"
+            :disabled="editorMode === 'edit' && editingMenu?.isSystem === true"
             @update:model-value="fieldErrors.requiredPermission = validateRequiredPermission()"
           >
             <el-option
-              v-for="permission in assignablePermissions"
-              :key="permission"
-              :label="permission"
-              :value="permission"
+              v-for="permission in menuPermissionOptions"
+              :key="permission.code"
+              :label="permission.label"
+              :value="permission.code"
+              :disabled="permission.disabled"
             />
           </el-select>
         </el-form-item>
@@ -749,6 +920,13 @@ function toProblem(
 
 .menus-editor-form {
   padding-top: 8px;
+}
+
+.menus-editor-form__hint {
+  margin: 0 0 12px 108px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .art-sr-heading {

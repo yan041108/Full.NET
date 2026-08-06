@@ -1,5 +1,6 @@
 using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Hosting;
@@ -9,7 +10,7 @@ namespace Full.NET.Modules.Tenancy.Persistence;
 internal sealed class TenantResolver(
     IQueryExecutor queryExecutor,
     HybridCache cache,
-    IHostEnvironment environment) : ITenantResolver
+    IHostEnvironment environment) : ITenantResolver, IActiveTenantContextResolver
 {
     internal static readonly TimeSpan ActiveTenantDuration = TimeSpan.FromMinutes(5);
     internal static readonly TimeSpan MissingTenantDuration = TimeSpan.FromMinutes(1);
@@ -109,6 +110,17 @@ internal sealed class TenantResolver(
         }
 
         return entry.Tenant;
+    }
+
+    public async Task<TenantContext?> ResolveActiveByIdAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var tenant = await ResolveByIdAsync(tenantId, cancellationToken)
+            .ConfigureAwait(false);
+        return tenant is { IsActive: true }
+            ? new TenantContext(tenant.Id, tenant.Identifier, tenant.Name)
+            : null;
     }
 
     public async Task<IReadOnlyList<TenantSummary>> GetAvailableAsync(

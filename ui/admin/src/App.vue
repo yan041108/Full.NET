@@ -83,9 +83,9 @@ onMounted(() => {
 });
 
 watch(
-  () => [session.isAuthenticated, session.navigation.length] as const,
-  ([authenticated, navigationCount]) => {
-    if (authenticated && navigationCount === 0) {
+  () => [session.isAuthenticated, session.navigation.length, session.switching] as const,
+  ([authenticated, navigationCount, switching]) => {
+    if (authenticated && navigationCount === 0 && !switching) {
       void session.restore();
     }
   }

@@ -6,7 +6,9 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElTable,
   ElTableColumn,
   ElTag,
@@ -33,17 +35,22 @@ import UserEditorDialog from './components/UserEditorDialog.vue';
 defineOptions({ name: 'UsersView' });
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listOrganizationUnits } from '../api/org-units';
-import { listOrganizationPositions } from '../api/org-positions';
 import {
-  createOrganizationUserPosition,
-  listOrganizationUserPositions
-} from '../api/org-user-positions';
-import {
-  createOrganizationUserUnit,
-  listOrganizationUserUnits
-} from '../api/org-user-units';
+  createHostUserOrganizationPosition,
+  createHostUserOrganizationUnit,
+  disableHostUserOrganizationPosition,
+  disableHostUserOrganizationUnit,
+  getHostUserOrganizationReference,
+  updateHostUserOrganizationPosition,
+  updateHostUserOrganizationUnit
+} from '../api/host-user-organization-reference';
 import { listHostRoles } from '../api/roles';
+import {
+  buildOrganizationUnitTree,
+  filterOrganizationUnitsForTree,
+  mapOrganizationUnitTreeToSelectOptions,
+  type OrganizationUnitTreeNode
+} from '../organization/org-unit-tree';
 import {
   createHostUser,
   disableHostUser,
@@ -99,6 +106,7 @@ const appliedFilters = ref<AppliedFilters>({
   status: ''
 });
 const selectedUnitId = ref<string | null>(null);
+const selectedOrgTenantId = ref('');
 const orgFilter = ref('');
 const page = ref(1);
 const pageSize = ref(20);
@@ -188,6 +196,39 @@ const tableHeaderCellStyle = computed(() => ({
 const canCreate = computed(() => session.can('identity.users.create'));
 const canUpdate = computed(() => session.can('identity.users.update'));
 const canAssignRoles = computed(() => session.can('identity.users.assign_roles'));
+const canManageProfiles = computed(() => session.currentUser?.isSuperAdministrator === true);
+const canReadUserUnits = computed(() => session.can('organization.user_units.read'));
+const canCreateUserUnits = computed(() => session.can('organization.user_units.create'));
+const canUpdateUserUnits = computed(() => session.can('organization.user_units.update'));
+const canDisableUserUnits = computed(() => session.can('organization.user_units.disable'));
+const canReadUserPositions = computed(() => session.can('organization.user_positions.read'));
+const canCreateUserPositions = computed(() => session.can('organization.user_positions.create'));
+const canUpdateUserPositions = computed(() => session.can('organization.user_positions.update'));
+const canDisableUserPositions = computed(() => session.can('organization.user_positions.disable'));
+const canManageOrganizations = computed(() =>
+  canReadUserUnits.value
+  || canCreateUserUnits.value
+  || canUpdateUserUnits.value
+  || canDisableUserUnits.value
+  || canReadUserPositions.value
+  || canCreateUserPositions.value
+  || canUpdateUserPositions.value
+  || canDisableUserPositions.value);
+
+const orgTenantOptions = computed(() =>
+  session.availableTenants.map(tenant => ({
+    value: tenant.id,
+    label: tenant.name
+  }))
+);
+
+function resolveDefaultOrgTenantId(): string {
+  if (session.currentUser?.tenantId) {
+    return session.currentUser.tenantId;
+  }
+
+  return session.availableTenants[0]?.id ?? '';
+}
 
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   {
@@ -231,14 +272,10 @@ const transferRoles = computed(() =>
     }))
 );
 
-const orgUnitOptions = computed(() =>
-  orgUnits.value
-    .filter(unit => unit.isActive)
-    .sort((left, right) => left.displayOrder - right.displayOrder)
-    .map(unit => ({
-      value: unit.id,
-      label: unit.name
-    }))
+const orgUnitTreeOptions = computed(() =>
+  mapOrganizationUnitTreeToSelectOptions(
+    buildOrganizationUnitTree(orgUnits.value.filter(unit => unit.isActive))
+  )
 );
 
 const positionOptions = computed(() =>
@@ -255,31 +292,31 @@ const orgTreeData = computed<OrgTreeNode[]>(() => {
   const keyword = orgFilter.value.trim().toLowerCase();
   const activeUnits = orgUnits.value.filter(unit => unit.isActive);
   const filtered = keyword
-    ? activeUnits.filter(unit => unit.name.toLowerCase().includes(keyword))
+    ? filterOrganizationUnitsForTree(activeUnits, unit =>
+      unit.name.toLowerCase().includes(keyword)
+      || unit.code.toLowerCase().includes(keyword))
     : activeUnits;
-  const childrenByParent = new Map<string | null, OrganizationUnit[]>();
-
-  for (const unit of filtered) {
-    const siblings = childrenByParent.get(unit.parentId) ?? [];
-    siblings.push(unit);
-    childrenByParent.set(unit.parentId, siblings);
-  }
-
-  const toNodes = (parentId: string | null): OrgTreeNode[] =>
-    (childrenByParent.get(parentId) ?? [])
-      .sort((left, right) => left.displayOrder - right.displayOrder)
-      .map(unit => ({
-        id: unit.id,
-        label: unit.name,
-        children: toNodes(unit.id)
-      }));
 
   return [{
     id: '__all__',
     label: t('users.orgTreeAll'),
-    children: toNodes(null)
+    children: mapOrgTreeNodes(buildOrganizationUnitTree(filtered))
   }];
 });
+
+const hasVisibleOrgUnits = computed(() =>
+  orgUnits.value.some(unit => unit.isActive)
+);
+
+function mapOrgTreeNodes(nodes: OrganizationUnitTreeNode[]): OrgTreeNode[] {
+  return nodes.map(node => ({
+    id: node.id,
+    label: node.name,
+    children: node.children.length > 0
+      ? mapOrgTreeNodes(node.children)
+      : undefined
+  }));
+}
 
 const filteredUsers = computed(() => {
   let rows = allUsers.value;
@@ -337,6 +374,9 @@ watch(filteredUsers, rows => {
 });
 
 onMounted(() => {
+  if (!selectedOrgTenantId.value) {
+    selectedOrgTenantId.value = resolveDefaultOrgTenantId();
+  }
   void load();
   updateTableHeight();
   window.addEventListener('resize', updateTableHeight);
@@ -358,6 +398,41 @@ watch(pagedUsers, users => {
   void hydrateRoleLabels(users);
 });
 
+watch(selectedOrgTenantId, (tenantId, previousTenantId) => {
+  if (!tenantId || tenantId === previousTenantId) {
+    return;
+  }
+
+  void reloadOrganizationReference();
+});
+
+watch(editorPrimaryUnitId, primaryUnitId => {
+  if (!primaryUnitId) {
+    return;
+  }
+
+  editorSubsidiaryUnitIds.value = editorSubsidiaryUnitIds.value.filter(
+    unitId => unitId !== primaryUnitId
+  );
+});
+
+watch(
+  () => session.availableTenants.length,
+  (count, previousCount) => {
+    if (count === 0 || previousCount > 0) {
+      return;
+    }
+
+    if (!selectedOrgTenantId.value) {
+      selectedOrgTenantId.value = resolveDefaultOrgTenantId();
+    }
+
+    if (selectedOrgTenantId.value) {
+      void reloadOrganizationReference();
+    }
+  }
+);
+
 function updateTableHeight(): void {
   const container = tableMainRef.value;
   if (!container) {
@@ -369,6 +444,16 @@ function updateTableHeight(): void {
 
 function emptyProfile(): HostUserProfileWrite {
   return {
+    fieldKeys: [
+      'nickname',
+      'phone_number',
+      'email',
+      'employee_number',
+      'gender',
+      'birth_date',
+      'address',
+      'remark'
+    ],
     nickname: null,
     phoneNumber: null,
     email: null,
@@ -427,16 +512,42 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const [referenceBundle, users] = await Promise.all([
-      loadReferenceData(),
+    if (!selectedOrgTenantId.value) {
+      selectedOrgTenantId.value = resolveDefaultOrgTenantId();
+    }
+
+    const [rolePage, users] = await Promise.all([
+      listHostRoles(1, 200).catch(() => ({
+        items: [] as HostRole[],
+        page: 1,
+        pageSize: 200,
+        total: 0
+      })),
       fetchAllUsers()
     ]);
 
-    roles.value = referenceBundle.roles;
-    orgUnits.value = referenceBundle.orgUnits;
-    orgPositions.value = referenceBundle.orgPositions;
-    userUnits.value = referenceBundle.userUnits;
-    userPositions.value = referenceBundle.userPositions;
+    roles.value = rolePage.items;
+
+    if (selectedOrgTenantId.value && canManageOrganizations.value) {
+      try {
+        const orgReference = await loadOrganizationReference(selectedOrgTenantId.value);
+        orgUnits.value = orgReference.orgUnits;
+        orgPositions.value = orgReference.orgPositions;
+        userUnits.value = orgReference.userUnits;
+        userPositions.value = orgReference.userPositions;
+      } catch (error: unknown) {
+        orgUnits.value = [];
+        orgPositions.value = [];
+        userUnits.value = [];
+        userPositions.value = [];
+        problem.value = toProblem(error, 'users.loadFailed');
+      }
+    } else {
+      orgUnits.value = [];
+      orgPositions.value = [];
+      userUnits.value = [];
+      userPositions.value = [];
+    }
 
     userRoleLabelsById.value = {};
     allUsers.value = enrichUsers(users);
@@ -450,52 +561,40 @@ async function load(): Promise<void> {
   }
 }
 
-async function loadReferenceData(): Promise<{
-  roles: HostRole[];
+async function reloadOrganizationReference(): Promise<void> {
+  if (!selectedOrgTenantId.value || !canManageOrganizations.value) {
+    orgUnits.value = [];
+    orgPositions.value = [];
+    userUnits.value = [];
+    userPositions.value = [];
+    allUsers.value = enrichUsers(allUsers.value);
+    return;
+  }
+
+  try {
+    const orgReference = await loadOrganizationReference(selectedOrgTenantId.value);
+    orgUnits.value = orgReference.orgUnits;
+    orgPositions.value = orgReference.orgPositions;
+    userUnits.value = orgReference.userUnits;
+    userPositions.value = orgReference.userPositions;
+    allUsers.value = enrichUsers(allUsers.value);
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.loadFailed');
+  }
+}
+
+async function loadOrganizationReference(tenantId: string): Promise<{
   orgUnits: OrganizationUnit[];
   orgPositions: OrganizationPosition[];
   userUnits: OrganizationUserUnit[];
   userPositions: OrganizationUserPosition[];
 }> {
-  const [rolePage, unitPage, positionPage, assignmentPage, userPositionPage] = await Promise.all([
-    listHostRoles(1, 200).catch(() => ({
-      items: [] as HostRole[],
-      page: 1,
-      pageSize: 200,
-      total: 0
-    })),
-    listOrganizationUnits(1, 200).catch(() => ({
-      items: [] as OrganizationUnit[],
-      page: 1,
-      pageSize: 200,
-      total: 0
-    })),
-    listOrganizationPositions(1, 200).catch(() => ({
-      items: [] as OrganizationPosition[],
-      page: 1,
-      pageSize: 200,
-      total: 0
-    })),
-    listOrganizationUserUnits(1, 500).catch(() => ({
-      items: [] as OrganizationUserUnit[],
-      page: 1,
-      pageSize: 500,
-      total: 0
-    })),
-    listOrganizationUserPositions(1, 500).catch(() => ({
-      items: [] as OrganizationUserPosition[],
-      page: 1,
-      pageSize: 500,
-      total: 0
-    }))
-  ]);
-
+  const reference = await getHostUserOrganizationReference(tenantId);
   return {
-    roles: rolePage.items,
-    orgUnits: unitPage.items,
-    orgPositions: positionPage.items,
-    userUnits: assignmentPage.items,
-    userPositions: userPositionPage.items
+    orgUnits: reference.units,
+    orgPositions: reference.positions,
+    userUnits: reference.userUnits,
+    userPositions: reference.userPositions
   };
 }
 
@@ -670,48 +769,148 @@ async function submitEditor(): Promise<void> {
 }
 
 async function syncOrgAssignments(userId: string): Promise<void> {
-  const existingUnits = userUnits.value.filter(
-    item => item.userId === userId && item.isActive
-  );
-  const primaryExisting = existingUnits.find(item => item.isPrimary);
-
-  if (
-    editorPrimaryUnitId.value
-    && primaryExisting?.unitId !== editorPrimaryUnitId.value
-  ) {
-    await createOrganizationUserUnit(userId, editorPrimaryUnitId.value, true);
-  }
-
-  for (const unitId of editorSubsidiaryUnitIds.value) {
-    if (unitId === editorPrimaryUnitId.value) {
-      continue;
-    }
-    if (!existingUnits.some(item => item.unitId === unitId)) {
-      await createOrganizationUserUnit(userId, unitId, false);
-    }
-  }
-
-  const existingPositions = userPositions.value.filter(
-    item => item.userId === userId && item.isActive
-  );
-  const primaryPosition = existingPositions.find(item => item.isPrimary);
-
-  if (editorPositionId.value && primaryPosition?.positionId !== editorPositionId.value) {
-    await createOrganizationUserPosition(userId, editorPositionId.value, true);
-  }
-}
-
-async function syncRoles(userId: string): Promise<void> {
-  if (!canAssignRoles.value || selectedRoleIds.value.length === 0) {
+  if (!selectedOrgTenantId.value || !canManageOrganizations.value) {
     return;
   }
 
+  const tenantId = selectedOrgTenantId.value;
+  if (canCreateUserUnits.value || canUpdateUserUnits.value || canDisableUserUnits.value) {
+    const existingUnits = userUnits.value.filter(
+      item => item.userId === userId && item.isActive
+    );
+    const desiredPrimary = editorPrimaryUnitId.value || null;
+    const desiredSubsidiary = new Set(
+      editorSubsidiaryUnitIds.value.filter(unitId => unitId !== desiredPrimary)
+    );
+
+    if (desiredPrimary) {
+      const primaryAssignment = existingUnits.find(item => item.unitId === desiredPrimary);
+      if (primaryAssignment) {
+        if (!primaryAssignment.isPrimary && canUpdateUserUnits.value) {
+          await updateHostUserOrganizationUnit(
+            tenantId,
+            primaryAssignment.id,
+            true,
+            primaryAssignment.version
+          );
+        }
+      } else if (canCreateUserUnits.value) {
+        await createHostUserOrganizationUnit(tenantId, userId, desiredPrimary, true);
+      }
+    }
+
+    if (canUpdateUserUnits.value || canDisableUserUnits.value) {
+      for (const assignment of existingUnits.filter(item => item.isPrimary)) {
+        if (assignment.unitId === desiredPrimary) {
+          continue;
+        }
+
+        if (desiredSubsidiary.has(assignment.unitId) && canUpdateUserUnits.value) {
+          await updateHostUserOrganizationUnit(
+            tenantId,
+            assignment.id,
+            false,
+            assignment.version
+          );
+          continue;
+        }
+
+        if (canDisableUserUnits.value) {
+          await disableHostUserOrganizationUnit(tenantId, assignment.id);
+        }
+      }
+
+      for (const assignment of existingUnits.filter(item => !item.isPrimary)) {
+        if (assignment.unitId === desiredPrimary || desiredSubsidiary.has(assignment.unitId)) {
+          continue;
+        }
+
+        if (canDisableUserUnits.value) {
+          await disableHostUserOrganizationUnit(tenantId, assignment.id);
+        }
+      }
+    }
+
+    if (canCreateUserUnits.value) {
+      for (const unitId of desiredSubsidiary) {
+        if (existingUnits.some(item => item.unitId === unitId)) {
+          continue;
+        }
+
+        await createHostUserOrganizationUnit(tenantId, userId, unitId, false);
+      }
+    }
+  }
+
+  if (canCreateUserPositions.value
+    || canUpdateUserPositions.value
+    || canDisableUserPositions.value) {
+    const existingPositions = userPositions.value.filter(
+      item => item.userId === userId && item.isActive
+    );
+    const desiredPositionId = editorPositionId.value || null;
+    const desiredPosition = desiredPositionId
+      ? existingPositions.find(item => item.positionId === desiredPositionId)
+      : undefined;
+
+    let desiredPositionApplied = !desiredPositionId;
+    if (desiredPositionId) {
+      if (desiredPosition?.isPrimary) {
+        desiredPositionApplied = true;
+      } else if (desiredPosition) {
+        if (canUpdateUserPositions.value) {
+          await updateHostUserOrganizationPosition(
+            tenantId,
+            desiredPosition.id,
+            true,
+            desiredPosition.version
+          );
+          desiredPositionApplied = true;
+        }
+      } else if (canCreateUserPositions.value) {
+        await createHostUserOrganizationPosition(
+          tenantId,
+          userId,
+          desiredPositionId,
+          true
+        );
+        desiredPositionApplied = true;
+      }
+    }
+
+    if (desiredPositionApplied && canDisableUserPositions.value) {
+      for (const assignment of existingPositions) {
+        if (desiredPositionId && assignment.positionId === desiredPositionId) {
+          continue;
+        }
+
+        await disableHostUserOrganizationPosition(tenantId, assignment.id);
+      }
+    }
+  }
+
+  await reloadOrganizationReference();
+}
+
+async function syncRoles(userId: string): Promise<void> {
+  if (!canAssignRoles.value) {
+    return;
+  }
+
+  const nextRoleIds = [...selectedRoleIds.value].sort();
+  // 创建场景：未勾选角色则无需写入；编辑场景：角色集合未变不得调用替换，否则会轮换 SecurityStamp 并吊销全部会话。
   const userRoles = await getHostUserRoles(userId);
-  await replaceHostUserRoles(
-    userId,
-    [...selectedRoleIds.value].sort(),
-    userRoles.version
-  );
+  if (sameSortedIds(nextRoleIds, userRoles.roleIds)) {
+    return;
+  }
+
+  await replaceHostUserRoles(userId, nextRoleIds, userRoles.version);
+}
+
+function sameSortedIds(left: readonly string[], right: readonly string[]): boolean {
+  const sortedRight = [...right].sort();
+  return left.length === sortedRight.length
+    && left.every((id, index) => id === sortedRight[index]);
 }
 
 async function createUser(): Promise<void> {
@@ -726,7 +925,7 @@ async function createUser(): Promise<void> {
       editorUsername.value.trim(),
       editorDisplayName.value.trim(),
       editorPassword.value,
-      editorProfile.value
+      canManageProfiles.value ? editorProfile.value : undefined
     );
     await syncOrgAssignments(created.id);
     await syncRoles(created.id);
@@ -753,7 +952,7 @@ async function updateUser(): Promise<void> {
       user.id,
       editorDisplayName.value.trim(),
       user.version,
-      editorProfile.value
+      canManageProfiles.value ? editorProfile.value : undefined
     );
     await syncOrgAssignments(user.id);
     if (canAssignRoles.value) {
@@ -778,11 +977,12 @@ async function saveRoles(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await replaceHostUserRoles(
-      user.id,
-      [...selectedRoleIds.value].sort(),
-      rolesVersion.value
-    );
+    const nextRoleIds = [...selectedRoleIds.value].sort();
+    const userRoles = await getHostUserRoles(user.id);
+    // 角色未变时跳过替换 API，避免无意义吊销目标用户全部会话。
+    if (!sameSortedIds(nextRoleIds, userRoles.roleIds)) {
+      await replaceHostUserRoles(user.id, nextRoleIds, userRoles.version);
+    }
     editorOpen.value = false;
     ElMessage.success(t('users.rolesSuccess'));
     await load();
@@ -982,6 +1182,20 @@ function toProblem(
       <div class="users-page-body">
         <aside class="users-org-panel">
           <div class="users-org-panel__title">{{ t('users.orgTreeTitle') }}</div>
+          <el-select
+            v-if="orgTenantOptions.length > 0"
+            v-model="selectedOrgTenantId"
+            class="users-org-panel__tenant"
+            filterable
+            :placeholder="t('users.orgTenantPlaceholder')"
+          >
+            <el-option
+              v-for="option in orgTenantOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
           <el-input
             v-model="orgFilter"
             clearable
@@ -996,7 +1210,10 @@ function toProblem(
             :expand-on-click-node="false"
             @node-click="handleOrgSelect"
           />
-          <p v-if="orgUnits.length === 0" class="users-org-panel__empty">
+          <p v-if="!selectedOrgTenantId" class="users-org-panel__empty">
+            {{ t('users.orgTreeEmptyNoTenant') }}
+          </p>
+          <p v-else-if="!hasVisibleOrgUnits" class="users-org-panel__empty">
             {{ t('users.orgTreeEmpty') }}
           </p>
         </aside>
@@ -1060,10 +1277,10 @@ function toProblem(
               <el-table-column :label="t('users.username')" min-width="220">
                 <template #default="{ row }">
                   <div class="users-table-user">
-                    <span class="users-table-user__avatar">{{ avatarText(row) }}</span>
+                  <span class="users-table-user__avatar">{{ avatarText(row as HostUser) }}</span>
                     <div>
                       <div class="users-table-user__name" translate="no">{{ row.username }}</div>
-                      <div class="users-table-user__sub" translate="no">{{ userSubtitle(row) }}</div>
+                  <div class="users-table-user__sub" translate="no">{{ userSubtitle(row as HostUser) }}</div>
                     </div>
                   </div>
                 </template>
@@ -1189,7 +1406,7 @@ function toProblem(
                         type="edit"
                         test-id="users-action-edit"
                         :title="t('users.edit')"
-                        @click="openEdit(row)"
+                  @click="openEdit(row as HostUser)"
                       />
                     </PermissionGate>
                     <PermissionGate code="identity.users.assign_roles">
@@ -1197,7 +1414,7 @@ function toProblem(
                         type="roles"
                         test-id="users-action-roles"
                         :title="t('users.roles')"
-                        @click="openEdit(row, 'roles')"
+                  @click="openEdit(row as HostUser, 'roles')"
                       />
                     </PermissionGate>
                     <PermissionGate v-if="row.isActive" code="identity.users.reset_password">
@@ -1205,7 +1422,7 @@ function toProblem(
                         type="password"
                         test-id="users-action-reset-password"
                         :title="t('users.resetPassword')"
-                        @click="resetPassword(row)"
+                  @click="resetPassword(row as HostUser)"
                       />
                     </PermissionGate>
                     <PermissionGate v-if="row.isActive" code="identity.users.disable">
@@ -1213,7 +1430,7 @@ function toProblem(
                         type="delete"
                         test-id="users-action-disable"
                         :title="t('users.disable')"
-                        @click="disable(row)"
+                  @click="disable(row as HostUser)"
                       />
                     </PermissionGate>
                     <PermissionGate v-if="!row.isActive" code="identity.users.enable">
@@ -1221,7 +1438,7 @@ function toProblem(
                         link
                         type="success"
                         data-testid="users-action-enable"
-                        @click="enable(row)"
+                  @click="enable(row as HostUser)"
                       >
                         {{ t('users.enable') }}
                       </el-button>
@@ -1261,7 +1478,7 @@ function toProblem(
       :active-tab="editorTab"
       :transfer-roles="transferRoles"
       :selected-role-ids="selectedRoleIds"
-      :org-unit-options="orgUnitOptions"
+      :org-unit-tree-options="orgUnitTreeOptions"
       :position-options="positionOptions"
       :primary-unit-id="editorPrimaryUnitId"
       :subsidiary-unit-ids="editorSubsidiaryUnitIds"
@@ -1270,6 +1487,8 @@ function toProblem(
       :can-assign-roles="canAssignRoles"
       :can-create="canCreate"
       :can-update="canUpdate"
+      :can-manage-organizations="canManageOrganizations"
+      :can-manage-profile="canManageProfiles"
       :translate="t"
       @update:username="editorUsername = $event"
       @update:display-name="editorDisplayName = $event"
@@ -1316,6 +1535,17 @@ function toProblem(
   width: 220px;
   flex-shrink: 0;
   min-height: 0;
+  gap: 8px;
+}
+
+.users-org-panel__tenant {
+  width: 100%;
+}
+
+.users-org-panel__tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .users-table-main {

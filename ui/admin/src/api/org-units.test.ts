@@ -45,19 +45,35 @@ describe('Vue 租户机构 API', () => {
       .mockResolvedValueOnce({ ...sampleUnit, name: '新名称', version: 2 })
       .mockResolvedValueOnce({ ...sampleUnit, isActive: false, version: 3 });
 
-    await createOrganizationUnit('hq', '总部');
-    await updateOrganizationUnit('unit-id', '新名称', 10, 1);
+    await createOrganizationUnit('hq', '总部', 10, 'parent-id');
+    await updateOrganizationUnit('unit-id', '新名称', 10, 1, 'parent-id');
     await disableOrganizationUnit('unit-id');
 
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
       '/api/v1/organization/units',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          parentId: 'parent-id',
+          code: 'hq',
+          name: '总部',
+          displayOrder: 10
+        })
+      })
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       2,
       '/api/v1/organization/units/unit-id',
-      expect.objectContaining({ method: 'PUT' })
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({
+          parentId: 'parent-id',
+          name: '新名称',
+          displayOrder: 10,
+          version: 1
+        })
+      })
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       3,

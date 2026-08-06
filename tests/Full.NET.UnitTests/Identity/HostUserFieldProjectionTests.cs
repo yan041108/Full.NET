@@ -4,6 +4,7 @@ using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using System.Security.Claims;
 
 namespace Full.NET.UnitTests.Identity;
 
@@ -19,7 +20,7 @@ public sealed class HostUserFieldProjectionTests
         var query = new RecordingQueryExecutor();
         var service = CreateService(query, MandatoryProjection());
 
-        var result = await service.ListAsync(ActorUserId, 1, 20);
+        var result = await service.ListAsync(ActorUserId, 1, 20, includeProfile: false);
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsFalse(query.Statements.Contains(IdentitySql.ListHostUserPreferredLocales));
@@ -38,7 +39,10 @@ public sealed class HostUserFieldProjectionTests
         };
         var service = CreateService(query, projection);
 
-        var result = await service.GetByIdAsync(ActorUserId, TargetUserId);
+        var result = await service.GetByIdAsync(
+            ActorUserId,
+            TargetUserId,
+            includeProfile: false);
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual("zh-CN", result.Value!.ProjectedFields!.PreferredLocale);
@@ -60,7 +64,7 @@ public sealed class HostUserFieldProjectionTests
         };
         var service = CreateService(query, projection);
 
-        var result = await service.ExportAsync(ActorUserId);
+        var result = await service.ExportAsync(ActorUserId, includeProfile: false);
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsTrue(query.Statements.Contains(IdentitySql.ListHostUserFailedLoginCounts));
@@ -69,6 +73,49 @@ public sealed class HostUserFieldProjectionTests
         CollectionAssert.Contains(
             result.Value!.Single().ProjectedFields!.EffectiveFieldKeys.ToArray(),
             "failed_login_count");
+    }
+
+    [TestMethod]
+    public async Task Sensitive_profile_is_queried_only_when_endpoint_allows_it()
+    {
+        var restrictedQuery = new RecordingQueryExecutor();
+        var restrictedService = CreateService(restrictedQuery, MandatoryProjection());
+
+        var restrictedResult = await restrictedService.GetByIdAsync(
+            ActorUserId,
+            TargetUserId,
+            includeProfile: false);
+
+        Assert.IsTrue(restrictedResult.IsSuccess);
+        Assert.IsNull(restrictedResult.Value!.Profile);
+        Assert.IsFalse(restrictedQuery.Statements.Contains(IdentitySql.ListHostUserProfilesByIds));
+
+        var privilegedQuery = new RecordingQueryExecutor();
+        var privilegedService = CreateService(privilegedQuery, MandatoryProjection());
+
+        var privilegedResult = await privilegedService.GetByIdAsync(
+            ActorUserId,
+            TargetUserId,
+            includeProfile: true);
+
+        Assert.IsTrue(privilegedResult.IsSuccess);
+        Assert.IsTrue(privilegedQuery.Statements.Contains(IdentitySql.ListHostUserProfilesByIds));
+    }
+
+    [TestMethod]
+    public void Sensitive_profile_access_requires_one_explicit_super_administrator_claim()
+    {
+        static ClaimsPrincipal Principal(params string[] values) => new(
+            new ClaimsIdentity(
+                values.Select(value => new Claim(
+                    FullNetIdentityClaimTypes.SuperAdministrator,
+                    value)),
+                "unit-test"));
+
+        Assert.IsFalse(Endpoint.CanManageProfiles(Principal()));
+        Assert.IsFalse(Endpoint.CanManageProfiles(Principal("false")));
+        Assert.IsFalse(Endpoint.CanManageProfiles(Principal("true", "true")));
+        Assert.IsTrue(Endpoint.CanManageProfiles(Principal("true")));
     }
 
     private static HostUserQueryService CreateService(

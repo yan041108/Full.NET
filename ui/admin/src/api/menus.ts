@@ -1,8 +1,10 @@
 import {
   isHostMenu,
+  isHostMenuPermissionOptionArray,
   isHostMenuPage,
   type CreateHostMenuRequest,
   type HostMenu,
+  type HostMenuPermissionOption,
   type HostMenuPage,
   type UpdateHostMenuRequest
 } from '@fullnet/client-contracts';
@@ -28,6 +30,15 @@ export async function createHostMenu(
     body: JSON.stringify(body)
   });
   if (!isHostMenu(value)) throw new Error('client.invalid_host_menu');
+  return value;
+}
+
+export async function listHostMenuPermissionOptions(): Promise<HostMenuPermissionOption[]> {
+  const value = await request<unknown>('/api/v1/identity/menus/permission-options');
+  if (!isHostMenuPermissionOptionArray(value)) {
+    throw new Error('client.invalid_host_menu_permission_options');
+  }
+
   return value;
 }
 

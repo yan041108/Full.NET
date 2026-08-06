@@ -50,7 +50,7 @@ const menuItems = computed(() => {
       disabled: !isCurrentTab
     },
     {
-      scope: 'close' as const,
+      scope: 'current' as const,
       label: props.translate('shell.tabMenu.close'),
       disabled: props.tabs.length <= 1
     },
@@ -100,7 +100,7 @@ function handleMenuAction(scope: ShellTabCloseScope | 'refresh'): void {
     return;
   }
 
-  if (scope === 'close') {
+  if (scope === 'current') {
     emit('close', targetPath);
     return;
   }

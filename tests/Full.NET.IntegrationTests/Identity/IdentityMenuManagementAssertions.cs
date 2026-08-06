@@ -20,12 +20,110 @@ internal static class IdentityMenuManagementAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
+        await VerifyPermissionOptionsUseAuthorizationCatalogAsync(factory, client, cancellationToken);
         await VerifyCreateRejectsDuplicateRouteNameAsync(client, cancellationToken);
         await VerifyCustomMenuLifecycleAndNavigationProjectionAsync(client, cancellationToken);
+        await VerifyCustomMenuRejectsParentCycleAsync(client, cancellationToken);
+        await VerifySystemMenuPresentationUpdateAsync(client, cancellationToken);
         await VerifyExactMenuActionPermissionBoundariesAsync(factory, client, cancellationToken);
         await OpenApiHostMenusContractAssertions.VerifyAsync(
             client,
             cancellationToken);
+    }
+
+    private static async Task VerifyPermissionOptionsUseAuthorizationCatalogAsync(
+        Api.FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        using var deniedRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/menus/permission-options");
+        deniedRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            await factory.CreateHostAccessTokenAsync(
+                ["platform.dashboard.read"],
+                cancellationToken));
+        using var deniedResponse = await client.SendAsync(deniedRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, deniedResponse.StatusCode);
+
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/menus/permission-options");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        var codes = document.RootElement
+            .EnumerateArray()
+            .Select(item => item.GetProperty("code").GetString())
+            .Where(code => code is not null)
+            .ToArray();
+        CollectionAssert.Contains(codes, "document.host_documents.read");
+        CollectionAssert.Contains(codes, "jobs.schedules.read");
+        CollectionAssert.Contains(codes, "notifications.announcements.read");
+        CollectionAssert.Contains(codes, "settings.config.read");
+        CollectionAssert.DoesNotContain(codes, "identity.super_administrators.manage");
+    }
+
+    private static async Task VerifyCustomMenuRejectsParentCycleAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var parentRouteName = $"cycle-parent-{Guid.NewGuid():N}".ToLowerInvariant();
+        using var createParentRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/menus",
+            adminToken,
+            CreateSampleMenuRequest(parentRouteName));
+        using var createParentResponse = await client.SendAsync(
+            createParentRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createParentResponse.StatusCode);
+        var parent = await createParentResponse.Content.ReadFromJsonAsync<HostMenuResponse>(
+            cancellationToken);
+        Assert.IsNotNull(parent);
+
+        var childRouteName = $"cycle-child-{Guid.NewGuid():N}".ToLowerInvariant();
+        var childRequest = CreateSampleMenuRequest(childRouteName) with
+        {
+            ParentId = parent.Id.ToString("D"),
+        };
+        using var createChildRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/menus",
+            adminToken,
+            childRequest);
+        using var createChildResponse = await client.SendAsync(
+            createChildRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createChildResponse.StatusCode);
+        var child = await createChildResponse.Content.ReadFromJsonAsync<HostMenuResponse>(
+            cancellationToken);
+        Assert.IsNotNull(child);
+
+        using var cycleRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/menus/{parent.Id:D}",
+            adminToken,
+            new UpdateHostMenuRequest(
+                child.Id.ToString("D"),
+                parent.Path,
+                parent.ComponentKey,
+                parent.Title,
+                parent.Caption,
+                parent.Icon,
+                parent.DisplayOrder,
+                parent.RequiredPermission,
+                parent.Version));
+        using var cycleResponse = await client.SendAsync(cycleRequest, cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.BadRequest,
+            cycleResponse.StatusCode,
+            "Custom menu updates must reject descendant parents instead of persisting a cycle.");
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(
@@ -170,6 +268,101 @@ internal static class IdentityMenuManagementAssertions
         Assert.IsFalse(
             NavigationContainsRouteName(navigationAfterDisableDocument.RootElement, routeName),
             "Disabled menu should not project into navigation.");
+    }
+
+    private static async Task VerifySystemMenuPresentationUpdateAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/menus?page=1&pageSize=100");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        using var listDocument = JsonDocument.Parse(
+            await listResponse.Content.ReadAsStringAsync(cancellationToken));
+        var systemMenu = listDocument.RootElement
+            .GetProperty("items")
+            .EnumerateArray()
+            .FirstOrDefault(item =>
+                item.GetProperty("isSystem").GetBoolean()
+                && string.Equals(
+                    item.GetProperty("routeName").GetString(),
+                    "overview",
+                    StringComparison.Ordinal));
+        Assert.AreNotEqual(
+            default,
+            systemMenu,
+            "Seeded system menu 'overview' should be listed.");
+
+        var menuId = systemMenu.GetProperty("id").GetGuid();
+        var version = systemMenu.GetProperty("version").GetInt32();
+        var path = systemMenu.GetProperty("path").GetString();
+        var componentKey = systemMenu.GetProperty("componentKey").GetString();
+        var requiredPermission = systemMenu.GetProperty("requiredPermission").GetString();
+
+        using var updateRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/menus/{menuId:D}",
+            adminToken,
+            new UpdateHostMenuRequest(
+                null,
+                path!,
+                componentKey!,
+                "自定义工作台",
+                "自定义说明",
+                "dashboard",
+                5,
+                requiredPermission!,
+                version));
+        using var updateResponse = await client.SendAsync(updateRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<HostMenuResponse>(
+            cancellationToken);
+        Assert.IsNotNull(updated);
+        Assert.AreEqual("自定义工作台", updated.Title);
+        Assert.AreEqual("dashboard", updated.Icon);
+
+        using var navigationRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/navigation");
+        navigationRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var navigationResponse = await client.SendAsync(
+            navigationRequest,
+            cancellationToken);
+        using var navigationDocument = JsonDocument.Parse(
+            await navigationResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.IsTrue(
+            NavigationContainsTitle(navigationDocument.RootElement, "自定义工作台"),
+            "Navigation should reflect updated system menu title.");
+    }
+
+    private static bool NavigationContainsTitle(JsonElement navigation, string title)
+    {
+        foreach (var node in navigation.EnumerateArray())
+        {
+            if (string.Equals(
+                    node.GetProperty("title").GetString(),
+                    title,
+                    StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (node.TryGetProperty("children", out var children)
+                && NavigationContainsTitle(children, title))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static async Task VerifyExactMenuActionPermissionBoundariesAsync(

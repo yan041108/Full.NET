@@ -51,7 +51,35 @@ public sealed class NavigationProjectorTests
     }
 
     [TestMethod]
-    public void Project_removes_parent_when_no_child_is_authorized()
+    public void Project_prefers_persisted_definitions_over_catalog()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new StubContributor()]);
+        var projector = new NavigationProjector(catalog);
+        var overrideDefinition = new NavigationDefinition(
+            "a",
+            "parent",
+            "a-route",
+            "/a",
+            "tenant-context",
+            "覆盖标题",
+            "覆盖说明",
+            "users",
+            10,
+            "a.read");
+
+        var result = projector.Project(
+            ["parent.read", "a.read", "b.read"],
+            [overrideDefinition]);
+
+        var parent = result.Single(node => node.Id == "parent");
+        var child = parent.Children.Single(node => node.Id == "a");
+        Assert.AreEqual("覆盖标题", child.Title);
+        Assert.AreEqual("users", child.Icon);
+    }
+
+    [TestMethod]
+    public void Project_hides_parent_when_no_child_is_authorized()
     {
         var catalog = AuthorizationCatalog.Create(
             [new StubContributor()]);

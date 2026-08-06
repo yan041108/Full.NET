@@ -28,6 +28,7 @@ internal static class OrganizationUnitManagementAssertions
             cancellationToken);
         await VerifyCreateRejectsDuplicateCodeAsync(client, cancellationToken);
         await VerifyCustomUnitLifecycleAsync(client, cancellationToken);
+        await VerifyParentCycleIsRejectedAsync(client, cancellationToken);
         await VerifyExactOrganizationUnitActionPermissionBoundariesAsync(
             client,
             cancellationToken);
@@ -146,6 +147,55 @@ internal static class OrganizationUnitManagementAssertions
             cancellationToken);
         Assert.IsNotNull(disabled);
         Assert.IsFalse(disabled.IsActive);
+    }
+
+    private static async Task VerifyParentCycleIsRejectedAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminTenantToken = await LoginAndEnterAcmeTenantAsync(client, cancellationToken);
+        var rootCode = $"root-{Guid.NewGuid():N}"[..14].ToLowerInvariant();
+        var childCode = $"child-{Guid.NewGuid():N}"[..14].ToLowerInvariant();
+
+        using var rootRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/organization/units",
+            adminTenantToken,
+            new CreateOrganizationUnitRequest(null, rootCode, "环检测根", 10));
+        using var rootResponse = await client.SendAsync(rootRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, rootResponse.StatusCode);
+        var root = await rootResponse.Content.ReadFromJsonAsync<OrganizationUnitResponse>(
+            cancellationToken);
+        Assert.IsNotNull(root);
+
+        using var childRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/organization/units",
+            adminTenantToken,
+            new CreateOrganizationUnitRequest(root.Id.ToString("D"), childCode, "环检测子", 20));
+        using var childResponse = await client.SendAsync(childRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, childResponse.StatusCode);
+        var child = await childResponse.Content.ReadFromJsonAsync<OrganizationUnitResponse>(
+            cancellationToken);
+        Assert.IsNotNull(child);
+        Assert.AreEqual(root.Id, child.ParentId);
+
+        using var cycleRequest = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/organization/units/{root.Id:D}",
+            adminTenantToken,
+            new UpdateOrganizationUnitRequest(
+                child.Id.ToString("D"),
+                root.Name,
+                root.DisplayOrder,
+                root.Version));
+        using var cycleResponse = await client.SendAsync(cycleRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, cycleResponse.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await cycleResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            OrganizationErrorCodes.UnitParentCycle,
+            problem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task VerifyExactOrganizationUnitActionPermissionBoundariesAsync(

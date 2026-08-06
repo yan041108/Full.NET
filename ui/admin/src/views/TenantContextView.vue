@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { useRouter } from 'vue-router';
+import { ElButton, ElCard, ElMessage, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import { isFullNetProblemDetails, type FullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -18,6 +19,7 @@ interface AppliedFilters {
 }
 
 const session = useSessionStore();
+const router = useRouter();
 const { t } = useAdminI18n();
 const problem = ref<FullNetProblemDetails>();
 const pendingTenantId = ref<string | null>();
@@ -90,6 +92,13 @@ async function selectContext(tenantId: string | null): Promise<void> {
   problem.value = undefined;
   try {
     await session.switchTenant(tenantId);
+    if (tenantId) {
+      ElMessage.success(t('tenant.enterSuccess'));
+      await router.push('/');
+    } else {
+      ElMessage.success(t('tenant.returnHostSuccess'));
+      await router.push('/tenant-context');
+    }
   } catch (error: unknown) {
     problem.value = isFullNetProblemDetails(error)
       ? error

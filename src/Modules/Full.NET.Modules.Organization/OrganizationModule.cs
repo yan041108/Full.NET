@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Authorization;
 using Full.NET.Modules.Organization.DataScope;
+using Full.NET.Modules.Organization.Features.HostUserManagementReference;
 using Full.NET.Modules.Organization.Features.ListAssignableHostUsers;
 using Full.NET.Modules.Organization.Features.ManageTenantPositionLevels;
 using Full.NET.Modules.Organization.Features.ManageTenantPositions;
@@ -51,6 +52,7 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantUserUnitQueryService>();
         services.TryAddScoped<TenantUserUnitManagementService>();
         services.TryAddScoped<AssignableHostUserQueryService>();
+        services.TryAddScoped<HostUserManagementReferenceService>();
         services.TryAddScoped<TenantUserPositionQueryService>();
         services.TryAddScoped<TenantUserPositionManagementService>();
         services.TryAddScoped<TenantPositionQueryService>();
@@ -80,5 +82,6 @@ public sealed class OrganizationModule : IFullNetModule
         Features.ManageTenantPositions.Endpoint.Map(endpoints);
         Features.ManageTenantPositionLevels.Endpoint.Map(endpoints);
         Features.ManageTenantUserPositions.Endpoint.Map(endpoints);
+        Features.HostUserManagementReference.Endpoint.Map(endpoints);
     }
 }

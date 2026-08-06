@@ -541,7 +541,7 @@ function toProblem(
                       test-id="api-keys-action-rotate"
                       :title="t('apiKeys.rotate')"
                       :disabled="changing"
-                      @click="rotate(row)"
+                  @click="rotate(row as HostApiKey)"
                     />
                   </PermissionGate>
                   <PermissionGate code="identity.api_keys.disable">
@@ -550,7 +550,7 @@ function toProblem(
                       test-id="api-keys-action-disable"
                       :title="t('apiKeys.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as HostApiKey)"
                     />
                   </PermissionGate>
                 </div>

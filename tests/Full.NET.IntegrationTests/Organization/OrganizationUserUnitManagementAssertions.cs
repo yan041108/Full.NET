@@ -192,6 +192,20 @@ internal static class OrganizationUserUnitManagementAssertions
         Assert.IsNotNull(disabled);
         Assert.IsFalse(disabled.IsActive);
         Assert.IsFalse(disabled.IsPrimary);
+
+        using var recreateRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/organization/user-units",
+            adminTenantToken,
+            new CreateOrganizationUserUnitRequest(userId, unitId, true));
+        using var recreateResponse = await client.SendAsync(recreateRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, recreateResponse.StatusCode);
+        var recreated = await recreateResponse.Content
+            .ReadFromJsonAsync<OrganizationUserUnitResponse>(cancellationToken);
+        Assert.IsNotNull(recreated);
+        Assert.AreEqual(created.Id, recreated.Id);
+        Assert.IsTrue(recreated.IsActive);
+        Assert.IsTrue(recreated.IsPrimary);
     }
 
     private static async Task<(Guid UserId, Guid UnitId)> CreateFixtureUnitAndResolveAdminUserAsync(

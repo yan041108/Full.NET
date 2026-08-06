@@ -4,6 +4,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Security;
@@ -177,6 +178,10 @@ internal sealed class FullNetApiFactory(
                     throw new InvalidOperationException(
                         $"Test identity bootstrap failed: {bootstrap.Error?.Code}");
                 }
+
+                await scope.ServiceProvider
+                    .GetRequiredService<HostNavigationCatalogSyncService>()
+                    .SyncMissingCatalogEntriesAsync(cancellationToken);
             }
             finally
             {

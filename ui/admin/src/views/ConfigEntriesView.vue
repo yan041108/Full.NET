@@ -591,7 +591,7 @@ function toProblem(
                       test-id="config-entries-action-edit"
                       :title="t('configEntries.edit')"
                       :disabled="changing || !row.isActive"
-                      @click="openEdit(row)"
+                  @click="openEdit(row as SettingsConfigEntry)"
                     />
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive && canDisable" code="settings.config.disable">
@@ -600,7 +600,7 @@ function toProblem(
                       test-id="config-entries-action-disable"
                       :title="t('configEntries.disable')"
                       :disabled="changing"
-                      @click="disable(row)"
+                  @click="disable(row as SettingsConfigEntry)"
                     />
                   </PermissionGate>
                 </div>

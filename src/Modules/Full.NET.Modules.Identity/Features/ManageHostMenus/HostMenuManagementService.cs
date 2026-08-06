@@ -11,7 +11,7 @@ using Full.NET.Modules.Identity.Persistence;
 namespace Full.NET.Modules.Identity.Features.ManageHostMenus;
 
 /// <summary>
-/// Host 自定义菜单创建、更新与禁用；系统项由 Contributor 维护且不可通过本服务变更。
+/// Host 自定义菜单创建、更新与禁用；系统项展示字段可通过本服务调整，路由与权限保持锁定。
 /// </summary>
 internal sealed class HostMenuManagementService(
     IQueryExecutor queryExecutor,
@@ -161,7 +161,8 @@ internal sealed class HostMenuManagementService(
 
         if (record.IsSystem)
         {
-            return SystemLocked();
+            return await UpdateSystemMenuCoreAsync(record, request, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var parentId = ParseParentId(request.ParentId);
@@ -182,6 +183,16 @@ internal sealed class HostMenuManagementService(
             if (parentError is not null)
             {
                 return parentError;
+            }
+
+            var cycleError = await EnsureNoParentCycleAsync(
+                    menuId,
+                    parsedParentId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (cycleError is not null)
+            {
+                return cycleError;
             }
         }
 
@@ -227,11 +238,6 @@ internal sealed class HostMenuManagementService(
             return NotFound();
         }
 
-        if (record.IsSystem)
-        {
-            return SystemLocked();
-        }
-
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.DisableHostMenu,
@@ -244,6 +250,107 @@ internal sealed class HostMenuManagementService(
         }
 
         return await menuQueries.GetByIdAsync(menuId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<HostMenuResponse>> UpdateSystemMenuCoreAsync(
+        IdentityNavigationRecord record,
+        UpdateHostMenuRequest request,
+        CancellationToken cancellationToken)
+    {
+        var validationError = ValidateSystemPresentation(
+            request.Title,
+            request.Caption,
+            request.Icon,
+            request.DisplayOrder);
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
+        var parentId = ParseParentId(request.ParentId);
+        if (request.ParentId is { Length: > 0 } && parentId is null)
+        {
+            return ValidationFailure("Parent menu id is invalid.");
+        }
+
+        if (parentId is Guid parsedParentId)
+        {
+            if (parsedParentId == record.Id)
+            {
+                return ValidationFailure("A menu cannot be its own parent.");
+            }
+
+            var parentError = await EnsureParentExistsAsync(parsedParentId, cancellationToken)
+                .ConfigureAwait(false);
+            if (parentError is not null)
+            {
+                return parentError;
+            }
+
+            var cycleError = await EnsureNoParentCycleAsync(
+                    record.Id,
+                    parsedParentId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (cycleError is not null)
+            {
+                return cycleError;
+            }
+        }
+
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.UpdateHostSystemMenu,
+                new
+                {
+                    MenuId = record.Id,
+                    ParentId = parentId,
+                    Title = request.Title.Trim(),
+                    Caption = request.Caption.Trim(),
+                    Icon = request.Icon.Trim(),
+                    DisplayOrder = request.DisplayOrder,
+                    UpdatedAtUtc = now,
+                    request.Version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return await ResolveUpdateFailureAsync(record.Id, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await menuQueries.GetByIdAsync(record.Id, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<HostMenuResponse>?> EnsureNoParentCycleAsync(
+        Guid menuId,
+        Guid parentId,
+        CancellationToken cancellationToken)
+    {
+        var visited = new HashSet<Guid> { menuId };
+        var currentParentId = (Guid?)parentId;
+        while (currentParentId is Guid candidateParentId)
+        {
+            if (!visited.Add(candidateParentId))
+            {
+                return ValidationFailure("Parent menu would create a cycle.");
+            }
+
+            var parent = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
+                    IdentitySql.FindHostMenuById,
+                    new { MenuId = candidateParentId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (parent is null || !parent.IsActive)
+            {
+                return ValidationFailure("Parent menu was not found or is inactive.");
+            }
+
+            currentParentId = parent.ParentId;
+        }
+
+        return null;
     }
 
     private async Task<Result<HostMenuResponse>?> EnsureParentExistsAsync(
@@ -277,12 +384,27 @@ internal sealed class HostMenuManagementService(
             return NotFound();
         }
 
-        if (record.IsSystem)
+        return VersionConflict();
+    }
+
+    private Result<HostMenuResponse>? ValidateSystemPresentation(
+        string title,
+        string caption,
+        string icon,
+        int displayOrder)
+    {
+        _ = displayOrder;
+        var normalizedTitle = title?.Trim() ?? string.Empty;
+        var normalizedCaption = caption?.Trim() ?? string.Empty;
+        var normalizedIcon = icon?.Trim() ?? string.Empty;
+        if (normalizedTitle.Length is < 1 or > 128
+            || normalizedCaption.Length is < 1 or > 128
+            || normalizedIcon.Length is < 1 or > 64)
         {
-            return SystemLocked();
+            return ValidationFailure("Title, caption or icon is invalid.");
         }
 
-        return VersionConflict();
+        return null;
     }
 
     private Result<HostMenuResponse>? ValidateWriteRequest(

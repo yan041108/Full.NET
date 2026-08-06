@@ -210,6 +210,35 @@ describe('Vue 管理端会话', () => {
     );
   });
 
+  it('服务端完成切换但新授权快照加载失败时清空不一致会话', async () => {
+    const fetchMock = createLoginFetch();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        ...tokenResponse('tenant-token'),
+        context: {
+          tenantId,
+          identifier: 'acme',
+          name: 'Acme Corporation',
+          scope: `tenant:${tenantId.replaceAll('-', '')}`
+        }
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: 500,
+        code: 'server.error',
+        title: '服务端错误'
+      }, 500, 'application/problem+json'));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    await session.switchTenant(tenantId);
+
+    expect(session.state).toBe('anonymous');
+    expect(session.currentUser).toBeUndefined();
+    expect(session.navigation).toEqual([]);
+    expect(session.readAccessToken()).toBeUndefined();
+  });
+
   it('切换失败保留旧令牌与旧上下文', async () => {
     const fetchMock = createLoginFetch();
     fetchMock.mockResolvedValueOnce(jsonResponse({

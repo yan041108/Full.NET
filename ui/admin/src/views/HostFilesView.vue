@@ -271,7 +271,7 @@ function toProblem(
                       size="small"
                       data-testid="host-files-download"
                       :disabled="changing"
-                      @click="download(row)"
+                  @click="download(row as HostFile)"
                     >
                       {{ t('hostFiles.download') }}
                     </el-button>
@@ -283,7 +283,7 @@ function toProblem(
                       size="small"
                       data-testid="host-files-delete"
                       :disabled="changing"
-                      @click="remove(row)"
+                  @click="remove(row as HostFile)"
                     >
                       {{ t('hostFiles.delete') }}
                     </el-button>

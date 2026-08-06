@@ -116,6 +116,15 @@ internal static class OpenApiHostMenusContractAssertions
             }
         }
 
+        if (schemaName.EndsWith("Array", StringComparison.Ordinal))
+        {
+            var itemSchemaName = schemaName[..^"Array".Length];
+            if (TryFindSchema(openApiSchemas, itemSchemaName, out schema))
+            {
+                return true;
+            }
+        }
+
         foreach (var candidate in openApiSchemas.EnumerateObject())
         {
             if (candidate.Name.EndsWith(schemaName, StringComparison.Ordinal))

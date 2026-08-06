@@ -46,9 +46,10 @@ internal sealed class HostUserManagementService(
     public Task<Result<HostUserResponse>> UpdateAsync(
         Guid userId,
         UpdateHostUserRequest request,
+        bool includeProfile,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
-            token => UpdateCoreAsync(userId, request, token),
+            token => UpdateCoreAsync(userId, request, includeProfile, token),
             cancellationToken);
 
     public Task<Result<HostUserResponse>> ResetPasswordAsync(
@@ -290,6 +291,7 @@ internal sealed class HostUserManagementService(
     private async Task<Result<HostUserResponse>> UpdateCoreAsync(
         Guid userId,
         UpdateHostUserRequest request,
+        bool includeProfile,
         CancellationToken cancellationToken)
     {
         var displayName = request.DisplayName?.Trim() ?? string.Empty;
@@ -353,7 +355,7 @@ internal sealed class HostUserManagementService(
 
             profileResponse = profileResult.Value;
         }
-        else
+        else if (includeProfile)
         {
             profileResponse = await LoadProfileResponseAsync(userId, cancellationToken)
                 .ConfigureAwait(false);
@@ -464,12 +466,13 @@ internal sealed class HostUserManagementService(
                 new { UserIds = new[] { userId } },
                 cancellationToken)
             .ConfigureAwait(false)).FirstOrDefault();
+        var mergedProfile = HostUserProfileMapper.Merge(existing, profile);
 
         if (existing is null)
         {
             var inserted = await commandExecutor.ExecuteAsync(
                     IdentitySql.InsertHostUserProfile,
-                    HostUserProfileMapper.ToParameters(userId, profile),
+                    HostUserProfileMapper.ToParameters(userId, mergedProfile),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (inserted != 1)
@@ -480,13 +483,9 @@ internal sealed class HostUserManagementService(
         }
         else
         {
-            var writeRequest = profile with
-            {
-                Version = profile.Version ?? existing.Version
-            };
             var affected = await commandExecutor.ExecuteAsync(
                     IdentitySql.UpdateHostUserProfile,
-                    HostUserProfileMapper.ToParameters(userId, writeRequest),
+                    HostUserProfileMapper.ToParameters(userId, mergedProfile),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (affected != 1)

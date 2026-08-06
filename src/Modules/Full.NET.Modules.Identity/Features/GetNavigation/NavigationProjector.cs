@@ -11,8 +11,14 @@ internal sealed class NavigationProjector(AuthorizationCatalog catalog)
     {
         ArgumentNullException.ThrowIfNull(permissions);
         var granted = permissions.ToHashSet(StringComparer.Ordinal);
-        var allDefinitions = catalog.Navigation
-            .Concat(additionalDefinitions ?? [])
+        var persisted = (additionalDefinitions ?? []).ToArray();
+        var persistedIds = persisted
+            .Select(item => item.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var catalogOnly = catalog.Navigation
+            .Where(item => !persistedIds.Contains(item.Id));
+        var allDefinitions = catalogOnly
+            .Concat(persisted)
             .ToArray();
         var childrenByParent = allDefinitions
             .Where(item => item.ParentId is not null)
