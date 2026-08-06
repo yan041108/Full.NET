@@ -24,9 +24,10 @@ internal sealed class HostUserManagementService(
 
     public Task<Result<HostUserResponse>> CreateAsync(
         CreateHostUserRequest request,
+        IReadOnlyCollection<string>? allowedProfileFieldKeys = null,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
-            token => CreateCoreAsync(request, token),
+            token => CreateCoreAsync(request, allowedProfileFieldKeys, token),
             cancellationToken);
 
     public Task<Result<HostUserResponse>> DisableAsync(
@@ -46,10 +47,10 @@ internal sealed class HostUserManagementService(
     public Task<Result<HostUserResponse>> UpdateAsync(
         Guid userId,
         UpdateHostUserRequest request,
-        bool includeProfile,
+        IReadOnlyCollection<string>? allowedProfileFieldKeys,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
-            token => UpdateCoreAsync(userId, request, includeProfile, token),
+            token => UpdateCoreAsync(userId, request, allowedProfileFieldKeys, token),
             cancellationToken);
 
     public Task<Result<HostUserResponse>> ResetPasswordAsync(
@@ -62,6 +63,7 @@ internal sealed class HostUserManagementService(
 
     private async Task<Result<HostUserResponse>> CreateCoreAsync(
         CreateHostUserRequest request,
+        IReadOnlyCollection<string>? allowedProfileFieldKeys,
         CancellationToken cancellationToken)
     {
         var username = request.Username?.Trim() ?? string.Empty;
@@ -143,6 +145,7 @@ internal sealed class HostUserManagementService(
             var profileResult = await UpsertProfileAsync(
                     user.Id,
                     request.Profile,
+                    allowedProfileFieldKeys,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!profileResult.IsSuccess)
@@ -291,7 +294,7 @@ internal sealed class HostUserManagementService(
     private async Task<Result<HostUserResponse>> UpdateCoreAsync(
         Guid userId,
         UpdateHostUserRequest request,
-        bool includeProfile,
+        IReadOnlyCollection<string>? allowedProfileFieldKeys,
         CancellationToken cancellationToken)
     {
         var displayName = request.DisplayName?.Trim() ?? string.Empty;
@@ -346,6 +349,7 @@ internal sealed class HostUserManagementService(
             var profileResult = await UpsertProfileAsync(
                     userId,
                     request.Profile,
+                    allowedProfileFieldKeys,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!profileResult.IsSuccess)
@@ -355,9 +359,12 @@ internal sealed class HostUserManagementService(
 
             profileResponse = profileResult.Value;
         }
-        else if (includeProfile)
+        else if (HostUserProfileMapper.HasReadableFields(allowedProfileFieldKeys))
         {
-            profileResponse = await LoadProfileResponseAsync(userId, cancellationToken)
+            profileResponse = await LoadProfileResponseAsync(
+                    userId,
+                    allowedProfileFieldKeys,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -459,6 +466,7 @@ internal sealed class HostUserManagementService(
     private async Task<Result<HostUserProfileResponse?>> UpsertProfileAsync(
         Guid userId,
         HostUserProfileWriteRequest profile,
+        IReadOnlyCollection<string>? allowedProfileFieldKeys,
         CancellationToken cancellationToken)
     {
         var existing = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
@@ -466,7 +474,10 @@ internal sealed class HostUserManagementService(
                 new { UserIds = new[] { userId } },
                 cancellationToken)
             .ConfigureAwait(false)).FirstOrDefault();
-        var mergedProfile = HostUserProfileMapper.Merge(existing, profile);
+        var mergedProfile = HostUserProfileMapper.Merge(
+            existing,
+            profile,
+            allowedProfileFieldKeys);
 
         if (existing is null)
         {
@@ -498,11 +509,16 @@ internal sealed class HostUserManagementService(
         }
 
         return Result<HostUserProfileResponse?>.Success(
-            await LoadProfileResponseAsync(userId, cancellationToken).ConfigureAwait(false));
+            await LoadProfileResponseAsync(
+                    userId,
+                    allowedProfileFieldKeys,
+                    cancellationToken)
+                .ConfigureAwait(false));
     }
 
     private async Task<HostUserProfileResponse?> LoadProfileResponseAsync(
         Guid userId,
+        IReadOnlyCollection<string>? allowedProfileFieldKeys,
         CancellationToken cancellationToken)
     {
         var record = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
@@ -510,7 +526,7 @@ internal sealed class HostUserManagementService(
                 new { UserIds = new[] { userId } },
                 cancellationToken)
             .ConfigureAwait(false)).FirstOrDefault();
-        return HostUserProfileMapper.ToResponse(record);
+        return HostUserProfileMapper.ToResponse(record, allowedProfileFieldKeys);
     }
 
     private async Task<bool> IsActiveSuperAdministratorAsync(

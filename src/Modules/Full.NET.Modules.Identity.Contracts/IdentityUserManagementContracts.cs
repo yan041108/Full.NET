@@ -58,7 +58,7 @@ public sealed record HostUserProfileResponse(
     string? EmployeeNumber,
     string? Gender,
     string? JoinDateUtc,
-    int SortOrder,
+    int? SortOrder,
     string? IdCardType,
     string? IdCardNumber,
     string? BirthDate,

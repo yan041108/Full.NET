@@ -17,7 +17,7 @@ export interface HostUserProfile {
   employeeNumber: string | null;
   gender: string | null;
   joinDateUtc: string | null;
-  sortOrder: number;
+  sortOrder: number | null;
   idCardType: string | null;
   idCardNumber: string | null;
   birthDate: string | null;
@@ -127,7 +127,27 @@ function isHostUserProjectedFields(value: unknown): value is HostUserProjectedFi
     'version',
     'preferred_locale',
     'failed_login_count',
-    'lockout_end_utc'
+    'lockout_end_utc',
+    'nickname',
+    'phone_number',
+    'email',
+    'employee_number',
+    'gender',
+    'join_date_utc',
+    'sort_order',
+    'id_card_type',
+    'id_card_number',
+    'birth_date',
+    'ethnicity',
+    'address',
+    'graduated_school',
+    'education_level',
+    'political_status',
+    'office_phone',
+    'emergency_contact',
+    'emergency_contact_phone',
+    'emergency_contact_address',
+    'remark'
   ]);
   if (!isRecord(value) || !Array.isArray(value.effectiveFieldKeys)) {
     return false;
@@ -198,7 +218,7 @@ function isHostUserProfile(value: unknown): value is HostUserProfile {
     && (value.employeeNumber === null || typeof value.employeeNumber === 'string')
     && (value.gender === null || typeof value.gender === 'string')
     && (value.joinDateUtc === null || typeof value.joinDateUtc === 'string')
-    && typeof value.sortOrder === 'number'
+    && (value.sortOrder === null || typeof value.sortOrder === 'number')
     && (value.idCardType === null || typeof value.idCardType === 'string')
     && (value.idCardNumber === null || typeof value.idCardNumber === 'string')
     && (value.birthDate === null || typeof value.birthDate === 'string')

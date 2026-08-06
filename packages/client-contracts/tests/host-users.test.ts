@@ -16,10 +16,33 @@ describe('Host 用户客户端契约', () => {
     expect(isHostUser({
       ...user,
       projectedFields: {
-        effectiveFieldKeys: ['id', 'preferred_locale'],
+        effectiveFieldKeys: ['id', 'preferred_locale', 'phone_number'],
         preferredLocale: 'zh-CN',
         failedLoginCount: null,
         lockoutEndUtc: null
+      },
+      profile: {
+        nickname: null,
+        phoneNumber: '13800000000',
+        email: null,
+        employeeNumber: null,
+        gender: null,
+        joinDateUtc: null,
+        sortOrder: null,
+        idCardType: null,
+        idCardNumber: null,
+        birthDate: null,
+        ethnicity: null,
+        address: null,
+        graduatedSchool: null,
+        educationLevel: null,
+        politicalStatus: null,
+        officePhone: null,
+        emergencyContact: null,
+        emergencyContactPhone: null,
+        emergencyContactAddress: null,
+        remark: null,
+        version: 3
       }
     })).toBe(true);
     expect(isHostUser({

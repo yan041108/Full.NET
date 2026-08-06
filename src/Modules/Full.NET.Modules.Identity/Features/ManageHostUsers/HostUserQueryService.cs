@@ -52,6 +52,7 @@ internal sealed class HostUserQueryService(
         var profiles = includeProfile
             ? await LoadProfilesAsync(
                     rows.Select(row => row.Id).ToArray(),
+                    projection.FieldKeys,
                     cancellationToken)
                 .ConfigureAwait(false)
             : new Dictionary<Guid, HostUserProfileResponse?>();
@@ -85,6 +86,7 @@ internal sealed class HostUserQueryService(
         var profiles = includeProfile
             ? await LoadProfilesAsync(
                     rows.Select(row => row.Id).ToArray(),
+                    projection.FieldKeys,
                     cancellationToken)
                 .ConfigureAwait(false)
             : new Dictionary<Guid, HostUserProfileResponse?>();
@@ -123,7 +125,8 @@ internal sealed class HostUserQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
         var profiles = includeProfile
-            ? await LoadProfilesAsync([userId], cancellationToken).ConfigureAwait(false)
+            ? await LoadProfilesAsync([userId], projection.FieldKeys, cancellationToken)
+                .ConfigureAwait(false)
             : new Dictionary<Guid, HostUserProfileResponse?>();
         return Result<HostUserResponse>.Success(Map(
             record,
@@ -148,21 +151,36 @@ internal sealed class HostUserQueryService(
 
     private async Task<IReadOnlyDictionary<Guid, HostUserProfileResponse?>> LoadProfilesAsync(
         IReadOnlyList<Guid> userIds,
+        IReadOnlyCollection<string> effectiveFieldKeys,
         CancellationToken cancellationToken)
     {
-        if (userIds.Count == 0)
+        if (userIds.Count == 0 || !HostUserProfileMapper.HasReadableFields(effectiveFieldKeys))
         {
             return new Dictionary<Guid, HostUserProfileResponse?>();
         }
 
+        var columnMap = HostUserProfileMapper.GetReadableColumnMap(effectiveFieldKeys);
+        if (columnMap.Count == 0)
+        {
+            return new Dictionary<Guid, HostUserProfileResponse?>();
+        }
+
+        var statement = new SqlStatement(
+            "identity.list_host_user_profiles_by_ids.projected",
+            $$"""
+            SELECT UserId, {{string.Join(", ", columnMap.Values)}}, Version
+            FROM fn_identity_user_profile
+            WHERE UserId IN @UserIds
+            """,
+            SqlDataScope.HostOnly);
         var records = await queryExecutor.QueryAsync<HostUserProfileRecord>(
-                IdentitySql.ListHostUserProfilesByIds,
+                statement,
                 new { UserIds = userIds },
                 cancellationToken)
             .ConfigureAwait(false);
         var profileMap = records.ToDictionary(
             record => record.UserId,
-            record => HostUserProfileMapper.ToResponse(record));
+            record => HostUserProfileMapper.ToResponse(record, effectiveFieldKeys));
         return userIds.ToDictionary(
             userId => userId,
             userId => profileMap.GetValueOrDefault(userId));

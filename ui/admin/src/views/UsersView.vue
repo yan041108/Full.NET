@@ -86,6 +86,17 @@ interface OrgTreeNode {
   children?: OrgTreeNode[];
 }
 
+const profileEditorFieldKeys = [
+  'nickname',
+  'phone_number',
+  'email',
+  'employee_number',
+  'gender',
+  'birth_date',
+  'address',
+  'remark'
+] as const;
+
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const allUsers = ref<UserRow[]>([]);
@@ -444,16 +455,7 @@ function updateTableHeight(): void {
 
 function emptyProfile(): HostUserProfileWrite {
   return {
-    fieldKeys: [
-      'nickname',
-      'phone_number',
-      'email',
-      'employee_number',
-      'gender',
-      'birth_date',
-      'address',
-      'remark'
-    ],
+    fieldKeys: [...profileEditorFieldKeys],
     nickname: null,
     phoneNumber: null,
     email: null,
@@ -470,6 +472,7 @@ function loadProfileFromUser(user: HostUser | null): void {
     return;
   }
   editorProfile.value = {
+    fieldKeys: [...profileEditorFieldKeys],
     nickname: user.profile.nickname,
     phoneNumber: user.profile.phoneNumber,
     email: user.profile.email,

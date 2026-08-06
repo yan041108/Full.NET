@@ -76,46 +76,141 @@ public sealed class HostUserFieldProjectionTests
     }
 
     [TestMethod]
-    public async Task Sensitive_profile_is_queried_only_when_endpoint_allows_it()
+    public async Task Profile_query_is_skipped_without_effective_profile_field_grants()
     {
-        var restrictedQuery = new RecordingQueryExecutor();
-        var restrictedService = CreateService(restrictedQuery, MandatoryProjection());
+        var query = new RecordingQueryExecutor();
+        var service = CreateService(query, MandatoryProjection());
 
-        var restrictedResult = await restrictedService.GetByIdAsync(
-            ActorUserId,
-            TargetUserId,
-            includeProfile: false);
-
-        Assert.IsTrue(restrictedResult.IsSuccess);
-        Assert.IsNull(restrictedResult.Value!.Profile);
-        Assert.IsFalse(restrictedQuery.Statements.Contains(IdentitySql.ListHostUserProfilesByIds));
-
-        var privilegedQuery = new RecordingQueryExecutor();
-        var privilegedService = CreateService(privilegedQuery, MandatoryProjection());
-
-        var privilegedResult = await privilegedService.GetByIdAsync(
+        var result = await service.GetByIdAsync(
             ActorUserId,
             TargetUserId,
             includeProfile: true);
 
-        Assert.IsTrue(privilegedResult.IsSuccess);
-        Assert.IsTrue(privilegedQuery.Statements.Contains(IdentitySql.ListHostUserProfilesByIds));
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNull(result.Value!.Profile);
+        Assert.IsFalse(query.Statements.Any(statement =>
+            statement.Name == "identity.list_host_user_profiles_by_ids.projected"));
     }
 
     [TestMethod]
-    public void Sensitive_profile_access_requires_one_explicit_super_administrator_claim()
+    public async Task Profile_query_selects_only_granted_columns()
     {
-        static ClaimsPrincipal Principal(params string[] values) => new(
-            new ClaimsIdentity(
-                values.Select(value => new Claim(
-                    FullNetIdentityClaimTypes.SuperAdministrator,
-                    value)),
-                "unit-test"));
+        var query = new RecordingQueryExecutor();
+        var projection = MandatoryProjection() with
+        {
+            FieldKeys = [.. MandatoryProjection().FieldKeys, "phone_number", "remark"],
+        };
+        var service = CreateService(query, projection);
 
-        Assert.IsFalse(Endpoint.CanManageProfiles(Principal()));
-        Assert.IsFalse(Endpoint.CanManageProfiles(Principal("false")));
-        Assert.IsFalse(Endpoint.CanManageProfiles(Principal("true", "true")));
-        Assert.IsTrue(Endpoint.CanManageProfiles(Principal("true")));
+        var result = await service.GetByIdAsync(
+            ActorUserId,
+            TargetUserId,
+            includeProfile: true);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual("13800000000", result.Value!.Profile!.PhoneNumber);
+        Assert.AreEqual("投影备注", result.Value.Profile.Remark);
+        Assert.IsNull(result.Value.Profile.IdCardNumber);
+        var profileStatement = query.Statements.Single(statement =>
+            statement.Name == "identity.list_host_user_profiles_by_ids.projected");
+        StringAssert.Contains(profileStatement.Text, "PhoneNumber");
+        StringAssert.Contains(profileStatement.Text, "Remark");
+        Assert.IsFalse(profileStatement.Text.Contains("IdCardNumber", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task Profile_query_respects_endpoint_gate()
+    {
+        var query = new RecordingQueryExecutor();
+        var projection = MandatoryProjection() with
+        {
+            FieldKeys = [.. MandatoryProjection().FieldKeys, "phone_number"],
+        };
+        var service = CreateService(query, projection);
+
+        var result = await service.GetByIdAsync(
+            ActorUserId,
+            TargetUserId,
+            includeProfile: false);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNull(result.Value!.Profile);
+        Assert.IsFalse(query.Statements.Any(statement =>
+            statement.Name == "identity.list_host_user_profiles_by_ids.projected"));
+    }
+
+    [TestMethod]
+    public async Task Resolve_allowed_profile_field_keys_requires_requested_fields_to_be_granted()
+    {
+        var resolver = Substitute.For<IUserFieldProjectionResolver>();
+        resolver.ResolveAsync(
+                ActorUserId,
+                null,
+                FieldProjectionResourceKeys.HostUsers,
+                Arg.Any<CancellationToken>())
+            .Returns(new UserFieldProjection(
+                FieldProjectionResourceKeys.HostUsers,
+                [.. MandatoryProjection().FieldKeys, "phone_number", "remark"]));
+
+        var allowed = await Endpoint.ResolveAllowedProfileFieldKeysAsync(
+            ActorUserId,
+            new HostUserProfileWriteRequest(
+                FieldKeys: ["phone_number", "remark"],
+                Nickname: null,
+                PhoneNumber: "13800000000",
+                Email: null,
+                EmployeeNumber: null,
+                Gender: null,
+                JoinDateUtc: null,
+                SortOrder: null,
+                IdCardType: null,
+                IdCardNumber: null,
+                BirthDate: null,
+                Ethnicity: null,
+                Address: null,
+                GraduatedSchool: null,
+                EducationLevel: null,
+                PoliticalStatus: null,
+                OfficePhone: null,
+                EmergencyContact: null,
+                EmergencyContactPhone: null,
+                EmergencyContactAddress: null,
+                Remark: "允许",
+                Version: null),
+            resolver,
+            default);
+
+        CollectionAssert.AreEqual(new[] { "phone_number", "remark" }, allowed);
+
+        var denied = await Endpoint.ResolveAllowedProfileFieldKeysAsync(
+            ActorUserId,
+            new HostUserProfileWriteRequest(
+                FieldKeys: ["phone_number", "id_card_number"],
+                Nickname: null,
+                PhoneNumber: "13800000000",
+                Email: null,
+                EmployeeNumber: null,
+                Gender: null,
+                JoinDateUtc: null,
+                SortOrder: null,
+                IdCardType: null,
+                IdCardNumber: "123456",
+                BirthDate: null,
+                Ethnicity: null,
+                Address: null,
+                GraduatedSchool: null,
+                EducationLevel: null,
+                PoliticalStatus: null,
+                OfficePhone: null,
+                EmergencyContact: null,
+                EmergencyContactPhone: null,
+                EmergencyContactAddress: null,
+                Remark: null,
+                Version: null),
+            resolver,
+            default);
+
+        Assert.AreEqual(0, denied.Length);
     }
 
     private static HostUserQueryService CreateService(
@@ -178,6 +273,16 @@ public sealed class HostUserFieldProjectionTests
                     ? [new HostUserPreferredLocaleRow { Id = TargetUserId, Value = "zh-CN" }]
                     : statement == IdentitySql.ListHostUserFailedLoginCounts
                         ? [new HostUserFailedLoginCountRow { Id = TargetUserId, Value = 2 }]
+                    : statement.Name == "identity.list_host_user_profiles_by_ids.projected"
+                        ? [new HostUserProfileRecord
+                        {
+                            UserId = TargetUserId,
+                            PhoneNumber = "13800000000",
+                            Remark = "投影备注",
+                            IdCardNumber = "440101",
+                            SortOrder = 7,
+                            Version = 3,
+                        }]
                     : [];
             return Task.FromResult<IReadOnlyList<T>>(values.Cast<T>().ToArray());
         }

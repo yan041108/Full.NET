@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Identity.Features.ManageHostUsers;
 
 internal static class HostUserProfileMapper
 {
-    private static readonly string[] EditableFieldKeys =
+    private static readonly string[] ProfileFieldKeys =
     [
         "nickname",
         "phone_number",
@@ -29,40 +29,63 @@ internal static class HostUserProfileMapper
         "remark",
     ];
 
-    public static HostUserProfileResponse? ToResponse(HostUserProfileRecord? record) =>
-        record is null
-            ? null
-            : new HostUserProfileResponse(
-                record.Nickname,
-                record.PhoneNumber,
-                record.Email,
-                record.EmployeeNumber,
-                record.Gender,
-                FormatDate(record.JoinDateUtc),
-                record.SortOrder,
-                record.IdCardType,
-                record.IdCardNumber,
-                FormatDate(record.BirthDate),
-                record.Ethnicity,
-                record.Address,
-                record.GraduatedSchool,
-                record.EducationLevel,
-                record.PoliticalStatus,
-                record.OfficePhone,
-                record.EmergencyContact,
-                record.EmergencyContactPhone,
-                record.EmergencyContactAddress,
-                record.Remark,
-                record.Version);
+    private static readonly string[] EditableFieldKeys =
+    [
+        .. ProfileFieldKeys,
+    ];
+
+    public static HostUserProfileResponse? ToResponse(
+        HostUserProfileRecord? record,
+        IReadOnlyCollection<string>? effectiveFieldKeys = null)
+    {
+        if (record is null)
+        {
+            return null;
+        }
+
+        var readableFieldKeys = GetReadableFieldKeys(effectiveFieldKeys);
+        if (readableFieldKeys.Count == 0)
+        {
+            return null;
+        }
+
+        return new HostUserProfileResponse(
+            HasField(readableFieldKeys, "nickname") ? record.Nickname : null,
+            HasField(readableFieldKeys, "phone_number") ? record.PhoneNumber : null,
+            HasField(readableFieldKeys, "email") ? record.Email : null,
+            HasField(readableFieldKeys, "employee_number") ? record.EmployeeNumber : null,
+            HasField(readableFieldKeys, "gender") ? record.Gender : null,
+            HasField(readableFieldKeys, "join_date_utc") ? FormatDate(record.JoinDateUtc) : null,
+            HasField(readableFieldKeys, "sort_order") ? record.SortOrder : null,
+            HasField(readableFieldKeys, "id_card_type") ? record.IdCardType : null,
+            HasField(readableFieldKeys, "id_card_number") ? record.IdCardNumber : null,
+            HasField(readableFieldKeys, "birth_date") ? FormatDate(record.BirthDate) : null,
+            HasField(readableFieldKeys, "ethnicity") ? record.Ethnicity : null,
+            HasField(readableFieldKeys, "address") ? record.Address : null,
+            HasField(readableFieldKeys, "graduated_school") ? record.GraduatedSchool : null,
+            HasField(readableFieldKeys, "education_level") ? record.EducationLevel : null,
+            HasField(readableFieldKeys, "political_status") ? record.PoliticalStatus : null,
+            HasField(readableFieldKeys, "office_phone") ? record.OfficePhone : null,
+            HasField(readableFieldKeys, "emergency_contact") ? record.EmergencyContact : null,
+            HasField(readableFieldKeys, "emergency_contact_phone")
+                ? record.EmergencyContactPhone
+                : null,
+            HasField(readableFieldKeys, "emergency_contact_address")
+                ? record.EmergencyContactAddress
+                : null,
+            HasField(readableFieldKeys, "remark") ? record.Remark : null,
+            record.Version);
+    }
 
     public static HostUserProfileWriteRequest Merge(
         HostUserProfileRecord? existing,
-        HostUserProfileWriteRequest patch)
+        HostUserProfileWriteRequest patch,
+        IReadOnlyCollection<string>? allowedFieldKeys = null)
     {
-        var fieldKeys = NormalizeFieldKeys(patch.FieldKeys);
+        var fieldKeys = NormalizeFieldKeys(patch.FieldKeys, allowedFieldKeys);
         if (fieldKeys.Count == 0)
         {
-            fieldKeys = EditableFieldKeys;
+            fieldKeys = [];
         }
 
         return new HostUserProfileWriteRequest(
@@ -128,13 +151,83 @@ internal static class HostUserProfileMapper
         };
 
     public static IReadOnlyList<string> NormalizeFieldKeys(
-        IReadOnlyList<string>? fieldKeys) =>
-        fieldKeys?
+        IReadOnlyList<string>? fieldKeys,
+        IReadOnlyCollection<string>? allowedFieldKeys = null)
+    {
+        var normalized = fieldKeys?
             .Where(fieldKey => !string.IsNullOrWhiteSpace(fieldKey))
             .Select(fieldKey => fieldKey.Trim())
+            .Where(fieldKey => EditableFieldKeys.Contains(fieldKey, StringComparer.Ordinal))
             .Distinct(StringComparer.Ordinal)
             .ToArray()
-        ?? [];
+            ?? [];
+        if (allowedFieldKeys is null)
+        {
+            return normalized;
+        }
+
+        var allowed = allowedFieldKeys.ToHashSet(StringComparer.Ordinal);
+        return normalized
+            .Where(fieldKey => allowed.Contains(fieldKey))
+            .ToArray();
+    }
+
+    public static IReadOnlyList<string> GetReadableFieldKeys(
+        IReadOnlyCollection<string>? effectiveFieldKeys)
+    {
+        if (effectiveFieldKeys is null || effectiveFieldKeys.Count == 0)
+        {
+            return [];
+        }
+
+        var effective = effectiveFieldKeys.ToHashSet(StringComparer.Ordinal);
+        return ProfileFieldKeys
+            .Where(fieldKey => effective.Contains(fieldKey))
+            .ToArray();
+    }
+
+    public static IReadOnlyList<string> GetWritableFieldKeys(
+        IReadOnlyCollection<string>? effectiveFieldKeys) =>
+        GetReadableFieldKeys(effectiveFieldKeys);
+
+    public static bool HasReadableFields(
+        IReadOnlyCollection<string>? effectiveFieldKeys) =>
+        GetReadableFieldKeys(effectiveFieldKeys).Count > 0;
+
+    public static IReadOnlyDictionary<string, string> GetReadableColumnMap(
+        IReadOnlyCollection<string>? effectiveFieldKeys)
+    {
+        var readable = GetReadableFieldKeys(effectiveFieldKeys)
+            .ToHashSet(StringComparer.Ordinal);
+        return ProfileColumnMap
+            .Where(pair => readable.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> ProfileColumnMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["nickname"] = "Nickname",
+            ["phone_number"] = "PhoneNumber",
+            ["email"] = "Email",
+            ["employee_number"] = "EmployeeNumber",
+            ["gender"] = "Gender",
+            ["join_date_utc"] = "JoinDateUtc",
+            ["sort_order"] = "SortOrder",
+            ["id_card_type"] = "IdCardType",
+            ["id_card_number"] = "IdCardNumber",
+            ["birth_date"] = "BirthDate",
+            ["ethnicity"] = "Ethnicity",
+            ["address"] = "Address",
+            ["graduated_school"] = "GraduatedSchool",
+            ["education_level"] = "EducationLevel",
+            ["political_status"] = "PoliticalStatus",
+            ["office_phone"] = "OfficePhone",
+            ["emergency_contact"] = "EmergencyContact",
+            ["emergency_contact_phone"] = "EmergencyContactPhone",
+            ["emergency_contact_address"] = "EmergencyContactAddress",
+            ["remark"] = "Remark",
+        };
 
     private static string? Resolve(
         IReadOnlyCollection<string> fieldKeys,
@@ -178,4 +271,9 @@ internal static class HostUserProfileMapper
 
     private static string? FormatDate(DateTime? value) =>
         value?.ToString("yyyy-MM-dd");
+
+    private static bool HasField(
+        IReadOnlyCollection<string> fieldKeys,
+        string fieldKey) =>
+        fieldKeys.Contains(fieldKey, StringComparer.Ordinal);
 }

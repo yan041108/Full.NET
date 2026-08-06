@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.FieldProjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -33,7 +34,7 @@ internal static class Endpoint
                     actorUserId,
                     page ?? 1,
                     pageSize ?? 20,
-                    CanManageProfiles(httpContext.User),
+                    includeProfile: true,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -55,7 +56,7 @@ internal static class Endpoint
 
             var result = await queries.ExportAsync(
                     actorUserId,
-                    CanManageProfiles(httpContext.User),
+                    includeProfile: true,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -78,7 +79,7 @@ internal static class Endpoint
             var result = await queries.GetByIdAsync(
                     actorUserId,
                     userId,
-                    CanManageProfiles(httpContext.User),
+                    includeProfile: true,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -89,16 +90,35 @@ internal static class Endpoint
         group.MapPost("/", async (
             CreateHostUserRequest request,
             HostUserManagementService service,
+            IUserFieldProjectionResolver projectionResolver,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (request.Profile is not null && !CanManageProfiles(httpContext.User))
+            var allowedProfileFieldKeys = Array.Empty<string>();
+            if (request.Profile is not null)
             {
-                return Results.Forbid();
+                if (!TryGetSubject(httpContext.User, out var actorUserId))
+                {
+                    return Results.Unauthorized();
+                }
+
+                allowedProfileFieldKeys = await ResolveAllowedProfileFieldKeysAsync(
+                        actorUserId,
+                        request.Profile,
+                        projectionResolver,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (allowedProfileFieldKeys.Length == 0)
+                {
+                    return Results.Forbid();
+                }
             }
 
-            var result = await service.CreateAsync(request, cancellationToken)
+            var result = await service.CreateAsync(
+                    request,
+                    allowedProfileFieldKeys,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
@@ -116,19 +136,35 @@ internal static class Endpoint
             Guid userId,
             UpdateHostUserRequest request,
             HostUserManagementService service,
+            IUserFieldProjectionResolver projectionResolver,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (request.Profile is not null && !CanManageProfiles(httpContext.User))
+            var allowedProfileFieldKeys = Array.Empty<string>();
+            if (request.Profile is not null)
             {
-                return Results.Forbid();
+                if (!TryGetSubject(httpContext.User, out var actorUserId))
+                {
+                    return Results.Unauthorized();
+                }
+
+                allowedProfileFieldKeys = await ResolveAllowedProfileFieldKeysAsync(
+                        actorUserId,
+                        request.Profile,
+                        projectionResolver,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (allowedProfileFieldKeys.Length == 0)
+                {
+                    return Results.Forbid();
+                }
             }
 
             var result = await service.UpdateAsync(
                     userId,
                     request,
-                    CanManageProfiles(httpContext.User),
+                    allowedProfileFieldKeys,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -220,12 +256,30 @@ internal static class Endpoint
             && userId != Guid.Empty;
     }
 
-    internal static bool CanManageProfiles(
-        System.Security.Claims.ClaimsPrincipal principal)
+    internal static async Task<string[]> ResolveAllowedProfileFieldKeysAsync(
+        Guid actorUserId,
+        HostUserProfileWriteRequest profile,
+        IUserFieldProjectionResolver projectionResolver,
+        CancellationToken cancellationToken)
     {
-        var claims = principal.FindAll(FullNetIdentityClaimTypes.SuperAdministrator).ToArray();
-        return claims.Length == 1
-            && bool.TryParse(claims[0].Value, out var enabled)
-            && enabled;
+        var requestedFieldKeys = HostUserProfileMapper.NormalizeFieldKeys(profile.FieldKeys);
+        if (requestedFieldKeys.Count == 0)
+        {
+            return [];
+        }
+
+        var projection = await projectionResolver.ResolveAsync(
+                actorUserId,
+                tenantId: null,
+                FieldProjectionResourceKeys.HostUsers,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var allowedFieldKeys = HostUserProfileMapper.GetWritableFieldKeys(projection.FieldKeys);
+        var allowed = HostUserProfileMapper.NormalizeFieldKeys(
+            requestedFieldKeys,
+            allowedFieldKeys);
+        return allowed.Count == requestedFieldKeys.Count
+            ? allowed.ToArray()
+            : [];
     }
 }

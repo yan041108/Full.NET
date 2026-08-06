@@ -58,4 +58,27 @@ public sealed class HostUserProfileMapperTests
         Assert.AreEqual(9, merged.SortOrder);
         Assert.AreEqual(3, merged.Version);
     }
+
+    [TestMethod]
+    public void To_response_only_returns_granted_profile_fields()
+    {
+        var record = new HostUserProfileRecord
+        {
+            UserId = Guid.CreateVersion7(),
+            PhoneNumber = "13800000000",
+            Address = "受限地址",
+            SortOrder = 12,
+            Version = 4,
+        };
+
+        var response = HostUserProfileMapper.ToResponse(
+            record,
+            ["phone_number"]);
+
+        Assert.IsNotNull(response);
+        Assert.AreEqual("13800000000", response.PhoneNumber);
+        Assert.IsNull(response.Address);
+        Assert.IsNull(response.SortOrder);
+        Assert.AreEqual(4, response.Version);
+    }
 }
