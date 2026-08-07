@@ -23,12 +23,25 @@ internal sealed class TenantUserPositionManagementService(
     IClock clock,
     IIdGenerator idGenerator)
 {
-    public Task<Result<OrganizationUserPositionResponse>> CreateAsync(
+    public async Task<Result<OrganizationUserPositionResponse>> CreateAsync(
         CreateOrganizationUserPositionRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => CreateCoreAsync(request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        EnsureTenantContext();
+        var hostUser = await hostUserDirectory.FindActiveHostUserAsync(
+                request.UserId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (hostUser is null)
+        {
+            return UserNotFound();
+        }
+
+        return await transaction.ExecuteResultAsync(
+                token => CreateCoreAsync(request, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     public Task<Result<OrganizationUserPositionResponse>> UpdateAsync(
         Guid assignmentId,
@@ -50,15 +63,6 @@ internal sealed class TenantUserPositionManagementService(
         CancellationToken cancellationToken)
     {
         EnsureTenantContext();
-        var hostUser = await hostUserDirectory.FindActiveHostUserAsync(
-                request.UserId,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (hostUser is null)
-        {
-            return UserNotFound();
-        }
-
         var positionResult = await positionQueries.FindByIdAsync(
                 request.PositionId,
                 cancellationToken)

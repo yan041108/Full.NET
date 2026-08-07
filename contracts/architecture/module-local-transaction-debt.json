@@ -12,36 +12,6 @@
       "removeByMilestone": "module-data-consistency-boundary-20260807 Task 2"
     },
     {
-      "consumerModule": "organization",
-      "ownerModule": "identity",
-      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/TenantUserUnitManagementService.cs",
-      "entryPoint": "TenantUserUnitManagementService.CreateCoreAsync",
-      "contractType": "IHostUserDirectory",
-      "reason": "创建用户-机构隶属时在事务内校验 Host 用户存在性；后续应改为事务前校验或受控编排。",
-      "risk": "medium",
-      "removeByMilestone": "module-data-consistency-boundary-20260807 Task 2"
-    },
-    {
-      "consumerModule": "organization",
-      "ownerModule": "identity",
-      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserPositions/TenantUserPositionManagementService.cs",
-      "entryPoint": "TenantUserPositionManagementService.CreateCoreAsync",
-      "contractType": "IHostUserDirectory",
-      "reason": "创建用户-职位隶属时在事务内校验 Host 用户存在性；后续应改为事务前校验或受控编排。",
-      "risk": "medium",
-      "removeByMilestone": "module-data-consistency-boundary-20260807 Task 2"
-    },
-    {
-      "consumerModule": "notifications",
-      "ownerModule": "identity",
-      "file": "src/Modules/Full.NET.Modules.Notifications/Features/SendHostInboxMessages/HostInboxMessageService.cs",
-      "entryPoint": "HostInboxMessageService.SendCoreAsync",
-      "contractType": "IHostUserDirectory",
-      "reason": "发送站内信时在事务内校验收件人；后续应移到事务外并在失败 Result 时确保回滚语义。",
-      "risk": "medium",
-      "removeByMilestone": "module-data-consistency-boundary-20260807 Task 2"
-    },
-    {
       "consumerModule": "document",
       "ownerModule": "files",
       "file": "src/Modules/Full.NET.Modules.Document/Features/ManageHostDocumentItems/HostDocumentItemManagementService.cs",

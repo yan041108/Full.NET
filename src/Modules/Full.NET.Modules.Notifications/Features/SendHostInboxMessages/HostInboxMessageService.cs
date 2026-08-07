@@ -29,6 +29,21 @@ internal sealed class HostInboxMessageService(
         SendHostInboxMessageRequest request,
         CancellationToken cancellationToken = default)
     {
+        var validation = ValidateContent(request.Title, request.Content);
+        if (validation is not null)
+        {
+            return validation;
+        }
+
+        var recipient = await hostUserDirectory.FindActiveHostUserAsync(
+                request.RecipientUserId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (recipient is null)
+        {
+            return RecipientNotFound();
+        }
+
         var result = await transaction.ExecuteResultAsync(
                 token => SendCoreAsync(actorUserId, request, token),
                 cancellationToken)
@@ -50,21 +65,6 @@ internal sealed class HostInboxMessageService(
         SendHostInboxMessageRequest request,
         CancellationToken cancellationToken)
     {
-        var validation = ValidateContent(request.Title, request.Content);
-        if (validation is not null)
-        {
-            return validation;
-        }
-
-        var recipient = await hostUserDirectory.FindActiveHostUserAsync(
-                request.RecipientUserId,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (recipient is null)
-        {
-            return RecipientNotFound();
-        }
-
         var now = clock.UtcNow;
         var messageId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(

@@ -23,12 +23,25 @@ internal sealed class TenantUserUnitManagementService(
     IClock clock,
     IIdGenerator idGenerator)
 {
-    public Task<Result<OrganizationUserUnitResponse>> CreateAsync(
+    public async Task<Result<OrganizationUserUnitResponse>> CreateAsync(
         CreateOrganizationUserUnitRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => CreateCoreAsync(request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        EnsureTenantContext();
+        var hostUser = await hostUserDirectory.FindActiveHostUserAsync(
+                request.UserId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (hostUser is null)
+        {
+            return UserNotFound();
+        }
+
+        return await transaction.ExecuteResultAsync(
+                token => CreateCoreAsync(request, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     public Task<Result<OrganizationUserUnitResponse>> UpdateAsync(
         Guid assignmentId,
@@ -50,15 +63,6 @@ internal sealed class TenantUserUnitManagementService(
         CancellationToken cancellationToken)
     {
         EnsureTenantContext();
-        var hostUser = await hostUserDirectory.FindActiveHostUserAsync(
-                request.UserId,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (hostUser is null)
-        {
-            return UserNotFound();
-        }
-
         var unitResult = await unitQueries.FindByIdAsync(request.UnitId, cancellationToken)
             .ConfigureAwait(false);
         if (!unitResult.IsSuccess)

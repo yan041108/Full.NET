@@ -74,16 +74,15 @@ public sealed class HostInboxMessageServiceTests
                 Assert.IsTrue(transaction.IsActive);
                 return Task.CompletedTask;
             });
-        var service = new HostInboxMessageService(
+        var service = CreateService(
             query,
             command,
             transaction,
             outboxWriter,
             userDirectory,
-            new NotificationRealtimeDelivery(query, publisher),
+            publisher,
             clock,
-            idGenerator,
-            NullLogger<HostInboxMessageService>.Instance);
+            idGenerator);
 
         var result = await service.SendAsync(
             actorUserId,
@@ -93,6 +92,7 @@ public sealed class HostInboxMessageServiceTests
                 "消息正文"));
 
         Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(1, transaction.ExecutionCount);
         await outboxWriter.Received(1).AddAsync(
             NotificationRealtimeEventTypes.InboxMessageReceived,
             1,
@@ -108,14 +108,140 @@ public sealed class HostInboxMessageServiceTests
             CancellationToken.None);
     }
 
+    [TestMethod]
+    public async Task Send_does_not_start_transaction_when_recipient_not_found()
+    {
+        var transaction = new RecordingTransaction();
+        var userDirectory = Substitute.For<IHostUserDirectory>();
+        var recipientUserId = Guid.CreateVersion7();
+        userDirectory.FindActiveHostUserAsync(
+                recipientUserId,
+                Arg.Any<CancellationToken>())
+            .Returns((HostUserDirectoryEntry?)null);
+        var service = CreateService(
+            Substitute.For<IQueryExecutor>(),
+            Substitute.For<ICommandExecutor>(),
+            transaction,
+            Substitute.For<IOutboxWriter>(),
+            userDirectory,
+            Substitute.For<IRealtimePublisher>(),
+            Substitute.For<IClock>(),
+            Substitute.For<IIdGenerator>());
+
+        var result = await service.SendAsync(
+            Guid.CreateVersion7(),
+            new SendHostInboxMessageRequest(recipientUserId, "标题", "正文"));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(NotificationsErrorCodes.InboxRecipientNotFound, result.Error!.Code);
+        Assert.AreEqual(0, transaction.ExecutionCount);
+    }
+
+    [TestMethod]
+    public async Task Send_does_not_start_transaction_when_directory_throws()
+    {
+        var transaction = new RecordingTransaction();
+        var userDirectory = Substitute.For<IHostUserDirectory>();
+        var recipientUserId = Guid.CreateVersion7();
+        userDirectory
+            .FindActiveHostUserAsync(recipientUserId, Arg.Any<CancellationToken>())
+            .Returns<HostUserDirectoryEntry?>(_ => throw new InvalidOperationException("directory unavailable"));
+        var service = CreateService(
+            Substitute.For<IQueryExecutor>(),
+            Substitute.For<ICommandExecutor>(),
+            transaction,
+            Substitute.For<IOutboxWriter>(),
+            userDirectory,
+            Substitute.For<IRealtimePublisher>(),
+            Substitute.For<IClock>(),
+            Substitute.For<IIdGenerator>());
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            service.SendAsync(
+                Guid.CreateVersion7(),
+                new SendHostInboxMessageRequest(recipientUserId, "标题", "正文")));
+
+        Assert.AreEqual(0, transaction.ExecutionCount);
+    }
+
+    [TestMethod]
+    public async Task Send_returns_failure_without_committing_when_message_record_missing_after_insert()
+    {
+        var transaction = new RecordingTransaction();
+        var query = Substitute.For<IQueryExecutor>();
+        var command = Substitute.For<ICommandExecutor>();
+        var outboxWriter = Substitute.For<IOutboxWriter>();
+        var userDirectory = Substitute.For<IHostUserDirectory>();
+        var recipientUserId = Guid.CreateVersion7();
+        userDirectory.FindActiveHostUserAsync(
+                recipientUserId,
+                Arg.Any<CancellationToken>())
+            .Returns(new HostUserDirectoryEntry(recipientUserId, "recipient", "收件人"));
+        command.ExecuteAsync(
+                InboxMessageSql.Insert,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        query.QuerySingleOrDefaultAsync<InboxMessageRecord>(
+                InboxMessageSql.FindForRecipientById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((InboxMessageRecord?)null);
+        var service = CreateService(
+            query,
+            command,
+            transaction,
+            outboxWriter,
+            userDirectory,
+            Substitute.For<IRealtimePublisher>(),
+            Substitute.For<IClock>(),
+            Substitute.For<IIdGenerator>());
+
+        var result = await service.SendAsync(
+            Guid.CreateVersion7(),
+            new SendHostInboxMessageRequest(recipientUserId, "标题", "正文"));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(NotificationsErrorCodes.InboxMessageNotFound, result.Error!.Code);
+        Assert.AreEqual(1, transaction.ExecutionCount);
+        await outboxWriter.DidNotReceive().AddAsync(
+            Arg.Any<string>(),
+            Arg.Any<int>(),
+            Arg.Any<InboxMessageReceivedIntegrationEvent>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    private static HostInboxMessageService CreateService(
+        IQueryExecutor query,
+        ICommandExecutor command,
+        RecordingTransaction transaction,
+        IOutboxWriter outboxWriter,
+        IHostUserDirectory userDirectory,
+        IRealtimePublisher publisher,
+        IClock clock,
+        IIdGenerator idGenerator) =>
+        new(
+            query,
+            command,
+            transaction,
+            outboxWriter,
+            userDirectory,
+            new NotificationRealtimeDelivery(query, publisher),
+            clock,
+            idGenerator,
+            NullLogger<HostInboxMessageService>.Instance);
+
     private sealed class RecordingTransaction : ICommandTransaction
     {
         public bool IsActive { get; private set; }
+
+        public int ExecutionCount { get; private set; }
 
         public async Task<T> ExecuteAsync<T>(
             Func<CancellationToken, Task<T>> action,
             CancellationToken cancellationToken)
         {
+            ExecutionCount++;
             IsActive = true;
             try
             {
