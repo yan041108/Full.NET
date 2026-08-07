@@ -165,14 +165,7 @@ internal sealed class HostUserQueryService(
             return new Dictionary<Guid, HostUserProfileResponse?>();
         }
 
-        var statement = new SqlStatement(
-            "identity.list_host_user_profiles_by_ids.projected",
-            $$"""
-            SELECT UserId, {{string.Join(", ", columnMap.Values)}}, Version
-            FROM fn_identity_user_profile
-            WHERE UserId IN @UserIds
-            """,
-            SqlDataScope.HostOnly);
+        var statement = IdentitySql.BuildProjectedHostUserProfilesByIds(columnMap.Values.ToArray());
         var records = await queryExecutor.QueryAsync<HostUserProfileRecord>(
                 statement,
                 new { UserIds = userIds },

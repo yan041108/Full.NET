@@ -920,6 +920,32 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static SqlStatement BuildProjectedHostUserProfilesByIds(
+        IReadOnlyCollection<string> projectedColumns)
+    {
+        ArgumentNullException.ThrowIfNull(projectedColumns);
+
+        var orderedColumns = projectedColumns
+            .Where(column => !string.IsNullOrWhiteSpace(column))
+            .Select(column => column.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var selectColumns = orderedColumns.Length == 0
+            ? "UserId, Version"
+            : $"UserId, {string.Join(", ", orderedColumns)}, Version";
+
+        // 只允许在静态声明上裁剪 SELECT 列，保持既有 Scope/TenantBinding 不变。
+        return ListHostUserProfilesByIds with
+        {
+            Name = "identity.list_host_user_profiles_by_ids.projected",
+            Text = $$"""
+            SELECT {{selectColumns}}
+            FROM fn_identity_user_profile
+            WHERE UserId IN @UserIds
+            """
+        };
+    }
+
     public static readonly SqlStatement InsertHostUserProfile = new(
         "identity.insert_host_user_profile",
         """

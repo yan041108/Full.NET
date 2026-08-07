@@ -13,6 +13,8 @@
 - 依据：[总体架构 Spec §22.2](../specs/2026-07-17-fullnet-architecture-design.md#222-adminnet-功能演进)、[Admin.NET 功能对标路线](../../roadmap/adminnet-feature-parity.md)和[源码复核](../../verification/adminnet-source-design-absorption-review-2026-07-30.md)。
 - Admin.NET.Pro 只作为功能和实现参考；没有明确再许可证据时不得复制源码、资源、注释或生成模板。
 - 业务模块只能使用 Dapper 和 Full.NET 自有 SQL 执行边界；禁止引入 SqlSugar、通用 Repository、动态 C#、运行时任意 WebAPI 或任意 SQL Parser。
+- 所有新增 Admin.NET 对标模块必须遵守 [`ADR-0002` 的模块数据与事务标准](../../architecture/adr/ADR-0002-modular-monolith-evolution.md#模块内模块间数据关联与事务标准)：模块内关联本模块表；跨模块只使用最小批量 Port 或版本化事件投影；禁止跨模块 JOIN、外键、写表和新跨模块本地事务。
+- 业务参数归对应领域模块所有并使用强类型、作用域、版本和生效语义；Settings 不得成为预约、支付、工作流等领域参数的任意字符串/JSON 仓库。可靠跨模块传播必须与所有者状态同事务写 Outbox，消费者按 MessageId/业务键和源版本幂等收敛。
 - 租户 SQL 必须同时使用 `SqlDataScope.TenantRequired`、`SqlTenantBinding.CurrentTenantId` 和真实 `TenantId = @TenantId` 条件。
 - 数据库变更必须同时提供 SQL Server/MySQL 迁移、半完成恢复测试和真实双库 Integration。
 - 新后台管理功能只交付 Vue，并通过逐页面/逐操作权限、租户、错误处理、可访问性和真实栈 E2E；禁止新增或扩展 Layui 页面、按钮、适配器、生成模板和功能对等测试。

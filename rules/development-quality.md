@@ -67,6 +67,9 @@
 10. 宿主注册完整模块时必须同时注册该模块声明的全部 `Dependencies`；模块排序依赖必须使用稳定模块键而不是另一个模块的具体类型。Worker 或 Migrator 只消费后台/迁移能力时，应由模块提供并使用可验证的最小服务注册入口，禁止为了单个消费者或 Contributor 注册完整 HTTP 模块或留下不完整依赖图。
 11. Full.NET 官方 Api、Worker、Migrator 必须通过 `Full.NET.Composition` 的显式 Host Profile 选择模块能力；新增模块只能更新共享目录和对应测试，禁止在各宿主 `Program.cs` 恢复手工完整模块清单。Composition 可以依赖具体 Modules，通用 BuildingBlock 禁止反向引用业务模块。
 12. Full.NET 1.0 必须保持强化型模块化单体以及 API、Worker、Migrator 运行角色分离；局部模块只有满足 [`ADR-0002`](../docs/architecture/adr/ADR-0002-modular-monolith-evolution.md) 的全部拆分门禁并新增独立 ADR 后才能拆分。禁止用未来扩容、团队增长或技术偏好代替可测量证据，禁止把角色分离误报为微服务能力。
+13. 模块内读取可以关联本模块拥有的表；跨模块读取只能使用最小只读 Port/公开 Contract 的批量投影，或由版本化 Integration Event 建立消费方本地投影。禁止通过直接 SQL、视图、同义词、存储过程、触发器或动态 SQL 读取/写入其他模块的表，也禁止跨模块数据库外键。`015_HostRoleDataScope` 的 Identity → Organization 外键是 ADR-0002 已登记的存量债务，只允许按硬化计划移除，不构成新增例外。
+14. 新业务流程不得依赖跨模块本地事务。跨模块强不变量必须收敛到唯一数据所有者；其他模块通过 Contract 获取当下权威回答，或通过 Outbox 与幂等消费者最终一致。共享数据库、Scoped `DbSession` 或技术上可以加入同一事务均不构成例外。
+15. 领域参数归执行相应业务不变量的模块所有，必须使用强类型、作用域、版本和生效语义表达。Settings 只承载平台通用设置与管理能力，禁止把预约、支付、工作流等业务参数降级为无所有者的字符串或任意 JSON 配置。
 
 ## 4. 安全、权限与租户隔离
 
@@ -125,6 +128,8 @@
 3. 租户作用域内的 SQL 必须同时声明 `SqlDataScope.TenantRequired` 与 `SqlTenantBinding.CurrentTenantId`，由统一范围守卫校验并由执行器注入受信任的当前租户参数；`Global`/`HostOnly` 必须使用 `SqlTenantBinding.None`。查询和写入条件仍必须真实包含租户过滤，仅声明元数据或设置上下文变量不等于隔离。全模块 Scope/Binding 一致性必须由 Architecture Tests 自动检查。每条生产 `Global` Statement 还必须在 [`contracts/architecture/global-sql-statements.json`](../contracts/architecture/global-sql-statements.json) 以 Statement Name、声明成员和源码文件精确登记安全分类、中文理由与不可变 SQL 片段；禁止通配符、批量豁免、未登记新增项和过期目录项。
 4. 命令事务必须明确开始、提交、回滚和释放；异常、取消与超时路径不得遗留连接或未完成事务。
 5. 业务数据与 Outbox 必须在同一数据库事务内原子写入。事务内禁止调用不可回滚的外部 HTTP、gRPC 或消息服务。
+   - `ICommandTransaction` 以异常而不是 `Result` 值判断回滚。首次写入前可以返回业务失败；发生写入后若整个用例必须失败，必须抛出受控异常或使用明确支持失败回滚语义的事务入口，禁止写入后只返回 `Result.Failure` 并假设已经回滚。
+   - Query 默认不启动显式事务；同一模块确需一致快照时必须由用例显式声明事务和隔离要求。跨模块同步读取不构成一致快照，不能作为两个模块共同提交的正确性边界。
 6. 数据库行为变更必须同时提供 SQL Server 与 MySQL 的迁移、SQL、索引和集成验证；不能以“语法相近”代替双库测试。
 7. 迁移必须可重复部署并有确定顺序。仅验证 DbUp 已记账后的零脚本重跑不算可恢复；对非事务或会隐式提交的 DDL，每个结构探测、数据回填、约束收紧和默认值步骤必须在“迁移未记账且前序步骤已部分完成”时独立收敛，并用 SQL Server/MySQL 真实集成测试模拟旧结构与半完成状态。不可逆变更、长时间锁表和大数据回填必须提供风险说明与发布策略。
 8. 数据库结构变更采用 `expand -> migrate/backfill -> contract`。`DROP TABLE/COLUMN`、`TRUNCATE`、直接重命名、缩窄类型、直接增加无默认值的非空列和未分批的大表回填默认禁止；确需执行时必须有机器可检查的限期豁免、备份/验证、前滚或回滚策略和独立数据审查者。

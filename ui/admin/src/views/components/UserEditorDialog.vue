@@ -36,7 +36,7 @@ const props = defineProps<{
   displayName: string;
   password: string;
   profile: HostUserProfileWrite;
-  activeTab: 'basic' | 'roles' | 'org' | 'profile' | 'binding';
+  activeTab: 'basic' | 'roles' | 'org-units' | 'org-positions' | 'profile' | 'binding';
   transferRoles: Array<{ key: string; label: string; disabled?: boolean }>;
   selectedRoleIds: string[];
   orgUnitTreeOptions: OrganizationUnitTreeSelectOption[];
@@ -49,7 +49,9 @@ const props = defineProps<{
   canAssignRoles: boolean;
   canCreate: boolean;
   canUpdate: boolean;
-  canManageOrganizations: boolean;
+  canManageUserUnits: boolean;
+  canManageUserPositions: boolean;
+  canSubmit: boolean;
   effectiveFieldKeys: string[];
   showProfileTab: boolean;
   translate: (key: MessageKey) => string;
@@ -61,7 +63,7 @@ const emit = defineEmits<{
   'update:displayName': [value: string];
   'update:password': [value: string];
   'update:profile': [value: HostUserProfileWrite];
-  'update:activeTab': [value: 'basic' | 'roles' | 'org' | 'profile' | 'binding'];
+  'update:activeTab': [value: 'basic' | 'roles' | 'org-units' | 'org-positions' | 'profile' | 'binding'];
   'update:selectedRoleIds': [value: string[]];
   'update:primaryUnitId': [value: string];
   'update:subsidiaryUnitIds': [value: string[]];
@@ -517,9 +519,9 @@ defineExpose({
       </el-tab-pane>
 
       <el-tab-pane
-        v-if="canManageOrganizations"
-        :label="translate('users.tabOrg')"
-        name="org"
+        v-if="canManageUserUnits"
+        :label="translate('users.tabOrgUnits')"
+        name="org-units"
       >
         <div class="users-editor-dialog__form">
           <div class="users-editor-dialog__grid users-editor-dialog__grid--single">
@@ -552,6 +554,17 @@ defineExpose({
                 @update:model-value="emit('update:subsidiaryUnitIds', $event ?? [])"
               />
             </el-form-item>
+          </div>
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane
+        v-if="canManageUserPositions"
+        :label="translate('users.tabOrgPositions')"
+        name="org-positions"
+      >
+        <div class="users-editor-dialog__form">
+          <div class="users-editor-dialog__grid users-editor-dialog__grid--single">
             <el-form-item :label="translate('users.positionName')">
               <el-select
                 :model-value="positionId || undefined"
@@ -638,7 +651,7 @@ defineExpose({
       <div class="users-editor-dialog__footer">
         <el-button @click="close">{{ translate('users.cancel') }}</el-button>
         <el-button
-          v-if="mode === 'create' ? canCreate : canUpdate || canAssignRoles"
+          v-if="canSubmit"
           type="primary"
           :loading="saving"
           data-testid="users-editor-submit"

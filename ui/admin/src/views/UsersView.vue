@@ -63,7 +63,7 @@ import {
   updateHostUser
 } from '../api/users';
 
-type EditorTab = 'basic' | 'roles' | 'org' | 'profile' | 'binding';
+type EditorTab = 'basic' | 'roles' | 'org-units' | 'org-positions' | 'profile' | 'binding';
 type EditorMode = 'create' | 'edit';
 
 interface AppliedFilters {
@@ -258,15 +258,35 @@ const canReadUserPositions = computed(() => session.can('organization.user_posit
 const canCreateUserPositions = computed(() => session.can('organization.user_positions.create'));
 const canUpdateUserPositions = computed(() => session.can('organization.user_positions.update'));
 const canDisableUserPositions = computed(() => session.can('organization.user_positions.disable'));
-const canManageOrganizations = computed(() =>
-  canReadUserUnits.value
-  || canCreateUserUnits.value
+const canManageUserUnits = computed(() =>
+  canCreateUserUnits.value
   || canUpdateUserUnits.value
-  || canDisableUserUnits.value
-  || canReadUserPositions.value
-  || canCreateUserPositions.value
+  || canDisableUserUnits.value);
+const canManageUserPositions = computed(() =>
+  canCreateUserPositions.value
   || canUpdateUserPositions.value
   || canDisableUserPositions.value);
+const canManageOrganizations = computed(() =>
+  canReadUserUnits.value
+  || canManageUserUnits.value
+  || canReadUserPositions.value
+  || canManageUserPositions.value);
+const canSubmitEditor = computed(() => {
+  if (editorMode.value === 'create') {
+    return canCreate.value;
+  }
+
+  switch (editorTab.value) {
+    case 'roles':
+      return canAssignRoles.value;
+    case 'org-units':
+      return canManageUserUnits.value;
+    case 'org-positions':
+      return canManageUserPositions.value;
+    default:
+      return canUpdate.value;
+  }
+});
 const effectiveUserFieldKeys = computed(() => {
   const editingKeys = editingUser.value?.projectedFields?.effectiveFieldKeys;
   if (editingKeys && editingKeys.length > 0) {
@@ -400,9 +420,16 @@ const submitProgressSteps = computed<SubmitProgressStep[]>(() => {
     status: 'completed'
   }];
 
-  if (canManageOrganizations.value || checkpoint.orgKey === null) {
+  if (canManageUserUnits.value) {
     steps.push({
-      label: t('users.tabOrg'),
+      label: t('users.tabOrgUnits'),
+      status: checkpoint.orgKey === null ? 'pending' : 'completed'
+    });
+  }
+
+  if (canManageUserPositions.value) {
+    steps.push({
+      label: t('users.tabOrgPositions'),
       status: checkpoint.orgKey === null ? 'pending' : 'completed'
     });
   }
@@ -913,6 +940,16 @@ async function submitEditor(): Promise<void> {
     return;
   }
 
+  if (editorMode.value === 'edit' && editorTab.value === 'org-units') {
+    await saveOrgUnits();
+    return;
+  }
+
+  if (editorMode.value === 'edit' && editorTab.value === 'org-positions') {
+    await saveOrgPositions();
+    return;
+  }
+
   if (editorMode.value === 'create') {
     await createUser();
     return;
@@ -922,127 +959,136 @@ async function submitEditor(): Promise<void> {
 }
 
 async function syncOrgAssignments(userId: string): Promise<void> {
-  if (!selectedOrgTenantId.value || !canManageOrganizations.value) {
+  if (!selectedOrgTenantId.value) {
+    return;
+  }
+
+  await syncUserUnitAssignments(userId);
+  await syncUserPositionAssignments(userId);
+  await reloadOrganizationReference();
+}
+
+async function syncUserUnitAssignments(userId: string): Promise<void> {
+  if (!selectedOrgTenantId.value || !canManageUserUnits.value) {
     return;
   }
 
   const tenantId = selectedOrgTenantId.value;
-  if (canCreateUserUnits.value || canUpdateUserUnits.value || canDisableUserUnits.value) {
-    const existingUnits = userUnits.value.filter(
-      item => item.userId === userId && item.isActive
-    );
-    const desiredPrimary = editorPrimaryUnitId.value || null;
-    const desiredSubsidiary = new Set(
-      editorSubsidiaryUnitIds.value.filter(unitId => unitId !== desiredPrimary)
-    );
+  const existingUnits = userUnits.value.filter(
+    item => item.userId === userId && item.isActive
+  );
+  const desiredPrimary = editorPrimaryUnitId.value || null;
+  const desiredSubsidiary = new Set(
+    editorSubsidiaryUnitIds.value.filter(unitId => unitId !== desiredPrimary)
+  );
 
-    if (desiredPrimary) {
-      const primaryAssignment = existingUnits.find(item => item.unitId === desiredPrimary);
-      if (primaryAssignment) {
-        if (!primaryAssignment.isPrimary && canUpdateUserUnits.value) {
-          await updateHostUserOrganizationUnit(
-            tenantId,
-            primaryAssignment.id,
-            true,
-            primaryAssignment.version
-          );
-        }
-      } else if (canCreateUserUnits.value) {
-        await createHostUserOrganizationUnit(tenantId, userId, desiredPrimary, true);
+  if (desiredPrimary) {
+    const primaryAssignment = existingUnits.find(item => item.unitId === desiredPrimary);
+    if (primaryAssignment) {
+      if (!primaryAssignment.isPrimary && canUpdateUserUnits.value) {
+        await updateHostUserOrganizationUnit(
+          tenantId,
+          primaryAssignment.id,
+          true,
+          primaryAssignment.version
+        );
+      }
+    } else if (canCreateUserUnits.value) {
+      await createHostUserOrganizationUnit(tenantId, userId, desiredPrimary, true);
+    }
+  }
+
+  if (canUpdateUserUnits.value || canDisableUserUnits.value) {
+    for (const assignment of existingUnits.filter(item => item.isPrimary)) {
+      if (assignment.unitId === desiredPrimary) {
+        continue;
+      }
+
+      if (desiredSubsidiary.has(assignment.unitId) && canUpdateUserUnits.value) {
+        await updateHostUserOrganizationUnit(
+          tenantId,
+          assignment.id,
+          false,
+          assignment.version
+        );
+        continue;
+      }
+
+      if (canDisableUserUnits.value) {
+        await disableHostUserOrganizationUnit(tenantId, assignment.id);
       }
     }
 
-    if (canUpdateUserUnits.value || canDisableUserUnits.value) {
-      for (const assignment of existingUnits.filter(item => item.isPrimary)) {
-        if (assignment.unitId === desiredPrimary) {
-          continue;
-        }
-
-        if (desiredSubsidiary.has(assignment.unitId) && canUpdateUserUnits.value) {
-          await updateHostUserOrganizationUnit(
-            tenantId,
-            assignment.id,
-            false,
-            assignment.version
-          );
-          continue;
-        }
-
-        if (canDisableUserUnits.value) {
-          await disableHostUserOrganizationUnit(tenantId, assignment.id);
-        }
+    for (const assignment of existingUnits.filter(item => !item.isPrimary)) {
+      if (assignment.unitId === desiredPrimary || desiredSubsidiary.has(assignment.unitId)) {
+        continue;
       }
 
-      for (const assignment of existingUnits.filter(item => !item.isPrimary)) {
-        if (assignment.unitId === desiredPrimary || desiredSubsidiary.has(assignment.unitId)) {
-          continue;
-        }
-
-        if (canDisableUserUnits.value) {
-          await disableHostUserOrganizationUnit(tenantId, assignment.id);
-        }
-      }
-    }
-
-    if (canCreateUserUnits.value) {
-      for (const unitId of desiredSubsidiary) {
-        if (existingUnits.some(item => item.unitId === unitId)) {
-          continue;
-        }
-
-        await createHostUserOrganizationUnit(tenantId, userId, unitId, false);
+      if (canDisableUserUnits.value) {
+        await disableHostUserOrganizationUnit(tenantId, assignment.id);
       }
     }
   }
 
-  if (canCreateUserPositions.value
-    || canUpdateUserPositions.value
-    || canDisableUserPositions.value) {
-    const existingPositions = userPositions.value.filter(
-      item => item.userId === userId && item.isActive
-    );
-    const desiredPositionId = editorPositionId.value || null;
-    const desiredPosition = desiredPositionId
-      ? existingPositions.find(item => item.positionId === desiredPositionId)
-      : undefined;
+  if (canCreateUserUnits.value) {
+    for (const unitId of desiredSubsidiary) {
+      if (existingUnits.some(item => item.unitId === unitId)) {
+        continue;
+      }
 
-    let desiredPositionApplied = !desiredPositionId;
-    if (desiredPositionId) {
-      if (desiredPosition?.isPrimary) {
-        desiredPositionApplied = true;
-      } else if (desiredPosition) {
-        if (canUpdateUserPositions.value) {
-          await updateHostUserOrganizationPosition(
-            tenantId,
-            desiredPosition.id,
-            true,
-            desiredPosition.version
-          );
-          desiredPositionApplied = true;
-        }
-      } else if (canCreateUserPositions.value) {
-        await createHostUserOrganizationPosition(
+      await createHostUserOrganizationUnit(tenantId, userId, unitId, false);
+    }
+  }
+}
+
+async function syncUserPositionAssignments(userId: string): Promise<void> {
+  if (!selectedOrgTenantId.value || !canManageUserPositions.value) {
+    return;
+  }
+
+  const tenantId = selectedOrgTenantId.value;
+  const existingPositions = userPositions.value.filter(
+    item => item.userId === userId && item.isActive
+  );
+  const desiredPositionId = editorPositionId.value || null;
+  const desiredPosition = desiredPositionId
+    ? existingPositions.find(item => item.positionId === desiredPositionId)
+    : undefined;
+
+  let desiredPositionApplied = !desiredPositionId;
+  if (desiredPositionId) {
+    if (desiredPosition?.isPrimary) {
+      desiredPositionApplied = true;
+    } else if (desiredPosition) {
+      if (canUpdateUserPositions.value) {
+        await updateHostUserOrganizationPosition(
           tenantId,
-          userId,
-          desiredPositionId,
-          true
+          desiredPosition.id,
+          true,
+          desiredPosition.version
         );
         desiredPositionApplied = true;
       }
-    }
-
-    if (desiredPositionApplied && canDisableUserPositions.value) {
-      for (const assignment of existingPositions) {
-        if (desiredPositionId && assignment.positionId === desiredPositionId) {
-          continue;
-        }
-
-        await disableHostUserOrganizationPosition(tenantId, assignment.id);
-      }
+    } else if (canCreateUserPositions.value) {
+      await createHostUserOrganizationPosition(
+        tenantId,
+        userId,
+        desiredPositionId,
+        true
+      );
+      desiredPositionApplied = true;
     }
   }
 
-  await reloadOrganizationReference();
+  if (desiredPositionApplied && canDisableUserPositions.value) {
+    for (const assignment of existingPositions) {
+      if (desiredPositionId && assignment.positionId === desiredPositionId) {
+        continue;
+      }
+
+      await disableHostUserOrganizationPosition(tenantId, assignment.id);
+    }
+  }
 }
 
 async function ensureIdentitySaved(): Promise<HostUser> {
@@ -1231,6 +1277,48 @@ async function saveRoles(): Promise<void> {
   }
 }
 
+async function saveOrgUnits(): Promise<void> {
+  const user = editingUser.value;
+  if (!user) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await syncUserUnitAssignments(user.id);
+    await reloadOrganizationReference();
+    editorOpen.value = false;
+    ElMessage.success(t('users.orgUnitsSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function saveOrgPositions(): Promise<void> {
+  const user = editingUser.value;
+  if (!user) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await syncUserPositionAssignments(user.id);
+    await reloadOrganizationReference();
+    editorOpen.value = false;
+    ElMessage.success(t('users.positionsSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 async function resetPassword(user: HostUser): Promise<void> {
   if (changing.value || !user.isActive) {
     return;
@@ -1401,7 +1489,7 @@ function resolvePendingEditorTab(): EditorTab | null {
   }
 
   if (checkpoint.orgKey === null) {
-    return 'org';
+    return canManageUserUnits.value ? 'org-units' : 'org-positions';
   }
 
   if (checkpoint.rolesKey === null) {
@@ -1695,7 +1783,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
 
               <el-table-column
                 :label="t('users.columnActions')"
-                width="148"
+                width="196"
                 fixed="right"
                 align="center"
               >
@@ -1717,6 +1805,20 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                   @click="openEdit(row as HostUser, 'roles')"
                       />
                     </PermissionGate>
+                    <ArtTableActionButton
+                      v-if="canManageUserUnits"
+                      type="org"
+                      test-id="users-action-org-units"
+                      :title="t('users.assignOrgUnits')"
+                  @click="openEdit(row as HostUser, 'org-units')"
+                    />
+                    <ArtTableActionButton
+                      v-if="canManageUserPositions"
+                      type="position"
+                      test-id="users-action-org-positions"
+                      :title="t('users.assignPositions')"
+                  @click="openEdit(row as HostUser, 'org-positions')"
+                    />
                     <PermissionGate v-if="row.isActive" code="identity.users.reset_password">
                       <ArtTableActionButton
                         type="password"
@@ -1788,7 +1890,9 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
       :can-assign-roles="canAssignRoles"
       :can-create="canCreate"
       :can-update="canUpdate"
-      :can-manage-organizations="canManageOrganizations"
+      :can-manage-user-units="canManageUserUnits"
+      :can-manage-user-positions="canManageUserPositions"
+      :can-submit="canSubmitEditor"
       :effective-field-keys="editingUser?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys"
       :show-profile-tab="hasProfileTabFields"
       :translate="t"

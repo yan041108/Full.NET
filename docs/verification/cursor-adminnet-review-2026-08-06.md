@@ -72,14 +72,48 @@
   - `pnpm --filter @fullnet/admin typecheck`：PASS
   - `pnpm test:integration:affected:plan -- --snapshot task0 --phase inner`：`none`，本次变更未命中 Integration 影响集
 
+### 3.3 Task 0 最终验收收口（2026-08-07）
+
+- 在按同一快照执行最终验收时，`tests/Full.NET.ArchitectureTests` 暴露 `HostUserQueryService.LoadProfilesAsync(...)` 运行时直接 `new SqlStatement(...)`，触发 `GlobalSqlStatementCatalogTests` 的静态声明门禁。已改为通过 `IdentitySql.BuildProjectedHostUserProfilesByIds(...)` 从静态声明安全裁剪列投影，并在架构测试白名单中登记该受控 clone 方法；修复后 Architecture 恢复为绿。
+- 最终新鲜验证：
+  - `pnpm test:integration:affected -- --snapshot cursor-adminnet-wip-stabilization-20260806 --phase slice`：`smoke 8/8 PASS`，`Identity, Organization 88/88 PASS`
+  - `pnpm test:dotnet:architecture`：`78/78 PASS`
+  - `pnpm test:dotnet:unit`：`1112 PASS / 3 Skip / 0 Fail`；3 个 Skip 均为当前文件系统无法创建符号链接导致的既有 `Assert.Inconclusive`，不是行为回归
+  - `pnpm test:openapi`：`73/73 PASS`
+  - `pnpm --filter @fullnet/client-contracts test`：`47 files / 124 tests PASS`
+  - `pnpm --filter @fullnet/client-contracts build`：PASS
+  - `pnpm --filter @fullnet/admin test`：`116 files / 404 tests PASS`
+  - `pnpm --filter @fullnet/admin build`：PASS
+  - `pnpm test:naming`：`24/24 PASS`
+  - `pnpm test:sql-safety`：`5/5 PASS`
+  - `pnpm test:governance`：`17/17 PASS`
+  - `git diff --check`：PASS
+- `@fullnet/admin` 全量验证中此前偶发的 `src/App.test.ts` 403 超时未再复现；最终整套 Vitest 与生产构建均通过。
+- `affected slice` 完成后 `docker ps` 与 `docker ps -a` 均为空；同时未再发现 `run-affected-integration`、`Full.NET.IntegrationTests.dll`、`@fullnet/admin test/build` 等遗留验证进程，可按本任务要求记为 Docker/runner residual `0`。
+
+### 3.4 Task 0D 续跑更新（2026-08-07 晚）
+
+- Vue `UsersView` 已补齐独立的「分配机构」「分配职位」表格按钮（`users-action-org-units` / `users-action-org-positions`），分别打开 `org-units` / `org-positions` 页签；权限门控使用 `organization.user_units.*` / `organization.user_positions.*` 家族，不再复用 `identity.users.update`。
+- 新增 `Migration082IdentityUserProfileRecoveryTests`，双库验证 `082_IdentityUserProfile` 在档案表被误删后可恢复表结构、主键与外键，且 `fn_identity_user` 主数据保留；二次执行保持幂等。
+- 新鲜验证（HEAD `2a4cbd10de7a5fc4d64f47e1d5b394a9794bf6cf`，快照 `cursor-adminnet-wip-stabilization-20260806`）：
+  - `pnpm test:integration:affected -- --snapshot cursor-adminnet-wip-stabilization-20260806 --phase slice`：`smoke 8/8 PASS`，`Identity, Organization 88/88 PASS`
+  - `pnpm test:dotnet:unit`：`1115 PASS / 3 Skip / 0 Fail`
+  - `pnpm test:dotnet:architecture`：`78/78 PASS`
+  - `pnpm test:openapi`：`73/73 PASS`
+  - `pnpm --filter @fullnet/client-contracts test`：`124 PASS`
+  - `pnpm --filter @fullnet/admin test`：`116 files / 406 tests PASS`
+  - `pnpm test:naming`：`24/24 PASS`
+  - `pnpm test:sql-safety`：`5/5 PASS`
+  - `pnpm test:governance`：`17/17 PASS`（矩阵门槛同步至 Unit `1115`、Migration `282`、Full `492`）
+  - `git diff --check`：PASS
+  - 验收结束后 `docker ps` 为空，runner residual `0`
+
 ## 4. 尚未关闭的审查结论
 
-1. 用户档案目前只有“超级管理员可见”的临时失败关闭边界，尚未进入既有 `FieldProjectionCatalog`，也没有字段掩码或 Patch 语义；不得把它标记为 Admin.NET 字段授权等价完成。
-2. `HOST_MENU_ASSIGNABLE_PERMISSIONS` 是前端硬编码的少量旧权限，已经遗漏 Document、Jobs、Notifications、Settings 等实际页面，必须改为由服务端授权目录投影的自包含选项接口。
-3. 用户页新增的主机构、附属机构和职位写操作复用 `identity.users.update`，不满足“页面/按钮/后端 Endpoint 独立稳定权限码”；多请求保存还可能部分成功。
-4. Document 上传当前先把 Files 对象推进 Ready，再写 Document 版本；Document 事务确定回滚或提交结果未知时缺少 claim/release 对账协议，可能永久遗留无引用 Ready Blob。
-5. Jobs Cron 预览只要求 `jobs.schedules.create`，因此只有 update 权限的编辑者无法预览；应建立独立 preview 权限，或提供服务端可证明的 create/update OR 策略，禁止扩大为 read。
-6. 用户/机构新接口、迁移 `082`、自定义菜单目录同步缺少本机 SQL Server/MySQL 恢复、权限拒绝和真实 Vue 栈证据。
-7. 用户页仍是多请求保存模型；本轮已补齐“同一弹窗内的安全重试”和提示区内的最小步骤清单，但尚未把剩余步骤提升为独立状态栏或可单独点击重试的显式动作。
+1. Document 上传当前先把 Files 对象推进 Ready，再写 Document 版本；Document 事务确定回滚或提交结果未知时缺少 claim/release 对账协议，可能永久遗留无引用 Ready Blob。（Task 1）
+2. Jobs Cron 预览只要求 `jobs.schedules.create`，因此只有 update 权限的编辑者无法预览；应建立独立 preview 权限，或提供服务端可证明的 create/update OR 策略，禁止扩大为 read。（Task 2）
+3. 用户页多请求保存模型本轮已补齐同一弹窗内的安全重试与步骤清单，但尚未把剩余步骤提升为独立状态栏或可单独点击重试的显式动作；不影响 Task 0 合并门禁。
+
+Task 0（0A 字段投影、0B 菜单权限选项、0C 组织/职位独立权限与按钮、0D 双库验收）已按上述证据关闭。不得据此开始 Task 1+。
 
 规则演进检查：本轮命中既有逐操作授权、跨模块边界、字段授权和失败关闭规则，无新增规则缺口，不修改规则候选。

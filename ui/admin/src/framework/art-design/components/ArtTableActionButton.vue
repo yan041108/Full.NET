@@ -4,7 +4,9 @@ import {
   Delete,
   EditPen,
   Key,
+  OfficeBuilding,
   Plus,
+  Suitcase,
   UserFilled,
   View
 } from '@element-plus/icons-vue';
@@ -13,7 +15,7 @@ import { ElIcon } from 'element-plus';
 defineOptions({ name: 'ArtTableActionButton' });
 
 const props = defineProps<{
-  type: 'edit' | 'delete' | 'view' | 'roles' | 'password' | 'add';
+  type: 'edit' | 'delete' | 'view' | 'roles' | 'password' | 'add' | 'org' | 'position';
   testId?: string;
   title?: string;
 }>();
@@ -26,6 +28,8 @@ const icon = computed(() => {
   if (props.type === 'edit') return EditPen;
   if (props.type === 'delete') return Delete;
   if (props.type === 'roles') return UserFilled;
+  if (props.type === 'org') return OfficeBuilding;
+  if (props.type === 'position') return Suitcase;
   if (props.type === 'password') return Key;
   if (props.type === 'add') return Plus;
   return View;
@@ -75,6 +79,16 @@ const icon = computed(() => {
 .art-table-action-btn--roles {
   background: rgb(144 147 153 / 12%);
   color: #606266;
+}
+
+.art-table-action-btn--org {
+  background: rgb(64 158 255 / 10%);
+  color: #409eff;
+}
+
+.art-table-action-btn--position {
+  background: rgb(103 194 58 / 12%);
+  color: #67c23a;
 }
 
 .art-table-action-btn--password {

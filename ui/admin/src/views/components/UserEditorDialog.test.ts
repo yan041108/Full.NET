@@ -31,7 +31,9 @@ const baseProps = {
   canAssignRoles: false,
   canCreate: true,
   canUpdate: false,
-  canManageOrganizations: false,
+  canManageUserUnits: false,
+  canManageUserPositions: false,
+  canSubmit: true,
   effectiveFieldKeys: [],
   showProfileTab: false,
   translate

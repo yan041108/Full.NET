@@ -354,6 +354,8 @@ describe('Vue 用户管理页', () => {
       'users-action-create',
       'users-action-edit',
       'users-action-roles',
+      'users-action-org-units',
+      'users-action-org-positions',
       'users-action-reset-password',
       'users-action-disable',
       'users-action-enable',
@@ -370,6 +372,36 @@ describe('Vue 用户管理页', () => {
 
     expect(wrapper.find('[data-testid="users-action-enable"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="users-action-disable"]').exists()).toBe(false);
+  });
+
+  it('机构分配入口打开机构隶属页签', async () => {
+    const wrapper = mountUsers([
+      'identity.users.read',
+      'organization.user_units.create'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-org-units"]').trigger('click');
+    await flushPromises();
+
+    const dialog = wrapper.getComponent({ name: 'UserEditorDialog' });
+    expect(dialog.props('activeTab')).toBe('org-units');
+    wrapper.unmount();
+  });
+
+  it('职位分配入口打开职位隶属页签', async () => {
+    const wrapper = mountUsers([
+      'identity.users.read',
+      'organization.user_positions.create'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-org-positions"]').trigger('click');
+    await flushPromises();
+
+    const dialog = wrapper.getComponent({ name: 'UserEditorDialog' });
+    expect(dialog.props('activeTab')).toBe('org-positions');
+    wrapper.unmount();
   });
 
   it('角色授权入口打开编辑弹窗并保留取消控件', async () => {
@@ -452,8 +484,8 @@ describe('Vue 用户管理页', () => {
     const progress = wrapper.get('[data-testid="users-submit-progress"]');
     expect(progress.text()).toContain('当前保存进度');
     expect(progress.text()).toContain('基础信息已完成');
-    expect(progress.text()).toContain('机构职位待完成');
-    expect(dialog.props('activeTab')).toBe('org');
+    expect(progress.text()).toContain('机构隶属待完成');
+    expect(dialog.props('activeTab')).toBe('org-units');
 
     dialog.vm.$emit('submit');
     await flushPromises();

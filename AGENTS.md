@@ -39,6 +39,7 @@
 下列基线只陈述不变量并指向唯一权威源；执行细则与验证方式以链接的 `rules/` 文件或 ADR 为准，不在此内联复述，避免双写漂移。
 
 - Full.NET 1.0 保持强化型模块化单体，API、Worker、Migrator 按运行角色分离，AppHost 只负责编排，禁止全面微服务化或提前引入网络边界；拆分门禁见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节与 [`ADR-0002`](docs/architecture/adr/ADR-0002-modular-monolith-evolution.md)。
+- 模块内查询可以关联本模块表并由本模块本地事务维护强不变量；跨模块禁止读写、JOIN 或外键关联对方表，新流程禁止依赖跨模块本地事务。立即权威读取使用最小 Contract Port，高频读取使用版本化事件与本地投影，跨模块写入使用 Outbox、幂等、补偿和对账；完整标准见 [`ADR-0002`](docs/architecture/adr/ADR-0002-modular-monolith-evolution.md#模块内模块间数据关联与事务标准)与[总体架构 Spec §5.3、§9](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#53-模块通信规则)。
 - 业务模块物理拓扑默认采用“一个主项目＋按证据可选 Contracts/传输适配项目”；小功能、CRUD、实体、菜单和用例只能作为主项目内的垂直切片，禁止按功能机械增加 `.csproj`；项目拆分门禁见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节与[总体架构 Spec §4.2](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#42-解决方案结构)。
 - 业务数据访问默认使用 Dapper 与显式 SQL，未经明确架构决策不得引入 EF Core；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 5 节。
 - Dapper 辅助能力只允许通过 Full.NET 自有边界使用，业务模块禁止直连数据库、通用 Repository 或自动 CRUD；禁用清单与验证以 [`rules/development-quality.md`](rules/development-quality.md) R-20260718-dapper-tooling-boundary 为准。

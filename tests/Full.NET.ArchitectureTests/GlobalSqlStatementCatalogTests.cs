@@ -33,6 +33,7 @@ public sealed class GlobalSqlStatementCatalogTests
         "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildOperations",
         "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildExceptions",
         "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildOutbounds",
+        "Full.NET.Modules.Identity.Persistence.IdentitySql.BuildProjectedHostUserProfilesByIds",
     ];
 
     private static readonly JsonSerializerOptions JsonOptions = new()
