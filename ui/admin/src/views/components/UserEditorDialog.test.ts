@@ -26,6 +26,7 @@ const baseProps = {
   primaryUnitId: '',
   subsidiaryUnitIds: [] as string[],
   positionId: '',
+  identityCommitted: false,
   saving: false,
   canAssignRoles: false,
   canCreate: true,

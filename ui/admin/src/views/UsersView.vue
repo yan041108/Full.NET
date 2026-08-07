@@ -86,6 +86,18 @@ interface OrgTreeNode {
   children?: OrgTreeNode[];
 }
 
+interface EditorSubmitCheckpoint {
+  user: HostUser;
+  identityKey: string;
+  orgKey: string | null;
+  rolesKey: string | null;
+}
+
+interface SubmitProgressStep {
+  label: string;
+  status: 'completed' | 'pending';
+}
+
 const profileEditorFieldKeys = [
   'nickname',
   'phone_number',
@@ -157,6 +169,7 @@ const editorSubsidiaryUnitIds = ref<string[]>([]);
 const editorPositionId = ref('');
 const selectedRoleIds = ref<string[]>([]);
 const rolesVersion = ref(0);
+const editorSubmitCheckpoint = ref<EditorSubmitCheckpoint | null>(null);
 const tableSize = ref<'large' | 'default' | 'small'>('default');
 const tableZebra = ref(true);
 const tableBorder = ref(true);
@@ -376,6 +389,34 @@ const hasVisibleOrgUnits = computed(() =>
   orgUnits.value.some(unit => unit.isActive)
 );
 
+const submitProgressSteps = computed<SubmitProgressStep[]>(() => {
+  const checkpoint = editorSubmitCheckpoint.value;
+  if (!checkpoint) {
+    return [];
+  }
+
+  const steps: SubmitProgressStep[] = [{
+    label: t('users.tabBasic'),
+    status: 'completed'
+  }];
+
+  if (canManageOrganizations.value || checkpoint.orgKey === null) {
+    steps.push({
+      label: t('users.tabOrg'),
+      status: checkpoint.orgKey === null ? 'pending' : 'completed'
+    });
+  }
+
+  if (canAssignRoles.value || checkpoint.rolesKey === null) {
+    steps.push({
+      label: t('users.tabRoles'),
+      status: checkpoint.rolesKey === null ? 'pending' : 'completed'
+    });
+  }
+
+  return steps;
+});
+
 function mapOrgTreeNodes(nodes: OrganizationUnitTreeNode[]): OrgTreeNode[] {
   return nodes.map(node => ({
     id: node.id,
@@ -501,6 +542,12 @@ watch(
   }
 );
 
+watch(editorOpen, (open) => {
+  if (!open) {
+    resetEditorSubmitCheckpoint();
+  }
+});
+
 function updateTableHeight(): void {
   const container = tableMainRef.value;
   if (!container) {
@@ -508,6 +555,50 @@ function updateTableHeight(): void {
   }
   const top = container.getBoundingClientRect().top;
   tableHeight.value = Math.max(240, window.innerHeight - top - 68);
+}
+
+function resetEditorSubmitCheckpoint(): void {
+  editorSubmitCheckpoint.value = null;
+}
+
+function profilePayloadForSubmit(): HostUserProfileWrite | undefined {
+  if (!hasEditableProfileFields.value) {
+    return undefined;
+  }
+
+  return {
+    fieldKeys: [...(editorProfile.value.fieldKeys ?? [])].sort(),
+    nickname: editorProfile.value.nickname ?? null,
+    phoneNumber: editorProfile.value.phoneNumber ?? null,
+    email: editorProfile.value.email ?? null,
+    employeeNumber: editorProfile.value.employeeNumber ?? null,
+    gender: editorProfile.value.gender ?? null,
+    birthDate: editorProfile.value.birthDate ?? null,
+    address: editorProfile.value.address ?? null,
+    remark: editorProfile.value.remark ?? null,
+    version: editorProfile.value.version ?? null
+  };
+}
+
+function buildIdentityCheckpointKey(): string {
+  return JSON.stringify({
+    mode: editorMode.value,
+    displayName: editorDisplayName.value.trim(),
+    profile: profilePayloadForSubmit() ?? null
+  });
+}
+
+function buildOrgCheckpointKey(): string {
+  return JSON.stringify({
+    tenantId: selectedOrgTenantId.value || null,
+    primaryUnitId: editorPrimaryUnitId.value || null,
+    subsidiaryUnitIds: [...editorSubsidiaryUnitIds.value].sort(),
+    positionId: editorPositionId.value || null
+  });
+}
+
+function buildRolesCheckpointKey(): string {
+  return JSON.stringify([...selectedRoleIds.value].sort());
 }
 
 function emptyProfile(): HostUserProfileWrite {
@@ -767,6 +858,7 @@ function handleOrgSelect(node: OrgTreeNode): void {
 }
 
 function openCreate(): void {
+  resetEditorSubmitCheckpoint();
   editorMode.value = 'create';
   editorTab.value = 'basic';
   editingUser.value = null;
@@ -784,6 +876,7 @@ async function openEdit(user: HostUser, tab: EditorTab = 'basic'): Promise<void>
     return;
   }
 
+  resetEditorSubmitCheckpoint();
   editorMode.value = 'edit';
   editorTab.value = tab;
   editingUser.value = user;
@@ -952,6 +1045,93 @@ async function syncOrgAssignments(userId: string): Promise<void> {
   await reloadOrganizationReference();
 }
 
+async function ensureIdentitySaved(): Promise<HostUser> {
+  const identityKey = buildIdentityCheckpointKey();
+  const checkpoint = editorSubmitCheckpoint.value;
+  if (checkpoint && checkpoint.identityKey === identityKey) {
+    return checkpoint.user;
+  }
+
+  const profile = profilePayloadForSubmit();
+  let savedUser: HostUser;
+  if (checkpoint?.user) {
+    savedUser = await updateHostUser(
+      checkpoint.user.id,
+      editorDisplayName.value.trim(),
+      checkpoint.user.version,
+      profile
+    );
+  } else if (editorMode.value === 'create') {
+    savedUser = await createHostUser(
+      editorUsername.value.trim(),
+      editorDisplayName.value.trim(),
+      editorPassword.value,
+      profile
+    );
+  } else {
+    const user = editingUser.value;
+    if (!user) {
+      throw new Error('client.host_user_missing');
+    }
+
+    savedUser = await updateHostUser(
+      user.id,
+      editorDisplayName.value.trim(),
+      user.version,
+      profile
+    );
+  }
+
+  editorSubmitCheckpoint.value = {
+    user: savedUser,
+    identityKey,
+    orgKey: null,
+    rolesKey: null
+  };
+
+  if (editorMode.value === 'edit') {
+    editingUser.value = savedUser;
+  }
+
+  return savedUser;
+}
+
+async function ensureOrgAssignmentsSaved(userId: string): Promise<void> {
+  const checkpoint = editorSubmitCheckpoint.value;
+  if (!checkpoint) {
+    return;
+  }
+
+  const orgKey = buildOrgCheckpointKey();
+  if (checkpoint.orgKey === orgKey) {
+    return;
+  }
+
+  await syncOrgAssignments(userId);
+  editorSubmitCheckpoint.value = {
+    ...checkpoint,
+    orgKey
+  };
+}
+
+async function ensureRolesSaved(userId: string): Promise<void> {
+  const checkpoint = editorSubmitCheckpoint.value;
+  if (!checkpoint) {
+    return;
+  }
+
+  const rolesKey = buildRolesCheckpointKey();
+  if (checkpoint.rolesKey === rolesKey) {
+    return;
+  }
+
+  await syncRoles(userId);
+  editorSubmitCheckpoint.value = {
+    ...checkpoint,
+    rolesKey
+  };
+}
+
 async function syncRoles(userId: string): Promise<void> {
   if (!canAssignRoles.value) {
     return;
@@ -981,19 +1161,18 @@ async function createUser(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    const created = await createHostUser(
-      editorUsername.value.trim(),
-      editorDisplayName.value.trim(),
-      editorPassword.value,
-      hasEditableProfileFields.value ? editorProfile.value : undefined
-    );
-    await syncOrgAssignments(created.id);
-    await syncRoles(created.id);
+    const created = await ensureIdentitySaved();
+    await ensureOrgAssignmentsSaved(created.id);
+    await ensureRolesSaved(created.id);
     editorOpen.value = false;
     ElMessage.success(t('users.createSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'users.operationFailed');
+    const pendingTab = resolvePendingEditorTab();
+    if (pendingTab) {
+      editorTab.value = pendingTab;
+    }
+    problem.value = toSubmitProblem(error);
   } finally {
     changing.value = false;
   }
@@ -1008,21 +1187,20 @@ async function updateUser(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await updateHostUser(
-      user.id,
-      editorDisplayName.value.trim(),
-      user.version,
-      hasEditableProfileFields.value ? editorProfile.value : undefined
-    );
-    await syncOrgAssignments(user.id);
+    const updatedUser = await ensureIdentitySaved();
+    await ensureOrgAssignmentsSaved(updatedUser.id);
     if (canAssignRoles.value) {
-      await syncRoles(user.id);
+      await ensureRolesSaved(updatedUser.id);
     }
     editorOpen.value = false;
     ElMessage.success(t('users.updateSuccess'));
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'users.operationFailed');
+    const pendingTab = resolvePendingEditorTab();
+    if (pendingTab) {
+      editorTab.value = pendingTab;
+    }
+    problem.value = toSubmitProblem(error);
   } finally {
     changing.value = false;
   }
@@ -1215,6 +1393,50 @@ function toProblem(
     ? error
     : { status: 500, code: 'client.host_user_failed', title: t(fallbackKey) };
 }
+
+function resolvePendingEditorTab(): EditorTab | null {
+  const checkpoint = editorSubmitCheckpoint.value;
+  if (!checkpoint) {
+    return null;
+  }
+
+  if (checkpoint.orgKey === null) {
+    return 'org';
+  }
+
+  if (checkpoint.rolesKey === null) {
+    return 'roles';
+  }
+
+  return null;
+}
+
+function toSubmitProblem(error: unknown): FullNetProblemDetails {
+  if (isFullNetProblemDetails(error)) {
+    return error;
+  }
+
+  const checkpoint = editorSubmitCheckpoint.value;
+  if (checkpoint) {
+    if (checkpoint.orgKey === null) {
+      return {
+        status: 500,
+        code: 'client.host_user_org_sync_pending',
+        title: t('users.orgSyncPending')
+      };
+    }
+
+    if (checkpoint.rolesKey === null) {
+      return {
+        status: 500,
+        code: 'client.host_user_roles_sync_pending',
+        title: t('users.rolesSyncPending')
+      };
+    }
+  }
+
+  return toProblem(error, 'users.operationFailed');
+}
 </script>
 
 <template>
@@ -1224,6 +1446,23 @@ function toProblem(
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
+      <div
+        v-if="submitProgressSteps.length > 0"
+        class="users-submit-progress"
+        data-testid="users-submit-progress"
+      >
+        <div class="users-submit-progress__title">{{ t('users.submitProgress') }}</div>
+        <ul class="users-submit-progress__list">
+          <li
+            v-for="step in submitProgressSteps"
+            :key="step.label"
+            class="users-submit-progress__item"
+          >
+            <span>{{ step.label }}</span>
+            <strong>{{ t(step.status === 'completed' ? 'users.stepCompleted' : 'users.stepPending') }}</strong>
+          </li>
+        </ul>
+      </div>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
@@ -1544,6 +1783,7 @@ function toProblem(
       :primary-unit-id="editorPrimaryUnitId"
       :subsidiary-unit-ids="editorSubsidiaryUnitIds"
       :position-id="editorPositionId"
+      :identity-committed="editorMode === 'create' && editorSubmitCheckpoint !== null"
       :saving="changing"
       :can-assign-roles="canAssignRoles"
       :can-create="canCreate"
@@ -1628,5 +1868,28 @@ function toProblem(
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.users-submit-progress {
+  margin-top: 8px;
+}
+
+.users-submit-progress__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.users-submit-progress__list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.users-submit-progress__item {
+  display: list-item;
+  margin: 2px 0;
+}
+
+.users-submit-progress__item strong {
+  margin-left: 8px;
 }
 </style>

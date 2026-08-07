@@ -12,7 +12,11 @@ import {
   updateHostUser
 } from '../api/users';
 import { listHostRoles } from '../api/roles';
-import { getHostUserOrganizationReference } from '../api/host-user-organization-reference';
+import {
+  createHostUserOrganizationUnit,
+  getHostUserOrganizationReference,
+  updateHostUserOrganizationUnit
+} from '../api/host-user-organization-reference';
 
 vi.mock('../api/host-user-organization-reference', () => ({
   getHostUserOrganizationReference: vi.fn(),
@@ -57,8 +61,12 @@ const replaceRolesMock = vi.mocked(replaceHostUserRoles);
 const listRolesMock = vi.mocked(listHostRoles);
 const getUserRolesMock = vi.mocked(getHostUserRoles);
 const getOrgReferenceMock = vi.mocked(getHostUserOrganizationReference);
+const createUserUnitMock = vi.mocked(createHostUserOrganizationUnit);
+const updateUserUnitMock = vi.mocked(updateHostUserOrganizationUnit);
 const userId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 const roleId = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
+const orgUnitId = '019bc2b1-2a40-7cc3-8992-a80de51bf29a';
+const orgUnitAssignmentId = '019bc2b1-2a40-7cc3-8992-a80de51bf29b';
 
 const activeUser = {
   id: userId,
@@ -93,6 +101,31 @@ const inactiveUser = {
 };
 
 const orgTenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
+const orgUnit = {
+  id: orgUnitId,
+  parentId: null,
+  code: 'HQ',
+  name: '总部',
+  displayOrder: 1,
+  isActive: true,
+  createdAtUtc: '2026-07-21T00:00:00Z',
+  updatedAtUtc: null,
+  version: 1
+};
+const orgUnitAssignment = {
+  id: orgUnitAssignmentId,
+  userId,
+  username: activeUser.username,
+  displayName: activeUser.displayName,
+  unitId: orgUnitId,
+  unitCode: orgUnit.code,
+  unitName: orgUnit.name,
+  isPrimary: false,
+  isActive: true,
+  createdAtUtc: '2026-07-21T00:00:00Z',
+  updatedAtUtc: null,
+  version: 1
+};
 
 function mountUsers(permissions: string[]) {
   const pinia = createPinia();
@@ -124,6 +157,15 @@ describe('Vue 用户管理页', () => {
   beforeEach(() => {
     createUserMock.mockReset();
     updateUserMock.mockReset().mockResolvedValue({ ...activeUser, version: 2 });
+    createUserUnitMock.mockReset().mockResolvedValue({
+      ...orgUnitAssignment,
+      isPrimary: true
+    });
+    updateUserUnitMock.mockReset().mockResolvedValue({
+      ...orgUnitAssignment,
+      isPrimary: true,
+      version: 2
+    });
     replaceRolesMock.mockReset().mockResolvedValue({
       userId,
       roleIds: [roleId],
@@ -357,6 +399,167 @@ describe('Vue 用户管理页', () => {
     await nextTick();
 
     expect(createUserMock).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it('创建后组织同步失败时重试不会重复创建用户', async () => {
+    createUserMock.mockResolvedValueOnce({
+      ...activeUser,
+      id: '019bc2b1-2a40-7cc3-8992-a80de51bf29c',
+      username: 'new-user',
+      displayName: '新用户'
+    });
+    createUserUnitMock
+      .mockRejectedValueOnce(new Error('client.organization_user_unit_failed'))
+      .mockResolvedValueOnce({
+        ...orgUnitAssignment,
+        id: '019bc2b1-2a40-7cc3-8992-a80de51bf29d',
+        userId: '019bc2b1-2a40-7cc3-8992-a80de51bf29c',
+        username: 'new-user',
+        displayName: '新用户',
+        isPrimary: true
+      });
+    getOrgReferenceMock.mockResolvedValue({
+      units: [orgUnit],
+      positions: [],
+      userUnits: [],
+      userPositions: []
+    });
+
+    const wrapper = mountUsers([
+      'identity.users.read',
+      'identity.users.create',
+      'organization.user_units.create'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-create"]').trigger('click');
+    await flushPromises();
+
+    const dialog = wrapper.getComponent({ name: 'UserEditorDialog' });
+    dialog.vm.$emit('update:username', 'new-user');
+    dialog.vm.$emit('update:display-name', '新用户');
+    dialog.vm.$emit('update:password', 'Password123!');
+    dialog.vm.$emit('update:primary-unit-id', orgUnitId);
+    await flushPromises();
+
+    dialog.vm.$emit('submit');
+    await flushPromises();
+
+    expect(createUserMock).toHaveBeenCalledTimes(1);
+    expect(createUserUnitMock).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain('用户基础信息已保存，但组织关系尚未完成');
+    const progress = wrapper.get('[data-testid="users-submit-progress"]');
+    expect(progress.text()).toContain('当前保存进度');
+    expect(progress.text()).toContain('基础信息已完成');
+    expect(progress.text()).toContain('机构职位待完成');
+    expect(dialog.props('activeTab')).toBe('org');
+
+    dialog.vm.$emit('submit');
+    await flushPromises();
+
+    expect(createUserMock).toHaveBeenCalledTimes(1);
+    expect(createUserUnitMock).toHaveBeenCalledTimes(2);
+    wrapper.unmount();
+  });
+
+  it('角色同步失败时会提示剩余步骤并从角色步骤继续重试', async () => {
+    createUserMock.mockResolvedValueOnce({
+      ...activeUser,
+      id: '019bc2b1-2a40-7cc3-8992-a80de51bf29e',
+      username: 'role-user',
+      displayName: '角色用户'
+    });
+    getUserRolesMock.mockResolvedValue({
+      userId: '019bc2b1-2a40-7cc3-8992-a80de51bf29e',
+      roleIds: [],
+      version: 1
+    });
+    replaceRolesMock
+      .mockRejectedValueOnce(new Error('client.host_user_roles_failed'))
+      .mockResolvedValueOnce({
+        userId: '019bc2b1-2a40-7cc3-8992-a80de51bf29e',
+        roleIds: [roleId],
+        version: 2
+      });
+
+    const wrapper = mountUsers([
+      'identity.users.read',
+      'identity.users.create',
+      'identity.users.assign_roles'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-create"]').trigger('click');
+    await flushPromises();
+
+    const dialog = wrapper.getComponent({ name: 'UserEditorDialog' });
+    dialog.vm.$emit('update:username', 'role-user');
+    dialog.vm.$emit('update:display-name', '角色用户');
+    dialog.vm.$emit('update:password', 'Password123!');
+    dialog.vm.$emit('update:selected-role-ids', [roleId]);
+    await flushPromises();
+
+    dialog.vm.$emit('submit');
+    await flushPromises();
+
+    expect(createUserMock).toHaveBeenCalledTimes(1);
+    expect(replaceRolesMock).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain('用户和组织信息已保存，但角色尚未完成');
+    const progress = wrapper.get('[data-testid="users-submit-progress"]');
+    expect(progress.text()).toContain('当前保存进度');
+    expect(progress.text()).toContain('基础信息已完成');
+    expect(progress.text()).toContain('角色授权待完成');
+    expect(dialog.props('activeTab')).toBe('roles');
+
+    dialog.vm.$emit('submit');
+    await flushPromises();
+
+    expect(createUserMock).toHaveBeenCalledTimes(1);
+    expect(replaceRolesMock).toHaveBeenCalledTimes(2);
+    wrapper.unmount();
+  });
+
+  it('更新后组织同步失败时重试不会重复提交用户更新', async () => {
+    updateUserUnitMock
+      .mockRejectedValueOnce(new Error('client.organization_user_unit_failed'))
+      .mockResolvedValueOnce({
+        ...orgUnitAssignment,
+        isPrimary: true,
+        version: 2
+      });
+    getOrgReferenceMock.mockResolvedValue({
+      units: [orgUnit],
+      positions: [],
+      userUnits: [orgUnitAssignment],
+      userPositions: []
+    });
+
+    const wrapper = mountUsers([
+      'identity.users.read',
+      'identity.users.update',
+      'organization.user_units.update'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-edit"]').trigger('click');
+    await flushPromises();
+
+    const dialog = wrapper.getComponent({ name: 'UserEditorDialog' });
+    dialog.vm.$emit('update:primary-unit-id', orgUnitId);
+    await flushPromises();
+
+    dialog.vm.$emit('submit');
+    await flushPromises();
+
+    expect(updateUserMock).toHaveBeenCalledTimes(1);
+    expect(updateUserUnitMock).toHaveBeenCalledTimes(1);
+
+    dialog.vm.$emit('submit');
+    await flushPromises();
+
+    expect(updateUserMock).toHaveBeenCalledTimes(1);
+    expect(updateUserUnitMock).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
 

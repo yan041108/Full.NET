@@ -61,6 +61,17 @@
   - `pnpm test:integration:affected -- --snapshot cursor-adminnet-wip-stabilization-20260806 --phase slice`：`smoke 8/8 PASS`，`Identity, Organization 88/88 PASS`
   - 首次 `inner` 失败暴露的是 Host 菜单 OpenAPI 断言未适配最小 API 对数组响应的 schema 生成方式；修正 `OpenApiHostMenusContractAssertions` 后已通过复验。
 
+### 3.2 Task 0C 重试协议补强（2026-08-07）
+
+- Vue `UsersView` 对“创建/更新用户 -> 同步组织隶属 -> 同步角色”改为最小步骤检查点协议：身份主数据一旦成功写入，本次弹窗内后续重试会直接跳过已完成步骤，只继续未完成的组织或角色同步，不再重复创建账号，也不再用旧 `version` 重新提交同一轮用户更新。
+- 创建场景在身份步骤成功后会锁定用户名并隐藏密码输入，避免操作者在部分成功后误以为仍可重新创建同名账号；关闭弹窗会清空检查点，防止旧状态泄漏到下一次编辑。
+- 当失败发生在组织或角色步骤时，页面会明确提示“用户基础信息已保存但组织未完成”或“用户和组织已保存但角色未完成”，并附带基础信息 / 机构职位 / 角色授权的最小步骤清单；编辑弹窗还会自动切到待完成页签，不再只显示笼统的“保存失败”。
+- 本次没有扩大后端接口范围，也没有新增聚合编排 Endpoint；仍沿用既有精确权限与多端点模型，只在前端补足逐步骤恢复语义。
+- 新鲜验证：
+  - `pnpm --filter @fullnet/admin test -- "src/views/UsersView.test.ts" "src/views/components/UserEditorDialog.test.ts"`：21/21 PASS
+  - `pnpm --filter @fullnet/admin typecheck`：PASS
+  - `pnpm test:integration:affected:plan -- --snapshot task0 --phase inner`：`none`，本次变更未命中 Integration 影响集
+
 ## 4. 尚未关闭的审查结论
 
 1. 用户档案目前只有“超级管理员可见”的临时失败关闭边界，尚未进入既有 `FieldProjectionCatalog`，也没有字段掩码或 Patch 语义；不得把它标记为 Admin.NET 字段授权等价完成。
@@ -69,6 +80,6 @@
 4. Document 上传当前先把 Files 对象推进 Ready，再写 Document 版本；Document 事务确定回滚或提交结果未知时缺少 claim/release 对账协议，可能永久遗留无引用 Ready Blob。
 5. Jobs Cron 预览只要求 `jobs.schedules.create`，因此只有 update 权限的编辑者无法预览；应建立独立 preview 权限，或提供服务端可证明的 create/update OR 策略，禁止扩大为 read。
 6. 用户/机构新接口、迁移 `082`、自定义菜单目录同步缺少本机 SQL Server/MySQL 恢复、权限拒绝和真实 Vue 栈证据。
-7. 用户页将创建用户、组织关系、职位和角色拆成多个请求，任一后续步骤失败都会出现部分完成；UI 必须显示逐步骤结果并提供安全重试，或设计受控编排用例，不能显示笼统“保存失败”掩盖已提交状态。
+7. 用户页仍是多请求保存模型；本轮已补齐“同一弹窗内的安全重试”和提示区内的最小步骤清单，但尚未把剩余步骤提升为独立状态栏或可单独点击重试的显式动作。
 
 规则演进检查：本轮命中既有逐操作授权、跨模块边界、字段授权和失败关闭规则，无新增规则缺口，不修改规则候选。

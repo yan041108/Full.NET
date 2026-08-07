@@ -44,6 +44,7 @@ const props = defineProps<{
   primaryUnitId: string;
   subsidiaryUnitIds: string[];
   positionId: string;
+  identityCommitted: boolean;
   saving: boolean;
   canAssignRoles: boolean;
   canCreate: boolean;
@@ -388,7 +389,7 @@ defineExpose({
             >
               <el-input
                 v-model="basicForm.username"
-                :disabled="mode === 'edit'"
+                :disabled="mode === 'edit' || identityCommitted"
                 :placeholder="translate('users.usernamePlaceholder')"
                 @update:model-value="onUsernameInput"
               />
@@ -459,7 +460,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
-              v-if="mode === 'create'"
+              v-if="mode === 'create' && !identityCommitted"
               :label="translate('users.password')"
               prop="password"
               required
