@@ -176,4 +176,16 @@ internal static class DocumentItemSql
         ) THEN 1 ELSE 0 END
         """,
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement VersionExistsByIdAndFile = new(
+        "document.host_version.exists_by_id_and_file",
+        """
+        SELECT CASE WHEN EXISTS (
+            SELECT 1
+            FROM fn_document_version
+            WHERE Id = @VersionId
+              AND FileId = @FileId
+        ) THEN 1 ELSE 0 END
+        """,
+        SqlDataScope.HostOnly);
 }

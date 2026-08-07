@@ -16,6 +16,7 @@ internal sealed class HostFileManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostFileQueryService fileQueries,
+    IHostFileReferenceClaimService hostFileReferenceClaimService,
     FileStorageProviderRegistry storageProviders,
     IClock clock,
     IIdGenerator idGenerator,
@@ -225,6 +226,16 @@ internal sealed class HostFileManagementService(
         Guid fileId,
         CancellationToken cancellationToken = default)
     {
+        if (await hostFileReferenceClaimService
+                .HasOpenClaimsAsync(fileId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return Result<HostFileResponse>.Failure(new Error(
+                FilesErrorCodes.FileReferenced,
+                "The file is referenced by a pending or active claim.",
+                ErrorType.Conflict));
+        }
+
         var outcome = await transaction.ExecuteAsync(
                 token => DeleteCoreAsync(fileId, token),
                 cancellationToken)
@@ -258,6 +269,7 @@ internal sealed class HostFileManagementService(
         }
 
         var detail = detailResult.Value!;
+
         // Provider 必须在数据库写入前按持久化机器码解析；未知值不得回退到当前默认 Provider。
         var storageProvider = storageProviders.Resolve(detail.ProviderKey);
         var now = clock.UtcNow;

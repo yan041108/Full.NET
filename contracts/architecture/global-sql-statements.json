@@ -331,6 +331,42 @@
       ]
     },
     {
+      "statementName": "identity.organization_unit_projection.find_active_by_tenant_and_unit",
+      "declaration": "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUnitProjectionSql.FindActiveByTenantAndUnit",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/OrganizationUnitProjection/OrganizationUnitProjectionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Identity 消费方投影按显式租户与组织单元键读取 active 快照，供数据范围校验使用。",
+      "requiredSqlFragments": [
+        "TenantId = @TenantId",
+        "UnitId = @UnitId",
+        "IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "identity.organization_unit_projection.insert_if_missing",
+      "declaration": "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUnitProjectionSql.InsertIfMissing",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/OrganizationUnitProjection/OrganizationUnitProjectionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Identity 投影回填与事件消费在本地事务内按租户/单元键幂等插入缺失行。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_identity_organization_unit_projection",
+        "TenantId = @TenantId",
+        "UnitId = @UnitId"
+      ]
+    },
+    {
+      "statementName": "identity.organization_unit_projection.update_if_newer",
+      "declaration": "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUnitProjectionSql.UpdateIfNewer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/OrganizationUnitProjection/OrganizationUnitProjectionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Identity 投影只接受更高 SourceVersion 的乱序/重放事件更新。",
+      "requiredSqlFragments": [
+        "TenantId = @TenantId",
+        "UnitId = @UnitId",
+        "SourceVersion < @SourceVersion"
+      ]
+    },
+    {
       "statementName": "organization.find_active_unit_by_tenant_and_id",
       "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationSql.FindActiveUnitByTenantAndId",
       "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs",
@@ -340,6 +376,39 @@
         "Id = @UnitId",
         "TenantId = @TenantId",
         "IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "organization.count_unit_snapshots_for_tenant",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationSql.CountUnitSnapshotsForTenant",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Organization 单位快照 Contract 回填分页前按显式租户计数。",
+      "requiredSqlFragments": [
+        "FROM fn_organization_unit",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "organization.list_unit_snapshots_for_tenant.mysql",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationSql.ListUnitSnapshotsForTenantMySql",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Organization 单位快照 Contract 在 MySQL 上按显式租户分页导出回填数据。",
+      "requiredSqlFragments": [
+        "FROM fn_organization_unit",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "organization.list_unit_snapshots_for_tenant.sql_server",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationSql.ListUnitSnapshotsForTenantSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Organization 单位快照 Contract 在 SQL Server 上按显式租户分页导出回填数据。",
+      "requiredSqlFragments": [
+        "FROM fn_organization_unit",
+        "TenantId = @TenantId"
       ]
     },
     {

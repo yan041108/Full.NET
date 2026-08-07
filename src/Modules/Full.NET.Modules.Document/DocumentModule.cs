@@ -39,6 +39,9 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileRetentionContributor,
             Features.HostFileReferences.DocumentHostFileRetentionContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            Features.HostFileReferences.HostDocumentVersionReferenceProbe>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -50,5 +53,14 @@ public sealed class DocumentModule : IFullNetModule
         Features.ManageHostDocumentItems.Endpoint.Map(endpoints);
         Features.ManageHostDocumentCategories.Endpoint.Map(endpoints);
         Features.ManageHostDocumentTags.Endpoint.Map(endpoints);
+    }
+
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            Features.HostFileReferences.HostDocumentVersionReferenceProbe>());
     }
 }

@@ -59,6 +59,12 @@ internal static class DocumentHostItemAssertions
 
         await VerifyDownloadUploadBoundaryAsync(factory, client, cancellationToken);
         await VerifyListAndGetAsync(client, writer.AccessToken, withVersion, cancellationToken);
+        await DocumentFilesReferenceClaimAssertions.VerifyAsync(
+            factory,
+            client,
+            writer.AccessToken,
+            withVersion,
+            cancellationToken);
         await VerifyInvalidFileReferenceAsync(client, writer.AccessToken, created.Id, cancellationToken);
         await VerifyDeleteAndRestoreAsync(client, writer.AccessToken, withVersion, cancellationToken);
     }
@@ -66,20 +72,22 @@ internal static class DocumentHostItemAssertions
     private static async Task<HostDocumentItemResponse> CreateItemAsync(
         HttpClient client,
         string token,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string title = " Host spec ",
+        string description = " integration ")
     {
         using var response = await client.SendAsync(
             AuthorizedJson(
                 HttpMethod.Post,
                 ItemsPath,
                 token,
-                new CreateHostDocumentItemRequest(" Host spec ", " integration ")),
+                new CreateHostDocumentItemRequest(title, description)),
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
         var created = await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
         Assert.IsNotNull(created);
-        Assert.AreEqual("Host spec", created.Title);
-        Assert.AreEqual("integration", created.Description);
+        Assert.AreEqual(title.Trim(), created.Title);
+        Assert.AreEqual(description.Trim(), created.Description);
         Assert.AreEqual(1, created.Version);
         Assert.IsNull(created.CurrentVersion);
         return created;
@@ -125,11 +133,17 @@ internal static class DocumentHostItemAssertions
             $"document-only-{Guid.NewGuid():N}",
             [
                 HostDocumentPermissions.Read,
+                HostDocumentPermissions.Create,
                 HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Download,
             ],
             cancellationToken);
-        var created = await CreateItemAsync(client, documentOnly.AccessToken, cancellationToken);
+        var created = await CreateItemAsync(
+            client,
+            documentOnly.AccessToken,
+            cancellationToken,
+            $"boundary-{Guid.NewGuid():N}",
+            "boundary slice");
         var withVersion = await UploadVersionAsync(
             client,
             documentOnly.AccessToken,

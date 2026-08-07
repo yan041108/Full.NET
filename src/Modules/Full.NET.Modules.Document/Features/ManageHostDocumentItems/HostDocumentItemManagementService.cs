@@ -13,7 +13,7 @@ internal sealed class HostDocumentItemManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    IHostFileReferenceReader hostFileReferenceReader,
+    IHostFileReferenceClaimService hostFileReferenceClaimService,
     IHostFileUploadWriter hostFileUploadWriter,
     IClock clock,
     IIdGenerator idGenerator)
@@ -49,7 +49,7 @@ internal sealed class HostDocumentItemManagementService(
             cancellationToken);
     }
 
-    public Task<Result<HostDocumentItemResponse>> AddVersionAsync(
+    public async Task<Result<HostDocumentItemResponse>> AddVersionAsync(
         Guid itemId,
         Guid actorUserId,
         AddHostDocumentVersionRequest request,
@@ -57,12 +57,17 @@ internal sealed class HostDocumentItemManagementService(
     {
         if (request.FileId == Guid.Empty)
         {
-            return Task.FromResult(Invalid());
+            return Invalid();
         }
 
-        return transaction.ExecuteResultAsync(
-            token => AddVersionCoreAsync(itemId, actorUserId, request.FileId, token),
-            cancellationToken);
+        var versionId = idGenerator.NewId();
+        return await AddVersionWithClaimAsync(
+                itemId,
+                actorUserId,
+                versionId,
+                request.FileId,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<Result<HostDocumentItemResponse>> AddVersionFromUploadAsync(
@@ -93,12 +98,12 @@ internal sealed class HostDocumentItemManagementService(
             return Result<HostDocumentItemResponse>.Failure(uploadResult.Error!);
         }
 
-        return await transaction.ExecuteResultAsync(
-                token => AddVersionCoreAsync(
-                    itemId,
-                    actorUserId,
-                    uploadResult.Value!.FileId,
-                    token),
+        var versionId = idGenerator.NewId();
+        return await AddVersionWithClaimAsync(
+                itemId,
+                actorUserId,
+                versionId,
+                uploadResult.Value!.FileId,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -203,10 +208,67 @@ internal sealed class HostDocumentItemManagementService(
         return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task<Result<HostDocumentItemResponse>> AddVersionWithClaimAsync(
+        Guid itemId,
+        Guid actorUserId,
+        Guid versionId,
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.DocumentVersion(versionId);
+        var claimResult = await hostFileReferenceClaimService
+            .ClaimAsync(
+                new HostFileReferenceClaimRequest(
+                    idempotencyKey,
+                    HostFileReferenceClaimConsumerModules.Document,
+                    versionId,
+                    fileId),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!claimResult.IsSuccess)
+        {
+            return MapClaimFailure(claimResult.Error!);
+        }
+
+        Result<HostDocumentItemResponse> writeResult;
+        try
+        {
+            writeResult = await transaction.ExecuteResultAsync(
+                    token => AddVersionCoreAsync(
+                        itemId,
+                        actorUserId,
+                        versionId,
+                        claimResult.Value!.FileReference,
+                        token),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // 提交结果未知时保留 Pending claim，交给 Files 对账，不得同步释放。
+            throw;
+        }
+
+        if (!writeResult.IsSuccess)
+        {
+            await hostFileReferenceClaimService
+                .ReleaseAsync(idempotencyKey, cancellationToken)
+                .ConfigureAwait(false);
+            return writeResult;
+        }
+
+        _ = await hostFileReferenceClaimService
+            .ConfirmAsync(idempotencyKey, cancellationToken)
+            .ConfigureAwait(false);
+
+        return writeResult;
+    }
+
     private async Task<Result<HostDocumentItemResponse>> AddVersionCoreAsync(
         Guid itemId,
         Guid actorUserId,
-        Guid fileId,
+        Guid versionId,
+        HostFileReference fileReference,
         CancellationToken cancellationToken)
     {
         var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
@@ -215,20 +277,11 @@ internal sealed class HostDocumentItemManagementService(
             return NotFound();
         }
 
-        var fileReference = await hostFileReferenceReader
-            .GetReadyReferenceAsync(fileId, cancellationToken)
-            .ConfigureAwait(false);
-        if (fileReference is null)
-        {
-            return InvalidFileReference();
-        }
-
         var versionNumber = await queryExecutor.QuerySingleOrDefaultAsync<int>(
                 DocumentItemSql.NextVersionNumber,
                 new { DocumentItemId = itemId },
                 cancellationToken)
             .ConfigureAwait(false);
-        var versionId = idGenerator.NewId();
         var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 DocumentItemSql.InsertVersion,
@@ -369,6 +422,11 @@ internal sealed class HostDocumentItemManagementService(
             record.UpdatedAtUtc,
             record.UpdatedByUserId,
             record.Version);
+
+    private static Result<HostDocumentItemResponse> MapClaimFailure(Error error) =>
+        string.Equals(error.Code, FilesErrorCodes.FileNotFound, StringComparison.Ordinal)
+            ? InvalidFileReference()
+            : Result<HostDocumentItemResponse>.Failure(error);
 
     private static Result<HostDocumentItemResponse> Invalid() =>
         Result<HostDocumentItemResponse>.Failure(InvalidError());

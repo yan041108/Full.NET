@@ -101,6 +101,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateClaimService(),
             CreateRegistry(storage),
             clock,
             idGenerator,
@@ -185,6 +186,7 @@ public sealed class HostFileManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
+                CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
                 clock,
                 idGenerator,
@@ -270,6 +272,7 @@ public sealed class HostFileManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
+                CreateClaimService(),
                 CreateRegistry(blobStorage),
                 clock,
                 Substitute.For<IIdGenerator>(),
@@ -328,6 +331,7 @@ public sealed class HostFileManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
+                CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
                 clock,
                 idGenerator,
@@ -397,6 +401,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateClaimService(),
             CreateRegistry(new AcceptingBlobStorage()),
             clock,
             idGenerator,
@@ -462,6 +467,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateClaimService(),
             CreateRegistry(new AcceptingBlobStorage()),
             clock,
             idGenerator,
@@ -513,6 +519,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateClaimService(),
             CreateRegistry(new FailingSaveBlobStorage()),
             clock,
             idGenerator,
@@ -560,6 +567,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateClaimService(),
             CreateRegistry(new CancelingSaveBlobStorage(requestCancellation)),
             clock,
             idGenerator,
@@ -614,6 +622,7 @@ public sealed class HostFileManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
+                CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
                 clock,
                 idGenerator,
@@ -685,6 +694,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateClaimService(),
             CreateRegistry(local, archive),
             clock,
             Substitute.For<IIdGenerator>(),
@@ -711,6 +721,14 @@ public sealed class HostFileManagementServiceTests
             {
                 DefaultProviderKey = providers[0].ProviderKey,
             }));
+
+    private static IHostFileReferenceClaimService CreateClaimService(bool hasOpenClaims = false)
+    {
+        var claimService = Substitute.For<IHostFileReferenceClaimService>();
+        claimService.HasOpenClaimsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(hasOpenClaims);
+        return claimService;
+    }
 
     private static HostFileManagementService CreateUploadService(
         IFileStorageProvider storage,
@@ -751,6 +769,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateClaimService(),
             CreateRegistry(storage),
             clock,
             idGenerator,

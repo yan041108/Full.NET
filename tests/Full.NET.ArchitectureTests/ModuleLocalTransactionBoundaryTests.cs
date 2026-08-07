@@ -19,23 +19,37 @@ public sealed class ModuleLocalTransactionBoundaryTests
     {
         var root = ArchitectureRepositoryRoot.Find();
         var discovered = ModuleBoundaryDebtScanner.ScanCrossModuleTransactionUsages(root);
-        Assert.IsGreaterThan(0, discovered.Length);
+        var sample = discovered.Length > 0
+            ? discovered[0]
+            : new ModuleBoundaryDebtScanner.CrossModuleTransactionUsage(
+                "document",
+                "files",
+                "src/Modules/Full.NET.Modules.Document/Features/ManageHostDocumentItems/HostDocumentItemManagementService.cs",
+                "HostDocumentItemManagementService.AddVersionCoreAsync",
+                "IHostFileReferenceReader");
 
-        var valid = discovered.Select(usage => new ModuleBoundaryDebtScanner.CrossModuleTransactionDebt(
-            usage.ConsumerModule,
-            usage.OwnerModule,
-            usage.File,
-            usage.EntryPoint,
-            usage.ContractType,
-            "Temporary cross-module transaction debt for gate testing.",
-            "medium",
-            "module-data-consistency-boundary-20260807 Task 2")).ToArray();
+        var valid = new[]
+        {
+            new ModuleBoundaryDebtScanner.CrossModuleTransactionDebt(
+                sample.ConsumerModule,
+                sample.OwnerModule,
+                sample.File,
+                sample.EntryPoint,
+                sample.ContractType,
+                "Temporary cross-module transaction debt for gate testing.",
+                "medium",
+                "module-data-consistency-boundary-20260807 Task 2"),
+        };
 
-        Assert.HasCount(0, ModuleBoundaryDebtScanner.ValidateTransactionCatalog(discovered, valid));
+        if (discovered.Length > 0)
+        {
+            Assert.HasCount(0, ModuleBoundaryDebtScanner.ValidateTransactionCatalog(discovered, valid));
+        }
+
         Assert.IsGreaterThan(
             0,
             ModuleBoundaryDebtScanner.ValidateTransactionCatalog(
-                discovered,
+                discovered.Length > 0 ? discovered : [sample],
                 [valid[0] with { EntryPoint = "StaleEntryPoint" }]).Length);
     }
 }

@@ -1,15 +1,4 @@
 {
   "schemaVersion": 1,
-  "entries": [
-    {
-      "consumerModule": "document",
-      "ownerModule": "files",
-      "file": "src/Modules/Full.NET.Modules.Document/Features/ManageHostDocumentItems/HostDocumentItemManagementService.cs",
-      "entryPoint": "HostDocumentItemManagementService.AddVersionCoreAsync",
-      "contractType": "IHostFileReferenceReader",
-      "reason": "添加文档版本时在事务内读取 Files 引用；后续应与 claim/release 对账协议一起移出本地事务。",
-      "risk": "high",
-      "removeByMilestone": "module-data-consistency-boundary-20260807 Task 2"
-    }
-  ]
+  "entries": []
 }

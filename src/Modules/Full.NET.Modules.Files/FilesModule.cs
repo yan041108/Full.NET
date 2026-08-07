@@ -43,6 +43,7 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddScoped<IHostFileReferenceReader, Features.HostFileReferences.HostFileReferenceReader>();
         services.TryAddScoped<IHostFileContentReader, Features.HostFileReferences.HostFileContentReader>();
         services.TryAddScoped<IHostFileUploadWriter, Features.HostFileReferences.HostFileUploadWriter>();
+        services.TryAddScoped<IHostFileReferenceClaimService, Features.HostFileReferenceClaims.HostFileReferenceClaimService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -66,6 +67,9 @@ public sealed class FilesModule : IFullNetModule
         services.AddOptions<PendingHostFileReconciliationOptions>()
             .Bind(configuration.GetSection(PendingHostFileReconciliationOptions.SectionName))
             .ValidateOnStart();
+        services.AddOptions<PendingHostFileReferenceClaimReconciliationOptions>()
+            .Bind(configuration.GetSection(PendingHostFileReferenceClaimReconciliationOptions.SectionName))
+            .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<DeletedHostFileBlobCleanupOptions>,
             DeletedHostFileBlobCleanupOptionsValidator>());
@@ -74,8 +78,10 @@ public sealed class FilesModule : IFullNetModule
             PendingHostFileReconciliationOptionsValidator>());
         services.TryAddScoped<DeletedHostFileBlobCleanupRunner>();
         services.TryAddScoped<PendingHostFileReconciliationRunner>();
+        services.TryAddScoped<PendingHostFileReferenceClaimReconciliationRunner>();
         services.AddHostedService<DeletedHostFileBlobCleanupHostedProcessor>();
         services.AddHostedService<PendingHostFileReconciliationHostedProcessor>();
+        services.AddHostedService<PendingHostFileReferenceClaimReconciliationHostedProcessor>();
     }
 
     private static void RegisterStorage(
