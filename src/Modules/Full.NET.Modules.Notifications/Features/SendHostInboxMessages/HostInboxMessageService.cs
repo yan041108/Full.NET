@@ -29,7 +29,7 @@ internal sealed class HostInboxMessageService(
         SendHostInboxMessageRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await transaction.ExecuteAsync(
+        var result = await transaction.ExecuteResultAsync(
                 token => SendCoreAsync(actorUserId, request, token),
                 cancellationToken)
             .ConfigureAwait(false);

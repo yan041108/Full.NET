@@ -12,9 +12,7 @@ BEGIN
         UnitId uniqueidentifier NOT NULL,
         CONSTRAINT PK_fn_identity_role_data_scope_unit PRIMARY KEY NONCLUSTERED (RoleId, UnitId),
         CONSTRAINT FK_fn_identity_role_data_scope_unit_Role
-            FOREIGN KEY (RoleId) REFERENCES dbo.fn_identity_role(Id),
-        CONSTRAINT FK_fn_identity_role_data_scope_unit_Unit
-            FOREIGN KEY (UnitId) REFERENCES dbo.fn_organization_unit(Id)
+            FOREIGN KEY (RoleId) REFERENCES dbo.fn_identity_role(Id)
     );
     CREATE CLUSTERED INDEX CX_fn_identity_role_data_scope_unit_Role
         ON dbo.fn_identity_role_data_scope_unit(RoleId);

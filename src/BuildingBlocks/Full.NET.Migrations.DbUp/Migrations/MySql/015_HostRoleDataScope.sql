@@ -18,9 +18,7 @@ CREATE TABLE IF NOT EXISTS fn_identity_role_data_scope_unit
     UnitId BINARY(16) NOT NULL,
     CONSTRAINT PK_fn_identity_role_data_scope_unit PRIMARY KEY (RoleId, UnitId),
     CONSTRAINT FK_fn_identity_role_data_scope_unit_Role
-        FOREIGN KEY (RoleId) REFERENCES fn_identity_role(Id),
-    CONSTRAINT FK_fn_identity_role_data_scope_unit_Unit
-        FOREIGN KEY (UnitId) REFERENCES fn_organization_unit(Id)
+        FOREIGN KEY (RoleId) REFERENCES fn_identity_role(Id)
 );
 
 UPDATE fn_identity_role

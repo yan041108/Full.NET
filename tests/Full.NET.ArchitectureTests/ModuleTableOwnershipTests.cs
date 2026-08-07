@@ -14,7 +14,7 @@ public sealed partial class ModuleTableOwnershipTests
     [TestMethod]
     public void Production_module_table_access_is_owned_or_exactly_registered()
     {
-        var root = FindRepositoryRoot();
+        var root = ArchitectureRepositoryRoot.Find();
         var accesses = ScanProductionAccesses(root);
         var debtPath = Path.Combine(
             root,
@@ -182,22 +182,6 @@ public sealed partial class ModuleTableOwnershipTests
         || path.Contains(
             $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
             StringComparison.OrdinalIgnoreCase);
-
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository root.");
-    }
 
     [GeneratedRegex(@"(?:^|/)Full\.NET\.Modules\.(?<module>[^/]+)(?:/|$)")]
     private static partial Regex ModuleDirectoryRegex();

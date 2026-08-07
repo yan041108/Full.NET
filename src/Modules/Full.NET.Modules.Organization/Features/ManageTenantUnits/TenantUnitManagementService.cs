@@ -28,7 +28,7 @@ internal sealed class TenantUnitManagementService(
     public Task<Result<OrganizationUnitResponse>> CreateAsync(
         CreateOrganizationUnitRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CreateCoreAsync(request, token),
             cancellationToken);
 
@@ -36,14 +36,14 @@ internal sealed class TenantUnitManagementService(
         Guid unitId,
         UpdateOrganizationUnitRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(unitId, request, token),
             cancellationToken);
 
     public Task<Result<OrganizationUnitResponse>> DisableAsync(
         Guid unitId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => DisableCoreAsync(unitId, token),
             cancellationToken);
 

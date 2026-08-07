@@ -28,7 +28,7 @@ internal sealed class TenantPositionLevelManagementService(
     public Task<Result<OrganizationPositionLevelResponse>> CreateAsync(
         CreateOrganizationPositionLevelRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CreateCoreAsync(request, token),
             cancellationToken);
 
@@ -36,14 +36,14 @@ internal sealed class TenantPositionLevelManagementService(
         Guid positionLevelId,
         UpdateOrganizationPositionLevelRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(positionLevelId, request, token),
             cancellationToken);
 
     public Task<Result<OrganizationPositionLevelResponse>> DisableAsync(
         Guid positionLevelId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => DisableCoreAsync(positionLevelId, token),
             cancellationToken);
 

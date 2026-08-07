@@ -28,7 +28,7 @@ internal sealed class HostDocumentItemManagementService(
             return Task.FromResult(Invalid());
         }
 
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => CreateCoreAsync(actorUserId, request, token),
             cancellationToken);
     }
@@ -44,7 +44,7 @@ internal sealed class HostDocumentItemManagementService(
             return Task.FromResult(Invalid());
         }
 
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(itemId, actorUserId, request, token),
             cancellationToken);
     }
@@ -60,7 +60,7 @@ internal sealed class HostDocumentItemManagementService(
             return Task.FromResult(Invalid());
         }
 
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => AddVersionCoreAsync(itemId, actorUserId, request.FileId, token),
             cancellationToken);
     }
@@ -93,7 +93,7 @@ internal sealed class HostDocumentItemManagementService(
             return Result<HostDocumentItemResponse>.Failure(uploadResult.Error!);
         }
 
-        return await transaction.ExecuteAsync(
+        return await transaction.ExecuteResultAsync(
                 token => AddVersionCoreAsync(
                     itemId,
                     actorUserId,
@@ -114,7 +114,7 @@ internal sealed class HostDocumentItemManagementService(
             return Task.FromResult(Result<bool>.Failure(InvalidError()));
         }
 
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(itemId, actorUserId, request.Version, token),
             cancellationToken);
     }
@@ -130,7 +130,7 @@ internal sealed class HostDocumentItemManagementService(
             return Task.FromResult(Invalid());
         }
 
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => RestoreCoreAsync(itemId, actorUserId, request.Version, token),
             cancellationToken);
     }

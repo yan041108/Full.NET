@@ -26,7 +26,7 @@ internal sealed class TenantUserPositionManagementService(
     public Task<Result<OrganizationUserPositionResponse>> CreateAsync(
         CreateOrganizationUserPositionRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CreateCoreAsync(request, token),
             cancellationToken);
 
@@ -34,14 +34,14 @@ internal sealed class TenantUserPositionManagementService(
         Guid assignmentId,
         UpdateOrganizationUserPositionRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(assignmentId, request, token),
             cancellationToken);
 
     public Task<Result<OrganizationUserPositionResponse>> DisableAsync(
         Guid assignmentId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => DisableCoreAsync(assignmentId, token),
             cancellationToken);
 

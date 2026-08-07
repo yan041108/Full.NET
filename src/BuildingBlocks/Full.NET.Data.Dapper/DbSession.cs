@@ -3,7 +3,8 @@ using System.Data.Common;
 
 namespace Full.NET.Data.Dapper;
 
-internal sealed class DbSession(DbConnectionFactory connectionFactory) : IAsyncDisposable
+internal sealed class DbSession(DbConnectionFactory connectionFactory)
+    : IAsyncDisposable, IDbTransactionCoordinator
 {
     private DbConnection? _connection;
     private DbTransaction? _transaction;
