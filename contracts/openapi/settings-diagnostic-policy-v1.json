@@ -1,0 +1,83 @@
+{
+  "id": "settings-diagnostic-policy-v1",
+  "version": 1,
+  "description": "Host 限时诊断策略 HTTP 契约冻结夹具；与 DiagnosticPolicyManagementContracts 和 ManageDiagnosticPolicy.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/settings/diagnostic-policy",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.diagnostic_policy.read",
+          "successStatus": 200,
+          "responseSchema": "DiagnosticPolicyResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "settings.diagnostic_policy.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateDiagnosticPolicyRequest",
+          "responseSchema": "DiagnosticPolicyResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/diagnostic-policy/restore",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "settings.diagnostic_policy.restore",
+          "successStatus": 200,
+          "requestSchema": "RestoreDiagnosticPolicyRequest",
+          "responseSchema": "DiagnosticPolicyResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "DiagnosticPolicyResponse": {
+      "properties": [
+        "version",
+        "pressureState",
+        "isDefault",
+        "loadedAtUtc",
+        "activeRules",
+        "configEntryVersion"
+      ]
+    },
+    "DiagnosticPolicyRuleResponse": {
+      "properties": [
+        "scopeKind",
+        "scopeValue",
+        "successSampleRateOverride",
+        "bestEffortCapacityOverride",
+        "maxRequestPayloadBytesOverride",
+        "maxResponsePayloadBytesOverride",
+        "expiresAtUtc"
+      ]
+    },
+    "UpdateDiagnosticPolicyRequest": {
+      "properties": [
+        "pressureState",
+        "rules",
+        "configEntryVersion"
+      ]
+    },
+    "DiagnosticPolicyRuleRequest": {
+      "properties": [
+        "scopeKind",
+        "scopeValue",
+        "successSampleRateOverride",
+        "bestEffortCapacityOverride",
+        "maxRequestPayloadBytesOverride",
+        "maxResponsePayloadBytesOverride",
+        "expiresAtUtc"
+      ]
+    },
+    "RestoreDiagnosticPolicyRequest": {
+      "properties": [
+        "configEntryVersion"
+      ]
+    }
+  }
+}

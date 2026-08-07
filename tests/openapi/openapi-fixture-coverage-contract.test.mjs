@@ -12,6 +12,7 @@ const coverageTestFileName = path.basename(fileURLToPath(import.meta.url));
 test('每个 OpenAPI 夹具都由离线契约测试引用', async () => {
   const contractFileNames = (await readdir(contractsDirectory))
     .filter(fileName => fileName.endsWith('.json'))
+    .filter(fileName => fileName !== 'vue-client-coverage-v1.json')
     .sort();
   const contractTestFileNames = (await readdir(testsDirectory))
     .filter(fileName => fileName.endsWith('-contract.test.mjs'))

@@ -1,0 +1,99 @@
+{
+    "id":  "identity-super-administrators-v1",
+    "version":  1,
+    "description":  "Host 超级管理员 HTTP 契约冻结夹具；与 SuperAdministratorContracts 和 ManageSuperAdministrators.Endpoint 对齐。",
+    "paths":  [
+                  {
+                      "path":  "/api/v1/identity/super-administrators",
+                      "operations":  [
+                                         {
+                                             "method":  "GET",
+                                             "permission":  "identity.super_administrators.read",
+                                             "successStatus":  200,
+                                             "responseSchema":  "SuperAdministratorResponseCollection"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/identity/super-administrators/audits",
+                      "operations":  [
+                                         {
+                                             "method":  "GET",
+                                             "permission":  "identity.super_administrators.read",
+                                             "successStatus":  200,
+                                             "responseSchema":  "SuperAdministratorAuditResponseCollection"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/identity/super-administrators/grant",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "identity.super_administrators.manage",
+                                             "successStatus":  200,
+                                             "requestSchema":  "GrantSuperAdministratorRequest",
+                                             "responseSchema":  "SuperAdministratorChangeResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/identity/super-administrators/{targetUserId}/revoke",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "identity.super_administrators.manage",
+                                             "successStatus":  200,
+                                             "requestSchema":  "RevokeSuperAdministratorRequest",
+                                             "responseSchema":  "SuperAdministratorChangeResponse"
+                                         }
+                                     ]
+                  }
+              ],
+    "schemas":  {
+                    "SuperAdministratorResponse":  {
+                                                       "properties":  [
+                                                                          "userId",
+                                                                          "username",
+                                                                          "displayName",
+                                                                          "isActive"
+                                                                      ]
+                                                   },
+                    "SuperAdministratorResponseCollection":  {
+                                                                 "itemSchema":  "SuperAdministratorResponse"
+                                                             },
+                    "SuperAdministratorAuditResponse":  {
+                                                            "properties":  [
+                                                                               "id",
+                                                                               "targetUserId",
+                                                                               "actorUserId",
+                                                                               "eventType",
+                                                                               "resultCode",
+                                                                               "succeeded",
+                                                                               "occurredAtUtc"
+                                                                           ]
+                                                        },
+                    "SuperAdministratorAuditResponseCollection":  {
+                                                                      "itemSchema":  "SuperAdministratorAuditResponse"
+                                                                  },
+                    "GrantSuperAdministratorRequest":  {
+                                                           "properties":  [
+                                                                              "username",
+                                                                              "currentPassword",
+                                                                              "totpCode"
+                                                                          ]
+                                                       },
+                    "RevokeSuperAdministratorRequest":  {
+                                                            "properties":  [
+                                                                               "currentPassword",
+                                                                               "totpCode"
+                                                                           ]
+                                                        },
+                    "SuperAdministratorChangeResponse":  {
+                                                             "properties":  [
+                                                                                "targetUserId",
+                                                                                "changed"
+                                                                            ]
+                                                         }
+                }
+}

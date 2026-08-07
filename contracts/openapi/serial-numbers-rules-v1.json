@@ -1,0 +1,157 @@
+{
+    "id":  "serial-numbers-rules-v1",
+    "version":  1,
+    "description":  "Host 流水号规则 HTTP 契约冻结夹具；与 SerialNumberContracts 和 ManageHostSerialRules.Endpoint 对齐。",
+    "paths":  [
+                  {
+                      "path":  "/api/v1/serial-numbers/rules",
+                      "operations":  [
+                                         {
+                                             "method":  "GET",
+                                             "permission":  "serial_numbers.rules.read",
+                                             "successStatus":  200,
+                                             "responseSchema":  "SerialNumberRuleResponsePage"
+                                         },
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "serial_numbers.rules.create",
+                                             "successStatus":  201,
+                                             "requestSchema":  "CreateSerialNumberRuleRequest",
+                                             "responseSchema":  "SerialNumberRuleResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/serial-numbers/rules/{ruleId}",
+                      "operations":  [
+                                         {
+                                             "method":  "GET",
+                                             "permission":  "serial_numbers.rules.read",
+                                             "successStatus":  200,
+                                             "responseSchema":  "SerialNumberRuleResponse"
+                                         },
+                                         {
+                                             "method":  "PUT",
+                                             "permission":  "serial_numbers.rules.update",
+                                             "successStatus":  200,
+                                             "requestSchema":  "UpdateSerialNumberRuleRequest",
+                                             "responseSchema":  "SerialNumberRuleResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/serial-numbers/rules/{ruleId}/enable",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "serial_numbers.rules.enable",
+                                             "successStatus":  200,
+                                             "requestSchema":  "ChangeSerialNumberRuleStatusRequest",
+                                             "responseSchema":  "SerialNumberRuleResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/serial-numbers/rules/{ruleId}/disable",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "serial_numbers.rules.disable",
+                                             "successStatus":  200,
+                                             "requestSchema":  "ChangeSerialNumberRuleStatusRequest",
+                                             "responseSchema":  "SerialNumberRuleResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/serial-numbers/rules/preview",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "serial_numbers.rules.preview",
+                                             "successStatus":  200,
+                                             "requestSchema":  "PreviewSerialNumberRequest",
+                                             "responseSchema":  "SerialNumberPreviewResponse"
+                                         }
+                                     ]
+                  }
+              ],
+    "schemas":  {
+                    "PreviewSerialNumberRequest":  {
+                                                       "properties":  [
+                                                                          "scope",
+                                                                          "pattern",
+                                                                          "tenantIdentifier",
+                                                                          "sequenceValue",
+                                                                          "atUtc"
+                                                                      ]
+                                                   },
+                    "SerialNumberPreviewResponse":  {
+                                                        "properties":  [
+                                                                           "value"
+                                                                       ]
+                                                    },
+                    "CreateSerialNumberRuleRequest":  {
+                                                          "properties":  [
+                                                                             "ruleKey",
+                                                                             "displayName",
+                                                                             "description",
+                                                                             "scope",
+                                                                             "resetInterval",
+                                                                             "pattern",
+                                                                             "minimumValue",
+                                                                             "maximumValue",
+                                                                             "displayOrder",
+                                                                             "isEnabled"
+                                                                         ]
+                                                      },
+                    "UpdateSerialNumberRuleRequest":  {
+                                                          "properties":  [
+                                                                             "displayName",
+                                                                             "description",
+                                                                             "scope",
+                                                                             "resetInterval",
+                                                                             "pattern",
+                                                                             "minimumValue",
+                                                                             "maximumValue",
+                                                                             "displayOrder",
+                                                                             "isEnabled",
+                                                                             "version"
+                                                                         ]
+                                                      },
+                    "ChangeSerialNumberRuleStatusRequest":  {
+                                                                "properties":  [
+                                                                                   "version"
+                                                                               ]
+                                                            },
+                    "SerialNumberRuleResponse":  {
+                                                     "properties":  [
+                                                                        "id",
+                                                                        "ruleKey",
+                                                                        "displayName",
+                                                                        "description",
+                                                                        "scope",
+                                                                        "resetInterval",
+                                                                        "pattern",
+                                                                        "minimumValue",
+                                                                        "maximumValue",
+                                                                        "displayOrder",
+                                                                        "isEnabled",
+                                                                        "createdAtUtc",
+                                                                        "createdByUserId",
+                                                                        "updatedAtUtc",
+                                                                        "updatedByUserId",
+                                                                        "version"
+                                                                    ]
+                                                 },
+                    "SerialNumberRuleResponsePage":  {
+                                                         "properties":  [
+                                                                            "items",
+                                                                            "page",
+                                                                            "pageSize",
+                                                                            "total"
+                                                                        ],
+                                                         "itemSchema":  "SerialNumberRuleResponse"
+                                                     }
+                }
+}

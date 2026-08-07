@@ -1,0 +1,395 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/auditing-access-logs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/auditing-access-logs-v1.json",
+      "apiModule": "ui/admin/src/api/access-logs.ts",
+      "routePrefixes": [
+        "/api/v1/auditing/access-logs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-api-keys.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-host-api-keys-v1.json",
+      "apiModule": "ui/admin/src/api/api-keys.ts",
+      "routePrefixes": [
+        "/api/v1/identity/api-keys"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/code-generation-previews.ts"
+      ],
+      "openApiFixture": "contracts/openapi/code-generation-previews-v1.json",
+      "apiModule": "ui/admin/src/api/code-generation-previews.ts",
+      "routePrefixes": [
+        "/api/v1/code-generation/previews"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/code-generation-runs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/code-generation-runs-v1.json",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "routePrefixes": [
+        "/api/v1/code-generation/runs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/code-generation-templates.ts"
+      ],
+      "openApiFixture": "contracts/openapi/code-generation-templates-v1.json",
+      "apiModule": "ui/admin/src/api/code-generation-templates.ts",
+      "routePrefixes": [
+        "/api/v1/code-generation/templates"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/settings-config-entries.ts"
+      ],
+      "openApiFixture": "contracts/openapi/settings-config-entries-v1.json",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "routePrefixes": [
+        "/api/v1/settings/config-entries"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/settings-diagnostic-policy.ts"
+      ],
+      "openApiFixture": "contracts/openapi/settings-diagnostic-policy-v1.json",
+      "apiModule": "ui/admin/src/api/diagnostic-policy.ts",
+      "routePrefixes": [
+        "/api/v1/settings/diagnostic-policy"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/settings-dict-types.ts"
+      ],
+      "openApiFixture": "contracts/openapi/settings-dict-types-v1.json",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "routePrefixes": [
+        "/api/v1/settings/dict-types"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/settings-enum-catalogs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/settings-enum-catalogs-v1.json",
+      "apiModule": "ui/admin/src/api/enum-catalogs.ts",
+      "routePrefixes": [
+        "/api/v1/settings/enum-catalogs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/auditing-exception-logs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/auditing-exception-logs-v1.json",
+      "apiModule": "ui/admin/src/api/exception-logs.ts",
+      "routePrefixes": [
+        "/api/v1/auditing/exception-logs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-announcements.ts"
+      ],
+      "openApiFixture": "contracts/openapi/notifications-host-announcements-v1.json",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "routePrefixes": [
+        "/api/v1/notifications/host-announcements"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-document-categories.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-categories-tags-v1.json",
+      "apiModule": "ui/admin/src/api/host-document-categories.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/categories"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-document-items.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-items-v1.json",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/items"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-document-tags.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-categories-tags-v1.json",
+      "apiModule": "ui/admin/src/api/host-document-tags.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/tags"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-files.ts"
+      ],
+      "openApiFixture": "contracts/openapi/files-host-files-v1.json",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "routePrefixes": [
+        "/api/v1/files/host-files"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-jobs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/jobs-host-definitions-v1.json",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "routePrefixes": [
+        "/api/v1/jobs/host-definitions",
+        "/api/v1/jobs/host-executions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-jobs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/jobs-host-definitions-v1.json",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "routePrefixes": [
+        "/api/v1/jobs/host-schedules"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-user-organization-reference.ts",
+        "packages/client-contracts/src/tenant-org-units.ts",
+        "packages/client-contracts/src/tenant-org-positions.ts",
+        "packages/client-contracts/src/tenant-user-units.ts",
+        "packages/client-contracts/src/tenant-user-positions.ts"
+      ],
+      "openApiFixture": "contracts/openapi/organization-host-user-management-v1.json",
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "routePrefixes": [
+        "/api/v1/organization/host-user-management"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/inbox-messages.ts"
+      ],
+      "openApiFixture": "contracts/openapi/notifications-inbox-messages-v1.json",
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "routePrefixes": [
+        "/api/v1/notifications/my-inbox-messages",
+        "/api/v1/notifications/host-inbox-messages"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-menus.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-host-menus-v1.json",
+      "apiModule": "ui/admin/src/api/menus.ts",
+      "routePrefixes": [
+        "/api/v1/identity/menus"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/identity-module-catalog.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-host-modules-v1.json",
+      "apiModule": "ui/admin/src/api/module-catalog.ts",
+      "routePrefixes": [
+        "/api/v1/identity/modules"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-online-sessions.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-host-online-sessions-v1.json",
+      "apiModule": "ui/admin/src/api/online-sessions.ts",
+      "routePrefixes": [
+        "/api/v1/identity/online-sessions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/auditing-operation-logs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/auditing-operation-logs-v1.json",
+      "apiModule": "ui/admin/src/api/operation-logs.ts",
+      "routePrefixes": [
+        "/api/v1/auditing/operation-logs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-org-position-levels.ts"
+      ],
+      "openApiFixture": "contracts/openapi/organization-tenant-position-levels-v1.json",
+      "apiModule": "ui/admin/src/api/org-position-levels.ts",
+      "routePrefixes": [
+        "/api/v1/organization/position-levels"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-org-positions.ts"
+      ],
+      "openApiFixture": "contracts/openapi/organization-tenant-positions-v1.json",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "routePrefixes": [
+        "/api/v1/organization/positions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-org-units.ts"
+      ],
+      "openApiFixture": "contracts/openapi/organization-tenant-units-v1.json",
+      "apiModule": "ui/admin/src/api/org-units.ts",
+      "routePrefixes": [
+        "/api/v1/organization/units"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-user-positions.ts"
+      ],
+      "openApiFixture": "contracts/openapi/organization-tenant-user-positions-v1.json",
+      "apiModule": "ui/admin/src/api/org-user-positions.ts",
+      "routePrefixes": [
+        "/api/v1/organization/user-positions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-user-units.ts"
+      ],
+      "openApiFixture": "contracts/openapi/organization-tenant-user-units-v1.json",
+      "apiModule": "ui/admin/src/api/org-user-units.ts",
+      "routePrefixes": [
+        "/api/v1/organization/user-units"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/auditing-outbound-call-logs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/auditing-outbound-call-logs-v1.json",
+      "apiModule": "ui/admin/src/api/outbound-call-logs.ts",
+      "routePrefixes": [
+        "/api/v1/auditing/outbound-call-logs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/platform-dashboard.ts"
+      ],
+      "openApiFixture": "contracts/openapi/platform-host-dashboard-v1.json",
+      "apiModule": "ui/admin/src/api/platform-dashboard.ts",
+      "routePrefixes": [
+        "/api/v1/platform/host-dashboard-summary"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/authorization-tree.ts",
+        "packages/client-contracts/src/field-projections.ts",
+        "packages/client-contracts/src/host-roles.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-host-roles-v1.json",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "routePrefixes": [
+        "/api/v1/identity/authorization-tree",
+        "/api/v1/identity/roles",
+        "/api/v1/identity/field-projections"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/serial-number-rules.ts"
+      ],
+      "openApiFixture": "contracts/openapi/serial-numbers-rules-v1.json",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "routePrefixes": [
+        "/api/v1/serial-numbers/rules"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/super-administrators.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-super-administrators-v1.json",
+      "apiModule": "ui/admin/src/api/superAdministrators.ts",
+      "routePrefixes": [
+        "/api/v1/identity/super-administrators"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/settings-dict-types.ts"
+      ],
+      "openApiFixture": "contracts/openapi/settings-tenant-dict-types-v1.json",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "routePrefixes": [
+        "/api/v1/settings/tenant-dict-types"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-tenant-packages.ts"
+      ],
+      "openApiFixture": "contracts/openapi/tenancy-host-tenant-packages-v1.json",
+      "apiModule": "ui/admin/src/api/tenant-packages.ts",
+      "routePrefixes": [
+        "/api/v1/tenancy/tenant-packages"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-tenants.ts"
+      ],
+      "openApiFixture": "contracts/openapi/tenancy-host-tenants-v1.json",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "routePrefixes": [
+        "/api/v1/tenancy/tenants"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/totp-enrollment.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-totp-enrollment-v1.json",
+      "apiModule": "ui/admin/src/api/totpEnrollment.ts",
+      "routePrefixes": [
+        "/api/v1/identity/me/mfa/totp"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-users.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-host-users-v1.json",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "routePrefixes": [
+        "/api/v1/identity/users"
+      ]
+    }
+  ]
+}

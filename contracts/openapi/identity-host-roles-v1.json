@@ -4,6 +4,17 @@
   "description": "Host 角色管理 HTTP 契约冻结夹具；与 IdentityRoleManagementContracts 和 ManageHostRoles.Endpoint 对齐。",
   "paths": [
     {
+      "path": "/api/v1/identity/authorization-tree",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.roles.read",
+          "successStatus": 200,
+          "responseSchema": "AuthorizationTreeModuleResponseCollection"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/identity/field-projections/catalog",
       "operations": [
         {
@@ -90,6 +101,24 @@
           "responseSchema": "HostRoleResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/identity/roles/{roleId}/data-scope",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.roles.read",
+          "successStatus": 200,
+          "responseSchema": "HostRoleDataScopeResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.roles.assign_data_scope",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostRoleDataScopeRequest",
+          "responseSchema": "HostRoleDataScopeResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -156,6 +185,30 @@
         "page",
         "pageSize",
         "total"
+      ]
+    },
+    "AuthorizationTreeModuleResponseCollection": {
+      "properties": [
+        "id",
+        "title",
+        "order",
+        "pages"
+      ]
+    },
+    "HostRoleDataScopeResponse": {
+      "properties": [
+        "roleId",
+        "dataScopeKind",
+        "unitIds",
+        "version"
+      ]
+    },
+    "UpdateHostRoleDataScopeRequest": {
+      "properties": [
+        "dataScopeKind",
+        "unitIds",
+        "version",
+        "tenantId"
       ]
     }
   }

@@ -1,26 +1,16 @@
+import {
+  isDiagnosticPolicy,
+  type DiagnosticPolicy,
+  type DiagnosticPolicyRule
+} from '@fullnet/client-contracts';
 import { request } from './http';
 
-export interface DiagnosticPolicyRule {
-  scopeKind: string;
-  scopeValue: string;
-  successSampleRateOverride: number | null;
-  bestEffortCapacityOverride: number | null;
-  maxRequestPayloadBytesOverride: number | null;
-  maxResponsePayloadBytesOverride: number | null;
-  expiresAtUtc: string;
-}
-
-export interface DiagnosticPolicy {
-  version: number;
-  pressureState: string;
-  isDefault: boolean;
-  loadedAtUtc: string;
-  activeRules: DiagnosticPolicyRule[];
-  configEntryVersion: number;
-}
-
 export async function getDiagnosticPolicy(): Promise<DiagnosticPolicy> {
-  return request<DiagnosticPolicy>('/api/v1/settings/diagnostic-policy');
+  const value = await request<unknown>('/api/v1/settings/diagnostic-policy');
+  if (!isDiagnosticPolicy(value)) {
+    throw new Error('client.invalid_diagnostic_policy');
+  }
+  return value;
 }
 
 export async function updateDiagnosticPolicy(
@@ -28,19 +18,27 @@ export async function updateDiagnosticPolicy(
   rules: DiagnosticPolicyRule[],
   configEntryVersion: number
 ): Promise<DiagnosticPolicy> {
-  return request<DiagnosticPolicy>('/api/v1/settings/diagnostic-policy', {
+  const value = await request<unknown>('/api/v1/settings/diagnostic-policy', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ pressureState, rules, configEntryVersion })
   });
+  if (!isDiagnosticPolicy(value)) {
+    throw new Error('client.invalid_diagnostic_policy');
+  }
+  return value;
 }
 
 export async function restoreDiagnosticPolicy(
   configEntryVersion: number
 ): Promise<DiagnosticPolicy> {
-  return request<DiagnosticPolicy>('/api/v1/settings/diagnostic-policy/restore', {
+  const value = await request<unknown>('/api/v1/settings/diagnostic-policy/restore', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ configEntryVersion })
   });
+  if (!isDiagnosticPolicy(value)) {
+    throw new Error('client.invalid_diagnostic_policy');
+  }
+  return value;
 }

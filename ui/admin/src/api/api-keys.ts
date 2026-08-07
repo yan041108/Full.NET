@@ -2,18 +2,12 @@ import {
   isCreateHostApiKeyResult,
   isHostApiKey,
   isHostApiKeyPage,
+  type CreateHostApiKeyRequest,
   type CreateHostApiKeyResult,
   type HostApiKey,
   type HostApiKeyPage
 } from '@fullnet/client-contracts';
 import { request } from './http';
-
-export interface CreateHostApiKeyRequest {
-  userId: string;
-  displayName: string;
-  permissions: string[];
-  expiresAtUtc: string | null;
-}
 
 export async function listHostApiKeys(
   page = 1,

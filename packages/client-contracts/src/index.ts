@@ -178,6 +178,7 @@ export {
 } from './host-api-keys.js';
 
 export type {
+  CreateHostApiKeyRequest,
   CreateHostApiKeyResult,
   HostApiKey,
   HostApiKeyPage
@@ -414,6 +415,18 @@ export type {
 } from './settings-config-entries.js';
 
 export {
+  isDiagnosticPolicy,
+  isDiagnosticPolicyRule
+} from './settings-diagnostic-policy.js';
+
+export type {
+  DiagnosticPolicy,
+  DiagnosticPolicyRule,
+  RestoreDiagnosticPolicyRequest,
+  UpdateDiagnosticPolicyRequest
+} from './settings-diagnostic-policy.js';
+
+export {
   isSettingsEnumCatalogDetail,
   isSettingsEnumCatalogMember,
   isSettingsEnumCatalogSummary
@@ -567,6 +580,14 @@ export type {
   CreateOrganizationUserPositionRequest,
   UpdateOrganizationUserPositionRequest
 } from './tenant-user-positions.js';
+
+export {
+  isHostUserOrganizationReference
+} from './host-user-organization-reference.js';
+
+export type {
+  HostUserOrganizationReference
+} from './host-user-organization-reference.js';
 
 export {
   isOrganizationPosition,

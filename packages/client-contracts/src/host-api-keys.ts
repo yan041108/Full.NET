@@ -1,3 +1,10 @@
+export interface CreateHostApiKeyRequest {
+  userId: string;
+  displayName: string;
+  permissions: string[];
+  expiresAtUtc: string | null;
+}
+
 export interface HostApiKey {
   id: string;
   userId: string;

@@ -17,9 +17,17 @@ const fieldProjectionContractsSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Identity.Contracts/FieldProjectionContracts.cs'
 );
+const roleDataScopeContractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Identity.Contracts/RoleDataScopeContracts.cs'
+);
 const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Identity/Features/ManageHostRoles/Endpoint.cs'
+);
+const authorizationTreeEndpointSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Identity/Features/GetAuthorizationTree/Endpoint.cs'
 );
 const fieldGrantEndpointSourcePath = path.join(
   repositoryRoot,
@@ -62,11 +70,13 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   const contract = await loadContract();
   const contractsSource = [
     await readFile(contractsSourcePath, 'utf8'),
-    await readFile(fieldProjectionContractsSourcePath, 'utf8')
+    await readFile(fieldProjectionContractsSourcePath, 'utf8'),
+    await readFile(roleDataScopeContractsSourcePath, 'utf8')
   ].join('\n');
   const endpointSource = [
     await readFile(endpointSourcePath, 'utf8'),
-    await readFile(fieldGrantEndpointSourcePath, 'utf8')
+    await readFile(fieldGrantEndpointSourcePath, 'utf8'),
+    await readFile(authorizationTreeEndpointSourcePath, 'utf8')
   ].join('\n');
 
   assert.match(contractsSource, /record CreateHostRoleRequest/u);
@@ -85,6 +95,9 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/roles"\)/u);
 
   const relativeRoutes = new Map([
+    ['/api/v1/identity/authorization-tree', new Map([
+      ['GET', '"/api/v1/identity/authorization-tree"']
+    ])],
     ['/api/v1/identity/field-projections/catalog', new Map([
       ['GET', 'MapGet("/catalog",']
     ])],
@@ -105,6 +118,10 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ])],
     ['/api/v1/identity/roles/{roleId}/disable', new Map([
       ['POST', 'MapPost("/{roleId:guid}/disable",']
+    ])],
+    ['/api/v1/identity/roles/{roleId}/data-scope', new Map([
+      ['GET', 'MapGet("/{roleId:guid}/data-scope",'],
+      ['PUT', 'MapPut("/{roleId:guid}/data-scope",']
     ])]
   ]);
 
@@ -120,7 +137,8 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {
     if (schemaName === 'HostRoleResponsePage'
-      || schemaName === 'FieldProjectionResourceDefinitionCollection') {
+      || schemaName === 'FieldProjectionResourceDefinitionCollection'
+      || schemaName === 'AuthorizationTreeModuleResponseCollection') {
       continue;
     }
     for (const property of schema.properties) {

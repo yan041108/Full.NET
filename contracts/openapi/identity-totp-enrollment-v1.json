@@ -1,0 +1,60 @@
+{
+    "id":  "identity-totp-enrollment-v1",
+    "version":  1,
+    "description":  "当前用户 TOTP 登记 HTTP 契约冻结夹具；与 TotpEnrollmentContracts 和 ManageTotp.Endpoint 对齐。",
+    "paths":  [
+                  {
+                      "path":  "/api/v1/identity/me/mfa/totp",
+                      "operations":  [
+                                         {
+                                             "method":  "GET",
+                                             "permission":  "authenticated",
+                                             "successStatus":  200,
+                                             "responseSchema":  "TotpEnrollmentStatusResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/identity/me/mfa/totp/begin",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "authenticated",
+                                             "successStatus":  200,
+                                             "responseSchema":  "BeginTotpEnrollmentResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/identity/me/mfa/totp/confirm",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "authenticated",
+                                             "successStatus":  200,
+                                             "requestSchema":  "ConfirmTotpEnrollmentRequest",
+                                             "responseSchema":  "TotpEnrollmentStatusResponse"
+                                         }
+                                     ]
+                  }
+              ],
+    "schemas":  {
+                    "TotpEnrollmentStatusResponse":  {
+                                                         "properties":  [
+                                                                            "isEnrolled",
+                                                                            "isEnabled"
+                                                                        ]
+                                                     },
+                    "BeginTotpEnrollmentResponse":  {
+                                                        "properties":  [
+                                                                           "sharedSecretBase32",
+                                                                           "otpAuthUri"
+                                                                       ]
+                                                    },
+                    "ConfirmTotpEnrollmentRequest":  {
+                                                         "properties":  [
+                                                                            "totpCode"
+                                                                        ]
+                                                     }
+                }
+}

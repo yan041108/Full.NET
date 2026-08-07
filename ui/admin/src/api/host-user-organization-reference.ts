@@ -1,39 +1,12 @@
-import type {
-  OrganizationPosition,
-  OrganizationUnit,
-  OrganizationUserPosition,
-  OrganizationUserUnit
-} from '@fullnet/client-contracts';
 import {
-  isOrganizationPosition,
-  isOrganizationUnit,
+  isHostUserOrganizationReference,
   isOrganizationUserPosition,
-  isOrganizationUserUnit
+  isOrganizationUserUnit,
+  type HostUserOrganizationReference,
+  type OrganizationUserPosition,
+  type OrganizationUserUnit
 } from '@fullnet/client-contracts';
 import { request } from './http';
-
-export interface HostUserOrganizationReference {
-  units: OrganizationUnit[];
-  positions: OrganizationPosition[];
-  userUnits: OrganizationUserUnit[];
-  userPositions: OrganizationUserPosition[];
-}
-
-function isReference(value: unknown): value is HostUserOrganizationReference {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return Array.isArray(record.units)
-    && record.units.every(isOrganizationUnit)
-    && Array.isArray(record.positions)
-    && record.positions.every(isOrganizationPosition)
-    && Array.isArray(record.userUnits)
-    && record.userUnits.every(isOrganizationUserUnit)
-    && Array.isArray(record.userPositions)
-    && record.userPositions.every(isOrganizationUserPosition);
-}
 
 export async function getHostUserOrganizationReference(
   tenantId: string
@@ -41,7 +14,7 @@ export async function getHostUserOrganizationReference(
   const value = await request<unknown>(
     `/api/v1/organization/host-user-management/reference?tenantId=${encodeURIComponent(tenantId)}`
   );
-  if (!isReference(value)) {
+  if (!isHostUserOrganizationReference(value)) {
     throw new Error('client.invalid_host_user_organization_reference');
   }
 

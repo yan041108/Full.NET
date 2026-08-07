@@ -1,0 +1,148 @@
+{
+    "id":  "organization-host-user-management-v1",
+    "version":  1,
+    "description":  "Host 用户管理组织参考 HTTP 契约冻结夹具；与 Organization 模块 Contracts 和 HostUserManagementReference.Endpoint 对齐。",
+    "paths":  [
+                  {
+                      "path":  "/api/v1/organization/host-user-management/reference",
+                      "operations":  [
+                                         {
+                                             "method":  "GET",
+                                             "permission":  "identity.users.read",
+                                             "successStatus":  200,
+                                             "responseSchema":  "HostUserManagementOrganizationReferenceResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/organization/host-user-management/user-units",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "organization.user_units.create",
+                                             "successStatus":  201,
+                                             "requestSchema":  "CreateOrganizationUserUnitRequest",
+                                             "responseSchema":  "OrganizationUserUnitResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/organization/host-user-management/user-units/{assignmentId}",
+                      "operations":  [
+                                         {
+                                             "method":  "PUT",
+                                             "permission":  "organization.user_units.update",
+                                             "successStatus":  200,
+                                             "requestSchema":  "UpdateOrganizationUserUnitRequest",
+                                             "responseSchema":  "OrganizationUserUnitResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/organization/host-user-management/user-units/{assignmentId}/disable",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "organization.user_units.disable",
+                                             "successStatus":  200,
+                                             "responseSchema":  "OrganizationUserUnitResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/organization/host-user-management/user-positions",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "organization.user_positions.create",
+                                             "successStatus":  201,
+                                             "requestSchema":  "CreateOrganizationUserPositionRequest",
+                                             "responseSchema":  "OrganizationUserPositionResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/organization/host-user-management/user-positions/{assignmentId}",
+                      "operations":  [
+                                         {
+                                             "method":  "PUT",
+                                             "permission":  "organization.user_positions.update",
+                                             "successStatus":  200,
+                                             "requestSchema":  "UpdateOrganizationUserPositionRequest",
+                                             "responseSchema":  "OrganizationUserPositionResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/organization/host-user-management/user-positions/{assignmentId}/disable",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "organization.user_positions.disable",
+                                             "successStatus":  200,
+                                             "responseSchema":  "OrganizationUserPositionResponse"
+                                         }
+                                     ]
+                  }
+              ],
+    "schemas":  {
+                    "HostUserManagementOrganizationReferenceResponse":  {
+                                                                            "properties":  [
+                                                                                               "units",
+                                                                                               "positions",
+                                                                                               "userUnits",
+                                                                                               "userPositions"
+                                                                                           ]
+                                                                        },
+                    "CreateOrganizationUserUnitRequest":  {
+                                                              "properties":  [
+                                                                                 "userId",
+                                                                                 "unitId",
+                                                                                 "isPrimary"
+                                                                             ]
+                                                          },
+                    "UpdateOrganizationUserUnitRequest":  {
+                                                              "properties":  [
+                                                                                 "isPrimary",
+                                                                                 "version"
+                                                                             ]
+                                                          },
+                    "OrganizationUserUnitResponse":  {
+                                                         "properties":  [
+                                                                            "id",
+                                                                            "userId",
+                                                                            "unitId",
+                                                                            "isPrimary",
+                                                                            "isActive",
+                                                                            "createdAtUtc",
+                                                                            "updatedAtUtc",
+                                                                            "version"
+                                                                        ]
+                                                     },
+                    "CreateOrganizationUserPositionRequest":  {
+                                                                  "properties":  [
+                                                                                     "userId",
+                                                                                     "positionId",
+                                                                                     "isPrimary"
+                                                                                 ]
+                                                              },
+                    "UpdateOrganizationUserPositionRequest":  {
+                                                                  "properties":  [
+                                                                                     "isPrimary",
+                                                                                     "version"
+                                                                                 ]
+                                                              },
+                    "OrganizationUserPositionResponse":  {
+                                                             "properties":  [
+                                                                                "id",
+                                                                                "userId",
+                                                                                "positionId",
+                                                                                "isPrimary",
+                                                                                "isActive",
+                                                                                "createdAtUtc",
+                                                                                "updatedAtUtc",
+                                                                                "version"
+                                                                            ]
+                                                         }
+                }
+}
