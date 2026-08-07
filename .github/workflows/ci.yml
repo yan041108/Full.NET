@@ -222,7 +222,7 @@ jobs:
         run: dotnet restore Full.NET.slnx
 
       - name: Audit packages
-        run: dotnet list Full.NET.slnx package --vulnerable --include-transitive
+        run: pnpm audit:dotnet
 
       - name: Build
         run: dotnet build Full.NET.slnx --configuration Release --no-restore

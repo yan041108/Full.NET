@@ -53,19 +53,23 @@ if (typeof evaluateAuditReport === 'function') {
     assert.equal(policy.registry, 'https://registry.npmjs.org');
     assert.equal(policy.minimumSeverity, 'high');
     assert.deepEqual(
-      policy.exceptions.map(exception => exception.ghsa),
+      policy.exceptions.map(exception => exception.advisory),
       ['GHSA-fx2h-pf6j-xcff', 'GHSA-mh99-v99m-4gvg']
     );
     assert.equal(policy.exceptions[0].package, 'vite');
     assert.equal(policy.exceptions[0].upstreamPeerEvidence.vite, '5.2.8');
-    assert.equal(policy.exceptions[0].reviewBy, '2026-10-18');
+    assert.equal(policy.exceptions[0].reviewBy, '2026-07-18');
+    assert.equal(policy.exceptions[0].expiresOn, '2026-10-18');
+    assert.equal(policy.exceptions[0].owner, 'client-platform');
     assert.equal(policy.exceptions[0].mitigations.length, 3);
     assert.equal(policy.exceptions[1].package, 'brace-expansion');
     assert.deepEqual(
       policy.exceptions[1].allowedPaths,
       ['clients__uniapp>vue-tsc>@vue/language-core>minimatch>brace-expansion']
     );
-    assert.equal(policy.exceptions[1].reviewBy, '2026-09-26');
+    assert.equal(policy.exceptions[1].reviewBy, '2026-07-18');
+    assert.equal(policy.exceptions[1].expiresOn, '2026-09-26');
+    assert.equal(policy.exceptions[1].owner, 'client-platform');
     assert.equal(policy.exceptions[1].mitigations.length, 3);
   });
 
@@ -75,7 +79,7 @@ if (typeof evaluateAuditReport === 'function') {
     })]), policy, new Date('2026-07-18T00:00:00Z'));
 
     assert.deepEqual(result.acceptedExceptions, [{
-      ghsa: 'GHSA-fx2h-pf6j-xcff',
+      advisory: 'GHSA-fx2h-pf6j-xcff',
       package: 'vite',
       paths: policy.exceptions[0].allowedPaths
     }]);

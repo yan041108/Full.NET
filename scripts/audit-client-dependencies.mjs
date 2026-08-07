@@ -4,6 +4,44 @@ import { fileURLToPath } from 'node:url';
 
 const policyUrl = new URL('../security/client-audit-policy.json', import.meta.url);
 
+function getExceptionAdvisory(exception) {
+  return exception.advisory ?? exception.ghsa;
+}
+
+function validateExceptionMetadata(exception, now) {
+  const advisory = getExceptionAdvisory(exception);
+  if (typeof advisory !== 'string' || advisory.length === 0) {
+    throw new Error('Security exception must declare a non-empty advisory identifier.');
+  }
+  if (typeof exception.package !== 'string' || exception.package.length === 0) {
+    throw new Error(`Security exception ${advisory} must declare an exact package name.`);
+  }
+  if (!Array.isArray(exception.allowedPaths) || exception.allowedPaths.length === 0) {
+    throw new Error(`Security exception ${advisory} must declare non-empty allowedPaths.`);
+  }
+  if (exception.allowedPaths.some(path => typeof path !== 'string' || path.length === 0 || /[*?]/u.test(path))) {
+    throw new Error(`Security exception ${advisory} must not use wildcards in allowedPaths.`);
+  }
+  if (typeof exception.rationale !== 'string' || exception.rationale.trim().length === 0) {
+    throw new Error(`Security exception ${advisory} must declare a non-empty rationale.`);
+  }
+  if (!Array.isArray(exception.mitigations) || exception.mitigations.length === 0 || exception.mitigations.some(item => typeof item !== 'string' || item.trim().length === 0)) {
+    throw new Error(`Security exception ${advisory} must declare non-empty mitigations.`);
+  }
+  if (typeof exception.owner !== 'string' || exception.owner.trim().length === 0) {
+    throw new Error(`Security exception ${advisory} must declare an owner.`);
+  }
+  if (typeof exception.reviewBy !== 'string' || exception.reviewBy.length === 0) {
+    throw new Error(`Security exception ${advisory} must declare reviewBy.`);
+  }
+  if (typeof exception.expiresOn !== 'string' || exception.expiresOn.length === 0) {
+    throw new Error(`Security exception ${advisory} must declare expiresOn.`);
+  }
+  if (now.toISOString().slice(0, 10) > exception.expiresOn) {
+    throw new Error(`Security exception ${advisory} expired on ${exception.expiresOn}.`);
+  }
+}
+
 /** 根据版本化策略检查 npm audit JSON，只返回经过审查的高危例外。 */
 export function evaluateAuditReport(report, policy, now = new Date()) {
   if (!report || typeof report !== 'object' || !report.advisories || typeof report.advisories !== 'object') {
@@ -25,28 +63,26 @@ export function evaluateAuditReport(report, policy, now = new Date()) {
       continue;
     }
 
-    const exception = policy.exceptions.find(item => item.ghsa === advisory.github_advisory_id);
+    const exception = policy.exceptions.find(item => getExceptionAdvisory(item) === advisory.github_advisory_id);
     if (!exception) {
       throw new Error(`Unreviewed high advisory: ${advisory.github_advisory_id ?? 'unknown'}.`);
     }
+    validateExceptionMetadata(exception, now);
     if (advisory.module_name !== exception.package) {
-      throw new Error(`Advisory ${exception.ghsa} does not match the reviewed package ${exception.package}.`);
-    }
-    if (now.toISOString().slice(0, 10) > exception.reviewBy) {
-      throw new Error(`Security exception ${exception.ghsa} expired on ${exception.reviewBy}.`);
+      throw new Error(`Advisory ${getExceptionAdvisory(exception)} does not match the reviewed package ${exception.package}.`);
     }
 
     const findings = Array.isArray(advisory.findings) ? advisory.findings : [];
     const paths = findings.flatMap(finding => Array.isArray(finding?.paths) ? finding.paths : []);
     if (paths.length === 0 || paths.some(path => typeof path !== 'string' || path.length === 0)) {
-      throw new Error(`Advisory ${exception.ghsa} does not expose non-empty findings paths.`);
+      throw new Error(`Advisory ${getExceptionAdvisory(exception)} does not expose non-empty findings paths.`);
     }
     if (paths.some(path => !exception.allowedPaths.includes(path))) {
-      throw new Error(`Advisory ${exception.ghsa} is outside the reviewed uni-app toolchain.`);
+      throw new Error(`Advisory ${getExceptionAdvisory(exception)} is outside the reviewed uni-app toolchain.`);
     }
 
     acceptedExceptions.push({
-      ghsa: exception.ghsa,
+      advisory: getExceptionAdvisory(exception),
       package: exception.package,
       paths: [...new Set(paths)]
     });
@@ -100,7 +136,7 @@ async function main() {
   }
   const result = evaluateAuditReport(report, policy);
   for (const exception of result.acceptedExceptions) {
-    console.log(`Accepted reviewed security exception ${exception.ghsa} for ${exception.package}.`);
+    console.log(`Accepted reviewed security exception ${exception.advisory} for ${exception.package}.`);
     console.log(`Paths: ${exception.paths.join(', ')}`);
   }
   console.log('Client audit gate found no unreviewed critical or high advisories.');

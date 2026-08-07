@@ -45,7 +45,8 @@
     "test:e2e:real": "pnpm --filter @fullnet/admin-real-stack-e2e test",
     "test:e2e:real:mysql": "pnpm --filter @fullnet/admin-real-stack-e2e test:mysql",
     "test:e2e:uniapp": "pnpm --filter @fullnet/uniapp-h5-e2e test",
-    "audit:clients": "node scripts/audit-client-dependencies.mjs"
+    "audit:clients": "node scripts/audit-client-dependencies.mjs",
+    "audit:dotnet": "node scripts/audit-dotnet-dependencies.mjs"
   },
   "pnpm": {
     "overrides": {
@@ -58,7 +59,9 @@
       "@dcloudio/uni-mp-weixin>ws": "8.21.0",
       "@dcloudio/uni-cli-shared>adm-zip": "0.6.0",
       "@dcloudio/uni-nvue-styler>postcss": "8.5.19",
-      "express@4.20.0>path-to-regexp": "0.1.13"
+      "express@4.20.0>path-to-regexp": "0.1.13",
+      "undici": "7.29.0",
+      "brace-expansion": "2.1.4"
     },
     "peerDependencyRules": {
       "allowedVersions": {

@@ -4,7 +4,7 @@
   "minimumSeverity": "high",
   "exceptions": [
     {
-      "ghsa": "GHSA-fx2h-pf6j-xcff",
+      "advisory": "GHSA-fx2h-pf6j-xcff",
       "package": "vite",
       "allowedPaths": [
         "clients__uniapp>vite",
@@ -21,10 +21,12 @@
         "Client directories must not contain secrets, .env files, certificates, or private keys.",
         "Production artifacts do not include the Vite development server or its Node runtime package; only generated build helper identifiers may remain."
       ],
-      "reviewBy": "2026-10-18"
+      "owner": "client-platform",
+      "reviewBy": "2026-07-18",
+      "expiresOn": "2026-10-18"
     },
     {
-      "ghsa": "GHSA-mh99-v99m-4gvg",
+      "advisory": "GHSA-mh99-v99m-4gvg",
       "package": "brace-expansion",
       "allowedPaths": [
         "clients__uniapp>vue-tsc>@vue/language-core>minimatch>brace-expansion"
@@ -40,7 +42,9 @@
         "Type-check inputs and glob patterns come from version-controlled workspace configuration rather than remote user input.",
         "The exact dependency path is pinned and must be re-reviewed when vue-tsc or @vue/language-core is upgraded."
       ],
-      "reviewBy": "2026-09-26"
+      "owner": "client-platform",
+      "reviewBy": "2026-07-18",
+      "expiresOn": "2026-09-26"
     }
   ]
 }
