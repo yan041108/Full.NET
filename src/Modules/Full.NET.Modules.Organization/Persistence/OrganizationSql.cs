@@ -166,6 +166,38 @@ internal static class OrganizationSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement ListUnitSnapshotsKeysetSqlServer = new(
+        "organization.list_unit_snapshots_keyset.sql_server",
+        """
+        SELECT TOP (@PageSize)
+               Id AS UnitId,
+               Name,
+               IsActive,
+               Version,
+               COALESCE(UpdatedAtUtc, CreatedAtUtc) AS ChangedAtUtc
+        FROM fn_organization_unit
+        WHERE TenantId = @TenantId
+          AND (@HasAfterUnitId = 0 OR Id > @AfterUnitId)
+        ORDER BY Id
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListUnitSnapshotsKeysetMySql = new(
+        "organization.list_unit_snapshots_keyset.mysql",
+        """
+        SELECT Id AS UnitId,
+               Name,
+               IsActive,
+               Version,
+               COALESCE(UpdatedAtUtc, CreatedAtUtc) AS ChangedAtUtc
+        FROM fn_organization_unit
+        WHERE TenantId = @TenantId
+          AND (@HasAfterUnitId = 0 OR Id > @AfterUnitId)
+        ORDER BY Id
+        LIMIT @PageSize
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement CountUserUnits = new(
         "organization.count_user_units",
         """

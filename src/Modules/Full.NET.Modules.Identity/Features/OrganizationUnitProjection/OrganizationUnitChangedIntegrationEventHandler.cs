@@ -1,6 +1,6 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Data.Abstractions;
-using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 
@@ -9,7 +9,8 @@ internal sealed class OrganizationUnitChangedIntegrationEventHandler(
     IIntegrationEventSerializer serializer,
     OrganizationUnitProjectionWriter writer) : IIntegrationEventHandler
 {
-    public string EventType => OrganizationUnitIntegrationEventTypes.UnitChanged;
+    public string EventType =>
+        IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged;
 
     public int SchemaVersion => 1;
 
@@ -21,6 +22,6 @@ internal sealed class OrganizationUnitChangedIntegrationEventHandler(
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken) =>
         writer.ApplyAsync(
-            serializer.Deserialize<OrganizationUnitChangedIntegrationEvent>(payload),
+            serializer.Deserialize<IdentityOrganizationUnitChangedIntegrationEvent>(payload),
             cancellationToken);
 }

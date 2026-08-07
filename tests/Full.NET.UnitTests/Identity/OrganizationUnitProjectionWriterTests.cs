@@ -2,7 +2,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
-using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Identity.Contracts;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
@@ -26,7 +26,7 @@ public sealed class OrganizationUnitProjectionWriterTests
                 Arg.Any<CancellationToken>())
             .Returns(0);
         var writer = new OrganizationUnitProjectionWriter(command, transaction, clock);
-        var newer = new OrganizationUnitChangedIntegrationEvent(
+        var newer = new IdentityOrganizationUnitChangedIntegrationEvent(
             tenantId,
             unitId,
             "New Name",

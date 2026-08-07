@@ -1,7 +1,7 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
-using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 
@@ -12,7 +12,7 @@ internal sealed class OrganizationUnitProjectionWriter(
     IClock clock)
 {
     public Task ApplyAsync(
-        OrganizationUnitChangedIntegrationEvent integrationEvent,
+        IdentityOrganizationUnitChangedIntegrationEvent integrationEvent,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
             token => ApplyCoreAsync(integrationEvent, token),
@@ -20,10 +20,10 @@ internal sealed class OrganizationUnitProjectionWriter(
 
     public Task ApplySnapshotAsync(
         Guid tenantId,
-        OrganizationUnitProjectionSnapshot snapshot,
+        IdentityOrganizationUnitProjectionSnapshot snapshot,
         CancellationToken cancellationToken = default) =>
         ApplyAsync(
-            new OrganizationUnitChangedIntegrationEvent(
+            new IdentityOrganizationUnitChangedIntegrationEvent(
                 tenantId,
                 snapshot.UnitId,
                 snapshot.Name,
@@ -33,7 +33,7 @@ internal sealed class OrganizationUnitProjectionWriter(
             cancellationToken);
 
     private async Task<bool> ApplyCoreAsync(
-        OrganizationUnitChangedIntegrationEvent integrationEvent,
+        IdentityOrganizationUnitChangedIntegrationEvent integrationEvent,
         CancellationToken cancellationToken)
     {
         var projectedAtUtc = clock.UtcNow;

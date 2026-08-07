@@ -16,14 +16,7 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class DependencyRulesTests
 {
-    private static readonly ReverseContractDependencyDebt[] AllowedReverseContractDependencies =
-    [
-        new(
-            "Identity",
-            "Organization",
-            "Identity 消费 Organization 机构投影契约，而 Organization 仍同步消费 Identity 用户契约。",
-            "退役 Organization→Identity 同步用户读取并改用 Organization 本地用户投影。"),
-    ];
+    private static readonly ReverseContractDependencyDebt[] AllowedReverseContractDependencies = [];
 
     private static readonly string[] ForbiddenRuntimeDynamicTokens =
     [
@@ -207,6 +200,7 @@ public sealed class DependencyRulesTests
         var moduleByName = modules.ToDictionary(module => module.Name, StringComparer.Ordinal);
 
         Assert.IsFalse(HasReverseModuleDependency("Tenancy", "Organization", moduleByName));
+        Assert.HasCount(0, AllowedReverseContractDependencies);
     }
 
     [TestMethod]

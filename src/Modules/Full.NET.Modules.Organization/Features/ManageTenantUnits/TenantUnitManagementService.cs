@@ -252,9 +252,9 @@ internal sealed class TenantUnitManagementService(
         DateTimeOffset changedAtUtc,
         CancellationToken cancellationToken) =>
         await outboxWriter.AddAsync(
-                OrganizationUnitIntegrationEventTypes.UnitChanged,
+                IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged,
                 1,
-                new OrganizationUnitChangedIntegrationEvent(
+                new IdentityOrganizationUnitChangedIntegrationEvent(
                     tenantId,
                     unit.Id,
                     unit.Name,

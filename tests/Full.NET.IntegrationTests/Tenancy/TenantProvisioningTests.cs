@@ -161,8 +161,8 @@ public sealed class TenantProvisioningTests
             IIdentityOrganizationUnitDirectory,
             EmptyIdentityOrganizationUnitDirectory>();
         services.AddSingleton<
-            IOrganizationUnitProjectionCatalog,
-            EmptyOrganizationUnitProjectionCatalog>();
+            IIdentityOrganizationUnitProjectionSource,
+            EmptyIdentityOrganizationUnitProjectionSource>();
         services.AddFullNetModule<IdentityModule>(configuration);
         services.AddFullNetModule<TenancyModule>(configuration);
 
@@ -193,16 +193,16 @@ public sealed class TenantProvisioningTests
             Task.FromResult<IdentityOrganizationUnitDirectoryEntry?>(null);
     }
 
-    private sealed class EmptyOrganizationUnitProjectionCatalog
-        : IOrganizationUnitProjectionCatalog
+    private sealed class EmptyIdentityOrganizationUnitProjectionSource
+        : IIdentityOrganizationUnitProjectionSource
     {
-        public Task<Result<PagedResult<OrganizationUnitProjectionSnapshot>>> ListUnitSnapshotsAsync(
+        public Task<Result<IdentityOrganizationUnitProjectionPage>> ListAsync(
             Guid tenantId,
-            int page,
+            Guid? afterUnitId,
             int pageSize,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(Result<PagedResult<OrganizationUnitProjectionSnapshot>>.Success(
-                new PagedResult<OrganizationUnitProjectionSnapshot>([], page, pageSize, 0)));
+            Task.FromResult(Result<IdentityOrganizationUnitProjectionPage>.Success(
+                new IdentityOrganizationUnitProjectionPage([], null, false)));
     }
 
     private static async Task<long> CountAsync(

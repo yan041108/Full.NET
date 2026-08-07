@@ -1,11 +1,11 @@
 using Full.NET.Abstractions.Results;
-using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 
 /// <summary>通过 Organization 批量目录回填 Identity 机构单元投影。</summary>
 internal sealed class OrganizationUnitProjectionBackfillService(
-    IOrganizationUnitProjectionCatalog catalog,
+    IIdentityOrganizationUnitProjectionSource source,
     OrganizationUnitProjectionWriter writer)
 {
     public async Task<Result<OrganizationUnitProjectionBackfillResult>> BackfillTenantAsync(
@@ -13,13 +13,13 @@ internal sealed class OrganizationUnitProjectionBackfillService(
         CancellationToken cancellationToken = default)
     {
         const int pageSize = 100;
-        var page = 1;
+        Guid? afterUnitId = null;
         var applied = 0L;
         while (true)
         {
-            var pageResult = await catalog.ListUnitSnapshotsAsync(
+            var pageResult = await source.ListAsync(
                     tenantId,
-                    page,
+                    afterUnitId,
                     pageSize,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -41,12 +41,12 @@ internal sealed class OrganizationUnitProjectionBackfillService(
                 applied++;
             }
 
-            if (batch.Items.Count < pageSize)
+            if (!batch.HasMore)
             {
                 break;
             }
 
-            page++;
+            afterUnitId = batch.NextAfterUnitId;
         }
 
         return Result<OrganizationUnitProjectionBackfillResult>.Success(

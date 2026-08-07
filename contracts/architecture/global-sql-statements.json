@@ -412,6 +412,28 @@
       ]
     },
     {
+      "statementName": "organization.list_unit_snapshots_keyset.mysql",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationSql.ListUnitSnapshotsKeysetMySql",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Organization 单位快照 Contract 在 MySQL 上按显式租户 keyset 导出回填数据。",
+      "requiredSqlFragments": [
+        "FROM fn_organization_unit",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "organization.list_unit_snapshots_keyset.sql_server",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationSql.ListUnitSnapshotsKeysetSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Organization 单位快照 Contract 在 SQL Server 上按显式租户 keyset 导出回填数据。",
+      "requiredSqlFragments": [
+        "FROM fn_organization_unit",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
       "statementName": "outbox.insert",
       "declaration": "Full.NET.Data.Dapper.Outbox.DapperOutboxWriter.InsertStatement",
       "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperOutboxWriter.cs",
