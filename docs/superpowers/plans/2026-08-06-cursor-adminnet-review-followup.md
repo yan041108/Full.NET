@@ -45,6 +45,20 @@
 - 完整 Unit fresh discovery 必须等于矩阵门槛，不能仅 `--no-build` 复用旧程序集。
 - Task 0 未全部通过前，工作区不得提交为 merge candidate，也不得开始新增模块。
 
+## 横切硬化（P0）：模块数据访问与一致性边界
+
+建议 snapshot：`module-data-consistency-boundary-20260807`。完整步骤见 [`2026-08-07-module-data-access-and-consistency-hardening.md`](2026-08-07-module-data-access-and-consistency-hardening.md)。
+
+执行顺序：
+
+1. 建立跨模块 SQL、外键和本地事务债务门禁（含 `015_HostRoleDataScope` 跨模块外键债务登记）。
+2. 增加 `ExecuteResultAsync`，修复失败 `Result` 仍可能提交的问题。
+3. 固化 Identity → Organization 批量 Contract 读取参考模式。
+4. 阻止其他业务模块把 Settings `ConfigEntry` 当作领域参数仓库。
+5. 在 Tasks 1–4 验证通过后，再更新模块交付 Skill 与能力状态。
+
+存量债务：`015_HostRoleDataScope` 中 `fn_identity_role_data_scope_unit.UnitId -> fn_organization_unit.Id` 必须通过成对可恢复迁移移除；完成前不得宣称跨模块外键债务已清零。
+
 ## Task 1（P0）：Document 上传引用 claim/release 对账
 
 建议 snapshot：`document-upload-reference-reconciliation-20260806`。

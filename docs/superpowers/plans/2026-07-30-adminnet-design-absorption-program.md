@@ -39,6 +39,12 @@
 | 11 | `adminnet-absorb-11-large-module-queue` |
 | 12 | `admin-action-permissions-identity-users-20260802` |
 
+横切硬化（ADR-0002 数据访问与一致性边界）独立于上表编号，见[模块数据访问与一致性边界硬化计划](2026-08-07-module-data-access-and-consistency-hardening.md)：
+
+| 轨道 | 快照名 |
+| --- | --- |
+| 模块数据访问与一致性边界硬化 | `module-data-consistency-boundary-20260807` |
+
 每个切片按下列固定命令执行影响集生命周期：
 
 ```powershell
