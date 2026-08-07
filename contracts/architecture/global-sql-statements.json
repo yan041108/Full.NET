@@ -367,6 +367,17 @@
       ]
     },
     {
+      "statementName": "identity.organization_unit_projection.find_by_tenant_and_units",
+      "declaration": "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUnitProjectionSql.FindByTenantAndUnits",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/OrganizationUnitProjection/OrganizationUnitProjectionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Identity 对账按单页源快照批量读取本地投影行，比较缺失、过期与超前版本。",
+      "requiredSqlFragments": [
+        "TenantId = @TenantId",
+        "UnitId IN @UnitIds"
+      ]
+    },
+    {
       "statementName": "organization.find_active_unit_by_tenant_and_id",
       "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationSql.FindActiveUnitByTenantAndId",
       "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationSql.cs",

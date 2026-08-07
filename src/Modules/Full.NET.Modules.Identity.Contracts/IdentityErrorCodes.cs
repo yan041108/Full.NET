@@ -207,6 +207,18 @@ public static class IdentityErrorCodes
     /// <summary>目标模块不在只读清单中。</summary>
     public const string ModuleCatalogNotFound = "identity.modules.not_found";
 
+    /// <summary>机构投影对账租户标识无效。</summary>
+    public const string OrganizationUnitProjectionInvalidTenant =
+        "identity.organization_unit_projection.invalid_tenant";
+
+    /// <summary>机构投影对账模式无效。</summary>
+    public const string OrganizationUnitProjectionInvalidMode =
+        "identity.organization_unit_projection.invalid_mode";
+
+    /// <summary>机构投影对账分页大小超出 1-100 有界范围。</summary>
+    public const string OrganizationUnitProjectionInvalidPageSize =
+        "identity.organization_unit_projection.invalid_page_size";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -274,5 +286,8 @@ public static class IdentityErrorCodes
         SignatureAccessKeyExpired,
         SignatureTenantScopeMismatch,
         ModuleCatalogNotFound,
+        OrganizationUnitProjectionInvalidTenant,
+        OrganizationUnitProjectionInvalidMode,
+        OrganizationUnitProjectionInvalidPageSize,
     ]);
 }

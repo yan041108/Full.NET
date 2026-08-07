@@ -45,4 +45,14 @@ internal static class OrganizationUnitProjectionSql
               AND UnitId = @UnitId)
         """,
         SqlDataScope.Global);
+
+    public static readonly SqlStatement FindByTenantAndUnits = new(
+        "identity.organization_unit_projection.find_by_tenant_and_units",
+        """
+        SELECT UnitId, Name, IsActive, SourceVersion
+        FROM fn_identity_organization_unit_projection
+        WHERE TenantId = @TenantId
+          AND UnitId IN @UnitIds
+        """,
+        SqlDataScope.Global);
 }

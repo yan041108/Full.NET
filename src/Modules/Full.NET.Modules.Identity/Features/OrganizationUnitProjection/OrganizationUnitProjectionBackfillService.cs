@@ -3,10 +3,9 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 
-/// <summary>通过 Organization 批量目录回填 Identity 机构单元投影。</summary>
+/// <summary>通过有界对账分页回填 Identity 机构单元投影。</summary>
 internal sealed class OrganizationUnitProjectionBackfillService(
-    IIdentityOrganizationUnitProjectionSource source,
-    OrganizationUnitProjectionWriter writer)
+    OrganizationUnitProjectionReconciliationService reconciliation)
 {
     public async Task<Result<OrganizationUnitProjectionBackfillResult>> BackfillTenantAsync(
         Guid tenantId,
@@ -17,31 +16,22 @@ internal sealed class OrganizationUnitProjectionBackfillService(
         var applied = 0L;
         while (true)
         {
-            var pageResult = await source.ListAsync(
+            var pageResult = await reconciliation.ReconcileAsync(
                     tenantId,
                     afterUnitId,
                     pageSize,
+                    IdentityOrganizationUnitProjectionReconciliationModes.Apply,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!pageResult.IsSuccess)
             {
-                return Result<OrganizationUnitProjectionBackfillResult>.Failure(pageResult.Error!);
+                return Result<OrganizationUnitProjectionBackfillResult>.Failure(
+                    pageResult.Error!);
             }
 
             var batch = pageResult.Value!;
-            if (batch.Items.Count == 0)
-            {
-                break;
-            }
-
-            foreach (var snapshot in batch.Items)
-            {
-                await writer.ApplySnapshotAsync(tenantId, snapshot, cancellationToken)
-                    .ConfigureAwait(false);
-                applied++;
-            }
-
-            if (!batch.HasMore)
+            applied += batch.Applied;
+            if (batch.IsComplete)
             {
                 break;
             }

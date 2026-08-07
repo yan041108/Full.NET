@@ -399,6 +399,8 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<OrganizationUnitProjectionBackfillService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OrganizationUnitProjectionReconciliationService>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IIntegrationEventHandler,
             OrganizationUnitChangedIntegrationEventHandler>(

@@ -21,6 +21,7 @@ internal sealed class OrganizationUnitProjectionCatalog(
         CancellationToken cancellationToken = default)
     {
         pageSize = Math.Clamp(pageSize, 1, 100);
+        var fetchSize = pageSize + 1;
         var listStatement = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => OrganizationSql.ListUnitSnapshotsKeysetSqlServer,
@@ -35,11 +36,13 @@ internal sealed class OrganizationUnitProjectionCatalog(
                     TenantId = tenantId,
                     HasAfterUnitId = afterUnitId.HasValue ? 1 : 0,
                     AfterUnitId = afterUnitId ?? UnusedAfterUnitId,
-                    PageSize = pageSize,
+                    PageSize = fetchSize,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
-        var items = rows
+        var hasMore = rows.Count > pageSize;
+        var visibleRows = hasMore ? rows.Take(pageSize) : rows;
+        var items = visibleRows
             .Select(row => new IdentityOrganizationUnitProjectionSnapshot(
                 row.UnitId,
                 row.Name,
@@ -47,7 +50,6 @@ internal sealed class OrganizationUnitProjectionCatalog(
                 row.Version,
                 row.ChangedAtUtc))
             .ToArray();
-        var hasMore = items.Length == pageSize;
         var nextAfterUnitId = hasMore ? items[^1].UnitId : (Guid?)null;
         return Result<IdentityOrganizationUnitProjectionPage>.Success(
             new IdentityOrganizationUnitProjectionPage(items, nextAfterUnitId, hasMore));

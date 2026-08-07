@@ -141,6 +141,14 @@ internal sealed class IdentityAuthorizationContributor
             ModuleCatalogPermissions.Read,
             "查看官方模块清单",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOrganizationUnitProjectionPermissions.ReconcileDryRun,
+            "机构投影对账 dry-run",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOrganizationUnitProjectionPermissions.ReconcileApply,
+            "机构投影对账 apply",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =

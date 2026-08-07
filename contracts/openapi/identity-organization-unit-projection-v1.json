@@ -1,0 +1,42 @@
+{
+  "id": "identity-organization-unit-projection-v1",
+  "version": 1,
+  "description": "Host organization unit projection reconciliation HTTP contract fixture.",
+  "paths": [
+    {
+      "path": "/api/v1/identity/organization-unit-projections/reconcile",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.organization_unit_projection.reconcile.dry_run|identity.organization_unit_projection.reconcile.apply",
+          "successStatus": 200,
+          "requestSchema": "ReconcileOrganizationUnitProjectionRequest",
+          "responseSchema": "ReconcileOrganizationUnitProjectionResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "ReconcileOrganizationUnitProjectionRequest": {
+      "properties": [
+        "tenantId",
+        "afterUnitId",
+        "pageSize",
+        "mode"
+      ]
+    },
+    "ReconcileOrganizationUnitProjectionResponse": {
+      "properties": [
+        "tenantId",
+        "scanned",
+        "missing",
+        "stale",
+        "extra",
+        "applied",
+        "nextAfterUnitId",
+        "hasMore",
+        "isComplete"
+      ]
+    }
+  }
+}

@@ -1,4 +1,5 @@
 using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Identity;
 using Full.NET.IntegrationTests.Organization;
 
 namespace Full.NET.IntegrationTests.Api;
@@ -24,6 +25,17 @@ public sealed class OrganizationApiSqlServerTests
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
 
         await OrganizationDataScopeFilteringAssertions.VerifyTenantUnitDataScopeFilteringAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Identity_organization_unit_projection_reconciliation_follows_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await IdentityOrganizationUnitProjectionOperationsAssertions
+            .VerifyBoundedReconciliationAsync(factory);
     }
 
     [TestMethod]

@@ -59,4 +59,6 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(ModuleCatalogEntryResponse))]
 [JsonSerializable(typeof(ModuleCatalogEntryResponse[]))]
 [JsonSerializable(typeof(IReadOnlyList<ModuleCatalogEntryResponse>))]
+[JsonSerializable(typeof(ReconcileOrganizationUnitProjectionRequest))]
+[JsonSerializable(typeof(ReconcileOrganizationUnitProjectionResponse))]
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

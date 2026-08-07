@@ -1,4 +1,5 @@
 using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Identity;
 using Full.NET.IntegrationTests.Organization;
 
 namespace Full.NET.IntegrationTests.Api;
@@ -24,6 +25,17 @@ public sealed class OrganizationApiMySqlTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
 
         await OrganizationDataScopeFilteringAssertions.VerifyTenantUnitDataScopeFilteringAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Identity_organization_unit_projection_reconciliation_follows_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await IdentityOrganizationUnitProjectionOperationsAssertions
+            .VerifyBoundedReconciliationAsync(factory);
     }
 
     [TestMethod]

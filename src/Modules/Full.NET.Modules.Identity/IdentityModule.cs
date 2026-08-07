@@ -104,6 +104,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageHostApiKeys.Endpoint.Map(endpoints);
         Features.QueryHostModuleCatalog.Endpoint.Map(endpoints);
         Features.GetHostDashboardSummary.Endpoint.Map(endpoints);
+        Features.OrganizationUnitProjection.Endpoint.Map(endpoints);
     }
 
     /// <summary>注册 Worker 消费机构单元投影事件所需的最小后台能力。</summary>
@@ -124,5 +125,6 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<IOrganizationUnitProjectionDirectory>(provider =>
             provider.GetRequiredService<OrganizationUnitProjectionDirectory>());
         services.TryAddScoped<OrganizationUnitProjectionBackfillService>();
+        services.TryAddScoped<OrganizationUnitProjectionReconciliationService>();
     }
 }
