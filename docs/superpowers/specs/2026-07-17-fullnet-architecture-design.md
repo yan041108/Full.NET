@@ -10,6 +10,7 @@
 - 日期：2026-07-17
 - 高并发多实例封板：2026-08-01
 - 模块数据关联与一致性标准修订：2026-08-07
+- 架构不足复核与演进门禁修订：2026-08-08
 - 项目目录：`G:\wwwroot\github_fork\Full.NET`
 - 产品名称：Full.NET
 - 最终发布许可证：MIT
@@ -287,6 +288,8 @@ Api、Worker、Migrator 和 Test 使用显式 Host Profile 声明完整模块或
 
 领域参数由执行对应业务规则的模块拥有并以强类型模型持久化。通用 Settings 不得以字符串或任意 JSON 代管预约、支付、工作流等领域不变量；跨模块高频消费采用携带完整小型快照和单调 `Version` 的变更事件，消费者拒绝乱序旧版本覆盖。
 
+存量跨模块本地事务按业务风险退役，不以代码位置变化替代一致性设计：提示性校验可以移到事务外并配合失败关闭或对账；事务内频繁需要的外部事实使用消费方本地投影；引用建立与资源删除存在竞态时使用所有者 claim/reserve/release 状态机；跨模块长流程使用 Saga/Process Manager。投影必须具备所有者同事务 Outbox、完整必要快照、单调版本、消费方幂等提交、首次回填、重建、差异对账和双 Provider 验证。详细验收与存量债务目录见 [`ADR-0002`](../../architecture/adr/ADR-0002-modular-monolith-evolution.md#存量债务退役与本地投影验收)。
+
 ### 5.4 通信与序列化矩阵
 
 | 场景 | 传输/调用 | 序列化 | 约束 |
@@ -309,6 +312,8 @@ MessagePack 集成事件使用显式 `[MessagePackObject]` 和整数 `[Key(n)]`�
 每个可靠事件保存 `MessageId`、`MessageType`、`SchemaVersion`、`ContentType`、`TenantId`、`TraceId` 和 `OccurredAt` 等可查询元数据。载荷以 SQL Server `varbinary(max)` 或 MySQL `longblob` 保存，不做 Base64，不依赖人工直接阅读二进制正文。压缩只在基准证明载荷大小收益超过 CPU 成本时按阈值启用。
 
 发布第二个事件版本时必须在兼容窗口内保留并行版本 Handler，或提供基于显式旧版本契约的相邻版本升级链；升级链不能先把旧载荷反序列化为当前 DTO，也不能启用 Typeless/Contractless。发布顺序固定为“先消费者、后生产者、最后退役旧消费者”，兼容窗口覆盖最长 Outbox 保留、失败重试和部署回滚窗口。超过最大尝试次数或确定不可重试的消息必须进入可查询、可审计重放的死信状态，单条毒消息不得永久阻塞批次。
+
+当前基础设施已经具备精确 `MessageType + SchemaVersion` 路由、并行 Handler、consumer-first 发布顺序和旧版本退役扫描；这不自动证明每个业务事件都已完成 v1→v2 升级演练。相邻版本 upgrader 只在首个真实非加法变更出现时实现，且必须使用真实旧契约、旧载荷样本、乱序/重放、最长保留期消息和回滚窗口完成双库验证；禁止为了状态好看创建没有真实消费者的通用升级器。
 
 ## 6. 首版业务模块
 
@@ -522,7 +527,7 @@ Host 管理员管理平台和租户；Tenant 管理员管理当前租户。Tenan
 
 模块拥有自己的表，物理名统一为 `{owner_key}_{module_key}_{entity_key}` 的小写 snake_case。Full.NET 官方框架和官方模块的 OwnerKey 固定为 `fn`，具体项目在脚手架创建时冻结独立 OwnerKey（例如 `crm`）；项目扩展官方模块也必须使用项目 OwnerKey。`sys` 保留给数据库系统语义，禁止作为项目 OwnerKey；表名不得由租户或运行时配置动态拼接。
 
-默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 在写库前产生，因此父子记录、审计与 Outbox 可在同一事务中直接引用，不依赖数据库序列。SQL Server 持久化为 `uniqueidentifier`；MySQL 目标类型为 RFC 9562 大端字节序的 `BINARY(16)`，只由 Full.NET 数据层统一转换，业务模块不得感知 `byte[]` 或自行交换字节。HTTP/JSON 始终使用规范 UUID 字符串。现有 MySQL `char(36)` 是尚未完成的 1.0 前存储债务，不能把目标设计表述为已实现。
+默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 在写库前产生，因此父子记录、审计与 Outbox 可在同一事务中直接引用，不依赖数据库序列。SQL Server 持久化为 `uniqueidentifier`；MySQL 使用 RFC 9562 大端字节序的 `BINARY(16)`，只由 Full.NET 数据层统一转换，业务模块不得感知 `byte[]` 或自行交换字节。HTTP/JSON 始终使用规范 UUID 字符串。008/009 已完成 MySQL `char(36)` 的 expand→backfill→contract 迁移并具有双库恢复测试；尚未完成的是生产等价环境中的维护窗口、备份恢复和 RPO/RTO 演练，不能把构建验证表述为生产迁移认证。
 
 SQL Server 必须把主键约束与聚集索引分开显式设计：高频追加表优先采用 UUID 非聚集主键和符合时间/租户访问路径的显式聚集索引，不能假定 UUID v7 按 SQL Server `uniqueidentifier` 比较顺序天然追加。项目模板可通过独立 ADR 选择 Snowflake `long`；面向 JavaScript 的 API 必须输出十进制字符串，框架核心表继续采用 UUID v7。完整决策、迁移和验证门禁见 [ADR-0003](../../architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md)。
 
@@ -665,6 +670,8 @@ API 路径使用小写 kebab-case，HTTP JSON 使用 camelCase；权限、错误
 `Full.NET.Compatibility.AdminNet` 提供可选的 Admin.NET 响应适配器，用于旧前端或迁移项目。适配器可以把普通 JSON API 转换为统一外壳，但必须保留真实 HTTP 状态码；不得把未认证、禁止、验证失败、冲突和服务器异常全部伪装成 HTTP 200。文件下载、SSE、SignalR、Webhook、健康检查和 `204 No Content` 不进入响应外壳。默认 Full.NET Host 不启用该适配器。
 
 JSON 统一使用 System.Text.Json 的 Web 默认语义和 UTF-8 输出。每个模块维护自己的 `JsonSerializerContext`，由模块注册入口把生成的 `JsonTypeInfoResolver` 加入 Host；公开热路径 DTO 必须进入源生成上下文。运行时反射只允许用于动态插件或兼容层，不能成为核心 API 的默认路径。`JsonSerializerOptions` 由 Host 单例配置并复用，不得在每次请求中创建。大列表优先采用分页、异步流或 `Utf8JsonWriter`，避免构造巨大中间字符串。
+
+生产 Endpoint 的请求、成功响应、分页项和 ProblemDetails 类型必须由 Architecture 门禁从 Endpoint 元数据枚举并验证进入模块源生成上下文。Vue 主交付线必须优先消费 `packages/client-contracts` 的共享强类型契约；每个 Vue API 模块还必须在覆盖清单中关联对应 OpenAPI 路由/Schema 和共享契约入口，新增调用点缺少任一映射时失败关闭。只有出现真实外部 SDK、多个独立客户端或手写调用长期漂移证据时才引入完整生成式 SDK；不得把“没有生成 SDK”误报为后端序列化无门禁。
 
 ## 15. 安全设计
 
@@ -945,6 +952,8 @@ Full.NET 根仓库最终使用 MIT License，并维护 `THIRD-PARTY-NOTICES`、�
 - 确需复用的代码必须登记来源和授权依据。
 
 MIT 项目可以在遵守原版权和许可证声明的前提下复用。依赖版本由 `Directory.Packages.props` 集中锁定；升级前检查许可证、破坏性变化和安全公告。
+
+依赖漏洞检查是合并与发布门禁，不是只读报告：npm 与 NuGet 的 `Critical` 必须阻断，`High` 默认阻断。例外必须精确到 advisory、包、实际依赖路径和受影响范围，记录不可利用或暂缓依据、缓解措施、责任人、复核日期和有限到期日；禁止使用通配符、永久忽略或仅按包名整体放行。扫描命令失败、输出无法解析、数据源不可用且没有新鲜可信缓存时必须失败关闭；只有明确批准的应急发布流程可以临时越过，并形成可审计记录。
 
 ## 24. 交付里程碑
 

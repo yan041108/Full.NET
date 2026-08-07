@@ -10,6 +10,18 @@
 
 **Snapshot:** `module-data-consistency-boundary-20260807`
 
+## 2026-08-08 实施状态
+
+本计划的框架与治理底座已由提交 `bbb718a4` 完成并合入 `main`：
+
+- 跨模块表访问、跨模块外键与跨模块本地事务债务目录及 Architecture 扫描器已落地；
+- `083_IdentityRoleDataScopeUnitCrossModuleFk` 已通过 SQL Server/MySQL 成对恢复迁移移除历史跨模块外键，表访问与外键债务目录当前为空；
+- `ICommandTransaction.ExecuteResultAsync`、真实提交/回滚协调器和失败 `Result` 回滚测试已落地；
+- Organization→Identity 批量 Contract 读取模式与逐行回退否定门禁已落地；
+- 通用 Settings 代管领域参数的否定门禁及模块交付 Skill 检查表已落地。
+
+因此，本文后续步骤保留为历史执行记录，不再作为新的 Cursor 开工清单。尚未退役的 5 个跨模块本地事务条目属于新的业务一致性工作，统一转入 [`2026-08-08-architecture-gap-follow-up.md`](2026-08-08-architecture-gap-follow-up.md)，不得把框架底座完成误写成业务债务清零。
+
 ## 执行顺序
 
 本计划为 Task 0（Admin.NET 吸收收口）之后的横切硬化轨道，按下列顺序执行；每个 Task 独立 snapshot、独立提交，前一 Task 的 runner/Docker 残留为 0 后才能开始下一项。
@@ -22,11 +34,11 @@
 | 4 | 阻止通用 Settings 演变为领域参数仓库 | 阻止其他业务模块把 Settings `ConfigEntry` 当作领域参数仓库 |
 | 5 | 收口治理、模板与开发说明 | 在 Tasks 1–4 有重复证据后更新模块交付 Skill 与能力状态 |
 
-## 存量债务如实登记
+## 历史存量债务与关闭结果
 
-`015_HostRoleDataScope` 在 SQL Server/MySQL 双库迁移中建立了 Identity → Organization 跨模块外键：`fn_identity_role_data_scope_unit.UnitId -> fn_organization_unit.Id`（约束名 `FK_fn_identity_role_data_scope_unit_Unit`）。该债务已登记于 [`module-cross-foreign-key-debt.json`](../../../contracts/architecture/module-cross-foreign-key-debt.json)，移除里程碑为本计划 Task 1 Step 4 的成对可恢复迁移。
+`015_HostRoleDataScope` 曾在 SQL Server/MySQL 双库迁移中建立 Identity → Organization 跨模块外键：`fn_identity_role_data_scope_unit.UnitId -> fn_organization_unit.Id`（约束名 `FK_fn_identity_role_data_scope_unit_Unit`）。该债务已由本计划 Task 1 Step 4 的 `083_IdentityRoleDataScopeUnitCrossModuleFk` 成对可恢复迁移移除。
 
-在完成移除并通过双库恢复验证前，**不得宣称“跨模块外键债务已清零”**；[`capability-status.md`](../../roadmap/capability-status.md) 与对外能力表述必须保持这一限制。
+[`module-cross-foreign-key-debt.json`](../../../contracts/architecture/module-cross-foreign-key-debt.json) 当前为空，并由 Architecture 测试持续验证；若未来再次出现跨模块外键，必须在同一变更中精确登记，不能依赖本文的历史关闭结论绕过门禁。
 
 ## Global Constraints
 

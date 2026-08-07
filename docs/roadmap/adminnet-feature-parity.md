@@ -108,7 +108,7 @@
 | 国密 SM2/SM3/SM4 | Cryptography.GM | Provider | M5+ | Mapped |
 | 数据导入导出工具 | ImportExport | Official Module | M5+ | Mapped |
 | 服务器硬件与运行时信息 | Observability Admin | Official Module | M5+ | Mapped |
-| System.Text.Json 源生成与序列化基准 | Serialization | Core | M0-M1 | Implemented |
+| System.Text.Json 源生成与序列化基准 | Serialization | Core | M0-M1 | **Build-verified**（Architecture 门禁从生产 Endpoint 元数据枚举请求、响应、分页项与 ProblemDetails 类型并验证模块源生成上下文覆盖；生成式客户端 SDK 属于独立演进项） |
 | MessagePack 可靠事件载荷 | Messaging + Outbox | Core | M1 | Implemented |
 | gRPC/Protobuf 跨进程同步通信 | ServiceCommunication.Grpc | Provider/Template | 首次服务拆分时 | Mapped |
 | SignalR、MessagePack Hub 和 Redis Backplane | Realtime | Core + Provider | M2 | **Build-verified**（`IRealtimePublisher` + Hub + JWT 分组；[验证记录](../verification/realtime-signalr-foundation-2026-07-26.md)） |

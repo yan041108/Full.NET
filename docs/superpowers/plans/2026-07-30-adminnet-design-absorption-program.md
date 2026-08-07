@@ -45,6 +45,8 @@
 | --- | --- |
 | 模块数据访问与一致性边界硬化 | `module-data-consistency-boundary-20260807` |
 
+2026-08-08 复核结论：Admin.NET 首轮吸收任务与上述横切框架底座已经进入 `main`，后续不再把存量一致性、安全扫描或客户端契约缺口回填到 Task 1–12。它们统一进入 [`2026-08-08-architecture-gap-follow-up.md`](2026-08-08-architecture-gap-follow-up.md)，每个 Cursor 窗口独立 snapshot、独立 RED→GREEN、独立受影响验证；大型 Document/Files 与 Identity/Organization 状态机不得并行修改共享迁移、Unit 输出或 Docker。
+
 每个切片按下列固定命令执行影响集生命周期：
 
 ```powershell
