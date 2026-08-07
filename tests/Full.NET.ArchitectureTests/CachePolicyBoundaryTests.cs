@@ -3,19 +3,7 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class CachePolicyBoundaryTests
 {
-    private static readonly AllowedCacheOptionsSite[] AllowedSites =
-    [
-        new(
-            "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantResolver.cs",
-            "HybridCacheEntryOptions",
-            "租户解析仍手写 Hybrid 选项；后续改为 ICachePolicyRegistry 条目消费",
-            "fullnet-hc-task-03-tenant-resolver-policy"),
-        new(
-            "src/Modules/Full.NET.Modules.Settings/Features/ManageMyGridPreferences/MyGridPreferenceService.cs",
-            "HybridCacheEntryOptions",
-            "Grid 偏好展示缓存仍手写选项；登记 settings.grid-preference 条目后移除",
-            "fullnet-hc-cache-settings-grid-preference"),
-    ];
+    private static readonly AllowedCacheOptionsSite[] AllowedSites = [];
 
     [TestMethod]
     public void Business_modules_must_not_hand_build_cache_entry_options_outside_allowlist()
@@ -53,10 +41,20 @@ public sealed class CachePolicyBoundaryTests
     }
 
     [TestMethod]
+    public void Allowlist_must_remain_empty_after_policy_registry_adoption()
+    {
+        Assert.HasCount(0, AllowedSites);
+    }
+
+    [TestMethod]
     public void Allowlist_entries_must_exist_with_reason_and_removal_task()
     {
+        if (AllowedSites.Length == 0)
+        {
+            return;
+        }
+
         var root = FindRepositoryRoot();
-        Assert.HasCount(2, AllowedSites);
 
         foreach (var site in AllowedSites)
         {

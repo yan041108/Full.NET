@@ -1,3 +1,4 @@
+using Full.NET.Caching.Fusion;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
@@ -133,11 +134,13 @@ public sealed class GridPreferenceTests
             .Returns(1);
         var environment = Substitute.For<IHostEnvironment>();
         environment.EnvironmentName.Returns("Testing");
+        var policies = CachePolicyRegistry.Create(new CacheOptions());
         var service = new MyGridPreferenceService(
             Substitute.For<IQueryExecutor>(),
             command,
             new PassThroughTransaction(),
             provider.GetRequiredService<HybridCache>(),
+            policies,
             environment,
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>());
@@ -174,11 +177,13 @@ public sealed class GridPreferenceTests
                 new InvalidOperationException("provider detail")));
         var environment = Substitute.For<IHostEnvironment>();
         environment.EnvironmentName.Returns("Testing");
+        var policies = CachePolicyRegistry.Create(new CacheOptions());
         var service = new MyGridPreferenceService(
             Substitute.For<IQueryExecutor>(),
             command,
             new PassThroughTransaction(),
             provider.GetRequiredService<HybridCache>(),
+            policies,
             environment,
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>());

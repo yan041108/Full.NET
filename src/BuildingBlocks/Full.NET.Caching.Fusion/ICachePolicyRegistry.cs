@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Hybrid;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.Caching.Fusion;
@@ -15,4 +16,11 @@ public interface ICachePolicyRegistry
     /// 按策略生成 FusionCache 选项。C0/N0 必须抛错，避免调用方猜测绕过语义。
     /// </summary>
     FusionCacheEntryOptions CreateEntryOptions(string entryName);
+
+    /// <summary>
+    /// 按策略生成 HybridCache 选项，并显式区分正常与负缓存寿命。C0/N0 必须抛错。
+    /// </summary>
+    HybridCacheEntryOptions CreateHybridEntryOptions(
+        string entryName,
+        CacheEntryLifetime lifetime = CacheEntryLifetime.Normal);
 }

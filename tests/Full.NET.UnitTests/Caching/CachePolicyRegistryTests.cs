@@ -1,4 +1,5 @@
 using Full.NET.Caching.Fusion;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -180,6 +181,62 @@ public sealed class CachePolicyRegistryTests
         var exception = Assert.ThrowsExactly<InvalidOperationException>(
             () => registry.CreateEntryOptions("demo.raw"));
         StringAssert.Contains(exception.Message, "Bypass");
+    }
+
+    [TestMethod]
+    public void S2_default_grid_preference_maps_hybrid_lifetimes()
+    {
+        var registry = CachePolicyRegistry.Create(new CacheOptions());
+        var policy = registry.GetRequired(CacheEntryNames.GridPreference);
+
+        Assert.AreEqual("settings", policy.OwnerModule);
+        Assert.AreEqual(CacheConsistencyClass.DegradableDisplay, policy.ConsistencyClass);
+        Assert.AreEqual(TimeSpan.FromMinutes(15), policy.L1Duration);
+        Assert.AreEqual(TimeSpan.FromDays(7), policy.L2Duration);
+        Assert.IsFalse(policy.FailSafeEnabled);
+
+        var options = registry.CreateHybridEntryOptions(CacheEntryNames.GridPreference);
+        Assert.AreEqual(TimeSpan.FromDays(7), options.Expiration);
+        Assert.AreEqual(TimeSpan.FromMinutes(15), options.LocalCacheExpiration);
+    }
+
+    [TestMethod]
+    public void Hybrid_entry_options_distinguish_negative_and_normal_lifetimes()
+    {
+        var registry = CachePolicyRegistry.Create(new CacheOptions());
+
+        var negative = registry.CreateHybridEntryOptions(
+            CacheEntryNames.TenantResolution,
+            CacheEntryLifetime.Negative);
+        var normal = registry.CreateHybridEntryOptions(CacheEntryNames.TenantResolution);
+
+        Assert.AreEqual(TimeSpan.FromMinutes(1), negative.Expiration);
+        Assert.AreEqual(TimeSpan.FromMinutes(1), negative.LocalCacheExpiration);
+        Assert.AreEqual(TimeSpan.FromMinutes(5), normal.Expiration);
+        Assert.AreEqual(TimeSpan.FromMinutes(5), normal.LocalCacheExpiration);
+    }
+
+    [TestMethod]
+    public void Hybrid_entry_options_disable_local_cache_for_s0_l2()
+    {
+        var registry = CachePolicyRegistry.Create(
+            new CacheOptions
+            {
+                Entries =
+                {
+                    ["security.shared"] = new CacheEntryDefinitionOptions
+                    {
+                        OwnerModule = "identity",
+                        ConsistencyClass = "S0-L2",
+                        L1Duration = TimeSpan.FromMinutes(1),
+                        L2Duration = TimeSpan.FromMinutes(2),
+                    },
+                },
+            });
+
+        var options = registry.CreateHybridEntryOptions("security.shared");
+        Assert.AreEqual(TimeSpan.FromMinutes(2), options.Expiration);
+        Assert.AreEqual(TimeSpan.Zero, options.LocalCacheExpiration);
     }
 
     [TestMethod]

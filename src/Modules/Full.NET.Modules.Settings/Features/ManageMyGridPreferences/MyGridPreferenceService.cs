@@ -20,16 +20,11 @@ internal sealed class MyGridPreferenceService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HybridCache cache,
+    ICachePolicyRegistry policies,
     IHostEnvironment environment,
     IClock clock,
     IIdGenerator idGenerator)
 {
-    private static readonly HybridCacheEntryOptions CacheOptions = new()
-    {
-        Expiration = TimeSpan.FromDays(7),
-        LocalCacheExpiration = TimeSpan.FromMinutes(15),
-    };
-
     public async Task<Result<GridPreferenceResponse>> GetAsync(
         Guid userId,
         string gridKey,
@@ -51,7 +46,7 @@ internal sealed class MyGridPreferenceService(
                             state.Definition,
                             token)
                         .ConfigureAwait(false),
-                CacheOptions,
+                policies.CreateHybridEntryOptions(CacheEntryNames.GridPreference),
                 tags: null,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);

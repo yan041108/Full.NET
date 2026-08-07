@@ -10,11 +10,9 @@ namespace Full.NET.Modules.Tenancy.Persistence;
 internal sealed class TenantResolver(
     IQueryExecutor queryExecutor,
     HybridCache cache,
+    ICachePolicyRegistry policies,
     IHostEnvironment environment) : ITenantResolver, IActiveTenantContextResolver
 {
-    internal static readonly TimeSpan ActiveTenantDuration = TimeSpan.FromMinutes(5);
-    internal static readonly TimeSpan MissingTenantDuration = TimeSpan.FromMinutes(1);
-
     public async Task<TenantSummary?> ResolveByDomainAsync(
         string domain,
         CancellationToken cancellationToken = default)
@@ -39,11 +37,9 @@ internal sealed class TenantResolver(
                         .ConfigureAwait(false);
                     return new CachedTenantResolution(tenant?.ToSummary());
                 },
-                new HybridCacheEntryOptions
-                {
-                    Expiration = MissingTenantDuration,
-                    LocalCacheExpiration = MissingTenantDuration
-                },
+                policies.CreateHybridEntryOptions(
+                    CacheEntryNames.TenantResolution,
+                    CacheEntryLifetime.Negative),
                 [domainTag],
                 cancellationToken)
             .ConfigureAwait(false);
@@ -53,11 +49,7 @@ internal sealed class TenantResolver(
             await cache.SetAsync(
                     cacheKey,
                     entry,
-                    new HybridCacheEntryOptions
-                    {
-                        Expiration = ActiveTenantDuration,
-                        LocalCacheExpiration = ActiveTenantDuration
-                    },
+                    policies.CreateHybridEntryOptions(CacheEntryNames.TenantResolution),
                     [domainTag, CacheKeyBuilder.TenantTag(activeTenant.Id)],
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -86,11 +78,9 @@ internal sealed class TenantResolver(
                             token)
                         .ConfigureAwait(false))?.ToSummary());
                 },
-                new HybridCacheEntryOptions
-                {
-                    Expiration = MissingTenantDuration,
-                    LocalCacheExpiration = MissingTenantDuration,
-                },
+                policies.CreateHybridEntryOptions(
+                    CacheEntryNames.TenantResolution,
+                    CacheEntryLifetime.Negative),
                 [CacheKeyBuilder.TenantTag(tenantId)],
                 cancellationToken)
             .ConfigureAwait(false);
@@ -99,11 +89,7 @@ internal sealed class TenantResolver(
             await cache.SetAsync(
                     cacheKey,
                     entry,
-                    new HybridCacheEntryOptions
-                    {
-                        Expiration = ActiveTenantDuration,
-                        LocalCacheExpiration = ActiveTenantDuration,
-                    },
+                    policies.CreateHybridEntryOptions(CacheEntryNames.TenantResolution),
                     [CacheKeyBuilder.TenantTag(tenantId)],
                     cancellationToken)
                 .ConfigureAwait(false);

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Options;
 using ZiggyCreatures.Caching.Fusion;
 
@@ -22,6 +23,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
         {
             [CacheEntryNames.TenantResolution] = CreateDefaultTenantResolution(options),
             [CacheEntryNames.DiagnosticPolicy] = CreateDefaultDiagnosticPolicy(options),
+            [CacheEntryNames.GridPreference] = CreateDefaultGridPreference(options),
         };
 
         foreach (var (entryName, definition) in options.Entries)
@@ -96,6 +98,48 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
         return options;
     }
 
+    /// <inheritdoc />
+    public HybridCacheEntryOptions CreateHybridEntryOptions(
+        string entryName,
+        CacheEntryLifetime lifetime = CacheEntryLifetime.Normal)
+    {
+        var policy = GetRequired(entryName);
+        var access = ResolveAccess(entryName);
+        if (access.Kind is CacheAccessKind.AuthorityRead or CacheAccessKind.Bypass)
+        {
+            throw new InvalidOperationException(
+                $"Cache entry '{entryName}' is {policy.ConsistencyClass} and resolves to {access.Kind}; "
+                + "CreateHybridEntryOptions is forbidden for this class.");
+        }
+
+        TimeSpan l1Duration;
+        TimeSpan l2Duration;
+        if (lifetime == CacheEntryLifetime.Negative)
+        {
+            if (policy.NegativeDuration is not { } negativeDuration || negativeDuration <= TimeSpan.Zero)
+            {
+                throw new InvalidOperationException(
+                    $"Cache entry '{entryName}' does not declare a positive NegativeDuration.");
+            }
+
+            l1Duration = negativeDuration;
+            l2Duration = negativeDuration;
+        }
+        else
+        {
+            l2Duration = policy.L2Duration;
+            l1Duration = policy.ConsistencyClass == CacheConsistencyClass.SharedL2Only
+                ? TimeSpan.Zero
+                : policy.L1Duration;
+        }
+
+        return new HybridCacheEntryOptions
+        {
+            Expiration = l2Duration,
+            LocalCacheExpiration = l1Duration,
+        };
+    }
+
 
     private static CacheEntryPolicy CreateDefaultDiagnosticPolicy(CacheOptions options) =>
         new(
@@ -119,6 +163,19 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             L2Duration: TimeSpan.FromMinutes(5),
             Jitter: options.Jitter,
             NegativeDuration: TimeSpan.FromMinutes(1),
+            FailSafeEnabled: false,
+            RequiresVersionRecheck: false,
+            MaxSerializedBytes: 65_536);
+
+    private static CacheEntryPolicy CreateDefaultGridPreference(CacheOptions options) =>
+        new(
+            CacheEntryNames.GridPreference,
+            OwnerModule: "settings",
+            CacheConsistencyClass.DegradableDisplay,
+            L1Duration: TimeSpan.FromMinutes(15),
+            L2Duration: TimeSpan.FromDays(7),
+            Jitter: options.Jitter,
+            NegativeDuration: null,
             FailSafeEnabled: false,
             RequiresVersionRecheck: false,
             MaxSerializedBytes: 65_536);

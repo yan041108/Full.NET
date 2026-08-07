@@ -1,3 +1,4 @@
+using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
@@ -25,9 +26,11 @@ public sealed class TenantResolverTests
             .Returns(Task.FromResult<TenantResolutionRecord?>(ToRecord(expected)));
 
         await using var provider = CreateCacheProvider();
+        var policies = CachePolicyRegistry.Create(new CacheOptions());
         var resolver = new TenantResolver(
             executor,
             provider.GetRequiredService<HybridCache>(),
+            policies,
             CreateEnvironment());
 
         var first = await resolver.ResolveByDomainAsync("  Acme.LocalHost  ");
@@ -55,14 +58,18 @@ public sealed class TenantResolverTests
             .Returns(Task.FromResult<TenantResolutionRecord?>(null));
 
         await using var provider = CreateCacheProvider();
+        var policies = CachePolicyRegistry.Create(new CacheOptions());
         var resolver = new TenantResolver(
             executor,
             provider.GetRequiredService<HybridCache>(),
+            policies,
             CreateEnvironment());
 
         Assert.IsNull(await resolver.ResolveByDomainAsync("missing.localhost"));
         Assert.IsNull(await resolver.ResolveByDomainAsync("MISSING.LOCALHOST"));
-        Assert.AreEqual(TimeSpan.FromMinutes(1), TenantResolver.MissingTenantDuration);
+        Assert.AreEqual(
+            TimeSpan.FromMinutes(1),
+            policies.GetRequired(CacheEntryNames.TenantResolution).NegativeDuration);
         await executor.Received(1).QuerySingleOrDefaultAsync<TenantResolutionRecord>(
             Arg.Any<SqlStatement>(),
             Arg.Any<object>(),
@@ -80,9 +87,11 @@ public sealed class TenantResolverTests
                 Arg.Any<CancellationToken>())
             .Returns(ToRecord(expected));
         await using var provider = CreateCacheProvider();
+        var policies = CachePolicyRegistry.Create(new CacheOptions());
         var resolver = new TenantResolver(
             executor,
             provider.GetRequiredService<HybridCache>(),
+            policies,
             CreateEnvironment());
 
         var result = await resolver.ResolveByIdAsync(expected.Id);
@@ -104,9 +113,11 @@ public sealed class TenantResolverTests
             .Returns(_ => Task.FromResult<IReadOnlyList<TenantResolutionRecord>>(
                 Array.Empty<TenantResolutionRecord>()));
         await using var provider = CreateCacheProvider();
+        var policies = CachePolicyRegistry.Create(new CacheOptions());
         var resolver = new TenantResolver(
             executor,
             provider.GetRequiredService<HybridCache>(),
+            policies,
             CreateEnvironment());
 
         var result = await resolver.GetAvailableAsync();
