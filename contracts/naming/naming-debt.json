@@ -918,6 +918,41 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/053_DocumentHostFoundation.sql",
       "reason": "053 使用固定存储过程收敛 Host 文档分类、标签、版本与列表索引；对象名均为脚本常量，并由 MySQL 缺失列表索引恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/083_IdentityRoleDataScopeUnitCrossModuleFk.sql",
+      "reason": "083 使用 INFORMATION_SCHEMA + PREPARE 条件删除跨模块外键；DDL 为脚本内固定常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/083_IdentityRoleDataScopeUnitCrossModuleFk.sql",
+      "reason": "083 的条件 DROP CONSTRAINT 尚不能由静态扫描器完整解析；固定对象已人工审查，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_identity_organization_unit_projection.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/084_IdentityOrganizationUnitProjection.sql",
+      "reason": "084 使用复合主键 (TenantId, UnitId) 的内联 PRIMARY KEY 声明；扫描器要求显式 PK_ 名称，已由迁移 084 恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_identity_organization_unit_projection.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/084_IdentityOrganizationUnitProjection.sql",
+      "reason": "084 使用复合主键 (TenantId, UnitId) 的内联 PRIMARY KEY 声明；扫描器要求显式 PK_ 名称，已由迁移 084 恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_files_file_reference_claim.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/085_FilesFileReferenceClaim.sql",
+      "reason": "085 使用内联 PRIMARY KEY 声明；扫描器要求显式 PK_ 名称，已由迁移 085 恢复测试与 Files claim 集成测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

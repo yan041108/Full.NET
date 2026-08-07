@@ -39,7 +39,7 @@ public sealed class IdentityModule : IFullNetModule
 
     public string Name => "Identity";
 
-    public IReadOnlyCollection<string> Dependencies => [];
+    public IReadOnlyCollection<string> Dependencies => ["Organization"];
 
     public void AddServices(
         IServiceCollection services,
