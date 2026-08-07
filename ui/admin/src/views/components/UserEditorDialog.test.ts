@@ -31,7 +31,8 @@ const baseProps = {
   canCreate: true,
   canUpdate: false,
   canManageOrganizations: false,
-  canManageProfile: false,
+  effectiveFieldKeys: [],
+  showProfileTab: false,
   translate
 };
 

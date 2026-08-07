@@ -49,7 +49,8 @@ const props = defineProps<{
   canCreate: boolean;
   canUpdate: boolean;
   canManageOrganizations: boolean;
-  canManageProfile: boolean;
+  effectiveFieldKeys: string[];
+  showProfileTab: boolean;
   translate: (key: MessageKey) => string;
 }>();
 
@@ -74,6 +75,11 @@ const subsidiaryUnitTreeOptions = computed(() =>
     props.primaryUnitId ? new Set([props.primaryUnitId]) : new Set()
   )
 );
+const effectiveFieldKeySet = computed(() => new Set(props.effectiveFieldKeys));
+
+function hasField(fieldKey: string): boolean {
+  return effectiveFieldKeySet.value.has(fieldKey);
+}
 
 const basicFormRef = ref<FormInstance>();
 const basicForm = reactive({
@@ -400,7 +406,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
-              v-if="canManageProfile"
+              v-if="hasField('nickname')"
               :label="translate('users.nickname')"
               prop="nickname"
               :error="fieldErrors.nickname || undefined"
@@ -411,7 +417,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
-              v-if="canManageProfile"
+              v-if="hasField('phone_number')"
               :label="translate('users.phone')"
               prop="phoneNumber"
               :error="fieldErrors.phoneNumber || undefined"
@@ -422,7 +428,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
-              v-if="canManageProfile"
+              v-if="hasField('email')"
               :label="translate('users.email')"
               prop="email"
               :error="fieldErrors.email || undefined"
@@ -432,7 +438,7 @@ defineExpose({
                 @update:model-value="onEmailInput"
               />
             </el-form-item>
-            <el-form-item v-if="canManageProfile" :label="translate('users.gender')">
+            <el-form-item v-if="hasField('gender')" :label="translate('users.gender')">
               <el-radio-group
                 :model-value="profile.gender ?? ''"
                 @update:model-value="updateGender"
@@ -442,7 +448,7 @@ defineExpose({
               </el-radio-group>
             </el-form-item>
             <el-form-item
-              v-if="canManageProfile"
+              v-if="hasField('employee_number')"
               :label="translate('users.employeeNumber')"
               prop="employeeNumber"
               :error="fieldErrors.employeeNumber || undefined"
@@ -474,7 +480,7 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
-              v-if="canManageProfile"
+              v-if="hasField('remark')"
               class="users-editor-dialog__full"
               :label="translate('users.remark')"
               prop="remark"
@@ -567,13 +573,13 @@ defineExpose({
       </el-tab-pane>
 
       <el-tab-pane
-        v-if="canManageProfile"
+        v-if="showProfileTab"
         :label="translate('users.tabProfile')"
         name="profile"
       >
         <div class="users-editor-dialog__form users-editor-dialog__form--profile">
           <div class="users-editor-dialog__grid">
-            <el-form-item :label="translate('users.birthDate')">
+            <el-form-item v-if="hasField('birth_date')" :label="translate('users.birthDate')">
               <el-date-picker
                 :model-value="profile.birthDate ?? ''"
                 type="date"
@@ -582,25 +588,29 @@ defineExpose({
                 @update:model-value="patchProfile({ birthDate: ($event as string) || null })"
               />
             </el-form-item>
-            <el-form-item :label="translate('users.profileLocale')">
+            <el-form-item v-if="hasField('preferred_locale')" :label="translate('users.profileLocale')">
               <el-input
                 :model-value="user?.projectedFields?.preferredLocale ?? translate('users.fieldEmpty')"
                 disabled
               />
             </el-form-item>
-            <el-form-item :label="translate('users.address')" class="users-editor-dialog__full">
+            <el-form-item
+              v-if="hasField('address')"
+              :label="translate('users.address')"
+              class="users-editor-dialog__full"
+            >
               <el-input
                 :model-value="profile.address ?? ''"
                 @update:model-value="patchProfile({ address: $event || null })"
               />
             </el-form-item>
-            <el-form-item :label="translate('users.profileFailedLogin')">
+            <el-form-item v-if="hasField('failed_login_count')" :label="translate('users.profileFailedLogin')">
               <el-input
                 :model-value="String(user?.projectedFields?.failedLoginCount ?? 0)"
                 disabled
               />
             </el-form-item>
-            <el-form-item :label="translate('users.profileLockout')">
+            <el-form-item v-if="hasField('lockout_end_utc')" :label="translate('users.profileLockout')">
               <el-input
                 :model-value="user?.projectedFields?.lockoutEndUtc ?? translate('users.fieldEmpty')"
                 disabled

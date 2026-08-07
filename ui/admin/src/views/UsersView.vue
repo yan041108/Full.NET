@@ -96,6 +96,17 @@ const profileEditorFieldKeys = [
   'address',
   'remark'
 ] as const;
+const profileColumnFieldMap = {
+  gender: 'gender',
+  employeeNumber: 'employee_number',
+  sortOrder: 'sort_order',
+  phone: 'phone_number'
+} as const;
+const projectedMetaFieldKeys = [
+  'preferred_locale',
+  'failed_login_count',
+  'lockout_end_utc'
+] as const;
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -131,7 +142,16 @@ const editingUser = ref<HostUser | null>(null);
 const editorUsername = ref('');
 const editorDisplayName = ref('');
 const editorPassword = ref('');
-const editorProfile = ref<HostUserProfileWrite>(emptyProfile());
+const editorProfile = ref<HostUserProfileWrite>({
+  fieldKeys: [],
+  nickname: null,
+  phoneNumber: null,
+  email: null,
+  employeeNumber: null,
+  gender: null,
+  remark: null,
+  version: null
+});
 const editorPrimaryUnitId = ref('');
 const editorSubsidiaryUnitIds = ref<string[]>([]);
 const editorPositionId = ref('');
@@ -184,7 +204,7 @@ const tableColumns = computed<ArtTableColumnOption[]>({
     { key: 'sortOrder', label: t('users.columnSortOrder'), visible: columnVisibility.value.sortOrder },
     { key: 'phone', label: t('users.phone'), visible: columnVisibility.value.phone },
     { key: 'createdAt', label: t('users.createdAt'), visible: columnVisibility.value.createdAt }
-  ],
+  ].filter(column => isColumnAuthorized(column.key as UserTableColumnKey)),
   set: (columns) => {
     for (const column of columns) {
       if (column.key in columnVisibility.value) {
@@ -195,7 +215,17 @@ const tableColumns = computed<ArtTableColumnOption[]>({
 });
 
 function isColumnVisible(key: UserTableColumnKey): boolean {
-  return columnVisibility.value[key];
+  return columnVisibility.value[key] && isColumnAuthorized(key);
+}
+
+function isColumnAuthorized(key: UserTableColumnKey): boolean {
+  const fieldKey = profileColumnFieldMap[key as keyof typeof profileColumnFieldMap];
+  return !fieldKey || hasEffectiveField(fieldKey);
+}
+
+function hasEffectiveField(fieldKey: string, user?: HostUser | null): boolean {
+  const fieldKeys = user?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys.value;
+  return fieldKeys.includes(fieldKey);
 }
 
 const tableHeaderCellStyle = computed(() => ({
@@ -207,7 +237,6 @@ const tableHeaderCellStyle = computed(() => ({
 const canCreate = computed(() => session.can('identity.users.create'));
 const canUpdate = computed(() => session.can('identity.users.update'));
 const canAssignRoles = computed(() => session.can('identity.users.assign_roles'));
-const canManageProfiles = computed(() => session.currentUser?.isSuperAdministrator === true);
 const canReadUserUnits = computed(() => session.can('organization.user_units.read'));
 const canCreateUserUnits = computed(() => session.can('organization.user_units.create'));
 const canUpdateUserUnits = computed(() => session.can('organization.user_units.update'));
@@ -225,6 +254,23 @@ const canManageOrganizations = computed(() =>
   || canCreateUserPositions.value
   || canUpdateUserPositions.value
   || canDisableUserPositions.value);
+const effectiveUserFieldKeys = computed(() => {
+  const editingKeys = editingUser.value?.projectedFields?.effectiveFieldKeys;
+  if (editingKeys && editingKeys.length > 0) {
+    return editingKeys;
+  }
+
+  const sampleUser = allUsers.value.find(user => user.projectedFields?.effectiveFieldKeys?.length);
+  return sampleUser?.projectedFields?.effectiveFieldKeys ?? [];
+});
+const editableProfileFieldKeys = computed(() =>
+  profileEditorFieldKeys.filter(fieldKey => hasEffectiveField(fieldKey))
+);
+const hasEditableProfileFields = computed(() => editableProfileFieldKeys.value.length > 0);
+const hasProfileTabFields = computed(() =>
+  profileEditorFieldKeys.some(fieldKey => hasEffectiveField(fieldKey))
+  || projectedMetaFieldKeys.some(fieldKey => hasEffectiveField(fieldKey))
+);
 
 const orgTenantOptions = computed(() =>
   session.availableTenants.map(tenant => ({
@@ -241,28 +287,37 @@ function resolveDefaultOrgTenantId(): string {
   return session.availableTenants[0]?.id ?? '';
 }
 
-const searchItems = computed<ArtSearchBarItem[]>(() => [
-  {
-    key: 'username',
-    label: t('users.username'),
-    placeholder: t('users.searchAccountPlaceholder')
-  },
-  {
-    key: 'displayName',
-    label: t('users.realName'),
-    placeholder: t('users.searchNamePlaceholder')
-  },
-  {
-    key: 'phone',
-    label: t('users.phone'),
-    placeholder: t('users.searchPhonePlaceholder')
-  },
-  {
-    key: 'email',
-    label: t('users.email'),
-    placeholder: t('users.searchEmailPlaceholder')
-  },
-  {
+const searchItems = computed<ArtSearchBarItem[]>(() => {
+  const items: ArtSearchBarItem[] = [
+    {
+      key: 'username',
+      label: t('users.username'),
+      placeholder: t('users.searchAccountPlaceholder')
+    },
+    {
+      key: 'displayName',
+      label: t('users.realName'),
+      placeholder: t('users.searchNamePlaceholder')
+    }
+  ];
+
+  if (hasEffectiveField('phone_number')) {
+    items.push({
+      key: 'phone',
+      label: t('users.phone'),
+      placeholder: t('users.searchPhonePlaceholder')
+    });
+  }
+
+  if (hasEffectiveField('email')) {
+    items.push({
+      key: 'email',
+      label: t('users.email'),
+      placeholder: t('users.searchEmailPlaceholder')
+    });
+  }
+
+  items.push({
     key: 'status',
     label: t('users.status'),
     type: 'select',
@@ -271,8 +326,10 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
       { label: t('users.active'), value: 'active' },
       { label: t('users.inactive'), value: 'inactive' }
     ]
-  }
-]);
+  });
+
+  return items;
+});
 
 const transferRoles = computed(() =>
   roles.value
@@ -343,12 +400,12 @@ const filteredUsers = computed(() => {
     rows = rows.filter(user => user.displayName.toLowerCase().includes(keyword));
   }
 
-  if (filters.phone.trim()) {
+  if (filters.phone.trim() && hasEffectiveField('phone_number')) {
     const keyword = filters.phone.trim().toLowerCase();
     rows = rows.filter(user => user.profile?.phoneNumber?.toLowerCase().includes(keyword));
   }
 
-  if (filters.email.trim()) {
+  if (filters.email.trim() && hasEffectiveField('email')) {
     const keyword = filters.email.trim().toLowerCase();
     rows = rows.filter(user => user.profile?.email?.toLowerCase().includes(keyword));
   }
@@ -455,7 +512,7 @@ function updateTableHeight(): void {
 
 function emptyProfile(): HostUserProfileWrite {
   return {
-    fieldKeys: [...profileEditorFieldKeys],
+    fieldKeys: [...editableProfileFieldKeys.value],
     nickname: null,
     phoneNumber: null,
     email: null,
@@ -467,20 +524,20 @@ function emptyProfile(): HostUserProfileWrite {
 }
 
 function loadProfileFromUser(user: HostUser | null): void {
-  if (!user?.profile) {
+  if (!user?.profile || !hasEditableProfileFields.value) {
     editorProfile.value = emptyProfile();
     return;
   }
   editorProfile.value = {
-    fieldKeys: [...profileEditorFieldKeys],
-    nickname: user.profile.nickname,
-    phoneNumber: user.profile.phoneNumber,
-    email: user.profile.email,
-    employeeNumber: user.profile.employeeNumber,
-    gender: user.profile.gender,
-    birthDate: user.profile.birthDate,
-    address: user.profile.address,
-    remark: user.profile.remark,
+    fieldKeys: [...editableProfileFieldKeys.value],
+    nickname: hasEffectiveField('nickname', user) ? user.profile.nickname : null,
+    phoneNumber: hasEffectiveField('phone_number', user) ? user.profile.phoneNumber : null,
+    email: hasEffectiveField('email', user) ? user.profile.email : null,
+    employeeNumber: hasEffectiveField('employee_number', user) ? user.profile.employeeNumber : null,
+    gender: hasEffectiveField('gender', user) ? user.profile.gender : null,
+    birthDate: hasEffectiveField('birth_date', user) ? user.profile.birthDate : null,
+    address: hasEffectiveField('address', user) ? user.profile.address : null,
+    remark: hasEffectiveField('remark', user) ? user.profile.remark : null,
     version: user.profile.version
   };
 }
@@ -928,7 +985,7 @@ async function createUser(): Promise<void> {
       editorUsername.value.trim(),
       editorDisplayName.value.trim(),
       editorPassword.value,
-      canManageProfiles.value ? editorProfile.value : undefined
+      hasEditableProfileFields.value ? editorProfile.value : undefined
     );
     await syncOrgAssignments(created.id);
     await syncRoles(created.id);
@@ -955,7 +1012,7 @@ async function updateUser(): Promise<void> {
       user.id,
       editorDisplayName.value.trim(),
       user.version,
-      canManageProfiles.value ? editorProfile.value : undefined
+      hasEditableProfileFields.value ? editorProfile.value : undefined
     );
     await syncOrgAssignments(user.id);
     if (canAssignRoles.value) {
@@ -1107,7 +1164,7 @@ async function exportUsers(): Promise<void> {
 }
 
 function avatarText(user: HostUser): string {
-  return user.profile?.nickname?.slice(0, 1)
+  return (hasEffectiveField('nickname', user) ? user.profile?.nickname?.slice(0, 1) : undefined)
     || user.displayName.slice(0, 1)
     || user.username.slice(0, 2).toUpperCase();
 }
@@ -1146,7 +1203,8 @@ function sortOrderText(value: number | null | undefined): string {
 }
 
 function userSubtitle(user: HostUser): string {
-  return user.profile?.email?.trim() || user.displayName;
+  return (hasEffectiveField('email', user) ? user.profile?.email?.trim() : '')
+    || user.displayName;
 }
 
 function toProblem(
@@ -1491,7 +1549,8 @@ function toProblem(
       :can-create="canCreate"
       :can-update="canUpdate"
       :can-manage-organizations="canManageOrganizations"
-      :can-manage-profile="canManageProfiles"
+      :effective-field-keys="editingUser?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys"
+      :show-profile-tab="hasProfileTabFields"
       :translate="t"
       @update:username="editorUsername = $event"
       @update:display-name="editorDisplayName = $event"

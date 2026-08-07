@@ -67,7 +67,21 @@ const activeUser = {
   isActive: true,
   createdAtUtc: '2026-07-21T00:00:00Z',
   updatedAtUtc: null,
-  version: 1
+  version: 1,
+  projectedFields: {
+    effectiveFieldKeys: [
+      'id',
+      'username',
+      'display_name',
+      'is_active',
+      'created_at_utc',
+      'updated_at_utc',
+      'version'
+    ],
+    preferredLocale: null,
+    failedLoginCount: null,
+    lockoutEndUtc: null
+  }
 };
 
 const inactiveUser = {
@@ -163,6 +177,113 @@ describe('Vue 用户管理页', () => {
     expect(wrapper.find('[data-testid="users-action-reset-password"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-disable"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-enable"]').exists()).toBe(false);
+  });
+
+  it('无字段授权时即使服务端意外带回档案值也不在页面泄露', async () => {
+    listUsersMock.mockResolvedValueOnce({
+      items: [{
+        ...activeUser,
+        profile: {
+          nickname: '密级昵称',
+          phoneNumber: '13800000000',
+          email: 'hidden@example.com',
+          employeeNumber: 'E-007',
+          gender: null,
+          joinDateUtc: null,
+          sortOrder: 9,
+          idCardType: null,
+          idCardNumber: null,
+          birthDate: null,
+          ethnicity: null,
+          address: '隐藏地址',
+          graduatedSchool: null,
+          educationLevel: null,
+          politicalStatus: null,
+          officePhone: null,
+          emergencyContact: null,
+          emergencyContactPhone: null,
+          emergencyContactAddress: null,
+          remark: '隐藏备注',
+          version: 2
+        }
+      }],
+      page: 1,
+      pageSize: 100,
+      total: 1
+    });
+
+    const wrapper = mountUsers(['identity.users.read']);
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('13800000000');
+    expect(wrapper.text()).not.toContain('hidden@example.com');
+    expect(wrapper.text()).not.toContain('E-007');
+  });
+
+  it('字段授权来自 effectiveFieldKeys，而不是超级管理员兜底', async () => {
+    listUsersMock.mockResolvedValueOnce({
+      items: [{
+        ...activeUser,
+        profile: {
+          nickname: '可见昵称',
+          phoneNumber: '13800000000',
+          email: 'visible@example.com',
+          employeeNumber: 'E-008',
+          gender: null,
+          joinDateUtc: null,
+          sortOrder: null,
+          idCardType: null,
+          idCardNumber: null,
+          birthDate: '2026-08-01',
+          ethnicity: null,
+          address: '可见地址',
+          graduatedSchool: null,
+          educationLevel: null,
+          politicalStatus: null,
+          officePhone: null,
+          emergencyContact: null,
+          emergencyContactPhone: null,
+          emergencyContactAddress: null,
+          remark: null,
+          version: 3
+        },
+        projectedFields: {
+          effectiveFieldKeys: [
+            'id',
+            'username',
+            'display_name',
+            'is_active',
+            'created_at_utc',
+            'updated_at_utc',
+            'version',
+            'nickname',
+            'phone_number',
+            'email',
+            'employee_number',
+            'birth_date',
+            'address',
+            'preferred_locale'
+          ],
+          preferredLocale: 'zh-CN',
+          failedLoginCount: null,
+          lockoutEndUtc: null
+        }
+      }],
+      page: 1,
+      pageSize: 100,
+      total: 1
+    });
+
+    const wrapper = mountUsers(['identity.users.read', 'identity.users.update']);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('13800000000');
+    expect(wrapper.text()).toContain('E-008');
+
+    await wrapper.get('[data-testid="users-action-edit"]').trigger('click');
+    await flushPromises();
+
+    wrapper.unmount();
   });
 
   it('仅授予职位禁用权限时仍会加载组织参考数据', async () => {
