@@ -12,7 +12,7 @@ internal sealed class HostRoleDataScopeService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    IIdentityOrganizationUnitDirectory organizationUnitDirectory,
+    IOrganizationUnitProjectionDirectory organizationUnitProjection,
     IClock clock)
 {
     public async Task<Result<HostRoleDataScopeResponse>> GetAsync(
@@ -33,34 +33,28 @@ internal sealed class HostRoleDataScopeService(
         return Result<HostRoleDataScopeResponse>.Success(Map(record, unitIds));
     }
 
-    public Task<Result<HostRoleDataScopeResponse>> UpdateAsync(
+    public async Task<Result<HostRoleDataScopeResponse>> UpdateAsync(
         Guid roleId,
         UpdateHostRoleDataScopeRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => UpdateCoreAsync(roleId, request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var validation = await ValidateUpdateRequestAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        if (validation is not null)
+        {
+            return validation;
+        }
 
-    private async Task<Result<HostRoleDataScopeResponse>> UpdateCoreAsync(
-        Guid roleId,
+        return await transaction.ExecuteAsync(
+                token => UpdateCoreAsync(roleId, request, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<HostRoleDataScopeResponse>?> ValidateUpdateRequestAsync(
         UpdateHostRoleDataScopeRequest request,
         CancellationToken cancellationToken)
     {
-        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
-                IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (record is null)
-        {
-            return NotFound();
-        }
-
-        if (record.IsSystem || record.IsSuperAdministrator)
-        {
-            return SystemLocked();
-        }
-
         var kind = request.DataScopeKind?.Trim() ?? string.Empty;
         if (!RoleDataScopeKinds.AllKinds.Contains(kind, StringComparer.Ordinal))
         {
@@ -84,7 +78,7 @@ internal sealed class HostRoleDataScopeService(
 
             foreach (var unitId in unitIds)
             {
-                var unit = await organizationUnitDirectory.FindActiveUnitAsync(
+                var unit = await organizationUnitProjection.FindActiveUnitAsync(
                         request.TenantId.Value,
                         unitId,
                         cancellationToken)
@@ -99,6 +93,34 @@ internal sealed class HostRoleDataScopeService(
         {
             return InvalidKind();
         }
+
+        return null;
+    }
+
+    private async Task<Result<HostRoleDataScopeResponse>> UpdateCoreAsync(
+        Guid roleId,
+        UpdateHostRoleDataScopeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                new { RoleId = roleId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null)
+        {
+            return NotFound();
+        }
+
+        if (record.IsSystem || record.IsSuperAdministrator)
+        {
+            return SystemLocked();
+        }
+
+        var kind = request.DataScopeKind?.Trim() ?? string.Empty;
+        var unitIds = (request.UnitIds ?? [])
+            .Distinct()
+            .ToArray();
 
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(

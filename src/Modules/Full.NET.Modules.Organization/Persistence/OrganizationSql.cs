@@ -127,6 +127,45 @@ internal static class OrganizationSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    public static readonly SqlStatement CountUnitSnapshotsForTenant = new(
+        "organization.count_unit_snapshots_for_tenant",
+        """
+        SELECT COUNT(1)
+        FROM fn_organization_unit
+        WHERE TenantId = @TenantId
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListUnitSnapshotsForTenantSqlServer = new(
+        "organization.list_unit_snapshots_for_tenant.sql_server",
+        """
+        SELECT Id AS UnitId,
+               Name,
+               IsActive,
+               Version,
+               COALESCE(UpdatedAtUtc, CreatedAtUtc) AS ChangedAtUtc
+        FROM fn_organization_unit
+        WHERE TenantId = @TenantId
+        ORDER BY Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListUnitSnapshotsForTenantMySql = new(
+        "organization.list_unit_snapshots_for_tenant.mysql",
+        """
+        SELECT Id AS UnitId,
+               Name,
+               IsActive,
+               Version,
+               COALESCE(UpdatedAtUtc, CreatedAtUtc) AS ChangedAtUtc
+        FROM fn_organization_unit
+        WHERE TenantId = @TenantId
+        ORDER BY Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement CountUserUnits = new(
         "organization.count_user_units",
         """

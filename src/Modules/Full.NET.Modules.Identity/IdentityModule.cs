@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Configuration;
@@ -6,6 +7,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.DependencyInjection;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
+using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Seeding;
 using Full.NET.Seeding.Abstractions;
@@ -48,6 +50,8 @@ public sealed class IdentityModule : IFullNetModule
         services.AddIdentityAuthorization(configuration);
         services.AddIdentityDomainServices(configuration);
         services.AddIdentityHttpPolicies(configuration);
+        AddOrganizationUnitProjection(services);
+        AddBackgroundServices(services, configuration);
     }
 
     public void AddMigrationServices(
@@ -100,5 +104,25 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageHostApiKeys.Endpoint.Map(endpoints);
         Features.QueryHostModuleCatalog.Endpoint.Map(endpoints);
         Features.GetHostDashboardSummary.Endpoint.Map(endpoints);
+    }
+
+    /// <summary>注册 Worker 消费机构单元投影事件所需的最小后台能力。</summary>
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        AddOrganizationUnitProjection(services);
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            OrganizationUnitChangedIntegrationEventHandler>());
+    }
+
+    private static void AddOrganizationUnitProjection(IServiceCollection services)
+    {
+        services.TryAddScoped<OrganizationUnitProjectionWriter>();
+        services.TryAddScoped<OrganizationUnitProjectionDirectory>();
+        services.TryAddScoped<IOrganizationUnitProjectionDirectory>(provider =>
+            provider.GetRequiredService<OrganizationUnitProjectionDirectory>());
+        services.TryAddScoped<OrganizationUnitProjectionBackfillService>();
     }
 }

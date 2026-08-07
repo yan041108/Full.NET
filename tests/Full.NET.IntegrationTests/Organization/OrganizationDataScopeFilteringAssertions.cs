@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.IntegrationTests.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
@@ -21,11 +22,12 @@ internal static class OrganizationDataScopeFilteringAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
 
-        await VerifyCustomRoleScopeLimitsVisibleUnitsAsync(client, cancellationToken);
-        await VerifyTenantUserUnitListDataScopeFilteringAsync(client, cancellationToken);
+        await VerifyCustomRoleScopeLimitsVisibleUnitsAsync(factory, client, cancellationToken);
+        await VerifyTenantUserUnitListDataScopeFilteringAsync(factory, client, cancellationToken);
     }
 
     private static async Task VerifyCustomRoleScopeLimitsVisibleUnitsAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -45,6 +47,10 @@ internal static class OrganizationDataScopeFilteringAssertions
             adminTenant.AccessToken,
             hiddenCode,
             "隐藏机构",
+            cancellationToken);
+        await IdentityOrganizationUnitProjectionTestHelper.BackfillTenantAsync(
+            factory,
+            adminTenant.TenantId,
             cancellationToken);
         hostAdminToken = await LoginAsHostAdminAsync(client, cancellationToken);
 
@@ -210,6 +216,7 @@ internal static class OrganizationDataScopeFilteringAssertions
     }
 
     private static async Task VerifyTenantUserUnitListDataScopeFilteringAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -228,6 +235,10 @@ internal static class OrganizationDataScopeFilteringAssertions
             adminTenant.AccessToken,
             hiddenCode,
             "隶属隐藏机构",
+            cancellationToken);
+        await IdentityOrganizationUnitProjectionTestHelper.BackfillTenantAsync(
+            factory,
+            adminTenant.TenantId,
             cancellationToken);
         hostAdminToken = await LoginAsHostAdminAsync(client, cancellationToken);
 

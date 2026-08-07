@@ -2,16 +2,6 @@
   "schemaVersion": 1,
   "entries": [
     {
-      "consumerModule": "identity",
-      "ownerModule": "organization",
-      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageHostRoles/HostRoleDataScopeService.cs",
-      "entryPoint": "HostRoleDataScopeService.UpdateCoreAsync",
-      "contractType": "IIdentityOrganizationUnitDirectory",
-      "reason": "角色自定义数据范围在事务内校验机构单元存在性；替代完整性机制上线后应移到事务外或编排用例。",
-      "risk": "high",
-      "removeByMilestone": "module-data-consistency-boundary-20260807 Task 2"
-    },
-    {
       "consumerModule": "document",
       "ownerModule": "files",
       "file": "src/Modules/Full.NET.Modules.Document/Features/ManageHostDocumentItems/HostDocumentItemManagementService.cs",

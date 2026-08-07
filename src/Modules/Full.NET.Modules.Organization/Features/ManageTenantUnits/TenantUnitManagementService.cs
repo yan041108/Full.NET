@@ -16,6 +16,7 @@ internal sealed class TenantUnitManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    IOutboxWriter outboxWriter,
     TenantUnitQueryService unitQueries,
     ICurrentTenant currentTenant,
     IClock clock,
@@ -107,7 +108,18 @@ internal sealed class TenantUnitManagementService(
                 $"Organization unit insert affected {affectedRows} rows instead of one.");
         }
 
-        return await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        var created = await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        if (created.IsSuccess)
+        {
+            await PublishUnitChangedAsync(
+                    currentTenant.Id!.Value,
+                    created.Value!,
+                    now,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return created;
     }
 
     private async Task<Result<OrganizationUnitResponse>> UpdateCoreAsync(
@@ -180,7 +192,18 @@ internal sealed class TenantUnitManagementService(
                 .ConfigureAwait(false);
         }
 
-        return await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        var updated = await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        if (updated.IsSuccess)
+        {
+            await PublishUnitChangedAsync(
+                    currentTenant.Id!.Value,
+                    updated.Value!,
+                    now,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return updated;
     }
 
     private async Task<Result<OrganizationUnitResponse>> DisableCoreAsync(
@@ -209,8 +232,37 @@ internal sealed class TenantUnitManagementService(
             return NotFound();
         }
 
-        return await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        var disabled = await unitQueries.FindByIdAsync(unitId, cancellationToken).ConfigureAwait(false);
+        if (disabled.IsSuccess)
+        {
+            await PublishUnitChangedAsync(
+                    currentTenant.Id!.Value,
+                    disabled.Value!,
+                    now,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return disabled;
     }
+
+    private async Task PublishUnitChangedAsync(
+        Guid tenantId,
+        OrganizationUnitResponse unit,
+        DateTimeOffset changedAtUtc,
+        CancellationToken cancellationToken) =>
+        await outboxWriter.AddAsync(
+                OrganizationUnitIntegrationEventTypes.UnitChanged,
+                1,
+                new OrganizationUnitChangedIntegrationEvent(
+                    tenantId,
+                    unit.Id,
+                    unit.Name,
+                    unit.IsActive,
+                    unit.Version,
+                    unit.UpdatedAtUtc ?? changedAtUtc),
+                cancellationToken)
+            .ConfigureAwait(false);
 
     private async Task<Result<OrganizationUnitResponse>?> EnsureParentExistsAsync(
         Guid parentId,

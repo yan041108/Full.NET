@@ -23,7 +23,7 @@ internal static class IdentityRoleDataScopeManagementAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifySystemRoleDataScopeUpdateRejectedAsync(client, cancellationToken);
-        await VerifyCustomRoleDataScopeLifecycleAsync(client, cancellationToken);
+        await VerifyCustomRoleDataScopeLifecycleAsync(factory, client, cancellationToken);
         await OpenApiHostRoleDataScopeContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -63,6 +63,7 @@ internal static class IdentityRoleDataScopeManagementAssertions
     }
 
     private static async Task VerifyCustomRoleDataScopeLifecycleAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -104,6 +105,11 @@ internal static class IdentityRoleDataScopeManagementAssertions
         var unit = await createUnitResponse.Content.ReadFromJsonAsync<OrganizationUnitResponse>(
             cancellationToken);
         Assert.IsNotNull(unit);
+
+        await IdentityOrganizationUnitProjectionTestHelper.BackfillTenantAsync(
+            factory,
+            tenantContext.TenantId,
+            cancellationToken);
 
         hostToken = await LoginAsHostAdminAsync(client, cancellationToken);
         using var updateScopeRequest = CreateBearerJsonRequest(
