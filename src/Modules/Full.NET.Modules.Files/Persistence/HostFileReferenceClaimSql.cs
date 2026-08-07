@@ -21,9 +21,13 @@ internal static class HostFileReferenceClaimSql
         INSERT INTO fn_files_file_reference_claim
             (Id, IdempotencyKey, FileId, ConsumerModule, ConsumerReferenceId,
              State, ContentHash, SizeBytes, CreatedAtUtc, UpdatedAtUtc)
-        VALUES
-            (@Id, @IdempotencyKey, @FileId, @ConsumerModule, @ConsumerReferenceId,
-             @State, @ContentHash, @SizeBytes, @CreatedAtUtc, @UpdatedAtUtc)
+        SELECT @Id, @IdempotencyKey, @FileId, @ConsumerModule, @ConsumerReferenceId,
+               @State, @ContentHash, @SizeBytes, @CreatedAtUtc, @UpdatedAtUtc
+        FROM fn_files_file
+        WHERE Id = @FileId
+          AND TenantId IS NULL
+          AND StorageState = 'ready'
+          AND DeletedAtUtc IS NULL
         """,
         SqlDataScope.HostOnly);
 

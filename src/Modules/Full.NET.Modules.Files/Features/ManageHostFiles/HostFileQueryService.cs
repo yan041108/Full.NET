@@ -150,6 +150,24 @@ internal sealed class HostFileQueryService(
 
 
 
+    public async Task<bool> TryAcquireHostFileRowLockAsync(
+
+        Guid fileId,
+
+        CancellationToken cancellationToken = default) =>
+
+        await HostFileRowLocks.TryAcquireAsync(
+
+            queryExecutor,
+
+            databaseOptions.Value.Provider,
+
+            fileId,
+
+            cancellationToken).ConfigureAwait(false);
+
+
+
     internal static HostFileResponse Map(HostFileListRecord record) =>
 
         new(

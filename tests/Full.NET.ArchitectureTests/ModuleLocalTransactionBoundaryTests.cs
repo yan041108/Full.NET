@@ -4,6 +4,16 @@ namespace Full.NET.ArchitectureTests;
 public sealed class ModuleLocalTransactionBoundaryTests
 {
     [TestMethod]
+    public void Contract_definition_scanner_maps_contract_project_to_owning_module()
+    {
+        var definitions = ModuleBoundaryDebtScanner.ScanContractDefinitions(
+            ArchitectureRepositoryRoot.Find());
+
+        Assert.AreEqual("files", definitions["IHostFileReferenceClaimService"]);
+        Assert.AreEqual("identity", definitions["IHostUserDirectory"]);
+    }
+
+    [TestMethod]
     public void Transaction_gate_matches_catalog()
     {
         var root = ArchitectureRepositoryRoot.Find();

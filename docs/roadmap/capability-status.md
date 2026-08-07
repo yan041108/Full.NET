@@ -20,15 +20,15 @@
 |---|---|---|
 | 模块化单体、API/Worker/Migrator 运行角色 | Build-verified | [总体架构规格](../superpowers/specs/2026-07-17-fullnet-architecture-design.md)、[`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) 与 Architecture 门禁共同约束；尚未触发全面微服务拆分门槛。 |
 | 命名、迁移与 CRUD 生成治理 | Build-verified | 统一由 [`rules/naming-conventions.md`](../../rules/naming-conventions.md)、迁移命名测试和 CodeGeneration 契约门禁约束。 |
-| Dapper、租户 SQL 与命令事务边界 | Build-verified | 模块内强事务已形成统一边界；仍有 5 个跨模块调用位于本地事务中的存量债务，见 [`module-local-transaction-debt.json`](../../contracts/architecture/module-local-transaction-debt.json)。 |
+| Dapper、租户 SQL 与命令事务边界 | Build-verified | 模块内强事务已形成统一边界，`module-local-transaction-debt.json` 已清零；Identity 消费 Organization 投影契约仍形成一项精确的反向模块契约债务，后续按 [Cursor 审查计划](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md)退役。 |
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |
 | 事务 Outbox、租约、重试与死信 | Build-verified | 仅承载需要事务原子性的重要 Integration Event；缓存失效、日志、Trace、Metrics 与普通审计禁止进入 Outbox。 |
 | CDC Relay / Kafka | Deferred | 需真实 SLA、积压和运维证据触发，当前不提前引入第二套可靠性边界。 |
-| FusionCache 多实例缓存治理 | Build-verified | 当前写路径使用提交后本实例 L1/L2 删除、Redis Backplane 与 TTL/版本兜底；旧缓存事件处理器只作兼容排空。仍有 2 个手工策略 allowlist 待纳入注册表。 |
+| FusionCache 多实例缓存治理 | Build-verified | 当前写路径使用提交后本实例 L1/L2 删除、Redis Backplane 与 TTL/版本兜底；Tenancy 与 Grid Preference 已纳入统一策略注册表，Architecture 手工策略 allowlist 为零；旧缓存事件处理器只作兼容排空。 |
 | 健康检查与运行角色就绪探针 | Build-verified | API、Worker、Migrator 和关键基础设施有独立就绪语义；生产阈值仍由环境配置验收。 |
 | HTTP 状态码、ProblemDetails 与兼容包络 | Build-verified | 标准 API 默认采用状态码与 ProblemDetails；Admin.NET 包络仅允许存在于兼容适配层。 |
-| System.Text.Json 源生成与 Endpoint 覆盖 | Build-verified | Architecture 测试按生产 Endpoint 元数据枚举请求、响应和 ProblemDetails 类型，未进入源生成上下文即失败关闭；完整生成式 SDK 不属于当前完成门槛。 |
+| System.Text.Json、OpenAPI 与 Vue 调用契约覆盖 | Build-verified | Architecture 测试按生产 Endpoint 元数据枚举 JSON 类型；Vue 生产 API 文件必须逐项映射 OpenAPI fixture 与共享 TypeScript 契约，新增漏项失败关闭；完整生成式 SDK 不属于当前完成门槛。 |
 | 结构化日志、OpenTelemetry 与低基数指标 | Build-verified | 指标、Trace、日志职责分离；生产采集、告警和保留策略仍需部署环境验收。 |
 | 可信代理与转发头边界 | Build-verified | 由主机配置、边界测试与运维基线共同约束。 |
 | Identity 会话、刷新令牌、MFA 与 TOTP | Build-verified | 单元、集成及生产配置真实栈 TOTP 浏览器链路已有验证记录；不等于生产环境认证。 |
@@ -42,7 +42,7 @@
 | 审计归档与保留 | Build-verified | 归档、导出、完整性与恢复边界已有验证；生产保留周期由运维配置。 |
 | Organization 单位、职位与成员关系 | Build-verified | 模块内关联使用本模块 SQL 与事务；跨 Identity 引用仍需通过投影和对账退役存量本地事务债务。 |
 | Files 本地存储、Provider 与上传状态机 | Build-verified | ProviderKey、Pending→Publishing→Ready、补偿与对账、双库迁移均已有验证。 |
-| Document | Build-verified | 文档版本与附件关联已落地；Document→Files 的跨模块强一致需升级为显式 claim/reconcile 协议。 |
+| Document | Build-verified | 文档版本与附件关联及 Document→Files claim/reconcile 已落地，跨模块本地事务债务清零；审查已补回 Files 事务内删除保护、条件 Claim/删除和 Released 终态失败关闭，双 Provider 聚焦切片通过，真实高竞争矩阵仍列为 P0。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
 | Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径仍有一项跨模块本地事务债务待移出事务或改为投影。 |
 | Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。 |
@@ -64,17 +64,16 @@
 
 ## 2026-08-08 后续优先级
 
-### P0：合并与发布安全
+### P0：引用一致性与并发证明
 
-1. 将 NuGet 漏洞检查升级为仓库级、可测试、失败关闭的策略门禁；Critical 必须阻断，High 默认阻断，例外必须精确、有限期且可审计。
-2. 保持能力矩阵 UTF-8 完整性和内部链接检查，禁止再次把 Unicode 替换字符写入权威文档。
+1. 为 Files Claim 与文件删除建立 SQL Server/MySQL 真实并发矩阵，统一文件行锁顺序，证明结果只能是“Claim 成功、删除冲突”或“删除成功、Claim 失败”。
+2. 保持已落地的 NuGet/npm 漏洞失败关闭、权威 Markdown UTF-8 和内部链接门禁，不以本轮完成结论移除持续检查。
 
 ### P1：模块边界与一致性
 
-1. 按 [`module-local-transaction-debt.json`](../../contracts/architecture/module-local-transaction-debt.json) 逐项退役 5 个存量债务，不把“事务前同步校验”误写成跨模块原子性。
-2. 为 Identity→Organization 建立消费方本地投影、版本顺序、回填和对账范例。
-3. 为 Document→Files 建立文件引用 claim、幂等、补偿和对账状态机，消除删除与引用建立之间的竞态。
-4. 将 Tenancy 与 Grid Preference 的手工缓存策略纳入统一策略注册表，并把 Architecture allowlist 收敛为零。
+1. 将 Identity 的 Organization 单位投影事件/回填 Port 收敛为消费方最小契约，移除当前精确反向契约债务，恢复模块依赖 DAG 无例外。
+2. 把 Identity 机构投影回填从仅供测试调用的内部循环升级为 keyset、断点、dry-run、apply 与差异对账的有界 Host 运维能力。
+3. 将 Layui 从活动客户端测试、构建、E2E 与包体门禁移出，只保留冻结目录失败关闭和显式维护例外。
 
 ### P2：契约与演进
 

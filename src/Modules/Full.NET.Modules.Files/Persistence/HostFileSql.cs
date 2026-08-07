@@ -73,6 +73,27 @@ internal static class HostFileSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement LockHostFileRowSqlServer = new(
+        "files.host_file.lock_row.sql_server",
+        """
+        SELECT Id
+        FROM fn_files_file WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @FileId
+          AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement LockHostFileRowMySql = new(
+        "files.host_file.lock_row.mysql",
+        """
+        SELECT Id
+        FROM fn_files_file
+        WHERE Id = @FileId
+          AND TenantId IS NULL
+        FOR UPDATE
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement Insert = new(
         "files.host_file.insert",
         """
@@ -136,6 +157,11 @@ internal static class HostFileSql
           AND TenantId IS NULL
           AND StorageState = 'ready'
           AND DeletedAtUtc IS NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM fn_files_file_reference_claim
+              WHERE FileId = @FileId
+                AND (State = @PendingState OR State = @ActiveState))
         """,
         SqlDataScope.HostOnly);
 

@@ -25,7 +25,7 @@ internal static partial class ModuleBoundaryDebtScanner
                 continue;
             }
 
-            var consumerModule = moduleMatch.Groups["module"].Value.ToLowerInvariant();
+            var consumerModule = NormalizeModuleName(moduleMatch.Groups["module"].Value);
             var content = File.ReadAllText(path);
             if (!content.Contains("ICommandTransaction", StringComparison.Ordinal)
                 || (!content.Contains("ExecuteAsync", StringComparison.Ordinal)
@@ -101,7 +101,7 @@ internal static partial class ModuleBoundaryDebtScanner
                 continue;
             }
 
-            var implementationModule = moduleMatch.Groups["module"].Value.ToLowerInvariant();
+            var implementationModule = NormalizeModuleName(moduleMatch.Groups["module"].Value);
             var content = File.ReadAllText(path);
             foreach (Match match in ImplementedInterfaceRegex().Matches(content))
             {
@@ -137,7 +137,7 @@ internal static partial class ModuleBoundaryDebtScanner
                 continue;
             }
 
-            var contractModule = moduleMatch.Groups["module"].Value.ToLowerInvariant();
+            var contractModule = NormalizeModuleName(moduleMatch.Groups["module"].Value);
             foreach (Match match in ContractInterfaceRegex().Matches(File.ReadAllText(path)))
             {
                 definitions[match.Groups["name"].Value] = contractModule;
@@ -250,6 +250,17 @@ internal static partial class ModuleBoundaryDebtScanner
             methodBody,
             "\\b" + Regex.Escape(fieldName) + "\\s*\\.",
             RegexOptions.CultureInvariant);
+
+    private static string NormalizeModuleName(string directoryModuleName)
+    {
+        const string contractsSuffix = ".Contracts";
+        var moduleName = directoryModuleName.EndsWith(
+            contractsSuffix,
+            StringComparison.OrdinalIgnoreCase)
+            ? directoryModuleName[..^contractsSuffix.Length]
+            : directoryModuleName;
+        return moduleName.ToLowerInvariant();
+    }
 
     private static string TransactionKey(CrossModuleTransactionUsage usage) =>
         string.Join('|', usage.File, usage.EntryPoint, usage.ContractType);

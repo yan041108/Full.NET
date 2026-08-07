@@ -15,6 +15,47 @@ namespace Full.NET.UnitTests.Files;
 public sealed class HostFileManagementServiceTests
 {
     [TestMethod]
+    public async Task Delete_checks_open_claims_inside_files_transaction()
+    {
+        var transaction = new ObservableTransaction();
+        var fileId = Guid.CreateVersion7();
+        var queryExecutor = Substitute.For<IQueryExecutor>();
+        queryExecutor.QuerySingleOrDefaultAsync<Guid>(
+                Arg.Any<SqlStatement>(),
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(fileId);
+        var claimService = Substitute.For<IHostFileReferenceClaimService>();
+        claimService.HasOpenClaimsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(_ => transaction.IsExecuting);
+        var storage = new RecordingBlobStorage();
+        var service = new HostFileManagementService(
+            new OneAffectedCommandExecutor(),
+            transaction,
+            new HostFileQueryService(
+                queryExecutor,
+                Options.Create(new DatabaseOptions
+                {
+                    Provider = DatabaseProvider.SqlServer,
+                })),
+            claimService,
+            CreateRegistry(storage),
+            Substitute.For<IClock>(),
+            Substitute.For<IIdGenerator>(),
+            Options.Create(new LocalFileStorageOptions
+            {
+                RootPath = "unused",
+                MaxUploadBytes = 1024,
+            }));
+
+        var result = await service.DeleteAsync(fileId, CancellationToken.None);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(FilesErrorCodes.FileReferenced, result.Error!.Code);
+        Assert.AreEqual(1, transaction.InvocationCount);
+    }
+
+    [TestMethod]
     public async Task Upload_does_not_save_blob_when_pending_commit_result_is_uncertain()
     {
         var storage = new RecordingBlobStorage();
@@ -247,6 +288,11 @@ public sealed class HostFileManagementServiceTests
             }
 
             var queryExecutor = Substitute.For<IQueryExecutor>();
+            queryExecutor.QuerySingleOrDefaultAsync<Guid>(
+                    Arg.Any<SqlStatement>(),
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(fileId);
             queryExecutor.QuerySingleOrDefaultAsync<HostFileDetailRecord>(
                     Arg.Any<SqlStatement>(),
                     Arg.Any<object?>(),
@@ -667,6 +713,11 @@ public sealed class HostFileManagementServiceTests
             TimeSpan.Zero);
         var storageKey = "host/2026/08/provider-boundary";
         var queryExecutor = Substitute.For<IQueryExecutor>();
+        queryExecutor.QuerySingleOrDefaultAsync<Guid>(
+                Arg.Any<SqlStatement>(),
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(fileId);
         queryExecutor.QuerySingleOrDefaultAsync<HostFileDetailRecord>(
                 Arg.Any<SqlStatement>(),
                 Arg.Any<object?>(),
@@ -797,6 +848,29 @@ public sealed class HostFileManagementServiceTests
             }
 
             return result;
+        }
+    }
+
+    private sealed class ObservableTransaction : ICommandTransaction
+    {
+        public bool IsExecuting { get; private set; }
+
+        public int InvocationCount { get; private set; }
+
+        public async Task<T> ExecuteAsync<T>(
+            Func<CancellationToken, Task<T>> action,
+            CancellationToken cancellationToken)
+        {
+            InvocationCount++;
+            IsExecuting = true;
+            try
+            {
+                return await action(cancellationToken);
+            }
+            finally
+            {
+                IsExecuting = false;
+            }
         }
     }
 

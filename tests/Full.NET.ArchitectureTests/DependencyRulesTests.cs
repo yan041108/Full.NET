@@ -16,6 +16,15 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class DependencyRulesTests
 {
+    private static readonly ReverseContractDependencyDebt[] AllowedReverseContractDependencies =
+    [
+        new(
+            "Identity",
+            "Organization",
+            "Identity 消费 Organization 机构投影契约，而 Organization 仍同步消费 Identity 用户契约。",
+            "退役 Organization→Identity 同步用户读取并改用 Organization 本地用户投影。"),
+    ];
+
     private static readonly string[] ForbiddenRuntimeDynamicTokens =
     [
         "CSharpCompilation",
@@ -185,6 +194,19 @@ public sealed class DependencyRulesTests
             .ToArray();
 
         Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    public void Reverse_module_dependency_does_not_implicitly_authorize_a_contract_cycle()
+    {
+        Full.NET.Modularity.Modules.IFullNetModule[] modules =
+        [
+            new TenancyModule(),
+            new Full.NET.Modules.Organization.OrganizationModule(),
+        ];
+        var moduleByName = modules.ToDictionary(module => module.Name, StringComparer.Ordinal);
+
+        Assert.IsFalse(HasReverseModuleDependency("Tenancy", "Organization", moduleByName));
     }
 
     [TestMethod]
@@ -967,9 +989,20 @@ public sealed class DependencyRulesTests
         string contractOwner,
         IReadOnlyDictionary<string, Full.NET.Modularity.Modules.IFullNetModule> moduleByName)
     {
-        return moduleByName.TryGetValue(contractOwner, out var owner)
+        var reverseDependencyExists =
+            moduleByName.TryGetValue(contractOwner, out var owner)
             && owner.Dependencies.Contains(moduleName, StringComparer.Ordinal);
+        return reverseDependencyExists
+            && AllowedReverseContractDependencies.Any(debt =>
+                string.Equals(debt.ConsumerModule, moduleName, StringComparison.Ordinal)
+                && string.Equals(debt.ContractOwnerModule, contractOwner, StringComparison.Ordinal));
     }
+
+    private sealed record ReverseContractDependencyDebt(
+        string ConsumerModule,
+        string ContractOwnerModule,
+        string Reason,
+        string RemovalTask);
 
     private static string GetProjectNameFromReference(string reference)
     {

@@ -17,6 +17,16 @@ public sealed class DocumentApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task DocumentFilesReferenceClaim_race_is_atomic_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await DocumentFilesReferenceClaimAssertions.VerifyClaimDeleteConcurrencyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_document_categories_and_tags_follow_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

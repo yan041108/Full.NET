@@ -8,6 +8,10 @@
 
 **Baseline:** Cursor 开工时必须重新读取 `git rev-parse HEAD`，不得假定本文编写时的 `bbb718a4` 仍是最新基线。
 
+## 2026-08-08 后续审查更正
+
+Tasks 1–7 的主实现已进入 `main`，但后续审查确认 Task 6 的删除保护曾位于 Files 本地事务之外，且合并修复把反向模块契约引用做成了通用豁免；Task 5 的回填也只有内部测试调用入口，尚未实现本文要求的断点、dry-run 与差异对账。前两项已先收紧为事务内条件写与精确债务，完整并发证明、依赖 DAG 清零、投影运维闭环及 Layui 活动门禁退役统一转入 [`2026-08-08-cursor-post-review-follow-up.md`](2026-08-08-cursor-post-review-follow-up.md)。本文不再作为新的 Cursor 开工队列，Task 8 的 Decision Gate 继续有效。
+
 ## 全局执行协议
 
 1. 每个 Task 开始前确认 `git status --short --branch`，创建本文指定 snapshot；工作区不干净时不得把既有改动纳入当前影响集。

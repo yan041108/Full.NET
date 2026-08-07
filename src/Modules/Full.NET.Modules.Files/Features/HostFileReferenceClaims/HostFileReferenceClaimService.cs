@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Features.HostFileReferenceClaims;
 using Full.NET.Modules.Files.Persistence;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Features.HostFileReferenceClaims;
 
@@ -15,7 +16,8 @@ internal sealed class HostFileReferenceClaimService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IClock clock,
-    IIdGenerator idGenerator) : IHostFileReferenceClaimService
+    IIdGenerator idGenerator,
+    IOptions<DatabaseOptions> databaseOptions) : IHostFileReferenceClaimService
 {
     public Task<Result<HostFileReferenceClaimResult>> ClaimAsync(
         HostFileReferenceClaimRequest request,
@@ -61,6 +63,16 @@ internal sealed class HostFileReferenceClaimService(
             return MatchExisting(request, existing);
         }
 
+        if (!await HostFileRowLocks.TryAcquireAsync(
+                queryExecutor,
+                databaseOptions.Value.Provider,
+                request.FileId,
+                cancellationToken)
+            .ConfigureAwait(false))
+        {
+            return FileNotFound();
+        }
+
         var file = await queryExecutor
             .QuerySingleOrDefaultAsync<HostFileDetailRecord>(
                 HostFileSql.FindActiveById,
@@ -77,7 +89,7 @@ internal sealed class HostFileReferenceClaimService(
 
         var now = clock.UtcNow;
         var claimId = idGenerator.NewId();
-        await commandExecutor.ExecuteAsync(
+        var inserted = await commandExecutor.ExecuteAsync(
                 HostFileReferenceClaimSql.InsertPending,
                 new
                 {
@@ -94,6 +106,11 @@ internal sealed class HostFileReferenceClaimService(
                 },
                 cancellationToken)
             .ConfigureAwait(false);
+        if (inserted != 1)
+        {
+            // 删除与 Claim 竞争时，条件插入必须失败关闭，不能为已删除文件建立无保护引用。
+            return FileNotFound();
+        }
 
         return Result<HostFileReferenceClaimResult>.Success(
             new HostFileReferenceClaimResult(
@@ -227,8 +244,23 @@ internal sealed class HostFileReferenceClaimService(
                 ErrorType.Conflict));
         }
 
+        if (string.Equals(
+                existing.State,
+                HostFileReferenceClaimStates.Released,
+                StringComparison.Ordinal))
+        {
+            // Released 是终态；复用旧幂等键会让新引用失去 Pending/Active 删除保护。
+            return InvalidClaim();
+        }
+
         return SuccessFromRecord(existing);
     }
+
+    private static Result<HostFileReferenceClaimResult> FileNotFound() =>
+        Result<HostFileReferenceClaimResult>.Failure(new Error(
+            FilesErrorCodes.FileNotFound,
+            "The referenced file is unavailable.",
+            ErrorType.NotFound));
 
     private static Result<HostFileReferenceClaimResult> SuccessFromRecord(
         HostFileReferenceClaimRecord record) =>

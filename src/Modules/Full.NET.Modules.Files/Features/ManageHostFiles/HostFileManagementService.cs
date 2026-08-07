@@ -226,16 +226,6 @@ internal sealed class HostFileManagementService(
         Guid fileId,
         CancellationToken cancellationToken = default)
     {
-        if (await hostFileReferenceClaimService
-                .HasOpenClaimsAsync(fileId, cancellationToken)
-                .ConfigureAwait(false))
-        {
-            return Result<HostFileResponse>.Failure(new Error(
-                FilesErrorCodes.FileReferenced,
-                "The file is referenced by a pending or active claim.",
-                ErrorType.Conflict));
-        }
-
         var outcome = await transaction.ExecuteAsync(
                 token => DeleteCoreAsync(fileId, token),
                 cancellationToken)
@@ -258,6 +248,25 @@ internal sealed class HostFileManagementService(
         Guid fileId,
         CancellationToken cancellationToken)
     {
+        if (!await fileQueries.TryAcquireHostFileRowLockAsync(fileId, cancellationToken)
+            .ConfigureAwait(false))
+        {
+            return new DeleteOutcome(
+                Result<HostFileResponse>.Failure(new Error(
+                    FilesErrorCodes.FileNotFound,
+                    "The file was not found.",
+                    ErrorType.NotFound)),
+                null,
+                null);
+        }
+
+        if (await hostFileReferenceClaimService
+                .HasOpenClaimsAsync(fileId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return ReferencedDeleteOutcome();
+        }
+
         var detailResult = await fileQueries.GetDetailByIdAsync(fileId, cancellationToken)
             .ConfigureAwait(false);
         if (!detailResult.IsSuccess)
@@ -275,7 +284,13 @@ internal sealed class HostFileManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 HostFileSql.SoftDelete,
-                new { FileId = fileId, DeletedAtUtc = now },
+                new
+                {
+                    FileId = fileId,
+                    DeletedAtUtc = now,
+                    PendingState = HostFileReferenceClaimStates.Pending,
+                    ActiveState = HostFileReferenceClaimStates.Active,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         // 单文件删除最多只能影响一行；异常计数必须回滚，避免错误提交后继续删除 blob。
@@ -287,6 +302,13 @@ internal sealed class HostFileManagementService(
 
         if (affected == 0)
         {
+            if (await hostFileReferenceClaimService
+                    .HasOpenClaimsAsync(fileId, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return ReferencedDeleteOutcome();
+            }
+
             return new DeleteOutcome(
                 Result<HostFileResponse>.Failure(new Error(
                     FilesErrorCodes.FileNotFound,
@@ -301,6 +323,15 @@ internal sealed class HostFileManagementService(
             storageProvider,
             detail.StorageKey);
     }
+
+    private static DeleteOutcome ReferencedDeleteOutcome() =>
+        new(
+            Result<HostFileResponse>.Failure(new Error(
+                FilesErrorCodes.FileReferenced,
+                "The file is referenced by a pending or active claim.",
+                ErrorType.Conflict)),
+            null,
+            null);
 
     private static string NormalizeFileName(string? originalFileName)
     {
