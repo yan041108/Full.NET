@@ -24,6 +24,7 @@ using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
 using Full.NET.Modules.Identity.Features.ManageHostRoleFieldGrants;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
+using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Features.ManageTotp;
@@ -85,6 +86,7 @@ public sealed class IdentityModuleRegistrationTests
         splitServices.AddIdentityAuthorization(configuration);
         splitServices.AddIdentityDomainServices(configuration);
         splitServices.AddIdentityHttpPolicies(configuration);
+        module.AddBackgroundServices(splitServices, configuration);
 
         CollectionAssert.AreEqual(
             SnapshotIdentityOwnedRegistrations(moduleServices),
@@ -388,6 +390,19 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             IConfigureOptions<JsonOptions>,
             IdentityHttpJsonOptionsConfigurator>(ServiceLifetime.Singleton),
+
+        RegistrationExpectation.Self<OrganizationUnitProjectionWriter>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OrganizationUnitProjectionDirectory>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Factory<IOrganizationUnitProjectionDirectory>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OrganizationUnitProjectionBackfillService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IIntegrationEventHandler,
+            OrganizationUnitChangedIntegrationEventHandler>(
+            ServiceLifetime.Scoped),
     ];
 
     private static RegistrationExpectation[] SnapshotIdentityOwnedRegistrations(
