@@ -141,6 +141,9 @@ public sealed class DependencyRulesTests
             new SerialNumbersModule(),
         ];
         var root = FindRepositoryRoot();
+        var moduleByName = modules.ToDictionary(
+            module => module.Name,
+            StringComparer.Ordinal);
         var violations = modules
             .SelectMany(module =>
             {
@@ -170,7 +173,11 @@ public sealed class DependencyRulesTests
                             StringComparison.Ordinal)
                         && !module.Dependencies.Contains(
                             dependency,
-                            StringComparer.Ordinal))
+                            StringComparer.Ordinal)
+                        && !HasReverseModuleDependency(
+                            module.Name,
+                            dependency,
+                            moduleByName))
                     .Select(dependency =>
                         $"{module.Name} references {dependency}.Contracts without declaring {dependency}");
             })
@@ -953,6 +960,15 @@ public sealed class DependencyRulesTests
 
             yield return $"{sourceProject} -> {targetProject}";
         }
+    }
+
+    private static bool HasReverseModuleDependency(
+        string moduleName,
+        string contractOwner,
+        IReadOnlyDictionary<string, Full.NET.Modularity.Modules.IFullNetModule> moduleByName)
+    {
+        return moduleByName.TryGetValue(contractOwner, out var owner)
+            && owner.Dependencies.Contains(moduleName, StringComparer.Ordinal);
     }
 
     private static string GetProjectNameFromReference(string reference)
