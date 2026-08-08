@@ -1,0 +1,29 @@
+{
+  "name": "fullnet-sqlserver-outbox-shadow",
+  "config": {
+    "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+    "tasks.max": "1",
+    "database.hostname": "${FULLNET_SQLSERVER_HOST}",
+    "database.port": "${FULLNET_SQLSERVER_PORT}",
+    "database.user": "${FULLNET_SQLSERVER_USER}",
+    "database.password": "${FULLNET_SQLSERVER_PASSWORD}",
+    "database.names": "${FULLNET_SQLSERVER_DATABASE}",
+    "database.encrypt": "false",
+    "topic.prefix": "fullnet.dev.shadow.sqlserver",
+    "table.include.list": "dbo.fn_messaging_outbox_event",
+    "capture.instance": "fullnet_fn_messaging_outbox_event",
+    "snapshot.mode": "no_data",
+    "schema.history.internal.kafka.topic": "fullnet.dev.shadow.internal.schema-history.sqlserver",
+    "heartbeat.topics.prefix": "fullnet.dev.shadow.internal.heartbeat.sqlserver",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.field.event.id": "Id",
+    "transforms.outbox.table.field.event.key": "PartitionKey",
+    "transforms.outbox.table.field.event.type": "MessageType",
+    "transforms.outbox.table.field.event.payload": "Payload",
+    "transforms.outbox.table.field.event.timestamp": "OccurredAtUtc",
+    "transforms.outbox.route.by.field": "MessageType",
+    "transforms.outbox.route.topic.replacement": "fullnet.dev.shadow.${routedByValue}",
+    "transforms.outbox.table.fields.additional.placement": "SchemaVersion:header:schema_version,ContentType:header:content_type,TenantId:header:tenant_id,CorrelationId:header:correlation_id,CausationId:header:causation_id,TraceParent:header:traceparent,Producer:header:producer"
+  }
+}
