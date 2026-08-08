@@ -11,6 +11,7 @@ public sealed class GlobalSqlStatementCatalogTests
     [
         .. ProductionAssemblies.All,
         typeof(Full.NET.Modules.Jobs.JobsModule).Assembly,
+        typeof(Full.NET.Modules.Messaging.MessagingModule).Assembly,
         typeof(Full.NET.Modules.Notifications.NotificationsModule).Assembly,
     ];
 
@@ -288,7 +289,7 @@ public sealed class GlobalSqlStatementCatalogTests
             if (field.GetValue(null) is SqlStatement statement)
             {
                 yield return new SqlStatementDeclaration(
-                    $"{type.FullName}.{field.Name}",
+                    $"{FormatDeclarationPrefix(type)}.{field.Name}",
                     ResolveSourceFile(root, type),
                     statement);
             }
@@ -301,15 +302,25 @@ public sealed class GlobalSqlStatementCatalogTests
             if (property.GetValue(null) is SqlStatement statement)
             {
                 yield return new SqlStatementDeclaration(
-                    $"{type.FullName}.{property.Name}",
+                    $"{FormatDeclarationPrefix(type)}.{property.Name}",
                     ResolveSourceFile(root, type),
                     statement);
             }
         }
     }
 
+    private static string FormatDeclarationPrefix(Type type) =>
+        type.IsNested && type.DeclaringType is not null
+            ? $"{type.DeclaringType.FullName}.{type.Name}"
+            : type.FullName!;
+
     private static string ResolveSourceFile(string root, Type type)
     {
+        if (type.IsNested && type.DeclaringType is not null)
+        {
+            return ResolveSourceFile(root, type.DeclaringType);
+        }
+
         var expectedFileName = $"{type.Name}.cs";
         var candidates = Directory
             .EnumerateFiles(Path.Combine(root, "src"), expectedFileName, SearchOption.AllDirectories)

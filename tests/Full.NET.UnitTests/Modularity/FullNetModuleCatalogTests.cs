@@ -7,6 +7,7 @@ using Full.NET.Modules.Document;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Jobs;
+using Full.NET.Modules.Messaging;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Features.Login;
@@ -52,6 +53,7 @@ public sealed class FullNetModuleCatalogTests
                 typeof(FilesModule),
                 typeof(DocumentModule),
                 typeof(JobsModule),
+                typeof(MessagingModule),
                 typeof(NotificationsModule),
                 typeof(TenancyModule),
                 typeof(OrganizationModule),
@@ -64,7 +66,7 @@ public sealed class FullNetModuleCatalogTests
                 modules.Select(module => module.FullName)));
 
         var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
-        Assert.HasCount(11, catalog.List());
+        Assert.HasCount(12, catalog.List());
         Assert.IsNotNull(catalog.FindByKey("Identity"));
         Assert.AreEqual(
             FullNetModuleSourceClassification.Official,

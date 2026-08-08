@@ -52,6 +52,7 @@
     <Project Path="src/Modules/Full.NET.Modules.Document/Full.NET.Modules.Document.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Notifications/Full.NET.Modules.Notifications.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Jobs/Full.NET.Modules.Jobs.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Messaging/Full.NET.Modules.Messaging.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.CodeGeneration/Full.NET.Modules.CodeGeneration.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.SerialNumbers/Full.NET.Modules.SerialNumbers.csproj" />
   </Folder>

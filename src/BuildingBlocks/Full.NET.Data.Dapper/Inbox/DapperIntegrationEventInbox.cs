@@ -63,6 +63,32 @@ internal sealed class DapperIntegrationEventInbox(
             {
                 return new InboxClaimResult(InboxClaimStatus.AlreadyProcessed);
             }
+
+            if (string.Equals(
+                    existing.Status,
+                    InboxSql.StatusFailed,
+                    StringComparison.Ordinal))
+            {
+                var resetRows = await commandExecutor
+                    .ExecuteAsync(
+                        InboxSql.ResetFailedToProcessing,
+                        new
+                        {
+                            ConsumerName = consumerName,
+                            MessageId = envelope.EventId,
+                            StatusProcessing = InboxSql.StatusProcessing,
+                            StatusFailed = InboxSql.StatusFailed,
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (resetRows != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Inbox failed replay reset affected {resetRows} rows instead of one.");
+                }
+
+                return new InboxClaimResult(InboxClaimStatus.Claimed);
+            }
         }
         else
         {

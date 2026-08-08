@@ -47,6 +47,11 @@ internal static class SqlStatementConstructionScanner
             .ToHashSet(StringComparer.Ordinal);
         foreach (var type in types.Distinct())
         {
+            if (type.IsNested)
+            {
+                continue;
+            }
+
             var constructionMethods = GetDeclaredMethods(type)
                 .Select(method => new
                 {

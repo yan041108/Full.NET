@@ -41,6 +41,9 @@ public sealed class SettingsModule : IFullNetModule
             IEnumCatalogContributor,
             Catalogs.SettingsEnumCatalogContributor>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IEnumCatalogContributor,
+            Catalogs.IdentityAccountTypeEnumCatalogContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             SettingsErrorResourceSource>());
         services.TryAddSingleton<IClock, SystemClock>();

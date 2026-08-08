@@ -32,6 +32,8 @@ public sealed class AuditReliabilityCatalog
     [
         new("tenancy.host_tenant.disable", AuditReliabilityClass.DomainTransactional),
         new("settings.logging-diagnostic-policy.updated", AuditReliabilityClass.DomainTransactional),
+        new("messaging.dead_letter.replay", AuditReliabilityClass.DomainTransactional),
+        new("messaging.delivery.cutover", AuditReliabilityClass.DomainTransactional),
         new("auditing.operation_log.write", AuditReliabilityClass.ImportantHttp),
         new("auditing.access_log.write", AuditReliabilityClass.BestEffort),
     ];

@@ -250,6 +250,11 @@ public sealed class NamingConventionTests
 
     private static string ResolveSourceFile(Type type, bool required = true)
     {
+        if (type.IsNested && type.DeclaringType is not null)
+        {
+            return ResolveSourceFile(type.DeclaringType, required);
+        }
+
         var root = FindRepositoryRoot();
         var matches = Directory
             .EnumerateFiles(Path.Combine(root, "src"), $"{type.Name}.cs", SearchOption.AllDirectories)

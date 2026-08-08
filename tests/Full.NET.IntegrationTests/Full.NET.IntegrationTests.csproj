@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.CodeGeneration\Full.NET.Modules.CodeGeneration.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Document\Full.NET.Modules.Document.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Jobs\Full.NET.Modules.Jobs.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Messaging\Full.NET.Modules.Messaging.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.SerialNumbers\Full.NET.Modules.SerialNumbers.csproj" />
   </ItemGroup>
   <ItemGroup>

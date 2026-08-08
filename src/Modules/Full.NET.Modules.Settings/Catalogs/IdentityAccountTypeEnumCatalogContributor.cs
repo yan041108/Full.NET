@@ -1,10 +1,10 @@
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Settings.Contracts;
 
-namespace Full.NET.Modules.Identity.Catalogs;
+namespace Full.NET.Modules.Settings.Catalogs;
 
-/// <summary>Identity 模块内置枚举/常量目录（账号类型）。</summary>
-internal sealed class IdentityEnumCatalogContributor : IEnumCatalogContributor
+/// <summary>Identity 账号类型枚举目录，由 Settings 聚合发布以避免 Identity 反向依赖 Settings.Contracts。</summary>
+internal sealed class IdentityAccountTypeEnumCatalogContributor : IEnumCatalogContributor
 {
     public IReadOnlyCollection<EnumCatalogDefinition> Catalogs { get; } =
     [

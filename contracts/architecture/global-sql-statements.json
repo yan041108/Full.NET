@@ -530,6 +530,99 @@
       ]
     },
     {
+      "statementName": "messaging.inbox.reset_failed_to_processing",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.ResetFailedToProcessing",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "受控死信重放前将 failed Inbox 行重置为 processing，保证与 MarkProcessed 路径一致。",
+      "requiredSqlFragments": [
+        "UPDATE fn_messaging_inbox_message",
+        "Status = @StatusProcessing",
+        "ConsumerName = @ConsumerName",
+        "MessageId = @MessageId"
+      ]
+    },
+    {
+      "statementName": "messaging.dead_letters.count",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.MessagingOperationsSql.CountDeadLetters",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/MessagingOperationsSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Host 运维查询消费死信总量，不暴露 Payload。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_inbox_message",
+        "Status = 'failed'"
+      ]
+    },
+    {
+      "statementName": "messaging.dead_letters.list.sql_server",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.MessagingOperationsSql.ListDeadLettersSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/MessagingOperationsSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Host 运维分页列出消费死信元数据，SQL Server 使用 OFFSET/FETCH。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_inbox_message",
+        "Status = 'failed'",
+        "OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY"
+      ]
+    },
+    {
+      "statementName": "messaging.dead_letters.list.mysql",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.MessagingOperationsSql.ListDeadLettersMySql",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/MessagingOperationsSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Host 运维分页列出消费死信元数据，MySQL 使用 LIMIT/OFFSET。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_inbox_message",
+        "Status = 'failed'",
+        "LIMIT @PageSize OFFSET @Offset"
+      ]
+    },
+    {
+      "statementName": "messaging.dead_letters.find_by_key",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.MessagingOperationsSql.FindDeadLetterByKey",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/MessagingOperationsSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "受控重放按 ConsumerName 与 MessageId 精确定位 failed Inbox 行。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_inbox_message",
+        "ConsumerName = @ConsumerName",
+        "MessageId = @MessageId"
+      ]
+    },
+    {
+      "statementName": "messaging.outbox.find_envelope_by_id",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.MessagingOperationsSql.FindOutboxEnvelopeById",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/MessagingOperationsSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "受控重放从 Outbox 读取完整 Envelope 载荷，仅供授权重放路径使用。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_outbox_event",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "messaging.domain_audit.insert",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.MessagingDomainAuditSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/MessagingDomainAuditSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "消息运维重放与切换在 Host 上下文写入 B0 域内审计，与业务同事务提交。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_domain_audit",
+        "@ActionKey",
+        "@EntityId"
+      ]
+    },
+    {
+      "statementName": "messaging.domain_audit.count",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.MessagingOperationsSql.CountDomainAuditRows",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/MessagingOperationsSql.cs",
+      "category": "host_catalog",
+      "reason": "集成测试验证消息运维 B0 审计落库。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_domain_audit"
+      ]
+    },
+    {
       "statementName": "serial_numbers.rule.find_by_key",
       "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.FindRuleByKey",
       "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",

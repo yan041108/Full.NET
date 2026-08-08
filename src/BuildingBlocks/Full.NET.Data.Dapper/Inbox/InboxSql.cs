@@ -6,6 +6,7 @@ internal static class InboxSql
 {
     internal const string StatusProcessing = "processing";
     internal const string StatusProcessed = "processed";
+    internal const string StatusFailed = "failed";
 
     public static readonly SqlStatement SelectExistingSqlServer = new(
         "messaging.inbox.select_existing.sql_server",
@@ -51,6 +52,18 @@ internal static class InboxSql
         WHERE ConsumerName = @ConsumerName
           AND MessageId = @MessageId
           AND Status = @ExpectedStatus;
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ResetFailedToProcessing = new(
+        "messaging.inbox.reset_failed_to_processing",
+        """
+        UPDATE fn_messaging_inbox_message
+        SET Status = @StatusProcessing,
+            Attempts = Attempts + 1
+        WHERE ConsumerName = @ConsumerName
+          AND MessageId = @MessageId
+          AND Status = @StatusFailed;
         """,
         SqlDataScope.Global);
 }

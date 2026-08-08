@@ -10,6 +10,7 @@ public sealed class SqlDataScopeRulesTests
     [
         .. ProductionAssemblies.All,
         typeof(Full.NET.Modules.Jobs.JobsModule).Assembly,
+        typeof(Full.NET.Modules.Messaging.MessagingModule).Assembly,
         typeof(Full.NET.Modules.Notifications.NotificationsModule).Assembly,
     ];
 

@@ -3,7 +3,6 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Authorization;
-using Full.NET.Modules.Identity.Catalogs;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.DependencyInjection;
@@ -13,7 +12,6 @@ using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Seeding;
-using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Seeding.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -50,9 +48,6 @@ public sealed class IdentityModule : IFullNetModule
         IConfiguration configuration)
     {
         AddMigrationServices(services, configuration);
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IEnumCatalogContributor,
-            IdentityEnumCatalogContributor>());
         services.AddIdentityAuthentication(configuration);
         services.AddIdentityAuthorization(configuration);
         services.AddIdentityDomainServices(configuration);

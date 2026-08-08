@@ -137,6 +137,7 @@ public sealed class DependencyRulesTests
             new FilesModule(),
             new Full.NET.Modules.Notifications.NotificationsModule(),
             new Full.NET.Modules.Jobs.JobsModule(),
+            new Full.NET.Modules.Messaging.MessagingModule(),
             new TenancyModule(),
             new Full.NET.Modules.Organization.OrganizationModule(),
             new SettingsModule(),
