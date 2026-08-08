@@ -15,11 +15,11 @@ public static class IdentityOrganizationUnitProjectionPermissions
 {
     /// <summary>执行 dry-run 对账并读取差异报告。</summary>
     public const string ReconcileDryRun =
-        "identity.organization_unit_projection.reconcile.dry_run";
+        "identity.organization_unit_projections.reconcile_dry_run";
 
     /// <summary>执行 apply 对账并写入 Identity 本地投影。</summary>
     public const string ReconcileApply =
-        "identity.organization_unit_projection.reconcile.apply";
+        "identity.organization_unit_projections.reconcile_apply";
 }
 
 /// <summary>机构单元投影对账模式稳定机器码。</summary>

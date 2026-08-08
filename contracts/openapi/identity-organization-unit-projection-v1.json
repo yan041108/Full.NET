@@ -8,7 +8,7 @@
       "operations": [
         {
           "method": "POST",
-          "permission": "identity.organization_unit_projection.reconcile.dry_run|identity.organization_unit_projection.reconcile.apply",
+          "permission": "identity.organization_unit_projections.reconcile_dry_run|identity.organization_unit_projections.reconcile_apply",
           "successStatus": 200,
           "requestSchema": "ReconcileOrganizationUnitProjectionRequest",
           "responseSchema": "ReconcileOrganizationUnitProjectionResponse"

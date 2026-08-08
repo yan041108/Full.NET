@@ -39,6 +39,8 @@ public sealed class AuthorizationCatalogTests
                 "identity.menus.update",
                 "identity.modules.read",
                 "identity.navigation.read",
+                "identity.organization_unit_projections.reconcile_apply",
+                "identity.organization_unit_projections.reconcile_dry_run",
                 "identity.role_field_grants.read",
                 "identity.role_field_grants.replace",
                 "identity.roles.assign_data_scope",

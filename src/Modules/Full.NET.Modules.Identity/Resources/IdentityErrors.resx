@@ -67,4 +67,7 @@
   <data name="identity.signature.access_key_expired" xml:space="preserve"><value>Access Key 已过期。</value></data>
   <data name="identity.signature.tenant_scope_mismatch" xml:space="preserve"><value>Access Key 与租户作用域不匹配。</value></data>
   <data name="identity.modules.not_found" xml:space="preserve"><value>未找到该模块清单条目。</value></data>
+  <data name="identity.organization_unit_projection.invalid_tenant" xml:space="preserve"><value>机构投影对账租户标识无效。</value></data>
+  <data name="identity.organization_unit_projection.invalid_mode" xml:space="preserve"><value>机构投影对账模式无效。</value></data>
+  <data name="identity.organization_unit_projection.invalid_page_size" xml:space="preserve"><value>机构投影对账分页大小超出允许范围。</value></data>
 </root>
