@@ -392,6 +392,20 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void BusinessModules_DoNotDependOnConfluentKafka()
+    {
+        var result = Types.InAssemblies(BusinessModuleAssemblies)
+            .ShouldNot()
+            .HaveDependencyOn("Confluent.Kafka")
+            .GetResult();
+
+        Assert.IsTrue(
+            result.IsSuccessful,
+            $"Business modules must not reference Confluent.Kafka: "
+            + $"{string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
     public void BusinessModules_DoNotDependOnDapperOrAdoNetProviders()
     {
         var result = Types.InAssemblies(BusinessModuleAssemblies)

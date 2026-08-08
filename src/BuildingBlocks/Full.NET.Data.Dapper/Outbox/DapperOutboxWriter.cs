@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Messaging.Abstractions;
 
 namespace Full.NET.Data.Dapper.Outbox;
 
@@ -57,5 +58,16 @@ internal sealed class DapperOutboxWriter(
             throw new InvalidOperationException(
                 $"Outbox insert affected {affectedRows} rows instead of one.");
         }
+    }
+
+    public Task AddAsync<TEvent>(
+        string eventType,
+        int schemaVersion,
+        TEvent payload,
+        IntegrationEventMetadata metadata,
+        CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException(
+            "Metadata-aware outbox writes require append-only messaging outbox (migration 091).");
     }
 }

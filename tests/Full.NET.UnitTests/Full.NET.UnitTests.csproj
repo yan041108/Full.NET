@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.CodeGeneration\Full.NET.Data.CodeGeneration.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Localization\Full.NET.Localization.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Messaging.Abstractions\Full.NET.Messaging.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Realtime.Abstractions\Full.NET.Realtime.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Realtime.SignalR\Full.NET.Realtime.SignalR.csproj" />

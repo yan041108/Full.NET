@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="..\Full.NET.Messaging.Abstractions\Full.NET.Messaging.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>
