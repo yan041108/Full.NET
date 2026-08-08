@@ -24,7 +24,7 @@
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |
 | 事务 Outbox、租约、重试与死信 | Build-verified | 仅承载需要事务原子性的重要 Integration Event；缓存失效、日志、Trace、Metrics 与普通审计禁止进入 Outbox。 |
-| CDC Relay / Kafka | Deferred | 需真实 SLA、积压和运维证据触发，当前不提前引入第二套可靠性边界。 |
+| CDC Relay / Kafka | Designing | 已由 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)批准提前分阶段建设，不引入 CAP/MassTransit；当前仅完成规则、ADR、Spec 与 Cursor 实施计划，代码、双库 CDC、Kafka/Inbox 和生产切流均未实现，详见[实施计划](../superpowers/plans/2026-08-08-transactional-outbox-cdc-kafka.md)。 |
 | FusionCache 多实例缓存治理 | Build-verified | 当前写路径使用提交后本实例 L1/L2 删除、Redis Backplane 与 TTL/版本兜底；Tenancy 与 Grid Preference 已纳入统一策略注册表，Architecture 手工策略 allowlist 为零；旧缓存事件处理器只作兼容排空。 |
 | 健康检查与运行角色就绪探针 | Build-verified | API、Worker、Migrator 和关键基础设施有独立就绪语义；生产阈值仍由环境配置验收。 |
 | HTTP 状态码、ProblemDetails 与兼容包络 | Build-verified | 标准 API 默认采用状态码与 ProblemDetails；Admin.NET 包络仅允许存在于兼容适配层。 |
@@ -60,7 +60,7 @@
 | gRPC 服务契约 | Planned | 只有明确的进程间高吞吐或流式需求才进入实现。 |
 | AI 能力 | Planned | 必须先确定数据边界、审计、模型供应、成本与降级策略。 |
 | Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。 |
-| k6 与生产容量认证 | Implemented | 工具、阈值和报告能力已落地；生产等价环境认证前统一标记 `Capacity-not-verified`。 |
+| k6 与生产容量认证 | Implemented | [`eng/load`](../../eng/load/README.md) 已提供工具、阈值和报告能力；生产等价环境认证前统一标记 `Capacity-not-verified`。 |
 
 ## 2026-08-08 后续优先级
 
@@ -77,9 +77,10 @@
 
 ### P2：契约与演进
 
-1. 为 Vue API 模块建立 OpenAPI、共享 TypeScript 契约与调用点之间的覆盖门禁；在出现真实多客户端或外部 SDK 需求前，不机械引入完整生成式 SDK。
-2. 保留 Integration Event 并行版本、精确路由、consumer-first 和退役扫描；只有出现首个真实非加法升级时才实现相邻版本 upgrader，并以真实事件完成 v1→v2 演练。
-3. 在生产等价环境完成 MySQL UUID 迁移维护窗口、备份恢复和 RPO/RTO 演练。
+1. 按 ADR-0006/专门计划建立 Event Envelope V2、追加式 Outbox、双库 Inbox、Kafka Provider 和双库 CDC Shadow；完成故障矩阵前不启用正式业务 Consumer。
+2. 为 Vue API 模块建立 OpenAPI、共享 TypeScript 契约与调用点之间的覆盖门禁；在出现真实多客户端或外部 SDK 需求前，不机械引入完整生成式 SDK。
+3. 保留 Integration Event 并行版本、精确路由、consumer-first 和退役扫描；只有出现首个真实非加法升级时才实现相邻版本 upgrader，并以真实事件完成 v1→v2 演练。
+4. 在生产等价环境完成 MySQL UUID 迁移维护窗口、备份恢复和 RPO/RTO 演练。
 
 ## 当前发布表述
 

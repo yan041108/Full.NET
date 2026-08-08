@@ -1,7 +1,11 @@
 {
   "skill": "fullnet-module-delivery",
   "max_lines": 500,
-  "reference": "references/delivery-map.md",
+  "references": [
+    "references/delivery-map.md",
+    "references/microsoft-dotnet-sqlserver-guidance.md",
+    "references/future-architecture-evolution.md"
+  ],
   "verification_terms": [
     "变更风险分层",
     "任务基线",
@@ -32,12 +36,28 @@
     "重要业务事件才允许 Outbox",
     "C0/S0-L2/S1/S2/N0",
     "ADR-0005",
-    "§13"
+    "§13",
+    "Framework Design Guidelines",
+    ".NET 10",
+    "ASP.NET Core 10",
+    "Microsoft.Data.SqlClient",
+    "Query Store",
+    "TrustServerCertificate=False",
+    "未来架构演进",
+    "微服务",
+    "分片",
+    "多数据库",
+    "当前基线",
+    "证据门禁",
+    "不得作为当前默认方案"
   ],
   "forbidden_terms": [
     "缓存失效由提交后的 Outbox",
     "缓存失效由 Outbox",
-    "提交后失效 Handler"
+    "提交后失效 Handler",
+    "Full.NET 当前采用微服务",
+    "默认使用分片",
+    "默认采用多数据库"
   ],
   "scenarios": [
     {
@@ -145,6 +165,41 @@
         "不得按 CRUD",
         "真实跨模块消费者",
         "独立传输适配收益"
+      ]
+    },
+    {
+      "name": ".NET 框架与公共 API 设计",
+      "prompt": "为 Full.NET 设计一个可复用的 .NET 10 基础类库和稳定公共 API。",
+      "required_terms": [
+        "Framework Design Guidelines",
+        "兼容性",
+        "扩展性",
+        "异常",
+        "API"
+      ]
+    },
+    {
+      "name": "ASP.NET Core 与 SqlClient 安全",
+      "prompt": "审查 ASP.NET Core 10 到 SQL Server 的认证、连接和数据访问安全。",
+      "required_terms": [
+        "ASP.NET Core 10",
+        "Microsoft.Data.SqlClient",
+        "参数化",
+        "TrustServerCertificate=False",
+        "最小权限"
+      ]
+    },
+    {
+      "name": "未来架构演进评审",
+      "prompt": "评估 Full.NET 未来是否需要微服务、数据库分片或多数据库架构。",
+      "required_terms": [
+        "当前基线",
+        "证据门禁",
+        "微服务",
+        "分片",
+        "多数据库",
+        "ADR",
+        "不得作为当前默认方案"
       ]
     }
   ]

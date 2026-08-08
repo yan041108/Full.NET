@@ -104,7 +104,7 @@
 | 系统升级 | Upgrade Management | Official Module | M5+ | Mapped |
 | 支付宝 | Payments.Alipay | Provider | M5+ | Mapped |
 | 微信生态 | WeChat | Official Module + Provider | M5+ | Mapped |
-| Kafka / CDC Relay / EventBus 事件集成 | EventDelivery Provider | Provider | M5+ Decision Gate | Mapped（当前只做 Outbox；见[总体架构 Spec §9.1](../superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)） |
+| Kafka / CDC Relay / EventBus 事件集成 | EventDelivery Provider | Provider | 提前实施计划 | Designing（采用事务追加式 Outbox + SQL Server CDC/MySQL Binlog + Debezium + Kafka + Inbox，不引入 CAP/MassTransit；当前仅完成 ADR/Spec/计划，见 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)与[专门计划](../superpowers/plans/2026-08-08-transactional-outbox-cdc-kafka.md)） |
 | 国密 SM2/SM3/SM4 | Cryptography.GM | Provider | M5+ | Mapped |
 | 数据导入导出工具 | ImportExport | Official Module | M5+ | Mapped |
 | 服务器硬件与运行时信息 | Observability Admin | Official Module | M5+ | Mapped |

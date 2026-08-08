@@ -565,7 +565,9 @@ Vue 壳层迁移按 [`2026-07-18-vue-art-design-pro-adoption.md`](2026-07-18-vue
 4. 覆盖直连、单层可信代理、多层可信链、恶意客户端伪造和 IPv4/IPv6；验证相同真实客户端共享限流分区、不同客户端不因代理地址合并。
 5. 文档记录 Aspire、Nginx/Kubernetes 的可信代理配置示例和错误配置风险；运行 Hosting/Identity 单元与集成测试后提交。
 
-### Task 17: Outbox 后的 CDC/Kafka 演进门禁（M5+，最后执行）
+### Task 17: Outbox 后的 CDC/Kafka 演进门禁（已由 ADR-0006 与专门计划替代）
+
+> 状态：不再执行。本任务原本要求等待 M5+ 性能门禁；项目所有者已于 2026-08-08 批准提前分阶段实施，权威决策和任务拆分移至 [`ADR-0006`](../../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)、[专门 Spec](../specs/2026-08-08-transactional-outbox-cdc-kafka-design.md)与[专门计划](2026-08-08-transactional-outbox-cdc-kafka.md)。下列内容仅保留历史决策背景，不得作为活动任务执行。
 
 **批准依据：** [总体架构 Spec §9.1](../specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)与[2026-07-22 架构复核](../../verification/architecture-review-2026-07-22.md)。Task 3A、5、6、7、8、11、13 及当前核心业务模块未完成前，不得开始本任务。
 

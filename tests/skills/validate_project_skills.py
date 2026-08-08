@@ -43,13 +43,14 @@ def validate_contract(contract_path: Path) -> list[str]:
 
     skill_path = skill_dir / "SKILL.md"
     metadata_path = skill_dir / "agents" / "openai.yaml"
-    reference_relative = contract.get(
-        "reference",
-        "references/delivery-map.md",
-    )
-    reference_path = skill_dir / reference_relative
+    reference_relatives = contract.get("references")
+    if reference_relatives is None:
+        reference_relatives = [
+            contract.get("reference", "references/delivery-map.md")
+        ]
+    reference_paths = [skill_dir / relative for relative in reference_relatives]
 
-    for path in (skill_path, metadata_path, reference_path):
+    for path in (skill_path, metadata_path, *reference_paths):
         if not path.is_file():
             errors.append(f"Missing required file: {path.relative_to(ROOT).as_posix()}")
 
@@ -58,8 +59,8 @@ def validate_contract(contract_path: Path) -> list[str]:
 
     skill_text = read_utf8(skill_path)
     metadata_text = read_utf8(metadata_path)
-    reference_text = read_utf8(reference_path)
-    combined_text = f"{skill_text}\n{reference_text}"
+    reference_texts = [read_utf8(path) for path in reference_paths]
+    combined_text = "\n".join([skill_text, *reference_texts])
 
     frontmatter = re.match(r"\A---\r?\n(.*?)\r?\n---\r?\n", skill_text, re.DOTALL)
     if frontmatter is None:
@@ -84,8 +85,9 @@ def validate_contract(contract_path: Path) -> list[str]:
         errors.append(f"SKILL.md has {line_count} lines; maximum is {contract['max_lines']}.")
     if PLACEHOLDER_PATTERN.search(combined_text):
         errors.append("Skill content contains a placeholder marker.")
-    if f"({reference_relative})" not in skill_text:
-        errors.append(f"SKILL.md must link directly to {reference_relative}.")
+    for reference_relative in reference_relatives:
+        if f"({reference_relative})" not in skill_text:
+            errors.append(f"SKILL.md must link directly to {reference_relative}.")
     if f"${skill_name}" not in metadata_text:
         errors.append(f"agents/openai.yaml must mention ${skill_name} in default_prompt.")
 

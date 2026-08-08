@@ -1,6 +1,6 @@
 ---
 name: fullnet-module-delivery
-description: Use when adding or extending a Full.NET module, CRUD feature, endpoint, command/query, Dapper persistence, SQL Server/MySQL migration, Admin.NET parity capability, or end-to-end product slice in this repository.
+description: Use when adding or extending a Full.NET module, CRUD feature, endpoint, command/query, public .NET API, Dapper persistence, SQL Server/MySQL migration, Admin.NET parity capability, or reviewing a future architecture evolution in this repository.
 ---
 
 # Full.NET 模块交付
@@ -10,6 +10,12 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 先交付一条可运行、可验证的纵向切片，再扩展横向能力。每个切片同时满足模块边界、租户与授权、Dapper 双数据库、标准 API、中文注释和真实测试要求。
 
 开始前必须读取根目录 `AGENTS.md`、相关 `rules/`、架构规格和功能对标路线，并运行 `git rev-parse HEAD` 记录任务基线。工作区已脏或任务跨窗口时还必须使用 `pnpm test:task:start -- <task-id>` 创建任务快照。涉及数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成产物时，必须读取 `rules/naming-conventions.md`。需要精确路径、参考切片和验证命令时，读取 [交付地图](references/delivery-map.md)。
+
+按任务加载参考，禁止把全部外部知识无条件塞入上下文：
+
+- 设计 .NET 10 类库、公共 API、ASP.NET Core 10 安全、Microsoft.Data.SqlClient 或 SQL Server 数据访问时，读取[微软 .NET 10 与 SQL Server 指导映射](references/microsoft-dotnet-sqlserver-guidance.md)。
+- 评估微服务、分片、多数据库、Polyglot Persistence 或其他云架构升级时，读取[未来架构演进参考](references/future-architecture-evolution.md)。其中所有模式都受当前基线与证据门禁约束；事务 Outbox 的 CDC/Kafka 演进仅按已批准 ADR-0006/Spec/计划实施，不得扩大为微服务、分片或多数据库授权。
+- 遇到延迟、吞吐、Query Store、执行计划、等待、锁、缓存、Worker 或包体优化时，必须改用 `fullnet-performance-hardening`；本 Skill 只负责模块和契约边界。
 
 ## 1. 定义交付契约
 
@@ -42,6 +48,12 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 保持 HTTP Request、内部 Command/Query 和持久化模型分离。业务规则进入 Handler/Domain，Endpoint 只处理传输、授权、映射和结果转换。
 
+设计公共 .NET API 或框架扩展点时，先按 Framework Design Guidelines 检查命名、类型、成员、扩展性、异常和资源释放，再用 .NET 10 的实际目标框架、分析器与兼容性测试确认。只有真实跨模块或外部消费者才扩大可见性；不要把数据库、HTTP 或第三方实现类型泄漏到稳定契约。
+
+### 未来架构演进边界
+
+Full.NET 当前基线保持强化型模块化单体。微服务、分片和多数据库只进入探索性评审：先证明现有架构下的优化已不足，再按可靠性、安全、成本、运维和性能建立量化证据，通过最小实验与回滚验证，最后提交 Spec/ADR 审批。事务 Outbox 的 CDC/Kafka 演进已获单项批准，只能按 ADR-0006 的阶段、单一发布所有权和双库停止条件实施。禁止因瞬时 QPS、技术流行度或目录完整度扩大架构升级范围。
+
 ## 3. 先建立 RED 证据
 
 1. 为新行为选择最小但真实的测试层：纯规则用 Unit，依赖方向用 Architecture，Admin.NET 响应用 Compatibility，SQL/迁移/事务/Outbox 用 Integration。
@@ -62,6 +74,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 ### Dapper 与双数据库
 
 - 使用 Dapper、参数化 SQL 和现有 SQL Scope；不要引入 EF Core 捷径。
+- 通过 Full.NET 自有边界使用 `Microsoft.Data.SqlClient`；生产 SQL Server 连接必须加密并验证证书，使用 `TrustServerCertificate=False`，不得把跳过证书校验当作部署修复。
 - 表、索引、约束和稳定协议名称通过 `Full.NET.Data.CodeGeneration` 校验或生成；表名超长必须重新设计，只有索引和约束可使用确定性摘要压缩。
 - 新模块主键默认使用 `PrimaryKeyTypeMapping` 的 UUID v7 配置档：C# `Guid`、SQL Server `uniqueidentifier`、MySQL `BINARY(16)`、JSON `string/uuid`；Snowflake 只能由独立 ADR 授权且不得与 UUID 混用。
 - 010+ 迁移必须满足 `pnpm test:naming` 中的 UUID SQL 门禁：MySQL 禁止 UUID 列 `char(36)`；SQL Server 新 UUID 主键必须显式 `CLUSTERED`/`NONCLUSTERED`，高写入表（Outbox、Auth Audit）使用非聚集主键并配套时间聚集索引。
@@ -156,3 +169,4 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 - 把所有结果包装成 HTTP 200，破坏 ProblemDetails 和客户端语义。
 - 更新代码后忘记更新中文注释、路线图状态、许可证通知或测试数量。
 - 创建没有真实消费者的 Provider、SignalR、gRPC 或 AI 抽象。
+- 把微软云架构通用模式当成当前项目决策，未经证据门禁和 ADR 就引入微服务、分片或多数据库。

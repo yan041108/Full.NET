@@ -64,7 +64,7 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 - 有界并发必须有明确顺序键、租约、Handler 作用域和最大并行度。
 - 审查领取、续租与终态更新的锁顺序；SQL Server 使用 `UPDLOCK`/`READPAST` 等非阻塞领取，MySQL 8 在短事务内用 `FOR UPDATE SKIP LOCKED` 锁定候选后按主键更新，并以多 Worker 并发验证死锁为零。
 - 消除逐条目录/Definition 查询，但不得把外部调用放入数据库事务。
-- 记录吞吐、失败/重复率、队列深度与最老消息年龄；CDC/Kafka 仍服从现有 Decision Gate。
+- 记录吞吐、失败/重复率、队列深度与最老消息年龄。CDC/Kafka 已获 ADR-0006 单项提前实施批准，只能按正式 Spec/计划的追加式 Outbox、双库 Shadow、Inbox、单一发布所有权和回退门禁推进；基线仍用于决定试点、容量和生产切流，不得因为已批准而省略。
 
 ### 前端包体
 
@@ -82,7 +82,7 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 - 涉及数据库结构却没有成对迁移与双库测试；
 - 没有代表性数据、执行计划或可重复基线；
 - 改进只移动平均值，却恶化错误率、P99、恢复或资源上限；
-- 需要引入 Broker、CDC、搜索引擎或新缓存实现。
+- 需要引入尚未获 ADR/Spec 批准的 Broker、CDC、搜索引擎或新缓存实现。ADR-0006 范围内的 Kafka/CDC 不因本条自动停止，但命中该 ADR 的双库、Shadow、所有权、许可或恢复停止条件时仍必须停止。
 
 ## 5. 完成验证
 

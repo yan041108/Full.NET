@@ -185,8 +185,19 @@
 7. 乐观并发失败后若重读状态并重试，必须重新验证账号活动状态、安全戳、权限、租户边界和业务前置条件中受并发影响的部分；禁止只替换版本号后继续执行高权限操作。
 8. 已发布 Outbox 事件必须保留稳定消息类型和正整数 `SchemaVersion`。出现第二个版本时必须提供并行旧版本 Handler 或显式相邻版本升级链，并记录兼容/退役窗口；未知版本、永久失败和超过最大重试的毒消息必须进入可查询、可审计重放的死信路径，不能永久阻塞批次。
 9. 同进程模块内部事件使用类型化 Contract/Dispatcher，不得为未来吞吐假设默认进入外部 Broker。当前需要事务原子性和可靠重试的重要业务 Integration Event 只允许通过与业务数据同事务的 Outbox 发布；不得根据瞬时 QPS 动态切换到可靠性更弱的链路。缓存失效、日志、Trace、Metrics、普通 HTTP Operation Log 和 Audit 禁止使用 Outbox；Domain Audit 必须作为业务事实直接写入业务事务。
-10. CDC Relay 与直接 Kafka 属于 M5+ Decision Gate：只有 Outbox 双库生产闭环、真实消费者与 SLA、轮询瓶颈基准、SQL Server CDC/MySQL Binlog 运维能力以及独立 ADR/Spec/计划全部具备后才允许实现。CDC/Kafka 端到端仍按至少一次与消费幂等设计，禁止宣称 Exactly-Once；轮询 Worker 与 CDC Relay 不得同时拥有同一事件流。
+10. 项目已批准提前实施事务 Outbox 的 CDC/Kafka 交付演进，但批准范围仅覆盖事件契约 V2、追加式 Outbox、双库 CDC、Kafka Provider、消费 Inbox、影子流量、故障验证和受控切换能力；在生产切流门禁关闭前不得把该能力标记为 `Build-verified` 或 `Production-verified`。CDC/Kafka 端到端仍按至少一次与消费幂等设计，禁止宣称 Exactly-Once；轮询 Worker 与 CDC Relay 不得同时拥有同一事件流。
 11. 直接 Broker 发布只能承载经事件目录批准的可丢失、可重算且不要求业务事务原子性的流量；禁止在 `finally`、无人观察的后台任务或无界缓冲中 fire-and-forget。详细边界见[总体架构 Spec §9.1](../docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#91-事件交付演进基线)。
+
+### R-20260808-transactional-outbox-cdc-broker-boundary：提前实施不得降低事务与至少一次语义
+
+- 状态：强制
+- 来源：项目所有者于 2026-08-08 明确要求不引入 CAP，基于现有 Outbox 提前实现“.NET 业务事件 + 事务 Outbox + Broker 发布订阅”，并消除应用 Worker 对 Outbox 热表的高频轮询压力
+- 适用范围：Integration Event 契约、Outbox、SQL Server CDC、MySQL Binlog、Debezium/Kafka Connect、Kafka Provider、Consumer Group、Inbox、重试、死信、重放、Worker、Migrator、部署配置、管理端运维能力和相关测试
+- 风险：请求事务直接写 Broker 形成数据库/Broker 双写不一致；SQL Server CDC 被误报为零数据库读取；轮询 Worker 与 CDC Relay 重复发布；Broker Ack 与消费数据库提交之间发生重复副作用；分区键缺失导致业务乱序；CDC 位点或日志保留不足导致事件缺口；把 Kafka Producer 幂等误报为端到端 Exactly-Once
+- 规则：业务事务只能原子写入本模块业务状态与追加式 Outbox，不得在事务内等待 Broker。SQL Server 使用受支持 CDC，MySQL 使用 ROW Binlog；禁止自行解析 SQL Server 内部事务日志。CDC Relay 只捕获批准的追加式 Outbox `INSERT`，以稳定 `EventId`、`MessageType`、`SchemaVersion`、`TenantId`、`PartitionKey`、`CorrelationId`、`CausationId`、`TraceParent`、`OccurredAtUtc` 和 `ContentType` 发布。Broker 与消费者端保持至少一次；每个持久化消费者必须以 `(ConsumerName, MessageId)` 唯一 Inbox 在本地事务内完成去重、业务写入、下游 Outbox 与完成标记，数据库提交后才允许提交 Offset/Ack。发布所有权必须按稳定事件流静态配置；切换时执行影子验证、停止目标旧发布者、排空、记录 CDC 位点、启用唯一 Relay 和可逆回退，禁止同一事件流双发布。SQL Server CDC 仍包含日志捕获和变更表读取，不得对外宣称“数据库零读取”；目标是移除应用对 Outbox 队列表的领取、租约、续租和状态更新压力
+- 验证：Architecture Tests 阻止业务模块直接引用 Kafka/Debezium 客户端及事务内 Broker 发布；SQL Server/MySQL 真实集成测试覆盖业务+Outbox 原子提交、CDC 捕获、重复、乱序、Schema 兼容、Inbox 原子性和下游 Outbox；Kafka 集成测试覆盖不同 Consumer Group 扇出、同组竞争、分区顺序、重平衡、Broker 中断、DLQ 与受控重放；故障矩阵必须覆盖数据库提交后 Relay 前宕机、Broker 确认后位点提交前宕机、消费数据库提交后 Offset 前宕机以及切流/回退；生产切流前保存轮询基线、CDC 延迟、Consumer Lag、最老消息年龄、存储保留和恢复演练证据
+- 例外：可丢失、可重算且无需与业务事务原子提交的遥测流可按事件目录使用直接 Broker，但必须使用独立接口、Topic 和可靠性分类，不得复用可靠业务 Integration Event API。任何生产双发布仅允许发送到无业务消费者的影子 Topic，且不得对外部系统产生副作用
+- 设计：[`../docs/architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md`](../docs/architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)、[`../docs/superpowers/specs/2026-08-08-transactional-outbox-cdc-kafka-design.md`](../docs/superpowers/specs/2026-08-08-transactional-outbox-cdc-kafka-design.md)
 
 ### R-20260717-seed-data-boundary：生产 Baseline、环境 Overlay 与场景测试数据必须分层
 

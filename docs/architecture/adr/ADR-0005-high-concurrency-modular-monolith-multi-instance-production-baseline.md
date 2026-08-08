@@ -6,6 +6,7 @@
 - 适用范围：Full.NET 1.0 的 API、Worker、Migrator、数据库、Redis、缓存、Outbox、Audit、日志、Realtime、文件、Kubernetes 发布和容量认证
 - 正式规格：[Full.NET 总体架构设计规格](../../superpowers/specs/2026-07-17-fullnet-architecture-design.md)
 - 评估证据：[高并发模块化单体多实例改造评估](../../verification/high-concurrency-modular-monolith-multi-instance-assessment-2026-08-01.md)
+- 后续决策：Kafka/CDC 的实施时机与事件交付边界已由 [`ADR-0006`](ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md) 部分替代；本 ADR 的模块化单体、容量与生产拓扑基线继续有效
 
 ## 背景
 
@@ -70,7 +71,7 @@ Full.NET 的目标包括“单体承载 1 万个同时在途动态请求”。�
 
 ## 明确不在本决策范围
 
-- 全面微服务化、服务网格、Kafka/CDC；
+- 全面微服务化、服务网格；Kafka/CDC 事件交付已移交 ADR-0006 独立治理；
 - 跨地域双活、数据库读副本、分片；
 - 99.99% 默认 SLO；
 - 为压测修改业务一致性、安全、Audit 或 Outbox 语义；
@@ -87,4 +88,4 @@ Full.NET 的目标包括“单体承载 1 万个同时在途动态请求”。�
 
 ## 替代与复核条件
 
-只有出现经测量的模块独立伸缩/SLA/故障隔离需求，或 Outbox 轮询在双库生产等价环境成为已证实瓶颈，才分别进入 ADR-0002 模块拆分门禁或 Kafka/CDC Decision Gate。任何替代方案都必须新增或修订 ADR，并保持租户、安全、事务、Audit、双库和恢复语义不降级。
+只有出现经测量的模块独立伸缩/SLA/故障隔离需求，才进入 ADR-0002 模块拆分门禁。事务 Outbox 的 Kafka/CDC 演进已由 ADR-0006 批准提前实施，但生产切流仍需满足双库、影子核对、单一发布所有权、排空和回退门禁。任何后续替代方案都必须新增或修订 ADR，并保持租户、安全、事务、Audit、双库和恢复语义不降级。

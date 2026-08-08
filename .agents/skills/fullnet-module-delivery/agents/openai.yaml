@@ -1,4 +1,4 @@
 interface:
-  display_name: "Full.NET 模块交付"
-  short_description: "遵循 Full.NET 架构、双数据库与测试约束交付完整模块纵向切片"
-  default_prompt: "Use $fullnet-module-delivery to implement a production-ready Full.NET module slice from contract through verification."
+  display_name: "Full.NET 模块与架构交付"
+  short_description: "遵循项目基线交付模块并评审 .NET、SQL Server 与未来架构演进"
+  default_prompt: "Use $fullnet-module-delivery to deliver a Full.NET module or review a gated architecture evolution."

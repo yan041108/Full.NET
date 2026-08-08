@@ -87,7 +87,7 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - 同时完整支持所有关系型数据库；
 - 用缓存代替数据库一致性；
 - 直接把 Admin.NET.Core 的大合集结构复制到新框架。
-- 为容量目标提前全面微服务化、引入 Kafka/CDC 或服务网格；
+- 为容量目标提前全面微服务化或引入服务网格；Kafka/CDC 只按 ADR-0006 的可靠事件交付单项授权实施；
 - 跨地域双活、数据库读副本或分片；
 - 由应用 Helm Chart 承载生产数据库、Redis、对象存储或日志平台；
 - 把 `99.99%` 可用性、开发机 1 万在途压测或特定硬件 QPS 作为 Full.NET 1.0 默认承诺。
@@ -478,17 +478,17 @@ Outbox 默认用 MessagePack 保存二进制载荷，并将消息类型、模式
 
 ### 9.1 事件交付演进基线
 
-1.0 当前只实现事务 Outbox + Worker 轮询。可靠业务 Integration Event 必须与业务数据原子写入 Outbox，按至少一次语义发布，并由消费者以稳定 `EventId` 或业务幂等键去重。不能因吞吐量预估绕过 Outbox 直接写消息中间件。
+1.0 当前已实现事务 Outbox + Worker 轮询；项目所有者于 2026-08-08 批准提前建设追加式 Outbox + CDC Relay + Kafka + Inbox，但该批准不等于功能已经实现或允许立即生产切流。可靠业务 Integration Event 必须与业务数据原子写入 Outbox，按至少一次语义发布，并由消费者以稳定 `EventId` 和持久化 Inbox/业务幂等键去重。不能因吞吐量预估绕过 Outbox 直接写消息中间件。
 
 同进程模块内部事件继续使用类型化 Contract/Dispatcher，不进入外部 Broker。未来事件交付按事件 SLA 静态分类，不根据运行时瞬时 QPS 动态切换：
 
-- **默认可靠业务事件**：事务 Outbox + Worker；
-- **高吞吐且仍需事务原子性的业务事件**：只有在轮询瓶颈有基准证据后，才允许评估事务 Outbox + CDC Relay + Kafka；
+- **尚未迁移的默认可靠业务事件**：事务 Outbox + Worker；
+- **已进入批准目录的可靠业务事件**：事务追加式 Outbox + SQL Server CDC/MySQL Binlog + CDC Relay + Kafka + 消费 Inbox；
 - **可丢失、可重算且不要求与业务事务原子的遥测流**：可在后期评估直接 Kafka，但不得使用可靠业务事件接口伪装其语义。
 
 CDC Relay、Kafka Producer 与 Consumer 端到端仍按至少一次设计，不宣称 Exactly-Once；稳定 EventId、分区键、Schema 兼容、消费幂等、死信、重放和审计均为强制能力。轮询 Worker 与 CDC Relay 不得同时发布同一事件流；切换时必须有单一 Relay 所有权、排空、回退和可观测性。
 
-Kafka/CDC 属于当前业务与硬化任务之后的 M5+ Decision Gate。进入实现前必须有真实消费者和吞吐/延迟/SLA 数据、Outbox 双库生产闭环、轮询瓶颈基准、SQL Server CDC/MySQL Binlog 运维能力，以及独立 ADR、Provider 规格、许可与成本复核。该演进不构成服务拆分授权，也不改变模块化单体基线。详细复核见[2026-07-22 架构复核](../../verification/architecture-review-2026-07-22.md)。
+Kafka/CDC 已由 [`ADR-0006`](../../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md) 批准提前进入分阶段实施：先完成契约、追加式 Outbox、Inbox、Kafka Provider 和双库 CDC Shadow，再以单一发布所有权迁移低风险事件流。生产切流前仍必须具备真实消费者与 SLA、轮询基准、SQL Server CDC/MySQL Binlog 运维能力、故障矩阵、排空、回退、许可与成本复核。该演进不构成服务拆分授权，也不改变模块化单体基线；详细设计以[事件交付 Spec](2026-08-08-transactional-outbox-cdc-kafka-design.md)为准。
 
 ## 10. 权限模型
 
