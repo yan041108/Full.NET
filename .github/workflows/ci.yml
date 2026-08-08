@@ -68,7 +68,7 @@ jobs:
           pnpm test:workspace
           pnpm test:localization
           pnpm test:openapi
-          pnpm --filter @fullnet/admin-i18n --filter @fullnet/admin --filter @fullnet/admin-layui test
+          pnpm --filter @fullnet/admin-i18n --filter @fullnet/admin test
 
       - name: Verify OpenAPI backward compatibility
         if: github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000'
@@ -96,8 +96,8 @@ jobs:
       - name: Verify uni-app H5
         run: pnpm test:e2e:uniapp
 
-      - name: Verify Vue and Layui parity
-        run: pnpm test:e2e
+      - name: Verify Vue admin mock E2E
+        run: pnpm test:e2e:admin
 
       - name: Upload client quality reports
         if: always()

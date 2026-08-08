@@ -101,7 +101,7 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 - Critical/High 安全修复、许可证处置和迁移辅助必须单独授权并保持最小范围；
 - 另行评估归档、只读发布、移出默认工作区或最终删除的时点和迁移说明。
 
-**退出条件：** 新功能 diff 不包含 `ui/admin-layui/**`；CI 和文档不再把 Layui 当成产品完成门槛。
+**退出条件：** 新功能 diff 不包含 `ui/admin-layui/**`；CI 和文档不再把 Layui 当成产品完成门槛。（2026-08-08：默认 `test:clients`、`build:clients`、E2E 与包体预算已退役 Layui 活动门禁；冻结扫描与 `test:e2e:layui-frozen` 保留为显式例外。）
 
 ### C4：uni-app H5/微信/支付宝
 

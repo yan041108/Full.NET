@@ -623,9 +623,9 @@ Follow [`2026-08-02-vue-action-authorization.md`](2026-08-02-vue-action-authoriz
 
 Follow Task 10 of the detailed plan. Migrate in waves: remaining Identity → Tenancy/Organization → Settings/Auditing → Files/Notifications/Jobs/CodeGeneration → Document and later modules. Each resource owns its exact codes, compatibility expansion and E2E; no broad permission migration may guess high-risk grants across unrelated resources.（W0–W5 已完成代码、精确权限迁移与架构冻结门禁；库存见 [`admin-action-permission-inventory.md`](../../roadmap/admin-action-permission-inventory.md)。program affected merge 尚需完整复跑，因此能力状态保持 `Build-verified`。）
 
-- [ ] **Step 4: Retire Layui from active delivery gates**
+- [x] **Step 4: Retire Layui from active delivery gates**
 
-Update CI and generator aggregation in an independent focused plan so new feature checks do not select Layui. Preserve the frozen source and historical evidence until a separately approved retirement plan decides archival or deletion.
+Update CI and generator aggregation in an independent focused plan so new feature checks do not select Layui. Preserve the frozen source and historical evidence until a separately approved retirement plan decides archival or deletion.（2026-08-08 已完成；见 [`layui-active-gate-retirement-2026-08-08.md`](../../verification/layui-active-gate-retirement-2026-08-08.md)。）
 
 ## Final Verification
 

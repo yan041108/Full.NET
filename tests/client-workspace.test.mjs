@@ -37,7 +37,23 @@ assert.equal(
 );
 assert.equal(
   packageDefinition.scripts['test:clients'],
-  'pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/admin-real-stack-e2e --filter=!@fullnet/uniapp-h5-e2e --if-present test'
+  'pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/admin-real-stack-e2e --filter=!@fullnet/uniapp-h5-e2e --filter=!@fullnet/admin-layui --if-present test'
+);
+assert.equal(
+  packageDefinition.scripts['build:clients'],
+  'pnpm --recursive --filter=!@fullnet/admin-layui --if-present build'
+);
+assert.equal(
+  packageDefinition.scripts['test:e2e:admin'],
+  'pnpm --filter @fullnet/admin-parity-e2e test'
+);
+assert.equal(
+  packageDefinition.scripts['test:e2e:layui-frozen'],
+  'pnpm --filter @fullnet/admin-parity-e2e test:layui-frozen'
+);
+assert.equal(
+  packageDefinition.scripts['test:e2e'],
+  'pnpm test:e2e:admin'
 );
 assert.equal(
   packageDefinition.scripts['test:e2e:uniapp'],
@@ -63,7 +79,9 @@ assert.deepEqual(packageDefinition.pnpm.overrides, {
   '@dcloudio/uni-mp-weixin>ws': '8.21.0',
   '@dcloudio/uni-cli-shared>adm-zip': '0.6.0',
   '@dcloudio/uni-nvue-styler>postcss': '8.5.19',
-  'express@4.20.0>path-to-regexp': '0.1.13'
+  'express@4.20.0>path-to-regexp': '0.1.13',
+  undici: '7.29.0',
+  'brace-expansion': '2.1.4'
 });
 assert.deepEqual(packageDefinition.pnpm.peerDependencyRules, {
   allowedVersions: {
@@ -108,7 +126,10 @@ for (const command of [
 }
 assert.match(clientCi, /tests\/e2e\/uniapp-h5\/playwright-report/);
 assert.match(clientCi, /pnpm audit:clients/);
-assert.doesNotMatch(clientCi, /pnpm audit --audit-level/);
+assert.doesNotMatch(clientCi, /@fullnet\/admin-layui/);
+assert.match(clientCi, /pnpm test:e2e:admin/);
+assert.doesNotMatch(clientCi, /admin-layui exec vite/);
+assert.match(clientCi, /pnpm test:governance/);
 
 const catalog = JSON.parse(localeCatalog);
 assert.equal(catalog.defaultLocale, 'zh-CN');

@@ -5,6 +5,8 @@ import {
 } from '@fullnet/client-contracts';
 import { request } from './http';
 
+export type { DiagnosticPolicy, DiagnosticPolicyRule };
+
 export async function getDiagnosticPolicy(): Promise<DiagnosticPolicy> {
   const value = await request<unknown>('/api/v1/settings/diagnostic-policy');
   if (!isDiagnosticPolicy(value)) {

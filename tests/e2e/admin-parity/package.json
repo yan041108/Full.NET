@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test --project vue-admin",
+    "test:layui-frozen": "playwright test --config playwright.layui-frozen.config.mjs --project layui-admin"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",

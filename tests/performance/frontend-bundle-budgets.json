@@ -29,35 +29,6 @@
         "gzipBytes": 166669,
         "maxRegressionPercent": 5
       }
-    },
-    {
-      "name": "Layui initial static JavaScript",
-      "dist": "ui/admin-layui/dist",
-      "entry": {
-        "directory": "assets",
-        "entryPrefix": "index-",
-        "entrySuffix": ".js",
-        "followStaticImports": true
-      },
-      "budget": {
-        "minifiedBytes": 215797,
-        "gzipBytes": 58574,
-        "maxRegressionPercent": 5
-      }
-    },
-    {
-      "name": "Layui deferred runtime JavaScript",
-      "dist": "ui/admin-layui/dist",
-      "asset": {
-        "directory": "assets",
-        "assetPrefix": "layui-",
-        "assetSuffix": ".js"
-      },
-      "budget": {
-        "minifiedBytes": 394758,
-        "gzipBytes": 126525,
-        "maxRegressionPercent": 5
-      }
     }
   ]
 }
