@@ -13,6 +13,7 @@
     <Project Path="src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Localization/Full.NET.Localization.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Messaging.Abstractions/Full.NET.Messaging.Abstractions.csproj" />
+    <Project Path="src/BuildingBlocks/Full.NET.Messaging.Kafka/Full.NET.Messaging.Kafka.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Migrations.DbUp/Full.NET.Migrations.DbUp.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Modularity/Full.NET.Modularity.csproj" />
     <Project Path="src/BuildingBlocks/Full.NET.Realtime.Abstractions/Full.NET.Realtime.Abstractions.csproj" />

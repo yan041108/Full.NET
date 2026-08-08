@@ -158,3 +158,4 @@ assert.match(notices, /MIT/i);
 assert.match(notices, /uni-app\/DCloud/i);
 assert.match(notices, /Apache-2\.0/i);
 assert.match(notices, /Vue I18n/i);
+assert.match(notices, /Confluent\.Kafka/i);

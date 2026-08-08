@@ -406,6 +406,82 @@ public sealed class DependencyRulesTests
     }
 
     [TestMethod]
+    public void Kafka_provider_has_only_approved_dependencies_and_consumers()
+    {
+        var root = FindRepositoryRoot();
+        var providerProjectPath = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Messaging.Kafka",
+            "Full.NET.Messaging.Kafka.csproj");
+        Assert.IsTrue(File.Exists(providerProjectPath), "Kafka Provider 项目必须存在。");
+
+        var providerProject = XDocument.Load(providerProjectPath);
+        var dependencies = providerProject
+            .Descendants()
+            .Where(element => element.Name.LocalName is "ProjectReference" or "PackageReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "..\\Full.NET.Messaging.Abstractions\\Full.NET.Messaging.Abstractions.csproj",
+                "..\\Full.NET.Modularity\\Full.NET.Modularity.csproj",
+                "Confluent.Kafka",
+                "Microsoft.Extensions.Diagnostics.HealthChecks",
+                "Microsoft.Extensions.Hosting.Abstractions",
+                "Microsoft.Extensions.Logging.Abstractions",
+                "Microsoft.Extensions.Options",
+                "Microsoft.Extensions.Options.ConfigurationExtensions",
+                "OpenTelemetry.Api",
+            },
+            dependencies);
+
+        var moduleProjectOffenders = Directory
+            .EnumerateFiles(
+                Path.Combine(root, "src", "Modules"),
+                "*.csproj",
+                SearchOption.AllDirectories)
+            .Where(path => XDocument.Load(path)
+                .Descendants()
+                .Where(element => element.Name.LocalName is "ProjectReference" or "PackageReference")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Any(value => value?.Contains("Full.NET.Messaging.Kafka", StringComparison.Ordinal) == true
+                    || string.Equals(value, "Confluent.Kafka", StringComparison.Ordinal)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .ToArray();
+        Assert.HasCount(0, moduleProjectOffenders, string.Join(Environment.NewLine, moduleProjectOffenders));
+
+        var approvedConsumers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Path.Combine("src", "Hosts", "Full.NET.Host.Worker", "Full.NET.Host.Worker.csproj"),
+            Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
+            Path.Combine("tests", "Full.NET.IntegrationTests", "Full.NET.IntegrationTests.csproj"),
+            Path.Combine("tests", "Full.NET.ArchitectureTests", "Full.NET.ArchitectureTests.csproj"),
+        };
+        var consumers = EnumerateRepositoryFiles(root, "*.csproj")
+            .Where(path => XDocument.Load(path)
+                .Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .Select(element => element.Attribute("Include")?.Value)
+                .Any(value => value?.Contains("Full.NET.Messaging.Kafka", StringComparison.Ordinal) == true))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+        var unapprovedConsumers = consumers
+            .Where(path => !approvedConsumers.Contains(path))
+            .ToArray();
+        Assert.HasCount(0, unapprovedConsumers, string.Join(Environment.NewLine, unapprovedConsumers));
+        CollectionAssert.Contains(
+            consumers,
+            Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"));
+    }
+
+    [TestMethod]
     public void BusinessModules_DoNotDependOnDapperOrAdoNetProviders()
     {
         var result = Types.InAssemblies(BusinessModuleAssemblies)

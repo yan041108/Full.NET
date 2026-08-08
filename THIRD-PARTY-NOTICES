@@ -36,6 +36,8 @@ the complete license texts.
   https://github.com/scalar/scalar
 - BenchmarkDotNet — MIT
   https://github.com/dotnet/BenchmarkDotNet
+- Confluent.Kafka — Apache-2.0
+  https://github.com/confluentinc/confluent-kafka-dotnet
 - Cronos 0.13.0 - MIT
   https://github.com/HangfireIO/Cronos
 - Layui — MIT
