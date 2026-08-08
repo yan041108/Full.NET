@@ -1,4 +1,4 @@
-using Full.NET.Messaging.Kafka.Health;
+﻿using Full.NET.Messaging.Kafka.Health;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -31,6 +31,10 @@ public static class ServiceCollectionExtensions
 
         services.TryAddSingleton<KafkaEnvelopeReader>();
         services.TryAddSingleton<KafkaOffsetCommitter>();
+        services.TryAddSingleton<KafkaFailureClassifier>();
+        services.TryAddSingleton<KafkaMessagingProducer>();
+        services.TryAddSingleton<KafkaRetryRouter>();
+        services.TryAddSingleton<KafkaDeadLetterPublisher>();
         services.TryAddSingleton<KafkaHealthCheck>();
         services.AddHealthChecks()
             .Add(new HealthCheckRegistration(

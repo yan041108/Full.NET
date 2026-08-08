@@ -1,4 +1,4 @@
-using Confluent.Kafka;
+﻿using Confluent.Kafka;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Messaging;
@@ -21,6 +21,9 @@ internal sealed class KafkaConsumerWorker : BackgroundService
     private readonly IReadOnlyList<IIntegrationEventSubscription> _subscriptions;
     private readonly KafkaEnvelopeReader _reader;
     private readonly KafkaOffsetCommitter _committer;
+    private readonly KafkaFailureClassifier _failureClassifier;
+    private readonly KafkaRetryRouter _retryRouter;
+    private readonly KafkaDeadLetterPublisher _deadLetterPublisher;
     private readonly ILogger<KafkaConsumerWorker> _logger;
 
     public KafkaConsumerWorker(
@@ -30,6 +33,9 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         IEnumerable<IIntegrationEventSubscription> subscriptions,
         KafkaEnvelopeReader reader,
         KafkaOffsetCommitter committer,
+        KafkaFailureClassifier failureClassifier,
+        KafkaRetryRouter retryRouter,
+        KafkaDeadLetterPublisher deadLetterPublisher,
         ILogger<KafkaConsumerWorker> logger)
     {
         _options = options.Value;
@@ -38,6 +44,9 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         _subscriptions = subscriptions.ToArray();
         _reader = reader;
         _committer = committer;
+        _failureClassifier = failureClassifier;
+        _retryRouter = retryRouter;
+        _deadLetterPublisher = deadLetterPublisher;
         _logger = logger;
     }
 
@@ -136,41 +145,55 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         ConsumeResult<string, byte[]> consumeResult,
         CancellationToken cancellationToken)
     {
+        var topicCode = plan.ResolveTopicCode(consumeResult.Topic);
         if (!_reader.TryRead(consumeResult, out var envelope, out var failureCode)
             || envelope is null)
         {
+            var failure = _failureClassifier.Classify(
+                new InvalidOperationException("Envelope rejected."),
+                failureCode);
             KafkaMessagingTelemetry.RecordConsume(
                 ProviderCode,
-                plan.ResolveTopicCode(consumeResult.Topic),
+                topicCode,
                 plan.ConsumerName,
                 "unknown",
                 "contract_rejected",
-                failureCode);
-            _logger.LogWarning(
-                "Rejected Kafka envelope for consumer {ConsumerName} with code {FailureCode}.",
-                plan.ConsumerName,
-                failureCode);
+                failure.Code);
+            await HandleDeliveryFailureAsync(
+                    consumer,
+                    plan,
+                    consumeResult,
+                    envelope,
+                    failure,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return;
         }
 
         if (!plan.TryGetSubscription(envelope.MessageType, envelope.SchemaVersion, out var subscription))
         {
+            var failure = new IntegrationEventFailure(
+                IntegrationEventFailureKind.Security,
+                IntegrationEventFailureCodes.SchemaVersionUnknown,
+                "No subscription route is registered for the integration event.");
             KafkaMessagingTelemetry.RecordConsume(
                 ProviderCode,
-                plan.ResolveTopicCode(consumeResult.Topic),
+                topicCode,
                 plan.ConsumerName,
                 envelope.MessageType,
                 "route_missing",
-                IntegrationEventFailureCodes.SchemaVersionUnknown);
-            _logger.LogWarning(
-                "No subscription route for consumer {ConsumerName}, event {EventType} schema {SchemaVersion}.",
-                plan.ConsumerName,
-                envelope.MessageType,
-                envelope.SchemaVersion);
+                failure.Code);
+            await HandleDeliveryFailureAsync(
+                    consumer,
+                    plan,
+                    consumeResult,
+                    envelope,
+                    failure,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return;
         }
 
-        var topicCode = plan.ResolveTopicCode(consumeResult.Topic);
         try
         {
             var inboxResult = await _dispatcher
@@ -195,32 +218,102 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         }
         catch (IntegrationEventPermanentException exception)
         {
-            KafkaMessagingTelemetry.RecordConsume(
-                ProviderCode,
-                topicCode,
-                plan.ConsumerName,
-                envelope.MessageType,
-                "permanent_failure",
-                exception.Failure.Code);
-            _logger.LogWarning(
-                exception,
-                "Permanent integration event failure for consumer {ConsumerName}; offset left uncommitted.",
-                plan.ConsumerName);
+            await HandleDeliveryFailureAsync(
+                    consumer,
+                    plan,
+                    consumeResult,
+                    envelope,
+                    exception.Failure,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            var failure = _failureClassifier.Classify(exception);
+            await HandleDeliveryFailureAsync(
+                    consumer,
+                    plan,
+                    consumeResult,
+                    envelope,
+                    failure,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task HandleDeliveryFailureAsync(
+        IConsumer<string, byte[]> consumer,
+        ConsumerGroupPlan plan,
+        ConsumeResult<string, byte[]> consumeResult,
+        IntegrationEventEnvelope? envelope,
+        IntegrationEventFailure failure,
+        CancellationToken cancellationToken)
+    {
+        var topicCode = plan.ResolveTopicCode(consumeResult.Topic);
+        var messageType = envelope?.MessageType ?? "unknown";
+        var attemptCount = KafkaDeliveryHeaders.ReadAttemptCount(consumeResult.Message.Headers);
+
+        if (_failureClassifier.ShouldRetry(failure)
+            && _retryRouter.GetNextRetryTopic(consumeResult.Topic, attemptCount) is not null)
+        {
+            if (await _retryRouter
+                    .TryRouteAsync(consumeResult, plan.ConsumerName, failure, attemptCount, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                consumer.Commit(consumeResult);
+                KafkaMessagingTelemetry.RecordConsume(
+                    ProviderCode,
+                    topicCode,
+                    plan.ConsumerName,
+                    messageType,
+                    "retry_routed",
+                    failure.Code);
+                return;
+            }
+
+            _logger.LogWarning(
+                "Transient Kafka failure for consumer {ConsumerName} could not be routed to retry; offset left uncommitted.",
+                plan.ConsumerName);
             KafkaMessagingTelemetry.RecordConsume(
                 ProviderCode,
                 topicCode,
                 plan.ConsumerName,
-                envelope.MessageType,
-                "transient_failure",
-                IntegrationEventFailureCodes.TransientPrefix + "consumer_dispatch");
-            _logger.LogWarning(
-                exception,
-                "Transient integration event failure for consumer {ConsumerName}; offset left uncommitted.",
-                plan.ConsumerName);
+                messageType,
+                "retry_publish_failed",
+                failure.Code);
+            return;
         }
+
+        if (await _deadLetterPublisher
+                .TryPublishAsync(consumeResult, plan.ConsumerName, failure, attemptCount, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            consumer.Commit(consumeResult);
+            KafkaMessagingTelemetry.RecordConsume(
+                ProviderCode,
+                topicCode,
+                plan.ConsumerName,
+                messageType,
+                "dead_lettered",
+                failure.Code);
+            _logger.LogWarning(
+                "Integration event for consumer {ConsumerName} moved to dead-letter with code {FailureCode}.",
+                plan.ConsumerName,
+                failure.Code);
+            return;
+        }
+
+        _logger.LogWarning(
+            "Dead-letter publish failed for consumer {ConsumerName} with code {FailureCode}; offset left uncommitted.",
+            plan.ConsumerName,
+            failure.Code);
+        KafkaMessagingTelemetry.RecordConsume(
+            ProviderCode,
+            topicCode,
+            plan.ConsumerName,
+            messageType,
+            "dead_letter_publish_failed",
+            failure.Code);
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
@@ -262,6 +355,6 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             out IIntegrationEventSubscription subscription) =>
             _routes.TryGetValue((eventType, schemaVersion), out subscription!);
 
-        public string ResolveTopicCode(string topic) => topic;
+        public string ResolveTopicCode(string topic) => KafkaTopicNames.ResolveBaseTopic(topic);
     }
 }

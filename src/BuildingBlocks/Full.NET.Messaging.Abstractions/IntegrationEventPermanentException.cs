@@ -1,8 +1,7 @@
-namespace Full.NET.Messaging.Abstractions;
+﻿namespace Full.NET.Messaging.Abstractions;
 
 /// <summary>
-/// 不可通过 Broker 重试恢复的集成事件契约或安全失败。
-/// </summary>
+/// 涓嶅彲閫氳繃 Broker 閲嶈瘯鎭㈠鐨勯泦鎴愪簨浠跺绾︽垨瀹夊叏澶辫触銆?/// </summary>
 public sealed class IntegrationEventPermanentException : Exception
 {
     public IntegrationEventPermanentException(IntegrationEventFailure failure)

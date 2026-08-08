@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using Confluent.Kafka;
 using Full.NET.Messaging.Abstractions;
