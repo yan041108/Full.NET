@@ -84,30 +84,57 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
     }
 }
 
-[TestClass]
-public sealed class KafkaFixture
+/// <summary>
+/// 按需启动并复用 Kafka 容器；生命周期由 <see cref="SharedDatabaseFixture"/> 统一清理。
+/// </summary>
+public static class KafkaFixture
 {
     private static KafkaTestEnvironment? _environment;
+    private static readonly SemaphoreSlim StartLock = new(1, 1);
 
-    public static KafkaTestEnvironment Environment =>
-        _environment ?? throw new InvalidOperationException("Kafka fixture is not initialized.");
-
-    [AssemblyInitialize]
-    public static async Task AssemblyInitialize(TestContext context)
-    {
-        _environment = await KafkaTestEnvironment.StartAsync().ConfigureAwait(false);
-    }
-
-    [AssemblyCleanup]
-    public static async Task AssemblyCleanup()
+    public static async Task<KafkaTestEnvironment> GetOrStartAsync()
     {
         if (_environment is not null)
         {
-            await _environment.DisposeAsync().ConfigureAwait(false);
-            _environment = null;
+            return _environment;
+        }
+
+        await StartLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_environment is not null)
+            {
+                return _environment;
+            }
+
+            _environment = await KafkaTestEnvironment.StartAsync().ConfigureAwait(false);
+            return _environment;
+        }
+        finally
+        {
+            StartLock.Release();
+        }
+    }
+
+    internal static async Task DisposeAsync()
+    {
+        if (_environment is null)
+        {
+            return;
+        }
+
+        await StartLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_environment is not null)
+            {
+                await _environment.DisposeAsync().ConfigureAwait(false);
+                _environment = null;
+            }
+        }
+        finally
+        {
+            StartLock.Release();
         }
     }
 }
-
-
-

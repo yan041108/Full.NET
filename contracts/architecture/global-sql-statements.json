@@ -468,6 +468,17 @@
       ]
     },
     {
+      "statementName": "messaging.shadow.outbox.fingerprint",
+      "declaration": "Full.NET.Host.Worker.ShadowEventComparisonProcessor.OutboxFingerprintSql.SelectById",
+      "file": "src/Hosts/Full.NET.Host.Worker/ShadowEventComparisonProcessor.cs",
+      "category": "reliable_event_sink",
+      "reason": "Shadow 比对只读取权威 Outbox 行构造指纹，不触发业务 Handler 或 Inbox 副作用。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_outbox_event",
+        "WHERE Id = @Id"
+      ]
+    },
+    {
       "statementName": "messaging.inbox.select_existing.sql_server",
       "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.SelectExistingSqlServer",
       "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",

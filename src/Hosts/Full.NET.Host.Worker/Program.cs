@@ -8,6 +8,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Hosting.Security;
 using Full.NET.Host.Worker;
+using Full.NET.Messaging.Kafka;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Options;
@@ -43,7 +44,8 @@ builder.Services
     .AddOpenTelemetry()
     .WithMetrics(metrics => metrics
         .AddMeter(OutboxBacklogTelemetry.MeterName)
-        .AddMeter(OutboxRetentionTelemetry.MeterName));
+        .AddMeter(OutboxRetentionTelemetry.MeterName)
+        .AddMeter(ShadowEventComparisonProcessor.MeterName));
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
@@ -62,6 +64,15 @@ builder.Services.AddOptions<OutboxRetentionOptions>()
 builder.Services.AddSingleton<
     IValidateOptions<OutboxRetentionOptions>,
     OutboxRetentionOptionsValidator>();
+builder.Services.AddOptions<ShadowComparisonOptions>()
+    .Bind(builder.Configuration.GetSection(ShadowComparisonOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<
+    IValidateOptions<ShadowComparisonOptions>,
+    ShadowComparisonOptionsValidator>();
+builder.Services
+    .AddOptions<KafkaMessagingOptions>()
+    .Bind(builder.Configuration.GetSection(KafkaMessagingOptions.SectionName));
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Worker);
@@ -69,6 +80,13 @@ if (commandLine.VersionRetirement is null)
 {
     builder.Services.AddHostedService<OutboxProcessor>();
     builder.Services.AddHostedService<OutboxRetentionProcessor>();
+    var shadowComparison = builder.Configuration
+        .GetSection(ShadowComparisonOptions.SectionName)
+        .Get<ShadowComparisonOptions>();
+    if (shadowComparison?.Enabled == true)
+    {
+        builder.Services.AddHostedService<ShadowEventComparisonProcessor>();
+    }
 }
 
 using var host = builder.Build();

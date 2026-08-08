@@ -59,6 +59,8 @@ public static class SharedDatabaseFixture
             await _sqlServer.DisposeAsync();
             _sqlServer = null;
         }
+
+        await Messaging.KafkaFixture.DisposeAsync();
     }
 
     /// <summary>

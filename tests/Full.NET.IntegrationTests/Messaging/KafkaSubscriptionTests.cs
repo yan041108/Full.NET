@@ -12,7 +12,7 @@ public sealed class KafkaSubscriptionTests
     [TestMethod]
     public async Task Two_consumer_groups_both_receive_the_same_event()
     {
-        var environment = KafkaFixture.Environment;
+        var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.subscription.fanout.{Guid.NewGuid():N}.v1";
         var payload = new byte[] { 0x01 };
         var message = KafkaTestMessages.Create(topic, "partition-a", payload);
@@ -36,7 +36,7 @@ public sealed class KafkaSubscriptionTests
     [TestMethod]
     public async Task Same_consumer_group_competes_so_only_one_instance_processes_each_message()
     {
-        var environment = KafkaFixture.Environment;
+        var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.subscription.compete.{Guid.NewGuid():N}.v1";
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
 
@@ -81,7 +81,7 @@ public sealed class KafkaSubscriptionTests
     [TestMethod]
     public async Task Same_partition_key_preserves_order_within_partition()
     {
-        var environment = KafkaFixture.Environment;
+        var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.subscription.order.{Guid.NewGuid():N}.v1";
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
 
@@ -112,7 +112,7 @@ public sealed class KafkaSubscriptionTests
     [TestMethod]
     public async Task Manual_commit_advances_offset_only_after_explicit_commit()
     {
-        var environment = KafkaFixture.Environment;
+        var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.subscription.commit.{Guid.NewGuid():N}.v1";
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
         await producer.ProduceAsync(topic, KafkaTestMessages.Create(topic, "commit-key", [0x7A])).ConfigureAwait(false);

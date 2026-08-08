@@ -12,7 +12,7 @@ public sealed class KafkaFailureRecoveryTests
     [TestMethod]
     public async Task Transient_failure_routes_message_to_first_retry_topic()
     {
-        var environment = KafkaFixture.Environment;
+        var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.recovery.retry.{Guid.NewGuid():N}.v1";
         var retryTopic = KafkaTopicNames.GetRetryTopic(topic, "5s");
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
@@ -55,7 +55,7 @@ public sealed class KafkaFailureRecoveryTests
     [TestMethod]
     public async Task Permanent_failure_publishes_to_dlq_and_commits_source_offset()
     {
-        var environment = KafkaFixture.Environment;
+        var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.recovery.dlq.{Guid.NewGuid():N}.v1";
         var deadLetterTopic = KafkaTopicNames.GetDeadLetterTopic(topic);
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
@@ -103,7 +103,7 @@ public sealed class KafkaFailureRecoveryTests
     [TestMethod]
     public async Task Dead_letter_publish_failure_leaves_source_offset_uncommitted()
     {
-        var environment = KafkaFixture.Environment;
+        var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.recovery.dlq-fail.{Guid.NewGuid():N}.v1";
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
         await producer.ProduceAsync(topic, KafkaTestMessages.Create(topic, "dlq-fail-key", [0x55])).ConfigureAwait(false);
@@ -148,7 +148,7 @@ public sealed class KafkaFailureRecoveryTests
     [TestMethod]
     public async Task Shutdown_cancellation_stops_consumer_poll_loop()
     {
-        var environment = KafkaFixture.Environment;
+        var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         using var consumer = environment.CreateConsumer("fullnet.kafka.test.shutdown", "fullnet.kafka.test.shutdown");
         consumer.Subscribe($"fullnet.test.recovery.shutdown.{Guid.NewGuid():N}.v1");
 

@@ -22,6 +22,7 @@ internal static class MessagingOutboxTestSupport
     internal const string TestEventType = "fullnet.messaging.outbox.test.event";
     internal const int TestSchemaVersion = 1;
 
+    [MessagePackObject(AllowPrivate = true)]
     internal sealed record MessagingOutboxTestPayload([property: Key(0)] string Value);
 
     internal static async Task MigrateAsync(DatabaseOptions options)
