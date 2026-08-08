@@ -468,6 +468,57 @@
       ]
     },
     {
+      "statementName": "messaging.inbox.select_existing.sql_server",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.SelectExistingSqlServer",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Inbox 声明处理权时以行锁读取现有记录，防止同 Consumer 并发重复副作用。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_inbox_message",
+        "ConsumerName = @ConsumerName",
+        "MessageId = @MessageId"
+      ]
+    },
+    {
+      "statementName": "messaging.inbox.select_existing.my_sql",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.SelectExistingMySql",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "MySQL Inbox 声明处理权使用 FOR UPDATE 行锁对齐 SQL Server 并发语义。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_inbox_message",
+        "ConsumerName = @ConsumerName",
+        "MessageId = @MessageId",
+        "FOR UPDATE"
+      ]
+    },
+    {
+      "statementName": "messaging.inbox.insert_processing",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.InsertProcessing",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Inbox 首次消费在业务事务内插入 processing 行并记录 PayloadHash。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_inbox_message",
+        "@PayloadHash",
+        "@ConsumerName",
+        "@MessageId"
+      ]
+    },
+    {
+      "statementName": "messaging.inbox.mark_processed",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.MarkProcessed",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Inbox 处理成功后将 processing 行标记为 processed，与下游 Outbox 同事务提交。",
+      "requiredSqlFragments": [
+        "UPDATE fn_messaging_inbox_message",
+        "Status = @Status",
+        "ConsumerName = @ConsumerName",
+        "MessageId = @MessageId"
+      ]
+    },
+    {
       "statementName": "serial_numbers.rule.find_by_key",
       "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.FindRuleByKey",
       "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",

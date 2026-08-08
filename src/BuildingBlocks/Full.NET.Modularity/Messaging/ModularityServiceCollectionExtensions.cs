@@ -19,6 +19,7 @@ public static class ModularityServiceCollectionExtensions
 
         services.AddScoped<ICommandDispatcher, CommandDispatcher>();
         services.AddScoped<IQueryDispatcher, QueryDispatcher>();
+        services.AddScoped<IntegrationEventConsumerDispatcher>();
         return services;
     }
 }

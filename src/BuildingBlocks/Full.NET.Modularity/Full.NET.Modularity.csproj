@@ -3,6 +3,8 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="..\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Include="..\Full.NET.Messaging.Abstractions\Full.NET.Messaging.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

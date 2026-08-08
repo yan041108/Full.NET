@@ -1,0 +1,291 @@
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
+using Full.NET.Messaging.Abstractions;
+using Full.NET.Modularity.Messaging;
+using NSubstitute;
+
+namespace Full.NET.UnitTests.Messaging;
+
+[TestClass]
+public sealed class IntegrationEventConsumerDispatcherTests
+{
+    private const string ConsumerName = "fullnet.messaging.inbox.test";
+    private const string EventType = "fullnet.messaging.inbox.test.event";
+    private const string TopicCode = "messaging.inbox-test.v1";
+
+    [TestMethod]
+    public async Task ConsumeAsync_processes_first_delivery()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(Arg.Any<string>(), Arg.Any<IntegrationEventEnvelope>(), Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.Claimed));
+        inbox.MarkProcessedAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        var handler = new RecordingSubscription();
+        var dispatcher = CreateDispatcher(inbox, handler);
+
+        var envelope = CreateEnvelope([1, 2, 3]);
+        var result = await dispatcher.ConsumeAsync(
+            ConsumerName,
+            envelope,
+            handler,
+            CancellationToken.None);
+
+        Assert.AreEqual(InboxConsumeStatus.Processed, result.Status);
+        Assert.IsTrue(handler.Handled);
+        await inbox.Received(1).MarkProcessedAsync(
+            ConsumerName,
+            envelope.EventId,
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ConsumeAsync_returns_already_processed_without_handler()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(Arg.Any<string>(), Arg.Any<IntegrationEventEnvelope>(), Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.AlreadyProcessed));
+
+        var handler = new RecordingSubscription();
+        var dispatcher = CreateDispatcher(inbox, handler);
+
+        var envelope = CreateEnvelope([9]);
+        var result = await dispatcher.ConsumeAsync(
+            ConsumerName,
+            envelope,
+            handler,
+            CancellationToken.None);
+
+        Assert.AreEqual(InboxConsumeStatus.AlreadyProcessed, result.Status);
+        Assert.IsFalse(handler.Handled);
+        await inbox.DidNotReceive().MarkProcessedAsync(
+            Arg.Any<string>(),
+            Arg.Any<Guid>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ConsumeAsync_payload_mismatch_is_permanent_contract_failure()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(Arg.Any<string>(), Arg.Any<IntegrationEventEnvelope>(), Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.PayloadMismatch));
+
+        var handler = new RecordingSubscription();
+        var dispatcher = CreateDispatcher(inbox, handler);
+
+        var exception = await Assert.ThrowsExactlyAsync<IntegrationEventPermanentException>(() =>
+            dispatcher.ConsumeAsync(
+                ConsumerName,
+                CreateEnvelope([7]),
+                handler,
+                CancellationToken.None));
+
+        Assert.AreEqual(
+            IntegrationEventFailureCodes.MessageIdPayloadMismatch,
+            exception.Failure.Code);
+        Assert.IsFalse(handler.Handled);
+    }
+
+    [TestMethod]
+    public async Task ConsumeAsync_restores_host_scope_for_host_envelope()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(Arg.Any<string>(), Arg.Any<IntegrationEventEnvelope>(), Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.Claimed));
+        inbox.MarkProcessedAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        var currentTenant = new CurrentTenantAccessor();
+        var handler = new TenantObservingSubscription(currentTenant);
+        var dispatcher = CreateDispatcher(inbox, handler, currentTenant);
+
+        await dispatcher.ConsumeAsync(
+            ConsumerName,
+            CreateEnvelope([1], tenantId: null),
+            handler,
+            CancellationToken.None);
+
+        Assert.IsTrue(handler.ObservedHost);
+        Assert.IsFalse(currentTenant.IsAvailable);
+    }
+
+    [TestMethod]
+    public async Task ConsumeAsync_restores_tenant_scope_from_envelope()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(Arg.Any<string>(), Arg.Any<IntegrationEventEnvelope>(), Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.Claimed));
+        inbox.MarkProcessedAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        var tenantId = Guid.CreateVersion7();
+        var currentTenant = new CurrentTenantAccessor();
+        var handler = new TenantObservingSubscription(currentTenant);
+        var dispatcher = CreateDispatcher(inbox, handler, currentTenant);
+
+        await dispatcher.ConsumeAsync(
+            ConsumerName,
+            CreateEnvelope([1], tenantId: tenantId),
+            handler,
+            CancellationToken.None);
+
+        Assert.AreEqual(tenantId, handler.ObservedTenantId);
+        Assert.IsFalse(currentTenant.IsAvailable);
+    }
+
+    [TestMethod]
+    public async Task ConsumeAsync_handler_exception_propagates()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(Arg.Any<string>(), Arg.Any<IntegrationEventEnvelope>(), Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.Claimed));
+
+        var handler = new ThrowingSubscription();
+        var dispatcher = CreateDispatcher(inbox, handler);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            dispatcher.ConsumeAsync(
+                ConsumerName,
+                CreateEnvelope([5]),
+                handler,
+                CancellationToken.None));
+
+        await inbox.DidNotReceive().MarkProcessedAsync(
+            Arg.Any<string>(),
+            Arg.Any<Guid>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ConsumeAsync_rejects_unregistered_handler_instance()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        var registered = new RecordingSubscription();
+        var other = new RecordingSubscription();
+        var dispatcher = CreateDispatcher(inbox, registered);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            dispatcher.ConsumeAsync(
+                ConsumerName,
+                CreateEnvelope([1]),
+                other,
+                CancellationToken.None));
+    }
+
+    private static IntegrationEventConsumerDispatcher CreateDispatcher(
+        IIntegrationEventInbox inbox,
+        IIntegrationEventSubscription subscription,
+        CurrentTenantAccessor? currentTenant = null)
+    {
+        currentTenant ??= new CurrentTenantAccessor();
+        var catalog = new IntegrationEventSubscriptionCatalog(
+            [
+                IntegrationEventTopicDefinition.Create(
+                    TopicCode,
+                    EventType,
+                    1,
+                    EventDeliveryOwner.CdcKafka),
+            ],
+            [subscription]);
+
+        return new IntegrationEventConsumerDispatcher(
+            new PassthroughTransaction(),
+            inbox,
+            catalog,
+            currentTenant);
+    }
+
+    private static IntegrationEventEnvelope CreateEnvelope(
+        byte[] payload,
+        Guid? eventId = null,
+        Guid? tenantId = null) =>
+        IntegrationEventEnvelope.Create(
+            eventId ?? Guid.CreateVersion7(),
+            EventType,
+            1,
+            MessagingNames.ContentTypeMessagePack,
+            tenantId,
+            Guid.CreateVersion7().ToString("D"),
+            "inbox-unit-test",
+            null,
+            null,
+            "fullnet.messaging.tests",
+            DateTimeOffset.UtcNow,
+            payload);
+
+    private sealed class RecordingSubscription : IIntegrationEventSubscription
+    {
+        public string ConsumerName => ConsumerNameValue;
+        public string EventType => EventTypeValue;
+        public int SchemaVersion => 1;
+        public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+            IntegrationEventIdempotencyStrategy.MessageIdDeduplication;
+        public bool Handled { get; private set; }
+
+        private const string ConsumerNameValue = IntegrationEventConsumerDispatcherTests.ConsumerName;
+        private const string EventTypeValue = IntegrationEventConsumerDispatcherTests.EventType;
+
+        public Task HandleAsync(
+            IntegrationEventContext context,
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            Handled = true;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingSubscription : IIntegrationEventSubscription
+    {
+        public string ConsumerName => ConsumerNameValue;
+        public string EventType => EventTypeValue;
+        public int SchemaVersion => 1;
+        public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+            IntegrationEventIdempotencyStrategy.MessageIdDeduplication;
+
+        private const string ConsumerNameValue = IntegrationEventConsumerDispatcherTests.ConsumerName;
+        private const string EventTypeValue = IntegrationEventConsumerDispatcherTests.EventType;
+
+        public Task HandleAsync(
+            IntegrationEventContext context,
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("handler failed");
+    }
+
+    private sealed class TenantObservingSubscription(CurrentTenantAccessor currentTenant)
+        : IIntegrationEventSubscription
+    {
+        public string ConsumerName => ConsumerNameValue;
+        public string EventType => EventTypeValue;
+        public int SchemaVersion => 1;
+        public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+            IntegrationEventIdempotencyStrategy.MessageIdDeduplication;
+        public bool ObservedHost { get; private set; }
+        public Guid? ObservedTenantId { get; private set; }
+
+        private const string ConsumerNameValue = IntegrationEventConsumerDispatcherTests.ConsumerName;
+        private const string EventTypeValue = IntegrationEventConsumerDispatcherTests.EventType;
+
+        public Task HandleAsync(
+            IntegrationEventContext context,
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            ObservedHost = currentTenant.IsHost;
+            ObservedTenantId = currentTenant.Id;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class PassthroughTransaction : ICommandTransaction
+    {
+        public async Task<T> ExecuteAsync<T>(
+            Func<CancellationToken, Task<T>> action,
+            CancellationToken cancellationToken) =>
+            await action(cancellationToken).ConfigureAwait(false);
+    }
+}

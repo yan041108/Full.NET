@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper.Health;
+using Full.NET.Data.Dapper.Inbox;
 using Full.NET.Data.Dapper.Outbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -125,6 +126,9 @@ public static class ServiceCollectionExtensions
                 ? provider.GetRequiredService<DapperAppendOnlyOutboxWriter>()
                 : provider.GetRequiredService<DapperOutboxWriter>();
         });
+        services.AddScoped<DapperIntegrationEventInbox>();
+        services.AddScoped<IIntegrationEventInbox>(provider =>
+            provider.GetRequiredService<DapperIntegrationEventInbox>());
         services.AddScoped<DapperOutboxStore>();
         services.AddScoped<IOutboxStore>(provider =>
             provider.GetRequiredService<DapperOutboxStore>());
