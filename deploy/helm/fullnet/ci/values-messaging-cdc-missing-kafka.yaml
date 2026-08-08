@@ -1,0 +1,7 @@
+roles:
+  worker: true
+worker:
+  messaging:
+    mode: CdcKafka
+    kafka:
+      bootstrapSecretName: ""

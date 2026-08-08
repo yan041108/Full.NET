@@ -79,6 +79,19 @@
           "legendFormat": "Capacity-not-verified"
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Kafka messaging consume/commit results",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "targets": [
+        {
+          "expr": "sum(rate(fullnet_messaging_kafka_consume_results_total[5m])) by (topic_code, consumer_code, result)"
+        },
+        {
+          "expr": "sum(rate(fullnet_messaging_kafka_commit_results_total[5m])) by (topic_code, consumer_code, result)"
+        }
+      ]
     }
   ]
 }

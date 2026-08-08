@@ -14,6 +14,15 @@ data:
   DataProtection__ApplicationName: {{ .Values.dataProtection.applicationName | quote }}
   Jobs__Worker__MaxConcurrency: {{ .Values.worker.maxConcurrency | quote }}
   OutboxWorker__MaxConcurrency: {{ .Values.worker.maxConcurrency | quote }}
+  Messaging__Worker__Mode: {{ .Values.worker.messaging.mode | quote }}
+{{- if eq .Values.worker.messaging.mode "ShadowCdc" }}
+  Messaging__ShadowComparison__Enabled: "true"
+{{- else }}
+  Messaging__ShadowComparison__Enabled: "false"
+{{- end }}
+{{- if ne .Values.worker.messaging.mode "CdcKafka" }}
+  Messaging__Kafka__Enabled: "false"
+{{- end }}
   RateLimiting__GlobalApiPermitLimitPerMinute: {{ .Values.applicationRateLimiting.globalApiPermitLimitPerMinutePerReplica | quote }}
   FULLNET_CAPACITY_STATUS: "Capacity-not-verified"
 {{- if eq (include "fullnet.codeGenerationApplyEnabled" .) "true" }}

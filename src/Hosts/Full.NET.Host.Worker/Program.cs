@@ -8,11 +8,13 @@ using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Observability;
 using Full.NET.Hosting.Security;
 using Full.NET.Host.Worker;
+using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka;
+using Full.NET.Modularity.Messaging;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MessagePack;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Options;
-using OpenTelemetry.Metrics;
 
 OutboxWorkerCommandLineOptions commandLine;
 try
@@ -25,8 +27,7 @@ catch (OutboxVersionRetirementException exception)
     return 1;
 }
 
-var builder = Host.CreateApplicationBuilder(
-    commandLine.HostArguments.ToArray());
+var builder = WebApplication.CreateBuilder(commandLine.HostArguments.ToArray());
 if (commandLine.VersionRetirement is not null)
 {
     // 一次性扫描的标准输出只保留机器结果，正常启动日志仍沿用默认级别。
@@ -45,7 +46,8 @@ builder.Services
     .WithMetrics(metrics => metrics
         .AddMeter(OutboxBacklogTelemetry.MeterName)
         .AddMeter(OutboxRetentionTelemetry.MeterName)
-        .AddMeter(ShadowEventComparisonProcessor.MeterName));
+        .AddMeter(ShadowEventComparisonProcessor.MeterName)
+        .AddMeter(KafkaMessagingTelemetry.MeterName));
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
@@ -70,42 +72,85 @@ builder.Services.AddOptions<ShadowComparisonOptions>()
 builder.Services.AddSingleton<
     IValidateOptions<ShadowComparisonOptions>,
     ShadowComparisonOptionsValidator>();
-builder.Services
-    .AddOptions<KafkaMessagingOptions>()
-    .Bind(builder.Configuration.GetSection(KafkaMessagingOptions.SectionName));
+builder.Services.AddOptions<MessagingWorkerOptions>()
+    .Bind(builder.Configuration.GetSection(MessagingWorkerOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<
+    IValidateOptions<MessagingWorkerOptions>,
+    MessagingWorkerOptionsValidator>();
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Worker);
+
+var messagingWorkerMode = builder.Configuration
+    .GetSection(MessagingWorkerOptions.SectionName)
+    .Get<MessagingWorkerOptions>()?.Mode
+    ?? MessagingWorkerMode.LegacyPolling;
+
 if (commandLine.VersionRetirement is null)
 {
-    builder.Services.AddHostedService<OutboxProcessor>();
-    builder.Services.AddHostedService<OutboxRetentionProcessor>();
-    var shadowComparison = builder.Configuration
-        .GetSection(ShadowComparisonOptions.SectionName)
-        .Get<ShadowComparisonOptions>();
-    if (shadowComparison?.Enabled == true)
+    switch (messagingWorkerMode)
+    {
+        case MessagingWorkerMode.LegacyPolling:
+        case MessagingWorkerMode.ShadowCdc:
+            builder.Services.AddHostedService<OutboxProcessor>();
+            builder.Services.AddHostedService<OutboxRetentionProcessor>();
+            break;
+        case MessagingWorkerMode.CdcKafka:
+            break;
+    }
+
+    if (messagingWorkerMode == MessagingWorkerMode.ShadowCdc)
     {
         builder.Services.AddHostedService<ShadowEventComparisonProcessor>();
     }
+    else
+    {
+        var shadowComparison = builder.Configuration
+            .GetSection(ShadowComparisonOptions.SectionName)
+            .Get<ShadowComparisonOptions>();
+        if (shadowComparison?.Enabled == true)
+        {
+            builder.Services.AddHostedService<ShadowEventComparisonProcessor>();
+        }
+    }
+
+    if (messagingWorkerMode == MessagingWorkerMode.CdcKafka)
+    {
+        builder.Services.AddFullNetModularity();
+        builder.Services.AddFullNetKafkaMessaging(
+            builder.Configuration,
+            builder.Environment.EnvironmentName);
+    }
 }
 
-using var host = builder.Build();
-await using (var scope = host.Services.CreateAsyncScope())
+var app = builder.Build();
+await using (var scope = app.Services.CreateAsyncScope())
 {
     IntegrationEventHandlerMatcher.ValidateUniqueRoutes(
         scope.ServiceProvider.GetServices<IIntegrationEventHandler>());
+
+    if (commandLine.VersionRetirement is null
+        && messagingWorkerMode == MessagingWorkerMode.ShadowCdc)
+    {
+        var provider = scope.ServiceProvider;
+        MessagingWorkerCatalogGuard.ValidateShadowMode(
+            provider.GetServices<IIntegrationEventSubscription>().ToArray(),
+            provider.GetServices<IntegrationEventTopicDefinition>().ToArray());
+    }
 }
 
 if (commandLine.VersionRetirement is null)
 {
-    await host.RunAsync();
+    app.MapFullNetHealthEndpoints();
+    await app.RunAsync();
     return 0;
 }
 
-await host.StartAsync();
+await app.StartAsync();
 try
 {
-    await using var scope = host.Services.CreateAsyncScope();
+    await using var scope = app.Services.CreateAsyncScope();
     scope.ServiceProvider
         .GetRequiredService<CurrentTenantAccessor>()
         .SetHost();
@@ -130,7 +175,7 @@ catch (OutboxVersionRetirementException exception)
 }
 finally
 {
-    await host.StopAsync();
+    await app.StopAsync();
 }
 
 static Task WriteErrorAsync(string code) =>

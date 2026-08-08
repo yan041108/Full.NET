@@ -147,6 +147,11 @@ api:
 worker:
   replicaCount: 2
   maxConcurrency: 1
+  messaging:
+    mode: LegacyPolling
+    kafka:
+      bootstrapSecretName: ""
+      bootstrapSecretKey: bootstrapServers
   terminationGracePeriodSeconds: 90
   preStopSleepSeconds: 15
   resources:

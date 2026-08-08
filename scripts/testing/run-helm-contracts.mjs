@@ -198,6 +198,11 @@ const counterexamples = [
     ['values-rate-amplification.yaml'],
     'exceeds edge global rate budget',
   ],
+  [
+    'messaging-cdc-missing-kafka',
+    ['values-role-worker.yaml', 'values-messaging-cdc-missing-kafka.yaml'],
+    'worker.messaging.kafka.bootstrapSecretName is required when worker.messaging.mode is CdcKafka',
+  ],
 ];
 
 for (const [name, files, needle] of counterexamples) {

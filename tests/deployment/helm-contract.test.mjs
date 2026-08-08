@@ -60,6 +60,8 @@ test('values encode production replica, HPA, MaxConcurrency and budget keys', as
   assert.match(values, /minReplicas:\s*2/);
   assert.match(values, /maxReplicas:\s*8/);
   assert.match(values, /maxConcurrency:\s*1/);
+  assert.match(values, /messaging:/);
+  assert.match(values, /mode:\s*LegacyPolling/);
   assert.match(values, /databaseConnectionBudget:/);
   assert.match(values, /apiMaxPoolSize:/);
   assert.match(values, /workerMaxPoolSize:/);

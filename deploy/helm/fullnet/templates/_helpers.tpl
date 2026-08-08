@@ -121,6 +121,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- end -}}
 {{- end -}}
 
+{{- if and .Values.roles.worker (eq .Values.worker.messaging.mode "CdcKafka") -}}
+  {{- if eq .Values.worker.messaging.kafka.bootstrapSecretName "" -}}
+    {{- fail "worker.messaging.kafka.bootstrapSecretName is required when worker.messaging.mode is CdcKafka." -}}
+  {{- end -}}
+{{- end -}}
+
 {{- $codegenEnabled := or .Values.codeGeneration.apply.enabled (and .Values.production .Values.codeGeneration.apply.enabledWhenProduction) -}}
 {{- if and $codegenEnabled (or .Values.roles.api .Values.roles.worker) -}}
   {{- if and (eq .Values.codeGeneration.workspace.existingClaimName "") (not .Values.codeGeneration.workspace.persistence.create) -}}

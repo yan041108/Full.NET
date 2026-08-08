@@ -50,6 +50,7 @@ const requiredAlerts = [
   'FullNetRedisReconnectOrEviction',
   'FullNetDatabaseConnectionWait',
   'FullNetOutboxJobsBacklogAge',
+  'FullNetMessagingKafkaConsumeFailures',
   'FullNetEdgeGlobalRateRejected',
   'FullNetWafOrExternalLimiterDown',
   'FullNetHpaAtMaxReplicas',
@@ -111,6 +112,8 @@ test('Prometheus rules cover required high-concurrency alerts', async () => {
   for (const alert of requiredAlerts) {
     assert.match(text, new RegExp(`alert:\\s*${alert}`));
   }
+  assert.match(text, /fullnet_messaging_kafka_consume_results_total/);
+  assert.doesNotMatch(text, /message_id|tenant_id|MessageId|TenantId/);
 });
 
 test('Runbooks cover SLO, DP keys, Redis split, audit fail-open/closed, Expand/Contract', async () => {

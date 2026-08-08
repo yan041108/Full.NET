@@ -43,6 +43,15 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.database.connectionSecretName }}
                   key: {{ .Values.database.connectionSecretKey }}
+{{- if eq .Values.worker.messaging.mode "CdcKafka" }}
+            - name: Messaging__Kafka__Enabled
+              value: "true"
+            - name: Messaging__Kafka__BootstrapServers
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.worker.messaging.kafka.bootstrapSecretName }}
+                  key: {{ .Values.worker.messaging.kafka.bootstrapSecretKey }}
+{{- end }}
             - name: Cache__RedisConnectionString
               valueFrom:
                 secretKeyRef:
@@ -64,19 +73,26 @@ spec:
             - name: codegeneration-workspace
               mountPath: {{ .Values.codeGeneration.apply.workspaceRoot }}
 {{- end }}
+          ports:
+            - name: health
+              containerPort: 8080
+              protocol: TCP
           startupProbe:
-            exec:
-              command: ["dotnet", "--info"]
+            httpGet:
+              path: /health/startup
+              port: health
             failureThreshold: 30
             periodSeconds: 5
           readinessProbe:
-            exec:
-              command: ["dotnet", "--info"]
+            httpGet:
+              path: /health/ready
+              port: health
             periodSeconds: 10
             timeoutSeconds: 5
           livenessProbe:
-            exec:
-              command: ["dotnet", "--info"]
+            httpGet:
+              path: /health/live
+              port: health
             periodSeconds: 30
             timeoutSeconds: 5
           lifecycle:

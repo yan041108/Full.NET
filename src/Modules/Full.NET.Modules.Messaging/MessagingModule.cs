@@ -39,15 +39,27 @@ public sealed class MessagingModule : IFullNetModule
         services.TryAddScoped<
             ITransactionalDomainAuditWriter<MessagingDomainAuditWrite>,
             MessagingDomainAuditWriter>();
+        RegisterSubscriptionCatalog(services);
+        services.ConfigureHttpJsonOptions(options =>
+            options.SerializerOptions.TypeInfoResolverChain.Insert(
+                0,
+                MessagingJsonSerializerContext.Default));
+    }
+
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        RegisterSubscriptionCatalog(services);
+    }
+
+    private static void RegisterSubscriptionCatalog(IServiceCollection services)
+    {
         services.RemoveAll<IntegrationEventSubscriptionCatalog>();
         services.AddSingleton(provider =>
             new IntegrationEventSubscriptionCatalog(
                 provider.GetServices<IntegrationEventTopicDefinition>(),
                 provider.GetServices<IIntegrationEventSubscription>()));
-        services.ConfigureHttpJsonOptions(options =>
-            options.SerializerOptions.TypeInfoResolverChain.Insert(
-                0,
-                MessagingJsonSerializerContext.Default));
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

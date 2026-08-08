@@ -94,6 +94,14 @@ groups:
         annotations:
           summary: Outbox/Jobs backlog age exceeds 5 minutes
 
+      - alert: FullNetMessagingKafkaConsumeFailures
+        expr: sum(increase(fullnet_messaging_kafka_consume_results_total{result!="success"}[5m])) by (topic_code, consumer_code, result, reason_code) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Kafka messaging consume failures detected (low-cardinality labels only)
+
       - alert: FullNetEdgeGlobalRateRejected
         expr: increase(edge_rate_limit_rejected_total{scope="global"}[5m]) > 0
         for: 2m

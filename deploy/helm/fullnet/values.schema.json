@@ -86,6 +86,22 @@
       "properties": {
         "replicaCount": { "type": "integer", "minimum": 2 },
         "maxConcurrency": { "type": "integer", "const": 1 },
+        "messaging": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["LegacyPolling", "ShadowCdc", "CdcKafka"]
+            },
+            "kafka": {
+              "type": "object",
+              "properties": {
+                "bootstrapSecretName": { "type": "string" },
+                "bootstrapSecretKey": { "type": "string" }
+              }
+            }
+          }
+        },
         "hpa": {
           "type": "object",
           "properties": {
