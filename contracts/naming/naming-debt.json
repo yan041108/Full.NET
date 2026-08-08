@@ -953,6 +953,20 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/085_FilesFileReferenceClaim.sql",
       "reason": "085 使用内联 PRIMARY KEY 声明；扫描器要求显式 PK_ 名称，已由迁移 085 恢复测试与 Files claim 集成测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/091_MessagingOutboxInboxExpand.sql",
+      "reason": "091 的条件 DROP INDEX 尚不能由静态扫描器完整解析；固定时间路径聚集索引已人工审查，并由双库迁移 091 恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/091_MessagingOutboxInboxExpand.sql",
+      "reason": "091 使用静态存储过程收敛追加式 Outbox 时间路径索引；对象名与 DDL 均为脚本内固定常量，并由双库迁移 091 恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

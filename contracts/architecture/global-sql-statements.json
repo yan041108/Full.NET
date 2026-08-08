@@ -456,6 +456,18 @@
       ]
     },
     {
+      "statementName": "messaging.outbox.append",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperAppendOnlyOutboxWriter.InsertStatement",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperAppendOnlyOutboxWriter.cs",
+      "category": "reliable_event_sink",
+      "reason": "追加式 Messaging Outbox 是 CDC/Kafka 正式事件流的唯一业务事务内写入汇点，分区键与生产者由 Metadata 显式提供。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_outbox_event",
+        "@PartitionKey",
+        "@TenantId"
+      ]
+    },
+    {
       "statementName": "serial_numbers.rule.find_by_key",
       "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.FindRuleByKey",
       "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",

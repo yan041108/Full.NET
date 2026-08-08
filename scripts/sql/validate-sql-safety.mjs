@@ -7,6 +7,7 @@ const defaultRepositoryRoot = path.resolve(path.dirname(fileURLToPath(import.met
 /** 与命名门禁共用的 C# 静态 SQL 容器；Organization 必须纳入，避免应用 SQL 漏扫。 */
 export const registeredStaticSqlFiles = [
   'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperOutboxWriter.cs',
+  'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperAppendOnlyOutboxWriter.cs',
   'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs',
   'src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedExecutionStore.cs',
   'src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs',

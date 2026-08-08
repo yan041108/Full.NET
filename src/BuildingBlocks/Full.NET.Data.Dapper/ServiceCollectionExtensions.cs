@@ -112,7 +112,19 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DapperSqlExecutor>());
         services.AddScoped<IMultiResultQueryExecutor>(provider =>
             provider.GetRequiredService<DapperSqlExecutor>());
-        services.AddScoped<IOutboxWriter, DapperOutboxWriter>();
+        services.AddOptions<MessagingOutboxOptions>()
+            .Bind(configuration.GetSection(MessagingOutboxOptions.SectionName));
+        services.AddScoped<DapperOutboxWriter>();
+        services.AddScoped<DapperAppendOnlyOutboxWriter>();
+        services.AddScoped<IOutboxWriter>(provider =>
+        {
+            var outboxMode = provider
+                .GetRequiredService<IOptions<MessagingOutboxOptions>>()
+                .Value.Mode;
+            return outboxMode == MessagingOutboxMode.AppendOnlyV2
+                ? provider.GetRequiredService<DapperAppendOnlyOutboxWriter>()
+                : provider.GetRequiredService<DapperOutboxWriter>();
+        });
         services.AddScoped<DapperOutboxStore>();
         services.AddScoped<IOutboxStore>(provider =>
             provider.GetRequiredService<DapperOutboxStore>());

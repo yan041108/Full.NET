@@ -7,6 +7,7 @@ import { loadNamingDebt, loadNamingProfile } from './load-naming-profile.mjs';
 const defaultRepositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const registeredStaticSqlFiles = [
   'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperOutboxWriter.cs',
+  'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperAppendOnlyOutboxWriter.cs',
   'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs',
   'src/BuildingBlocks/Full.NET.Seeding.Dapper/SeedExecutionStore.cs',
   'src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs',
