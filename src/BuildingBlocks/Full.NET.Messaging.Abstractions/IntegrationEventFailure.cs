@@ -46,6 +46,12 @@ public static class IntegrationEventFailureCodes
     public const string PayloadRequired = ContractPrefix + "payload_required";
 
     public const string MessageIdPayloadMismatch = ContractPrefix + "message_id_payload_mismatch";
+
+    public const string TopicCodeInvalid = ContractPrefix + "topic_code_invalid";
+
+    public const string ConsumerNameInvalid = ContractPrefix + "consumer_name_invalid";
+
+    public const string SchemaVersionUnknown = ContractPrefix + "schema_version_unknown";
 }
 
 /// <summary>

@@ -19,6 +19,10 @@ public static class MessagingNames
 
     public const int TraceParentMaxLength = 128;
 
+    public const int TopicCodeMaxLength = 128;
+
+    public const int ConsumerNameMaxLength = 128;
+
     /// <summary>
     /// 规范消息类型：至少四段 owner.module.entity.event。
     /// </summary>
@@ -39,4 +43,18 @@ public static class MessagingNames
     public static readonly Regex TraceParentPattern = new(
         "^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// 低基数 Topic 机器码，例如 tenancy.tenant-changed.v1。
+    /// </summary>
+    public static readonly Regex TopicCodePattern = new(
+        "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9_-]*)*\\.v[1-9][0-9]*$",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Kafka Consumer Group 稳定机器码，例如 fullnet.tenancy.projector。
+    /// </summary>
+    public static readonly Regex ConsumerNamePattern = new(
+        "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9_-]*)*$",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
 }

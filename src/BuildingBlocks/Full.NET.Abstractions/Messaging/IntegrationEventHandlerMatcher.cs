@@ -1,8 +1,13 @@
 namespace Full.NET.Abstractions.Messaging;
 
 /// <summary>
-/// 统一 Integration 事件路由匹配与启动期路由唯一性校验。
+/// 旧 Outbox 轮询路径的 Integration 事件路由匹配与启动期唯一性校验。
 /// </summary>
+/// <remarks>
+/// 此处按 (MessageType, SchemaVersion) 保证旧 Worker 内路由唯一，并展开
+/// <see cref="IIntegrationEventHandler.LegacyEventTypes"/> 别名。Kafka 订阅目录使用
+/// (ConsumerName, EventType, SchemaVersion) 路由键，不得削弱本类对旧轮询所有者的约束。
+/// </remarks>
 public static class IntegrationEventHandlerMatcher
 {
     public static IReadOnlyList<IIntegrationEventHandler> Match(
@@ -17,6 +22,9 @@ public static class IntegrationEventHandlerMatcher
             .ToArray();
     }
 
+    /// <summary>
+    /// 校验旧轮询 Handler 在 (MessageType, SchemaVersion) 维度上的路由唯一性。
+    /// </summary>
     public static void ValidateUniqueRoutes(IEnumerable<IIntegrationEventHandler> handlers)
     {
         ArgumentNullException.ThrowIfNull(handlers);
