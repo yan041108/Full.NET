@@ -17,7 +17,15 @@ internal sealed record IdentityNavigationRecord(
     bool IsActive,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    int Version);
+    int Version,
+    string MenuType,
+    string? Redirect,
+    string? LinkUrl,
+    bool IsHidden,
+    bool IsKeepAlive,
+    bool IsAffix,
+    bool IsEmbedded,
+    string? Remark);
 
 internal sealed record InsertIdentityNavigation(
     Guid Id,
@@ -36,9 +44,17 @@ internal sealed record InsertIdentityNavigation(
     bool IsActive,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    int Version);
+    int Version,
+    string MenuType,
+    string? Redirect,
+    string? LinkUrl,
+    bool IsHidden,
+    bool IsKeepAlive,
+    bool IsAffix,
+    bool IsEmbedded,
+    string? Remark);
 
-internal sealed class HostMenuListRow
+internal class HostMenuListRow
 {
     public Guid Id { get; set; }
 
@@ -69,4 +85,20 @@ internal sealed class HostMenuListRow
     public DateTimeOffset? UpdatedAtUtc { get; set; }
 
     public int Version { get; set; }
+
+    public string MenuType { get; set; } = string.Empty;
+
+    public string? Redirect { get; set; }
+
+    public string? LinkUrl { get; set; }
+
+    public bool IsHidden { get; set; }
+
+    public bool IsKeepAlive { get; set; }
+
+    public bool IsAffix { get; set; }
+
+    public bool IsEmbedded { get; set; }
+
+    public string? Remark { get; set; }
 }

@@ -2,6 +2,7 @@ export interface HostUser {
   id: string;
   username: string;
   displayName: string;
+  accountType: string;
   isActive: boolean;
   createdAtUtc: string;
   updatedAtUtc: string | null;
@@ -28,6 +29,7 @@ export interface HostUserProfile {
   politicalStatus: string | null;
   officePhone: string | null;
   emergencyContact: string | null;
+  emergencyContactRelation: string | null;
   emergencyContactPhone: string | null;
   emergencyContactAddress: string | null;
   remark: string | null;
@@ -53,6 +55,7 @@ export interface HostUserProfileWrite {
   politicalStatus?: string | null;
   officePhone?: string | null;
   emergencyContact?: string | null;
+  emergencyContactRelation?: string | null;
   emergencyContactPhone?: string | null;
   emergencyContactAddress?: string | null;
   remark?: string | null;
@@ -76,6 +79,7 @@ export interface HostUserPage {
 export interface UpdateHostUserRequest {
   displayName: string;
   version: number;
+  accountType?: string | null;
   profile?: HostUserProfileWrite | null;
 }
 
@@ -83,6 +87,7 @@ export interface CreateHostUserRequest {
   username: string;
   displayName: string;
   password: string;
+  accountType?: string | null;
   profile?: HostUserProfileWrite | null;
 }
 
@@ -145,6 +150,7 @@ function isHostUserProjectedFields(value: unknown): value is HostUserProjectedFi
     'political_status',
     'office_phone',
     'emergency_contact',
+    'emergency_contact_relation',
     'emergency_contact_phone',
     'emergency_contact_address',
     'remark'
@@ -200,6 +206,8 @@ export function isHostUser(value: unknown): value is HostUser {
     && isText(value.id)
     && typeof value.username === 'string'
     && typeof value.displayName === 'string'
+    && typeof value.accountType === 'string'
+    && value.accountType.length > 0
     && typeof value.isActive === 'boolean'
     && isText(value.createdAtUtc)
     && (value.updatedAtUtc === null || isText(value.updatedAtUtc))
@@ -229,6 +237,7 @@ function isHostUserProfile(value: unknown): value is HostUserProfile {
     && (value.politicalStatus === null || typeof value.politicalStatus === 'string')
     && (value.officePhone === null || typeof value.officePhone === 'string')
     && (value.emergencyContact === null || typeof value.emergencyContact === 'string')
+    && (value.emergencyContactRelation === null || typeof value.emergencyContactRelation === 'string')
     && (value.emergencyContactPhone === null || typeof value.emergencyContactPhone === 'string')
     && (value.emergencyContactAddress === null || typeof value.emergencyContactAddress === 'string')
     && (value.remark === null || typeof value.remark === 'string')

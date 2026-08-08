@@ -50,12 +50,29 @@ internal sealed class HostJobDefinitionManagementService(
             token => DisableCoreAsync(actorUserId, definitionId, version, token),
             cancellationToken);
 
+    /// <summary>
+    /// 硬删除已禁用且无活跃依赖的作业定义，对应 Admin.NET DeleteJobDetail。
+    /// 删除前置校验：定义必须已禁用、无启用计划、无未终结执行记录。
+    /// 满足条件后在同一事务内清理关联计划并删除定义本身。
+    /// </summary>
+    public Task<Result<bool>> DeleteAsync(
+        Guid definitionId,
+        int version,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => DeleteCoreAsync(definitionId, version, token),
+            cancellationToken);
+
     private async Task<Result<HostJobDefinitionResponse>> CreateCoreAsync(
         Guid actorUserId,
         CreateHostJobDefinitionRequest request,
         CancellationToken cancellationToken)
     {
-        var validation = ValidateDefinition(request.JobKey, request.DisplayName, request.Description);
+        var validation = ValidateDefinition(
+            request.JobKey,
+            request.DisplayName,
+            request.Description,
+            request.GroupName);
         if (validation is not null)
         {
             return validation;
@@ -84,6 +101,7 @@ internal sealed class HostJobDefinitionManagementService(
                     JobKey = request.JobKey.Trim(),
                     DisplayName = request.DisplayName.Trim(),
                     Description = NormalizeDescription(request.Description),
+                    GroupName = NormalizeGroupName(request.GroupName),
                     IsEnabled = true,
                     CreatedAtUtc = now,
                     CreatedByUserId = actorUserId,
@@ -108,6 +126,12 @@ internal sealed class HostJobDefinitionManagementService(
             return ValidationFailure();
         }
 
+        var groupName = NormalizeGroupName(request.GroupName);
+        if (groupName is { Length: > 64 })
+        {
+            return ValidationFailure();
+        }
+
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 JobSql.UpdateDefinition,
@@ -116,6 +140,7 @@ internal sealed class HostJobDefinitionManagementService(
                     Id = definitionId,
                     DisplayName = request.DisplayName.Trim(),
                     Description = NormalizeDescription(request.Description),
+                    GroupName = groupName,
                     UpdatedAtUtc = now,
                     UpdatedByUserId = actorUserId,
                     NextVersion = request.Version + 1,
@@ -130,6 +155,72 @@ internal sealed class HostJobDefinitionManagementService(
 
         return await queries.GetByIdAsync(definitionId, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 硬删除作业定义核心逻辑：校验已禁用、无活跃计划、无未终结执行后，
+    /// 在同一事务内先删除关联计划再删除定义本身。
+    /// 执行记录无外键约束，删除定义后历史记录通过 INNER JOIN 自然过滤。
+    /// </summary>
+    private async Task<Result<bool>> DeleteCoreAsync(
+        Guid definitionId,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        // 活跃计划存在时拒绝删除，避免删除正在调度的作业定义。
+        var activeSchedules = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                JobSql.CountActiveSchedulesByDefinition,
+                new { JobDefinitionId = definitionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (activeSchedules > 0)
+        {
+            return Result<bool>.Failure(new Error(
+                JobsErrorCodes.DefinitionHasActiveDependents,
+                "The job definition still has active schedules.",
+                ErrorType.BusinessRule));
+        }
+
+        // 未终结执行记录存在时拒绝删除，避免丢失正在运行的任务证据。
+        var activeExecutions = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                JobSql.CountActiveExecutionsByDefinition,
+                new { JobDefinitionId = definitionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (activeExecutions > 0)
+        {
+            return Result<bool>.Failure(new Error(
+                JobsErrorCodes.DefinitionHasActiveDependents,
+                "The job definition still has active executions.",
+                ErrorType.BusinessRule));
+        }
+
+        // 计划表对定义存在外键约束，必须先清理计划才能删除定义。
+        await commandExecutor.ExecuteAsync(
+                JobSql.DeleteSchedulesByDefinition,
+                new { JobDefinitionId = definitionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var affected = await commandExecutor.ExecuteAsync(
+                JobSql.DeleteDefinition,
+                new { Id = definitionId, Version = version },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected == 0)
+        {
+            // 删除 0 行表示定义不存在、未禁用或版本不匹配，统一回查区分。
+            var existing = await queries.GetByIdAsync(definitionId, cancellationToken)
+                .ConfigureAwait(false);
+            return existing.IsSuccess
+                ? Result<bool>.Failure(new Error(
+                    JobsErrorCodes.DefinitionConcurrencyConflict,
+                    "The job definition changed concurrently.",
+                    ErrorType.Conflict))
+                : HostJobDefinitionQueryService.DefinitionNotFound<bool>();
+        }
+
+        return Result<bool>.Success(true);
     }
 
     private async Task<Result<HostJobDefinitionResponse>> DisableCoreAsync(
@@ -167,7 +258,8 @@ internal sealed class HostJobDefinitionManagementService(
     private Result<HostJobDefinitionResponse>? ValidateDefinition(
         string jobKey,
         string displayName,
-        string? description)
+        string? description,
+        string? groupName)
     {
         var normalizedKey = jobKey?.Trim() ?? string.Empty;
         var normalizedName = displayName?.Trim() ?? string.Empty;
@@ -187,12 +279,27 @@ internal sealed class HostJobDefinitionManagementService(
             return ValidationFailure();
         }
 
+        if (NormalizeGroupName(groupName) is { Length: > 64 })
+        {
+            return ValidationFailure();
+        }
+
         return null;
     }
 
     private static string? NormalizeDescription(string? description)
     {
         var normalized = description?.Trim();
+        return string.IsNullOrEmpty(normalized) ? null : normalized;
+    }
+
+    /// <summary>
+    /// 归一化作业分组名：去空白，空字符串视为未分组（null）。
+    /// 对应 Admin.NET SysJobDetail.GroupName，用于按组筛选与展示。
+    /// </summary>
+    private static string? NormalizeGroupName(string? groupName)
+    {
+        var normalized = groupName?.Trim();
         return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 

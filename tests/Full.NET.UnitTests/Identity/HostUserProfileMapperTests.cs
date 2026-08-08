@@ -44,6 +44,7 @@ public sealed class HostUserProfileMapperTests
                 PoliticalStatus: null,
                 OfficePhone: null,
                 EmergencyContact: null,
+                EmergencyContactRelation: null,
                 EmergencyContactPhone: null,
                 EmergencyContactAddress: null,
                 Remark: null,

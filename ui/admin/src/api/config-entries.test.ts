@@ -15,10 +15,13 @@ const sampleEntry = {
   configKey: 'system.title',
   displayName: '系统标题',
   description: '管理端标题',
+  groupName: null,
   valueKind: 'string' as const,
   value: 'Full.NET',
   displayOrder: 10,
   isActive: true,
+  createdAtUtc: '2026-01-01T00:00:00+00:00',
+  updatedAtUtc: null,
   version: 1
 };
 
@@ -63,6 +66,7 @@ describe('Vue Settings 系统配置 API', () => {
           configKey: 'system.title',
           displayName: '系统标题',
           description: '管理端标题',
+          groupName: null,
           valueKind: 'string',
           value: 'Full.NET',
           displayOrder: 10
@@ -92,6 +96,7 @@ describe('Vue Settings 系统配置 API', () => {
         body: JSON.stringify({
           displayName: '新标题',
           description: '说明',
+          groupName: null,
           value: 'Admin',
           displayOrder: 10,
           version: 1

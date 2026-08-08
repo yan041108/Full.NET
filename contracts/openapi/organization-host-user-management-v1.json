@@ -19,7 +19,7 @@
                       "operations":  [
                                          {
                                              "method":  "POST",
-                                             "permission":  "organization.user_units.create",
+                                             "permission":  "identity.users.update",
                                              "successStatus":  201,
                                              "requestSchema":  "CreateOrganizationUserUnitRequest",
                                              "responseSchema":  "OrganizationUserUnitResponse"
@@ -31,7 +31,7 @@
                       "operations":  [
                                          {
                                              "method":  "PUT",
-                                             "permission":  "organization.user_units.update",
+                                             "permission":  "identity.users.update",
                                              "successStatus":  200,
                                              "requestSchema":  "UpdateOrganizationUserUnitRequest",
                                              "responseSchema":  "OrganizationUserUnitResponse"
@@ -43,7 +43,7 @@
                       "operations":  [
                                          {
                                              "method":  "POST",
-                                             "permission":  "organization.user_units.disable",
+                                             "permission":  "identity.users.update",
                                              "successStatus":  200,
                                              "responseSchema":  "OrganizationUserUnitResponse"
                                          }
@@ -54,7 +54,7 @@
                       "operations":  [
                                          {
                                              "method":  "POST",
-                                             "permission":  "organization.user_positions.create",
+                                             "permission":  "identity.users.update",
                                              "successStatus":  201,
                                              "requestSchema":  "CreateOrganizationUserPositionRequest",
                                              "responseSchema":  "OrganizationUserPositionResponse"
@@ -66,7 +66,7 @@
                       "operations":  [
                                          {
                                              "method":  "PUT",
-                                             "permission":  "organization.user_positions.update",
+                                             "permission":  "identity.users.update",
                                              "successStatus":  200,
                                              "requestSchema":  "UpdateOrganizationUserPositionRequest",
                                              "responseSchema":  "OrganizationUserPositionResponse"
@@ -78,7 +78,7 @@
                       "operations":  [
                                          {
                                              "method":  "POST",
-                                             "permission":  "organization.user_positions.disable",
+                                             "permission":  "identity.users.update",
                                              "successStatus":  200,
                                              "responseSchema":  "OrganizationUserPositionResponse"
                                          }

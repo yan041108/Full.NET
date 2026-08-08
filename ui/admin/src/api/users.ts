@@ -32,7 +32,8 @@ export async function createHostUser(
   username: string,
   displayName: string,
   password: string,
-  profile?: HostUserProfileWrite | null
+  profile?: HostUserProfileWrite | null,
+  accountType?: string | null
 ): Promise<HostUser> {
   const value = await request<unknown>('/api/v1/identity/users', {
     method: 'POST',
@@ -41,6 +42,7 @@ export async function createHostUser(
       username,
       displayName,
       password,
+      accountType: accountType ?? undefined,
       profile: profile ?? undefined
     })
   });
@@ -70,7 +72,8 @@ export async function updateHostUser(
   id: string,
   displayName: string,
   version: number,
-  profile?: HostUserProfileWrite | null
+  profile?: HostUserProfileWrite | null,
+  accountType?: string | null
 ): Promise<HostUser> {
   const value = await request<unknown>(
     `/api/v1/identity/users/${encodeURIComponent(id)}`,
@@ -80,6 +83,7 @@ export async function updateHostUser(
       body: JSON.stringify({
         displayName,
         version,
+        accountType: accountType ?? undefined,
         profile: profile ?? undefined
       })
     }

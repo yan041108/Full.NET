@@ -17,10 +17,39 @@ public sealed class HostUserManagementReferenceEndpointTests
             "未找到 HostUserManagementReference.Endpoint.TryResolveReferenceAccess。");
 
     [TestMethod]
-    public void TryResolveReferenceAccess_rejects_principal_without_organization_permissions()
+    public void TryResolveReferenceAccess_accepts_identity_user_update_for_host_directory()
     {
-        var principal = CreatePrincipal(
-            IdentityUserManagementPermissions.Read);
+        var principal = CreatePrincipal(IdentityUserManagementPermissions.Update);
+
+        var result = InvokeTryResolveReferenceAccess(
+            principal,
+            out var canAccessUserUnits,
+            out var canAccessUserPositions);
+
+        Assert.IsTrue(result);
+        Assert.IsTrue(canAccessUserUnits);
+        Assert.IsTrue(canAccessUserPositions);
+    }
+
+    [TestMethod]
+    public void TryResolveReferenceAccess_accepts_identity_user_read_for_host_directory()
+    {
+        var principal = CreatePrincipal(IdentityUserManagementPermissions.Read);
+
+        var result = InvokeTryResolveReferenceAccess(
+            principal,
+            out var canAccessUserUnits,
+            out var canAccessUserPositions);
+
+        Assert.IsTrue(result);
+        Assert.IsTrue(canAccessUserUnits);
+        Assert.IsTrue(canAccessUserPositions);
+    }
+
+    [TestMethod]
+    public void TryResolveReferenceAccess_rejects_principal_without_directory_or_organization_permissions()
+    {
+        var principal = CreatePrincipal("settings.config.read");
 
         var result = InvokeTryResolveReferenceAccess(
             principal,
@@ -36,7 +65,6 @@ public sealed class HostUserManagementReferenceEndpointTests
     public void TryResolveReferenceAccess_accepts_user_unit_permissions()
     {
         var principal = CreatePrincipal(
-            IdentityUserManagementPermissions.Read,
             OrganizationUserUnitManagementPermissions.Create);
 
         var result = InvokeTryResolveReferenceAccess(
@@ -53,7 +81,6 @@ public sealed class HostUserManagementReferenceEndpointTests
     public void TryResolveReferenceAccess_accepts_user_position_permissions()
     {
         var principal = CreatePrincipal(
-            IdentityUserManagementPermissions.Read,
             OrganizationUserPositionManagementPermissions.Disable);
 
         var result = InvokeTryResolveReferenceAccess(

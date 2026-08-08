@@ -1,17 +1,19 @@
+using Full.NET.Abstractions.Auditing;
 using Full.NET.Abstractions.Ids;
-using Full.NET.Abstractions.Time;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
+using Full.NET.Hosting.Observability;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Settings.Contracts;
-using Full.NET.Abstractions.Auditing;
-using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 using Full.NET.Modules.Settings.Features.ManageHostDictTypes;
 using Full.NET.Modules.Settings.Persistence;
 using Full.NET.Modules.Settings.Resources;
+using Full.NET.Modules.Settings.Seeding;
 using Full.NET.Modules.Settings.Serialization;
+using Full.NET.Seeding.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -30,6 +32,8 @@ public sealed class SettingsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        AddMigrationServices(services, configuration);
+
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             SettingsAuthorizationContributor>());
@@ -66,6 +70,17 @@ public sealed class SettingsModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 SettingsJsonSerializerContext.Default));
+    }
+
+    public void AddMigrationServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDataSeedContributor,
+            HostUserProfileDictionarySeedContributor>());
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

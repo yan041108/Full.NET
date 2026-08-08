@@ -34,5 +34,26 @@ internal static class Endpoint
         })
         .Produces<PagedResult<HostJobExecutionResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsRead));
+
+        // 清空指定作业定义的终态执行记录，对应 Admin.NET ClearJobTriggerRecord。
+        group.MapPost("/clear", async (
+            Guid jobDefinitionId,
+            HostJobExecutionQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ClearAsync(jobDefinitionId, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.NoContent();
+        })
+        .Produces(StatusCodes.Status204NoContent)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsClear));
     }
 }

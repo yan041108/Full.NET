@@ -91,6 +91,7 @@
         "id",
         "username",
         "displayName",
+        "accountType",
         "isActive",
         "createdAtUtc",
         "updatedAtUtc",
@@ -110,13 +111,15 @@
       "properties": [
         "username",
         "displayName",
-        "password"
+        "password",
+        "accountType"
       ]
     },
     "UpdateHostUserRequest": {
       "properties": [
         "displayName",
-        "version"
+        "version",
+        "accountType"
       ]
     },
     "ResetHostUserPasswordRequest": {

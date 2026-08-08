@@ -83,6 +83,14 @@ internal sealed class HostUserManagementService(
                 ErrorType.Validation));
         }
 
+        var accountTypeResult = TryResolveAccountType(request.AccountType);
+        if (!accountTypeResult.IsSuccess)
+        {
+            return Result<HostUserResponse>.Failure(accountTypeResult.Error!);
+        }
+
+        var accountType = accountTypeResult.Value ?? IdentityAccountTypes.NormalUser;
+
         var normalizedUsername = username.ToUpperInvariant();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindUserByScopeAndUsername,
@@ -110,7 +118,11 @@ internal sealed class HostUserManagementService(
             now,
             null,
             1);
-        user = user with { PasswordHash = passwordHasher.HashPassword(user, password) };
+        user = user with
+        {
+            PasswordHash = passwordHasher.HashPassword(user, password),
+            AccountType = accountType,
+        };
         var record = new IdentityUserRecord(
             user.Id,
             user.TenantId,
@@ -127,7 +139,8 @@ internal sealed class HostUserManagementService(
             user.UpdatedAtUtc,
             user.Version,
             user.PreferredLocale,
-            user.ProfileVersion);
+            user.ProfileVersion,
+            user.AccountType);
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertUser,
                 record,
@@ -157,15 +170,7 @@ internal sealed class HostUserManagementService(
         }
 
         return Result<HostUserResponse>.Success(
-            new HostUserResponse(
-                user.Id,
-                user.Username,
-                user.DisplayName,
-                user.IsActive,
-                user.CreatedAtUtc,
-                user.UpdatedAtUtc,
-                user.Version,
-                Profile: profileResponse));
+            MapHostUserResponse(user, profileResponse));
     }
 
     private async Task<Result<HostUserResponse>> DisableCoreAsync(
@@ -230,15 +235,7 @@ internal sealed class HostUserManagementService(
             return NotFound();
         }
 
-        return Result<HostUserResponse>.Success(
-            new HostUserResponse(
-                updated.Id,
-                updated.Username,
-                updated.DisplayName,
-                updated.IsActive,
-                updated.CreatedAtUtc,
-                updated.UpdatedAtUtc,
-                updated.Version));
+        return Result<HostUserResponse>.Success(MapHostUserResponse(updated));
     }
 
     private async Task<Result<HostUserResponse>> EnableCoreAsync(
@@ -280,15 +277,7 @@ internal sealed class HostUserManagementService(
             return NotFound();
         }
 
-        return Result<HostUserResponse>.Success(
-            new HostUserResponse(
-                updated.Id,
-                updated.Username,
-                updated.DisplayName,
-                updated.IsActive,
-                updated.CreatedAtUtc,
-                updated.UpdatedAtUtc,
-                updated.Version));
+        return Result<HostUserResponse>.Success(MapHostUserResponse(updated));
     }
 
     private async Task<Result<HostUserResponse>> UpdateCoreAsync(
@@ -306,6 +295,25 @@ internal sealed class HostUserManagementService(
                 ErrorType.Validation));
         }
 
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                new { UserId = userId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        var accountTypeResult = TryResolveAccountType(
+            request.AccountType,
+            existing.AccountType);
+        if (!accountTypeResult.IsSuccess)
+        {
+            return Result<HostUserResponse>.Failure(accountTypeResult.Error!);
+        }
+
+        var accountType = accountTypeResult.Value ?? IdentityAccountTypes.NormalUser;
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostUserDisplayName,
@@ -313,6 +321,7 @@ internal sealed class HostUserManagementService(
                 {
                     UserId = userId,
                     DisplayName = displayName,
+                    AccountType = accountType,
                     UpdatedAtUtc = now,
                     request.Version,
                 },
@@ -369,15 +378,7 @@ internal sealed class HostUserManagementService(
         }
 
         return Result<HostUserResponse>.Success(
-            new HostUserResponse(
-                updated.Id,
-                updated.Username,
-                updated.DisplayName,
-                updated.IsActive,
-                updated.CreatedAtUtc,
-                updated.UpdatedAtUtc,
-                updated.Version,
-                Profile: profileResponse));
+            MapHostUserResponse(updated, profileResponse: profileResponse));
     }
 
     private async Task<Result<HostUserResponse>> ResetPasswordCoreAsync(
@@ -452,15 +453,7 @@ internal sealed class HostUserManagementService(
             return NotFound();
         }
 
-        return Result<HostUserResponse>.Success(
-            new HostUserResponse(
-                updated.Id,
-                updated.Username,
-                updated.DisplayName,
-                updated.IsActive,
-                updated.CreatedAtUtc,
-                updated.UpdatedAtUtc,
-                updated.Version));
+        return Result<HostUserResponse>.Success(MapHostUserResponse(updated));
     }
 
     private async Task<Result<HostUserProfileResponse?>> UpsertProfileAsync(
@@ -575,4 +568,53 @@ internal sealed class HostUserManagementService(
                     violation.Code,
                     violation.Arguments))
                 .ToArray()));
+
+    private static Result<string> TryResolveAccountType(
+        string? requestedAccountType,
+        string? existingAccountType = null)
+    {
+        if (string.IsNullOrWhiteSpace(requestedAccountType))
+        {
+            return Result<string>.Success(
+                IdentityAccountTypes.NormalizeOrDefault(existingAccountType));
+        }
+
+        if (!IdentityAccountTypes.IsValid(requestedAccountType))
+        {
+            return Result<string>.Failure(new Error(
+                ValidationErrorCodes.Failed,
+                "Account type is invalid.",
+                ErrorType.Validation));
+        }
+
+        return Result<string>.Success(requestedAccountType.Trim());
+    }
+
+    private static HostUserResponse MapHostUserResponse(
+        IdentityUser user,
+        HostUserProfileResponse? profileResponse = null) =>
+        new(
+            user.Id,
+            user.Username,
+            user.DisplayName,
+            user.AccountType,
+            user.IsActive,
+            user.CreatedAtUtc,
+            user.UpdatedAtUtc,
+            user.Version,
+            Profile: profileResponse);
+
+    private static HostUserResponse MapHostUserResponse(
+        IdentityUserRecord record,
+        HostUserProfileResponse? profileResponse = null) =>
+        new(
+            record.Id,
+            record.Username,
+            record.DisplayName,
+            record.AccountType,
+            record.IsActive,
+            record.CreatedAtUtc,
+            record.UpdatedAtUtc,
+            record.Version,
+            Profile: profileResponse);
 }

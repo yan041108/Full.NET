@@ -26,3 +26,6 @@ public sealed record UpdateDictItemRequest(
     string? Color,
     int DisplayOrder,
     int Version);
+
+/// <summary>硬删除字典项请求；携带乐观锁版本用于并发控制。</summary>
+public sealed record DeleteDictItemRequest(int Version);

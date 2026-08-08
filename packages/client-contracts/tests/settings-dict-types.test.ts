@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   isCreateSettingsDictItemRequest,
   isCreateSettingsDictTypeRequest,
+  isDeleteSettingsDictItemRequest,
+  isDeleteSettingsDictTypeRequest,
   isSettingsDictItem,
   isSettingsDictItemPage,
   isSettingsDictType,
@@ -22,6 +24,8 @@ describe('Settings 数据字典契约', () => {
     description: '通用性别枚举',
     displayOrder: 10,
     isActive: true,
+    createdAtUtc: '2026-01-01T00:00:00+00:00',
+    updatedAtUtc: null,
     version: 1
   };
 
@@ -33,6 +37,8 @@ describe('Settings 数据字典契约', () => {
     color: '#409eff',
     displayOrder: 1,
     isActive: true,
+    createdAtUtc: '2026-01-01T00:00:00+00:00',
+    updatedAtUtc: null,
     version: 1
   };
 
@@ -101,6 +107,14 @@ describe('Settings 数据字典契约', () => {
       displayOrder: 1,
       version: 2
     })).toBe(false);
+  });
+
+  it('校验字典类型与字典项删除请求', () => {
+    expect(isDeleteSettingsDictTypeRequest({ version: 3 })).toBe(true);
+    expect(isDeleteSettingsDictTypeRequest({ version: 1.5 })).toBe(false);
+    expect(isDeleteSettingsDictTypeRequest({})).toBe(false);
+    expect(isDeleteSettingsDictItemRequest({ version: 2 })).toBe(true);
+    expect(isDeleteSettingsDictItemRequest({ version: '1' })).toBe(false);
   });
 
   it('导航白名单发布 dict-types、tenant-dict-types、config-entries 与 diagnostic-policy 组件键', () => {

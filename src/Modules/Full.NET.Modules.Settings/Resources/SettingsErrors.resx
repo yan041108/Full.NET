@@ -8,12 +8,15 @@
   <data name="settings.dict_type.not_found" xml:space="preserve"><value>未找到该数据字典类型。</value></data>
   <data name="settings.dict_type.version_conflict" xml:space="preserve"><value>数据字典类型记录已被其他操作更新，请刷新后重试。</value></data>
   <data name="settings.dict_type.items_active" xml:space="preserve"><value>仍有启用中的字典项，请先禁用全部字典项后再禁用类型。</value></data>
+  <data name="settings.dict_type.not_disabled" xml:space="preserve"><value>字典类型仍处于启用状态，请先禁用后再删除。</value></data>
   <data name="settings.dict_item.value_exists" xml:space="preserve"><value>该字典类型下已存在相同稳定值的字典项。</value></data>
   <data name="settings.dict_item.not_found" xml:space="preserve"><value>未找到该字典项。</value></data>
   <data name="settings.dict_item.version_conflict" xml:space="preserve"><value>字典项记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="settings.dict_item.not_disabled" xml:space="preserve"><value>字典项仍处于启用状态，请先禁用后再删除。</value></data>
   <data name="settings.config_entry.key_exists" xml:space="preserve"><value>已存在使用该键的系统配置项。</value></data>
   <data name="settings.config_entry.not_found" xml:space="preserve"><value>未找到该系统配置项。</value></data>
   <data name="settings.config_entry.version_conflict" xml:space="preserve"><value>系统配置项记录已被其他操作更新，请刷新后重试。</value></data>
+  <data name="settings.config_entry.not_disabled" xml:space="preserve"><value>系统配置项仍处于启用状态，请先禁用后再删除。</value></data>
   <data name="settings.enum_catalog.not_found" xml:space="preserve"><value>未找到该枚举或常量目录。</value></data>
   <data name="settings.grid_preference.grid_not_found" xml:space="preserve"><value>未找到本地目录发布的 Grid。</value></data>
   <data name="settings.grid_preference.column_unknown" xml:space="preserve"><value>Grid 列键未在本地目录发布。</value></data>

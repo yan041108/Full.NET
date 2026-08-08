@@ -10,7 +10,7 @@ internal static class IdentitySql
         SELECT Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
                SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
-               PreferredLocale, ProfileVersion
+               PreferredLocale, ProfileVersion, AccountType
         FROM fn_identity_user
         WHERE ScopeKey = @ScopeKey AND NormalizedUsername = @NormalizedUsername
         """,
@@ -22,7 +22,7 @@ internal static class IdentitySql
         SELECT Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
                SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
-               PreferredLocale, ProfileVersion
+               PreferredLocale, ProfileVersion, AccountType
         FROM fn_identity_user
         WHERE Id = @UserId AND ScopeKey = 'host' AND TenantId IS NULL
         """,
@@ -86,12 +86,12 @@ internal static class IdentitySql
             (Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
              PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
              SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
-             PreferredLocale, ProfileVersion)
+             PreferredLocale, ProfileVersion, AccountType)
         VALUES
             (@Id, @TenantId, @ScopeKey, @Username, @NormalizedUsername, @DisplayName,
              @PasswordHash, @IsActive, @FailedLoginCount, @LockoutEndUtc,
              @SecurityStamp, @CreatedAtUtc, @UpdatedAtUtc, @Version,
-             @PreferredLocale, @ProfileVersion)
+             @PreferredLocale, @ProfileVersion, @AccountType)
         """,
         SqlDataScope.HostOnly);
 
@@ -107,7 +107,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListHostUsersSqlServer = new(
         "identity.list_host_users.sql_server",
         """
-        SELECT Id, Username, DisplayName, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        SELECT Id, Username, DisplayName, AccountType, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_user
         WHERE ScopeKey = 'host' AND TenantId IS NULL
         ORDER BY NormalizedUsername
@@ -118,7 +118,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListHostUsersMySql = new(
         "identity.list_host_users.mysql",
         """
-        SELECT Id, Username, DisplayName, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+        SELECT Id, Username, DisplayName, AccountType, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_identity_user
         WHERE ScopeKey = 'host' AND TenantId IS NULL
         ORDER BY NormalizedUsername
@@ -160,6 +160,7 @@ internal static class IdentitySql
         """
         UPDATE fn_identity_user
         SET DisplayName = @DisplayName,
+            AccountType = @AccountType,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @UserId
@@ -286,7 +287,8 @@ internal static class IdentitySql
         """
         SELECT Id, TenantId, ScopeKey, ParentId, RouteName, Path, ComponentKey,
                Title, Caption, Icon, DisplayOrder, RequiredPermission,
-               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version,
+               MenuType, Redirect, LinkUrl, IsHidden, IsKeepAlive, IsAffix, IsEmbedded, Remark
         FROM fn_identity_navigation
         WHERE Id = @MenuId AND ScopeKey = 'host' AND TenantId IS NULL
         """,
@@ -297,7 +299,8 @@ internal static class IdentitySql
         """
         SELECT Id, TenantId, ScopeKey, ParentId, RouteName, Path, ComponentKey,
                Title, Caption, Icon, DisplayOrder, RequiredPermission,
-               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version,
+               MenuType, Redirect, LinkUrl, IsHidden, IsKeepAlive, IsAffix, IsEmbedded, Remark
         FROM fn_identity_navigation
         WHERE ScopeKey = @ScopeKey AND RouteName = @RouteName
         """,
@@ -317,7 +320,8 @@ internal static class IdentitySql
         """
         SELECT Id, ParentId, RouteName, Path, ComponentKey, Title, Caption, Icon,
                DisplayOrder, RequiredPermission, IsSystem, IsActive,
-               CreatedAtUtc, UpdatedAtUtc, Version
+               CreatedAtUtc, UpdatedAtUtc, Version,
+               MenuType, Redirect, LinkUrl, IsHidden, IsKeepAlive, IsAffix, IsEmbedded, Remark
         FROM fn_identity_navigation
         WHERE ScopeKey = 'host' AND TenantId IS NULL
         ORDER BY DisplayOrder, RouteName
@@ -330,7 +334,8 @@ internal static class IdentitySql
         """
         SELECT Id, ParentId, RouteName, Path, ComponentKey, Title, Caption, Icon,
                DisplayOrder, RequiredPermission, IsSystem, IsActive,
-               CreatedAtUtc, UpdatedAtUtc, Version
+               CreatedAtUtc, UpdatedAtUtc, Version,
+               MenuType, Redirect, LinkUrl, IsHidden, IsKeepAlive, IsAffix, IsEmbedded, Remark
         FROM fn_identity_navigation
         WHERE ScopeKey = 'host' AND TenantId IS NULL
         ORDER BY DisplayOrder, RouteName
@@ -351,7 +356,8 @@ internal static class IdentitySql
         """
         SELECT Id, TenantId, ScopeKey, ParentId, RouteName, Path, ComponentKey,
                Title, Caption, Icon, DisplayOrder, RequiredPermission,
-               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version
+               IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version,
+               MenuType, Redirect, LinkUrl, IsHidden, IsKeepAlive, IsAffix, IsEmbedded, Remark
         FROM fn_identity_navigation
         WHERE ScopeKey = 'host'
           AND TenantId IS NULL
@@ -366,11 +372,13 @@ internal static class IdentitySql
         INSERT INTO fn_identity_navigation
             (Id, TenantId, ScopeKey, ParentId, RouteName, Path, ComponentKey,
              Title, Caption, Icon, DisplayOrder, RequiredPermission,
-             IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version)
+             IsSystem, IsActive, CreatedAtUtc, UpdatedAtUtc, Version,
+             MenuType, Redirect, LinkUrl, IsHidden, IsKeepAlive, IsAffix, IsEmbedded, Remark)
         VALUES
             (@Id, @TenantId, @ScopeKey, @ParentId, @RouteName, @Path, @ComponentKey,
              @Title, @Caption, @Icon, @DisplayOrder, @RequiredPermission,
-             @IsSystem, @IsActive, @CreatedAtUtc, @UpdatedAtUtc, @Version)
+             @IsSystem, @IsActive, @CreatedAtUtc, @UpdatedAtUtc, @Version,
+             @MenuType, @Redirect, @LinkUrl, @IsHidden, @IsKeepAlive, @IsAffix, @IsEmbedded, @Remark)
         """,
         SqlDataScope.HostOnly);
 
@@ -386,6 +394,14 @@ internal static class IdentitySql
             Icon = @Icon,
             DisplayOrder = @DisplayOrder,
             RequiredPermission = @RequiredPermission,
+            MenuType = @MenuType,
+            Redirect = @Redirect,
+            LinkUrl = @LinkUrl,
+            IsHidden = @IsHidden,
+            IsKeepAlive = @IsKeepAlive,
+            IsAffix = @IsAffix,
+            IsEmbedded = @IsEmbedded,
+            Remark = @Remark,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @MenuId
@@ -410,6 +426,33 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement EnableHostMenu = new(
+        "identity.enable_host_menu",
+        """
+        UPDATE fn_identity_navigation
+        SET IsActive = 1,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @MenuId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 0
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListAllHostMenus = new(
+        "identity.list_all_host_menus",
+        """
+        SELECT Id, ParentId, RouteName, Path, ComponentKey, Title, Caption, Icon,
+               DisplayOrder, RequiredPermission, IsSystem, IsActive,
+               CreatedAtUtc, UpdatedAtUtc, Version,
+               MenuType, Redirect, LinkUrl, IsHidden, IsKeepAlive, IsAffix, IsEmbedded, Remark
+        FROM fn_identity_navigation
+        WHERE ScopeKey = 'host' AND TenantId IS NULL
+        ORDER BY DisplayOrder, RouteName
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>更新系统内置菜单的展示与层级字段；路由、组件与权限保持目录锁定。</summary>
     public static readonly SqlStatement UpdateHostSystemMenu = new(
         "identity.update_host_system_menu",
@@ -420,6 +463,14 @@ internal static class IdentitySql
             Caption = @Caption,
             Icon = @Icon,
             DisplayOrder = @DisplayOrder,
+            MenuType = @MenuType,
+            Redirect = @Redirect,
+            LinkUrl = @LinkUrl,
+            IsHidden = @IsHidden,
+            IsKeepAlive = @IsKeepAlive,
+            IsAffix = @IsAffix,
+            IsEmbedded = @IsEmbedded,
+            Remark = @Remark,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @MenuId
@@ -913,7 +964,7 @@ internal static class IdentitySql
         SELECT UserId, Nickname, PhoneNumber, Email, EmployeeNumber, Gender,
                JoinDateUtc, SortOrder, IdCardType, IdCardNumber, BirthDate,
                Ethnicity, Address, GraduatedSchool, EducationLevel, PoliticalStatus,
-               OfficePhone, EmergencyContact, EmergencyContactPhone,
+               OfficePhone, EmergencyContact, EmergencyContactRelation, EmergencyContactPhone,
                EmergencyContactAddress, Remark, Version
         FROM fn_identity_user_profile
         WHERE UserId IN @UserIds
@@ -953,13 +1004,13 @@ internal static class IdentitySql
             (UserId, Nickname, PhoneNumber, Email, EmployeeNumber, Gender,
              JoinDateUtc, SortOrder, IdCardType, IdCardNumber, BirthDate,
              Ethnicity, Address, GraduatedSchool, EducationLevel, PoliticalStatus,
-             OfficePhone, EmergencyContact, EmergencyContactPhone,
+             OfficePhone, EmergencyContact, EmergencyContactRelation, EmergencyContactPhone,
              EmergencyContactAddress, Remark, Version)
         VALUES
             (@UserId, @Nickname, @PhoneNumber, @Email, @EmployeeNumber, @Gender,
              @JoinDateUtc, @SortOrder, @IdCardType, @IdCardNumber, @BirthDate,
              @Ethnicity, @Address, @GraduatedSchool, @EducationLevel, @PoliticalStatus,
-             @OfficePhone, @EmergencyContact, @EmergencyContactPhone,
+             @OfficePhone, @EmergencyContact, @EmergencyContactRelation, @EmergencyContactPhone,
              @EmergencyContactAddress, @Remark, 1)
         """,
         SqlDataScope.HostOnly);
@@ -985,6 +1036,7 @@ internal static class IdentitySql
             PoliticalStatus = @PoliticalStatus,
             OfficePhone = @OfficePhone,
             EmergencyContact = @EmergencyContact,
+            EmergencyContactRelation = @EmergencyContactRelation,
             EmergencyContactPhone = @EmergencyContactPhone,
             EmergencyContactAddress = @EmergencyContactAddress,
             Remark = @Remark,

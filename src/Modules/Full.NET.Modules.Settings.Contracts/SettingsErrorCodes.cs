@@ -20,6 +20,9 @@ public static class SettingsErrorCodes
     /// <summary>禁用字典类型时仍存在启用中的字典项。</summary>
     public const string DictTypeHasActiveItems = "settings.dict_type.items_active";
 
+    /// <summary>删除字典类型时类型仍处于启用状态，必须先禁用。</summary>
+    public const string DictTypeNotDisabled = "settings.dict_type.not_disabled";
+
     /// <summary>字典项稳定值在类型内已存在。</summary>
     public const string DictItemValueExists = "settings.dict_item.value_exists";
 
@@ -29,6 +32,9 @@ public static class SettingsErrorCodes
     /// <summary>字典项记录版本冲突。</summary>
     public const string DictItemVersionConflict = "settings.dict_item.version_conflict";
 
+    /// <summary>删除字典项时字典项仍处于启用状态，必须先禁用。</summary>
+    public const string DictItemNotDisabled = "settings.dict_item.not_disabled";
+
     /// <summary>配置键在 Host 全局已存在。</summary>
     public const string ConfigEntryKeyExists = "settings.config_entry.key_exists";
 
@@ -37,6 +43,9 @@ public static class SettingsErrorCodes
 
     /// <summary>配置项记录版本冲突。</summary>
     public const string ConfigEntryVersionConflict = "settings.config_entry.version_conflict";
+
+    /// <summary>删除配置项时配置项仍处于启用状态，必须先禁用。</summary>
+    public const string ConfigEntryNotDisabled = "settings.config_entry.not_disabled";
 
     /// <summary>目标枚举/常量目录不存在。</summary>
     public const string EnumCatalogNotFound = "settings.enum_catalog.not_found";
@@ -68,12 +77,15 @@ public static class SettingsErrorCodes
         DictTypeNotFound,
         DictTypeVersionConflict,
         DictTypeHasActiveItems,
+        DictTypeNotDisabled,
         DictItemValueExists,
         DictItemNotFound,
         DictItemVersionConflict,
+        DictItemNotDisabled,
         ConfigEntryKeyExists,
         ConfigEntryNotFound,
         ConfigEntryVersionConflict,
+        ConfigEntryNotDisabled,
         EnumCatalogNotFound,
         GridNotFound,
         GridColumnUnknown,

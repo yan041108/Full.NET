@@ -152,3 +152,68 @@ export async function disableSettingsTenantDictItem(
   }
   return response;
 }
+
+// 硬删除已禁用的租户字典类型，携带乐观锁版本用于并发控制。
+export async function deleteSettingsTenantDictType(
+  id: string,
+  version: number
+): Promise<void> {
+  await request<unknown>(
+    `/api/v1/settings/tenant-dict-types/${encodeURIComponent(id)}/delete`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ version })
+    }
+  );
+}
+
+// 硬删除已禁用的租户字典项，携带乐观锁版本用于并发控制。
+export async function deleteSettingsTenantDictItem(
+  id: string,
+  version: number
+): Promise<void> {
+  await request<unknown>(
+    `/api/v1/settings/tenant-dict-items/${encodeURIComponent(id)}/delete`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ version })
+    }
+  );
+}
+
+// 全量租户字典类型列表（不分页），供下拉与全量消费场景使用。
+export async function listAllSettingsTenantDictTypes(): Promise<SettingsDictType[]> {
+  const value = await request<unknown>('/api/v1/settings/tenant-dict-types/list');
+  if (!Array.isArray(value) || !value.every(isSettingsDictType)) {
+    throw new Error('client.invalid_settings_dict_type_list');
+  }
+  return value;
+}
+
+// 按租户字典类型编码查询启用字典项，对应 Admin.NET dataList by code。
+export async function listSettingsTenantDictItemsByCode(
+  code: string
+): Promise<SettingsDictItem[]> {
+  const value = await request<unknown>(
+    `/api/v1/settings/tenant-dict-types/by-code/${encodeURIComponent(code)}/items`
+  );
+  if (!Array.isArray(value) || !value.every(isSettingsDictItem)) {
+    throw new Error('client.invalid_settings_dict_item_list');
+  }
+  return value;
+}
+
+// 查询单个租户字典项详情。
+export async function getSettingsTenantDictItem(
+  id: string
+): Promise<SettingsDictItem> {
+  const response = await request<unknown>(
+    `/api/v1/settings/tenant-dict-items/${encodeURIComponent(id)}`
+  );
+  if (!isSettingsDictItem(response)) {
+    throw new Error('client.invalid_settings_dict_item');
+  }
+  return response;
+}

@@ -6,6 +6,8 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
+  ElInputNumber,
+  ElOption,
   ElRadio,
   ElRadioGroup,
   ElSelect,
@@ -23,6 +25,12 @@ import {
   applyDisabledToOrganizationUnitTreeSelectOptions,
   type OrganizationUnitTreeSelectOption
 } from '../../organization/org-unit-tree';
+import { computeAgeFromBirthDate } from '../../users/profile-dict-options';
+
+export interface HostUserProfileDictOption {
+  value: string;
+  label: string;
+}
 
 defineOptions({ name: 'UserEditorDialog' });
 
@@ -34,6 +42,7 @@ const props = defineProps<{
   user: HostUser | null;
   username: string;
   displayName: string;
+  accountType: string;
   password: string;
   profile: HostUserProfileWrite;
   activeTab: 'basic' | 'roles' | 'org-units' | 'org-positions' | 'profile' | 'binding';
@@ -51,6 +60,13 @@ const props = defineProps<{
   canUpdate: boolean;
   canManageUserUnits: boolean;
   canManageUserPositions: boolean;
+  canViewUserUnits: boolean;
+  canViewUserPositions: boolean;
+  accountTypeOptions: HostUserProfileDictOption[];
+  idCardTypeOptions: HostUserProfileDictOption[];
+  ethnicityOptions: HostUserProfileDictOption[];
+  educationLevelOptions: HostUserProfileDictOption[];
+  emergencyContactRelationOptions: HostUserProfileDictOption[];
   canSubmit: boolean;
   effectiveFieldKeys: string[];
   showProfileTab: boolean;
@@ -61,6 +77,7 @@ const emit = defineEmits<{
   'update:open': [value: boolean];
   'update:username': [value: string];
   'update:displayName': [value: string];
+  'update:accountType': [value: string];
   'update:password': [value: string];
   'update:profile': [value: HostUserProfileWrite];
   'update:activeTab': [value: 'basic' | 'roles' | 'org-units' | 'org-positions' | 'profile' | 'binding'];
@@ -88,13 +105,26 @@ const basicFormRef = ref<FormInstance>();
 const basicForm = reactive({
   username: '',
   displayName: '',
+  accountType: 'normal_user',
   password: '',
   nickname: '',
   phoneNumber: '',
   email: '',
   employeeNumber: '',
+  joinDateUtc: '',
+  sortOrder: 100,
+  idCardType: '',
+  idCardNumber: '',
+  birthDate: '',
+  ethnicity: '',
+  educationLevel: '',
+  emergencyContactRelation: '',
+  emergencyContact: '',
+  emergencyContactPhone: '',
+  emergencyContactAddress: '',
   remark: ''
 });
+const computedAge = computed(() => computeAgeFromBirthDate(basicForm.birthDate || null));
 const fieldErrors = reactive({
   username: '',
   displayName: '',
@@ -219,11 +249,23 @@ const dialogTitle = () => (
 function syncBasicFormFromProps(): void {
   basicForm.username = props.username;
   basicForm.displayName = props.displayName;
+  basicForm.accountType = props.accountType;
   basicForm.password = props.password;
   basicForm.nickname = props.profile.nickname ?? '';
   basicForm.phoneNumber = props.profile.phoneNumber ?? '';
   basicForm.email = props.profile.email ?? '';
   basicForm.employeeNumber = props.profile.employeeNumber ?? '';
+  basicForm.joinDateUtc = props.profile.joinDateUtc ?? '';
+  basicForm.sortOrder = props.profile.sortOrder ?? 100;
+  basicForm.idCardType = props.profile.idCardType ?? '';
+  basicForm.idCardNumber = props.profile.idCardNumber ?? '';
+  basicForm.birthDate = props.profile.birthDate ?? '';
+  basicForm.ethnicity = props.profile.ethnicity ?? '';
+  basicForm.educationLevel = props.profile.educationLevel ?? '';
+  basicForm.emergencyContactRelation = props.profile.emergencyContactRelation ?? '';
+  basicForm.emergencyContact = props.profile.emergencyContact ?? '';
+  basicForm.emergencyContactPhone = props.profile.emergencyContactPhone ?? '';
+  basicForm.emergencyContactAddress = props.profile.emergencyContactAddress ?? '';
   basicForm.remark = props.profile.remark ?? '';
 }
 
@@ -266,6 +308,11 @@ function onDisplayNameInput(value: string): void {
   basicForm.displayName = value;
   fieldErrors.displayName = validateDisplayName();
   emit('update:displayName', value);
+}
+
+function onAccountTypeInput(value: string): void {
+  basicForm.accountType = value;
+  emit('update:accountType', value);
 }
 
 function onPasswordInput(value: string): void {
@@ -318,6 +365,17 @@ function syncTrimmedValuesToParent(): void {
     phoneNumber: basicForm.phoneNumber.trim() || null,
     email: basicForm.email.trim() || null,
     employeeNumber: basicForm.employeeNumber.trim() || null,
+    joinDateUtc: basicForm.joinDateUtc.trim() || null,
+    sortOrder: basicForm.sortOrder,
+    idCardType: basicForm.idCardType || null,
+    idCardNumber: basicForm.idCardNumber.trim() || null,
+    birthDate: basicForm.birthDate.trim() || null,
+    ethnicity: basicForm.ethnicity || null,
+    educationLevel: basicForm.educationLevel || null,
+    emergencyContactRelation: basicForm.emergencyContactRelation || null,
+    emergencyContact: basicForm.emergencyContact.trim() || null,
+    emergencyContactPhone: basicForm.emergencyContactPhone.trim() || null,
+    emergencyContactAddress: basicForm.emergencyContactAddress.trim() || null,
     remark: basicForm.remark.trim() || null
   });
 }
@@ -409,6 +467,24 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
+              :label="translate('users.accountType')"
+              prop="accountType"
+              required
+            >
+              <el-select
+                v-model="basicForm.accountType"
+                :placeholder="translate('users.accountTypePlaceholder')"
+                @update:model-value="onAccountTypeInput"
+              >
+                <el-option
+                  v-for="option in accountTypeOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
               v-if="hasField('nickname')"
               :label="translate('users.nickname')"
               prop="nickname"
@@ -459,6 +535,166 @@ defineExpose({
               <el-input
                 v-model="basicForm.employeeNumber"
                 @update:model-value="onEmployeeNumberInput"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('join_date_utc')"
+              :label="translate('users.joinDate')"
+            >
+              <el-date-picker
+                v-model="basicForm.joinDateUtc"
+                type="date"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                @update:model-value="patchProfile({ joinDateUtc: ($event as string) || null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('sort_order')"
+              :label="translate('users.sortOrder')"
+            >
+              <el-input-number
+                v-model="basicForm.sortOrder"
+                :min="0"
+                :max="999999"
+                style="width: 100%"
+                @update:model-value="patchProfile({ sortOrder: typeof $event === 'number' ? $event : null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('id_card_type')"
+              :label="translate('users.idCardType')"
+            >
+              <el-select
+                v-model="basicForm.idCardType"
+                clearable
+                filterable
+                style="width: 100%"
+                @update:model-value="patchProfile({ idCardType: ($event as string) || null })"
+              >
+                <el-option
+                  v-for="option in idCardTypeOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('id_card_number')"
+              :label="translate('users.idCardNumber')"
+            >
+              <el-input
+                v-model="basicForm.idCardNumber"
+                @update:model-value="patchProfile({ idCardNumber: $event || null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('birth_date')"
+              :label="translate('users.birthDate')"
+            >
+              <el-date-picker
+                v-model="basicForm.birthDate"
+                type="date"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                @update:model-value="patchProfile({ birthDate: ($event as string) || null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('birth_date')"
+              :label="translate('users.age')"
+            >
+              <el-input
+                :model-value="computedAge === null ? translate('users.fieldEmpty') : String(computedAge)"
+                disabled
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('ethnicity')"
+              :label="translate('users.ethnicity')"
+            >
+              <el-select
+                v-model="basicForm.ethnicity"
+                clearable
+                filterable
+                style="width: 100%"
+                @update:model-value="patchProfile({ ethnicity: ($event as string) || null })"
+              >
+                <el-option
+                  v-for="option in ethnicityOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('education_level')"
+              :label="translate('users.educationLevel')"
+            >
+              <el-select
+                v-model="basicForm.educationLevel"
+                clearable
+                filterable
+                style="width: 100%"
+                @update:model-value="patchProfile({ educationLevel: ($event as string) || null })"
+              >
+                <el-option
+                  v-for="option in educationLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('emergency_contact_relation')"
+              :label="translate('users.emergencyContactRelation')"
+            >
+              <el-select
+                v-model="basicForm.emergencyContactRelation"
+                clearable
+                filterable
+                style="width: 100%"
+                @update:model-value="patchProfile({ emergencyContactRelation: ($event as string) || null })"
+              >
+                <el-option
+                  v-for="option in emergencyContactRelationOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('emergency_contact')"
+              :label="translate('users.emergencyContact')"
+            >
+              <el-input
+                v-model="basicForm.emergencyContact"
+                @update:model-value="patchProfile({ emergencyContact: $event || null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('emergency_contact_phone')"
+              :label="translate('users.emergencyContactPhone')"
+            >
+              <el-input
+                v-model="basicForm.emergencyContactPhone"
+                @update:model-value="patchProfile({ emergencyContactPhone: $event || null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('emergency_contact_address')"
+              class="users-editor-dialog__full"
+              :label="translate('users.emergencyContactAddress')"
+            >
+              <el-input
+                v-model="basicForm.emergencyContactAddress"
+                type="textarea"
+                :rows="2"
+                @update:model-value="patchProfile({ emergencyContactAddress: $event || null })"
               />
             </el-form-item>
             <el-form-item
@@ -519,7 +755,7 @@ defineExpose({
       </el-tab-pane>
 
       <el-tab-pane
-        v-if="canManageUserUnits"
+        v-if="canViewUserUnits"
         :label="translate('users.tabOrgUnits')"
         name="org-units"
       >
@@ -529,6 +765,7 @@ defineExpose({
               <el-tree-select
                 :model-value="primaryUnitId || undefined"
                 :data="orgUnitTreeOptions"
+                :disabled="!canManageUserUnits"
                 check-strictly
                 filterable
                 clearable
@@ -542,6 +779,7 @@ defineExpose({
               <el-tree-select
                 :model-value="subsidiaryUnitIds"
                 :data="subsidiaryUnitTreeOptions"
+                :disabled="!canManageUserUnits"
                 multiple
                 check-strictly
                 filterable
@@ -559,7 +797,7 @@ defineExpose({
       </el-tab-pane>
 
       <el-tab-pane
-        v-if="canManageUserPositions"
+        v-if="canViewUserPositions"
         :label="translate('users.tabOrgPositions')"
         name="org-positions"
       >
@@ -568,6 +806,7 @@ defineExpose({
             <el-form-item :label="translate('users.positionName')">
               <el-select
                 :model-value="positionId || undefined"
+                :disabled="!canManageUserPositions"
                 clearable
                 filterable
                 :placeholder="translate('users.selectPosition')"

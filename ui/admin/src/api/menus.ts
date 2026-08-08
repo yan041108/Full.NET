@@ -1,5 +1,6 @@
 import {
   isHostMenu,
+  isHostMenuArray,
   isHostMenuPermissionOptionArray,
   isHostMenuPage,
   type CreateHostMenuRequest,
@@ -18,6 +19,12 @@ export async function listHostMenus(
     `/api/v1/identity/menus?page=${page}&pageSize=${pageSize}`
   );
   if (!isHostMenuPage(value)) throw new Error('client.invalid_host_menu_page');
+  return value;
+}
+
+export async function listHostMenusAll(): Promise<HostMenu[]> {
+  const value = await request<unknown>('/api/v1/identity/menus/all');
+  if (!isHostMenuArray(value)) throw new Error('client.invalid_host_menu_array');
   return value;
 }
 
@@ -61,6 +68,15 @@ export async function updateHostMenu(
 export async function disableHostMenu(id: string): Promise<HostMenu> {
   const value = await request<unknown>(
     `/api/v1/identity/menus/${encodeURIComponent(id)}/disable`,
+    { method: 'POST' }
+  );
+  if (!isHostMenu(value)) throw new Error('client.invalid_host_menu');
+  return value;
+}
+
+export async function enableHostMenu(id: string): Promise<HostMenu> {
+  const value = await request<unknown>(
+    `/api/v1/identity/menus/${encodeURIComponent(id)}/enable`,
     { method: 'POST' }
   );
   if (!isHostMenu(value)) throw new Error('client.invalid_host_menu');

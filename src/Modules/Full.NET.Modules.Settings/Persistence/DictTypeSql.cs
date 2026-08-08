@@ -136,4 +136,49 @@ internal static class DictTypeSql
           AND IsActive = 1
         """,
         SqlDataScope.HostOnly);
+
+    /// <summary>全量 Host 字典类型列表（不分页），供下拉与全量消费场景使用。</summary>
+    public static readonly SqlStatement ListAllHostDictTypes = new(
+        "settings.dict_type.list_all",
+        """
+        SELECT Id,
+               Code,
+               Name,
+               Description,
+               DisplayOrder,
+               IsActive,
+               CreatedAtUtc,
+               UpdatedAtUtc,
+               Version
+        FROM fn_settings_dict_type
+        WHERE TenantId IS NULL
+        ORDER BY DisplayOrder, Name, Code, Id
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 硬删除 Host 字典类型；前置校验 IsActive=0 与无活跃字典项由 Service 保证，
+    /// WHERE 同时校验 IsActive=0 与 Version 做防御性兜底与并发控制。
+    /// </summary>
+    public static readonly SqlStatement DeleteDictType = new(
+        "settings.dict_type.delete",
+        """
+        DELETE FROM fn_settings_dict_type
+        WHERE Id = @DictTypeId
+          AND TenantId IS NULL
+          AND IsActive = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 级联删除字典类型下的全部字典项（含已禁用），在删除类型本身前于同一事务内执行。
+    /// </summary>
+    public static readonly SqlStatement DeleteItemsByType = new(
+        "settings.dict_item.delete_by_type",
+        """
+        DELETE FROM fn_settings_dict_item
+        WHERE DictTypeId = @DictTypeId
+        """,
+        SqlDataScope.HostOnly);
 }

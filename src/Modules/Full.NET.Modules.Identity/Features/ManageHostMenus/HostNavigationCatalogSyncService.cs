@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostMenus;
 
@@ -75,7 +76,15 @@ internal sealed class HostNavigationCatalogSyncService(
                             true,
                             now,
                             null,
-                            1),
+                            1,
+                            definition.MenuType,
+                            definition.Redirect,
+                            definition.LinkUrl,
+                            definition.IsHidden,
+                            definition.IsKeepAlive,
+                            definition.IsAffix,
+                            definition.IsEmbedded,
+                            null),
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (affectedRows != 1)

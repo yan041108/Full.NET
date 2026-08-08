@@ -121,6 +121,44 @@ internal static class Endpoint
         .Produces<HostJobDefinitionResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsDisable));
 
+        // 硬删除作业定义，对应 Admin.NET DeleteJobDetail；前置校验失败返回 ProblemDetails。
+        group.MapPost("/{definitionId:guid}/delete", async (
+            Guid definitionId,
+            DeleteHostJobDefinitionRequest request,
+            HostJobDefinitionManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.DeleteAsync(
+                    definitionId,
+                    request.Version,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.NoContent();
+        })
+        .Produces(StatusCodes.Status204NoContent)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsDelete));
+
+        // 查询作业分组去重列表，对应 Admin.NET ListJobGroup，供前端分组下拉使用。
+        group.MapGet("/groups", async (
+            HostJobDefinitionQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ListGroupsAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<IReadOnlyList<HostJobGroupResponse>>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsRead));
+
         group.MapPost("/{definitionId:guid}/trigger", async (
             Guid definitionId,
             Features.ManageHostJobExecutions.HostJobTriggerService trigger,

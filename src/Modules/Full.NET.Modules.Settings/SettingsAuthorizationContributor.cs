@@ -27,6 +27,11 @@ internal sealed class SettingsAuthorizationContributor
             DictTypeManagementPermissions.Disable,
             "禁用数据字典",
             AuthorizationScope.Host),
+        // 硬删除已禁用的数据字典类型/字典项，对应 Admin.NET DeleteDict。
+        new PermissionDefinition(
+            DictTypeManagementPermissions.Delete,
+            "删除数据字典",
+            AuthorizationScope.Host),
         new PermissionDefinition(
             ConfigEntryManagementPermissions.Read,
             "查询系统配置",
@@ -42,6 +47,11 @@ internal sealed class SettingsAuthorizationContributor
         new PermissionDefinition(
             ConfigEntryManagementPermissions.Disable,
             "禁用系统配置",
+            AuthorizationScope.Host),
+        // 硬删除已禁用的系统配置项，对应 Admin.NET DeleteConfig。
+        new PermissionDefinition(
+            ConfigEntryManagementPermissions.Delete,
+            "删除系统配置",
             AuthorizationScope.Host),
         new PermissionDefinition(
             DiagnosticPolicyManagementPermissions.Read,
@@ -74,6 +84,11 @@ internal sealed class SettingsAuthorizationContributor
         new PermissionDefinition(
             TenantDictTypeManagementPermissions.Disable,
             "禁用租户数据字典",
+            AuthorizationScope.Tenant),
+        // 硬删除已禁用的租户数据字典类型/字典项，对应 Admin.NET DeleteDict。
+        new PermissionDefinition(
+            TenantDictTypeManagementPermissions.Delete,
+            "删除租户数据字典",
             AuthorizationScope.Tenant),
     ];
 
@@ -160,6 +175,13 @@ internal sealed class SettingsAuthorizationContributor
             "disable",
             30),
         new AuthorizationActionDefinition(
+            "settings.dict_types.delete",
+            "dict-types",
+            DictTypeManagementPermissions.Delete,
+            "删除字典",
+            "delete",
+            35),
+        new AuthorizationActionDefinition(
             "settings.tenant_dict_types.create",
             "tenant-dict-types",
             TenantDictTypeManagementPermissions.Create,
@@ -181,6 +203,13 @@ internal sealed class SettingsAuthorizationContributor
             "disable",
             30),
         new AuthorizationActionDefinition(
+            "settings.tenant_dict_types.delete",
+            "tenant-dict-types",
+            TenantDictTypeManagementPermissions.Delete,
+            "删除租户字典",
+            "delete",
+            35),
+        new AuthorizationActionDefinition(
             "settings.config.create",
             "config-entries",
             ConfigEntryManagementPermissions.Create,
@@ -201,6 +230,13 @@ internal sealed class SettingsAuthorizationContributor
             "禁用配置",
             "disable",
             30),
+        new AuthorizationActionDefinition(
+            "settings.config.delete",
+            "config-entries",
+            ConfigEntryManagementPermissions.Delete,
+            "删除配置",
+            "delete",
+            35),
         new AuthorizationActionDefinition(
             "settings.diagnostic_policy.update",
             "diagnostic-policy",

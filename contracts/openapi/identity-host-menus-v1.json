@@ -1,6 +1,6 @@
 {
   "id": "identity-host-menus-v1",
-  "version": 1,
+  "version": 2,
   "description": "Host 菜单管理 HTTP 契约冻结夹具；与 IdentityMenuManagementContracts 和 ManageHostMenus.Endpoint 对齐。",
   "paths": [
     {
@@ -18,6 +18,17 @@
           "successStatus": 201,
           "requestSchema": "CreateHostMenuRequest",
           "responseSchema": "HostMenuResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/menus/all",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.menus.read",
+          "successStatus": 200,
+          "responseSchema": "HostMenuResponseArray"
         }
       ]
     },
@@ -60,6 +71,17 @@
           "responseSchema": "HostMenuResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/identity/menus/{menuId}/enable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.menus.update",
+          "successStatus": 200,
+          "responseSchema": "HostMenuResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -79,7 +101,15 @@
         "isActive",
         "createdAtUtc",
         "updatedAtUtc",
-        "version"
+        "version",
+        "menuType",
+        "redirect",
+        "linkUrl",
+        "isHidden",
+        "isKeepAlive",
+        "isAffix",
+        "isEmbedded",
+        "remark"
       ]
     },
     "CreateHostMenuRequest": {
@@ -92,7 +122,15 @@
         "caption",
         "icon",
         "displayOrder",
-        "requiredPermission"
+        "requiredPermission",
+        "menuType",
+        "redirect",
+        "linkUrl",
+        "isHidden",
+        "isKeepAlive",
+        "isAffix",
+        "isEmbedded",
+        "remark"
       ]
     },
     "UpdateHostMenuRequest": {
@@ -105,7 +143,15 @@
         "icon",
         "displayOrder",
         "requiredPermission",
-        "version"
+        "version",
+        "menuType",
+        "redirect",
+        "linkUrl",
+        "isHidden",
+        "isKeepAlive",
+        "isAffix",
+        "isEmbedded",
+        "remark"
       ]
     },
     "HostMenuResponsePage": {
@@ -114,6 +160,33 @@
         "page",
         "pageSize",
         "total"
+      ]
+    },
+    "HostMenuResponseArray": {
+      "properties": [
+        "id",
+        "parentId",
+        "routeName",
+        "path",
+        "componentKey",
+        "title",
+        "caption",
+        "icon",
+        "displayOrder",
+        "requiredPermission",
+        "isSystem",
+        "isActive",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version",
+        "menuType",
+        "redirect",
+        "linkUrl",
+        "isHidden",
+        "isKeepAlive",
+        "isAffix",
+        "isEmbedded",
+        "remark"
       ]
     },
     "HostMenuPermissionOptionResponseArray": {

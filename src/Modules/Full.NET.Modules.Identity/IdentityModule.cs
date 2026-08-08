@@ -2,14 +2,18 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Catalogs;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.DependencyInjection;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
+using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Seeding;
+using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Seeding.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -46,6 +50,9 @@ public sealed class IdentityModule : IFullNetModule
         IConfiguration configuration)
     {
         AddMigrationServices(services, configuration);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IEnumCatalogContributor,
+            IdentityEnumCatalogContributor>());
         services.AddIdentityAuthentication(configuration);
         services.AddIdentityAuthorization(configuration);
         services.AddIdentityDomainServices(configuration);
@@ -76,12 +83,26 @@ public sealed class IdentityModule : IFullNetModule
             Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>,
             Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>>();
         services.TryAddScoped<IIdentityBootstrapService, IdentityBootstrapService>();
+        AddHostNavigationCatalogSeedClosure(services);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
             HostAdministratorSeedContributor>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IDataSeedContributor,
             HostNavigationCatalogSeedContributor>());
+    }
+
+    /// <summary>
+    /// 为 Migrator Seed 注册导航目录同步所需的最小闭包，避免拉起完整 HTTP/认证运行时。
+    /// </summary>
+    private static void AddHostNavigationCatalogSeedClosure(IServiceCollection services)
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IAuthorizationCatalogContributor,
+            IdentityAuthorizationContributor>());
+        services.TryAddSingleton(provider => AuthorizationCatalog.Create(
+            provider.GetServices<IAuthorizationCatalogContributor>()));
+        services.TryAddScoped<HostNavigationCatalogSyncService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

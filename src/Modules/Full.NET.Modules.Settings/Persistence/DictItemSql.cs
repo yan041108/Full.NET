@@ -126,4 +126,44 @@ internal static class DictItemSql
           AND IsActive = 1
         """,
         SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 按 Host 字典类型编码查询启用字典项，对应 Admin.NET dataList by code。
+    /// JOIN fn_settings_dict_type 按 Code 过滤，仅返回 IsActive=1 的项。
+    /// </summary>
+    public static readonly SqlStatement ListByTypeCode = new(
+        "settings.dict_item.list_by_type_code",
+        """
+        SELECT item.Id,
+               item.DictTypeId,
+               item.Label,
+               item.Value,
+               item.Color,
+               item.DisplayOrder,
+               item.IsActive,
+               item.CreatedAtUtc,
+               item.UpdatedAtUtc,
+               item.Version
+        FROM fn_settings_dict_item item
+        INNER JOIN fn_settings_dict_type type ON type.Id = item.DictTypeId
+        WHERE type.Code = @Code
+          AND type.TenantId IS NULL
+          AND item.IsActive = 1
+        ORDER BY item.DisplayOrder, item.Label, item.Value, item.Id
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 硬删除 Host 字典项；前置校验 IsActive=0 由 Service 保证，
+    /// WHERE 同时校验 IsActive=0 与 Version 做防御性兜底与并发控制。
+    /// </summary>
+    public static readonly SqlStatement DeleteDictItem = new(
+        "settings.dict_item.delete",
+        """
+        DELETE FROM fn_settings_dict_item
+        WHERE Id = @DictItemId
+          AND IsActive = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
 }

@@ -6,6 +6,7 @@ import {
   ElDatePicker,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElPagination,
   ElSelect,
@@ -26,6 +27,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import PermissionGate from '../components/PermissionGate.vue';
 import {
   createHostJobSchedule,
+  deleteHostJobSchedule,
   listHostJobScheduleDefinitionOptions,
   listHostJobSchedules,
   pauseHostJobSchedule,
@@ -48,7 +50,7 @@ const IANA_TIME_ZONES = [
 ] as const;
 
 const session = useSessionStore();
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
 const definitionOptions = ref<HostJobScheduleDefinitionOption[]>([]);
 const schedules = ref<HostJobSchedule[]>([]);
 const page = ref(1);
@@ -62,6 +64,9 @@ const triggerKind = ref<string>(JOB_TRIGGER_KINDS.cron);
 const cronExpression = ref('0 9 * * *');
 const timeZoneId = ref('UTC');
 const oneTimeAtUtc = ref('');
+const startTime = ref('');
+const endTime = ref('');
+const args = ref('');
 const misfirePolicy = ref<string>(JOB_MISFIRE_POLICIES.skip);
 const cronPreviewUtc = ref<string>();
 const cronPreviewLoading = ref(false);
@@ -73,6 +78,7 @@ const canCreate = computed(() => session.can('jobs.schedules.create'));
 const canUpdate = computed(() => session.can('jobs.schedules.update'));
 const canPause = computed(() => session.can('jobs.schedules.pause'));
 const canResume = computed(() => session.can('jobs.schedules.resume'));
+const canDelete = computed(() => session.can('jobs.schedules.delete'));
 const showForm = computed(() =>
   editingId.value ? canUpdate.value : canCreate.value
 );
@@ -190,7 +196,10 @@ async function create(): Promise<void> {
       timeZoneId.value.trim(),
       misfirePolicy.value,
       isCron.value ? cronExpression.value.trim() : null,
-      isCron.value ? null : oneTimeAtUtc.value || null
+      isCron.value ? null : oneTimeAtUtc.value || null,
+      startTime.value || null,
+      endTime.value || null,
+      args.value.trim() || null
     );
     resetForm();
     ElMessage.success(t('hostJobSchedules.createSuccess'));
@@ -209,6 +218,9 @@ function startEdit(item: HostJobSchedule): void {
   cronExpression.value = item.cronExpression ?? '';
   timeZoneId.value = item.timeZoneId;
   oneTimeAtUtc.value = item.oneTimeAtUtc ?? '';
+  startTime.value = item.startTime ?? '';
+  endTime.value = item.endTime ?? '';
+  args.value = item.args ?? '';
   misfirePolicy.value = item.misfirePolicy;
 }
 
@@ -222,6 +234,9 @@ function resetForm(): void {
   cronExpression.value = '0 9 * * *';
   timeZoneId.value = 'UTC';
   oneTimeAtUtc.value = '';
+  startTime.value = '';
+  endTime.value = '';
+  args.value = '';
   misfirePolicy.value = JOB_MISFIRE_POLICIES.skip;
   cronPreviewUtc.value = undefined;
 }
@@ -241,7 +256,10 @@ async function saveEdit(): Promise<void> {
       misfirePolicy.value,
       item.version,
       isCron.value ? cronExpression.value.trim() : null,
-      isCron.value ? null : oneTimeAtUtc.value || null
+      isCron.value ? null : oneTimeAtUtc.value || null,
+      startTime.value || null,
+      endTime.value || null,
+      args.value.trim() || null
     );
     cancelEdit();
     ElMessage.success(t('hostJobSchedules.updateSuccess'));
@@ -287,6 +305,34 @@ async function resume(item: HostJobSchedule): Promise<void> {
   }
 }
 
+async function deleteSchedule(item: HostJobSchedule): Promise<void> {
+  if (changing.value || !canDelete.value) {
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('hostJobSchedules.confirmDelete'),
+      t('hostJobSchedules.delete'),
+      {
+        type: 'warning',
+        confirmButtonText: t('hostJobSchedules.delete'),
+        cancelButtonText: t('hostJobSchedules.cancel')
+      }
+    );
+    changing.value = true;
+    problem.value = undefined;
+    await deleteHostJobSchedule(item.id, item.version);
+    ElMessage.success(t('hostJobSchedules.deleteSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error !== 'cancel' && error !== 'close') {
+      problem.value = toProblem(error);
+    }
+  } finally {
+    changing.value = false;
+  }
+}
+
 function scheduleExpression(item: HostJobSchedule): string {
   return item.triggerKind === JOB_TRIGGER_KINDS.cron
     ? item.cronExpression ?? '—'
@@ -294,7 +340,13 @@ function scheduleExpression(item: HostJobSchedule): string {
 }
 
 function formatUtc(value: string | null | undefined): string {
-  return value ?? '—';
+  if (!value) {
+    return '—';
+  }
+  return new Intl.DateTimeFormat(locale.value, {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  }).format(new Date(value));
 }
 
 function toProblem(
@@ -404,6 +456,38 @@ function toProblem(
             />
           </ElSelect>
         </label>
+        <label>
+          <span>{{ t('hostJobSchedules.fieldStartTime') }}</span>
+          <ElDatePicker
+            v-model="startTime"
+            type="datetime"
+            value-format="YYYY-MM-DDTHH:mm:ss[Z]"
+            :disabled="changing"
+            data-testid="host-job-schedules-start-time"
+          />
+        </label>
+        <label>
+          <span>{{ t('hostJobSchedules.fieldEndTime') }}</span>
+          <ElDatePicker
+            v-model="endTime"
+            type="datetime"
+            value-format="YYYY-MM-DDTHH:mm:ss[Z]"
+            :disabled="changing"
+            data-testid="host-job-schedules-end-time"
+          />
+        </label>
+        <label>
+          <span>{{ t('hostJobSchedules.fieldArgs') }}</span>
+          <ElInput
+            v-model="args"
+            type="textarea"
+            :rows="2"
+            :placeholder="t('hostJobSchedules.argsHelp')"
+            :disabled="changing"
+            data-testid="host-job-schedules-args"
+          />
+          <small class="art-muted">{{ t('hostJobSchedules.argsHelp') }}</small>
+        </label>
         <div class="art-form-actions">
           <ElButton v-if="editingId" @click="cancelEdit">{{ t('hostJobSchedules.cancel') }}</ElButton>
           <ElButton type="primary" native-type="submit" data-testid="host-job-schedules-submit" :loading="changing">
@@ -495,6 +579,34 @@ function toProblem(
                 <dt>{{ t('hostJobSchedules.columnLastRun') }}</dt>
                 <dd translate="no">{{ formatUtc(item.lastExecutionAtUtc) }}</dd>
               </div>
+              <div>
+                <dt>{{ t('hostJobSchedules.columnNumberOfRuns') }}</dt>
+                <dd>{{ item.numberOfRuns }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('hostJobSchedules.columnNumberOfErrors') }}</dt>
+                <dd>
+                  <ElTag v-if="item.numberOfErrors > 0" type="danger" effect="plain" size="small">
+                    {{ item.numberOfErrors }}
+                  </ElTag>
+                  <span v-else>{{ item.numberOfErrors }}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ t('hostJobSchedules.columnStartTime') }}</dt>
+                <dd translate="no">{{ formatUtc(item.startTime) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('hostJobSchedules.columnEndTime') }}</dt>
+                <dd translate="no">{{ formatUtc(item.endTime) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('hostJobSchedules.columnArgs') }}</dt>
+                <dd>
+                  <code v-if="item.args" class="host-job-schedules-args" translate="no">{{ item.args }}</code>
+                  <span v-else>—</span>
+                </dd>
+              </div>
             </dl>
           </div>
           <div class="art-list-actions">
@@ -511,6 +623,18 @@ function toProblem(
             <PermissionGate v-else code="jobs.schedules.resume">
               <ElButton size="small" type="primary" data-testid="host-job-schedules-resume" @click="resume(item)">
                 {{ t('hostJobSchedules.resume') }}
+              </ElButton>
+            </PermissionGate>
+            <PermissionGate v-if="canDelete" code="jobs.schedules.delete">
+              <ElButton
+                size="small"
+                type="danger"
+                plain
+                :disabled="changing"
+                data-testid="host-job-schedules-delete"
+                @click="deleteSchedule(item)"
+              >
+                {{ t('hostJobSchedules.delete') }}
               </ElButton>
             </PermissionGate>
           </div>
@@ -556,6 +680,16 @@ function toProblem(
 
 .host-job-schedules-meta dd {
   margin: 0;
+}
+
+.host-job-schedules-args {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  word-break: break-all;
 }
 
 .host-job-schedules-pagination {

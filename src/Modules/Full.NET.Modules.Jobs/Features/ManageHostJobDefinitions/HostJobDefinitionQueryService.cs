@@ -59,10 +59,27 @@ internal sealed class HostJobDefinitionQueryService(
             record.JobKey,
             record.DisplayName,
             record.Description,
+            record.GroupName,
             record.IsEnabled,
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);
+
+    /// <summary>
+    /// 查询已启用作业定义的去重分组名列表，对应 Admin.NET ListJobGroup，
+    /// 供前端分组下拉与按组筛选使用。
+    /// </summary>
+    public async Task<Result<IReadOnlyList<HostJobGroupResponse>>> ListGroupsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var groups = await queryExecutor
+            .QueryAsync<string>(JobSql.ListJobGroups, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return Result<IReadOnlyList<HostJobGroupResponse>>.Success(
+            groups
+                .Select(group => new HostJobGroupResponse(group))
+                .ToArray());
+    }
 
     private SqlStatement ResolveListStatement() =>
         databaseOptions.Value.Provider switch

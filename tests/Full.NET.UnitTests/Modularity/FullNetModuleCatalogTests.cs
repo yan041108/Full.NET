@@ -8,7 +8,9 @@ using Full.NET.Modules.Files;
 using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Jobs;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Features.Login;
+using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Settings;
 using Full.NET.Modules.SerialNumbers;
@@ -134,6 +136,23 @@ public sealed class FullNetModuleCatalogTests
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(CurrentTenantAccessor)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
+    }
+
+    [TestMethod]
+    public void Migrator_profile_registers_host_navigation_catalog_seed_closure()
+    {
+        var services = CreateServices();
+
+        services.AddFullNetApplicationModules(
+            CreateConfiguration(),
+            FullNetHostProfile.Migrator);
+
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ImplementationType == typeof(HostNavigationCatalogSyncService)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(AuthorizationCatalog)
+            && descriptor.Lifetime == ServiceLifetime.Singleton));
     }
 
     private static ServiceCollection CreateServices() => new();

@@ -12,6 +12,8 @@ internal sealed class JobDefinitionRecord
 
     public string? Description { get; set; }
 
+    public string? GroupName { get; set; }
+
     public bool IsEnabled { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
@@ -94,6 +96,16 @@ internal class JobScheduleRecord
     public DateTimeOffset? LastExecutionAtUtc { get; set; }
 
     public DateTimeOffset? CompletedAtUtc { get; set; }
+
+    public long NumberOfRuns { get; set; }
+
+    public long NumberOfErrors { get; set; }
+
+    public DateTimeOffset? StartTime { get; set; }
+
+    public DateTimeOffset? EndTime { get; set; }
+
+    public string? Args { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
 

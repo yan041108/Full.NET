@@ -1,4 +1,5 @@
 using Full.NET.Localization;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Domain;
 
@@ -18,4 +19,5 @@ internal sealed record IdentityUser(
     DateTimeOffset? UpdatedAtUtc,
     int Version,
     string PreferredLocale = LocaleCatalog.DefaultLocale,
-    int ProfileVersion = 1);
+    int ProfileVersion = 1,
+    string AccountType = IdentityAccountTypes.NormalUser);

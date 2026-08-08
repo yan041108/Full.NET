@@ -10,15 +10,21 @@ public static class HostJobPermissions
 
     public const string DefinitionsDisable = "jobs.definitions.disable";
 
+    public const string DefinitionsDelete = "jobs.definitions.delete";
+
     public const string DefinitionsTrigger = "jobs.definitions.trigger";
 
     public const string ExecutionsRead = "jobs.executions.read";
+
+    public const string ExecutionsClear = "jobs.executions.clear";
 
     public const string SchedulesRead = "jobs.schedules.read";
 
     public const string SchedulesCreate = "jobs.schedules.create";
 
     public const string SchedulesUpdate = "jobs.schedules.update";
+
+    public const string SchedulesDelete = "jobs.schedules.delete";
 
     public const string SchedulesPause = "jobs.schedules.pause";
 
@@ -62,6 +68,7 @@ public sealed record HostJobDefinitionResponse(
     string JobKey,
     string DisplayName,
     string? Description,
+    string? GroupName,
     bool IsEnabled,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
@@ -70,14 +77,21 @@ public sealed record HostJobDefinitionResponse(
 public sealed record CreateHostJobDefinitionRequest(
     string JobKey,
     string DisplayName,
-    string? Description);
+    string? Description,
+    string? GroupName);
 
 public sealed record UpdateHostJobDefinitionRequest(
     string DisplayName,
     string? Description,
+    string? GroupName,
     int Version);
 
 public sealed record DisableHostJobDefinitionRequest(int Version);
+
+public sealed record DeleteHostJobDefinitionRequest(int Version);
+
+/// <summary>作业分组去重选项，对应 Admin.NET ListJobGroup。</summary>
+public sealed record HostJobGroupResponse(string GroupName);
 
 public sealed record HostJobScheduleResponse(
     Guid Id,
@@ -93,6 +107,11 @@ public sealed record HostJobScheduleResponse(
     DateTimeOffset? NextExecutionAtUtc,
     DateTimeOffset? LastExecutionAtUtc,
     DateTimeOffset? CompletedAtUtc,
+    long NumberOfRuns,
+    long NumberOfErrors,
+    DateTimeOffset? StartTime,
+    DateTimeOffset? EndTime,
+    string? Args,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     int Version);
@@ -103,7 +122,10 @@ public sealed record CreateHostJobScheduleRequest(
     string? CronExpression,
     string TimeZoneId,
     DateTimeOffset? OneTimeAtUtc,
-    string MisfirePolicy);
+    string MisfirePolicy,
+    DateTimeOffset? StartTime,
+    DateTimeOffset? EndTime,
+    string? Args);
 
 public sealed record UpdateHostJobScheduleRequest(
     string TriggerKind,
@@ -111,6 +133,9 @@ public sealed record UpdateHostJobScheduleRequest(
     string TimeZoneId,
     DateTimeOffset? OneTimeAtUtc,
     string MisfirePolicy,
+    DateTimeOffset? StartTime,
+    DateTimeOffset? EndTime,
+    string? Args,
     int Version);
 
 public sealed record ChangeHostJobScheduleStateRequest(int Version);

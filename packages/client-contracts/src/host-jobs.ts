@@ -3,6 +3,7 @@ export interface HostJobDefinition {
   jobKey: string;
   displayName: string;
   description: string | null;
+  groupName: string | null;
   isEnabled: boolean;
   createdAtUtc: string;
   updatedAtUtc: string | null;
@@ -39,16 +40,27 @@ export interface CreateHostJobDefinitionRequest {
   jobKey: string;
   displayName: string;
   description?: string | null;
+  groupName?: string | null;
 }
 
 export interface UpdateHostJobDefinitionRequest {
   displayName: string;
   description?: string | null;
+  groupName?: string | null;
   version: number;
 }
 
 export interface DisableHostJobDefinitionRequest {
   version: number;
+}
+
+export interface DeleteHostJobDefinitionRequest {
+  version: number;
+}
+
+/** 作业分组去重选项，对应 Admin.NET ListJobGroup。 */
+export interface HostJobGroup {
+  groupName: string;
 }
 
 export const JOBS_WELL_KNOWN_KEYS = {
@@ -79,6 +91,11 @@ export interface HostJobSchedule {
   nextExecutionAtUtc: string | null;
   lastExecutionAtUtc: string | null;
   completedAtUtc: string | null;
+  numberOfRuns: number;
+  numberOfErrors: number;
+  startTime: string | null;
+  endTime: string | null;
+  args: string | null;
   createdAtUtc: string;
   updatedAtUtc: string | null;
   version: number;
@@ -98,6 +115,9 @@ export interface CreateHostJobScheduleRequest {
   timeZoneId: string;
   oneTimeAtUtc?: string | null;
   misfirePolicy: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  args?: string | null;
 }
 
 export interface UpdateHostJobScheduleRequest {
@@ -106,6 +126,9 @@ export interface UpdateHostJobScheduleRequest {
   timeZoneId: string;
   oneTimeAtUtc?: string | null;
   misfirePolicy: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  args?: string | null;
   version: number;
 }
 
@@ -138,6 +161,11 @@ export function isHostJobSchedule(value: unknown): value is HostJobSchedule {
     && (value.nextExecutionAtUtc === null || typeof value.nextExecutionAtUtc === 'string')
     && (value.lastExecutionAtUtc === null || typeof value.lastExecutionAtUtc === 'string')
     && (value.completedAtUtc === null || typeof value.completedAtUtc === 'string')
+    && Number.isInteger(value.numberOfRuns)
+    && Number.isInteger(value.numberOfErrors)
+    && (value.startTime === null || typeof value.startTime === 'string')
+    && (value.endTime === null || typeof value.endTime === 'string')
+    && (value.args === null || typeof value.args === 'string')
     && typeof value.createdAtUtc === 'string'
     && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
     && Number.isInteger(value.version);
@@ -167,7 +195,16 @@ export function isCreateHostJobScheduleRequest(
       || typeof value.cronExpression === 'string')
     && (value.oneTimeAtUtc === undefined
       || value.oneTimeAtUtc === null
-      || typeof value.oneTimeAtUtc === 'string');
+      || typeof value.oneTimeAtUtc === 'string')
+    && (value.startTime === undefined
+      || value.startTime === null
+      || typeof value.startTime === 'string')
+    && (value.endTime === undefined
+      || value.endTime === null
+      || typeof value.endTime === 'string')
+    && (value.args === undefined
+      || value.args === null
+      || typeof value.args === 'string');
 }
 
 export function isUpdateHostJobScheduleRequest(
@@ -183,7 +220,16 @@ export function isUpdateHostJobScheduleRequest(
       || typeof value.cronExpression === 'string')
     && (value.oneTimeAtUtc === undefined
       || value.oneTimeAtUtc === null
-      || typeof value.oneTimeAtUtc === 'string');
+      || typeof value.oneTimeAtUtc === 'string')
+    && (value.startTime === undefined
+      || value.startTime === null
+      || typeof value.startTime === 'string')
+    && (value.endTime === undefined
+      || value.endTime === null
+      || typeof value.endTime === 'string')
+    && (value.args === undefined
+      || value.args === null
+      || typeof value.args === 'string');
 }
 
 export function isChangeHostJobScheduleStateRequest(
@@ -221,6 +267,7 @@ export function isHostJobDefinition(value: unknown): value is HostJobDefinition 
     && isNonEmptyString(value.jobKey)
     && isNonEmptyString(value.displayName)
     && (value.description === null || typeof value.description === 'string')
+    && (value.groupName === null || typeof value.groupName === 'string')
     && typeof value.isEnabled === 'boolean'
     && typeof value.createdAtUtc === 'string'
     && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
@@ -273,7 +320,10 @@ export function isCreateHostJobDefinitionRequest(
     && isNonEmptyString(value.displayName)
     && (value.description === undefined
       || value.description === null
-      || typeof value.description === 'string');
+      || typeof value.description === 'string')
+    && (value.groupName === undefined
+      || value.groupName === null
+      || typeof value.groupName === 'string');
 }
 
 export function isUpdateHostJobDefinitionRequest(
@@ -284,6 +334,9 @@ export function isUpdateHostJobDefinitionRequest(
     && (value.description === undefined
       || value.description === null
       || typeof value.description === 'string')
+    && (value.groupName === undefined
+      || value.groupName === null
+      || typeof value.groupName === 'string')
     && Number.isInteger(value.version);
 }
 
@@ -291,6 +344,20 @@ export function isDisableHostJobDefinitionRequest(
   value: unknown
 ): value is DisableHostJobDefinitionRequest {
   return isRecord(value) && Number.isInteger(value.version);
+}
+
+export function isDeleteHostJobDefinitionRequest(
+  value: unknown
+): value is DeleteHostJobDefinitionRequest {
+  return isRecord(value) && Number.isInteger(value.version);
+}
+
+export function isHostJobGroup(value: unknown): value is HostJobGroup {
+  return isRecord(value) && typeof value.groupName === 'string';
+}
+
+export function isHostJobGroupList(value: unknown): value is HostJobGroup[] {
+  return Array.isArray(value) && value.every(isHostJobGroup);
 }
 
 function isGuid(value: unknown): value is string {

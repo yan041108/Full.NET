@@ -33,6 +33,19 @@ internal static class Endpoint
         .Produces<PagedResult<HostMenuResponse>>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
+        group.MapGet("/all", async (
+            HostMenuQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ListAllAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<IReadOnlyList<HostMenuResponse>>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
+
         group.MapGet("/permission-options", (
             HostMenuPermissionOptionsQueryService queries) =>
         {
@@ -104,5 +117,19 @@ internal static class Endpoint
         })
         .Produces<HostMenuResponse>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Disable);
+
+        group.MapPost("/{menuId:guid}/enable", async (
+            Guid menuId,
+            HostMenuManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.EnableAsync(menuId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<HostMenuResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityMenuManagementPermissions.Update);
     }
 }

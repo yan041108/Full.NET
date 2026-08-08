@@ -5,6 +5,8 @@ export interface SettingsDictType {
   description: string | null;
   displayOrder: number;
   isActive: boolean;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
   version: number;
 }
 
@@ -37,6 +39,8 @@ export interface SettingsDictItem {
   color: string | null;
   displayOrder: number;
   isActive: boolean;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
   version: number;
 }
 
@@ -61,6 +65,15 @@ export interface UpdateSettingsDictItemRequest {
   version: number;
 }
 
+// 硬删除字典类型/字典项请求，携带乐观锁版本用于并发控制，对应 Admin.NET DeleteDict。
+export interface DeleteSettingsDictTypeRequest {
+  version: number;
+}
+
+export interface DeleteSettingsDictItemRequest {
+  version: number;
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // 与服务端 HostDictTypeManagementService 的编码规则保持一致：3-64 位小写字母开头结尾。
@@ -78,6 +91,8 @@ export function isSettingsDictType(value: unknown): value is SettingsDictType {
     && (value.description === null || typeof value.description === 'string')
     && Number.isInteger(value.displayOrder)
     && typeof value.isActive === 'boolean'
+    && typeof value.createdAtUtc === 'string'
+    && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
     && Number.isInteger(value.version);
 }
 
@@ -128,6 +143,8 @@ export function isSettingsDictItem(value: unknown): value is SettingsDictItem {
     && (value.color === null || typeof value.color === 'string')
     && Number.isInteger(value.displayOrder)
     && typeof value.isActive === 'boolean'
+    && typeof value.createdAtUtc === 'string'
+    && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
     && Number.isInteger(value.version);
 }
 
@@ -164,6 +181,22 @@ export function isUpdateSettingsDictItemRequest(
       || value.color === null
       || typeof value.color === 'string')
     && Number.isInteger(value.displayOrder)
+    && typeof value.version === 'number'
+    && Number.isInteger(value.version);
+}
+
+export function isDeleteSettingsDictTypeRequest(
+  value: unknown
+): value is DeleteSettingsDictTypeRequest {
+  return isRecord(value)
+    && typeof value.version === 'number'
+    && Number.isInteger(value.version);
+}
+
+export function isDeleteSettingsDictItemRequest(
+  value: unknown
+): value is DeleteSettingsDictItemRequest {
+  return isRecord(value)
     && typeof value.version === 'number'
     && Number.isInteger(value.version);
 }

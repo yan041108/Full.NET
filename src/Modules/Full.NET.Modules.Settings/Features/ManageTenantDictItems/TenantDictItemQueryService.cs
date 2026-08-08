@@ -75,6 +75,30 @@ internal sealed class TenantDictItemQueryService(
         return Result<DictItemResponse>.Success(Map(record));
     }
 
+    /// <summary>
+    /// 按租户字典类型编码查询启用字典项，对应 Admin.NET dataList by code。
+    /// 仅返回 IsActive=1 的项，按 DisplayOrder/Label 排序，供业务模块高频消费。
+    /// </summary>
+    public async Task<Result<IReadOnlyList<DictItemResponse>>> ListByTypeCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedCode = code?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (normalizedCode.Length == 0)
+        {
+            return Result<IReadOnlyList<DictItemResponse>>.Success(
+                Array.Empty<DictItemResponse>());
+        }
+
+        var rows = await queryExecutor.QueryAsync<DictItemRecord>(
+                TenantDictItemSql.ListByTypeCode,
+                new { Code = normalizedCode },
+                cancellationToken)
+            .ConfigureAwait(false);
+        var items = rows.Select(Map).ToArray();
+        return Result<IReadOnlyList<DictItemResponse>>.Success(items);
+    }
+
     internal static DictItemResponse Map(DictItemRecord record) =>
         new(
             record.Id,

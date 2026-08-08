@@ -42,6 +42,40 @@ internal sealed partial class HostConfigEntryManagementService(
             token => DisableCoreAsync(configEntryId, token),
             cancellationToken);
 
+    /// <summary>
+    /// 硬删除已禁用的配置项，对应 Admin.NET DeleteConfig。
+    /// 删除前置校验：配置项必须已禁用；通过后直接硬删除。
+    /// </summary>
+    public Task<Result<bool>> DeleteAsync(
+        Guid configEntryId,
+        int version,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => DeleteCoreAsync(configEntryId, version, token),
+            cancellationToken);
+
+    /// <summary>
+    /// 批量硬删除已禁用的配置项，对应 Admin.NET batchDeleteConfig。
+    /// 逐条校验已禁用后批量删除，任一项未禁用则整体拒绝。
+    /// </summary>
+    public Task<Result<bool>> BatchDeleteAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => BatchDeleteCoreAsync(ids, token),
+            cancellationToken);
+
+    /// <summary>
+    /// 批量更新配置项值，对应 Admin.NET batchUpdateConfigValue。
+    /// 按 ConfigKey 定位，校验值类型后逐条更新，任一失败则整体回滚。
+    /// </summary>
+    public Task<Result<bool>> BatchUpdateValuesAsync(
+        IReadOnlyCollection<ConfigValueUpdate> updates,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => BatchUpdateValuesCoreAsync(updates, token),
+            cancellationToken);
+
     private async Task<Result<ConfigEntryResponse>> CreateCoreAsync(
         CreateConfigEntryRequest request,
         CancellationToken cancellationToken)
@@ -77,6 +111,12 @@ internal sealed partial class HostConfigEntryManagementService(
             return ValidationFailure(valueError);
         }
 
+        var groupName = NormalizeGroupName(request.GroupName);
+        if (groupName is { Length: > 64 })
+        {
+            return ValidationFailure("Configuration group name must not exceed 64 characters.");
+        }
+
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                 ConfigEntrySql.FindIdentityByKey,
                 new { ConfigKey = configKey },
@@ -97,6 +137,7 @@ internal sealed partial class HostConfigEntryManagementService(
                     ConfigKey = configKey,
                     DisplayName = displayName,
                     Description = description,
+                    GroupName = groupName,
                     ValueKind = valueKind,
                     Value = normalizedValue,
                     DisplayOrder = request.DisplayOrder,
@@ -128,6 +169,12 @@ internal sealed partial class HostConfigEntryManagementService(
             return ValidationFailure("Configuration description must not exceed 512 characters.");
         }
 
+        var groupName = NormalizeGroupName(request.GroupName);
+        if (groupName is { Length: > 64 })
+        {
+            return ValidationFailure("Configuration group name must not exceed 64 characters.");
+        }
+
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                 ConfigEntrySql.FindIdentityById,
                 new { ConfigEntryId = configEntryId },
@@ -135,7 +182,7 @@ internal sealed partial class HostConfigEntryManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<ConfigEntryResponse>();
         }
 
         if (!TryNormalizeValue(
@@ -155,6 +202,7 @@ internal sealed partial class HostConfigEntryManagementService(
                     ConfigEntryId = configEntryId,
                     DisplayName = displayName,
                     Description = description,
+                    GroupName = groupName,
                     Value = normalizedValue,
                     DisplayOrder = request.DisplayOrder,
                     UpdatedAtUtc = now,
@@ -183,7 +231,7 @@ internal sealed partial class HostConfigEntryManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<ConfigEntryResponse>();
         }
 
         if (!existing.IsActive)
@@ -204,7 +252,7 @@ internal sealed partial class HostConfigEntryManagementService(
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
-            return NotFound();
+            return NotFound<ConfigEntryResponse>();
         }
 
         return await configEntryQueries.GetByIdAsync(configEntryId, cancellationToken)
@@ -222,10 +270,146 @@ internal sealed partial class HostConfigEntryManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<ConfigEntryResponse>();
         }
 
-        return VersionConflict();
+        return VersionConflict<ConfigEntryResponse>();
+    }
+
+    /// <summary>
+    /// 硬删除核心逻辑：校验配置项已禁用后直接硬删除，WHERE 同时校验 Version 防并发。
+    /// </summary>
+    private async Task<Result<bool>> DeleteCoreAsync(
+        Guid configEntryId,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
+                ConfigEntrySql.FindIdentityById,
+                new { ConfigEntryId = configEntryId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null)
+        {
+            return NotFound<bool>();
+        }
+
+        // 配置项仍启用时拒绝删除，必须先禁用以避免误删活跃数据。
+        if (existing.IsActive)
+        {
+            return NotDisabled<bool>();
+        }
+
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                ConfigEntrySql.DeleteConfigEntry,
+                new { ConfigEntryId = configEntryId, Version = version },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows == 0)
+        {
+            // 删除 0 行表示版本不匹配（存在性已校验），返回版本冲突。
+            return VersionConflict<bool>();
+        }
+
+        return Result<bool>.Success(true);
+    }
+
+    /// <summary>
+    /// 批量硬删除核心逻辑：逐条校验已禁用后批量删除，任一项未禁用或不存在则整体拒绝。
+    /// </summary>
+    private async Task<Result<bool>> BatchDeleteCoreAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken)
+    {
+        if (ids is null || ids.Count == 0)
+        {
+            return Result<bool>.Failure(new Error(
+                ValidationErrorCodes.Failed,
+                "Configuration entry ids must not be empty.",
+                ErrorType.Validation));
+        }
+
+        // 逐条校验已禁用，任一项未禁用或不存在则整体拒绝，保证批量删除的原子性语义。
+        foreach (var id in ids)
+        {
+            var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
+                    ConfigEntrySql.FindIdentityById,
+                    new { ConfigEntryId = id },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (existing is null)
+            {
+                return NotFound<bool>();
+            }
+
+            if (existing.IsActive)
+            {
+                return NotDisabled<bool>();
+            }
+        }
+
+        await commandExecutor.ExecuteAsync(
+                ConfigEntrySql.BatchDeleteConfigEntries,
+                new { Ids = ids },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return Result<bool>.Success(true);
+    }
+
+    /// <summary>
+    /// 批量更新值核心逻辑：按 ConfigKey 逐条定位、校验值类型后更新，任一失败则整体回滚。
+    /// </summary>
+    private async Task<Result<bool>> BatchUpdateValuesCoreAsync(
+        IReadOnlyCollection<ConfigValueUpdate> updates,
+        CancellationToken cancellationToken)
+    {
+        if (updates is null || updates.Count == 0)
+        {
+            return Result<bool>.Failure(new Error(
+                ValidationErrorCodes.Failed,
+                "Configuration value updates must not be empty.",
+                ErrorType.Validation));
+        }
+
+        var now = clock.UtcNow;
+        foreach (var update in updates)
+        {
+            var configKey = NormalizeConfigKey(update.ConfigKey);
+            if (configKey.Length == 0)
+            {
+                return Result<bool>.Failure(new Error(
+                    ValidationErrorCodes.Failed,
+                    "Configuration key must not be empty.",
+                    ErrorType.Validation));
+            }
+
+            var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
+                    ConfigEntrySql.FindIdentityByKey,
+                    new { ConfigKey = configKey },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (existing is null)
+            {
+                return NotFound<bool>();
+            }
+
+            if (!TryNormalizeValue(existing.ValueKind, update.Value, out var normalizedValue, out var valueError))
+            {
+                return Result<bool>.Failure(new Error(
+                    ValidationErrorCodes.Failed,
+                    valueError,
+                    ErrorType.Validation));
+            }
+
+            await commandExecutor.ExecuteAsync(
+                    ConfigEntrySql.UpdateValueByConfigKey,
+                    new { ConfigKey = configKey, Value = normalizedValue, UpdatedAtUtc = now },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return Result<bool>.Success(true);
     }
 
     private static bool TryNormalizeValue(
@@ -321,14 +505,23 @@ internal sealed partial class HostConfigEntryManagementService(
         return trimmed.Length == 0 ? null : trimmed[..Math.Min(trimmed.Length, maxLength)];
     }
 
+    /// <summary>
+    /// 归一化配置项分组名：去空白，空字符串视为未分组（null），对应 Admin.NET SysConfig.GroupName。
+    /// </summary>
+    private static string? NormalizeGroupName(string? groupName)
+    {
+        var normalized = groupName?.Trim();
+        return string.IsNullOrEmpty(normalized) ? null : normalized;
+    }
+
     private static Result<ConfigEntryResponse> ValidationFailure(string message) =>
         Result<ConfigEntryResponse>.Failure(new Error(
             ValidationErrorCodes.Failed,
             message,
             ErrorType.Validation));
 
-    private static Result<ConfigEntryResponse> NotFound() =>
-        Result<ConfigEntryResponse>.Failure(new Error(
+    private static Result<T> NotFound<T>() =>
+        Result<T>.Failure(new Error(
             SettingsErrorCodes.ConfigEntryNotFound,
             "The system configuration entry was not found.",
             ErrorType.NotFound));
@@ -339,11 +532,18 @@ internal sealed partial class HostConfigEntryManagementService(
             "A system configuration entry with the same key already exists.",
             ErrorType.Conflict));
 
-    private static Result<ConfigEntryResponse> VersionConflict() =>
-        Result<ConfigEntryResponse>.Failure(new Error(
+    private static Result<T> VersionConflict<T>() =>
+        Result<T>.Failure(new Error(
             SettingsErrorCodes.ConfigEntryVersionConflict,
             "The system configuration entry was updated concurrently.",
             ErrorType.Conflict));
+
+    /// <summary>删除前置校验失败：配置项仍处于启用状态，必须先禁用。</summary>
+    private static Result<T> NotDisabled<T>() =>
+        Result<T>.Failure(new Error(
+            SettingsErrorCodes.ConfigEntryNotDisabled,
+            "The system configuration entry is still active. Disable it before deleting.",
+            ErrorType.BusinessRule));
 
     [GeneratedRegex(
         "^[a-z][a-z0-9._-]{1,126}[a-z0-9]$",

@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('Host 管理员可从真实 API 加载菜单列表', async ({ page }) => {
+test('Host 管理员可从真实 API 加载菜单树表', async ({ page }) => {
   await loginAsHostAdmin(page);
 
   const navigation = page.getByRole('navigation', { name: '主导航' });
@@ -23,8 +23,10 @@ test('Host 管理员可从真实 API 加载菜单列表', async ({ page }) => {
   await navigation.getByRole('link', { name: /菜单管理/ }).click();
 
   await expect(page.getByRole('heading', { name: '菜单管理', exact: true })).toBeVisible();
+  await expect(page.getByTestId('menus-tree-table')).toBeVisible();
   await expect(page.getByText('工作台', { exact: true })).toBeVisible();
-  await expect(page.getByText('尚无 Host 菜单', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.el-pagination')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '全部展开' })).toBeVisible();
 });
 
 test('受限 Host 账号访问菜单 API 被拒绝且导航裁剪', async ({

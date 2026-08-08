@@ -9,6 +9,7 @@ const sampleUser = {
   id: 'user-id',
   username: 'operator',
   displayName: '运维账号',
+  accountType: 'normal_user',
   isActive: true,
   createdAtUtc: '2026-07-21T00:00:00Z',
   updatedAtUtc: null,

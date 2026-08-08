@@ -14,6 +14,9 @@ public static class JobsErrorCodes
 
     public const string DefinitionDisabled = "jobs.definition_disabled";
 
+    /// <summary>作业定义仍存在活跃计划或执行记录，禁止删除。</summary>
+    public const string DefinitionHasActiveDependents = "jobs.definition_has_active_dependents";
+
     public const string HandlerNotFound = "jobs.handler_not_found";
 
     public const string ExecutionNotFound = "jobs.execution_not_found";
@@ -26,6 +29,9 @@ public static class JobsErrorCodes
     public const string ScheduleValidationFailed =
         "jobs.schedule_validation_failed";
 
+    /// <summary>任务计划仍存在未终结的执行记录，禁止删除。</summary>
+    public const string ScheduleHasActiveExecutions = "jobs.schedule_has_active_executions";
+
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         DefinitionNotFound,
@@ -33,10 +39,12 @@ public static class JobsErrorCodes
         DefinitionJobKeyExists,
         DefinitionValidationFailed,
         DefinitionDisabled,
+        DefinitionHasActiveDependents,
         HandlerNotFound,
         ExecutionNotFound,
         ScheduleNotFound,
         ScheduleConcurrencyConflict,
         ScheduleValidationFailed,
+        ScheduleHasActiveExecutions,
     ]);
 }

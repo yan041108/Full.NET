@@ -63,6 +63,21 @@ internal static class Endpoint
         var itemGroup = endpoints.MapGroup("/api/v1/settings/tenant-dict-items")
             .WithTags("Settings");
 
+        itemGroup.MapGet("/{dictItemId:guid}", async (
+            Guid dictItemId,
+            TenantDictItemQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.GetByIdAsync(dictItemId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<DictItemResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            TenantDictTypeManagementPermissions.Read));
+
         itemGroup.MapPut("/{dictItemId:guid}", async (
             Guid dictItemId,
             UpdateDictItemRequest request,
@@ -93,5 +108,27 @@ internal static class Endpoint
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Disable));
+
+        // 硬删除已禁用的租户字典项，对应 Admin.NET DeleteDictItem；前置校验失败返回 ProblemDetails。
+        itemGroup.MapPost("/{dictItemId:guid}/delete", async (
+            Guid dictItemId,
+            DeleteDictItemRequest request,
+            TenantDictItemManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.DeleteAsync(dictItemId, request.Version, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.NoContent();
+        })
+        .Produces(StatusCodes.Status204NoContent)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            TenantDictTypeManagementPermissions.Delete));
     }
 }

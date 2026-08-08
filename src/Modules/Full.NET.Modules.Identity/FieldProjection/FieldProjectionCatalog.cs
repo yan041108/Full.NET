@@ -140,6 +140,10 @@ internal sealed class FieldProjectionCatalog
                         "紧急联系人",
                         FieldProjectionSensitivity.Sensitive),
                     Restricted(
+                        "emergency_contact_relation",
+                        "联系人关系",
+                        FieldProjectionSensitivity.Sensitive),
+                    Restricted(
                         "emergency_contact_phone",
                         "紧急联系人电话",
                         FieldProjectionSensitivity.Sensitive),

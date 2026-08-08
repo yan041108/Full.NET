@@ -46,6 +46,18 @@ internal sealed partial class TenantDictItemManagementService(
             token => DisableCoreAsync(dictItemId, token),
             cancellationToken);
 
+    /// <summary>
+    /// 硬删除已禁用的租户字典项，对应 Admin.NET DeleteDictItem。
+    /// 删除前置校验：字典项必须已禁用；通过后直接硬删除。
+    /// </summary>
+    public Task<Result<bool>> DeleteAsync(
+        Guid dictItemId,
+        int version,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => DeleteCoreAsync(dictItemId, version, token),
+            cancellationToken);
+
     private async Task<Result<DictItemResponse>> CreateCoreAsync(
         Guid dictTypeId,
         CreateDictItemRequest request,
@@ -139,7 +151,7 @@ internal sealed partial class TenantDictItemManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<DictItemResponse>();
         }
 
         var now = clock.UtcNow;
@@ -185,7 +197,7 @@ internal sealed partial class TenantDictItemManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<DictItemResponse>();
         }
 
         if (!existing.IsActive)
@@ -213,7 +225,7 @@ internal sealed partial class TenantDictItemManagementService(
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
-            return NotFound();
+            return NotFound<DictItemResponse>();
         }
 
         return await dictItemQueries.GetByIdAsync(dictItemId, cancellationToken)
@@ -231,10 +243,50 @@ internal sealed partial class TenantDictItemManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<DictItemResponse>();
         }
 
-        return VersionConflict();
+        return VersionConflict<DictItemResponse>();
+    }
+
+    /// <summary>
+    /// 硬删除核心逻辑：校验租户上下文与字典项已禁用后直接硬删除，
+    /// WHERE 同时校验 Version 防并发。
+    /// </summary>
+    private async Task<Result<bool>> DeleteCoreAsync(
+        Guid dictItemId,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        EnsureTenantContext();
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictItemIdentityRecord>(
+                TenantDictItemSql.FindIdentityById,
+                new { DictItemId = dictItemId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null)
+        {
+            return NotFound<bool>();
+        }
+
+        // 字典项仍启用时拒绝删除，必须先禁用以避免误删活跃数据。
+        if (existing.IsActive)
+        {
+            return NotDisabled<bool>();
+        }
+
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                TenantDictItemSql.DeleteTenantDictItem,
+                new { DictItemId = dictItemId, Version = version },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows == 0)
+        {
+            // 删除 0 行表示版本不匹配（存在性已校验），返回版本冲突。
+            return VersionConflict<bool>();
+        }
+
+        return Result<bool>.Success(true);
     }
 
     private void EnsureTenantContext()
@@ -271,8 +323,8 @@ internal sealed partial class TenantDictItemManagementService(
             "The dictionary type was not found.",
             ErrorType.NotFound));
 
-    private static Result<DictItemResponse> NotFound() =>
-        Result<DictItemResponse>.Failure(new Error(
+    private static Result<T> NotFound<T>() =>
+        Result<T>.Failure(new Error(
             SettingsErrorCodes.DictItemNotFound,
             "The dictionary item was not found.",
             ErrorType.NotFound));
@@ -283,11 +335,18 @@ internal sealed partial class TenantDictItemManagementService(
             "A dictionary item with the same value already exists in this type.",
             ErrorType.Conflict));
 
-    private static Result<DictItemResponse> VersionConflict() =>
-        Result<DictItemResponse>.Failure(new Error(
+    private static Result<T> VersionConflict<T>() =>
+        Result<T>.Failure(new Error(
             SettingsErrorCodes.DictItemVersionConflict,
             "The dictionary item record was updated concurrently.",
             ErrorType.Conflict));
+
+    /// <summary>删除前置校验失败：字典项仍处于启用状态，必须先禁用。</summary>
+    private static Result<T> NotDisabled<T>() =>
+        Result<T>.Failure(new Error(
+            SettingsErrorCodes.DictItemNotDisabled,
+            "The dictionary item is still active. Disable it before deleting.",
+            ErrorType.BusinessRule));
 
     [GeneratedRegex(
         "^[a-z][a-z0-9_-]{0,126}[a-z0-9]$",

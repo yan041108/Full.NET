@@ -31,7 +31,15 @@ public sealed record CreateHostMenuRequest(
     string Caption,
     string Icon,
     int DisplayOrder,
-    string RequiredPermission);
+    string RequiredPermission,
+    string MenuType = IdentityHostMenuTypes.Menu,
+    string? Redirect = null,
+    string? LinkUrl = null,
+    bool IsHidden = false,
+    bool IsKeepAlive = false,
+    bool IsAffix = false,
+    bool IsEmbedded = false,
+    string? Remark = null);
 
 /// <summary>更新 Host 菜单请求。</summary>
 public sealed record UpdateHostMenuRequest(
@@ -43,7 +51,15 @@ public sealed record UpdateHostMenuRequest(
     string Icon,
     int DisplayOrder,
     string RequiredPermission,
-    int Version);
+    int Version,
+    string MenuType = IdentityHostMenuTypes.Menu,
+    string? Redirect = null,
+    string? LinkUrl = null,
+    bool IsHidden = false,
+    bool IsKeepAlive = false,
+    bool IsAffix = false,
+    bool IsEmbedded = false,
+    string? Remark = null);
 
 /// <summary>Host 菜单列表项与详情响应。</summary>
 public sealed record HostMenuResponse(
@@ -61,7 +77,15 @@ public sealed record HostMenuResponse(
     bool IsActive,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    int Version);
+    int Version,
+    string MenuType,
+    string? Redirect,
+    string? LinkUrl,
+    bool IsHidden,
+    bool IsKeepAlive,
+    bool IsAffix,
+    bool IsEmbedded,
+    string? Remark);
 
 /// <summary>Host 菜单可分配权限选项。</summary>
 public sealed record HostMenuPermissionOptionResponse(

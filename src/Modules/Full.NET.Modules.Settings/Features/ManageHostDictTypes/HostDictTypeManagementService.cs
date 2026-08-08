@@ -40,6 +40,18 @@ internal sealed partial class HostDictTypeManagementService(
             token => DisableCoreAsync(dictTypeId, token),
             cancellationToken);
 
+    /// <summary>
+    /// 硬删除已禁用且无活跃字典项的字典类型，对应 Admin.NET DeleteDict。
+    /// 删除前置校验：类型必须已禁用、无启用字典项；满足后同一事务内级联清理字典项并删除类型本身。
+    /// </summary>
+    public Task<Result<bool>> DeleteAsync(
+        Guid dictTypeId,
+        int version,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => DeleteCoreAsync(dictTypeId, version, token),
+            cancellationToken);
+
     private async Task<Result<DictTypeResponse>> CreateCoreAsync(
         CreateDictTypeRequest request,
         CancellationToken cancellationToken)
@@ -119,7 +131,7 @@ internal sealed partial class HostDictTypeManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<DictTypeResponse>();
         }
 
         var now = clock.UtcNow;
@@ -157,7 +169,7 @@ internal sealed partial class HostDictTypeManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<DictTypeResponse>();
         }
 
         if (!existing.IsActive)
@@ -173,7 +185,7 @@ internal sealed partial class HostDictTypeManagementService(
             .ConfigureAwait(false);
         if (activeItemCount > 0)
         {
-            return HasActiveItems();
+            return HasActiveItems<DictTypeResponse>();
         }
 
         var now = clock.UtcNow;
@@ -188,7 +200,7 @@ internal sealed partial class HostDictTypeManagementService(
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
-            return NotFound();
+            return NotFound<DictTypeResponse>();
         }
 
         return await dictTypeQueries.GetByIdAsync(dictTypeId, cancellationToken)
@@ -206,10 +218,66 @@ internal sealed partial class HostDictTypeManagementService(
             .ConfigureAwait(false);
         if (existing is null)
         {
-            return NotFound();
+            return NotFound<DictTypeResponse>();
         }
 
-        return VersionConflict();
+        return VersionConflict<DictTypeResponse>();
+    }
+
+    /// <summary>
+    /// 硬删除核心逻辑：校验已禁用、无活跃字典项后，同一事务内级联清理字典项再删除类型。
+    /// </summary>
+    private async Task<Result<bool>> DeleteCoreAsync(
+        Guid dictTypeId,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
+                DictTypeSql.FindIdentityById,
+                new { DictTypeId = dictTypeId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null)
+        {
+            return NotFound<bool>();
+        }
+
+        // 类型仍启用时拒绝删除，必须先禁用以避免误删活跃数据。
+        if (existing.IsActive)
+        {
+            return NotDisabled<bool>();
+        }
+
+        // 仍有启用字典项时拒绝删除，避免删除被引用的字典类型。
+        var activeItemCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                DictTypeSql.CountActiveItems,
+                new { DictTypeId = dictTypeId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (activeItemCount > 0)
+        {
+            return HasActiveItems<bool>();
+        }
+
+        // 先级联清理全部字典项（含已禁用），再删除类型本身。
+        await commandExecutor.ExecuteAsync(
+                DictTypeSql.DeleteItemsByType,
+                new { DictTypeId = dictTypeId },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                DictTypeSql.DeleteDictType,
+                new { DictTypeId = dictTypeId, Version = version },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows == 0)
+        {
+            // 删除 0 行表示版本不匹配（存在性已校验），返回版本冲突。
+            return VersionConflict<bool>();
+        }
+
+        return Result<bool>.Success(true);
     }
 
     private static string NormalizeCode(string? code) =>
@@ -232,8 +300,8 @@ internal sealed partial class HostDictTypeManagementService(
             message,
             ErrorType.Validation));
 
-    private static Result<DictTypeResponse> NotFound() =>
-        Result<DictTypeResponse>.Failure(new Error(
+    private static Result<T> NotFound<T>() =>
+        Result<T>.Failure(new Error(
             SettingsErrorCodes.DictTypeNotFound,
             "The dictionary type was not found.",
             ErrorType.NotFound));
@@ -244,16 +312,23 @@ internal sealed partial class HostDictTypeManagementService(
             "A dictionary type with the same code already exists.",
             ErrorType.Conflict));
 
-    private static Result<DictTypeResponse> VersionConflict() =>
-        Result<DictTypeResponse>.Failure(new Error(
+    private static Result<T> VersionConflict<T>() =>
+        Result<T>.Failure(new Error(
             SettingsErrorCodes.DictTypeVersionConflict,
             "The dictionary type record was updated concurrently.",
             ErrorType.Conflict));
 
-    private static Result<DictTypeResponse> HasActiveItems() =>
-        Result<DictTypeResponse>.Failure(new Error(
+    private static Result<T> HasActiveItems<T>() =>
+        Result<T>.Failure(new Error(
             SettingsErrorCodes.DictTypeHasActiveItems,
             "The dictionary type still has active items.",
+            ErrorType.BusinessRule));
+
+    /// <summary>删除前置校验失败：字典类型仍处于启用状态，必须先禁用。</summary>
+    private static Result<T> NotDisabled<T>() =>
+        Result<T>.Failure(new Error(
+            SettingsErrorCodes.DictTypeNotDisabled,
+            "The dictionary type is still active. Disable it before deleting.",
             ErrorType.BusinessRule));
 
     [GeneratedRegex(

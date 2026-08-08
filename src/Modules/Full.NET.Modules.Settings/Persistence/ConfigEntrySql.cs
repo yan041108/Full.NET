@@ -19,6 +19,7 @@ internal static class ConfigEntrySql
                ConfigKey,
                DisplayName,
                Description,
+               GroupName,
                ValueKind,
                Value,
                DisplayOrder,
@@ -39,6 +40,7 @@ internal static class ConfigEntrySql
                ConfigKey,
                DisplayName,
                Description,
+               GroupName,
                ValueKind,
                Value,
                DisplayOrder,
@@ -52,6 +54,27 @@ internal static class ConfigEntrySql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>全量配置项列表（不分页），对应 Admin.NET queryConfigList 全量场景。</summary>
+    public static readonly SqlStatement ListAllHostConfigEntries = new(
+        "settings.config_entry.list_all",
+        """
+        SELECT Id,
+               ConfigKey,
+               DisplayName,
+               Description,
+               GroupName,
+               ValueKind,
+               Value,
+               DisplayOrder,
+               IsActive,
+               CreatedAtUtc,
+               UpdatedAtUtc,
+               Version
+        FROM fn_settings_config_entry
+        ORDER BY GroupName, DisplayOrder, DisplayName, ConfigKey, Id
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindById = new(
         "settings.config_entry.find_by_id",
         """
@@ -59,6 +82,7 @@ internal static class ConfigEntrySql
                ConfigKey,
                DisplayName,
                Description,
+               GroupName,
                ValueKind,
                Value,
                DisplayOrder,
@@ -74,7 +98,7 @@ internal static class ConfigEntrySql
     public static readonly SqlStatement FindIdentityById = new(
         "settings.config_entry.find_identity_by_id",
         """
-        SELECT Id, ConfigKey, DisplayName, Description, ValueKind, Value, DisplayOrder, IsActive, Version
+        SELECT Id, ConfigKey, DisplayName, Description, GroupName, ValueKind, Value, DisplayOrder, IsActive, Version
         FROM fn_settings_config_entry
         WHERE Id = @ConfigEntryId
         """,
@@ -87,6 +111,7 @@ internal static class ConfigEntrySql
                ConfigKey,
                DisplayName,
                Description,
+               GroupName,
                ValueKind,
                Value,
                DisplayOrder,
@@ -102,7 +127,7 @@ internal static class ConfigEntrySql
     public static readonly SqlStatement FindIdentityByKey = new(
         "settings.config_entry.find_identity_by_key",
         """
-        SELECT Id, ConfigKey, DisplayName, Description, ValueKind, Value, DisplayOrder, IsActive, Version
+        SELECT Id, ConfigKey, DisplayName, Description, GroupName, ValueKind, Value, DisplayOrder, IsActive, Version
         FROM fn_settings_config_entry
         WHERE ConfigKey = @ConfigKey
         """,
@@ -112,9 +137,9 @@ internal static class ConfigEntrySql
         "settings.config_entry.insert",
         """
         INSERT INTO fn_settings_config_entry
-            (Id, ConfigKey, DisplayName, Description, ValueKind, Value, DisplayOrder, IsActive, CreatedAtUtc, Version)
+            (Id, ConfigKey, DisplayName, Description, GroupName, ValueKind, Value, DisplayOrder, IsActive, CreatedAtUtc, Version)
         VALUES
-            (@Id, @ConfigKey, @DisplayName, @Description, @ValueKind, @Value, @DisplayOrder, @IsActive, @CreatedAtUtc, @Version)
+            (@Id, @ConfigKey, @DisplayName, @Description, @GroupName, @ValueKind, @Value, @DisplayOrder, @IsActive, @CreatedAtUtc, @Version)
         """,
         SqlDataScope.HostOnly);
 
@@ -124,6 +149,7 @@ internal static class ConfigEntrySql
         UPDATE fn_settings_config_entry
         SET DisplayName = @DisplayName,
             Description = @Description,
+            GroupName = @GroupName,
             Value = @Value,
             DisplayOrder = @DisplayOrder,
             UpdatedAtUtc = @UpdatedAtUtc,
@@ -142,6 +168,59 @@ internal static class ConfigEntrySql
             Version = Version + 1
         WHERE Id = @ConfigEntryId
           AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 硬删除已禁用的配置项；WHERE 同时校验 IsActive=0 与 Version，确保删除前置条件成立。
+    /// </summary>
+    public static readonly SqlStatement DeleteConfigEntry = new(
+        "settings.config_entry.delete",
+        """
+        DELETE FROM fn_settings_config_entry
+        WHERE Id = @ConfigEntryId
+          AND IsActive = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 批量硬删除已禁用的配置项；仅删除 IsActive=0 的行，任一目标仍启用时由 Service 前置校验拦截。
+    /// </summary>
+    public static readonly SqlStatement BatchDeleteConfigEntries = new(
+        "settings.config_entry.batch_delete",
+        """
+        DELETE FROM fn_settings_config_entry
+        WHERE Id IN @Ids
+          AND IsActive = 0
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 按 ConfigKey 单行更新配置值与版本，供批量更新值在事务内逐条执行。
+    /// </summary>
+    public static readonly SqlStatement UpdateValueByConfigKey = new(
+        "settings.config_entry.update_value_by_key",
+        """
+        UPDATE fn_settings_config_entry
+        SET Value = @Value,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE ConfigKey = @ConfigKey
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 查询已使用分组名的去重列表，对应 Admin.NET 配置分组下拉。
+    /// </summary>
+    public static readonly SqlStatement ListGroups = new(
+        "settings.config_entry.list_groups",
+        """
+        SELECT DISTINCT GroupName
+        FROM fn_settings_config_entry
+        WHERE GroupName IS NOT NULL
+          AND GroupName <> ''
+        ORDER BY GroupName
         """,
         SqlDataScope.HostOnly);
 }

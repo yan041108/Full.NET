@@ -39,6 +39,8 @@ internal sealed class HostUserProfileRecord
 
     public string? EmergencyContact { get; set; }
 
+    public string? EmergencyContactRelation { get; set; }
+
     public string? EmergencyContactPhone { get; set; }
 
     public string? EmergencyContactAddress { get; set; }

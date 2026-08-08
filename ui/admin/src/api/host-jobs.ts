@@ -4,10 +4,12 @@ import {
   isHostJobDefinitionPage,
   isHostJobExecution,
   isHostJobExecutionPage,
+  isHostJobGroupList,
   type HostJobDefinition,
   type HostJobDefinitionPage,
   type HostJobExecution,
-  type HostJobExecutionPage
+  type HostJobExecutionPage,
+  type HostJobGroup
 } from '@fullnet/client-contracts';
 
 export async function listHostJobDefinitions(
@@ -23,14 +25,28 @@ export async function listHostJobDefinitions(
   return value;
 }
 
+export async function listHostJobGroups(): Promise<HostJobGroup[]> {
+  const value = await request<unknown>('/api/v1/jobs/host-definitions/groups');
+  if (!isHostJobGroupList(value)) {
+    throw new Error('Invalid host job group list response');
+  }
+  return value;
+}
+
 export async function createHostJobDefinition(
   jobKey: string,
   displayName: string,
-  description?: string
+  description?: string | null,
+  groupName?: string | null
 ): Promise<HostJobDefinition> {
   const value = await request<unknown>('/api/v1/jobs/host-definitions', {
     method: 'POST',
-    body: JSON.stringify({ jobKey, displayName, description: description ?? null })
+    body: JSON.stringify({
+      jobKey,
+      displayName,
+      description: description ?? null,
+      groupName: groupName ?? null
+    })
   });
   if (!isHostJobDefinition(value)) {
     throw new Error('Invalid host job definition payload.');
@@ -42,13 +58,19 @@ export async function updateHostJobDefinition(
   id: string,
   displayName: string,
   description: string | null,
-  version: number
+  version: number,
+  groupName?: string | null
 ): Promise<HostJobDefinition> {
   const value = await request<unknown>(
     `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}`,
     {
       method: 'PUT',
-      body: JSON.stringify({ displayName, description, version })
+      body: JSON.stringify({
+        displayName,
+        description,
+        groupName: groupName ?? null,
+        version
+      })
     }
   );
   if (!isHostJobDefinition(value)) {
@@ -72,6 +94,19 @@ export async function disableHostJobDefinition(
     throw new Error('Invalid host job definition payload.');
   }
   return value;
+}
+
+export async function deleteHostJobDefinition(
+  id: string,
+  version: number
+): Promise<void> {
+  await request<unknown>(
+    `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}/delete`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ version })
+    }
+  );
 }
 
 export async function triggerHostJobDefinition(
@@ -102,4 +137,13 @@ export async function listHostJobExecutions(
     throw new Error('Invalid host job execution page response');
   }
   return value;
+}
+
+export async function clearHostJobExecutions(
+  jobDefinitionId: string
+): Promise<void> {
+  await request<unknown>(
+    `/api/v1/jobs/host-executions/clear?jobDefinitionId=${encodeURIComponent(jobDefinitionId)}`,
+    { method: 'POST' }
+  );
 }

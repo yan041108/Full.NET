@@ -52,6 +52,15 @@ internal sealed class HostNavigationDefinitionLoader(IQueryExecutor queryExecuto
             record.Caption,
             record.Icon,
             record.DisplayOrder,
-            record.RequiredPermission);
+            record.RequiredPermission,
+            string.Equals(record.MenuType, IdentityHostMenuTypes.Directory, StringComparison.Ordinal)
+                ? IdentityHostMenuTypes.Directory
+                : IdentityHostMenuTypes.Menu,
+            record.Redirect,
+            record.LinkUrl,
+            record.IsHidden,
+            record.IsKeepAlive,
+            record.IsAffix,
+            record.IsEmbedded);
     }
 }

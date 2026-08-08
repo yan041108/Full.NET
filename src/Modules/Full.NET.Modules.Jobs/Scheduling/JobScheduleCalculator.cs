@@ -79,6 +79,17 @@ internal static class JobScheduleCalculator
                 "A future schedule cannot be materialized.");
         }
 
+        // EndTime 时间窗口到期：当前时间已超过计划结束时间，直接标记计划完成，不再创建执行。
+        // 对应 Admin.NET SysJobTrigger.EndTime，避免在过期窗口外继续触发任务。
+        if (schedule.EndTime is { } endTime && observedAtUtc > endTime)
+        {
+            return new JobScheduleDueDecision(
+                false,
+                null,
+                null,
+                endTime.ToUniversalTime());
+        }
+
         if (string.Equals(
                 schedule.TriggerKind,
                 JobTriggerKinds.OneTime,
@@ -110,6 +121,17 @@ internal static class JobScheduleCalculator
             ?.ToUniversalTime()
             ?? throw new InvalidOperationException(
                 "The cron expression does not have a reachable next occurrence.");
+
+        // 下一次触发已超出 EndTime 窗口：创建当前到期执行并标记计划完成，不再安排后续触发。
+        if (schedule.EndTime is { } cronEndTime && nextAfterScheduled > cronEndTime)
+        {
+            return new JobScheduleDueDecision(
+                true,
+                scheduledForUtc,
+                null,
+                observedAtUtc);
+        }
+
         if (nextAfterScheduled > observedAtUtc)
         {
             return new JobScheduleDueDecision(
@@ -124,6 +146,17 @@ internal static class JobScheduleCalculator
             ?.ToUniversalTime()
             ?? throw new InvalidOperationException(
                 "The cron expression does not have a reachable next occurrence.");
+
+        // Misfire 跳过策略下，如果补偿后的下次触发也超出 EndTime，则标记计划完成。
+        if (schedule.EndTime is { } skipEndTime && nextAfterNow > skipEndTime)
+        {
+            return new JobScheduleDueDecision(
+                false,
+                null,
+                null,
+                observedAtUtc);
+        }
+
         if (string.Equals(
                 schedule.MisfirePolicy,
                 JobMisfirePolicies.Skip,

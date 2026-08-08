@@ -11,7 +11,7 @@ using Full.NET.Modules.Identity.Persistence;
 namespace Full.NET.Modules.Identity.Features.ManageHostMenus;
 
 /// <summary>
-/// Host 自定义菜单创建、更新与禁用；系统项展示字段可通过本服务调整，路由与权限保持锁定。
+/// Host 自定义菜单创建、更新、启用与禁用；系统项展示字段可通过本服务调整，路由与权限保持锁定。
 /// </summary>
 internal sealed class HostMenuManagementService(
     IQueryExecutor queryExecutor,
@@ -23,9 +23,14 @@ internal sealed class HostMenuManagementService(
     IIdGenerator idGenerator)
 {
     private const string HostScope = "host";
+    private const string LayoutComponentKey = "layout";
 
     private static readonly Regex RouteNamePattern = new(
         "^[a-z][a-z0-9-]{2,63}$",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    private static readonly Regex DirectoryPathPattern = new(
+        "^/[a-z0-9][a-z0-9-/]*$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     public Task<Result<HostMenuResponse>> CreateAsync(
@@ -50,18 +55,35 @@ internal sealed class HostMenuManagementService(
             token => DisableCoreAsync(menuId, token),
             cancellationToken);
 
+    public Task<Result<HostMenuResponse>> EnableAsync(
+        Guid menuId,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => EnableCoreAsync(menuId, token),
+            cancellationToken);
+
     private async Task<Result<HostMenuResponse>> CreateCoreAsync(
         CreateHostMenuRequest request,
         CancellationToken cancellationToken)
     {
+        var menuType = NormalizeWritableMenuType(request.MenuType);
+        if (menuType is null)
+        {
+            return ValidationFailure("Menu type is invalid.");
+        }
+
         var validationError = ValidateWriteRequest(
+            menuType,
             request.RouteName,
             request.Path,
             request.ComponentKey,
             request.Title,
             request.Caption,
             request.Icon,
-            request.RequiredPermission);
+            request.RequiredPermission,
+            request.Redirect,
+            request.LinkUrl,
+            request.Remark);
         if (validationError is not null)
         {
             return validationError;
@@ -109,7 +131,7 @@ internal sealed class HostMenuManagementService(
                     parentId,
                     request.RouteName.Trim(),
                     request.Path.Trim(),
-                    request.ComponentKey.Trim(),
+                    ResolveComponentKey(menuType, request.ComponentKey),
                     request.Title.Trim(),
                     request.Caption.Trim(),
                     request.Icon.Trim(),
@@ -119,7 +141,15 @@ internal sealed class HostMenuManagementService(
                     true,
                     now,
                     null,
-                    1),
+                    1,
+                    menuType,
+                    NormalizeOptionalText(request.Redirect),
+                    NormalizeOptionalText(request.LinkUrl),
+                    request.IsHidden,
+                    request.IsKeepAlive,
+                    request.IsAffix,
+                    request.IsEmbedded,
+                    NormalizeOptionalText(request.Remark)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -136,14 +166,24 @@ internal sealed class HostMenuManagementService(
         UpdateHostMenuRequest request,
         CancellationToken cancellationToken)
     {
+        var menuType = NormalizeWritableMenuType(request.MenuType);
+        if (menuType is null)
+        {
+            return ValidationFailure("Menu type is invalid.");
+        }
+
         var validationError = ValidateWriteRequest(
+            menuType,
             routeName: null,
             request.Path,
             request.ComponentKey,
             request.Title,
             request.Caption,
             request.Icon,
-            request.RequiredPermission);
+            request.RequiredPermission,
+            request.Redirect,
+            request.LinkUrl,
+            request.Remark);
         if (validationError is not null)
         {
             return validationError;
@@ -204,12 +244,20 @@ internal sealed class HostMenuManagementService(
                     MenuId = menuId,
                     ParentId = parentId,
                     Path = request.Path.Trim(),
-                    ComponentKey = request.ComponentKey.Trim(),
+                    ComponentKey = ResolveComponentKey(menuType, request.ComponentKey),
                     Title = request.Title.Trim(),
                     Caption = request.Caption.Trim(),
                     Icon = request.Icon.Trim(),
                     DisplayOrder = request.DisplayOrder,
                     RequiredPermission = request.RequiredPermission.Trim(),
+                    MenuType = menuType,
+                    Redirect = NormalizeOptionalText(request.Redirect),
+                    LinkUrl = NormalizeOptionalText(request.LinkUrl),
+                    request.IsHidden,
+                    request.IsKeepAlive,
+                    request.IsAffix,
+                    request.IsEmbedded,
+                    Remark = NormalizeOptionalText(request.Remark),
                     UpdatedAtUtc = now,
                     request.Version,
                 },
@@ -241,6 +289,34 @@ internal sealed class HostMenuManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.DisableHostMenu,
+                new { MenuId = menuId, UpdatedAtUtc = now },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return SystemLocked();
+        }
+
+        return await menuQueries.GetByIdAsync(menuId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<HostMenuResponse>> EnableCoreAsync(
+        Guid menuId,
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
+                IdentitySql.FindHostMenuById,
+                new { MenuId = menuId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null || record.IsActive)
+        {
+            return NotFound();
+        }
+
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.EnableHostMenu,
                 new { MenuId = menuId, UpdatedAtUtc = now },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -299,6 +375,7 @@ internal sealed class HostMenuManagementService(
         }
 
         var now = clock.UtcNow;
+        var menuType = NormalizeWritableMenuType(request.MenuType) ?? IdentityHostMenuTypes.Menu;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostSystemMenu,
                 new
@@ -309,6 +386,14 @@ internal sealed class HostMenuManagementService(
                     Caption = request.Caption.Trim(),
                     Icon = request.Icon.Trim(),
                     DisplayOrder = request.DisplayOrder,
+                    MenuType = menuType,
+                    Redirect = NormalizeOptionalText(request.Redirect),
+                    LinkUrl = NormalizeOptionalText(request.LinkUrl),
+                    request.IsHidden,
+                    request.IsKeepAlive,
+                    request.IsAffix,
+                    request.IsEmbedded,
+                    Remark = NormalizeOptionalText(request.Remark),
                     UpdatedAtUtc = now,
                     request.Version,
                 },
@@ -408,27 +493,39 @@ internal sealed class HostMenuManagementService(
     }
 
     private Result<HostMenuResponse>? ValidateWriteRequest(
+        string menuType,
         string? routeName,
         string path,
         string componentKey,
         string title,
         string caption,
         string icon,
-        string requiredPermission)
+        string requiredPermission,
+        string? redirect,
+        string? linkUrl,
+        string? remark)
     {
         if (routeName is not null && !RouteNamePattern.IsMatch(routeName.Trim()))
         {
             return ValidationFailure("Route name is invalid.");
         }
 
-        var normalizedComponentKey = componentKey?.Trim() ?? string.Empty;
-        if (!AdminNavigationWhitelist.TryGetEntry(normalizedComponentKey, out var whitelistEntry))
-        {
-            return ValidationFailure("Component key is not supported.");
-        }
-
         var normalizedPath = path?.Trim() ?? string.Empty;
-        if (!string.Equals(normalizedPath, whitelistEntry.Path, StringComparison.Ordinal))
+        var normalizedComponentKey = componentKey?.Trim() ?? string.Empty;
+        if (string.Equals(menuType, IdentityHostMenuTypes.Directory, StringComparison.Ordinal))
+        {
+            if (!string.Equals(normalizedComponentKey, LayoutComponentKey, StringComparison.Ordinal))
+            {
+                return ValidationFailure("Directory menus must use the layout component key.");
+            }
+
+            if (!DirectoryPathPattern.IsMatch(normalizedPath) || normalizedPath.Length > 256)
+            {
+                return ValidationFailure("Directory path is invalid.");
+            }
+        }
+        else if (!AdminNavigationWhitelist.TryGetEntry(normalizedComponentKey, out var whitelistEntry)
+            || !string.Equals(normalizedPath, whitelistEntry.Path, StringComparison.Ordinal))
         {
             return ValidationFailure("Path does not match the component whitelist.");
         }
@@ -450,6 +547,21 @@ internal sealed class HostMenuManagementService(
                 $"Permission '{permission}' is not assignable to host menus.");
         }
 
+        if (NormalizeOptionalText(redirect) is { Length: > 256 })
+        {
+            return ValidationFailure("Redirect is invalid.");
+        }
+
+        if (NormalizeOptionalText(linkUrl) is { Length: > 512 })
+        {
+            return ValidationFailure("Link URL is invalid.");
+        }
+
+        if (NormalizeOptionalText(remark) is { Length: > 500 })
+        {
+            return ValidationFailure("Remark is invalid.");
+        }
+
         return null;
     }
 
@@ -466,6 +578,29 @@ internal sealed class HostMenuManagementService(
             && !permission.Code.StartsWith(
                 "identity.super_administrators.",
                 StringComparison.Ordinal));
+    }
+
+    private static string ResolveComponentKey(string menuType, string componentKey) =>
+        string.Equals(menuType, IdentityHostMenuTypes.Directory, StringComparison.Ordinal)
+            ? LayoutComponentKey
+            : componentKey.Trim();
+
+    private static string? NormalizeWritableMenuType(string? menuType)
+    {
+        if (string.Equals(menuType, IdentityHostMenuTypes.Button, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return string.Equals(menuType, IdentityHostMenuTypes.Directory, StringComparison.Ordinal)
+            ? IdentityHostMenuTypes.Directory
+            : IdentityHostMenuTypes.Menu;
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 
     private static Guid? ParseParentId(string? parentId)

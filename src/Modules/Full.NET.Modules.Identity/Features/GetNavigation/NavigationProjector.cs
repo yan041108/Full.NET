@@ -71,6 +71,13 @@ internal sealed class NavigationProjector(AuthorizationCatalog catalog)
             definition.Icon,
             definition.Order,
             definition.RequiredPermission,
-            children);
+            children,
+            definition.MenuType,
+            definition.Redirect,
+            definition.LinkUrl,
+            definition.IsHidden,
+            definition.IsKeepAlive,
+            definition.IsAffix,
+            definition.IsEmbedded);
     }
 }

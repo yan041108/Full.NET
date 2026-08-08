@@ -36,6 +36,7 @@ internal static class AdminNavigationWhitelist
             ["host-announcements"] = new("host-announcements", "/notifications/host-announcements"),
             ["inbox-messages"] = new("inbox-messages", "/notifications/inbox-messages"),
             ["host-jobs"] = new("host-jobs", "/jobs/host-definitions"),
+            ["layout"] = new("layout", "/"),
         };
 
     public static bool TryGetEntry(string componentKey, out Entry entry) =>

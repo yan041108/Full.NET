@@ -38,12 +38,14 @@ public sealed record CreateHostUserRequest(
     string Username,
     string DisplayName,
     string Password,
+    string? AccountType = null,
     HostUserProfileWriteRequest? Profile = null);
 
 /// <summary>更新 Host 用户基础资料请求。</summary>
 public sealed record UpdateHostUserRequest(
     string DisplayName,
     int Version,
+    string? AccountType = null,
     HostUserProfileWriteRequest? Profile = null);
 
 /// <summary>管理员重置 Host 用户密码请求。</summary>
@@ -69,6 +71,7 @@ public sealed record HostUserProfileResponse(
     string? PoliticalStatus,
     string? OfficePhone,
     string? EmergencyContact,
+    string? EmergencyContactRelation,
     string? EmergencyContactPhone,
     string? EmergencyContactAddress,
     string? Remark,
@@ -94,6 +97,7 @@ public sealed record HostUserProfileWriteRequest(
     string? PoliticalStatus,
     string? OfficePhone,
     string? EmergencyContact,
+    string? EmergencyContactRelation,
     string? EmergencyContactPhone,
     string? EmergencyContactAddress,
     string? Remark,
@@ -104,6 +108,7 @@ public sealed record HostUserResponse(
     Guid Id,
     string Username,
     string DisplayName,
+    string AccountType,
     bool IsActive,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,

@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Contracts;
@@ -6,9 +7,11 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Jobs.Features.ManageHostJobExecutions;
 
-/// <summary>Host 任务执行记录分页查询。</summary>
+/// <summary>Host 任务执行记录分页查询与清空。</summary>
 internal sealed class HostJobExecutionQueryService(
     IQueryExecutor queryExecutor,
+    ICommandExecutor commandExecutor,
+    ICommandTransaction transaction,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<HostJobExecutionResponse>> GetByIdAsync(
@@ -58,6 +61,29 @@ internal sealed class HostJobExecutionQueryService(
                 page,
                 pageSize,
                 total));
+    }
+
+    /// <summary>
+    /// 清空指定作业定义下的终态执行记录（succeeded/failed），对应 Admin.NET ClearJobTriggerRecord。
+    /// 保留 pending/running 记录以避免丢失正在运行的任务证据。
+    /// </summary>
+    public Task<Result<bool>> ClearAsync(
+        Guid jobDefinitionId,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => ClearCoreAsync(jobDefinitionId, token),
+            cancellationToken);
+
+    private async Task<Result<bool>> ClearCoreAsync(
+        Guid jobDefinitionId,
+        CancellationToken cancellationToken)
+    {
+        await commandExecutor.ExecuteAsync(
+                JobSql.ClearExecutionsByDefinition,
+                new { JobDefinitionId = jobDefinitionId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        return Result<bool>.Success(true);
     }
 
     internal static HostJobExecutionResponse MapExecution(JobExecutionRecord record) =>

@@ -27,12 +27,20 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "禁用任务定义",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            HostJobPermissions.DefinitionsDelete,
+            "删除任务定义",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             HostJobPermissions.DefinitionsTrigger,
             "手动触发任务",
             AuthorizationScope.Host),
         new PermissionDefinition(
             HostJobPermissions.ExecutionsRead,
             "查询任务执行记录",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.ExecutionsClear,
+            "清空任务执行记录",
             AuthorizationScope.Host),
         new PermissionDefinition(
             HostJobPermissions.SchedulesRead,
@@ -45,6 +53,10 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
         new PermissionDefinition(
             HostJobPermissions.SchedulesUpdate,
             "更新任务计划",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostJobPermissions.SchedulesDelete,
+            "删除任务计划",
             AuthorizationScope.Host),
         new PermissionDefinition(
             HostJobPermissions.SchedulesPause,
@@ -106,6 +118,13 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "disable",
             30),
         new AuthorizationActionDefinition(
+            "jobs.definitions.delete",
+            "host-jobs",
+            HostJobPermissions.DefinitionsDelete,
+            "删除任务定义",
+            "delete",
+            35),
+        new AuthorizationActionDefinition(
             "jobs.definitions.trigger",
             "host-jobs",
             HostJobPermissions.DefinitionsTrigger,
@@ -127,6 +146,13 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "update",
             20),
         new AuthorizationActionDefinition(
+            "jobs.schedules.delete",
+            "host-job-schedules",
+            HostJobPermissions.SchedulesDelete,
+            "删除任务计划",
+            "delete",
+            25),
+        new AuthorizationActionDefinition(
             "jobs.schedules.pause",
             "host-job-schedules",
             HostJobPermissions.SchedulesPause,
@@ -140,5 +166,12 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "恢复任务计划",
             "resume",
             40),
+        new AuthorizationActionDefinition(
+            "jobs.executions.clear",
+            "host-jobs",
+            HostJobPermissions.ExecutionsClear,
+            "清空执行记录",
+            "clear",
+            50),
     ];
 }

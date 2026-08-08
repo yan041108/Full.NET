@@ -24,6 +24,7 @@ internal static class HostUserProfileMapper
         "political_status",
         "office_phone",
         "emergency_contact",
+        "emergency_contact_relation",
         "emergency_contact_phone",
         "emergency_contact_address",
         "remark",
@@ -67,6 +68,9 @@ internal static class HostUserProfileMapper
             HasField(readableFieldKeys, "political_status") ? record.PoliticalStatus : null,
             HasField(readableFieldKeys, "office_phone") ? record.OfficePhone : null,
             HasField(readableFieldKeys, "emergency_contact") ? record.EmergencyContact : null,
+            HasField(readableFieldKeys, "emergency_contact_relation")
+                ? record.EmergencyContactRelation
+                : null,
             HasField(readableFieldKeys, "emergency_contact_phone")
                 ? record.EmergencyContactPhone
                 : null,
@@ -107,6 +111,11 @@ internal static class HostUserProfileMapper
             PoliticalStatus: Resolve(fieldKeys, "political_status", patch.PoliticalStatus, existing?.PoliticalStatus),
             OfficePhone: Resolve(fieldKeys, "office_phone", patch.OfficePhone, existing?.OfficePhone),
             EmergencyContact: Resolve(fieldKeys, "emergency_contact", patch.EmergencyContact, existing?.EmergencyContact),
+            EmergencyContactRelation: Resolve(
+                fieldKeys,
+                "emergency_contact_relation",
+                patch.EmergencyContactRelation,
+                existing?.EmergencyContactRelation),
             EmergencyContactPhone: Resolve(
                 fieldKeys,
                 "emergency_contact_phone",
@@ -144,6 +153,7 @@ internal static class HostUserProfileMapper
             PoliticalStatus = Normalize(profile.PoliticalStatus),
             OfficePhone = Normalize(profile.OfficePhone),
             EmergencyContact = Normalize(profile.EmergencyContact),
+            EmergencyContactRelation = Normalize(profile.EmergencyContactRelation),
             EmergencyContactPhone = Normalize(profile.EmergencyContactPhone),
             EmergencyContactAddress = Normalize(profile.EmergencyContactAddress),
             Remark = Normalize(profile.Remark),
@@ -224,6 +234,7 @@ internal static class HostUserProfileMapper
             ["political_status"] = "PoliticalStatus",
             ["office_phone"] = "OfficePhone",
             ["emergency_contact"] = "EmergencyContact",
+            ["emergency_contact_relation"] = "EmergencyContactRelation",
             ["emergency_contact_phone"] = "EmergencyContactPhone",
             ["emergency_contact_address"] = "EmergencyContactAddress",
             ["remark"] = "Remark",

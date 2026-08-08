@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostMenus;
 
-/// <summary>Host 菜单分页列表与详情只读查询。</summary>
+/// <summary>Host 菜单分页列表、全量列表与详情只读查询。</summary>
 internal sealed class HostMenuQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
@@ -39,6 +39,17 @@ internal sealed class HostMenuQueryService(
         var items = rows.Select(Map).ToArray();
         return Result<PagedResult<HostMenuResponse>>.Success(
             new PagedResult<HostMenuResponse>(items, page, pageSize, total));
+    }
+
+    public async Task<Result<IReadOnlyList<HostMenuResponse>>> ListAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await queryExecutor.QueryAsync<HostMenuListRow>(
+                IdentitySql.ListAllHostMenus,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return Result<IReadOnlyList<HostMenuResponse>>.Success(
+            rows.Select(Map).ToArray());
     }
 
     public async Task<Result<HostMenuResponse>> GetByIdAsync(
@@ -74,7 +85,15 @@ internal sealed class HostMenuQueryService(
             row.IsActive,
             row.CreatedAtUtc,
             row.UpdatedAtUtc,
-            row.Version);
+            row.Version,
+            NormalizeMenuType(row.MenuType),
+            row.Redirect,
+            row.LinkUrl,
+            row.IsHidden,
+            row.IsKeepAlive,
+            row.IsAffix,
+            row.IsEmbedded,
+            row.Remark);
 
     internal static HostMenuResponse Map(IdentityNavigationRecord record) =>
         new(
@@ -92,7 +111,20 @@ internal sealed class HostMenuQueryService(
             record.IsActive,
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
-            record.Version);
+            record.Version,
+            NormalizeMenuType(record.MenuType),
+            record.Redirect,
+            record.LinkUrl,
+            record.IsHidden,
+            record.IsKeepAlive,
+            record.IsAffix,
+            record.IsEmbedded,
+            record.Remark);
+
+    private static string NormalizeMenuType(string? menuType) =>
+        string.Equals(menuType, IdentityHostMenuTypes.Directory, StringComparison.Ordinal)
+            ? IdentityHostMenuTypes.Directory
+            : IdentityHostMenuTypes.Menu;
 
     private static Result<HostMenuResponse> NotFound() =>
         Result<HostMenuResponse>.Failure(new Error(

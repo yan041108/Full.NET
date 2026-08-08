@@ -150,6 +150,31 @@ internal static class Endpoint
 
         MapStateChange(group, "pause", enable: false);
         MapStateChange(group, "resume", enable: true);
+
+        // 硬删除任务计划，对应 Admin.NET DeleteJobTrigger；前置校验失败返回 ProblemDetails。
+        group.MapPost("/{scheduleId:guid}/delete", async (
+            Guid scheduleId,
+            ChangeHostJobScheduleStateRequest request,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.DeleteAsync(
+                    scheduleId,
+                    request.Version,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.NoContent();
+        })
+        .Produces(StatusCodes.Status204NoContent)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesDelete));
     }
 
     private static void MapStateChange(

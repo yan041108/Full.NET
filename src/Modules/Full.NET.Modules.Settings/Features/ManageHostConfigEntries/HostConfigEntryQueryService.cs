@@ -80,12 +80,41 @@ internal sealed class HostConfigEntryQueryService(
         return Result<ConfigEntryResponse>.Success(Map(record));
     }
 
+    /// <summary>
+    /// 全量配置项列表（不分页），对应 Admin.NET queryConfigList 全量场景，
+    /// 供全量消费与导出使用。
+    /// </summary>
+    public async Task<Result<IReadOnlyList<ConfigEntryResponse>>> ListAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await queryExecutor.QueryAsync<ConfigEntryRecord>(
+                ConfigEntrySql.ListAllHostConfigEntries,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        var items = rows.Select(Map).ToArray();
+        return Result<IReadOnlyList<ConfigEntryResponse>>.Success(items);
+    }
+
+    /// <summary>
+    /// 查询已使用分组名的去重列表，对应 Admin.NET 配置分组下拉。
+    /// </summary>
+    public async Task<Result<IReadOnlyList<string>>> ListGroupsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var groups = await queryExecutor.QueryAsync<string>(
+                ConfigEntrySql.ListGroups,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return Result<IReadOnlyList<string>>.Success(groups.ToArray());
+    }
+
     internal static ConfigEntryResponse Map(ConfigEntryRecord record) =>
         new(
             record.Id,
             record.ConfigKey,
             record.DisplayName,
             record.Description,
+            record.GroupName,
             record.ValueKind,
             record.Value,
             record.DisplayOrder,
@@ -106,6 +135,7 @@ internal sealed record ConfigEntryRecord(
     string ConfigKey,
     string DisplayName,
     string? Description,
+    string? GroupName,
     string ValueKind,
     string Value,
     int DisplayOrder,
@@ -120,6 +150,7 @@ internal sealed record ConfigEntryIdentityRecord(
     string ConfigKey,
     string DisplayName,
     string? Description,
+    string? GroupName,
     string ValueKind,
     string Value,
     int DisplayOrder,

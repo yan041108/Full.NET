@@ -57,6 +57,21 @@ internal sealed class HostDictTypeQueryService(
         return Result<DictTypeResponse>.Success(Map(record));
     }
 
+    /// <summary>
+    /// 全量 Host 字典类型列表（不分页），对应 Admin.NET queryDictTypeList 全量场景，
+    /// 供下拉选择与全量消费使用。
+    /// </summary>
+    public async Task<Result<IReadOnlyList<DictTypeResponse>>> ListAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await queryExecutor.QueryAsync<DictTypeRecord>(
+                DictTypeSql.ListAllHostDictTypes,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        var items = rows.Select(Map).ToArray();
+        return Result<IReadOnlyList<DictTypeResponse>>.Success(items);
+    }
+
     internal static DictTypeResponse Map(DictTypeRecord record) =>
         new(
             record.Id,

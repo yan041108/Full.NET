@@ -23,6 +23,8 @@ internal static class IdentityMenuManagementAssertions
         await VerifyPermissionOptionsUseAuthorizationCatalogAsync(factory, client, cancellationToken);
         await VerifyCreateRejectsDuplicateRouteNameAsync(client, cancellationToken);
         await VerifyCustomMenuLifecycleAndNavigationProjectionAsync(client, cancellationToken);
+        await VerifyListAllMenusAsync(client, cancellationToken);
+        await VerifyDirectoryMenuCreationAsync(client, cancellationToken);
         await VerifyCustomMenuRejectsParentCycleAsync(client, cancellationToken);
         await VerifySystemMenuPresentationUpdateAsync(client, cancellationToken);
         await VerifyExactMenuActionPermissionBoundariesAsync(factory, client, cancellationToken);
@@ -268,6 +270,86 @@ internal static class IdentityMenuManagementAssertions
         Assert.IsFalse(
             NavigationContainsRouteName(navigationAfterDisableDocument.RootElement, routeName),
             "Disabled menu should not project into navigation.");
+
+        using var enableRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/menus/{created.Id:D}/enable",
+            adminToken,
+            new { });
+        using var enableResponse = await client.SendAsync(enableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, enableResponse.StatusCode);
+        var enabled = await enableResponse.Content.ReadFromJsonAsync<HostMenuResponse>(
+            cancellationToken);
+        Assert.IsNotNull(enabled);
+        Assert.IsTrue(enabled.IsActive);
+    }
+
+    private static async Task VerifyListAllMenusAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/menus/all");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var menus = await response.Content.ReadFromJsonAsync<HostMenuResponse[]>(
+            cancellationToken);
+        Assert.IsNotNull(menus);
+        Assert.IsTrue(menus.Length > 0);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(menus[0].MenuType));
+    }
+
+    private static async Task VerifyDirectoryMenuCreationAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var routeName = $"dir-{Guid.NewGuid():N}".ToLowerInvariant();
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/menus",
+            adminToken,
+            new CreateHostMenuRequest(
+                null,
+                routeName,
+                "/platform-demo",
+                "layout",
+                "平台演示目录",
+                "Platform demo directory",
+                "grid",
+                90,
+                IdentityUserManagementPermissions.Read,
+                IdentityHostMenuTypes.Directory));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<HostMenuResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+        Assert.AreEqual(IdentityHostMenuTypes.Directory, created.MenuType);
+        Assert.AreEqual("layout", created.ComponentKey);
+
+        using var rejectButtonRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/menus",
+            adminToken,
+            new CreateHostMenuRequest(
+                null,
+                $"btn-{Guid.NewGuid():N}".ToLowerInvariant(),
+                "/",
+                "overview",
+                "非法按钮",
+                "Invalid button",
+                "grid",
+                10,
+                IdentityUserManagementPermissions.Read,
+                IdentityHostMenuTypes.Button));
+        using var rejectButtonResponse = await client.SendAsync(
+            rejectButtonRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, rejectButtonResponse.StatusCode);
     }
 
     private static async Task VerifySystemMenuPresentationUpdateAsync(

@@ -281,11 +281,14 @@ export {
   isChangeHostJobScheduleStateRequest,
   isCreateHostJobDefinitionRequest,
   isCreateHostJobScheduleRequest,
+  isDeleteHostJobDefinitionRequest,
   isDisableHostJobDefinitionRequest,
   isHostJobDefinition,
   isHostJobDefinitionPage,
   isHostJobExecution,
   isHostJobExecutionPage,
+  isHostJobGroup,
+  isHostJobGroupList,
   isHostJobSchedule,
   isHostJobScheduleCronPreview,
   isHostJobScheduleDefinitionOption,
@@ -299,11 +302,13 @@ export type {
   ChangeHostJobScheduleStateRequest,
   CreateHostJobDefinitionRequest,
   CreateHostJobScheduleRequest,
+  DeleteHostJobDefinitionRequest,
   DisableHostJobDefinitionRequest,
   HostJobDefinition,
   HostJobDefinitionPage,
   HostJobExecution,
   HostJobExecutionPage,
+  HostJobGroup,
   HostJobSchedule,
   HostJobScheduleCronPreview,
   HostJobScheduleDefinitionOption,
@@ -378,6 +383,8 @@ export type {
 export {
   isCreateSettingsDictItemRequest,
   isCreateSettingsDictTypeRequest,
+  isDeleteSettingsDictItemRequest,
+  isDeleteSettingsDictTypeRequest,
   isSettingsDictItem,
   isSettingsDictItemPage,
   isSettingsDictType,
@@ -389,6 +396,8 @@ export {
 export type {
   CreateSettingsDictItemRequest,
   CreateSettingsDictTypeRequest,
+  DeleteSettingsDictItemRequest,
+  DeleteSettingsDictTypeRequest,
   SettingsDictItem,
   SettingsDictItemPage,
   SettingsDictType,
@@ -399,7 +408,11 @@ export type {
 
 export {
   SETTINGS_CONFIG_VALUE_KINDS,
+  isBatchDeleteSettingsConfigEntriesRequest,
+  isBatchUpdateConfigValuesRequest,
+  isConfigValueUpdate,
   isCreateSettingsConfigEntryRequest,
+  isDeleteSettingsConfigEntryRequest,
   isSettingsConfigEntry,
   isSettingsConfigEntryPage,
   isSettingsConfigValueKind,
@@ -407,7 +420,11 @@ export {
 } from './settings-config-entries.js';
 
 export type {
+  BatchDeleteSettingsConfigEntriesRequest,
+  BatchUpdateConfigValuesRequest,
+  ConfigValueUpdate,
   CreateSettingsConfigEntryRequest,
+  DeleteSettingsConfigEntryRequest,
   SettingsConfigEntry,
   SettingsConfigEntryPage,
   SettingsConfigValueKind,
@@ -515,7 +532,9 @@ export type {
 export {
   HOST_MENU_COMPONENT_OPTIONS,
   HOST_MENU_ICON_OPTIONS,
+  HOST_MENU_TYPES,
   isHostMenu,
+  isHostMenuArray,
   isHostMenuPermissionOptionArray,
   isHostMenuPage,
   isUpdateHostMenuRequest
@@ -528,6 +547,7 @@ export type {
   HostMenuPermissionOption,
   HostMenuPermissionOptionKind,
   HostMenuPage,
+  HostMenuType,
   CreateHostMenuRequest,
   UpdateHostMenuRequest
 } from './host-menus.js';

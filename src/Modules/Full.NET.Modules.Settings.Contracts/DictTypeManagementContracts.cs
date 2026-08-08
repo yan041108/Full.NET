@@ -17,9 +17,15 @@ public static class DictTypeManagementPermissions
     /// <summary>禁用字典类型与字典项。</summary>
     public const string Disable = "settings.dict_types.disable";
 
+    /// <summary>硬删除已禁用且无活跃字典项的字典类型；字典项删除复用该权限。</summary>
+    public const string Delete = "settings.dict_types.delete";
+
     /// <summary>迁移 067 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "settings.dict_types.write";
 }
+
+/// <summary>硬删除字典类型请求；携带乐观锁版本用于并发控制。</summary>
+public sealed record DeleteDictTypeRequest(int Version);
 
 /// <summary>字典类型列表项与详情响应。</summary>
 public sealed record DictTypeResponse(

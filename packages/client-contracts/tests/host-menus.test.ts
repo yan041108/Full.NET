@@ -24,7 +24,15 @@ describe('Host 菜单客户端契约', () => {
       isActive: true,
       createdAtUtc: '2026-07-21T00:00:00Z',
       updatedAtUtc: null,
-      version: 1
+      version: 1,
+      menuType: 'menu',
+      redirect: null,
+      linkUrl: null,
+      isHidden: false,
+      isKeepAlive: false,
+      isAffix: false,
+      isEmbedded: false,
+      remark: null
     };
     expect(isHostMenu(menu)).toBe(true);
     expect(isHostMenuPage({

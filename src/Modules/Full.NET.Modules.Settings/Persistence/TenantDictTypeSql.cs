@@ -148,4 +148,56 @@ internal static class TenantDictTypeSql
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>全量租户字典类型列表（不分页），供下拉与全量消费场景使用。</summary>
+    public static readonly SqlStatement ListAllTenantDictTypes = new(
+        "settings.tenant_dict_type.list_all",
+        """
+        SELECT Id,
+               Code,
+               Name,
+               Description,
+               DisplayOrder,
+               IsActive,
+               CreatedAtUtc,
+               UpdatedAtUtc,
+               Version
+        FROM fn_settings_dict_type
+        WHERE TenantId = @TenantId
+        ORDER BY DisplayOrder, Name, Code, Id
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>
+    /// 硬删除租户字典类型；前置校验 IsActive=0 与无活跃字典项由 Service 保证，
+    /// WHERE 同时校验 TenantId、IsActive=0 与 Version 做租户隔离与并发控制。
+    /// </summary>
+    public static readonly SqlStatement DeleteTenantDictType = new(
+        "settings.tenant_dict_type.delete",
+        """
+        DELETE FROM fn_settings_dict_type
+        WHERE Id = @DictTypeId
+          AND TenantId = @TenantId
+          AND IsActive = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>
+    /// 级联删除租户字典类型下的全部字典项（含已禁用），通过 JOIN 类型表校验租户边界，
+    /// 在删除类型本身前于同一事务内执行。
+    /// </summary>
+    public static readonly SqlStatement DeleteItemsByType = new(
+        "settings.tenant_dict_item.delete_by_type",
+        """
+        DELETE item
+        FROM fn_settings_dict_item item
+        INNER JOIN fn_settings_dict_type type ON type.Id = item.DictTypeId
+        WHERE item.DictTypeId = @DictTypeId
+          AND type.TenantId = @TenantId
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 }

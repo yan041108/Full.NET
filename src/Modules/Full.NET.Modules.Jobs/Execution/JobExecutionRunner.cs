@@ -301,6 +301,11 @@ internal sealed class JobExecutionRunner(
             if (failedRows > 0)
             {
                 JobsTelemetry.RecordFailed(retryExhausted: false);
+                await IncrementScheduleErrorCountAsync(
+                        execution.JobScheduleId,
+                        cancellationToken,
+                        scopedCommandExecutor)
+                    .ConfigureAwait(false);
             }
 
             return;
@@ -368,6 +373,11 @@ internal sealed class JobExecutionRunner(
             if (failedRows > 0)
             {
                 JobsTelemetry.RecordFailed(retryExhausted: true);
+                await IncrementScheduleErrorCountAsync(
+                        execution.JobScheduleId,
+                        cancellationToken,
+                        scopedCommandExecutor)
+                    .ConfigureAwait(false);
             }
         }
         catch (Exception exception)
@@ -388,6 +398,11 @@ internal sealed class JobExecutionRunner(
             if (failedRows > 0)
             {
                 JobsTelemetry.RecordFailed(retryExhausted: false);
+                await IncrementScheduleErrorCountAsync(
+                        execution.JobScheduleId,
+                        cancellationToken,
+                        scopedCommandExecutor)
+                    .ConfigureAwait(false);
             }
         }
     }
@@ -499,6 +514,21 @@ internal sealed class JobExecutionRunner(
                 ErrorMessage = BoundErrorMessage(errorMessage),
             },
             cancellationToken);
+
+    /// <summary>
+    /// 递增任务计划出错次数，对应 Admin.NET SysJobTrigger.NumberOfErrors。
+    /// 仅当执行记录关联了计划（JobScheduleId 非空）时调用，手动触发的执行不统计。
+    /// </summary>
+    private static Task IncrementScheduleErrorCountAsync(
+        Guid? jobScheduleId,
+        CancellationToken cancellationToken,
+        ICommandExecutor scopedCommandExecutor) =>
+        jobScheduleId is null
+            ? Task.CompletedTask
+            : scopedCommandExecutor.ExecuteAsync(
+                JobSql.IncrementScheduleErrorCount,
+                new { Id = jobScheduleId.Value },
+                cancellationToken);
 
     private static Task<int> RescheduleAsync(
         Guid executionId,

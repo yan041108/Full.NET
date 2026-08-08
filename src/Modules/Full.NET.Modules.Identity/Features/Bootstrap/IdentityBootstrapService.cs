@@ -102,7 +102,11 @@ internal sealed class IdentityBootstrapService(
                 now,
                 null,
                 1);
-            user = user with { PasswordHash = passwordHasher.HashPassword(user, password) };
+            user = user with
+            {
+                PasswordHash = passwordHasher.HashPassword(user, password),
+                AccountType = IdentityAccountTypes.SysAdmin,
+            };
 
             await RequireExactlyOneAsync(
                     IdentitySql.InsertUser,

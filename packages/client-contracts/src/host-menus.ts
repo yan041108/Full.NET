@@ -1,5 +1,14 @@
 import { ADMIN_NAVIGATION_CATALOG } from './navigation-catalog.js';
 
+/** Host 菜单类型稳定机器码。 */
+export const HOST_MENU_TYPES = {
+  directory: 'directory',
+  menu: 'menu',
+  button: 'button'
+} as const;
+
+export type HostMenuType = typeof HOST_MENU_TYPES[keyof typeof HOST_MENU_TYPES];
+
 /** 创建 Host 菜单时可选择的组件键（与服务端白名单一致）。 */
 export const HOST_MENU_COMPONENT_OPTIONS = ADMIN_NAVIGATION_CATALOG;
 
@@ -41,6 +50,14 @@ export interface HostMenu {
   createdAtUtc: string;
   updatedAtUtc: string | null;
   version: number;
+  menuType: HostMenuType;
+  redirect: string | null;
+  linkUrl: string | null;
+  isHidden: boolean;
+  isKeepAlive: boolean;
+  isAffix: boolean;
+  isEmbedded: boolean;
+  remark: string | null;
 }
 
 export interface HostMenuPermissionOption {
@@ -73,6 +90,14 @@ export interface CreateHostMenuRequest {
   icon: string;
   displayOrder: number;
   requiredPermission: string;
+  menuType?: HostMenuType;
+  redirect?: string | null;
+  linkUrl?: string | null;
+  isHidden?: boolean;
+  isKeepAlive?: boolean;
+  isAffix?: boolean;
+  isEmbedded?: boolean;
+  remark?: string | null;
 }
 
 export interface UpdateHostMenuRequest {
@@ -85,6 +110,14 @@ export interface UpdateHostMenuRequest {
   displayOrder: number;
   requiredPermission: string;
   version: number;
+  menuType?: HostMenuType;
+  redirect?: string | null;
+  linkUrl?: string | null;
+  isHidden?: boolean;
+  isKeepAlive?: boolean;
+  isAffix?: boolean;
+  isEmbedded?: boolean;
+  remark?: string | null;
 }
 
 /** 校验不可信 JSON 是否为 Host 菜单权限选项列表。 */
@@ -92,6 +125,11 @@ export function isHostMenuPermissionOptionArray(
   value: unknown
 ): value is HostMenuPermissionOption[] {
   return Array.isArray(value) && value.every(isHostMenuPermissionOption);
+}
+
+/** 校验不可信 JSON 是否为 Host 菜单数组。 */
+export function isHostMenuArray(value: unknown): value is HostMenu[] {
+  return Array.isArray(value) && value.every(isHostMenu);
 }
 
 /** 校验不可信 JSON 是否为 Host 菜单分页结果。 */
@@ -121,7 +159,15 @@ export function isHostMenu(value: unknown): value is HostMenu {
     && typeof value.isActive === 'boolean'
     && typeof value.createdAtUtc === 'string'
     && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
-    && typeof value.version === 'number';
+    && typeof value.version === 'number'
+    && isHostMenuType(value.menuType)
+    && (value.redirect === null || typeof value.redirect === 'string')
+    && (value.linkUrl === null || typeof value.linkUrl === 'string')
+    && typeof value.isHidden === 'boolean'
+    && typeof value.isKeepAlive === 'boolean'
+    && typeof value.isAffix === 'boolean'
+    && typeof value.isEmbedded === 'boolean'
+    && (value.remark === null || typeof value.remark === 'string');
 }
 
 /** 校验不可信 JSON 是否为 Host 菜单更新请求。 */
@@ -155,6 +201,12 @@ function isHostMenuPermissionOption(
     && isText(value.displayNameKey)
     && (value.actionId === undefined || value.actionId === null || isText(value.actionId))
     && (value.actionKey === undefined || value.actionKey === null || isText(value.actionKey));
+}
+
+function isHostMenuType(value: unknown): value is HostMenuType {
+  return value === HOST_MENU_TYPES.directory
+    || value === HOST_MENU_TYPES.menu
+    || value === HOST_MENU_TYPES.button;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

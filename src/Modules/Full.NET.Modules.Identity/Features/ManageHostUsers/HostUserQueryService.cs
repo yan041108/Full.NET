@@ -142,6 +142,7 @@ internal sealed class HostUserQueryService(
             row.Id,
             row.Username,
             row.DisplayName,
+            row.AccountType,
             row.IsActive,
             row.CreatedAtUtc,
             row.UpdatedAtUtc,

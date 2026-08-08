@@ -13,6 +13,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Localization\Full.NET.Localization.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Seeding.Abstractions\Full.NET.Seeding.Abstractions.csproj" />
+    <ProjectReference Include="..\Full.NET.Modules.Settings.Contracts\Full.NET.Modules.Settings.Contracts.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Validation.FluentValidation\Full.NET.Validation.FluentValidation.csproj" />
   </ItemGroup>
   <ItemGroup>

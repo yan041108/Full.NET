@@ -62,6 +62,11 @@ import {
   resetHostUserPassword,
   updateHostUser
 } from '../api/users';
+import {
+  HOST_USER_PROFILE_DICT_CODES,
+  loadHostUserProfileDictOptions,
+  type HostUserProfileDictOption
+} from '../users/profile-dict-options';
 
 type EditorTab = 'basic' | 'roles' | 'org-units' | 'org-positions' | 'profile' | 'binding';
 type EditorMode = 'create' | 'edit';
@@ -104,7 +109,17 @@ const profileEditorFieldKeys = [
   'email',
   'employee_number',
   'gender',
+  'join_date_utc',
+  'sort_order',
+  'id_card_type',
+  'id_card_number',
   'birth_date',
+  'ethnicity',
+  'education_level',
+  'emergency_contact_relation',
+  'emergency_contact',
+  'emergency_contact_phone',
+  'emergency_contact_address',
   'address',
   'remark'
 ] as const;
@@ -122,6 +137,7 @@ const projectedMetaFieldKeys = [
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
+const HOST_USER_PROFILE_DICT_CODES_EXPORT = HOST_USER_PROFILE_DICT_CODES;
 const allUsers = ref<UserRow[]>([]);
 const roles = ref<HostRole[]>([]);
 const orgUnits = ref<OrganizationUnit[]>([]);
@@ -153,6 +169,7 @@ const editorTab = ref<EditorTab>('basic');
 const editingUser = ref<HostUser | null>(null);
 const editorUsername = ref('');
 const editorDisplayName = ref('');
+const editorAccountType = ref('normal_user');
 const editorPassword = ref('');
 const editorProfile = ref<HostUserProfileWrite>({
   fieldKeys: [],
@@ -167,6 +184,13 @@ const editorProfile = ref<HostUserProfileWrite>({
 const editorPrimaryUnitId = ref('');
 const editorSubsidiaryUnitIds = ref<string[]>([]);
 const editorPositionId = ref('');
+const profileDictOptions = ref<Record<string, HostUserProfileDictOption[]>>({
+  [HOST_USER_PROFILE_DICT_CODES.accountType]: [],
+  [HOST_USER_PROFILE_DICT_CODES.idCardType]: [],
+  [HOST_USER_PROFILE_DICT_CODES.ethnicity]: [],
+  [HOST_USER_PROFILE_DICT_CODES.educationLevel]: [],
+  [HOST_USER_PROFILE_DICT_CODES.emergencyContactRelation]: []
+});
 const selectedRoleIds = ref<string[]>([]);
 const rolesVersion = ref(0);
 const editorSubmitCheckpoint = ref<EditorSubmitCheckpoint | null>(null);
@@ -236,11 +260,6 @@ function isColumnAuthorized(key: UserTableColumnKey): boolean {
   return !fieldKey || hasEffectiveField(fieldKey);
 }
 
-function hasEffectiveField(fieldKey: string, user?: HostUser | null): boolean {
-  const fieldKeys = user?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys.value;
-  return fieldKeys.includes(fieldKey);
-}
-
 const tableHeaderCellStyle = computed(() => ({
   background: tableHeaderBackground.value
     ? 'var(--art-gray-100)'
@@ -258,19 +277,62 @@ const canReadUserPositions = computed(() => session.can('organization.user_posit
 const canCreateUserPositions = computed(() => session.can('organization.user_positions.create'));
 const canUpdateUserPositions = computed(() => session.can('organization.user_positions.update'));
 const canDisableUserPositions = computed(() => session.can('organization.user_positions.disable'));
+const isHostUserDirectoryContext = computed(() =>
+  session.currentUser?.tenantId == null);
+const canAssignHostOrgFromDirectory = computed(() =>
+  isHostUserDirectoryContext.value
+  && !!selectedOrgTenantId.value
+  && (canCreate.value || canUpdate.value));
+const canViewHostOrgFromDirectory = computed(() =>
+  isHostUserDirectoryContext.value
+  && !!selectedOrgTenantId.value
+  && session.can('identity.users.read'));
+const canViewUserUnits = computed(() =>
+  canReadUserUnits.value
+  || canCreateUserUnits.value
+  || canUpdateUserUnits.value
+  || canDisableUserUnits.value
+  || canViewHostOrgFromDirectory.value);
+const canViewUserPositions = computed(() =>
+  canReadUserPositions.value
+  || canCreateUserPositions.value
+  || canUpdateUserPositions.value
+  || canDisableUserPositions.value
+  || canViewHostOrgFromDirectory.value);
 const canManageUserUnits = computed(() =>
   canCreateUserUnits.value
   || canUpdateUserUnits.value
-  || canDisableUserUnits.value);
+  || canDisableUserUnits.value
+  || canAssignHostOrgFromDirectory.value);
 const canManageUserPositions = computed(() =>
   canCreateUserPositions.value
   || canUpdateUserPositions.value
-  || canDisableUserPositions.value);
+  || canDisableUserPositions.value
+  || canAssignHostOrgFromDirectory.value);
+const canMutateHostOrgUnits = computed(() =>
+  canCreateUserUnits.value
+  || canUpdateUserUnits.value
+  || canDisableUserUnits.value
+  || canAssignHostOrgFromDirectory.value);
 const canManageOrganizations = computed(() =>
   canReadUserUnits.value
   || canManageUserUnits.value
   || canReadUserPositions.value
-  || canManageUserPositions.value);
+  || canManageUserPositions.value
+  || canViewHostOrgFromDirectory.value);
+
+function hasEffectiveField(fieldKey: string, user?: HostUser | null): boolean {
+  if (
+    isHostUserDirectoryContext.value
+    && (canCreate.value || canUpdate.value)
+    && (profileEditorFieldKeys as readonly string[]).includes(fieldKey)
+  ) {
+    return true;
+  }
+
+  const fieldKeys = user?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys.value;
+  return fieldKeys.includes(fieldKey);
+}
 const canSubmitEditor = computed(() => {
   if (editorMode.value === 'create') {
     return canCreate.value;
@@ -420,14 +482,14 @@ const submitProgressSteps = computed<SubmitProgressStep[]>(() => {
     status: 'completed'
   }];
 
-  if (canManageUserUnits.value) {
+  if (canViewUserUnits.value) {
     steps.push({
       label: t('users.tabOrgUnits'),
       status: checkpoint.orgKey === null ? 'pending' : 'completed'
     });
   }
 
-  if (canManageUserPositions.value) {
+  if (canViewUserPositions.value) {
     steps.push({
       label: t('users.tabOrgPositions'),
       status: checkpoint.orgKey === null ? 'pending' : 'completed'
@@ -513,6 +575,19 @@ onMounted(() => {
   if (!selectedOrgTenantId.value) {
     selectedOrgTenantId.value = resolveDefaultOrgTenantId();
   }
+  void loadHostUserProfileDictOptions()
+    .then(options => {
+      profileDictOptions.value = options;
+    })
+    .catch(() => {
+      profileDictOptions.value = {
+        [HOST_USER_PROFILE_DICT_CODES.accountType]: [],
+        [HOST_USER_PROFILE_DICT_CODES.idCardType]: [],
+        [HOST_USER_PROFILE_DICT_CODES.ethnicity]: [],
+        [HOST_USER_PROFILE_DICT_CODES.educationLevel]: [],
+        [HOST_USER_PROFILE_DICT_CODES.emergencyContactRelation]: []
+      };
+    });
   void load();
   updateTableHeight();
   window.addEventListener('resize', updateTableHeight);
@@ -600,7 +675,17 @@ function profilePayloadForSubmit(): HostUserProfileWrite | undefined {
     email: editorProfile.value.email ?? null,
     employeeNumber: editorProfile.value.employeeNumber ?? null,
     gender: editorProfile.value.gender ?? null,
+    joinDateUtc: editorProfile.value.joinDateUtc ?? null,
+    sortOrder: editorProfile.value.sortOrder ?? null,
+    idCardType: editorProfile.value.idCardType ?? null,
+    idCardNumber: editorProfile.value.idCardNumber ?? null,
     birthDate: editorProfile.value.birthDate ?? null,
+    ethnicity: editorProfile.value.ethnicity ?? null,
+    educationLevel: editorProfile.value.educationLevel ?? null,
+    emergencyContactRelation: editorProfile.value.emergencyContactRelation ?? null,
+    emergencyContact: editorProfile.value.emergencyContact ?? null,
+    emergencyContactPhone: editorProfile.value.emergencyContactPhone ?? null,
+    emergencyContactAddress: editorProfile.value.emergencyContactAddress ?? null,
     address: editorProfile.value.address ?? null,
     remark: editorProfile.value.remark ?? null,
     version: editorProfile.value.version ?? null
@@ -611,6 +696,7 @@ function buildIdentityCheckpointKey(): string {
   return JSON.stringify({
     mode: editorMode.value,
     displayName: editorDisplayName.value.trim(),
+    accountType: editorAccountType.value,
     profile: profilePayloadForSubmit() ?? null
   });
 }
@@ -636,6 +722,18 @@ function emptyProfile(): HostUserProfileWrite {
     email: null,
     employeeNumber: null,
     gender: null,
+    joinDateUtc: null,
+    sortOrder: 100,
+    idCardType: null,
+    idCardNumber: null,
+    birthDate: null,
+    ethnicity: null,
+    educationLevel: null,
+    emergencyContactRelation: null,
+    emergencyContact: null,
+    emergencyContactPhone: null,
+    emergencyContactAddress: null,
+    address: null,
     remark: null,
     version: null
   };
@@ -653,7 +751,25 @@ function loadProfileFromUser(user: HostUser | null): void {
     email: hasEffectiveField('email', user) ? user.profile.email : null,
     employeeNumber: hasEffectiveField('employee_number', user) ? user.profile.employeeNumber : null,
     gender: hasEffectiveField('gender', user) ? user.profile.gender : null,
+    joinDateUtc: hasEffectiveField('join_date_utc', user) ? user.profile.joinDateUtc : null,
+    sortOrder: hasEffectiveField('sort_order', user) ? user.profile.sortOrder : null,
+    idCardType: hasEffectiveField('id_card_type', user) ? user.profile.idCardType : null,
+    idCardNumber: hasEffectiveField('id_card_number', user) ? user.profile.idCardNumber : null,
     birthDate: hasEffectiveField('birth_date', user) ? user.profile.birthDate : null,
+    ethnicity: hasEffectiveField('ethnicity', user) ? user.profile.ethnicity : null,
+    educationLevel: hasEffectiveField('education_level', user) ? user.profile.educationLevel : null,
+    emergencyContactRelation: hasEffectiveField('emergency_contact_relation', user)
+      ? user.profile.emergencyContactRelation
+      : null,
+    emergencyContact: hasEffectiveField('emergency_contact', user)
+      ? user.profile.emergencyContact
+      : null,
+    emergencyContactPhone: hasEffectiveField('emergency_contact_phone', user)
+      ? user.profile.emergencyContactPhone
+      : null,
+    emergencyContactAddress: hasEffectiveField('emergency_contact_address', user)
+      ? user.profile.emergencyContactAddress
+      : null,
     address: hasEffectiveField('address', user) ? user.profile.address : null,
     remark: hasEffectiveField('remark', user) ? user.profile.remark : null,
     version: user.profile.version
@@ -891,6 +1007,7 @@ function openCreate(): void {
   editingUser.value = null;
   editorUsername.value = '';
   editorDisplayName.value = '';
+  editorAccountType.value = 'normal_user';
   editorPassword.value = '';
   editorProfile.value = emptyProfile();
   resetOrgEditor();
@@ -909,6 +1026,7 @@ async function openEdit(user: HostUser, tab: EditorTab = 'basic'): Promise<void>
   editingUser.value = user;
   editorUsername.value = user.username;
   editorDisplayName.value = user.displayName;
+  editorAccountType.value = user.accountType;
   editorPassword.value = '';
   loadProfileFromUser(user);
   loadOrgFromUser(user);
@@ -969,11 +1087,14 @@ async function syncOrgAssignments(userId: string): Promise<void> {
 }
 
 async function syncUserUnitAssignments(userId: string): Promise<void> {
-  if (!selectedOrgTenantId.value || !canManageUserUnits.value) {
+  if (!selectedOrgTenantId.value || !canMutateHostOrgUnits.value) {
     return;
   }
 
   const tenantId = selectedOrgTenantId.value;
+  const canCreateAssignments = canCreateUserUnits.value || canAssignHostOrgFromDirectory.value;
+  const canUpdateAssignments = canUpdateUserUnits.value || canAssignHostOrgFromDirectory.value;
+  const canDisableAssignments = canDisableUserUnits.value || canAssignHostOrgFromDirectory.value;
   const existingUnits = userUnits.value.filter(
     item => item.userId === userId && item.isActive
   );
@@ -985,7 +1106,7 @@ async function syncUserUnitAssignments(userId: string): Promise<void> {
   if (desiredPrimary) {
     const primaryAssignment = existingUnits.find(item => item.unitId === desiredPrimary);
     if (primaryAssignment) {
-      if (!primaryAssignment.isPrimary && canUpdateUserUnits.value) {
+      if (!primaryAssignment.isPrimary && canUpdateAssignments) {
         await updateHostUserOrganizationUnit(
           tenantId,
           primaryAssignment.id,
@@ -993,18 +1114,18 @@ async function syncUserUnitAssignments(userId: string): Promise<void> {
           primaryAssignment.version
         );
       }
-    } else if (canCreateUserUnits.value) {
+    } else if (canCreateAssignments) {
       await createHostUserOrganizationUnit(tenantId, userId, desiredPrimary, true);
     }
   }
 
-  if (canUpdateUserUnits.value || canDisableUserUnits.value) {
+  if (canUpdateAssignments || canDisableAssignments) {
     for (const assignment of existingUnits.filter(item => item.isPrimary)) {
       if (assignment.unitId === desiredPrimary) {
         continue;
       }
 
-      if (desiredSubsidiary.has(assignment.unitId) && canUpdateUserUnits.value) {
+      if (desiredSubsidiary.has(assignment.unitId) && canUpdateAssignments) {
         await updateHostUserOrganizationUnit(
           tenantId,
           assignment.id,
@@ -1014,7 +1135,7 @@ async function syncUserUnitAssignments(userId: string): Promise<void> {
         continue;
       }
 
-      if (canDisableUserUnits.value) {
+      if (canDisableAssignments) {
         await disableHostUserOrganizationUnit(tenantId, assignment.id);
       }
     }
@@ -1024,13 +1145,13 @@ async function syncUserUnitAssignments(userId: string): Promise<void> {
         continue;
       }
 
-      if (canDisableUserUnits.value) {
+      if (canDisableAssignments) {
         await disableHostUserOrganizationUnit(tenantId, assignment.id);
       }
     }
   }
 
-  if (canCreateUserUnits.value) {
+  if (canCreateAssignments) {
     for (const unitId of desiredSubsidiary) {
       if (existingUnits.some(item => item.unitId === unitId)) {
         continue;
@@ -1047,6 +1168,9 @@ async function syncUserPositionAssignments(userId: string): Promise<void> {
   }
 
   const tenantId = selectedOrgTenantId.value;
+  const canCreateAssignments = canCreateUserPositions.value || canAssignHostOrgFromDirectory.value;
+  const canUpdateAssignments = canUpdateUserPositions.value || canAssignHostOrgFromDirectory.value;
+  const canDisableAssignments = canDisableUserPositions.value || canAssignHostOrgFromDirectory.value;
   const existingPositions = userPositions.value.filter(
     item => item.userId === userId && item.isActive
   );
@@ -1060,7 +1184,7 @@ async function syncUserPositionAssignments(userId: string): Promise<void> {
     if (desiredPosition?.isPrimary) {
       desiredPositionApplied = true;
     } else if (desiredPosition) {
-      if (canUpdateUserPositions.value) {
+      if (canUpdateAssignments) {
         await updateHostUserOrganizationPosition(
           tenantId,
           desiredPosition.id,
@@ -1069,7 +1193,7 @@ async function syncUserPositionAssignments(userId: string): Promise<void> {
         );
         desiredPositionApplied = true;
       }
-    } else if (canCreateUserPositions.value) {
+    } else if (canCreateAssignments) {
       await createHostUserOrganizationPosition(
         tenantId,
         userId,
@@ -1080,7 +1204,7 @@ async function syncUserPositionAssignments(userId: string): Promise<void> {
     }
   }
 
-  if (desiredPositionApplied && canDisableUserPositions.value) {
+  if (desiredPositionApplied && canDisableAssignments) {
     for (const assignment of existingPositions) {
       if (desiredPositionId && assignment.positionId === desiredPositionId) {
         continue;
@@ -1105,14 +1229,16 @@ async function ensureIdentitySaved(): Promise<HostUser> {
       checkpoint.user.id,
       editorDisplayName.value.trim(),
       checkpoint.user.version,
-      profile
+      profile,
+      editorAccountType.value
     );
   } else if (editorMode.value === 'create') {
     savedUser = await createHostUser(
       editorUsername.value.trim(),
       editorDisplayName.value.trim(),
       editorPassword.value,
-      profile
+      profile,
+      editorAccountType.value
     );
   } else {
     const user = editingUser.value;
@@ -1124,7 +1250,8 @@ async function ensureIdentitySaved(): Promise<HostUser> {
       user.id,
       editorDisplayName.value.trim(),
       user.version,
-      profile
+      profile,
+      editorAccountType.value
     );
   }
 
@@ -1457,8 +1584,10 @@ function profileText(value: string | null | undefined): string {
   return value?.trim() ? value : t('users.fieldEmpty');
 }
 
-function accountTypeLabel(): string {
-  return t('users.accountTypeHost');
+function accountTypeLabel(user: HostUser): string {
+  const option = profileDictOptions.value[HOST_USER_PROFILE_DICT_CODES.accountType]
+    ?.find(item => item.value === user.accountType);
+  return option?.label ?? user.accountType;
 }
 
 function sortOrderText(value: number | null | undefined): string {
@@ -1489,7 +1618,7 @@ function resolvePendingEditorTab(): EditorTab | null {
   }
 
   if (checkpoint.orgKey === null) {
-    return canManageUserUnits.value ? 'org-units' : 'org-positions';
+    return canViewUserUnits.value ? 'org-units' : 'org-positions';
   }
 
   if (checkpoint.rolesKey === null) {
@@ -1735,8 +1864,8 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 width="110"
                 align="center"
               >
-                <template #default>
-                  {{ accountTypeLabel() }}
+                <template #default="{ row }">
+                  {{ accountTypeLabel(row) }}
                 </template>
               </el-table-column>
 
@@ -1806,14 +1935,14 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                       />
                     </PermissionGate>
                     <ArtTableActionButton
-                      v-if="canManageUserUnits"
+                      v-if="canViewUserUnits"
                       type="org"
                       test-id="users-action-org-units"
                       :title="t('users.assignOrgUnits')"
                   @click="openEdit(row as HostUser, 'org-units')"
                     />
                     <ArtTableActionButton
-                      v-if="canManageUserPositions"
+                      v-if="canViewUserPositions"
                       type="position"
                       test-id="users-action-org-positions"
                       :title="t('users.assignPositions')"
@@ -1875,6 +2004,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
       :user="editingUser"
       :username="editorUsername"
       :display-name="editorDisplayName"
+      :account-type="editorAccountType"
       :password="editorPassword"
       :profile="editorProfile"
       :active-tab="editorTab"
@@ -1892,12 +2022,20 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
       :can-update="canUpdate"
       :can-manage-user-units="canManageUserUnits"
       :can-manage-user-positions="canManageUserPositions"
+      :can-view-user-units="canViewUserUnits"
+      :can-view-user-positions="canViewUserPositions"
+      :account-type-options="profileDictOptions[HOST_USER_PROFILE_DICT_CODES_EXPORT.accountType]"
+      :id-card-type-options="profileDictOptions[HOST_USER_PROFILE_DICT_CODES_EXPORT.idCardType]"
+      :ethnicity-options="profileDictOptions[HOST_USER_PROFILE_DICT_CODES_EXPORT.ethnicity]"
+      :education-level-options="profileDictOptions[HOST_USER_PROFILE_DICT_CODES_EXPORT.educationLevel]"
+      :emergency-contact-relation-options="profileDictOptions[HOST_USER_PROFILE_DICT_CODES_EXPORT.emergencyContactRelation]"
       :can-submit="canSubmitEditor"
       :effective-field-keys="editingUser?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys"
       :show-profile-tab="hasProfileTabFields"
       :translate="t"
       @update:username="editorUsername = $event"
       @update:display-name="editorDisplayName = $event"
+      @update:account-type="editorAccountType = $event"
       @update:password="editorPassword = $event"
       @update:profile="editorProfile = $event"
       @update:active-tab="editorTab = $event"

@@ -72,6 +72,7 @@ const activeUser = {
   id: userId,
   username: 'active-user',
   displayName: '活动用户',
+  accountType: 'normal_user',
   isActive: true,
   createdAtUtc: '2026-07-21T00:00:00Z',
   updatedAtUtc: null,
@@ -338,6 +339,21 @@ describe('Vue 用户管理页', () => {
     expect(getOrgReferenceMock).toHaveBeenCalledWith(orgTenantId);
   });
 
+  it('Host 目录仅有 identity.users.read 且已选租户时会加载组织参考数据', async () => {
+    mountUsers(['identity.users.read']);
+    await flushPromises();
+
+    expect(getOrgReferenceMock).toHaveBeenCalledWith(orgTenantId);
+  });
+
+  it('Host 目录有 identity.users.update 时显示机构分配入口', async () => {
+    const wrapper = mountUsers(['identity.users.read', 'identity.users.update']);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="users-action-org-units"]').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
   it.each([
     ['identity.users.create', 'users-action-create'],
     ['identity.users.update', 'users-action-edit'],
@@ -354,8 +370,6 @@ describe('Vue 用户管理页', () => {
       'users-action-create',
       'users-action-edit',
       'users-action-roles',
-      'users-action-org-units',
-      'users-action-org-positions',
       'users-action-reset-password',
       'users-action-disable',
       'users-action-enable',
@@ -364,6 +378,10 @@ describe('Vue 用户管理页', () => {
     for (const id of otherIds) {
       expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(false);
     }
+
+    // Host 目录持有 identity.users.read 且已选租户时，机构入口始终可见。
+    expect(wrapper.find('[data-testid="users-action-org-units"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="users-action-org-positions"]').exists()).toBe(true);
   });
 
   it('仅授予启用权限时只对禁用用户显示启用按钮', async () => {

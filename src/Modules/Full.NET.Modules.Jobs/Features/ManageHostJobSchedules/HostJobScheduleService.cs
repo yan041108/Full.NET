@@ -188,6 +188,18 @@ internal sealed class HostJobScheduleService(
                 token),
             cancellationToken);
 
+    /// <summary>
+    /// 硬删除任务计划，对应 Admin.NET DeleteJobTrigger。
+    /// 删除前置校验：无未终结执行记录（pending/running），否则拒绝以避免丢失运行证据。
+    /// </summary>
+    public Task<Result<bool>> DeleteAsync(
+        Guid scheduleId,
+        int version,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => DeleteCoreAsync(scheduleId, version, token),
+            cancellationToken);
+
     private async Task<Result<HostJobScheduleResponse>> CreateCoreAsync(
         Guid actorUserId,
         CreateHostJobScheduleRequest request,
@@ -250,6 +262,9 @@ internal sealed class HostJobScheduleService(
                     normalized.Value.MisfirePolicy,
                     IsEnabled = true,
                     NextExecutionAtUtc = nextExecutionAtUtc,
+                    normalized.Value.StartTime,
+                    normalized.Value.EndTime,
+                    normalized.Value.Args,
                     CreatedAtUtc = now,
                     CreatedByUserId = actorUserId,
                     Version = 1,
@@ -349,7 +364,10 @@ internal sealed class HostJobScheduleService(
             request.CronExpression,
             request.TimeZoneId,
             request.OneTimeAtUtc,
-            request.MisfirePolicy));
+            request.MisfirePolicy,
+            request.StartTime,
+            request.EndTime,
+            request.Args));
         if (normalized is null)
         {
             return ValidationFailure();
@@ -383,6 +401,9 @@ internal sealed class HostJobScheduleService(
                     normalized.Value.OneTimeAtUtc,
                     normalized.Value.MisfirePolicy,
                     NextExecutionAtUtc = nextExecutionAtUtc,
+                    normalized.Value.StartTime,
+                    normalized.Value.EndTime,
+                    normalized.Value.Args,
                     UpdatedAtUtc = now,
                     UpdatedByUserId = actorUserId,
                     NextVersion = request.Version + 1,
@@ -397,6 +418,53 @@ internal sealed class HostJobScheduleService(
 
         return await FindResultAsync(scheduleId, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 硬删除任务计划核心逻辑：校验无未终结执行记录后删除计划。
+    /// 终态执行记录（succeeded/failed）无外键约束，删除计划后通过 JobScheduleId IS NULL 自然保留。
+    /// </summary>
+    private async Task<Result<bool>> DeleteCoreAsync(
+        Guid scheduleId,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        // 未终结执行记录存在时拒绝删除，避免丢失正在运行的任务证据。
+        var activeExecutions = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                JobSql.CountActiveExecutionsBySchedule,
+                new { JobScheduleId = scheduleId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (activeExecutions > 0)
+        {
+            return Result<bool>.Failure(new Error(
+                JobsErrorCodes.ScheduleHasActiveExecutions,
+                "The job schedule still has active executions.",
+                ErrorType.BusinessRule));
+        }
+
+        var affected = await commandExecutor.ExecuteAsync(
+                JobSql.DeleteSchedule,
+                new { Id = scheduleId, Version = version },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected == 0)
+        {
+            // 删除 0 行表示计划不存在或版本不匹配，统一回查区分。
+            var existing = await FindRecordAsync(scheduleId, cancellationToken)
+                .ConfigureAwait(false);
+            return existing is null
+                ? Result<bool>.Failure(new Error(
+                    JobsErrorCodes.ScheduleNotFound,
+                    "The job schedule was not found.",
+                    ErrorType.NotFound))
+                : Result<bool>.Failure(new Error(
+                    JobsErrorCodes.ScheduleConcurrencyConflict,
+                    "The job schedule changed concurrently.",
+                    ErrorType.Conflict));
+        }
+
+        return Result<bool>.Success(true);
     }
 
     private async Task<Result<HostJobScheduleResponse>> FindResultAsync(
@@ -445,6 +513,11 @@ internal sealed class HostJobScheduleService(
             record.NextExecutionAtUtc,
             record.LastExecutionAtUtc,
             record.CompletedAtUtc,
+            record.NumberOfRuns,
+            record.NumberOfErrors,
+            record.StartTime,
+            record.EndTime,
+            record.Args,
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);
@@ -459,6 +532,22 @@ internal sealed class HostJobScheduleService(
             if (misfirePolicy is not (
                     JobMisfirePolicies.Skip
                     or JobMisfirePolicies.FireOnce))
+            {
+                return null;
+            }
+
+            // 起止时间窗口校验：StartTime 必须早于 EndTime，对应 Admin.NET 触发器时间窗口。
+            var startTime = request.StartTime?.ToUniversalTime();
+            var endTime = request.EndTime?.ToUniversalTime();
+            if (startTime is not null && endTime is not null
+                && startTime >= endTime)
+            {
+                return null;
+            }
+
+            // Args 参数长度校验，对应 Admin.NET SysJobTrigger.Args。
+            var args = NormalizeArgs(request.Args);
+            if (args is { Length: > 500 })
             {
                 return null;
             }
@@ -479,7 +568,10 @@ internal sealed class HostJobScheduleService(
                     null,
                     timeZoneId,
                     request.OneTimeAtUtc.Value.ToUniversalTime(),
-                    misfirePolicy);
+                    misfirePolicy,
+                    startTime,
+                    endTime,
+                    args);
             }
 
             if (triggerKind != JobTriggerKinds.Cron
@@ -496,7 +588,10 @@ internal sealed class HostJobScheduleService(
                 cronExpression,
                 timeZoneId,
                 null,
-                misfirePolicy);
+                misfirePolicy,
+                startTime,
+                endTime,
+                args);
         }
         catch (CronFormatException)
         {
@@ -510,6 +605,16 @@ internal sealed class HostJobScheduleService(
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// 归一化任务计划参数：去空白，空字符串视为无参数（null）。
+    /// 当前仅支持存储与展示，Handler 消费 Args 作为后续扩展点。
+    /// </summary>
+    private static string? NormalizeArgs(string? args)
+    {
+        var normalized = args?.Trim();
+        return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 
     private static Result<HostJobScheduleResponse> ValidationFailure() =>
@@ -541,5 +646,8 @@ internal sealed class HostJobScheduleService(
         string? CronExpression,
         string TimeZoneId,
         DateTimeOffset? OneTimeAtUtc,
-        string MisfirePolicy);
+        string MisfirePolicy,
+        DateTimeOffset? StartTime,
+        DateTimeOffset? EndTime,
+        string? Args);
 }

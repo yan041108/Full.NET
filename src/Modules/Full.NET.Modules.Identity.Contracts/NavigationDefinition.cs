@@ -13,6 +13,13 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <param name="Icon">客户端图标语义键。</param>
 /// <param name="Order">同级稳定排序值。</param>
 /// <param name="RequiredPermission">显示该导航所需的权限码。</param>
+/// <param name="MenuType">菜单类型：<see cref="IdentityHostMenuTypes"/>。</param>
+/// <param name="Redirect">可选重定向路径。</param>
+/// <param name="LinkUrl">可选外链或内嵌地址。</param>
+/// <param name="IsHidden">是否在侧栏隐藏。</param>
+/// <param name="IsKeepAlive">是否缓存页面实例。</param>
+/// <param name="IsAffix">是否固定在标签栏。</param>
+/// <param name="IsEmbedded">是否以内嵌方式打开。</param>
 public sealed record NavigationDefinition(
     string Id,
     string? ParentId,
@@ -23,4 +30,11 @@ public sealed record NavigationDefinition(
     string Caption,
     string Icon,
     int Order,
-    string RequiredPermission);
+    string RequiredPermission,
+    string MenuType = IdentityHostMenuTypes.Menu,
+    string? Redirect = null,
+    string? LinkUrl = null,
+    bool IsHidden = false,
+    bool IsKeepAlive = false,
+    bool IsAffix = false,
+    bool IsEmbedded = false);

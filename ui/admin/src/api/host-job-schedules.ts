@@ -85,7 +85,10 @@ export async function createHostJobSchedule(
   timeZoneId: string,
   misfirePolicy: string,
   cronExpression?: string | null,
-  oneTimeAtUtc?: string | null
+  oneTimeAtUtc?: string | null,
+  startTime?: string | null,
+  endTime?: string | null,
+  args?: string | null
 ): Promise<HostJobSchedule> {
   const value = await request<unknown>('/api/v1/jobs/host-schedules', {
     method: 'POST',
@@ -95,7 +98,10 @@ export async function createHostJobSchedule(
       cronExpression: cronExpression ?? null,
       timeZoneId,
       oneTimeAtUtc: oneTimeAtUtc ?? null,
-      misfirePolicy
+      misfirePolicy,
+      startTime: startTime ?? null,
+      endTime: endTime ?? null,
+      args: args ?? null
     })
   });
   if (!isHostJobSchedule(value)) {
@@ -111,7 +117,10 @@ export async function updateHostJobSchedule(
   misfirePolicy: string,
   version: number,
   cronExpression?: string | null,
-  oneTimeAtUtc?: string | null
+  oneTimeAtUtc?: string | null,
+  startTime?: string | null,
+  endTime?: string | null,
+  args?: string | null
 ): Promise<HostJobSchedule> {
   const value = await request<unknown>(
     `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}`,
@@ -123,6 +132,9 @@ export async function updateHostJobSchedule(
         timeZoneId,
         oneTimeAtUtc: oneTimeAtUtc ?? null,
         misfirePolicy,
+        startTime: startTime ?? null,
+        endTime: endTime ?? null,
+        args: args ?? null,
         version
       })
     }
@@ -165,4 +177,17 @@ export async function resumeHostJobSchedule(
     throw new Error('Invalid host job schedule payload.');
   }
   return value;
+}
+
+export async function deleteHostJobSchedule(
+  id: string,
+  version: number
+): Promise<void> {
+  await request<unknown>(
+    `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}/delete`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ version })
+    }
+  );
 }

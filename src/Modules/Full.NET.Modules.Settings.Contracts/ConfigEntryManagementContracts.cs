@@ -17,6 +17,9 @@ public static class ConfigEntryManagementPermissions
     /// <summary>禁用配置项。</summary>
     public const string Disable = "settings.config.disable";
 
+    /// <summary>硬删除已禁用的配置项。</summary>
+    public const string Delete = "settings.config.delete";
+
     /// <summary>迁移 069 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "settings.config.write";
 }
@@ -46,6 +49,7 @@ public sealed record ConfigEntryResponse(
     string ConfigKey,
     string DisplayName,
     string? Description,
+    string? GroupName,
     string ValueKind,
     string Value,
     int DisplayOrder,
@@ -59,6 +63,7 @@ public sealed record CreateConfigEntryRequest(
     string ConfigKey,
     string DisplayName,
     string? Description,
+    string? GroupName,
     string ValueKind,
     string Value,
     int DisplayOrder);
@@ -67,6 +72,19 @@ public sealed record CreateConfigEntryRequest(
 public sealed record UpdateConfigEntryRequest(
     string DisplayName,
     string? Description,
+    string? GroupName,
     string Value,
     int DisplayOrder,
     int Version);
+
+/// <summary>硬删除配置项请求；携带乐观锁版本用于并发控制。</summary>
+public sealed record DeleteConfigEntryRequest(int Version);
+
+/// <summary>批量硬删除配置项请求；仅删除已禁用项，任一项未禁用则整体拒绝。</summary>
+public sealed record BatchDeleteConfigEntriesRequest(IReadOnlyCollection<Guid> Ids);
+
+/// <summary>批量更新配置项值请求；按 ConfigKey 定位并校验值类型后更新。</summary>
+public sealed record BatchUpdateConfigValuesRequest(IReadOnlyCollection<ConfigValueUpdate> Updates);
+
+/// <summary>单个配置项值更新项。</summary>
+public sealed record ConfigValueUpdate(string ConfigKey, string Value);

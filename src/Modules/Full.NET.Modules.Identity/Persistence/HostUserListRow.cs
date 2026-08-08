@@ -8,6 +8,8 @@ internal sealed class HostUserListRow
 
     public string DisplayName { get; set; } = string.Empty;
 
+    public string AccountType { get; set; } = string.Empty;
+
     public bool IsActive { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }

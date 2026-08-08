@@ -8,7 +8,7 @@ internal static class JobSql
         new(
             "jobs.list_host_definitions.sql_server",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE TenantId IS NULL
@@ -21,7 +21,7 @@ internal static class JobSql
         new(
             "jobs.list_host_definitions.mysql",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE TenantId IS NULL
@@ -44,7 +44,7 @@ internal static class JobSql
         new(
             "jobs.find_host_definition_by_id",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE Id = @Id AND TenantId IS NULL
@@ -55,7 +55,7 @@ internal static class JobSql
         new(
             "jobs.find_host_definitions_by_ids",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE TenantId IS NULL
@@ -67,7 +67,7 @@ internal static class JobSql
         new(
             "jobs.find_host_definition_by_job_key",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE JobKey = @JobKey AND TenantId IS NULL
@@ -79,10 +79,10 @@ internal static class JobSql
             "jobs.insert_host_definition",
             """
             INSERT INTO fn_jobs_definition
-                (Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+                (Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
                  CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version)
             VALUES
-                (@Id, NULL, @JobKey, @DisplayName, @Description, @IsEnabled,
+                (@Id, NULL, @JobKey, @DisplayName, @Description, @GroupName, @IsEnabled,
                  @CreatedAtUtc, NULL, @CreatedByUserId, NULL, @Version)
             """,
             SqlDataScope.HostOnly);
@@ -94,6 +94,7 @@ internal static class JobSql
             UPDATE fn_jobs_definition
             SET DisplayName = @DisplayName,
                 Description = @Description,
+                GroupName = @GroupName,
                 UpdatedAtUtc = @UpdatedAtUtc,
                 UpdatedByUserId = @UpdatedByUserId,
                 Version = @NextVersion
@@ -206,6 +207,7 @@ internal static class JobSql
             SELECT Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
                    TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
                    NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
+                   NumberOfRuns, NumberOfErrors, StartTime, EndTime, Args,
                    CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
                    Version
             FROM fn_jobs_schedule
@@ -217,6 +219,7 @@ internal static class JobSql
         s.Id, s.TenantId, s.JobDefinitionId, s.TriggerKind, s.CronExpression,
         s.TimeZoneId, s.OneTimeAtUtc, s.MisfirePolicy, s.IsEnabled,
         s.NextExecutionAtUtc, s.LastExecutionAtUtc, s.CompletedAtUtc,
+        s.NumberOfRuns, s.NumberOfErrors, s.StartTime, s.EndTime, s.Args,
         s.CreatedAtUtc, s.CreatedByUserId, s.UpdatedAtUtc, s.UpdatedByUserId,
         s.Version, d.JobKey AS JobDefinitionJobKey, d.DisplayName AS JobDefinitionDisplayName
         """;
@@ -306,12 +309,14 @@ internal static class JobSql
                 (Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
                  TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
                  NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
+                 NumberOfRuns, NumberOfErrors, StartTime, EndTime, Args,
                  CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
                  Version)
             VALUES
                 (@Id, NULL, @JobDefinitionId, @TriggerKind, @CronExpression,
                  @TimeZoneId, @OneTimeAtUtc, @MisfirePolicy, @IsEnabled,
                  @NextExecutionAtUtc, NULL, NULL,
+                 0, 0, @StartTime, @EndTime, @Args,
                  @CreatedAtUtc, @CreatedByUserId, NULL, NULL, @Version)
             """,
             SqlDataScope.HostOnly);
@@ -344,6 +349,9 @@ internal static class JobSql
                 OneTimeAtUtc = @OneTimeAtUtc,
                 MisfirePolicy = @MisfirePolicy,
                 NextExecutionAtUtc = @NextExecutionAtUtc,
+                StartTime = @StartTime,
+                EndTime = @EndTime,
+                Args = @Args,
                 UpdatedAtUtc = @UpdatedAtUtc,
                 UpdatedByUserId = @UpdatedByUserId,
                 Version = @NextVersion
@@ -381,6 +389,7 @@ internal static class JobSql
                    s.CronExpression, s.TimeZoneId, s.OneTimeAtUtc,
                    s.MisfirePolicy, s.IsEnabled, s.NextExecutionAtUtc,
                    s.LastExecutionAtUtc, s.CompletedAtUtc,
+                   s.NumberOfRuns, s.NumberOfErrors, s.StartTime, s.EndTime, s.Args,
                    s.CreatedAtUtc, s.CreatedByUserId,
                    s.UpdatedAtUtc, s.UpdatedByUserId, s.Version
             FROM fn_jobs_schedule AS s WITH (UPDLOCK, READPAST, ROWLOCK)
@@ -404,6 +413,7 @@ internal static class JobSql
                    s.CronExpression, s.TimeZoneId, s.OneTimeAtUtc,
                    s.MisfirePolicy, s.IsEnabled, s.NextExecutionAtUtc,
                    s.LastExecutionAtUtc, s.CompletedAtUtc,
+                   s.NumberOfRuns, s.NumberOfErrors, s.StartTime, s.EndTime, s.Args,
                    s.CreatedAtUtc, s.CreatedByUserId,
                    s.UpdatedAtUtc, s.UpdatedByUserId, s.Version
             FROM fn_jobs_schedule AS s
@@ -447,6 +457,8 @@ internal static class JobSql
                 NextExecutionAtUtc = @NextExecutionAtUtc,
                 LastExecutionAtUtc =
                     COALESCE(@LastExecutionAtUtc, LastExecutionAtUtc),
+                NumberOfRuns = NumberOfRuns +
+                    CASE WHEN @LastExecutionAtUtc IS NOT NULL THEN 1 ELSE 0 END,
                 CompletedAtUtc = @CompletedAtUtc,
                 UpdatedAtUtc = @UpdatedAtUtc,
                 Version = @NextVersion
@@ -665,6 +677,119 @@ internal static class JobSql
             WHERE Id = @Id
               AND LeaseId = @LeaseId
               AND Status = @RunningStatus
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>查询已启用作业定义的去重分组名，对应 Admin.NET ListJobGroup。</summary>
+    public static readonly SqlStatement ListJobGroups =
+        new(
+            "jobs.list_host_job_groups",
+            """
+            SELECT DISTINCT GroupName
+            FROM fn_jobs_definition
+            WHERE TenantId IS NULL
+              AND GroupName IS NOT NULL
+              AND GroupName <> ''
+            ORDER BY GroupName
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>统计作业定义下仍处于启用状态的计划数，用于删除前置校验。</summary>
+    public static readonly SqlStatement CountActiveSchedulesByDefinition =
+        new(
+            "jobs.count_active_schedules_by_definition",
+            """
+            SELECT COUNT(*)
+            FROM fn_jobs_schedule
+            WHERE TenantId IS NULL
+              AND JobDefinitionId = @JobDefinitionId
+              AND IsEnabled = 1
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>统计作业定义下未终结的执行记录数（pending/running），用于删除前置校验。</summary>
+    public static readonly SqlStatement CountActiveExecutionsByDefinition =
+        new(
+            "jobs.count_active_executions_by_definition",
+            """
+            SELECT COUNT(*)
+            FROM fn_jobs_execution
+            WHERE TenantId IS NULL
+              AND JobDefinitionId = @JobDefinitionId
+              AND Status IN ('pending', 'running')
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>删除作业定义关联的全部计划，解除外键约束后才能删除定义本身。</summary>
+    public static readonly SqlStatement DeleteSchedulesByDefinition =
+        new(
+            "jobs.delete_schedules_by_definition",
+            """
+            DELETE FROM fn_jobs_schedule
+            WHERE TenantId IS NULL
+              AND JobDefinitionId = @JobDefinitionId
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>硬删除作业定义，调用前必须已清理关联计划并确认无活跃执行。</summary>
+    public static readonly SqlStatement DeleteDefinition =
+        new(
+            "jobs.delete_host_definition",
+            """
+            DELETE FROM fn_jobs_definition
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND IsEnabled = 0
+              AND Version = @Version
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>统计任务计划下未终结的执行记录数，用于删除前置校验。</summary>
+    public static readonly SqlStatement CountActiveExecutionsBySchedule =
+        new(
+            "jobs.count_active_executions_by_schedule",
+            """
+            SELECT COUNT(*)
+            FROM fn_jobs_execution
+            WHERE TenantId IS NULL
+              AND JobScheduleId = @JobScheduleId
+              AND Status IN ('pending', 'running')
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>硬删除任务计划，调用前必须确认无活跃执行。</summary>
+    public static readonly SqlStatement DeleteSchedule =
+        new(
+            "jobs.delete_host_schedule",
+            """
+            DELETE FROM fn_jobs_schedule
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND Version = @Version
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>清空作业定义下的终态执行记录（成功/失败），保留 pending/running。</summary>
+    public static readonly SqlStatement ClearExecutionsByDefinition =
+        new(
+            "jobs.clear_executions_by_definition",
+            """
+            DELETE FROM fn_jobs_execution
+            WHERE TenantId IS NULL
+              AND JobDefinitionId = @JobDefinitionId
+              AND Status IN ('succeeded', 'failed')
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>递增任务计划出错次数，执行记录终态为 failed 时由执行器调用。</summary>
+    public static readonly SqlStatement IncrementScheduleErrorCount =
+        new(
+            "jobs.increment_schedule_error_count",
+            """
+            UPDATE fn_jobs_schedule
+            SET NumberOfErrors = NumberOfErrors + 1
+            WHERE Id = @Id
+              AND TenantId IS NULL
             """,
             SqlDataScope.HostOnly);
 }

@@ -21,6 +21,8 @@ const sampleDictType = {
   description: '通用性别枚举',
   displayOrder: 10,
   isActive: true,
+  createdAtUtc: '2026-01-01T00:00:00+00:00',
+  updatedAtUtc: null,
   version: 1
 };
 
@@ -32,6 +34,8 @@ const sampleDictItem = {
   color: '#409eff',
   displayOrder: 1,
   isActive: true,
+  createdAtUtc: '2026-01-01T00:00:00+00:00',
+  updatedAtUtc: null,
   version: 1
 };
 

@@ -189,4 +189,49 @@ internal static class TenantDictItemSql
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>
+    /// 按租户字典类型编码查询启用字典项，对应 Admin.NET dataList by code。
+    /// JOIN fn_settings_dict_type 按 Code 与 TenantId 过滤，仅返回 IsActive=1 的项。
+    /// </summary>
+    public static readonly SqlStatement ListByTypeCode = new(
+        "settings.tenant_dict_item.list_by_type_code",
+        """
+        SELECT item.Id,
+               item.DictTypeId,
+               item.Label,
+               item.Value,
+               item.Color,
+               item.DisplayOrder,
+               item.IsActive,
+               item.CreatedAtUtc,
+               item.UpdatedAtUtc,
+               item.Version
+        FROM fn_settings_dict_item item
+        INNER JOIN fn_settings_dict_type type ON type.Id = item.DictTypeId
+        WHERE type.Code = @Code
+          AND type.TenantId = @TenantId
+          AND item.IsActive = 1
+        ORDER BY item.DisplayOrder, item.Label, item.Value, item.Id
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>
+    /// 硬删除租户字典项；前置校验 IsActive=0 由 Service 保证，
+    /// 通过 JOIN 类型表校验租户边界，WHERE 同时校验 IsActive=0 与 Version。
+    /// </summary>
+    public static readonly SqlStatement DeleteTenantDictItem = new(
+        "settings.tenant_dict_item.delete",
+        """
+        DELETE item
+        FROM fn_settings_dict_item item
+        INNER JOIN fn_settings_dict_type type ON type.Id = item.DictTypeId
+        WHERE item.Id = @DictItemId
+          AND type.TenantId = @TenantId
+          AND item.IsActive = 0
+          AND item.Version = @Version
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 }

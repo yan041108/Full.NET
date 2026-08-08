@@ -94,7 +94,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserUnitResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserUnitManagementPermissions.Create));
+            IdentityUserManagementPermissions.Update));
 
         group.MapPut("/user-units/{assignmentId:guid}", async (
             Guid tenantId,
@@ -132,7 +132,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserUnitResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserUnitManagementPermissions.Update));
+            IdentityUserManagementPermissions.Update));
 
         group.MapPost("/user-units/{assignmentId:guid}/disable", async (
             Guid tenantId,
@@ -169,7 +169,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserUnitResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserUnitManagementPermissions.Disable));
+            IdentityUserManagementPermissions.Update));
 
         group.MapPost("/user-positions", async (
             Guid tenantId,
@@ -205,7 +205,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserPositionManagementPermissions.Create));
+            IdentityUserManagementPermissions.Update));
 
         group.MapPut("/user-positions/{assignmentId:guid}", async (
             Guid tenantId,
@@ -243,7 +243,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserPositionManagementPermissions.Update));
+            IdentityUserManagementPermissions.Update));
 
         group.MapPost("/user-positions/{assignmentId:guid}/disable", async (
             Guid tenantId,
@@ -280,7 +280,7 @@ internal static class Endpoint
         })
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
-            OrganizationUserPositionManagementPermissions.Disable));
+            IdentityUserManagementPermissions.Update));
     }
 
     private static bool TryResolveHostActor(
@@ -307,12 +307,16 @@ internal static class Endpoint
     {
         canAccessUserUnits = HasAnyPermission(
             principal,
+            IdentityUserManagementPermissions.Read,
+            IdentityUserManagementPermissions.Update,
             OrganizationUserUnitManagementPermissions.Read,
             OrganizationUserUnitManagementPermissions.Create,
             OrganizationUserUnitManagementPermissions.Update,
             OrganizationUserUnitManagementPermissions.Disable);
         canAccessUserPositions = HasAnyPermission(
             principal,
+            IdentityUserManagementPermissions.Read,
+            IdentityUserManagementPermissions.Update,
             OrganizationUserPositionManagementPermissions.Read,
             OrganizationUserPositionManagementPermissions.Create,
             OrganizationUserPositionManagementPermissions.Update,

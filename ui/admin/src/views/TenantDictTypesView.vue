@@ -35,6 +35,8 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createSettingsTenantDictItem,
   createSettingsTenantDictType,
+  deleteSettingsTenantDictItem,
+  deleteSettingsTenantDictType,
   disableSettingsTenantDictItem,
   disableSettingsTenantDictType,
   listSettingsTenantDictItems,
@@ -47,8 +49,9 @@ defineOptions({ name: 'TenantDictTypesView' });
 
 type TypeEditorMode = 'create' | 'edit';
 type ItemEditorMode = 'create' | 'edit';
-type DictTypeTableColumnKey = 'status' | 'displayOrder' | 'description';
-type DictItemTableColumnKey = 'status' | 'displayOrder' | 'color';
+// 对齐 Admin.NET：固定展示名称、编码、排序、状态、创建时间；描述与颜色放到可选列
+type DictTypeTableColumnKey = 'description' | 'createdAt';
+type DictItemTableColumnKey = 'color' | 'createdAt';
 
 interface TypeAppliedFilters {
   code: string;
@@ -65,7 +68,7 @@ interface ItemAppliedFilters {
 const DICT_TYPE_CODE_PATTERN = /^[a-z][a-z0-9_-]{1,62}[a-z0-9]$/;
 
 const session = useSessionStore();
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
 const allDictTypes = ref<SettingsDictType[]>([]);
 const allDictItems = ref<SettingsDictItem[]>([]);
 const loading = ref(false);
@@ -107,15 +110,14 @@ const itemFieldErrors = reactive({
   value: '',
   displayOrder: ''
 });
+// 默认对齐 Admin.NET：只保留描述为可选列，其余固定列对齐 Admin.NET 展示
 const typeColumnVisibility = ref<Record<DictTypeTableColumnKey, boolean>>({
-  status: true,
-  displayOrder: true,
-  description: true
+  description: true,
+  createdAt: true
 });
 const itemColumnVisibility = ref<Record<DictItemTableColumnKey, boolean>>({
-  status: true,
-  displayOrder: true,
-  color: true
+  color: false,
+  createdAt: true
 });
 
 const {
@@ -145,6 +147,8 @@ const {
 const canCreate = computed(() => session.can('settings.tenant_dict_types.create'));
 const canUpdate = computed(() => session.can('settings.tenant_dict_types.update'));
 const canDisable = computed(() => session.can('settings.tenant_dict_types.disable'));
+// 硬删除仅对已禁用的租户字典类型/字典项开放，对应 Admin.NET DeleteDict。
+const canDelete = computed(() => session.can('settings.tenant_dict_types.delete'));
 
 const filteredDictTypes = computed(() => {
   let rows = allDictTypes.value;
@@ -208,19 +212,11 @@ const {
   resetPage: resetItemPage
 } = useArtClientPagination(filteredDictItems);
 
+// 固定列对齐 Admin.NET：序号、名称、编码、排序、状态
 const typeTableColumns = computed<ArtTableColumnOption[]>({
   get: () => [
-    { key: 'status', label: t('users.status'), visible: typeColumnVisibility.value.status },
-    {
-      key: 'displayOrder',
-      label: t('dictTypes.displayOrder'),
-      visible: typeColumnVisibility.value.displayOrder
-    },
-    {
-      key: 'description',
-      label: t('dictTypes.descriptionLabel'),
-      visible: typeColumnVisibility.value.description
-    }
+    { key: 'description', label: t('dictTypes.descriptionLabel'), visible: typeColumnVisibility.value.description },
+    { key: 'createdAt', label: t('dictTypes.createdAt'), visible: typeColumnVisibility.value.createdAt }
   ],
   set: columns => {
     for (const column of columns) {
@@ -233,13 +229,8 @@ const typeTableColumns = computed<ArtTableColumnOption[]>({
 
 const itemTableColumns = computed<ArtTableColumnOption[]>({
   get: () => [
-    { key: 'status', label: t('users.status'), visible: itemColumnVisibility.value.status },
-    {
-      key: 'displayOrder',
-      label: t('dictItems.displayOrder'),
-      visible: itemColumnVisibility.value.displayOrder
-    },
-    { key: 'color', label: t('dictItems.color'), visible: itemColumnVisibility.value.color }
+    { key: 'color', label: t('dictItems.color'), visible: itemColumnVisibility.value.color },
+    { key: 'createdAt', label: t('dictItems.createdAt'), visible: itemColumnVisibility.value.createdAt }
   ],
   set: columns => {
     for (const column of columns) {
@@ -418,6 +409,54 @@ function applyItemFieldErrors(): boolean {
   itemFieldErrors.value = validateItemValue();
   itemFieldErrors.displayOrder = validateItemDisplayOrder();
   return !itemFieldErrors.label && !itemFieldErrors.value && !itemFieldErrors.displayOrder;
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return '—';
+  }
+  return new Intl.DateTimeFormat(locale.value, {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  }).format(new Date(value));
+}
+
+// 把 Color 字段（如 #409eff）映射到 Element Plus Tag type，用于 Admin.NET 风格的彩色标签
+const COLOR_TO_TAG_TYPE: Record<string, 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
+  '#409eff': 'primary',
+  '#67c23a': 'success',
+  '#e6a23c': 'warning',
+  '#f56c6c': 'danger',
+  '#909399': 'info',
+  primary: 'primary',
+  success: 'success',
+  warning: 'warning',
+  danger: 'danger',
+  info: 'info'
+};
+
+function tagTypeFromColor(color: string | null | undefined): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
+  if (!color) {
+    return 'info';
+  }
+  const normalized = color.trim().toLowerCase();
+  return COLOR_TO_TAG_TYPE[normalized] ?? 'info';
+}
+
+function tagStyleFromColor(color: string | null | undefined): Record<string, string> | undefined {
+  if (!color) {
+    return undefined;
+  }
+  const normalized = color.trim().toLowerCase();
+  if (normalized.startsWith('#')) {
+    // 自定义颜色：通过内联样式把 Tag 背景/文字变成用户指定颜色，实现 Admin.NET 风格的彩色标签
+    return {
+      backgroundColor: normalized,
+      borderColor: normalized,
+      color: '#ffffff'
+    };
+  }
+  return undefined;
 }
 
 async function fetchAllDictTypes(): Promise<SettingsDictType[]> {
@@ -604,8 +643,8 @@ async function saveTypeEdit(): Promise<void> {
     await updateSettingsTenantDictType(
       dictType.id,
       typeEditorForm.name,
-      dictType.description,
-      dictType.displayOrder,
+      typeEditorForm.description.trim() || null,
+      Number.parseInt(typeEditorForm.displayOrder, 10) || 0,
       dictType.version
     );
     typeEditorOpen.value = false;
@@ -635,6 +674,38 @@ async function disableDictType(dictType: SettingsDictType): Promise<void> {
     changing.value = true;
     await disableSettingsTenantDictType(dictType.id);
     ElMessage.success(t('dictTypes.disableSuccess'));
+    if (selectedType.value?.id === dictType.id) {
+      closeItems();
+    }
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'dictTypes.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+// 硬删除已禁用的租户字典类型，二次确认后调用删除接口；删除成功后若当前选中类型被删则关闭字典项面板。
+async function deleteDictType(dictType: SettingsDictType): Promise<void> {
+  if (changing.value || dictType.isActive) {
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('dictTypes.confirmDelete', { name: dictType.code }),
+      t('dictTypes.delete'),
+      {
+        type: 'warning',
+        confirmButtonText: t('dictTypes.delete'),
+        cancelButtonText: t('users.cancel')
+      }
+    );
+    changing.value = true;
+    await deleteSettingsTenantDictType(dictType.id, dictType.version);
+    ElMessage.success(t('dictTypes.deleteSuccess'));
     if (selectedType.value?.id === dictType.id) {
       closeItems();
     }
@@ -732,8 +803,8 @@ async function saveItemEdit(): Promise<void> {
     await updateSettingsTenantDictItem(
       item.id,
       itemEditorForm.label,
-      item.color,
-      item.displayOrder,
+      itemEditorForm.color.trim() || null,
+      Number.parseInt(itemEditorForm.displayOrder, 10) || 0,
       item.version
     );
     itemEditorOpen.value = false;
@@ -775,6 +846,36 @@ async function disableDictItem(item: SettingsDictItem): Promise<void> {
   }
 }
 
+// 硬删除已禁用的租户字典项，二次确认后调用删除接口并刷新当前字典项列表。
+async function deleteDictItem(item: SettingsDictItem): Promise<void> {
+  const dictType = selectedType.value;
+  if (changing.value || item.isActive || !dictType) {
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('dictItems.confirmDelete', { name: item.value }),
+      t('dictItems.delete'),
+      {
+        type: 'warning',
+        confirmButtonText: t('dictItems.delete'),
+        cancelButtonText: t('users.cancel')
+      }
+    );
+    changing.value = true;
+    await deleteSettingsTenantDictItem(item.id, item.version);
+    ElMessage.success(t('dictItems.deleteSuccess'));
+    await loadItems(dictType.id);
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'dictItems.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 function toProblem(
   error: unknown,
   fallbackKey:
@@ -803,325 +904,412 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <ArtSearchBar
-      v-model="typeSearchForm"
-      :items="typeSearchItems"
-      :default-visible-count="3"
-      :search-label="t('dictTypes.query')"
-      :reset-label="t('dictTypes.reset')"
-      :expand-label="t('dictTypes.expand')"
-      :collapse-label="t('dictTypes.collapse')"
-      @search="handleTypeSearch"
-      @reset="resetTypeSearch"
-    />
+    <div class="tenant-dict-types-view__split">
+      <!-- 左：字典类型 -->
+      <el-card class="art-table-card tenant-dict-types-view__pane" shadow="never">
+        <ArtSearchBar
+          v-model="typeSearchForm"
+          :items="typeSearchItems"
+          :default-visible-count="3"
+          :search-label="t('dictTypes.query')"
+          :reset-label="t('dictTypes.reset')"
+          :expand-label="t('dictTypes.expand')"
+          :collapse-label="t('dictTypes.collapse')"
+          @search="handleTypeSearch"
+          @reset="resetTypeSearch"
+        />
 
-    <el-card class="art-table-card" shadow="never">
-      <div ref="tableMainRef" class="art-crud-table-main">
-        <ArtTableHeader
-          v-model:columns="typeTableColumns"
-          v-model:table-size="tableSize"
-          v-model:zebra="tableZebra"
-          v-model:border="tableBorder"
-          v-model:header-background="tableHeaderBackground"
-          :loading="loading"
-          full-class="art-crud-table-main"
-          layout="refresh,size,fullscreen,columns,settings"
-          @refresh="load"
-        >
-          <template #left>
-            <PermissionGate code="settings.tenant_dict_types.create">
-              <el-button
-                type="primary"
-                plain
-                :icon="Plus"
-                data-testid="tenant-dict-types-action-create"
-                @click="openTypeCreate"
-              >
-                {{ t('dictTypes.addDictType') }}
-              </el-button>
-            </PermissionGate>
-          </template>
-        </ArtTableHeader>
-
-        <div class="art-table" :class="{ 'is-empty': pagedDictTypes.length === 0 }">
-          <el-table
-            v-loading="loading"
-            :data="pagedDictTypes"
-            :height="tableHeight"
-            :size="tableSize"
-            :stripe="tableZebra"
-            :border="tableBorder"
-            :header-cell-style="tableHeaderCellStyle"
-            class="art-crud-data-table"
-            :class="{ 'art-table--header-bg': tableHeaderBackground }"
+        <div ref="tableMainRef" class="art-crud-table-main">
+          <ArtTableHeader
+            v-model:columns="typeTableColumns"
+            v-model:table-size="tableSize"
+            v-model:zebra="tableZebra"
+            v-model:border="tableBorder"
+            v-model:header-background="tableHeaderBackground"
+            :loading="loading"
+            full-class="art-crud-table-main"
+            layout="refresh,size,fullscreen,columns,settings"
+            @refresh="load"
           >
-            <el-table-column :label="t('users.columnIndex')" width="72" align="center">
-              <template #default="{ $index }">{{ typeRowIndex($index) }}</template>
-            </el-table-column>
-
-            <el-table-column :label="t('dictTypes.code')" min-width="200">
-              <template #default="{ row }">
-                <div class="art-crud-table-row">
-                  <span class="art-crud-table-row__avatar">{{ row.code.slice(0, 2).toUpperCase() }}</span>
-                  <div>
-                    <div class="art-crud-table-row__name" translate="no">{{ row.code }}</div>
-                    <div class="art-crud-table-row__sub" translate="no">{{ row.name }}</div>
-                  </div>
-                </div>
-              </template>
-            </el-table-column>
-
-            <el-table-column
-              v-if="isTypeColumnVisible('status')"
-              :label="t('users.status')"
-              width="100"
-              align="center"
-            >
-              <template #default="{ row }">
-                <el-tag :type="row.isActive ? 'success' : 'info'">
-                  {{ t(row.isActive ? 'dictTypes.active' : 'dictTypes.inactive') }}
-                </el-tag>
-              </template>
-            </el-table-column>
-
-            <el-table-column
-              v-if="isTypeColumnVisible('displayOrder')"
-              :label="t('dictTypes.displayOrder')"
-              width="100"
-              align="center"
-              prop="displayOrder"
-            />
-
-            <el-table-column
-              v-if="isTypeColumnVisible('description')"
-              :label="t('dictTypes.descriptionLabel')"
-              min-width="160"
-              show-overflow-tooltip
-            >
-              <template #default="{ row }">
-                <span translate="no">{{ row.description ?? '—' }}</span>
-              </template>
-            </el-table-column>
-
-            <el-table-column
-              :label="t('users.columnActions')"
-              width="160"
-              fixed="right"
-              align="center"
-            >
-              <template #default="{ row }">
-                <div class="art-crud-table-actions">
-                  <ArtTableActionButton
-                    type="view"
-                    test-id="tenant-dict-types-action-manage-items"
-                    :title="t('dictItems.manage')"
-                    :disabled="changing || itemsLoading"
-                  @click="openItems(row as SettingsDictType)"
-                  />
-                  <PermissionGate v-if="canUpdate" code="settings.tenant_dict_types.update">
-                    <ArtTableActionButton
-                      type="edit"
-                      test-id="tenant-dict-types-action-edit"
-                      :title="t('dictTypes.edit')"
-                      :disabled="changing || !row.isActive"
-                  @click="openTypeEdit(row as SettingsDictType)"
-                    />
-                  </PermissionGate>
-                  <PermissionGate v-if="row.isActive && canDisable" code="settings.tenant_dict_types.disable">
-                    <ArtTableActionButton
-                      type="delete"
-                      test-id="tenant-dict-types-action-disable"
-                      :title="t('dictTypes.disable')"
-                      :disabled="changing"
-                  @click="disableDictType(row as SettingsDictType)"
-                    />
-                  </PermissionGate>
-                </div>
-              </template>
-            </el-table-column>
-
-            <template #empty>{{ t('dictTypes.emptyDirectory') }}</template>
-          </el-table>
-
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="typePage"
-              v-model:page-size="typePageSize"
-              :total="typeTotal"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
-          </div>
-        </div>
-      </div>
-    </el-card>
-
-    <el-card
-      v-if="selectedType"
-      class="art-table-card tenant-dict-types-items-card"
-      shadow="never"
-      data-dict-items-panel
-      :aria-busy="itemsLoading"
-    >
-      <div class="tenant-dict-types-items-card__header">
-        <h2>{{ t('dictItems.panelTitle', { name: selectedType.code }) }}</h2>
-        <el-button plain data-testid="dict-items-action-close" @click="closeItems">
-          {{ t('dictItems.close') }}
-        </el-button>
-      </div>
-
-      <ArtSearchBar
-        v-model="itemSearchForm"
-        :items="itemSearchItems"
-        :default-visible-count="3"
-        :search-label="t('dictItems.query')"
-        :reset-label="t('dictItems.reset')"
-        :expand-label="t('dictItems.expand')"
-        :collapse-label="t('dictItems.collapse')"
-        @search="handleItemSearch"
-        @reset="resetItemSearch"
-      />
-
-      <div ref="itemsTableMainRef" class="art-crud-table-main">
-        <ArtTableHeader
-          v-model:columns="itemTableColumns"
-          v-model:table-size="itemsTableSize"
-          v-model:zebra="itemsTableZebra"
-          v-model:border="itemsTableBorder"
-          v-model:header-background="itemsTableHeaderBackground"
-          :loading="itemsLoading"
-          full-class="art-crud-table-main"
-          layout="refresh,size,columns,settings"
-          @refresh="loadItems(selectedType.id)"
-        >
-          <template #left>
-            <PermissionGate code="settings.tenant_dict_types.create">
-              <el-button
-                type="primary"
-                plain
-                :icon="Plus"
-                data-testid="dict-items-action-create"
-                @click="openItemCreate"
-              >
-                {{ t('dictItems.addItem') }}
-              </el-button>
-            </PermissionGate>
-          </template>
-        </ArtTableHeader>
-
-        <div
-          class="art-table"
-          :class="{ 'is-empty': pagedDictItems.length === 0 }"
-          data-dict-items-directory
-        >
-          <el-table
-            v-loading="itemsLoading"
-            :data="pagedDictItems"
-            :height="itemsTableHeight"
-            :size="itemsTableSize"
-            :stripe="itemsTableZebra"
-            :border="itemsTableBorder"
-            :header-cell-style="itemsTableHeaderCellStyle"
-            class="art-crud-data-table"
-            :class="{ 'art-table--header-bg': itemsTableHeaderBackground }"
-          >
-            <el-table-column :label="t('users.columnIndex')" width="72" align="center">
-              <template #default="{ $index }">{{ itemRowIndex($index) }}</template>
-            </el-table-column>
-
-            <el-table-column :label="t('dictItems.label')" min-width="200">
-              <template #default="{ row }">
-                <div class="art-crud-table-row">
-                  <span class="art-crud-table-row__avatar">{{ row.value.slice(0, 2).toUpperCase() }}</span>
-                  <div>
-                    <div class="art-crud-table-row__name" translate="no">{{ row.label }}</div>
-                    <div class="art-crud-table-row__sub" translate="no">{{ row.value }}</div>
-                  </div>
-                </div>
-              </template>
-            </el-table-column>
-
-            <el-table-column
-              v-if="isItemColumnVisible('status')"
-              :label="t('users.status')"
-              width="100"
-              align="center"
-            >
-              <template #default="{ row }">
-                <el-tag :type="row.isActive ? 'success' : 'info'">
-                  {{ t(row.isActive ? 'dictItems.active' : 'dictItems.inactive') }}
-                </el-tag>
-              </template>
-            </el-table-column>
-
-            <el-table-column
-              v-if="isItemColumnVisible('displayOrder')"
-              :label="t('dictItems.displayOrder')"
-              width="100"
-              align="center"
-              prop="displayOrder"
-            />
-
-            <el-table-column
-              v-if="isItemColumnVisible('color')"
-              :label="t('dictItems.color')"
-              width="120"
-              align="center"
-            >
-              <template #default="{ row }">
-                <span translate="no">{{ row.color ?? '—' }}</span>
-              </template>
-            </el-table-column>
-
-            <el-table-column
-              :label="t('users.columnActions')"
-              width="120"
-              fixed="right"
-              align="center"
-            >
-              <template #default="{ row }">
-                <div class="art-crud-table-actions">
-                  <PermissionGate v-if="canUpdate" code="settings.tenant_dict_types.update">
-                    <ArtTableActionButton
-                      type="edit"
-                      test-id="dict-items-action-edit"
-                      :title="t('dictItems.edit')"
-                      :disabled="changing || !row.isActive"
-                  @click="openItemEdit(row as SettingsDictItem)"
-                    />
-                  </PermissionGate>
-                  <PermissionGate v-if="row.isActive && canDisable" code="settings.tenant_dict_types.disable">
-                    <ArtTableActionButton
-                      type="delete"
-                      test-id="dict-items-action-disable"
-                      :title="t('dictItems.disable')"
-                      :disabled="changing"
-                  @click="disableDictItem(row as SettingsDictItem)"
-                    />
-                  </PermissionGate>
-                </div>
-              </template>
-            </el-table-column>
-
-            <template #empty>
-              <span data-dict-items-empty>{{ t('dictItems.emptyDirectory') }}</span>
+            <template #left>
+              <PermissionGate code="settings.tenant_dict_types.create">
+                <el-button
+                  type="primary"
+                  plain
+                  :icon="Plus"
+                  data-testid="tenant-dict-types-action-create"
+                  @click="openTypeCreate"
+                >
+                  {{ t('dictTypes.addDictType') }}
+                </el-button>
+              </PermissionGate>
             </template>
-          </el-table>
+          </ArtTableHeader>
 
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="itemPage"
-              v-model:page-size="itemPageSize"
-              :total="itemTotal"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
+          <div class="art-table" :class="{ 'is-empty': pagedDictTypes.length === 0 }">
+            <el-table
+              v-loading="loading"
+              :data="pagedDictTypes"
+              :height="tableHeight"
+              :size="tableSize"
+              :stripe="tableZebra"
+              :border="tableBorder"
+              :header-cell-style="tableHeaderCellStyle"
+              class="art-crud-data-table"
+              :class="{ 'art-table--header-bg': tableHeaderBackground }"
+              highlight-current-row
+              @row-click="openItems($event as SettingsDictType)"
+            >
+              <el-table-column :label="t('users.columnIndex')" width="64" align="center" fixed="left">
+                <template #default="{ $index }">{{ typeRowIndex($index) }}</template>
+              </el-table-column>
+
+              <el-table-column
+                :label="t('dictTypes.name')"
+                min-width="160"
+                align="left"
+                header-align="center"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  <div class="art-crud-table-row">
+                    <span class="art-crud-table-row__avatar">{{ row.code.slice(0, 2).toUpperCase() }}</span>
+                    <div>
+                      <div class="art-crud-table-row__name" translate="no">{{ row.name }}</div>
+                      <div class="art-crud-table-row__sub" translate="no">{{ row.code }}</div>
+                    </div>
+                  </div>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                :label="t('dictTypes.displayOrder')"
+                width="90"
+                align="center"
+                header-align="center"
+                prop="displayOrder"
+              />
+
+              <el-table-column
+                :label="t('users.status')"
+                width="96"
+                align="center"
+                header-align="center"
+              >
+                <template #default="{ row }">
+                  <el-tag :type="row.isActive ? 'success' : 'info'" effect="light">
+                    {{ t(row.isActive ? 'dictTypes.active' : 'dictTypes.inactive') }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isTypeColumnVisible('createdAt')"
+                :label="t('dictTypes.createdAt')"
+                min-width="150"
+                align="center"
+                header-align="center"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  <span translate="no">{{ formatDateTime(row.createdAtUtc) }}</span>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isTypeColumnVisible('description')"
+                :label="t('dictTypes.descriptionLabel')"
+                min-width="180"
+                align="left"
+                header-align="center"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  <span translate="no">{{ row.description ?? '—' }}</span>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                :label="t('users.columnActions')"
+                width="170"
+                fixed="right"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <div class="art-crud-table-actions">
+                    <ArtTableActionButton
+                      type="view"
+                      test-id="tenant-dict-types-action-manage-items"
+                      :title="t('dictItems.manage')"
+                      :disabled="changing || itemsLoading"
+                      @click="openItems(row as SettingsDictType)"
+                    />
+                    <PermissionGate v-if="canUpdate" code="settings.tenant_dict_types.update">
+                      <ArtTableActionButton
+                        type="edit"
+                        test-id="tenant-dict-types-action-edit"
+                        :title="t('dictTypes.edit')"
+                        :disabled="changing || !row.isActive"
+                        @click="openTypeEdit(row as SettingsDictType)"
+                      />
+                    </PermissionGate>
+                    <PermissionGate v-if="row.isActive && canDisable" code="settings.tenant_dict_types.disable">
+                      <ArtTableActionButton
+                        type="delete"
+                        test-id="tenant-dict-types-action-disable"
+                        :title="t('dictTypes.disable')"
+                        :disabled="changing"
+                        @click="disableDictType(row as SettingsDictType)"
+                      />
+                    </PermissionGate>
+                    <PermissionGate v-if="!row.isActive && canDelete" code="settings.tenant_dict_types.delete">
+                      <ArtTableActionButton
+                        type="delete"
+                        test-id="tenant-dict-types-action-delete"
+                        :title="t('dictTypes.delete')"
+                        :disabled="changing"
+                        @click="deleteDictType(row as SettingsDictType)"
+                      />
+                    </PermissionGate>
+                  </div>
+                </template>
+              </el-table-column>
+
+              <template #empty>{{ t('dictTypes.emptyDirectory') }}</template>
+            </el-table>
+
+            <div class="art-table__pagination center custom-pagination">
+              <el-pagination
+                v-model:current-page="typePage"
+                v-model:page-size="typePageSize"
+                :total="typeTotal"
+                background
+                layout="total, sizes, prev, pager, next, jumper"
+                :page-sizes="[10, 20, 50, 100]"
+              />
+            </div>
           </div>
         </div>
-      </div>
-    </el-card>
+      </el-card>
+
+      <!-- 右：字典项 -->
+      <el-card
+        class="art-table-card tenant-dict-types-view__pane"
+        shadow="never"
+        :aria-busy="itemsLoading"
+      >
+        <template #header>
+          <div class="tenant-dict-types-view__pane-header">
+            <span>{{ selectedType ? t('dictItems.panelTitle', { name: selectedType.code }) : t('dictItems.manage') }}</span>
+            <el-button
+              v-if="selectedType"
+              plain
+              size="small"
+              data-testid="dict-items-action-close"
+              @click="closeItems"
+            >
+              {{ t('dictItems.close') }}
+            </el-button>
+          </div>
+        </template>
+
+        <ArtSearchBar
+          v-model="itemSearchForm"
+          :items="itemSearchItems"
+          :default-visible-count="3"
+          :search-label="t('dictItems.query')"
+          :reset-label="t('dictItems.reset')"
+          :expand-label="t('dictItems.expand')"
+          :collapse-label="t('dictItems.collapse')"
+          @search="handleItemSearch"
+          @reset="resetItemSearch"
+        />
+
+        <div ref="itemsTableMainRef" class="art-crud-table-main">
+          <ArtTableHeader
+            v-model:columns="itemTableColumns"
+            v-model:table-size="itemsTableSize"
+            v-model:zebra="itemsTableZebra"
+            v-model:border="itemsTableBorder"
+            v-model:header-background="itemsTableHeaderBackground"
+            :loading="itemsLoading"
+            full-class="art-crud-table-main"
+            layout="refresh,size,columns,settings"
+            @refresh="selectedType && loadItems(selectedType.id)"
+          >
+            <template #left>
+              <PermissionGate code="settings.tenant_dict_types.create">
+                <el-button
+                  type="primary"
+                  plain
+                  :icon="Plus"
+                  data-testid="dict-items-action-create"
+                  @click="openItemCreate"
+                  :disabled="!selectedType"
+                >
+                  {{ t('dictItems.addItem') }}
+                </el-button>
+              </PermissionGate>
+            </template>
+          </ArtTableHeader>
+
+          <div
+            class="art-table"
+            :class="{ 'is-empty': !selectedType || pagedDictItems.length === 0 }"
+            data-dict-items-directory
+          >
+            <el-table
+              v-loading="itemsLoading"
+              :data="selectedType ? pagedDictItems : []"
+              :height="itemsTableHeight"
+              :size="itemsTableSize"
+              :stripe="itemsTableZebra"
+              :border="itemsTableBorder"
+              :header-cell-style="itemsTableHeaderCellStyle"
+              class="art-crud-data-table"
+              :class="{ 'art-table--header-bg': itemsTableHeaderBackground }"
+            >
+              <el-table-column :label="t('users.columnIndex')" width="64" align="center" fixed="left">
+                <template #default="{ $index }">{{ itemRowIndex($index) }}</template>
+              </el-table-column>
+
+              <el-table-column
+                :label="t('dictItems.label')"
+                min-width="180"
+                align="left"
+                header-align="center"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  <el-tag
+                    :type="tagTypeFromColor(row.color)"
+                    :style="tagStyleFromColor(row.color)"
+                    effect="dark"
+                    class="tenant-dict-items__label-tag"
+                  >
+                    {{ row.label }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                :label="t('dictItems.value')"
+                min-width="140"
+                align="left"
+                header-align="center"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  <span translate="no">{{ row.value }}</span>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                :label="t('dictItems.displayOrder')"
+                width="90"
+                align="center"
+                header-align="center"
+                prop="displayOrder"
+              />
+
+              <el-table-column
+                :label="t('users.status')"
+                width="96"
+                align="center"
+                header-align="center"
+              >
+                <template #default="{ row }">
+                  <el-tag :type="row.isActive ? 'success' : 'info'" effect="light">
+                    {{ t(row.isActive ? 'dictItems.active' : 'dictItems.inactive') }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isItemColumnVisible('createdAt')"
+                :label="t('dictItems.createdAt')"
+                min-width="150"
+                align="center"
+                header-align="center"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  <span translate="no">{{ formatDateTime(row.createdAtUtc) }}</span>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                v-if="isItemColumnVisible('color')"
+                :label="t('dictItems.color')"
+                width="110"
+                align="center"
+                header-align="center"
+              >
+                <template #default="{ row }">
+                  <span translate="no">{{ row.color ?? t('dictItems.emptyColor') }}</span>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                :label="t('users.columnActions')"
+                width="160"
+                fixed="right"
+                align="center"
+              >
+                <template #default="{ row }">
+                  <div class="art-crud-table-actions">
+                    <PermissionGate v-if="canUpdate" code="settings.tenant_dict_types.update">
+                      <ArtTableActionButton
+                        type="edit"
+                        test-id="dict-items-action-edit"
+                        :title="t('dictItems.edit')"
+                        :disabled="changing || !row.isActive"
+                        @click="openItemEdit(row as SettingsDictItem)"
+                      />
+                    </PermissionGate>
+                    <PermissionGate v-if="row.isActive && canDisable" code="settings.tenant_dict_types.disable">
+                      <ArtTableActionButton
+                        type="delete"
+                        test-id="dict-items-action-disable"
+                        :title="t('dictItems.disable')"
+                        :disabled="changing"
+                        @click="disableDictItem(row as SettingsDictItem)"
+                      />
+                    </PermissionGate>
+                    <PermissionGate v-if="!row.isActive && canDelete" code="settings.tenant_dict_types.delete">
+                      <ArtTableActionButton
+                        type="delete"
+                        test-id="dict-items-action-delete"
+                        :title="t('dictItems.delete')"
+                        :disabled="changing"
+                        @click="deleteDictItem(row as SettingsDictItem)"
+                      />
+                    </PermissionGate>
+                  </div>
+                </template>
+              </el-table-column>
+
+              <template #empty>
+                <span data-dict-items-empty>
+                  {{ selectedType ? t('dictItems.emptyDirectory') : t('dictItems.selectType') }}
+                </span>
+              </template>
+            </el-table>
+
+            <div class="art-table__pagination center custom-pagination">
+              <el-pagination
+                v-model:current-page="itemPage"
+                v-model:page-size="itemPageSize"
+                :total="itemTotal"
+                background
+                layout="total, sizes, prev, pager, next, jumper"
+                :page-sizes="[10, 20, 50, 100]"
+              />
+            </div>
+          </div>
+        </div>
+      </el-card>
+    </div>
 
     <ArtFormDialog
       v-model:open="typeEditorOpen"
@@ -1169,17 +1357,17 @@ function toProblem(
             @update:model-value="typeFieldErrors.name = validateTypeName()"
           />
         </el-form-item>
-        <el-form-item
-          v-if="typeEditorMode === 'create'"
-          :label="t('dictTypes.descriptionLabel')"
-        >
+        <!-- 对齐 Admin.NET：创建/编辑均显示 说明 字段 -->
+        <el-form-item :label="t('dictTypes.descriptionLabel')">
           <el-input
             v-model="typeEditorForm.description"
             :placeholder="t('dictTypes.descriptionPlaceholder')"
+            type="textarea"
+            :rows="3"
           />
         </el-form-item>
+        <!-- 对齐 Admin.NET：创建/编辑均显示 排序 字段 -->
         <el-form-item
-          v-if="typeEditorMode === 'create'"
           :label="t('dictTypes.displayOrder')"
           prop="displayOrder"
           :error="typeFieldErrors.displayOrder || undefined"
@@ -1239,17 +1427,14 @@ function toProblem(
         <el-form-item v-else :label="t('dictItems.value')">
           <el-input v-model="itemEditorForm.value" disabled />
         </el-form-item>
-        <el-form-item
-          v-if="itemEditorMode === 'create'"
-          :label="t('dictItems.color')"
-        >
+        <!-- 对齐 Admin.NET：颜色作为标签类型，创建/编辑均可修改 -->
+        <el-form-item :label="t('dictItems.color')">
           <el-input
             v-model="itemEditorForm.color"
             :placeholder="t('dictItems.colorPlaceholder')"
           />
         </el-form-item>
         <el-form-item
-          v-if="itemEditorMode === 'create'"
           :label="t('dictItems.displayOrder')"
           prop="displayOrder"
           :error="itemFieldErrors.displayOrder || undefined"
@@ -1266,35 +1451,49 @@ function toProblem(
 </template>
 
 <style scoped>
-.tenant-dict-types-view :deep(.art-table-card) {
+.tenant-dict-types-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+
+.tenant-dict-types-view__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
   flex: 1;
+  min-height: 0;
+}
+
+.tenant-dict-types-view__pane {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.tenant-dict-types-view :deep(.art-table-card .el-card__body) {
+.tenant-dict-types-view__pane :deep(.el-card__body) {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
 }
 
-.tenant-dict-types-items-card {
-  margin-top: 12px;
-}
-
-.tenant-dict-types-items-card__header {
+.tenant-dict-types-view__pane-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 12px;
 }
 
-.tenant-dict-types-items-card__header h2 {
-  margin: 0;
-  font-size: 16px;
+.tenant-dict-types-view__pane-header :deep(span) {
   font-weight: 600;
+  font-size: 14px;
+}
+
+.tenant-dict-items__label-tag {
+  font-weight: 500;
 }
 
 .tenant-dict-types-editor-form,
@@ -1312,5 +1511,12 @@ function toProblem(
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* 窄屏回退为上下布局，保证移动端可读性 */
+@media (max-width: 1100px) {
+  .tenant-dict-types-view__split {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>
