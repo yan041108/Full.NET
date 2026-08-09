@@ -10,10 +10,9 @@ using Full.NET.Modules.Messaging.Auditing;
 using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.Messaging.Persistence;
 
-namespace Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner;
+namespace Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
 
-internal sealed class DeliveryCutoverService(
-    IOutboxBacklogReader backlogReader,
+internal sealed class DeliveryRollbackService(
     IntegrationEventSubscriptionCatalog catalog,
     IEffectiveEventDeliveryOwnerResolver ownerResolver,
     EventStreamOwnershipStore ownershipStore,
@@ -24,33 +23,33 @@ internal sealed class DeliveryCutoverService(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public Task<Result<DeliveryCutoverResponse>> CutoverAsync(
+    public Task<Result<DeliveryRollbackResponse>> RollbackAsync(
         ChangeDeliveryOwnerRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
-            return Task.FromResult(Result<DeliveryCutoverResponse>.Failure(new Error(
+            return Task.FromResult(Result<DeliveryRollbackResponse>.Failure(new Error(
                 MessagingErrorCodes.ReasonRequired,
-                "A cutover reason is required.",
+                "A rollback reason is required.",
                 ErrorType.Validation)));
         }
 
-        if (request.TargetOwner is not EventDeliveryOwner.CdcKafka)
+        if (request.TargetOwner is not EventDeliveryOwner.LegacyPolling)
         {
-            return Task.FromResult(Result<DeliveryCutoverResponse>.Failure(new Error(
-                MessagingErrorCodes.InvalidCutoverTarget,
-                "Only CDC Kafka ownership can be requested through this endpoint.",
+            return Task.FromResult(Result<DeliveryRollbackResponse>.Failure(new Error(
+                MessagingErrorCodes.InvalidRollbackTarget,
+                "Only legacy polling ownership can be requested through rollback.",
                 ErrorType.BusinessRule)));
         }
 
         return transaction.ExecuteResultAsync(
-            token => CutoverCoreAsync(request, token),
+            token => RollbackCoreAsync(request, token),
             cancellationToken);
     }
 
-    private async Task<Result<DeliveryCutoverResponse>> CutoverCoreAsync(
+    private async Task<Result<DeliveryRollbackResponse>> RollbackCoreAsync(
         ChangeDeliveryOwnerRequest request,
         CancellationToken cancellationToken)
     {
@@ -63,71 +62,55 @@ internal sealed class DeliveryCutoverService(
         }
         catch (InvalidOperationException)
         {
-            return Result<DeliveryCutoverResponse>.Failure(new Error(
-                MessagingErrorCodes.CutoverPreconditionFailed,
+            return Result<DeliveryRollbackResponse>.Failure(new Error(
+                MessagingErrorCodes.RollbackPreconditionFailed,
                 "The event stream is not registered in the topic catalog.",
                 ErrorType.BusinessRule));
         }
 
-        if (currentOwner is not EventDeliveryOwner.LegacyPolling)
+        if (currentOwner is not EventDeliveryOwner.CdcKafka)
         {
-            return Result<DeliveryCutoverResponse>.Failure(new Error(
-                MessagingErrorCodes.CutoverPreconditionFailed,
-                "Cutover is only supported from legacy polling ownership.",
+            return Result<DeliveryRollbackResponse>.Failure(new Error(
+                MessagingErrorCodes.RollbackPreconditionFailed,
+                "Rollback is only supported from CDC Kafka ownership.",
                 ErrorType.BusinessRule));
         }
 
-        var retirement = await backlogReader
-            .ReadVersionRetirementAsync(
-                [request.EventType],
-                request.SchemaVersion,
-                cancellationToken)
+        var existing = await ownershipStore
+            .FindAsync(request.EventType, request.SchemaVersion, cancellationToken)
             .ConfigureAwait(false);
-        if (retirement.PendingCount > 0 || retirement.DeadLetterCount > 0)
+        if (existing is null)
         {
-            return Result<DeliveryCutoverResponse>.Failure(new Error(
-                MessagingErrorCodes.LegacyBacklogNotDrained,
-                "Legacy outbox backlog must be drained before cutover.",
-                ErrorType.BusinessRule));
-        }
-
-        var backlog = await backlogReader.ReadBacklogAsync(cancellationToken).ConfigureAwait(false);
-        if (backlog.PendingCount > 0 || backlog.DueRetryCount > 0 || backlog.ActiveLeaseCount > 0)
-        {
-            return Result<DeliveryCutoverResponse>.Failure(new Error(
-                MessagingErrorCodes.LegacyBacklogNotDrained,
-                "Legacy outbox backlog must be drained before cutover.",
+            return Result<DeliveryRollbackResponse>.Failure(new Error(
+                MessagingErrorCodes.RollbackPreconditionFailed,
+                "No persisted ownership record exists for rollback.",
                 ErrorType.BusinessRule));
         }
 
         var topic = catalog.GetTopicRequired(request.EventType, request.SchemaVersion);
-        var cutoff = await ownershipStore
+        var rollbackBoundary = await ownershipStore
             .FindLastOutboxEventAsync(request.EventType, request.SchemaVersion, cancellationToken)
             .ConfigureAwait(false);
-        var cutoffEventId = cutoff?.CutoffEventId ?? Guid.Empty;
-        var cutoffOccurredAtUtc = cutoff?.CutoffOccurredAtUtc ?? clock.UtcNow;
-        var now = clock.UtcNow;
-        var ownershipRecord = new EventStreamOwnershipRecord(
-            request.EventType,
-            request.SchemaVersion,
-            topic.TopicCode,
-            request.TargetOwner,
-            EventDeliveryOwner.LegacyPolling,
-            cutoffEventId,
-            cutoffOccurredAtUtc,
-            null,
-            null,
-            request.Reason,
-            null,
-            null,
-            now,
-            now);
+        var rollbackBoundaryEventId = rollbackBoundary?.CutoffEventId ?? existing.CutoffEventId;
+        var rollbackOccurredAtUtc = clock.UtcNow;
+        var ownershipRecord = existing with
+        {
+            TopicCode = topic.TopicCode,
+            CurrentOwner = EventDeliveryOwner.LegacyPolling,
+            PreviousOwner = EventDeliveryOwner.CdcKafka,
+            Reason = request.Reason,
+            RollbackBoundaryEventId = rollbackBoundaryEventId,
+            RollbackOccurredAtUtc = rollbackOccurredAtUtc,
+            UpdatedAtUtc = rollbackOccurredAtUtc,
+        };
         await ownershipStore.UpsertAsync(ownershipRecord, cancellationToken).ConfigureAwait(false);
 
         await domainAuditWriter.WriteAsync(
                 new MessagingDomainAuditWrite(
-                    MessagingDomainAuditActionKeys.DeliveryCutover,
-                    cutoffEventId != Guid.Empty ? cutoffEventId : idGenerator.NewId(),
+                    MessagingDomainAuditActionKeys.DeliveryRollback,
+                    rollbackBoundaryEventId != Guid.Empty
+                        ? rollbackBoundaryEventId
+                        : idGenerator.NewId(),
                     TenantId: null,
                     MessagingDomainAuditOutcomes.Success,
                     ActorUserId: null,
@@ -139,8 +122,8 @@ internal sealed class DeliveryCutoverService(
                             schemaVersion = request.SchemaVersion,
                             currentOwner = currentOwner.ToString(),
                             targetOwner = request.TargetOwner.ToString(),
-                            cutoffEventId,
-                            cutoffOccurredAtUtc,
+                            rollbackBoundaryEventId,
+                            rollbackOccurredAtUtc,
                             reason = request.Reason,
                             ownershipPersisted = true,
                         },
@@ -148,14 +131,14 @@ internal sealed class DeliveryCutoverService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return Result<DeliveryCutoverResponse>.Success(
-            new DeliveryCutoverResponse(
+        return Result<DeliveryRollbackResponse>.Success(
+            new DeliveryRollbackResponse(
                 request.EventType,
                 request.SchemaVersion,
                 currentOwner,
                 request.TargetOwner,
                 OwnershipPersisted: true,
-                cutoffEventId,
-                cutoffOccurredAtUtc));
+                rollbackBoundaryEventId,
+                rollbackOccurredAtUtc));
     }
 }

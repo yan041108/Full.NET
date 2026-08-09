@@ -26,6 +26,19 @@ public sealed class IntegrationEventSubscriptionCatalogTests
     }
 
     [TestMethod]
+    public void ResolveDeliveryOwner_uses_persisted_owner_when_present()
+    {
+        var topic = CreateTopic(EventDeliveryOwner.LegacyPolling);
+        var catalog = new IntegrationEventSubscriptionCatalog([topic], []);
+        Assert.AreEqual(
+            EventDeliveryOwner.CdcKafka,
+            catalog.ResolveDeliveryOwner(EventType, 1, EventDeliveryOwner.CdcKafka));
+        Assert.AreEqual(
+            EventDeliveryOwner.LegacyPolling,
+            catalog.ResolveDeliveryOwner(EventType, 1, null));
+    }
+
+    [TestMethod]
     public void Create_rejects_duplicate_consumer_name_registration()
     {
         var topic = CreateTopic(EventDeliveryOwner.LegacyPolling);

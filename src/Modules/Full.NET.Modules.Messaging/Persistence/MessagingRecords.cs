@@ -11,6 +11,26 @@ internal sealed record DeadLetterRecord(
     string? LastErrorCode,
     string? LastError);
 
+internal sealed record OutboxStreamCutoffRecord(
+    Guid CutoffEventId,
+    DateTimeOffset CutoffOccurredAtUtc);
+
+internal sealed record EventStreamOwnershipPersistenceRow(
+    string MessageType,
+    int SchemaVersion,
+    string TopicCode,
+    sbyte CurrentOwner,
+    sbyte PreviousOwner,
+    Guid CutoffEventId,
+    DateTimeOffset CutoffOccurredAtUtc,
+    string? CdcSourcePositionJson,
+    Guid? OperatorUserId,
+    string Reason,
+    Guid? RollbackBoundaryEventId,
+    DateTimeOffset? RollbackOccurredAtUtc,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc);
+
 internal sealed record OutboxEnvelopeRecord(
     Guid Id,
     string MessageType,

@@ -11,6 +11,7 @@ namespace Full.NET.Modules.Messaging.Serialization;
 [JsonSerializable(typeof(DeadLetterReplayResponse))]
 [JsonSerializable(typeof(DeadLetterResponse))]
 [JsonSerializable(typeof(DeliveryCutoverResponse))]
+[JsonSerializable(typeof(DeliveryRollbackResponse))]
 [JsonSerializable(typeof(DeliveryStatusResponse))]
 [JsonSerializable(typeof(EventDeliveryOwner))]
 [JsonSerializable(typeof(EventStreamStatusResponse))]

@@ -76,6 +76,22 @@ public sealed class IntegrationEventSubscriptionCatalog
     }
 
     /// <summary>
+    /// 在目录默认所有权之上叠加持久化切流记录，得到运行时有效所有权。
+    /// </summary>
+    public EventDeliveryOwner ResolveDeliveryOwner(
+        string eventType,
+        int schemaVersion,
+        EventDeliveryOwner? persistedCurrentOwner)
+    {
+        if (persistedCurrentOwner is EventDeliveryOwner owner)
+        {
+            return owner;
+        }
+
+        return GetDeliveryOwner(eventType, schemaVersion);
+    }
+
+    /// <summary>
     /// 查询事件流绑定的 Topic 目录条目。
     /// </summary>
     public IntegrationEventTopicDefinition GetTopicRequired(

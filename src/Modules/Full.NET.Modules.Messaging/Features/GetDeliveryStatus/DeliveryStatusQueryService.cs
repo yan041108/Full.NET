@@ -7,7 +7,7 @@ namespace Full.NET.Modules.Messaging.Features.GetDeliveryStatus;
 
 internal sealed class DeliveryStatusQueryService(
     IOutboxBacklogReader backlogReader,
-    IntegrationEventSubscriptionCatalog catalog,
+    IEffectiveEventDeliveryOwnerResolver ownerResolver,
     IEnumerable<IntegrationEventTopicDefinition> topics)
 {
     private readonly IReadOnlyList<IntegrationEventTopicDefinition> _topics = topics.ToArray();
@@ -15,15 +15,19 @@ internal sealed class DeliveryStatusQueryService(
     public async Task<Result<DeliveryStatusResponse>> GetAsync(CancellationToken cancellationToken)
     {
         var backlog = await backlogReader.ReadBacklogAsync(cancellationToken).ConfigureAwait(false);
-        var streams = _topics
-            .Select(topic => new EventStreamStatusResponse(
+        var streams = new List<EventStreamStatusResponse>(_topics.Count);
+        foreach (var topic in _topics.OrderBy(t => t.EventType, StringComparer.Ordinal)
+            .ThenBy(t => t.SchemaVersion))
+        {
+            var owner = await ownerResolver
+                .GetDeliveryOwnerAsync(topic.EventType, topic.SchemaVersion, cancellationToken)
+                .ConfigureAwait(false);
+            streams.Add(new EventStreamStatusResponse(
                 topic.EventType,
                 topic.SchemaVersion,
                 topic.TopicCode,
-                catalog.GetDeliveryOwner(topic.EventType, topic.SchemaVersion)))
-            .OrderBy(stream => stream.EventType, StringComparer.Ordinal)
-            .ThenBy(stream => stream.SchemaVersion)
-            .ToArray();
+                owner));
+        }
 
         return Result<DeliveryStatusResponse>.Success(
             new DeliveryStatusResponse(

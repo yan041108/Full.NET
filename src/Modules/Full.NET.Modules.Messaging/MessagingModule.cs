@@ -1,14 +1,18 @@
 using Full.NET.Abstractions.Auditing;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
+using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Messaging.Auditing;
+using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner;
 using Full.NET.Modules.Messaging.Features.GetDeadLetters;
 using Full.NET.Modules.Messaging.Features.GetDeliveryStatus;
 using Full.NET.Modules.Messaging.Features.ReplayDeadLetter;
+using Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
 using Full.NET.Modules.Messaging.Persistence;
 using Full.NET.Modules.Messaging.Serialization;
 using Microsoft.AspNetCore.Builder;
@@ -29,6 +33,7 @@ public sealed class MessagingModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        RegisterMessagingCore(services);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             MessagingAuthorizationContributor>());
@@ -36,6 +41,7 @@ public sealed class MessagingModule : IFullNetModule
         services.TryAddScoped<DeadLetterReplayService>();
         services.TryAddScoped<DeliveryStatusQueryService>();
         services.TryAddScoped<DeliveryCutoverService>();
+        services.TryAddScoped<DeliveryRollbackService>();
         services.TryAddScoped<
             ITransactionalDomainAuditWriter<MessagingDomainAuditWrite>,
             MessagingDomainAuditWriter>();
@@ -50,7 +56,19 @@ public sealed class MessagingModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        RegisterMessagingCore(services);
         RegisterSubscriptionCatalog(services);
+    }
+
+    private static void RegisterMessagingCore(IServiceCollection services)
+    {
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IntegrationEventTopicDefinition>(
+                _ => MessagingTopicDefinitions.OrganizationUnitChanged));
+        services.TryAddScoped<EventStreamOwnershipStore>();
+        services.TryAddScoped<IEventStreamOwnershipStore>(
+            provider => provider.GetRequiredService<EventStreamOwnershipStore>());
+        services.TryAddScoped<IEffectiveEventDeliveryOwnerResolver, EffectiveEventDeliveryOwnerResolver>();
     }
 
     private static void RegisterSubscriptionCatalog(IServiceCollection services)
@@ -68,5 +86,6 @@ public sealed class MessagingModule : IFullNetModule
         Features.ReplayDeadLetter.Endpoint.Map(endpoints);
         Features.GetDeliveryStatus.Endpoint.Map(endpoints);
         Features.ChangeDeliveryOwner.Endpoint.Map(endpoints);
+        Features.RollbackDeliveryOwner.Endpoint.Map(endpoints);
     }
 }

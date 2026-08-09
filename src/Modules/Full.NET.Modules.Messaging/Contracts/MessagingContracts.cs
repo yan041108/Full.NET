@@ -12,6 +12,8 @@ public static class MessagingPermissions
     public const string DeadLettersReplay = "messaging.dead_letters.replay";
 
     public const string DeliveryCutover = "messaging.delivery.cutover";
+
+    public const string DeliveryRollback = "messaging.delivery.rollback";
 }
 
 public static class MessagingErrorCodes
@@ -29,6 +31,10 @@ public static class MessagingErrorCodes
     public const string CutoverPreconditionFailed = "messaging.delivery.cutover_precondition_failed";
 
     public const string InvalidCutoverTarget = "messaging.delivery.invalid_cutover_target";
+
+    public const string InvalidRollbackTarget = "messaging.delivery.invalid_rollback_target";
+
+    public const string RollbackPreconditionFailed = "messaging.delivery.rollback_precondition_failed";
 
     public const string ReasonRequired = "messaging.delivery.reason_required";
 }
@@ -87,4 +93,15 @@ public sealed record DeliveryCutoverResponse(
     int SchemaVersion,
     EventDeliveryOwner CurrentOwner,
     EventDeliveryOwner TargetOwner,
-    bool OwnershipPersisted);
+    bool OwnershipPersisted,
+    Guid CutoffEventId,
+    DateTimeOffset CutoffOccurredAtUtc);
+
+public sealed record DeliveryRollbackResponse(
+    string EventType,
+    int SchemaVersion,
+    EventDeliveryOwner CurrentOwner,
+    EventDeliveryOwner TargetOwner,
+    bool OwnershipPersisted,
+    Guid RollbackBoundaryEventId,
+    DateTimeOffset RollbackOccurredAtUtc);

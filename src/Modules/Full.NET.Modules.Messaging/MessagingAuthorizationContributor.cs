@@ -26,6 +26,10 @@ internal sealed class MessagingAuthorizationContributor : IAuthorizationCatalogC
             MessagingPermissions.DeliveryCutover,
             "切换事件交付所有权",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            MessagingPermissions.DeliveryRollback,
+            "回退事件交付所有权",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -59,5 +63,12 @@ internal sealed class MessagingAuthorizationContributor : IAuthorizationCatalogC
             "切换交付所有权",
             "cutover",
             20),
+        new AuthorizationActionDefinition(
+            "messaging.delivery.rollback",
+            "host-messaging-ops",
+            MessagingPermissions.DeliveryRollback,
+            "回退交付所有权",
+            "rollback",
+            30),
     ];
 }

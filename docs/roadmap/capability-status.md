@@ -24,7 +24,7 @@
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |
 | 事务 Outbox、租约、重试与死信 | Build-verified | 仅承载需要事务原子性的重要 Integration Event；缓存失效、日志、Trace、Metrics 与普通审计禁止进入 Outbox。 |
-| CDC Relay / Kafka | Designing | 已由 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)批准提前分阶段建设，不引入 CAP/MassTransit；当前仅完成规则、ADR、Spec 与 Cursor 实施计划，代码、双库 CDC、Kafka/Inbox 和生产切流均未实现，详见[实施计划](../superpowers/plans/2026-08-08-transactional-outbox-cdc-kafka.md)。 |
+| CDC Relay / Kafka | Build-verified / Pilot | 追加式 Outbox、Inbox、Kafka Consumer、影子比对、运维 API 与单流试点切流/回退已在双库集成测试中验证；试点流为 `fullnet.organization.unit.changed` schema 1。生产默认仍为 `LegacyPolling`；端到端 CDC lag、Soak、N+1 与生产切流见 [`cdc-kafka-pilot-2026-08-08`](../verification/cdc-kafka-pilot-2026-08-08.md) 与 [`cdc-kafka-event-delivery`](../operations/cdc-kafka-event-delivery.md)。 |
 | FusionCache 多实例缓存治理 | Build-verified | 当前写路径使用提交后本实例 L1/L2 删除、Redis Backplane 与 TTL/版本兜底；Tenancy 与 Grid Preference 已纳入统一策略注册表，Architecture 手工策略 allowlist 为零；旧缓存事件处理器只作兼容排空。 |
 | 健康检查与运行角色就绪探针 | Build-verified | API、Worker、Migrator 和关键基础设施有独立就绪语义；生产阈值仍由环境配置验收。 |
 | HTTP 状态码、ProblemDetails 与兼容包络 | Build-verified | 标准 API 默认采用状态码与 ProblemDetails；Admin.NET 包络仅允许存在于兼容适配层。 |

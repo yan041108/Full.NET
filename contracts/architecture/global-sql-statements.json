@@ -623,6 +623,75 @@
       ]
     },
     {
+      "statementName": "messaging.stream_ownership.find_by_stream",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.FindByStream",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "试点切流在 Host 上下文读取单条事件流所有权记录。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership.list",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.ListAll",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "消息运维查询全部事件流所有权目录。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership.insert",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "切流 API 在 Host 上下文持久化新的交付所有权。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_stream_ownership",
+        "CurrentOwner",
+        "CutoffEventId"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership.update",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.Update",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "回退 API 在 Host 上下文更新交付所有权与回退边界。",
+      "requiredSqlFragments": [
+        "UPDATE fn_messaging_stream_ownership",
+        "RollbackBoundaryEventId"
+      ]
+    },
+    {
+      "statementName": "messaging.outbox.find_last_by_stream.sqlserver",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.FindLastOutboxEventByStreamSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "切流前记录 append-only Outbox 最后事件作为 CDC 边界。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_outbox_event",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.outbox.find_last_by_stream.mysql",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.FindLastOutboxEventByStreamMySql",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 成对查询 append-only Outbox 切流边界事件。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_outbox_event",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
       "statementName": "serial_numbers.rule.find_by_key",
       "declaration": "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.FindRuleByKey",
       "file": "src/Modules/Full.NET.Modules.SerialNumbers/Persistence/SerialNumberSql.cs",

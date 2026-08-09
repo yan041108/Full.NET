@@ -96,6 +96,9 @@ public static class OutboxDeadLetterReasons
 
     /// <summary>瞬时失败累计达到上限，需人工介入后再重放。</summary>
     public const string MaxAttemptsExceeded = "outbox.max_attempts_exceeded";
+
+    /// <summary>事件流已切离旧轮询所有权，Legacy Worker 不得再消费。</summary>
+    public const string LegacyOwnerRevoked = "outbox.legacy_owner_revoked";
 }
 
 public sealed class OutboxConcurrencyException(Guid id, Guid lockId)

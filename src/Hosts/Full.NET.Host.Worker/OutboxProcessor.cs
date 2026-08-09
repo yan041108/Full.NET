@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Messaging.Abstractions;
 using Microsoft.Extensions.Options;
 using global::MessagePack;
 
@@ -73,6 +74,8 @@ internal sealed class OutboxProcessor(
                     var handlers = services
                         .GetServices<IIntegrationEventHandler>()
                         .ToArray();
+                    var ownerResolver = services
+                        .GetService<IEffectiveEventDeliveryOwnerResolver>();
                     return await ProcessBatchWithLeaseRenewalAsync(
                             messages,
                             async (
@@ -85,6 +88,7 @@ internal sealed class OutboxProcessor(
                                             message,
                                             handlers,
                                             store,
+                                            ownerResolver,
                                             batchCancellationToken)
                                         .ConfigureAwait(false);
                                 }
@@ -165,6 +169,7 @@ internal sealed class OutboxProcessor(
         OutboxEnvelope message,
         IReadOnlyCollection<IIntegrationEventHandler> handlers,
         IOutboxStore store,
+        IEffectiveEventDeliveryOwnerResolver? ownerResolver,
         CancellationToken cancellationToken)
     {
         try
@@ -177,6 +182,21 @@ internal sealed class OutboxProcessor(
                 throw new OutboxPermanentException(
                     OutboxDeadLetterReasons.UnsupportedContentType,
                     $"Unsupported Outbox content type '{message.ContentType}'.");
+            }
+
+            var deliveryOwner = ownerResolver is null
+                ? EventDeliveryOwner.LegacyPolling
+                : await ownerResolver
+                    .GetDeliveryOwnerAsync(
+                        message.MessageType,
+                        message.SchemaVersion,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            if (deliveryOwner is not EventDeliveryOwner.LegacyPolling)
+            {
+                throw new OutboxPermanentException(
+                    OutboxDeadLetterReasons.LegacyOwnerRevoked,
+                    $"Legacy polling no longer owns '{message.MessageType}' schema {message.SchemaVersion}.");
             }
 
             var matchingHandlers = IntegrationEventHandlerMatcher.Match(
@@ -462,10 +482,12 @@ internal sealed class OutboxProcessor(
                 .GetServices<IIntegrationEventHandler>()
                 .ToArray();
             var store = services.GetRequiredService<IOutboxStore>();
+            var ownerResolver = services.GetService<IEffectiveEventDeliveryOwnerResolver>();
             await ProcessMessageAsync(
                     message,
                     handlers,
                     store,
+                    ownerResolver,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
