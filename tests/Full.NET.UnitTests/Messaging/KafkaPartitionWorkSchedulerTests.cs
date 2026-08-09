@@ -7,6 +7,106 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class KafkaPartitionWorkSchedulerTests
 {
     [TestMethod]
+    public async Task Same_partition_runs_different_key_slots_in_parallel()
+    {
+        var keys = Enumerable.Range(0, 100)
+            .Select(index => $"aggregate-{index}")
+            .GroupBy(key => KafkaPartitionKeySlotSelector.SelectSlot(key, 2))
+            .Select(group => group.First())
+            .Take(2)
+            .ToArray();
+        Assert.HasCount(2, keys);
+        var started = new[] { NewSignal(), NewSignal() };
+        var release = NewSignal();
+        var call = 0;
+        await using var scheduler = new KafkaPartitionWorkScheduler(
+            async (_, cancellationToken) =>
+            {
+                started[Interlocked.Increment(ref call) - 1].TrySetResult();
+                await release.Task.WaitAsync(cancellationToken);
+                return true;
+            },
+            CreateParallelOptions());
+
+        Assert.IsTrue(scheduler.TrySchedule(CreateResult(0, 10, keys[0]), assignmentEpoch: 1));
+        Assert.IsTrue(scheduler.TrySchedule(CreateResult(0, 11, keys[1]), assignmentEpoch: 1));
+        await Task.WhenAll(started.Select(signal => signal.Task)).WaitAsync(TimeSpan.FromSeconds(2));
+
+        release.TrySetResult();
+        Assert.HasCount(2, await ReadCompletionsAsync(scheduler, 2));
+    }
+
+    [TestMethod]
+    public async Task Same_key_is_serial_even_when_partition_has_multiple_slots()
+    {
+        var firstStarted = NewSignal();
+        var secondStarted = NewSignal();
+        var releaseFirst = NewSignal();
+        var call = 0;
+        await using var scheduler = new KafkaPartitionWorkScheduler(
+            async (_, cancellationToken) =>
+            {
+                if (Interlocked.Increment(ref call) == 1)
+                {
+                    firstStarted.TrySetResult();
+                    await releaseFirst.Task.WaitAsync(cancellationToken);
+                }
+                else
+                {
+                    secondStarted.TrySetResult();
+                }
+
+                return true;
+            },
+            CreateParallelOptions());
+
+        Assert.IsTrue(scheduler.TrySchedule(CreateResult(0, 20, "same-key"), assignmentEpoch: 1));
+        Assert.IsTrue(scheduler.TrySchedule(CreateResult(0, 21, "same-key"), assignmentEpoch: 1));
+        await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await Assert.ThrowsExactlyAsync<TimeoutException>(
+            () => secondStarted.Task.WaitAsync(TimeSpan.FromMilliseconds(100)));
+
+        releaseFirst.TrySetResult();
+        await secondStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.HasCount(2, await ReadCompletionsAsync(scheduler, 2));
+    }
+
+    [TestMethod]
+    public async Task Failed_message_cancels_queued_same_key_before_it_enters_handler()
+    {
+        var firstStarted = NewSignal();
+        var releaseFailure = NewSignal();
+        var calls = 0;
+        await using var scheduler = new KafkaPartitionWorkScheduler(
+            async (_, cancellationToken) =>
+            {
+                Interlocked.Increment(ref calls);
+                firstStarted.TrySetResult();
+                await releaseFailure.Task.WaitAsync(cancellationToken);
+                return false;
+            },
+            CreateParallelOptions());
+
+        Assert.IsTrue(scheduler.TrySchedule(CreateResult(0, 30, "same-key"), assignmentEpoch: 1));
+        Assert.IsTrue(scheduler.TrySchedule(CreateResult(0, 31, "same-key"), assignmentEpoch: 1));
+        await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        releaseFailure.TrySetResult();
+
+        var completion = await scheduler.ReadCompletionAsync(CancellationToken.None)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(2));
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (scheduler.InFlightCount != 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.IsFalse(completion.ShouldCommit);
+        Assert.AreEqual(1, Volatile.Read(ref calls));
+        Assert.AreEqual(0, scheduler.InFlightCount);
+    }
+
+    [TestMethod]
     public async Task Different_partitions_run_in_parallel_while_each_partition_has_one_bounded_slot()
     {
         var firstStarted = NewSignal();
@@ -33,6 +133,31 @@ public sealed class KafkaPartitionWorkSchedulerTests
 
         Assert.AreEqual(2, completions.Count);
         Assert.IsTrue(completions.All(result => result.ShouldCommit));
+    }
+
+    [TestMethod]
+    public async Task Processing_state_callback_observes_handler_start_and_completion()
+    {
+        var started = NewSignal();
+        var release = NewSignal();
+        var states = new System.Collections.Concurrent.ConcurrentQueue<(int Inflight, int BufferDepth)>();
+        await using var scheduler = new KafkaPartitionWorkScheduler(
+            async (_, cancellationToken) =>
+            {
+                started.TrySetResult();
+                await release.Task.WaitAsync(cancellationToken);
+                return true;
+            },
+            new KafkaMessagingOptions(),
+            (_, inflight, bufferDepth) => states.Enqueue((inflight, bufferDepth)));
+
+        Assert.IsTrue(scheduler.TrySchedule(CreateResult(0, 40), assignmentEpoch: 1));
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.IsTrue(states.Any(state => state == (1, 0)));
+
+        release.TrySetResult();
+        await scheduler.ReadCompletionAsync(CancellationToken.None);
+        Assert.IsTrue(states.Any(state => state == (0, 0)));
     }
 
     [TestMethod]
@@ -115,7 +240,20 @@ public sealed class KafkaPartitionWorkSchedulerTests
         return results;
     }
 
-    private static ConsumeResult<string, byte[]> CreateResult(int partition, long offset) =>
+    private static KafkaMessagingOptions CreateParallelOptions() =>
+        new()
+        {
+            ConsumerBufferHighWatermark = 8,
+            ConsumerBufferLowWatermark = 4,
+            PartitionBufferHighWatermark = 4,
+            PartitionBufferLowWatermark = 1,
+            PartitionKeyConcurrencySlots = 2,
+        };
+
+    private static ConsumeResult<string, byte[]> CreateResult(
+        int partition,
+        long offset,
+        string? key = null) =>
         new()
         {
             Topic = "fullnet.test.events.v1",
@@ -123,7 +261,7 @@ public sealed class KafkaPartitionWorkSchedulerTests
             Offset = offset,
             Message = new Message<string, byte[]>
             {
-                Key = $"aggregate-{partition}",
+                Key = key ?? $"aggregate-{partition}",
                 Value = [0x01],
             },
         };

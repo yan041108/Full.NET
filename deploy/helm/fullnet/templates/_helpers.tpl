@@ -98,6 +98,20 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- fail "worker.hpa.customMetrics requires adapterInstalledAndVerified=true with a verified Metrics Adapter query/metricName." -}}
 {{- end -}}
 
+{{- if .Values.api.kafkaReplay.enabled -}}
+  {{- if not .Values.roles.api -}}
+    {{- fail "api.kafkaReplay.enabled=true is valid only for the API role release." -}}
+  {{- end -}}
+  {{- if eq .Values.api.kafkaReplay.bootstrapSecretName "" -}}
+    {{- fail "api.kafkaReplay.bootstrapSecretName is required when API Kafka replay is enabled." -}}
+  {{- end -}}
+  {{- if eq .Values.api.kafkaReplay.securityProtocol "SaslSsl" -}}
+    {{- if or (eq .Values.api.kafkaReplay.saslMechanism "") (eq .Values.api.kafkaReplay.saslUsernameSecretName "") (eq .Values.api.kafkaReplay.saslPasswordSecretName "") -}}
+      {{- fail "api.kafkaReplay SaslSsl requires saslMechanism and username/password Secret names." -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
 {{- $affinityOptional := and (eq .Values.realtime.transportMode "WebSocketsOnly") .Values.realtime.skipNegotiation -}}
 {{- if and (not .Values.realtime.requireSessionAffinity) (not $affinityOptional) -}}
   {{- fail "realtime.requireSessionAffinity may be false only when transportMode=WebSocketsOnly and skipNegotiation=true." -}}
@@ -124,6 +138,27 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and .Values.roles.worker (eq .Values.worker.messaging.mode "CdcKafka") -}}
   {{- if eq .Values.worker.messaging.kafka.bootstrapSecretName "" -}}
     {{- fail "worker.messaging.kafka.bootstrapSecretName is required when worker.messaging.mode is CdcKafka." -}}
+  {{- end -}}
+  {{- if and (eq .Values.worker.messaging.kafka.consumerGroupProtocol "Consumer") (lt (.Values.worker.messaging.kafka.brokerMajorVersion | int) 4) -}}
+    {{- fail "worker.messaging.kafka.brokerMajorVersion must be at least 4 when consumerGroupProtocol is Consumer." -}}
+  {{- end -}}
+  {{- if and (eq .Values.worker.messaging.kafka.classicPartitionAssignment "CooperativeSticky") (not .Values.worker.messaging.kafka.cooperativeStickyMigrationCompleted) -}}
+    {{- fail "worker.messaging.kafka.cooperativeStickyMigrationCompleted=true is required before enabling CooperativeSticky." -}}
+  {{- end -}}
+  {{- if lt (.Values.worker.messaging.kafka.producerQueueMaxKbytes | int) 1024 -}}
+    {{- fail "worker.messaging.kafka.producerQueueMaxKbytes must be at least 1024 KiB." -}}
+  {{- end -}}
+  {{- if ge (.Values.worker.messaging.kafka.consumerBufferLowWatermark | int) (.Values.worker.messaging.kafka.consumerBufferHighWatermark | int) -}}
+    {{- fail "worker.messaging.kafka.consumerBufferLowWatermark must be less than consumerBufferHighWatermark." -}}
+  {{- end -}}
+  {{- if ge (.Values.worker.messaging.kafka.partitionBufferLowWatermark | int) (.Values.worker.messaging.kafka.partitionBufferHighWatermark | int) -}}
+    {{- fail "worker.messaging.kafka.partitionBufferLowWatermark must be less than partitionBufferHighWatermark." -}}
+  {{- end -}}
+  {{- if gt (.Values.worker.messaging.kafka.partitionKeyConcurrencySlots | int) (.Values.worker.messaging.kafka.partitionBufferHighWatermark | int) -}}
+    {{- fail "worker.messaging.kafka.partitionKeyConcurrencySlots cannot exceed partitionBufferHighWatermark." -}}
+  {{- end -}}
+  {{- if and .Values.production (eq .Values.worker.messaging.kafka.offsetCommitMode "PeriodicWatermark") (not .Values.worker.messaging.kafka.periodicOffsetCommitVerified) -}}
+    {{- fail "worker.messaging.kafka.periodicOffsetCommitVerified=true is required before PeriodicWatermark in production." -}}
   {{- end -}}
 {{- end -}}
 

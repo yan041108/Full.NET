@@ -27,6 +27,22 @@ public sealed class IntegrationEventSubscriptionCatalogTests
     }
 
     [TestMethod]
+    public void Generated_handler_type_resolves_the_same_scoped_subscription_instance()
+    {
+        var subscription = new TestSubscription(
+            "fullnet.tenancy.projector-a",
+            EventType,
+            1);
+        var catalog = new IntegrationEventSubscriptionCatalog(
+            [CreateTopic(EventDeliveryOwner.CdcKafka)],
+            [subscription]);
+
+        Assert.AreSame(
+            subscription,
+            catalog.GetByHandlerTypeRequired(typeof(TestSubscription)));
+    }
+
+    [TestMethod]
     public void ResolveDeliveryOwner_uses_persisted_owner_when_present()
     {
         var topic = CreateTopic(EventDeliveryOwner.LegacyPolling);
@@ -37,6 +53,17 @@ public sealed class IntegrationEventSubscriptionCatalogTests
         Assert.AreEqual(
             EventDeliveryOwner.LegacyPolling,
             catalog.ResolveDeliveryOwner(EventType, 1, null));
+    }
+
+    [TestMethod]
+    public void GetTopicByCodeRequired_resolves_only_registered_topic()
+    {
+        var topic = CreateTopic(EventDeliveryOwner.CdcKafka);
+        var catalog = new IntegrationEventSubscriptionCatalog([topic], []);
+
+        Assert.AreSame(topic, catalog.GetTopicByCodeRequired(TopicCode));
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            catalog.GetTopicByCodeRequired("tenancy.unknown.v1"));
     }
 
     [TestMethod]

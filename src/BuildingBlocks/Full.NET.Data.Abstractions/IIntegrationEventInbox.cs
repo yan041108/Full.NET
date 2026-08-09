@@ -8,6 +8,14 @@ namespace Full.NET.Data.Abstractions;
 public interface IIntegrationEventInbox
 {
     /// <summary>
+    /// 一次只读查询预检最多 100 条消息；该结果不是锁、租约或事务 Claim。
+    /// </summary>
+    Task<IReadOnlyList<InboxPrecheckResult>> PrecheckBatchAsync(
+        string consumerName,
+        IReadOnlyList<InboxMessageFingerprint> messages,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// 在当前事务内声明 <paramref name="consumerName"/> 对 Envelope 的处理权。
     /// </summary>
     /// <remarks>

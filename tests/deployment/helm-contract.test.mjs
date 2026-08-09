@@ -62,6 +62,11 @@ test('values encode production replica, HPA, MaxConcurrency and budget keys', as
   assert.match(values, /maxConcurrency:\s*1/);
   assert.match(values, /messaging:/);
   assert.match(values, /mode:\s*LegacyPolling/);
+  assert.match(values, /consumerBufferHighWatermark:\s*256/);
+  assert.match(values, /partitionKeyConcurrencySlots:\s*1/);
+  assert.match(values, /offsetCommitMode:\s*PerMessage/);
+  assert.match(values, /maximumSynchronousMessages:\s*1000/);
+  assert.match(values, /executionTimeoutSeconds:\s*45/);
   assert.match(values, /databaseConnectionBudget:/);
   assert.match(values, /apiMaxPoolSize:/);
   assert.match(values, /workerMaxPoolSize:/);

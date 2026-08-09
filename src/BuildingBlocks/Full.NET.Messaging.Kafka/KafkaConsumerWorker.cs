@@ -109,7 +109,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             .SetPartitionsRevokedHandler((_, offsets) =>
                 coordinator?.OnRevoked(offsets.Select(offset => offset.TopicPartition)))
             .SetPartitionsLostHandler((_, offsets) =>
-                coordinator?.OnRevoked(offsets.Select(offset => offset.TopicPartition)));
+                coordinator?.OnLost(offsets.Select(offset => offset.TopicPartition)));
         using var consumer = builder.Build();
         await using var scheduler = new KafkaPartitionWorkScheduler(
             async (consumeResult, partitionCancellationToken) =>
@@ -117,12 +117,29 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                 using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
                     stoppingToken,
                     partitionCancellationToken);
+                KafkaDeliveryHeaders.TryReadHeader(
+                    consumeResult.Message.Headers,
+                    KafkaEnvelopeHeaderNames.TraceParent,
+                    out var traceParent);
+                using var activity = KafkaMessagingTelemetry.StartConsumeActivity(
+                    plan.ResolveTopicCode(consumeResult.Topic),
+                    plan.ConsumerName,
+                    consumeResult.Partition.Value,
+                    consumeResult.Offset.Value,
+                    traceParent);
                 return await ProcessScheduledMessageAsync(
                         plan,
                         consumeResult,
                         linkedCancellation.Token)
                     .ConfigureAwait(false);
-            });
+            },
+            _options,
+            (sequence, inflight, bufferDepth) => KafkaMessagingTelemetry.UpdateProcessingState(
+                ProviderCode,
+                plan.ConsumerName,
+                sequence,
+                inflight,
+                bufferDepth));
         coordinator = new KafkaConsumerPartitionCoordinator(
             consumer,
             scheduler,
@@ -196,6 +213,8 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             {
                 _logger.LogDebug(exception, "Kafka consumer close failed for group {ConsumerName}.", plan.ConsumerName);
             }
+
+            KafkaMessagingTelemetry.RemoveConsumerState(plan.ConsumerName);
         }
     }
 
@@ -277,7 +296,9 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             // 2) 每个 Scope 的 Inbox 事务状态与 Handler 状态相互隔离，保证消息幂等处理语义。
             var catalog = scope.ServiceProvider
                 .GetRequiredService<IIntegrationEventSubscriptionCatalog>();
-            var subscription = catalog.GetRequired(
+            var subscription = ResolveSubscription(
+                scope.ServiceProvider,
+                catalog,
                 plan.ConsumerName,
                 envelope.MessageType,
                 envelope.SchemaVersion);
@@ -286,6 +307,10 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             var inboxResult = await dispatcher
                 .ConsumeAsync(plan.ConsumerName, envelope, subscription, cancellationToken)
                 .ConfigureAwait(false);
+            plan.SetOwnershipRevoked(envelope.MessageType, envelope.SchemaVersion, false);
+            KafkaMessagingTelemetry.SetOwnershipRevoked(
+                plan.ConsumerName,
+                plan.HasOwnershipRevoked);
 
             if (_committer.ShouldCommit(inboxResult))
             {
@@ -312,6 +337,10 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         }
         catch (EventDeliveryOwnershipRevokedException exception)
         {
+            plan.SetOwnershipRevoked(envelope.MessageType, envelope.SchemaVersion, true);
+            KafkaMessagingTelemetry.SetOwnershipRevoked(
+                plan.ConsumerName,
+                plan.HasOwnershipRevoked);
             _logger.LogWarning(
                 exception,
                 "Kafka delivery is paused for consumer {ConsumerName} because stream ownership was revoked.",
@@ -432,9 +461,34 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         }
     }
 
+    internal static IIntegrationEventSubscription ResolveSubscription(
+        IServiceProvider serviceProvider,
+        IIntegrationEventSubscriptionCatalog catalog,
+        string consumerName,
+        string messageType,
+        int schemaVersion)
+    {
+        foreach (var registry in serviceProvider.GetServices<IIntegrationEventHandlerRegistry>())
+        {
+            if (registry.TryResolve(
+                    messageType,
+                    schemaVersion,
+                    consumerName,
+                    out var descriptor))
+            {
+                return catalog.GetByHandlerTypeRequired(descriptor.HandlerType);
+            }
+        }
+
+        // 插件和测试订阅可暂时使用显式 Catalog；生产模块优先走编译期注册表。
+        return catalog.GetRequired(consumerName, messageType, schemaVersion);
+    }
+
     private sealed class ConsumerGroupPlan
     {
         private readonly HashSet<(string EventType, int SchemaVersion)> _routes = [];
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<
+            (string EventType, int SchemaVersion), byte> _revokedRoutes = [];
 
         public ConsumerGroupPlan(string consumerName)
         {
@@ -444,6 +498,8 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         public string ConsumerName { get; }
 
         public HashSet<string> TopicCodes { get; } = new(StringComparer.Ordinal);
+
+        public bool HasOwnershipRevoked => !_revokedRoutes.IsEmpty;
 
         public void AddRoute(IIntegrationEventSubscription subscription, string topicCode)
         {
@@ -455,6 +511,22 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             string eventType,
             int schemaVersion) =>
             _routes.Contains((eventType, schemaVersion));
+
+        public void SetOwnershipRevoked(
+            string eventType,
+            int schemaVersion,
+            bool revoked)
+        {
+            var route = (eventType, schemaVersion);
+            if (revoked)
+            {
+                _revokedRoutes.TryAdd(route, 0);
+            }
+            else
+            {
+                _revokedRoutes.TryRemove(route, out _);
+            }
+        }
 
         public string ResolveTopicCode(string topic) => KafkaTopicNames.ResolveBaseTopic(topic);
     }

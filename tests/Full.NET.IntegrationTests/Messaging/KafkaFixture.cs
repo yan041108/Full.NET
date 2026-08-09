@@ -49,9 +49,17 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
         return new ProducerBuilder<string, byte[]>(options.BuildProducerConfig()).Build();
     }
 
-    public IConsumer<string, byte[]> CreateConsumer(string groupId, string clientId)
+    public IConsumer<string, byte[]> CreateConsumer(
+        string groupId,
+        string clientId,
+        string? consumerInstanceId = null)
     {
         var options = CreateOptions(clientId);
+        if (!string.IsNullOrWhiteSpace(consumerInstanceId))
+        {
+            options.ConsumerInstanceId = consumerInstanceId;
+        }
+
         return new ConsumerBuilder<string, byte[]>(options.BuildConsumerConfig(groupId)).Build();
     }
 

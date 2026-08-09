@@ -68,7 +68,11 @@ public sealed class KafkaDeliveryHeadersTests
     [TestMethod]
     public void Retry_hops_preserve_original_source_position_for_dead_letter_traceability()
     {
-        var headers = new Headers();
+        var traceParent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        var headers = new Headers
+        {
+            new(KafkaEnvelopeHeaderNames.TraceParent, System.Text.Encoding.UTF8.GetBytes(traceParent)),
+        };
         var failure = new IntegrationEventFailure(
             IntegrationEventFailureKind.Transient,
             IntegrationEventFailureCodes.TransientPrefix + "database",
@@ -114,6 +118,26 @@ public sealed class KafkaDeliveryHeadersTests
         Assert.AreEqual("fullnet.test.events.v1", sourceTopic);
         Assert.AreEqual("3", sourcePartition);
         Assert.AreEqual("41", sourceOffset);
+        Assert.IsTrue(KafkaDeliveryHeaders.TryReadHeader(
+            headers,
+            KafkaDeliveryHeaderNames.FirstFailedAtUtc,
+            out var firstFailedAt));
+        Assert.IsTrue(KafkaDeliveryHeaders.TryReadHeader(
+            headers,
+            KafkaDeliveryHeaderNames.LastFailedAtUtc,
+            out var lastFailedAt));
+        Assert.IsTrue(DateTimeOffset.TryParse(firstFailedAt, out _));
+        Assert.IsTrue(DateTimeOffset.TryParse(lastFailedAt, out _));
+        Assert.IsTrue(KafkaDeliveryHeaders.TryReadHeader(
+            headers,
+            KafkaEnvelopeHeaderNames.TraceParent,
+            out var preservedTraceParent));
+        Assert.AreEqual(traceParent, preservedTraceParent);
+        Assert.IsTrue(KafkaDeliveryHeaders.TryReadHeader(
+            headers,
+            KafkaDeliveryHeaderNames.FailureCode,
+            out var failureCode));
+        Assert.AreEqual(failure.Code, failureCode);
     }
 
     private static ConsumeResult<string, byte[]> CreateConsumeResult(

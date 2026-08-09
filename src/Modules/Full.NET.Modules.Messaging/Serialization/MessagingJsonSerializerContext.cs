@@ -15,6 +15,8 @@ namespace Full.NET.Modules.Messaging.Serialization;
 [JsonSerializable(typeof(DeliveryStatusResponse))]
 [JsonSerializable(typeof(EventDeliveryOwner))]
 [JsonSerializable(typeof(EventStreamStatusResponse))]
+[JsonSerializable(typeof(KafkaRangeReplayRequest))]
+[JsonSerializable(typeof(KafkaRangeReplayResponse))]
 [JsonSerializable(typeof(OutboxBacklogSummaryResponse))]
 [JsonSerializable(typeof(PagedResult<DeadLetterResponse>))]
 [JsonSerializable(typeof(ReplayDeadLetterRequest))]

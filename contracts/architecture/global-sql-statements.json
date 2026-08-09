@@ -1058,6 +1058,30 @@
       ]
     },
     {
+      "statementName": "messaging.inbox.precheck_batch.my_sql",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxBatchPrecheckSql.MySql",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxBatchPrecheckSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Inbox 批量预检按显式 ConsumerName 与 MessageId 集合读取跨租户可靠交付记录；它只返回去重状态，不授予 Claim 或事务所有权。",
+      "requiredSqlFragments": [
+        "FROM JSON_TABLE(",
+        "inbox.ConsumerName = @ConsumerName",
+        "inbox.MessageId = UUID_TO_BIN(requested.MessageIdText, 0)"
+      ]
+    },
+    {
+      "statementName": "messaging.inbox.precheck_batch.sql_server",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxBatchPrecheckSql.SqlServer",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxBatchPrecheckSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Inbox 批量预检按显式 ConsumerName 与 MessageId 集合读取跨租户可靠交付记录；它只返回去重状态，不授予 Claim 或事务所有权。",
+      "requiredSqlFragments": [
+        "FROM OPENJSON(@MessagesJson)",
+        "inbox.ConsumerName = @ConsumerName",
+        "inbox.MessageId = requested.MessageId"
+      ]
+    },
+    {
       "statementName": "tenancy.tenant.find_summary_by_identifier",
       "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.FindSummaryByIdentifier",
       "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",

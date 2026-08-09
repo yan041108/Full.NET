@@ -19,6 +19,10 @@ namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 /// 容器无法按"具体实现类型"直接解析（TryAddEnumerable 不注册 Self 描述符），
 /// 所以 Kafka 订阅从 IEnumerable 中找到匹配 EventType 的那个。
 /// </remarks>
+[IntegrationEventSubscription(
+    "fullnet.identity.organization-unit-projection",
+    IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged,
+    1)]
 internal sealed class OrganizationUnitChangedKafkaSubscription(
     IEnumerable<IIntegrationEventHandler> handlers)
     : IIntegrationEventSubscription

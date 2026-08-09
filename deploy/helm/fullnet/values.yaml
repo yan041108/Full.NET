@@ -100,6 +100,19 @@ applicationRateLimiting:
 
 api:
   replicaCount: 3
+  kafkaReplay:
+    # 同步范围重放默认关闭；启用时必须单独提供 API 角色可读的 Kafka Secret。
+    enabled: false
+    bootstrapSecretName: ""
+    bootstrapSecretKey: bootstrapServers
+    securityProtocol: Ssl
+    saslMechanism: ""
+    saslUsernameSecretName: ""
+    saslUsernameSecretKey: username
+    saslPasswordSecretName: ""
+    saslPasswordSecretKey: password
+    maximumSynchronousMessages: 1000
+    executionTimeoutSeconds: 45
   terminationGracePeriodSeconds: 60
   preStopSleepSeconds: 10
   resources:
@@ -152,6 +165,24 @@ worker:
     kafka:
       bootstrapSecretName: ""
       bootstrapSecretKey: bootstrapServers
+      consumerGroupProtocol: Classic
+      brokerMajorVersion: 4
+      classicPartitionAssignment: LegacyRange
+      cooperativeStickyMigrationCompleted: false
+      producerLingerMilliseconds: 5
+      producerBatchSizeBytes: 65536
+      producerQueueMaxMessages: 20000
+      producerQueueMaxKbytes: 65536
+      producerMaxInFlightRequests: 5
+      consumerBufferHighWatermark: 256
+      consumerBufferLowWatermark: 128
+      partitionBufferHighWatermark: 1
+      partitionBufferLowWatermark: 0
+      partitionKeyConcurrencySlots: 1
+      offsetCommitMode: PerMessage
+      offsetCommitIntervalMilliseconds: 1000
+      offsetCommitBatchSize: 100
+      periodicOffsetCommitVerified: false
   terminationGracePeriodSeconds: 90
   preStopSleepSeconds: 15
   resources:

@@ -14,7 +14,8 @@ public sealed class IntegrationEventConsumerDispatcher(
     IntegrationEventSubscriptionCatalog catalog,
     IEventStreamOwnershipGate ownershipGate,
     IEffectiveEventDeliveryOwnerResolver ownerResolver,
-    CurrentTenantAccessor currentTenant)
+    CurrentTenantAccessor currentTenant,
+    IEnumerable<IIntegrationEventHandlerRegistry>? handlerRegistries = null)
 {
     public async Task<InboxConsumeResult> ConsumeAsync(
         string consumerName,
@@ -34,19 +35,40 @@ public sealed class IntegrationEventConsumerDispatcher(
                 "The supplied integration event subscription does not match the consume route.");
         }
 
-        var registered = catalog.GetRequired(
-            consumerName,
+        var generated = TryResolveGenerated(
             envelope.MessageType,
-            envelope.SchemaVersion);
-        if (!ReferenceEquals(registered, handler))
+            envelope.SchemaVersion,
+            consumerName);
+        if (generated is IntegrationEventHandlerDescriptor descriptor)
         {
-            throw new InvalidOperationException(
-                "The supplied integration event subscription does not match the catalog registration.");
+            var registered = catalog.GetByHandlerTypeRequired(descriptor.HandlerType);
+            if (!ReferenceEquals(registered, handler))
+            {
+                throw new InvalidOperationException(
+                    "The supplied integration event subscription does not match the generated registration.");
+            }
+        }
+        else
+        {
+            // 插件与测试订阅可能未启用生成器，显式 Catalog 是唯一兼容回退，不扫描程序集。
+            var registered = catalog.GetRequired(
+                consumerName,
+                envelope.MessageType,
+                envelope.SchemaVersion);
+            if (!ReferenceEquals(registered, handler))
+            {
+                throw new InvalidOperationException(
+                    "The supplied integration event subscription does not match the catalog registration.");
+            }
         }
 
         RestoreTenantFromEnvelope(envelope);
         try
         {
+            using var activity = IntegrationEventConsumerTelemetry.StartTransaction(
+                consumerName,
+                envelope.MessageType,
+                envelope.SchemaVersion);
             return await commandTransaction.ExecuteAsync(
                     async ct => await ConsumeInTransactionAsync(
                         consumerName,
@@ -60,6 +82,31 @@ public sealed class IntegrationEventConsumerDispatcher(
         {
             currentTenant.Clear();
         }
+    }
+
+    private IntegrationEventHandlerDescriptor? TryResolveGenerated(
+        string messageType,
+        int schemaVersion,
+        string consumerName)
+    {
+        if (handlerRegistries is null)
+        {
+            return null;
+        }
+
+        foreach (var registry in handlerRegistries)
+        {
+            if (registry.TryResolve(
+                    messageType,
+                    schemaVersion,
+                    consumerName,
+                    out var descriptor))
+            {
+                return descriptor;
+            }
+        }
+
+        return null;
     }
 
     private async Task<InboxConsumeResult> ConsumeInTransactionAsync(

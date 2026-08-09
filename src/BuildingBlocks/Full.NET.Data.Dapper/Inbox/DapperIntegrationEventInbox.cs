@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
@@ -14,20 +16,72 @@ internal sealed class DapperIntegrationEventInbox(
 {
     private readonly DatabaseOptions _databaseOptions = databaseOptions.Value;
 
+    public async Task<IReadOnlyList<InboxPrecheckResult>> PrecheckBatchAsync(
+        string consumerName,
+        IReadOnlyList<InboxMessageFingerprint> messages,
+        CancellationToken cancellationToken)
+    {
+        ValidateConsumerName(consumerName);
+        ArgumentNullException.ThrowIfNull(messages);
+        if (messages.Count > 100)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(messages),
+                "Inbox batch precheck accepts at most 100 messages.");
+        }
+
+        if (messages.Count == 0)
+        {
+            return [];
+        }
+
+        if (messages.Select(message => message.MessageId).Distinct().Count() != messages.Count)
+        {
+            throw new ArgumentException(
+                "Inbox batch precheck cannot contain duplicate MessageId values.",
+                nameof(messages));
+        }
+
+        var statement = _databaseOptions.Provider switch
+        {
+            DatabaseProvider.SqlServer => InboxBatchPrecheckSql.SqlServer,
+            DatabaseProvider.MySql => InboxBatchPrecheckSql.MySql,
+            _ => throw new NotSupportedException(
+                $"Database provider '{_databaseOptions.Provider}' is not supported."),
+        };
+        var rows = await queryExecutor.QueryAsync<InboxBatchPrecheckRow>(
+                statement,
+                new
+                {
+                    ConsumerName = consumerName,
+                    MessagesJson = BuildMessagesJson(messages),
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (rows.Count != messages.Count
+            || rows.Select(row => row.Ordinal).Distinct().Count() != messages.Count
+            || rows.Any(row => row.Ordinal < 0 || row.Ordinal >= messages.Count))
+        {
+            throw new InvalidOperationException(
+                "Inbox batch precheck did not return one unique row for every input message.");
+        }
+
+        var rowsByOrdinal = rows.ToDictionary(row => row.Ordinal);
+        return messages.Select((message, ordinal) =>
+        {
+            var row = rowsByOrdinal[ordinal];
+            var status = ClassifyPrecheck(message, row);
+            return new InboxPrecheckResult(message.MessageId, status);
+        }).ToArray();
+    }
+
     public async Task<InboxClaimResult> ClaimAsync(
         string consumerName,
         IntegrationEventEnvelope envelope,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(consumerName);
+        ValidateConsumerName(consumerName);
         ArgumentNullException.ThrowIfNull(envelope);
-        if (consumerName.Length > MessagingNames.ConsumerNameMaxLength
-            || !MessagingNames.ConsumerNamePattern.IsMatch(consumerName))
-        {
-            throw new ArgumentException(
-                IntegrationEventFailureCodes.ConsumerNameInvalid,
-                nameof(consumerName));
-        }
 
         var payloadHash = SHA256.HashData(envelope.Payload.Span);
         var claimStatement = _databaseOptions.Provider switch
@@ -108,6 +162,63 @@ internal sealed class DapperIntegrationEventInbox(
         {
             throw new InvalidOperationException(
                 $"Inbox mark processed affected {affected} rows instead of one.");
+        }
+    }
+
+    private static InboxPrecheckStatus ClassifyPrecheck(
+        InboxMessageFingerprint message,
+        InboxBatchPrecheckRow row)
+    {
+        if (row.Status is null)
+        {
+            return InboxPrecheckStatus.Unknown;
+        }
+
+        if (row.PayloadHash is null)
+        {
+            throw new InvalidOperationException(
+                "Inbox batch precheck returned an existing row without PayloadHash.");
+        }
+
+        if (!message.PayloadHash.Span.SequenceEqual(row.PayloadHash))
+        {
+            return InboxPrecheckStatus.PayloadMismatch;
+        }
+
+        return string.Equals(row.Status, InboxSql.StatusProcessed, StringComparison.Ordinal)
+            ? InboxPrecheckStatus.AlreadyProcessed
+            : InboxPrecheckStatus.Unknown;
+    }
+
+    private static string BuildMessagesJson(IReadOnlyList<InboxMessageFingerprint> messages)
+    {
+        using var stream = new MemoryStream(messages.Count * 80);
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartArray();
+            for (var ordinal = 0; ordinal < messages.Count; ordinal++)
+            {
+                writer.WriteStartObject();
+                writer.WriteNumber("ordinal", ordinal);
+                writer.WriteString("messageId", messages[ordinal].MessageId);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+        }
+
+        return Encoding.UTF8.GetString(stream.GetBuffer(), 0, checked((int)stream.Length));
+    }
+
+    private static void ValidateConsumerName(string consumerName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(consumerName);
+        if (consumerName.Length > MessagingNames.ConsumerNameMaxLength
+            || !MessagingNames.ConsumerNamePattern.IsMatch(consumerName))
+        {
+            throw new ArgumentException(
+                IntegrationEventFailureCodes.ConsumerNameInvalid,
+                nameof(consumerName));
         }
     }
 }

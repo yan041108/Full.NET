@@ -1,4 +1,5 @@
 using Dapper;
+using System.Security.Cryptography;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Messaging.Abstractions;
@@ -10,6 +11,81 @@ namespace Full.NET.IntegrationTests.Messaging;
 [TestClass]
 public sealed class MessagingInboxSqlServerTests
 {
+    [TestMethod]
+    public async Task SqlServer_inbox_batch_precheck_is_read_only_and_classifies_existing_hashes()
+    {
+        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        var options = CreateOptions(connectionString);
+        await MessagingOutboxTestSupport.MigrateAsync(options);
+        var unknown = Guid.CreateVersion7();
+        var processed = Guid.CreateVersion7();
+        var mismatch = Guid.CreateVersion7();
+        var processedHash = SHA256.HashData([0x41]);
+
+        await using (var connection = new SqlConnection(connectionString))
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO dbo.fn_messaging_inbox_message
+                    (ConsumerName, MessageId, MessageType, SchemaVersion, TenantId,
+                     PayloadHash, Status, Attempts, ReceivedAtUtc, ProcessedAtUtc)
+                VALUES
+                    (@ConsumerName, @Processed, @MessageType, 1, NULL,
+                     @ProcessedHash, 'processed', 1, SYSDATETIMEOFFSET(), SYSDATETIMEOFFSET()),
+                    (@ConsumerName, @Mismatch, @MessageType, 1, NULL,
+                     @MismatchHash, 'processed', 1, SYSDATETIMEOFFSET(), SYSDATETIMEOFFSET())
+                """,
+                new
+                {
+                    ConsumerName = MessagingInboxTestSupport.ConsumerName,
+                    Processed = processed,
+                    Mismatch = mismatch,
+                    MessageType = MessagingOutboxTestSupport.TestEventType,
+                    ProcessedHash = processedHash,
+                    MismatchHash = new byte[32],
+                });
+        }
+
+        await using var services = MessagingInboxTestSupport.BuildInboxServices(
+            MessagingOutboxTestSupport.CreateConfiguration(options));
+        await using var scope = services.CreateAsyncScope();
+        var inbox = scope.ServiceProvider.GetRequiredService<IIntegrationEventInbox>();
+        var results = await inbox.PrecheckBatchAsync(
+            MessagingInboxTestSupport.ConsumerName,
+            [
+                new InboxMessageFingerprint(unknown, SHA256.HashData([0x40])),
+                new InboxMessageFingerprint(processed, processedHash),
+                new InboxMessageFingerprint(mismatch, SHA256.HashData([0x42])),
+            ],
+            CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                InboxPrecheckStatus.Unknown,
+                InboxPrecheckStatus.AlreadyProcessed,
+                InboxPrecheckStatus.PayloadMismatch,
+            },
+            results.Select(result => result.Status).ToArray());
+        await using var verify = new SqlConnection(connectionString);
+        await MessagingInboxAssertions.AssertInboxCountSqlServerAsync(
+            verify,
+            MessagingInboxTestSupport.ConsumerName,
+            unknown,
+            0);
+    }
+
+    [TestMethod]
+    public async Task SqlServer_inbox_batch_precheck_does_not_replace_transactional_claim()
+    {
+        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        var options = CreateOptions(connectionString);
+        await MessagingOutboxTestSupport.MigrateAsync(options);
+
+        await MessagingInboxTestSupport.AssertPrecheckDoesNotOwnClaimAsync(
+            MessagingOutboxTestSupport.CreateConfiguration(options));
+    }
+
     [TestMethod]
     public async Task SqlServer_inbox_first_processing_marks_processed_and_writes_downstream_outbox()
     {

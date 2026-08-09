@@ -6,6 +6,7 @@
 - 适用范围：Full.NET 可靠业务 Integration Event 的生产、捕获、发布、订阅、幂等、死信、重放、运维和迁移
 - 正式规格：[事务 Outbox、CDC Relay 与 Kafka 事件交付规格](../../superpowers/specs/2026-08-08-transactional-outbox-cdc-kafka-design.md)
 - 实施计划：[事务 Outbox、CDC Relay 与 Kafka 实施计划](../../superpowers/plans/2026-08-08-transactional-outbox-cdc-kafka.md)
+- Consumer 协议迁移：[Kafka Consumer Group 协议与 Assignor 迁移](../../operations/kafka-consumer-protocol-migration.md)
 - 替代关系：替代 [`ADR-0005`](ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md) 中“只有生产等价轮询瓶颈出现后才进入 Kafka/CDC Decision Gate”的时间门禁；ADR-0005 的模块化单体、事务、缓存、Audit、容量和生产认证边界继续有效
 
 ## 背景
@@ -34,6 +35,10 @@ SQL Server CDC 由 SQL Server Agent 从事务日志捕获变更并写入 CDC 变
 
 SQL Server 内部日志格式不构成 Full.NET 可承担的稳定公共契约，自研日志读取器会扩大数据丢失、版本兼容和恢复风险，因此拒绝。CDC 捕获采用数据库官方能力，连接器优先采用 Debezium；Full.NET 自研范围止于事件契约、Provider 边界、Inbox、消费管道、治理和运维集成。
 
+### 方案五：引入 Wolverine 作为运行时消息框架
+
+Wolverine 提供成熟的 Inbox/Outbox、Kafka、重试、死信、重放、代码生成和可观测能力，适合作为行为完整性与性能对标对象；但其 Durable Outbox 由数据库持久化与 Durability Agent 协调，不能替代本决策用 CDC 移除应用层 Outbox 热表轮询的目标。Full.NET 因此不引入 `WolverineFx*` 运行时依赖，继续维护自有主链路，并分阶段吸收经过双库、Kafka 故障矩阵和生产等价负载验证的设计。
+
 ## 决策
 
 ### 1. 技术与依赖
@@ -43,6 +48,7 @@ SQL Server 内部日志格式不构成 Full.NET 可承担的稳定公共契约�
 3. .NET Kafka Provider 使用 `Confluent.Kafka` `2.15.0`，通过 Full.NET 自有抽象暴露；业务模块不得直接引用 Kafka 客户端。
 4. 本地集成测试使用 `Testcontainers.Kafka` `4.13.0`；数据库继续使用当前 SQL Server/MySQL Testcontainers。
 5. 不引入 CAP、MassTransit、Confluent 商业 Schema Registry 或 Confluent 商业运行时作为默认依赖。Schema Registry 只有在 MessagePack 契约治理无法满足真实跨语言消费者时才另行决策。
+6. Wolverine 只作为成熟参考实现和性能对标对象，不进入生产依赖图；对标必须同时比较吞吐、P95/P99、数据库往返、重复投递、恢复时间和资源上限，禁止只比较理想路径 QPS。
 
 上述版本是首次实施基线，不表示永久锁死；任何升级都必须经中央包管理、镜像摘要、漏洞、许可和兼容验证。
 
@@ -148,3 +154,5 @@ API 只写 Outbox，因此短时 Broker 故障不阻塞请求；但 Outbox、事
 - [Debezium MySQL Connector](https://debezium.io/documentation/reference/3.4/connectors/mysql.html)
 - [Debezium Outbox Event Router](https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html)
 - [Apache Kafka Producer Configuration](https://kafka.apache.org/40/configuration/producer-configs/)
+- [Wolverine Durable Messaging](https://wolverinefx.net/guide/durability/)
+- [Wolverine Kafka Transport](https://wolverinefx.net/guide/messaging/transports/kafka)

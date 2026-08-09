@@ -51,6 +51,48 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.worker.messaging.kafka.bootstrapSecretName }}
                   key: {{ .Values.worker.messaging.kafka.bootstrapSecretKey }}
+            - name: Messaging__Kafka__ClientId
+              value: {{ printf "%s-worker" (include "fullnet.fullname" .) | quote }}
+            - name: Messaging__Kafka__ConsumerInstanceId
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: Messaging__Kafka__ConsumerGroupProtocol
+              value: {{ .Values.worker.messaging.kafka.consumerGroupProtocol | quote }}
+            - name: Messaging__Kafka__BrokerMajorVersion
+              value: {{ .Values.worker.messaging.kafka.brokerMajorVersion | quote }}
+            - name: Messaging__Kafka__ClassicPartitionAssignment
+              value: {{ .Values.worker.messaging.kafka.classicPartitionAssignment | quote }}
+            - name: Messaging__Kafka__CooperativeStickyMigrationCompleted
+              value: {{ .Values.worker.messaging.kafka.cooperativeStickyMigrationCompleted | quote }}
+            - name: Messaging__Kafka__ProducerLingerMilliseconds
+              value: {{ .Values.worker.messaging.kafka.producerLingerMilliseconds | quote }}
+            - name: Messaging__Kafka__ProducerBatchSizeBytes
+              value: {{ .Values.worker.messaging.kafka.producerBatchSizeBytes | quote }}
+            - name: Messaging__Kafka__ProducerQueueMaxMessages
+              value: {{ .Values.worker.messaging.kafka.producerQueueMaxMessages | quote }}
+            - name: Messaging__Kafka__ProducerQueueMaxKbytes
+              value: {{ .Values.worker.messaging.kafka.producerQueueMaxKbytes | quote }}
+            - name: Messaging__Kafka__ProducerMaxInFlightRequests
+              value: {{ .Values.worker.messaging.kafka.producerMaxInFlightRequests | quote }}
+            - name: Messaging__Kafka__ConsumerBufferHighWatermark
+              value: {{ .Values.worker.messaging.kafka.consumerBufferHighWatermark | quote }}
+            - name: Messaging__Kafka__ConsumerBufferLowWatermark
+              value: {{ .Values.worker.messaging.kafka.consumerBufferLowWatermark | quote }}
+            - name: Messaging__Kafka__PartitionBufferHighWatermark
+              value: {{ .Values.worker.messaging.kafka.partitionBufferHighWatermark | quote }}
+            - name: Messaging__Kafka__PartitionBufferLowWatermark
+              value: {{ .Values.worker.messaging.kafka.partitionBufferLowWatermark | quote }}
+            - name: Messaging__Kafka__PartitionKeyConcurrencySlots
+              value: {{ .Values.worker.messaging.kafka.partitionKeyConcurrencySlots | quote }}
+            - name: Messaging__Kafka__OffsetCommitMode
+              value: {{ .Values.worker.messaging.kafka.offsetCommitMode | quote }}
+            - name: Messaging__Kafka__OffsetCommitIntervalMilliseconds
+              value: {{ .Values.worker.messaging.kafka.offsetCommitIntervalMilliseconds | quote }}
+            - name: Messaging__Kafka__OffsetCommitBatchSize
+              value: {{ .Values.worker.messaging.kafka.offsetCommitBatchSize | quote }}
+            - name: Messaging__Kafka__PeriodicOffsetCommitVerified
+              value: {{ .Values.worker.messaging.kafka.periodicOffsetCommitVerified | quote }}
 {{- end }}
             - name: Cache__RedisConnectionString
               valueFrom:

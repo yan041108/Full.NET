@@ -54,10 +54,13 @@ internal sealed class KafkaPartitionOffsetTracker
 
         if (!shouldCommit)
         {
-            state.Pending.RemoveRange(index, state.Pending.Count - index);
+            // 较晚消息可能先失败，而更早消息仍在执行。此时必须回退到当前最早未决
+            // Offset；若只 Seek 失败项，提升 epoch 后更早完成会变 stale 并被跳过。
+            var retryOffset = state.Pending[0].Offset;
+            state.Pending.Clear();
             return new KafkaPartitionOffsetDecision(
                 null,
-                offset,
+                retryOffset,
                 IsStale: false);
         }
 

@@ -69,6 +69,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<KafkaMessagingProducer>();
         services.TryAddSingleton<KafkaRetryRouter>();
         services.TryAddSingleton<KafkaDeadLetterPublisher>();
+        services.TryAddSingleton<IKafkaReplayConsumerFactory, KafkaReplayConsumerFactory>();
+        services.TryAddScoped<IKafkaReplayMessageProcessor, KafkaReplayMessageProcessor>();
+        services.TryAddScoped<IKafkaReplayService, KafkaReplayService>();
         services.TryAddSingleton<KafkaHealthCheck>();
         services.AddHealthChecks()
             .Add(new HealthCheckRegistration(
@@ -93,6 +96,40 @@ public static class ServiceCollectionExtensions
             services.AddHostedService<KafkaConsumerWorker>();
         }
 
+        return services;
+    }
+
+    /// <summary>
+    /// 仅为 API/CLI 注册一次性范围重放能力，不启动常驻 Consumer Worker。
+    /// </summary>
+    public static IServiceCollection AddFullNetKafkaReplayOperations(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+        services.AddOptions<KafkaMessagingOptions>()
+            .Bind(configuration.GetSection(KafkaMessagingOptions.SectionName));
+        services.AddOptions<KafkaReplayOperationsOptions>()
+            .Bind(configuration.GetSection(KafkaReplayOperationsOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<KafkaReplayOperationsOptions>,
+            KafkaReplayOperationsOptionsValidator>());
+        services.TryAddSingleton(serviceProvider =>
+        {
+            var replayOptions = serviceProvider
+                .GetRequiredService<IOptions<KafkaReplayOperationsOptions>>()
+                .Value;
+            return new KafkaReplayExecutionPolicy(
+                replayOptions.Enabled,
+                replayOptions.MaximumSynchronousMessages,
+                TimeSpan.FromSeconds(replayOptions.ExecutionTimeoutSeconds));
+        });
+        services.TryAddSingleton<KafkaEnvelopeReader>();
+        services.TryAddSingleton<IKafkaReplayConsumerFactory, KafkaReplayConsumerFactory>();
+        services.TryAddScoped<IKafkaReplayMessageProcessor, KafkaReplayMessageProcessor>();
+        services.TryAddScoped<IKafkaReplayService, KafkaReplayService>();
         return services;
     }
 }

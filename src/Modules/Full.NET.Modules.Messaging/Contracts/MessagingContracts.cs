@@ -11,6 +11,8 @@ public static class MessagingPermissions
 
     public const string DeadLettersReplay = "messaging.dead_letters.replay";
 
+    public const string KafkaRangeReplay = "messaging.kafka.range_replay";
+
     public const string DeliveryCutover = "messaging.delivery.cutover";
 
     public const string DeliveryRollback = "messaging.delivery.rollback";
@@ -39,6 +41,13 @@ public static class MessagingErrorCodes
     public const string ReasonRequired = "messaging.delivery.reason_required";
 
     public const string CutoverConcurrencyConflict = "messaging.delivery.cutover_concurrency_conflict";
+
+    public const string KafkaReplayRequestInvalid = "messaging.kafka.replay_request_invalid";
+
+    public const string KafkaReplayUnavailable = "messaging.kafka.replay_unavailable";
+
+    public const string KafkaReplaySynchronousLimitExceeded =
+        "messaging.kafka.replay_synchronous_limit_exceeded";
 }
 
 public static class DeadLetterReplayOutcomes
@@ -65,6 +74,24 @@ public sealed record DeadLetterReplayResponse(
     Guid MessageId,
     string ConsumerName,
     string Outcome);
+
+public sealed record KafkaRangeReplayRequest(
+    string TopicCode,
+    DateTimeOffset? FromTimestampUtc,
+    DateTimeOffset? ToTimestampUtc,
+    long? FromOffset,
+    long? ToOffset,
+    IReadOnlyList<int> Partitions,
+    string ReplayConsumerName,
+    int MaxMessages,
+    string Reason);
+
+public sealed record KafkaRangeReplayResponse(
+    int ScannedMessages,
+    int ProcessedMessages,
+    int AlreadyProcessedMessages,
+    int RejectedMessages,
+    bool LimitReached);
 
 public sealed record OutboxBacklogSummaryResponse(
     long PendingCount,

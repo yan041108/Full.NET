@@ -13,6 +13,94 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class DapperIntegrationEventInboxTests
 {
     [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer, "messaging.inbox.precheck_batch.sql_server")]
+    [DataRow(DatabaseProvider.MySql, "messaging.inbox.precheck_batch.my_sql")]
+    public async Task PrecheckBatch_classifies_unknown_processed_and_payload_mismatch_in_one_roundtrip(
+        DatabaseProvider provider,
+        string expectedStatementName)
+    {
+        var unknown = Guid.CreateVersion7();
+        var processed = Guid.CreateVersion7();
+        var mismatch = Guid.CreateVersion7();
+        var processedHash = SHA256.HashData([0x02]);
+        var query = Substitute.For<IQueryExecutor>();
+        query.QueryAsync<InboxBatchPrecheckRow>(
+                Arg.Any<SqlStatement>(),
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new InboxBatchPrecheckRow(0, null, null),
+                new InboxBatchPrecheckRow(1, InboxSql.StatusProcessed, processedHash),
+                new InboxBatchPrecheckRow(2, InboxSql.StatusProcessed, new byte[32]),
+            ]);
+        var inbox = CreateInbox(provider, query, Substitute.For<ICommandExecutor>());
+
+        var results = await inbox.PrecheckBatchAsync(
+            "fullnet.messaging.inbox.test",
+            [
+                new InboxMessageFingerprint(unknown, SHA256.HashData([0x01])),
+                new InboxMessageFingerprint(processed, processedHash),
+                new InboxMessageFingerprint(mismatch, SHA256.HashData([0x03])),
+            ],
+            CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                InboxPrecheckStatus.Unknown,
+                InboxPrecheckStatus.AlreadyProcessed,
+                InboxPrecheckStatus.PayloadMismatch,
+            },
+            results.Select(result => result.Status).ToArray());
+        await query.Received(1).QueryAsync<InboxBatchPrecheckRow>(
+            Arg.Is<SqlStatement>(statement => statement != null && statement.Name == expectedStatementName),
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task PrecheckBatch_rejects_duplicate_message_ids_before_database_access()
+    {
+        var messageId = Guid.CreateVersion7();
+        var query = Substitute.For<IQueryExecutor>();
+        var inbox = CreateInbox(
+            DatabaseProvider.SqlServer,
+            query,
+            Substitute.For<ICommandExecutor>());
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => inbox.PrecheckBatchAsync(
+            "fullnet.messaging.inbox.test",
+            [
+                new InboxMessageFingerprint(messageId, SHA256.HashData([0x01])),
+                new InboxMessageFingerprint(messageId, SHA256.HashData([0x01])),
+            ],
+            CancellationToken.None));
+
+        await query.DidNotReceiveWithAnyArgs().QueryAsync<InboxBatchPrecheckRow>(
+            default!,
+            default,
+            default);
+    }
+
+    [TestMethod]
+    public async Task PrecheckBatch_rejects_more_than_one_hundred_messages()
+    {
+        var inbox = CreateInbox(
+            DatabaseProvider.MySql,
+            Substitute.For<IQueryExecutor>(),
+            Substitute.For<ICommandExecutor>());
+        var messages = Enumerable.Range(0, 101)
+            .Select(index => new InboxMessageFingerprint(Guid.CreateVersion7(), SHA256.HashData(BitConverter.GetBytes(index))))
+            .ToArray();
+
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => inbox.PrecheckBatchAsync(
+            "fullnet.messaging.inbox.test",
+            messages,
+            CancellationToken.None));
+    }
+
+    [TestMethod]
     [DataRow(DatabaseProvider.SqlServer, "messaging.inbox.claim.sql_server")]
     [DataRow(DatabaseProvider.MySql, "messaging.inbox.claim.my_sql")]
     public async Task Claim_uses_one_database_roundtrip_for_new_delivery(

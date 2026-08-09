@@ -1,0 +1,5 @@
+api:
+  kafkaReplay:
+    enabled: true
+    bootstrapSecretName: fullnet-kafka
+    securityProtocol: SaslSsl

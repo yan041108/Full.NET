@@ -7,6 +7,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Serialization.MessagePack;
+using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -83,6 +84,50 @@ internal static class MessagingInboxTestSupport
             "fullnet.messaging.tests",
             DateTimeOffset.UtcNow,
             payload);
+
+    internal static async Task AssertPrecheckDoesNotOwnClaimAsync(
+        IConfiguration configuration)
+    {
+        var eventId = Guid.CreateVersion7();
+        var envelope = CreateEnvelope([0x71, 0x72], eventId);
+        await using var services = BuildInboxServices(configuration);
+
+        await using var precheckScope = services.CreateAsyncScope();
+        var precheckInbox = precheckScope.ServiceProvider
+            .GetRequiredService<IIntegrationEventInbox>();
+        var precheck = await precheckInbox.PrecheckBatchAsync(
+            ConsumerName,
+            [new InboxMessageFingerprint(eventId, SHA256.HashData(envelope.Payload.Span))],
+            CancellationToken.None);
+        Assert.AreEqual(InboxPrecheckStatus.Unknown, precheck.Single().Status);
+
+        // 模拟预检之后、正式 Claim 之前由另一消费者先提交；预检结果不得充当锁或所有权。
+        await using (var competingScope = services.CreateAsyncScope())
+        {
+            var competingSubscription = new NoOpSubscription();
+            var competingResult = await CreateDispatcher(
+                    competingScope,
+                    competingSubscription)
+                .ConsumeAsync(
+                    ConsumerName,
+                    envelope,
+                    competingSubscription,
+                    CancellationToken.None);
+            Assert.AreEqual(InboxConsumeStatus.Processed, competingResult.Status);
+        }
+
+        var originalSubscription = new NoOpSubscription();
+        var originalResult = await CreateDispatcher(
+                precheckScope,
+                originalSubscription)
+            .ConsumeAsync(
+                ConsumerName,
+                envelope,
+                originalSubscription,
+                CancellationToken.None);
+        Assert.AreEqual(InboxConsumeStatus.AlreadyProcessed, originalResult.Status);
+        Assert.IsFalse(originalSubscription.Handled);
+    }
 
     private sealed class CdcOwnershipGate : IEventStreamOwnershipGate
     {
@@ -175,6 +220,8 @@ internal static class MessagingInboxTestSupport
 
     internal sealed class NoOpSubscription : IIntegrationEventSubscription
     {
+        public bool Handled { get; private set; }
+
         public string ConsumerName => MessagingInboxTestSupport.ConsumerName;
 
         public string EventType => MessagingOutboxTestSupport.TestEventType;
@@ -187,7 +234,10 @@ internal static class MessagingInboxTestSupport
         public Task HandleAsync(
             IntegrationEventContext context,
             ReadOnlyMemory<byte> payload,
-            CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+            CancellationToken cancellationToken)
+        {
+            Handled = true;
+            return Task.CompletedTask;
+        }
     }
 }

@@ -102,7 +102,9 @@ function validateRenderedManifest(name, content) {
   const requiredByName = {
     'api-sqlserver': ['Deployment', 'Service', 'Ingress', 'HorizontalPodAutoscaler', 'PodDisruptionBudget'],
     'api-mysql': ['Deployment', 'Service', 'Ingress'],
+    'api-kafka-replay': ['Deployment', 'Service', 'Ingress'],
     'worker-sqlserver': ['Deployment', 'HorizontalPodAutoscaler', 'PodDisruptionBudget'],
+    'worker-cdc-kafka': ['Deployment', 'HorizontalPodAutoscaler', 'PodDisruptionBudget'],
     'migrator-mysql': ['Job'],
   };
   for (const kind of requiredByName[name] ?? []) {
@@ -153,7 +155,23 @@ mustSucceed(
 const renderMatrix = [
   ['api-sqlserver', ['values-role-api.yaml', 'values-provider-sqlserver.yaml']],
   ['api-mysql', ['values-role-api.yaml', 'values-provider-mysql.yaml']],
+  [
+    'api-kafka-replay',
+    [
+      'values-role-api.yaml',
+      'values-provider-sqlserver.yaml',
+      'values-api-kafka-replay.yaml',
+    ],
+  ],
   ['worker-sqlserver', ['values-role-worker.yaml', 'values-provider-sqlserver.yaml']],
+  [
+    'worker-cdc-kafka',
+    [
+      'values-role-worker.yaml',
+      'values-provider-sqlserver.yaml',
+      'values-messaging-cdc-kafka.yaml',
+    ],
+  ],
   ['migrator-mysql', ['values-role-migrator.yaml', 'values-provider-mysql.yaml']],
 ];
 
@@ -167,12 +185,68 @@ for (const [name, files] of renderMatrix) {
   mustSucceed(`helm template ${name}`, result);
   fs.writeFileSync(outFile, result.stdout, 'utf8');
   validateRenderedManifest(name, result.stdout);
+  if (name === 'worker-cdc-kafka') {
+    const requiredKafkaFragments = [
+      'name: Messaging__Kafka__ConsumerInstanceId',
+      'fieldPath: metadata.name',
+      'name: Messaging__Kafka__ConsumerGroupProtocol',
+      'name: Messaging__Kafka__ClassicPartitionAssignment',
+      'name: Messaging__Kafka__CooperativeStickyMigrationCompleted',
+      'name: Messaging__Kafka__ProducerBatchSizeBytes',
+      'name: Messaging__Kafka__ProducerQueueMaxKbytes',
+      'name: Messaging__Kafka__ProducerMaxInFlightRequests',
+      'name: Messaging__Kafka__ConsumerBufferHighWatermark',
+      'name: Messaging__Kafka__PartitionBufferHighWatermark',
+      'name: Messaging__Kafka__PartitionKeyConcurrencySlots',
+      'name: Messaging__Kafka__OffsetCommitMode',
+    ];
+    for (const fragment of requiredKafkaFragments) {
+      if (!result.stdout.includes(fragment)) {
+        process.stderr.write(`${name}: missing rendered Kafka fragment ${fragment}\n`);
+        process.exit(1);
+      }
+    }
+  }
+  if (name === 'api-kafka-replay') {
+    const requiredReplayFragments = [
+      'name: Messaging__KafkaReplay__Enabled',
+      'name: Messaging__KafkaReplay__MaximumSynchronousMessages',
+      'name: Messaging__KafkaReplay__ExecutionTimeoutSeconds',
+      'name: Messaging__Kafka__BootstrapServers',
+      'name: Messaging__Kafka__ClientId',
+      'name: Messaging__Kafka__SecurityProtocol',
+    ];
+    for (const fragment of requiredReplayFragments) {
+      if (!result.stdout.includes(fragment)) {
+        process.stderr.write(`${name}: missing rendered replay fragment ${fragment}\n`);
+        process.exit(1);
+      }
+    }
+  }
   if (hasKubectl) {
     tryKubectlDryRun(name, outFile);
   }
 }
 
 const counterexamples = [
+  [
+    'api-kafka-replay-missing-secret',
+    [
+      'values-role-api.yaml',
+      'values-provider-sqlserver.yaml',
+      'values-api-kafka-replay-missing-secret.yaml',
+    ],
+    'api.kafkaReplay.bootstrapSecretName is required',
+  ],
+  [
+    'api-kafka-replay-sasl-invalid',
+    [
+      'values-role-api.yaml',
+      'values-provider-sqlserver.yaml',
+      'values-api-kafka-replay-sasl-invalid.yaml',
+    ],
+    'api.kafkaReplay SaslSsl requires',
+  ],
   [
     'budget-overrun',
     ['values-role-api.yaml', 'values-budget-overrun.yaml'],
@@ -202,6 +276,40 @@ const counterexamples = [
     'messaging-cdc-missing-kafka',
     ['values-role-worker.yaml', 'values-messaging-cdc-missing-kafka.yaml'],
     'worker.messaging.kafka.bootstrapSecretName is required when worker.messaging.mode is CdcKafka',
+  ],
+  [
+    'messaging-consumer-old-broker',
+    [
+      'values-role-worker.yaml',
+      'values-messaging-consumer-old-broker.yaml',
+    ],
+    'worker.messaging.kafka.brokerMajorVersion must be at least 4 when consumerGroupProtocol is Consumer',
+  ],
+  [
+    'messaging-cooperative-unmigrated',
+    [
+      'values-role-worker.yaml',
+      'values-messaging-cooperative-unmigrated.yaml',
+    ],
+    'worker.messaging.kafka.cooperativeStickyMigrationCompleted=true is required before enabling CooperativeSticky',
+  ],
+  [
+    'messaging-producer-queue-too-small',
+    [
+      'values-role-worker.yaml',
+      'values-messaging-producer-queue-too-small.yaml',
+    ],
+    'producerQueueMaxKbytes',
+  ],
+  [
+    'messaging-buffer-invalid',
+    ['values-role-worker.yaml', 'values-messaging-buffer-invalid.yaml'],
+    'consumerBufferLowWatermark must be less than consumerBufferHighWatermark',
+  ],
+  [
+    'messaging-periodic-unverified',
+    ['values-role-worker.yaml', 'values-messaging-periodic-unverified.yaml'],
+    'periodicOffsetCommitVerified=true is required before PeriodicWatermark in production',
   ],
 ];
 

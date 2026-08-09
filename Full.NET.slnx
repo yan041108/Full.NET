@@ -35,8 +35,12 @@
     <Project Path="src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj" />
     <Project Path="src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj" />
   </Folder>
+  <Folder Name="/src/Generators/">
+    <Project Path="src/Generators/Full.NET.Messaging.Generators/Full.NET.Messaging.Generators.csproj" />
+  </Folder>
   <Folder Name="/src/Tools/">
     <Project Path="src/Tools/Full.NET.CodeGeneration.Cli/Full.NET.CodeGeneration.Cli.csproj" />
+    <Project Path="src/Tools/Full.NET.Messaging.Cli/Full.NET.Messaging.Cli.csproj" />
   </Folder>
   <Folder Name="/src/Modules/">
     <Project Path="src/Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj" />

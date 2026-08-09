@@ -118,10 +118,12 @@ public sealed class KafkaSubscriptionTests
         await producer.ProduceAsync(topic, KafkaTestMessages.Create(topic, "commit-key", [0x7A])).ConfigureAwait(false);
         producer.Flush(TimeSpan.FromSeconds(10));
 
+        var stableInstanceId = $"fullnet.kafka.test.commit.g{Guid.NewGuid():N}";
         ConsumeResult<string, byte[]> first;
         using (var firstConsumer = environment.CreateConsumer(
                    "fullnet.kafka.test.commit",
-                   "fullnet.kafka.test.commit-first"))
+                   "fullnet.kafka.test.commit-first",
+                   stableInstanceId))
         {
             firstConsumer.Subscribe(topic);
             first = await KafkaTestMessages
@@ -135,7 +137,8 @@ public sealed class KafkaSubscriptionTests
         // 不能错误地期待同一个 Consumer 下一次 Consume 立即返回同一条消息。
         using (var retryConsumer = environment.CreateConsumer(
                    "fullnet.kafka.test.commit",
-                   "fullnet.kafka.test.commit-retry"))
+                   "fullnet.kafka.test.commit-retry",
+                   stableInstanceId))
         {
             retryConsumer.Subscribe(topic);
             var redelivered = await KafkaTestMessages
@@ -148,7 +151,8 @@ public sealed class KafkaSubscriptionTests
 
         using var committedConsumer = environment.CreateConsumer(
             "fullnet.kafka.test.commit",
-            "fullnet.kafka.test.commit-committed");
+            "fullnet.kafka.test.commit-committed",
+            stableInstanceId);
         committedConsumer.Subscribe(topic);
         var afterCommit = committedConsumer.Consume(TimeSpan.FromSeconds(2));
         Assert.IsNull(afterCommit);
@@ -158,8 +162,20 @@ public sealed class KafkaSubscriptionTests
 internal static class KafkaTestMessages
 {
     internal static Message<string, byte[]> Create(string topic, string partitionKey, byte[] payload)
+        => Create(
+            topic,
+            partitionKey,
+            payload,
+            "fullnet.messaging.kafka.test.event",
+            Guid.CreateVersion7());
+
+    internal static Message<string, byte[]> Create(
+        string topic,
+        string partitionKey,
+        byte[] payload,
+        string messageType,
+        Guid eventId)
     {
-        var eventId = Guid.CreateVersion7();
         var occurredAt = DateTimeOffset.UtcNow;
         return new Message<string, byte[]>
         {
@@ -168,7 +184,7 @@ internal static class KafkaTestMessages
             Headers =
             [
                 new Header(KafkaEnvelopeHeaderNames.EventId, Encoding.UTF8.GetBytes(eventId.ToString("D"))),
-                new Header(KafkaEnvelopeHeaderNames.MessageType, Encoding.UTF8.GetBytes("fullnet.messaging.kafka.test.event")),
+                new Header(KafkaEnvelopeHeaderNames.MessageType, Encoding.UTF8.GetBytes(messageType)),
                 new Header(KafkaEnvelopeHeaderNames.SchemaVersion, Encoding.UTF8.GetBytes("1")),
                 new Header(KafkaEnvelopeHeaderNames.ContentType, Encoding.UTF8.GetBytes(MessagingNames.ContentTypeMessagePack)),
                 new Header(KafkaEnvelopeHeaderNames.Producer, Encoding.UTF8.GetBytes("fullnet.messaging.tests")),

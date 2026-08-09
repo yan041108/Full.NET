@@ -25,6 +25,9 @@ public interface IIntegrationEventSubscriptionCatalog
         string eventType,
         int schemaVersion);
 
+    /// <summary>按生成注册表声明的具体订阅类型解析当前 Scope 中的实例。</summary>
+    IIntegrationEventSubscription GetByHandlerTypeRequired(Type handlerType);
+
     /// <summary>查询事件流在目录中声明的发布所有权。</summary>
     EventDeliveryOwner GetDeliveryOwner(string eventType, int schemaVersion);
 
@@ -38,6 +41,9 @@ public interface IIntegrationEventSubscriptionCatalog
     IntegrationEventTopicDefinition GetTopicRequired(
         string eventType,
         int schemaVersion);
+
+    /// <summary>按稳定 TopicCode 查询目录条目；范围重放禁止使用目录外 Topic。</summary>
+    IntegrationEventTopicDefinition GetTopicByCodeRequired(string topicCode);
 
     /// <summary>
     /// 返回目录中所有已注册的业务订阅；用于启动守卫检查 CdcKafka 模式是否存在真实生产订阅。
@@ -54,6 +60,7 @@ public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubsc
     private readonly IReadOnlyDictionary<string, IntegrationEventTopicDefinition> _topicsByCode;
     private readonly IReadOnlyDictionary<(string EventType, int SchemaVersion), IntegrationEventTopicDefinition> _topicsByEvent;
     private readonly IReadOnlyDictionary<SubscriptionRoute, IIntegrationEventSubscription> _subscriptionsByRoute;
+    private readonly IReadOnlyDictionary<Type, IIntegrationEventSubscription> _subscriptionsByHandlerType;
     private readonly IReadOnlyCollection<IIntegrationEventSubscription> _allSubscriptions;
 
     public IntegrationEventSubscriptionCatalog(
@@ -72,15 +79,17 @@ public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubsc
         ArgumentNullException.ThrowIfNull(consumers);
         ArgumentNullException.ThrowIfNull(subscriptions);
 
+        var subscriptionSnapshot = subscriptions.ToArray();
         _topicsByCode = BuildTopicsByCode(topics);
         _topicsByEvent = BuildTopicsByEvent(topics);
         var registeredConsumers = RegisterConsumers(consumers);
         _subscriptionsByRoute = RegisterSubscriptions(
-            subscriptions,
+            subscriptionSnapshot,
             _topicsByEvent,
             registeredConsumers);
+        _subscriptionsByHandlerType = RegisterHandlerTypes(subscriptionSnapshot);
         // 保留一份订阅快照用于启动守卫查询；ToArray 保证与注册验证过程一致且不可变。
-        _allSubscriptions = subscriptions.ToArray();
+        _allSubscriptions = subscriptionSnapshot;
     }
 
     /// <summary>
@@ -104,6 +113,18 @@ public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubsc
         throw new InvalidOperationException(
             $"Integration event subscription route '{consumerName}' / '{eventType}' "
             + $"schema {schemaVersion} is not registered in the catalog.");
+    }
+
+    public IIntegrationEventSubscription GetByHandlerTypeRequired(Type handlerType)
+    {
+        ArgumentNullException.ThrowIfNull(handlerType);
+        if (_subscriptionsByHandlerType.TryGetValue(handlerType, out var subscription))
+        {
+            return subscription;
+        }
+
+        throw new InvalidOperationException(
+            $"Integration event subscription handler type '{handlerType.FullName}' is not registered in the catalog.");
     }
 
     /// <summary>
@@ -150,6 +171,28 @@ public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubsc
         throw new InvalidOperationException(
             $"Integration event stream '{eventType}' schema {schemaVersion} "
             + "is not registered in the topic catalog.");
+    }
+
+    /// <summary>
+    /// 按稳定 TopicCode 查询目录条目，供运维工具在访问 Broker 前完成白名单校验。
+    /// </summary>
+    public IntegrationEventTopicDefinition GetTopicByCodeRequired(string topicCode)
+    {
+        if (string.IsNullOrWhiteSpace(topicCode)
+            || !MessagingNames.TopicCodePattern.IsMatch(topicCode))
+        {
+            throw new ArgumentException(
+                IntegrationEventFailureCodes.TopicCodeInvalid,
+                nameof(topicCode));
+        }
+
+        if (_topicsByCode.TryGetValue(topicCode, out var topic))
+        {
+            return topic;
+        }
+
+        throw new InvalidOperationException(
+            $"Topic code '{topicCode}' is not registered in the integration event catalog.");
     }
 
     /// <summary>
@@ -258,6 +301,14 @@ public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubsc
 
         return subscriptionsByRoute;
     }
+
+    private static IReadOnlyDictionary<Type, IIntegrationEventSubscription> RegisterHandlerTypes(
+        IEnumerable<IIntegrationEventSubscription> subscriptions) =>
+        subscriptions
+            .GroupBy(subscription => subscription.GetType())
+            // 兼容旧轮询 Adapter 一种类型承载多条路由；生成注册表只会指向唯一具体类型。
+            .Where(group => group.Take(2).Count() == 1)
+            .ToDictionary(group => group.Key, group => group.Single());
 
     private static void ValidateSubscription(
         IIntegrationEventSubscription subscription,

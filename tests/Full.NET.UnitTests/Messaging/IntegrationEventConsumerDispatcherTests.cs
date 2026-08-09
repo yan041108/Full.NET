@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -13,6 +14,38 @@ public sealed class IntegrationEventConsumerDispatcherTests
     private const string ConsumerName = "fullnet.messaging.inbox.test";
     private const string EventType = "fullnet.messaging.inbox.test.event";
     private const string TopicCode = "messaging.inbox-test.v1";
+
+    [TestMethod]
+    public async Task ConsumeAsync_creates_inbox_transaction_activity()
+    {
+        Activity? stopped = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source =>
+                source.Name == IntegrationEventConsumerTelemetry.ActivitySourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity => stopped = activity,
+        };
+        ActivitySource.AddActivityListener(listener);
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(
+                Arg.Any<string>(),
+                Arg.Any<IntegrationEventEnvelope>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.AlreadyProcessed));
+        var handler = new RecordingSubscription();
+
+        await CreateDispatcher(inbox, handler).ConsumeAsync(
+            ConsumerName,
+            CreateEnvelope([0x01]),
+            handler,
+            CancellationToken.None);
+
+        Assert.IsNotNull(stopped);
+        Assert.AreEqual("fullnet.messaging.inbox.transaction", stopped.OperationName);
+        Assert.AreEqual(ConsumerName, stopped.GetTagItem("messaging.consumer.group.name"));
+    }
 
     [TestMethod]
     public async Task ConsumeAsync_processes_first_delivery()
@@ -274,6 +307,55 @@ public sealed class IntegrationEventConsumerDispatcherTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task ConsumeAsync_prefers_generated_registry_and_keeps_catalog_as_fallback()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(
+                Arg.Any<string>(),
+                Arg.Any<IntegrationEventEnvelope>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.AlreadyProcessed));
+        var handler = new RecordingSubscription();
+        var catalog = new IntegrationEventSubscriptionCatalog(
+            [
+                IntegrationEventTopicDefinition.Create(
+                    TopicCode,
+                    EventType,
+                    1,
+                    EventDeliveryOwner.CdcKafka),
+            ],
+            [handler]);
+        var ownershipGate = Substitute.For<IEventStreamOwnershipGate>();
+        ownershipGate.AcquireConsumerAsync(
+                Arg.Any<string>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(true);
+        var ownerResolver = Substitute.For<IEffectiveEventDeliveryOwnerResolver>();
+        ownerResolver.GetDeliveryOwnerAsync(
+                Arg.Any<string>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(EventDeliveryOwner.CdcKafka);
+        var dispatcher = new IntegrationEventConsumerDispatcher(
+            new PassthroughTransaction(),
+            inbox,
+            catalog,
+            ownershipGate,
+            ownerResolver,
+            new CurrentTenantAccessor(),
+            [new TestGeneratedRegistry(typeof(RecordingSubscription))]);
+
+        var result = await dispatcher.ConsumeAsync(
+            ConsumerName,
+            CreateEnvelope([1]),
+            handler,
+            CancellationToken.None);
+
+        Assert.AreEqual(InboxConsumeStatus.AlreadyProcessed, result.Status);
+    }
+
     private static IntegrationEventConsumerDispatcher CreateDispatcher(
         IIntegrationEventInbox inbox,
         IIntegrationEventSubscription subscription,
@@ -349,6 +431,24 @@ public sealed class IntegrationEventConsumerDispatcherTests
         {
             Handled = true;
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class TestGeneratedRegistry(Type handlerType)
+        : IIntegrationEventHandlerRegistry
+    {
+        public bool TryResolve(
+            string messageType,
+            int schemaVersion,
+            string consumerName,
+            out IntegrationEventHandlerDescriptor descriptor)
+        {
+            descriptor = new IntegrationEventHandlerDescriptor(
+                messageType,
+                schemaVersion,
+                consumerName,
+                handlerType);
+            return true;
         }
     }
 

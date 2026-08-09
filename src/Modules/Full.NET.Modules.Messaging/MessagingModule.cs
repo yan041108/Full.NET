@@ -11,6 +11,7 @@ using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner;
 using Full.NET.Modules.Messaging.Features.GetDeadLetters;
 using Full.NET.Modules.Messaging.Features.GetDeliveryStatus;
+using Full.NET.Modules.Messaging.Features.ReplayKafkaRange;
 using Full.NET.Modules.Messaging.Features.ReplayDeadLetter;
 using Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
 using Full.NET.Modules.Messaging.Persistence;
@@ -41,6 +42,7 @@ public sealed class MessagingModule : IFullNetModule
             MessagingAuthorizationContributor>());
         services.TryAddScoped<DeadLetterQueryService>();
         services.TryAddScoped<DeadLetterReplayService>();
+        services.TryAddScoped<KafkaRangeReplayOperationsService>();
         services.TryAddScoped<DeliveryStatusQueryService>();
         services.TryAddScoped<DeliveryCutoverService>();
         services.TryAddScoped<DeliveryRollbackService>();
@@ -113,6 +115,7 @@ public sealed class MessagingModule : IFullNetModule
     {
         Features.GetDeadLetters.Endpoint.Map(endpoints);
         Features.ReplayDeadLetter.Endpoint.Map(endpoints);
+        Features.ReplayKafkaRange.Endpoint.Map(endpoints);
         Features.GetDeliveryStatus.Endpoint.Map(endpoints);
         Features.ChangeDeliveryOwner.Endpoint.Map(endpoints);
         Features.RollbackDeliveryOwner.Endpoint.Map(endpoints);

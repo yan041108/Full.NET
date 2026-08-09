@@ -459,6 +459,8 @@ public sealed class DependencyRulesTests
 
         var approvedConsumers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            // API 只注册受权限与审计保护的一次性范围重放，不得启动常驻 Kafka Consumer。
+            Path.Combine("src", "Hosts", "Full.NET.Host.Api", "Full.NET.Host.Api.csproj"),
             Path.Combine("src", "Hosts", "Full.NET.Host.Worker", "Full.NET.Host.Worker.csproj"),
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
             Path.Combine("tests", "Full.NET.IntegrationTests", "Full.NET.IntegrationTests.csproj"),
@@ -480,6 +482,12 @@ public sealed class DependencyRulesTests
         CollectionAssert.Contains(
             consumers,
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"));
+        var apiProgram = File.ReadAllText(
+            Path.Combine(root, "src", "Hosts", "Full.NET.Host.Api", "Program.cs"));
+        StringAssert.Contains(apiProgram, "AddFullNetKafkaReplayOperations");
+        Assert.IsFalse(apiProgram.Contains(
+            "AddFullNetKafkaMessaging(",
+            StringComparison.Ordinal));
     }
 
     [TestMethod]

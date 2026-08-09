@@ -47,7 +47,10 @@ builder.Services
         .AddMeter(OutboxBacklogTelemetry.MeterName)
         .AddMeter(OutboxRetentionTelemetry.MeterName)
         .AddMeter(ShadowEventComparisonProcessor.MeterName)
-        .AddMeter(KafkaMessagingTelemetry.MeterName));
+        .AddMeter(KafkaMessagingTelemetry.MeterName))
+    .WithTracing(tracing => tracing
+        .AddSource(KafkaMessagingTelemetry.ActivitySourceName)
+        .AddSource(IntegrationEventConsumerTelemetry.ActivitySourceName));
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);

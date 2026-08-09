@@ -1,6 +1,6 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-08-08。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-08-10。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 ## 状态定义
 
@@ -24,7 +24,7 @@
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |
 | 事务 Outbox、租约、重试与死信 | Build-verified | 仅承载需要事务原子性的重要 Integration Event；缓存失效、日志、Trace、Metrics 与普通审计禁止进入 Outbox。 |
-| CDC Relay / Kafka | Designing / Shadow-only | 2026-08-09 复审降回 Designing / Shadow-only；无真实生产者→CDC→Kafka→Inbox→消费者链路证据；见 docs/verification/cdc-kafka-pilot-2026-08-08.md。追加式 Outbox、Inbox、Kafka Consumer、影子比对和切流控制面已有构建与局部双库测试，但审查确认试点生产者仍写 Legacy Outbox、没有真实 `IIntegrationEventSubscription` 注册，且全局 `CdcKafka` 模式会关闭其他事件流仍需的 Legacy Worker。当前配置已改为无真实订阅时失败关闭，不得执行正式切流；纠正任务见 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md)。 |
+| CDC Relay / Kafka | Designing / Shadow-only | 2026-08-09 复审降回 Designing / Shadow-only；无生产等价的生产者→CDC→Kafka→Inbox→消费者认证证据，见 docs/verification/cdc-kafka-pilot-2026-08-08.md。2026-08-10 保持 Full.NET 自有主链路并将 Wolverine 固定为参考/性能对标；Cooperative Sticky 离线迁移门禁、Static Membership、Kafka 4 Consumer Protocol、Producer 有界批量、Key 固定槽并行、统一高低水位背压、可配置连续 Offset Commit、双库 Inbox 只读批量预检、一次性范围重放、Handler 编译期注册表及低基数 Activity/Gauge 已完成构建和聚焦集成验证。安全默认仍为 Legacy Range、单槽、分区容量 `1/0` 和 `PerMessage`；API 只注册重放操作且默认关闭，显式启用仍受 1000 条/32 分区/45 秒配置上限、单次原生调用余量与终态审计约束，不启动常驻 Consumer。真实 CDC 全链路、生产等价容量、Soak、N+1 与恢复演练仍未完成，整体继续 `Capacity-not-verified`，不得执行正式切流。实施与剩余门禁见[专项计划](../superpowers/plans/2026-08-10-wolverine-reference-kafka-hardening.md)。 |
 | FusionCache 多实例缓存治理 | Build-verified | 当前写路径使用提交后本实例 L1/L2 删除、Redis Backplane 与 TTL/版本兜底；Tenancy 与 Grid Preference 已纳入统一策略注册表，Architecture 手工策略 allowlist 为零；旧缓存事件处理器只作兼容排空。 |
 | 健康检查与运行角色就绪探针 | Build-verified | API、Worker、Migrator 和关键基础设施有独立就绪语义；生产阈值仍由环境配置验收。 |
 | HTTP 状态码、ProblemDetails 与兼容包络 | Build-verified | 标准 API 默认采用状态码与 ProblemDetails；Admin.NET 包络仅允许存在于兼容适配层。 |

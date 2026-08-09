@@ -155,6 +155,15 @@ public sealed class IdentityModuleRegistrationTests
         Assert.AreEqual(
             IntegrationEventIdempotencyStrategy.NaturallyIdempotent,
             uninitialized.IdempotencyStrategy);
+
+        using var provider = services.BuildServiceProvider();
+        var registry = provider.GetRequiredService<IIntegrationEventHandlerRegistry>();
+        Assert.IsTrue(registry.TryResolve(
+            IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged,
+            1,
+            "fullnet.identity.organization-unit-projection",
+            out var descriptor));
+        Assert.AreEqual(implementationType, descriptor.HandlerType);
     }
 
     [TestMethod]
@@ -473,6 +482,12 @@ public sealed class IdentityModuleRegistrationTests
             RegistrationKind.Type,
             typeof(IdentityModule).Assembly.GetType(
                 "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUnitChangedKafkaSubscription")),
+        new RegistrationExpectation(
+            typeof(IIntegrationEventHandlerRegistry),
+            ServiceLifetime.Singleton,
+            RegistrationKind.Type,
+            typeof(IdentityModule).Assembly.GetType(
+                "Full.NET.Generated.IntegrationEventHandlerRegistry")),
     ];
 
     private static RegistrationExpectation[] SnapshotIdentityOwnedRegistrations(

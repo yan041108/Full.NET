@@ -23,6 +23,10 @@ internal sealed class MessagingAuthorizationContributor : IAuthorizationCatalogC
             "重放消费死信",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            MessagingPermissions.KafkaRangeReplay,
+            "按范围重放 Kafka 消息",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             MessagingPermissions.DeliveryCutover,
             "切换事件交付所有权",
             AuthorizationScope.Host),
@@ -56,6 +60,13 @@ internal sealed class MessagingAuthorizationContributor : IAuthorizationCatalogC
             "重放死信",
             "replay",
             10),
+        new AuthorizationActionDefinition(
+            "messaging.kafka.range_replay",
+            "host-messaging-ops",
+            MessagingPermissions.KafkaRangeReplay,
+            "范围重放",
+            "range-replay",
+            15),
         new AuthorizationActionDefinition(
             "messaging.delivery.cutover",
             "host-messaging-ops",

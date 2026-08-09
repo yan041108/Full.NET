@@ -1,0 +1,7 @@
+worker:
+  messaging:
+    mode: CdcKafka
+    kafka:
+      bootstrapSecretName: fullnet-kafka
+      consumerBufferHighWatermark: 100
+      consumerBufferLowWatermark: 100

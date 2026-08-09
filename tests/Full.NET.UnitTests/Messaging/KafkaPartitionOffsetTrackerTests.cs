@@ -52,6 +52,24 @@ public sealed class KafkaPartitionOffsetTrackerTests
     }
 
     [TestMethod]
+    public void Later_failure_retries_from_earliest_still_pending_delivery()
+    {
+        var partition = new TopicPartition("fullnet.test.events.v1", 4);
+        var tracker = new KafkaPartitionOffsetTracker();
+        tracker.Assign(partition, assignmentEpoch: 13);
+        tracker.Track(new TopicPartitionOffset(partition, 40), assignmentEpoch: 13);
+        tracker.Track(new TopicPartitionOffset(partition, 41), assignmentEpoch: 13);
+
+        var failed = tracker.Complete(
+            new TopicPartitionOffset(partition, 41),
+            assignmentEpoch: 13,
+            shouldCommit: false);
+
+        Assert.IsNull(failed.CommitOffset);
+        Assert.AreEqual(new TopicPartitionOffset(partition, 40), failed.RetryOffset);
+    }
+
+    [TestMethod]
     public void Completion_from_revoked_epoch_is_ignored()
     {
         var partition = new TopicPartition("fullnet.test.events.v1", 2);

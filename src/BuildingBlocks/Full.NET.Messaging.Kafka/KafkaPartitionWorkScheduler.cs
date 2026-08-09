@@ -5,23 +5,46 @@ using Confluent.Kafka;
 namespace Full.NET.Messaging.Kafka;
 
 /// <summary>
-/// 为每个 Kafka 分区建立容量为一的处理通道。同一分区只有一个在途 Handler，
-/// 不同分区拥有独立 Reader，因此可以并行执行且不会共享 Scoped 事务状态。
+/// 按 Kafka 分区隔离处理状态，并在分区内按稳定业务 Key 分槽并行。
+/// 同一 Key 始终进入同一单 Reader 槽，不同槽可以并行，连续提交水位仍由 Poll Loop 统一裁决。
 /// </summary>
 internal sealed class KafkaPartitionWorkScheduler : IAsyncDisposable
 {
     private readonly Func<ConsumeResult<string, byte[]>, CancellationToken, Task<bool>> _processor;
     private readonly Channel<KafkaPartitionProcessingResult> _completions;
-    private readonly ConcurrentDictionary<TopicPartition, PartitionLane> _lanes = new();
+    private readonly ConcurrentDictionary<TopicPartition, PartitionLaneSet> _lanes = new();
     private readonly ConcurrentDictionary<Task, byte> _laneTasks = new();
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly KafkaConsumerBufferPressure _globalPressure;
+    private readonly int _partitionHighWatermark;
+    private readonly int _partitionLowWatermark;
+    private readonly int _slotCount;
+    private readonly Action<long, int, int>? _onProcessingStateChanged;
+    private int _activeHandlers;
     private int _disposed;
+    private long _processingStateSequence;
 
     public KafkaPartitionWorkScheduler(
         Func<ConsumeResult<string, byte[]>, CancellationToken, Task<bool>> processor)
+        : this(processor, new KafkaMessagingOptions())
+    {
+    }
+
+    public KafkaPartitionWorkScheduler(
+        Func<ConsumeResult<string, byte[]>, CancellationToken, Task<bool>> processor,
+        KafkaMessagingOptions options,
+        Action<long, int, int>? onProcessingStateChanged = null)
     {
         ArgumentNullException.ThrowIfNull(processor);
+        ArgumentNullException.ThrowIfNull(options);
         _processor = processor;
+        _globalPressure = new KafkaConsumerBufferPressure(
+            options.ConsumerBufferHighWatermark,
+            options.ConsumerBufferLowWatermark);
+        _partitionHighWatermark = options.PartitionBufferHighWatermark;
+        _partitionLowWatermark = options.PartitionBufferLowWatermark;
+        _slotCount = options.PartitionKeyConcurrencySlots;
+        _onProcessingStateChanged = onProcessingStateChanged;
         _completions = Channel.CreateUnbounded<KafkaPartitionProcessingResult>(
             new UnboundedChannelOptions
             {
@@ -31,25 +54,64 @@ internal sealed class KafkaPartitionWorkScheduler : IAsyncDisposable
             });
     }
 
-    public int InFlightCount => _lanes.Values.Count(lane => lane.IsBusy);
+    public int InFlightCount => _globalPressure.Depth;
+
+    public int ActiveHandlerCount => Volatile.Read(ref _activeHandlers);
+
+    public int BufferDepth => Math.Max(0, InFlightCount - ActiveHandlerCount);
 
     public bool HasPendingCompletion => _completions.Reader.TryPeek(out _);
 
+    public bool ShouldPauseGlobally => _globalPressure.ShouldPause;
+
+    public bool ShouldResumeGlobally => _globalPressure.ShouldResume;
+
     internal int TrackedLaneTaskCount => _laneTasks.Count;
+
+    public int GetPartitionDepth(TopicPartition partition) =>
+        _lanes.TryGetValue(partition, out var lane) ? lane.Depth : 0;
+
+    public bool ShouldPausePartition(TopicPartition partition) =>
+        _lanes.TryGetValue(partition, out var lane) && lane.ShouldPause;
+
+    public bool ShouldResumePartition(TopicPartition partition) =>
+        !_lanes.TryGetValue(partition, out var lane) || lane.ShouldResume;
 
     public bool TrySchedule(
         ConsumeResult<string, byte[]> consumeResult,
-        long assignmentEpoch)
+        long assignmentEpoch) =>
+        TrySchedule(consumeResult, assignmentEpoch, out _);
+
+    public bool TrySchedule(
+        ConsumeResult<string, byte[]> consumeResult,
+        long assignmentEpoch,
+        out KafkaSchedulePressure pressure)
     {
         ArgumentNullException.ThrowIfNull(consumeResult);
-        ObjectDisposedException.ThrowIf(
-            Volatile.Read(ref _disposed) != 0,
-            this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        pressure = default;
 
-        var lane = _lanes.GetOrAdd(
-            consumeResult.TopicPartition,
-            CreateLane);
-        return lane.TrySchedule(new PartitionWorkItem(consumeResult, assignmentEpoch));
+        if (!_globalPressure.TryAccept())
+        {
+            return false;
+        }
+
+        var reachedGlobalHighWatermark = _globalPressure.ShouldPause;
+        var lane = _lanes.GetOrAdd(consumeResult.TopicPartition, CreateLane);
+        if (lane.TrySchedule(
+                new PartitionWorkItem(consumeResult, assignmentEpoch),
+                out var reachedPartitionHighWatermark))
+        {
+            NotifyProcessingStateChanged();
+            pressure = new KafkaSchedulePressure(
+                reachedGlobalHighWatermark,
+                reachedPartitionHighWatermark);
+            return true;
+        }
+
+        _globalPressure.OnCompleted();
+        NotifyProcessingStateChanged();
+        return false;
     }
 
     public bool TryReadCompletion(out KafkaPartitionProcessingResult result) =>
@@ -60,8 +122,7 @@ internal sealed class KafkaPartitionWorkScheduler : IAsyncDisposable
         _completions.Reader.ReadAsync(cancellationToken);
 
     /// <summary>
-    /// Rebalance 撤销分区时立即取消对应 Handler。完成通知仍携带旧分配代次，
-    /// Consumer 循环必须用代次 Fence 丢弃迟到结果，禁止提交新 Owner 的 Offset。
+    /// 撤销或失败回退分区时，取消全部槽以及仍在排队的消息；旧代次完成结果由 Consumer Fence 丢弃。
     /// </summary>
     public void Revoke(TopicPartition topicPartition)
     {
@@ -92,12 +153,7 @@ internal sealed class KafkaPartitionWorkScheduler : IAsyncDisposable
         }
         catch (TimeoutException)
         {
-            _ = allLanes.ContinueWith(
-                static completed => _ = completed.Exception,
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted
-                | TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
+            ObserveLater(allLanes);
             return false;
         }
     }
@@ -119,42 +175,46 @@ internal sealed class KafkaPartitionWorkScheduler : IAsyncDisposable
         if (allLanes.IsCompleted)
         {
             FinalizeDispose(allLanes);
-            return ValueTask.CompletedTask;
+        }
+        else
+        {
+            _ = allLanes.ContinueWith(
+                static (completed, state) =>
+                    ((KafkaPartitionWorkScheduler)state!).FinalizeDispose(completed),
+                this,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
 
-        // StopAsync 已承担有界等待；若 Handler 忽略取消，释放路径只保留后台观察，
-        // 禁止再次无限等待而绕过 ShutdownDrainSeconds。
-        _ = allLanes.ContinueWith(
-            static (completed, state) =>
-                ((KafkaPartitionWorkScheduler)state!).FinalizeDispose(completed),
-            this,
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
         return ValueTask.CompletedTask;
     }
 
-    private void FinalizeDispose(Task allLanes)
+    private PartitionLaneSet CreateLane(TopicPartition topicPartition)
     {
-        if (allLanes.IsFaulted)
-        {
-            // 每条 Lane 会把 Handler 异常转换为 completion；这里只观察基础设施异常，避免二次传播。
-            _ = allLanes.Exception;
-        }
-
-        _completions.Writer.TryComplete();
-        _shutdown.Dispose();
-    }
-
-    private PartitionLane CreateLane(TopicPartition topicPartition)
-    {
-        var lane = new PartitionLane(
+        var lane = new PartitionLaneSet(
             topicPartition,
             _processor,
             _completions.Writer,
+            _globalPressure,
+            _partitionHighWatermark,
+            _partitionLowWatermark,
+            _slotCount,
+            () =>
+            {
+                Interlocked.Increment(ref _activeHandlers);
+                NotifyProcessingStateChanged();
+            },
+            () =>
+            {
+                Interlocked.Decrement(ref _activeHandlers);
+                NotifyProcessingStateChanged();
+            },
+            NotifyProcessingStateChanged,
             _shutdown.Token);
         if (!_laneTasks.TryAdd(lane.Completion, 0))
         {
+            lane.Cancel();
             throw new InvalidOperationException("Kafka partition lane task was already tracked.");
         }
 
@@ -165,7 +225,6 @@ internal sealed class KafkaPartitionWorkScheduler : IAsyncDisposable
                 tracked.TryRemove(completed, out _);
                 if (completed.IsFaulted)
                 {
-                    // Lane 会转换业务处理异常；这里只观察通道等基础设施故障，避免形成未观察任务异常。
                     _ = completed.Exception;
                 }
             },
@@ -176,113 +235,220 @@ internal sealed class KafkaPartitionWorkScheduler : IAsyncDisposable
         return lane;
     }
 
-    private sealed class PartitionLane
+    private void NotifyProcessingStateChanged()
     {
-        private readonly Channel<PartitionWorkItem> _channel;
+        try
+        {
+            var sequence = Interlocked.Increment(ref _processingStateSequence);
+            _onProcessingStateChanged?.Invoke(sequence, ActiveHandlerCount, BufferDepth);
+        }
+        catch (Exception)
+        {
+            // 遥测回调是旁路，不能改变背压、完成通知或 Offset 语义。
+        }
+    }
+
+    private void FinalizeDispose(Task allLanes)
+    {
+        if (allLanes.IsFaulted)
+        {
+            _ = allLanes.Exception;
+        }
+
+        _completions.Writer.TryComplete();
+        _shutdown.Dispose();
+    }
+
+    private static void ObserveLater(Task task) =>
+        _ = task.ContinueWith(
+            static completed => _ = completed.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+    private sealed class PartitionLaneSet
+    {
+        private readonly Channel<PartitionWorkItem>[] _channels;
         private readonly Func<ConsumeResult<string, byte[]>, CancellationToken, Task<bool>> _processor;
         private readonly ChannelWriter<KafkaPartitionProcessingResult> _completionWriter;
+        private readonly KafkaConsumerBufferPressure _globalPressure;
+        private readonly KafkaConsumerBufferPressure _localPressure;
         private readonly CancellationTokenSource _cancellation;
-        private int _busy;
+        private readonly Action _onHandlerStarted;
+        private readonly Action _onHandlerStopped;
+        private readonly Action _onStateChanged;
+        private int _remainingSlots;
+        private int _cancelled;
 
-        public PartitionLane(
+        public PartitionLaneSet(
             TopicPartition topicPartition,
             Func<ConsumeResult<string, byte[]>, CancellationToken, Task<bool>> processor,
             ChannelWriter<KafkaPartitionProcessingResult> completionWriter,
+            KafkaConsumerBufferPressure globalPressure,
+            int highWatermark,
+            int lowWatermark,
+            int slotCount,
+            Action onHandlerStarted,
+            Action onHandlerStopped,
+            Action onStateChanged,
             CancellationToken shutdownToken)
         {
             TopicPartition = topicPartition;
             _processor = processor;
             _completionWriter = completionWriter;
+            _globalPressure = globalPressure;
+            _localPressure = new KafkaConsumerBufferPressure(highWatermark, lowWatermark);
+            _onHandlerStarted = onHandlerStarted;
+            _onHandlerStopped = onHandlerStopped;
+            _onStateChanged = onStateChanged;
+            _remainingSlots = slotCount;
             _cancellation = CancellationTokenSource.CreateLinkedTokenSource(shutdownToken);
-            _channel = Channel.CreateBounded<PartitionWorkItem>(
-                new BoundedChannelOptions(1)
-                {
-                    SingleReader = true,
-                    SingleWriter = true,
-                    FullMode = BoundedChannelFullMode.Wait,
-                    AllowSynchronousContinuations = false,
-                });
-            Completion = RunAsync();
+            _channels = Enumerable.Range(0, slotCount)
+                .Select(_ => Channel.CreateBounded<PartitionWorkItem>(
+                    new BoundedChannelOptions(highWatermark)
+                    {
+                        SingleReader = true,
+                        SingleWriter = true,
+                        FullMode = BoundedChannelFullMode.Wait,
+                        AllowSynchronousContinuations = false,
+                    }))
+                .ToArray();
+            Completion = Task.WhenAll(_channels.Select(RunSlotAsync));
         }
 
         public TopicPartition TopicPartition { get; }
 
         public Task Completion { get; }
 
-        public bool IsBusy => Volatile.Read(ref _busy) != 0;
+        public int Depth => _localPressure.Depth;
 
-        public bool TrySchedule(PartitionWorkItem item)
+        public bool ShouldPause => _localPressure.ShouldPause;
+
+        public bool ShouldResume => _localPressure.ShouldResume;
+
+        public bool TrySchedule(
+            PartitionWorkItem item,
+            out bool reachedHighWatermark)
         {
-            if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0)
+            reachedHighWatermark = false;
+            if (Volatile.Read(ref _cancelled) != 0 || !_localPressure.TryAccept())
             {
                 return false;
             }
 
-            if (_channel.Writer.TryWrite(item))
+            reachedHighWatermark = _localPressure.ShouldPause;
+            var slot = KafkaPartitionKeySlotSelector.SelectSlot(
+                item.ConsumeResult.Message?.Key,
+                _channels.Length);
+            if (_channels[slot].Writer.TryWrite(item))
             {
                 return true;
             }
 
-            Volatile.Write(ref _busy, 0);
+            _localPressure.OnCompleted();
             return false;
         }
 
         public void Cancel()
         {
-            _channel.Writer.TryComplete();
+            if (Interlocked.Exchange(ref _cancelled, 1) != 0)
+            {
+                return;
+            }
+
+            foreach (var channel in _channels)
+            {
+                channel.Writer.TryComplete();
+            }
+
             try
             {
                 _cancellation.Cancel();
             }
             catch (ObjectDisposedException)
             {
-                // Lane 可能刚好在取消完成后释放 CTS；重复撤销不改变结果。
+                // 并发完成时 CTS 可能已经释放；重复取消不改变最终状态。
             }
         }
 
-        private async Task RunAsync()
+        private async Task RunSlotAsync(Channel<PartitionWorkItem> channel)
         {
             try
             {
-                await foreach (var item in _channel.Reader.ReadAllAsync(_cancellation.Token))
+                await foreach (var item in channel.Reader.ReadAllAsync(_cancellation.Token))
                 {
                     KafkaPartitionProcessingResult result;
+                    var stopSlot = false;
                     try
                     {
-                        var shouldCommit = await _processor(
-                                item.ConsumeResult,
-                                _cancellation.Token)
-                            .ConfigureAwait(false);
+                        _onHandlerStarted();
+                        bool shouldCommit;
+                        try
+                        {
+                            shouldCommit = await _processor(
+                                    item.ConsumeResult,
+                                    _cancellation.Token)
+                                .ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            _onHandlerStopped();
+                        }
+
                         result = new KafkaPartitionProcessingResult(
                             item.ConsumeResult,
                             item.AssignmentEpoch,
                             shouldCommit,
                             null);
+                        if (!shouldCommit)
+                        {
+                            stopSlot = true;
+                            Cancel();
+                        }
                     }
                     catch (Exception exception)
                     {
+                        stopSlot = true;
                         result = new KafkaPartitionProcessingResult(
                             item.ConsumeResult,
                             item.AssignmentEpoch,
                             false,
                             exception);
+                        Cancel();
                     }
 
-                    // 分区仍由 Consumer Loop 保持 Pause；先释放 Lane 槽位，再发布完成命令，
-                    // 可避免 Resume 后下一条消息与 busy 标记清理之间出现竞态。
-                    Volatile.Write(ref _busy, 0);
+                    ReleaseOne();
                     await _completionWriter.WriteAsync(result, CancellationToken.None)
                         .ConfigureAwait(false);
+                    if (stopSlot || _cancellation.IsCancellationRequested)
+                    {
+                        break;
+                    }
                 }
             }
             catch (OperationCanceledException) when (_cancellation.IsCancellationRequested)
             {
-                // 若取消发生在读取等待阶段，没有在途工作需要额外生成 completion。
+                // 当前在途消息会产生完成结果；尚未进入 Handler 的排队消息仅释放容量并等待重新投递。
             }
             finally
             {
-                _cancellation.Dispose();
+                while (channel.Reader.TryRead(out _))
+                {
+                    ReleaseOne();
+                }
+
+                if (Interlocked.Decrement(ref _remainingSlots) == 0)
+                {
+                    _cancellation.Dispose();
+                }
             }
+        }
+
+        private void ReleaseOne()
+        {
+            _localPressure.OnCompleted();
+            _globalPressure.OnCompleted();
+            _onStateChanged();
         }
     }
 
@@ -296,3 +462,7 @@ internal sealed record KafkaPartitionProcessingResult(
     long AssignmentEpoch,
     bool ShouldCommit,
     Exception? Exception);
+
+internal readonly record struct KafkaSchedulePressure(
+    bool ReachedGlobalHighWatermark,
+    bool ReachedPartitionHighWatermark);

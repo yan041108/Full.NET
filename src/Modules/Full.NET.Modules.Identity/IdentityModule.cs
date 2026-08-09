@@ -138,6 +138,9 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventSubscription,
             OrganizationUnitChangedKafkaSubscription>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IIntegrationEventHandlerRegistry,
+            global::Full.NET.Generated.IntegrationEventHandlerRegistry>());
     }
 
     private static void AddOrganizationUnitProjection(IServiceCollection services)

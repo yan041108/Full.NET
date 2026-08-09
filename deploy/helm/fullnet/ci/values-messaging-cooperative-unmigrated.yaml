@@ -1,0 +1,7 @@
+worker:
+  messaging:
+    mode: CdcKafka
+    kafka:
+      bootstrapSecretName: fullnet-kafka
+      classicPartitionAssignment: CooperativeSticky
+      cooperativeStickyMigrationCompleted: false

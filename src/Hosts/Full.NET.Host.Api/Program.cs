@@ -8,6 +8,7 @@ using Full.NET.Hosting.RateLimiting;
 using Full.NET.Hosting.Security;
 using Full.NET.Localization;
 using Full.NET.Modularity.Modules;
+using Full.NET.Messaging.Kafka;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MessagePack;
 using Scalar.AspNetCore;
@@ -23,6 +24,7 @@ builder.Services.AddFullNetDapper(
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetDatabaseSchemaModeGuard();
 builder.Services.AddFullNetMessagePack();
+builder.Services.AddFullNetKafkaReplayOperations(builder.Configuration);
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);

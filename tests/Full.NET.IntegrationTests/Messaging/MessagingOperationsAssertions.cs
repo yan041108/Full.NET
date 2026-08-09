@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Confluent.Kafka;
 using Dapper;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -12,6 +13,7 @@ using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Messaging;
 using Full.NET.Messaging.Abstractions;
+using Full.NET.Messaging.Kafka;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Messaging.Contracts;
 using Microsoft.Data.SqlClient;
@@ -44,11 +46,15 @@ internal static class MessagingOperationsAssertions
                 EventDeliveryOwner.LegacyPolling));
         services.TryAddEnumerable(
             ServiceDescriptor.Scoped<IIntegrationEventSubscription, OpsNoOpSubscription>());
+        services.RemoveAll<IIntegrationEventSubscriptionCatalog>();
         services.RemoveAll<IntegrationEventSubscriptionCatalog>();
-        services.AddSingleton(provider =>
+        services.AddScoped<IIntegrationEventSubscriptionCatalog>(provider =>
             new IntegrationEventSubscriptionCatalog(
                 provider.GetServices<IntegrationEventTopicDefinition>(),
                 provider.GetServices<IIntegrationEventSubscription>()));
+        services.AddScoped(provider =>
+            (IntegrationEventSubscriptionCatalog)provider
+                .GetRequiredService<IIntegrationEventSubscriptionCatalog>());
     }
 
     public static async Task VerifyAsync(
@@ -59,8 +65,129 @@ internal static class MessagingOperationsAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
+        await VerifyKafkaRangeReplayRequiresDedicatedPermissionAsync(
+            factory,
+            client,
+            cancellationToken);
+        await VerifyKafkaRangeReplayIsFailClosedByDefaultAsync(
+            client,
+            cancellationToken);
+        await VerifyKafkaRangeReplayUsesRealBrokerAndInboxAsync(
+            factory,
+            cancellationToken);
         await VerifyReplayLifecycleAndAuditAsync(factory, client, cancellationToken);
         await VerifyCutoverPreconditionsAsync(factory, client, cancellationToken);
+    }
+
+    private static async Task VerifyKafkaRangeReplayRequiresDedicatedPermissionAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/messaging/kafka/replay",
+            await factory.CreateHostAccessTokenAsync(
+                [MessagingPermissions.DeadLettersReplay],
+                cancellationToken),
+            new KafkaRangeReplayRequest(
+                MessagingInboxTestSupport.TopicCode,
+                FromTimestampUtc: null,
+                ToTimestampUtc: null,
+                FromOffset: 0,
+                ToOffset: 0,
+                Partitions: [0],
+                MessagingInboxTestSupport.ConsumerName,
+                MaxMessages: 1,
+                Reason: "verify dedicated replay permission"));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    private static async Task VerifyKafkaRangeReplayIsFailClosedByDefaultAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/messaging/kafka/replay",
+            adminToken,
+            new KafkaRangeReplayRequest(
+                MessagingInboxTestSupport.TopicCode,
+                FromTimestampUtc: null,
+                ToTimestampUtc: null,
+                FromOffset: 0,
+                ToOffset: 0,
+                Partitions: [0],
+                MessagingInboxTestSupport.ConsumerName,
+                MaxMessages: 1,
+                Reason: "verify replay remains disabled by default"));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            MessagingErrorCodes.KafkaReplayUnavailable,
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyKafkaRangeReplayUsesRealBrokerAndInboxAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        var kafka = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
+        await kafka.EnsureTopicsAsync(MessagingInboxTestSupport.TopicCode)
+            .ConfigureAwait(false);
+        await EnsureCdcKafkaOwnershipAsync(factory, cancellationToken);
+
+        var eventId = Guid.CreateVersion7();
+        DeliveryResult<string, byte[]> delivery;
+        using (var producer = kafka.CreateProducer(
+                   $"fullnet.kafka.replay.inbox.{factory.Provider.ToString().ToLowerInvariant()}"))
+        {
+            delivery = await producer.ProduceAsync(
+                    MessagingInboxTestSupport.TopicCode,
+                    KafkaTestMessages.Create(
+                        MessagingInboxTestSupport.TopicCode,
+                        $"replay-inbox-{eventId:N}",
+                        [0x01],
+                        MessagingOutboxTestSupport.TestEventType,
+                        eventId),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            producer.Flush(TimeSpan.FromSeconds(10));
+        }
+
+        await using var replayScope = factory.Services.CreateAsyncScope();
+        var service = new KafkaReplayService(
+            replayScope.ServiceProvider.GetRequiredService<IIntegrationEventSubscriptionCatalog>(),
+            new KafkaReplayConsumerFactory(),
+            new KafkaReplayMessageProcessor(
+                factory.Services.GetRequiredService<IServiceScopeFactory>(),
+                new KafkaEnvelopeReader()),
+            Options.Create(kafka.CreateOptions(
+                $"fullnet.kafka.replay.inbox.{factory.Provider.ToString().ToLowerInvariant()}")));
+        var request = new KafkaReplayRequest(
+            MessagingInboxTestSupport.TopicCode,
+            null,
+            null,
+            delivery.Offset.Value,
+            delivery.Offset.Value,
+            [delivery.Partition.Value],
+            MessagingInboxTestSupport.ConsumerName,
+            1,
+            "verify real Kafka replay through dispatcher and provider inbox");
+
+        var first = await service.ReplayAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        var duplicate = await service.ReplayAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+
+        Assert.AreEqual(1, first.ProcessedMessages);
+        Assert.AreEqual(0, first.AlreadyProcessedMessages);
+        Assert.AreEqual(0, duplicate.ProcessedMessages);
+        Assert.AreEqual(1, duplicate.AlreadyProcessedMessages);
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(

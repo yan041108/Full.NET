@@ -201,15 +201,26 @@ Inbox claim 的网络往返预算固定为一次：SQL Server 在单个 batch �
 - `SaslMechanism`
 - `ClientId`
 - `ConsumerInstanceId`
+- `ConsumerGroupProtocol`
+- `BrokerMajorVersion`
+- `ClassicPartitionAssignment`
+- `CooperativeStickyMigrationCompleted`
 - `SessionTimeoutMilliseconds`
 - `MaxPollIntervalMilliseconds`
 - `HandlerHeartbeatMilliseconds`
 - `CompletionPollMilliseconds`
 - `DeliveryTimeoutMilliseconds`
 - `MessageMaxBytes`
+- `ProducerLingerMilliseconds`
+- `ProducerBatchSizeBytes`
+- `ProducerQueueMaxMessages`
+- `ProducerQueueMaxKbytes`
+- `ProducerMaxInFlightRequests`
 - `RetryStages`
 
 Secret 通过 Secret Provider 提供，配置模型不返回密码。生产 `Enabled=true` 时 TLS、Broker 地址、客户端身份、Topic Catalog 和安全配置缺失必须启动失败；开发环境可以显式关闭 Provider。
+
+`Classic` 协议在存量 Consumer Group 中默认保持 `LegacyRange`，避免 eager 与 Cooperative 客户端在滚动发布期间没有共同 Assignor。切换 `CooperativeSticky` 必须先排空并停止该 Group 的全部旧实例，完成离线切换与回退演练，再设置 `CooperativeStickyMigrationCompleted=true`；禁止在 `maxUnavailable=0` 的普通滚动发布中直接切换。`ConsumerInstanceId` 映射为 `group.instance.id`，与 `ClientId` 分离。Kafka 4.x `Consumer` Protocol 只有在 `BrokerMajorVersion >= 4`、兼容测试和 Rebalance/滚动发布演练通过后才能显式启用，并且不得携带 `partition.assignment.strategy`、`session.timeout.ms` 等 Classic-only 参数。Producer 保持 `acks=all` 与幂等，批量、等待、本地队列和在途请求必须有界。
 
 ### 7.2 Topic 目录
 
@@ -235,7 +246,7 @@ public interface IIntegrationEventSubscription
 
 现有 `IIntegrationEventHandler` 通过兼容适配器迁移；新 Kafka Consumer 使用 Subscription 身份。启动时验证目录、Handler、Schema、Topic 和 ConsumerName 唯一性。
 
-Consumer 处理模型固定为“单 Consumer SDK 命令循环 + 每分区容量 1 的有界通道”：
+当前 Build-verified 消费模型为“单 Consumer SDK 命令循环 + 每分区容量 1 的有界通道”；后续性能演进保持同一命令循环，并按实施计划升级为“每分区固定 Key 槽位 + 全局/分区高低水位”：
 
 - Consume、Pause/Resume、Seek、Commit 和 Rebalance 回调只在 Consumer 循环串行执行；Handler 不得持有或调用 Kafka Consumer。
 - 收到消息后只暂停该消息所属分区；同一分区在当前消息完成前不再接收下一条，不同已分配分区独立并行。
@@ -243,6 +254,9 @@ Consumer 处理模型固定为“单 Consumer SDK 命令循环 + 每分区容量
 - 失败消息 Seek 到原 Offset 并只对该分区执行有界退避，禁止提交或恢复时越过失败消息。
 - 每次分配具有单调递增代次；Rebalance 撤销会取消该分区通道，旧代次迟到完成不得 Commit 或 Resume 新 Owner 的分区。
 - 吞吐并行上限由 Topic 分区数和当前实例获配分区数共同决定；增加 Worker 实例超过分区数不会继续提高同一 Consumer Group 的并行度。
+- 同一 `ConsumerName` 的多个 Topic 继续合并到单 Consumer 订阅，避免为每个 Topic 创建连接和独立 Rebalance；禁止合并不同 Consumer Group 的订阅语义。
+- Key 槽位使用稳定 `XxHash64` 映射，同 Key 串行、不同槽并行；Offset 仍只推进连续成功水位。该能力已完成构建级实现与局部故障测试，但在生产等价负载、Rebalance 与关闭排空矩阵完成前仍为 `Capacity-not-verified`。
+- 全局/分区高低水位与 Offset 周期提交模式必须显式配置且可回退；默认仍为分区容量 `1/0`、单 Key 槽和 `PerMessage`。Production/Staging 的周期模式必须通过 `PeriodicOffsetCommitVerified` 门禁。详细配置与回退见[Kafka Consumer Buffer、Key 槽与 Offset 提交](../../operations/kafka-consumer-buffer-and-offset-commit.md)。Inbox 批量优化只能做只读预检或事务内批量，不能在 Handler 业务事务之前把未知消息标记为已领取。
 
 Consumer 本地事务的事件流所有权检查优先使用一次锁定 Fence 查询同时返回 `CurrentOwner`，不得在热路径重复执行 Gate 和 Owner 数据库查询。兼容扩展可回退旧接口，但 Full.NET Dapper 正式路径必须使用单查询 Fence；未经版本/Fence 设计不得用普通内存缓存替代该数据库边界。
 
@@ -263,6 +277,10 @@ Retry 默认三阶段：`5s`、`1m`、`15m`，每阶段一次；仍失败进入 
 Meter 使用 `Full.NET.Messaging`，指标前缀 `fullnet.messaging.*`。标签只允许 `provider`、`database_provider`、`topic_code`、`consumer_code`、`message_type_code`、`result` 和稳定原因码；禁止 MessageId、TenantId、原始 Topic、异常文本或 Payload 作为标签。
 
 Trace Span 至少覆盖 `outbox.append`、`cdc.capture`（从 Connector 指标关联）、`kafka.consume`、`inbox.transaction` 和 `kafka.commit`；消息携带 `TraceParent`，Consumer 创建新的消费 Span 并保留 Link/Parent 语义。
+
+性能演进还必须提供有界状态源：分区/全局 Buffer 深度、高低水位 Pause/Resume、在途 Handler、已分配/暂停分区、Consumer Lag、最老消息年龄、周期提交待刷新的连续水位、DLQ/重放结果和事件流所有权 Fence。Handler 源生成只替换反射或运行时扫描，不改变 DI 生命周期、订阅唯一性或事务边界；当前三键注册表、重复/非法元数据诊断、Catalog 显式回退和有界低基数状态源已通过构建与架构门禁，但生产采集、告警和容量证据仍须按 `Capacity-not-verified` 管理。
+
+一次性范围重放使用独立权限、必填审计原因、唯一临时 GroupId 与显式 `Assign`；执行前先持久化 `requested` 审计，再固定分区起止水位，消息复用生成注册表优先路由、原 Inbox/Dispatcher 与正式所有权 Fence。API 运行角色只注册该受控操作，不得启动常驻 Kafka Consumer；该入口默认关闭，显式启用时同步上限不得超过 1000 条、32 分区且整个操作超时不得超过 45 秒，失败/取消/超时必须尽力写入终态审计。更大范围必须使用未来的持久化异步作业，不得放宽普通 HTTP/Ingress 超时替代。CLI 通过 API 执行且令牌不得进入命令行参数。详细操作见 [`docs/operations/kafka-range-replay.md`](../../operations/kafka-range-replay.md)。
 
 ## 10. 安全、许可和供应链
 
@@ -336,5 +354,6 @@ Trace Span 至少覆盖 `outbox.append`、`cdc.capture`（从 Connector 指标�
 - [技术集成路线](2026-07-17-technology-integration-roadmap-design.md)
 - [`ADR-0005`](../../architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md)
 - [Outbox Worker 运维说明](../../operations/outbox-worker-topology.md)
+- [Kafka Consumer Group 协议与 Assignor 迁移](../../operations/kafka-consumer-protocol-migration.md)
 - [`rules/development-quality.md`](../../../rules/development-quality.md)
 - [`rules/performance-engineering.md`](../../../rules/performance-engineering.md)

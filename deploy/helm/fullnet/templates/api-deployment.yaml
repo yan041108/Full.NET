@@ -59,6 +59,37 @@ spec:
                   key: {{ .Values.realtime.redisSecretKey }}
             - name: DataProtection__KeyRingPath
               value: /var/fullnet/data-protection-keys
+{{- if .Values.api.kafkaReplay.enabled }}
+            - name: Messaging__KafkaReplay__Enabled
+              value: "true"
+            - name: Messaging__KafkaReplay__MaximumSynchronousMessages
+              value: {{ .Values.api.kafkaReplay.maximumSynchronousMessages | quote }}
+            - name: Messaging__KafkaReplay__ExecutionTimeoutSeconds
+              value: {{ .Values.api.kafkaReplay.executionTimeoutSeconds | quote }}
+            - name: Messaging__Kafka__BootstrapServers
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.kafkaReplay.bootstrapSecretName }}
+                  key: {{ .Values.api.kafkaReplay.bootstrapSecretKey }}
+            - name: Messaging__Kafka__ClientId
+              value: {{ printf "%s-api-replay" (include "fullnet.fullname" .) | quote }}
+            - name: Messaging__Kafka__SecurityProtocol
+              value: {{ .Values.api.kafkaReplay.securityProtocol | quote }}
+{{- if eq .Values.api.kafkaReplay.securityProtocol "SaslSsl" }}
+            - name: Messaging__Kafka__SaslMechanism
+              value: {{ .Values.api.kafkaReplay.saslMechanism | quote }}
+            - name: Messaging__Kafka__SaslUsername
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.kafkaReplay.saslUsernameSecretName }}
+                  key: {{ .Values.api.kafkaReplay.saslUsernameSecretKey }}
+            - name: Messaging__Kafka__SaslPassword
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.kafkaReplay.saslPasswordSecretName }}
+                  key: {{ .Values.api.kafkaReplay.saslPasswordSecretKey }}
+{{- end }}
+{{- end }}
           volumeMounts:
             - name: data-protection
               mountPath: /var/fullnet/data-protection-keys

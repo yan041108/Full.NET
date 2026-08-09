@@ -12,14 +12,22 @@ internal sealed class KafkaConsumerPartitionCoordinator(
     KafkaPartitionWorkScheduler scheduler,
     KafkaMessagingOptions options,
     string consumerCode,
-    ILogger logger)
+    ILogger logger,
+    DateTimeOffset? initialUtc = null)
 {
     private const string ProviderCode = "kafka";
     private readonly KafkaPartitionOffsetTracker _offsetTracker = new();
     private readonly Dictionary<TopicPartition, long> _assignmentEpochs = [];
     private readonly HashSet<TopicPartition> _paused = [];
+    private readonly HashSet<TopicPartition> _partitionPressurePaused = [];
     private readonly Dictionary<TopicPartition, DateTimeOffset> _resumeAtUtc = [];
+    private readonly KafkaOffsetCommitCoordinator _commitCoordinator = new(
+        options.OffsetCommitMode,
+        TimeSpan.FromMilliseconds(options.OffsetCommitIntervalMilliseconds),
+        options.OffsetCommitBatchSize,
+        initialUtc ?? DateTimeOffset.UtcNow);
     private long _nextAssignmentEpoch;
+    private bool _globalPressurePaused;
 
     public void OnAssigned(IEnumerable<TopicPartition> partitions)
     {
@@ -35,11 +43,39 @@ internal sealed class KafkaConsumerPartitionCoordinator(
             _assignmentEpochs.Add(partition, epoch);
             _offsetTracker.Assign(partition, epoch);
         }
+
+        ApplyPauseState();
+        RecordState();
     }
 
     public void OnRevoked(IEnumerable<TopicPartition> partitions)
     {
         ArgumentNullException.ThrowIfNull(partitions);
+        var revoked = partitions.Distinct().ToArray();
+        FlushOffsets(
+            _commitCoordinator.GetReadyForPartitions(revoked, DateTimeOffset.UtcNow),
+            DateTimeOffset.UtcNow);
+        // Revoke 回调结束后本实例不再拥有提交权；即使最后一次 Commit 非致命失败，
+        // 也必须丢弃本地待提交水位，让新 Owner 重投并由 Inbox 去重。
+        _commitCoordinator.Discard(revoked);
+        RemoveAssignments(revoked, "revoked");
+    }
+
+    /// <summary>
+    /// 丢失分区时 Broker 已不再保证当前实例拥有提交权，因此只能丢弃本地待提交水位。
+    /// </summary>
+    public void OnLost(IEnumerable<TopicPartition> partitions)
+    {
+        ArgumentNullException.ThrowIfNull(partitions);
+        var lost = partitions.Distinct().ToArray();
+        _commitCoordinator.Discard(lost);
+        RemoveAssignments(lost, "lost");
+    }
+
+    private void RemoveAssignments(
+        IEnumerable<TopicPartition> partitions,
+        string flowResult)
+    {
         foreach (var partition in partitions)
         {
             if (!_assignmentEpochs.Remove(partition, out var epoch))
@@ -49,10 +85,13 @@ internal sealed class KafkaConsumerPartitionCoordinator(
 
             _offsetTracker.Revoke(partition, epoch);
             _resumeAtUtc.Remove(partition);
+            _partitionPressurePaused.Remove(partition);
             _paused.Remove(partition);
             scheduler.Revoke(partition);
-            RecordFlow(partition, "revoked");
+            RecordFlow(partition, flowResult);
         }
+
+        RecordState();
     }
 
     public bool TryDispatch(ConsumeResult<string, byte[]> consumeResult)
@@ -65,17 +104,25 @@ internal sealed class KafkaConsumerPartitionCoordinator(
             return false;
         }
 
-        if (!scheduler.TrySchedule(consumeResult, assignmentEpoch))
+        if (!scheduler.TrySchedule(consumeResult, assignmentEpoch, out var pressure))
         {
             return false;
         }
 
         _offsetTracker.Track(consumeResult.TopicPartitionOffset, assignmentEpoch);
-        if (_paused.Add(consumeResult.TopicPartition))
+        if (pressure.ReachedPartitionHighWatermark)
         {
-            consumer.Pause([consumeResult.TopicPartition]);
-            RecordFlow(consumeResult.TopicPartition, "paused");
+            _partitionPressurePaused.Add(consumeResult.TopicPartition);
         }
+
+
+        if (pressure.ReachedGlobalHighWatermark)
+        {
+            _globalPressurePaused = true;
+        }
+
+        ApplyPauseState();
+        RecordState();
 
         return true;
     }
@@ -111,8 +158,7 @@ internal sealed class KafkaConsumerPartitionCoordinator(
 
             if (decision.CommitOffset is TopicPartitionOffset commitOffset)
             {
-                Commit(commitOffset);
-                ResumeIfAssigned(offset.TopicPartition);
+                _commitCoordinator.Offer(commitOffset);
                 continue;
             }
 
@@ -123,12 +169,34 @@ internal sealed class KafkaConsumerPartitionCoordinator(
 
             if (IsStillAssigned(retryOffset.TopicPartition))
             {
+                scheduler.Revoke(retryOffset.TopicPartition);
+                RestartAssignmentEpoch(retryOffset.TopicPartition);
+                _partitionPressurePaused.Remove(retryOffset.TopicPartition);
                 consumer.Seek(retryOffset);
                 _resumeAtUtc[retryOffset.TopicPartition] = nowUtc.AddMilliseconds(
                     options.UncommittedRetryBackoffMilliseconds);
                 RecordFlow(retryOffset.TopicPartition, "retry_scheduled");
             }
         }
+
+        FlushOffsets(_commitCoordinator.GetReady(nowUtc), nowUtc);
+        EvaluatePressureAndResume();
+        RecordState();
+    }
+
+    private void RestartAssignmentEpoch(TopicPartition partition)
+    {
+        if (!_assignmentEpochs.TryGetValue(partition, out var previousEpoch))
+        {
+            return;
+        }
+
+        // Seek 后同一 Offset 会重新进入新 Lane；提升 epoch 可阻止旧 Lane 迟到完成
+        // 与新投递使用相同 Offset 时发生 ABA 混淆。
+        _offsetTracker.Revoke(partition, previousEpoch);
+        var nextEpoch = checked(++_nextAssignmentEpoch);
+        _assignmentEpochs[partition] = nextEpoch;
+        _offsetTracker.Assign(partition, nextEpoch);
     }
 
     public void ResumeDuePartitions(DateTimeOffset nowUtc)
@@ -140,38 +208,98 @@ internal sealed class KafkaConsumerPartitionCoordinator(
         foreach (var partition in due)
         {
             _resumeAtUtc.Remove(partition);
-            ResumeIfAssigned(partition);
         }
+
+        EvaluatePressureAndResume();
+        RecordState();
     }
 
-    private void Commit(TopicPartitionOffset commitOffset)
+    private void FlushOffsets(
+        IReadOnlyList<TopicPartitionOffset> commitOffsets,
+        DateTimeOffset nowUtc)
     {
+        if (commitOffsets.Count == 0)
+        {
+            return;
+        }
+
         try
         {
-            consumer.Commit([commitOffset]);
-            RecordFlow(commitOffset.TopicPartition, "offset_committed");
+            using var activity = KafkaMessagingTelemetry.StartCommitActivity(
+                consumerCode,
+                commitOffsets.Count);
+            consumer.Commit(commitOffsets);
+            _commitCoordinator.Acknowledge(commitOffsets, nowUtc);
+            foreach (var commitOffset in commitOffsets)
+            {
+                RecordFlow(commitOffset.TopicPartition, "offset_committed");
+            }
         }
         catch (KafkaException exception) when (!exception.Error.IsFatal)
         {
             // Inbox 已提交但 Offset 未确认时允许重投；后续更高水位提交或 Inbox 去重均保持至少一次语义。
             logger.LogWarning(
                 exception,
-                "Kafka offset commit failed for {TopicPartition} at next offset {Offset}; Inbox idempotency protects redelivery.",
-                commitOffset.TopicPartition,
-                commitOffset.Offset.Value);
-            RecordFlow(commitOffset.TopicPartition, "offset_commit_failed");
+                "Kafka offset commit failed for {PartitionCount} partitions; pending safe watermarks will be retried and Inbox idempotency protects redelivery.",
+                commitOffsets.Count);
+            _commitCoordinator.RecordFailure(nowUtc);
+            foreach (var commitOffset in commitOffsets)
+            {
+                RecordFlow(commitOffset.TopicPartition, "offset_commit_failed");
+            }
         }
     }
 
-    private void ResumeIfAssigned(TopicPartition partition)
+    private void EvaluatePressureAndResume()
     {
-        if (!_paused.Remove(partition) || !IsStillAssigned(partition))
+        foreach (var partition in _partitionPressurePaused.ToArray())
+        {
+            if (scheduler.ShouldResumePartition(partition))
+            {
+                _partitionPressurePaused.Remove(partition);
+            }
+        }
+
+        if (_globalPressurePaused && scheduler.ShouldResumeGlobally)
+        {
+            _globalPressurePaused = false;
+        }
+
+        foreach (var partition in _paused.ToArray())
+        {
+            if (_globalPressurePaused
+                || _partitionPressurePaused.Contains(partition)
+                || _resumeAtUtc.ContainsKey(partition)
+                || !IsStillAssigned(partition))
+            {
+                continue;
+            }
+
+            _paused.Remove(partition);
+            consumer.Resume([partition]);
+            RecordFlow(partition, "resumed");
+        }
+    }
+
+    private void ApplyPauseState()
+    {
+        IEnumerable<TopicPartition> candidates = _globalPressurePaused
+            ? _assignmentEpochs.Keys
+            : _partitionPressurePaused;
+        var targets = candidates
+            .Where(partition => !_paused.Contains(partition) && IsStillAssigned(partition))
+            .ToArray();
+        if (targets.Length == 0)
         {
             return;
         }
 
-        consumer.Resume([partition]);
-        RecordFlow(partition, "resumed");
+        consumer.Pause(targets);
+        foreach (var partition in targets)
+        {
+            _paused.Add(partition);
+            RecordFlow(partition, "paused");
+        }
     }
 
     private bool IsStillAssigned(TopicPartition partition) =>
@@ -184,4 +312,13 @@ internal sealed class KafkaConsumerPartitionCoordinator(
             KafkaTopicNames.ResolveBaseTopic(partition.Topic),
             consumerCode,
             result);
+
+    private void RecordState() =>
+        KafkaMessagingTelemetry.UpdateConsumerState(
+            ProviderCode,
+            consumerCode,
+            scheduler.ActiveHandlerCount,
+            scheduler.BufferDepth,
+            _assignmentEpochs.Count,
+            _paused.Count);
 }

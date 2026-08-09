@@ -27,6 +27,12 @@ internal sealed class EmptyIntegrationEventSubscriptionCatalog : IIntegrationEve
             + "Ensure the Messaging module is loaded when using integration event delivery features. "
             + $"Requested route: consumer='{consumerName}', event='{eventType}', schema={schemaVersion}.");
 
+    public IIntegrationEventSubscription GetByHandlerTypeRequired(Type handlerType) =>
+        throw new InvalidOperationException(
+            "No integration event subscription catalog is registered. "
+            + "Ensure the Messaging module is loaded when using integration event delivery features. "
+            + $"Requested handler type: '{handlerType?.FullName}'.");
+
     public EventDeliveryOwner GetDeliveryOwner(string eventType, int schemaVersion) =>
         throw new InvalidOperationException(
             "No integration event topic catalog is registered. "
@@ -49,6 +55,12 @@ internal sealed class EmptyIntegrationEventSubscriptionCatalog : IIntegrationEve
             "No integration event topic catalog is registered. "
             + "Ensure the Messaging module is loaded when using integration event delivery features. "
             + $"Requested stream: event='{eventType}', schema={schemaVersion}.");
+
+    public IntegrationEventTopicDefinition GetTopicByCodeRequired(string topicCode) =>
+        throw new InvalidOperationException(
+            "No integration event topic catalog is registered. "
+            + "Ensure the Messaging module is loaded when using integration event delivery features. "
+            + $"Requested topic: topicCode='{topicCode}'.");
 
     /// <summary>
     /// 返回空集合；启动守卫通过该方法判断 CdcKafka 模式下是否存在生产订阅。
