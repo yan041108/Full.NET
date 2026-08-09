@@ -113,32 +113,73 @@
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/host-document-categories.ts"
+        "packages/client-contracts/src/document-categories.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-categories-tags-v1.json",
-      "apiModule": "ui/admin/src/api/host-document-categories.ts",
+      "apiModule": "ui/admin/src/api/document-categories.ts",
       "routePrefixes": [
         "/api/v1/document/host/categories"
       ]
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/host-document-items.ts"
+        "packages/client-contracts/src/document-items.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-items-v1.json",
-      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "apiModule": "ui/admin/src/api/document-items.ts",
       "routePrefixes": [
         "/api/v1/document/host/items"
       ]
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/host-document-tags.ts"
+        "packages/client-contracts/src/document-tags.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-categories-tags-v1.json",
-      "apiModule": "ui/admin/src/api/host-document-tags.ts",
+      "apiModule": "ui/admin/src/api/document-tags.ts",
       "routePrefixes": [
         "/api/v1/document/host/tags"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/document-permissions.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-parity-v1.json",
+      "apiModule": "ui/admin/src/api/document-permissions.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/permissions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/document-recycle-bin.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-parity-v1.json",
+      "apiModule": "ui/admin/src/api/document-recycle-bin.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/recycle-bin"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/document-shares.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-parity-v1.json",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/shares",
+        "/api/v1/document/public/shares"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/document-statistics.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-parity-v1.json",
+      "apiModule": "ui/admin/src/api/document-statistics.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/statistics"
       ]
     },
     {

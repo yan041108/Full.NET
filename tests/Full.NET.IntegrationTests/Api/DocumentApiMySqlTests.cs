@@ -45,4 +45,14 @@ public sealed class DocumentApiMySqlTests
 
         await DocumentAuthorizationAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Document_share_security_is_atomic_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await DocumentShareSecurityAssertions.VerifyAsync(factory);
+    }
 }

@@ -1,23 +1,21 @@
-// 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
 import {
-  isHostDocumentCategoryResponse as isHostDocumentCategory,
-  isHostDocumentCategoryResponseList as isHostDocumentCategoryList,
-  type HostDocumentCategoryResponse as HostDocumentCategory,
+  isHostDocumentCategoryResponse,
+  isHostDocumentCategoryResponseList,
   type CreateHostDocumentCategoryRequest,
-  type UpdateHostDocumentCategoryRequest,
-  type DeleteHostDocumentCategoryRequest
+  type HostDocumentCategoryResponse,
+  type UpdateHostDocumentCategoryRequest
 } from '@fullnet/client-contracts';
 import { request } from './http';
 
-export async function listHostDocumentCategories(): Promise<HostDocumentCategory[]> {
+export async function listDocumentCategories(): Promise<HostDocumentCategoryResponse[]> {
   const value = await request<unknown>('/api/v1/document/host/categories');
-  if (!isHostDocumentCategoryList(value)) {
-    throw new Error('client.invalid_host_document_category_list');
+  if (!isHostDocumentCategoryResponseList(value)) {
+    throw new Error('client.invalid_document_category_list');
   }
   return value;
 }
 
-export async function createHostDocumentCategory(
+export async function createDocumentCategory(
   name: string,
   parentId: string | null,
   sortOrder: number,
@@ -25,19 +23,19 @@ export async function createHostDocumentCategory(
   icon: string | null,
   color: string | null,
   description: string | null
-): Promise<HostDocumentCategory> {
+): Promise<HostDocumentCategoryResponse> {
   const value = await request<unknown>('/api/v1/document/host/categories', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name, parentId, sortOrder, code, icon, color, description })
   });
-  if (!isHostDocumentCategory(value)) {
-    throw new Error('client.invalid_host_document_category');
+  if (!isHostDocumentCategoryResponse(value)) {
+    throw new Error('client.invalid_document_category');
   }
   return value;
 }
 
-export async function updateHostDocumentCategory(
+export async function updateDocumentCategory(
   id: string,
   name: string,
   parentId: string | null,
@@ -47,7 +45,7 @@ export async function updateHostDocumentCategory(
   color: string | null,
   description: string | null,
   version: number
-): Promise<HostDocumentCategory> {
+): Promise<HostDocumentCategoryResponse> {
   const value = await request<unknown>(
     `/api/v1/document/host/categories/${encodeURIComponent(id)}`,
     {
@@ -56,13 +54,13 @@ export async function updateHostDocumentCategory(
       body: JSON.stringify({ name, parentId, sortOrder, code, icon, color, description, version })
     }
   );
-  if (!isHostDocumentCategory(value)) {
-    throw new Error('client.invalid_host_document_category');
+  if (!isHostDocumentCategoryResponse(value)) {
+    throw new Error('client.invalid_document_category');
   }
   return value;
 }
 
-export async function deleteHostDocumentCategory(
+export async function deleteDocumentCategory(
   id: string,
   version: number
 ): Promise<boolean> {
@@ -76,3 +74,9 @@ export async function deleteHostDocumentCategory(
   );
   return value === true;
 }
+
+export type {
+  CreateHostDocumentCategoryRequest,
+  HostDocumentCategoryResponse,
+  UpdateHostDocumentCategoryRequest
+};

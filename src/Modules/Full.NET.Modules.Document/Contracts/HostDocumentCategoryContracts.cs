@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace Full.NET.Modules.Document.Contracts;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+[method: JsonConstructor]
 public sealed record CreateHostDocumentCategoryRequest(
     string Name,
     Guid? ParentId,
@@ -22,6 +23,7 @@ public sealed record CreateHostDocumentCategoryRequest(
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+[method: JsonConstructor]
 public sealed record UpdateHostDocumentCategoryRequest(
     string Name,
     Guid? ParentId,
@@ -48,6 +50,7 @@ public sealed record UpdateHostDocumentCategoryRequest(
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DeleteHostDocumentCategoryRequest(long Version);
 
+[method: JsonConstructor]
 public sealed record HostDocumentCategoryResponse(
     Guid Id,
     Guid? ParentId,

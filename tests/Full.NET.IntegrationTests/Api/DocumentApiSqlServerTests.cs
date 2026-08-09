@@ -45,4 +45,14 @@ public sealed class DocumentApiSqlServerTests
 
         await DocumentAuthorizationAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Document_share_security_is_atomic_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await DocumentShareSecurityAssertions.VerifyAsync(factory);
+    }
 }

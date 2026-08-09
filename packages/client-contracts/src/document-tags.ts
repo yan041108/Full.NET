@@ -1,7 +1,10 @@
 export interface HostDocumentTagResponse {
   id: string;
   name: string;
+  code: string | null;
+  icon: string | null;
   color: string | null;
+  description: string | null;
   useCount: number;
   createdAtUtc: string;
   updatedAtUtc: string | null;
@@ -10,12 +13,18 @@ export interface HostDocumentTagResponse {
 
 export interface CreateHostDocumentTagRequest {
   name: string;
+  code?: string | null;
+  icon?: string | null;
   color?: string | null;
+  description?: string | null;
 }
 
 export interface UpdateHostDocumentTagRequest {
   name: string;
+  code?: string | null;
+  icon?: string | null;
   color?: string | null;
+  description?: string | null;
   version: number;
 }
 
@@ -45,7 +54,10 @@ export function isHostDocumentTagResponse(value: unknown): value is HostDocument
   return isRecord(value)
     && isGuid(value.id)
     && isNonEmptyString(value.name)
+    && isNullableString(value.code)
+    && isNullableString(value.icon)
     && isNullableString(value.color)
+    && isNullableString(value.description)
     && Number.isInteger(value.useCount)
     && typeof value.createdAtUtc === 'string'
     && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
@@ -59,13 +71,19 @@ export function isHostDocumentTagResponseList(value: unknown): value is HostDocu
 export function isCreateHostDocumentTagRequest(value: unknown): value is CreateHostDocumentTagRequest {
   return isRecord(value)
     && isNonEmptyString(value.name)
-    && (value.color === undefined || isNullableString(value.color));
+    && (value.code === undefined || isNullableString(value.code))
+    && (value.icon === undefined || isNullableString(value.icon))
+    && (value.color === undefined || isNullableString(value.color))
+    && (value.description === undefined || isNullableString(value.description));
 }
 
 export function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocumentTagRequest {
   return isRecord(value)
     && isNonEmptyString(value.name)
+    && (value.code === undefined || isNullableString(value.code))
+    && (value.icon === undefined || isNullableString(value.icon))
     && (value.color === undefined || isNullableString(value.color))
+    && (value.description === undefined || isNullableString(value.description))
     && Number.isInteger(value.version);
 }
 

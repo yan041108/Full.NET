@@ -1,9 +1,13 @@
 import {
+  isAccessHostDocumentShareRequest,
   isCreateHostDocumentShareRequest,
+  isHostDocumentShareAccessResponse,
   isHostDocumentSharePage,
   isHostDocumentShareResponse,
   isUpdateHostDocumentShareStatusRequest,
+  type AccessHostDocumentShareRequest,
   type CreateHostDocumentShareRequest,
+  type HostDocumentShareAccessResponse,
   type HostDocumentSharePage,
   type HostDocumentShareResponse,
   type UpdateHostDocumentShareStatusRequest
@@ -61,14 +65,32 @@ export async function updateDocumentShareStatus(
   return value;
 }
 
-export async function getDocumentShareByCode(
-  shareCode: string
-): Promise<HostDocumentShareResponse> {
+export async function accessDocumentShareByCode(
+  shareCode: string,
+  req: AccessHostDocumentShareRequest = {}
+): Promise<HostDocumentShareAccessResponse> {
+  if (!isAccessHostDocumentShareRequest(req)) {
+    throw new Error('client.invalid_access_document_share_request');
+  }
   const value = await request<unknown>(
-    `/api/v1/document/host/shares/by-code/${encodeURIComponent(shareCode)}`
+    `/api/v1/document/public/shares/${encodeURIComponent(shareCode)}/access`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(req)
+    }
   );
-  if (!isHostDocumentShareResponse(value)) {
-    throw new Error('client.invalid_document_share');
+  if (!isHostDocumentShareAccessResponse(value)) {
+    throw new Error('client.invalid_document_share_access');
   }
   return value;
 }
+
+export type {
+  AccessHostDocumentShareRequest,
+  CreateHostDocumentShareRequest,
+  HostDocumentShareAccessResponse,
+  HostDocumentSharePage,
+  HostDocumentShareResponse,
+  UpdateHostDocumentShareStatusRequest
+};

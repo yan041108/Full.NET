@@ -194,12 +194,6 @@ export type {
   HostFilePage
 } from './host-files.js';
 
-// 旧版 host-document-categories / host-document-tags / host-document-items 已由
-// 新版 document-categories / document-tags / document-items 替代（字段对齐Admin.NET：
-// code/icon/color/description/useCount）。为避免同名类型重复标识符冲突，
-// 旧版不再从 barrel 暴露；仅内部 API 层仍可直接从文件路径引用。
-// 注意：document-items 类型名部分带有 Response/Page 后缀，替代原先的简略类型名。
-
 export {
   HOST_DOCUMENT_STATUSES,
   HOST_DOCUMENT_TYPES,
@@ -261,51 +255,48 @@ export type {
 } from './document-tags.js';
 
 export {
-  HOST_DOCUMENT_PERMISSION_OBJECT_TYPES,
-  HOST_DOCUMENT_PERMISSION_TYPES,
-  isHostDocumentPermissionEntryRequest,
-  isHostDocumentPermissionObjectType,
+  isHostDocumentPermissionEntry,
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
-  isHostDocumentPermissionType,
   isSetHostDocumentPermissionsRequest
 } from './document-permissions.js';
 
 export type {
-  HostDocumentPermissionEntryRequest,
-  HostDocumentPermissionObjectType,
+  HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
-  HostDocumentPermissionType,
   SetHostDocumentPermissionsRequest
 } from './document-permissions.js';
 
 export {
-  HOST_DOCUMENT_SHARE_PERMISSIONS,
+  isAccessHostDocumentShareRequest,
   isCreateHostDocumentShareRequest,
+  isHostDocumentShareAccessResponse,
   isHostDocumentSharePage,
-  isHostDocumentSharePermission,
   isHostDocumentShareResponse,
   isUpdateHostDocumentShareStatusRequest
 } from './document-shares.js';
 
 export type {
+  AccessHostDocumentShareRequest,
   CreateHostDocumentShareRequest,
+  HostDocumentShareAccessResponse,
   HostDocumentSharePage,
-  HostDocumentSharePermission,
   HostDocumentShareResponse,
   UpdateHostDocumentShareStatusRequest
 } from './document-shares.js';
 
 export {
-  isHostDocumentCategoryStatisticsItem,
+  isHostDocumentStatisticsCategoryItem,
   isHostDocumentStatisticsResponse,
-  isHostDocumentTypeStatisticsItem
+  isHostDocumentStatisticsSummaryResponse,
+  isHostDocumentStatisticsTypeItem
 } from './document-statistics.js';
 
 export type {
-  HostDocumentCategoryStatisticsItem,
+  HostDocumentStatisticsCategoryItem,
   HostDocumentStatisticsResponse,
-  HostDocumentTypeStatisticsItem
+  HostDocumentStatisticsSummaryResponse,
+  HostDocumentStatisticsTypeItem
 } from './document-statistics.js';
 
 export {

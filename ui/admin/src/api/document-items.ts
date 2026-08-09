@@ -1,18 +1,12 @@
-// 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
 import {
-  isHostDocumentItemResponse as isHostDocumentItem,
   isHostDocumentItemPage,
-  type HostDocumentItemResponse as HostDocumentItem,
+  isHostDocumentItemResponse,
   type HostDocumentItemPage,
-  type CreateHostDocumentItemRequest,
-  type UpdateHostDocumentItemRequest,
-  type AddHostDocumentVersionRequest,
-  type DeleteHostDocumentItemRequest,
-  type RestoreHostDocumentItemRequest
+  type HostDocumentItemResponse
 } from '@fullnet/client-contracts';
 import { request, requestBlob } from './http';
 
-export async function listHostDocumentItems(
+export async function listDocumentItems(
   page = 1,
   pageSize = 20
 ): Promise<HostDocumentItemPage> {
@@ -20,32 +14,32 @@ export async function listHostDocumentItems(
     `/api/v1/document/host/items?page=${page}&pageSize=${pageSize}`
   );
   if (!isHostDocumentItemPage(value)) {
-    throw new Error('client.invalid_host_document_item_page');
+    throw new Error('client.invalid_document_item_page');
   }
   return value;
 }
 
-export async function createHostDocumentItem(
+export async function createDocumentItem(
   title: string,
   description: string | null
-): Promise<HostDocumentItem> {
+): Promise<HostDocumentItemResponse> {
   const value = await request<unknown>('/api/v1/document/host/items', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ title, description })
   });
-  if (!isHostDocumentItem(value)) {
-    throw new Error('client.invalid_host_document_item');
+  if (!isHostDocumentItemResponse(value)) {
+    throw new Error('client.invalid_document_item');
   }
   return value;
 }
 
-export async function updateHostDocumentItem(
+export async function updateDocumentItem(
   itemId: string,
   title: string,
   description: string | null,
   version: number
-): Promise<HostDocumentItem> {
+): Promise<HostDocumentItemResponse> {
   const value = await request<unknown>(
     `/api/v1/document/host/items/${encodeURIComponent(itemId)}`,
     {
@@ -54,16 +48,16 @@ export async function updateHostDocumentItem(
       body: JSON.stringify({ title, description, version })
     }
   );
-  if (!isHostDocumentItem(value)) {
-    throw new Error('client.invalid_host_document_item');
+  if (!isHostDocumentItemResponse(value)) {
+    throw new Error('client.invalid_document_item');
   }
   return value;
 }
 
-export async function uploadHostDocumentVersion(
+export async function uploadDocumentVersion(
   itemId: string,
   file: File
-): Promise<HostDocumentItem> {
+): Promise<HostDocumentItemResponse> {
   const formData = new FormData();
   formData.append('file', file);
   const value = await request<unknown>(
@@ -73,20 +67,20 @@ export async function uploadHostDocumentVersion(
       body: formData
     }
   );
-  if (!isHostDocumentItem(value)) {
-    throw new Error('client.invalid_host_document_item');
+  if (!isHostDocumentItemResponse(value)) {
+    throw new Error('client.invalid_document_item');
   }
   return value;
 }
 
-export async function downloadHostDocumentContent(itemId: string): Promise<Blob> {
+export async function downloadDocumentContent(itemId: string): Promise<Blob> {
   return requestBlob(
     `/api/v1/document/host/items/${encodeURIComponent(itemId)}/content`
   );
 }
 
 /** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
-export function openHostDocumentBlob(blob: Blob): void {
+export function openDocumentBlob(blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const opened = window.open(url, '_blank', 'noopener,noreferrer');
   if (!opened) {
@@ -97,10 +91,10 @@ export function openHostDocumentBlob(blob: Blob): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-export async function addHostDocumentVersion(
+export async function addDocumentVersion(
   itemId: string,
   fileId: string
-): Promise<HostDocumentItem> {
+): Promise<HostDocumentItemResponse> {
   const value = await request<unknown>(
     `/api/v1/document/host/items/${encodeURIComponent(itemId)}/versions`,
     {
@@ -109,13 +103,13 @@ export async function addHostDocumentVersion(
       body: JSON.stringify({ fileId })
     }
   );
-  if (!isHostDocumentItem(value)) {
-    throw new Error('client.invalid_host_document_item');
+  if (!isHostDocumentItemResponse(value)) {
+    throw new Error('client.invalid_document_item');
   }
   return value;
 }
 
-export async function deleteHostDocumentItem(
+export async function deleteDocumentItem(
   itemId: string,
   version: number
 ): Promise<boolean> {
@@ -130,10 +124,10 @@ export async function deleteHostDocumentItem(
   return value === true;
 }
 
-export async function restoreHostDocumentItem(
+export async function restoreDocumentItem(
   itemId: string,
   version: number
-): Promise<HostDocumentItem> {
+): Promise<HostDocumentItemResponse> {
   const value = await request<unknown>(
     `/api/v1/document/host/items/${encodeURIComponent(itemId)}/restore`,
     {
@@ -142,8 +136,10 @@ export async function restoreHostDocumentItem(
       body: JSON.stringify({ version })
     }
   );
-  if (!isHostDocumentItem(value)) {
-    throw new Error('client.invalid_host_document_item');
+  if (!isHostDocumentItemResponse(value)) {
+    throw new Error('client.invalid_document_item');
   }
   return value;
 }
+
+export type { HostDocumentItemPage, HostDocumentItemResponse };

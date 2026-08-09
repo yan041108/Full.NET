@@ -4,20 +4,20 @@ import { createPinia, setActivePinia } from 'pinia';
 import DocumentCategoriesView from './DocumentCategoriesView.vue';
 import { useSessionStore } from '../auth/session';
 import {
-  createHostDocumentCategory,
-  deleteHostDocumentCategory,
-  listHostDocumentCategories,
-  updateHostDocumentCategory
-} from '../api/host-document-categories';
+  createDocumentCategory,
+  deleteDocumentCategory,
+  listDocumentCategories,
+  updateDocumentCategory
+} from '../api/document-categories';
 
-vi.mock('../api/host-document-categories', () => ({
-  createHostDocumentCategory: vi.fn(),
-  deleteHostDocumentCategory: vi.fn(),
-  listHostDocumentCategories: vi.fn(),
-  updateHostDocumentCategory: vi.fn()
+vi.mock('../api/document-categories', () => ({
+  createDocumentCategory: vi.fn(),
+  deleteDocumentCategory: vi.fn(),
+  listDocumentCategories: vi.fn(),
+  updateDocumentCategory: vi.fn()
 }));
 
-const listMock = vi.mocked(listHostDocumentCategories);
+const listMock = vi.mocked(listDocumentCategories);
 const category = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
   name: 'Guides',
@@ -28,9 +28,7 @@ const category = {
   color: null,
   description: null,
   createdAtUtc: '2026-07-30T08:00:00Z',
-  createdByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204',
   updatedAtUtc: null,
-  updatedByUserId: null,
   version: 1
 };
 
@@ -57,9 +55,9 @@ function mountWithPermissions(permissions: string[]) {
 describe('Vue 文档分类页', () => {
   beforeEach(() => {
     listMock.mockReset().mockResolvedValue([category]);
-    vi.mocked(createHostDocumentCategory).mockReset();
-    vi.mocked(updateHostDocumentCategory).mockReset();
-    vi.mocked(deleteHostDocumentCategory).mockReset();
+    vi.mocked(createDocumentCategory).mockReset();
+    vi.mocked(updateDocumentCategory).mockReset();
+    vi.mocked(deleteDocumentCategory).mockReset();
   });
 
   it('仅有 read 时不显示写入操作', async () => {

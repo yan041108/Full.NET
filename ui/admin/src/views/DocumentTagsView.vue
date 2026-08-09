@@ -29,11 +29,11 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
-  createHostDocumentTag,
-  deleteHostDocumentTag,
-  listHostDocumentTags,
-  updateHostDocumentTag
-} from '../api/host-document-tags';
+  createDocumentTag,
+  deleteDocumentTag,
+  listDocumentTags,
+  updateDocumentTag
+} from '../api/document-tags';
 
 defineOptions({ name: 'DocumentTagsView' });
 
@@ -131,7 +131,7 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    allTags.value = await listHostDocumentTags();
+    allTags.value = await listDocumentTags();
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'documentTags.loadFailed');
@@ -199,7 +199,7 @@ async function create(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await createHostDocumentTag(
+    await createDocumentTag(
       editorForm.name,
       editorForm.code ?? null,
       editorForm.icon ?? null,
@@ -224,7 +224,7 @@ async function saveEdit(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await updateHostDocumentTag(
+    await updateDocumentTag(
       tag.id,
       editorForm.name,
       editorForm.code ?? null,
@@ -258,7 +258,7 @@ async function remove(tag: HostDocumentTag): Promise<void> {
       }
     );
     changing.value = true;
-    await deleteHostDocumentTag(tag.id, tag.version);
+    await deleteDocumentTag(tag.id, tag.version);
     ElMessage.success(t('documentTags.deleteSuccess'));
     await load();
   } catch (error: unknown) {

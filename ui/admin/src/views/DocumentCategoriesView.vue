@@ -29,11 +29,11 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
-  createHostDocumentCategory,
-  deleteHostDocumentCategory,
-  listHostDocumentCategories,
-  updateHostDocumentCategory
-} from '../api/host-document-categories';
+  createDocumentCategory,
+  deleteDocumentCategory,
+  listDocumentCategories,
+  updateDocumentCategory
+} from '../api/document-categories';
 
 defineOptions({ name: 'DocumentCategoriesView' });
 
@@ -175,7 +175,7 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    allCategories.value = await listHostDocumentCategories();
+    allCategories.value = await listDocumentCategories();
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'documentCategories.loadFailed');
@@ -245,7 +245,7 @@ async function create(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await createHostDocumentCategory(
+    await createDocumentCategory(
       editorForm.name,
       null,
       parseSortOrder(),
@@ -272,7 +272,7 @@ async function saveEdit(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await updateHostDocumentCategory(
+    await updateDocumentCategory(
       category.id,
       editorForm.name,
       category.parentId,
@@ -308,7 +308,7 @@ async function remove(category: HostDocumentCategory): Promise<void> {
       }
     );
     changing.value = true;
-    await deleteHostDocumentCategory(category.id, category.version);
+    await deleteDocumentCategory(category.id, category.version);
     ElMessage.success(t('documentCategories.deleteSuccess'));
     await load();
   } catch (error: unknown) {

@@ -1,60 +1,83 @@
-export interface HostDocumentTypeStatisticsItem {
-  documentType: number;
-  count: number;
-  sizeKb: number;
+export interface HostDocumentStatisticsSummaryResponse {
+  totalItems: number;
+  totalVersions: number;
+  totalSizeKb: number;
+  totalSizeInfo: string;
 }
 
-export interface HostDocumentCategoryStatisticsItem {
-  categoryId: string;
-  categoryName: string;
+export interface HostDocumentStatisticsTypeItem {
+  extension: string | null;
   count: number;
-  sizeKb: number;
+  totalSizeKb: number;
+}
+
+export interface HostDocumentStatisticsCategoryItem {
+  categoryId: string | null;
+  categoryName: string | null;
+  count: number;
 }
 
 export interface HostDocumentStatisticsResponse {
-  totalCount: number;
-  totalSizeKb: number;
-  totalSizeInfo: string;
-  todayUploadCount: number;
-  todayDownloadCount: number;
+  summary: HostDocumentStatisticsSummaryResponse;
+  byType: HostDocumentStatisticsTypeItem[];
+  byCategory: HostDocumentStatisticsCategoryItem[];
+  shareCount: number;
   todayAccessCount: number;
-  totalShareCount: number;
-  recycleCount: number;
-  typeStatistics: HostDocumentTypeStatisticsItem[];
-  categoryStatistics: HostDocumentCategoryStatisticsItem[];
+  todayDownloadCount: number;
+  todayCreatedCount: number;
+  recycleBinCount: number;
+}
+
+const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isGuid(value: unknown): value is string {
+  return typeof value === 'string' && guidPattern.test(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export function isHostDocumentTypeStatisticsItem(value: unknown): value is HostDocumentTypeStatisticsItem {
-  return isRecord(value)
-    && Number.isInteger(value.documentType)
-    && Number.isInteger(value.count)
-    && typeof value.sizeKb === 'number';
+function isNullableGuid(value: unknown): value is string | null {
+  return value === null || isGuid(value);
 }
 
-export function isHostDocumentCategoryStatisticsItem(value: unknown): value is HostDocumentCategoryStatisticsItem {
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+export function isHostDocumentStatisticsSummaryResponse(value: unknown): value is HostDocumentStatisticsSummaryResponse {
   return isRecord(value)
-    && typeof value.categoryId === 'string'
-    && typeof value.categoryName === 'string'
+    && Number.isInteger(value.totalItems)
+    && Number.isInteger(value.totalVersions)
+    && typeof value.totalSizeKb === 'number'
+    && typeof value.totalSizeInfo === 'string';
+}
+
+export function isHostDocumentStatisticsTypeItem(value: unknown): value is HostDocumentStatisticsTypeItem {
+  return isRecord(value)
+    && isNullableString(value.extension)
     && Number.isInteger(value.count)
-    && typeof value.sizeKb === 'number';
+    && typeof value.totalSizeKb === 'number';
+}
+
+export function isHostDocumentStatisticsCategoryItem(value: unknown): value is HostDocumentStatisticsCategoryItem {
+  return isRecord(value)
+    && isNullableGuid(value.categoryId)
+    && isNullableString(value.categoryName)
+    && Number.isInteger(value.count);
 }
 
 export function isHostDocumentStatisticsResponse(value: unknown): value is HostDocumentStatisticsResponse {
   return isRecord(value)
-    && Number.isInteger(value.totalCount)
-    && typeof value.totalSizeKb === 'number'
-    && typeof value.totalSizeInfo === 'string'
-    && Number.isInteger(value.todayUploadCount)
-    && Number.isInteger(value.todayDownloadCount)
+    && isHostDocumentStatisticsSummaryResponse(value.summary)
+    && Array.isArray(value.byType)
+    && value.byType.every(isHostDocumentStatisticsTypeItem)
+    && Array.isArray(value.byCategory)
+    && value.byCategory.every(isHostDocumentStatisticsCategoryItem)
+    && Number.isInteger(value.shareCount)
     && Number.isInteger(value.todayAccessCount)
-    && Number.isInteger(value.totalShareCount)
-    && Number.isInteger(value.recycleCount)
-    && Array.isArray(value.typeStatistics)
-    && value.typeStatistics.every(isHostDocumentTypeStatisticsItem)
-    && Array.isArray(value.categoryStatistics)
-    && value.categoryStatistics.every(isHostDocumentCategoryStatisticsItem);
+    && Number.isInteger(value.todayDownloadCount)
+    && Number.isInteger(value.todayCreatedCount)
+    && Number.isInteger(value.recycleBinCount);
 }

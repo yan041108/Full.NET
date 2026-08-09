@@ -6,6 +6,7 @@ namespace Full.NET.Modules.Document.Contracts;
 /// 创建主机文档标签的请求契约。新增 Code/Icon/Description 以与 Category 统一字段集对齐。
 /// </summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+[method: JsonConstructor]
 public sealed record CreateHostDocumentTagRequest(
     string Name,
     string? Code,
@@ -26,6 +27,7 @@ public sealed record CreateHostDocumentTagRequest(
 /// 更新主机文档标签的请求契约。新增 Code/Icon/Description 以与 Category 统一字段集对齐。
 /// </summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+[method: JsonConstructor]
 public sealed record UpdateHostDocumentTagRequest(
     string Name,
     string? Code,
@@ -50,6 +52,7 @@ public sealed record DeleteHostDocumentTagRequest(long Version);
 /// 主机文档标签的响应契约。新增 Code/Icon/Description 以与 Category 统一字段集对齐；
 /// 与 QueryService.Map 的构造参数顺序保持一致：Id/Name/Code/Icon/Color/Description/UseCount。
 /// </summary>
+[method: JsonConstructor]
 public sealed record HostDocumentTagResponse(
     Guid Id,
     string Name,

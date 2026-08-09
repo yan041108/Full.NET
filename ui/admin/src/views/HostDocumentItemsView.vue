@@ -14,15 +14,15 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
-  createHostDocumentItem,
-  deleteHostDocumentItem,
-  downloadHostDocumentContent,
-  listHostDocumentItems,
-  openHostDocumentBlob,
-  restoreHostDocumentItem,
-  updateHostDocumentItem,
-  uploadHostDocumentVersion
-} from '../api/host-document-items';
+  createDocumentItem,
+  deleteDocumentItem,
+  downloadDocumentContent,
+  listDocumentItems,
+  openDocumentBlob,
+  restoreDocumentItem,
+  updateDocumentItem,
+  uploadDocumentVersion
+} from '../api/document-items';
 
 defineOptions({ name: 'HostDocumentItemsView' });
 
@@ -113,7 +113,7 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const pageResult = await listHostDocumentItems();
+    const pageResult = await listDocumentItems();
     items.value = pageResult.items;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
@@ -140,7 +140,7 @@ async function create(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await createHostDocumentItem(title.value.trim(), description.value.trim() || null);
+    await createDocumentItem(title.value.trim(), description.value.trim() || null);
     title.value = '';
     description.value = '';
     ElMessage.success(t('hostDocumentItems.createSuccess'));
@@ -170,7 +170,7 @@ async function uploadVersion(item: HostDocumentItem): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await uploadHostDocumentVersion(item.id, versionFile.value);
+    await uploadDocumentVersion(item.id, versionFile.value);
     versionFile.value = null;
     versionTargetId.value = undefined;
     ElMessage.success(t('hostDocumentItems.versionSuccess'));
@@ -193,7 +193,7 @@ async function remove(item: HostDocumentItem): Promise<void> {
       { type: 'warning', confirmButtonText: t('hostDocumentItems.delete'), cancelButtonText: t('status.back') }
     );
     changing.value = true;
-    await deleteHostDocumentItem(item.id, item.version);
+    await deleteDocumentItem(item.id, item.version);
     recentlyDeleted.value = [
       { item, restoreVersion: item.version + 1 },
       ...recentlyDeleted.value.filter(entry => entry.item.id !== item.id)
@@ -229,7 +229,7 @@ async function saveEdit(item: HostDocumentItem): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await updateHostDocumentItem(
+    await updateDocumentItem(
       item.id,
       title.value.trim(),
       description.value.trim() || null,
@@ -254,7 +254,7 @@ async function restoreDeleted(entry: DeletedDocumentEntry): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await restoreHostDocumentItem(entry.item.id, entry.restoreVersion);
+    await restoreDocumentItem(entry.item.id, entry.restoreVersion);
     recentlyDeleted.value = recentlyDeleted.value.filter(
       candidate => candidate.item.id !== entry.item.id
     );
@@ -274,8 +274,8 @@ async function downloadFile(itemId: string): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    const blob = await downloadHostDocumentContent(itemId);
-    openHostDocumentBlob(blob);
+    const blob = await downloadDocumentContent(itemId);
+    openDocumentBlob(blob);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
   } finally {

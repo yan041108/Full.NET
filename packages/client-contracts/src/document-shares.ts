@@ -1,37 +1,26 @@
-export type HostDocumentSharePermission = 1 | 2;
-
-export const HOST_DOCUMENT_SHARE_PERMISSIONS = {
-  View: 1 as HostDocumentSharePermission,
-  Download: 2 as HostDocumentSharePermission,
-} as const;
-
 export interface CreateHostDocumentShareRequest {
   documentId: string;
-  password?: string | null;
   validDays: number;
-  sharePermission: number;
+  password?: string | null;
+  maxAccessCount?: number | null;
 }
 
 export interface UpdateHostDocumentShareStatusRequest {
   isEnabled: boolean;
+  version: number;
 }
 
 export interface HostDocumentShareResponse {
   id: string;
   documentId: string;
-  documentNo: string;
-  documentTitle: string;
-  categoryName: string | null;
   shareCode: string;
-  shareUrl: string;
-  hasPassword: boolean;
-  validDays: number;
-  expireTime: string | null;
-  accessCount: number;
-  sharePermission: number;
-  isEnabled: boolean;
   createdAtUtc: string;
-  createdByUserId: string;
+  expireTime: string;
+  maxAccessCount: number | null;
+  accessCount: number;
+  isEnabled: boolean;
+  version: number;
+  hasPassword: boolean;
 }
 
 export interface HostDocumentSharePage {
@@ -39,6 +28,22 @@ export interface HostDocumentSharePage {
   page: number;
   pageSize: number;
   total: number;
+}
+
+export interface AccessHostDocumentShareRequest {
+  password?: string | null;
+}
+
+export interface HostDocumentShareAccessResponse {
+  shareId: string;
+  documentId: string;
+  shareCode: string;
+  title: string;
+  fileName: string | null;
+  mimeType: string | null;
+  fileSizeBytes: number;
+  hasPassword: boolean;
+  accessCountRemaining: number;
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,40 +64,37 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
-export function isHostDocumentSharePermission(value: unknown): value is HostDocumentSharePermission {
-  return typeof value === 'number' && (value === 1 || value === 2);
+function shareResponseHasForbiddenCredentialFields(value: Record<string, unknown>): boolean {
+  return 'password' in value || 'passwordHash' in value;
 }
 
 export function isCreateHostDocumentShareRequest(value: unknown): value is CreateHostDocumentShareRequest {
   return isRecord(value)
     && isGuid(value.documentId)
-    && (value.password === undefined || isNullableString(value.password))
     && Number.isInteger(value.validDays)
-    && Number.isInteger(value.sharePermission);
+    && (value.password === undefined || isNullableString(value.password))
+    && (value.maxAccessCount === undefined || value.maxAccessCount === null || Number.isInteger(value.maxAccessCount));
 }
 
 export function isUpdateHostDocumentShareStatusRequest(value: unknown): value is UpdateHostDocumentShareStatusRequest {
   return isRecord(value)
-    && typeof value.isEnabled === 'boolean';
+    && typeof value.isEnabled === 'boolean'
+    && Number.isInteger(value.version);
 }
 
 export function isHostDocumentShareResponse(value: unknown): value is HostDocumentShareResponse {
   return isRecord(value)
+    && !shareResponseHasForbiddenCredentialFields(value)
     && isGuid(value.id)
     && isGuid(value.documentId)
-    && typeof value.documentNo === 'string'
-    && isNonEmptyString(value.documentTitle)
-    && isNullableString(value.categoryName)
     && isNonEmptyString(value.shareCode)
-    && isNonEmptyString(value.shareUrl)
-    && typeof value.hasPassword === 'boolean'
-    && Number.isInteger(value.validDays)
-    && (value.expireTime === null || typeof value.expireTime === 'string')
-    && Number.isInteger(value.accessCount)
-    && Number.isInteger(value.sharePermission)
-    && typeof value.isEnabled === 'boolean'
     && typeof value.createdAtUtc === 'string'
-    && isGuid(value.createdByUserId);
+    && typeof value.expireTime === 'string'
+    && (value.maxAccessCount === null || Number.isInteger(value.maxAccessCount))
+    && Number.isInteger(value.accessCount)
+    && typeof value.isEnabled === 'boolean'
+    && Number.isInteger(value.version)
+    && typeof value.hasPassword === 'boolean';
 }
 
 export function isHostDocumentSharePage(value: unknown): value is HostDocumentSharePage {
@@ -102,4 +104,23 @@ export function isHostDocumentSharePage(value: unknown): value is HostDocumentSh
     && Number.isInteger(value.page)
     && Number.isInteger(value.pageSize)
     && Number.isInteger(value.total);
+}
+
+export function isAccessHostDocumentShareRequest(value: unknown): value is AccessHostDocumentShareRequest {
+  return isRecord(value)
+    && (value.password === undefined || isNullableString(value.password));
+}
+
+export function isHostDocumentShareAccessResponse(value: unknown): value is HostDocumentShareAccessResponse {
+  return isRecord(value)
+    && !shareResponseHasForbiddenCredentialFields(value)
+    && isGuid(value.shareId)
+    && isGuid(value.documentId)
+    && isNonEmptyString(value.shareCode)
+    && isNonEmptyString(value.title)
+    && isNullableString(value.fileName)
+    && isNullableString(value.mimeType)
+    && Number.isInteger(value.fileSizeBytes)
+    && typeof value.hasPassword === 'boolean'
+    && Number.isInteger(value.accessCountRemaining);
 }

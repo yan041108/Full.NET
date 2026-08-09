@@ -25,6 +25,7 @@ public sealed record HostDocumentTagAssignmentResponse(
     string TagName);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+[method: JsonConstructor]
 public sealed record CreateHostDocumentItemRequest(
     string Title,
     string? Description,
@@ -53,6 +54,7 @@ public sealed record CreateHostDocumentItemRequest(
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+[method: JsonConstructor]
 public sealed record UpdateHostDocumentItemRequest(
     string Title,
     string? Description,
@@ -73,6 +75,7 @@ public sealed record UpdateHostDocumentItemRequest(
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+[method: JsonConstructor]
 public sealed record AddHostDocumentVersionRequest(
     Guid FileId,
     string? ChangeDescription)
@@ -155,6 +158,7 @@ public sealed record UpdateHostDocumentShareStatusRequest(
     bool IsEnabled,
     long Version);
 
+[method: JsonConstructor]
 public sealed record HostDocumentShareResponse(
     Guid Id,
     Guid DocumentId,

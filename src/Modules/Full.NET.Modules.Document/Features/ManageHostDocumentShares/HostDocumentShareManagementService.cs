@@ -113,16 +113,22 @@ internal sealed class HostDocumentShareManagementService(
 
         // 中文注释：只有验证通过、权限有效的情况下才执行原子计数自增；
         // 错误口令永不进入计数，避免被并发利用做存在性 oracle。
-        var affected = await commandExecutor.ExecuteAsync(
-                DocumentShareSql.IncrementAccessCount,
-                new { share.Id },
+        return await transaction.ExecuteResultAsync(
+                token => ConsumeAnonymousAccessAsync(share, hasPassword, now, token),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
 
+    private async Task<Result<HostDocumentShareAccessResponse>> ConsumeAnonymousAccessAsync(
+        DocumentShareRecord share,
+        bool hasPassword,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         var document = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
-                new { share.DocumentId },
+                new { Id = share.DocumentId },
                 cancellationToken)
             .ConfigureAwait(false);
         if (document is null)
@@ -130,8 +136,38 @@ internal sealed class HostDocumentShareManagementService(
             return AccessDenied();
         }
 
-        var remaining = share.MaxAccessCount.HasValue
-            ? Math.Max(0, share.MaxAccessCount.Value - share.AccessCount - 1)
+        // 有效性与访问上限必须由同一条更新语句判断；内存预检不能承担并发正确性。
+        var affected = await commandExecutor.ExecuteAsync(
+                DocumentShareSql.TryConsumeAccess,
+                new { share.Id, Now = now },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            var current = await queryExecutor
+                .QuerySingleOrDefaultAsync<DocumentShareRecord>(
+                    DocumentShareSql.FindById,
+                    new { share.Id },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return current?.MaxAccessCount is int limit && current.AccessCount >= limit
+                ? AccessMaxReached()
+                : AccessDenied();
+        }
+
+        var consumed = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentShareRecord>(
+                DocumentShareSql.FindById,
+                new { share.Id },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (consumed is null)
+        {
+            return AccessDenied();
+        }
+
+        var remaining = consumed.MaxAccessCount.HasValue
+            ? Math.Max(0, consumed.MaxAccessCount.Value - consumed.AccessCount)
             : int.MaxValue;
         // 中文注释：匿名响应中的文件名/MIME/大小优先取版本元数据；如果版本尚未上传，
         // 用标题作为文件名占位、大小为 0，避免返回 default 导致客户端 NRE。
@@ -148,49 +184,6 @@ internal sealed class HostDocumentShareManagementService(
             fileSizeBytes,
             hasPassword,
             remaining));
-    }
-
-    public async Task<Result<HostDocumentShareResponse>> AccessByCodeAsync(
-        string shareCode,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(shareCode))
-        {
-            return Invalid();
-        }
-
-        var shareResult = await queries.GetByCodeAsync(shareCode, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (!shareResult.IsSuccess)
-        {
-            return shareResult;
-        }
-
-        var share = shareResult.Value!;
-
-        if (clock.UtcNow > share.ExpireTime)
-        {
-            return Expired();
-        }
-
-        if (!share.IsEnabled)
-        {
-            return Disabled();
-        }
-
-        if (share.MaxAccessCount.HasValue && share.AccessCount >= share.MaxAccessCount.Value)
-        {
-            return MaxAccessReached();
-        }
-
-        await commandExecutor.ExecuteAsync(
-                DocumentShareSql.IncrementAccessCount,
-                new { share.Id },
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        return await queries.GetByIdAsync(share.Id, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<HostDocumentShareResponse>> CreateCoreAsync(

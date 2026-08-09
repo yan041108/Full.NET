@@ -81,12 +81,16 @@ internal static class DocumentShareSql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement IncrementAccessCount = new(
-        "document.host_share.increment_access_count",
+    public static readonly SqlStatement TryConsumeAccess = new(
+        "document.host_share.try_consume_access",
         """
         UPDATE fn_document_share
         SET AccessCount = AccessCount + 1
-        WHERE Id = @Id AND TenantId IS NULL
+        WHERE Id = @Id
+          AND TenantId IS NULL
+          AND IsEnabled = 1
+          AND ExpireTime >= @Now
+          AND (MaxAccessCount IS NULL OR AccessCount < MaxAccessCount)
         """,
         SqlDataScope.HostOnly);
 }

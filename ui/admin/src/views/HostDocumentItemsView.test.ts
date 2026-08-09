@@ -4,30 +4,30 @@ import { createPinia, setActivePinia } from 'pinia';
 import HostDocumentItemsView from './HostDocumentItemsView.vue';
 import { useSessionStore } from '../auth/session';
 import {
-  createHostDocumentItem,
-  deleteHostDocumentItem,
-  downloadHostDocumentContent,
-  listHostDocumentItems,
-  openHostDocumentBlob,
-  restoreHostDocumentItem,
-  updateHostDocumentItem,
-  uploadHostDocumentVersion
-} from '../api/host-document-items';
+  createDocumentItem,
+  deleteDocumentItem,
+  downloadDocumentContent,
+  listDocumentItems,
+  openDocumentBlob,
+  restoreDocumentItem,
+  updateDocumentItem,
+  uploadDocumentVersion
+} from '../api/document-items';
 
-vi.mock('../api/host-document-items', () => ({
-  createHostDocumentItem: vi.fn(),
-  deleteHostDocumentItem: vi.fn(),
-  downloadHostDocumentContent: vi.fn(),
-  listHostDocumentItems: vi.fn(),
-  openHostDocumentBlob: vi.fn(),
-  restoreHostDocumentItem: vi.fn(),
-  updateHostDocumentItem: vi.fn(),
-  uploadHostDocumentVersion: vi.fn()
+vi.mock('../api/document-items', () => ({
+  createDocumentItem: vi.fn(),
+  deleteDocumentItem: vi.fn(),
+  downloadDocumentContent: vi.fn(),
+  listDocumentItems: vi.fn(),
+  openDocumentBlob: vi.fn(),
+  restoreDocumentItem: vi.fn(),
+  updateDocumentItem: vi.fn(),
+  uploadDocumentVersion: vi.fn()
 }));
 
-const listMock = vi.mocked(listHostDocumentItems);
-const downloadMock = vi.mocked(downloadHostDocumentContent);
-const openBlobMock = vi.mocked(openHostDocumentBlob);
+const listMock = vi.mocked(listDocumentItems);
+const downloadMock = vi.mocked(downloadDocumentContent);
+const openBlobMock = vi.mocked(openDocumentBlob);
 const item = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
   documentNo: 'DOC-000001',

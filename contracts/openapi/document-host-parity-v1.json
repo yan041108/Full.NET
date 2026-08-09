@@ -1,0 +1,268 @@
+{
+  "id": "document-host-parity-v1",
+  "version": 1,
+  "description": "Host 文档权限、分享、统计与回收站 HTTP 契约冻结夹具；与 HostDocumentContracts 和 Document 模块 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/permissions/by-document/{documentId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_permissions.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentPermissionResponseList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/permissions",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_permissions.set",
+          "successStatus": 200,
+          "requestSchema": "SetHostDocumentPermissionsRequest",
+          "responseSchema": "HostDocumentPermissionResponseList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/shares",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_shares.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentShareResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "document.host_shares.create",
+          "successStatus": 201,
+          "requestSchema": "CreateHostDocumentShareRequest",
+          "responseSchema": "HostDocumentShareResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/shares/{id}/status",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_shares.update_status",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostDocumentShareStatusRequest",
+          "responseSchema": "HostDocumentShareResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/shares/by-code/{shareCode}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": null,
+          "successStatus": 405
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/public/shares/{shareCode}/access",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": null,
+          "successStatus": 200,
+          "requestSchema": "AccessHostDocumentShareRequest",
+          "responseSchema": "HostDocumentShareAccessResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/statistics",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_statistics.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentStatisticsResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/recycle-bin",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_recycle_bin.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentItemResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/recycle-bin/{id}/restore",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_recycle_bin.restore",
+          "successStatus": 200,
+          "requestSchema": "RestoreHostDocumentItemRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/recycle-bin/{id}/purge",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_recycle_bin.purge",
+          "successStatus": 200
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostDocumentPermissionEntry": {
+      "properties": [
+        "userId",
+        "permissionLevel"
+      ]
+    },
+    "SetHostDocumentPermissionsRequest": {
+      "properties": [
+        "documentId",
+        "permissions"
+      ]
+    },
+    "HostDocumentPermissionResponse": {
+      "properties": [
+        "id",
+        "documentId",
+        "userId",
+        "permissionLevel",
+        "createdAtUtc"
+      ]
+    },
+    "HostDocumentPermissionResponseList": {
+      "properties": [
+        "items"
+      ],
+      "itemSchema": "HostDocumentPermissionResponse"
+    },
+    "CreateHostDocumentShareRequest": {
+      "properties": [
+        "documentId",
+        "validDays",
+        "password",
+        "maxAccessCount"
+      ]
+    },
+    "UpdateHostDocumentShareStatusRequest": {
+      "properties": [
+        "isEnabled",
+        "version"
+      ]
+    },
+    "HostDocumentShareResponse": {
+      "properties": [
+        "id",
+        "documentId",
+        "shareCode",
+        "createdAtUtc",
+        "expireTime",
+        "maxAccessCount",
+        "accessCount",
+        "isEnabled",
+        "version",
+        "hasPassword"
+      ]
+    },
+    "HostDocumentShareResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostDocumentShareResponse"
+    },
+    "AccessHostDocumentShareRequest": {
+      "properties": [
+        "password"
+      ]
+    },
+    "HostDocumentShareAccessResponse": {
+      "properties": [
+        "shareId",
+        "documentId",
+        "shareCode",
+        "title",
+        "fileName",
+        "mimeType",
+        "fileSizeBytes",
+        "hasPassword",
+        "accessCountRemaining"
+      ]
+    },
+    "HostDocumentStatisticsSummaryResponse": {
+      "properties": [
+        "totalItems",
+        "totalVersions",
+        "totalSizeKb",
+        "totalSizeInfo"
+      ]
+    },
+    "HostDocumentStatisticsTypeItem": {
+      "properties": [
+        "extension",
+        "count",
+        "totalSizeKb"
+      ]
+    },
+    "HostDocumentStatisticsCategoryItem": {
+      "properties": [
+        "categoryId",
+        "categoryName",
+        "count"
+      ]
+    },
+    "HostDocumentStatisticsResponse": {
+      "properties": [
+        "summary",
+        "byType",
+        "byCategory",
+        "shareCount",
+        "todayAccessCount",
+        "todayDownloadCount",
+        "todayCreatedCount",
+        "recycleBinCount"
+      ]
+    },
+    "RestoreHostDocumentItemRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "HostDocumentItemResponse": {
+      "properties": [
+        "id",
+        "documentNo",
+        "title",
+        "description",
+        "categoryId",
+        "version"
+      ]
+    },
+    "HostDocumentItemResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostDocumentItemResponse"
+    }
+  }
+}

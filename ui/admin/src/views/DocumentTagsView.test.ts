@@ -4,29 +4,30 @@ import { createPinia, setActivePinia } from 'pinia';
 import DocumentTagsView from './DocumentTagsView.vue';
 import { useSessionStore } from '../auth/session';
 import {
-  createHostDocumentTag,
-  deleteHostDocumentTag,
-  listHostDocumentTags,
-  updateHostDocumentTag
-} from '../api/host-document-tags';
+  createDocumentTag,
+  deleteDocumentTag,
+  listDocumentTags,
+  updateDocumentTag
+} from '../api/document-tags';
 
-vi.mock('../api/host-document-tags', () => ({
-  createHostDocumentTag: vi.fn(),
-  deleteHostDocumentTag: vi.fn(),
-  listHostDocumentTags: vi.fn(),
-  updateHostDocumentTag: vi.fn()
+vi.mock('../api/document-tags', () => ({
+  createDocumentTag: vi.fn(),
+  deleteDocumentTag: vi.fn(),
+  listDocumentTags: vi.fn(),
+  updateDocumentTag: vi.fn()
 }));
 
-const listMock = vi.mocked(listHostDocumentTags);
+const listMock = vi.mocked(listDocumentTags);
 const tag = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
   name: 'Release',
+  code: null,
+  icon: null,
   color: null,
+  description: null,
   useCount: 0,
   createdAtUtc: '2026-07-30T08:00:00Z',
-  createdByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204',
   updatedAtUtc: null,
-  updatedByUserId: null,
   version: 1
 };
 
@@ -53,9 +54,9 @@ function mountWithPermissions(permissions: string[]) {
 describe('Vue 文档标签页', () => {
   beforeEach(() => {
     listMock.mockReset().mockResolvedValue([tag]);
-    vi.mocked(createHostDocumentTag).mockReset();
-    vi.mocked(updateHostDocumentTag).mockReset();
-    vi.mocked(deleteHostDocumentTag).mockReset();
+    vi.mocked(createDocumentTag).mockReset();
+    vi.mocked(updateDocumentTag).mockReset();
+    vi.mocked(deleteDocumentTag).mockReset();
   });
 
   it('仅有 read 时不显示写入操作', async () => {
