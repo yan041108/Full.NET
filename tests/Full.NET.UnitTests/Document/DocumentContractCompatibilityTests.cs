@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Full.NET.Modules.Document.Features.ManageHostDocumentShares;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Document.Security;
 
 namespace Full.NET.UnitTests.Document;
 
@@ -51,7 +52,12 @@ public sealed class DocumentContractCompatibilityTests
         var json = JsonSerializer.Serialize(response);
 
         Assert.DoesNotContain("plain-text-secret", json, StringComparison.Ordinal);
-        Assert.DoesNotContain("password", json, StringComparison.OrdinalIgnoreCase);
+        // 中文注释：禁止真实 "Password" 或 "PasswordHash" 字段（包含值）出现在响应中；
+        // "HasPassword" 是布尔安全标记（只反映是否有口令，不含口令本身），允许保留。
+        Assert.DoesNotContain("\"Password\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"password\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"PasswordHash\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"passwordHash\"", json, StringComparison.Ordinal);
     }
 
     [TestMethod]
@@ -63,12 +69,29 @@ public sealed class DocumentContractCompatibilityTests
             null!,
             null!,
             null!,
-            null!);
+            null!,
+            NullPasswordHasher.Instance);
 
         var result = await service.CreateAsync(
             new CreateHostDocumentShareRequest(Guid.CreateVersion7(), 7, "secret"));
 
         Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(DocumentErrorCodes.ShareInvalid, result.Error!.Code);
+        // 阻止明文口令创建使用的是显式"密码长度无效"原因码（因为密码是 6 字符
+        // 不满足 8-128 范围）；真实生产路径还会经过 PasswordHasher。
+        Assert.AreEqual(
+            Modules.Document.Contracts.DocumentErrorCodes.SharePasswordInvalidLength,
+            result.Error!.Code);
     }
+}
+
+/// <summary>
+/// 测试用空口令 Hasher：满足构造函数签名，不执行真实哈希。
+/// </summary>
+internal sealed class NullPasswordHasher : IDocumentSharePasswordHasher
+{
+    public static readonly NullPasswordHasher Instance = new();
+
+    public string Hash(Guid shareId, string password) => string.Empty;
+
+    public bool Verify(Guid shareId, string passwordHash, string providedPassword) => false;
 }

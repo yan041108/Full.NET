@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
+using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
@@ -132,6 +133,11 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             OrganizationUnitChangedIntegrationEventHandler>());
+        // 显式 Kafka 订阅：只有试点流才会被注册，不能把所有 legacy handler
+        // 自动包装为订阅——避免未验证链路的业务事件被 CDC/Kafka 误消费。
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventSubscription,
+            OrganizationUnitChangedKafkaSubscription>());
     }
 
     private static void AddOrganizationUnitProjection(IServiceCollection services)

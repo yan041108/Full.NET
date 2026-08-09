@@ -60,4 +60,31 @@ public sealed record HostDocumentTagResponse(
     int UseCount,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    long Version);
+    long Version)
+{
+    /// <summary>
+    /// 兼容策略：保留扩展前的旧构造签名，避免新增 Code/Icon/Color/Description/UseCount
+    /// 导致既有 .NET 调用方出现"构造参数数不匹配(CS8852)"编译错误。
+    /// UseCount 默认补 0，表示未统计使用次数的旧数据。
+    /// </summary>
+    [Obsolete("保留用于源码兼容；建议使用带完整字段的构造函数")]
+    public HostDocumentTagResponse(
+        Guid id,
+        string name,
+        DateTimeOffset createdAtUtc,
+        DateTimeOffset? updatedAtUtc,
+        long version)
+        : this(
+            id,
+            name,
+            null,
+            null,
+            null,
+            null,
+            0,
+            createdAtUtc,
+            updatedAtUtc,
+            version)
+    {
+    }
+}

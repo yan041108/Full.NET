@@ -52,6 +52,15 @@ public static class IntegrationEventFailureCodes
     public const string ConsumerNameInvalid = ContractPrefix + "consumer_name_invalid";
 
     public const string SchemaVersionUnknown = ContractPrefix + "schema_version_unknown";
+
+    /// <summary>
+    /// CdcKafka 流要求业务显式提供 <see cref="IntegrationEventMetadata"/>，
+    /// 以便 CDC Relay 构造 Kafka Record 的分区键、生产者标识与追踪上下文。
+    /// 缺失时路由器失败关闭——绝不退化为 Legacy 表写入，防止在已切流的链路下
+    /// 产生重复投递或顺序不一致风险。
+    /// </summary>
+    public const string OutboxEventMetadataMissing =
+        ContractPrefix + "outbox_event_metadata_missing";
 }
 
 /// <summary>

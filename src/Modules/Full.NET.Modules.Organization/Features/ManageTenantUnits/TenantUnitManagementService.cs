@@ -5,6 +5,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Persistence;
@@ -261,6 +262,9 @@ internal sealed class TenantUnitManagementService(
                     unit.IsActive,
                     unit.Version,
                     unit.UpdatedAtUtc ?? changedAtUtc),
+                IntegrationEventMetadata.Create(
+                    partitionKey: tenantId.ToString("D"),
+                    producer: "fullnet.organization"),
                 cancellationToken)
             .ConfigureAwait(false);
 

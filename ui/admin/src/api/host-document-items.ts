@@ -1,8 +1,14 @@
+// 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
 import {
-  isHostDocumentItem,
+  isHostDocumentItemResponse as isHostDocumentItem,
   isHostDocumentItemPage,
-  type HostDocumentItem,
-  type HostDocumentItemPage
+  type HostDocumentItemResponse as HostDocumentItem,
+  type HostDocumentItemPage,
+  type CreateHostDocumentItemRequest,
+  type UpdateHostDocumentItemRequest,
+  type AddHostDocumentVersionRequest,
+  type DeleteHostDocumentItemRequest,
+  type RestoreHostDocumentItemRequest
 } from '@fullnet/client-contracts';
 import { request, requestBlob } from './http';
 

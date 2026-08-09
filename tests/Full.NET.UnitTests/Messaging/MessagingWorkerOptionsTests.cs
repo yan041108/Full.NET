@@ -89,6 +89,8 @@ public sealed class MessagingWorkerOptionsTests
     [TestMethod]
     public void MessagingWorkerOptions_rejects_cdc_kafka_without_kafka_enabled()
     {
+        // 旧配置字符串 CdcKafka 仍可反序列化并通过验证器（因被规范化为 HybridKafka），
+        // 但 Kafka 关闭时应拒绝，错误消息按 HybridKafka（有效语义）输出。
         using var provider = CreateProvider(
             new Dictionary<string, string?>
             {
@@ -102,7 +104,7 @@ public sealed class MessagingWorkerOptionsTests
 
         CollectionAssert.Contains(
             exception.Failures.ToArray(),
-            "Messaging:Worker:Mode CdcKafka requires Messaging:Kafka:Enabled=true.");
+            "Messaging:Worker:Mode HybridKafka requires Messaging:Kafka:Enabled=true.");
     }
 
     [TestMethod]
@@ -122,7 +124,7 @@ public sealed class MessagingWorkerOptionsTests
 
         CollectionAssert.Contains(
             exception.Failures.ToArray(),
-            "Messaging:Worker:Mode CdcKafka cannot be combined with Messaging:ShadowComparison:Enabled=true.");
+            "Messaging:Worker:Mode HybridKafka cannot be combined with Messaging:ShadowComparison:Enabled=true.");
     }
 
     [TestMethod]
@@ -155,7 +157,103 @@ public sealed class MessagingWorkerOptionsTests
 
         StringAssert.Contains(
             exception.Message,
-            "CdcKafka requires at least one registered business subscription");
+            "CdcKafka delivery mode requires at least one production IIntegrationEventSubscription");
+    }
+
+    [TestMethod]
+    public void MessagingWorkerOptions_allows_hybrid_kafka_with_kafka_enabled_and_legacy_poller()
+    {
+        // HybridKafka 模式必须允许 Kafka:Enabled=true，同时 Legacy Poller 仍运行。
+        // 当前验证器禁止 LegacyPolling + Kafka，但 HybridKafka 是新的并存模式。
+        using var provider = CreateProvider(
+            new Dictionary<string, string?>
+            {
+                ["Messaging:Worker:Mode"] = "HybridKafka",
+                ["Messaging:Kafka:Enabled"] = "true",
+            });
+
+        // RED 期望：当前 HybridKafka 枚举不存在或验证器拒绝此组合 → 抛异常。
+        // GREEN 期望：HybridKafka 同时允许 Kafka 与 Legacy Poller 并存 → 验证通过。
+        var startupValidator = provider
+            .GetRequiredService<Microsoft.Extensions.Options.IStartupValidator>();
+        startupValidator.Validate();
+
+        // 到达此处表示验证通过，Options.Mode 应等于 HybridKafka。
+        var options = provider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<MessagingWorkerOptions>>()
+            .Value;
+        Assert.AreEqual(MessagingWorkerMode.HybridKafka, options.Mode);
+    }
+
+    [TestMethod]
+    public void MessagingWorkerCatalogGuard_validate_hybrid_kafka_mode_rejects_cdc_stream_without_subscription()
+    {
+        // 构造一个 CdcKafka owner 的 Topic，但没有对应订阅 → 应抛异常（按流校验）。
+        var topicWithCdcOwner = IntegrationEventTopicDefinition.Create(
+            "organization.unit-changed.kafka.v1",
+            "fullnet.organization.unit.changed",
+            1,
+            EventDeliveryOwner.CdcKafka);
+        var unrelatedLegacyTopic = IntegrationEventTopicDefinition.Create(
+            "tenancy.tenant-changed.legacy.v1",
+            "fullnet.tenancy.tenant.changed",
+            1,
+            EventDeliveryOwner.LegacyPolling);
+        var unrelatedSubscription = new TestSubscription(
+            "fullnet.tenancy.projector-a",
+            "fullnet.tenancy.tenant.changed",
+            1);
+
+        // RED 期望：ValidateHybridKafkaMode 方法不存在或只校验全局数量（有任意订阅就通过）。
+        // GREEN 期望：CdcKafka 流 fullnet.organization.unit.changed 没有对应订阅 → 按流失败。
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            MessagingWorkerCatalogGuard.ValidateHybridKafkaMode(
+                [unrelatedSubscription],
+                [topicWithCdcOwner, unrelatedLegacyTopic]));
+
+        StringAssert.Contains(exception.Message, "fullnet.organization.unit.changed");
+        StringAssert.Contains(exception.Message, "subscription");
+    }
+
+    [TestMethod]
+    public void MessagingWorkerCatalogGuard_validate_hybrid_kafka_mode_accepts_cdc_streams_with_matching_subscriptions()
+    {
+        // 每个 CdcKafka owner 的 Topic 都有对应订阅 → 应通过。
+        var topicWithCdcOwner = IntegrationEventTopicDefinition.Create(
+            "organization.unit-changed.kafka.v1",
+            "fullnet.organization.unit.changed",
+            1,
+            EventDeliveryOwner.CdcKafka);
+        var legacyTopic = IntegrationEventTopicDefinition.Create(
+            "tenancy.tenant-changed.legacy.v1",
+            "fullnet.tenancy.tenant.changed",
+            1,
+            EventDeliveryOwner.LegacyPolling);
+        var matchingSubscription = new TestSubscription(
+            "fullnet.identity.organization-unit-projection",
+            "fullnet.organization.unit.changed",
+            1);
+
+        // 不应抛异常。
+        MessagingWorkerCatalogGuard.ValidateHybridKafkaMode(
+            [matchingSubscription],
+            [topicWithCdcOwner, legacyTopic]);
+    }
+
+    [TestMethod]
+    public void MessagingWorkerCatalogGuard_validate_hybrid_kafka_mode_accepts_all_legacy_topics_without_kafka_subscriptions()
+    {
+        // 默认情况所有流都是 Legacy owner → Hybrid 模式可以启动，Kafka 不产生副作用。
+        var allLegacyTopic = IntegrationEventTopicDefinition.Create(
+            "tenancy.tenant-changed.legacy.v1",
+            "fullnet.tenancy.tenant.changed",
+            1,
+            EventDeliveryOwner.LegacyPolling);
+
+        // 零订阅也应允许，因为没有 CdcKafka 流需要消费。
+        MessagingWorkerCatalogGuard.ValidateHybridKafkaMode(
+            [],
+            [allLegacyTopic]);
     }
 
     [TestMethod]

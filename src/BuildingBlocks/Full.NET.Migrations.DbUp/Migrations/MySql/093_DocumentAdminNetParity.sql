@@ -202,7 +202,7 @@ BEGIN
     END IF;
 
     -- ============================================================
-    -- 4. fn_document_version 新增：ChangeDescription
+    -- 4. fn_document_version 新增：ChangeDescription、FileName、MimeType、Extension
     -- ============================================================
     IF NOT EXISTS
     (
@@ -215,8 +215,43 @@ BEGIN
             ADD COLUMN ChangeDescription varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL;
     END IF;
 
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_version'
+          AND COLUMN_NAME = 'FileName'
+    ) THEN
+        ALTER TABLE fn_document_version
+            ADD COLUMN FileName varchar(260) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_version'
+          AND COLUMN_NAME = 'MimeType'
+    ) THEN
+        ALTER TABLE fn_document_version
+            ADD COLUMN MimeType varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_version'
+          AND COLUMN_NAME = 'Extension'
+    ) THEN
+        ALTER TABLE fn_document_version
+            ADD COLUMN Extension varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL;
+    END IF;
+
     -- ============================================================
     -- 5. fn_document_permission 文档权限表
+    --    列清单严格对齐 DocumentPermissionSql.Projection / Insert：
+    --    Id, TenantId, DocumentId, UserId, PermissionLevel, CreatedAtUtc
     -- ============================================================
     CREATE TABLE IF NOT EXISTS fn_document_permission
     (
@@ -230,6 +265,74 @@ BEGIN
         CONSTRAINT FK_fn_document_permission_Document
             FOREIGN KEY (DocumentId) REFERENCES fn_document_item (Id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+    -- 5.1 fn_document_permission 逐列幂等补列（表已存在但字段缺漏场景）
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_permission'
+          AND COLUMN_NAME = 'TenantId'
+    ) THEN
+        ALTER TABLE fn_document_permission
+            ADD COLUMN TenantId BINARY(16) NULL;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_permission'
+          AND COLUMN_NAME = 'DocumentId'
+    ) THEN
+        ALTER TABLE fn_document_permission
+            ADD COLUMN DocumentId BINARY(16) NOT NULL
+            DEFAULT (0x00000000000000000000000000000000);
+        ALTER TABLE fn_document_permission
+            ALTER COLUMN DocumentId DROP DEFAULT;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_permission'
+          AND COLUMN_NAME = 'UserId'
+    ) THEN
+        ALTER TABLE fn_document_permission
+            ADD COLUMN UserId BINARY(16) NOT NULL
+            DEFAULT (0x00000000000000000000000000000000);
+        ALTER TABLE fn_document_permission
+            ALTER COLUMN UserId DROP DEFAULT;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_permission'
+          AND COLUMN_NAME = 'PermissionLevel'
+    ) THEN
+        ALTER TABLE fn_document_permission
+            ADD COLUMN PermissionLevel varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
+            DEFAULT '';
+        ALTER TABLE fn_document_permission
+            ALTER COLUMN PermissionLevel DROP DEFAULT;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_permission'
+          AND COLUMN_NAME = 'CreatedAtUtc'
+    ) THEN
+        ALTER TABLE fn_document_permission
+            ADD COLUMN CreatedAtUtc datetime(6) NOT NULL
+            DEFAULT '1970-01-01 00:00:00';
+        ALTER TABLE fn_document_permission
+            ALTER COLUMN CreatedAtUtc DROP DEFAULT;
+    END IF;
 
     IF NOT EXISTS
     (
@@ -245,14 +348,18 @@ BEGIN
 
     -- ============================================================
     -- 6. fn_document_share 文档分享表
+    --    列清单严格对齐 DocumentShareSql.Projection / Insert：
+    --    Id, TenantId, DocumentId, ShareCode, CreatedAtUtc, ExpireTime,
+    --    PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version
+    --    ShareCode 使用 ASCII 字符集，无需 Unicode 排序规则。
     -- ============================================================
     CREATE TABLE IF NOT EXISTS fn_document_share
     (
         Id BINARY(16) NOT NULL,
         TenantId BINARY(16) NULL,
         DocumentId BINARY(16) NOT NULL,
-        ShareCode varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-        Password varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
+        ShareCode varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+        PasswordHash varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
         ExpireTime datetime(6) NOT NULL,
         MaxAccessCount int NULL,
         AccessCount int NOT NULL DEFAULT 0,
@@ -263,6 +370,189 @@ BEGIN
         CONSTRAINT FK_fn_document_share_Document
             FOREIGN KEY (DocumentId) REFERENCES fn_document_item (Id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+    -- 6.0 fn_document_share：Password → PasswordHash 列收敛迁移
+    --     表已存在时：保证 PasswordHash 列存在、长度 1024、内容包含旧 Password；
+    --     收敛完成后删除遗留 Password 列。
+    IF EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'Password'
+    ) AND NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'PasswordHash'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN PasswordHash varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL
+            AFTER ShareCode;
+        UPDATE fn_document_share
+            SET PasswordHash = Password
+            WHERE PasswordHash IS NULL;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'PasswordHash'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN PasswordHash varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL
+            AFTER ShareCode;
+    END IF;
+
+    -- 中文注释：PasswordHash 已存在但字符长度 < 1024 时扩展，容纳 ASP.NET Core Identity v3 PBKDF2 输出。
+    IF EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'PasswordHash'
+          AND CHARACTER_MAXIMUM_LENGTH < 1024
+    ) THEN
+        ALTER TABLE fn_document_share
+            MODIFY COLUMN PasswordHash varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL;
+    END IF;
+
+    -- 中文注释：收敛完毕删除旧 Password 列（在确保 PasswordHash 已补齐数据之后）。
+    IF EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'Password'
+    ) AND EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'PasswordHash'
+    ) THEN
+        UPDATE fn_document_share
+            SET PasswordHash = COALESCE(PasswordHash, Password)
+            WHERE PasswordHash IS NULL;
+        ALTER TABLE fn_document_share
+            DROP COLUMN Password;
+    END IF;
+
+    -- 6.1 fn_document_share 逐列幂等补列（表已存在但字段缺漏场景），仅处理其他业务列；
+    --     PasswordHash 已在 6.0 收敛分支中完成，不再重复处理。
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'TenantId'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN TenantId BINARY(16) NULL;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'DocumentId'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN DocumentId BINARY(16) NOT NULL
+            DEFAULT (0x00000000000000000000000000000000);
+        ALTER TABLE fn_document_share
+            ALTER COLUMN DocumentId DROP DEFAULT;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'ShareCode'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN ShareCode varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
+            DEFAULT '';
+        ALTER TABLE fn_document_share
+            ALTER COLUMN ShareCode DROP DEFAULT;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'ExpireTime'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN ExpireTime datetime(6) NOT NULL
+            DEFAULT '1970-01-01 00:00:00';
+        ALTER TABLE fn_document_share
+            ALTER COLUMN ExpireTime DROP DEFAULT;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'MaxAccessCount'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN MaxAccessCount int NULL;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'AccessCount'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN AccessCount int NOT NULL DEFAULT 0;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'IsEnabled'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN IsEnabled boolean NOT NULL DEFAULT true;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'Version'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN Version bigint NOT NULL DEFAULT 1;
+    END IF;
+
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'fn_document_share'
+          AND COLUMN_NAME = 'CreatedAtUtc'
+    ) THEN
+        ALTER TABLE fn_document_share
+            ADD COLUMN CreatedAtUtc datetime(6) NOT NULL
+            DEFAULT '1970-01-01 00:00:00';
+        ALTER TABLE fn_document_share
+            ALTER COLUMN CreatedAtUtc DROP DEFAULT;
+    END IF;
 
     IF NOT EXISTS
     (

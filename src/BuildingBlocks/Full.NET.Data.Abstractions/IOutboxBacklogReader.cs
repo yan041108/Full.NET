@@ -14,6 +14,19 @@ public interface IOutboxBacklogReader
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// 读取指定事件流 (MessageType, SchemaVersion) 的积压快照，用于切流门禁等精确场景。
+    /// 仅统计该事件流范围内 ProcessedAtUtc 为空的消息。
+    /// </summary>
+    /// <param name="eventType">规范化事件类型（如 fullnet.organization.unit.changed）。</param>
+    /// <param name="schemaVersion">结构版本正整数。</param>
+    /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    /// <returns>目标流范围内的待处理、到期重试、活动租约和死信分类快照。</returns>
+    Task<OutboxBacklogSnapshot> ReadStreamBacklogAsync(
+        string eventType,
+        int schemaVersion,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// 按消息类型集合和结构版本读取仍会阻断旧 Handler 退役的消息快照。
     /// </summary>
     /// <param name="messageTypes">同一 Handler 当前声明的 canonical 与 legacy 消息类型。</param>

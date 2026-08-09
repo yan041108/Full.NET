@@ -27,6 +27,8 @@ const definitionOption = {
   displayName: 'enabled-job'
 };
 
+// 中文注释：HostJobSchedule 5 个新增字段与 C# JobSchedule 公共契约对齐：
+// numberOfRuns/numberOfErrors 为累计执行统计，startTime/endTime 为调度窗口，args 为 JSON 参数字符串或 null
 const enabledSchedule = {
   id: '01912345-6789-7abc-8def-0123456789ac',
   jobDefinitionId: definitionOption.id,
@@ -41,6 +43,11 @@ const enabledSchedule = {
   nextExecutionAtUtc: '2026-08-03T09:00:00Z',
   lastExecutionAtUtc: null,
   completedAtUtc: null,
+  numberOfRuns: 0,
+  numberOfErrors: 0,
+  startTime: null,
+  endTime: null,
+  args: null,
   createdAtUtc: '2026-07-26T00:00:00Z',
   updatedAtUtc: null,
   version: 1

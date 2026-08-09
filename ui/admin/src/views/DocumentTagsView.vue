@@ -14,7 +14,8 @@ import {
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
-import type { FullNetProblemDetails, HostDocumentTag } from '@fullnet/client-contracts';
+// 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
+import type { FullNetProblemDetails, HostDocumentTagResponse as HostDocumentTag } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
@@ -54,7 +55,13 @@ const editorOpen = ref(false);
 const editorMode = ref<EditorMode>('create');
 const editingTag = ref<HostDocumentTag | null>(null);
 const editorFormRef = ref<FormInstance>();
-const editorForm = reactive({ name: '' });
+const editorForm = reactive({
+  name: '',
+  code: null as string | null,
+  icon: null as string | null,
+  color: null as string | null,
+  description: null as string | null
+});
 const fieldErrors = reactive({ name: '' });
 
 const {
@@ -147,6 +154,10 @@ function openCreate(): void {
   editorMode.value = 'create';
   editingTag.value = null;
   editorForm.name = '';
+  editorForm.code = null;
+  editorForm.icon = null;
+  editorForm.color = null;
+  editorForm.description = null;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -158,6 +169,10 @@ function openEdit(tag: HostDocumentTag): void {
   editorMode.value = 'edit';
   editingTag.value = tag;
   editorForm.name = tag.name;
+  editorForm.code = null;
+  editorForm.icon = null;
+  editorForm.color = tag.color;
+  editorForm.description = null;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -184,7 +199,13 @@ async function create(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await createHostDocumentTag(editorForm.name);
+    await createHostDocumentTag(
+      editorForm.name,
+      editorForm.code ?? null,
+      editorForm.icon ?? null,
+      editorForm.color ?? null,
+      editorForm.description ?? null
+    );
     editorOpen.value = false;
     ElMessage.success(t('documentTags.createSuccess'));
     await load();
@@ -203,7 +224,15 @@ async function saveEdit(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await updateHostDocumentTag(tag.id, editorForm.name, tag.version);
+    await updateHostDocumentTag(
+      tag.id,
+      editorForm.name,
+      editorForm.code ?? null,
+      editorForm.icon ?? null,
+      editorForm.color ?? null,
+      editorForm.description ?? null,
+      tag.version
+    );
     editorOpen.value = false;
     ElMessage.success(t('documentTags.updateSuccess'));
     await load();

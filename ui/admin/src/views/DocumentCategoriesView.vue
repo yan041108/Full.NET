@@ -14,7 +14,8 @@ import {
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
-import type { FullNetProblemDetails, HostDocumentCategory } from '@fullnet/client-contracts';
+// 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
+import type { FullNetProblemDetails, HostDocumentCategoryResponse as HostDocumentCategory } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
@@ -55,7 +56,14 @@ const editorOpen = ref(false);
 const editorMode = ref<EditorMode>('create');
 const editingCategory = ref<HostDocumentCategory | null>(null);
 const editorFormRef = ref<FormInstance>();
-const editorForm = reactive({ name: '', sortOrder: '0' });
+const editorForm = reactive({
+  name: '',
+  sortOrder: '0',
+  code: null as string | null,
+  icon: null as string | null,
+  color: null as string | null,
+  description: null as string | null
+});
 const fieldErrors = reactive({ name: '', sortOrder: '' });
 const columnVisibility = ref<Record<CategoryTableColumnKey, boolean>>({
   sortOrder: true
@@ -191,6 +199,10 @@ function openCreate(): void {
   editingCategory.value = null;
   editorForm.name = '';
   editorForm.sortOrder = '0';
+  editorForm.code = null;
+  editorForm.icon = null;
+  editorForm.color = null;
+  editorForm.description = null;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -203,6 +215,10 @@ function openEdit(category: HostDocumentCategory): void {
   editingCategory.value = category;
   editorForm.name = category.name;
   editorForm.sortOrder = String(category.sortOrder);
+  editorForm.code = category.code;
+  editorForm.icon = category.icon;
+  editorForm.color = category.color;
+  editorForm.description = category.description;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -232,7 +248,11 @@ async function create(): Promise<void> {
     await createHostDocumentCategory(
       editorForm.name,
       null,
-      parseSortOrder()
+      parseSortOrder(),
+      editorForm.code ?? null,
+      editorForm.icon ?? null,
+      editorForm.color ?? null,
+      editorForm.description ?? null
     );
     editorOpen.value = false;
     ElMessage.success(t('documentCategories.createSuccess'));
@@ -257,6 +277,10 @@ async function saveEdit(): Promise<void> {
       editorForm.name,
       category.parentId,
       parseSortOrder(),
+      editorForm.code ?? null,
+      editorForm.icon ?? null,
+      editorForm.color ?? null,
+      editorForm.description ?? null,
       category.version
     );
     editorOpen.value = false;

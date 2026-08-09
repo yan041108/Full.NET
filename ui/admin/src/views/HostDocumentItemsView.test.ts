@@ -30,23 +30,43 @@ const downloadMock = vi.mocked(downloadHostDocumentContent);
 const openBlobMock = vi.mocked(openHostDocumentBlob);
 const item = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
+  documentNo: 'DOC-000001',
   title: 'Spec',
   description: 'integration',
   categoryId: null,
+  categoryName: null,
+  categoryColor: null,
+  categoryIcon: null,
+  categoryCode: null,
+  documentType: 99,
+  sizeKb: 0,
+  thumbnail: null,
+  status: 2,
+  accessCount: 0,
+  sort: 0,
+  lastAccessTime: null,
   currentVersion: {
     id: '0198f36e-f7a7-7c52-9cbb-774e67411206',
     versionNumber: 1,
     fileId: '0198f36e-f7a7-7c52-9cbb-774e67411207',
     contentHash: null,
     sizeBytes: 8,
+    changeDescription: null,
     createdAtUtc: '2026-07-30T08:00:00Z',
     uploadedByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204'
   },
-  createdByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204',
-  version: 2,
+  tags: [],
+  shareCode: null,
+  hasPassword: false,
+  permissionLevel: null,
+  permissions: [],
   createdAtUtc: '2026-07-30T08:00:00Z',
+  createdByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204',
   updatedAtUtc: null,
-  updatedByUserId: null
+  updatedByUserId: null,
+  deletedAtUtc: null,
+  deletedByUserId: null,
+  version: 2
 };
 
 function mountWithPermissions(permissions: string[]) {

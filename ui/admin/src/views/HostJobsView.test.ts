@@ -23,11 +23,13 @@ vi.mock('../api/host-jobs', () => ({
 
 const listMock = vi.mocked(listHostJobDefinitions);
 
+// 中文注释：HostJobDefinition.groupName 与 C# JobDefinition.GroupName 公共契约对齐，默认空字符串或 null
 const enabledDefinition = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   jobKey: 'jobs.ping',
   displayName: 'enabled-job',
   description: 'desc',
+  groupName: '',
   isEnabled: true,
   createdAtUtc: '2026-07-26T00:00:00Z',
   updatedAtUtc: '2026-07-26T00:00:00Z',

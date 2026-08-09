@@ -6,7 +6,7 @@ internal static class DocumentShareSql
 {
     private const string Projection = """
         Id, DocumentId, ShareCode, CreatedAtUtc, ExpireTime,
-        Password, MaxAccessCount, AccessCount, IsEnabled, Version
+        PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version
         """;
 
     public static readonly SqlStatement PageSqlServer = new(
@@ -62,10 +62,10 @@ internal static class DocumentShareSql
         """
         INSERT INTO fn_document_share
             (Id, TenantId, DocumentId, ShareCode, CreatedAtUtc, ExpireTime,
-             Password, MaxAccessCount, AccessCount, IsEnabled, Version)
+             PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version)
         VALUES
             (@Id, NULL, @DocumentId, @ShareCode, @CreatedAtUtc, @ExpireTime,
-             @Password, @MaxAccessCount, 0, 1, @Version)
+             @PasswordHash, @MaxAccessCount, 0, 1, @Version)
         """,
         SqlDataScope.HostOnly);
 

@@ -9,13 +9,52 @@ namespace Full.NET.Messaging.Abstractions;
 public sealed record IntegrationEventConsumerDefinition(string ConsumerName);
 
 /// <summary>
-/// 静态 Topic 与订阅目录；路由键为 (ConsumerName, EventType, SchemaVersion)。
+/// Topic 与业务订阅目录的查询入口；Scoped 生命周期保证与 Handler/Inbox 事务作用域一致。
 /// </summary>
-public sealed class IntegrationEventSubscriptionCatalog
+/// <remarks>
+/// 为什么是接口 + Scoped：
+/// 1) Singleton HostedService（如 KafkaConsumerWorker）不得直接持有 Scoped 依赖，必须通过 IServiceScopeFactory 解析；
+/// 2) 精简宿主（如仅注册 Dispatcher 的测试/集成夹具）需要一个空目录默认值实现来闭合 DI 图；
+/// 3) 不同模块装配阶段可以替换真实实现，而调用方不依赖具体构造方式。
+/// </remarks>
+public interface IIntegrationEventSubscriptionCatalog
+{
+    /// <summary>按路由键解析唯一订阅；未注册时抛出异常。</summary>
+    IIntegrationEventSubscription GetRequired(
+        string consumerName,
+        string eventType,
+        int schemaVersion);
+
+    /// <summary>查询事件流在目录中声明的发布所有权。</summary>
+    EventDeliveryOwner GetDeliveryOwner(string eventType, int schemaVersion);
+
+    /// <summary>在目录默认所有权之上叠加持久化切流记录，得到运行时有效所有权。</summary>
+    EventDeliveryOwner ResolveDeliveryOwner(
+        string eventType,
+        int schemaVersion,
+        EventDeliveryOwner? persistedCurrentOwner);
+
+    /// <summary>查询事件流绑定的 Topic 目录条目。</summary>
+    IntegrationEventTopicDefinition GetTopicRequired(
+        string eventType,
+        int schemaVersion);
+
+    /// <summary>
+    /// 返回目录中所有已注册的业务订阅；用于启动守卫检查 CdcKafka 模式是否存在真实生产订阅。
+    /// </summary>
+    IReadOnlyCollection<IIntegrationEventSubscription> GetAllSubscriptions();
+}
+
+/// <summary>
+/// 静态 Topic 与订阅目录；路由键为 (ConsumerName, EventType, SchemaVersion)。
+/// Scoped 生命周期：目录内的 Handler 订阅由模块装配，必须与每次消费的事务/Inbox 作用域保持一致。
+/// </summary>
+public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubscriptionCatalog
 {
     private readonly IReadOnlyDictionary<string, IntegrationEventTopicDefinition> _topicsByCode;
     private readonly IReadOnlyDictionary<(string EventType, int SchemaVersion), IntegrationEventTopicDefinition> _topicsByEvent;
     private readonly IReadOnlyDictionary<SubscriptionRoute, IIntegrationEventSubscription> _subscriptionsByRoute;
+    private readonly IReadOnlyCollection<IIntegrationEventSubscription> _allSubscriptions;
 
     public IntegrationEventSubscriptionCatalog(
         IEnumerable<IntegrationEventTopicDefinition> topics,
@@ -40,6 +79,8 @@ public sealed class IntegrationEventSubscriptionCatalog
             subscriptions,
             _topicsByEvent,
             registeredConsumers);
+        // 保留一份订阅快照用于启动守卫查询；ToArray 保证与注册验证过程一致且不可变。
+        _allSubscriptions = subscriptions.ToArray();
     }
 
     /// <summary>
@@ -110,6 +151,17 @@ public sealed class IntegrationEventSubscriptionCatalog
             $"Integration event stream '{eventType}' schema {schemaVersion} "
             + "is not registered in the topic catalog.");
     }
+
+    /// <summary>
+    /// 返回目录中所有已注册的业务订阅集合；CdcKafka 启动守卫通过该方法判断是否存在真实生产订阅。
+    /// </summary>
+    /// <remarks>
+    /// 为什么不在守卫中直接 GetServices：
+    /// 1) 守卫必须走 Scoped 解析路径，不能在 Root Provider 直接解析 IEnumerable；
+    /// 2) 目录构造阶段已经做了订阅/Topic 一致性校验，返回目录内的快照保证了校验结果与可见性一致。
+    /// </remarks>
+    public IReadOnlyCollection<IIntegrationEventSubscription> GetAllSubscriptions() =>
+        _allSubscriptions;
 
     private static IEnumerable<IntegrationEventConsumerDefinition> DeriveConsumers(
         IEnumerable<IIntegrationEventSubscription> subscriptions) =>

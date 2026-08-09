@@ -1791,13 +1791,14 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 </template>
               </el-table-column>
 
+              <!-- 中文注释：Element Plus 默认将 el-table 的 slot row 推断为 DefaultRow；用单层 as UserRow 断言保持类型安全（禁止 as unknown as HostUser 双重断言） -->
               <el-table-column :label="t('users.username')" min-width="220">
                 <template #default="{ row }">
                   <div class="users-table-user">
-                  <span class="users-table-user__avatar">{{ avatarText(row as HostUser) }}</span>
+                  <span class="users-table-user__avatar">{{ avatarText(row as UserRow) }}</span>
                     <div>
                       <div class="users-table-user__name" translate="no">{{ row.username }}</div>
-                  <div class="users-table-user__sub" translate="no">{{ userSubtitle(row as HostUser) }}</div>
+                  <div class="users-table-user__sub" translate="no">{{ userSubtitle(row as UserRow) }}</div>
                     </div>
                   </div>
                 </template>
@@ -1865,7 +1866,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 align="center"
               >
                 <template #default="{ row }">
-                  {{ accountTypeLabel(row) }}
+                  {{ accountTypeLabel(row as UserRow) }}
                 </template>
               </el-table-column>
 
@@ -1910,6 +1911,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 </template>
               </el-table-column>
 
+              <!-- 中文注释：UserRow extends HostUser，操作列参数 row 直接传递给接受 HostUser 的函数即可 -->
               <el-table-column
                 :label="t('users.columnActions')"
                 width="196"
@@ -1923,7 +1925,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                         type="edit"
                         test-id="users-action-edit"
                         :title="t('users.edit')"
-                  @click="openEdit(row as HostUser)"
+                  @click="openEdit(row as UserRow)"
                       />
                     </PermissionGate>
                     <PermissionGate code="identity.users.assign_roles">
@@ -1931,7 +1933,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                         type="roles"
                         test-id="users-action-roles"
                         :title="t('users.roles')"
-                  @click="openEdit(row as HostUser, 'roles')"
+                  @click="openEdit(row as UserRow, 'roles')"
                       />
                     </PermissionGate>
                     <ArtTableActionButton
@@ -1939,21 +1941,21 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                       type="org"
                       test-id="users-action-org-units"
                       :title="t('users.assignOrgUnits')"
-                  @click="openEdit(row as HostUser, 'org-units')"
+                  @click="openEdit(row as UserRow, 'org-units')"
                     />
                     <ArtTableActionButton
                       v-if="canViewUserPositions"
                       type="position"
                       test-id="users-action-org-positions"
                       :title="t('users.assignPositions')"
-                  @click="openEdit(row as HostUser, 'org-positions')"
+                  @click="openEdit(row as UserRow, 'org-positions')"
                     />
                     <PermissionGate v-if="row.isActive" code="identity.users.reset_password">
                       <ArtTableActionButton
                         type="password"
                         test-id="users-action-reset-password"
                         :title="t('users.resetPassword')"
-                  @click="resetPassword(row as HostUser)"
+                  @click="resetPassword(row as UserRow)"
                       />
                     </PermissionGate>
                     <PermissionGate v-if="row.isActive" code="identity.users.disable">
@@ -1961,7 +1963,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                         type="delete"
                         test-id="users-action-disable"
                         :title="t('users.disable')"
-                  @click="disable(row as HostUser)"
+                  @click="disable(row as UserRow)"
                       />
                     </PermissionGate>
                     <PermissionGate v-if="!row.isActive" code="identity.users.enable">
@@ -1969,7 +1971,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                         link
                         type="success"
                         data-testid="users-action-enable"
-                  @click="enable(row as HostUser)"
+                  @click="enable(row as UserRow)"
                       >
                         {{ t('users.enable') }}
                       </el-button>

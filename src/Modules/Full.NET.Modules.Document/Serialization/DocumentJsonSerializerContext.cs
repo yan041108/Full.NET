@@ -32,6 +32,8 @@ namespace Full.NET.Modules.Document.Serialization;
 [JsonSerializable(typeof(UpdateHostDocumentShareStatusRequest))]
 [JsonSerializable(typeof(HostDocumentShareResponse))]
 [JsonSerializable(typeof(PagedResult<HostDocumentShareResponse>))]
+[JsonSerializable(typeof(AccessHostDocumentShareRequest))]
+[JsonSerializable(typeof(HostDocumentShareAccessResponse))]
 [JsonSerializable(typeof(HostDocumentStatisticsResponse))]
 [JsonSerializable(typeof(HostDocumentStatisticsSummaryResponse))]
 [JsonSerializable(typeof(HostDocumentStatisticsTypeItem))]

@@ -99,6 +99,14 @@ internal sealed class DocumentItemDetailRecord
 
     public long? SizeBytes { get; init; }
 
+    public string? FileName { get; init; }
+
+    public string? MimeType { get; init; }
+
+    public string? Extension { get; init; }
+
+    public long? FileSizeBytes { get; init; }
+
     public string? ChangeDescription { get; init; }
 
     public DateTimeOffset? VersionCreatedAtUtc { get; init; }
@@ -156,7 +164,11 @@ internal sealed class DocumentShareRecord
 
     public DateTimeOffset ExpireTime { get; init; }
 
-    public string? Password { get; init; }
+    /// <summary>
+    /// 不可逆口令哈希；使用 ASP.NET Core PasswordHasher 生成（PBKDF2 + 随机盐）。
+    /// 明文口令永不落库；若分享未设置口令则为 null。
+    /// </summary>
+    public string? PasswordHash { get; init; }
 
     public int? MaxAccessCount { get; init; }
 

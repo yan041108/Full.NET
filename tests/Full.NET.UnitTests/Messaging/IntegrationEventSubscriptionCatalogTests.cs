@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Messaging.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.UnitTests.Messaging;
 
@@ -70,6 +71,34 @@ public sealed class IntegrationEventSubscriptionCatalogTests
 
         StringAssert.Contains(exception.Message, "fullnet.tenancy.projector-a");
         StringAssert.Contains(exception.Message, EventType);
+    }
+
+    [TestMethod]
+    public void Create_rejects_duplicate_consumer_name_event_type_schema_tuple()
+    {
+        // 目标：Identity 模块注册后再注册一个相同 (ConsumerName, EventType, SchemaVersion)
+        // 的不同实现类型，必须在 catalog 构造时 fail-fast，不能让两个 Handler 都跑。
+        var topic = IntegrationEventTopicDefinition.Create(
+            "organization.unit-changed.v1",
+            IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged,
+            1,
+            EventDeliveryOwner.LegacyPolling);
+        var first = new TestSubscription(
+            "fullnet.identity.organization-unit-projection",
+            IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged,
+            1);
+        var second = new TestSubscription(
+            "fullnet.identity.organization-unit-projection",
+            IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged,
+            1);
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            new IntegrationEventSubscriptionCatalog([topic], [first, second]));
+
+        StringAssert.Contains(exception.Message, "fullnet.identity.organization-unit-projection");
+        StringAssert.Contains(
+            exception.Message,
+            IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged);
     }
 
     [TestMethod]

@@ -87,11 +87,12 @@ internal sealed class HostDocumentShareQueryService(
             record.CreatedAtUtc,
             record.ExpireTime,
             // 口令字段只允许在服务端参与校验，任何查询响应都不得回显持久化凭据。
-            null,
+            Password: null,
             record.MaxAccessCount,
             record.AccessCount,
             record.IsEnabled,
-            record.Version);
+            record.Version,
+            HasPassword: !string.IsNullOrEmpty(record.PasswordHash));
 
     private static Result<HostDocumentShareResponse> NotFound() =>
         Result<HostDocumentShareResponse>.Failure(NotFoundError());

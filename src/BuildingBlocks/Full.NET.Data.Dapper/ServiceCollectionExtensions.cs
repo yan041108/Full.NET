@@ -117,15 +117,15 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(MessagingOutboxOptions.SectionName));
         services.AddScoped<DapperOutboxWriter>();
         services.AddScoped<DapperAppendOnlyOutboxWriter>();
+        // 注意：不单独注册 DapperRoutedOutboxWriter 为具体类，避免 ValidateScopes 时
+        // 在未装配 Messaging 模块的精简宿主中因缺少 IEffectiveEventDeliveryOwnerResolver
+        // 而触发 DI 构建失败。Routed writer 只作为 IOutboxWriter 的实现存在于工厂委托中，
+        // 真正构建容器时 IEffectiveEventDeliveryOwnerResolver 已由 Messaging 模块注册完成。
         services.AddScoped<IOutboxWriter>(provider =>
-        {
-            var outboxMode = provider
-                .GetRequiredService<IOptions<MessagingOutboxOptions>>()
-                .Value.Mode;
-            return outboxMode == MessagingOutboxMode.AppendOnlyV2
-                ? provider.GetRequiredService<DapperAppendOnlyOutboxWriter>()
-                : provider.GetRequiredService<DapperOutboxWriter>();
-        });
+            ActivatorUtilities.CreateInstance<DapperRoutedOutboxWriter>(
+                provider,
+                provider.GetRequiredService<DapperOutboxWriter>(),
+                provider.GetRequiredService<DapperAppendOnlyOutboxWriter>()));
         services.AddScoped<DapperIntegrationEventInbox>();
         services.AddScoped<IIntegrationEventInbox>(provider =>
             provider.GetRequiredService<DapperIntegrationEventInbox>());

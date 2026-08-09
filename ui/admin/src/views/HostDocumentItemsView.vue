@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { ElButton, ElCard, ElInput, ElMessage, ElMessageBox, ElPagination, ElTable, ElTableColumn } from 'element-plus';
-import type { FullNetProblemDetails, HostDocumentItem } from '@fullnet/client-contracts';
+// 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
+import type { FullNetProblemDetails, HostDocumentItemResponse as HostDocumentItem } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';

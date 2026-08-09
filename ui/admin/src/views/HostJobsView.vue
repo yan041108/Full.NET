@@ -4,7 +4,8 @@ import {
   ElButton,
   ElCard,
   ElDrawer,
-  ElDrawerProps,
+  // 中文注释：Element Plus 2.14.3 公开的抽屉组件 props 类型名为 DrawerProps（不带 El 前缀）
+  type DrawerProps,
   ElForm,
   ElFormItem,
   ElInput,
@@ -87,7 +88,14 @@ const editorOpen = ref(false);
 const editorMode = ref<'create' | 'edit'>('create');
 const editingDefinition = ref<HostJobDefinition | null>(null);
 const editorFormRef = ref<FormInstance>();
-const editorForm = reactive({
+// 中文注释：显式声明 editorForm.jobKey 为 string，避免因直接赋值 JOBS_WELL_KNOWN_KEYS.ping 被收窄为字面量 'jobs.ping'
+// 导致 openEdit 中 item.jobKey（string）无法赋值
+const editorForm = reactive<{
+  jobKey: string;
+  displayName: string;
+  description: string;
+  groupName: string;
+}>({
   jobKey: JOBS_WELL_KNOWN_KEYS.ping,
   displayName: '',
   description: '',

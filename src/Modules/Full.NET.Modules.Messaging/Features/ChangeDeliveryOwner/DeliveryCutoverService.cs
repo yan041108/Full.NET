@@ -91,12 +91,15 @@ internal sealed class DeliveryCutoverService(
                 ErrorType.BusinessRule));
         }
 
-        var backlog = await backlogReader.ReadBacklogAsync(cancellationToken).ConfigureAwait(false);
-        if (backlog.PendingCount > 0 || backlog.DueRetryCount > 0 || backlog.ActiveLeaseCount > 0)
+        // 精确按目标流检查到期重试、活动租约等瞬时状态；其他事件流的积压不再阻塞本次切流。
+        var targetStreamBacklog = await backlogReader
+            .ReadStreamBacklogAsync(request.EventType, request.SchemaVersion, cancellationToken)
+            .ConfigureAwait(false);
+        if (targetStreamBacklog.DueRetryCount > 0 || targetStreamBacklog.ActiveLeaseCount > 0)
         {
             return Result<DeliveryCutoverResponse>.Failure(new Error(
                 MessagingErrorCodes.LegacyBacklogNotDrained,
-                "Legacy outbox backlog must be drained before cutover.",
+                "Target event stream legacy outbox has active leases or due retries; wait for them to complete before cutover.",
                 ErrorType.BusinessRule));
         }
 
@@ -122,7 +125,19 @@ internal sealed class DeliveryCutoverService(
             null,
             now,
             now);
-        await ownershipStore.UpsertAsync(ownershipRecord, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await ownershipStore.UpsertAsync(ownershipRecord, cancellationToken).ConfigureAwait(false);
+        }
+        catch (EventStreamOwnershipConcurrencyException ex)
+        {
+            return Result<DeliveryCutoverResponse>.Failure(new Error(
+                MessagingErrorCodes.CutoverConcurrencyConflict,
+                $"Cutover concurrency conflict for '{ex.MessageType}' schema {ex.SchemaVersion}: " +
+                $"owner changed from {ex.ExpectedOwner} to {ex.ActualOwner} concurrently. " +
+                $"Refresh current owner status and retry.",
+                ErrorType.Conflict));
+        }
 
         await domainAuditWriter.WriteAsync(
                 new MessagingDomainAuditWrite(

@@ -9,7 +9,11 @@ const sample = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   parentId: null,
   name: 'General',
+  code: null,
   sortOrder: 0,
+  icon: null,
+  color: null,
+  description: null,
   createdAtUtc: '2026-08-02T00:00:00Z',
   updatedAtUtc: null,
   version: 1
@@ -27,7 +31,7 @@ describe('Vue Host 文档分类 API', () => {
 
   it('创建分类', async () => {
     requestMock.mockResolvedValueOnce(sample);
-    await createHostDocumentCategory('General', null, 0);
+    await createHostDocumentCategory('General', null, 0, null, null, null, null);
     expect(requestMock).toHaveBeenCalledWith(
       '/api/v1/document/host/categories',
       expect.objectContaining({ method: 'POST' })

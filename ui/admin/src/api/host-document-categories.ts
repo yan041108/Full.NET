@@ -1,7 +1,11 @@
+// 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
 import {
-  isHostDocumentCategory,
-  isHostDocumentCategoryList,
-  type HostDocumentCategory
+  isHostDocumentCategoryResponse as isHostDocumentCategory,
+  isHostDocumentCategoryResponseList as isHostDocumentCategoryList,
+  type HostDocumentCategoryResponse as HostDocumentCategory,
+  type CreateHostDocumentCategoryRequest,
+  type UpdateHostDocumentCategoryRequest,
+  type DeleteHostDocumentCategoryRequest
 } from '@fullnet/client-contracts';
 import { request } from './http';
 

@@ -1002,6 +1002,69 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/093_DocumentAdminNetParity.sql",
       "reason": "093 使用静态存储过程 + INFORMATION_SCHEMA 实现文档模块字段补齐的幂等 DDL；所有 DDL 与存储过程名均为脚本内固定常量，无外部输入注入风险；Category/Tag/Item 列顺序与双库迁移恢复测试对齐。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/093_DocumentAdminNetParity.sql",
+      "reason": "2026-08-09 复审登记：静态扫描器不解析 ALTER TABLE ... DROP CONSTRAINT IF EXISTS 幂等 DDL 语法及 IF COL_LENGTH ... IS NULL 条件探测；Document 模块 Permission/Share/Statistics 表与列补齐全为常量字面量，无动态拼接，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/087_IdentityUserAccountType.sql",
+      "reason": "2026-08-09 复审登记：静态扫描器不解析 IF COL_LENGTH ... IS NULL + ALTER TABLE 幂等 DDL 语法及 sys.columns/sys.default_constraints 条件探测；DDL 全为常量字面量，无动态拼接，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/088_IdentityNavigationMenuMeta.sql",
+      "reason": "2026-08-09 复审登记：静态扫描器不解析 IF COL_LENGTH ... IS NULL + ALTER TABLE 幂等 DDL 语法及 sys.columns/sys.default_constraints 条件探测；8 个菜单元数据列与默认约束创建全为常量字面量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/089_JobsDefinitionAndScheduleEnhancements.sql",
+      "reason": "2026-08-09 复审登记：静态扫描器不解析 IF COL_LENGTH ... IS NULL + ALTER TABLE 幂等 DDL 语法；Jobs 定义 GroupName 列与计划 5 个统计/时间/参数列新增全为常量字面量，无动态拼接，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/090_SettingsConfigEntryGroupName.sql",
+      "reason": "2026-08-09 复审登记：静态扫描器不解析 IF COL_LENGTH ... IS NULL + ALTER TABLE 幂等 DDL 语法；Settings 配置项 GroupName 分组列新增全为常量字面量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/087_IdentityUserAccountType.sql",
+      "reason": "2026-08-09 复审登记：087 使用 INFORMATION_SCHEMA + PREPARE/EXECUTE 条件增加 AccountType 列，避免重复 ADD COLUMN；DDL 为脚本内固定常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/087_IdentityUserAccountType.sql",
+      "reason": "2026-08-09 复审登记：087 的 INFORMATION_SCHEMA 列存在性探测 + PREPARE 条件分支 DDL 尚不能由静态扫描器完整解析；全部对象名与 ALTER 语句为脚本内常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/088_IdentityNavigationMenuMeta.sql",
+      "reason": "2026-08-09 复审登记：088 使用 INFORMATION_SCHEMA + PREPARE/EXECUTE 逐项收敛 8 个菜单元数据列（MenuType/Redirect/LinkUrl/IsHidden/IsKeepAlive/IsAffix/IsEmbedded/Remark）；DDL 为脚本内固定常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/088_IdentityNavigationMenuMeta.sql",
+      "reason": "2026-08-09 复审登记：088 的 INFORMATION_SCHEMA 列存在性探测 + 多段 PREPARE 条件分支 DDL 尚不能由静态扫描器完整解析；全部对象名与 ALTER 语句为脚本内常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

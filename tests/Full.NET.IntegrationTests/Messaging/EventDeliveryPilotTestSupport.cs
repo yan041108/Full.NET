@@ -145,6 +145,99 @@ internal static class EventDeliveryPilotTestSupport
         return commandExecutor.ExecuteAsync(statement, parameters, cancellationToken);
     }
 
+    /// <summary>
+    /// 向 fn_outbox_message 直接写入任意 MessageType 的 Legacy Outbox 原始 pending 消息，
+    /// 用于构造"其他 Legacy 流有积压"的场景。payload 使用空字节数组。
+    /// </summary>
+    internal static async Task WriteRawLegacyOutboxEventAsync(
+        IServiceProvider provider,
+        string eventType,
+        int schemaVersion,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        var tenantAccessor = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        tenantAccessor.SetHost();
+        var commandExecutor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        var databaseOptions = scope.ServiceProvider
+            .GetRequiredService<IOptions<DatabaseOptions>>()
+            .Value;
+        var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator>();
+        var clock = scope.ServiceProvider.GetRequiredService<IClock>();
+        var id = idGenerator.NewId();
+        var tenantId = idGenerator.NewId();
+        var parameters = new
+        {
+            Id = id,
+            MessageType = eventType,
+            SchemaVersion = schemaVersion,
+            ContentType = "application/x-msgpack",
+            Payload = Array.Empty<byte>(),
+            TenantId = tenantId,
+            OccurredAtUtc = clock.UtcNow,
+            Attempts = 0,
+            NextRetryAtUtc = (DateTimeOffset?)null,
+            LockId = (Guid?)null,
+            LockedUntilUtc = (DateTimeOffset?)null,
+            Error = (string?)null,
+            DeadLetteredAtUtc = (DateTimeOffset?)null,
+            DeadLetterReason = (string?)null,
+            ProcessedAtUtc = (DateTimeOffset?)null,
+            TraceParent = (string?)null,
+            RetainUntilUtc = clock.UtcNow.AddDays(7),
+        };
+        var statement = databaseOptions.Provider switch
+        {
+            DatabaseProvider.SqlServer => RawLegacyOutboxInsertSql.SqlServer,
+            DatabaseProvider.MySql => RawLegacyOutboxInsertSql.MySql,
+            _ => throw new NotSupportedException(
+                $"Database provider '{databaseOptions.Provider}' is not supported."),
+        };
+        var affected = await commandExecutor
+            .ExecuteAsync(statement, parameters, cancellationToken)
+            .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            throw new InvalidOperationException(
+                $"Insert raw legacy outbox event affected {affected} rows, expected 1.");
+        }
+    }
+
+      private static class RawLegacyOutboxInsertSql
+    {
+        internal static readonly SqlStatement SqlServer = new(
+            "messaging.pilot.insert_raw_legacy_outbox.sqlserver",
+            """
+            INSERT INTO fn_outbox_message
+                (Id, MessageType, SchemaVersion, ContentType, Payload, TenantId,
+                 OccurredAtUtc, Attempts, NextRetryAtUtc, LockId, LockedUntilUtc,
+                 Error, DeadLetteredAtUtc, DeadLetterReason, ProcessedAtUtc,
+                 TraceParent, RetainUntilUtc)
+            VALUES
+                (@Id, @MessageType, @SchemaVersion, @ContentType, @Payload, @TenantId,
+                 @OccurredAtUtc, @Attempts, @NextRetryAtUtc, @LockId, @LockedUntilUtc,
+                 @Error, @DeadLetteredAtUtc, @DeadLetterReason, @ProcessedAtUtc,
+                 @TraceParent, @RetainUntilUtc)
+            """,
+            SqlDataScope.Global);
+
+        internal static readonly SqlStatement MySql = new(
+            "messaging.pilot.insert_raw_legacy_outbox.mysql",
+            """
+            INSERT INTO fn_outbox_message
+                (Id, MessageType, SchemaVersion, ContentType, Payload, TenantId,
+                 OccurredAtUtc, Attempts, NextRetryAtUtc, LockId, LockedUntilUtc,
+                 Error, DeadLetteredAtUtc, DeadLetterReason, ProcessedAtUtc,
+                 TraceParent, RetainUntilUtc)
+            VALUES
+                (@Id, @MessageType, @SchemaVersion, @ContentType, @Payload, @TenantId,
+                 @OccurredAtUtc, @Attempts, @NextRetryAtUtc, @LockId, @LockedUntilUtc,
+                 @Error, @DeadLetteredAtUtc, @DeadLetterReason, @ProcessedAtUtc,
+                 @TraceParent, @RetainUntilUtc)
+            """,
+            SqlDataScope.Global);
+    }
+
       private static class PilotOutboxMirrorSql
     {
         internal static readonly SqlStatement SqlServer = new(

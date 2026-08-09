@@ -22,7 +22,14 @@ internal sealed class MessagingWorkerOptionsValidator(IConfiguration configurati
         var kafkaEnabled = configuration.GetValue<bool>(KafkaMessagingSection.EnabledPath);
         var shadowEnabled = configuration.GetValue<bool>(ShadowComparisonSection.EnabledPath);
 
-        switch (options.Mode)
+        // 将过时的 CdcKafka 别名规范化为 HybridKafka，后续 switch 按 HybridKafka 语义处理。
+#pragma warning disable CS0618 // CdcKafka 作为过时别名保留一版，此处显式比较以支持旧配置。
+        var effectiveMode = options.Mode == MessagingWorkerMode.CdcKafka
+            ? MessagingWorkerMode.HybridKafka
+            : options.Mode;
+#pragma warning restore CS0618
+
+        switch (effectiveMode)
         {
             case MessagingWorkerMode.LegacyPolling:
                 if (kafkaEnabled)
@@ -58,18 +65,20 @@ internal sealed class MessagingWorkerOptionsValidator(IConfiguration configurati
 
                 break;
 
-            case MessagingWorkerMode.CdcKafka:
+            case MessagingWorkerMode.HybridKafka:
+                // HybridKafka 允许 Legacy Poller 与 Kafka Consumer 并存。
+                // 要求 Kafka:Enabled=true；Shadow 模式与 Hybrid 互斥。
                 if (!kafkaEnabled)
                 {
                     failures.Add(
-                        $"{MessagingWorkerOptions.SectionName}:Mode CdcKafka "
+                        $"{MessagingWorkerOptions.SectionName}:Mode HybridKafka "
                         + "requires Messaging:Kafka:Enabled=true.");
                 }
 
                 if (shadowEnabled)
                 {
                     failures.Add(
-                        $"{MessagingWorkerOptions.SectionName}:Mode CdcKafka "
+                        $"{MessagingWorkerOptions.SectionName}:Mode HybridKafka "
                         + "cannot be combined with Messaging:ShadowComparison:Enabled=true.");
                 }
 

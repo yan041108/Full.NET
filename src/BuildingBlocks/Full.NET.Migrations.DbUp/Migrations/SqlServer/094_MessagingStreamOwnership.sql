@@ -24,3 +24,22 @@ BEGIN
         CONSTRAINT CK_fn_messaging_stream_ownership_PreviousOwner CHECK (PreviousOwner BETWEEN 0 AND 2)
     );
 END;
+ELSE
+BEGIN
+    -- 表已存在时按契约收敛列/约束形状，保证重跑迁移可修复部署漂移。
+    IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE name = N'CK_fn_messaging_stream_ownership_SchemaVersion')
+    BEGIN
+        ALTER TABLE dbo.fn_messaging_stream_ownership
+            ADD CONSTRAINT CK_fn_messaging_stream_ownership_SchemaVersion CHECK (SchemaVersion BETWEEN 1 AND 65535);
+    END;
+    IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE name = N'CK_fn_messaging_stream_ownership_CurrentOwner')
+    BEGIN
+        ALTER TABLE dbo.fn_messaging_stream_ownership
+            ADD CONSTRAINT CK_fn_messaging_stream_ownership_CurrentOwner CHECK (CurrentOwner BETWEEN 0 AND 2);
+    END;
+    IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE name = N'CK_fn_messaging_stream_ownership_PreviousOwner')
+    BEGIN
+        ALTER TABLE dbo.fn_messaging_stream_ownership
+            ADD CONSTRAINT CK_fn_messaging_stream_ownership_PreviousOwner CHECK (PreviousOwner BETWEEN 0 AND 2);
+    END;
+END;

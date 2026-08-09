@@ -165,7 +165,88 @@ public sealed record HostDocumentShareResponse(
     int? MaxAccessCount,
     int AccessCount,
     bool IsEnabled,
-    long Version);
+    long Version,
+    bool HasPassword)
+{
+    /// <summary>
+    /// 兼容策略：保留扩展前的旧构造签名，避免新增 Password/MaxAccessCount/
+    /// AccessCount/IsEnabled/Version 等位置参数导致既有 .NET 调用方出现
+    /// "构造参数数不匹配(CS8852)"编译错误。
+    /// 安全说明：Password 始终传 null，查询响应永不回显口令；
+    /// HasPassword 由兼容构造函数通过 !string.IsNullOrEmpty(Password) 推导，
+    /// 但由于 Password 恒为 null，该构造仅用于历史 API 调用方，HasPassword 恒 false。
+    /// AccessCount 默认 0、IsEnabled 默认 true、Version 默认 1。
+    /// </summary>
+    [Obsolete("保留用于源码兼容；建议使用带完整字段的构造函数")]
+    public HostDocumentShareResponse(
+        Guid id,
+        Guid documentId,
+        string shareCode,
+        DateTimeOffset createdAtUtc,
+        DateTimeOffset expireTime)
+        : this(
+            id,
+            documentId,
+            shareCode,
+            createdAtUtc,
+            expireTime,
+            null,
+            null,
+            0,
+            true,
+            1L,
+            HasPassword: false)
+    {
+    }
+
+    /// <summary>
+    /// 兼容调用方：使用位置参数传入 Password 的旧签名。
+    /// Password 仅用于推导 HasPassword（非空则为 true），属性本身立即被置空，
+    /// 保证 [JsonIgnore] 的 Password 永远不带值对外。
+    /// </summary>
+    public HostDocumentShareResponse(
+        Guid id,
+        Guid documentId,
+        string shareCode,
+        DateTimeOffset createdAtUtc,
+        DateTimeOffset expireTime,
+        string? Password,
+        int? MaxAccessCount,
+        int AccessCount,
+        bool IsEnabled,
+        long Version)
+        : this(
+            id,
+            documentId,
+            shareCode,
+            createdAtUtc,
+            expireTime,
+            Password: null,
+            MaxAccessCount,
+            AccessCount,
+            IsEnabled,
+            Version,
+            HasPassword: !string.IsNullOrEmpty(Password))
+    {
+    }
+}
+
+/// <summary>匿名分享访问请求：通过 POST 提交口令，规避 GET 产生副作用与缓存泄漏。</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AccessHostDocumentShareRequest(
+    string? Password = null);
+
+/// <summary>匿名分享访问响应：仅回传文档定位、标题元数据与实际下载/展示入口，不含口令相关字段。</summary>
+public sealed record HostDocumentShareAccessResponse(
+    Guid ShareId,
+    Guid DocumentId,
+    string ShareCode,
+    string Title,
+    string? FileName,
+    string? MimeType,
+    long FileSizeBytes,
+    bool HasPassword,
+    int AccessCountRemaining);
 
 public sealed record HostDocumentStatisticsSummaryResponse(
     long TotalItems,

@@ -42,15 +42,32 @@ internal sealed class EventStreamOwnershipStore(
         var persistenceRow = EventStreamOwnershipMapper.ToPersistenceRow(record);
         var existing = await FindAsync(record.MessageType, record.SchemaVersion, cancellationToken)
             .ConfigureAwait(false);
-        var affected = existing is null
-            ? await commandExecutor.ExecuteAsync(
+        int affected;
+        if (existing is null)
+        {
+            affected = await commandExecutor.ExecuteAsync(
                 EventStreamOwnershipSql.Insert,
                 persistenceRow,
-                cancellationToken).ConfigureAwait(false)
-            : await commandExecutor.ExecuteAsync(
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            affected = await commandExecutor.ExecuteAsync(
                 EventStreamOwnershipSql.Update,
                 persistenceRow,
                 cancellationToken).ConfigureAwait(false);
+            if (affected == 0)
+            {
+                // SQL UPDATE 使用基于 PreviousOwner 的 CAS，匹配失败意味着在事务读取
+                // currentOwner 之后，另一事务已经改变了所有权。调用方应捕获并翻译成
+                // conflict 错误。
+                throw new EventStreamOwnershipConcurrencyException(
+                    record.MessageType,
+                    record.SchemaVersion,
+                    record.PreviousOwner,
+                    existing.CurrentOwner);
+            }
+        }
         if (affected != 1)
         {
             throw new InvalidOperationException(

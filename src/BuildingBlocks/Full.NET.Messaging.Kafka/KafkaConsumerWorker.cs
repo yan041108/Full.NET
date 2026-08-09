@@ -67,8 +67,11 @@ internal sealed class KafkaConsumerWorker : BackgroundService
     private IReadOnlyList<ConsumerGroupPlan> BuildConsumerGroups()
     {
         using var scope = _scopeFactory.CreateScope();
+        // 修复意图：KafkaConsumerWorker 是 Singleton HostedService，不得在字段或构造函数中直接持有
+        // Scoped catalog/dispatcher/订阅；必须每次通过 IServiceScopeFactory 创建独立作用域解析。
+        // 这里同时使用接口 IIntegrationEventSubscriptionCatalog，以便空目录默认值实现能参与解析。
         var catalog = scope.ServiceProvider
-            .GetRequiredService<IntegrationEventSubscriptionCatalog>();
+            .GetRequiredService<IIntegrationEventSubscriptionCatalog>();
         var subscriptions = scope.ServiceProvider
             .GetServices<IIntegrationEventSubscription>();
         var plans = new Dictionary<string, ConsumerGroupPlan>(StringComparer.Ordinal);
@@ -196,8 +199,11 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         try
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
+            // 修复意图：每次消费消息创建独立 AsyncScope 解析 Scoped 服务：
+            // 1) 避免 Singleton Worker 持有 Scoped Dispatcher/Catalog 造成的生命周期不匹配；
+            // 2) 每个 Scope 的 Inbox 事务状态与 Handler 状态相互隔离，保证消息幂等处理语义。
             var catalog = scope.ServiceProvider
-                .GetRequiredService<IntegrationEventSubscriptionCatalog>();
+                .GetRequiredService<IIntegrationEventSubscriptionCatalog>();
             var subscription = catalog.GetRequired(
                 plan.ConsumerName,
                 envelope.MessageType,

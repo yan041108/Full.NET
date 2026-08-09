@@ -82,21 +82,31 @@ builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Worker);
 
-var messagingWorkerMode = builder.Configuration
+var rawMode = builder.Configuration
     .GetSection(MessagingWorkerOptions.SectionName)
     .Get<MessagingWorkerOptions>()?.Mode
     ?? MessagingWorkerMode.LegacyPolling;
 
+// CdcKafka 枚举值作为 HybridKafka 的过时别名保留一个发布周期，
+// 在服务注册前统一规范化为 HybridKafka 语义，避免双重分支判断。
+#pragma warning disable CS0618 // CdcKafka 作为过时别名保留一版，旧配置字符串反序列化会得到该值。
+var messagingWorkerMode = rawMode == MessagingWorkerMode.CdcKafka
+    ? MessagingWorkerMode.HybridKafka
+    : rawMode;
+#pragma warning restore CS0618
+
 if (commandLine.VersionRetirement is null)
 {
+    // LegacyPolling、ShadowCdc、HybridKafka 在非退役命令下始终注册 Legacy Outbox 处理器。
+    // HybridKafka 模式下，OutboxProcessor 内部通过 IEffectiveEventDeliveryOwnerResolver
+    // 按流跳过所有权为 CdcKafka 的消息（抛出 LegacyOwnerRevoked 死信），保证只处理 Legacy 流。
     switch (messagingWorkerMode)
     {
         case MessagingWorkerMode.LegacyPolling:
         case MessagingWorkerMode.ShadowCdc:
+        case MessagingWorkerMode.HybridKafka:
             builder.Services.AddHostedService<OutboxProcessor>();
             builder.Services.AddHostedService<OutboxRetentionProcessor>();
-            break;
-        case MessagingWorkerMode.CdcKafka:
             break;
     }
 
@@ -115,7 +125,8 @@ if (commandLine.VersionRetirement is null)
         }
     }
 
-    if (messagingWorkerMode == MessagingWorkerMode.CdcKafka)
+    // HybridKafka（含过时别名 CdcKafka）模式注册 Kafka 模块化与消费能力。
+    if (messagingWorkerMode == MessagingWorkerMode.HybridKafka)
     {
         builder.Services.AddFullNetModularity();
         builder.Services.AddFullNetKafkaMessaging(
@@ -139,12 +150,18 @@ await using (var scope = app.Services.CreateAsyncScope())
             provider.GetServices<IntegrationEventTopicDefinition>().ToArray());
     }
     else if (commandLine.VersionRetirement is null
-        && messagingWorkerMode == MessagingWorkerMode.CdcKafka)
+        && messagingWorkerMode == MessagingWorkerMode.HybridKafka)
     {
-        MessagingWorkerCatalogGuard.ValidateCdcKafkaMode(
-            scope.ServiceProvider
-                .GetServices<IIntegrationEventSubscription>()
-                .ToArray());
+        // 通过 Scoped 目录按流验证订阅，保证与 KafkaConsumerWorker
+        // BuildConsumerGroups 所见一致；同时识别 CdcKafka 旧别名情况。
+        var provider = scope.ServiceProvider;
+        var catalog = provider
+            .GetRequiredService<IIntegrationEventSubscriptionCatalog>();
+        var subscriptions = catalog.GetAllSubscriptions();
+        var topics = provider
+            .GetServices<IntegrationEventTopicDefinition>()
+            .ToArray();
+        MessagingWorkerCatalogGuard.ValidateHybridKafkaMode(subscriptions, topics);
     }
 }
 

@@ -3,10 +3,12 @@ import { isHostUser, isHostUserPage, isHostUserRoles, isReplaceHostUserRolesRequ
 
 describe('Host 用户客户端契约', () => {
   it('校验分页列表与单条用户', () => {
+    // 中文注释：accountType 与 C# 端 AccountType 枚举对齐，常见取值包括 normal_user / super_administrator / tenant_administrator
     const user = {
       id: 'user-id',
       username: 'operator',
       displayName: '运维账号',
+      accountType: 'normal_user',
       isActive: true,
       createdAtUtc: '2026-07-21T00:00:00Z',
       updatedAtUtc: null,
@@ -21,6 +23,7 @@ describe('Host 用户客户端契约', () => {
         failedLoginCount: null,
         lockoutEndUtc: null
       },
+      // 中文注释：HostUserProfile.emergencyContactRelation 与 C# 端档案字段一致，取值为字典项字符串或 null
       profile: {
         nickname: null,
         phoneNumber: '13800000000',
@@ -39,6 +42,7 @@ describe('Host 用户客户端契约', () => {
         politicalStatus: null,
         officePhone: null,
         emergencyContact: null,
+        emergencyContactRelation: 'parent',
         emergencyContactPhone: null,
         emergencyContactAddress: null,
         remark: null,
@@ -80,5 +84,64 @@ describe('Host 用户客户端契约', () => {
     expect(isReplaceHostUserRolesRequest({ roleIds: ['role-id'], version: 2 })).toBe(true);
     expect(isResetHostUserPasswordRequest({ password: 'FullNet!2026Secure' })).toBe(true);
     expect(isResetHostUserPasswordRequest({ password: '' })).toBe(false);
+  });
+
+  it('负向测试：字段类型或取值不匹配时返回 false', () => {
+    const baseUser = {
+      id: 'user-id',
+      username: 'operator',
+      displayName: '运维账号',
+      accountType: 'normal_user',
+      isActive: true,
+      createdAtUtc: '2026-07-21T00:00:00Z',
+      updatedAtUtc: null,
+      version: 1
+    };
+
+    // 中文注释：accountType 为空字符串（要求非空字符串），违背 HostUser.accountType:string&length>0 契约
+    expect(isHostUser({
+      ...baseUser,
+      accountType: ''
+    })).toBe(false);
+
+    // 中文注释：accountType 传数字而非字符串，违背 HostUser.accountType:string 契约
+    expect(isHostUser({
+      ...baseUser,
+      accountType: 123 as unknown as string
+    })).toBe(false);
+
+    const baseProfile = {
+      nickname: null,
+      phoneNumber: null,
+      email: null,
+      employeeNumber: null,
+      gender: null,
+      joinDateUtc: null,
+      sortOrder: null,
+      idCardType: null,
+      idCardNumber: null,
+      birthDate: null,
+      ethnicity: null,
+      address: null,
+      graduatedSchool: null,
+      educationLevel: null,
+      politicalStatus: null,
+      officePhone: null,
+      emergencyContact: null,
+      emergencyContactRelation: null,
+      emergencyContactPhone: null,
+      emergencyContactAddress: null,
+      remark: null,
+      version: 1
+    };
+
+    // 中文注释：emergencyContactRelation 传数字（应为 string|null），违背 HostUserProfile 契约
+    expect(isHostUser({
+      ...baseUser,
+      profile: {
+        ...baseProfile,
+        emergencyContactRelation: 999 as unknown as string
+      }
+    })).toBe(false);
   });
 });

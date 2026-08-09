@@ -15,6 +15,7 @@ internal static class DocumentItemSql
         i.CreatedAtUtc, i.CreatedByUserId, i.UpdatedAtUtc, i.UpdatedByUserId, i.Version,
         v.Id AS VersionId, v.VersionNumber, v.FileId, v.ContentHash, v.SizeBytes,
         v.CreatedAtUtc AS VersionCreatedAtUtc, v.UploadedByUserId,
+        v.FileName, v.MimeType, v.Extension, v.SizeBytes AS FileSizeBytes,
         i.DeletedAtUtc, i.DeletedByUserId
         """;
 

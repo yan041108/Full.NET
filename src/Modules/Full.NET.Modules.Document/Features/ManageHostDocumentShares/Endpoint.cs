@@ -66,18 +66,32 @@ internal static class Endpoint
         .Produces<HostDocumentShareResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentSharePermissions.UpdateStatus));
 
-        group.MapGet("/by-code/{shareCode}", async (
+        group.MapGet("/by-code/{shareCode}", (string shareCode, HttpResponse response) =>
+        {
+            // 中文注释：Task2 Step5 将匿名分享访问从 GET 切换为 POST，避免计数副作用与
+            // HTTP 缓存/浏览器预取意外消耗。旧端点稳定返回 405，提示客户端改用 POST /access。
+            response.Headers.Allow = "POST";
+            return Results.StatusCode(StatusCodes.Status405MethodNotAllowed);
+        })
+        .AllowAnonymous();
+
+        var publicGroup = endpoints.MapGroup("/api/v1/document/public/shares")
+            .WithTags("Document");
+
+        publicGroup.MapPost("/{shareCode}/access", async (
             string shareCode,
+            AccessHostDocumentShareRequest request,
             HostDocumentShareManagementService service,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.AccessByCodeAsync(shareCode, cancellationToken)
+            var result = await service.AccessAnonymousAsync(shareCode, request, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .Produces<HostDocumentShareResponse>(StatusCodes.Status200OK)
+        .Accepts<AccessHostDocumentShareRequest>("application/json")
+        .Produces<HostDocumentShareAccessResponse>(StatusCodes.Status200OK)
         .AllowAnonymous();
     }
 }

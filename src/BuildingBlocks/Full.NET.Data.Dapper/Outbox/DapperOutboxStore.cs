@@ -66,6 +66,32 @@ internal sealed class DapperOutboxStore(
         };
     }
 
+    public Task<OutboxBacklogSnapshot> ReadStreamBacklogAsync(
+        string eventType,
+        int schemaVersion,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
+        var parameters = new
+        {
+            MessageType = eventType,
+            SchemaVersion = schemaVersion,
+            Now = clock.UtcNow,
+        };
+        return _databaseOptions.Provider switch
+        {
+            DatabaseProvider.SqlServer => ReadSqlServerStreamBacklogAsync(
+                parameters,
+                cancellationToken),
+            DatabaseProvider.MySql => ReadMySqlStreamBacklogAsync(
+                parameters,
+                cancellationToken),
+            _ => throw new NotSupportedException(
+                $"Database provider '{_databaseOptions.Provider}' is not supported.")
+        };
+    }
+
     public Task<IReadOnlyList<OutboxEnvelope>> AcquireAsync(
         int batchSize,
         TimeSpan lease,
@@ -277,6 +303,57 @@ internal sealed class DapperOutboxStore(
             .QuerySingleOrDefaultAsync<MySqlBacklogRow>(
                 OutboxSql.ReadBacklogMySql,
                 new { Now = clock.UtcNow },
+                cancellationToken)
+            .ConfigureAwait(false);
+        DateTimeOffset? oldestOccurredAtUtc = row?.OldestOccurredAtUtc is { } value
+            ? new DateTimeOffset(
+                DateTime.SpecifyKind(value, DateTimeKind.Utc))
+            : null;
+        DateTimeOffset? oldestDeadLetteredAtUtc =
+            row?.OldestDeadLetteredAtUtc is { } deadLetteredAt
+                ? new DateTimeOffset(
+                    DateTime.SpecifyKind(deadLetteredAt, DateTimeKind.Utc))
+                : null;
+        return new OutboxBacklogSnapshot(
+            row?.PendingCount ?? 0,
+            oldestOccurredAtUtc)
+        {
+            DueRetryCount = row?.DueRetryCount ?? 0,
+            ActiveLeaseCount = row?.ActiveLeaseCount ?? 0,
+            DeadLetterCount = row?.DeadLetterCount ?? 0,
+            OldestDeadLetteredAtUtc = oldestDeadLetteredAtUtc,
+        };
+    }
+
+    private async Task<OutboxBacklogSnapshot> ReadSqlServerStreamBacklogAsync(
+        object parameters,
+        CancellationToken cancellationToken)
+    {
+        var row = await queryExecutor
+            .QuerySingleOrDefaultAsync<SqlServerBacklogRow>(
+                OutboxSql.ReadStreamBacklogSqlServer,
+                parameters,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new OutboxBacklogSnapshot(
+            row?.PendingCount ?? 0,
+            row?.OldestOccurredAtUtc)
+        {
+            DueRetryCount = row?.DueRetryCount ?? 0,
+            ActiveLeaseCount = row?.ActiveLeaseCount ?? 0,
+            DeadLetterCount = row?.DeadLetterCount ?? 0,
+            OldestDeadLetteredAtUtc = row?.OldestDeadLetteredAtUtc,
+        };
+    }
+
+    private async Task<OutboxBacklogSnapshot> ReadMySqlStreamBacklogAsync(
+        object parameters,
+        CancellationToken cancellationToken)
+    {
+        var row = await queryExecutor
+            .QuerySingleOrDefaultAsync<MySqlBacklogRow>(
+                OutboxSql.ReadStreamBacklogMySql,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         DateTimeOffset? oldestOccurredAtUtc = row?.OldestOccurredAtUtc is { } value

@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Document.Resources;
+using Full.NET.Modules.Document.Security;
 using Full.NET.Modules.Document.Serialization;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
@@ -30,6 +31,7 @@ public sealed class DocumentModule : IFullNetModule
             DocumentErrorResourceSource>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddSingleton<IDocumentSharePasswordHasher, DocumentSharePasswordHasher>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();

@@ -70,6 +70,7 @@ internal static class EventStreamOwnershipSql
                 UpdatedAtUtc = @UpdatedAtUtc
             WHERE MessageType = @MessageType
               AND SchemaVersion = @SchemaVersion
+              AND CurrentOwner = @PreviousOwner
             """,
             SqlDataScope.Global);
 

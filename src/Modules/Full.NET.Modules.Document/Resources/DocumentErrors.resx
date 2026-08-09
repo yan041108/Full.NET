@@ -25,4 +25,5 @@
   <data name="document.share.invalid" xml:space="preserve"><value>分享请求无效。</value></data>
   <data name="document.permission.invalid" xml:space="preserve"><value>权限请求无效。</value></data>
   <data name="document.recycle.not_found" xml:space="preserve"><value>回收站文档不存在。</value></data>
+  <data name="document.host.share.password_not_supported_yet" xml:space="preserve"><value>当前版本尚不支持创建带口令的分享链接。</value></data>
 </root>

@@ -59,4 +59,34 @@ public sealed record HostDocumentCategoryResponse(
     string? Description,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    long Version);
+    long Version)
+{
+    /// <summary>
+    /// 兼容策略：保留扩展前的旧构造签名，避免新增 Code/Icon/Color/Description
+    /// 导致既有 .NET 调用方出现"构造参数数不匹配(CS8852)"编译错误。
+    /// 新代码建议使用主构造，显式填充全部展示字段。
+    /// </summary>
+    [Obsolete("保留用于源码兼容；建议使用带完整字段的构造函数")]
+    public HostDocumentCategoryResponse(
+        Guid id,
+        Guid? parentId,
+        string name,
+        int sortOrder,
+        DateTimeOffset createdAtUtc,
+        DateTimeOffset? updatedAtUtc,
+        long version)
+        : this(
+            id,
+            parentId,
+            name,
+            sortOrder,
+            null,
+            null,
+            null,
+            null,
+            createdAtUtc,
+            updatedAtUtc,
+            version)
+    {
+    }
+}

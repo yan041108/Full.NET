@@ -8,7 +8,7 @@ using Full.NET.Messaging.Abstractions;
 
 namespace Full.NET.Data.Dapper.Outbox;
 
-internal sealed class DapperAppendOnlyOutboxWriter(
+internal class DapperAppendOnlyOutboxWriter(
     ICommandExecutor commandExecutor,
     IIntegrationEventSerializer serializer,
     IIdGenerator idGenerator,
@@ -27,7 +27,7 @@ internal sealed class DapperAppendOnlyOutboxWriter(
         """,
         SqlDataScope.Global);
 
-    public Task AddAsync<TEvent>(
+    public virtual Task AddAsync<TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,
@@ -35,7 +35,7 @@ internal sealed class DapperAppendOnlyOutboxWriter(
         throw new NotSupportedException(
             "Append-only messaging outbox requires IntegrationEventMetadata; use the metadata overload.");
 
-    public async Task AddAsync<TEvent>(
+    public virtual async Task AddAsync<TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,

@@ -62,15 +62,19 @@ public sealed class MessagingModule : IFullNetModule
 
     private static void RegisterMessagingCore(IServiceCollection services)
     {
-        // Topic 是带数据的目录实例，不是可由实现类型区分的策略服务；
-        // TryAddEnumerable 会拒绝 service/implementation 类型相同的工厂描述符，因此按官方实例去重。
+        // 修复意图：Topic 目录条目是带 TopicCode/EventType/SchemaVersion 元数据的单例值对象，
+        // 不是按实现类型区分的策略接口。TryAddEnumerable 对工厂返回相同 ServiceType 的描述符
+        // 会抛 ArgumentException（无法区分两个 Func<,> 注册是否应该都保留），因此改为：
+        // 1) 按稳定语义键 TopicCode 先去重（而非 ReferenceEquals，避免不同装配阶段重新 new 同语义条目）
+        // 2) 直接用 AddSingleton(实例) 注入，保证 API/Worker 两次 AddServices/AddBackgroundServices
+        //    都幂等不抛错。
+        var topic = MessagingTopicDefinitions.OrganizationUnitChanged;
         if (!services.Any(descriptor =>
                 descriptor.ServiceType == typeof(IntegrationEventTopicDefinition)
-                && ReferenceEquals(
-                    descriptor.ImplementationInstance,
-                    MessagingTopicDefinitions.OrganizationUnitChanged)))
+                && descriptor.ImplementationInstance is IntegrationEventTopicDefinition existing
+                && existing.TopicCode == topic.TopicCode))
         {
-            services.AddSingleton(MessagingTopicDefinitions.OrganizationUnitChanged);
+            services.AddSingleton(topic);
         }
 
         services.TryAddScoped<EventStreamOwnershipStore>();
@@ -81,12 +85,22 @@ public sealed class MessagingModule : IFullNetModule
 
     private static void RegisterSubscriptionCatalog(IServiceCollection services)
     {
+        // 先移除 Modularity 核心注册的空目录默认值（RemoveAll 按服务类型匹配，同时移除接口和具体类）。
+        services.RemoveAll<IIntegrationEventSubscriptionCatalog>();
         services.RemoveAll<IntegrationEventSubscriptionCatalog>();
-        // Catalog 保存订阅 Handler 实例，生命周期必须与 Handler/Inbox 事务作用域一致。
-        services.AddScoped(provider =>
+        // Catalog 生命周期说明：
+        // 必须是 Scoped：
+        // 1) KafkaConsumerWorker 是 Singleton HostedService，不得直接持有 scoped 订阅 Handler；
+        // 2) 每次消费消息通过 IServiceScopeFactory.CreateAsyncScope 创建独立作用域，
+        //    与 Inbox 事务作用域、Handler 解析作用域保持一致，避免跨请求共享状态。
+        services.AddScoped<IIntegrationEventSubscriptionCatalog>(provider =>
             new IntegrationEventSubscriptionCatalog(
                 provider.GetServices<IntegrationEventTopicDefinition>(),
                 provider.GetServices<IIntegrationEventSubscription>()));
+        // 同时注册具体类，兼容直接解析 IntegrationEventSubscriptionCatalog 的既有代码。
+        services.AddScoped(provider =>
+            (IntegrationEventSubscriptionCatalog)provider
+                .GetRequiredService<IIntegrationEventSubscriptionCatalog>());
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

@@ -8,6 +8,8 @@ const requestMock = vi.mocked(request);
 const sample = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   name: 'release',
+  color: null,
+  useCount: 0,
   createdAtUtc: '2026-08-02T00:00:00Z',
   updatedAtUtc: null,
   version: 1
@@ -24,7 +26,7 @@ describe('Vue Host 文档标签 API', () => {
 
   it('创建标签', async () => {
     requestMock.mockResolvedValueOnce(sample);
-    await createHostDocumentTag('release');
+    await createHostDocumentTag('release', null, null, null, null);
     expect(requestMock).toHaveBeenCalledWith(
       '/api/v1/document/host/tags',
       expect.objectContaining({ method: 'POST' })

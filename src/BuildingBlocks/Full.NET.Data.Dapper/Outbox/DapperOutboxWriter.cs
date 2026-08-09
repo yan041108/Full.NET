@@ -7,7 +7,7 @@ using Full.NET.Messaging.Abstractions;
 
 namespace Full.NET.Data.Dapper.Outbox;
 
-internal sealed class DapperOutboxWriter(
+internal class DapperOutboxWriter(
     ICommandExecutor commandExecutor,
     IIntegrationEventSerializer serializer,
     IIdGenerator idGenerator,
@@ -24,7 +24,7 @@ internal sealed class DapperOutboxWriter(
         """,
         SqlDataScope.Global);
 
-    public async Task AddAsync<TEvent>(
+    public virtual async Task AddAsync<TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,
@@ -60,14 +60,18 @@ internal sealed class DapperOutboxWriter(
         }
     }
 
-    public Task AddAsync<TEvent>(
+    public virtual Task AddAsync<TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,
         IntegrationEventMetadata metadata,
         CancellationToken cancellationToken = default)
     {
-        throw new NotSupportedException(
-            "Metadata-aware outbox writes require append-only messaging outbox (migration 091).");
+        // 为什么忽略 metadata：
+        // 切流前业务模块可以用 metadata overload 调用 legacy writer（在 DapperRoutedOutboxWriter
+        // 中 owner 仍为 LegacyPolling 时走到这里），此时直接退化为无 metadata 版本写入，
+        // 以便在切流当天仅通过 owner 切换生效而无需改业务代码。
+        // 切流后的 CdcKafka 流由 append-only writer 单独处理 metadata。
+        return AddAsync(eventType, schemaVersion, payload, cancellationToken);
     }
 }

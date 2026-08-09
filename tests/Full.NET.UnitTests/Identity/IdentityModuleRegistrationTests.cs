@@ -3,9 +3,12 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Api;
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Localization;
+using Full.NET.Messaging.Abstractions;
+using MessagingModuleTopics = Full.NET.Modules.Messaging.MessagingTopicDefinitions;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
@@ -94,6 +97,64 @@ public sealed class IdentityModuleRegistrationTests
         CollectionAssert.AreEqual(
             ExpectedIdentityOwnedRegistrations(),
             SnapshotIdentityOwnedRegistrations(moduleServices));
+    }
+
+    [TestMethod]
+    public void Identity_background_services_register_organization_kafka_subscription_once()
+    {
+        // 目标：Worker profile 下恰好有一个 IIntegrationEventSubscription，
+        // 三元路由为 (fullnet.identity.organization-unit-projection,
+        // fullnet.organization.unit.changed, 1)，且生命周期为 Scoped。
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{IdentityOptions.SectionName}:AllowDevelopmentEphemeralSigningKey"] =
+                    "true",
+            })
+            .Build();
+        var services = new ServiceCollection();
+        var module = new IdentityModule();
+        module.AddServices(services, configuration);
+
+        var subscriptionDescriptors = services
+            .Where(d => d.ServiceType == typeof(IIntegrationEventSubscription))
+            .ToArray();
+
+        Assert.AreEqual(1, subscriptionDescriptors.Length);
+        Assert.AreEqual(ServiceLifetime.Scoped, subscriptionDescriptors[0].Lifetime);
+        var implementationType = subscriptionDescriptors[0].ImplementationType;
+        Assert.IsNotNull(implementationType);
+        StringAssert.EndsWith(
+            implementationType.FullName,
+            "OrganizationUnitChangedKafkaSubscription");
+
+        // 不能是 LegacyIntegrationEventHandlerSubscriptionAdapter——那是旧轮询路径的适配器
+        Assert.AreNotEqual(
+            typeof(LegacyIntegrationEventHandlerSubscriptionAdapter),
+            implementationType);
+        Assert.IsTrue(
+            typeof(IIntegrationEventSubscription).IsAssignableFrom(implementationType));
+
+        // ConsumerName/EventType/SchemaVersion/IdempotencyStrategy 在实现类中都是
+        // 纯常量 getter（不依赖构造注入的字段）。为避免拉通整条依赖链
+        // （IIntegrationEventSerializer/OrganizationUnitProjectionWriter 等），
+        // 通过 System.ComponentModel.TypeDescriptor.GetProperties 的弱类型 getter
+        // 创建无参代理型未初始化实例并读取属性值——使用 RuntimeHelpers.GetUninitializedObject
+        // 跳过构造函数（不跑字段初始化），因为常量属性 getter 不访问字段。
+        var uninitialized = System.Runtime.CompilerServices.RuntimeHelpers
+            .GetUninitializedObject(implementationType) as IIntegrationEventSubscription;
+        Assert.IsNotNull(uninitialized);
+
+        Assert.AreEqual(
+            "fullnet.identity.organization-unit-projection",
+            uninitialized.ConsumerName);
+        Assert.AreEqual(
+            IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged,
+            uninitialized.EventType);
+        Assert.AreEqual(1, uninitialized.SchemaVersion);
+        Assert.AreEqual(
+            IntegrationEventIdempotencyStrategy.NaturallyIdempotent,
+            uninitialized.IdempotencyStrategy);
     }
 
     [TestMethod]
@@ -405,6 +466,13 @@ public sealed class IdentityModuleRegistrationTests
             IIntegrationEventHandler,
             OrganizationUnitChangedIntegrationEventHandler>(
             ServiceLifetime.Scoped),
+        // Kafka 订阅实现类在独立实现步骤中创建，此处用运行时反射断言保证类名与命名空间正确。
+        new RegistrationExpectation(
+            typeof(IIntegrationEventSubscription),
+            ServiceLifetime.Scoped,
+            RegistrationKind.Type,
+            typeof(IdentityModule).Assembly.GetType(
+                "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUnitChangedKafkaSubscription")),
     ];
 
     private static RegistrationExpectation[] SnapshotIdentityOwnedRegistrations(

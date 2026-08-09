@@ -21,6 +21,8 @@ const listMock = vi.mocked(listHostDocumentTags);
 const tag = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
   name: 'Release',
+  color: null,
+  useCount: 0,
   createdAtUtc: '2026-07-30T08:00:00Z',
   createdByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411204',
   updatedAtUtc: null,

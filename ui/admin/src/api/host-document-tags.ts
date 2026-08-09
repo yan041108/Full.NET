@@ -1,7 +1,11 @@
+// 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
 import {
-  isHostDocumentTag,
-  isHostDocumentTagList,
-  type HostDocumentTag
+  isHostDocumentTagResponse as isHostDocumentTag,
+  isHostDocumentTagResponseList as isHostDocumentTagList,
+  type HostDocumentTagResponse as HostDocumentTag,
+  type CreateHostDocumentTagRequest,
+  type UpdateHostDocumentTagRequest,
+  type DeleteHostDocumentTagRequest
 } from '@fullnet/client-contracts';
 import { request } from './http';
 

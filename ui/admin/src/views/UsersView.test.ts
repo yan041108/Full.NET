@@ -226,6 +226,7 @@ describe('Vue 用户管理页', () => {
     listUsersMock.mockResolvedValueOnce({
       items: [{
         ...activeUser,
+        // 中文注释：HostUserProfile.emergencyContactRelation 与 C# 端档案字典字段对齐，取值为 null 或字典字符串
         profile: {
           nickname: '密级昵称',
           phoneNumber: '13800000000',
@@ -244,6 +245,7 @@ describe('Vue 用户管理页', () => {
           politicalStatus: null,
           officePhone: null,
           emergencyContact: null,
+          emergencyContactRelation: null,
           emergencyContactPhone: null,
           emergencyContactAddress: null,
           remark: '隐藏备注',
@@ -267,6 +269,7 @@ describe('Vue 用户管理页', () => {
     listUsersMock.mockResolvedValueOnce({
       items: [{
         ...activeUser,
+        // 中文注释：HostUserProfile.emergencyContactRelation 与 C# 端档案字典字段对齐，取值为 null 或字典字符串
         profile: {
           nickname: '可见昵称',
           phoneNumber: '13800000000',
@@ -285,6 +288,7 @@ describe('Vue 用户管理页', () => {
           politicalStatus: null,
           officePhone: null,
           emergencyContact: null,
+          emergencyContactRelation: null,
           emergencyContactPhone: null,
           emergencyContactAddress: null,
           remark: null,

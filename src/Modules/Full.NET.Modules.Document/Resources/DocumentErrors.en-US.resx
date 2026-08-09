@@ -25,4 +25,5 @@
   <data name="document.share.invalid" xml:space="preserve"><value>The share request is invalid.</value></data>
   <data name="document.permission.invalid" xml:space="preserve"><value>The permission request is invalid.</value></data>
   <data name="document.recycle.not_found" xml:space="preserve"><value>The recycled document item was not found.</value></data>
+  <data name="document.host.share.password_not_supported_yet" xml:space="preserve"><value>This version does not yet support creating password-protected share links.</value></data>
 </root>

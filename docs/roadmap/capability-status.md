@@ -24,7 +24,7 @@
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |
 | 事务 Outbox、租约、重试与死信 | Build-verified | 仅承载需要事务原子性的重要 Integration Event；缓存失效、日志、Trace、Metrics 与普通审计禁止进入 Outbox。 |
-| CDC Relay / Kafka | Designing / Shadow-only | 追加式 Outbox、Inbox、Kafka Consumer、影子比对和切流控制面已有构建与局部双库测试，但 2026-08-09 审查确认试点生产者仍写 Legacy Outbox、没有真实 `IIntegrationEventSubscription` 注册，且全局 `CdcKafka` 模式会关闭其他事件流仍需的 Legacy Worker。当前配置已改为无真实订阅时失败关闭，不得执行正式切流；纠正任务见 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md)。 |
+| CDC Relay / Kafka | Designing / Shadow-only | 2026-08-09 复审降回 Designing / Shadow-only；无真实生产者→CDC→Kafka→Inbox→消费者链路证据；见 docs/verification/cdc-kafka-pilot-2026-08-08.md。追加式 Outbox、Inbox、Kafka Consumer、影子比对和切流控制面已有构建与局部双库测试，但审查确认试点生产者仍写 Legacy Outbox、没有真实 `IIntegrationEventSubscription` 注册，且全局 `CdcKafka` 模式会关闭其他事件流仍需的 Legacy Worker。当前配置已改为无真实订阅时失败关闭，不得执行正式切流；纠正任务见 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md)。 |
 | FusionCache 多实例缓存治理 | Build-verified | 当前写路径使用提交后本实例 L1/L2 删除、Redis Backplane 与 TTL/版本兜底；Tenancy 与 Grid Preference 已纳入统一策略注册表，Architecture 手工策略 allowlist 为零；旧缓存事件处理器只作兼容排空。 |
 | 健康检查与运行角色就绪探针 | Build-verified | API、Worker、Migrator 和关键基础设施有独立就绪语义；生产阈值仍由环境配置验收。 |
 | HTTP 状态码、ProblemDetails 与兼容包络 | Build-verified | 标准 API 默认采用状态码与 ProblemDetails；Admin.NET 包络仅允许存在于兼容适配层。 |
@@ -42,7 +42,7 @@
 | 审计归档与保留 | Build-verified | 归档、导出、完整性与恢复边界已有验证；生产保留周期由运维配置。 |
 | Organization 单位、职位与成员关系 | Build-verified | 模块内关联使用本模块 SQL 与事务；跨 Identity 引用仍需通过投影和对账退役存量本地事务债务。 |
 | Files 本地存储、Provider 与上传状态机 | Build-verified | ProviderKey、Pending→Publishing→Ready、补偿与对账、双库迁移均已有验证。 |
-| Document | Build-verified | 文档版本与附件关联及 Document→Files claim/reconcile 已落地，跨模块本地事务债务清零；审查已补回 Files 事务内删除保护、条件 Claim/删除和 Released 终态失败关闭，双 Provider 聚焦切片通过，真实高竞争矩阵仍列为 P0。 |
+| Document | Implementing | 2026-08-09 复审：安全分享协议与 Vue 管理端尚未通过，先失败关闭部分路径，等 Document 收口计划全部门禁通过再升 Build-verified。文档版本与附件关联及 Document→Files claim/reconcile 已落地，跨模块本地事务债务清零；审查已补回 Files 事务内删除保护、条件 Claim/删除和 Released 终态失败关闭，双 Provider 聚焦切片通过，真实高竞争矩阵仍列为 P0。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
 | Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径仍有一项跨模块本地事务债务待移出事务或改为投影。 |
 | Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。 |

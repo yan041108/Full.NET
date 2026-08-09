@@ -37,6 +37,8 @@ public static class MessagingErrorCodes
     public const string RollbackPreconditionFailed = "messaging.delivery.rollback_precondition_failed";
 
     public const string ReasonRequired = "messaging.delivery.reason_required";
+
+    public const string CutoverConcurrencyConflict = "messaging.delivery.cutover_concurrency_conflict";
 }
 
 public static class DeadLetterReplayOutcomes

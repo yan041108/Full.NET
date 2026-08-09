@@ -32,6 +32,10 @@ public static class DocumentErrorCodes
     public const string ShareDisabled = "document.host_share.disabled";
     public const string ShareMaxAccessReached = "document.host_share.max_access_reached";
     public const string SharePasswordRequired = "document.host_share.password_required";
+    public const string SharePasswordNotSupportedYet = "document.host.share.password_not_supported_yet";
+    public const string SharePasswordInvalidLength = "document.host_share.password_invalid_length";
+    public const string HostShareAccessDenied = "document.host_share.access_denied";
+    public const string HostSharePasswordRequired = SharePasswordRequired;
     public const string PermissionDocumentNotFound = "document.host_permission.document_not_found";
 
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
@@ -65,6 +69,9 @@ public static class DocumentErrorCodes
         ShareDisabled,
         ShareMaxAccessReached,
         SharePasswordRequired,
+        SharePasswordNotSupportedYet,
+        SharePasswordInvalidLength,
+        HostShareAccessDenied,
         PermissionDocumentNotFound,
     ]);
 }
