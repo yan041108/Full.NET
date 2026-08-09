@@ -25,4 +25,13 @@ public sealed class KafkaTopicNamesTests
             "fullnet.dev.messaging.inbox-test.v1",
             KafkaTopicNames.ResolveBaseTopic("fullnet.dev.messaging.inbox-test.v1.dlq"));
     }
+
+    [TestMethod]
+    public void GetRetryTopic_rejects_reserved_segments_in_base_topic()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            KafkaTopicNames.GetRetryTopic("fullnet.dev.messaging.retry.stream.v1", "5s"));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            KafkaTopicNames.GetRetryTopic("fullnet.dev.messaging.stream.v1.dlq", "5s"));
+    }
 }

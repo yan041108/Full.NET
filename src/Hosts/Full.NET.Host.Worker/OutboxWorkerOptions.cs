@@ -28,6 +28,9 @@ public sealed class OutboxWorkerOptions
     /// <summary>获取或设置空轮询等待毫秒数。</summary>
     public int PollMilliseconds { get; set; } = 1000;
 
+    /// <summary>空队列连续轮询时指数退避的最大等待毫秒数。</summary>
+    public int MaximumIdlePollMilliseconds { get; set; } = 30_000;
+
     /// <summary>获取或设置积压指标的数据库采样周期秒数。</summary>
     public int BacklogSampleSeconds { get; set; } = 30;
 
@@ -77,6 +80,18 @@ internal sealed class OutboxWorkerOptionsValidator : IValidateOptions<OutboxWork
         if (options.PollMilliseconds is < 100 or > 60000)
         {
             failures.Add("OutboxWorker:PollMilliseconds must be between 100 and 60000.");
+        }
+
+        if (options.MaximumIdlePollMilliseconds is < 100 or > 300_000)
+        {
+            failures.Add(
+                "OutboxWorker:MaximumIdlePollMilliseconds must be between 100 and 300000.");
+        }
+
+        if (options.MaximumIdlePollMilliseconds < options.PollMilliseconds)
+        {
+            failures.Add(
+                "OutboxWorker:MaximumIdlePollMilliseconds must not be less than PollMilliseconds.");
         }
 
         if (options.BacklogSampleSeconds is < 5 or > 3600)

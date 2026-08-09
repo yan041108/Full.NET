@@ -1,4 +1,5 @@
 ﻿using Confluent.Kafka;
+using Confluent.Kafka.Admin;
 using Full.NET.Messaging.Kafka;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -54,6 +55,29 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
         return new ConsumerBuilder<string, byte[]>(options.BuildConsumerConfig(groupId)).Build();
     }
 
+    public async Task EnsureTopicsAsync(params string[] topics)
+    {
+        using var admin = new AdminClientBuilder(new AdminClientConfig
+        {
+            BootstrapServers = BootstrapServers,
+        }).Build();
+        try
+        {
+            await admin.CreateTopicsAsync(
+                topics.Distinct(StringComparer.Ordinal).Select(topic => new TopicSpecification
+                {
+                    Name = topic,
+                    NumPartitions = 1,
+                    ReplicationFactor = 1,
+                })).ConfigureAwait(false);
+        }
+        catch (CreateTopicsException exception) when (
+            exception.Results.All(result => result.Error.Code == ErrorCode.TopicAlreadyExists))
+        {
+            // 共享 fixture 重跑同名 Topic 时保持幂等。
+        }
+    }
+
     internal KafkaRetryRouter CreateRetryRouter(string clientId)
     {
         var options = Options.Create(CreateOptions(clientId));
@@ -72,10 +96,13 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
             NullLogger<KafkaDeadLetterPublisher>.Instance);
     }
 
-    public async Task RestartAsync()
+    public async Task InterruptBrokerAsync()
     {
-        await _container.StopAsync().ConfigureAwait(false);
-        await _container.StartAsync().ConfigureAwait(false);
+        // Stop/Start 会让 Testcontainers 重新分配宿主端口，旧 Consumer 无法验证同一 Broker 地址的恢复。
+        // Pause/Unpause 保持监听端点不变，同时制造真实的网络不可用窗口。
+        await _container.PauseAsync().ConfigureAwait(false);
+        await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+        await _container.UnpauseAsync().ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()

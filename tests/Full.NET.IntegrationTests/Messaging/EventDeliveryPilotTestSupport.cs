@@ -32,7 +32,10 @@ internal static class EventDeliveryPilotTestSupport
     internal static string PilotEventType =>
         IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged;
 
-    internal static async Task<ServiceProvider> BuildPilotServicesAsync(DatabaseOptions options)
+    internal static async Task<ServiceProvider> BuildPilotServicesAsync(
+        DatabaseOptions options,
+        bool cutoverEnabled = true,
+        IEventDeliveryRollbackReadinessReader? rollbackReadinessReader = null)
     {
         await MessagingOutboxTestSupport.MigrateAsync(options);
         var configuration = new ConfigurationBuilder()
@@ -54,12 +57,18 @@ internal static class EventDeliveryPilotTestSupport
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddFullNetDapper(configuration, "Testing");
         services.AddFullNetMessagePack();
+        services.AddOptions<DeliveryCutoverOptions>()
+            .Configure(configured => configured.Enabled = cutoverEnabled);
+        services.AddSingleton(
+            rollbackReadinessReader
+            ?? new FailClosedEventDeliveryRollbackReadinessReader());
         var pilotTopic = MessagingTopicDefinitions.OrganizationUnitChanged;
         services.AddSingleton<IIntegrationEventHandler, PilotEventRecordingHandler>();
         services.TryAddScoped<EventStreamOwnershipStore>();
         services.TryAddScoped<IEventStreamOwnershipStore>(
             provider => provider.GetRequiredService<EventStreamOwnershipStore>());
-        services.TryAddScoped<IEffectiveEventDeliveryOwnerResolver, EffectiveEventDeliveryOwnerResolver>();
+        services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
+        services.AddScoped<IEffectiveEventDeliveryOwnerResolver, EffectiveEventDeliveryOwnerResolver>();
         services.TryAddScoped<DeliveryCutoverService>();
         services.TryAddScoped<DeliveryRollbackService>();
         services.TryAddScoped<
@@ -91,58 +100,73 @@ internal static class EventDeliveryPilotTestSupport
         var tenantAccessor = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
         tenantAccessor.SetHost();
         var writer = scope.ServiceProvider.GetRequiredService<IOutboxWriter>();
-        var commandExecutor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
-        var databaseOptions = scope.ServiceProvider
-            .GetRequiredService<IOptions<DatabaseOptions>>()
-            .Value;
+        var transaction = scope.ServiceProvider.GetRequiredService<ICommandTransaction>();
         var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator>();
         var clock = scope.ServiceProvider.GetRequiredService<IClock>();
         var tenantId = idGenerator.NewId();
         var unitId = idGenerator.NewId();
         var partitionKey = $"tenant:{tenantId:D}";
         var correlationId = $"pilot-{unitId:N}";
-        await writer.AddAsync(
-            PilotEventType,
-            PilotSchemaVersion,
-            new IdentityOrganizationUnitChangedIntegrationEvent(
-                tenantId,
-                unitId,
-                "pilot-unit",
-                true,
-                1,
-                clock.UtcNow),
-            cancellationToken);
-        await MirrorLatestLegacyOutboxToAppendOnlyAsync(
-            commandExecutor,
-            databaseOptions.Provider,
-            partitionKey,
-            correlationId,
+        await transaction.ExecuteAsync(
+            async token =>
+            {
+                await writer.AddAsync(
+                    PilotEventType,
+                    PilotSchemaVersion,
+                    new IdentityOrganizationUnitChangedIntegrationEvent(
+                        tenantId,
+                        unitId,
+                        "pilot-unit",
+                        true,
+                        1,
+                        clock.UtcNow),
+                    IntegrationEventMetadata.Create(
+                        partitionKey,
+                        "fullnet.messaging.pilot.tests",
+                        correlationId),
+                    token);
+                return 0;
+            },
             cancellationToken);
     }
 
-  private static Task MirrorLatestLegacyOutboxToAppendOnlyAsync(
-        ICommandExecutor commandExecutor,
-        DatabaseProvider provider,
-        string partitionKey,
-        string correlationId,
+    internal static async Task WritePilotOutboxEventHoldingTransactionAsync(
+        IServiceProvider provider,
+        TaskCompletionSource producerInserted,
+        Task releaseProducer,
         CancellationToken cancellationToken)
     {
-        var parameters = new
-        {
-            MessageType = PilotEventType,
-            SchemaVersion = PilotSchemaVersion,
-            PartitionKey = partitionKey,
-            CorrelationId = correlationId,
-            Producer = "fullnet.messaging.pilot.tests",
-        };
-        var statement = provider switch
-        {
-            DatabaseProvider.SqlServer => PilotOutboxMirrorSql.SqlServer,
-            DatabaseProvider.MySql => PilotOutboxMirrorSql.MySql,
-            _ => throw new NotSupportedException(
-                $"Database provider '{provider}' is not supported."),
-        };
-        return commandExecutor.ExecuteAsync(statement, parameters, cancellationToken);
+        await using var scope = provider.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var writer = scope.ServiceProvider.GetRequiredService<IOutboxWriter>();
+        var transaction = scope.ServiceProvider.GetRequiredService<ICommandTransaction>();
+        var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator>();
+        var clock = scope.ServiceProvider.GetRequiredService<IClock>();
+        var tenantId = idGenerator.NewId();
+        var unitId = idGenerator.NewId();
+
+        await transaction.ExecuteAsync(
+            async token =>
+            {
+                await writer.AddAsync(
+                    PilotEventType,
+                    PilotSchemaVersion,
+                    new IdentityOrganizationUnitChangedIntegrationEvent(
+                        tenantId,
+                        unitId,
+                        "pilot-concurrent-unit",
+                        true,
+                        1,
+                        clock.UtcNow),
+                    IntegrationEventMetadata.Create(
+                        $"tenant:{tenantId:D}",
+                        "fullnet.messaging.pilot.tests"),
+                    token);
+                producerInserted.TrySetResult();
+                await releaseProducer.WaitAsync(token).ConfigureAwait(false);
+                return 0;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -174,17 +198,8 @@ internal static class EventDeliveryPilotTestSupport
             ContentType = "application/x-msgpack",
             Payload = Array.Empty<byte>(),
             TenantId = tenantId,
+            TraceId = (string?)null,
             OccurredAtUtc = clock.UtcNow,
-            Attempts = 0,
-            NextRetryAtUtc = (DateTimeOffset?)null,
-            LockId = (Guid?)null,
-            LockedUntilUtc = (DateTimeOffset?)null,
-            Error = (string?)null,
-            DeadLetteredAtUtc = (DateTimeOffset?)null,
-            DeadLetterReason = (string?)null,
-            ProcessedAtUtc = (DateTimeOffset?)null,
-            TraceParent = (string?)null,
-            RetainUntilUtc = clock.UtcNow.AddDays(7),
         };
         var statement = databaseOptions.Provider switch
         {
@@ -209,15 +224,11 @@ internal static class EventDeliveryPilotTestSupport
             "messaging.pilot.insert_raw_legacy_outbox.sqlserver",
             """
             INSERT INTO fn_outbox_message
-                (Id, MessageType, SchemaVersion, ContentType, Payload, TenantId,
-                 OccurredAtUtc, Attempts, NextRetryAtUtc, LockId, LockedUntilUtc,
-                 Error, DeadLetteredAtUtc, DeadLetterReason, ProcessedAtUtc,
-                 TraceParent, RetainUntilUtc)
+                (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId,
+                 Payload, OccurredAtUtc, Attempts)
             VALUES
-                (@Id, @MessageType, @SchemaVersion, @ContentType, @Payload, @TenantId,
-                 @OccurredAtUtc, @Attempts, @NextRetryAtUtc, @LockId, @LockedUntilUtc,
-                 @Error, @DeadLetteredAtUtc, @DeadLetterReason, @ProcessedAtUtc,
-                 @TraceParent, @RetainUntilUtc)
+                (@Id, @MessageType, @SchemaVersion, @ContentType, @TenantId, @TraceId,
+                 @Payload, @OccurredAtUtc, 0)
             """,
             SqlDataScope.Global);
 
@@ -225,71 +236,11 @@ internal static class EventDeliveryPilotTestSupport
             "messaging.pilot.insert_raw_legacy_outbox.mysql",
             """
             INSERT INTO fn_outbox_message
-                (Id, MessageType, SchemaVersion, ContentType, Payload, TenantId,
-                 OccurredAtUtc, Attempts, NextRetryAtUtc, LockId, LockedUntilUtc,
-                 Error, DeadLetteredAtUtc, DeadLetterReason, ProcessedAtUtc,
-                 TraceParent, RetainUntilUtc)
+                (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId,
+                 Payload, OccurredAtUtc, Attempts)
             VALUES
-                (@Id, @MessageType, @SchemaVersion, @ContentType, @Payload, @TenantId,
-                 @OccurredAtUtc, @Attempts, @NextRetryAtUtc, @LockId, @LockedUntilUtc,
-                 @Error, @DeadLetteredAtUtc, @DeadLetterReason, @ProcessedAtUtc,
-                 @TraceParent, @RetainUntilUtc)
-            """,
-            SqlDataScope.Global);
-    }
-
-      private static class PilotOutboxMirrorSql
-    {
-        internal static readonly SqlStatement SqlServer = new(
-            "messaging.pilot.mirror_legacy_outbox.sqlserver",
-            """
-            INSERT INTO fn_messaging_outbox_event
-                (Id, MessageType, SchemaVersion, ContentType, TenantId, PartitionKey,
-                 CorrelationId, CausationId, TraceParent, Producer, Payload, OccurredAtUtc)
-            SELECT TOP 1
-                message.Id,
-                message.MessageType,
-                message.SchemaVersion,
-                message.ContentType,
-                message.TenantId,
-                @PartitionKey,
-                @CorrelationId,
-                NULL,
-                NULL,
-                @Producer,
-                message.Payload,
-                message.OccurredAtUtc
-            FROM fn_outbox_message AS message
-            WHERE message.MessageType = @MessageType
-              AND message.SchemaVersion = @SchemaVersion
-            ORDER BY message.OccurredAtUtc DESC, message.Id DESC
-            """,
-            SqlDataScope.Global);
-
-        internal static readonly SqlStatement MySql = new(
-            "messaging.pilot.mirror_legacy_outbox.mysql",
-            """
-            INSERT INTO fn_messaging_outbox_event
-                (Id, MessageType, SchemaVersion, ContentType, TenantId, PartitionKey,
-                 CorrelationId, CausationId, TraceParent, Producer, Payload, OccurredAtUtc)
-            SELECT
-                message.Id,
-                message.MessageType,
-                message.SchemaVersion,
-                message.ContentType,
-                message.TenantId,
-                @PartitionKey,
-                @CorrelationId,
-                NULL,
-                NULL,
-                @Producer,
-                message.Payload,
-                message.OccurredAtUtc
-            FROM fn_outbox_message AS message
-            WHERE message.MessageType = @MessageType
-              AND message.SchemaVersion = @SchemaVersion
-            ORDER BY message.OccurredAtUtc DESC, message.Id DESC
-            LIMIT 1
+                (@Id, @MessageType, @SchemaVersion, @ContentType, @TenantId, @TraceId,
+                 @Payload, @OccurredAtUtc, 0)
             """,
             SqlDataScope.Global);
     }

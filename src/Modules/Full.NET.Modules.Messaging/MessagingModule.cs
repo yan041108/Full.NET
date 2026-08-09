@@ -34,6 +34,8 @@ public sealed class MessagingModule : IFullNetModule
         IConfiguration configuration)
     {
         RegisterMessagingCore(services);
+        services.AddOptions<DeliveryCutoverOptions>()
+            .Bind(configuration.GetSection(DeliveryCutoverOptions.SectionName));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             MessagingAuthorizationContributor>());
@@ -42,6 +44,9 @@ public sealed class MessagingModule : IFullNetModule
         services.TryAddScoped<DeliveryStatusQueryService>();
         services.TryAddScoped<DeliveryCutoverService>();
         services.TryAddScoped<DeliveryRollbackService>();
+        services.TryAddSingleton<
+            IEventDeliveryRollbackReadinessReader,
+            FailClosedEventDeliveryRollbackReadinessReader>();
         services.TryAddScoped<
             ITransactionalDomainAuditWriter<MessagingDomainAuditWrite>,
             MessagingDomainAuditWriter>();
@@ -80,7 +85,8 @@ public sealed class MessagingModule : IFullNetModule
         services.TryAddScoped<EventStreamOwnershipStore>();
         services.TryAddScoped<IEventStreamOwnershipStore>(
             provider => provider.GetRequiredService<EventStreamOwnershipStore>());
-        services.TryAddScoped<IEffectiveEventDeliveryOwnerResolver, EffectiveEventDeliveryOwnerResolver>();
+        services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
+        services.AddScoped<IEffectiveEventDeliveryOwnerResolver, EffectiveEventDeliveryOwnerResolver>();
     }
 
     private static void RegisterSubscriptionCatalog(IServiceCollection services)

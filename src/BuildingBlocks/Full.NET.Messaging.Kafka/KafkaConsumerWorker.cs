@@ -87,6 +87,11 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             }
 
             plan.AddRoute(subscription, topic.TopicCode);
+            foreach (var retryStage in _options.RetryStages)
+            {
+                plan.TopicCodes.Add(
+                    KafkaTopicNames.GetRetryTopic(topic.TopicCode, retryStage));
+            }
         }
 
         return plans.Values.ToArray();
@@ -115,6 +120,14 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                     _logger.LogError(exception, "Kafka consumer fatal error for group {ConsumerName}.", plan.ConsumerName);
                     throw;
                 }
+                catch (ConsumeException exception)
+                {
+                    _logger.LogWarning(
+                        exception,
+                        "Kafka consumer recoverable poll error for group {ConsumerName}; polling will continue.",
+                        plan.ConsumerName);
+                    continue;
+                }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
                     break;
@@ -125,7 +138,12 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                     continue;
                 }
 
-                await ProcessMessageAsync(consumer, plan, consumeResult, stoppingToken).ConfigureAwait(false);
+                await ProcessWithFlowControlAsync(
+                        consumer,
+                        plan,
+                        consumeResult,
+                        stoppingToken)
+                    .ConfigureAwait(false);
             }
         }
         finally
@@ -141,8 +159,26 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         }
     }
 
-    private async Task ProcessMessageAsync(
+    private async Task ProcessWithFlowControlAsync(
         IConsumer<string, byte[]> consumer,
+        ConsumerGroupPlan plan,
+        ConsumeResult<string, byte[]> consumeResult,
+        CancellationToken cancellationToken)
+    {
+        await KafkaConsumerFlowControl.ProcessAsync(
+                consumer,
+                consumeResult,
+                _options,
+                _logger,
+                () => ProcessMessageAsync(
+                    plan,
+                    consumeResult,
+                    cancellationToken),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<bool> ProcessMessageAsync(
         ConsumerGroupPlan plan,
         ConsumeResult<string, byte[]> consumeResult,
         CancellationToken cancellationToken)
@@ -161,15 +197,13 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                 "unknown",
                 "contract_rejected",
                 failure.Code);
-            await HandleDeliveryFailureAsync(
-                    consumer,
+            return await HandleDeliveryFailureAsync(
                     plan,
                     consumeResult,
                     envelope,
                     failure,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return;
         }
 
         if (!plan.ContainsRoute(envelope.MessageType, envelope.SchemaVersion))
@@ -185,15 +219,13 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                 envelope.MessageType,
                 "route_missing",
                 failure.Code);
-            await HandleDeliveryFailureAsync(
-                    consumer,
+            return await HandleDeliveryFailureAsync(
                     plan,
                     consumeResult,
                     envelope,
                     failure,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return;
         }
 
         try
@@ -214,7 +246,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                 .ConsumeAsync(plan.ConsumerName, envelope, subscription, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (_committer.TryCommit(consumer, consumeResult, inboxResult))
+            if (_committer.ShouldCommit(inboxResult))
             {
                 KafkaMessagingTelemetry.RecordCommit(
                     ProviderCode,
@@ -228,12 +260,14 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                     plan.ConsumerName,
                     envelope.MessageType,
                     inboxResult.Status == InboxConsumeStatus.Processed ? "processed" : "already_processed");
+                return true;
             }
+
+            return false;
         }
         catch (IntegrationEventPermanentException exception)
         {
-            await HandleDeliveryFailureAsync(
-                    consumer,
+            return await HandleDeliveryFailureAsync(
                     plan,
                     consumeResult,
                     envelope,
@@ -241,11 +275,32 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+        catch (EventDeliveryOwnershipRevokedException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Kafka delivery is paused for consumer {ConsumerName} because stream ownership was revoked.",
+                plan.ConsumerName);
+            KafkaMessagingTelemetry.RecordConsume(
+                ProviderCode,
+                topicCode,
+                plan.ConsumerName,
+                envelope.MessageType,
+                "ownership_revoked",
+                "messaging.delivery.ownership_revoked");
+            // 所有权回退通常持续较长时间；延长单条未提交消息的重试间隔，
+            // 外层仍会持续 Poll heartbeat，不会触发 Consumer Group 驱逐。
+            await Task.Delay(
+                    TimeSpan.FromMilliseconds(
+                        _options.OwnershipRevokedBackoffMilliseconds),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return false;
+        }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             var failure = _failureClassifier.Classify(exception);
-            await HandleDeliveryFailureAsync(
-                    consumer,
+            return await HandleDeliveryFailureAsync(
                     plan,
                     consumeResult,
                     envelope,
@@ -255,8 +310,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         }
     }
 
-    private async Task HandleDeliveryFailureAsync(
-        IConsumer<string, byte[]> consumer,
+    private async Task<bool> HandleDeliveryFailureAsync(
         ConsumerGroupPlan plan,
         ConsumeResult<string, byte[]> consumeResult,
         IntegrationEventEnvelope? envelope,
@@ -274,7 +328,6 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                     .TryRouteAsync(consumeResult, plan.ConsumerName, failure, attemptCount, cancellationToken)
                     .ConfigureAwait(false))
             {
-                consumer.Commit(consumeResult);
                 KafkaMessagingTelemetry.RecordConsume(
                     ProviderCode,
                     topicCode,
@@ -282,7 +335,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                     messageType,
                     "retry_routed",
                     failure.Code);
-                return;
+                return true;
             }
 
             _logger.LogWarning(
@@ -295,14 +348,13 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                 messageType,
                 "retry_publish_failed",
                 failure.Code);
-            return;
+            return false;
         }
 
         if (await _deadLetterPublisher
                 .TryPublishAsync(consumeResult, plan.ConsumerName, failure, attemptCount, cancellationToken)
                 .ConfigureAwait(false))
         {
-            consumer.Commit(consumeResult);
             KafkaMessagingTelemetry.RecordConsume(
                 ProviderCode,
                 topicCode,
@@ -314,7 +366,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                 "Integration event for consumer {ConsumerName} moved to dead-letter with code {FailureCode}.",
                 plan.ConsumerName,
                 failure.Code);
-            return;
+            return true;
         }
 
         _logger.LogWarning(
@@ -328,6 +380,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             messageType,
             "dead_letter_publish_failed",
             failure.Code);
+        return false;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
@@ -338,7 +391,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         {
             await base.StopAsync(shutdown.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
         {
             _logger.LogWarning("Kafka consumer worker shutdown reached the drain timeout.");
         }

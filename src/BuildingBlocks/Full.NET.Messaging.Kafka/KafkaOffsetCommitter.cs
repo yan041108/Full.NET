@@ -8,21 +8,10 @@ namespace Full.NET.Messaging.Kafka;
 /// </summary>
 internal sealed class KafkaOffsetCommitter
 {
-    public bool TryCommit(
-        IConsumer<string, byte[]> consumer,
-        ConsumeResult<string, byte[]> consumeResult,
-        InboxConsumeResult inboxResult)
+    public bool ShouldCommit(InboxConsumeResult inboxResult)
     {
-        ArgumentNullException.ThrowIfNull(consumer);
-        ArgumentNullException.ThrowIfNull(consumeResult);
         ArgumentNullException.ThrowIfNull(inboxResult);
-
-        if (inboxResult.Status is not (InboxConsumeStatus.Processed or InboxConsumeStatus.AlreadyProcessed))
-        {
-            return false;
-        }
-
-        consumer.Commit(consumeResult);
-        return true;
+        return inboxResult.Status is InboxConsumeStatus.Processed
+            or InboxConsumeStatus.AlreadyProcessed;
     }
 }

@@ -92,6 +92,26 @@ internal sealed class DapperOutboxStore(
         };
     }
 
+    public Task<OutboxStreamCutoffSnapshot?> ReadLastStreamEventAsync(
+        string eventType,
+        int schemaVersion,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
+        var statement = _databaseOptions.Provider switch
+        {
+            DatabaseProvider.SqlServer => OutboxSql.FindLastStreamEventSqlServer,
+            DatabaseProvider.MySql => OutboxSql.FindLastStreamEventMySql,
+            _ => throw new NotSupportedException(
+                $"Database provider '{_databaseOptions.Provider}' is not supported.")
+        };
+        return queryExecutor.QuerySingleOrDefaultAsync<OutboxStreamCutoffSnapshot>(
+            statement,
+            new { MessageType = eventType, SchemaVersion = schemaVersion },
+            cancellationToken);
+    }
+
     public Task<IReadOnlyList<OutboxEnvelope>> AcquireAsync(
         int batchSize,
         TimeSpan lease,

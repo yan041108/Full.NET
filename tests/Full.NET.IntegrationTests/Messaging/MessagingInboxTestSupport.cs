@@ -44,6 +44,7 @@ internal static class MessagingInboxTestSupport
             provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.AddSingleton<IEffectiveEventDeliveryOwnerResolver>(new CdcOwnerResolver());
         services.AddFullNetDapper(configuration, "Testing");
         services.AddFullNetMessagePack();
         return services.BuildServiceProvider(new ServiceProviderOptions
@@ -60,6 +61,8 @@ internal static class MessagingInboxTestSupport
             scope.ServiceProvider.GetRequiredService<ICommandTransaction>(),
             scope.ServiceProvider.GetRequiredService<IIntegrationEventInbox>(),
             CreateCatalog(subscription),
+            new CdcOwnershipGate(),
+            new CdcOwnerResolver(),
             scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>());
 
     internal static IntegrationEventEnvelope CreateEnvelope(
@@ -80,6 +83,36 @@ internal static class MessagingInboxTestSupport
             "fullnet.messaging.tests",
             DateTimeOffset.UtcNow,
             payload);
+
+    private sealed class CdcOwnershipGate : IEventStreamOwnershipGate
+    {
+        public Task<bool> AcquireProducerAsync(
+            string eventType,
+            int schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
+
+        public Task<bool> AcquireConsumerAsync(
+            string eventType,
+            int schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
+
+        public Task<bool> AcquireOwnershipChangeAsync(
+            string eventType,
+            int schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
+    }
+
+    private sealed class CdcOwnerResolver : IEffectiveEventDeliveryOwnerResolver
+    {
+        public Task<EventDeliveryOwner> GetDeliveryOwnerAsync(
+            string eventType,
+            int schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(EventDeliveryOwner.CdcKafka);
+    }
 
     internal sealed class DownstreamOutboxSubscription : IIntegrationEventSubscription
     {

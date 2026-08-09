@@ -62,6 +62,16 @@ internal sealed class KafkaRetryRouter
             failure,
             attemptCount + 1,
             failedAtUtc);
+        if (!KafkaRetryStageParser.TryParse(
+                _options.RetryStages[attemptCount],
+                out var retryDelay))
+        {
+            throw new InvalidOperationException(
+                $"Retry stage '{_options.RetryStages[attemptCount]}' is invalid.");
+        }
+        KafkaDeliveryHeaders.SetRetryNotBeforeUtc(
+            headers,
+            failedAtUtc.Add(retryDelay));
 
         var message = new Message<string, byte[]>
         {
@@ -83,5 +93,46 @@ internal sealed class KafkaRetryRouter
         }
 
         return published;
+    }
+}
+
+internal static class KafkaRetryStageParser
+{
+    public static bool TryParse(string? value, out TimeSpan delay)
+    {
+        delay = default;
+        if (string.IsNullOrWhiteSpace(value) || value.Length < 2)
+        {
+            return false;
+        }
+
+        var unit = char.ToLowerInvariant(value[^1]);
+        if (!int.TryParse(
+                value.AsSpan(0, value.Length - 1),
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var amount)
+            || amount <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            delay = unit switch
+            {
+                's' => TimeSpan.FromSeconds(amount),
+                'm' => TimeSpan.FromMinutes(amount),
+                'h' => TimeSpan.FromHours(amount),
+                _ => default,
+            };
+        }
+        catch (OverflowException)
+        {
+            delay = default;
+            return false;
+        }
+
+        return delay > TimeSpan.Zero;
     }
 }

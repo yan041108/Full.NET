@@ -14,6 +14,45 @@ public sealed class KafkaMessagingOptionsTests
         var config = options.BuildConsumerConfig("fullnet.messaging.test");
 
         Assert.IsFalse(config.EnableAutoCommit);
+        Assert.IsFalse(config.EnableAutoOffsetStore);
+        Assert.AreEqual(1, config.QueuedMinMessages);
+        Assert.IsTrue(config.QueuedMaxMessagesKbytes > 0);
+    }
+
+    [TestMethod]
+    public void Validation_rejects_heartbeat_poll_interval_outside_consumer_bounds()
+    {
+        var options = CreateValidDevelopmentOptions();
+        options.HandlerHeartbeatMilliseconds = options.SessionTimeoutMilliseconds;
+
+        var result = KafkaMessagingOptionsValidation.Validate(options, "Development");
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "HandlerHeartbeatMilliseconds");
+    }
+
+    [TestMethod]
+    public void Validation_rejects_retry_stages_that_do_not_increase()
+    {
+        var options = CreateValidDevelopmentOptions();
+        options.RetryStages = ["1m", "5s", "1m"];
+
+        var result = KafkaMessagingOptionsValidation.Validate(options, "Development");
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "strictly increasing");
+    }
+
+    [TestMethod]
+    public void Validation_rejects_ownership_revoked_hot_loop_backoff()
+    {
+        var options = CreateValidDevelopmentOptions();
+        options.OwnershipRevokedBackoffMilliseconds = 100;
+
+        var result = KafkaMessagingOptionsValidation.Validate(options, "Development");
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.FailureMessage, "OwnershipRevokedBackoffMilliseconds");
     }
 
     [TestMethod]

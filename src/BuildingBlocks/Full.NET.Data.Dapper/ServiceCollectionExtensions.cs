@@ -3,8 +3,10 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper.Health;
 using Full.NET.Data.Dapper.Inbox;
 using Full.NET.Data.Dapper.Outbox;
+using Full.NET.Messaging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
@@ -117,10 +119,10 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(MessagingOutboxOptions.SectionName));
         services.AddScoped<DapperOutboxWriter>();
         services.AddScoped<DapperAppendOnlyOutboxWriter>();
-        // 注意：不单独注册 DapperRoutedOutboxWriter 为具体类，避免 ValidateScopes 时
-        // 在未装配 Messaging 模块的精简宿主中因缺少 IEffectiveEventDeliveryOwnerResolver
-        // 而触发 DI 构建失败。Routed writer 只作为 IOutboxWriter 的实现存在于工厂委托中，
-        // 真正构建容器时 IEffectiveEventDeliveryOwnerResolver 已由 Messaging 模块注册完成。
+        services.AddScoped<IEventStreamOwnershipGate, DapperEventStreamOwnershipGate>();
+        services.TryAddScoped<IEffectiveEventDeliveryOwnerResolver, LegacyPollingEventDeliveryOwnerResolver>();
+        // 不单独公开 DapperRoutedOutboxWriter 具体类型，业务只依赖 IOutboxWriter。
+        // 精简宿主使用 LegacyPolling 兼容解析器；装配 Messaging 模块后会替换为持久化所有权解析器。
         services.AddScoped<IOutboxWriter>(provider =>
             ActivatorUtilities.CreateInstance<DapperRoutedOutboxWriter>(
                 provider,

@@ -4,6 +4,29 @@ namespace Full.NET.Data.Dapper.Outbox;
 
 internal static class OutboxSql
 {
+    public static readonly SqlStatement FindLastStreamEventSqlServer = new(
+        "outbox.stream.find_last.sql_server",
+        """
+        SELECT TOP 1 Id AS EventId, OccurredAtUtc
+        FROM fn_outbox_message
+        WHERE MessageType = @MessageType
+          AND SchemaVersion = @SchemaVersion
+        ORDER BY OccurredAtUtc DESC, Id DESC
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindLastStreamEventMySql = new(
+        "outbox.stream.find_last.my_sql",
+        """
+        SELECT Id AS EventId, OccurredAtUtc
+        FROM fn_outbox_message
+        WHERE MessageType = @MessageType
+          AND SchemaVersion = @SchemaVersion
+        ORDER BY OccurredAtUtc DESC, Id DESC
+        LIMIT 1
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement ReadBacklogSqlServer = new(
         "outbox.read_backlog.sql_server",
         """

@@ -209,6 +209,9 @@
       },
       "094": {
         "filter": "FullyQualifiedName~Migration094MessagingStreamOwnershipRecoveryTests.MySql_|FullyQualifiedName~Migration094MessagingStreamOwnershipRecoveryTests.SqlServer_"
+      },
+      "095": {
+        "filter": "FullyQualifiedName~Migration095MessagingStreamOwnershipRecoveryTests.MySql_|FullyQualifiedName~Migration095MessagingStreamOwnershipRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -235,16 +238,16 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 292,
+        "minimum": 296,
         "timeout": "90m"
       },
       "infrastructure": {
         "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations",
-        "minimum": 140,
+        "minimum": 157,
         "timeout": "60m"
       },
       "full": {
-        "minimum": 540,
+        "minimum": 563,
         "timeout": "90m"
       }
     }

@@ -15,6 +15,33 @@ namespace Full.NET.IntegrationTests.Messaging;
 public sealed class EventDeliveryCutoverTests
 {
     [TestMethod]
+    public async Task Cutover_is_disabled_by_default_until_environment_readiness_is_explicit()
+    {
+        var options = new DatabaseOptions
+        {
+            Provider = DatabaseProvider.SqlServer,
+            ConnectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+        };
+        await using var serviceProvider = await EventDeliveryPilotTestSupport
+            .BuildPilotServicesAsync(options, cutoverEnabled: false);
+        await using var scope = EventDeliveryPilotTestSupport.CreateHostScope(serviceProvider);
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<DeliveryCutoverService>()
+            .CutoverAsync(
+                new ChangeDeliveryOwnerRequest(
+                    EventDeliveryPilotTestSupport.PilotEventType,
+                    EventDeliveryPilotTestSupport.PilotSchemaVersion,
+                    EventDeliveryOwner.CdcKafka,
+                    "must-remain-disabled"),
+                CancellationToken.None);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(MessagingErrorCodes.CutoverPreconditionFailed, result.Error?.Code);
+    }
+
+    [TestMethod]
     public async Task SqlServer_pilot_stream_cutover_persists_ownership_and_revokes_legacy_worker()
     {
         await VerifyPilotCutoverAsync(
@@ -65,6 +92,71 @@ public sealed class EventDeliveryCutoverTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
 
+    [TestMethod]
+    public async Task SqlServer_cutover_waits_for_inflight_producer_and_observes_its_backlog()
+    {
+        await VerifyCutoverWaitsForInflightProducerAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task MySql_cutover_waits_for_inflight_producer_and_observes_its_backlog()
+    {
+        await VerifyCutoverWaitsForInflightProducerAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    private static async Task VerifyCutoverWaitsForInflightProducerAsync(
+        DatabaseProvider provider,
+        string connectionString)
+    {
+        var options = new DatabaseOptions
+        {
+            Provider = provider,
+            ConnectionString = connectionString,
+            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+        };
+        await using var serviceProvider = await EventDeliveryPilotTestSupport
+            .BuildPilotServicesAsync(options);
+        var producerInserted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseProducer = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var producerTask = EventDeliveryPilotTestSupport
+            .WritePilotOutboxEventHoldingTransactionAsync(
+                serviceProvider,
+                producerInserted,
+                releaseProducer.Task,
+                CancellationToken.None);
+        await producerInserted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        await using var cutoverScope = EventDeliveryPilotTestSupport
+            .CreateHostScope(serviceProvider);
+        var cutoverTask = cutoverScope.ServiceProvider
+            .GetRequiredService<DeliveryCutoverService>()
+            .CutoverAsync(
+                new ChangeDeliveryOwnerRequest(
+                    EventDeliveryPilotTestSupport.PilotEventType,
+                    EventDeliveryPilotTestSupport.PilotSchemaVersion,
+                    EventDeliveryOwner.CdcKafka,
+                    "concurrent-producer-cutover"),
+                CancellationToken.None);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(300));
+        Assert.IsFalse(
+            cutoverTask.IsCompleted,
+            "Cutover must wait while a producer transaction holds the shared stream-ownership gate.");
+
+        releaseProducer.TrySetResult();
+        await producerTask.WaitAsync(TimeSpan.FromSeconds(10));
+        var result = await cutoverTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(MessagingErrorCodes.LegacyBacklogNotDrained, result.Error?.Code);
+    }
+
     private static async Task VerifyPilotCutoverAsync(
         DatabaseProvider provider,
         string connectionString)
@@ -87,12 +179,12 @@ public sealed class EventDeliveryCutoverTests
             CancellationToken.None);
         Assert.AreEqual(1, handler.HandledCount);
 
-        OutboxStreamCutoffRecord? expectedCutoff;
+        OutboxStreamCutoffSnapshot? expectedCutoff;
         await using (var scope = EventDeliveryPilotTestSupport.CreateHostScope(serviceProvider))
         {
             expectedCutoff = await scope.ServiceProvider
-                .GetRequiredService<EventStreamOwnershipStore>()
-                .FindLastOutboxEventAsync(
+                .GetRequiredService<IOutboxBacklogReader>()
+                .ReadLastStreamEventAsync(
                     EventDeliveryPilotTestSupport.PilotEventType,
                     EventDeliveryPilotTestSupport.PilotSchemaVersion,
                     CancellationToken.None);
@@ -111,8 +203,8 @@ public sealed class EventDeliveryCutoverTests
                 CancellationToken.None);
             Assert.IsTrue(result.IsSuccess);
             Assert.IsTrue(result.Value!.OwnershipPersisted);
-            Assert.AreEqual(expectedCutoff!.CutoffEventId, result.Value.CutoffEventId);
-            Assert.AreEqual(expectedCutoff.CutoffOccurredAtUtc, result.Value.CutoffOccurredAtUtc);
+            Assert.AreEqual(expectedCutoff!.EventId, result.Value.CutoffEventId);
+            Assert.AreEqual(expectedCutoff.OccurredAtUtc, result.Value.CutoffOccurredAtUtc);
             Assert.AreEqual(EventDeliveryOwner.LegacyPolling, result.Value.CurrentOwner);
             Assert.AreEqual(EventDeliveryOwner.CdcKafka, result.Value.TargetOwner);
         }

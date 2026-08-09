@@ -163,7 +163,18 @@ internal static class KafkaTestMessages
         var deadline = DateTime.UtcNow.Add(timeout);
         while (DateTime.UtcNow < deadline)
         {
-            var result = consumer.Consume(TimeSpan.FromMilliseconds(200));
+            ConsumeResult<string, byte[]>? result;
+            try
+            {
+                result = consumer.Consume(TimeSpan.FromMilliseconds(200));
+            }
+            catch (ConsumeException exception) when (!exception.Error.IsFatal)
+            {
+                // 自动建 Topic 和元数据传播之间存在短窗口；可恢复错误不应让测试误判为消息丢失。
+                await Task.Delay(50).ConfigureAwait(false);
+                continue;
+            }
+
             if (result?.Message?.Value is not null)
             {
                 return result;
@@ -176,4 +187,3 @@ internal static class KafkaTestMessages
         throw new InvalidOperationException();
     }
 }
-

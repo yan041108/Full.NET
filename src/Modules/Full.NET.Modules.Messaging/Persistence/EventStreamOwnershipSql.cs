@@ -11,6 +11,7 @@ internal static class EventStreamOwnershipSql
             SELECT MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
                    CutoffEventId, CutoffOccurredAtUtc, CdcSourcePositionJson, OperatorUserId,
                    Reason, RollbackBoundaryEventId, RollbackOccurredAtUtc,
+                   RollbackState, RollbackGeneration, RollbackPreparedAtUtc,
                    CreatedAtUtc, UpdatedAtUtc
             FROM fn_messaging_stream_ownership
             WHERE MessageType = @MessageType
@@ -25,6 +26,7 @@ internal static class EventStreamOwnershipSql
             SELECT MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
                    CutoffEventId, CutoffOccurredAtUtc, CdcSourcePositionJson, OperatorUserId,
                    Reason, RollbackBoundaryEventId, RollbackOccurredAtUtc,
+                   RollbackState, RollbackGeneration, RollbackPreparedAtUtc,
                    CreatedAtUtc, UpdatedAtUtc
             FROM fn_messaging_stream_ownership
             ORDER BY MessageType, SchemaVersion
@@ -40,6 +42,7 @@ internal static class EventStreamOwnershipSql
                 MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
                 CutoffEventId, CutoffOccurredAtUtc, CdcSourcePositionJson, OperatorUserId,
                 Reason, RollbackBoundaryEventId, RollbackOccurredAtUtc,
+                RollbackState, RollbackGeneration, RollbackPreparedAtUtc,
                 CreatedAtUtc, UpdatedAtUtc
             )
             VALUES
@@ -47,6 +50,7 @@ internal static class EventStreamOwnershipSql
                 @MessageType, @SchemaVersion, @TopicCode, @CurrentOwner, @PreviousOwner,
                 @CutoffEventId, @CutoffOccurredAtUtc, @CdcSourcePositionJson, @OperatorUserId,
                 @Reason, @RollbackBoundaryEventId, @RollbackOccurredAtUtc,
+                @RollbackState, @RollbackGeneration, @RollbackPreparedAtUtc,
                 @CreatedAtUtc, @UpdatedAtUtc
             )
             """,
@@ -67,6 +71,9 @@ internal static class EventStreamOwnershipSql
                 Reason = @Reason,
                 RollbackBoundaryEventId = @RollbackBoundaryEventId,
                 RollbackOccurredAtUtc = @RollbackOccurredAtUtc,
+                RollbackState = @RollbackState,
+                RollbackGeneration = @RollbackGeneration,
+                RollbackPreparedAtUtc = @RollbackPreparedAtUtc,
                 UpdatedAtUtc = @UpdatedAtUtc
             WHERE MessageType = @MessageType
               AND SchemaVersion = @SchemaVersion
@@ -74,9 +81,9 @@ internal static class EventStreamOwnershipSql
             """,
             SqlDataScope.Global);
 
-    public static readonly SqlStatement FindLastOutboxEventByStreamSqlServer =
+    public static readonly SqlStatement FindLastAppendOnlyOutboxEventByStreamSqlServer =
         new(
-            "messaging.outbox.find_last_by_stream.sqlserver",
+            "messaging.append_only_outbox.find_last_by_stream.sqlserver",
             """
             SELECT TOP 1 Id AS CutoffEventId, OccurredAtUtc AS CutoffOccurredAtUtc
             FROM fn_messaging_outbox_event
@@ -86,9 +93,53 @@ internal static class EventStreamOwnershipSql
             """,
             SqlDataScope.Global);
 
-    public static readonly SqlStatement FindLastOutboxEventByStreamMySql =
+    public static readonly SqlStatement BeginRollbackPreparation =
         new(
-            "messaging.outbox.find_last_by_stream.mysql",
+            "messaging.stream_ownership.rollback.begin",
+            """
+            UPDATE fn_messaging_stream_ownership
+            SET RollbackState = 1,
+                RollbackGeneration = @RollbackGeneration,
+                RollbackPreparedAtUtc = @RollbackPreparedAtUtc,
+                UpdatedAtUtc = @RollbackPreparedAtUtc
+            WHERE MessageType = @MessageType
+              AND SchemaVersion = @SchemaVersion
+              AND CurrentOwner = 2
+              AND RollbackState = 0
+            """,
+            SqlDataScope.Global);
+
+    public static readonly SqlStatement FindRollbackPreparation =
+        new(
+            "messaging.stream_ownership.rollback.find_preparation",
+            """
+            SELECT RollbackState, RollbackGeneration, RollbackPreparedAtUtc
+            FROM fn_messaging_stream_ownership
+            WHERE MessageType = @MessageType
+              AND SchemaVersion = @SchemaVersion
+            """,
+            SqlDataScope.Global);
+
+    public static readonly SqlStatement AbortRollbackPreparation =
+        new(
+            "messaging.stream_ownership.rollback.abort",
+            """
+            UPDATE fn_messaging_stream_ownership
+            SET RollbackState = 0,
+                RollbackGeneration = NULL,
+                RollbackPreparedAtUtc = NULL,
+                UpdatedAtUtc = @UpdatedAtUtc
+            WHERE MessageType = @MessageType
+              AND SchemaVersion = @SchemaVersion
+              AND CurrentOwner = 2
+              AND RollbackState = 1
+              AND RollbackGeneration = @RollbackGeneration
+            """,
+            SqlDataScope.Global);
+
+    public static readonly SqlStatement FindLastAppendOnlyOutboxEventByStreamMySql =
+        new(
+            "messaging.append_only_outbox.find_last_by_stream.mysql",
             """
             SELECT Id AS CutoffEventId, OccurredAtUtc AS CutoffOccurredAtUtc
             FROM fn_messaging_outbox_event

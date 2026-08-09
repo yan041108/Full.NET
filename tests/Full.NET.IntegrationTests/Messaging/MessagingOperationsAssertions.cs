@@ -196,14 +196,22 @@ internal static class MessagingOperationsAssertions
         tenantAccessor.SetHost();
         var serializer = scope.ServiceProvider.GetRequiredService<IIntegrationEventSerializer>();
         var writer = scope.ServiceProvider.GetRequiredService<IOutboxWriter>();
+        var transaction = scope.ServiceProvider.GetRequiredService<ICommandTransaction>();
         var payload = new MessagingOutboxTestSupport.MessagingOutboxTestPayload("ops-replay");
         var payloadBytes = serializer.Serialize(payload);
         var metadata = MessagingOutboxTestSupport.CreateMetadata($"ops-{eventId:N}");
-        await writer.AddAsync(
-            MessagingOutboxTestSupport.TestEventType,
-            MessagingOutboxTestSupport.TestSchemaVersion,
-            payload,
-            metadata,
+        await EnsureCdcKafkaOwnershipAsync(factory, cancellationToken);
+        await transaction.ExecuteAsync(
+            async token =>
+            {
+                await writer.AddAsync(
+                    MessagingOutboxTestSupport.TestEventType,
+                    MessagingOutboxTestSupport.TestSchemaVersion,
+                    payload,
+                    metadata,
+                    token);
+                return 0;
+            },
             cancellationToken);
 
         var hash = SHA256.HashData(payloadBytes);
@@ -282,6 +290,60 @@ internal static class MessagingOperationsAssertions
         return eventId;
     }
 
+    private static async Task EnsureCdcKafkaOwnershipAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        var parameters = new
+        {
+            MessageType = MessagingOutboxTestSupport.TestEventType,
+            SchemaVersion = MessagingOutboxTestSupport.TestSchemaVersion,
+            TopicCode = MessagingInboxTestSupport.TopicCode,
+            Reason = "messaging operations replay test",
+        };
+
+        if (factory.Provider == DatabaseProvider.SqlServer)
+        {
+            await using var connection = new SqlConnection(
+                factory.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString);
+            await connection.ExecuteAsync(
+                """
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM dbo.fn_messaging_stream_ownership
+                    WHERE MessageType = @MessageType AND SchemaVersion = @SchemaVersion)
+                BEGIN
+                    INSERT INTO dbo.fn_messaging_stream_ownership
+                        (MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
+                         CutoffEventId, CutoffOccurredAtUtc, Reason, CreatedAtUtc, UpdatedAtUtc)
+                    VALUES
+                        (@MessageType, @SchemaVersion, @TopicCode, 2, 0,
+                         '00000000-0000-0000-0000-000000000000', SYSDATETIMEOFFSET(),
+                         @Reason, SYSDATETIMEOFFSET(), SYSDATETIMEOFFSET());
+                END
+                """,
+                parameters);
+            return;
+        }
+
+        await using var mySqlConnection = new MySqlConnection(
+            MySqlConnectionStringPolicy.Create(
+                factory.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString,
+                MySqlGuidStorageMode.Binary16,
+                allowUserVariables: false));
+        await mySqlConnection.ExecuteAsync(
+            """
+            INSERT IGNORE INTO fn_messaging_stream_ownership
+                (MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
+                 CutoffEventId, CutoffOccurredAtUtc, Reason, CreatedAtUtc, UpdatedAtUtc)
+            VALUES
+                (@MessageType, @SchemaVersion, @TopicCode, 2, 0,
+                 0x00000000000000000000000000000000, UTC_TIMESTAMP(6),
+                 @Reason, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
+            """,
+            parameters);
+    }
+
     private static async Task SeedLegacyPendingOutboxAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken)
@@ -293,6 +355,14 @@ internal static class MessagingOperationsAssertions
                 factory.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString);
             await connection.ExecuteAsync(
                 """
+                INSERT INTO dbo.fn_messaging_stream_ownership
+                    (MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
+                     CutoffEventId, CutoffOccurredAtUtc, Reason, CreatedAtUtc, UpdatedAtUtc)
+                VALUES
+                    (@MessageType, @SchemaVersion, @TopicCode, 0, 0,
+                     '00000000-0000-0000-0000-000000000000', SYSDATETIMEOFFSET(),
+                     N'API cutover test baseline',
+                     SYSDATETIMEOFFSET(), SYSDATETIMEOFFSET());
                 INSERT INTO dbo.fn_outbox_message
                     (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId, Payload,
                      OccurredAtUtc, ProcessedAtUtc, NextAttemptAtUtc, Attempts, LockId, LockedUntilUtc, Error)
@@ -304,6 +374,7 @@ internal static class MessagingOperationsAssertions
                 {
                     Id = id,
                     MessageType = LegacyEventType,
+                    TopicCode = LegacyTopicCode,
                     SchemaVersion = MessagingOutboxTestSupport.TestSchemaVersion,
                 });
         }
@@ -316,6 +387,14 @@ internal static class MessagingOperationsAssertions
                     allowUserVariables: false));
             await connection.ExecuteAsync(
                 """
+                INSERT INTO fn_messaging_stream_ownership
+                    (MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
+                     CutoffEventId, CutoffOccurredAtUtc, Reason, CreatedAtUtc, UpdatedAtUtc)
+                VALUES
+                    (@MessageType, @SchemaVersion, @TopicCode, 0, 0,
+                     0x00000000000000000000000000000000, UTC_TIMESTAMP(6),
+                     'API cutover test baseline',
+                     UTC_TIMESTAMP(6), UTC_TIMESTAMP(6));
                 INSERT INTO fn_outbox_message
                     (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId, Payload,
                      OccurredAtUtc, ProcessedAtUtc, NextAttemptAtUtc, Attempts, LockId, LockedUntilUtc, Error)
@@ -327,6 +406,7 @@ internal static class MessagingOperationsAssertions
                 {
                     Id = id,
                     MessageType = LegacyEventType,
+                    TopicCode = LegacyTopicCode,
                     SchemaVersion = MessagingOutboxTestSupport.TestSchemaVersion,
                 });
         }

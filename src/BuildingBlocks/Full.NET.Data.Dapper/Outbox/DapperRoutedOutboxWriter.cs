@@ -23,7 +23,8 @@ namespace Full.NET.Data.Dapper.Outbox;
 internal sealed class DapperRoutedOutboxWriter(
     DapperOutboxWriter legacyWriter,
     DapperAppendOnlyOutboxWriter appendOnlyWriter,
-    IEffectiveEventDeliveryOwnerResolver ownerResolver) : IOutboxWriter
+    IEffectiveEventDeliveryOwnerResolver ownerResolver,
+    IEventStreamOwnershipGate ownershipGate) : IOutboxWriter
 {
     /// <summary>
     /// 无 metadata overload：LegacyPolling/ShadowCdc 直接写 legacy 表；
@@ -38,6 +39,10 @@ internal sealed class DapperRoutedOutboxWriter(
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentNullException.ThrowIfNull(payload);
 
+        await ownershipGate.AcquireProducerAsync(
+            eventType,
+            schemaVersion,
+            cancellationToken).ConfigureAwait(false);
         var owner = await ownerResolver
             .GetDeliveryOwnerAsync(eventType, schemaVersion, cancellationToken)
             .ConfigureAwait(false);
@@ -83,6 +88,10 @@ internal sealed class DapperRoutedOutboxWriter(
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(metadata);
 
+        await ownershipGate.AcquireProducerAsync(
+            eventType,
+            schemaVersion,
+            cancellationToken).ConfigureAwait(false);
         var owner = await ownerResolver
             .GetDeliveryOwnerAsync(eventType, schemaVersion, cancellationToken)
             .ConfigureAwait(false);

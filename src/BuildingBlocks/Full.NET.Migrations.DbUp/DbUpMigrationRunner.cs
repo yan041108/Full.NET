@@ -59,6 +59,13 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         ValidateNamingContractOptions(_namingContractOptions);
         var options = _databaseOptions.Value;
         var (builder, providerSegment) = CreateBuilder(options);
+        if (options.Provider == DatabaseProvider.MySql)
+        {
+            // 094 已进入 DbUp journal 契约，禁止改写资源文件；兼容预处理只移除
+            // MySQL 8 不支持的语法，实际约束由追加迁移 095 收敛。
+            builder.WithPreprocessor(
+                new MySqlPublishedMigrationCompatibilityPreprocessor());
+        }
         var upgrader = builder
             .WithExecutionTimeout(TimeSpan.FromSeconds(options.CommandTimeoutSeconds))
             .WithScriptsEmbeddedInAssembly(

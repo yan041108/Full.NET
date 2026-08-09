@@ -35,6 +35,14 @@ public sealed class KafkaMessagingOptions
 
     public int MaxPollIntervalMilliseconds { get; set; } = 300_000;
 
+    public int HandlerHeartbeatMilliseconds { get; set; } = 250;
+
+    public int ConsumerQueueMaxMessagesKbytes { get; set; } = 2_048;
+
+    public int UncommittedRetryBackoffMilliseconds { get; set; } = 1_000;
+
+    public int OwnershipRevokedBackoffMilliseconds { get; set; } = 30_000;
+
     public int DeliveryTimeoutMilliseconds { get; set; } = 120_000;
 
     public int MessageMaxBytes { get; set; } = 1_048_576;
@@ -59,9 +67,12 @@ public sealed class KafkaMessagingOptions
             GroupId = consumerGroupId,
             ClientId = ResolveClientId(consumerGroupId),
             EnableAutoCommit = false,
+            EnableAutoOffsetStore = false,
             SessionTimeoutMs = SessionTimeoutMilliseconds,
             MaxPollIntervalMs = MaxPollIntervalMilliseconds,
             FetchMaxBytes = MessageMaxBytes,
+            QueuedMinMessages = 1,
+            QueuedMaxMessagesKbytes = ConsumerQueueMaxMessagesKbytes,
             AutoOffsetReset = AutoOffsetReset.Earliest,
         };
 
@@ -184,16 +195,60 @@ internal static class KafkaMessagingOptionsValidation
                 + "MaxPollIntervalMilliseconds are out of range.");
         }
 
+        if (options.HandlerHeartbeatMilliseconds is < 10
+            || options.HandlerHeartbeatMilliseconds >= options.SessionTimeoutMilliseconds
+            || options.HandlerHeartbeatMilliseconds >= options.MaxPollIntervalMilliseconds)
+        {
+            failures.Add(
+                $"{KafkaMessagingOptions.SectionName}:HandlerHeartbeatMilliseconds must be at least 10 and less than SessionTimeoutMilliseconds and MaxPollIntervalMilliseconds.");
+        }
+
+        if (options.ConsumerQueueMaxMessagesKbytes is < 1 or > 102_400)
+        {
+            failures.Add(
+                $"{KafkaMessagingOptions.SectionName}:ConsumerQueueMaxMessagesKbytes must be between 1 and 102400.");
+        }
+
+        if (options.UncommittedRetryBackoffMilliseconds is < 100 or > 60_000)
+        {
+            failures.Add(
+                $"{KafkaMessagingOptions.SectionName}:UncommittedRetryBackoffMilliseconds must be between 100 and 60000.");
+        }
+
+        if (options.OwnershipRevokedBackoffMilliseconds is < 1_000 or > 300_000)
+        {
+            failures.Add(
+                $"{KafkaMessagingOptions.SectionName}:OwnershipRevokedBackoffMilliseconds must be between 1000 and 300000.");
+        }
+
         if (options.DeliveryTimeoutMilliseconds < 1_000)
         {
             failures.Add(
                 $"{KafkaMessagingOptions.SectionName}:DeliveryTimeoutMilliseconds must be positive.");
         }
 
-        if (options.RetryStages.Length == 0
-            || options.RetryStages.Any(stage => string.IsNullOrWhiteSpace(stage)))
+        var retryDelays = new List<TimeSpan>(options.RetryStages.Length);
+        var retryStagesValid = options.RetryStages.Length > 0;
+        foreach (var stage in options.RetryStages)
+        {
+            if (!KafkaRetryStageParser.TryParse(stage, out var delay))
+            {
+                retryStagesValid = false;
+                break;
+            }
+
+            retryDelays.Add(delay);
+        }
+
+        if (!retryStagesValid)
         {
             failures.Add($"{KafkaMessagingOptions.SectionName}:RetryStages must be configured.");
+        }
+        else if (retryDelays.Zip(retryDelays.Skip(1), (left, right) => right > left)
+                 .Any(increases => !increases))
+        {
+            failures.Add(
+                $"{KafkaMessagingOptions.SectionName}:RetryStages must be strictly increasing.");
         }
 
         if (IsProductionLike(environmentName))

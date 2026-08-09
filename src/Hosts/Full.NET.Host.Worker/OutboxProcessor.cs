@@ -17,6 +17,7 @@ internal sealed class OutboxProcessor(
 {
     private readonly OutboxWorkerOptions _options = options.Value;
     private DateTimeOffset _nextBacklogSampleAtUtc = DateTimeOffset.MinValue;
+    private int _consecutiveEmptyBatches;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -130,10 +131,27 @@ internal sealed class OutboxProcessor(
             .ConfigureAwait(false);
     }
 
-    internal TimeSpan GetDelayAfterBatch(int processedCount) =>
-        processedCount >= _options.BatchSize
-            ? TimeSpan.Zero
-            : TimeSpan.FromMilliseconds(_options.PollMilliseconds);
+    internal TimeSpan GetDelayAfterBatch(int processedCount)
+    {
+        if (processedCount >= _options.BatchSize)
+        {
+            _consecutiveEmptyBatches = 0;
+            return TimeSpan.Zero;
+        }
+
+        if (processedCount > 0)
+        {
+            _consecutiveEmptyBatches = 0;
+            return TimeSpan.FromMilliseconds(_options.PollMilliseconds);
+        }
+
+        var exponent = Math.Min(_consecutiveEmptyBatches, 30);
+        _consecutiveEmptyBatches = Math.Min(_consecutiveEmptyBatches + 1, 30);
+        var delay = Math.Min(
+            _options.MaximumIdlePollMilliseconds,
+            _options.PollMilliseconds * Math.Pow(2d, exponent));
+        return TimeSpan.FromMilliseconds(delay);
+    }
 
     private async Task RecordBacklogAsync(
         IOutboxBacklogReader backlogReader,
@@ -192,7 +210,8 @@ internal sealed class OutboxProcessor(
                         message.SchemaVersion,
                         cancellationToken)
                     .ConfigureAwait(false);
-            if (deliveryOwner is not EventDeliveryOwner.LegacyPolling)
+            if (deliveryOwner is not (EventDeliveryOwner.LegacyPolling
+                or EventDeliveryOwner.ShadowCdc))
             {
                 throw new OutboxPermanentException(
                     OutboxDeadLetterReasons.LegacyOwnerRevoked,

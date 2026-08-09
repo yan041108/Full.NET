@@ -137,6 +137,33 @@ public sealed class IntegrationEventConsumerDispatcherTests
     }
 
     [TestMethod]
+    public async Task ConsumeAsync_keeps_tenant_scope_until_async_handler_completes()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(Arg.Any<string>(), Arg.Any<IntegrationEventEnvelope>(), Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.Claimed));
+        inbox.MarkProcessedAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        var tenantId = Guid.CreateVersion7();
+        var currentTenant = new CurrentTenantAccessor();
+        var handler = new AsyncTenantObservingSubscription();
+        var dispatcher = CreateDispatcher(inbox, handler, currentTenant);
+
+        var consumeTask = dispatcher.ConsumeAsync(
+            ConsumerName,
+            CreateEnvelope([1], tenantId: tenantId),
+            handler,
+            CancellationToken.None);
+
+        await handler.Started.Task;
+        Assert.AreEqual(tenantId, currentTenant.Id);
+        handler.Release.TrySetResult();
+        await consumeTask;
+        Assert.IsFalse(currentTenant.IsAvailable);
+    }
+
+    [TestMethod]
     public async Task ConsumeAsync_handler_exception_propagates()
     {
         var inbox = Substitute.For<IIntegrationEventInbox>();
@@ -175,10 +202,35 @@ public sealed class IntegrationEventConsumerDispatcherTests
                 CancellationToken.None));
     }
 
+    [TestMethod]
+    public async Task ConsumeAsync_rejects_delivery_after_stream_ownership_is_revoked()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        var handler = new RecordingSubscription();
+        var dispatcher = CreateDispatcher(
+            inbox,
+            handler,
+            deliveryOwner: EventDeliveryOwner.LegacyPolling);
+
+        await Assert.ThrowsExactlyAsync<EventDeliveryOwnershipRevokedException>(() =>
+            dispatcher.ConsumeAsync(
+                ConsumerName,
+                CreateEnvelope([1]),
+                handler,
+                CancellationToken.None));
+
+        await inbox.DidNotReceive().ClaimAsync(
+            Arg.Any<string>(),
+            Arg.Any<IntegrationEventEnvelope>(),
+            Arg.Any<CancellationToken>());
+        Assert.IsFalse(handler.Handled);
+    }
+
     private static IntegrationEventConsumerDispatcher CreateDispatcher(
         IIntegrationEventInbox inbox,
         IIntegrationEventSubscription subscription,
-        CurrentTenantAccessor? currentTenant = null)
+        CurrentTenantAccessor? currentTenant = null,
+        EventDeliveryOwner deliveryOwner = EventDeliveryOwner.CdcKafka)
     {
         currentTenant ??= new CurrentTenantAccessor();
         var catalog = new IntegrationEventSubscriptionCatalog(
@@ -190,11 +242,25 @@ public sealed class IntegrationEventConsumerDispatcherTests
                     EventDeliveryOwner.CdcKafka),
             ],
             [subscription]);
+        var ownershipGate = Substitute.For<IEventStreamOwnershipGate>();
+        ownershipGate.AcquireConsumerAsync(
+                Arg.Any<string>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(true);
+        var ownerResolver = Substitute.For<IEffectiveEventDeliveryOwnerResolver>();
+        ownerResolver.GetDeliveryOwnerAsync(
+                Arg.Any<string>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(deliveryOwner);
 
         return new IntegrationEventConsumerDispatcher(
             new PassthroughTransaction(),
             inbox,
             catalog,
+            ownershipGate,
+            ownerResolver,
             currentTenant);
     }
 
@@ -278,6 +344,32 @@ public sealed class IntegrationEventConsumerDispatcherTests
             ObservedHost = currentTenant.IsHost;
             ObservedTenantId = currentTenant.Id;
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class AsyncTenantObservingSubscription
+        : IIntegrationEventSubscription
+    {
+        public string ConsumerName => ConsumerNameValue;
+        public string EventType => EventTypeValue;
+        public int SchemaVersion => 1;
+        public IntegrationEventIdempotencyStrategy IdempotencyStrategy =>
+            IntegrationEventIdempotencyStrategy.MessageIdDeduplication;
+        public TaskCompletionSource Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private const string ConsumerNameValue = IntegrationEventConsumerDispatcherTests.ConsumerName;
+        private const string EventTypeValue = IntegrationEventConsumerDispatcherTests.EventType;
+
+        public async Task HandleAsync(
+            IntegrationEventContext context,
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
         }
     }
 

@@ -1065,6 +1065,27 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/088_IdentityNavigationMenuMeta.sql",
       "reason": "2026-08-09 复审登记：088 的 INFORMATION_SCHEMA 列存在性探测 + 多段 PREPARE 条件分支 DDL 尚不能由静态扫描器完整解析；全部对象名与 ALTER 语句为脚本内常量，并由双库迁移恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/095_MessagingStreamOwnershipConvergence.sql",
+      "reason": "2026-08-09 复审登记：095 使用固定存储过程按 INFORMATION_SCHEMA 结果幂等补齐三个 CHECK 约束；过程名、表名、约束名和 DDL 均为静态常量，并由 MySQL 迁移升级恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "query",
+      "value": "select_all_columns",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/094_MessagingStreamOwnership.sql",
+      "reason": "2026-08-09 复审登记：已发布 094 的三个 sys.check_constraints 存在性探测使用 SELECT *；为保持已执行迁移不可变，不回写历史脚本，后续约束收敛由 095 承担。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/095_MessagingStreamOwnershipConvergence.sql",
+      "reason": "2026-08-09 复审登记：095 仅为解决同批次新增列的 SQL Server 编译可见性，将固定 RollbackState CHECK 与固定试点基线 INSERT 包装为常量动态 SQL；无外部输入，并由双库迁移升级恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

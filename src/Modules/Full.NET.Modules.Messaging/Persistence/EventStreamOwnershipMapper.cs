@@ -23,19 +23,24 @@ internal static class EventStreamOwnershipMapper
 
     public static EventStreamOwnershipPersistenceRow ToPersistenceRow(
         EventStreamOwnershipRecord record) =>
-        new(
-            record.MessageType,
-            record.SchemaVersion,
-            record.TopicCode,
-            (sbyte)record.CurrentOwner,
-            (sbyte)record.PreviousOwner,
-            record.CutoffEventId,
-            record.CutoffOccurredAtUtc,
-            record.CdcSourcePositionJson,
-            record.OperatorUserId,
-            record.Reason,
-            record.RollbackBoundaryEventId,
-            record.RollbackOccurredAtUtc,
-            record.CreatedAtUtc,
-            record.UpdatedAtUtc);
+        new()
+        {
+            MessageType = record.MessageType,
+            SchemaVersion = record.SchemaVersion,
+            TopicCode = record.TopicCode,
+            CurrentOwner = (int)record.CurrentOwner,
+            PreviousOwner = (int)record.PreviousOwner,
+            CutoffEventId = record.CutoffEventId,
+            CutoffOccurredAtUtc = record.CutoffOccurredAtUtc,
+            CdcSourcePositionJson = record.CdcSourcePositionJson,
+            OperatorUserId = record.OperatorUserId,
+            Reason = record.Reason,
+            RollbackBoundaryEventId = record.RollbackBoundaryEventId,
+            RollbackOccurredAtUtc = record.RollbackOccurredAtUtc,
+            RollbackState = 0,
+            RollbackGeneration = null,
+            RollbackPreparedAtUtc = null,
+            CreatedAtUtc = record.CreatedAtUtc,
+            UpdatedAtUtc = record.UpdatedAtUtc,
+        };
 }

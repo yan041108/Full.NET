@@ -16,6 +16,7 @@ public sealed class MessagingApiMySqlTests
             new Dictionary<string, string?>
             {
                 ["Messaging:Outbox:Mode"] = "AppendOnlyV2",
+                ["Messaging:DeliveryCutover:Enabled"] = "true",
                 ["Database:MySqlGuidStorageMode"] = "Binary16",
             },
             configureTestServices: MessagingOperationsAssertions.ConfigureTestServices);

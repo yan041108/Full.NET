@@ -668,8 +668,43 @@
       ]
     },
     {
-      "statementName": "messaging.outbox.find_last_by_stream.sqlserver",
-      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.FindLastOutboxEventByStreamSqlServer",
+      "statementName": "messaging.stream_ownership.rollback.begin",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.BeginRollbackPreparation",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "回退第一阶段在 Host 上下文持久化 generation producer fence。",
+      "requiredSqlFragments": [
+        "UPDATE fn_messaging_stream_ownership",
+        "RollbackState = 1",
+        "RollbackGeneration = @RollbackGeneration"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership.rollback.find_preparation",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.FindRollbackPreparation",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "回退最终事务重新校验同一持久化 generation fence。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership",
+        "RollbackGeneration"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership.rollback.abort",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.AbortRollbackPreparation",
+      "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
+      "category": "host_catalog",
+      "reason": "控制面准备失败时只撤销同一 generation 的 producer fence。",
+      "requiredSqlFragments": [
+        "UPDATE fn_messaging_stream_ownership",
+        "RollbackState = 0",
+        "RollbackGeneration = @RollbackGeneration"
+      ]
+    },
+    {
+      "statementName": "messaging.append_only_outbox.find_last_by_stream.sqlserver",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.FindLastAppendOnlyOutboxEventByStreamSqlServer",
       "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
       "category": "host_catalog",
       "reason": "切流前记录 append-only Outbox 最后事件作为 CDC 边界。",
@@ -680,8 +715,8 @@
       ]
     },
     {
-      "statementName": "messaging.outbox.find_last_by_stream.mysql",
-      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.FindLastOutboxEventByStreamMySql",
+      "statementName": "messaging.append_only_outbox.find_last_by_stream.mysql",
+      "declaration": "Full.NET.Modules.Messaging.Persistence.EventStreamOwnershipSql.FindLastAppendOnlyOutboxEventByStreamMySql",
       "file": "src/Modules/Full.NET.Modules.Messaging/Persistence/EventStreamOwnershipSql.cs",
       "category": "host_catalog",
       "reason": "MySQL 成对查询 append-only Outbox 切流边界事件。",
@@ -689,6 +724,76 @@
         "FROM fn_messaging_outbox_event",
         "MessageType = @MessageType",
         "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "outbox.stream.find_last.sql_server",
+      "declaration": "Full.NET.Data.Dapper.Outbox.OutboxSql.FindLastStreamEventSqlServer",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "category": "host_catalog",
+      "reason": "切换交付所有权前，通过 Outbox 自有数据边界读取目标事件流的最后写入位置。",
+      "requiredSqlFragments": [
+        "FROM fn_outbox_message",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "outbox.stream.find_last.my_sql",
+      "declaration": "Full.NET.Data.Dapper.Outbox.OutboxSql.FindLastStreamEventMySql",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/OutboxSql.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 下通过 Outbox 自有数据边界读取目标事件流的最后写入位置。",
+      "requiredSqlFragments": [
+        "FROM fn_outbox_message",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership_gate.producer.sql_server",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventStreamOwnershipGate.ProducerSqlServer",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventStreamOwnershipGate.cs",
+      "category": "host_catalog",
+      "reason": "生产事务以共享范围锁读取事件流所有权，避免与切换事务并发穿透。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership WITH (HOLDLOCK)",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership_gate.change.sql_server",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventStreamOwnershipGate.OwnershipChangeSqlServer",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventStreamOwnershipGate.cs",
+      "category": "host_catalog",
+      "reason": "所有权切换事务以排他范围锁阻止新的生产和消费事务进入。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership WITH (UPDLOCK, HOLDLOCK)",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership_gate.producer.my_sql",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventStreamOwnershipGate.ProducerMySql",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventStreamOwnershipGate.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 生产与消费事务以共享锁读取事件流所有权，避免切换竞态。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership",
+        "FOR SHARE"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership_gate.change.my_sql",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventStreamOwnershipGate.OwnershipChangeMySql",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventStreamOwnershipGate.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 所有权切换事务以排他行锁等待在途生产和消费事务结束。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership",
+        "FOR UPDATE"
       ]
     },
     {

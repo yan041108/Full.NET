@@ -1024,7 +1024,14 @@ public sealed class OutboxRecoveryTests
         await using var scope = services.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
         var writer = scope.ServiceProvider.GetRequiredService<IOutboxWriter>();
-        await writer.AddAsync(eventType, schemaVersion, payload, CancellationToken.None);
+        var transaction = scope.ServiceProvider.GetRequiredService<ICommandTransaction>();
+        await transaction.ExecuteAsync(
+            async cancellationToken =>
+            {
+                await writer.AddAsync(eventType, schemaVersion, payload, cancellationToken);
+                return 0;
+            },
+            CancellationToken.None);
     }
 
     private static async Task OverwritePayloadAsync(

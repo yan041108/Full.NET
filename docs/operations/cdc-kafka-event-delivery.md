@@ -20,7 +20,7 @@
 
 ## 持久化所有权记录
 
-表 `fn_messaging_stream_ownership`（迁移 `094_MessagingStreamOwnership.sql`）保存：
+表 `fn_messaging_stream_ownership`（迁移 `094_MessagingStreamOwnership.sql` 创建，`095_MessagingStreamOwnershipConvergence.sql` 收敛约束和试点基线）保存：
 
 - `CurrentOwner` / `PreviousOwner`
 - `CutoffEventId` / `CutoffOccurredAtUtc`（Legacy 排空后的切流边界）
@@ -39,11 +39,16 @@
 
 切流前置条件：
 
-1. 目标流在 Topic 目录中注册且当前有效所有权为 `LegacyPolling`。
-2. 全局 Legacy Outbox 积压已排空（无 pending/due retry/active lease）。
-3. 目标流版本退役快照无 pending/dead letter。
+1. `Messaging:DeliveryCutover:Enabled=true` 已由运维显式配置；默认值为 `false`。
+2. 目标流在 Topic 目录和 `fn_messaging_stream_ownership` 中注册，且当前有效所有权为 `LegacyPolling`。
+3. 目标流 Legacy Outbox 已排空（无 pending、due retry、active lease、dead letter）；其他 Legacy 流的积压不阻塞本流切换。
+4. 正式 Connector、Topic、ACL、监控、保留期和恢复演练已在目标环境完成。
 
-上述 API 只是控制面实现，不代表当前已满足数据面切流条件。纠正计划完成前不得调用切流 API。
+生产者写 Outbox、Kafka Inbox Handler 与所有权切换使用同一数据库流级事务门：切流等待在途生产者，回退等待在途 Consumer；回退后的 Kafka 消息保持未提交，不进入业务 Handler、Retry 或 DLQ。
+
+回退采用持久化 generation 的两阶段协议。第一数据库事务取得流级独占锁，等待已取得共享锁的生产者提交，然后写入 `RollbackState=Preparing`、`RollbackGeneration` 与准备时间并提交；此后新生产者在写任何 Outbox 前失败，Kafka Consumer 仍可完成排空。控制面随后在数据库事务外停止并 fence Connector/Consumer、排空或隔离 Broker，并取得 SQL Server CDC LSN 或 MySQL binlog position 覆盖数据库 producer fence 的可机器验证证明。最终事务重新取得独占锁，只接受同一 generation、足够新鲜且 source position 已覆盖 producer fence 的证明，再切回 Legacy 并清除准备状态。失败补偿必须先确认控制面按同一 generation 恢复成功，之后才能在数据库事务内解除 producer fence；控制面恢复失败或进程中断时保留 `Preparing`，让生产者继续失败关闭并等待运维恢复。默认实现始终失败关闭；在生产适配器和真实演练完成前，回退 API 会拒绝执行。
+
+上述 API 只是控制面实现，不代表当前已满足数据面切流条件。真实 SQL Server/MySQL CDC 端到端验收完成前必须保持开关关闭。
 
 ## Worker 模式
 
@@ -51,9 +56,9 @@
 | --- | --- | --- |
 | `LegacyPolling`（默认） | 是 | 否 |
 | `ShadowCdc` | 是（影子比对） | 否 |
-| `CdcKafka` | 否（当前实现，阻断单流试点） | 是；无真实订阅时启动失败 |
+| `HybridKafka` | 是；只处理仍由 Legacy/Shadow 拥有的流 | 是；只允许 `CdcKafka` 所有权流进入 Inbox |
 
-生产必须保持 `LegacyPolling`。后续实现应让 Legacy Worker 与 Kafka Consumer 并存，再由持久化事件流所有权逐流路由；不能因一个试点流关闭全局轮询。
+生产在真实双库 CDC E2E 验收前必须保持 `LegacyPolling`。`CdcKafka` 枚举值仅作为 `HybridKafka` 的一版过渡别名；不能因一个试点流关闭全局轮询。
 
 ## 生产门禁（未验证项）
 

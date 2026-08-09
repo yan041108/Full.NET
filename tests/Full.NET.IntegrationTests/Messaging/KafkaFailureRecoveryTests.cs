@@ -13,8 +13,9 @@ public sealed class KafkaFailureRecoveryTests
     public async Task Transient_failure_routes_message_to_first_retry_topic()
     {
         var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
-        var topic = $"fullnet.test.recovery.retry.{Guid.NewGuid():N}.v1";
+        var topic = $"fullnet.test.recovery.transient.{Guid.NewGuid():N}.v1";
         var retryTopic = KafkaTopicNames.GetRetryTopic(topic, "5s");
+        await environment.EnsureTopicsAsync(topic, retryTopic).ConfigureAwait(false);
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
         var source = KafkaTestMessages.Create(topic, "retry-key", [0x21]);
         await producer.ProduceAsync(topic, source).ConfigureAwait(false);
@@ -50,6 +51,10 @@ public sealed class KafkaFailureRecoveryTests
             KafkaDeliveryHeaderNames.FailureCode,
             out var failureCode));
         Assert.AreEqual(failure.Code, failureCode);
+        Assert.IsTrue(KafkaDeliveryHeaders.TryReadRetryNotBeforeUtc(
+            retryResult.Message.Headers,
+            out var retryNotBeforeUtc));
+        Assert.IsTrue(retryNotBeforeUtc >= DateTimeOffset.UtcNow.AddSeconds(3));
     }
 
     [TestMethod]
@@ -58,6 +63,7 @@ public sealed class KafkaFailureRecoveryTests
         var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.recovery.dlq.{Guid.NewGuid():N}.v1";
         var deadLetterTopic = KafkaTopicNames.GetDeadLetterTopic(topic);
+        await environment.EnsureTopicsAsync(topic, deadLetterTopic).ConfigureAwait(false);
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
         var source = KafkaTestMessages.Create(topic, "dlq-key", [0x42]);
         await producer.ProduceAsync(topic, source).ConfigureAwait(false);
@@ -105,6 +111,7 @@ public sealed class KafkaFailureRecoveryTests
     {
         var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.recovery.dlq-fail.{Guid.NewGuid():N}.v1";
+        await environment.EnsureTopicsAsync(topic).ConfigureAwait(false);
         using var producer = environment.CreateProducer("fullnet.kafka.test.producer");
         await producer.ProduceAsync(topic, KafkaTestMessages.Create(topic, "dlq-fail-key", [0x55])).ConfigureAwait(false);
         producer.Flush(TimeSpan.FromSeconds(10));
@@ -140,6 +147,8 @@ public sealed class KafkaFailureRecoveryTests
             .ConfigureAwait(false);
         Assert.IsFalse(published);
 
+        // Consume 会推进本地 position；未提交只保证组 offset 未前移，当前实例要立即重试仍需回退。
+        consumer.Seek(consumed.TopicPartitionOffset);
         var redelivered = consumer.Consume(TimeSpan.FromMilliseconds(500));
         Assert.IsNotNull(redelivered);
         Assert.AreEqual(0x55, redelivered!.Message.Value![0]);
@@ -149,8 +158,10 @@ public sealed class KafkaFailureRecoveryTests
     public async Task Shutdown_cancellation_stops_consumer_poll_loop()
     {
         var environment = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
+        var topic = $"fullnet.test.recovery.shutdown.{Guid.NewGuid():N}.v1";
+        await environment.EnsureTopicsAsync(topic).ConfigureAwait(false);
         using var consumer = environment.CreateConsumer("fullnet.kafka.test.shutdown", "fullnet.kafka.test.shutdown");
-        consumer.Subscribe($"fullnet.test.recovery.shutdown.{Guid.NewGuid():N}.v1");
+        consumer.Subscribe(topic);
 
         using var cancellation = new CancellationTokenSource();
         var pollTask = Task.Run(() =>
@@ -160,6 +171,10 @@ public sealed class KafkaFailureRecoveryTests
                 try
                 {
                     consumer.Consume(cancellation.Token);
+                }
+                catch (ConsumeException exception) when (!exception.Error.IsFatal)
+                {
+                    continue;
                 }
                 catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
                 {
@@ -174,10 +189,11 @@ public sealed class KafkaFailureRecoveryTests
     }
 
     [TestMethod]
-    public async Task Consumer_recovers_after_broker_restart()
+    public async Task Consumer_recovers_after_broker_interruption()
     {
         await using var localEnvironment = await KafkaTestEnvironment.StartAsync().ConfigureAwait(false);
         var topic = $"fullnet.test.recovery.restart.{Guid.NewGuid():N}.v1";
+        await localEnvironment.EnsureTopicsAsync(topic).ConfigureAwait(false);
         using var producer = localEnvironment.CreateProducer("fullnet.kafka.test.restart-producer");
         await producer.ProduceAsync(topic, KafkaTestMessages.Create(topic, "restart-key", [0x99])).ConfigureAwait(false);
         producer.Flush(TimeSpan.FromSeconds(10));
@@ -188,7 +204,7 @@ public sealed class KafkaFailureRecoveryTests
         Assert.AreEqual(0x99, first.Message.Value![0]);
         consumer.Commit(first);
 
-        await localEnvironment.RestartAsync().ConfigureAwait(false);
+        await localEnvironment.InterruptBrokerAsync().ConfigureAwait(false);
 
         using var producerAfterRestart = localEnvironment.CreateProducer("fullnet.kafka.test.restart-producer-2");
         await producerAfterRestart.ProduceAsync(topic, KafkaTestMessages.Create(topic, "restart-key", [0x9A])).ConfigureAwait(false);
@@ -198,4 +214,3 @@ public sealed class KafkaFailureRecoveryTests
         Assert.AreEqual(0x9A, second.Message.Value![0]);
     }
 }
-

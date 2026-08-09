@@ -15,21 +15,33 @@ internal sealed record OutboxStreamCutoffRecord(
     Guid CutoffEventId,
     DateTimeOffset CutoffOccurredAtUtc);
 
-internal sealed record EventStreamOwnershipPersistenceRow(
-    string MessageType,
-    int SchemaVersion,
-    string TopicCode,
-    sbyte CurrentOwner,
-    sbyte PreviousOwner,
-    Guid CutoffEventId,
-    DateTimeOffset CutoffOccurredAtUtc,
-    string? CdcSourcePositionJson,
-    Guid? OperatorUserId,
-    string Reason,
-    Guid? RollbackBoundaryEventId,
-    DateTimeOffset? RollbackOccurredAtUtc,
-    DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+internal sealed class EventStreamOwnershipPersistenceRow
+{
+    public string MessageType { get; init; } = string.Empty;
+    public int SchemaVersion { get; init; }
+    public string TopicCode { get; init; } = string.Empty;
+    public int CurrentOwner { get; init; }
+    public int PreviousOwner { get; init; }
+    public Guid CutoffEventId { get; init; }
+    public DateTimeOffset CutoffOccurredAtUtc { get; init; }
+    public string? CdcSourcePositionJson { get; init; }
+    public Guid? OperatorUserId { get; init; }
+    public string Reason { get; init; } = string.Empty;
+    public Guid? RollbackBoundaryEventId { get; init; }
+    public DateTimeOffset? RollbackOccurredAtUtc { get; init; }
+    public int RollbackState { get; init; }
+    public Guid? RollbackGeneration { get; init; }
+    public DateTimeOffset? RollbackPreparedAtUtc { get; init; }
+    public DateTimeOffset CreatedAtUtc { get; init; }
+    public DateTimeOffset UpdatedAtUtc { get; init; }
+}
+
+internal sealed class RollbackPreparationRecord
+{
+    public int RollbackState { get; init; }
+    public Guid? RollbackGeneration { get; init; }
+    public DateTimeOffset? RollbackPreparedAtUtc { get; init; }
+}
 
 internal sealed record OutboxEnvelopeRecord(
     Guid Id,

@@ -27,6 +27,7 @@ public static class ModularityServiceCollectionExtensions
         // services.BuildServiceProvider() / ValidateOnBuild 会抛 InvalidOperationException。
         // 使用 TryAddScoped：MessagingModule 随后会 RemoveAll 并替换为真实目录，不会重复注册。
         services.TryAddScoped<IIntegrationEventSubscriptionCatalog, EmptyIntegrationEventSubscriptionCatalog>();
+        services.TryAddScoped<IEffectiveEventDeliveryOwnerResolver, LegacyPollingEventDeliveryOwnerResolver>();
         // 同时注册具体类的空包装，兼容直接解析 IntegrationEventSubscriptionCatalog 的既有代码；
         // 空宿主中即使解析具体类也返回空集合，避免 DI 验证失败。
         services.TryAddScoped(provider =>

@@ -12,9 +12,11 @@ public sealed class IntegrationEventConsumerDispatcher(
     ICommandTransaction commandTransaction,
     IIntegrationEventInbox inbox,
     IntegrationEventSubscriptionCatalog catalog,
+    IEventStreamOwnershipGate ownershipGate,
+    IEffectiveEventDeliveryOwnerResolver ownerResolver,
     CurrentTenantAccessor currentTenant)
 {
-    public Task<InboxConsumeResult> ConsumeAsync(
+    public async Task<InboxConsumeResult> ConsumeAsync(
         string consumerName,
         IntegrationEventEnvelope envelope,
         IIntegrationEventSubscription handler,
@@ -45,13 +47,14 @@ public sealed class IntegrationEventConsumerDispatcher(
         RestoreTenantFromEnvelope(envelope);
         try
         {
-            return commandTransaction.ExecuteAsync(
-                async ct => await ConsumeInTransactionAsync(
-                    consumerName,
-                    envelope,
-                    handler,
-                    ct).ConfigureAwait(false),
-                cancellationToken);
+            return await commandTransaction.ExecuteAsync(
+                    async ct => await ConsumeInTransactionAsync(
+                        consumerName,
+                        envelope,
+                        handler,
+                        ct).ConfigureAwait(false),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -65,6 +68,26 @@ public sealed class IntegrationEventConsumerDispatcher(
         IIntegrationEventSubscription handler,
         CancellationToken cancellationToken)
     {
+        var ownershipExists = await ownershipGate
+            .AcquireConsumerAsync(
+                envelope.MessageType,
+                envelope.SchemaVersion,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var deliveryOwner = await ownerResolver
+            .GetDeliveryOwnerAsync(
+                envelope.MessageType,
+                envelope.SchemaVersion,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!ownershipExists || deliveryOwner is not EventDeliveryOwner.CdcKafka)
+        {
+            throw new EventDeliveryOwnershipRevokedException(
+                envelope.MessageType,
+                envelope.SchemaVersion,
+                deliveryOwner);
+        }
+
         var claim = await inbox
             .ClaimAsync(consumerName, envelope, cancellationToken)
             .ConfigureAwait(false);

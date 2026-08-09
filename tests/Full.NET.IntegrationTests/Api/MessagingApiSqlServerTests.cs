@@ -16,6 +16,7 @@ public sealed class MessagingApiSqlServerTests
             new Dictionary<string, string?>
             {
                 ["Messaging:Outbox:Mode"] = "AppendOnlyV2",
+                ["Messaging:DeliveryCutover:Enabled"] = "true",
             },
             configureTestServices: MessagingOperationsAssertions.ConfigureTestServices);
 

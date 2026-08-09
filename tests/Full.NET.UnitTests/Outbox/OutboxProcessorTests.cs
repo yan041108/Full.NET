@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Host.Worker;
+using Full.NET.Messaging.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -344,6 +345,7 @@ public sealed class OutboxProcessorTests
         var store = CreateStore(message);
         var renewalCallFailed = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        var scopeDisposal = new BlockingAsyncScopeDisposal();
         store
             .RenewLeaseAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
@@ -357,7 +359,6 @@ public sealed class OutboxProcessorTests
                     return Task.FromException(
                         new OutboxLeaseLostException(message.LockId));
                 });
-        var scopeDisposal = new BlockingAsyncScopeDisposal();
         var now = new DateTimeOffset(2026, 7, 28, 0, 0, 0, TimeSpan.Zero);
         await using var provider =
             CreateRenewalScopeProvider(store, scopeDisposal);
@@ -368,6 +369,12 @@ public sealed class OutboxProcessorTests
             async (markBatchTerminal, cancellationToken) =>
             {
                 await renewalCallFailed.Task
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                // 续租异常进入 catch 时已经记录失败顺序，随后才会进入异步 Scope 释放。
+                // 等到释放入口再标记终态，避免测试调度把“调用即将返回 faulted Task”误当成
+                // “Worker 已观察并记录续租失败”，造成非确定性的先后关系。
+                await scopeDisposal.Entered
                     .WaitAsync(cancellationToken)
                     .ConfigureAwait(false);
                 markBatchTerminal();
@@ -589,6 +596,64 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
+    public void GetDelayAfterBatch_ExponentiallyBacksOffEmptyPollingAndResetsOnWork()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            BatchSize = 10,
+            PollMilliseconds = 200,
+            MaximumIdlePollMilliseconds = 1_000,
+        };
+        var store = CreateStore();
+        using var provider = CreateProvider(store);
+        var processor = CreateProcessor(
+            provider,
+            new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero),
+            options);
+
+        Assert.AreEqual(TimeSpan.FromMilliseconds(200), processor.GetDelayAfterBatch(0));
+        Assert.AreEqual(TimeSpan.FromMilliseconds(400), processor.GetDelayAfterBatch(0));
+        Assert.AreEqual(TimeSpan.FromMilliseconds(800), processor.GetDelayAfterBatch(0));
+        Assert.AreEqual(TimeSpan.FromMilliseconds(1_000), processor.GetDelayAfterBatch(0));
+        Assert.AreEqual(TimeSpan.FromMilliseconds(200), processor.GetDelayAfterBatch(3));
+        Assert.AreEqual(TimeSpan.FromMilliseconds(200), processor.GetDelayAfterBatch(0));
+        Assert.AreEqual(TimeSpan.Zero, processor.GetDelayAfterBatch(10));
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_ShadowOwnerRemainsOnLegacyHandlerPath()
+    {
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var handler = new RecordingHandler(message.MessageType, message.SchemaVersion);
+        var resolver = Substitute.For<IEffectiveEventDeliveryOwnerResolver>();
+        resolver.GetDeliveryOwnerAsync(
+                message.MessageType,
+                message.SchemaVersion,
+                Arg.Any<CancellationToken>())
+            .Returns(EventDeliveryOwner.ShadowCdc);
+        await using var provider = CreateProviderWithOwnerResolver(store, resolver, handler);
+        var processor = CreateProcessor(
+            provider,
+            new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero));
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, handler.HandledCount);
+        await store.Received(1).MarkProcessedAsync(
+            message.Id,
+            message.LockId,
+            Arg.Any<CancellationToken>());
+        await store.DidNotReceiveWithAnyArgs().MarkDeadLetterAsync(
+            default,
+            default,
+            string.Empty,
+            string.Empty,
+            default,
+            default);
+    }
+
+    [TestMethod]
     public async Task ProcessOnceAsync_RecordsOperationalBacklogCategoriesAndAges()
     {
         var now = new DateTimeOffset(2026, 7, 26, 0, 2, 0, TimeSpan.Zero);
@@ -766,6 +831,24 @@ public sealed class OutboxProcessorTests
         services.AddScoped<CurrentTenantAccessor>();
         services.AddSingleton(store);
         services.AddSingleton(BacklogReader(store));
+        foreach (var handler in handlers)
+        {
+            services.AddSingleton(handler);
+        }
+
+        return services.BuildServiceProvider();
+    }
+
+    private static ServiceProvider CreateProviderWithOwnerResolver(
+        IOutboxStore store,
+        IEffectiveEventDeliveryOwnerResolver resolver,
+        params IIntegrationEventHandler[] handlers)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<CurrentTenantAccessor>();
+        services.AddSingleton(store);
+        services.AddSingleton(BacklogReader(store));
+        services.AddSingleton(resolver);
         foreach (var handler in handlers)
         {
             services.AddSingleton(handler);

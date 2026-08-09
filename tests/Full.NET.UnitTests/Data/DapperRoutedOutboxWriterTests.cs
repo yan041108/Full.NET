@@ -31,7 +31,7 @@ public sealed class DapperRoutedOutboxWriterTests
             counters,
             legacyOwners: [LegacyStream]);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
         var payload = new SamplePayload(42, "hello");
 
         await routed.AddAsync(
@@ -58,7 +58,7 @@ public sealed class DapperRoutedOutboxWriterTests
             counters,
             cdcOwners: [CdcStream]);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
         var payload = new SamplePayload(7, "org-unit-42");
 
         await routed.AddAsync(
@@ -80,7 +80,7 @@ public sealed class DapperRoutedOutboxWriterTests
         var counters = new OutboxCallCounters();
         var c = CreateRoutedCollaborators(counters);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
         var payload = new SamplePayload(1, "unregistered-event");
 
         await routed.AddAsync(
@@ -103,7 +103,7 @@ public sealed class DapperRoutedOutboxWriterTests
             counters,
             cdcOwners: [CdcStream]);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
         var payload = new SamplePayload(3, "must-fail");
 
         try
@@ -139,7 +139,7 @@ public sealed class DapperRoutedOutboxWriterTests
             legacyOwners: [LegacyStream],
             cdcOwners: [CdcStream]);
 
-        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver);
+        var routed = new DapperRoutedOutboxWriter(c.Legacy, c.Append, c.Resolver, c.Gate);
         var payload = new SamplePayload(11, "both-registered-separately");
 
         await routed.AddAsync(
@@ -171,7 +171,8 @@ public sealed class DapperRoutedOutboxWriterTests
     private sealed record Collaborators(
         DapperOutboxWriter Legacy,
         DapperAppendOnlyOutboxWriter Append,
-        IEffectiveEventDeliveryOwnerResolver Resolver);
+        IEffectiveEventDeliveryOwnerResolver Resolver,
+        IEventStreamOwnershipGate Gate);
 
     private static Collaborators CreateRoutedCollaborators(
         OutboxCallCounters counters,
@@ -181,6 +182,12 @@ public sealed class DapperRoutedOutboxWriterTests
         ArgumentNullException.ThrowIfNull(counters);
 
         var resolver = Substitute.For<IEffectiveEventDeliveryOwnerResolver>();
+        var gate = Substitute.For<IEventStreamOwnershipGate>();
+        gate.AcquireProducerAsync(
+                Arg.Any<string>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(true);
         foreach (var stream in legacyOwners ?? Array.Empty<string>())
         {
             resolver
@@ -250,7 +257,7 @@ public sealed class DapperRoutedOutboxWriterTests
                 Arg.Any<CancellationToken>()))
             .Do(_ => counters.AppendMetadataCalls++);
 
-        return new Collaborators(legacy, append, resolver);
+        return new Collaborators(legacy, append, resolver, gate);
     }
 
     internal sealed record SamplePayload(int Id, string Name);

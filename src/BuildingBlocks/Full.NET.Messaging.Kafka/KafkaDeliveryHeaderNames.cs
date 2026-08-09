@@ -8,6 +8,7 @@ public static class KafkaDeliveryHeaderNames
     public const string AttemptCount = "attempt_count";
     public const string FirstFailedAtUtc = "first_failed_at_utc";
     public const string LastFailedAtUtc = "last_failed_at_utc";
+    public const string RetryNotBeforeUtc = "retry_not_before_utc";
     public const string FailureCode = "failure_code";
     public const string FailureKind = "failure_kind";
     public const string FailureSummary = "failure_summary";

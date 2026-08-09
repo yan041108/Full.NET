@@ -27,6 +27,14 @@ public interface IOutboxBacklogReader
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// 读取指定事件流在旧 Outbox 中最后写入的事件边界，用于所有权切换时固定 CDC 起点。
+    /// </summary>
+    Task<OutboxStreamCutoffSnapshot?> ReadLastStreamEventAsync(
+        string eventType,
+        int schemaVersion,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// 按消息类型集合和结构版本读取仍会阻断旧 Handler 退役的消息快照。
     /// </summary>
     /// <param name="messageTypes">同一 Handler 当前声明的 canonical 与 legacy 消息类型。</param>
@@ -71,3 +79,8 @@ public sealed record OutboxVersionRetirementSnapshot(
     long PendingCount,
     long DeadLetterCount,
     DateTimeOffset? OldestUnprocessedOccurredAtUtc);
+
+/// <summary>旧 Outbox 中某一事件流最后写入事件的稳定边界。</summary>
+public sealed record OutboxStreamCutoffSnapshot(
+    Guid EventId,
+    DateTimeOffset OccurredAtUtc);
