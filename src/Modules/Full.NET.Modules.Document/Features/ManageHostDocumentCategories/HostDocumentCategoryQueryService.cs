@@ -36,6 +36,10 @@ internal sealed class HostDocumentCategoryQueryService(IQueryExecutor queryExecu
             record.ParentId,
             record.Name,
             record.SortOrder,
+            record.Code,
+            record.Icon,
+            record.Color,
+            record.Description,
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);

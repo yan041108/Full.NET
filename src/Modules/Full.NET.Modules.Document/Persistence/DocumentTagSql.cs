@@ -2,10 +2,18 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Document.Persistence;
 
+/// <summary>
+/// 文档标签 Dapper SQL 语句集。投影列顺序与 DocumentTagRecord 保持一致，
+/// 包含新增的 Code/Icon/Description 三列并与 Category 统一字段顺序。
+/// </summary>
 internal static class DocumentTagSql
 {
+    /// <summary>
+    /// 标签投影列，顺序：Id, Name, Code, Icon, Color, Description, UseCount, CreatedAtUtc, UpdatedAtUtc, Version。
+    /// 与 DocumentTagRecord 属性顺序对齐，确保 Dapper 直接映射。
+    /// </summary>
     private const string Projection = """
-        Id, Name, CreatedAtUtc, UpdatedAtUtc, Version
+        Id, Name, Code, Icon, Color, Description, UseCount, CreatedAtUtc, UpdatedAtUtc, Version
         """;
 
     public static readonly SqlStatement ListActive = new(
@@ -36,25 +44,35 @@ internal static class DocumentTagSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>
+    /// 插入标签。新增 Code/Icon/Color/Description 列，列顺序与 Projection 中的业务字段顺序一致。
+    /// </summary>
     public static readonly SqlStatement Insert = new(
         "document.host_tag.insert",
         """
         INSERT INTO fn_document_tag
-            (Id, TenantId, Name,
+            (Id, TenantId, Name, Code, Icon, Color, Description, UseCount,
              IsDeleted, DeletedAtUtc, DeletedByUserId,
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
-            (@Id, NULL, @Name,
+            (@Id, NULL, @Name, @Code, @Icon, @Color, @Description, @UseCount,
              0, NULL, NULL,
              @CreatedAtUtc, NULL, @Version)
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>
+    /// 更新标签。同步写入 Code/Icon/Color/Description 四列，保持与 Category 更新语句的字段顺序一致。
+    /// </summary>
     public static readonly SqlStatement Update = new(
         "document.host_tag.update",
         """
         UPDATE fn_document_tag
         SET Name = @Name,
+            Code = @Code,
+            Icon = @Icon,
+            Color = @Color,
+            Description = @Description,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @Id

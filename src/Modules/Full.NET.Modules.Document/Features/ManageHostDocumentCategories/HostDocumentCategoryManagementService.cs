@@ -25,8 +25,9 @@ internal sealed class HostDocumentCategoryManagementService(
             return Task.FromResult(Invalid());
         }
 
+        // 修复：传递新字段 Code/Icon/Color/Description 到 CreateCoreAsync，确保写入SQL时不丢失数据
         return transaction.ExecuteAsync(
-            token => CreateCoreAsync(request.ParentId, name, request.SortOrder, token),
+            token => CreateCoreAsync(request.ParentId, name, request.SortOrder, request.Code, request.Icon, request.Color, request.Description, token),
             cancellationToken);
     }
 
@@ -40,8 +41,9 @@ internal sealed class HostDocumentCategoryManagementService(
             return Task.FromResult(Invalid());
         }
 
+        // 修复：传递新字段 Code/Icon/Color/Description 到 UpdateCoreAsync，确保更新SQL时同步写入
         return transaction.ExecuteAsync(
-            token => UpdateCoreAsync(categoryId, request.ParentId, name, request.SortOrder, request.Version, token),
+            token => UpdateCoreAsync(categoryId, request.ParentId, name, request.SortOrder, request.Code, request.Icon, request.Color, request.Description, request.Version, token),
             cancellationToken);
     }
 
@@ -61,10 +63,15 @@ internal sealed class HostDocumentCategoryManagementService(
             cancellationToken);
     }
 
+    // 修复：CreateCoreAsync 方法签名新增 code/icon/color/description 参数，与 Contracts 和 SQL 列对齐
     private async Task<Result<HostDocumentCategoryResponse>> CreateCoreAsync(
         Guid? parentId,
         string name,
         int sortOrder,
+        string? code,
+        string? icon,
+        string? color,
+        string? description,
         CancellationToken cancellationToken)
     {
         if (parentId is not null)
@@ -88,6 +95,7 @@ internal sealed class HostDocumentCategoryManagementService(
 
         var id = idGenerator.NewId();
         var now = clock.UtcNow;
+        // 修复：Insert SQL 匿名对象补齐 Code/Icon/Color/Description 四个新字段，确保写入数据库完整
         await commandExecutor.ExecuteAsync(
                 DocumentCategorySql.Insert,
                 new
@@ -96,6 +104,10 @@ internal sealed class HostDocumentCategoryManagementService(
                     ParentId = parentId,
                     Name = name,
                     SortOrder = sortOrder,
+                    Code = code,
+                    Icon = icon,
+                    Color = color,
+                    Description = description,
                     CreatedAtUtc = now,
                     Version = 1,
                 },
@@ -105,11 +117,16 @@ internal sealed class HostDocumentCategoryManagementService(
         return await queries.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
+    // 修复：UpdateCoreAsync 方法签名新增 code/icon/color/description 参数，与 Contracts 和 SQL 列对齐
     private async Task<Result<HostDocumentCategoryResponse>> UpdateCoreAsync(
         Guid categoryId,
         Guid? parentId,
         string name,
         int sortOrder,
+        string? code,
+        string? icon,
+        string? color,
+        string? description,
         long version,
         CancellationToken cancellationToken)
     {
@@ -143,6 +160,7 @@ internal sealed class HostDocumentCategoryManagementService(
         }
 
         var now = clock.UtcNow;
+        // 修复：Update SQL 匿名对象补齐 Code/Icon/Color/Description 四个新字段，确保更新操作完整写入
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentCategorySql.Update,
                 new
@@ -151,6 +169,10 @@ internal sealed class HostDocumentCategoryManagementService(
                     ParentId = parentId,
                     Name = name,
                     SortOrder = sortOrder,
+                    Code = code,
+                    Icon = icon,
+                    Color = color,
+                    Description = description,
                     UpdatedAtUtc = now,
                     Version = version,
                 },

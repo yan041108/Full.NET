@@ -20,6 +20,19 @@ public static class DocumentErrorCodes
     public const string TagNameExists = "document.host_tag.name_exists";
     public const string TagVersionConflict = "document.host_tag.version_conflict";
     public const string TagInUse = "document.host_tag.in_use";
+    public const string ShareNotFound = "document.share.not_found";
+    public const string ShareCodeExists = "document.share.code_exists";
+    public const string ShareInvalid = "document.share.invalid";
+    public const string PermissionInvalid = "document.permission.invalid";
+    public const string RecycleItemNotFound = "document.recycle.not_found";
+    public const string RecyclePurgeFailed = "document.host_recycle_bin.purge_failed";
+    public const string ShareVersionConflict = "document.host_share.version_conflict";
+    public const string ShareCodeNotFound = "document.host_share.code_not_found";
+    public const string ShareExpired = "document.host_share.expired";
+    public const string ShareDisabled = "document.host_share.disabled";
+    public const string ShareMaxAccessReached = "document.host_share.max_access_reached";
+    public const string SharePasswordRequired = "document.host_share.password_required";
+    public const string PermissionDocumentNotFound = "document.host_permission.document_not_found";
 
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -40,5 +53,18 @@ public static class DocumentErrorCodes
         TagNameExists,
         TagVersionConflict,
         TagInUse,
+        ShareNotFound,
+        ShareCodeExists,
+        ShareInvalid,
+        PermissionInvalid,
+        RecycleItemNotFound,
+        RecyclePurgeFailed,
+        ShareVersionConflict,
+        ShareCodeNotFound,
+        ShareExpired,
+        ShareDisabled,
+        ShareMaxAccessReached,
+        SharePasswordRequired,
+        PermissionDocumentNotFound,
     ]);
 }

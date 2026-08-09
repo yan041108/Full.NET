@@ -20,4 +20,9 @@
   <data name="document.host_tag.name_exists" xml:space="preserve"><value>A tag with the same name already exists.</value></data>
   <data name="document.host_tag.version_conflict" xml:space="preserve"><value>The tag was updated by another operation.</value></data>
   <data name="document.host_tag.in_use" xml:space="preserve"><value>The tag is assigned to documents.</value></data>
+  <data name="document.share.not_found" xml:space="preserve"><value>The document share was not found.</value></data>
+  <data name="document.share.code_exists" xml:space="preserve"><value>The share code already exists.</value></data>
+  <data name="document.share.invalid" xml:space="preserve"><value>The share request is invalid.</value></data>
+  <data name="document.permission.invalid" xml:space="preserve"><value>The permission request is invalid.</value></data>
+  <data name="document.recycle.not_found" xml:space="preserve"><value>The recycled document item was not found.</value></data>
 </root>

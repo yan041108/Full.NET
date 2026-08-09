@@ -194,46 +194,131 @@ export type {
   HostFilePage
 } from './host-files.js';
 
-export {
-  isHostDocumentCategory,
-  isHostDocumentCategoryList
-} from './host-document-categories.js';
-
-export type {
-  CreateHostDocumentCategoryRequest,
-  DeleteHostDocumentCategoryRequest,
-  HostDocumentCategory,
-  UpdateHostDocumentCategoryRequest
-} from './host-document-categories.js';
+// 旧版 host-document-categories / host-document-tags / host-document-items 已由
+// 新版 document-categories / document-tags / document-items 替代（字段对齐Admin.NET：
+// code/icon/color/description/useCount）。为避免同名类型重复标识符冲突，
+// 旧版不再从 barrel 暴露；仅内部 API 层仍可直接从文件路径引用。
+// 注意：document-items 类型名部分带有 Response/Page 后缀，替代原先的简略类型名。
 
 export {
-  isHostDocumentItem,
+  HOST_DOCUMENT_STATUSES,
+  HOST_DOCUMENT_TYPES,
+  isAddHostDocumentVersionRequest,
+  isCreateHostDocumentItemRequest,
+  isDeleteHostDocumentItemRequest,
   isHostDocumentItemPage,
-  isHostDocumentVersion
-} from './host-document-items.js';
+  isHostDocumentItemResponse,
+  isHostDocumentStatus,
+  isHostDocumentTagAssignmentResponse,
+  isHostDocumentType,
+  isHostDocumentVersionResponse,
+  isRestoreHostDocumentItemRequest,
+  isUpdateHostDocumentItemRequest
+} from './document-items.js';
 
 export type {
   AddHostDocumentVersionRequest,
   CreateHostDocumentItemRequest,
   DeleteHostDocumentItemRequest,
-  HostDocumentItem,
   HostDocumentItemPage,
-  HostDocumentVersion,
+  HostDocumentItemResponse,
+  HostDocumentStatus,
+  HostDocumentTagAssignmentResponse,
+  HostDocumentType,
+  HostDocumentVersionResponse,
   RestoreHostDocumentItemRequest,
   UpdateHostDocumentItemRequest
-} from './host-document-items.js';
+} from './document-items.js';
 
 export {
-  isHostDocumentTag,
-  isHostDocumentTagList
-} from './host-document-tags.js';
+  isCreateHostDocumentCategoryRequest,
+  isDeleteHostDocumentCategoryRequest,
+  isHostDocumentCategoryResponse,
+  isHostDocumentCategoryResponseList,
+  isUpdateHostDocumentCategoryRequest
+} from './document-categories.js';
+
+export type {
+  CreateHostDocumentCategoryRequest,
+  DeleteHostDocumentCategoryRequest,
+  HostDocumentCategoryResponse,
+  UpdateHostDocumentCategoryRequest
+} from './document-categories.js';
+
+export {
+  isCreateHostDocumentTagRequest,
+  isDeleteHostDocumentTagRequest,
+  isHostDocumentTagResponse,
+  isHostDocumentTagResponseList,
+  isUpdateHostDocumentTagRequest
+} from './document-tags.js';
 
 export type {
   CreateHostDocumentTagRequest,
   DeleteHostDocumentTagRequest,
-  HostDocumentTag,
+  HostDocumentTagResponse,
   UpdateHostDocumentTagRequest
-} from './host-document-tags.js';
+} from './document-tags.js';
+
+export {
+  HOST_DOCUMENT_PERMISSION_OBJECT_TYPES,
+  HOST_DOCUMENT_PERMISSION_TYPES,
+  isHostDocumentPermissionEntryRequest,
+  isHostDocumentPermissionObjectType,
+  isHostDocumentPermissionResponse,
+  isHostDocumentPermissionResponseList,
+  isHostDocumentPermissionType,
+  isSetHostDocumentPermissionsRequest
+} from './document-permissions.js';
+
+export type {
+  HostDocumentPermissionEntryRequest,
+  HostDocumentPermissionObjectType,
+  HostDocumentPermissionResponse,
+  HostDocumentPermissionType,
+  SetHostDocumentPermissionsRequest
+} from './document-permissions.js';
+
+export {
+  HOST_DOCUMENT_SHARE_PERMISSIONS,
+  isCreateHostDocumentShareRequest,
+  isHostDocumentSharePage,
+  isHostDocumentSharePermission,
+  isHostDocumentShareResponse,
+  isUpdateHostDocumentShareStatusRequest
+} from './document-shares.js';
+
+export type {
+  CreateHostDocumentShareRequest,
+  HostDocumentSharePage,
+  HostDocumentSharePermission,
+  HostDocumentShareResponse,
+  UpdateHostDocumentShareStatusRequest
+} from './document-shares.js';
+
+export {
+  isHostDocumentCategoryStatisticsItem,
+  isHostDocumentStatisticsResponse,
+  isHostDocumentTypeStatisticsItem
+} from './document-statistics.js';
+
+export type {
+  HostDocumentCategoryStatisticsItem,
+  HostDocumentStatisticsResponse,
+  HostDocumentTypeStatisticsItem
+} from './document-statistics.js';
+
+export {
+  isHostRecycleBinItemResponse,
+  isHostRecycleBinPage,
+  isRestoreHostRecycleBinItemRequest
+} from './document-recycle-bin.js';
+
+export type {
+  HostRecycleBinItemResponse,
+  HostRecycleBinPage,
+  RestoreHostRecycleBinItemRequest
+} from './document-recycle-bin.js';
 
 export {
   isHostDashboardActivity,

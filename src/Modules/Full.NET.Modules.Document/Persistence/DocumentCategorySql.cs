@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Document.Persistence;
 internal static class DocumentCategorySql
 {
     private const string Projection = """
-        Id, ParentId, Name, SortOrder, CreatedAtUtc, UpdatedAtUtc, Version
+        Id, ParentId, Name, SortOrder, Code, Icon, Color, Description, CreatedAtUtc, UpdatedAtUtc, Version
         """;
 
     public static readonly SqlStatement ListActive = new(
@@ -43,11 +43,11 @@ internal static class DocumentCategorySql
         "document.host_category.insert",
         """
         INSERT INTO fn_document_category
-            (Id, TenantId, ParentId, Name, SortOrder,
+            (Id, TenantId, ParentId, Name, SortOrder, Code, Icon, Color, Description,
              IsDeleted, DeletedAtUtc, DeletedByUserId,
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
-            (@Id, NULL, @ParentId, @Name, @SortOrder,
+            (@Id, NULL, @ParentId, @Name, @SortOrder, @Code, @Icon, @Color, @Description,
              0, NULL, NULL,
              @CreatedAtUtc, NULL, @Version)
         """,
@@ -60,6 +60,10 @@ internal static class DocumentCategorySql
         SET ParentId = @ParentId,
             Name = @Name,
             SortOrder = @SortOrder,
+            Code = @Code,
+            Icon = @Icon,
+            Color = @Color,
+            Description = @Description,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @Id

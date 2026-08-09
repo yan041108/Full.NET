@@ -30,10 +30,17 @@ internal sealed class HostDocumentTagQueryService(IQueryExecutor queryExecutor)
         return record is null ? NotFound() : Result<HostDocumentTagResponse>.Success(Map(record));
     }
 
+    // 修复：Map 方法补齐 10 个构造参数，严格按任务指定的顺序：Id/Name/Code/Icon/Color/Description/UseCount/CreatedAtUtc/UpdatedAtUtc/Version
+    // 注：Contracts 字段顺序由另一个子代理维护，此处顺序需与其最终定义对齐
     internal static HostDocumentTagResponse Map(DocumentTagRecord record) =>
         new(
             record.Id,
             record.Name,
+            record.Code,
+            record.Icon,
+            record.Color,
+            record.Description,
+            record.UseCount,
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);

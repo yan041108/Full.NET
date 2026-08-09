@@ -16,12 +16,16 @@ export async function listHostDocumentCategories(): Promise<HostDocumentCategory
 export async function createHostDocumentCategory(
   name: string,
   parentId: string | null,
-  sortOrder: number
+  sortOrder: number,
+  code: string | null,
+  icon: string | null,
+  color: string | null,
+  description: string | null
 ): Promise<HostDocumentCategory> {
   const value = await request<unknown>('/api/v1/document/host/categories', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name, parentId, sortOrder })
+    body: JSON.stringify({ name, parentId, sortOrder, code, icon, color, description })
   });
   if (!isHostDocumentCategory(value)) {
     throw new Error('client.invalid_host_document_category');
@@ -34,6 +38,10 @@ export async function updateHostDocumentCategory(
   name: string,
   parentId: string | null,
   sortOrder: number,
+  code: string | null,
+  icon: string | null,
+  color: string | null,
+  description: string | null,
   version: number
 ): Promise<HostDocumentCategory> {
   const value = await request<unknown>(
@@ -41,7 +49,7 @@ export async function updateHostDocumentCategory(
     {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, parentId, sortOrder, version })
+      body: JSON.stringify({ name, parentId, sortOrder, code, icon, color, description, version })
     }
   );
   if (!isHostDocumentCategory(value)) {

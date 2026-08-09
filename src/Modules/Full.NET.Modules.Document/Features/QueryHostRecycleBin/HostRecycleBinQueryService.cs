@@ -3,15 +3,13 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Features;
 using Full.NET.Modules.Document.Persistence;
-using Full.NET.Modules.Files.Contracts;
 using Microsoft.Extensions.Options;
 
-namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
+namespace Full.NET.Modules.Document.Features.QueryHostRecycleBin;
 
-internal sealed class HostDocumentItemQueryService(
+internal sealed class HostRecycleBinQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IQueryExecutor queryExecutor,
-    IHostFileContentReader hostFileContentReader,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<HostDocumentItemResponse>>> ListAsync(
@@ -22,12 +20,14 @@ internal sealed class HostDocumentItemQueryService(
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
+
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => DocumentItemSql.PageSqlServer,
-            DatabaseProvider.MySql => DocumentItemSql.PageMySql,
+            DatabaseProvider.SqlServer => DocumentItemSql.RecyclePageSqlServer,
+            DatabaseProvider.MySql => DocumentItemSql.RecyclePageMySql,
             _ => throw new InvalidOperationException("The configured database provider is not supported."),
         };
+
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
                 new { Offset = offset, PageSize = pageSize },
@@ -48,53 +48,29 @@ internal sealed class HostDocumentItemQueryService(
                 pageResult.Total));
     }
 
-    public async Task<Result<HostDocumentItemResponse>> GetByIdAsync(
+    public async Task<Result<HostDocumentItemResponse>> GetDeletedByIdAsync(
         Guid itemId,
         CancellationToken cancellationToken = default)
     {
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
-                DocumentItemSql.FindActiveById,
+                DocumentItemSql.FindDeletedById,
                 new { Id = itemId },
                 cancellationToken)
             .ConfigureAwait(false);
-        return record is null ? NotFound() : Result<HostDocumentItemResponse>.Success(Map(record));
+
+        return record is null
+            ? NotFound()
+            : Result<HostDocumentItemResponse>.Success(Map(record));
     }
 
-    public async Task<Result<HostFileContent>> OpenCurrentVersionContentAsync(
-        Guid itemId,
-        CancellationToken cancellationToken = default)
-    {
-        var record = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
-                DocumentItemSql.FindActiveById,
-                new { Id = itemId },
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (record is null)
-        {
-            return Result<HostFileContent>.Failure(NotFoundError());
-        }
-
-        if (record.FileId is null)
-        {
-            return Result<HostFileContent>.Failure(NoCurrentVersionError());
-        }
-
-        return await hostFileContentReader
-            .OpenReadyContentAsync(record.FileId.Value, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private static HostDocumentItemResponse Map(DocumentItemDetailRecord record) =>
+    internal static HostDocumentItemResponse Map(DocumentItemDetailRecord record) =>
         HostDocumentItemResponseMapper.Map(record);
 
     private static Result<HostDocumentItemResponse> NotFound() =>
-        Result<HostDocumentItemResponse>.Failure(NotFoundError());
-
-    private static Error NotFoundError() =>
-        new(DocumentErrorCodes.NotFound, "Document item was not found.", ErrorType.NotFound);
-
-    private static Error NoCurrentVersionError() =>
-        new(DocumentErrorCodes.NoCurrentVersion, "Document item has no downloadable version.", ErrorType.NotFound);
+        Result<HostDocumentItemResponse>.Failure(
+            new Error(
+                DocumentErrorCodes.RecycleItemNotFound,
+                "Recycle bin item was not found.",
+                ErrorType.NotFound));
 }

@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Document.Features;
 using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Files.Contracts;
 
@@ -161,18 +162,7 @@ internal sealed class HostDocumentItemManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return Result<HostDocumentItemResponse>.Success(
-            new HostDocumentItemResponse(
-                id,
-                request.Title.Trim(),
-                request.Description?.Trim(),
-                null,
-                null,
-                now,
-                actorUserId,
-                null,
-                null,
-                1));
+        return await ReloadActiveAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<HostDocumentItemResponse>> UpdateCoreAsync(
@@ -402,26 +392,7 @@ internal sealed class HostDocumentItemManagementService(
     }
 
     private static HostDocumentItemResponse Map(DocumentItemDetailRecord record) =>
-        new(
-            record.Id,
-            record.Title,
-            record.Description,
-            record.CategoryId,
-            record.VersionId is null
-                ? null
-                : new HostDocumentVersionResponse(
-                    record.VersionId.Value,
-                    record.VersionNumber!.Value,
-                    record.FileId!.Value,
-                    record.ContentHash,
-                    record.SizeBytes!.Value,
-                    record.VersionCreatedAtUtc!.Value,
-                    record.UploadedByUserId!.Value),
-            record.CreatedAtUtc,
-            record.CreatedByUserId,
-            record.UpdatedAtUtc,
-            record.UpdatedByUserId,
-            record.Version);
+        HostDocumentItemResponseMapper.Map(record);
 
     private static Result<HostDocumentItemResponse> MapClaimFailure(Error error) =>
         string.Equals(error.Code, FilesErrorCodes.FileNotFound, StringComparison.Ordinal)

@@ -25,8 +25,9 @@ internal sealed class HostDocumentTagManagementService(
             return Task.FromResult(Invalid());
         }
 
+        // 修复：传递新字段 Code/Icon/Color/Description 到 CreateCoreAsync，确保写入SQL时不丢失数据
         return transaction.ExecuteAsync(
-            token => CreateCoreAsync(name, token),
+            token => CreateCoreAsync(name, request.Code, request.Icon, request.Color, request.Description, token),
             cancellationToken);
     }
 
@@ -40,8 +41,9 @@ internal sealed class HostDocumentTagManagementService(
             return Task.FromResult(Invalid());
         }
 
+        // 修复：传递新字段 Code/Icon/Color/Description 到 UpdateCoreAsync，确保更新SQL时同步写入
         return transaction.ExecuteAsync(
-            token => UpdateCoreAsync(tagId, name, request.Version, token),
+            token => UpdateCoreAsync(tagId, name, request.Code, request.Icon, request.Color, request.Description, request.Version, token),
             cancellationToken);
     }
 
@@ -61,8 +63,13 @@ internal sealed class HostDocumentTagManagementService(
             cancellationToken);
     }
 
+    // 修复：CreateCoreAsync 方法签名新增 code/icon/color/description 参数，与 Contracts 和 SQL 列对齐
     private async Task<Result<HostDocumentTagResponse>> CreateCoreAsync(
         string name,
+        string? code,
+        string? icon,
+        string? color,
+        string? description,
         CancellationToken cancellationToken)
     {
         if (await FindNameConflictAsync(name, null, cancellationToken).ConfigureAwait(false))
@@ -72,12 +79,18 @@ internal sealed class HostDocumentTagManagementService(
 
         var id = idGenerator.NewId();
         var now = clock.UtcNow;
+        // 修复：Insert SQL 匿名对象补齐 Code/Icon/Color/Description/UseCount，UseCount 新标签默认 0
         await commandExecutor.ExecuteAsync(
                 DocumentTagSql.Insert,
                 new
                 {
                     Id = id,
                     Name = name,
+                    Code = code,
+                    Icon = icon,
+                    Color = color,
+                    Description = description,
+                    UseCount = 0,
                     CreatedAtUtc = now,
                     Version = 1,
                 },
@@ -87,9 +100,14 @@ internal sealed class HostDocumentTagManagementService(
         return await queries.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
+    // 修复：UpdateCoreAsync 方法签名新增 code/icon/color/description 参数，与 Contracts 和 SQL 列对齐
     private async Task<Result<HostDocumentTagResponse>> UpdateCoreAsync(
         Guid tagId,
         string name,
+        string? code,
+        string? icon,
+        string? color,
+        string? description,
         long version,
         CancellationToken cancellationToken)
     {
@@ -104,12 +122,17 @@ internal sealed class HostDocumentTagManagementService(
         }
 
         var now = clock.UtcNow;
+        // 修复：Update SQL 匿名对象补齐 Code/Icon/Color/Description 四个新字段，确保更新操作完整写入
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentTagSql.Update,
                 new
                 {
                     Id = tagId,
                     Name = name,
+                    Code = code,
+                    Icon = icon,
+                    Color = color,
+                    Description = description,
                     UpdatedAtUtc = now,
                     Version = version,
                 },

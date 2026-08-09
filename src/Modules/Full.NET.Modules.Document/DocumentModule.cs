@@ -36,6 +36,13 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagManagementService>();
+        services.TryAddScoped<Features.QueryHostRecycleBin.HostRecycleBinQueryService>();
+        services.TryAddScoped<Features.QueryHostRecycleBin.HostRecycleBinManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentPermissions.HostDocumentPermissionQueryService>();
+        services.TryAddScoped<Features.ManageHostDocumentPermissions.HostDocumentPermissionManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentShares.HostDocumentShareQueryService>();
+        services.TryAddScoped<Features.ManageHostDocumentShares.HostDocumentShareManagementService>();
+        services.TryAddScoped<Features.QueryHostDocumentStatistics.HostDocumentStatisticsQueryService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileRetentionContributor,
             Features.HostFileReferences.DocumentHostFileRetentionContributor>());
@@ -53,6 +60,10 @@ public sealed class DocumentModule : IFullNetModule
         Features.ManageHostDocumentItems.Endpoint.Map(endpoints);
         Features.ManageHostDocumentCategories.Endpoint.Map(endpoints);
         Features.ManageHostDocumentTags.Endpoint.Map(endpoints);
+        Features.QueryHostRecycleBin.Endpoint.Map(endpoints);
+        Features.ManageHostDocumentPermissions.Endpoint.Map(endpoints);
+        Features.ManageHostDocumentShares.Endpoint.Map(endpoints);
+        Features.QueryHostDocumentStatistics.Endpoint.Map(endpoints);
     }
 
     public void AddBackgroundServices(

@@ -1,10 +1,7 @@
-export interface HostDocumentTag {
+export interface HostDocumentTagResponse {
   id: string;
   name: string;
-  code: string | null;
-  icon: string | null;
   color: string | null;
-  description: string | null;
   useCount: number;
   createdAtUtc: string;
   updatedAtUtc: string | null;
@@ -14,17 +11,11 @@ export interface HostDocumentTag {
 export interface CreateHostDocumentTagRequest {
   name: string;
   color?: string | null;
-  code?: string | null;
-  icon?: string | null;
-  description?: string | null;
 }
 
 export interface UpdateHostDocumentTagRequest {
   name: string;
   color?: string | null;
-  code?: string | null;
-  icon?: string | null;
-  description?: string | null;
   version: number;
 }
 
@@ -50,20 +41,35 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
-export function isHostDocumentTag(value: unknown): value is HostDocumentTag {
+export function isHostDocumentTagResponse(value: unknown): value is HostDocumentTagResponse {
   return isRecord(value)
     && isGuid(value.id)
     && isNonEmptyString(value.name)
-    && isNullableString(value.code)
-    && isNullableString(value.icon)
     && isNullableString(value.color)
-    && isNullableString(value.description)
     && Number.isInteger(value.useCount)
     && typeof value.createdAtUtc === 'string'
     && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
     && Number.isInteger(value.version);
 }
 
-export function isHostDocumentTagList(value: unknown): value is HostDocumentTag[] {
-  return Array.isArray(value) && value.every(isHostDocumentTag);
+export function isHostDocumentTagResponseList(value: unknown): value is HostDocumentTagResponse[] {
+  return Array.isArray(value) && value.every(isHostDocumentTagResponse);
+}
+
+export function isCreateHostDocumentTagRequest(value: unknown): value is CreateHostDocumentTagRequest {
+  return isRecord(value)
+    && isNonEmptyString(value.name)
+    && (value.color === undefined || isNullableString(value.color));
+}
+
+export function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocumentTagRequest {
+  return isRecord(value)
+    && isNonEmptyString(value.name)
+    && (value.color === undefined || isNullableString(value.color))
+    && Number.isInteger(value.version);
+}
+
+export function isDeleteHostDocumentTagRequest(value: unknown): value is DeleteHostDocumentTagRequest {
+  return isRecord(value)
+    && Number.isInteger(value.version);
 }

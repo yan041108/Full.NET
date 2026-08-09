@@ -13,11 +13,17 @@ export async function listHostDocumentTags(): Promise<HostDocumentTag[]> {
   return value;
 }
 
-export async function createHostDocumentTag(name: string): Promise<HostDocumentTag> {
+export async function createHostDocumentTag(
+  name: string,
+  code: string | null,
+  icon: string | null,
+  color: string | null,
+  description: string | null
+): Promise<HostDocumentTag> {
   const value = await request<unknown>('/api/v1/document/host/tags', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name })
+    body: JSON.stringify({ name, code, icon, color, description })
   });
   if (!isHostDocumentTag(value)) {
     throw new Error('client.invalid_host_document_tag');
@@ -28,6 +34,10 @@ export async function createHostDocumentTag(name: string): Promise<HostDocumentT
 export async function updateHostDocumentTag(
   id: string,
   name: string,
+  code: string | null,
+  icon: string | null,
+  color: string | null,
+  description: string | null,
   version: number
 ): Promise<HostDocumentTag> {
   const value = await request<unknown>(
@@ -35,7 +45,7 @@ export async function updateHostDocumentTag(
     {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, version })
+      body: JSON.stringify({ name, code, icon, color, description, version })
     }
   );
   if (!isHostDocumentTag(value)) {

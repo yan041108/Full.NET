@@ -1,4 +1,4 @@
-export interface HostDocumentCategory {
+export interface HostDocumentCategoryResponse {
   id: string;
   parentId: string | null;
   name: string;
@@ -59,7 +59,7 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
-export function isHostDocumentCategory(value: unknown): value is HostDocumentCategory {
+export function isHostDocumentCategoryResponse(value: unknown): value is HostDocumentCategoryResponse {
   return isRecord(value)
     && isGuid(value.id)
     && isNullableGuid(value.parentId)
@@ -74,6 +74,34 @@ export function isHostDocumentCategory(value: unknown): value is HostDocumentCat
     && Number.isInteger(value.version);
 }
 
-export function isHostDocumentCategoryList(value: unknown): value is HostDocumentCategory[] {
-  return Array.isArray(value) && value.every(isHostDocumentCategory);
+export function isHostDocumentCategoryResponseList(value: unknown): value is HostDocumentCategoryResponse[] {
+  return Array.isArray(value) && value.every(isHostDocumentCategoryResponse);
+}
+
+export function isCreateHostDocumentCategoryRequest(value: unknown): value is CreateHostDocumentCategoryRequest {
+  return isRecord(value)
+    && isNonEmptyString(value.name)
+    && (value.parentId === undefined || isNullableGuid(value.parentId))
+    && Number.isInteger(value.sortOrder)
+    && (value.code === undefined || isNullableString(value.code))
+    && (value.icon === undefined || isNullableString(value.icon))
+    && (value.color === undefined || isNullableString(value.color))
+    && (value.description === undefined || isNullableString(value.description));
+}
+
+export function isUpdateHostDocumentCategoryRequest(value: unknown): value is UpdateHostDocumentCategoryRequest {
+  return isRecord(value)
+    && isNonEmptyString(value.name)
+    && (value.parentId === undefined || isNullableGuid(value.parentId))
+    && Number.isInteger(value.sortOrder)
+    && (value.code === undefined || isNullableString(value.code))
+    && (value.icon === undefined || isNullableString(value.icon))
+    && (value.color === undefined || isNullableString(value.color))
+    && (value.description === undefined || isNullableString(value.description))
+    && Number.isInteger(value.version);
+}
+
+export function isDeleteHostDocumentCategoryRequest(value: unknown): value is DeleteHostDocumentCategoryRequest {
+  return isRecord(value)
+    && Number.isInteger(value.version);
 }

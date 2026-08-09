@@ -25,6 +25,15 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentTagPermissions.Create, "创建 Host 文档标签", AuthorizationScope.Host),
         new(HostDocumentTagPermissions.Update, "更新 Host 文档标签", AuthorizationScope.Host),
         new(HostDocumentTagPermissions.Delete, "删除 Host 文档标签", AuthorizationScope.Host),
+        new(HostDocumentRecycleBinPermissions.Read, "读取 Host 回收站", AuthorizationScope.Host),
+        new(HostDocumentRecycleBinPermissions.Restore, "恢复 Host 回收站文档", AuthorizationScope.Host),
+        new(HostDocumentRecycleBinPermissions.Purge, "彻底删除 Host 回收站文档", AuthorizationScope.Host),
+        new(HostDocumentPermissionManagementPermissions.Read, "读取 Host 文档权限", AuthorizationScope.Host),
+        new(HostDocumentPermissionManagementPermissions.Manage, "管理 Host 文档权限", AuthorizationScope.Host),
+        new(HostDocumentSharePermissions.Read, "读取 Host 文档分享", AuthorizationScope.Host),
+        new(HostDocumentSharePermissions.Create, "创建 Host 文档分享", AuthorizationScope.Host),
+        new(HostDocumentSharePermissions.UpdateStatus, "更新 Host 文档分享状态", AuthorizationScope.Host),
+        new(HostDocumentStatisticsPermissions.Read, "读取 Host 文档统计", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -62,6 +71,39 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "price-tag",
             73,
             HostDocumentTagPermissions.Read),
+        new NavigationDefinition(
+            "document-recycle-bin",
+            null,
+            "document-recycle-bin",
+            "/document/recycle-bin",
+            "document-recycle-bin",
+            "文档回收站",
+            "Document Recycle Bin",
+            "delete",
+            74,
+            HostDocumentRecycleBinPermissions.Read),
+        new NavigationDefinition(
+            "document-shares",
+            null,
+            "document-shares",
+            "/document/shares",
+            "document-shares",
+            "文档分享",
+            "Document Shares",
+            "share",
+            75,
+            HostDocumentSharePermissions.Read),
+        new NavigationDefinition(
+            "document-statistics",
+            null,
+            "document-statistics",
+            "/document/statistics",
+            "document-statistics",
+            "文档统计",
+            "Document Statistics",
+            "chart-bar",
+            76,
+            HostDocumentStatisticsPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -150,5 +192,40 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "删除标签",
             "delete",
             30),
+        new AuthorizationActionDefinition(
+            "document.host_recycle_bin.restore",
+            "document-recycle-bin",
+            HostDocumentRecycleBinPermissions.Restore,
+            "恢复文档",
+            "restore",
+            10),
+        new AuthorizationActionDefinition(
+            "document.host_recycle_bin.purge",
+            "document-recycle-bin",
+            HostDocumentRecycleBinPermissions.Purge,
+            "彻底删除",
+            "purge",
+            20),
+        new AuthorizationActionDefinition(
+            "document.host_permissions.manage",
+            "host-document-items",
+            HostDocumentPermissionManagementPermissions.Manage,
+            "管理权限",
+            "manage_permissions",
+            60),
+        new AuthorizationActionDefinition(
+            "document.host_shares.create",
+            "document-shares",
+            HostDocumentSharePermissions.Create,
+            "创建分享",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "document.host_shares.update_status",
+            "document-shares",
+            HostDocumentSharePermissions.UpdateStatus,
+            "启用/禁用",
+            "update_status",
+            20),
     ];
 }

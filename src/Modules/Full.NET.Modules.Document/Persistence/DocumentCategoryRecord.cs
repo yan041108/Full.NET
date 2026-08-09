@@ -10,6 +10,14 @@ internal sealed class DocumentCategoryRecord
 
     public int SortOrder { get; init; }
 
+    public string? Code { get; init; }
+
+    public string? Icon { get; init; }
+
+    public string? Color { get; init; }
+
+    public string? Description { get; init; }
+
     public DateTimeOffset CreatedAtUtc { get; init; }
 
     public DateTimeOffset? UpdatedAtUtc { get; init; }

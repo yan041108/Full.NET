@@ -967,6 +967,13 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/091_MessagingOutboxInboxExpand.sql",
       "reason": "091 使用静态存储过程收敛追加式 Outbox 时间路径索引；对象名与 DDL 均为脚本内固定常量，并由双库迁移 091 恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/093_DocumentAdminNetParity.sql",
+      "reason": "093 使用静态存储过程 + INFORMATION_SCHEMA 实现文档模块字段补齐的幂等 DDL；所有 DDL 与存储过程名均为脚本内固定常量，无外部输入注入风险；Category/Tag/Item 列顺序与双库迁移恢复测试对齐。",
+      "removalMilestone": "M1.0"
     }
   ]
 }
