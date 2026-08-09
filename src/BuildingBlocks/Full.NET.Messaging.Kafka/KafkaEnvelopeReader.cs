@@ -49,14 +49,16 @@ public sealed class KafkaEnvelopeReader
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(consumeResult.Message.Key))
+        if (!KafkaEnvelopeHeaderParsers.TryParsePartitionKey(
+                consumeResult.Message.Key,
+                out var partitionKey))
         {
             failureCode = IntegrationEventFailureCodes.PartitionKeyRequired;
             return false;
         }
 
         if (!TryGetHeader(consumeResult.Message.Headers, KafkaEnvelopeHeaderNames.EventId, out var eventIdText)
-            || !Guid.TryParse(eventIdText, out var eventId))
+            || !KafkaEnvelopeHeaderParsers.TryParseGuidHeader(eventIdText, out var eventId))
         {
             failureCode = IntegrationEventFailureCodes.ContractPrefix + "event_id_invalid";
             return false;
@@ -88,11 +90,7 @@ public sealed class KafkaEnvelopeReader
         }
 
         if (!TryGetHeader(consumeResult.Message.Headers, KafkaEnvelopeHeaderNames.OccurredAtUtc, out var occurredAtText)
-            || !DateTimeOffset.TryParse(
-                occurredAtText,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out var occurredAtUtc))
+            || !KafkaEnvelopeHeaderParsers.TryParseOccurredAtUtc(occurredAtText, out var occurredAtUtc))
         {
             failureCode = IntegrationEventFailureCodes.ContractPrefix + "occurred_at_invalid";
             return false;
@@ -102,7 +100,7 @@ public sealed class KafkaEnvelopeReader
         if (TryGetHeader(consumeResult.Message.Headers, KafkaEnvelopeHeaderNames.TenantId, out var tenantIdText)
             && !string.IsNullOrWhiteSpace(tenantIdText))
         {
-            if (!Guid.TryParse(tenantIdText, out var parsedTenantId))
+            if (!KafkaEnvelopeHeaderParsers.TryParseGuidHeader(tenantIdText, out var parsedTenantId))
             {
                 failureCode = IntegrationEventFailureCodes.ContractPrefix + "tenant_id_invalid";
                 return false;
@@ -122,7 +120,7 @@ public sealed class KafkaEnvelopeReader
         if (TryGetHeader(consumeResult.Message.Headers, KafkaEnvelopeHeaderNames.CausationId, out var causationIdText)
             && !string.IsNullOrWhiteSpace(causationIdText))
         {
-            if (!Guid.TryParse(causationIdText, out var parsedCausationId))
+            if (!KafkaEnvelopeHeaderParsers.TryParseGuidHeader(causationIdText, out var parsedCausationId))
             {
                 failureCode = IntegrationEventFailureCodes.ContractPrefix + "causation_id_invalid";
                 return false;
@@ -146,7 +144,7 @@ public sealed class KafkaEnvelopeReader
                 schemaVersion,
                 contentType,
                 tenantId,
-                consumeResult.Message.Key,
+                partitionKey,
                 correlationId,
                 causationId,
                 traceParent,

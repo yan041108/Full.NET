@@ -11,6 +11,7 @@ using Full.NET.Migrations.DbUp;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using global::MessagePack;
@@ -60,6 +61,10 @@ internal static class MessagingOutboxTestSupport
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddFullNetDapper(configuration, "Testing");
+        services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
+        services.AddSingleton<IEffectiveEventDeliveryOwnerResolver, AppendOnlyCdcOwnerResolver>();
+        services.RemoveAll<IEventStreamOwnershipGate>();
+        services.AddSingleton<IEventStreamOwnershipGate, PermissiveEventStreamOwnershipGate>();
         services.AddFullNetMessagePack();
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
@@ -73,4 +78,34 @@ internal static class MessagingOutboxTestSupport
             partitionKey,
             "fullnet.messaging.tests",
             correlationId: "messaging-outbox-test");
+
+    private sealed class AppendOnlyCdcOwnerResolver : IEffectiveEventDeliveryOwnerResolver
+    {
+        public Task<EventDeliveryOwner> GetDeliveryOwnerAsync(
+            string eventType,
+            int schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(EventDeliveryOwner.CdcKafka);
+    }
+
+    private sealed class PermissiveEventStreamOwnershipGate : IEventStreamOwnershipGate
+    {
+        public Task<bool> AcquireProducerAsync(
+            string eventType,
+            int schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
+
+        public Task<bool> AcquireConsumerAsync(
+            string eventType,
+            int schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
+
+        public Task<bool> AcquireOwnershipChangeAsync(
+            string eventType,
+            int schemaVersion,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(true);
+    }
 }

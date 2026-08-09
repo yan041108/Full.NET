@@ -48,6 +48,47 @@ public sealed class KafkaEnvelopeReaderTests
     }
 
     [TestMethod]
+    public void TryParseGuidHeader_roundtrips_mysql_binary16_event_id()
+    {
+        var eventId = Guid.Parse("019fe692-7e2d-775a-8c96-b41ae37e9697");
+        Span<byte> bytes = stackalloc byte[16];
+        Assert.IsTrue(eventId.TryWriteBytes(bytes, bigEndian: true, out _));
+        var header = Convert.ToBase64String(bytes);
+
+        Assert.IsTrue(
+            KafkaEnvelopeHeaderParsers.TryParseGuidHeader(header, out var parsed),
+            "parser returned false");
+        Assert.AreEqual(eventId, parsed);
+    }
+
+    [TestMethod]
+    public void TryRead_accepts_debezium_outbox_mysql_binary_uuid_headers()
+    {
+        var eventId = Guid.Parse("019fe692-7e2d-775a-8c96-b41ae37e9697");
+        Span<byte> bytes = stackalloc byte[16];
+        Assert.IsTrue(eventId.TryWriteBytes(bytes, bigEndian: true, out _));
+        var consumeResult = CreateConsumeResult(
+            partitionKey: "019fe692-7e2d-775a-8c96-b41ae37e9697",
+            payload: SamplePayload,
+            new Dictionary<string, string>
+            {
+                [KafkaEnvelopeHeaderNames.EventId] = Convert.ToBase64String(bytes),
+                [KafkaEnvelopeHeaderNames.MessageType] = "fullnet.messaging.outbox.test.event",
+                [KafkaEnvelopeHeaderNames.SchemaVersion] = "1",
+                [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMessagePack,
+                [KafkaEnvelopeHeaderNames.Producer] = "fullnet.messaging.tests",
+                [KafkaEnvelopeHeaderNames.OccurredAtUtc] = "1786279788230443",
+            });
+
+        var reader = new KafkaEnvelopeReader();
+        var succeeded = reader.TryRead(consumeResult, out var envelope, out var failureCode);
+
+        Assert.IsTrue(succeeded, failureCode);
+        Assert.IsNotNull(envelope);
+        Assert.AreEqual(eventId, envelope!.EventId);
+    }
+
+    [TestMethod]
     public void TryRead_rejects_missing_event_id_header()
     {
         var consumeResult = CreateConsumeResult(

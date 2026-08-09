@@ -23,6 +23,8 @@ public static class SharedDatabaseFixture
     // SQL Server 的 sa 与 MySQL 的 root 均使用该口令；MySQL 应用账户与官方表命名保持一致。
     private const string Password = "FullNet_Test!123";
 
+    internal const string MySqlRootPassword = Password;
+
     private const string MySqlAppUser = "fullnet";
 
     private static MsSqlContainer? _sqlServer;
@@ -61,6 +63,7 @@ public static class SharedDatabaseFixture
         }
 
         await Messaging.KafkaFixture.DisposeAsync();
+        await Messaging.CdcDebeziumPipelineFixture.DisposeAsync();
     }
 
     /// <summary>
@@ -103,6 +106,8 @@ public static class SharedDatabaseFixture
             await root.ExecuteAsync($"CREATE DATABASE `{databaseName}`;");
             await root.ExecuteAsync(
                 $"GRANT ALL PRIVILEGES ON `{databaseName}`.* "
+                + $"TO '{MySqlAppUser}'@'%'; "
+                + $"GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* "
                 + $"TO '{MySqlAppUser}'@'%'; FLUSH PRIVILEGES;");
         }
 
@@ -174,6 +179,10 @@ public static class SharedDatabaseFixture
 
             var container = new MySqlBuilder(MySqlImage)
                 .WithCommand("--log-bin-trust-function-creators=1")
+                .WithCommand("--log-bin=mysql-bin")
+                .WithCommand("--binlog-format=ROW")
+                .WithCommand("--binlog-row-image=FULL")
+                .WithCommand("--server-id=1840172600")
                 .WithDatabase("fullnet")
                 .WithUsername(MySqlAppUser)
                 .WithPassword(Password)

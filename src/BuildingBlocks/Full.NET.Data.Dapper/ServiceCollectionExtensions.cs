@@ -120,6 +120,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DapperOutboxWriter>();
         services.AddScoped<DapperAppendOnlyOutboxWriter>();
         services.AddScoped<IEventStreamOwnershipGate, DapperEventStreamOwnershipGate>();
+        services.AddScoped<IEventDeliveryProducerFencePositionReader, DapperEventDeliveryProducerFencePositionReader>();
         services.TryAddScoped<IEffectiveEventDeliveryOwnerResolver, LegacyPollingEventDeliveryOwnerResolver>();
         // 不单独公开 DapperRoutedOutboxWriter 具体类型，业务只依赖 IOutboxWriter。
         // 精简宿主使用 LegacyPolling 兼容解析器；装配 Messaging 模块后会替换为持久化所有权解析器。

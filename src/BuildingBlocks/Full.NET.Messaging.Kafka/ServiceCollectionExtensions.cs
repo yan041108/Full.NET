@@ -1,4 +1,5 @@
-﻿using Full.NET.Messaging.Kafka.Health;
+﻿using Full.NET.Messaging.Abstractions;
+using Full.NET.Messaging.Kafka.Health;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -26,8 +27,41 @@ public static class ServiceCollectionExtensions
             .AddOptions<KafkaMessagingOptions>()
             .Bind(configuration.GetSection(KafkaMessagingOptions.SectionName))
             .ValidateOnStart();
+        services
+            .AddOptions<KafkaConnectRollbackOptions>()
+            .Bind(configuration.GetSection(KafkaConnectRollbackOptions.SectionName));
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<KafkaMessagingOptions>, KafkaMessagingOptionsValidator>());
+
+        services.TryAddSingleton<RollbackControlPlaneFenceRegistry>();
+        services.TryAddSingleton<KafkaConsumerLagObserver>();
+        services.TryAddSingleton<KafkaConnectAdminClient>(serviceProvider =>
+        {
+            var rollbackOptions = serviceProvider
+                .GetRequiredService<IOptions<KafkaConnectRollbackOptions>>()
+                .Value;
+            var httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(
+                    Math.Max(rollbackOptions.PrepareTimeoutSeconds, 30)),
+            };
+            if (!string.IsNullOrWhiteSpace(rollbackOptions.ConnectBaseUri))
+            {
+                httpClient.BaseAddress = new Uri(rollbackOptions.ConnectBaseUri);
+            }
+
+            return new KafkaConnectAdminClient(httpClient);
+        });
+
+        var rollbackOptions = new KafkaConnectRollbackOptions();
+        configuration.GetSection(KafkaConnectRollbackOptions.SectionName).Bind(rollbackOptions);
+        if (rollbackOptions.Enabled)
+        {
+            services.RemoveAll<IEventDeliveryRollbackReadinessReader>();
+            services.TryAddSingleton<
+                IEventDeliveryRollbackReadinessReader,
+                KafkaConnectEventDeliveryRollbackReadinessReader>();
+        }
 
         services.TryAddSingleton<KafkaEnvelopeReader>();
         services.TryAddSingleton<KafkaOffsetCommitter>();
