@@ -8,36 +8,66 @@ internal static class InboxSql
     internal const string StatusProcessed = "processed";
     internal const string StatusFailed = "failed";
 
-    public static readonly SqlStatement SelectExistingSqlServer = new(
-        "messaging.inbox.select_existing.sql_server",
+    public static readonly SqlStatement ClaimSqlServer = new(
+        "messaging.inbox.claim.sql_server",
         """
-        SELECT Status, PayloadHash
+        DECLARE @ExistingStatus varchar(16);
+        DECLARE @ExistingPayloadHash varbinary(32);
+
+        SELECT
+            @ExistingStatus = Status,
+            @ExistingPayloadHash = PayloadHash
         FROM fn_messaging_inbox_message WITH (UPDLOCK, HOLDLOCK)
-        WHERE ConsumerName = @ConsumerName
-          AND MessageId = @MessageId;
+        WHERE ConsumerName = @ConsumerName AND MessageId = @MessageId;
+
+        IF @ExistingStatus IS NULL
+        BEGIN
+            INSERT INTO fn_messaging_inbox_message
+                (ConsumerName, MessageId, MessageType, SchemaVersion, TenantId,
+                 PayloadHash, Status, Attempts, ReceivedAtUtc)
+            VALUES
+                (@ConsumerName, @MessageId, @MessageType, @SchemaVersion, @TenantId,
+                 @PayloadHash, @StatusProcessing, 1, @ReceivedAtUtc);
+            SET @ExistingStatus = @StatusProcessing;
+            SET @ExistingPayloadHash = @PayloadHash;
+        END
+        ELSE IF @ExistingStatus = @StatusFailed AND @ExistingPayloadHash = @PayloadHash
+        BEGIN
+            UPDATE fn_messaging_inbox_message
+            SET Status = @StatusProcessing,
+                Attempts = Attempts + 1
+            WHERE ConsumerName = @ConsumerName AND MessageId = @MessageId;
+            SET @ExistingStatus = @StatusProcessing;
+        END;
+
+        SELECT @ExistingStatus AS Status, @ExistingPayloadHash AS PayloadHash;
         """,
         SqlDataScope.Global);
 
-    public static readonly SqlStatement SelectExistingMySql = new(
-        "messaging.inbox.select_existing.my_sql",
-        """
-        SELECT Status, PayloadHash
-        FROM fn_messaging_inbox_message
-        WHERE ConsumerName = @ConsumerName
-          AND MessageId = @MessageId
-        FOR UPDATE;
-        """,
-        SqlDataScope.Global);
-
-    public static readonly SqlStatement InsertProcessing = new(
-        "messaging.inbox.insert_processing",
+    public static readonly SqlStatement ClaimMySql = new(
+        "messaging.inbox.claim.my_sql",
         """
         INSERT INTO fn_messaging_inbox_message
             (ConsumerName, MessageId, MessageType, SchemaVersion, TenantId,
              PayloadHash, Status, Attempts, ReceivedAtUtc)
         VALUES
             (@ConsumerName, @MessageId, @MessageType, @SchemaVersion, @TenantId,
-             @PayloadHash, @Status, @Attempts, @ReceivedAtUtc);
+             @PayloadHash, @StatusProcessing, 1, @ReceivedAtUtc)
+        ON DUPLICATE KEY UPDATE
+            Attempts = IF(
+                Status = @StatusFailed AND PayloadHash = @PayloadHash,
+                Attempts + 1,
+                Attempts),
+            Status = IF(
+                Status = @StatusFailed AND PayloadHash = @PayloadHash,
+                @StatusProcessing,
+                Status);
+
+        SELECT Status, PayloadHash
+        FROM fn_messaging_inbox_message
+        WHERE ConsumerName = @ConsumerName
+          AND MessageId = @MessageId
+        FOR UPDATE;
         """,
         SqlDataScope.Global);
 
@@ -54,16 +84,6 @@ internal static class InboxSql
           AND Status = @ExpectedStatus;
         """,
         SqlDataScope.Global);
-
-    public static readonly SqlStatement ResetFailedToProcessing = new(
-        "messaging.inbox.reset_failed_to_processing",
-        """
-        UPDATE fn_messaging_inbox_message
-        SET Status = @StatusProcessing,
-            Attempts = Attempts + 1
-        WHERE ConsumerName = @ConsumerName
-          AND MessageId = @MessageId
-          AND Status = @StatusFailed;
-        """,
-        SqlDataScope.Global);
 }
+
+internal sealed record InboxClaimRow(string Status, byte[] PayloadHash);

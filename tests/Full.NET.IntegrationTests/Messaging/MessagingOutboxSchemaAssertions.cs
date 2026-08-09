@@ -120,7 +120,7 @@ internal static class MessagingOutboxSchemaAssertions
                 """));
 
         Assert.AreEqual(
-            11,
+            12,
             await connection.ExecuteScalarAsync<int>(
                 """
                 SELECT COUNT(*)
@@ -242,7 +242,7 @@ internal static class MessagingOutboxSchemaAssertions
                 """));
 
         Assert.AreEqual(
-            11,
+            12,
             await connection.ExecuteScalarAsync<int>(
                 """
                 SELECT COUNT(*)
@@ -259,7 +259,7 @@ internal static class MessagingOutboxSchemaAssertions
                 FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
                 WHERE TABLE_SCHEMA = DATABASE()
                   AND TABLE_NAME = 'fn_messaging_inbox_message'
-                  AND CONSTRAINT_NAME = 'PK_fn_messaging_inbox_message'
+                  AND CONSTRAINT_NAME = 'PRIMARY'
                   AND COLUMN_NAME IN ('ConsumerName', 'MessageId')
                 """));
 

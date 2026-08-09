@@ -226,6 +226,54 @@ public sealed class IntegrationEventConsumerDispatcherTests
         Assert.IsFalse(handler.Handled);
     }
 
+    [TestMethod]
+    public async Task ConsumeAsync_uses_atomic_consumer_fence_without_second_owner_query()
+    {
+        var inbox = Substitute.For<IIntegrationEventInbox>();
+        inbox.ClaimAsync(Arg.Any<string>(), Arg.Any<IntegrationEventEnvelope>(), Arg.Any<CancellationToken>())
+            .Returns(new InboxClaimResult(InboxClaimStatus.AlreadyProcessed));
+        var handler = new RecordingSubscription();
+        var catalog = new IntegrationEventSubscriptionCatalog(
+            [
+                IntegrationEventTopicDefinition.Create(
+                    TopicCode,
+                    EventType,
+                    1,
+                    EventDeliveryOwner.CdcKafka),
+            ],
+            [handler]);
+        var ownershipGate = Substitute.For<IEventStreamOwnershipGate>();
+        ownershipGate.AcquireConsumerFenceAsync(
+                Arg.Any<string>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(EventStreamConsumerFenceResult.Acquired(EventDeliveryOwner.CdcKafka));
+        var ownerResolver = Substitute.For<IEffectiveEventDeliveryOwnerResolver>();
+        var dispatcher = new IntegrationEventConsumerDispatcher(
+            new PassthroughTransaction(),
+            inbox,
+            catalog,
+            ownershipGate,
+            ownerResolver,
+            new CurrentTenantAccessor());
+
+        var result = await dispatcher.ConsumeAsync(
+            ConsumerName,
+            CreateEnvelope([1]),
+            handler,
+            CancellationToken.None);
+
+        Assert.AreEqual(InboxConsumeStatus.AlreadyProcessed, result.Status);
+        await ownershipGate.DidNotReceive().AcquireConsumerAsync(
+            Arg.Any<string>(),
+            Arg.Any<int>(),
+            Arg.Any<CancellationToken>());
+        await ownerResolver.DidNotReceive().GetDeliveryOwnerAsync(
+            Arg.Any<string>(),
+            Arg.Any<int>(),
+            Arg.Any<CancellationToken>());
+    }
+
     private static IntegrationEventConsumerDispatcher CreateDispatcher(
         IIntegrationEventInbox inbox,
         IIntegrationEventSubscription subscription,

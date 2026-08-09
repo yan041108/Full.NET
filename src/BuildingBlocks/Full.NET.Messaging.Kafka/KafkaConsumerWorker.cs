@@ -101,19 +101,52 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         ConsumerGroupPlan plan,
         CancellationToken stoppingToken)
     {
-        using var consumer = new ConsumerBuilder<string, byte[]>(
+        KafkaConsumerPartitionCoordinator? coordinator = null;
+        var builder = new ConsumerBuilder<string, byte[]>(
                 _options.BuildConsumerConfig(plan.ConsumerName))
-            .Build();
+            .SetPartitionsAssignedHandler((_, partitions) =>
+                coordinator?.OnAssigned(partitions))
+            .SetPartitionsRevokedHandler((_, offsets) =>
+                coordinator?.OnRevoked(offsets.Select(offset => offset.TopicPartition)))
+            .SetPartitionsLostHandler((_, offsets) =>
+                coordinator?.OnRevoked(offsets.Select(offset => offset.TopicPartition)));
+        using var consumer = builder.Build();
+        await using var scheduler = new KafkaPartitionWorkScheduler(
+            async (consumeResult, partitionCancellationToken) =>
+            {
+                using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                    stoppingToken,
+                    partitionCancellationToken);
+                return await ProcessScheduledMessageAsync(
+                        plan,
+                        consumeResult,
+                        linkedCancellation.Token)
+                    .ConfigureAwait(false);
+            });
+        coordinator = new KafkaConsumerPartitionCoordinator(
+            consumer,
+            scheduler,
+            _options,
+            plan.ConsumerName,
+            _logger);
         consumer.Subscribe(plan.TopicCodes);
 
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
+                coordinator.ProcessCompletions(DateTimeOffset.UtcNow);
+                coordinator.ResumeDuePartitions(DateTimeOffset.UtcNow);
+
                 ConsumeResult<string, byte[]>? consumeResult;
                 try
                 {
-                    consumeResult = consumer.Consume(stoppingToken);
+                    // Handler 在独立分区通道运行；短 Poll 同时负责 Heartbeat、Rebalance 和完成命令泵。
+                    consumeResult = consumer.Consume(
+                        KafkaConsumerPollTiming.Resolve(
+                            _options,
+                            scheduler.InFlightCount,
+                            scheduler.HasPendingCompletion));
                 }
                 catch (ConsumeException exception) when (exception.Error.IsFatal)
                 {
@@ -128,26 +161,33 @@ internal sealed class KafkaConsumerWorker : BackgroundService
                         plan.ConsumerName);
                     continue;
                 }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-
                 if (consumeResult?.Message is null)
                 {
                     continue;
                 }
 
-                await ProcessWithFlowControlAsync(
-                        consumer,
-                        plan,
-                        consumeResult,
-                        stoppingToken)
-                    .ConfigureAwait(false);
+                if (!coordinator.TryDispatch(consumeResult))
+                {
+                    throw new InvalidOperationException(
+                        $"Kafka partition '{consumeResult.TopicPartition}' accepted a second "
+                        + "delivery while its bounded processing lane was occupied.");
+                }
             }
         }
         finally
         {
+            var drained = await scheduler
+                .StopAsync(TimeSpan.FromSeconds(_options.ShutdownDrainSeconds))
+                .ConfigureAwait(false);
+            coordinator.ProcessCompletions(DateTimeOffset.UtcNow);
+            coordinator.OnRevoked(consumer.Assignment);
+            if (!drained)
+            {
+                _logger.LogWarning(
+                    "Kafka in-flight partition processing exceeded the shutdown drain timeout for group {ConsumerName}.",
+                    plan.ConsumerName);
+            }
+
             try
             {
                 consumer.Close();
@@ -159,22 +199,23 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         }
     }
 
-    private async Task ProcessWithFlowControlAsync(
-        IConsumer<string, byte[]> consumer,
+    private async Task<bool> ProcessScheduledMessageAsync(
         ConsumerGroupPlan plan,
         ConsumeResult<string, byte[]> consumeResult,
         CancellationToken cancellationToken)
     {
-        await KafkaConsumerFlowControl.ProcessAsync(
-                consumer,
-                consumeResult,
-                _options,
-                _logger,
-                () => ProcessMessageAsync(
-                    plan,
-                    consumeResult,
-                    cancellationToken),
-                cancellationToken)
+        if (KafkaDeliveryHeaders.TryReadRetryNotBeforeUtc(
+                consumeResult.Message.Headers,
+                out var retryNotBeforeUtc))
+        {
+            var delay = retryNotBeforeUtc - DateTimeOffset.UtcNow;
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return await ProcessMessageAsync(plan, consumeResult, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -248,12 +289,6 @@ internal sealed class KafkaConsumerWorker : BackgroundService
 
             if (_committer.ShouldCommit(inboxResult))
             {
-                KafkaMessagingTelemetry.RecordCommit(
-                    ProviderCode,
-                    topicCode,
-                    plan.ConsumerName,
-                    envelope.MessageType,
-                    inboxResult.Status == InboxConsumeStatus.Processed ? "committed" : "already_processed");
                 KafkaMessagingTelemetry.RecordConsume(
                     ProviderCode,
                     topicCode,

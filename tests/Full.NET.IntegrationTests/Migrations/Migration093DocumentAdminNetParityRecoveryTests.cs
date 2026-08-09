@@ -40,27 +40,44 @@ public sealed class Migration093DocumentAdminNetParityRecoveryTests
                 IF NOT EXISTS (SELECT 1 FROM dbo.fn_document_item WHERE Id = @DocumentId)
                 BEGIN
                     INSERT INTO dbo.fn_document_item
-                        (Id, TenantId, CategoryId, DocumentNo, Title, FileName, FileExtension,
-                         MimeType, FileSizeBytes, StorageBlobId, CurrentVersionId, CreatedAtUtc,
-                         CreatedByUserId, UpdatedAtUtc, UpdatedByUserId, DeletedAtUtc, DeletedByUserId, Version)
+                        (Id, TenantId, CategoryId, CurrentVersionId, Title, Description, IsDeleted,
+                         DeletedAtUtc, DeletedByUserId, CreatedAtUtc,
+                         CreatedByUserId, UpdatedAtUtc, UpdatedByUserId, Version)
                     VALUES
-                        (@DocumentId, NULL, NULL, 'DOC-093-REC', 'Recovery Doc', 'rec.txt', '.txt',
-                         'text/plain', 32, @BlobId, NULL, @Now,
-                         '11111111-1111-1111-1111-111111111111', NULL, NULL, NULL, NULL, 1);
+                        (@DocumentId, NULL, NULL, NULL, 'Recovery Doc', NULL, 0,
+                         NULL, NULL, @Now,
+                         '11111111-1111-1111-1111-111111111111', NULL, NULL, 1);
                 END;
+                """,
+                new
+                {
+                    DocumentId = documentId,
+                    Now = now,
+                })
+            .ConfigureAwait(false);
 
-                -- 把 fn_document_share 回滚到“只有 Password 无 PasswordHash”的漂移状态
-                IF COL_LENGTH(N'dbo.fn_document_share', N'Password') IS NULL
-                   AND COL_LENGTH(N'dbo.fn_document_share', N'PasswordHash') IS NOT NULL
-                BEGIN
-                    ALTER TABLE dbo.fn_document_share
-                        ADD Password nvarchar(256) NULL;
-                    UPDATE dbo.fn_document_share SET Password = PasswordHash;
-                    ALTER TABLE dbo.fn_document_share
-                        DROP COLUMN IF EXISTS PasswordHash;
-                END;
+        var hasLegacyPassword = await connection.ExecuteScalarAsync<int>(
+            "SELECT CASE WHEN COL_LENGTH(N'dbo.fn_document_share', N'Password') IS NULL THEN 0 ELSE 1 END")
+            .ConfigureAwait(false);
+        var hasPasswordHash = await connection.ExecuteScalarAsync<int>(
+            "SELECT CASE WHEN COL_LENGTH(N'dbo.fn_document_share', N'PasswordHash') IS NULL THEN 0 ELSE 1 END")
+            .ConfigureAwait(false);
+        if (hasLegacyPassword == 0 && hasPasswordHash == 1)
+        {
+            // SQL Server 按批次编译列引用；拆分 DDL 与 DML 才能真实构造旧结构。
+            await connection.ExecuteAsync(
+                "ALTER TABLE dbo.fn_document_share ADD Password nvarchar(256) NULL;")
+                .ConfigureAwait(false);
+            await connection.ExecuteAsync(
+                "UPDATE dbo.fn_document_share SET Password = PasswordHash;")
+                .ConfigureAwait(false);
+            await connection.ExecuteAsync(
+                "ALTER TABLE dbo.fn_document_share DROP COLUMN PasswordHash;")
+                .ConfigureAwait(false);
+        }
 
-                -- 插入一条使用旧 Password 列的分享记录（模拟历史数据明文保留）
+        await connection.ExecuteAsync(
+                """
                 MERGE dbo.fn_document_share AS t
                 USING (SELECT @ShareId AS Id) AS s
                 ON t.Id = s.Id
@@ -72,19 +89,17 @@ public sealed class Migration093DocumentAdminNetParityRecoveryTests
                         (@ShareId, NULL, @DocumentId, @ShareCode, @LegacyPassword, @ExpireTime,
                          5, 0, 1, 1, @Now);
 
-                -- 抹掉 093 迁移记录，强制 runner 重跑该脚本
                 DELETE FROM dbo.SchemaVersions
                 WHERE ScriptName LIKE '%093_DocumentAdminNetParity.sql';
                 """,
                 new
                 {
-                    DocumentId = documentId,
-                    BlobId = Guid.CreateVersion7(),
-                    Now = now,
                     ShareId = shareId,
+                    DocumentId = documentId,
                     ShareCode = "DOC-093-REC-SHARE",
                     LegacyPassword = "OldP@ss123!",
                     ExpireTime = now.AddDays(30),
+                    Now = now,
                 })
             .ConfigureAwait(false);
 
@@ -132,35 +147,52 @@ public sealed class Migration093DocumentAdminNetParityRecoveryTests
                 """
                 -- 外键依赖：确保 fn_document_item 存在目标记录
                 INSERT IGNORE INTO fn_document_item
-                    (Id, TenantId, CategoryId, DocumentNo, Title, FileName, FileExtension,
-                     MimeType, FileSizeBytes, StorageBlobId, CurrentVersionId, CreatedAtUtc,
-                     CreatedByUserId, UpdatedAtUtc, UpdatedByUserId, DeletedAtUtc, DeletedByUserId, Version)
+                    (Id, TenantId, CategoryId, CurrentVersionId, Title, Description, IsDeleted,
+                     DeletedAtUtc, DeletedByUserId, CreatedAtUtc,
+                     CreatedByUserId, UpdatedAtUtc, UpdatedByUserId, Version)
                 VALUES
-                    (@DocumentId, NULL, NULL, 'DOC-093-REC', 'Recovery Doc', 'rec.txt', '.txt',
-                     'text/plain', 32, @BlobId, NULL, @Now,
+                    (@DocumentId, NULL, NULL, NULL, 'Recovery Doc', NULL, false,
+                     NULL, NULL, @Now,
                      UNHEX(REPLACE('11111111-1111-1111-1111-111111111111', '-', '')),
-                     NULL, NULL, NULL, NULL, 1);
+                     NULL, NULL, 1);
+                """,
+                new
+                {
+                    DocumentId = documentId,
+                    Now = now,
+                })
+            .ConfigureAwait(false);
 
-                -- 构造漂移：如果只有 PasswordHash，就把它改回旧 Password 列
-                IF EXISTS (
-                    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = DATABASE()
-                      AND TABLE_NAME = 'fn_document_share'
-                      AND COLUMN_NAME = 'PasswordHash'
-                ) AND NOT EXISTS (
-                    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = DATABASE()
-                      AND TABLE_NAME = 'fn_document_share'
-                      AND COLUMN_NAME = 'Password'
-                ) THEN
-                    ALTER TABLE fn_document_share
-                        ADD COLUMN Password varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL;
-                    UPDATE fn_document_share SET Password = PasswordHash;
-                    ALTER TABLE fn_document_share
-                        DROP COLUMN PasswordHash;
-                END IF;
+        var hasLegacyPassword = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_document_share'
+              AND COLUMN_NAME = 'Password'
+            """).ConfigureAwait(false);
+        var hasPasswordHash = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_document_share'
+              AND COLUMN_NAME = 'PasswordHash'
+            """).ConfigureAwait(false);
+        if (hasLegacyPassword == 0 && hasPasswordHash == 1)
+        {
+            // MySQL 的 IF...THEN 仅能出现在存储程序中；测试按真实 DDL 顺序逐条构造漂移。
+            await connection.ExecuteAsync(
+                "ALTER TABLE fn_document_share ADD COLUMN Password varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL;")
+                .ConfigureAwait(false);
+            await connection.ExecuteAsync(
+                "UPDATE fn_document_share SET Password = PasswordHash;")
+                .ConfigureAwait(false);
+            await connection.ExecuteAsync(
+                "ALTER TABLE fn_document_share DROP COLUMN PasswordHash;")
+                .ConfigureAwait(false);
+        }
 
-                -- 插入一条旧格式分享记录（含明文旧 Password）
+        await connection.ExecuteAsync(
+                """
                 INSERT IGNORE INTO fn_document_share
                     (Id, TenantId, DocumentId, ShareCode, Password, ExpireTime,
                      MaxAccessCount, AccessCount, IsEnabled, Version, CreatedAtUtc)
@@ -168,19 +200,17 @@ public sealed class Migration093DocumentAdminNetParityRecoveryTests
                     (@ShareId, NULL, @DocumentId, @ShareCode, @LegacyPassword, @ExpireTime,
                      5, 0, 1, 1, @Now);
 
-                -- 抹掉 093 迁移记录
                 DELETE FROM schemaversions
                 WHERE ScriptName LIKE '%093_DocumentAdminNetParity.sql';
                 """,
                 new
                 {
-                    DocumentId = documentId,
-                    BlobId = Guid.CreateVersion7(),
-                    Now = now,
                     ShareId = shareId,
+                    DocumentId = documentId,
                     ShareCode = "DOC-093-REC-SHARE",
                     LegacyPassword = "OldP@ss123!",
                     ExpireTime = now.AddDays(30),
+                    Now = now,
                 })
             .ConfigureAwait(false);
 

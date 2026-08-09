@@ -165,6 +165,8 @@ SQL Server 显式聚集索引：`IX_fn_messaging_outbox_event_OccurredAtUtc_Id`�
 
 `processing` 不是跨进程长租约队列：Kafka Partition 所有权提供单组消费协调；数据库事务必须短小。进程在事务提交前宕机时 Inbox 写入回滚，消息重投；提交后 Offset 前宕机时 Inbox 命中 `processed` 并安全确认。
 
+Inbox claim 的网络往返预算固定为一次：SQL Server 在单个 batch 内以 `UPDLOCK,HOLDLOCK` 锁定唯一键范围后完成首次插入或 failed 重置；MySQL 在单个 command 内以原子 upsert 完成领取并 `FOR UPDATE` 返回当前行。PayloadHash 不得被 upsert 覆盖；Handler 成功后的 `processed` 更新仍是同一本地事务内的独立语句，不能为了减少往返而移出事务。
+
 ## 6. CDC Provider 规格
 
 ### 6.1 SQL Server
@@ -201,6 +203,8 @@ SQL Server 显式聚集索引：`IX_fn_messaging_outbox_event_OccurredAtUtc_Id`�
 - `ConsumerInstanceId`
 - `SessionTimeoutMilliseconds`
 - `MaxPollIntervalMilliseconds`
+- `HandlerHeartbeatMilliseconds`
+- `CompletionPollMilliseconds`
 - `DeliveryTimeoutMilliseconds`
 - `MessageMaxBytes`
 - `RetryStages`
@@ -230,6 +234,17 @@ public interface IIntegrationEventSubscription
 ```
 
 现有 `IIntegrationEventHandler` 通过兼容适配器迁移；新 Kafka Consumer 使用 Subscription 身份。启动时验证目录、Handler、Schema、Topic 和 ConsumerName 唯一性。
+
+Consumer 处理模型固定为“单 Consumer SDK 命令循环 + 每分区容量 1 的有界通道”：
+
+- Consume、Pause/Resume、Seek、Commit 和 Rebalance 回调只在 Consumer 循环串行执行；Handler 不得持有或调用 Kafka Consumer。
+- 收到消息后只暂停该消息所属分区；同一分区在当前消息完成前不再接收下一条，不同已分配分区独立并行。
+- Offset 水位按该分区实际交付序列推进，不假设 Kafka Offset 数值无空洞；只有队首连续成功的消息可以推进提交位置。
+- 失败消息 Seek 到原 Offset 并只对该分区执行有界退避，禁止提交或恢复时越过失败消息。
+- 每次分配具有单调递增代次；Rebalance 撤销会取消该分区通道，旧代次迟到完成不得 Commit 或 Resume 新 Owner 的分区。
+- 吞吐并行上限由 Topic 分区数和当前实例获配分区数共同决定；增加 Worker 实例超过分区数不会继续提高同一 Consumer Group 的并行度。
+
+Consumer 本地事务的事件流所有权检查优先使用一次锁定 Fence 查询同时返回 `CurrentOwner`，不得在热路径重复执行 Gate 和 Owner 数据库查询。兼容扩展可回退旧接口，但 Full.NET Dapper 正式路径必须使用单查询 Fence；未经版本/Fence 设计不得用普通内存缓存替代该数据库边界。
 
 ## 8. 失败分类
 

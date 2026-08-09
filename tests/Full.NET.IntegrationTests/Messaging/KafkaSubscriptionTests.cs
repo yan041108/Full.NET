@@ -118,18 +118,39 @@ public sealed class KafkaSubscriptionTests
         await producer.ProduceAsync(topic, KafkaTestMessages.Create(topic, "commit-key", [0x7A])).ConfigureAwait(false);
         producer.Flush(TimeSpan.FromSeconds(10));
 
-        using var consumer = environment.CreateConsumer("fullnet.kafka.test.commit", "fullnet.kafka.test.commit");
-        consumer.Subscribe(topic);
+        ConsumeResult<string, byte[]> first;
+        using (var firstConsumer = environment.CreateConsumer(
+                   "fullnet.kafka.test.commit",
+                   "fullnet.kafka.test.commit-first"))
+        {
+            firstConsumer.Subscribe(topic);
+            first = await KafkaTestMessages
+                .ConsumeOneAsync(firstConsumer, TimeSpan.FromSeconds(30))
+                .ConfigureAwait(false);
+            Assert.AreEqual(0x7A, first.Message.Value![0]);
+            firstConsumer.Close();
+        }
 
-        var first = await KafkaTestMessages.ConsumeOneAsync(consumer, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
-        Assert.AreEqual(0x7A, first.Message.Value![0]);
+        // Consume 会推进当前实例的本地 position；未提交只保证新实例或 Rebalance 后重投，
+        // 不能错误地期待同一个 Consumer 下一次 Consume 立即返回同一条消息。
+        using (var retryConsumer = environment.CreateConsumer(
+                   "fullnet.kafka.test.commit",
+                   "fullnet.kafka.test.commit-retry"))
+        {
+            retryConsumer.Subscribe(topic);
+            var redelivered = await KafkaTestMessages
+                .ConsumeOneAsync(retryConsumer, TimeSpan.FromSeconds(30))
+                .ConfigureAwait(false);
+            Assert.AreEqual(0x7A, redelivered.Message.Value![0]);
+            retryConsumer.Commit(redelivered);
+            retryConsumer.Close();
+        }
 
-        var redelivered = consumer.Consume(TimeSpan.FromMilliseconds(500));
-        Assert.IsNotNull(redelivered);
-        Assert.AreEqual(0x7A, redelivered!.Message.Value![0]);
-
-        consumer.Commit(first);
-        var afterCommit = consumer.Consume(TimeSpan.FromMilliseconds(500));
+        using var committedConsumer = environment.CreateConsumer(
+            "fullnet.kafka.test.commit",
+            "fullnet.kafka.test.commit-committed");
+        committedConsumer.Subscribe(topic);
+        var afterCommit = committedConsumer.Consume(TimeSpan.FromSeconds(2));
         Assert.IsNull(afterCommit);
     }
 }

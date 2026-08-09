@@ -15,6 +15,8 @@ public static class KafkaMessagingTelemetry
         Meter.CreateCounter<long>("fullnet.messaging.kafka.consume.results");
     private static readonly Counter<long> CommitResults =
         Meter.CreateCounter<long>("fullnet.messaging.kafka.commit.results");
+    private static readonly Counter<long> PartitionFlowResults =
+        Meter.CreateCounter<long>("fullnet.messaging.kafka.partition.flow.results");
 
     public static void RecordConsume(
         string provider,
@@ -49,6 +51,35 @@ public static class KafkaMessagingTelemetry
             messageTypeCode,
             result,
             reasonCode: null);
+    }
+
+    public static void RecordPartitionFlow(
+        string provider,
+        string topicCode,
+        string consumerCode,
+        string result)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(provider);
+        ArgumentException.ThrowIfNullOrWhiteSpace(topicCode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(consumerCode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(result);
+
+        try
+        {
+            PartitionFlowResults.Add(
+                1,
+                new TagList
+                {
+                    { "provider", provider },
+                    { "topic_code", topicCode },
+                    { "consumer_code", consumerCode },
+                    { "result", result },
+                });
+        }
+        catch (Exception)
+        {
+            // 指标旁路失败不得影响分区背压与 Offset 语义。
+        }
     }
 
     private static void Record(

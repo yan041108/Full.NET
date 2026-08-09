@@ -68,18 +68,39 @@ public sealed class IntegrationEventConsumerDispatcher(
         IIntegrationEventSubscription handler,
         CancellationToken cancellationToken)
     {
-        var ownershipExists = await ownershipGate
-            .AcquireConsumerAsync(
+        var fence = await ownershipGate
+            .AcquireConsumerFenceAsync(
                 envelope.MessageType,
                 envelope.SchemaVersion,
                 cancellationToken)
             .ConfigureAwait(false);
-        var deliveryOwner = await ownerResolver
-            .GetDeliveryOwnerAsync(
+        bool ownershipExists;
+        EventDeliveryOwner deliveryOwner;
+        if (fence.IsSupported)
+        {
+            ownershipExists = fence.OwnershipExists;
+            deliveryOwner = catalog.ResolveDeliveryOwner(
                 envelope.MessageType,
                 envelope.SchemaVersion,
-                cancellationToken)
-            .ConfigureAwait(false);
+                fence.CurrentOwner);
+        }
+        else
+        {
+            // 第三方或测试 Gate 可继续使用旧接口；Full.NET Dapper 路径固定走单查询 Fence。
+            ownershipExists = await ownershipGate
+                .AcquireConsumerAsync(
+                    envelope.MessageType,
+                    envelope.SchemaVersion,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            deliveryOwner = await ownerResolver
+                .GetDeliveryOwnerAsync(
+                    envelope.MessageType,
+                    envelope.SchemaVersion,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (!ownershipExists || deliveryOwner is not EventDeliveryOwner.CdcKafka)
         {
             throw new EventDeliveryOwnershipRevokedException(

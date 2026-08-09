@@ -37,6 +37,8 @@ public sealed class KafkaMessagingOptions
 
     public int HandlerHeartbeatMilliseconds { get; set; } = 250;
 
+    public int CompletionPollMilliseconds { get; set; } = 5;
+
     public int ConsumerQueueMaxMessagesKbytes { get; set; } = 2_048;
 
     public int UncommittedRetryBackoffMilliseconds { get; set; } = 1_000;
@@ -113,6 +115,8 @@ public sealed class KafkaMessagingOptions
         + $"SecurityProtocol={SecurityProtocol}; SaslMechanism={SaslMechanism}; "
         + $"SaslUsername={SaslUsername}; SaslPassword=***; ClientId={ClientId}; "
         + $"ConsumerInstanceId={ConsumerInstanceId}; MessageMaxBytes={MessageMaxBytes}; "
+        + $"HandlerHeartbeatMilliseconds={HandlerHeartbeatMilliseconds}; "
+        + $"CompletionPollMilliseconds={CompletionPollMilliseconds}; "
         + $"EnableAutoCommit={EnableAutoCommit}; Acks={Acks}; EnableIdempotence={EnableIdempotence}";
 
     private string ResolveClientId(string consumerGroupId) =>
@@ -201,6 +205,13 @@ internal static class KafkaMessagingOptionsValidation
         {
             failures.Add(
                 $"{KafkaMessagingOptions.SectionName}:HandlerHeartbeatMilliseconds must be at least 10 and less than SessionTimeoutMilliseconds and MaxPollIntervalMilliseconds.");
+        }
+
+        if (options.CompletionPollMilliseconds < 1
+            || options.CompletionPollMilliseconds > options.HandlerHeartbeatMilliseconds)
+        {
+            failures.Add(
+                $"{KafkaMessagingOptions.SectionName}:CompletionPollMilliseconds must be between 1 and HandlerHeartbeatMilliseconds.");
         }
 
         if (options.ConsumerQueueMaxMessagesKbytes is < 1 or > 102_400)

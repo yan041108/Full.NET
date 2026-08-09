@@ -1,6 +1,6 @@
 # CDC → Debezium → Kafka → Inbox E2E 验证（2026-08-09）
 
-**状态：** 进行中（Task 2）  
+**状态：** 进行中（Consumer 性能硬化已完成代码与聚焦验证，真实容量未认证）
 **切流门禁：** `Messaging:DeliveryCutover:Enabled` 保持 `false`；容量标记 `Capacity-not-verified`
 
 ## 固定测试镜像
@@ -64,6 +64,18 @@ dotnet test tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj `
 2. MySQL Debezium 任务状态与 binlog 位点需进一步采集（失败时输出 Connector `/status` JSON）。
 3. 失败场景矩阵：MySQL 已覆盖重复投递、Connector 重启、Offset 未提交重投、Connector 暂停/恢复、Retry 路由与 Broker 中断；DLQ/Rebalance/切流回退 E2E 仍待实现。
 4. 生产 `IEventDeliveryRollbackReadinessReader` 已提供 Kafka Connect 适配器（`Messaging:KafkaConnectRollback:Enabled` 门控）；默认仍为失败关闭。
+5. Consumer 已改为每分区容量 1 的有界通道、跨分区并行、分区局部 Pause/Seek、分配代次 Fence 与连续成功 Offset 水位；尚未在生产等价 Kafka/数据库环境完成吞吐、P95/P99 与资源上限认证，继续标记 `Capacity-not-verified`。
+
+## Consumer 性能硬化验证（2026-08-09）
+
+- 基线提交：`35d07cefafeb9879330eddb68228b0c0d8240b2b`
+- Kafka/Inbox/Dispatcher/Ownership 聚焦单元测试：71/71 通过，覆盖跨分区并行、同分区单在途、待完成命令短 Poll、失败局部 Seek、退避恢复、Offset 空洞、连续水位、Rebalance 迟到完成、有界关闭、Lane Task 释放、单查询 Fence 与单命令 Inbox claim。
+- Kafka Subscription/Failure Recovery 与 SQL Server/MySQL Inbox 集成测试：19/19 通过；手动提交场景按 Kafka 真实语义使用同组新实例验证未提交 Offset 重投。
+- `slice` 受影响集：Smoke 8/8、Outbox 双 Provider 聚焦集合 14/14 通过；Release 构建 0 警告、0 错误。
+- `merge` 受影响集：Outbox + Smoke 双 Provider 合并候选集合 22/22 通过；Release 构建 0 警告、0 错误。
+- Schema 定向复验：SQL Server 与 MySQL Inbox 均为 12 列；MySQL 主键按服务端规范名 `PRIMARY` 校验，修正后的双库断言通过。
+- 架构门禁：99/99 通过；新增 Inbox/Ownership SQL 和 Cursor 前置提交遗漏的 5 条 producer fence SQL 已精确登记。
+- 本轮没有专用生产等价压测数据，不据此声明固定 QPS 或容量达标。
 
 ## 下一步
 

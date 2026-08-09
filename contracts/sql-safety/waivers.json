@@ -198,6 +198,28 @@
       "backupVerified": true,
       "reviewer": "cursor-main-review-20260802",
       "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/093_DocumentAdminNetParity.sql",
+      "line": 441,
+      "actual": "DROP COLUMN",
+      "reason": "093 将旧 Password 值回填到 PasswordHash 后退役明文兼容列；Migration093DocumentAdminNetParityRecoveryTests 覆盖 MySQL 漂移恢复与值保留。",
+      "risk": "旧列删除不可逆；仅在 PasswordHash 已存在并完成空值回填的分支执行，恢复测试验证迁移后值未丢失。",
+      "backupVerified": true,
+      "reviewer": "codex-main-review-20260809",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/093_DocumentAdminNetParity.sql",
+      "line": 299,
+      "actual": "DROP COLUMN",
+      "reason": "093 将旧 Password 值回填到 PasswordHash 后退役明文兼容列；Migration093DocumentAdminNetParityRecoveryTests 覆盖 SQL Server 漂移恢复与值保留。",
+      "risk": "旧列删除不可逆；仅在 PasswordHash 已存在并完成空值回填的分支执行，恢复测试验证迁移后值未丢失。",
+      "backupVerified": true,
+      "reviewer": "codex-main-review-20260809",
+      "removalMilestone": "M1.0"
     }
   ]
 }

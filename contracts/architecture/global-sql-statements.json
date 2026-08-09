@@ -479,41 +479,31 @@
       ]
     },
     {
-      "statementName": "messaging.inbox.select_existing.sql_server",
-      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.SelectExistingSqlServer",
+      "statementName": "messaging.inbox.claim.sql_server",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.ClaimSqlServer",
       "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
       "category": "reliable_event_sink",
-      "reason": "Inbox 声明处理权时以行锁读取现有记录，防止同 Consumer 并发重复副作用。",
+      "reason": "SQL Server 在单次往返内锁定读取并完成首次插入或 failed 重置，防止同 Consumer 并发重复副作用。",
       "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_inbox_message",
         "FROM fn_messaging_inbox_message",
         "ConsumerName = @ConsumerName",
         "MessageId = @MessageId"
       ]
     },
     {
-      "statementName": "messaging.inbox.select_existing.my_sql",
-      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.SelectExistingMySql",
+      "statementName": "messaging.inbox.claim.my_sql",
+      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.ClaimMySql",
       "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
       "category": "reliable_event_sink",
-      "reason": "MySQL Inbox 声明处理权使用 FOR UPDATE 行锁对齐 SQL Server 并发语义。",
+      "reason": "MySQL 在单次往返内原子 upsert 并锁定读取 Inbox，保持首次、重复和 failed 重放语义。",
       "requiredSqlFragments": [
+        "INSERT INTO fn_messaging_inbox_message",
+        "ON DUPLICATE KEY UPDATE",
         "FROM fn_messaging_inbox_message",
         "ConsumerName = @ConsumerName",
         "MessageId = @MessageId",
         "FOR UPDATE"
-      ]
-    },
-    {
-      "statementName": "messaging.inbox.insert_processing",
-      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.InsertProcessing",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
-      "category": "reliable_event_sink",
-      "reason": "Inbox 首次消费在业务事务内插入 processing 行并记录 PayloadHash。",
-      "requiredSqlFragments": [
-        "INSERT INTO fn_messaging_inbox_message",
-        "@PayloadHash",
-        "@ConsumerName",
-        "@MessageId"
       ]
     },
     {
@@ -525,19 +515,6 @@
       "requiredSqlFragments": [
         "UPDATE fn_messaging_inbox_message",
         "Status = @Status",
-        "ConsumerName = @ConsumerName",
-        "MessageId = @MessageId"
-      ]
-    },
-    {
-      "statementName": "messaging.inbox.reset_failed_to_processing",
-      "declaration": "Full.NET.Data.Dapper.Inbox.InboxSql.ResetFailedToProcessing",
-      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Inbox/InboxSql.cs",
-      "category": "reliable_event_sink",
-      "reason": "受控死信重放前将 failed Inbox 行重置为 processing，保证与 MarkProcessed 路径一致。",
-      "requiredSqlFragments": [
-        "UPDATE fn_messaging_inbox_message",
-        "Status = @StatusProcessing",
         "ConsumerName = @ConsumerName",
         "MessageId = @MessageId"
       ]
@@ -748,6 +725,88 @@
         "FROM fn_outbox_message",
         "MessageType = @MessageType",
         "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.producer_fence.find_active_preparation",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventDeliveryProducerFencePositionReader.ProducerFenceSql.FindActivePreparation",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventDeliveryProducerFencePositionReader.cs",
+      "category": "host_catalog",
+      "reason": "回退准备阶段确认事件流仍处于同一 rollback generation，拒绝读取过期 Fence。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership",
+        "RollbackState = 1",
+        "RollbackGeneration = @RollbackGeneration"
+      ]
+    },
+    {
+      "statementName": "messaging.producer_fence.find_last_outbox.sqlserver",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventDeliveryProducerFencePositionReader.ProducerFenceSql.FindLastOutboxEventSqlServer",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventDeliveryProducerFencePositionReader.cs",
+      "category": "host_catalog",
+      "reason": "SQL Server 回退 Fence 记录目标事件流最后一条 append-only Outbox 事件。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_outbox_event",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.producer_fence.find_last_outbox.mysql",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventDeliveryProducerFencePositionReader.ProducerFenceSql.FindLastOutboxEventMySql",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventDeliveryProducerFencePositionReader.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 回退 Fence 记录目标事件流最后一条 append-only Outbox 事件。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_outbox_event",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion",
+        "LIMIT 1"
+      ]
+    },
+    {
+      "statementName": "messaging.producer_fence.mysql_show_master_status",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventDeliveryProducerFencePositionReader.ProducerFenceSql.ShowMasterStatus",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventDeliveryProducerFencePositionReader.cs",
+      "category": "host_catalog",
+      "reason": "MySQL 回退 Fence 捕获当前 binlog 文件与位置，供 CDC 排空证明使用。",
+      "requiredSqlFragments": [
+        "SHOW MASTER STATUS"
+      ]
+    },
+    {
+      "statementName": "messaging.producer_fence.sqlserver_max_lsn",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventDeliveryProducerFencePositionReader.ProducerFenceSql.SqlServerMaxLsn",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventDeliveryProducerFencePositionReader.cs",
+      "category": "host_catalog",
+      "reason": "SQL Server 回退 Fence 捕获当前 CDC 最大 LSN，供 CDC 排空证明使用。",
+      "requiredSqlFragments": [
+        "sys.fn_cdc_get_max_lsn()"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership_gate.consumer.sql_server",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventStreamOwnershipGate.ConsumerSqlServer",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventStreamOwnershipGate.cs",
+      "category": "host_catalog",
+      "reason": "Consumer 事务在一次共享 Fence 查询中读取当前事件流 Owner，避免 Gate 与 Owner 重复往返。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership WITH (HOLDLOCK)",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion"
+      ]
+    },
+    {
+      "statementName": "messaging.stream_ownership_gate.consumer.my_sql",
+      "declaration": "Full.NET.Data.Dapper.Outbox.DapperEventStreamOwnershipGate.ConsumerMySql",
+      "file": "src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperEventStreamOwnershipGate.cs",
+      "category": "host_catalog",
+      "reason": "MySQL Consumer 事务以一次 FOR SHARE Fence 查询返回当前事件流 Owner。",
+      "requiredSqlFragments": [
+        "FROM fn_messaging_stream_ownership",
+        "MessageType = @MessageType",
+        "SchemaVersion = @SchemaVersion",
+        "FOR SHARE"
       ]
     },
     {

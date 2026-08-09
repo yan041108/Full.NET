@@ -30,93 +30,54 @@ internal sealed class DapperIntegrationEventInbox(
         }
 
         var payloadHash = SHA256.HashData(envelope.Payload.Span);
-        var selectStatement = _databaseOptions.Provider switch
+        var claimStatement = _databaseOptions.Provider switch
         {
-            DatabaseProvider.SqlServer => InboxSql.SelectExistingSqlServer,
-            DatabaseProvider.MySql => InboxSql.SelectExistingMySql,
+            DatabaseProvider.SqlServer => InboxSql.ClaimSqlServer,
+            DatabaseProvider.MySql => InboxSql.ClaimMySql,
             _ => throw new NotSupportedException(
                 $"Database provider '{_databaseOptions.Provider}' is not supported."),
         };
 
-        var existing = await queryExecutor
-            .QuerySingleOrDefaultAsync<InboxExistingRow>(
-                selectStatement,
+        // Provider SQL 在服务端完成锁定读取、首次插入或 failed 重置，并只产生一个网络往返。
+        var claim = await queryExecutor
+            .QuerySingleOrDefaultAsync<InboxClaimRow>(
+                claimStatement,
                 new
                 {
                     ConsumerName = consumerName,
                     MessageId = envelope.EventId,
+                    MessageType = envelope.MessageType,
+                    SchemaVersion = envelope.SchemaVersion,
+                    TenantId = envelope.TenantId,
+                    PayloadHash = payloadHash,
+                    StatusProcessing = InboxSql.StatusProcessing,
+                    StatusFailed = InboxSql.StatusFailed,
+                    ReceivedAtUtc = clock.UtcNow,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
-
-        if (existing is not null)
+        if (claim is null)
         {
-            if (!payloadHash.AsSpan().SequenceEqual(existing.PayloadHash))
-            {
-                return new InboxClaimResult(InboxClaimStatus.PayloadMismatch);
-            }
-
-            if (string.Equals(
-                    existing.Status,
-                    InboxSql.StatusProcessed,
-                    StringComparison.Ordinal))
-            {
-                return new InboxClaimResult(InboxClaimStatus.AlreadyProcessed);
-            }
-
-            if (string.Equals(
-                    existing.Status,
-                    InboxSql.StatusFailed,
-                    StringComparison.Ordinal))
-            {
-                var resetRows = await commandExecutor
-                    .ExecuteAsync(
-                        InboxSql.ResetFailedToProcessing,
-                        new
-                        {
-                            ConsumerName = consumerName,
-                            MessageId = envelope.EventId,
-                            StatusProcessing = InboxSql.StatusProcessing,
-                            StatusFailed = InboxSql.StatusFailed,
-                        },
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (resetRows != 1)
-                {
-                    throw new InvalidOperationException(
-                        $"Inbox failed replay reset affected {resetRows} rows instead of one.");
-                }
-
-                return new InboxClaimResult(InboxClaimStatus.Claimed);
-            }
+            throw new InvalidOperationException("Inbox claim did not return its locked row.");
         }
-        else
+
+        if (!payloadHash.AsSpan().SequenceEqual(claim.PayloadHash))
         {
-            var insertRow = new InboxInsertRow(
-                consumerName,
-                envelope.EventId,
-                envelope.MessageType,
-                envelope.SchemaVersion,
-                envelope.TenantId,
-                payloadHash,
-                InboxSql.StatusProcessing,
-                1,
-                clock.UtcNow);
+            return new InboxClaimResult(InboxClaimStatus.PayloadMismatch);
+        }
 
-            var inserted = await commandExecutor
-                .ExecuteAsync(InboxSql.InsertProcessing, insertRow, cancellationToken)
-                .ConfigureAwait(false);
-            if (inserted != 1)
-            {
-                throw new InvalidOperationException(
-                    $"Inbox insert affected {inserted} rows instead of one.");
-            }
+        if (string.Equals(claim.Status, InboxSql.StatusProcessed, StringComparison.Ordinal))
+        {
+            return new InboxClaimResult(InboxClaimStatus.AlreadyProcessed);
+        }
 
+        if (string.Equals(claim.Status, InboxSql.StatusProcessing, StringComparison.Ordinal))
+        {
             return new InboxClaimResult(InboxClaimStatus.Claimed);
         }
 
-        // processing/failed 且 PayloadHash 一致：同事务内重试路径，复用现有行继续处理。
-        return new InboxClaimResult(InboxClaimStatus.Claimed);
+        throw new InvalidOperationException(
+            $"Inbox claim returned unsupported status '{claim.Status}'.");
     }
 
     public async Task MarkProcessedAsync(
@@ -149,17 +110,4 @@ internal sealed class DapperIntegrationEventInbox(
                 $"Inbox mark processed affected {affected} rows instead of one.");
         }
     }
-
-    private sealed record InboxExistingRow(string Status, byte[] PayloadHash);
-
-    private sealed record InboxInsertRow(
-        string ConsumerName,
-        Guid MessageId,
-        string MessageType,
-        int SchemaVersion,
-        Guid? TenantId,
-        byte[] PayloadHash,
-        string Status,
-        int Attempts,
-        DateTimeOffset ReceivedAtUtc);
 }
