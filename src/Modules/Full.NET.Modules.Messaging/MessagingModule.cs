@@ -62,9 +62,17 @@ public sealed class MessagingModule : IFullNetModule
 
     private static void RegisterMessagingCore(IServiceCollection services)
     {
-        services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IntegrationEventTopicDefinition>(
-                _ => MessagingTopicDefinitions.OrganizationUnitChanged));
+        // Topic 是带数据的目录实例，不是可由实现类型区分的策略服务；
+        // TryAddEnumerable 会拒绝 service/implementation 类型相同的工厂描述符，因此按官方实例去重。
+        if (!services.Any(descriptor =>
+                descriptor.ServiceType == typeof(IntegrationEventTopicDefinition)
+                && ReferenceEquals(
+                    descriptor.ImplementationInstance,
+                    MessagingTopicDefinitions.OrganizationUnitChanged)))
+        {
+            services.AddSingleton(MessagingTopicDefinitions.OrganizationUnitChanged);
+        }
+
         services.TryAddScoped<EventStreamOwnershipStore>();
         services.TryAddScoped<IEventStreamOwnershipStore>(
             provider => provider.GetRequiredService<EventStreamOwnershipStore>());
@@ -74,7 +82,8 @@ public sealed class MessagingModule : IFullNetModule
     private static void RegisterSubscriptionCatalog(IServiceCollection services)
     {
         services.RemoveAll<IntegrationEventSubscriptionCatalog>();
-        services.AddSingleton(provider =>
+        // Catalog 保存订阅 Handler 实例，生命周期必须与 Handler/Inbox 事务作用域一致。
+        services.AddScoped(provider =>
             new IntegrationEventSubscriptionCatalog(
                 provider.GetServices<IntegrationEventTopicDefinition>(),
                 provider.GetServices<IIntegrationEventSubscription>()));

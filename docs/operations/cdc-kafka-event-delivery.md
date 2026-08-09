@@ -2,7 +2,9 @@
 
 本文记录 Full.NET 事务 Outbox + CDC + Kafka 试点流的运维边界、切流/回退流程与生产门禁。权威架构决策见 [`ADR-0006`](../../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)。
 
-## 试点事件流（Build-verified / Pilot）
+## 候选试点事件流（Designing / Shadow-only）
+
+> 当前禁止正式切流。2026-08-09 复审确认真实生产写入、业务订阅注册和单流/Legacy 并存尚未闭环；`CdcKafka` 在没有真实订阅时会拒绝启动。
 
 | 字段 | 值 |
 | --- | --- |
@@ -10,8 +12,8 @@
 | Schema | `1` |
 | Topic 机器码 | `organization.unit-changed.v1` |
 | 目录默认所有权 | `LegacyPolling` |
-| 生产者 | Organization 模块 `TenantUnitManagementService`（同事务 Outbox 追加） |
-| 消费者 | Identity 模块 `OrganizationUnitChangedIntegrationEventHandler`（版本比较天然幂等） |
+| 候选生产者 | Organization 模块 `TenantUnitManagementService`（当前仍写 Legacy Outbox） |
+| 候选消费者 | Identity 模块 `OrganizationUnitChangedIntegrationEventHandler`（尚未注册 Kafka 订阅） |
 | 遗留重放 | Identity 机构单元投影对账 API（`reconcile_dry_run` / `reconcile_apply`） |
 
 选择依据：无支付/安全不可逆外部副作用；消费方通过投影版本比较收敛重复与乱序；存在 Legacy 对账路径。
@@ -41,7 +43,7 @@
 2. 全局 Legacy Outbox 积压已排空（无 pending/due retry/active lease）。
 3. 目标流版本退役快照无 pending/dead letter。
 
-切流成功后 Legacy `OutboxProcessor` 对该流新消息写入死信，原因码 `outbox.legacy_owner_revoked`。
+上述 API 只是控制面实现，不代表当前已满足数据面切流条件。纠正计划完成前不得调用切流 API。
 
 ## Worker 模式
 
@@ -49,9 +51,9 @@
 | --- | --- | --- |
 | `LegacyPolling`（默认） | 是 | 否 |
 | `ShadowCdc` | 是（影子比对） | 否 |
-| `CdcKafka` | 否 | 是 |
+| `CdcKafka` | 否（当前实现，阻断单流试点） | 是；无真实订阅时启动失败 |
 
-生产默认保持 `LegacyPolling`，直至试点切流门禁通过且运维完成切流 API。
+生产必须保持 `LegacyPolling`。后续实现应让 Legacy Worker 与 Kafka Consumer 并存，再由持久化事件流所有权逐流路由；不能因一个试点流关闭全局轮询。
 
 ## 生产门禁（未验证项）
 

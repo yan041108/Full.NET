@@ -513,6 +513,7 @@ public sealed class AuthorizationCatalogTests
             ["create"] = "settings.dict_types.create",
             ["update"] = "settings.dict_types.update",
             ["disable"] = "settings.dict_types.disable",
+            ["delete"] = "settings.dict_types.delete",
         };
 
         var dictTypeActions = catalog.Actions
@@ -566,6 +567,7 @@ public sealed class AuthorizationCatalogTests
             ["create"] = "settings.config.create",
             ["update"] = "settings.config.update",
             ["disable"] = "settings.config.disable",
+            ["delete"] = "settings.config.delete",
         };
 
         var configActions = catalog.Actions
@@ -593,6 +595,7 @@ public sealed class AuthorizationCatalogTests
             ["create"] = "settings.tenant_dict_types.create",
             ["update"] = "settings.tenant_dict_types.update",
             ["disable"] = "settings.tenant_dict_types.disable",
+            ["delete"] = "settings.tenant_dict_types.delete",
         };
 
         var tenantDictTypeActions = catalog.Actions

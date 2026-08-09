@@ -34,7 +34,7 @@ test('organization unit projection reconcile OpenAPI fixture is structurally val
       seen.add(key);
       assert.match(
         operation.permission,
-        /^identity\.organization_unit_projection\.reconcile\.(dry_run|apply)(\|identity\.organization_unit_projection\.reconcile\.(dry_run|apply))?$/u
+        /^identity\.organization_unit_projections\.reconcile_(dry_run|apply)(\|identity\.organization_unit_projections\.reconcile_(dry_run|apply))?$/u
       );
     }
   }
@@ -47,8 +47,8 @@ test('organization unit projection reconcile OpenAPI fixture matches C# contract
 
   assert.match(contractsSource, /record ReconcileOrganizationUnitProjectionRequest/u);
   assert.match(contractsSource, /record ReconcileOrganizationUnitProjectionResponse/u);
-  assert.match(contractsSource, /identity\.organization_unit_projection\.reconcile\.dry_run/u);
-  assert.match(contractsSource, /identity\.organization_unit_projection\.reconcile\.apply/u);
+  assert.match(contractsSource, /identity\.organization_unit_projections\.reconcile_dry_run/u);
+  assert.match(contractsSource, /identity\.organization_unit_projections\.reconcile_apply/u);
   assert.match(
     endpointSource,
     /MapPost\(\s*"\/api\/v1\/identity\/organization-unit-projections\/reconcile"/u

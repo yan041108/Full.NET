@@ -16,12 +16,15 @@ public sealed class JobsAuthorizationContributorTests
             new[]
             {
                 HostJobPermissions.DefinitionsCreate,
+                HostJobPermissions.DefinitionsDelete,
                 HostJobPermissions.DefinitionsDisable,
                 HostJobPermissions.DefinitionsRead,
                 HostJobPermissions.DefinitionsTrigger,
                 HostJobPermissions.DefinitionsUpdate,
+                HostJobPermissions.ExecutionsClear,
                 HostJobPermissions.ExecutionsRead,
                 HostJobPermissions.SchedulesCreate,
+                HostJobPermissions.SchedulesDelete,
                 HostJobPermissions.SchedulesPause,
                 HostJobPermissions.SchedulesRead,
                 HostJobPermissions.SchedulesResume,
@@ -40,7 +43,9 @@ public sealed class JobsAuthorizationContributorTests
                 HostJobPermissions.DefinitionsCreate,
                 HostJobPermissions.DefinitionsUpdate,
                 HostJobPermissions.DefinitionsDisable,
+                HostJobPermissions.DefinitionsDelete,
                 HostJobPermissions.DefinitionsTrigger,
+                HostJobPermissions.ExecutionsClear,
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "host-jobs")
@@ -53,6 +58,7 @@ public sealed class JobsAuthorizationContributorTests
             {
                 HostJobPermissions.SchedulesCreate,
                 HostJobPermissions.SchedulesUpdate,
+                HostJobPermissions.SchedulesDelete,
                 HostJobPermissions.SchedulesPause,
                 HostJobPermissions.SchedulesResume,
             },

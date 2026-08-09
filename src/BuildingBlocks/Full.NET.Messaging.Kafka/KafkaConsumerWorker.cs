@@ -1,7 +1,8 @@
-﻿using Confluent.Kafka;
+using Confluent.Kafka;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -16,9 +17,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
     private const string ProviderCode = "kafka";
 
     private readonly KafkaMessagingOptions _options;
-    private readonly IntegrationEventSubscriptionCatalog _catalog;
-    private readonly IntegrationEventConsumerDispatcher _dispatcher;
-    private readonly IReadOnlyList<IIntegrationEventSubscription> _subscriptions;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly KafkaEnvelopeReader _reader;
     private readonly KafkaOffsetCommitter _committer;
     private readonly KafkaFailureClassifier _failureClassifier;
@@ -28,9 +27,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
 
     public KafkaConsumerWorker(
         IOptions<KafkaMessagingOptions> options,
-        IntegrationEventSubscriptionCatalog catalog,
-        IntegrationEventConsumerDispatcher dispatcher,
-        IEnumerable<IIntegrationEventSubscription> subscriptions,
+        IServiceScopeFactory scopeFactory,
         KafkaEnvelopeReader reader,
         KafkaOffsetCommitter committer,
         KafkaFailureClassifier failureClassifier,
@@ -39,9 +36,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         ILogger<KafkaConsumerWorker> logger)
     {
         _options = options.Value;
-        _catalog = catalog;
-        _dispatcher = dispatcher;
-        _subscriptions = subscriptions.ToArray();
+        _scopeFactory = scopeFactory;
         _reader = reader;
         _committer = committer;
         _failureClassifier = failureClassifier;
@@ -57,13 +52,12 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             return;
         }
 
-        if (_subscriptions.Count == 0)
+        var consumerGroups = BuildConsumerGroups();
+        if (consumerGroups.Count == 0)
         {
             _logger.LogWarning("Kafka messaging is enabled but no integration event subscriptions are registered.");
             return;
         }
-
-        var consumerGroups = BuildConsumerGroups();
         var workers = consumerGroups
             .Select(group => RunConsumerGroupAsync(group, stoppingToken))
             .ToArray();
@@ -72,10 +66,15 @@ internal sealed class KafkaConsumerWorker : BackgroundService
 
     private IReadOnlyList<ConsumerGroupPlan> BuildConsumerGroups()
     {
+        using var scope = _scopeFactory.CreateScope();
+        var catalog = scope.ServiceProvider
+            .GetRequiredService<IntegrationEventSubscriptionCatalog>();
+        var subscriptions = scope.ServiceProvider
+            .GetServices<IIntegrationEventSubscription>();
         var plans = new Dictionary<string, ConsumerGroupPlan>(StringComparer.Ordinal);
-        foreach (var subscription in _subscriptions)
+        foreach (var subscription in subscriptions)
         {
-            var topic = _catalog.GetTopicRequired(
+            var topic = catalog.GetTopicRequired(
                 subscription.EventType,
                 subscription.SchemaVersion);
             if (!plans.TryGetValue(subscription.ConsumerName, out var plan))
@@ -170,7 +169,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
             return;
         }
 
-        if (!plan.TryGetSubscription(envelope.MessageType, envelope.SchemaVersion, out var subscription))
+        if (!plan.ContainsRoute(envelope.MessageType, envelope.SchemaVersion))
         {
             var failure = new IntegrationEventFailure(
                 IntegrationEventFailureKind.Security,
@@ -196,7 +195,16 @@ internal sealed class KafkaConsumerWorker : BackgroundService
 
         try
         {
-            var inboxResult = await _dispatcher
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var catalog = scope.ServiceProvider
+                .GetRequiredService<IntegrationEventSubscriptionCatalog>();
+            var subscription = catalog.GetRequired(
+                plan.ConsumerName,
+                envelope.MessageType,
+                envelope.SchemaVersion);
+            var dispatcher = scope.ServiceProvider
+                .GetRequiredService<IntegrationEventConsumerDispatcher>();
+            var inboxResult = await dispatcher
                 .ConsumeAsync(plan.ConsumerName, envelope, subscription, cancellationToken)
                 .ConfigureAwait(false);
 
@@ -332,7 +340,7 @@ internal sealed class KafkaConsumerWorker : BackgroundService
 
     private sealed class ConsumerGroupPlan
     {
-        private readonly Dictionary<(string EventType, int SchemaVersion), IIntegrationEventSubscription> _routes = new();
+        private readonly HashSet<(string EventType, int SchemaVersion)> _routes = [];
 
         public ConsumerGroupPlan(string consumerName)
         {
@@ -346,14 +354,13 @@ internal sealed class KafkaConsumerWorker : BackgroundService
         public void AddRoute(IIntegrationEventSubscription subscription, string topicCode)
         {
             TopicCodes.Add(topicCode);
-            _routes[(subscription.EventType, subscription.SchemaVersion)] = subscription;
+            _routes.Add((subscription.EventType, subscription.SchemaVersion));
         }
 
-        public bool TryGetSubscription(
+        public bool ContainsRoute(
             string eventType,
-            int schemaVersion,
-            out IIntegrationEventSubscription subscription) =>
-            _routes.TryGetValue((eventType, schemaVersion), out subscription!);
+            int schemaVersion) =>
+            _routes.Contains((eventType, schemaVersion));
 
         public string ResolveTopicCode(string topic) => KafkaTopicNames.ResolveBaseTopic(topic);
     }

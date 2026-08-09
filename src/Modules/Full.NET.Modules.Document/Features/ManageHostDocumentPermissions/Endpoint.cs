@@ -41,6 +41,6 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<IReadOnlyList<HostDocumentPermissionResponse>>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissionManagementPermissions.Manage));
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissionManagementPermissions.Set));
     }
 }

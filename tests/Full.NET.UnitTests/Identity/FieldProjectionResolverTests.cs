@@ -29,6 +29,7 @@ public sealed class FieldProjectionResolverTests
                 "emergency_contact",
                 "emergency_contact_address",
                 "emergency_contact_phone",
+                "emergency_contact_relation",
                 "employee_number",
                 "ethnicity",
                 "failed_login_count",

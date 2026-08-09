@@ -30,7 +30,7 @@ public static class HostDocumentPermissionManagementPermissions
 {
     public const string Read = "document.host_permissions.read";
 
-    public const string Manage = "document.host_permissions.manage";
+    public const string Set = "document.host_permissions.set";
 }
 
 public static class HostDocumentSharePermissions

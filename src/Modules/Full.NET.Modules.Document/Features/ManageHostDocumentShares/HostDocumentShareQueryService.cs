@@ -86,7 +86,8 @@ internal sealed class HostDocumentShareQueryService(
             record.ShareCode,
             record.CreatedAtUtc,
             record.ExpireTime,
-            record.Password,
+            // 口令字段只允许在服务端参与校验，任何查询响应都不得回显持久化凭据。
+            null,
             record.MaxAccessCount,
             record.AccessCount,
             record.IsEnabled,

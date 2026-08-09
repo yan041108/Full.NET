@@ -8,6 +8,20 @@ namespace Full.NET.Host.Worker;
 internal static class MessagingWorkerCatalogGuard
 {
     /// <summary>
+    /// 正式 Kafka 模式必须存在真实业务订阅；空目录会让 Worker 看似健康却静默退出。
+    /// </summary>
+    public static void ValidateCdcKafkaMode(
+        IReadOnlyCollection<IIntegrationEventSubscription> subscriptions)
+    {
+        ArgumentNullException.ThrowIfNull(subscriptions);
+        if (subscriptions.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Messaging:Worker mode CdcKafka requires at least one registered business subscription.");
+        }
+    }
+
+    /// <summary>
     /// Shadow 模式禁止为 <see cref="EventDeliveryOwner.CdcKafka"/> 事件流注册业务订阅。
     /// </summary>
     public static void ValidateShadowMode(

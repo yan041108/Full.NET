@@ -13,6 +13,28 @@ namespace Full.NET.UnitTests.Messaging;
 [TestClass]
 public sealed class MessagingWorkerOptionsTests
 {
+    [TestMethod]
+    public void Kafka_consumer_worker_does_not_capture_scoped_message_services()
+    {
+        var constructorParameters = typeof(KafkaConsumerWorker)
+            .GetConstructors()
+            .Single()
+            .GetParameters()
+            .Select(parameter => parameter.ParameterType)
+            .ToArray();
+
+        CollectionAssert.DoesNotContain(
+            constructorParameters,
+            typeof(Full.NET.Modularity.Messaging.IntegrationEventConsumerDispatcher));
+        CollectionAssert.DoesNotContain(
+            constructorParameters,
+            typeof(IntegrationEventSubscriptionCatalog));
+        CollectionAssert.DoesNotContain(
+            constructorParameters,
+            typeof(IEnumerable<IIntegrationEventSubscription>));
+        CollectionAssert.Contains(constructorParameters, typeof(IServiceScopeFactory));
+    }
+
   private const string EventType = "fullnet.tenancy.tenant.changed";
 
     [TestMethod]
@@ -123,6 +145,17 @@ public sealed class MessagingWorkerOptionsTests
 
         StringAssert.Contains(exception.Message, "ShadowCdc cannot register business subscriptions");
         StringAssert.Contains(exception.Message, EventType);
+    }
+
+    [TestMethod]
+    public void MessagingWorkerCatalogGuard_rejects_cdc_mode_without_real_subscriptions()
+    {
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            MessagingWorkerCatalogGuard.ValidateCdcKafkaMode([]));
+
+        StringAssert.Contains(
+            exception.Message,
+            "CdcKafka requires at least one registered business subscription");
     }
 
     [TestMethod]

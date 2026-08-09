@@ -138,6 +138,14 @@ await using (var scope = app.Services.CreateAsyncScope())
             provider.GetServices<IIntegrationEventSubscription>().ToArray(),
             provider.GetServices<IntegrationEventTopicDefinition>().ToArray());
     }
+    else if (commandLine.VersionRetirement is null
+        && messagingWorkerMode == MessagingWorkerMode.CdcKafka)
+    {
+        MessagingWorkerCatalogGuard.ValidateCdcKafkaMode(
+            scope.ServiceProvider
+                .GetServices<IIntegrationEventSubscription>()
+                .ToArray());
+    }
 }
 
 if (commandLine.VersionRetirement is null)

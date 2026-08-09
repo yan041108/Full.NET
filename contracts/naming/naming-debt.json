@@ -955,6 +955,34 @@
       "removalMilestone": "M1.0"
     },
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/087_IdentityUserAccountType.sql",
+      "reason": "087 在同一 DbUp 批次新增 AccountType 后以固定 EXEC 语句回填，避免 SQL Server 在批次编译阶段拒绝尚不存在的列；语句与值均为脚本常量，并由迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/088_IdentityNavigationMenuMeta.sql",
+      "reason": "088 在同一 DbUp 批次新增菜单元数据列后以固定 EXEC 语句回填，避免 SQL Server 批次编译提前绑定新列；语句和值均为脚本常量，并由迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/089_JobsDefinitionAndScheduleEnhancements.sql",
+      "reason": "089 使用固定存储过程与 INFORMATION_SCHEMA 实现 Jobs 新列的可重入 DDL；对象名和 ALTER 语句均为脚本常量，并由双库迁移验证覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/090_SettingsConfigEntryGroupName.sql",
+      "reason": "090 使用固定存储过程与 INFORMATION_SCHEMA 实现配置分组列的可重入 DDL；对象名和 ALTER 语句均为脚本常量，并由双库迁移验证覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "unsupported_sql",
       "value": "unsupported_ddl",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/091_MessagingOutboxInboxExpand.sql",

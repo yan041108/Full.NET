@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Modules;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -19,6 +20,12 @@ public static class ModularityServiceCollectionExtensions
 
         services.AddScoped<ICommandDispatcher, CommandDispatcher>();
         services.AddScoped<IQueryDispatcher, QueryDispatcher>();
+        // 部分装配宿主仍会注册 Dispatcher；提供空目录可保证 DI 图闭合，
+        // 完整 Messaging 模块会以同生命周期的真实 Topic/订阅目录替换它。
+        services.TryAddScoped(provider =>
+            new IntegrationEventSubscriptionCatalog(
+                provider.GetServices<IntegrationEventTopicDefinition>(),
+                provider.GetServices<IIntegrationEventSubscription>()));
         services.AddScoped<IntegrationEventConsumerDispatcher>();
         return services;
     }

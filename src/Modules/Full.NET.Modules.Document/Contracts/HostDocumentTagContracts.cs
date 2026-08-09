@@ -11,7 +11,16 @@ public sealed record CreateHostDocumentTagRequest(
     string? Code,
     string? Icon,
     string? Color,
-    string? Description);
+    string? Description)
+{
+    /// <summary>
+    /// 保留原标签创建构造方式，新增展示字段缺省为空。
+    /// </summary>
+    public CreateHostDocumentTagRequest(string name)
+        : this(name, null, null, null, null)
+    {
+    }
+}
 
 /// <summary>
 /// 更新主机文档标签的请求契约。新增 Code/Icon/Description 以与 Category 统一字段集对齐。
@@ -23,7 +32,16 @@ public sealed record UpdateHostDocumentTagRequest(
     string? Icon,
     string? Color,
     string? Description,
-    long Version);
+    long Version)
+{
+    /// <summary>
+    /// 保留原标签更新构造方式，新增展示字段缺省为空。
+    /// </summary>
+    public UpdateHostDocumentTagRequest(string name, long version)
+        : this(name, null, null, null, null, version)
+    {
+    }
+}
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DeleteHostDocumentTagRequest(long Version);

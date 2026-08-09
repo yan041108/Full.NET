@@ -1,6 +1,6 @@
 {
   "id": "identity-host-menus-v1",
-  "version": 2,
+  "version": 1,
   "description": "Host 菜单管理 HTTP 契约冻结夹具；与 IdentityMenuManagementContracts 和 ManageHostMenus.Endpoint 对齐。",
   "paths": [
     {

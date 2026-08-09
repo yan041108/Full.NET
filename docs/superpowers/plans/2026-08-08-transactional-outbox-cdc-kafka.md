@@ -1,5 +1,7 @@
 # Transactional Outbox CDC Kafka Implementation Plan
 
+> **2026-08-09 审查更正：** Task 11 的现有交付没有满足本计划“真实事件、不得合成切流”的退出门槛，`Build-verified / Pilot` 结论已撤销。Task 11 不得按已完成处理；后续以 [`2026-08-09-cdc-kafka-real-pilot-correction.md`](2026-08-09-cdc-kafka-real-pilot-correction.md) 为执行入口。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在不引入 CAP/MassTransit、不降低业务事务原子性的前提下，为 Full.NET 建立追加式 Outbox、SQL Server CDC/MySQL Binlog、Kafka 发布订阅、消费 Inbox、重试/DLQ、影子验证和受控切换闭环。

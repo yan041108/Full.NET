@@ -141,17 +141,15 @@ BEGIN
         Id uniqueidentifier NOT NULL,
         TenantId uniqueidentifier NULL,
         DocumentId uniqueidentifier NOT NULL,
-        PermissionType int NOT NULL,
-        ObjectType int NOT NULL,
-        ObjectId uniqueidentifier NOT NULL,
+        UserId uniqueidentifier NOT NULL,
+        PermissionLevel nvarchar(64) NOT NULL,
         CreatedAtUtc datetimeoffset(7) NOT NULL,
-        CreatedByUserId uniqueidentifier NOT NULL,
         CONSTRAINT PK_fn_document_permission PRIMARY KEY NONCLUSTERED (Id),
         CONSTRAINT FK_fn_document_permission_Document
             FOREIGN KEY (DocumentId) REFERENCES dbo.fn_document_item(Id) ON DELETE CASCADE
     );
-    CREATE UNIQUE CLUSTERED INDEX CX_fn_document_permission_Scope_Document_Object_Type
-        ON dbo.fn_document_permission(TenantId, DocumentId, ObjectType, ObjectId, PermissionType);
+    CREATE UNIQUE CLUSTERED INDEX CX_fn_document_permission_Scope_Document_User
+        ON dbo.fn_document_permission(TenantId, DocumentId, UserId);
 END;
 
 -- ============================================================
@@ -165,18 +163,16 @@ BEGIN
         TenantId uniqueidentifier NULL,
         DocumentId uniqueidentifier NOT NULL,
         ShareCode nvarchar(64) NOT NULL,
-        Password nvarchar(64) NULL,
-        ValidDays int NOT NULL
-            CONSTRAINT DF_fn_document_share_ValidDays DEFAULT (0),
-        ExpireTime datetimeoffset(7) NULL,
+        Password nvarchar(512) NULL,
+        ExpireTime datetimeoffset(7) NOT NULL,
+        MaxAccessCount int NULL,
         AccessCount int NOT NULL
             CONSTRAINT DF_fn_document_share_AccessCount DEFAULT (0),
-        SharePermission int NOT NULL
-            CONSTRAINT DF_fn_document_share_SharePermission DEFAULT (1),
         IsEnabled bit NOT NULL
             CONSTRAINT DF_fn_document_share_IsEnabled DEFAULT (1),
+        Version bigint NOT NULL
+            CONSTRAINT DF_fn_document_share_Version DEFAULT (1),
         CreatedAtUtc datetimeoffset(7) NOT NULL,
-        CreatedByUserId uniqueidentifier NOT NULL,
         CONSTRAINT PK_fn_document_share PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT FK_fn_document_share_Document
             FOREIGN KEY (DocumentId) REFERENCES dbo.fn_document_item(Id) ON DELETE CASCADE

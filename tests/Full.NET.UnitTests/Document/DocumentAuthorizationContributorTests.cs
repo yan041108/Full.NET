@@ -27,6 +27,15 @@ public sealed class DocumentAuthorizationContributorTests
                 HostDocumentPermissions.Read,
                 HostDocumentPermissions.Restore,
                 HostDocumentPermissions.Update,
+                HostDocumentPermissionManagementPermissions.Read,
+                HostDocumentPermissionManagementPermissions.Set,
+                HostDocumentRecycleBinPermissions.Purge,
+                HostDocumentRecycleBinPermissions.Read,
+                HostDocumentRecycleBinPermissions.Restore,
+                HostDocumentSharePermissions.Create,
+                HostDocumentSharePermissions.Read,
+                HostDocumentSharePermissions.UpdateStatus,
+                HostDocumentStatisticsPermissions.Read,
                 HostDocumentTagPermissions.Create,
                 HostDocumentTagPermissions.Delete,
                 HostDocumentTagPermissions.Read,
@@ -43,6 +52,15 @@ public sealed class DocumentAuthorizationContributorTests
 
         var tags = catalog.Navigation.Single(item => item.Id == "document-tags");
         Assert.AreEqual(HostDocumentTagPermissions.Read, tags.RequiredPermission);
+        Assert.AreEqual(
+            HostDocumentRecycleBinPermissions.Read,
+            catalog.Navigation.Single(item => item.Id == "document-recycle-bin").RequiredPermission);
+        Assert.AreEqual(
+            HostDocumentSharePermissions.Read,
+            catalog.Navigation.Single(item => item.Id == "document-shares").RequiredPermission);
+        Assert.AreEqual(
+            HostDocumentStatisticsPermissions.Read,
+            catalog.Navigation.Single(item => item.Id == "document-statistics").RequiredPermission);
 
         var expectedItemActions = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -52,6 +70,7 @@ public sealed class DocumentAuthorizationContributorTests
             ["download"] = HostDocumentPermissions.Download,
             ["delete"] = HostDocumentPermissions.Delete,
             ["restore"] = HostDocumentPermissions.Restore,
+            ["set_permissions"] = HostDocumentPermissionManagementPermissions.Set,
         };
         var itemActions = catalog.Actions
             .Where(action => action.NavigationId == "host-document-items")
@@ -88,5 +107,30 @@ public sealed class DocumentAuthorizationContributorTests
                 action => action.PermissionCode,
                 StringComparer.Ordinal);
         CollectionAssert.AreEquivalent(expectedTagActions, tagActions);
+
+        CollectionAssert.AreEquivalent(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["restore"] = HostDocumentRecycleBinPermissions.Restore,
+                ["purge"] = HostDocumentRecycleBinPermissions.Purge,
+            },
+            catalog.Actions
+                .Where(action => action.NavigationId == "document-recycle-bin")
+                .ToDictionary(
+                    action => action.ClientActionKey,
+                    action => action.PermissionCode,
+                    StringComparer.Ordinal));
+        CollectionAssert.AreEquivalent(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["create"] = HostDocumentSharePermissions.Create,
+                ["update_status"] = HostDocumentSharePermissions.UpdateStatus,
+            },
+            catalog.Actions
+                .Where(action => action.NavigationId == "document-shares")
+                .ToDictionary(
+                    action => action.ClientActionKey,
+                    action => action.PermissionCode,
+                    StringComparer.Ordinal));
     }
 }

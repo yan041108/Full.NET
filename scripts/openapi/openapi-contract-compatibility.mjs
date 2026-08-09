@@ -167,7 +167,10 @@ function compareStructuredContract(fileName, baseline, current, changes) {
       continue;
     }
 
-    if (!isDeepStrictEqual(baseline[fieldName], current[fieldName])) {
+    if (
+      !isDeepStrictEqual(baseline[fieldName], current[fieldName])
+      && !isContractIdentityRepair(fileName, fieldName, baseline, current)
+    ) {
       changes.push(
         `stable setting changed: ${fileName} ${fieldName} ` +
           `(baseline=${formatValue(baseline[fieldName])}, ` +
@@ -247,6 +250,22 @@ function compareStructuredContract(fileName, baseline, current, changes) {
       );
     }
   }
+}
+
+function isContractIdentityRepair(fileName, fieldName, baseline, current) {
+  if (fieldName !== 'version' || baseline.id !== current.id) {
+    return false;
+  }
+
+  const versionSuffixMatch = /-v([1-9]\d*)$/u.exec(current.id);
+  if (!versionSuffixMatch || fileName !== `${current.id}.json`) {
+    return false;
+  }
+
+  const identityVersion = Number(versionSuffixMatch[1]);
+  // 只豁免“历史元数据本身无效、当前修成文件名所声明版本”的单向修复；
+  // 路径、操作和 schema 仍由后续兼容比较完整约束。
+  return baseline.version !== identityVersion && current.version === identityVersion;
 }
 
 function compareStableSettings(fileName, baseline, current, changes) {

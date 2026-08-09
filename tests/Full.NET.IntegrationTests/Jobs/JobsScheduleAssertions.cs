@@ -69,7 +69,10 @@ internal static class JobsScheduleAssertions
                 "*/5 * * * *",
                 "Eastern Standard Time",
                 null,
-                JobMisfirePolicies.FireOnce));
+                JobMisfirePolicies.FireOnce,
+                null,
+                null,
+                null));
         using var response = await client.SendAsync(request, cancellationToken);
 
         var responseBody = await response.Content.ReadAsStringAsync(
@@ -127,6 +130,9 @@ internal static class JobsScheduleAssertions
                 "UTC",
                 null,
                 JobMisfirePolicies.Skip,
+                null,
+                null,
+                null,
                 schedule.Version));
         using var updateResponse = await client.SendAsync(
             updateRequest,
@@ -334,7 +340,10 @@ internal static class JobsScheduleAssertions
                 null,
                 "UTC",
                 DateTimeOffset.UtcNow.AddHours(1),
-                JobMisfirePolicies.FireOnce));
+                JobMisfirePolicies.FireOnce,
+                null,
+                null,
+                null));
         using var createResponse = await client.SendAsync(
             createRequest,
             cancellationToken);

@@ -77,6 +77,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .Produces<HostDocumentShareResponse>(StatusCodes.Status200OK);
+        .Produces<HostDocumentShareResponse>(StatusCodes.Status200OK)
+        .AllowAnonymous();
     }
 }

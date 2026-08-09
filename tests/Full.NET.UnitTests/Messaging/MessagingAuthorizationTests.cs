@@ -18,6 +18,7 @@ public sealed class MessagingAuthorizationContributorTests
                 MessagingPermissions.DeadLettersRead,
                 MessagingPermissions.DeadLettersReplay,
                 MessagingPermissions.DeliveryCutover,
+                MessagingPermissions.DeliveryRollback,
                 MessagingPermissions.EventsRead,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
@@ -30,6 +31,7 @@ public sealed class MessagingAuthorizationContributorTests
             {
                 MessagingPermissions.DeadLettersReplay,
                 MessagingPermissions.DeliveryCutover,
+                MessagingPermissions.DeliveryRollback,
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "host-messaging-ops")

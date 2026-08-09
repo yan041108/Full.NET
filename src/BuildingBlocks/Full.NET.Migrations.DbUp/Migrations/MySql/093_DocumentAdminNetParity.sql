@@ -223,11 +223,9 @@ BEGIN
         Id BINARY(16) NOT NULL,
         TenantId BINARY(16) NULL,
         DocumentId BINARY(16) NOT NULL,
-        PermissionType int NOT NULL,
-        ObjectType int NOT NULL,
-        ObjectId BINARY(16) NOT NULL,
+        UserId BINARY(16) NOT NULL,
+        PermissionLevel varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
         CreatedAtUtc datetime(6) NOT NULL,
-        CreatedByUserId BINARY(16) NOT NULL,
         CONSTRAINT PK_fn_document_permission PRIMARY KEY (Id),
         CONSTRAINT FK_fn_document_permission_Document
             FOREIGN KEY (DocumentId) REFERENCES fn_document_item (Id) ON DELETE CASCADE
@@ -238,11 +236,11 @@ BEGIN
         SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_permission'
-          AND INDEX_NAME = 'UX_fn_document_permission_Scope_Document_Object_Type'
+          AND INDEX_NAME = 'UX_fn_document_permission_Scope_Document_User'
     )
     THEN
-        CREATE UNIQUE INDEX UX_fn_document_permission_Scope_Document_Object_Type
-            ON fn_document_permission (TenantId, DocumentId, ObjectType, ObjectId, PermissionType);
+        CREATE UNIQUE INDEX UX_fn_document_permission_Scope_Document_User
+            ON fn_document_permission (TenantId, DocumentId, UserId);
     END IF;
 
     -- ============================================================
@@ -254,14 +252,13 @@ BEGIN
         TenantId BINARY(16) NULL,
         DocumentId BINARY(16) NOT NULL,
         ShareCode varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-        Password varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
-        ValidDays int NOT NULL DEFAULT 0,
-        ExpireTime datetime(6) NULL,
+        Password varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL,
+        ExpireTime datetime(6) NOT NULL,
+        MaxAccessCount int NULL,
         AccessCount int NOT NULL DEFAULT 0,
-        SharePermission int NOT NULL DEFAULT 1,
         IsEnabled boolean NOT NULL DEFAULT true,
+        Version bigint NOT NULL DEFAULT 1,
         CreatedAtUtc datetime(6) NOT NULL,
-        CreatedByUserId BINARY(16) NOT NULL,
         CONSTRAINT PK_fn_document_share PRIMARY KEY (Id),
         CONSTRAINT FK_fn_document_share_Document
             FOREIGN KEY (DocumentId) REFERENCES fn_document_item (Id) ON DELETE CASCADE

@@ -227,6 +227,13 @@ public sealed class IdentityModuleRegistrationTests
             IIdentityBootstrapService,
             IdentityBootstrapService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
+            IAuthorizationCatalogContributor,
+            IdentityAuthorizationContributor>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Factory<AuthorizationCatalog>(
+            ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<HostNavigationCatalogSyncService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
             IDataSeedContributor,
             HostAdministratorSeedContributor>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
@@ -256,11 +263,6 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<SignatureAuthenticationHandler>(
             ServiceLifetime.Transient),
 
-        RegistrationExpectation.Type<
-            IAuthorizationCatalogContributor,
-            IdentityAuthorizationContributor>(ServiceLifetime.Singleton),
-        RegistrationExpectation.Factory<AuthorizationCatalog>(
-            ServiceLifetime.Singleton),
         RegistrationExpectation.Self<PermissionClaimEvaluator>(
             ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
@@ -322,8 +324,6 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostMenuQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostMenuPermissionOptionsQueryService>(
-            ServiceLifetime.Scoped),
-        RegistrationExpectation.Self<HostNavigationCatalogSyncService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostMenuManagementService>(
             ServiceLifetime.Scoped),

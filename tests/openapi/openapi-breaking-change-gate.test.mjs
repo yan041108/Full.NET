@@ -403,6 +403,19 @@ test('改变平台 OpenAPI 稳定配置会失败', async () => {
   );
 });
 
+test('修复历史契约的版本后缀元数据不被误报为破坏变化', async () => {
+  const malformedBaseline = clone(baselineContract);
+  malformedBaseline.version = 2;
+
+  const result = await compareDirectories(
+    { 'sample-v1.json': malformedBaseline },
+    { 'sample-v1.json': baselineContract }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /OpenAPI compatibility check passed/u);
+});
+
 test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () => {
   const result = spawnSync(
     process.execPath,

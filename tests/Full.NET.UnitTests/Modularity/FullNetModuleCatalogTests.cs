@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Composition;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modularity.Messaging;
 using Full.NET.Modules.CodeGeneration;
 using Full.NET.Modules.Document;
 using Full.NET.Modules.Files;
@@ -18,6 +19,7 @@ using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Seeding.Abstractions;
+using Full.NET.Messaging.Abstractions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Http.Json;
@@ -32,6 +34,43 @@ namespace Full.NET.UnitTests.Modularity;
 [TestClass]
 public sealed class FullNetModuleCatalogTests
 {
+    [TestMethod]
+    public void Modularity_core_registers_scoped_empty_subscription_catalog_for_partial_hosts()
+    {
+        var services = CreateServices();
+
+        services.AddFullNetModularity();
+
+        var descriptor = services.Single(item =>
+            item.ServiceType == typeof(IntegrationEventSubscriptionCatalog));
+        Assert.AreEqual(ServiceLifetime.Scoped, descriptor.Lifetime);
+
+        using var provider = services.BuildServiceProvider(
+            new ServiceProviderOptions
+            {
+                ValidateScopes = true,
+            });
+        using var scope = provider.CreateScope();
+        Assert.IsNotNull(
+            scope.ServiceProvider.GetService<IntegrationEventSubscriptionCatalog>());
+    }
+
+    [TestMethod]
+    public void Messaging_module_registration_is_idempotent_and_keeps_one_official_topic()
+    {
+        var services = CreateServices();
+        var module = new MessagingModule();
+        var configuration = CreateConfiguration();
+
+        module.AddServices(services, configuration);
+        module.AddServices(services, configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var topics = provider.GetServices<IntegrationEventTopicDefinition>().ToArray();
+        Assert.HasCount(1, topics);
+        Assert.AreEqual("organization.unit-changed.v1", topics[0].TopicCode);
+    }
+
     [TestMethod]
     public void Api_profile_registers_complete_modules_in_dependency_order()
     {

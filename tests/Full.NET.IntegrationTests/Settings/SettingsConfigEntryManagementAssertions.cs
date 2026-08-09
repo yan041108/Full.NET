@@ -64,6 +64,7 @@ internal static class SettingsConfigEntryManagementAssertions
             configKey,
             "集成测试配置",
             "描述",
+            null,
             ConfigValueKinds.String,
             "hello",
             10);
@@ -104,6 +105,7 @@ internal static class SettingsConfigEntryManagementAssertions
                 $"num.{Guid.NewGuid():N}"[..20],
                 "整数配置",
                 null,
+                null,
                 ConfigValueKinds.Integer,
                 "not-an-integer",
                 1));
@@ -128,6 +130,7 @@ internal static class SettingsConfigEntryManagementAssertions
                 configKey,
                 "更新前名称",
                 null,
+                null,
                 ConfigValueKinds.Boolean,
                 "true",
                 1));
@@ -142,7 +145,7 @@ internal static class SettingsConfigEntryManagementAssertions
             HttpMethod.Put,
             $"/api/v1/settings/config-entries/{created.Id:D}",
             adminToken,
-            new UpdateConfigEntryRequest("更新后名称", "新描述", "false", 2, created.Version));
+            new UpdateConfigEntryRequest("更新后名称", "新描述", null, "false", 2, created.Version));
         using var updateResponse = await client.SendAsync(updateRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, updateResponse.StatusCode);
         var updated = await updateResponse.Content.ReadFromJsonAsync<ConfigEntryResponse>(
@@ -157,7 +160,7 @@ internal static class SettingsConfigEntryManagementAssertions
             HttpMethod.Put,
             $"/api/v1/settings/config-entries/{created.Id:D}",
             adminToken,
-            new UpdateConfigEntryRequest("陈旧版本", null, "true", 3, created.Version));
+            new UpdateConfigEntryRequest("陈旧版本", null, null, "true", 3, created.Version));
         using var staleResponse = await client.SendAsync(staleRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Conflict, staleResponse.StatusCode);
         using var problem = JsonDocument.Parse(
@@ -181,6 +184,7 @@ internal static class SettingsConfigEntryManagementAssertions
             new CreateConfigEntryRequest(
                 configKey,
                 "待禁用配置",
+                null,
                 null,
                 ConfigValueKinds.Json,
                 """{"mode":"test"}""",
@@ -246,6 +250,7 @@ internal static class SettingsConfigEntryManagementAssertions
                 configKey,
                 "边界测试配置",
                 null,
+                null,
                 ConfigValueKinds.String,
                 "hello",
                 1));
@@ -263,6 +268,7 @@ internal static class SettingsConfigEntryManagementAssertions
             new CreateConfigEntryRequest(
                 disableKey,
                 "禁用边界配置",
+                null,
                 null,
                 ConfigValueKinds.String,
                 "seed",
@@ -286,6 +292,7 @@ internal static class SettingsConfigEntryManagementAssertions
                 $"deny.{Guid.NewGuid():N}"[..20],
                 "拒绝",
                 null,
+                null,
                 ConfigValueKinds.String,
                 "x",
                 1));
@@ -295,7 +302,7 @@ internal static class SettingsConfigEntryManagementAssertions
             HttpMethod.Put,
             $"/api/v1/settings/config-entries/{created.Id:D}",
             cancellationToken,
-            new UpdateConfigEntryRequest("拒绝", null, "x", 1, created.Version));
+            new UpdateConfigEntryRequest("拒绝", null, null, "x", 1, created.Version));
         await AssertConfigEntryPermissionDeniedAsync<object?>(
             client,
             readOnlyToken,
@@ -316,7 +323,7 @@ internal static class SettingsConfigEntryManagementAssertions
             HttpMethod.Put,
             $"/api/v1/settings/config-entries/{created.Id:D}",
             cancellationToken,
-            new UpdateConfigEntryRequest("拒绝", null, "x", 1, created.Version));
+            new UpdateConfigEntryRequest("拒绝", null, null, "x", 1, created.Version));
         await AssertConfigEntryPermissionDeniedAsync<object?>(
             client,
             createToken,

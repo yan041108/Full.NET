@@ -70,6 +70,7 @@ internal static class AuditingOperationLogAssertions
                 configKey,
                 "操作日志探针",
                 null,
+                null,
                 ConfigValueKinds.String,
                 "probe",
                 1)),

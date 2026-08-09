@@ -33,7 +33,24 @@ public sealed record CreateHostDocumentItemRequest(
     int Sort,
     string? Thumbnail,
     Guid? CategoryId,
-    IReadOnlyList<Guid>? TagIds);
+    IReadOnlyList<Guid>? TagIds)
+{
+    /// <summary>
+    /// 保留对标扩展前的构造方式，避免新增可选元数据破坏既有 .NET 调用方。
+    /// </summary>
+    public CreateHostDocumentItemRequest(string title, string? description)
+        : this(
+            title,
+            description,
+            HostDocumentType.Unknown,
+            HostDocumentStatus.Draft,
+            0,
+            null,
+            null,
+            null)
+    {
+    }
+}
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record UpdateHostDocumentItemRequest(
@@ -44,12 +61,30 @@ public sealed record UpdateHostDocumentItemRequest(
     HostDocumentStatus? Status,
     int? Sort,
     IReadOnlyList<Guid>? TagIds,
-    long Version);
+    long Version)
+{
+    /// <summary>
+    /// 保留原更新契约的构造方式；未提供的新字段表示不修改对应值。
+    /// </summary>
+    public UpdateHostDocumentItemRequest(string title, string? description, long version)
+        : this(title, description, null, null, null, null, null, version)
+    {
+    }
+}
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AddHostDocumentVersionRequest(
     Guid FileId,
-    string? ChangeDescription);
+    string? ChangeDescription)
+{
+    /// <summary>
+    /// 保留原版本上传构造方式，变更说明缺省为空。
+    /// </summary>
+    public AddHostDocumentVersionRequest(Guid fileId)
+        : this(fileId, null)
+    {
+    }
+}
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DeleteHostDocumentItemRequest(long Version);
@@ -126,7 +161,7 @@ public sealed record HostDocumentShareResponse(
     string ShareCode,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset ExpireTime,
-    string? Password,
+    [property: JsonIgnore] string? Password,
     int? MaxAccessCount,
     int AccessCount,
     bool IsEnabled,

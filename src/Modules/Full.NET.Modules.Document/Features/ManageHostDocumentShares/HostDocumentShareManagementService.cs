@@ -5,6 +5,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Persistence;
+using System.Security.Cryptography;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentShares;
 
@@ -22,7 +23,11 @@ internal sealed class HostDocumentShareManagementService(
         CreateHostDocumentShareRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.DocumentId == Guid.Empty || request.ValidDays < 1 || request.ValidDays > 365)
+        if (request.DocumentId == Guid.Empty
+            || request.ValidDays < 1
+            || request.ValidDays > 365
+            // 当前访问接口没有口令校验能力，先失败关闭，避免把“填写了口令”误当成真实保护。
+            || !string.IsNullOrEmpty(request.Password))
         {
             return Task.FromResult(Invalid());
         }
@@ -119,7 +124,7 @@ internal sealed class HostDocumentShareManagementService(
                     ShareCode = shareCode,
                     CreatedAtUtc = now,
                     ExpireTime = now.AddDays(request.ValidDays),
-                    Password = request.Password,
+                    Password = (string?)null,
                     MaxAccessCount = request.MaxAccessCount,
                     Version = 1L,
                 },
@@ -167,13 +172,8 @@ internal sealed class HostDocumentShareManagementService(
 
     private static string GenerateShareCode()
     {
-        var chars = new char[12];
-        var random = new Random();
-        for (var i = 0; i < chars.Length; i++)
-        {
-            chars[i] = ShareCodeChars[random.Next(ShareCodeChars.Length)];
-        }
-        return new string(chars);
+        // 分享码属于匿名访问凭据，必须由密码学安全随机源生成，不能使用可预测的 Random。
+        return RandomNumberGenerator.GetString(ShareCodeChars, 12);
     }
 
     private static Result<HostDocumentShareResponse> Invalid() =>

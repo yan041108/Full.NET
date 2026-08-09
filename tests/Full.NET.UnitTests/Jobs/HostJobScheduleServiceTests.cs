@@ -32,7 +32,10 @@ public sealed class HostJobScheduleServiceTests
                 "* * * * *",
                 "UTC",
                 null,
-                JobMisfirePolicies.Skip));
+                JobMisfirePolicies.Skip,
+                null,
+                null,
+                null));
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(JobsErrorCodes.DefinitionDisabled, result.Error?.Code);
@@ -53,7 +56,10 @@ public sealed class HostJobScheduleServiceTests
                 "0 9 * * *",
                 "Eastern Standard Time",
                 null,
-                JobMisfirePolicies.FireOnce));
+                JobMisfirePolicies.FireOnce,
+                null,
+                null,
+                null));
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsNotNull(result.Value);
@@ -80,7 +86,10 @@ public sealed class HostJobScheduleServiceTests
                 null,
                 "UTC",
                 Now.AddHours(1),
-                JobMisfirePolicies.Skip));
+                JobMisfirePolicies.Skip,
+                null,
+                null,
+                null));
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(
@@ -182,6 +191,9 @@ public sealed class HostJobScheduleServiceTests
                 "UTC",
                 null,
                 JobMisfirePolicies.Skip,
+                null,
+                null,
+                null,
                 Version: 3));
 
         Assert.IsTrue(result.IsSuccess);
