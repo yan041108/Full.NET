@@ -26,6 +26,7 @@ import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
   useArtClientPagination,
@@ -604,7 +605,7 @@ function toProblem(
               align="center"
             >
               <template #default="{ row }">
-                <div class="art-crud-table-actions">
+                <ArtTableActionGroup>
                   <PermissionGate code="tenancy.tenants.update">
                     <ArtTableActionButton
                       type="edit"
@@ -623,7 +624,7 @@ function toProblem(
                   @click="disable(row as HostTenant)"
                     />
                   </PermissionGate>
-                </div>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 

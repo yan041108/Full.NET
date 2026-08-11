@@ -41,6 +41,7 @@ import {
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
@@ -124,6 +125,14 @@ const permissionTreeNodes = ref<PermissionTreeNode[]>([]);
 const selectedPermissions = ref<string[]>([]);
 const unknownPermissions = ref<string[]>([]);
 const permissionTreeRef = ref<TreeInstance>();
+const permissionTreeRenderKey = ref(0);
+const isPermissionTreeSyncing = ref(false);
+const permissionTreeCheckedKeys = computed(() =>
+  permissionCodesToCheckedNodeIds(
+    new Set(selectedPermissions.value),
+    permissionTreeNodes.value
+  )
+);
 const selectedDataScopeKind = ref<RoleDataScopeKind>('identity.data_scope.all');
 const selectedUnitIds = ref<string[]>([]);
 const dataScopeVersion = ref(0);
@@ -501,6 +510,7 @@ async function openPermissions(role: HostRole): Promise<void> {
     selectedPermissions.value = [...role.permissionCodes];
     unknownPermissions.value = findUnknownPermissionCodes(role.permissionCodes, catalog);
     editingRole.value = role;
+    permissionTreeRenderKey.value += 1;
     permissionsVisible.value = true;
     await nextTick();
     syncPermissionTreeChecks();
@@ -515,22 +525,30 @@ async function openPermissions(role: HostRole): Promise<void> {
 }
 
 function syncPermissionTreeChecks(): void {
-  const checkedNodeIds = permissionCodesToCheckedNodeIds(
-    new Set(selectedPermissions.value),
-    permissionTreeNodes.value
-  );
-  permissionTreeRef.value?.setCheckedKeys(checkedNodeIds, false);
+  const tree = permissionTreeRef.value;
+  if (!tree) {
+    return;
+  }
+
+  isPermissionTreeSyncing.value = true;
+  tree.setCheckedKeys(permissionTreeCheckedKeys.value, false);
+  void nextTick(() => {
+    isPermissionTreeSyncing.value = false;
+  });
 }
 
 function onPermissionTreeCheck(
   node: PermissionTreeNode,
   state: { checkedKeys: TreeKey[] }
 ): void {
+  if (isPermissionTreeSyncing.value) {
+    return;
+  }
+
   const checked = state.checkedKeys.map(String).includes(node.id);
   selectedPermissions.value = [
     ...applyPermissionNodeCheck(new Set(selectedPermissions.value), node, checked)
   ];
-  void nextTick(() => syncPermissionTreeChecks());
 }
 
 async function savePermissions(): Promise<void> {
@@ -547,13 +565,16 @@ async function savePermissions(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    await replaceHostRolePermissions(
+    const updatedRole = await replaceHostRolePermissions(
       role.id,
       [...selectedPermissions.value].sort(),
       role.version
     );
     permissionsVisible.value = false;
     editingRole.value = null;
+    allRoles.value = allRoles.value.map(item =>
+      item.id === updatedRole.id ? updatedRole : item
+    );
     ElMessage.success(t('roles.permissionsSuccess'));
     await load();
   } catch (error: unknown) {
@@ -893,7 +914,7 @@ function toProblem(
               align="center"
             >
               <template #default="{ row }">
-                <div class="roles-table-actions">
+                <ArtTableActionGroup>
                   <PermissionGate code="identity.roles.update">
                     <ArtTableActionButton
                       v-if="!row.isSystem"
@@ -945,7 +966,7 @@ function toProblem(
                   @click="disable(row as HostRole)"
                     />
                   </PermissionGate>
-                </div>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 
@@ -1046,6 +1067,7 @@ function toProblem(
       class="roles-permissions-dialog"
       align-center
       destroy-on-close
+      @opened="syncPermissionTreeChecks"
     >
       <div class="roles-permissions-dialog__content">
         <p
@@ -1061,7 +1083,9 @@ function toProblem(
           </code>
         </p>
         <el-tree
+          v-if="editingRole"
           ref="permissionTreeRef"
+          :key="`${editingRole.id}:${permissionTreeRenderKey}`"
           data-testid="role-permission-tree"
           class="roles-permissions-dialog__tree"
           :data="permissionTreeNodes"
@@ -1069,6 +1093,7 @@ function toProblem(
           show-checkbox
           check-strictly
           default-expand-all
+          :default-checked-keys="permissionTreeCheckedKeys"
           :props="{ label: 'label', children: 'children' }"
           @check="onPermissionTreeCheck"
         />
@@ -1207,14 +1232,6 @@ function toProblem(
 .roles-table-role__sub {
   color: var(--art-gray-500);
   font-size: 12px;
-}
-
-.roles-table-actions {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
 }
 
 .art-sr-heading {

@@ -20,6 +20,7 @@ import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import {
   useArtClientPagination,
@@ -362,7 +363,7 @@ function toProblem(
               align="center"
             >
               <template #default="{ row }">
-                <div class="art-crud-table-actions">
+                <ArtTableActionGroup>
                   <PermissionGate code="document.tags.update">
                     <ArtTableActionButton
                       type="edit"
@@ -381,7 +382,7 @@ function toProblem(
                   @click="remove(row as HostDocumentTag)"
                     />
                   </PermissionGate>
-                </div>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 

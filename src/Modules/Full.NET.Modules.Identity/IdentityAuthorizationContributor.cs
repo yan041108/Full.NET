@@ -163,7 +163,8 @@ internal sealed class IdentityAuthorizationContributor
             "Overview",
             "grid",
             10,
-            DashboardRead),
+            DashboardRead,
+            IsAffix: true),
         new NavigationDefinition(
             "users",
             null,
@@ -245,6 +246,13 @@ internal sealed class IdentityAuthorizationContributor
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition(
+            "identity.navigation.read",
+            "overview",
+            NavigationRead,
+            "读取导航",
+            "read-navigation",
+            5),
         new AuthorizationActionDefinition(
             "identity.users.create",
             "users",

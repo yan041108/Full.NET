@@ -31,12 +31,22 @@ internal sealed class HostRoleQueryService(
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
-        var rows = await queryExecutor.QueryAsync<HostRoleListRow>(
+        var rows = (await queryExecutor.QueryAsync<HostRoleListRow>(
                 statement,
                 new { Offset = offset, PageSize = pageSize },
                 cancellationToken)
+            .ConfigureAwait(false)).ToArray();
+        var permissionCodesByRole = await LoadPermissionCodesByRoleIdsAsync(
+                rows.Select(row => row.Id).ToArray(),
+                cancellationToken)
             .ConfigureAwait(false);
-        var items = rows.Select(row => Map(row, [])).ToArray();
+        var items = rows
+            .Select(row => Map(
+                row,
+                permissionCodesByRole.TryGetValue(row.Id, out var codes)
+                    ? codes
+                    : []))
+            .ToArray();
         return Result<PagedResult<HostRoleResponse>>.Success(
             new PagedResult<HostRoleResponse>(items, page, pageSize, total));
     }
@@ -68,6 +78,30 @@ internal sealed class HostRoleQueryService(
                 new { RoleId = roleId },
                 cancellationToken)
             .ConfigureAwait(false)).ToArray();
+
+    internal async Task<IReadOnlyDictionary<Guid, string[]>> LoadPermissionCodesByRoleIdsAsync(
+        IReadOnlyList<Guid> roleIds,
+        CancellationToken cancellationToken)
+    {
+        if (roleIds.Count == 0)
+        {
+            return new Dictionary<Guid, string[]>();
+        }
+
+        var rows = await queryExecutor.QueryAsync<IdentityRolePermission>(
+                IdentitySql.ListRolePermissionsByRoleIds,
+                new { RoleIds = roleIds },
+                cancellationToken)
+            .ConfigureAwait(false);
+        return rows
+            .GroupBy(row => row.RoleId)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .Select(item => item.PermissionCode)
+                    .OrderBy(code => code, StringComparer.Ordinal)
+                    .ToArray());
+    }
 
     internal static HostRoleResponse Map(
         HostRoleListRow row,

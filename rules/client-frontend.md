@@ -38,6 +38,7 @@
 3. 富文本默认采用 MIT 的 Tiptap Core；禁止默认引入付费 Pro 扩展。
 4. 只引入经许可证与资产来源审计的代码；Full.NET 自有认证、租户、权限、ProblemDetails、路由白名单与 OpenAPI 契约禁止被模板内置 Mock 或请求层替代。
 5. 页面不得维护手写权限白名单副本。可显示的页面和操作元数据来自经过运行时结构校验的服务端目录；组件与路由仍映射到本地可信白名单，权限变化通过统一 Session 快照响应式生效。
+6. 列表页 **操作列** 默认使用 `ArtTableActionGroup`：直接展示最多 4 个图标操作，超出部分收入「更多（…）」下拉，禁止换行挤出列宽。标准列宽使用 `ART_TABLE_ACTION_COLUMN_WIDTH`（`ui/admin/src/framework/art-design/components/artTableActions.ts`）。页面若有文本按钮、上传控件等特殊交互，可在计划中说明并偏离该默认，但第一版生成与 CRUD 模板仍须遵守此规则。
 
 验证：`pnpm --filter @fullnet/admin test`、Vue 生产构建、受影响 Vue E2E、`pnpm audit:clients`、`pnpm licenses list --prod --json`；设计背景见 [`client-ui-framework-design`](../docs/superpowers/specs/2026-07-18-client-ui-framework-design.md)与 [`vue-art-design-pro-adoption`](../docs/superpowers/plans/2026-07-18-vue-art-design-pro-adoption.md)。
 

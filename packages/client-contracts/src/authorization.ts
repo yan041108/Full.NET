@@ -9,6 +9,8 @@ export interface NavigationNode {
   icon: string;
   order: number;
   requiredPermission: string;
+  /** 是否固定在标签栏；工作台等首页通常为 true。 */
+  isAffix?: boolean;
   children: NavigationNode[];
 }
 
@@ -55,6 +57,7 @@ function isNavigationNode(
     || !Number.isInteger(value.order)
     || typeof value.requiredPermission !== 'string'
     || !permissionPattern.test(value.requiredPermission)
+    || (value.isAffix !== undefined && typeof value.isAffix !== 'boolean')
     || !Array.isArray(value.children)) {
     return false;
   }

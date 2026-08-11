@@ -490,6 +490,31 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListHostMenuSyncRows = new(
+        "identity.list_host_menu_sync_rows",
+        """
+        SELECT Id, ParentId, RouteName, MenuType
+        FROM fn_identity_navigation
+        WHERE ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ReparentHostSystemMenu = new(
+        "identity.reparent_host_system_menu",
+        """
+        UPDATE fn_identity_navigation
+        SET ParentId = @ParentId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @MenuId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 1
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindRefreshSessionById = new(
         "identity.find_refresh_session_by_explicit_session_id",
         """
@@ -600,6 +625,16 @@ internal static class IdentitySql
         FROM fn_identity_role_permission
         WHERE RoleId = @RoleId
         ORDER BY PermissionCode
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListRolePermissionsByRoleIds = new(
+        "identity.list_role_permissions_by_role_ids",
+        """
+        SELECT RoleId, PermissionCode
+        FROM fn_identity_role_permission
+        WHERE RoleId IN @RoleIds
+        ORDER BY RoleId, PermissionCode
         """,
         SqlDataScope.HostOnly);
 

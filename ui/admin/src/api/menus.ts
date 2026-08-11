@@ -82,3 +82,15 @@ export async function enableHostMenu(id: string): Promise<HostMenu> {
   if (!isHostMenu(value)) throw new Error('client.invalid_host_menu');
   return value;
 }
+
+export async function syncHostMenuCatalog(): Promise<{
+  created: number;
+  skipped: number;
+  reparented: number;
+}> {
+  const value = await request<{ created: number; skipped: number; reparented: number }>(
+    '/api/v1/identity/menus/sync-catalog',
+    { method: 'POST' }
+  );
+  return value;
+}

@@ -114,6 +114,22 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.documentTags.title',
     captionKey: 'navigation.documentTags.caption'
   }],
+  ['document-recycle-bin', {
+    titleKey: 'navigation.documentRecycleBin.title',
+    captionKey: 'navigation.documentRecycleBin.caption'
+  }],
+  ['document-shares', {
+    titleKey: 'navigation.documentShares.title',
+    captionKey: 'navigation.documentShares.caption'
+  }],
+  ['document-statistics', {
+    titleKey: 'navigation.documentStatistics.title',
+    captionKey: 'navigation.documentStatistics.caption'
+  }],
+  ['host-messaging-ops', {
+    titleKey: 'navigation.hostMessagingOps.title',
+    captionKey: 'navigation.hostMessagingOps.caption'
+  }],
   ['host-announcements', {
     titleKey: 'navigation.hostAnnouncements.title',
     captionKey: 'navigation.hostAnnouncements.caption'

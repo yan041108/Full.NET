@@ -54,6 +54,18 @@ internal static class Endpoint
         .Produces<IReadOnlyList<HostMenuPermissionOptionResponse>>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
+        group.MapPost("/sync-catalog", async (
+            HostNavigationCatalogSyncService catalogSync,
+            CancellationToken cancellationToken) =>
+        {
+            var (created, skipped, reparented) = await catalogSync
+                .SyncMissingCatalogEntriesAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return Results.Ok(new HostNavigationCatalogSyncResponse(created, skipped, reparented));
+        })
+        .Produces<HostNavigationCatalogSyncResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityMenuManagementPermissions.Update);
+
         group.MapGet("/{menuId:guid}", async (
             Guid menuId,
             HostMenuQueryService queries,

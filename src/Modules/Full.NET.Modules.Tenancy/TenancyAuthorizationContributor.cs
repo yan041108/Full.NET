@@ -100,6 +100,13 @@ internal sealed class TenancyAuthorizationContributor
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
         new AuthorizationActionDefinition(
+            "tenancy.tenants.switch",
+            "tenant-context",
+            TenantsSwitch,
+            "切换租户",
+            "switch",
+            10),
+        new AuthorizationActionDefinition(
             "tenancy.tenants.create",
             "tenant-management",
             TenancyTenantManagementPermissions.Create,

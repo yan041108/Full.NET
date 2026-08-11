@@ -233,6 +233,37 @@ describe('Vue 角色管理页', () => {
     );
   });
 
+  it('打开权限对话框后仍保留全部已存权限用于回显和保存', async () => {
+    const permissionCodes = [
+      'identity.users.read',
+      'identity.users.create',
+      'identity.users.reset_password'
+    ];
+    listMock.mockResolvedValueOnce({
+      items: [{
+        ...customRole,
+        permissionCodes
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+    const wrapper = mountWithPermissions(['identity.roles.assign_permissions']);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-open-permissions"]').trigger('click');
+    await flushPromises();
+    await nextTick();
+    await wrapper.get('[data-testid="role-save-permissions"]').trigger('click');
+    await flushPromises();
+
+    expect(replacePermissionsMock).toHaveBeenCalledWith(
+      'role-id',
+      [...permissionCodes].sort(),
+      3
+    );
+  });
+
   it('权限对话框打开后撤权会移除保存按钮', async () => {
     const wrapper = mountWithPermissions(['identity.roles.assign_permissions']);
     await flushPromises();

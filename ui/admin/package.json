@@ -14,6 +14,7 @@
     "@fullnet/admin-i18n": "workspace:*",
     "@fullnet/client-contracts": "workspace:*",
     "@fullnet/design-tokens": "workspace:*",
+    "@iconify/vue": "5.0.0",
     "dayjs": "1.11.21",
     "echarts": "6.1.0",
     "element-plus": "2.14.3",

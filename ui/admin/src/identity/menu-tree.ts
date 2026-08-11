@@ -18,22 +18,46 @@ export interface MenuTreeOption {
 
 const VIRTUAL_BUTTON_ID_PREFIX = 'catalog:action:';
 
+const MENU_TYPE_SORT_ORDER: Record<HostMenuType, number> = {
+  [HOST_MENU_TYPES.directory]: 0,
+  [HOST_MENU_TYPES.menu]: 1,
+  [HOST_MENU_TYPES.button]: 2
+};
+
+/**
+ * 在 Host 菜单树后挂接授权目录中的按钮行；目录与页面以数据库记录为准，可编辑。
+ */
 export function mergeCatalogButtonRows(
   menus: readonly HostMenu[],
   permissionOptions: readonly HostMenuPermissionOption[]
 ): MenuTreeRow[] {
-  const routeNameToMenuId = new Map(
-    menus.map(menu => [menu.routeName, menu.id] as const)
-  );
-  const virtualButtons: MenuTreeRow[] = [];
+  const pageKeyToRowId = new Map<string, string>();
+  const permissionsInDb = new Set<string>();
+  for (const menu of menus) {
+    pageKeyToRowId.set(menu.routeName, menu.id);
+    if (menu.componentKey) {
+      pageKeyToRowId.set(menu.componentKey, menu.id);
+    }
+    if (menu.requiredPermission) {
+      permissionsInDb.add(menu.requiredPermission);
+    }
+  }
+
+  const menuRows: MenuTreeRow[] = menus.map(menu => ({ ...menu }));
+  const virtualRows: MenuTreeRow[] = [];
+  let actionOrder = 0;
 
   for (const option of permissionOptions) {
     if (option.kind !== 'action' || !option.actionId) {
       continue;
     }
+    if (permissionsInDb.has(option.code)) {
+      continue;
+    }
 
-    const parentId = routeNameToMenuId.get(option.pageId) ?? null;
-    virtualButtons.push({
+    actionOrder += 10;
+    const parentId = pageKeyToRowId.get(option.pageId) ?? null;
+    virtualRows.push({
       id: `${VIRTUAL_BUTTON_ID_PREFIX}${option.actionId}`,
       parentId,
       routeName: option.actionKey ?? option.actionId,
@@ -42,7 +66,7 @@ export function mergeCatalogButtonRows(
       title: option.displayName,
       caption: option.pageTitle,
       icon: 'key',
-      displayOrder: 0,
+      displayOrder: actionOrder,
       requiredPermission: option.code,
       isSystem: true,
       isActive: true,
@@ -61,7 +85,7 @@ export function mergeCatalogButtonRows(
     });
   }
 
-  return [...menus, ...virtualButtons];
+  return [...menuRows, ...virtualRows];
 }
 
 export function buildHostMenuTree(rows: readonly MenuTreeRow[]): MenuTreeRow[] {
@@ -108,7 +132,7 @@ export function buildHostMenuTree(rows: readonly MenuTreeRow[]): MenuTreeRow[] {
     });
   }
 
-  return roots;
+  return sortMenuRows(roots);
 }
 
 export function filterMenusForTree(
@@ -187,8 +211,12 @@ export function buildMenuParentTreeOptions(
   return walk(null);
 }
 
-export function isVirtualMenuRow(row: MenuTreeRow): boolean {
+export function isVirtualCatalogButtonRow(row: MenuTreeRow): boolean {
   return row.isVirtual === true || row.id.startsWith(VIRTUAL_BUTTON_ID_PREFIX);
+}
+
+export function isPersistedMenuRow(row: MenuTreeRow): boolean {
+  return !isVirtualCatalogButtonRow(row);
 }
 
 export function menuTypeLabelKey(menuType: HostMenuType): string {
@@ -202,10 +230,32 @@ export function menuTypeLabelKey(menuType: HostMenuType): string {
   }
 }
 
-function sortMenuRows<T extends { displayOrder: number; title: string }>(
+/** Element Plus 标签类型，对齐 Admin.NET 目录/菜单/按钮配色。 */
+export function menuTypeTagType(
+  menuType: HostMenuType
+): 'warning' | 'primary' | 'info' | undefined {
+  switch (menuType) {
+    case HOST_MENU_TYPES.directory:
+      return 'warning';
+    case HOST_MENU_TYPES.button:
+      return 'info';
+    default:
+      return 'primary';
+  }
+}
+
+function sortMenuRows<T extends { displayOrder: number; title: string; menuType?: HostMenuType }>(
   rows: readonly T[]
 ): T[] {
-  return [...rows].sort((left, right) =>
-    left.displayOrder - right.displayOrder
-    || left.title.localeCompare(right.title, 'zh-CN'));
+  return [...rows].sort((left, right) => {
+    const leftType = left.menuType === undefined
+      ? MENU_TYPE_SORT_ORDER[HOST_MENU_TYPES.menu]
+      : MENU_TYPE_SORT_ORDER[left.menuType];
+    const rightType = right.menuType === undefined
+      ? MENU_TYPE_SORT_ORDER[HOST_MENU_TYPES.menu]
+      : MENU_TYPE_SORT_ORDER[right.menuType];
+    return leftType - rightType
+      || left.displayOrder - right.displayOrder
+      || left.title.localeCompare(right.title, 'zh-CN');
+  });
 }

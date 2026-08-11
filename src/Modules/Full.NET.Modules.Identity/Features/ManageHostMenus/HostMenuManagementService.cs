@@ -375,7 +375,13 @@ internal sealed class HostMenuManagementService(
         }
 
         var now = clock.UtcNow;
-        var menuType = NormalizeWritableMenuType(request.MenuType) ?? IdentityHostMenuTypes.Menu;
+        var menuType = NormalizeWritableMenuType(request.MenuType) ?? record.MenuType;
+        if (string.Equals(menuType, IdentityHostMenuTypes.Button, StringComparison.Ordinal)
+            && !string.Equals(record.MenuType, IdentityHostMenuTypes.Button, StringComparison.Ordinal))
+        {
+            menuType = IdentityHostMenuTypes.Menu;
+        }
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostSystemMenu,
                 new

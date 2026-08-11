@@ -24,6 +24,7 @@ import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
   useArtClientPagination,
@@ -521,7 +522,7 @@ function toProblem(
               align="center"
             >
               <template #default="{ row }">
-                <div class="art-crud-table-actions">
+                <ArtTableActionGroup>
                   <PermissionGate v-if="canManage" code="identity.super_administrators.manage">
                     <ArtTableActionButton
                       type="delete"
@@ -531,7 +532,7 @@ function toProblem(
                   @click="openRevoke(row as SuperAdministrator)"
                     />
                   </PermissionGate>
-                </div>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 

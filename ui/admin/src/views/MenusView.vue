@@ -21,7 +21,7 @@ import {
   type FormInstance,
   type TableInstance
 } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
+import { Plus, Folder, Document, Operation } from '@element-plus/icons-vue';
 import {
   HOST_MENU_COMPONENT_OPTIONS,
   HOST_MENU_ICON_OPTIONS,
@@ -33,7 +33,6 @@ import {
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
-import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -46,14 +45,18 @@ import {
   enableHostMenu,
   listHostMenuPermissionOptions,
   listHostMenusAll,
+  syncHostMenuCatalog,
   updateHostMenu
 } from '../api/menus';
+import MenuIconPicker from '../identity/MenuIconPicker.vue';
 import {
   buildHostMenuTree,
   buildMenuParentTreeOptions,
   filterMenusForTree,
-  isVirtualMenuRow,
+  isPersistedMenuRow,
+  isVirtualCatalogButtonRow,
   menuTypeLabelKey,
+  menuTypeTagType,
   mergeCatalogButtonRows,
   type MenuTreeRow
 } from '../identity/menu-tree';
@@ -159,9 +162,8 @@ const columnVisibility = ref<Record<MenuTableColumnKey, boolean>>({
 });
 
 const componentOptions = HOST_MENU_COMPONENT_OPTIONS;
-const iconOptions = HOST_MENU_ICON_OPTIONS;
 
-const realMenus = computed(() => allMenuRows.value.filter(row => !isVirtualMenuRow(row)));
+const realMenus = computed(() => allMenuRows.value.filter(row => isPersistedMenuRow(row)));
 
 const menuPermissionOptions = computed(() => {
   const options = [...permissionOptions.value];
@@ -301,6 +303,17 @@ function rowIndex(index: number): number {
   return index + 1;
 }
 
+function menuRowIcon(menuType: HostMenuType) {
+  switch (menuType) {
+    case HOST_MENU_TYPES.directory:
+      return Folder;
+    case HOST_MENU_TYPES.button:
+      return Operation;
+    default:
+      return Document;
+  }
+}
+
 function normalizeRouteName(value: string): string {
   return value
     .trim()
@@ -389,7 +402,7 @@ function resetEditorForm(): void {
   editorForm.componentKey = componentOptions[0]?.componentKey ?? 'overview';
   editorForm.title = '';
   editorForm.caption = '';
-  editorForm.icon = iconOptions[0] ?? 'grid';
+  editorForm.icon = HOST_MENU_ICON_OPTIONS[0] ?? 'grid';
   editorForm.parentId = null;
   editorForm.displayOrder = 50;
   editorForm.requiredPermission = permissionOptions.value[0]?.code ?? '';
@@ -403,10 +416,7 @@ function resetEditorForm(): void {
 }
 
 function fillEditorFromMenu(menu: MenuTreeRow): void {
-  editorForm.menuType =
-    menu.menuType === HOST_MENU_TYPES.directory
-      ? HOST_MENU_TYPES.directory
-      : HOST_MENU_TYPES.menu;
+  editorForm.menuType = menu.menuType;
   editorForm.routeName = menu.routeName;
   editorForm.path = menu.path;
   editorForm.componentKey = menu.componentKey;
@@ -562,24 +572,28 @@ function openCreate(): void {
   editorOpen.value = true;
 }
 
+function resolvePersistedMenu(row: MenuTreeRow): MenuTreeRow {
+  return realMenus.value.find(menu => menu.id === row.id) ?? row;
+}
+
 function openEdit(menu: MenuTreeRow): void {
-  if (changing.value || !canUpdate.value || isVirtualMenuRow(menu)) {
+  if (changing.value || !canUpdate.value || !isPersistedMenuRow(menu)) {
     return;
   }
   editorMode.value = 'edit';
-  editingMenu.value = menu;
-  fillEditorFromMenu(menu);
+  editingMenu.value = resolvePersistedMenu(menu);
+  fillEditorFromMenu(editingMenu.value);
   clearFieldErrors();
   editorOpen.value = true;
 }
 
 function openCopy(menu: MenuTreeRow): void {
-  if (changing.value || !canCreate.value || isVirtualMenuRow(menu)) {
+  if (changing.value || !canCreate.value || !isPersistedMenuRow(menu)) {
     return;
   }
   editorMode.value = 'create';
   editingMenu.value = null;
-  fillEditorFromMenu(menu);
+  fillEditorFromMenu(resolvePersistedMenu(menu));
   editorForm.routeName = buildCopyRouteName(menu.routeName);
   clearFieldErrors();
   editorOpen.value = true;
@@ -661,12 +675,20 @@ async function saveEdit(): Promise<void> {
   try {
     const title = editorForm.title.trim();
     const caption = editorForm.caption.trim() || title;
-    const path = menu.isSystem ? menu.path : resolveEditorPath();
-    const componentKey = menu.isSystem ? menu.componentKey : resolveEditorComponentKey();
+    const menuType = menu.menuType === HOST_MENU_TYPES.button
+      ? HOST_MENU_TYPES.button
+      : menu.isSystem
+        ? editorForm.menuType
+        : editorForm.menuType;
+    const path = menu.menuType === HOST_MENU_TYPES.button || menu.isSystem
+      ? menu.path
+      : resolveEditorPath();
+    const componentKey = menu.menuType === HOST_MENU_TYPES.button || menu.isSystem
+      ? menu.componentKey
+      : resolveEditorComponentKey();
     const requiredPermission = menu.isSystem
       ? menu.requiredPermission
       : editorForm.requiredPermission;
-    const menuType = menu.isSystem ? menu.menuType : editorForm.menuType;
     await updateHostMenu(menu.id, {
       parentId: editorForm.parentId,
       path,
@@ -697,8 +719,31 @@ async function saveEdit(): Promise<void> {
   }
 }
 
+async function syncCatalog(): Promise<void> {
+  if (changing.value || !canUpdate.value) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const result = await syncHostMenuCatalog();
+    ElMessage.success(
+      t('menus.syncCatalogSuccess', {
+        count: result.created,
+        reparented: result.reparented
+      })
+    );
+    await load();
+    await session.reloadContext();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'menus.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 async function onStatusChange(menu: MenuTreeRow, active: boolean): Promise<void> {
-  if (changing.value || isVirtualMenuRow(menu) || active === menu.isActive) {
+  if (changing.value || !isPersistedMenuRow(menu) || active === menu.isActive) {
     return;
   }
   if (active && !canUpdate.value) {
@@ -740,7 +785,7 @@ async function onStatusChange(menu: MenuTreeRow, active: boolean): Promise<void>
 }
 
 async function disable(menu: MenuTreeRow): Promise<void> {
-  if (changing.value || !menu.isActive || isVirtualMenuRow(menu) || !canDisable.value) {
+  if (changing.value || !menu.isActive || !isPersistedMenuRow(menu) || !canDisable.value) {
     return;
   }
   await onStatusChange(menu, false);
@@ -800,7 +845,17 @@ function toProblem(
                 data-testid="menus-action-create"
                 @click="openCreate"
               >
-                {{ t('menus.addMenu') }}
+                {{ t('menus.add') }}
+              </el-button>
+            </PermissionGate>
+            <PermissionGate code="identity.menus.update">
+              <el-button
+                plain
+                :disabled="changing"
+                data-testid="menus-action-sync-catalog"
+                @click="syncCatalog"
+              >
+                {{ t('menus.syncCatalog') }}
               </el-button>
             </PermissionGate>
             <el-button plain @click="expandAllRows">
@@ -825,36 +880,36 @@ function toProblem(
             :stripe="tableZebra"
             :border="tableBorder"
             :header-cell-style="tableHeaderCellStyle"
-            class="art-crud-data-table"
+            class="art-crud-data-table menus-tree-table"
             :class="{ 'art-table--header-bg': tableHeaderBackground }"
             data-testid="menus-tree-table"
           >
-            <el-table-column :label="t('users.columnIndex')" width="72" align="center">
-              <template #default="{ $index }">{{ rowIndex($index) }}</template>
-            </el-table-column>
-
-            <el-table-column :label="t('menus.titleField')" min-width="240">
+            <el-table-column :label="t('menus.titleField')" min-width="280" class-name="menus-tree-title-column">
               <template #default="{ row }">
-                <div class="art-crud-table-row">
-                  <span class="art-crud-table-row__avatar">
-                    {{ String(row.title ?? '').slice(0, 2).toUpperCase() }}
-                  </span>
-                  <div>
-                    <div class="art-crud-table-row__name" translate="no">{{ row.title }}</div>
-                    <div class="art-crud-table-row__sub" translate="no">{{ row.icon }}</div>
-                  </div>
+                <div class="menus-name-cell">
+                  <el-icon
+                    class="menus-name-cell__icon"
+                    :class="`menus-name-cell__icon--${row.menuType}`"
+                  >
+                    <component :is="menuRowIcon(row.menuType)" />
+                  </el-icon>
+                  <span class="menus-name-cell__title" translate="no">{{ row.title }}</span>
                 </div>
               </template>
+            </el-table-column>
+
+            <el-table-column :label="t('users.columnIndex')" width="72" align="center">
+              <template #default="{ $index }">{{ rowIndex($index) }}</template>
             </el-table-column>
 
             <el-table-column
               v-if="isColumnVisible('menuType')"
               :label="t('menus.menuType')"
-              width="100"
+              width="96"
               align="center"
             >
               <template #default="{ row }">
-                <el-tag size="small" :type="row.menuType === HOST_MENU_TYPES.button ? 'info' : undefined">
+                <el-tag size="small" :type="menuTypeTagType(row.menuType)">
                   {{ t(menuTypeLabelKey(row.menuType) as MessageKey) }}
                 </el-tag>
               </template>
@@ -892,40 +947,35 @@ function toProblem(
             <el-table-column
               v-if="isColumnVisible('status')"
               :label="t('users.status')"
-              width="120"
+              width="88"
               align="center"
             >
               <template #default="{ row }">
-                <div class="menus-status-cell">
-                  <el-tag v-if="row.isSystem" size="small" type="warning">
-                    {{ t('menus.system') }}
-                  </el-tag>
-                  <template v-if="!isVirtualMenuRow(row as MenuTreeRow)">
-                    <PermissionGate
-                      v-if="row.isActive"
-                      code="identity.menus.disable"
-                    >
-                      <el-switch
-                        :model-value="row.isActive"
-                        :disabled="changing"
-                        @change="(value: string | number | boolean) => onStatusChange(row as MenuTreeRow, Boolean(value))"
-                      />
-                    </PermissionGate>
-                    <PermissionGate
-                      v-else
-                      code="identity.menus.update"
-                    >
-                      <el-switch
-                        :model-value="row.isActive"
-                        :disabled="changing"
-                        @change="(value: string | number | boolean) => onStatusChange(row as MenuTreeRow, Boolean(value))"
-                      />
-                    </PermissionGate>
-                  </template>
-                  <el-tag v-else size="small" type="success">
-                    {{ t('menus.active') }}
-                  </el-tag>
-                </div>
+                <template v-if="isPersistedMenuRow(row as MenuTreeRow)">
+                  <PermissionGate
+                    v-if="row.isActive"
+                    code="identity.menus.disable"
+                  >
+                    <el-switch
+                      :model-value="row.isActive"
+                      :disabled="changing"
+                      @change="(value: string | number | boolean) => onStatusChange(row as MenuTreeRow, Boolean(value))"
+                    />
+                  </PermissionGate>
+                  <PermissionGate
+                    v-else
+                    code="identity.menus.update"
+                  >
+                    <el-switch
+                      :model-value="row.isActive"
+                      :disabled="changing"
+                      @change="(value: string | number | boolean) => onStatusChange(row as MenuTreeRow, Boolean(value))"
+                    />
+                  </PermissionGate>
+                </template>
+                <el-tag v-else size="small" type="success">
+                  {{ t('menus.active') }}
+                </el-tag>
               </template>
             </el-table-column>
 
@@ -957,43 +1007,48 @@ function toProblem(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="168"
+              width="196"
               fixed="right"
               align="center"
             >
               <template #default="{ row }">
-                <div v-if="isVirtualMenuRow(row as MenuTreeRow)" class="menus-virtual-actions">
-                  <span :title="t('menus.virtualButtonHint')">{{ t('menus.virtualButtonHint') }}</span>
+                <div
+                  v-if="isVirtualCatalogButtonRow(row as MenuTreeRow)"
+                  class="menus-virtual-actions"
+                  :title="t('menus.virtualButtonHint')"
+                >
+                  {{ t('menus.virtualButtonHint') }}
                 </div>
-                <div v-else class="art-crud-table-actions">
+                <div v-else class="menus-row-actions">
                   <PermissionGate code="identity.menus.update">
-                    <ArtTableActionButton
-                      type="edit"
-                      test-id="menus-action-edit"
-                      :title="t('menus.edit')"
+                    <el-button
+                      link
+                      type="primary"
                       :disabled="changing"
                       @click="openEdit(row as MenuTreeRow)"
-                    />
+                    >
+                      {{ t('menus.edit') }}
+                    </el-button>
+                  </PermissionGate>
+                  <PermissionGate v-if="row.isActive" code="identity.menus.disable">
+                    <el-button
+                      link
+                      type="danger"
+                      :disabled="changing"
+                      @click="disable(row as MenuTreeRow)"
+                    >
+                      {{ t('menus.delete') }}
+                    </el-button>
                   </PermissionGate>
                   <PermissionGate code="identity.menus.create">
                     <el-button
                       link
                       type="primary"
-                      class="menus-action-copy"
                       :disabled="changing"
                       @click="openCopy(row as MenuTreeRow)"
                     >
                       {{ t('menus.copy') }}
                     </el-button>
-                  </PermissionGate>
-                  <PermissionGate v-if="row.isActive" code="identity.menus.disable">
-                    <ArtTableActionButton
-                      type="delete"
-                      test-id="menus-action-disable"
-                      :title="t('menus.disable')"
-                      :disabled="changing"
-                      @click="disable(row as MenuTreeRow)"
-                    />
                   </PermissionGate>
                 </div>
               </template>
@@ -1008,6 +1063,7 @@ function toProblem(
     <ArtFormDialog
       v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('menus.createDialogTitle') : t('menus.editDialogTitle')"
+      width="880px"
       :saving="changing"
       :confirm-label="t('users.confirm')"
       :cancel-label="t('users.cancel')"
@@ -1019,13 +1075,20 @@ function toProblem(
         ref="editorFormRef"
         data-testid="menus-editor-form"
         :model="editorForm"
-        label-width="108px"
-        class="menus-editor-form"
+        label-width="96px"
+        class="menus-editor-form menus-editor-form--cols-2"
       >
         <el-form-item :label="t('menus.menuType')">
+          <el-tag
+            v-if="editorForm.menuType === HOST_MENU_TYPES.button"
+            size="small"
+            type="info"
+          >
+            {{ t('menus.typeButton') }}
+          </el-tag>
           <el-radio-group
+            v-else
             :model-value="editorForm.menuType"
-            :disabled="editorMode === 'edit' && editingMenu?.isSystem === true"
             @update:model-value="onEditorMenuTypeChange($event as HostMenuType)"
           >
             <el-radio :value="HOST_MENU_TYPES.directory">{{ t('menus.typeDirectory') }}</el-radio>
@@ -1091,7 +1154,7 @@ function toProblem(
         </el-form-item>
 
         <el-form-item
-          v-else
+          v-else-if="editorForm.menuType === HOST_MENU_TYPES.menu"
           :label="t('menus.componentKey')"
           prop="componentKey"
           required
@@ -1111,6 +1174,13 @@ function toProblem(
           </el-select>
         </el-form-item>
 
+        <el-form-item :label="t('menus.captionField')">
+          <el-input
+            v-model="editorForm.caption"
+            :placeholder="t('menus.captionPlaceholder')"
+          />
+        </el-form-item>
+
         <el-form-item :label="t('menus.redirect')">
           <el-input v-model="editorForm.redirect" />
         </el-form-item>
@@ -1119,22 +1189,8 @@ function toProblem(
           <el-input v-model="editorForm.linkUrl" />
         </el-form-item>
 
-        <el-form-item :label="t('menus.captionField')">
-          <el-input
-            v-model="editorForm.caption"
-            :placeholder="t('menus.captionPlaceholder')"
-          />
-        </el-form-item>
-
         <el-form-item :label="t('menus.icon')" required>
-          <el-select v-model="editorForm.icon">
-            <el-option
-              v-for="icon in iconOptions"
-              :key="icon"
-              :label="icon"
-              :value="icon"
-            />
-          </el-select>
+          <MenuIconPicker v-model="editorForm.icon" />
         </el-form-item>
 
         <el-form-item :label="t('menus.displayOrder')">
@@ -1175,10 +1231,13 @@ function toProblem(
         </el-form-item>
 
         <el-form-item
+          v-if="editorForm.menuType !== HOST_MENU_TYPES.button
+            && (editorMode !== 'edit' || !editingMenu?.isSystem)"
           :label="t('menus.requiredPermission')"
           prop="requiredPermission"
           required
           :error="fieldErrors.requiredPermission || undefined"
+          class="menus-editor-form__span-2"
         >
           <el-select
             v-model="editorForm.requiredPermission"
@@ -1195,15 +1254,19 @@ function toProblem(
           </el-select>
         </el-form-item>
 
-        <el-form-item :label="t('menus.remark')">
+        <el-form-item :label="t('menus.remark')" class="menus-editor-form__span-2">
           <el-input v-model="editorForm.remark" type="textarea" :rows="3" />
         </el-form-item>
 
         <p
           v-if="editorMode === 'edit' && editingMenu?.isSystem"
-          class="menus-editor-form__hint"
+          class="menus-editor-form__hint menus-editor-form__span-2"
         >
-          {{ t('menus.systemLockedHint') }}
+          {{
+            editingMenu.menuType === HOST_MENU_TYPES.button
+              ? t('menus.systemButtonEditableHint')
+              : t('menus.systemEditableHint')
+          }}
         </p>
       </el-form>
     </ArtFormDialog>
@@ -1229,18 +1292,66 @@ function toProblem(
   padding-top: 8px;
 }
 
+.menus-editor-form--cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+}
+
+.menus-editor-form--cols-2 :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.menus-editor-form--cols-2 :deep(.menus-editor-form__span-2) {
+  grid-column: 1 / -1;
+}
+
 .menus-editor-form__hint {
-  margin: 0 0 12px 108px;
+  margin: 0 0 12px;
   color: var(--el-text-color-secondary);
   font-size: 13px;
   line-height: 1.5;
 }
 
-.menus-status-cell {
+.menus-tree-table :deep(.menus-tree-title-column .cell) {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
+}
+
+.menus-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.menus-name-cell__icon {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.menus-name-cell__icon--directory {
+  color: var(--el-color-warning);
+}
+
+.menus-name-cell__icon--menu {
+  color: var(--el-color-primary);
+}
+
+.menus-name-cell__icon--button {
+  color: var(--el-text-color-secondary);
+}
+
+.menus-name-cell__title {
+  color: var(--el-text-color-primary);
+  line-height: 1.4;
+}
+
+.menus-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
 }
 
 .menus-mod-record strong {
@@ -1263,16 +1374,11 @@ function toProblem(
 }
 
 .menus-virtual-actions {
-  max-width: 140px;
+  max-width: 168px;
   margin: 0 auto;
   color: var(--el-text-color-secondary);
   font-size: 12px;
   line-height: 1.4;
-}
-
-.menus-action-copy {
-  margin-right: 8px;
-  padding: 0;
 }
 
 .art-sr-heading {

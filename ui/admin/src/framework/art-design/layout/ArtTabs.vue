@@ -14,6 +14,7 @@ import {
 } from 'element-plus';
 import type { MessageKey } from '@fullnet/admin-i18n';
 import type { ShellTabCloseScope, ShellTabItem } from '../adapters/fullNetShellAdapter';
+import { isShellTabClosable } from '../adapters/fullNetShellAdapter';
 
 defineOptions({ name: 'ArtTabs' });
 
@@ -42,6 +43,10 @@ const menuItems = computed(() => {
   const targetPath = menuTargetPath.value || props.activePath;
   const targetIndex = props.tabs.findIndex(tab => tab.path === targetPath);
   const isCurrentTab = targetPath === props.activePath;
+  const targetTab = props.tabs[targetIndex];
+  const leftTabs = props.tabs.slice(0, targetIndex);
+  const rightTabs = props.tabs.slice(targetIndex + 1);
+  const otherTabs = props.tabs.filter(tab => tab.path !== targetPath);
 
   return [
     {
@@ -52,27 +57,30 @@ const menuItems = computed(() => {
     {
       scope: 'current' as const,
       label: props.translate('shell.tabMenu.close'),
-      disabled: props.tabs.length <= 1
+      disabled: !targetTab || !isShellTabClosable(targetTab)
     },
     {
       scope: 'left' as const,
       label: props.translate('shell.tabMenu.closeLeft'),
       disabled: targetIndex <= 0
+        || !leftTabs.some(isShellTabClosable)
     },
     {
       scope: 'right' as const,
       label: props.translate('shell.tabMenu.closeRight'),
-      disabled: targetIndex < 0 || targetIndex >= props.tabs.length - 1
+      disabled: targetIndex < 0
+        || targetIndex >= props.tabs.length - 1
+        || !rightTabs.some(isShellTabClosable)
     },
     {
       scope: 'other' as const,
       label: props.translate('shell.tabMenu.closeOther'),
-      disabled: props.tabs.length <= 1
+      disabled: !otherTabs.some(isShellTabClosable)
     },
     {
       scope: 'all' as const,
       label: props.translate('shell.tabMenu.closeAll'),
-      disabled: props.tabs.length <= 1
+      disabled: !props.tabs.some(isShellTabClosable)
     }
   ];
 });
@@ -170,7 +178,7 @@ onUnmounted(() => {
           </ElIcon>
           <span class="art-tabs__title">{{ tab.title }}</span>
           <span
-            v-if="tabs.length > 1"
+            v-if="isShellTabClosable(tab)"
             class="art-tabs__close"
             :title="formatCloseTabLabel(tab.title)"
             aria-hidden="true"

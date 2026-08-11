@@ -9,7 +9,8 @@ const navigation = [{
   componentKey: 'tenants',
   title: '租户管理',
   caption: 'Host 作用域租户目录',
-  icon: Grid
+  icon: Grid,
+  isAffix: false
 }];
 
 describe('ArtGlobalSearch', () => {

@@ -33,6 +33,7 @@ import {
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
   useArtClientPagination,
@@ -735,7 +736,7 @@ function toProblem(
               align="center"
             >
               <template #default="{ row }">
-                <div class="art-crud-table-actions">
+                <ArtTableActionGroup>
                   <PermissionGate v-if="canReadExecutions" code="jobs.executions.read">
                     <ArtTableActionButton
                       type="view"
@@ -781,7 +782,7 @@ function toProblem(
                       @click="deleteDefinition(row as HostJobDefinition)"
                     />
                   </PermissionGate>
-                </div>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 

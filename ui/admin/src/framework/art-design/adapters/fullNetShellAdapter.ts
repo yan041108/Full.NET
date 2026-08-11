@@ -23,6 +23,7 @@ import {
   flattenNavigation,
   localNavigationFor
 } from '../../../navigation/catalog';
+import { resolveMenuIconComponent } from '../../../identity/host-menu-icons';
 
 /** Art 壳层侧栏树节点；目录节点可含 children。 */
 export interface ShellNavigationTreeItem extends ShellNavigationItem {
@@ -41,6 +42,7 @@ export interface ShellNavigationItem {
   title: string;
   caption: string;
   icon: Component;
+  isAffix: boolean;
 }
 
 /** Art 壳层标签页项；路径必须来自已授权导航。 */
@@ -48,6 +50,7 @@ export interface ShellTabItem {
   path: string;
   title: string;
   icon?: Component;
+  isAffix?: boolean;
 }
 
 /** 混合/双栏布局的一级菜单分组；items 仅包含已发布页面。 */
@@ -161,17 +164,6 @@ function translateNavigationLabel(
   }
 }
 
-const iconCatalog: Record<string, Component> = {
-  dashboard: Grid,
-  building: OfficeBuilding,
-  users: User,
-  menus: MenuIcon,
-  roles: Setting,
-  overview: House,
-  monitor: Monitor,
-  grid: Grid
-};
-
 /**
  * 将服务端导航树转换为 Art 壳层可渲染菜单。
  * 未知 componentKey 会被过滤，禁止动态路径或字符串组件加载。
@@ -199,8 +191,18 @@ function toShellNavigationItem(
     componentKey: node.componentKey,
     title,
     caption,
-    icon: resolveShellIcon(node.icon)
+    icon: resolveShellIcon(node.icon),
+    isAffix: resolveShellNavigationAffix(node)
   };
+}
+
+/** 工作台等首页在标签栏固定；与 Art Design Pro `fixedTab` / Admin.NET `isAffix` 对齐。 */
+export function resolveShellNavigationAffix(
+  node: Pick<NavigationNode, 'path' | 'componentKey' | 'isAffix'>
+): boolean {
+  return node.isAffix === true
+    || node.path === '/'
+    || node.componentKey === 'overview';
 }
 
 function mapNavigationTreeToShellItems(
@@ -231,7 +233,8 @@ export function buildShellNavigation(
     componentKey: node.componentKey,
     title: node.title,
     caption: node.caption,
-    icon: resolveShellIcon(node.icon)
+    icon: resolveShellIcon(node.icon),
+    isAffix: resolveShellNavigationAffix(node)
   }));
 }
 
@@ -348,7 +351,7 @@ export function resolveActiveGroupId(
 
 /** 解析导航图标；仅允许预置映射，避免运行时字符串导入。 */
 export function resolveShellIcon(icon: string): Component {
-  return iconCatalog[icon] ?? Grid;
+  return resolveMenuIconComponent(icon);
 }
 
 function toShellNavigationTreeItem(
@@ -399,6 +402,7 @@ function mapServerNavigationTree(
           title: node.title,
           caption: node.caption,
           icon: resolveShellIcon(node.icon),
+          isAffix: false,
           children: childNodes
         };
 
@@ -434,6 +438,7 @@ function buildTreeFromNavigationGroups(
       title: group.title,
       caption: '',
       icon: group.icon,
+      isAffix: false,
       children: group.items.map(item => toShellNavigationTreeItem(item, item.path))
     });
   }
@@ -543,22 +548,59 @@ export function buildFlatShellNavigationTree(
   return items.map(item => toShellNavigationTreeItem(item, item.path));
 }
 
+function toShellTabItem(item: ShellNavigationItem): ShellTabItem {
+  return {
+    path: item.path,
+    title: item.title,
+    icon: item.icon,
+    isAffix: item.isAffix
+  };
+}
+
+/** 固定标签不可关闭，语义对齐 Art Design Pro `fixedTab`。 */
+export function isShellTabClosable(tab: ShellTabItem): boolean {
+  return !tab.isAffix;
+}
+
+/** 确保所有固定页始终出现在标签栏最前。 */
+export function ensureAffixShellTabs(
+  tabs: ShellTabItem[],
+  navigation: ShellNavigationItem[]
+): ShellTabItem[] {
+  const affixNavigation = navigation.filter(item => item.isAffix);
+  if (affixNavigation.length === 0) {
+    return tabs;
+  }
+
+  const affixPaths = new Set(affixNavigation.map(item => item.path));
+  const nonAffixTabs = tabs.filter(tab => !affixPaths.has(tab.path));
+  const affixTabs = affixNavigation.map(item => {
+    const existing = tabs.find(tab => tab.path === item.path);
+    return existing
+      ? { ...existing, isAffix: true }
+      : toShellTabItem(item);
+  });
+
+  return [...affixTabs, ...nonAffixTabs];
+}
+
 /** 根据当前路径与授权导航生成标签页集合。 */
 export function upsertShellTab(
   tabs: ShellTabItem[],
   navigation: ShellNavigationItem[],
   activePath: string
 ): ShellTabItem[] {
+  const nextTabs = ensureAffixShellTabs(tabs, navigation);
   const active = navigation.find(item => item.path === activePath);
   if (!active) {
-    return tabs;
+    return nextTabs;
   }
 
-  if (tabs.some(tab => tab.path === active.path)) {
-    return tabs;
+  if (nextTabs.some(tab => tab.path === active.path)) {
+    return nextTabs;
   }
 
-  return [...tabs, { path: active.path, title: active.title, icon: active.icon }];
+  return [...nextTabs, toShellTabItem(active)];
 }
 
 /** 关闭标签页后返回应激活的路径。 */
@@ -567,7 +609,8 @@ export function closeShellTab(
   closingPath: string,
   activePath: string
 ): { tabs: ShellTabItem[]; nextPath: string } {
-  if (tabs.length <= 1) {
+  const closingTab = tabs.find(tab => tab.path === closingPath);
+  if (!closingTab || !isShellTabClosable(closingTab)) {
     return { tabs, nextPath: activePath };
   }
 
@@ -577,6 +620,10 @@ export function closeShellTab(
   }
 
   const nextTabs = tabs.filter(tab => tab.path !== closingPath);
+  if (nextTabs.length === 0) {
+    return { tabs, nextPath: activePath };
+  }
+
   if (closingPath !== activePath) {
     return { tabs: nextTabs, nextPath: activePath };
   }
@@ -609,13 +656,19 @@ export function closeShellTabs(
 
   let nextTabs = tabs;
   if (scope === 'left') {
-    nextTabs = tabs.filter((_, index) => index >= targetIndex);
+    nextTabs = tabs.filter((tab, index) =>
+      index >= targetIndex || !isShellTabClosable(tab));
   } else if (scope === 'right') {
-    nextTabs = tabs.filter((_, index) => index <= targetIndex);
+    nextTabs = tabs.filter((tab, index) =>
+      index <= targetIndex || !isShellTabClosable(tab));
   } else if (scope === 'other') {
-    nextTabs = tabs.filter((_, index) => index === targetIndex);
+    nextTabs = tabs.filter(tab =>
+      tab.path === targetPath || !isShellTabClosable(tab));
   } else if (scope === 'all') {
-    nextTabs = [tabs[targetIndex] ?? tabs[0]!];
+    const affixTabs = tabs.filter(tab => tab.isAffix);
+    nextTabs = affixTabs.length > 0
+      ? affixTabs
+      : [tabs[targetIndex] ?? tabs[0]!];
   }
 
   if (nextTabs.length === 0) {

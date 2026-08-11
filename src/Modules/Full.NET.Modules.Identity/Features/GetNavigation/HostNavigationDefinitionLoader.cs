@@ -27,6 +27,10 @@ internal sealed class HostNavigationDefinitionLoader(IQueryExecutor queryExecuto
             record => record.RouteName,
             comparer: EqualityComparer<Guid>.Default);
         return records
+            .Where(record => !string.Equals(
+                record.MenuType,
+                IdentityHostMenuTypes.Button,
+                StringComparison.Ordinal))
             .Select(record => Map(record, routeNamesById))
             .ToArray();
     }

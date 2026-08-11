@@ -17,6 +17,9 @@ import {
 
 defineOptions({ name: 'ArtSearchBar' });
 
+/** 查询栏标签默认宽度：单行容纳 6 个汉字。 */
+const ART_SEARCH_BAR_LABEL_WIDTH = '98px';
+
 export interface ArtSearchBarItem {
   key: string;
   label: string;
@@ -42,7 +45,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   span: 6,
   gutter: 12,
-  labelWidth: '70px',
+  labelWidth: ART_SEARCH_BAR_LABEL_WIDTH,
   searchLabel: '查询',
   resetLabel: '重置',
   expandLabel: '展开',
@@ -232,6 +235,10 @@ function handleReset(): void {
 
 .art-search-bar__field {
   margin-bottom: 12px;
+}
+
+.art-search-bar__field :deep(.el-form-item__label) {
+  white-space: nowrap;
 }
 
 .art-search-bar__field :deep(.el-input),

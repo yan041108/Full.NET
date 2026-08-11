@@ -44,6 +44,10 @@ describe('Settings 数据字典契约', () => {
 
   it('校验字典类型详情、分页与写请求', () => {
     expect(isSettingsDictType(dictType)).toBe(true);
+    expect(isSettingsDictType({
+      ...dictType,
+      code: 'identity.ethnicity'
+    })).toBe(true);
     expect(isSettingsDictTypePage({
       items: [dictType],
       page: 1,

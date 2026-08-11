@@ -20,6 +20,7 @@ import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
   useArtClientPagination,
@@ -491,7 +492,7 @@ function toProblem(
               align="center"
             >
               <template #default="{ row }">
-                <div v-if="row.status === 'draft'" class="art-crud-table-actions">
+                <ArtTableActionGroup v-if="row.status === 'draft'">
                   <PermissionGate code="notifications.announcements.update">
                     <ArtTableActionButton
                       type="edit"
@@ -510,7 +511,7 @@ function toProblem(
                   @click="publish(row as HostAnnouncement)"
                     />
                   </PermissionGate>
-                </div>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 

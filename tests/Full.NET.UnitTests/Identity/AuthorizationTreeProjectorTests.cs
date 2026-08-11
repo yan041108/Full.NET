@@ -108,6 +108,28 @@ public sealed class AuthorizationTreeProjectorTests
     }
 
     [TestMethod]
+    public void ProjectHostTree_includes_navigation_and_tenant_switch_capabilities()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+        var projector = new AuthorizationTreeProjector(catalog);
+
+        var overviewPage = projector.ProjectHostTree()
+            .Single(module => module.Id == "identity")
+            .Pages.Single(page => page.Id == "overview");
+        var tenantContextPage = projector.ProjectHostTree()
+            .Single(module => module.Id == "tenancy")
+            .Pages.Single(page => page.Id == "tenant-context");
+
+        Assert.AreEqual(
+            IdentityAuthorizationContributor.NavigationRead,
+            overviewPage.Actions.Single().PermissionCode);
+        Assert.AreEqual(
+            TenancyAuthorizationContributor.TenantsSwitch,
+            tenantContextPage.Actions.Single().PermissionCode);
+    }
+
+    [TestMethod]
     public void ProjectHostTree_includes_users_action_bindings_from_identity_catalog()
     {
         var catalog = AuthorizationCatalog.Create(

@@ -145,6 +145,9 @@ importers:
       '@fullnet/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@iconify/vue':
+        specifier: 5.0.0
+        version: 5.0.0(vue@3.5.40(typescript@6.0.3))
       dayjs:
         specifier: 1.11.21
         version: 1.11.21
@@ -1248,6 +1251,14 @@ packages:
     resolution: {integrity: sha512-wtF6h+DY6M3YaDBPAmvuuA6jV8Sif9MjtOI5euKFWRgCDl5PeDpPsHR9u2l6St5ceY8AZgoNDww5+HvEsXFsGg==}
     engines: {node: '>=6'}
     hasBin: true
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
+
+  '@iconify/vue@5.0.0':
+    resolution: {integrity: sha512-C+KuEWIF5nSBrobFJhT//JS87OZ++QDORB6f2q2Wm6fl2mueSTpFBeBsveK0KW9hWiZ4mNiPjsh6Zs4jjdROSg==}
+    peerDependencies:
+      vue: '>=3'
 
   '@intlify/core-base@9.1.11':
     resolution: {integrity: sha512-2Zra5zXvOBBeeXBoPv7pjFuXLuHACw/kE4scO+STFKjG6dro7LfuWag+4EvnMjADAuhVynYB2PYqJpifb7j2Vw==}
@@ -6153,6 +6164,13 @@ snapshots:
       long: 5.3.2
       protobufjs: 7.6.5
       yargs: 17.7.3
+
+  '@iconify/types@2.0.0': {}
+
+  '@iconify/vue@5.0.0(vue@3.5.40(typescript@6.0.3))':
+    dependencies:
+      '@iconify/types': 2.0.0
+      vue: 3.5.40(typescript@6.0.3)
 
   '@intlify/core-base@9.1.11':
     dependencies:

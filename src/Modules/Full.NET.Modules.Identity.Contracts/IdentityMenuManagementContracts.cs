@@ -99,3 +99,9 @@ public sealed record HostMenuPermissionOptionResponse(
     string DisplayNameKey,
     string? ActionId = null,
     string? ActionKey = null);
+
+/// <summary>将授权目录缺失项同步到 Host 菜单表的结果。</summary>
+public sealed record HostNavigationCatalogSyncResponse(
+    int Created,
+    int Skipped,
+    int Reparented);

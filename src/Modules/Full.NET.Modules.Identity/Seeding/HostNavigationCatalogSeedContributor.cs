@@ -20,12 +20,12 @@ internal sealed class HostNavigationCatalogSeedContributor(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var (created, skipped) = await catalogSyncService
+        var (created, skipped, reparented) = await catalogSyncService
             .SyncMissingCatalogEntriesAsync(cancellationToken)
             .ConfigureAwait(false);
-        if (created > 0)
+        if (created > 0 || reparented > 0)
         {
-            return new SeedContributionResult(created, 0, skipped, "seeding.data.created");
+            return new SeedContributionResult(created + reparented, 0, skipped, "seeding.data.created");
         }
 
         return new SeedContributionResult(0, 0, skipped, "seeding.data.skipped");

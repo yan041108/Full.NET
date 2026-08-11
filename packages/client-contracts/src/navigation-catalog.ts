@@ -135,6 +135,26 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/document/tags'
   },
   {
+    componentKey: 'document-recycle-bin',
+    routeName: 'document-recycle-bin',
+    path: '/document/recycle-bin'
+  },
+  {
+    componentKey: 'document-shares',
+    routeName: 'document-shares',
+    path: '/document/shares'
+  },
+  {
+    componentKey: 'document-statistics',
+    routeName: 'document-statistics',
+    path: '/document/statistics'
+  },
+  {
+    componentKey: 'host-messaging-ops',
+    routeName: 'host-messaging-ops',
+    path: '/messaging/operations'
+  },
+  {
     componentKey: 'host-announcements',
     routeName: 'host-announcements',
     path: '/notifications/host-announcements'
@@ -220,10 +240,20 @@ export function createAdminNavigationCatalog(
     return supportedComponents.get(componentKey);
   }
 
+  function isModuleDirectoryNode(node: NavigationNode): boolean {
+    return node.componentKey === 'layout'
+      && node.routeName.startsWith('module-')
+      && node.path.startsWith('/modules/');
+  }
+
   function isSupportedNavigationTree(
     navigation: readonly NavigationNode[]
   ): boolean {
     return navigation.every(node => {
+      if (isModuleDirectoryNode(node)) {
+        return isSupportedNavigationTree(node.children);
+      }
+
       const local = supportedComponents.get(node.componentKey);
       return local !== undefined
         && local.routeName === node.routeName

@@ -121,10 +121,20 @@ internal sealed class HostMenuQueryService(
             record.IsEmbedded,
             record.Remark);
 
-    private static string NormalizeMenuType(string? menuType) =>
-        string.Equals(menuType, IdentityHostMenuTypes.Directory, StringComparison.Ordinal)
-            ? IdentityHostMenuTypes.Directory
-            : IdentityHostMenuTypes.Menu;
+    private static string NormalizeMenuType(string? menuType)
+    {
+        if (string.Equals(menuType, IdentityHostMenuTypes.Directory, StringComparison.Ordinal))
+        {
+            return IdentityHostMenuTypes.Directory;
+        }
+
+        if (string.Equals(menuType, IdentityHostMenuTypes.Button, StringComparison.Ordinal))
+        {
+            return IdentityHostMenuTypes.Button;
+        }
+
+        return IdentityHostMenuTypes.Menu;
+    }
 
     private static Result<HostMenuResponse> NotFound() =>
         Result<HostMenuResponse>.Failure(new Error(

@@ -111,6 +111,27 @@ public sealed class HostUserManagementReferenceEndpointTests
         Assert.IsTrue(canAccessUserPositions);
     }
 
+    [TestMethod]
+    public void TryResolveReferenceAccess_accepts_super_administrator_without_permission_claims()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(FullNetIdentityClaimTypes.Subject, Guid.NewGuid().ToString("D")),
+            new Claim(FullNetIdentityClaimTypes.ActorScope, "host"),
+            new Claim(FullNetIdentityClaimTypes.SuperAdministrator, bool.TrueString),
+        ],
+        "Test"));
+
+        var result = InvokeTryResolveReferenceAccess(
+            principal,
+            out var canAccessUserUnits,
+            out var canAccessUserPositions);
+
+        Assert.IsTrue(result);
+        Assert.IsTrue(canAccessUserUnits);
+        Assert.IsTrue(canAccessUserPositions);
+    }
+
     private static bool InvokeTryResolveReferenceAccess(
         ClaimsPrincipal principal,
         out bool canAccessUserUnits,

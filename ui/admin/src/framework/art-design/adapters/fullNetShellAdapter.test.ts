@@ -7,10 +7,13 @@ import {
   buildShellNavigationTree,
   closeShellTab,
   closeShellTabs,
+  ensureAffixShellTabs,
+  isShellTabClosable,
   resolveActiveGroupId,
   resolveDefaultOpenedMenuPaths,
   resolveNavigationBreadcrumb,
   resolveShellIcon,
+  resolveShellNavigationAffix,
   SHELL_NAV_GROUP_PATH_PREFIX,
   upsertShellTab
 } from './fullNetShellAdapter';
@@ -26,6 +29,7 @@ const navigation: NavigationNode[] = [{
   icon: 'dashboard',
   order: 10,
   requiredPermission: 'platform.dashboard.read',
+  isAffix: true,
   children: []
 }, {
   id: 'tenants',
@@ -50,7 +54,9 @@ describe('fullNetShellAdapter', () => {
 
     expect(items.map(item => item.path)).toEqual(['/', '/tenants']);
     expect(items[0]?.title).toBe('工作台');
+    expect(items[0]?.isAffix).toBe(true);
     expect(items[1]?.title).toBe('navigation.tenants.title');
+    expect(items[1]?.isAffix).toBe(false);
   });
 
   it('未知 componentKey 会被忽略', () => {
@@ -100,7 +106,8 @@ describe('fullNetShellAdapter', () => {
       componentKey: 'overview',
       title: '服务端工作台',
       caption: '服务端概览',
-      icon: expect.anything()
+      icon: expect.anything(),
+      isAffix: true
     }]);
   });
 
@@ -108,28 +115,65 @@ describe('fullNetShellAdapter', () => {
     expect(resolveShellIcon('missing-icon')).toBe(Grid);
   });
 
-  it('标签页只跟踪授权路径', () => {
+  it('工作台路径默认视为固定标签', () => {
+    expect(resolveShellNavigationAffix({
+      path: '/',
+      componentKey: 'overview'
+    })).toBe(true);
+    expect(resolveShellNavigationAffix({
+      path: '/tenants',
+      componentKey: 'tenants',
+      isAffix: false
+    })).toBe(false);
+  });
+
+  it('固定标签始终排在最前且不可关闭', () => {
     const navigationItems = buildShellNavigation({
       navigation,
       translate: key => key
     });
-    const first = upsertShellTab([], navigationItems, '/');
-    const second = upsertShellTab(first, navigationItems, '/tenants');
 
-    expect(second).toEqual([
-      { path: '/', title: 'navigation.overview.title', icon: expect.anything() },
-      { path: '/tenants', title: 'navigation.tenants.title', icon: expect.anything() }
+    expect(upsertShellTab([], navigationItems, '/tenants')).toEqual([
+      {
+        path: '/',
+        title: 'navigation.overview.title',
+        icon: expect.anything(),
+        isAffix: true
+      },
+      {
+        path: '/tenants',
+        title: 'navigation.tenants.title',
+        icon: expect.anything(),
+        isAffix: false
+      }
     ]);
+
+    const tabs = [
+      { path: '/tenants', title: '租户', isAffix: false },
+      { path: '/users', title: '用户', isAffix: false }
+    ];
+    expect(ensureAffixShellTabs(tabs, navigationItems).map(tab => tab.path))
+      .toEqual(['/', '/tenants', '/users']);
+    expect(isShellTabClosable({ path: '/', title: '工作台', isAffix: true }))
+      .toBe(false);
+    expect(closeShellTab(
+      ensureAffixShellTabs(tabs, navigationItems),
+      '/',
+      '/tenants'
+    )).toEqual({
+      tabs: ensureAffixShellTabs(tabs, navigationItems),
+      nextPath: '/tenants'
+    });
   });
 
   it('关闭当前标签页时回退到相邻授权路径', () => {
     const tabs = [
-      { path: '/', title: '工作台' },
-      { path: '/tenants', title: '租户' }
+      { path: '/', title: '工作台', isAffix: true },
+      { path: '/tenants', title: '租户', isAffix: false }
     ];
 
     expect(closeShellTab(tabs, '/tenants', '/tenants')).toEqual({
-      tabs: [{ path: '/', title: '工作台' }],
+      tabs: [{ path: '/', title: '工作台', isAffix: true }],
       nextPath: '/'
     });
   });
@@ -168,6 +212,7 @@ describe('fullNetShellAdapter', () => {
         icon: 'dashboard',
         order: 10,
         requiredPermission: 'platform.dashboard.read',
+        isAffix: true,
         children: [{
           id: 'tenants',
           parentId: 'workspace',
@@ -324,31 +369,37 @@ describe('fullNetShellAdapter', () => {
     ]);
   });
 
-  it('会按右键菜单语义批量关闭标签页', () => {
+  it('会按右键菜单语义批量关闭标签页并保留固定页', () => {
     const tabs = [
-      { path: '/', title: '工作台' },
-      { path: '/tenants', title: '租户' },
-      { path: '/users', title: '用户' }
+      { path: '/', title: '工作台', isAffix: true },
+      { path: '/tenants', title: '租户', isAffix: false },
+      { path: '/users', title: '用户', isAffix: false }
     ];
 
     expect(closeShellTabs(tabs, 'left', '/users', '/users')).toEqual({
-      tabs: [{ path: '/users', title: '用户' }],
+      tabs: [
+        { path: '/', title: '工作台', isAffix: true },
+        { path: '/users', title: '用户', isAffix: false }
+      ],
       nextPath: '/users'
     });
 
     expect(closeShellTabs(tabs, 'right', '/', '/users')).toEqual({
-      tabs: [{ path: '/', title: '工作台' }],
+      tabs: [{ path: '/', title: '工作台', isAffix: true }],
       nextPath: '/'
     });
 
     expect(closeShellTabs(tabs, 'other', '/tenants', '/users')).toEqual({
-      tabs: [{ path: '/tenants', title: '租户' }],
+      tabs: [
+        { path: '/', title: '工作台', isAffix: true },
+        { path: '/tenants', title: '租户', isAffix: false }
+      ],
       nextPath: '/tenants'
     });
 
     expect(closeShellTabs(tabs, 'all', '/tenants', '/users')).toEqual({
-      tabs: [{ path: '/tenants', title: '租户' }],
-      nextPath: '/tenants'
+      tabs: [{ path: '/', title: '工作台', isAffix: true }],
+      nextPath: '/'
     });
   });
 });

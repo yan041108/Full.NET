@@ -264,7 +264,7 @@ function toProblem(
 
             <el-table-column :label="t('users.columnActions')" width="180" fixed="right" align="center">
               <template #default="{ row }">
-                <div class="art-crud-table-actions">
+                <ArtTableActionGroup>
                   <PermissionGate code="files.files.download">
                     <el-button
                       plain
@@ -288,7 +288,7 @@ function toProblem(
                       {{ t('hostFiles.delete') }}
                     </el-button>
                   </PermissionGate>
-                </div>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 

@@ -75,6 +75,23 @@ describe('headless 管理端导航目录', () => {
     expect(catalog.isSupportedNavigationTree([
       createNode('overview', { path: '/remote' })
     ])).toBe(false);
+    expect(catalog.isSupportedNavigationTree([
+      {
+        ...createNode('layout', {
+          id: 'module-identity',
+          routeName: 'module-identity',
+          path: '/modules/identity'
+        }),
+        children: [
+          createNode('users', {
+            id: 'users',
+            parentId: 'module-identity',
+            routeName: 'users',
+            path: '/identity/users'
+          })
+        ]
+      }
+    ])).toBe(true);
   });
 
   it('按树顺序扁平化导航且不修改源数据', () => {

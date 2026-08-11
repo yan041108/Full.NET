@@ -28,6 +28,8 @@ import type {
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
+import { ART_TABLE_ACTION_COLUMN_WIDTH } from '../framework/art-design/components/artTableActions';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
 import UserEditorDialog from './components/UserEditorDialog.vue';
@@ -1914,12 +1916,12 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
               <!-- 中文注释：UserRow extends HostUser，操作列参数 row 直接传递给接受 HostUser 的函数即可 -->
               <el-table-column
                 :label="t('users.columnActions')"
-                width="196"
+                :width="ART_TABLE_ACTION_COLUMN_WIDTH"
                 fixed="right"
                 align="center"
               >
                 <template #default="{ row }">
-                  <div class="users-table-actions">
+                  <ArtTableActionGroup>
                     <PermissionGate code="identity.users.update">
                       <ArtTableActionButton
                         type="edit"
@@ -1976,7 +1978,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                         {{ t('users.enable') }}
                       </el-button>
                     </PermissionGate>
-                  </div>
+                  </ArtTableActionGroup>
                 </template>
               </el-table-column>
 

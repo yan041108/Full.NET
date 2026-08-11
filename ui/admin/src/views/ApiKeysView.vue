@@ -20,6 +20,7 @@ import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
 import {
   useArtClientPagination,
@@ -534,7 +535,7 @@ function toProblem(
               align="center"
             >
               <template #default="{ row }">
-                <div v-if="row.isActive" class="art-crud-table-actions">
+                <ArtTableActionGroup v-if="row.isActive">
                   <PermissionGate code="identity.api_keys.rotate">
                     <ArtTableActionButton
                       type="password"
@@ -553,7 +554,7 @@ function toProblem(
                   @click="disable(row as HostApiKey)"
                     />
                   </PermissionGate>
-                </div>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 

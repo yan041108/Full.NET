@@ -76,8 +76,11 @@ export interface DeleteSettingsDictItemRequest {
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// 与服务端 HostDictTypeManagementService 的编码规则保持一致：3-64 位小写字母开头结尾。
-const codePattern = /^[a-z][a-z0-9_-]{1,62}[a-z0-9]$/;
+// 与服务端 HostDictTypeManagementService 的创建规则保持一致：3-64 位小写字母开头结尾。
+const createCodePattern = /^[a-z][a-z0-9_-]{1,62}[a-z0-9]$/;
+
+// 读取响应时允许 Baseline 种子使用的模块命名空间编码（如 identity.ethnicity）。
+const dictTypeCodePattern = /^[a-z][a-z0-9._-]{1,62}[a-z0-9]$/;
 
 // 与服务端 HostDictItemManagementService 的机器值规则一致：2-128 位小写。
 const valuePattern = /^[a-z][a-z0-9_-]{0,126}[a-z0-9]$/;
@@ -86,7 +89,7 @@ export function isSettingsDictType(value: unknown): value is SettingsDictType {
   return isRecord(value)
     && isGuid(value.id)
     && typeof value.code === 'string'
-    && codePattern.test(value.code)
+    && dictTypeCodePattern.test(value.code)
     && isNonEmptyString(value.name)
     && (value.description === null || typeof value.description === 'string')
     && Number.isInteger(value.displayOrder)
@@ -112,7 +115,7 @@ export function isCreateSettingsDictTypeRequest(
 ): value is CreateSettingsDictTypeRequest {
   return isRecord(value)
     && typeof value.code === 'string'
-    && codePattern.test(value.code)
+    && createCodePattern.test(value.code)
     && isNonEmptyString(value.name)
     && (value.description === undefined
       || value.description === null

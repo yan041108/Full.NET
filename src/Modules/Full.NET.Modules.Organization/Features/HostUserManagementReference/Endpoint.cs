@@ -305,6 +305,15 @@ internal static class Endpoint
         out bool canAccessUserUnits,
         out bool canAccessUserPositions)
     {
+        if (OrganizationActorContext.TryResolve(principal, out _, out var isSuperAdministrator)
+            && isSuperAdministrator)
+        {
+            // 超级管理员令牌不携带 Permission Claim，Host 用户目录参考数据需按全量投影。
+            canAccessUserUnits = true;
+            canAccessUserPositions = true;
+            return true;
+        }
+
         canAccessUserUnits = HasAnyPermission(
             principal,
             IdentityUserManagementPermissions.Read,

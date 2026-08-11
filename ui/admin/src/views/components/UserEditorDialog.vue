@@ -611,93 +611,6 @@ defineExpose({
               />
             </el-form-item>
             <el-form-item
-              v-if="hasField('ethnicity')"
-              :label="translate('users.ethnicity')"
-            >
-              <el-select
-                v-model="basicForm.ethnicity"
-                clearable
-                filterable
-                style="width: 100%"
-                @update:model-value="patchProfile({ ethnicity: ($event as string) || null })"
-              >
-                <el-option
-                  v-for="option in ethnicityOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </el-form-item>
-            <el-form-item
-              v-if="hasField('education_level')"
-              :label="translate('users.educationLevel')"
-            >
-              <el-select
-                v-model="basicForm.educationLevel"
-                clearable
-                filterable
-                style="width: 100%"
-                @update:model-value="patchProfile({ educationLevel: ($event as string) || null })"
-              >
-                <el-option
-                  v-for="option in educationLevelOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </el-form-item>
-            <el-form-item
-              v-if="hasField('emergency_contact_relation')"
-              :label="translate('users.emergencyContactRelation')"
-            >
-              <el-select
-                v-model="basicForm.emergencyContactRelation"
-                clearable
-                filterable
-                style="width: 100%"
-                @update:model-value="patchProfile({ emergencyContactRelation: ($event as string) || null })"
-              >
-                <el-option
-                  v-for="option in emergencyContactRelationOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </el-form-item>
-            <el-form-item
-              v-if="hasField('emergency_contact')"
-              :label="translate('users.emergencyContact')"
-            >
-              <el-input
-                v-model="basicForm.emergencyContact"
-                @update:model-value="patchProfile({ emergencyContact: $event || null })"
-              />
-            </el-form-item>
-            <el-form-item
-              v-if="hasField('emergency_contact_phone')"
-              :label="translate('users.emergencyContactPhone')"
-            >
-              <el-input
-                v-model="basicForm.emergencyContactPhone"
-                @update:model-value="patchProfile({ emergencyContactPhone: $event || null })"
-              />
-            </el-form-item>
-            <el-form-item
-              v-if="hasField('emergency_contact_address')"
-              class="users-editor-dialog__full"
-              :label="translate('users.emergencyContactAddress')"
-            >
-              <el-input
-                v-model="basicForm.emergencyContactAddress"
-                type="textarea"
-                :rows="2"
-                @update:model-value="patchProfile({ emergencyContactAddress: $event || null })"
-              />
-            </el-form-item>
-            <el-form-item
               v-if="mode === 'create' && !identityCommitted"
               :label="translate('users.password')"
               prop="password"
@@ -839,6 +752,93 @@ defineExpose({
                 value-format="YYYY-MM-DD"
                 style="width: 100%"
                 @update:model-value="patchProfile({ birthDate: ($event as string) || null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('ethnicity')"
+              :label="translate('users.ethnicity')"
+            >
+              <el-select
+                v-model="basicForm.ethnicity"
+                clearable
+                filterable
+                style="width: 100%"
+                @update:model-value="patchProfile({ ethnicity: ($event as string) || null })"
+              >
+                <el-option
+                  v-for="option in ethnicityOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('education_level')"
+              :label="translate('users.educationLevel')"
+            >
+              <el-select
+                v-model="basicForm.educationLevel"
+                clearable
+                filterable
+                style="width: 100%"
+                @update:model-value="patchProfile({ educationLevel: ($event as string) || null })"
+              >
+                <el-option
+                  v-for="option in educationLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('emergency_contact_relation')"
+              :label="translate('users.emergencyContactRelation')"
+            >
+              <el-select
+                v-model="basicForm.emergencyContactRelation"
+                clearable
+                filterable
+                style="width: 100%"
+                @update:model-value="patchProfile({ emergencyContactRelation: ($event as string) || null })"
+              >
+                <el-option
+                  v-for="option in emergencyContactRelationOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('emergency_contact')"
+              :label="translate('users.emergencyContact')"
+            >
+              <el-input
+                v-model="basicForm.emergencyContact"
+                @update:model-value="patchProfile({ emergencyContact: $event || null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('emergency_contact_phone')"
+              :label="translate('users.emergencyContactPhone')"
+            >
+              <el-input
+                v-model="basicForm.emergencyContactPhone"
+                @update:model-value="patchProfile({ emergencyContactPhone: $event || null })"
+              />
+            </el-form-item>
+            <el-form-item
+              v-if="hasField('emergency_contact_address')"
+              class="users-editor-dialog__full"
+              :label="translate('users.emergencyContactAddress')"
+            >
+              <el-input
+                v-model="basicForm.emergencyContactAddress"
+                type="textarea"
+                :rows="2"
+                @update:model-value="patchProfile({ emergencyContactAddress: $event || null })"
               />
             </el-form-item>
             <el-form-item v-if="hasField('preferred_locale')" :label="translate('users.profileLocale')">
