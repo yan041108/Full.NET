@@ -65,6 +65,17 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
 
     public async Task EnsureTopicsAsync(params string[] topics)
     {
+        await EnsureTopicsAsync(
+            partitions: 1,
+            replicationFactor: 1,
+            topics).ConfigureAwait(false);
+    }
+
+    public async Task EnsureTopicsAsync(
+        int partitions,
+        short replicationFactor,
+        params string[] topics)
+    {
         using var admin = new AdminClientBuilder(new AdminClientConfig
         {
             BootstrapServers = BootstrapServers,
@@ -75,8 +86,8 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
                 topics.Distinct(StringComparer.Ordinal).Select(topic => new TopicSpecification
                 {
                     Name = topic,
-                    NumPartitions = 1,
-                    ReplicationFactor = 1,
+                    NumPartitions = partitions,
+                    ReplicationFactor = replicationFactor,
                 })).ConfigureAwait(false);
         }
         catch (CreateTopicsException exception) when (

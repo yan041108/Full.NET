@@ -140,29 +140,24 @@ public sealed class KafkaCapacityControlPlaneTests
                 "build-a",
                 "scenario-a",
                 scopeCode: KafkaCapacityScopeCodes.KafkaTransport,
-                topicIdentity: topic);
-            checkpoint = await KafkaCapacityCheckpoint.SaveCompletedAsync(
+                topicIdentity: topic,
+                runId: "run-a");
+            checkpoint = await KafkaCapacityCheckpoint.SaveSampleAsync(
                 path,
                 checkpoint,
-                "sample-incomplete",
-                sampleCompleted: false,
-                scopeCode: KafkaCapacityScopeCodes.KafkaTransport,
+                CreateEvidence("sample-incomplete", KafkaCapacitySampleState.Incomplete),
                 cancellationToken: CancellationToken.None);
             Assert.IsTrue(File.Exists(path));
             Assert.IsEmpty(checkpoint.CompletedSampleIds);
-            checkpoint = await KafkaCapacityCheckpoint.SaveCompletedAsync(
+            checkpoint = await KafkaCapacityCheckpoint.SaveSampleAsync(
                 path,
                 checkpoint,
-                "sample-1",
-                sampleCompleted: true,
-                scopeCode: KafkaCapacityScopeCodes.KafkaTransport,
+                CreateEvidence("sample-1", KafkaCapacitySampleState.Completed),
                 cancellationToken: CancellationToken.None);
-            checkpoint = await KafkaCapacityCheckpoint.SaveCompletedAsync(
+            checkpoint = await KafkaCapacityCheckpoint.SaveSampleAsync(
                 path,
                 checkpoint,
-                "sample-2",
-                sampleCompleted: false,
-                scopeCode: KafkaCapacityScopeCodes.KafkaTransport,
+                CreateEvidence("sample-2", KafkaCapacitySampleState.Incomplete),
                 cancellationToken: CancellationToken.None);
 
             var loaded = await KafkaCapacityCheckpoint.LoadAsync(
@@ -173,41 +168,97 @@ public sealed class KafkaCapacityControlPlaneTests
             CollectionAssert.AreEquivalent(
                 new[] { "sample-1" },
                 loaded.CompletedSampleIds.ToArray());
+            Assert.HasCount(1, loaded.CompletedSamples);
+            Assert.AreEqual("sample-1", loaded.CompletedSamples[0].SampleId);
             Assert.IsFalse(File.Exists(path + ".tmp"));
             loaded.ValidateResume(
                 "build-a",
                 "scenario-a",
                 KafkaCapacityScopeCodes.KafkaTransport,
-                topic);
+                topic,
+                "run-a");
             Assert.ThrowsExactly<InvalidDataException>(() =>
                 loaded.ValidateResume(
                     "build-b",
                     "scenario-a",
                     KafkaCapacityScopeCodes.KafkaTransport,
-                    topic));
+                    topic,
+                    "run-a"));
             Assert.ThrowsExactly<InvalidDataException>(() =>
                 loaded.ValidateResume(
                     "build-a",
                     "scenario-b",
                     KafkaCapacityScopeCodes.KafkaTransport,
-                    topic));
+                    topic,
+                    "run-a"));
             Assert.ThrowsExactly<InvalidDataException>(() =>
                 loaded.ValidateResume(
                     "build-a",
                     "scenario-a",
                     KafkaCapacityScopeCodes.KafkaTransport,
-                    topic with { TopicId = "changed" }));
+                    topic with { TopicId = "changed" },
+                    "run-a"));
             Assert.ThrowsExactly<InvalidDataException>(() =>
-                (loaded with { SchemaVersion = 2 }).ValidateResume(
+                loaded.ValidateResume(
                     "build-a",
                     "scenario-a",
                     KafkaCapacityScopeCodes.KafkaTransport,
-                    topic));
+                    topic,
+                    "run-b"));
+            Assert.ThrowsExactly<InvalidDataException>(() =>
+                (loaded with
+                {
+                    SchemaVersion = KafkaCapacityCheckpoint.CurrentSchemaVersion + 1,
+                }).ValidateResume(
+                    "build-a",
+                    "scenario-a",
+                    KafkaCapacityScopeCodes.KafkaTransport,
+                    topic,
+                    "run-a"));
         }
         finally
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    private static KafkaCapacitySampleEvidence CreateEvidence(
+        string sampleId,
+        KafkaCapacitySampleState state)
+    {
+        var latency = new KafkaCapacityLatencySnapshot(1, 1, 1, 1, 1, 1, 0);
+        return new KafkaCapacitySampleEvidence(
+            KafkaCapacityScopeCodes.KafkaTransport,
+            sampleId,
+            KafkaCapacityScenario.LowRate,
+            10,
+            64,
+            1,
+            1,
+            state,
+            new KafkaCapacityIntegrityEvidence(
+                1,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                DrainCompleted: true),
+            new KafkaCapacityPerformanceEvidence(
+                1,
+                1,
+                1,
+                latency,
+                latency,
+                latency,
+                1,
+                1,
+                1,
+                0),
+            state == KafkaCapacitySampleState.Completed ? [] : ["cancelled"]);
     }
 
     private sealed class RecordingAdminClient(

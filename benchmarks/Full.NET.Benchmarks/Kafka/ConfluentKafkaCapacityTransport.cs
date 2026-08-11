@@ -69,6 +69,9 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(consumerGroupId);
         ArgumentNullException.ThrowIfNull(statisticsHandler);
         var config = options.BuildConsumerConfig(consumerGroupId);
+        // 每个样本都使用从未提交 Offset 的独立 Group，并在 Producer 启动前完成分配；
+        // 从当前末端起读可避免反复扫描同一 Run Topic 中先前样本的数据。
+        config.AutoOffsetReset = AutoOffsetReset.Latest;
         config.StatisticsIntervalMs = 1_000;
         return new ConfluentKafkaCapacityConsumer(config, statisticsHandler);
     }

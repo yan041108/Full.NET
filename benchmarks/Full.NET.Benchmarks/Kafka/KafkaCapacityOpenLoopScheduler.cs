@@ -19,6 +19,7 @@ public sealed record KafkaCapacitySchedulingResult(
     long Missed,
     int ChannelCapacity,
     int MaximumBufferedMessages,
+    long ActiveDurationMicroseconds,
     string? StopReasonCode);
 
 /// <summary>
@@ -256,11 +257,17 @@ public sealed class KafkaCapacityOpenLoopScheduler : IKafkaCapacityWorkloadSched
             }
         }
 
+        var observedDuration = Math.Max(0, clock.GetTimestampMicroseconds() - start);
+        var offeredDuration = scheduled == 0
+            ? 0
+            : checked((scheduled * MicrosecondsPerSecond
+                + targetMessagesPerSecond - 1) / targetMessagesPerSecond);
         return new KafkaCapacitySchedulingResult(
             scheduled,
             missed,
             channelCapacity,
             maximumBuffered,
+            Math.Max(observedDuration, offeredDuration),
             stopReasonCode);
     }
 

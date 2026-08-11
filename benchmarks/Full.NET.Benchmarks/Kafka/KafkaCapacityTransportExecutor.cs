@@ -388,7 +388,9 @@ public sealed class KafkaCapacityTransportExecutor : IKafkaCapacityTransportExec
         bool drainCompleted)
     {
         var integrity = state.Tracker.Complete(drainCompleted);
-        var denominator = Math.Max(0.001d, context.Duration.TotalSeconds);
+        var denominator = Math.Max(
+            0.001d,
+            scheduling.ActiveDurationMicroseconds / 1_000_000d);
         var failures = state.FailureCodes
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -455,7 +457,7 @@ public sealed class KafkaCapacityTransportExecutor : IKafkaCapacityTransportExec
 
     private static KafkaCapacitySchedulingResult EmptySchedulingResult(
         string reasonCode) =>
-        new(0, 0, 0, 0, reasonCode);
+        new(0, 0, 0, 0, 0, reasonCode);
 
     private sealed class PhaseState(
         KafkaCapacitySampleContext context,
@@ -522,11 +524,16 @@ public sealed class KafkaCapacityTransportExecutor : IKafkaCapacityTransportExec
             if (!KafkaCapacityEnvelopeCodec.TryDecode(
                     message.Value,
                     out var envelope)
-                || envelope.RunHash != context.RunHash
-                || envelope.SampleHash != SampleHash)
+                || envelope.RunHash != context.RunHash)
             {
                 Tracker.OnCorrupted();
                 AddFailure("payload_corrupted");
+                return;
+            }
+
+            if (envelope.SampleHash != SampleHash)
+            {
+                // 同一 Run Topic 会保留先前样本；独立 Group 从 earliest 读取时必须安全跳过。
                 return;
             }
 

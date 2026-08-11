@@ -192,16 +192,18 @@ public sealed class KafkaCapacitySchedulerTests
             "build",
             "scenario",
             KafkaCapacityScopeCodes.KafkaTransport,
-            topic);
+            topic,
+            "run");
+        var context = CreateExecutionContext(TimeSpan.Zero);
+        var evidence = await new RecordingTransportExecutor()
+            .ExecuteAsync(context, CancellationToken.None);
         try
         {
             await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
-                KafkaCapacityCheckpoint.SaveCompletedAsync(
+                KafkaCapacityCheckpoint.SaveSampleAsync(
                     path,
                     checkpoint,
-                    "sample",
-                    sampleCompleted: true,
-                    scopeCode: "future_worker_scope",
+                    evidence with { ScopeCode = "future_worker_scope" },
                     cancellationToken: CancellationToken.None));
             Assert.IsFalse(File.Exists(path));
         }
@@ -241,6 +243,9 @@ public sealed class KafkaCapacitySchedulerTests
         Assert.AreEqual(1L, evidence.Integrity.Acknowledged);
         Assert.AreEqual(1L, evidence.Integrity.Consumed);
         Assert.IsTrue(evidence.Integrity.CorrectnessPassed);
+        Assert.AreEqual(4d, evidence.Performance.ScheduledMessagesPerSecond);
+        Assert.AreEqual(4d, evidence.Performance.AcknowledgedMessagesPerSecond);
+        Assert.AreEqual(4d, evidence.Performance.ConsumedMessagesPerSecond);
         var finalFlush = events.LastIndexOf("producer-flush");
         Assert.IsTrue(events.IndexOf("schedule-end-2") < finalFlush);
         Assert.IsTrue(finalFlush < events.IndexOf("consumer-stop"));
@@ -329,10 +334,68 @@ public sealed class KafkaCapacitySchedulerTests
                     "build",
                     "scenario",
                     KafkaCapacityScopeCodes.KafkaTransport,
-                    context.TopicIdentity),
+                    context.TopicIdentity,
+                    "run"),
                 CancellationToken.None));
 
         Assert.AreEqual(1, driver.Calls);
+    }
+
+    [TestMethod]
+    public async Task Sample_runner_persists_incomplete_evidence_after_workload_cancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var checkpointStore = new RecordingCheckpointStore();
+        var runner = new KafkaCapacityRunner(
+            new CancellingScenarioDriver(cancellation),
+            checkpointStore);
+        var context = CreateExecutionContext(TimeSpan.Zero);
+
+        var evidence = await runner.ExecuteSamplesAsync(
+            [context],
+            "checkpoint.json",
+            KafkaCapacityCheckpoint.Create(
+                "build",
+                "scenario",
+                KafkaCapacityScopeCodes.KafkaTransport,
+                context.TopicIdentity,
+                "run"),
+            cancellation.Token);
+
+        Assert.HasCount(1, evidence);
+        Assert.AreEqual(KafkaCapacitySampleState.Incomplete, evidence[0].State);
+        CollectionAssert.Contains(evidence[0].FailureCodes.ToArray(), "cancelled");
+        Assert.AreEqual(1, checkpointStore.Calls);
+        Assert.IsFalse(checkpointStore.ObservedCancellation);
+    }
+
+    [TestMethod]
+    public async Task Topic_deletion_requires_every_sample_and_a_non_cancelled_run()
+    {
+        var context = CreateExecutionContext(TimeSpan.Zero);
+        var completed = await new RecordingTransportExecutor()
+            .ExecuteAsync(context, CancellationToken.None);
+        var planned = new[]
+        {
+            context.Sample,
+            context.Sample with { SampleId = "second" },
+        };
+
+        Assert.IsFalse(KafkaCapacityRunner.ShouldDeleteTopic(
+            deleteRequested: true,
+            planned,
+            [completed],
+            runCancelled: false));
+        Assert.IsFalse(KafkaCapacityRunner.ShouldDeleteTopic(
+            deleteRequested: true,
+            [context.Sample],
+            [completed],
+            runCancelled: true));
+        Assert.IsTrue(KafkaCapacityRunner.ShouldDeleteTopic(
+            deleteRequested: true,
+            [context.Sample],
+            [completed],
+            runCancelled: false));
     }
 
     private static KafkaCapacitySampleContext CreateExecutionContext(TimeSpan warmup)
@@ -504,7 +567,13 @@ public sealed class KafkaCapacitySchedulerTests
                 new KafkaCapacityScheduledMessage(0, 0),
                 cancellationToken);
             events.Add($"schedule-end-{call}");
-            return new KafkaCapacitySchedulingResult(1, 0, 1, 1, null);
+            return new KafkaCapacitySchedulingResult(
+                1,
+                0,
+                1,
+                1,
+                ActiveDurationMicroseconds: 250_000,
+                StopReasonCode: null);
         }
     }
 
@@ -540,6 +609,45 @@ public sealed class KafkaCapacitySchedulerTests
             Calls++;
             return await new RecordingTransportExecutor()
                 .ExecuteAsync(context, cancellationToken);
+        }
+    }
+
+    private sealed class CancellingScenarioDriver(
+        CancellationTokenSource cancellation) : IKafkaCapacityScenarioDriver
+    {
+        public string ScopeCode => KafkaCapacityScopeCodes.KafkaTransport;
+
+        public async Task<KafkaCapacitySampleEvidence> ExecuteAsync(
+            KafkaCapacitySampleContext context,
+            CancellationToken cancellationToken)
+        {
+            var completed = await new RecordingTransportExecutor()
+                .ExecuteAsync(context, cancellationToken);
+            cancellation.Cancel();
+            return completed with
+            {
+                State = KafkaCapacitySampleState.Incomplete,
+                FailureCodes = ["cancelled"],
+            };
+        }
+    }
+
+    private sealed class RecordingCheckpointStore : IKafkaCapacityCheckpointStore
+    {
+        public int Calls { get; private set; }
+
+        public bool ObservedCancellation { get; private set; }
+
+        public Task<KafkaCapacityCheckpoint> SaveAsync(
+            string path,
+            KafkaCapacityCheckpoint checkpoint,
+            KafkaCapacitySampleEvidence evidence,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            ObservedCancellation = cancellationToken.IsCancellationRequested;
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(checkpoint);
         }
     }
 

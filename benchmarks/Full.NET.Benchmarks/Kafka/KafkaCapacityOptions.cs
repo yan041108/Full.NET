@@ -7,6 +7,41 @@ namespace Full.NET.Benchmarks.Kafka;
 /// </summary>
 public sealed record KafkaCapacityOptions
 {
+    public const string HelpText = """
+        Kafka transport capacity runner
+
+        Usage:
+          dotnet run --project benchmarks/Full.NET.Benchmarks -c Release -- kafka-capacity [options]
+
+        Safety:
+          Dry-run is the default. Real traffic requires --execute true, configuration
+          KafkaCapacity:ExecutionEnabled=true, --approval-id and --reason.
+
+        Core options:
+          --settings <path>                 UTF-8 JSON configuration (KafkaCapacity root)
+          --scenarios <low-rate,throughput>
+          --low-rates <csv>                 1..10000 msg/s
+          --throughput-rates <csv>          1..1000000 msg/s, strictly increasing
+          --payload-sizes <csv>             64..1048576 bytes
+          --producer-concurrency <csv>      1..256
+          --partitions <n>                  1..128
+          --replication-factor <n>          1..5
+          --warmup-seconds <n>              0..600
+          --duration-seconds <n>            1..3600
+          --drain-seconds <n>               1..900
+          --max-messages-per-sample <n>     1..100000000
+          --repetitions <n>                 1..20
+          --resume <true|false>
+          --max-new-samples <n>             0..1000
+          --budget <path>
+          --run-id <id>
+          --output <directory>
+          --delete-topic <true|false>
+          --execute <true|false>
+          --approval-id <id>
+          --reason <text>
+        """;
+
     public bool Execute { get; init; }
 
     public IReadOnlyList<KafkaCapacityScenario> Scenarios { get; init; } =
