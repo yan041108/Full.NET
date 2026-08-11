@@ -69,7 +69,12 @@ public sealed record KafkaCapacityPerformanceEvidence(
     long DrainMilliseconds,
     double CpuPercent,
     long ManagedHeapBytes,
-    long LocalQueueMessages);
+    long LocalQueueMessages,
+    long AllocatedBytes = 0,
+    long WorkingSetBytes = 0,
+    int Gen0Collections = 0,
+    int Gen1Collections = 0,
+    int Gen2Collections = 0);
 
 /// <summary>
 /// 表示可写入报告的单样本安全证据。

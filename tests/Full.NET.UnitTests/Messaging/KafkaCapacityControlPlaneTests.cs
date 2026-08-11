@@ -14,14 +14,13 @@ public sealed class KafkaCapacityControlPlaneTests
 
         var created = await manager.EnsureTopicAsync(
             "run-a",
-            "sample-a",
             clusterHash,
             partitions: 3,
             replicationFactor: 2,
             resumeIdentity: null,
             CancellationToken.None);
 
-        Assert.StartsWith("fullnet.capacity.run-a.sample-a.", created.TopicName);
+        Assert.AreEqual("fullnet.capacity.run-a.v1", created.TopicName);
         Assert.AreEqual(1, admin.CreateCalls);
         Assert.AreEqual(clusterHash, created.ClusterIdHash);
         Assert.AreEqual(3, created.Partitions);
@@ -29,7 +28,6 @@ public sealed class KafkaCapacityControlPlaneTests
 
         var resumed = await manager.EnsureTopicAsync(
             "run-a",
-            "sample-a",
             clusterHash,
             3,
             2,
@@ -41,7 +39,6 @@ public sealed class KafkaCapacityControlPlaneTests
         await Assert.ThrowsExactlyAsync<KafkaCapacityControlPlaneException>(() =>
             manager.EnsureTopicAsync(
                 "run-a",
-                "sample-a",
                 clusterHash,
                 3,
                 2,
@@ -57,7 +54,6 @@ public sealed class KafkaCapacityControlPlaneTests
         var clusterHash = KafkaCapacityFingerprint.Sha256("cluster-a");
         var created = await manager.EnsureTopicAsync(
             "run-b",
-            "sample-b",
             clusterHash,
             1,
             1,
@@ -67,7 +63,6 @@ public sealed class KafkaCapacityControlPlaneTests
         var existingFailure = await Assert.ThrowsExactlyAsync<KafkaCapacityControlPlaneException>(() =>
             manager.EnsureTopicAsync(
                 "run-b",
-                "sample-b",
                 clusterHash,
                 1,
                 1,
@@ -79,7 +74,6 @@ public sealed class KafkaCapacityControlPlaneTests
         var clusterFailure = await Assert.ThrowsExactlyAsync<KafkaCapacityControlPlaneException>(() =>
             manager.EnsureTopicAsync(
                 "run-b",
-                "sample-b",
                 clusterHash,
                 1,
                 1,
@@ -95,7 +89,6 @@ public sealed class KafkaCapacityControlPlaneTests
         var manager = new KafkaCapacityTopicManager(admin);
         var identity = await manager.EnsureTopicAsync(
             "run-c",
-            "sample-c",
             KafkaCapacityFingerprint.Sha256("cluster-a"),
             1,
             1,

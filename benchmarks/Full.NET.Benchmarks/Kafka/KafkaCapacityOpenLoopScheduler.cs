@@ -21,6 +21,20 @@ public sealed record KafkaCapacitySchedulingResult(
     int MaximumBufferedMessages,
     string? StopReasonCode);
 
+/// <summary>
+/// 抽象开放环工作负载调度，允许生命周期测试替换时间与到达源。
+/// </summary>
+public interface IKafkaCapacityWorkloadScheduler
+{
+    Task<KafkaCapacitySchedulingResult> RunAsync(
+        int targetMessagesPerSecond,
+        TimeSpan duration,
+        int maximumMessages,
+        int producerConcurrency,
+        Func<KafkaCapacityScheduledMessage, CancellationToken, ValueTask> writeAsync,
+        CancellationToken cancellationToken);
+}
+
 internal interface IKafkaCapacityClock
 {
     long GetTimestampMicroseconds();
@@ -31,7 +45,7 @@ internal interface IKafkaCapacityClock
 /// <summary>
 /// 以绝对单调时间运行有界开放环调度，避免完成驱动和无界追赶失真。
 /// </summary>
-public sealed class KafkaCapacityOpenLoopScheduler
+public sealed class KafkaCapacityOpenLoopScheduler : IKafkaCapacityWorkloadScheduler
 {
     private const long MicrosecondsPerSecond = 1_000_000;
     private readonly IKafkaCapacityClock clock;

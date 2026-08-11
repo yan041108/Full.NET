@@ -122,6 +122,11 @@ public sealed class KafkaCapacityIntegrityTracker
     }
 
     /// <summary>
+    /// 登记无法安全解码到全局序号的损坏消息。
+    /// </summary>
+    public void OnCorrupted() => Interlocked.Increment(ref corrupted);
+
+    /// <summary>
     /// 冻结当前计数并计算 Ack 后丢失和 Producer 未 Flush 数量。
     /// </summary>
     public KafkaCapacityIntegrityEvidence Complete(bool drainCompleted)

@@ -1,4 +1,5 @@
 using Full.NET.Benchmarks.Kafka;
+using Full.NET.Messaging.Kafka;
 
 namespace Full.NET.UnitTests.Messaging;
 
@@ -213,6 +214,145 @@ public sealed class KafkaCapacitySchedulerTests
         }
     }
 
+    [TestMethod]
+    public async Task Transport_executor_assigns_consumer_before_warmup_and_excludes_warmup_evidence()
+    {
+        var events = new List<string>();
+        var consumer = new RecordingCapacityConsumer(events);
+        var producer = new RecordingCapacityProducer(events, consumer);
+        var scheduler = new RecordingWorkloadScheduler(events);
+        var executor = new KafkaCapacityTransportExecutor(
+            new KafkaMessagingOptions { Enabled = true, BootstrapServers = "broker" },
+            new RecordingProducerFactory(producer),
+            new RecordingConsumerFactory(consumer),
+            scheduler,
+            new ManualClock());
+        var context = CreateExecutionContext(warmup: TimeSpan.FromSeconds(1));
+
+        var evidence = await executor.ExecuteAsync(
+            context,
+            CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[] { "consumer-start", "consumer-assigned" },
+            events.Take(2).ToArray());
+        Assert.AreEqual(2, producer.Produced);
+        Assert.AreEqual(1L, evidence.Integrity.Enqueued);
+        Assert.AreEqual(1L, evidence.Integrity.Acknowledged);
+        Assert.AreEqual(1L, evidence.Integrity.Consumed);
+        Assert.IsTrue(evidence.Integrity.CorrectnessPassed);
+        var finalFlush = events.LastIndexOf("producer-flush");
+        Assert.IsTrue(events.IndexOf("schedule-end-2") < finalFlush);
+        Assert.IsTrue(finalFlush < events.IndexOf("consumer-stop"));
+    }
+
+    [TestMethod]
+    public async Task Transport_executor_fails_correctness_for_non_persisted_delivery_and_corruption()
+    {
+        var deliveryEvents = new List<string>();
+        var deliveryConsumer = new RecordingCapacityConsumer(deliveryEvents);
+        var deliveryExecutor = new KafkaCapacityTransportExecutor(
+            new KafkaMessagingOptions { Enabled = true, BootstrapServers = "broker" },
+            new RecordingProducerFactory(new RecordingCapacityProducer(
+                deliveryEvents,
+                deliveryConsumer,
+                persisted: false)),
+            new RecordingConsumerFactory(deliveryConsumer),
+            new RecordingWorkloadScheduler(deliveryEvents),
+            new ManualClock());
+        var deliveryEvidence = await deliveryExecutor.ExecuteAsync(
+            CreateExecutionContext(TimeSpan.Zero),
+            CancellationToken.None);
+
+        Assert.IsFalse(deliveryEvidence.Integrity.CorrectnessPassed);
+        CollectionAssert.Contains(
+            deliveryEvidence.FailureCodes.ToArray(),
+            "delivery_not_persisted");
+
+        var corruptionEvents = new List<string>();
+        var corruptionConsumer = new RecordingCapacityConsumer(
+            corruptionEvents,
+            corruptPayload: true);
+        var corruptionExecutor = new KafkaCapacityTransportExecutor(
+            new KafkaMessagingOptions { Enabled = true, BootstrapServers = "broker" },
+            new RecordingProducerFactory(new RecordingCapacityProducer(
+                corruptionEvents,
+                corruptionConsumer)),
+            new RecordingConsumerFactory(corruptionConsumer),
+            new RecordingWorkloadScheduler(corruptionEvents),
+            new ManualClock());
+        var corruptionEvidence = await corruptionExecutor.ExecuteAsync(
+            CreateExecutionContext(TimeSpan.Zero),
+            CancellationToken.None);
+
+        Assert.AreEqual(1L, corruptionEvidence.Integrity.Corrupted);
+        Assert.IsFalse(corruptionEvidence.Integrity.CorrectnessPassed);
+    }
+
+    [TestMethod]
+    public async Task Transport_executor_cancellation_stops_sending_then_flushes_and_closes()
+    {
+        var events = new List<string>();
+        using var cancellation = new CancellationTokenSource();
+        var consumer = new RecordingCapacityConsumer(events);
+        var executor = new KafkaCapacityTransportExecutor(
+            new KafkaMessagingOptions { Enabled = true, BootstrapServers = "broker" },
+            new RecordingProducerFactory(new RecordingCapacityProducer(events, consumer)),
+            new RecordingConsumerFactory(consumer),
+            new CancellingWorkloadScheduler(events, cancellation),
+            new ManualClock());
+
+        var evidence = await executor.ExecuteAsync(
+            CreateExecutionContext(TimeSpan.Zero),
+            cancellation.Token);
+
+        Assert.AreEqual(KafkaCapacitySampleState.Incomplete, evidence.State);
+        CollectionAssert.Contains(evidence.FailureCodes.ToArray(), "cancelled");
+        var flush = events.LastIndexOf("producer-flush");
+        Assert.IsTrue(events.IndexOf("schedule-cancel") < flush);
+        Assert.IsTrue(flush < events.IndexOf("consumer-stop"));
+    }
+
+    [TestMethod]
+    public async Task Sample_runner_stops_when_checkpoint_persistence_fails()
+    {
+        var driver = new CountingScenarioDriver();
+        var checkpointStore = new ThrowingCheckpointStore();
+        var runner = new KafkaCapacityRunner(driver, checkpointStore);
+        var context = CreateExecutionContext(TimeSpan.Zero);
+
+        await Assert.ThrowsExactlyAsync<IOException>(() =>
+            runner.ExecuteSamplesAsync(
+                [context, context],
+                "checkpoint.json",
+                KafkaCapacityCheckpoint.Create(
+                    "build",
+                    "scenario",
+                    KafkaCapacityScopeCodes.KafkaTransport,
+                    context.TopicIdentity),
+                CancellationToken.None));
+
+        Assert.AreEqual(1, driver.Calls);
+    }
+
+    private static KafkaCapacitySampleContext CreateExecutionContext(TimeSpan warmup)
+    {
+        var sample = KafkaCapacityScenarioCatalog.Build(
+            KafkaCapacityOptions.Parse([
+                "--scenarios", "low-rate",
+                "--duration-seconds", "1",
+                "--max-messages-per-sample", "10",
+            ]))[0];
+        return KafkaCapacitySampleContext.Create(
+            sample,
+            new KafkaCapacityTopicIdentity("cluster", "topic", "id", 1, 1),
+            "run",
+            warmup,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(1),
+            maximumMessages: 10);
+    }
+
     private sealed class RecordingTransportExecutor(
         string? sampleIdOverride = null) : IKafkaCapacityTransportExecutor
     {
@@ -234,6 +374,183 @@ public sealed class KafkaCapacitySchedulerTests
                 new KafkaCapacityPerformanceEvidence(0, 0, 0, latency, latency, latency, 0, 0, 0, 0),
                 []));
         }
+    }
+
+    private sealed class RecordingProducerFactory(
+        IKafkaCapacityProducer producer) : IKafkaCapacityProducerFactory
+    {
+        public IKafkaCapacityProducer Create(
+            KafkaMessagingOptions options,
+            Action<string> statisticsHandler) => producer;
+    }
+
+    private sealed class RecordingConsumerFactory(
+        IKafkaCapacityConsumer consumer) : IKafkaCapacityConsumerFactory
+    {
+        public IKafkaCapacityConsumer Create(
+            KafkaMessagingOptions options,
+            string consumerGroupId,
+            Action<string> statisticsHandler) => consumer;
+    }
+
+    private sealed class RecordingCapacityProducer(
+        List<string> events,
+        RecordingCapacityConsumer consumer,
+        bool persisted = true) : IKafkaCapacityProducer
+    {
+        public int Produced { get; private set; }
+
+        public void Produce(
+            string topicName,
+            int partition,
+            string key,
+            byte[] value,
+            long globalSequence,
+            Action<KafkaCapacityDeliveryReport> deliveryHandler)
+        {
+            Produced++;
+            events.Add("produce");
+            deliveryHandler(new KafkaCapacityDeliveryReport(
+                globalSequence,
+                persisted,
+                persisted ? null : "not_persisted"));
+            if (persisted)
+            {
+                consumer.EmitAsync(partition, value).GetAwaiter().GetResult();
+            }
+        }
+
+        public int Flush(TimeSpan timeout)
+        {
+            events.Add("producer-flush");
+            return 0;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class RecordingCapacityConsumer(
+        List<string> events,
+        bool corruptPayload = false) : IKafkaCapacityConsumer
+    {
+        private readonly TaskCompletionSource completion = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private Func<KafkaCapacityConsumedMessage, CancellationToken, ValueTask>?
+            messageHandler;
+
+        public Task Completion => completion.Task;
+
+        public Task StartAsync(
+            string topicName,
+            Func<KafkaCapacityConsumedMessage, CancellationToken, ValueTask> handler,
+            CancellationToken cancellationToken)
+        {
+            events.Add("consumer-start");
+            messageHandler = handler;
+            return Task.CompletedTask;
+        }
+
+        public Task WaitForAssignmentAsync(CancellationToken cancellationToken)
+        {
+            events.Add("consumer-assigned");
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            events.Add("consumer-stop");
+            completion.TrySetResult();
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public async ValueTask EmitAsync(int partition, byte[] value)
+        {
+            if (messageHandler is null)
+            {
+                throw new InvalidOperationException("Consumer has not started.");
+            }
+
+            var delivered = value;
+            if (corruptPayload)
+            {
+                delivered = value.ToArray();
+                delivered[0] ^= 0x7F;
+            }
+
+            await messageHandler(
+                new KafkaCapacityConsumedMessage(partition, delivered),
+                CancellationToken.None);
+        }
+    }
+
+    private sealed class RecordingWorkloadScheduler(
+        List<string> events) : IKafkaCapacityWorkloadScheduler
+    {
+        private int calls;
+
+        public async Task<KafkaCapacitySchedulingResult> RunAsync(
+            int targetMessagesPerSecond,
+            TimeSpan duration,
+            int maximumMessages,
+            int producerConcurrency,
+            Func<KafkaCapacityScheduledMessage, CancellationToken, ValueTask> writeAsync,
+            CancellationToken cancellationToken)
+        {
+            var call = Interlocked.Increment(ref calls);
+            events.Add($"schedule-start-{call}");
+            await writeAsync(
+                new KafkaCapacityScheduledMessage(0, 0),
+                cancellationToken);
+            events.Add($"schedule-end-{call}");
+            return new KafkaCapacitySchedulingResult(1, 0, 1, 1, null);
+        }
+    }
+
+    private sealed class CancellingWorkloadScheduler(
+        List<string> events,
+        CancellationTokenSource cancellation) : IKafkaCapacityWorkloadScheduler
+    {
+        public async Task<KafkaCapacitySchedulingResult> RunAsync(
+            int targetMessagesPerSecond,
+            TimeSpan duration,
+            int maximumMessages,
+            int producerConcurrency,
+            Func<KafkaCapacityScheduledMessage, CancellationToken, ValueTask> writeAsync,
+            CancellationToken cancellationToken)
+        {
+            await writeAsync(new KafkaCapacityScheduledMessage(0, 0), cancellationToken);
+            events.Add("schedule-cancel");
+            cancellation.Cancel();
+            throw new OperationCanceledException(cancellation.Token);
+        }
+    }
+
+    private sealed class CountingScenarioDriver : IKafkaCapacityScenarioDriver
+    {
+        public string ScopeCode => KafkaCapacityScopeCodes.KafkaTransport;
+
+        public int Calls { get; private set; }
+
+        public async Task<KafkaCapacitySampleEvidence> ExecuteAsync(
+            KafkaCapacitySampleContext context,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            return await new RecordingTransportExecutor()
+                .ExecuteAsync(context, cancellationToken);
+        }
+    }
+
+    private sealed class ThrowingCheckpointStore : IKafkaCapacityCheckpointStore
+    {
+        public Task<KafkaCapacityCheckpoint> SaveAsync(
+            string path,
+            KafkaCapacityCheckpoint checkpoint,
+            KafkaCapacitySampleEvidence evidence,
+            CancellationToken cancellationToken) =>
+            throw new IOException("checkpoint failed");
     }
 
     private sealed class ManualClock(

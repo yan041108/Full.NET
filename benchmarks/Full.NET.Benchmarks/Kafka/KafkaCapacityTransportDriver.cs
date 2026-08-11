@@ -92,17 +92,35 @@ public sealed class KafkaCapacitySampleContext
         }
 
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumMessages);
+        var resolvedWarmup = warmup ?? TimeSpan.Zero;
+        var resolvedDuration = duration ?? TimeSpan.FromSeconds(30);
+        var resolvedDrainTimeout = drainTimeout ?? TimeSpan.FromSeconds(60);
+        if (resolvedWarmup < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(warmup));
+        }
+
+        if (resolvedDuration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(duration));
+        }
+
+        if (resolvedDrainTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(drainTimeout));
+        }
+
         var runSegment = Normalize(runId);
         var sampleSegment = Normalize(sample.SampleId);
         return new KafkaCapacitySampleContext(
             sample,
             topicIdentity,
-            $"fullnet.capacity.{runSegment}.{sampleSegment}.consumer",
+            $"fullnet.capacity.{runSegment}.{sampleSegment}.transport",
             Hash32(runId),
             Hash32(sample.SampleId),
-            warmup ?? TimeSpan.Zero,
-            duration ?? TimeSpan.FromSeconds(30),
-            drainTimeout ?? TimeSpan.FromSeconds(60),
+            resolvedWarmup,
+            resolvedDuration,
+            resolvedDrainTimeout,
             maximumMessages);
     }
 

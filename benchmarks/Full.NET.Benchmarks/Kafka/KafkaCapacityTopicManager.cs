@@ -40,14 +40,13 @@ public sealed class KafkaCapacityTopicManager(IKafkaCapacityAdminClient adminCli
 {
     public async Task<KafkaCapacityTopicIdentity> EnsureTopicAsync(
         string runId,
-        string sampleId,
         string expectedClusterIdHash,
         int partitions,
         int replicationFactor,
         KafkaCapacityTopicIdentity? resumeIdentity,
         CancellationToken cancellationToken)
     {
-        var topicName = BuildTopicName(runId, sampleId);
+        var topicName = BuildTopicName(runId);
         var cluster = await adminClient.DescribeClusterAsync(cancellationToken);
         var actualClusterHash = KafkaCapacityFingerprint.Sha256(cluster.ClusterId);
         if (!string.Equals(
@@ -168,11 +167,10 @@ public sealed class KafkaCapacityTopicManager(IKafkaCapacityAdminClient adminCli
         return true;
     }
 
-    private static string BuildTopicName(string runId, string sampleId)
+    private static string BuildTopicName(string runId)
     {
         var safeRunId = NormalizeSegment(runId, nameof(runId));
-        var safeSampleId = NormalizeSegment(sampleId, nameof(sampleId));
-        return $"fullnet.capacity.{safeRunId}.{safeSampleId}.transport";
+        return $"fullnet.capacity.{safeRunId}.v1";
     }
 
     private static string NormalizeSegment(string value, string parameterName)
@@ -181,7 +179,7 @@ public sealed class KafkaCapacityTopicManager(IKafkaCapacityAdminClient adminCli
         var normalized = new string(value
             .ToLowerInvariant()
             .Select(static character =>
-                char.IsAsciiLetterOrDigit(character) || character is '-' or '_'
+                char.IsAsciiLetterOrDigit(character) || character == '-'
                     ? character
                     : '-')
             .ToArray());
