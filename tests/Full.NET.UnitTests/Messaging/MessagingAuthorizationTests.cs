@@ -20,6 +20,7 @@ public sealed class MessagingAuthorizationContributorTests
                 MessagingPermissions.DeliveryCutover,
                 MessagingPermissions.DeliveryRollback,
                 MessagingPermissions.EventsRead,
+                MessagingPermissions.KafkaRangeReplay,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
@@ -30,6 +31,7 @@ public sealed class MessagingAuthorizationContributorTests
             new[]
             {
                 MessagingPermissions.DeadLettersReplay,
+                MessagingPermissions.KafkaRangeReplay,
                 MessagingPermissions.DeliveryCutover,
                 MessagingPermissions.DeliveryRollback,
             },
