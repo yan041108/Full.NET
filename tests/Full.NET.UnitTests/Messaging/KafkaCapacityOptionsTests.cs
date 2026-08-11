@@ -29,6 +29,17 @@ public sealed class KafkaCapacityOptionsTests
     }
 
     [TestMethod]
+    public void Defaults_use_a_unique_artifact_directory_per_parse()
+    {
+        var first = KafkaCapacityOptions.Parse([]);
+        var second = KafkaCapacityOptions.Parse([]);
+
+        Assert.AreNotEqual(first.OutputDirectory, second.OutputDirectory);
+        StringAssert.Contains(first.OutputDirectory, "kafka-capacity");
+        StringAssert.Contains(second.OutputDirectory, "kafka-capacity");
+    }
+
+    [TestMethod]
     public void Parser_accepts_explicit_bounded_matrix()
     {
         var options = KafkaCapacityOptions.Parse([

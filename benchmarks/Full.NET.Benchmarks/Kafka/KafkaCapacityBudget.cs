@@ -29,19 +29,65 @@ public sealed class KafkaCapacityBudget
 
     public IReadOnlyList<KafkaCapacityBudgetEntry> Entries { get; set; } = [];
 
+    [JsonIgnore]
+    public string Fingerprint { get; private set; } = string.Empty;
+
     public static async Task<KafkaCapacityBudget> LoadAsync(
         string path,
         CancellationToken cancellationToken)
     {
         var fullPath = Path.GetFullPath(path);
-        await using var stream = File.OpenRead(fullPath);
-        var budget = await JsonSerializer.DeserializeAsync<KafkaCapacityBudget>(
-            stream,
-            SerializerOptions,
-            cancellationToken)
+        var bytes = await File.ReadAllBytesAsync(fullPath, cancellationToken);
+        var budget = JsonSerializer.Deserialize<KafkaCapacityBudget>(
+            bytes,
+            SerializerOptions)
             ?? throw new InvalidDataException("Kafka capacity budget is empty.");
         budget.Validate();
+        budget.Fingerprint = KafkaCapacityFingerprint.Sha256(bytes);
         return budget;
+    }
+
+    public void ValidateCoverage(
+        string environmentName,
+        string clusterIdHash,
+        string baselineGitCommit,
+        int partitions,
+        IReadOnlyList<KafkaCapacitySample> samples)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(partitions);
+        ValidateIdentity(environmentName, clusterIdHash, baselineGitCommit);
+        var plannedKeys = samples
+            .Select(sample => KafkaCapacityBudgetEntry.BuildKey(sample, partitions))
+            .ToHashSet(StringComparer.Ordinal);
+        var budgetKeys = Entries.Select(static entry => entry.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        if (!plannedKeys.SetEquals(budgetKeys))
+        {
+            throw new InvalidDataException(
+                "Kafka capacity budget must cover every planned scenario exactly once.");
+        }
+    }
+
+    public long ResolveScheduleLatencyLimitMicroseconds(
+        KafkaCapacitySample sample,
+        int partitions,
+        long defaultLimitMicroseconds)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(partitions);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(
+            defaultLimitMicroseconds);
+        var matches = Entries.Where(entry => entry.Matches(sample, partitions))
+            .ToArray();
+        if (matches.Length != 1)
+        {
+            throw new InvalidDataException(
+                "Kafka capacity budget must contain exactly one matching scenario entry.");
+        }
+
+        return matches[0].MaximumScheduleP99Microseconds
+            ?? defaultLimitMicroseconds;
     }
 
     public KafkaCapacityBudgetAssessment Assess(
@@ -51,22 +97,7 @@ public sealed class KafkaCapacityBudget
         KafkaCapacitySampleEvidence sample)
     {
         ArgumentNullException.ThrowIfNull(sample);
-        if (!string.Equals(
-                EnvironmentName,
-                environmentName,
-                StringComparison.Ordinal)
-            || !string.Equals(
-                ClusterIdHash,
-                clusterIdHash,
-                StringComparison.Ordinal)
-            || !string.Equals(
-                BaselineGitCommit,
-                baselineGitCommit,
-                StringComparison.Ordinal))
-        {
-            throw new InvalidDataException(
-                "Kafka capacity budget environment, cluster or baseline does not match this run.");
-        }
+        ValidateIdentity(environmentName, clusterIdHash, baselineGitCommit);
 
         var matches = Entries.Where(entry => entry.Matches(sample)).ToArray();
         if (matches.Length != 1)
@@ -146,6 +177,29 @@ public sealed class KafkaCapacityBudget
         return new KafkaCapacityBudgetAssessment(failures.Count == 0, failures);
     }
 
+    private void ValidateIdentity(
+        string environmentName,
+        string clusterIdHash,
+        string baselineGitCommit)
+    {
+        if (!string.Equals(
+                EnvironmentName,
+                environmentName,
+                StringComparison.Ordinal)
+            || !string.Equals(
+                ClusterIdHash,
+                clusterIdHash,
+                StringComparison.Ordinal)
+            || !string.Equals(
+                BaselineGitCommit,
+                baselineGitCommit,
+                StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                "Kafka capacity budget environment, cluster or baseline does not match this run.");
+        }
+    }
+
     private static JsonSerializerOptions SerializerOptions { get; } = CreateOptions();
 
     private static JsonSerializerOptions CreateOptions()
@@ -167,7 +221,9 @@ public sealed class KafkaCapacityBudget
             || string.IsNullOrWhiteSpace(BaselineGitCommit)
             || GeneratedAtUtc == default
             || GeneratedAtUtc.Offset != TimeSpan.Zero
-            || Entries.Count == 0)
+            || Entries is null
+            || Entries.Count == 0
+            || Entries.Any(static entry => entry is null))
         {
             throw new InvalidDataException(
                 "Kafka capacity budget schema or required values are invalid.");
@@ -259,12 +315,25 @@ public sealed class KafkaCapacityBudgetEntry
     internal string Key =>
         $"{ScopeCode}|{Scenario}|{TargetMessagesPerSecond}|{PayloadSizeBytes}|{Partitions}|{ProducerConcurrency}";
 
+    internal static string BuildKey(
+        KafkaCapacitySample sample,
+        int partitions) =>
+        $"{sample.ScopeCode}|{sample.Scenario}|{sample.TargetMessagesPerSecond}|{sample.PayloadSizeBytes}|{partitions}|{sample.ProducerConcurrency}";
+
     internal bool Matches(KafkaCapacitySampleEvidence sample) =>
         string.Equals(ScopeCode, sample.ScopeCode, StringComparison.Ordinal)
         && Scenario == sample.Scenario
         && TargetMessagesPerSecond == sample.TargetMessagesPerSecond
         && PayloadSizeBytes == sample.PayloadSizeBytes
         && Partitions == sample.Partitions
+        && ProducerConcurrency == sample.ProducerConcurrency;
+
+    internal bool Matches(KafkaCapacitySample sample, int partitions) =>
+        string.Equals(ScopeCode, sample.ScopeCode, StringComparison.Ordinal)
+        && Scenario == sample.Scenario
+        && TargetMessagesPerSecond == sample.TargetMessagesPerSecond
+        && PayloadSizeBytes == sample.PayloadSizeBytes
+        && Partitions == partitions
         && ProducerConcurrency == sample.ProducerConcurrency;
 
     internal void Validate()

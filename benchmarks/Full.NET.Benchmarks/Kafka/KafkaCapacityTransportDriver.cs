@@ -33,22 +33,28 @@ public sealed class KafkaCapacitySampleContext
         KafkaCapacitySample sample,
         KafkaCapacityTopicIdentity topicIdentity,
         string consumerGroupId,
+        string producerClientId,
+        string consumerClientId,
         uint runHash,
         uint sampleHash,
         TimeSpan warmup,
         TimeSpan duration,
         TimeSpan drainTimeout,
-        int maximumMessages)
+        int maximumMessages,
+        long maximumScheduleLatencyMicroseconds)
     {
         Sample = sample;
         TopicIdentity = topicIdentity;
         ConsumerGroupId = consumerGroupId;
+        ProducerClientId = producerClientId;
+        ConsumerClientId = consumerClientId;
         RunHash = runHash;
         SampleHash = sampleHash;
         Warmup = warmup;
         Duration = duration;
         DrainTimeout = drainTimeout;
         MaximumMessages = maximumMessages;
+        MaximumScheduleLatencyMicroseconds = maximumScheduleLatencyMicroseconds;
     }
 
     public KafkaCapacitySample Sample { get; }
@@ -56,6 +62,10 @@ public sealed class KafkaCapacitySampleContext
     public KafkaCapacityTopicIdentity TopicIdentity { get; }
 
     public string ConsumerGroupId { get; }
+
+    public string ProducerClientId { get; }
+
+    public string ConsumerClientId { get; }
 
     public uint RunHash { get; }
 
@@ -69,6 +79,8 @@ public sealed class KafkaCapacitySampleContext
 
     public int MaximumMessages { get; }
 
+    public long MaximumScheduleLatencyMicroseconds { get; }
+
     public static KafkaCapacitySampleContext Create(
         KafkaCapacitySample sample,
         KafkaCapacityTopicIdentity topicIdentity,
@@ -76,7 +88,8 @@ public sealed class KafkaCapacitySampleContext
         TimeSpan? warmup = null,
         TimeSpan? duration = null,
         TimeSpan? drainTimeout = null,
-        int maximumMessages = 1_000_000)
+        int maximumMessages = 1_000_000,
+        long maximumScheduleLatencyMicroseconds = 5_000_000)
     {
         ArgumentNullException.ThrowIfNull(sample);
         ArgumentNullException.ThrowIfNull(topicIdentity);
@@ -92,6 +105,8 @@ public sealed class KafkaCapacitySampleContext
         }
 
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumMessages);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(
+            maximumScheduleLatencyMicroseconds);
         var resolvedWarmup = warmup ?? TimeSpan.Zero;
         var resolvedDuration = duration ?? TimeSpan.FromSeconds(30);
         var resolvedDrainTimeout = drainTimeout ?? TimeSpan.FromSeconds(60);
@@ -112,16 +127,20 @@ public sealed class KafkaCapacitySampleContext
 
         var runSegment = Normalize(runId);
         var sampleSegment = Normalize(sample.SampleId);
+        var identityPrefix = $"fullnet.capacity.{runSegment}.{sampleSegment}";
         return new KafkaCapacitySampleContext(
             sample,
             topicIdentity,
-            $"fullnet.capacity.{runSegment}.{sampleSegment}.transport",
+            BoundIdentity($"{identityPrefix}.transport"),
+            BoundIdentity($"{identityPrefix}.producer"),
+            BoundIdentity($"{identityPrefix}.consumer"),
             Hash32(runId),
             Hash32(sample.SampleId),
             resolvedWarmup,
             resolvedDuration,
             resolvedDrainTimeout,
-            maximumMessages);
+            maximumMessages,
+            maximumScheduleLatencyMicroseconds);
     }
 
     private static uint Hash32(string value)
@@ -140,6 +159,9 @@ public sealed class KafkaCapacitySampleContext
             .ToArray());
         return normalized.Length <= 80 ? normalized : normalized[..80];
     }
+
+    private static string BoundIdentity(string value) =>
+        value.Length <= 200 ? value : value[..200];
 }
 
 /// <summary>

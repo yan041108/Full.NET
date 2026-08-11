@@ -159,6 +159,15 @@ public sealed class KafkaCapacityControlPlaneTests
                 checkpoint,
                 CreateEvidence("sample-2", KafkaCapacitySampleState.Incomplete),
                 cancellationToken: CancellationToken.None);
+            checkpoint = await KafkaCapacityCheckpoint.SaveSampleAsync(
+                path,
+                checkpoint,
+                CreateEvidence("sample-budget", KafkaCapacitySampleState.Completed) with
+                {
+                    PerformanceBudgetPassed = false,
+                    FailureCodes = ["consumed_rate_budget_not_met"],
+                },
+                cancellationToken: CancellationToken.None);
 
             var loaded = await KafkaCapacityCheckpoint.LoadAsync(
                 path,
@@ -220,6 +229,60 @@ public sealed class KafkaCapacityControlPlaneTests
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [TestMethod]
+    public async Task Checkpoint_rejects_missing_nested_evidence_as_invalid_data()
+    {
+        var checkpoint = KafkaCapacityCheckpoint.Create(
+            "build-a",
+            "scenario-a",
+            KafkaCapacityScopeCodes.KafkaTransport,
+            new KafkaCapacityTopicIdentity("cluster-hash", "topic", "topic-id", 1, 1),
+            "run-a") with
+        {
+            CompletedSamples =
+            [
+                CreateEvidence("sample-1", KafkaCapacitySampleState.Completed) with
+                {
+                    Integrity = null!,
+                },
+            ],
+        };
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
+            KafkaCapacityCheckpoint.SaveInitialAsync(
+                Path.Combine(Path.GetTempPath(), $"fullnet-checkpoint-{Guid.NewGuid():N}.json"),
+                checkpoint,
+            CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task Checkpoint_rejects_completed_sample_with_failed_budget()
+    {
+        var checkpoint = KafkaCapacityCheckpoint.Create(
+            "build-a",
+            "scenario-a",
+            KafkaCapacityScopeCodes.KafkaTransport,
+            new KafkaCapacityTopicIdentity("cluster-hash", "topic", "topic-id", 1, 1),
+            "run-a") with
+        {
+            CompletedSamples =
+            [
+                CreateEvidence("sample-1", KafkaCapacitySampleState.Completed) with
+                {
+                    PerformanceBudgetPassed = false,
+                },
+            ],
+        };
+
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
+            KafkaCapacityCheckpoint.SaveInitialAsync(
+                Path.Combine(
+                    Path.GetTempPath(),
+                    $"fullnet-checkpoint-{Guid.NewGuid():N}.json"),
+                checkpoint,
+                CancellationToken.None));
     }
 
     private static KafkaCapacitySampleEvidence CreateEvidence(

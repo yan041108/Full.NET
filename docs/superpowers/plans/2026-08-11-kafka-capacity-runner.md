@@ -23,6 +23,16 @@
 
 ---
 
+## 执行状态（2026-08-12）
+
+- Task 1–5 与 Task 7 已按计划实现并完成 Unit、Release build、Architecture、Naming、SQL Safety、Governance、Performance Governance 和 Integration 分片静态门禁。
+- 两轮独立代码复审发现的 QueueFull、逐样本预算、统一排空截止时间、P99 语义、真实 Broker 水位、逐样本 statistics、ClientId、指纹与输出并发问题均已修复并建立回归测试；Unit 当前为 1406 项。
+- Task 6 的命令入口、真实 Kafka 测试代码与测试矩阵已完成；当前机器的 Docker Engine 不可用，真实 Kafka 缩小集成测试未取得可用运行证据。
+- Task 8 的 affected inner/slice/merge 选择计划已验证；对应容器测试均在基础设施初始化阶段被 Docker 不可用阻断，未表述为通过。
+- 专用生产等价 Kafka 的低速延迟、饱和吞吐、Soak、N+1 与恢复演练尚未执行，因此状态继续保持 `Capacity-not-verified`。
+
+---
+
 ## File Structure
 
 ### 新增 Benchmark 文件

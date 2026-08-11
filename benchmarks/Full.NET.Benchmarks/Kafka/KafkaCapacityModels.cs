@@ -74,7 +74,16 @@ public sealed record KafkaCapacityPerformanceEvidence(
     long WorkingSetBytes = 0,
     int Gen0Collections = 0,
     int Gen1Collections = 0,
-    int Gen2Collections = 0);
+    int Gen2Collections = 0,
+    double ProducerEnqueuedMessagesPerSecond = 0,
+    double DrainMessagesPerSecond = 0,
+    long BrokerOffsetBacklogAtStop = 0,
+    long OldestUnconsumedAgeUpperBoundMicroseconds = 0,
+    long ManagedHeapPeakBytes = 0,
+    long WorkingSetPeakBytes = 0,
+    long BrokerOffsetBacklogAtDrainCompletion = 0,
+    long OldestUnconsumedAgeUpperBoundAtDrainCompletionMicroseconds = 0,
+    long LibrdkafkaStatisticsDroppedSnapshots = 0);
 
 /// <summary>
 /// 表示可写入报告的单样本安全证据。

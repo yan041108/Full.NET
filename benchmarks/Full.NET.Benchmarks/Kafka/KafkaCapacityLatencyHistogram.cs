@@ -25,12 +25,12 @@ public sealed class KafkaCapacityLatencyHistogram
     /// <summary>
     /// 记录微秒延迟；范围外值计入 Overflow 并使证据无效。
     /// </summary>
-    public void RecordMicroseconds(long value)
+    public bool RecordMicroseconds(long value)
     {
         if (value is < MinimumMicroseconds or > MaximumMicroseconds)
         {
             Interlocked.Increment(ref overflowCount);
-            return;
+            return false;
         }
 
         var local = localBuckets.Value!;
@@ -38,6 +38,7 @@ public sealed class KafkaCapacityLatencyHistogram
         local.Count++;
         local.Minimum = Math.Min(local.Minimum, value);
         local.Maximum = Math.Max(local.Maximum, value);
+        return true;
     }
 
     /// <summary>

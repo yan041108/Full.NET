@@ -95,11 +95,11 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
   --max-messages-per-sample 1000
 ```
 
-正式手工认证必须使用已批准的矩阵、持续时间、副本因子和预算文件，并保留默认 `--delete-topic false` 供复核。Runner 为每次运行创建 `fullnet.capacity.<run-id>.v1`，每个样本使用独立临时 Group；Consumer 在 Producer 启动前完成分区分配，从当时 Topic 末端读取，不提交 Offset，也不修改任何正式或旁路 Group 水位。
+正式手工认证必须使用已批准的矩阵、持续时间、副本因子和预算文件，并保留默认 `--delete-topic false` 供复核。Runner 为每次运行创建 `fullnet.capacity.<run-id>.v1`，每个样本使用独立临时 Group；Consumer 在 Producer 启动前查询全部计划分区的具体高水位并以该 Offset 显式分配，只有分配完成后才允许发送首条消息。Runner 不提交 Offset，也不修改任何正式或旁路 Group 水位。Admin、Producer 和 Consumer 都使用按 Run/Sample/角色隔离且有长度上限的 ClientId。
 
 ## 4. 正确性、预算和背压
 
-以下正确性条件是不可关闭的硬门禁：Ack 与消费数量一致、零丢失、零重复、零损坏、分区内零乱序、零未 Flush、零非法序号且排空完成。发送使用绝对到达时间的有界开放环调度；队列满时产生背压，连续 10 个一秒窗口低于目标 95% 会停止样本并报告稳定错误码，禁止无界追赶掩盖饱和。
+以下正确性条件是不可关闭的硬门禁：Ack 与消费数量一致、零丢失、零重复、零损坏、分区内零乱序、零未 Flush、零非法序号且排空完成。发送使用绝对到达时间的有界开放环调度；librdkafka 本地队列满时在同一有界阶段内可取消重试，消息只有被 Producer 接受后才保留入队证据。连续 10 个一秒窗口低于目标 95%、周期快照及最终证据的实际调度 P99 超过预算上限（无预算时为 5 秒）、托管堆峰值超过 2 GiB、延迟直方图溢出或发现正确性错误时，立即停止当前样本并阻止后续升档。停止后 Flush、Broker 水位取证、消费排空和 Consumer Close 共用剩余 `drain-seconds`，关闭阶段不得重新获得完整超时。
 
 性能预算是可选门禁，必须精确绑定环境、ClusterId 摘要、基线提交和完整场景键。示例：
 
@@ -126,11 +126,11 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 }
 ```
 
-通过 `--budget '<budget.json>'` 启用。预算不能覆盖正确性失败；无预算只表示未执行性能阈值比较，不表示容量达标。
+通过 `--budget '<budget.json>'` 启用。Runner 在创建 Topic 前验证预算身份和完整矩阵，预算内容摘要进入续跑指纹；每个样本完成后立即评估，失败样本不会进入可跳过 checkpoint，也不会继续更高吞吐档。预算不能覆盖正确性失败；无预算只表示未执行性能阈值比较，不表示容量达标。
 
 ## 5. Checkpoint、续跑和 Topic 清理
 
-每个完整关闭样本后原子更新 `checkpoint.json`。续跑必须保持 Git 提交、Runner Schema、Scope、RunId、TopicId、ClusterId、脱敏 Kafka 性能配置和全部场景参数一致；任一漂移都失败关闭。不传 `--run-id` 时，Runner 会从现有 checkpoint 恢复原始 RunId。
+每个完整关闭且通过已提供预算的样本后原子更新 `checkpoint.json`。续跑必须保持 Git 提交、Runner Schema、Scope、RunId、TopicId、ClusterId、SASL 用户摘要、脱敏 Kafka 性能配置、预算摘要和全部场景参数一致；任一漂移都失败关闭。不传 `--run-id` 时，Runner 会从现有 checkpoint 恢复原始 RunId。同一输出目录通过 `.run.lock` 排除并发写入；默认输出目录包含随机后缀，避免同秒启动碰撞。
 
 ```powershell
 dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
@@ -144,7 +144,7 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
   --max-new-samples 1
 ```
 
-不完整样本会进入报告但不会进入可跳过集合，续跑时会重新执行。默认保留 Topic。只有显式 `--delete-topic true`、全部计划样本均完整成功且运行未取消时才允许删除；删除前重新查询 ClusterId、Topic 名和 TopicId，防止误删同名替换 Topic。分段执行、取消或失败时即使请求删除也会保留 Topic。
+不完整样本和预算失败样本会进入报告但不会进入可跳过集合，续跑时会重新执行。默认保留 Topic。只有显式 `--delete-topic true`、全部计划样本均完整成功、通过已提供预算且运行未取消时才允许删除；删除前重新查询 ClusterId、Topic 名和 TopicId，防止误删同名替换 Topic。分段执行、取消或失败时即使请求删除也会保留 Topic。
 
 ## 6. 工件与退出码
 
@@ -152,9 +152,9 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 
 - `checkpoint.json`：原子续跑状态与完整样本；
 - `manifest.json`：脱敏运行清单，状态固定为 `Capacity-not-verified`；
-- `samples.ndjson`：正确性、速率、延迟和资源样本；
+- `samples.ndjson`：正确性、调度/入队/Ack/消费/排空速率、基于各分区 Broker 高水位与 Consumer Position 的真实 Offset 积压、未消费年龄上界、延迟和资源峰值；
 - `latency-histograms.json`：调度、Broker Ack 和端到端延迟分位数；
-- `librdkafka-statistics.ndjson`：只含数值白名单的客户端统计；
+- `librdkafka-statistics.ndjson`：按 SampleId 和阶段分别保留有界快照，只含队列、字节、请求延迟、Broker 状态及错误计数白名单；每个样本的队列峰值只聚合 measurement/drain，截断数量由样本证据显式记录；
 - `summary.json`、`summary.md`：完成数、不完整数和稳定失败码。
 
 | 退出码 | 含义 |
@@ -172,6 +172,7 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 - `cluster_id_mismatch`、`cluster_identity_changed`：停止操作，核对审批目标和 DNS/Bootstrap 配置，禁止修改 ExpectedClusterId 迁就未知集群。
 - `topic_exists`、`topic_identity_changed`：不要手工删除；先核对 checkpoint、TopicId 和同名 Topic 的创建来源。
 - `scheduling_rate_below_95_percent`：说明本机、Producer 队列或 Broker 已连续饱和；降低目标只用于定位，不能把较低目标冒充原预算通过。
+- `schedule_latency_limit_exceeded`、`managed_heap_limit_exceeded`、`latency_histogram_overflow`：保护性停止已触发；保留本档证据并先定位资源或调度瓶颈，禁止继续升档。
 - `producer_flush_incomplete`、`delivery_not_persisted`、`consumer_stopped`、`cancelled`：保留 Topic 和工件，恢复依赖后使用同一输出目录续跑。
 - `payload_corrupted`、`consume_tracking_failed`、丢失、重复或乱序：按正确性事故处理，禁止只重跑到绿色后覆盖原始工件。
 - 报告或 checkpoint 写入失败：视为没有形成可信完成证据；修复受保护目录的空间、权限和原子替换条件后再续跑。

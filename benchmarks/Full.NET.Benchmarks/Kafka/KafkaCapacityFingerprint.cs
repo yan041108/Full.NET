@@ -14,4 +14,7 @@ public static class KafkaCapacityFingerprint
         return Convert.ToHexStringLower(
             SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     }
+
+    public static string Sha256(ReadOnlySpan<byte> value) =>
+        Convert.ToHexStringLower(SHA256.HashData(value));
 }

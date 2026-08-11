@@ -7,6 +7,36 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class KafkaCapacityReportTests
 {
     [TestMethod]
+    public async Task Budget_rejects_null_entries_as_invalid_data()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"fullnet-budget-{Guid.NewGuid():N}.json");
+        try
+        {
+            await File.WriteAllTextAsync(
+                path,
+                """
+                {
+                  "schemaVersion": 1,
+                  "environmentName": "Capacity",
+                  "clusterIdHash": "cluster-hash",
+                  "baselineGitCommit": "base-commit",
+                  "generatedAtUtc": "2026-08-12T00:00:00Z",
+                  "entries": null
+                }
+                """);
+
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() =>
+                KafkaCapacityBudget.LoadAsync(path, CancellationToken.None));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
     public async Task Budget_requires_exact_environment_and_scenario_then_assesses_thresholds()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"fullnet-budget-{Guid.NewGuid():N}");
@@ -51,6 +81,34 @@ public sealed class KafkaCapacityReportTests
             var budget = await KafkaCapacityBudget.LoadAsync(
                 path,
                 CancellationToken.None);
+            var planned = KafkaCapacityScenarioCatalog.Build(
+                KafkaCapacityOptions.Parse([
+                    "--scenarios", "low-rate",
+                    "--low-rates", "10",
+                    "--payload-sizes", "256",
+                    "--producer-concurrency", "1",
+                    "--partitions", "2",
+                ]));
+            budget.ValidateCoverage(
+                "Capacity",
+                "cluster-hash",
+                "base-commit",
+                partitions: 2,
+                planned);
+            Assert.AreEqual(
+                1_000L,
+                budget.ResolveScheduleLatencyLimitMicroseconds(
+                    planned[0],
+                    partitions: 2,
+                    defaultLimitMicroseconds: 5_000_000));
+            Assert.AreEqual(64, budget.Fingerprint.Length);
+            Assert.ThrowsExactly<InvalidDataException>(() =>
+                budget.ValidateCoverage(
+                    "Capacity",
+                    "cluster-hash",
+                    "base-commit",
+                    partitions: 2,
+                    [planned[0] with { TargetMessagesPerSecond = 11 }]));
             var sample = CreateCompletedSample();
 
             var passed = budget.Assess(
@@ -137,10 +195,27 @@ public sealed class KafkaCapacityReportTests
               "txbytes": 4096,
               "rxbytes": 3072,
               "brokers": {
-                "{{bootstrap}}": { "outbuf_cnt": 2, "waitresp_cnt": 3 }
+                "{{bootstrap}}": {
+                  "state": "UP",
+                  "outbuf_cnt": 2,
+                  "waitresp_cnt": 3,
+                  "txerrs": 4,
+                  "rxerrs": 5,
+                  "req_timeouts": 6,
+                  "rtt": { "avg": 700, "max": 900 }
+                }
               }
             }
-            """);
+            """,
+            sampleId: "sample-a",
+            phase: "measurement");
+
+        Assert.AreEqual("sample-a", statistics.SampleId);
+        Assert.AreEqual("measurement", statistics.Phase);
+        Assert.AreEqual(1, statistics.ConnectedBrokerCount);
+        Assert.AreEqual(700L, statistics.RequestLatencyAverageMicroseconds);
+        Assert.AreEqual(900L, statistics.RequestLatencyMaximumMicroseconds);
+        Assert.AreEqual(15L, statistics.ErrorCount);
 
         try
         {

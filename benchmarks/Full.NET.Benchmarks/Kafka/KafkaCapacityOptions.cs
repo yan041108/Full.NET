@@ -85,12 +85,7 @@ public sealed record KafkaCapacityOptions
 
     public string? RunId { get; init; }
 
-    public string OutputDirectory { get; init; } = Path.Combine(
-        "BenchmarkDotNet.Artifacts",
-        "kafka-capacity",
-        DateTimeOffset.UtcNow.ToString(
-            "yyyyMMdd-HHmmss",
-            CultureInfo.InvariantCulture));
+    public string OutputDirectory { get; init; } = CreateDefaultOutputDirectory();
 
     /// <summary>
     /// 解析命令行参数；未知参数必须失败关闭。
@@ -194,12 +189,7 @@ public sealed record KafkaCapacityOptions
             RunId = GetOptional(values, "--run-id"),
             OutputDirectory = values.GetValueOrDefault(
                 "--output",
-                Path.Combine(
-                    "BenchmarkDotNet.Artifacts",
-                    "kafka-capacity",
-                    DateTimeOffset.UtcNow.ToString(
-                        "yyyyMMdd-HHmmss",
-                        CultureInfo.InvariantCulture))),
+                CreateDefaultOutputDirectory()),
         };
         if (string.IsNullOrWhiteSpace(options.OutputDirectory))
         {
@@ -405,4 +395,11 @@ public sealed record KafkaCapacityOptions
         "--run-id",
         "--output",
     ];
+
+    private static string CreateDefaultOutputDirectory() => Path.Combine(
+        "BenchmarkDotNet.Artifacts",
+        "kafka-capacity",
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}"));
 }

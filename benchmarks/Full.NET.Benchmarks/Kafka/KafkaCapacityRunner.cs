@@ -10,12 +10,26 @@ namespace Full.NET.Benchmarks.Kafka;
 /// <summary>
 /// 按稳定顺序执行样本，并在每个完整样本后持久化 checkpoint。
 /// </summary>
-public sealed class KafkaCapacityRunner(
-    IKafkaCapacityScenarioDriver driver,
-    IKafkaCapacityCheckpointStore checkpointStore)
+public sealed class KafkaCapacityRunner
 {
+    private const long DefaultMaximumScheduleLatencyMicroseconds = 5_000_000;
     private static readonly TimeSpan EvidencePersistenceTimeout =
         TimeSpan.FromSeconds(5);
+    private readonly IKafkaCapacityScenarioDriver driver;
+    private readonly IKafkaCapacityCheckpointStore checkpointStore;
+    private readonly Func<KafkaCapacitySampleEvidence, KafkaCapacitySampleEvidence>?
+        sampleGate;
+
+    public KafkaCapacityRunner(
+        IKafkaCapacityScenarioDriver driver,
+        IKafkaCapacityCheckpointStore checkpointStore,
+        Func<KafkaCapacitySampleEvidence, KafkaCapacitySampleEvidence>? sampleGate = null)
+    {
+        this.driver = driver ?? throw new ArgumentNullException(nameof(driver));
+        this.checkpointStore = checkpointStore
+            ?? throw new ArgumentNullException(nameof(checkpointStore));
+        this.sampleGate = sampleGate;
+    }
 
     public static async Task<KafkaCapacityExitCode> RunCommandAsync(
         IReadOnlyList<string> arguments,
@@ -117,6 +131,11 @@ public sealed class KafkaCapacityRunner(
             }
 
             var sample = await driver.ExecuteAsync(context, cancellationToken);
+            if (sampleGate is not null)
+            {
+                sample = sampleGate(sample);
+            }
+
             evidence.Add(sample);
             using var persistenceCancellation = new CancellationTokenSource(
                 EvidencePersistenceTimeout);
@@ -126,7 +145,8 @@ public sealed class KafkaCapacityRunner(
                 sample,
                 persistenceCancellation.Token);
             if (sample.State == KafkaCapacitySampleState.Incomplete
-                || !sample.Integrity.CorrectnessPassed)
+                || !sample.Integrity.CorrectnessPassed
+                || sample.PerformanceBudgetPassed == false)
             {
                 break;
             }
@@ -145,11 +165,8 @@ public sealed class KafkaCapacityRunner(
             CultureInfo.InvariantCulture,
             $"{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}");
         var buildFingerprint = await ResolveBuildFingerprintAsync(cancellationToken);
-        var scenarioFingerprint = BuildScenarioFingerprint(
-            options,
-            samples,
-            configuration.Kafka);
         Directory.CreateDirectory(options.OutputDirectory);
+        await using var runLock = AcquireRunLock(options.OutputDirectory);
         var checkpointPath = Path.Combine(
             options.OutputDirectory,
             "checkpoint.json");
@@ -166,8 +183,9 @@ public sealed class KafkaCapacityRunner(
             ?? existingCheckpoint?.RunId
             ?? generatedRunId[..24];
 
-        using var admin = new AdminClientBuilder(
-                configuration.Kafka.BuildClientConfig())
+        var adminConfig = configuration.Kafka.BuildClientConfig();
+        adminConfig.ClientId = BuildClientId(runId, "admin");
+        using var admin = new AdminClientBuilder(adminConfig)
             .Build();
         var adminAdapter = new ConfluentKafkaCapacityAdminClient(
             admin,
@@ -187,6 +205,23 @@ public sealed class KafkaCapacityRunner(
         }
 
         var clusterIdHash = KafkaCapacityFingerprint.Sha256(cluster.ClusterId);
+        var budgetProvided = !string.IsNullOrWhiteSpace(options.BudgetPath);
+        var budget = budgetProvided
+            ? await KafkaCapacityBudget.LoadAsync(
+                options.BudgetPath!,
+                cancellationToken)
+            : null;
+        budget?.ValidateCoverage(
+            configuration.EnvironmentName,
+            clusterIdHash,
+            buildFingerprint,
+            options.Partitions,
+            samples);
+        var scenarioFingerprint = BuildScenarioFingerprint(
+            options,
+            samples,
+            configuration.Kafka,
+            budget?.Fingerprint);
         var topicManager = new KafkaCapacityTopicManager(adminAdapter);
         var topic = await topicManager.EnsureTopicAsync(
             runId,
@@ -239,7 +274,12 @@ public sealed class KafkaCapacityRunner(
                     options.Warmup,
                     options.Duration,
                     options.DrainTimeout,
-                    options.MaximumMessagesPerSample))
+                    options.MaximumMessagesPerSample,
+                    budget?.ResolveScheduleLatencyLimitMicroseconds(
+                        sample,
+                        options.Partitions,
+                        DefaultMaximumScheduleLatencyMicroseconds)
+                    ?? DefaultMaximumScheduleLatencyMicroseconds))
             .ToArray();
         var transportExecutor = new KafkaCapacityTransportExecutor(
             configuration.Kafka,
@@ -247,7 +287,15 @@ public sealed class KafkaCapacityRunner(
             new ConfluentKafkaCapacityConsumerFactory());
         var runner = new KafkaCapacityRunner(
             new KafkaTransportScenarioDriver(transportExecutor),
-            new FileKafkaCapacityCheckpointStore());
+            new FileKafkaCapacityCheckpointStore(),
+            budget is null
+                ? null
+                : sample => ApplyBudget(
+                    budget,
+                    configuration.EnvironmentName,
+                    clusterIdHash,
+                    buildFingerprint,
+                    sample));
         var currentEvidence = (await runner.ExecuteSamplesAsync(
                 contexts,
                 checkpointPath,
@@ -259,46 +307,20 @@ public sealed class KafkaCapacityRunner(
                 CancellationToken.None)
             ?? throw new InvalidDataException(
                 "Kafka capacity checkpoint disappeared before report projection.");
-        var currentIncomplete = currentEvidence
-            .Where(static sample => sample.State == KafkaCapacitySampleState.Incomplete)
+        var currentSamples = currentEvidence
             .ToDictionary(static sample => sample.SampleId, StringComparer.Ordinal);
         var completed = persistedCheckpoint.CompletedSamples
             .ToDictionary(static sample => sample.SampleId, StringComparer.Ordinal);
         var evidence = samples
             .Where(sample => completed.ContainsKey(sample.SampleId)
-                || currentIncomplete.ContainsKey(sample.SampleId))
-            .Select(sample => currentIncomplete.GetValueOrDefault(sample.SampleId)
+                || currentSamples.ContainsKey(sample.SampleId))
+            .Select(sample => currentSamples.GetValueOrDefault(sample.SampleId)
                 ?? completed[sample.SampleId])
             .ToArray();
 
-        var budgetProvided = !string.IsNullOrWhiteSpace(options.BudgetPath);
         var runCancelled = cancellationToken.IsCancellationRequested
             || evidence.Any(static sample =>
                 sample.FailureCodes.Contains("cancelled", StringComparer.Ordinal));
-        if (budgetProvided && !runCancelled)
-        {
-            var budget = await KafkaCapacityBudget.LoadAsync(
-                options.BudgetPath!,
-                cancellationToken);
-            for (var index = 0; index < evidence.Length; index++)
-            {
-                var assessment = budget.Assess(
-                    configuration.EnvironmentName,
-                    clusterIdHash,
-                    buildFingerprint,
-                    evidence[index]);
-                evidence[index] = evidence[index] with
-                {
-                    PerformanceBudgetPassed = assessment.Passed,
-                    FailureCodes = evidence[index].FailureCodes
-                        .Concat(assessment.FailureCodes)
-                        .Distinct(StringComparer.Ordinal)
-                        .Order(StringComparer.Ordinal)
-                        .ToArray(),
-                };
-            }
-        }
-
         var manifest = KafkaCapacityReportProjection.CreateManifest(
             configuration.EnvironmentName,
             buildFingerprint,
@@ -340,7 +362,9 @@ public sealed class KafkaCapacityRunner(
             || evidence.Count != plannedSamples.Count
             || evidence.Any(static sample =>
                 sample.State != KafkaCapacitySampleState.Completed
-                || !sample.Integrity.CorrectnessPassed))
+                || !sample.Integrity.CorrectnessPassed
+                || sample.FailureCodes.Count != 0
+                || sample.PerformanceBudgetPassed == false))
         {
             return false;
         }
@@ -355,7 +379,8 @@ public sealed class KafkaCapacityRunner(
     private static string BuildScenarioFingerprint(
         KafkaCapacityOptions options,
         IReadOnlyList<KafkaCapacitySample> samples,
-        KafkaMessagingOptions kafka)
+        KafkaMessagingOptions kafka,
+        string? budgetFingerprint)
     {
         var value = string.Join(
             ';',
@@ -367,8 +392,52 @@ public sealed class KafkaCapacityRunner(
             $"|partitions={options.Partitions}|rf={options.ReplicationFactor}|warmup={options.Warmup.TotalSeconds}|duration={options.Duration.TotalSeconds}|drain={options.DrainTimeout.TotalSeconds}|maximum={options.MaximumMessagesPerSample}");
         value += string.Create(
             CultureInfo.InvariantCulture,
-            $"|bootstrap={KafkaCapacityFingerprint.Sha256(kafka.BootstrapServers ?? string.Empty)}|client={KafkaCapacityFingerprint.Sha256(kafka.ClientId ?? string.Empty)}|instance={KafkaCapacityFingerprint.Sha256(kafka.ConsumerInstanceId ?? string.Empty)}|security={kafka.SecurityProtocol}|sasl={kafka.SaslMechanism}|messageMax={kafka.MessageMaxBytes}|deliveryTimeout={kafka.DeliveryTimeoutMilliseconds}|consumerProtocol={kafka.ConsumerGroupProtocol}|assignment={kafka.ClassicPartitionAssignment}|consumerQueue={kafka.ConsumerQueueMaxMessagesKbytes}|linger={kafka.ProducerLingerMilliseconds}|batch={kafka.ProducerBatchSizeBytes}|producerQueueMessages={kafka.ProducerQueueMaxMessages}|producerQueueKbytes={kafka.ProducerQueueMaxKbytes}|maxInFlight={kafka.ProducerMaxInFlightRequests}");
+            $"|bootstrap={KafkaCapacityFingerprint.Sha256(kafka.BootstrapServers ?? string.Empty)}|client={KafkaCapacityFingerprint.Sha256(kafka.ClientId ?? string.Empty)}|instance={KafkaCapacityFingerprint.Sha256(kafka.ConsumerInstanceId ?? string.Empty)}|saslUser={KafkaCapacityFingerprint.Sha256(kafka.SaslUsername ?? string.Empty)}|security={kafka.SecurityProtocol}|sasl={kafka.SaslMechanism}|messageMax={kafka.MessageMaxBytes}|deliveryTimeout={kafka.DeliveryTimeoutMilliseconds}|sessionTimeout={kafka.SessionTimeoutMilliseconds}|maxPoll={kafka.MaxPollIntervalMilliseconds}|consumerProtocol={kafka.ConsumerGroupProtocol}|assignment={kafka.ClassicPartitionAssignment}|consumerQueue={kafka.ConsumerQueueMaxMessagesKbytes}|linger={kafka.ProducerLingerMilliseconds}|batch={kafka.ProducerBatchSizeBytes}|producerQueueMessages={kafka.ProducerQueueMaxMessages}|producerQueueKbytes={kafka.ProducerQueueMaxKbytes}|maxInFlight={kafka.ProducerMaxInFlightRequests}|budget={budgetFingerprint ?? "none"}");
         return KafkaCapacityFingerprint.Sha256(value);
+    }
+
+    private static KafkaCapacitySampleEvidence ApplyBudget(
+        KafkaCapacityBudget budget,
+        string environmentName,
+        string clusterIdHash,
+        string buildFingerprint,
+        KafkaCapacitySampleEvidence sample)
+    {
+        var assessment = budget.Assess(
+            environmentName,
+            clusterIdHash,
+            buildFingerprint,
+            sample);
+        return sample with
+        {
+            PerformanceBudgetPassed = assessment.Passed,
+            FailureCodes = sample.FailureCodes
+                .Concat(assessment.FailureCodes)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray(),
+        };
+    }
+
+    private static FileStream AcquireRunLock(string outputDirectory) =>
+        new(
+            Path.Combine(outputDirectory, ".run.lock"),
+            FileMode.OpenOrCreate,
+            FileAccess.ReadWrite,
+            FileShare.None,
+            bufferSize: 1,
+            FileOptions.DeleteOnClose);
+
+    private static string BuildClientId(string runId, string role)
+    {
+        var normalized = new string(runId.ToLowerInvariant()
+            .Select(static character => char.IsAsciiLetterOrDigit(character)
+                || character is '-' or '_'
+                    ? character
+                    : '-')
+            .ToArray());
+        var value = $"fullnet.capacity.{normalized}.{role}";
+        return value.Length <= 200 ? value : value[..200];
     }
 
     private static async Task<string> ResolveBuildFingerprintAsync(

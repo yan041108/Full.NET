@@ -99,11 +99,27 @@ public sealed record KafkaCapacityCheckpoint
         var updated = checkpoint;
         if (evidence.State == KafkaCapacitySampleState.Completed)
         {
-            if (!evidence.Integrity.CorrectnessPassed
-                || evidence.FailureCodes.Count != 0)
+            if (!evidence.Integrity.CorrectnessPassed)
             {
                 throw new InvalidDataException(
-                    "A completed Kafka capacity sample must pass correctness without failures.");
+                    "A completed Kafka capacity sample must pass correctness.");
+            }
+
+            if (evidence.PerformanceBudgetPassed == false)
+            {
+                if (evidence.FailureCodes.Count == 0)
+                {
+                    throw new InvalidDataException(
+                        "A failed Kafka capacity budget must include a stable failure code.");
+                }
+
+                return await WriteAsync(path, checkpoint, cancellationToken);
+            }
+
+            if (evidence.FailureCodes.Count != 0)
+            {
+                throw new InvalidDataException(
+                    "A completed Kafka capacity sample cannot contain failures.");
             }
 
             if (checkpoint.CompletedSamples.Any(sample => string.Equals(
@@ -213,7 +229,14 @@ public sealed record KafkaCapacityCheckpoint
             || CompletedSamples.Any(sample =>
                 sample is null
                 || sample.State != KafkaCapacitySampleState.Completed
+                || sample.Integrity is null
+                || sample.Performance is null
+                || sample.Performance.ScheduleLatency is null
+                || sample.Performance.AcknowledgementLatency is null
+                || sample.Performance.EndToEndLatency is null
+                || sample.FailureCodes is null
                 || !sample.Integrity.CorrectnessPassed
+                || sample.PerformanceBudgetPassed is false
                 || sample.FailureCodes.Count != 0
                 || !string.Equals(sample.ScopeCode, ScopeCode, StringComparison.Ordinal)
                 || string.IsNullOrWhiteSpace(sample.SampleId))

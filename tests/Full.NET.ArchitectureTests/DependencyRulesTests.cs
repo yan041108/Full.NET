@@ -462,6 +462,8 @@ public sealed class DependencyRulesTests
             // API 只注册受权限与审计保护的一次性范围重放，不得启动常驻 Kafka Consumer。
             Path.Combine("src", "Hosts", "Full.NET.Host.Api", "Full.NET.Host.Api.csproj"),
             Path.Combine("src", "Hosts", "Full.NET.Host.Worker", "Full.NET.Host.Worker.csproj"),
+            // Benchmarks 只承载显式执行的独立容量工具，不进入 API/Worker 生产依赖图。
+            Path.Combine("benchmarks", "Full.NET.Benchmarks", "Full.NET.Benchmarks.csproj"),
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"),
             Path.Combine("tests", "Full.NET.IntegrationTests", "Full.NET.IntegrationTests.csproj"),
             Path.Combine("tests", "Full.NET.ArchitectureTests", "Full.NET.ArchitectureTests.csproj"),

@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using Confluent.Kafka;
 using Full.NET.Messaging.Kafka;
 
@@ -11,11 +13,14 @@ public sealed class ConfluentKafkaCapacityProducerFactory
 {
     public IKafkaCapacityProducer Create(
         KafkaMessagingOptions options,
+        string clientId,
         Action<string> statisticsHandler)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
         ArgumentNullException.ThrowIfNull(statisticsHandler);
         var config = options.BuildProducerConfig();
+        config.ClientId = clientId;
         config.StatisticsIntervalMs = 1_000;
         var producer = new ProducerBuilder<string, byte[]>(config)
             .SetStatisticsHandler((_, json) => statisticsHandler(json))
@@ -63,17 +68,26 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
     public IKafkaCapacityConsumer Create(
         KafkaMessagingOptions options,
         string consumerGroupId,
+        string clientId,
+        int expectedPartitions,
         Action<string> statisticsHandler)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(consumerGroupId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedPartitions);
         ArgumentNullException.ThrowIfNull(statisticsHandler);
         var config = options.BuildConsumerConfig(consumerGroupId);
         // 每个样本都使用从未提交 Offset 的独立 Group，并在 Producer 启动前完成分配；
         // 从当前末端起读可避免反复扫描同一 Run Topic 中先前样本的数据。
         config.AutoOffsetReset = AutoOffsetReset.Latest;
+        config.ClientId = clientId;
         config.StatisticsIntervalMs = 1_000;
-        return new ConfluentKafkaCapacityConsumer(config, statisticsHandler);
+        return new ConfluentKafkaCapacityConsumer(
+            config,
+            expectedPartitions,
+            TimeSpan.FromMilliseconds(options.DeliveryTimeoutMilliseconds),
+            statisticsHandler);
     }
 
     private sealed class ConfluentKafkaCapacityConsumer
@@ -83,16 +97,24 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
         private readonly TaskCompletionSource assigned = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly IConsumer<string, byte[]> consumer;
+        private readonly ConcurrentQueue<BacklogRequest> backlogRequests = new();
+        private readonly int expectedPartitions;
+        private readonly TimeSpan assignmentTimeout;
+        private TopicPartition[] assignedPartitions = [];
         private Task? pollingTask;
+        private int disposed;
         private Func<KafkaCapacityConsumedMessage, CancellationToken, ValueTask>?
             messageHandler;
 
         public ConfluentKafkaCapacityConsumer(
             ConsumerConfig config,
+            int expectedPartitions,
+            TimeSpan assignmentTimeout,
             Action<string> statisticsHandler)
         {
+            this.expectedPartitions = expectedPartitions;
+            this.assignmentTimeout = assignmentTimeout;
             consumer = new ConsumerBuilder<string, byte[]>(config)
-                .SetPartitionsAssignedHandler((_, _) => assigned.TrySetResult())
                 .SetStatisticsHandler((_, json) => statisticsHandler(json))
                 .Build();
         }
@@ -114,7 +136,34 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
             }
 
             messageHandler = handler;
-            consumer.Subscribe(topicName);
+            var started = Stopwatch.GetTimestamp();
+            var assignments = new TopicPartitionOffset[expectedPartitions];
+            for (var partition = 0; partition < expectedPartitions; partition++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var remaining = assignmentTimeout - Stopwatch.GetElapsedTime(started);
+                if (remaining <= TimeSpan.Zero)
+                {
+                    throw new TimeoutException(
+                        "Kafka capacity consumer assignment watermark query timed out.");
+                }
+
+                var topicPartition = new TopicPartition(
+                    topicName,
+                    new Partition(partition));
+                var watermark = consumer.QueryWatermarkOffsets(
+                    topicPartition,
+                    remaining);
+                assignments[partition] = new TopicPartitionOffset(
+                    topicPartition,
+                    watermark.High);
+            }
+
+            consumer.Assign(assignments);
+            assignedPartitions = assignments
+                .Select(static assignment => assignment.TopicPartition)
+                .ToArray();
+            assigned.TrySetResult();
             pollingTask = Task.Factory.StartNew(
                 Poll,
                 CancellationToken.None,
@@ -126,6 +175,27 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
         public async Task WaitForAssignmentAsync(
             CancellationToken cancellationToken) =>
             await assigned.Task.WaitAsync(cancellationToken);
+
+        public async Task<KafkaCapacityBrokerBacklogSnapshot> CaptureBacklogAsync(
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            if (pollingTask is null)
+            {
+                throw new InvalidOperationException(
+                    "Kafka capacity consumer has not started.");
+            }
+
+            if (timeout <= TimeSpan.Zero)
+            {
+                throw new TimeoutException(
+                    "Kafka capacity backlog capture has no remaining budget.");
+            }
+
+            var request = new BacklogRequest(timeout);
+            backlogRequests.Enqueue(request);
+            return await request.Completion.Task.WaitAsync(timeout, cancellationToken);
+        }
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
@@ -139,6 +209,18 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
         public async ValueTask DisposeAsync()
         {
             stopCancellation.Cancel();
+            if (pollingTask is not null && !pollingTask.IsCompleted)
+            {
+                _ = pollingTask.ContinueWith(
+                    static (_, state) =>
+                        ((ConfluentKafkaCapacityConsumer)state!).DisposeResources(),
+                    this,
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+                return;
+            }
+
             if (pollingTask is not null)
             {
                 try
@@ -151,6 +233,16 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
                 }
             }
 
+            DisposeResources();
+        }
+
+        private void DisposeResources()
+        {
+            if (Interlocked.Exchange(ref disposed, 1) != 0)
+            {
+                return;
+            }
+
             consumer.Dispose();
             stopCancellation.Dispose();
         }
@@ -161,15 +253,21 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
             {
                 while (!stopCancellation.IsCancellationRequested)
                 {
+                    CompleteBacklogRequests();
                     ConsumeResult<string, byte[]> result;
                     try
                     {
-                        result = consumer.Consume(stopCancellation.Token);
+                        result = consumer.Consume(TimeSpan.FromMilliseconds(100));
                     }
-                    catch (OperationCanceledException)
-                        when (stopCancellation.IsCancellationRequested)
+
+                    catch (ConsumeException)
                     {
-                        break;
+                        throw;
+                    }
+
+                    if (result is null)
+                    {
+                        continue;
                     }
 
                     if (result.IsPartitionEOF)
@@ -188,7 +286,69 @@ public sealed class ConfluentKafkaCapacityConsumerFactory
             }
             finally
             {
+                while (backlogRequests.TryDequeue(out var request))
+                {
+                    request.Completion.TrySetException(new InvalidOperationException(
+                        "Kafka capacity consumer stopped before backlog capture completed."));
+                }
+
                 consumer.Close();
+            }
+        }
+
+        private void CompleteBacklogRequests()
+        {
+            while (backlogRequests.TryDequeue(out var request))
+            {
+                try
+                {
+                    long backlog = 0;
+                    foreach (var partition in assignedPartitions)
+                    {
+                        var remaining = request.Remaining;
+                        if (remaining <= TimeSpan.Zero)
+                        {
+                            throw new TimeoutException(
+                                "Kafka capacity backlog watermark query timed out.");
+                        }
+
+                        var high = consumer.QueryWatermarkOffsets(partition, remaining).High;
+                        var position = consumer.Position(partition);
+                        if (high == Offset.Unset || position == Offset.Unset)
+                        {
+                            throw new InvalidDataException(
+                                "Kafka capacity backlog watermark or position is unset.");
+                        }
+
+                        backlog = checked(backlog + Math.Max(0, high.Value - position.Value));
+                    }
+
+                    request.Completion.TrySetResult(
+                        new KafkaCapacityBrokerBacklogSnapshot(backlog));
+                }
+                catch (Exception exception)
+                {
+                    request.Completion.TrySetException(exception);
+                }
+            }
+        }
+
+        private sealed class BacklogRequest(TimeSpan timeout)
+        {
+            private readonly long started = Stopwatch.GetTimestamp();
+
+            public TaskCompletionSource<KafkaCapacityBrokerBacklogSnapshot> Completion
+            {
+                get;
+            } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public TimeSpan Remaining
+            {
+                get
+                {
+                    var remaining = timeout - Stopwatch.GetElapsedTime(started);
+                    return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+                }
             }
         }
     }

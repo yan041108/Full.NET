@@ -33,6 +33,8 @@ public sealed record KafkaCapacityManifestEvidence(
 /// 表示从 librdkafka Statistics JSON 投影出的数值白名单。
 /// </summary>
 public sealed record KafkaCapacityLibrdkafkaStatisticsEvidence(
+    string SampleId,
+    string Phase,
     long MessageCount,
     long MessageSizeBytes,
     long TransmittedMessages,
@@ -40,7 +42,11 @@ public sealed record KafkaCapacityLibrdkafkaStatisticsEvidence(
     long TransmittedBytes,
     long ReceivedBytes,
     long BrokerOutputQueueMessages,
-    long BrokerWaitingResponseMessages);
+    long BrokerWaitingResponseMessages,
+    int ConnectedBrokerCount,
+    long RequestLatencyAverageMicroseconds,
+    long RequestLatencyMaximumMicroseconds,
+    long ErrorCount);
 
 /// <summary>
 /// 表示一次报告写入所需的全部安全证据。
@@ -125,13 +131,22 @@ public static class KafkaCapacityReportProjection
 /// </summary>
 public static class KafkaCapacityLibrdkafkaStatisticsProjection
 {
-    public static KafkaCapacityLibrdkafkaStatisticsEvidence Parse(string json)
+    public static KafkaCapacityLibrdkafkaStatisticsEvidence Parse(
+        string json,
+        string sampleId = "unassigned",
+        string phase = "unassigned")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sampleId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(phase);
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         long outputQueue = 0;
         long waitingResponse = 0;
+        long requestLatencyTotal = 0;
+        long requestLatencyMaximum = 0;
+        long errorCount = 0;
+        var connectedBrokers = 0;
         if (root.TryGetProperty("brokers", out var brokers)
             && brokers.ValueKind == JsonValueKind.Object)
         {
@@ -139,10 +154,31 @@ public static class KafkaCapacityLibrdkafkaStatisticsProjection
             {
                 outputQueue += ReadInt64(broker.Value, "outbuf_cnt");
                 waitingResponse += ReadInt64(broker.Value, "waitresp_cnt");
+                errorCount += ReadInt64(broker.Value, "txerrs")
+                    + ReadInt64(broker.Value, "rxerrs")
+                    + ReadInt64(broker.Value, "req_timeouts");
+                if (broker.Value.TryGetProperty("state", out var state)
+                    && string.Equals(
+                        state.GetString(),
+                        "UP",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    connectedBrokers++;
+                }
+
+                if (broker.Value.TryGetProperty("rtt", out var requestLatency))
+                {
+                    requestLatencyTotal += ReadInt64(requestLatency, "avg");
+                    requestLatencyMaximum = Math.Max(
+                        requestLatencyMaximum,
+                        ReadInt64(requestLatency, "max"));
+                }
             }
         }
 
         return new KafkaCapacityLibrdkafkaStatisticsEvidence(
+            sampleId,
+            phase,
             ReadInt64(root, "msg_cnt"),
             ReadInt64(root, "msg_size"),
             ReadInt64(root, "txmsgs"),
@@ -150,7 +186,13 @@ public static class KafkaCapacityLibrdkafkaStatisticsProjection
             ReadInt64(root, "txbytes"),
             ReadInt64(root, "rxbytes"),
             outputQueue,
-            waitingResponse);
+            waitingResponse,
+            connectedBrokers,
+            connectedBrokers == 0
+                ? 0
+                : requestLatencyTotal / connectedBrokers,
+            requestLatencyMaximum,
+            errorCount);
     }
 
     private static long ReadInt64(JsonElement element, string propertyName) =>
@@ -243,6 +285,21 @@ public static class KafkaCapacityReportWriter
 
     private static void ValidateReport(KafkaCapacityReportEvidence report)
     {
+        var sampleIds = report.Samples
+            .Select(static sample => sample.SampleId)
+            .ToHashSet(StringComparer.Ordinal);
+        var invalidFailureCode = report.Samples
+            .SelectMany(static sample => sample.FailureCodes)
+            .Any(static code =>
+                string.IsNullOrWhiteSpace(code)
+                || code.Any(static character =>
+                    !(char.IsAsciiLetterOrDigit(character) || character == '_')));
+        var invalidStatistics = report.Statistics.Any(statistics =>
+            !sampleIds.Contains(statistics.SampleId)
+            || (statistics.Phase != "initialization"
+                && statistics.Phase != "warmup"
+                && statistics.Phase != "measurement"
+                && statistics.Phase != "drain"));
         if (!string.Equals(report.Manifest.Scope, "KafkaTransport", StringComparison.Ordinal)
             || !string.Equals(
                 report.Manifest.CapacityStatus,
@@ -253,11 +310,8 @@ public static class KafkaCapacityReportWriter
                     sample.ScopeCode,
                     KafkaCapacityScopeCodes.KafkaTransport,
                     StringComparison.Ordinal))
-            || report.Samples.SelectMany(static sample => sample.FailureCodes)
-                .Any(static code =>
-                    string.IsNullOrWhiteSpace(code)
-                    || code.Any(static character =>
-                        !(char.IsAsciiLetterOrDigit(character) || character == '_'))))
+            || invalidFailureCode
+            || invalidStatistics)
         {
             throw new InvalidDataException(
                 "Kafka capacity report contains a non-allowlisted value.");

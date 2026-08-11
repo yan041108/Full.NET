@@ -54,6 +54,18 @@ public sealed class KafkaCapacityIntegrityTracker
     }
 
     /// <summary>
+    /// 撤销尚未被本地 Producer 接受的临时登记，仅用于可恢复的本地队列满重试。
+    /// </summary>
+    public void OnEnqueueRejected(long globalSequence)
+    {
+        var sequence = ValidateSequence(globalSequence);
+        if (TryClear(enqueuedBits, sequence))
+        {
+            Interlocked.Decrement(ref enqueued);
+        }
+    }
+
+    /// <summary>
     /// 登记 Broker DeliveryReport 已确认的全局序号。
     /// </summary>
     public void OnAcknowledged(long globalSequence)
@@ -75,7 +87,7 @@ public sealed class KafkaCapacityIntegrityTracker
     /// <summary>
     /// 登记一次消费，并按实际 Partition 检查唯一性、Payload 和连续顺序。
     /// </summary>
-    public void OnConsumed(
+    public bool OnConsumed(
         long globalSequence,
         int partition,
         long partitionSequence,
@@ -97,7 +109,7 @@ public sealed class KafkaCapacityIntegrityTracker
         if (!TrySet(consumedBits, sequence))
         {
             Interlocked.Increment(ref duplicate);
-            return;
+            return false;
         }
 
         Interlocked.Increment(ref consumed);
@@ -106,12 +118,14 @@ public sealed class KafkaCapacityIntegrityTracker
             Interlocked.Increment(ref corrupted);
         }
 
+        var orderValid = true;
         lock (partitionLocks[partition])
         {
             var expected = nextPartitionSequences[partition];
             if (partitionSequence != expected)
             {
                 Interlocked.Increment(ref outOfOrder);
+                orderValid = false;
             }
 
             if (partitionSequence >= expected)
@@ -119,6 +133,8 @@ public sealed class KafkaCapacityIntegrityTracker
                 nextPartitionSequences[partition] = partitionSequence + 1;
             }
         }
+
+        return payloadValid && orderValid;
     }
 
     /// <summary>
@@ -188,6 +204,28 @@ public sealed class KafkaCapacityIntegrityTracker
             if (Interlocked.CompareExchange(
                     ref bits[word],
                     current | mask,
+                    current) == current)
+            {
+                return true;
+            }
+        }
+    }
+
+    private static bool TryClear(long[] bits, int sequence)
+    {
+        var word = sequence >> 6;
+        var mask = 1L << (sequence & 63);
+        while (true)
+        {
+            var current = Volatile.Read(ref bits[word]);
+            if ((current & mask) == 0)
+            {
+                return false;
+            }
+
+            if (Interlocked.CompareExchange(
+                    ref bits[word],
+                    current & ~mask,
                     current) == current)
             {
                 return true;

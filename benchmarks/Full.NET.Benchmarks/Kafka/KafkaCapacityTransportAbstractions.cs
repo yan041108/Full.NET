@@ -17,10 +17,16 @@ public sealed record KafkaCapacityConsumedMessage(
     int Partition,
     byte[] Value);
 
+/// <summary>
+/// 表示从 Broker 高水位与当前消费位置计算出的真实 Offset 积压。
+/// </summary>
+public sealed record KafkaCapacityBrokerBacklogSnapshot(long MessageCount);
+
 public interface IKafkaCapacityProducerFactory
 {
     IKafkaCapacityProducer Create(
         KafkaMessagingOptions options,
+        string clientId,
         Action<string> statisticsHandler);
 }
 
@@ -42,6 +48,8 @@ public interface IKafkaCapacityConsumerFactory
     IKafkaCapacityConsumer Create(
         KafkaMessagingOptions options,
         string consumerGroupId,
+        string clientId,
+        int expectedPartitions,
         Action<string> statisticsHandler);
 }
 
@@ -55,6 +63,10 @@ public interface IKafkaCapacityConsumer : IAsyncDisposable
         CancellationToken cancellationToken);
 
     Task WaitForAssignmentAsync(CancellationToken cancellationToken);
+
+    Task<KafkaCapacityBrokerBacklogSnapshot> CaptureBacklogAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
 
     Task StopAsync(CancellationToken cancellationToken);
 }
