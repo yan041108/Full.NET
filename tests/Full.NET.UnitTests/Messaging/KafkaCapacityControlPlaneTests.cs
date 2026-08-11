@@ -146,13 +146,15 @@ public sealed class KafkaCapacityControlPlaneTests
             var checkpoint = KafkaCapacityCheckpoint.Create(
                 "build-a",
                 "scenario-a",
-                topic);
+                scopeCode: KafkaCapacityScopeCodes.KafkaTransport,
+                topicIdentity: topic);
             checkpoint = await KafkaCapacityCheckpoint.SaveCompletedAsync(
                 path,
                 checkpoint,
                 "sample-incomplete",
                 sampleCompleted: false,
-                CancellationToken.None);
+                scopeCode: KafkaCapacityScopeCodes.KafkaTransport,
+                cancellationToken: CancellationToken.None);
             Assert.IsTrue(File.Exists(path));
             Assert.IsEmpty(checkpoint.CompletedSampleIds);
             checkpoint = await KafkaCapacityCheckpoint.SaveCompletedAsync(
@@ -160,13 +162,15 @@ public sealed class KafkaCapacityControlPlaneTests
                 checkpoint,
                 "sample-1",
                 sampleCompleted: true,
-                CancellationToken.None);
+                scopeCode: KafkaCapacityScopeCodes.KafkaTransport,
+                cancellationToken: CancellationToken.None);
             checkpoint = await KafkaCapacityCheckpoint.SaveCompletedAsync(
                 path,
                 checkpoint,
                 "sample-2",
                 sampleCompleted: false,
-                CancellationToken.None);
+                scopeCode: KafkaCapacityScopeCodes.KafkaTransport,
+                cancellationToken: CancellationToken.None);
 
             var loaded = await KafkaCapacityCheckpoint.LoadAsync(
                 path,
@@ -177,20 +181,34 @@ public sealed class KafkaCapacityControlPlaneTests
                 new[] { "sample-1" },
                 loaded.CompletedSampleIds.ToArray());
             Assert.IsFalse(File.Exists(path + ".tmp"));
-            loaded.ValidateResume("build-a", "scenario-a", topic);
+            loaded.ValidateResume(
+                "build-a",
+                "scenario-a",
+                KafkaCapacityScopeCodes.KafkaTransport,
+                topic);
             Assert.ThrowsExactly<InvalidDataException>(() =>
-                loaded.ValidateResume("build-b", "scenario-a", topic));
+                loaded.ValidateResume(
+                    "build-b",
+                    "scenario-a",
+                    KafkaCapacityScopeCodes.KafkaTransport,
+                    topic));
             Assert.ThrowsExactly<InvalidDataException>(() =>
-                loaded.ValidateResume("build-a", "scenario-b", topic));
+                loaded.ValidateResume(
+                    "build-a",
+                    "scenario-b",
+                    KafkaCapacityScopeCodes.KafkaTransport,
+                    topic));
             Assert.ThrowsExactly<InvalidDataException>(() =>
                 loaded.ValidateResume(
                     "build-a",
                     "scenario-a",
+                    KafkaCapacityScopeCodes.KafkaTransport,
                     topic with { TopicId = "changed" }));
             Assert.ThrowsExactly<InvalidDataException>(() =>
                 (loaded with { SchemaVersion = 2 }).ValidateResume(
                     "build-a",
                     "scenario-a",
+                    KafkaCapacityScopeCodes.KafkaTransport,
                     topic));
         }
         finally

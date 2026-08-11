@@ -16,6 +16,8 @@ public sealed record KafkaCapacityCheckpoint
 
     public required string ScenarioFingerprint { get; init; }
 
+    public required string ScopeCode { get; init; }
+
     public required KafkaCapacityTopicIdentity TopicIdentity { get; init; }
 
     public IReadOnlyList<string> CompletedSampleIds { get; init; } = [];
@@ -23,11 +25,13 @@ public sealed record KafkaCapacityCheckpoint
     public static KafkaCapacityCheckpoint Create(
         string buildFingerprint,
         string scenarioFingerprint,
+        string scopeCode,
         KafkaCapacityTopicIdentity topicIdentity) =>
         new()
         {
             BuildFingerprint = Require(buildFingerprint, nameof(buildFingerprint)),
             ScenarioFingerprint = Require(scenarioFingerprint, nameof(scenarioFingerprint)),
+            ScopeCode = Require(scopeCode, nameof(scopeCode)),
             TopicIdentity = topicIdentity
                 ?? throw new ArgumentNullException(nameof(topicIdentity)),
         };
@@ -61,11 +65,18 @@ public sealed record KafkaCapacityCheckpoint
         KafkaCapacityCheckpoint checkpoint,
         string sampleId,
         bool sampleCompleted,
+        string scopeCode,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
         checkpoint.ValidateShape();
         Require(sampleId, nameof(sampleId));
+        if (!string.Equals(checkpoint.ScopeCode, scopeCode, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                "Kafka capacity sample scope does not match the checkpoint.");
+        }
+
         var completed = sampleCompleted
             ? checkpoint.CompletedSampleIds
                 .Append(sampleId)
@@ -110,6 +121,7 @@ public sealed record KafkaCapacityCheckpoint
     public void ValidateResume(
         string buildFingerprint,
         string scenarioFingerprint,
+        string scopeCode,
         KafkaCapacityTopicIdentity topicIdentity)
     {
         ValidateShape();
@@ -118,6 +130,7 @@ public sealed record KafkaCapacityCheckpoint
                 ScenarioFingerprint,
                 scenarioFingerprint,
                 StringComparison.Ordinal)
+            || !string.Equals(ScopeCode, scopeCode, StringComparison.Ordinal)
             || TopicIdentity != topicIdentity)
         {
             throw new InvalidDataException(
@@ -144,6 +157,7 @@ public sealed record KafkaCapacityCheckpoint
         if (SchemaVersion != CurrentSchemaVersion
             || string.IsNullOrWhiteSpace(BuildFingerprint)
             || string.IsNullOrWhiteSpace(ScenarioFingerprint)
+            || string.IsNullOrWhiteSpace(ScopeCode)
             || TopicIdentity is null
             || CompletedSampleIds.Any(string.IsNullOrWhiteSpace)
             || CompletedSampleIds.Count
