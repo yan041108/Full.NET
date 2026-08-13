@@ -14,6 +14,7 @@ public sealed class KafkaCapacityOptionsTests
         var samples = KafkaCapacityScenarioCatalog.Build(options);
 
         Assert.IsFalse(options.Execute);
+        Assert.AreEqual(KafkaCapacityScopeCodes.KafkaTransport, options.ScopeCode);
         Assert.HasCount(2, samples);
         Assert.IsTrue(samples.Any(sample =>
             sample.Scenario == KafkaCapacityScenario.LowRate
@@ -44,6 +45,7 @@ public sealed class KafkaCapacityOptionsTests
     {
         var options = KafkaCapacityOptions.Parse([
             "--scenarios", "low-rate,throughput",
+            "--scope", "worker_inbox_handler",
             "--low-rates", "1,10",
             "--throughput-rates", "1000,5000",
             "--payload-sizes", "128,4096",
@@ -68,12 +70,29 @@ public sealed class KafkaCapacityOptionsTests
         ]);
 
         Assert.IsTrue(options.Execute);
+        Assert.AreEqual("worker_inbox_handler", options.ScopeCode);
         Assert.AreEqual(12, options.Partitions);
         Assert.AreEqual(3, options.ReplicationFactor);
         Assert.AreEqual(TimeSpan.FromSeconds(15), options.Duration);
         Assert.AreEqual("PERF-42", options.ApprovalId);
         Assert.AreEqual("run-42", options.RunId);
         Assert.HasCount(32, KafkaCapacityScenarioCatalog.Build(options));
+        Assert.IsTrue(KafkaCapacityScenarioCatalog.Build(options).All(sample =>
+            sample.ScopeCode == "worker_inbox_handler"));
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("KafkaTransport")]
+    [DataRow("worker inbox")]
+    [DataRow("worker.inbox")]
+    [DataRow("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklm")]
+    public void Parser_rejects_invalid_scope_codes(string scopeCode)
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            KafkaCapacityOptions.Parse([
+                "--scope", scopeCode,
+            ]));
     }
 
     [TestMethod]

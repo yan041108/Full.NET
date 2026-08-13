@@ -14,7 +14,45 @@ public enum KafkaCapacityScenario
 /// </summary>
 public static class KafkaCapacityScopeCodes
 {
+    /// <summary>
+    /// 表示独立 Producer、Broker、Consumer 传输范围。
+    /// </summary>
     public const string KafkaTransport = "kafka_transport";
+
+    /// <summary>
+    /// 限制进入预算、工件和客户端标识的范围码长度。
+    /// </summary>
+    public const int MaximumLength = 64;
+
+    /// <summary>
+    /// 校验低基数稳定机器码，防止范围进入高基数指标或不兼容工件。
+    /// </summary>
+    public static void Validate(string scopeCode)
+    {
+        if (string.IsNullOrWhiteSpace(scopeCode)
+            || scopeCode.Length > MaximumLength
+            || !char.IsAsciiLetter(scopeCode[0])
+            || scopeCode.Any(static character =>
+                !(char.IsAsciiLetterLower(character)
+                    || char.IsAsciiDigit(character)
+                    || character == '_')))
+        {
+            throw new ArgumentException(
+                "Kafka capacity scope 必须是以小写 ASCII 字母开头且最长 64 字符的稳定机器码。",
+                nameof(scopeCode));
+        }
+    }
+
+    /// <summary>
+    /// 返回兼容的人类可读范围名；ScopeCode 仍是跨版本机器契约。
+    /// </summary>
+    public static string GetDisplayName(string scopeCode)
+    {
+        Validate(scopeCode);
+        return string.Equals(scopeCode, KafkaTransport, StringComparison.Ordinal)
+            ? "KafkaTransport"
+            : scopeCode;
+    }
 }
 
 /// <summary>
@@ -46,6 +84,7 @@ public static class KafkaCapacityScenarioCatalog
         KafkaCapacityOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        KafkaCapacityScopeCodes.Validate(options.ScopeCode);
         var samples = new List<KafkaCapacitySample>();
         foreach (var scenario in options.Scenarios)
         {
@@ -69,7 +108,7 @@ public static class KafkaCapacityScenarioCatalog
                                 System.Globalization.CultureInfo.InvariantCulture,
                                 $"{scenarioCode}-r{rate}-p{payloadSize}-c{concurrency}-n{repetition}");
                             samples.Add(new KafkaCapacitySample(
-                                KafkaCapacityScopeCodes.KafkaTransport,
+                                options.ScopeCode,
                                 sampleId,
                                 scenario,
                                 rate,

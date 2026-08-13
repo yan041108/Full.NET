@@ -94,15 +94,7 @@ public sealed class KafkaCapacitySampleContext
         ArgumentNullException.ThrowIfNull(sample);
         ArgumentNullException.ThrowIfNull(topicIdentity);
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
-        if (!string.Equals(
-                sample.ScopeCode,
-                KafkaCapacityScopeCodes.KafkaTransport,
-                StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                "Kafka transport context requires the kafka_transport scope.",
-                nameof(sample));
-        }
+        KafkaCapacityScopeCodes.Validate(sample.ScopeCode);
 
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumMessages);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(
@@ -127,13 +119,23 @@ public sealed class KafkaCapacitySampleContext
 
         var runSegment = Normalize(runId);
         var sampleSegment = Normalize(sample.SampleId);
-        var identityPrefix = $"fullnet.capacity.{runSegment}.{sampleSegment}";
+        var baseIdentityPrefix =
+            $"fullnet.capacity.{runSegment}.{sampleSegment}";
+        var isTransportScope = string.Equals(
+            sample.ScopeCode,
+            KafkaCapacityScopeCodes.KafkaTransport,
+            StringComparison.Ordinal);
+        var scopeSegment = isTransportScope
+            ? "transport"
+            : Normalize(sample.ScopeCode);
+        var scopeSuffix = $".{scopeSegment}";
+        var clientScopeSuffix = isTransportScope ? string.Empty : scopeSuffix;
         return new KafkaCapacitySampleContext(
             sample,
             topicIdentity,
-            BoundIdentity($"{identityPrefix}.transport"),
-            BoundIdentity($"{identityPrefix}.producer"),
-            BoundIdentity($"{identityPrefix}.consumer"),
+            BoundIdentity(baseIdentityPrefix, scopeSuffix),
+            BoundIdentity(baseIdentityPrefix, $"{clientScopeSuffix}.producer"),
+            BoundIdentity(baseIdentityPrefix, $"{clientScopeSuffix}.consumer"),
             Hash32(runId),
             Hash32(sample.SampleId),
             resolvedWarmup,
@@ -157,11 +159,40 @@ public sealed class KafkaCapacitySampleContext
                     ? character
                     : '-')
             .ToArray());
-        return normalized.Length <= 80 ? normalized : normalized[..80];
+        if (normalized.Length <= 80)
+        {
+            return normalized;
+        }
+
+        const int hashLength = 16;
+        var hashSuffix = $"-{KafkaCapacityFingerprint.Sha256(normalized)[..hashLength]}";
+        return normalized[..(80 - hashSuffix.Length)] + hashSuffix;
     }
 
-    private static string BoundIdentity(string value) =>
-        value.Length <= 200 ? value : value[..200];
+    private static string BoundIdentity(string prefix, string suffix)
+    {
+        const int maximumLength = 200;
+        if (suffix.Length >= maximumLength)
+        {
+            throw new ArgumentException(
+                "Kafka capacity client identity suffix exceeds its hard bound.",
+                nameof(suffix));
+        }
+
+        var boundedPrefix = prefix.Length + suffix.Length <= maximumLength
+            ? prefix
+            : BuildHashedPrefix(
+                prefix,
+                maximumLength - suffix.Length);
+        return boundedPrefix + suffix;
+    }
+
+    private static string BuildHashedPrefix(string prefix, int maximumLength)
+    {
+        const int hashLength = 16;
+        var hashSuffix = $"-{KafkaCapacityFingerprint.Sha256(prefix)[..hashLength]}";
+        return prefix[..(maximumLength - hashSuffix.Length)] + hashSuffix;
+    }
 }
 
 /// <summary>

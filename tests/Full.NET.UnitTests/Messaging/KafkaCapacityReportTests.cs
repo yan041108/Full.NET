@@ -7,6 +7,22 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class KafkaCapacityReportTests
 {
     [TestMethod]
+    public void Manifest_preserves_transport_display_scope_and_adds_scope_code()
+    {
+        var manifest = KafkaCapacityReportProjection.CreateManifest(
+            KafkaCapacityScopeCodes.KafkaTransport,
+            "Capacity",
+            "build",
+            "run",
+            "approval",
+            new KafkaMessagingOptions(),
+            new KafkaCapacityTopicIdentity("cluster", "topic", "id", 1, 1));
+
+        Assert.AreEqual("KafkaTransport", manifest.Scope);
+        Assert.AreEqual(KafkaCapacityScopeCodes.KafkaTransport, manifest.ScopeCode);
+    }
+
+    [TestMethod]
     public async Task Budget_rejects_null_entries_as_invalid_data()
     {
         var path = Path.Combine(
@@ -173,6 +189,7 @@ public sealed class KafkaCapacityReportTests
             2,
             1);
         var manifest = KafkaCapacityReportProjection.CreateManifest(
+            "worker_inbox_handler",
             "Capacity",
             "build",
             "run-secret",
@@ -181,6 +198,7 @@ public sealed class KafkaCapacityReportTests
             topic);
         var incomplete = CreateCompletedSample() with
         {
+            ScopeCode = "worker_inbox_handler",
             State = KafkaCapacitySampleState.Incomplete,
             FailureCodes = ["drain_timeout"],
         };
@@ -211,6 +229,8 @@ public sealed class KafkaCapacityReportTests
             phase: "measurement");
 
         Assert.AreEqual("sample-a", statistics.SampleId);
+        Assert.AreEqual("worker_inbox_handler", manifest.Scope);
+        Assert.AreEqual("worker_inbox_handler", manifest.ScopeCode);
         Assert.AreEqual("measurement", statistics.Phase);
         Assert.AreEqual(1, statistics.ConnectedBrokerCount);
         Assert.AreEqual(700L, statistics.RequestLatencyAverageMicroseconds);
@@ -235,7 +255,7 @@ public sealed class KafkaCapacityReportTests
             Assert.IsFalse(combined.Contains(username, StringComparison.Ordinal));
             Assert.IsFalse(combined.Contains(password, StringComparison.Ordinal));
             Assert.IsFalse(combined.Contains(topicName, StringComparison.Ordinal));
-            StringAssert.Contains(combined, "KafkaTransport");
+            StringAssert.Contains(combined, "worker_inbox_handler");
             StringAssert.Contains(combined, "Capacity-not-verified");
             StringAssert.Contains(combined, "drain_timeout");
             StringAssert.Contains(combined, "Incomplete");

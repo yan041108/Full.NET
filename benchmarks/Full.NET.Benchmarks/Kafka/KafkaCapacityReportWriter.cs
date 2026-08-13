@@ -11,6 +11,7 @@ namespace Full.NET.Benchmarks.Kafka;
 /// </summary>
 public sealed record KafkaCapacityManifestEvidence(
     string Scope,
+    string ScopeCode,
     string CapacityStatus,
     string EnvironmentName,
     string BuildFingerprint,
@@ -62,6 +63,7 @@ public sealed record KafkaCapacityReportEvidence(
 public static class KafkaCapacityReportProjection
 {
     public static KafkaCapacityManifestEvidence CreateManifest(
+        string scopeCode,
         string environmentName,
         string buildFingerprint,
         string runId,
@@ -95,8 +97,10 @@ public static class KafkaCapacityReportProjection
             saslMechanism = parsedSaslMechanism.ToString();
         }
 
+        KafkaCapacityScopeCodes.Validate(scopeCode);
         return new KafkaCapacityManifestEvidence(
-            "KafkaTransport",
+            KafkaCapacityScopeCodes.GetDisplayName(scopeCode),
+            scopeCode,
             "Capacity-not-verified",
             Require(environmentName, nameof(environmentName)),
             Require(buildFingerprint, nameof(buildFingerprint)),
@@ -252,6 +256,7 @@ public static class KafkaCapacityReportWriter
             .ToArray();
         var summary = new KafkaCapacitySummaryEvidence(
             report.Manifest.Scope,
+            report.Manifest.ScopeCode,
             report.Manifest.CapacityStatus,
             report.Samples.Count,
             report.Samples.Count(static sample =>
@@ -300,15 +305,29 @@ public static class KafkaCapacityReportWriter
                 && statistics.Phase != "warmup"
                 && statistics.Phase != "measurement"
                 && statistics.Phase != "drain"));
-        if (!string.Equals(report.Manifest.Scope, "KafkaTransport", StringComparison.Ordinal)
+        try
+        {
+            KafkaCapacityScopeCodes.Validate(report.Manifest.ScopeCode);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidDataException(
+                "Kafka capacity report scope is invalid.",
+                exception);
+        }
+
+        if (!string.Equals(
+                report.Manifest.Scope,
+                KafkaCapacityScopeCodes.GetDisplayName(report.Manifest.ScopeCode),
+                StringComparison.Ordinal)
             || !string.Equals(
                 report.Manifest.CapacityStatus,
                 "Capacity-not-verified",
                 StringComparison.Ordinal)
-            || report.Samples.Any(static sample =>
+            || report.Samples.Any(sample =>
                 !string.Equals(
                     sample.ScopeCode,
-                    KafkaCapacityScopeCodes.KafkaTransport,
+                    report.Manifest.ScopeCode,
                     StringComparison.Ordinal))
             || invalidFailureCode
             || invalidStatistics)
@@ -369,6 +388,7 @@ public static class KafkaCapacityReportWriter
             .AppendLine("# Kafka capacity summary")
             .AppendLine()
             .Append("- Scope: ").AppendLine(summary.Scope)
+            .Append("- ScopeCode: ").AppendLine(summary.ScopeCode)
             .Append("- CapacityStatus: ").AppendLine(summary.CapacityStatus)
             .Append("- Completed: ").AppendLine(summary.CompletedSamples.ToString())
             .Append("- Incomplete: ").AppendLine(summary.IncompleteSamples.ToString());
@@ -382,6 +402,7 @@ public static class KafkaCapacityReportWriter
 
     private sealed record KafkaCapacitySummaryEvidence(
         string Scope,
+        string ScopeCode,
         string CapacityStatus,
         int TotalSamples,
         int CompletedSamples,

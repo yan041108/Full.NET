@@ -19,6 +19,7 @@ public sealed record KafkaCapacityOptions
 
         Core options:
           --settings <path>                 UTF-8 JSON configuration (KafkaCapacity root)
+          --scope <code>                    Registered driver scope (default: kafka_transport)
           --scenarios <low-rate,throughput>
           --low-rates <csv>                 1..10000 msg/s
           --throughput-rates <csv>          1..1000000 msg/s, strictly increasing
@@ -43,6 +44,8 @@ public sealed record KafkaCapacityOptions
         """;
 
     public bool Execute { get; init; }
+
+    public string ScopeCode { get; init; } = KafkaCapacityScopeCodes.KafkaTransport;
 
     public IReadOnlyList<KafkaCapacityScenario> Scenarios { get; init; } =
         [KafkaCapacityScenario.LowRate, KafkaCapacityScenario.Throughput];
@@ -117,6 +120,9 @@ public sealed record KafkaCapacityOptions
         var options = new KafkaCapacityOptions
         {
             Execute = ParseBoolean(values, "--execute", false),
+            ScopeCode = values.GetValueOrDefault(
+                "--scope",
+                KafkaCapacityScopeCodes.KafkaTransport),
             Scenarios = scenarios,
             LowRates = lowRates,
             ThroughputRates = throughputRates,
@@ -195,6 +201,8 @@ public sealed record KafkaCapacityOptions
         {
             throw new ArgumentException("--output 不能为空。", "--output");
         }
+
+        KafkaCapacityScopeCodes.Validate(options.ScopeCode);
 
         if (options.MaximumNewSamples > 0 && !options.Resume)
         {
@@ -373,6 +381,7 @@ public sealed record KafkaCapacityOptions
     private static readonly string[] KnownOptions =
     [
         "--scenarios",
+        "--scope",
         "--low-rates",
         "--throughput-rates",
         "--payload-sizes",

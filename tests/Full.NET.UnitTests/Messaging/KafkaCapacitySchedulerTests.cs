@@ -8,6 +8,43 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class KafkaCapacitySchedulerTests
 {
     [TestMethod]
+    public void Driver_registry_rejects_unknown_and_duplicate_scopes()
+    {
+        var transport = new RecordingDriverFactory(
+            KafkaCapacityScopeCodes.KafkaTransport);
+        var registry = new KafkaCapacityDriverRegistry([transport]);
+
+        Assert.AreSame(transport, registry.GetRequired(
+            KafkaCapacityScopeCodes.KafkaTransport));
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            registry.GetRequired("worker_inbox_handler"));
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            new KafkaCapacityDriverRegistry([
+                transport,
+                new RecordingDriverFactory(KafkaCapacityScopeCodes.KafkaTransport),
+            ]));
+    }
+
+    [TestMethod]
+    public void Driver_registry_rejects_runtime_with_a_different_scope()
+    {
+        var factory = new RecordingDriverFactory(
+            KafkaCapacityScopeCodes.KafkaTransport,
+            runtimeScopeCode: "worker_inbox_handler");
+
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            KafkaCapacityDriverRegistry.CreateRuntime(
+                factory,
+                new KafkaCapacityConfiguration
+                {
+                    Kafka = new KafkaMessagingOptions
+                    {
+                        Enabled = true,
+                        BootstrapServers = "broker",
+                    },
+                }));
+    }
+    [TestMethod]
     public async Task Open_loop_deadlines_do_not_depend_on_previous_completion()
     {
         var clock = new ManualClock();
@@ -165,6 +202,83 @@ public sealed class KafkaCapacitySchedulerTests
         Assert.StartsWith("fullnet.capacity.", context.ConsumerGroupId);
         Assert.AreEqual(topic.TopicName, context.TopicIdentity.TopicName);
         Assert.AreEqual(sample.SampleId, evidence.SampleId);
+    }
+
+    [TestMethod]
+    public void Future_driver_scope_uses_an_isolated_client_identity_namespace()
+    {
+        var options = KafkaCapacityOptions.Parse([
+            "--scope",
+            "worker_inbox_handler",
+        ]);
+        var sample = KafkaCapacityScenarioCatalog.Build(options)[0];
+        var context = KafkaCapacitySampleContext.Create(
+            sample,
+            new KafkaCapacityTopicIdentity("cluster", "topic", "id", 1, 1),
+            "shared-run");
+
+        Assert.EndsWith(
+            ".worker_inbox_handler",
+            context.ConsumerGroupId,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            ".worker_inbox_handler.",
+            context.ProducerClientId,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            ".worker_inbox_handler.",
+            context.ConsumerClientId,
+            StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public void Future_driver_scope_and_role_survive_client_identity_length_bound()
+    {
+        var options = KafkaCapacityOptions.Parse([
+            "--scope",
+            "worker_inbox_handler",
+        ]);
+        var sample = KafkaCapacityScenarioCatalog.Build(options)[0] with
+        {
+            SampleId = new string('s', 160),
+        };
+        var context = KafkaCapacitySampleContext.Create(
+            sample,
+            new KafkaCapacityTopicIdentity("cluster", "topic", "id", 1, 1),
+            new string('r', 160));
+        var otherContext = KafkaCapacitySampleContext.Create(
+            sample with
+            {
+                SampleId = new string('s', 159) + "x",
+            },
+            new KafkaCapacityTopicIdentity("cluster", "topic", "id", 1, 1),
+            new string('r', 160));
+
+        Assert.IsLessThanOrEqualTo(200, context.ConsumerGroupId.Length);
+        Assert.IsLessThanOrEqualTo(200, context.ProducerClientId.Length);
+        Assert.IsLessThanOrEqualTo(200, context.ConsumerClientId.Length);
+        Assert.EndsWith(
+            ".worker_inbox_handler",
+            context.ConsumerGroupId,
+            StringComparison.Ordinal);
+        Assert.EndsWith(
+            ".worker_inbox_handler.producer",
+            context.ProducerClientId,
+            StringComparison.Ordinal);
+        Assert.EndsWith(
+            ".worker_inbox_handler.consumer",
+            context.ConsumerClientId,
+            StringComparison.Ordinal);
+        Assert.AreNotEqual(context.ProducerClientId, context.ConsumerClientId);
+        Assert.AreNotEqual(
+            context.ConsumerGroupId,
+            otherContext.ConsumerGroupId);
+        Assert.AreNotEqual(
+            context.ProducerClientId,
+            otherContext.ProducerClientId);
+        Assert.AreNotEqual(
+            context.ConsumerClientId,
+            otherContext.ConsumerClientId);
     }
 
     [TestMethod]
@@ -702,6 +816,30 @@ public sealed class KafkaCapacitySchedulerTests
                 new KafkaCapacityPerformanceEvidence(0, 0, 0, latency, latency, latency, 0, 0, 0, 0),
                 []));
         }
+    }
+
+    private sealed class RecordingDriverFactory(
+        string scopeCode,
+        string? runtimeScopeCode = null) : IKafkaCapacityScenarioDriverFactory
+    {
+        public string ScopeCode => scopeCode;
+
+        public KafkaCapacityDriverRuntime Create(
+            KafkaCapacityConfiguration configuration) =>
+            new(
+                new ScopeOverrideDriver(runtimeScopeCode ?? scopeCode),
+                StatisticsSource: null);
+    }
+
+    private sealed class ScopeOverrideDriver(string scopeCode)
+        : IKafkaCapacityScenarioDriver
+    {
+        public string ScopeCode => scopeCode;
+
+        public Task<KafkaCapacitySampleEvidence> ExecuteAsync(
+            KafkaCapacitySampleContext context,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class RecordingProducerFactory(

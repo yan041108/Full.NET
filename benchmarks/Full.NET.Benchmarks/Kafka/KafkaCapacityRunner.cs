@@ -38,7 +38,12 @@ public sealed class KafkaCapacityRunner
         try
         {
             var options = KafkaCapacityOptions.Parse(arguments);
+            var driverFactory = KafkaCapacityDriverRegistry.CreateDefault()
+                .GetRequired(options.ScopeCode);
             var configuration = KafkaCapacityConfiguration.Load(options);
+            var driverRuntime = KafkaCapacityDriverRegistry.CreateRuntime(
+                driverFactory,
+                configuration);
             var samples = KafkaCapacityScenarioCatalog.Build(options);
             var planGuard = KafkaCapacityEnvironmentGuard.ValidatePlan(
                 configuration,
@@ -68,6 +73,7 @@ public sealed class KafkaCapacityRunner
                 options,
                 configuration,
                 samples,
+                driverRuntime,
                 cancellationToken);
         }
         catch (OperationCanceledException)
@@ -159,6 +165,7 @@ public sealed class KafkaCapacityRunner
         KafkaCapacityOptions options,
         KafkaCapacityConfiguration configuration,
         IReadOnlyList<KafkaCapacitySample> samples,
+        KafkaCapacityDriverRuntime driverRuntime,
         CancellationToken cancellationToken)
     {
         var generatedRunId = string.Create(
@@ -234,7 +241,7 @@ public sealed class KafkaCapacityRunner
             ?? KafkaCapacityCheckpoint.Create(
                 buildFingerprint,
                 scenarioFingerprint,
-                KafkaCapacityScopeCodes.KafkaTransport,
+                options.ScopeCode,
                 topic,
                 runId);
         if (existingCheckpoint is not null)
@@ -242,7 +249,7 @@ public sealed class KafkaCapacityRunner
             checkpoint.ValidateResume(
                 buildFingerprint,
                 scenarioFingerprint,
-                KafkaCapacityScopeCodes.KafkaTransport,
+                options.ScopeCode,
                 topic,
                 runId);
         }
@@ -281,12 +288,8 @@ public sealed class KafkaCapacityRunner
                         DefaultMaximumScheduleLatencyMicroseconds)
                     ?? DefaultMaximumScheduleLatencyMicroseconds))
             .ToArray();
-        var transportExecutor = new KafkaCapacityTransportExecutor(
-            configuration.Kafka,
-            new ConfluentKafkaCapacityProducerFactory(),
-            new ConfluentKafkaCapacityConsumerFactory());
         var runner = new KafkaCapacityRunner(
-            new KafkaTransportScenarioDriver(transportExecutor),
+            driverRuntime.Driver,
             new FileKafkaCapacityCheckpointStore(),
             budget is null
                 ? null
@@ -322,6 +325,7 @@ public sealed class KafkaCapacityRunner
             || evidence.Any(static sample =>
                 sample.FailureCodes.Contains("cancelled", StringComparer.Ordinal));
         var manifest = KafkaCapacityReportProjection.CreateManifest(
+            options.ScopeCode,
             configuration.EnvironmentName,
             buildFingerprint,
             runId,
@@ -333,7 +337,7 @@ public sealed class KafkaCapacityRunner
             new KafkaCapacityReportEvidence(
                 manifest,
                 evidence,
-                transportExecutor.SnapshotStatistics()),
+                driverRuntime.StatisticsSource?.SnapshotStatistics() ?? []),
             CancellationToken.None);
         await topicManager.DeleteOwnedTopicAsync(
             topic,

@@ -26,10 +26,11 @@
 ## 执行状态（2026-08-12）
 
 - Task 1–5 与 Task 7 已按计划实现并完成 Unit、Release build、Architecture、Naming、SQL Safety、Governance、Performance Governance 和 Integration 分片静态门禁。
-- 两轮独立代码复审发现的 QueueFull、逐样本预算、统一排空截止时间、P99 语义、真实 Broker 水位、逐样本 statistics、ClientId、指纹与输出并发问题均已修复并建立回归测试；Unit 当前为 1406 项。
+- 两轮独立代码复审发现的 QueueFull、逐样本预算、统一排空截止时间、P99 语义、真实 Broker 水位、逐样本 statistics、ClientId、指纹与输出并发问题均已修复并建立回归测试。
 - Task 6 的命令入口、真实 Kafka 测试代码与测试矩阵已完成；当前机器的 Docker Engine 不可用，真实 Kafka 缩小集成测试未取得可用运行证据。
 - Task 8 的 affected inner/slice/merge 选择计划已验证；对应容器测试均在基础设施初始化阶段被 Docker 不可用阻断，未表述为通过。
 - 专用生产等价 Kafka 的低速延迟、饱和吞吐、Soak、N+1 与恢复演练尚未执行，因此状态继续保持 `Capacity-not-verified`。
+- 2026-08-13 已补齐 Scope B/C 预留控制面：本阶段只接通 `--scope`、Driver Factory/Registry、动态指纹/checkpoint/manifest、统计源与跨 Scope 临时客户端标识隔离，不实现 Worker、Inbox、数据库或 CDC；验证证据见 Task 9。
 
 ---
 
@@ -661,3 +662,65 @@ git commit -m "fix(benchmarks): close Kafka capacity review findings"
 ```
 
 最终 `git status --short` 必须为空。交付明确说明 Runner 已实现但未执行专用环境容量认证，保持 `Capacity-not-verified`。
+
+---
+
+### Task 9: 接通 Scope Driver 注册与选择控制面
+
+**Files:**
+- Modify: `benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityOptions.cs`
+- Modify: `benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityScenario.cs`
+- Create: `benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityDriverRegistry.cs`
+- Modify: `benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityRunner.cs`
+- Modify: `benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityReportWriter.cs`
+- Modify: `benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityBudget.cs`
+- Test: `tests/Full.NET.UnitTests/Messaging/KafkaCapacityOptionsTests.cs`
+- Test: `tests/Full.NET.UnitTests/Messaging/KafkaCapacitySchedulerTests.cs`
+- Test: `tests/Full.NET.UnitTests/Messaging/KafkaCapacityReportTests.cs`
+
+**Interfaces:**
+- Consumes: `IKafkaCapacityScenarioDriver`、`IKafkaCapacityStatisticsSource`、`KafkaCapacityConfiguration`。
+- Produces: `KafkaCapacityOptions.ScopeCode`、`IKafkaCapacityScenarioDriverFactory`、`KafkaCapacityDriverRuntime`、`KafkaCapacityDriverRegistry.GetRequired(string)`。
+
+- [x] **Step 1: 写 Scope 参数与动态样本 RED 测试**
+
+验证默认 `kafka_transport`，显式稳定 ScopeCode 进入全部样本，空值、大写、非法字符和超长值失败。
+
+- [x] **Step 2: 写 Registry 与动态 manifest RED 测试**
+
+验证未知 Scope、重复 Factory、Factory 返回错 Scope 失败关闭；manifest 精确保存选中 ScopeCode。
+
+- [x] **Step 3: 运行 RED**
+
+Run: `dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter FullyQualifiedName~KafkaCapacity`
+
+Expected: FAIL，原因是 Scope 参数、Registry 和动态报告尚不存在。
+
+Result: 首次编译因 Factory/Runtime/Registry 尚不存在失败；身份隔离回归先分别以未来 Scope 仍使用 `.transport`、长标识截断丢失角色后缀失败，随后进入最小实现。
+
+- [x] **Step 4: 实现最小 Driver Factory/Registry 控制面**
+
+内置 Factory 只创建 `KafkaTransportScenarioDriver`；Registry 在任何配置 Secret 加载和 Kafka I/O 前解析范围。Factory 接收统一 Runner 配置，选中 ScopeCode 进入样本、预算、scenario fingerprint、checkpoint、resume、临时客户端标识与 manifest；Scope A 保持原 `.transport` 标识兼容，未来 Scope 使用独立机器码命名空间；统计从 `KafkaCapacityDriverRuntime.StatisticsSource` 统一提取。
+
+- [x] **Step 5: 运行 GREEN、Release build 与治理门禁**
+
+Run:
+
+```powershell
+dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter FullyQualifiedName~KafkaCapacity
+dotnet build Full.NET.slnx -c Release --no-restore
+pnpm test:dotnet:architecture
+pnpm test:naming
+pnpm test:governance
+pnpm test:performance-governance
+```
+
+Expected: 全部 PASS，Build 0 warning、0 error。
+
+Result: Kafka Capacity 聚焦测试 69/69、完整 Unit 1416/1416；Release solution build 0 warning/0 error；Architecture、Naming 24/24、Governance 27/27、Performance Governance 9/9 全部通过。`kafka-capacity --help` 返回 0；未注册 `worker_inbox_handler` 即使携带不存在的 settings 路径也先返回退出码 2，证明在文件/Secret 加载前失败关闭。任务快照的 affected inner/slice/merge 均只命中 Integration 工具链，39/39 契约与 581 项分片完整性校验通过，Integration Release build 0 warning/0 error。Docker Engine 仍不可用，未新增真实 Kafka 运行证据，容量状态保持 `Capacity-not-verified`。
+
+- [x] **Step 6: 更新运维说明、复审并提交**
+
+文档明确默认只注册 Scope A，B/C 仍未实现；未知 Scope 在读取连接配置和连接 Kafka 前返回稳定配置错误。最终运行任务快照 affected 计划、`git diff --check` 和独立复审。
+
+Result: 独立复审先发现长标识朴素截断会造成样本 ClientId/GroupId 碰撞，以及 Runtime Scope 校验晚于 Kafka I/O；两项均按 RED→GREEN 修复。截断现在保留 Scope/角色后缀和完整原值摘要，Runtime 在任何 AdminClient/Kafka I/O 前构建并校验。复审最终结论 `Assessment: Ready`；Scope A `Scope=KafkaTransport` 兼容契约有独立回归测试。提交后工作区状态另行复核。

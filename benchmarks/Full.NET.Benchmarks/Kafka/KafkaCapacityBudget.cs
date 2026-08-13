@@ -354,11 +354,18 @@ public sealed class KafkaCapacityBudgetEntry
             MaximumManagedHeapBytes,
             MaximumLocalQueueMessages,
         };
-        if (!string.Equals(
-                ScopeCode,
-                KafkaCapacityScopeCodes.KafkaTransport,
-                StringComparison.Ordinal)
-            || !Enum.IsDefined(Scenario)
+        try
+        {
+            KafkaCapacityScopeCodes.Validate(ScopeCode);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidDataException(
+                "Kafka capacity budget scope is invalid.",
+                exception);
+        }
+
+        if (!Enum.IsDefined(Scenario)
             || TargetMessagesPerSecond <= 0
             || PayloadSizeBytes < KafkaCapacityEnvelopeCodec.MinimumPayloadSizeBytes
             || Partitions <= 0

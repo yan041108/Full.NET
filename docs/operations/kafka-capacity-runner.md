@@ -4,7 +4,9 @@
 
 `kafka-capacity` 是独立的 Scope A 传输容量工具，只测量 Full.NET 生产 Kafka 配置构建器生成的 Producer、临时 Topic 和临时 Consumer Group。它不启动 CDC、Outbox、Inbox、业务 Handler、Retry/DLQ 或正式 Worker，因此结果不能代表完整业务事件链路，也不能解除 ADR-0006 的影子运行与切流门禁。
 
-当前能力状态固定为 `Capacity-not-verified`。只有在专用生产等价 Kafka 上完成低速延迟、饱和吞吐、故障、Soak、N+1 和恢复演练，并归档可复核证据后，才能另行评审生产容量状态。后续 Scope B（Worker＋Inbox＋Handler）与 Scope C（业务事务＋Outbox＋CDC＋Kafka＋Inbox）必须新增 `IKafkaCapacityScenarioDriver`，复用现有配置保护、Topic 所有权、调度、正确性、预算、checkpoint 和报告边界。
+当前能力状态固定为 `Capacity-not-verified`。只有在专用生产等价 Kafka 上完成低速延迟、饱和吞吐、故障、Soak、N+1 和恢复演练，并归档可复核证据后，才能另行评审生产容量状态。后续 Scope B（Worker＋Inbox＋Handler）与 Scope C（业务事务＋Outbox＋CDC＋Kafka＋Inbox）必须新增 `IKafkaCapacityScenarioDriverFactory` 和 `IKafkaCapacityScenarioDriver`，复用现有配置保护、Topic 所有权、调度、正确性、预算、checkpoint 和报告边界。
+
+CLI 通过 `--scope <code>` 选择 Driver。当前默认注册表只提供 `kafka_transport`；未注册的 Scope 会在设置文件、Secret 和 Kafka 连接加载前以退出码 `2` 失败关闭。ScopeCode 会进入预算键、续跑指纹、checkpoint、报告和临时客户端标识；不同 Scope 的证据不得混用或续跑。
 
 ## 2. 安全配置
 
@@ -63,6 +65,7 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 
 dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
   -c Release -- kafka-capacity `
+  --scope 'kafka_transport' `
   --settings '<protected-settings.json>' `
   --scenarios 'low-rate,throughput' `
   --low-rates '10' `
@@ -151,7 +154,7 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 输出目录包含：
 
 - `checkpoint.json`：原子续跑状态与完整样本；
-- `manifest.json`：脱敏运行清单，状态固定为 `Capacity-not-verified`；
+- `manifest.json`：脱敏运行清单，保存兼容显示名 `Scope`、稳定机器码 `ScopeCode`，状态固定为 `Capacity-not-verified`；
 - `samples.ndjson`：正确性、调度/入队/Ack/消费/排空速率、基于各分区 Broker 高水位与 Consumer Position 的真实 Offset 积压、未消费年龄上界、延迟和资源峰值；
 - `latency-histograms.json`：调度、Broker Ack 和端到端延迟分位数；
 - `librdkafka-statistics.ndjson`：按 SampleId 和阶段分别保留有界快照，只含队列、字节、请求延迟、Broker 状态及错误计数白名单；每个样本的队列峰值只聚合 measurement/drain，截断数量由样本证据显式记录；
