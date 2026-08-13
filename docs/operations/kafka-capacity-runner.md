@@ -57,6 +57,31 @@ Runner 复用 `KafkaMessagingOptions.BuildClientConfig/BuildProducerConfig/Build
 
 ## 3. 执行流程
 
+### 3.1 手动认证工作流
+
+仓库提供 `.github/workflows/kafka-capacity.yml`，它只允许 `workflow_dispatch`，不会随 push、PR 或定时任务自动产生负载；Job 只接受 `main` 分支，并以专用集群为全局并发键串行执行。Job 固定绑定受保护的 GitHub Environment `kafka-capacity` 和 `[self-hosted, linux, x64, kafka-capacity]` Runner 标签；首次运行前必须为 Environment 配置并核验 required reviewers 与只允许 `main` 的 deployment branch policy。Linux Runner 必须位于获准访问专用 Kafka 的隔离网络，禁止把标签挂到普通共享 Runner。
+
+Environment 需要配置以下 Secret：
+
+- `KAFKA_CAPACITY_EXPECTED_CLUSTER_ID`
+- `KAFKA_CAPACITY_BOOTSTRAP_SERVERS`
+- `KAFKA_CAPACITY_SASL_USERNAME`、`KAFKA_CAPACITY_SASL_PASSWORD`（使用 SASL 时）
+- `KAFKA_CAPACITY_SMOKE_BUDGET_JSON`（可选；必须精确覆盖 smoke 计划）
+- `KAFKA_CAPACITY_MATRIX_BUDGET_JSON`（可选；必须精确覆盖 matrix 计划）
+
+两份 Budget 独立配置，禁止用 matrix Budget 运行 smoke 或反向复用。选中 Profile 的 Budget 原文只写入 Runner 临时目录；工作流在写入前清理同名残留，并通过退出 Trap 与 `always()` 清理步骤双重删除。
+
+非敏感 GitHub Environment Variables：
+
+- `KAFKA_CAPACITY_SECURITY_PROTOCOL`
+- `KAFKA_CAPACITY_SASL_MECHANISM`（使用 SASL 时）
+
+触发时必须填写 `approval_id` 与 `reason`，并选择 `smoke` 或 `matrix`。`smoke` 是默认的两档缩小链路检查，只证明执行链与正确性门禁可运行；`matrix` 包含 60 个有界低速/吞吐样本，正式测量时长合计 60 分钟，计入每样本预热与最坏排空后理论上界约 190 分钟，工作流硬超时为 240 分钟。它仍不包含 Soak、N+1 或故障恢复。两种 Profile 都固定使用 `kafka_transport`、`--delete-topic false` 和唯一输出目录；工作流及 Runner 报告继续标记 `Capacity-not-verified`。每次运行只上传当前 `run_id/run_attempt` 的报告、Checkpoint 和工作流元数据并保留 30 天，正式评审前应转存到受控证据库。
+
+若缺少受保护变量、Secret、审批、专用 Runner 或 ClusterId 不匹配，工作流应失败关闭；禁止通过修改工作流默认值、使用普通 Runner 或删除 ClusterId 门禁来迁就环境。容量 Budget 仍是可选的性能判定门禁；没有 Budget 的 `matrix` 只能形成观测证据，不能形成性能预算通过结论。
+
+### 3.2 本地或专用主机命令
+
 先查看参数并做不连接 Broker 的计划验证：
 
 ```powershell

@@ -724,3 +724,32 @@ Result: Kafka Capacity 聚焦测试 69/69、完整 Unit 1416/1416；Release solu
 文档明确默认只注册 Scope A，B/C 仍未实现；未知 Scope 在读取连接配置和连接 Kafka 前返回稳定配置错误。最终运行任务快照 affected 计划、`git diff --check` 和独立复审。
 
 Result: 独立复审先发现长标识朴素截断会造成样本 ClientId/GroupId 碰撞，以及 Runtime Scope 校验晚于 Kafka I/O；两项均按 RED→GREEN 修复。截断现在保留 Scope/角色后缀和完整原值摘要，Runtime 在任何 AdminClient/Kafka I/O 前构建并校验。复审最终结论 `Assessment: Ready`；Scope A `Scope=KafkaTransport` 兼容契约有独立回归测试。提交后工作区状态另行复核。
+
+---
+
+### Task 10: 提供手动专用 Kafka 认证工作流
+
+**Files:**
+- Create: `.github/workflows/kafka-capacity.yml`
+- Create: `tests/performance/kafka-capacity-workflow-contract.test.mjs`
+- Modify: `docs/operations/kafka-capacity-runner.md`
+- Modify: `docs/roadmap/capability-status.md`
+- Modify: `docs/superpowers/plans/2026-08-10-wolverine-reference-kafka-hardening.md`
+
+**Boundary:** 只编排已经交付的 `kafka_transport` Runner，不新增 Scope B/C，不自动连接任何集群，不把工作流存在误报为容量认证完成。
+
+- [x] **Step 1: 写手动触发、安全配置和工件 RED 契约**
+
+验证工作流只允许 `workflow_dispatch`，绑定受保护 Environment 与专用 self-hosted Runner，Secret 不进入命令行，Profile 有界，Topic 默认保留，工件总是上传且固定 `Capacity-not-verified`。
+
+Result: 首次运行 4/4 因 `.github/workflows/kafka-capacity.yml` 不存在而失败。
+
+- [x] **Step 2: 实现 smoke/matrix 手动入口**
+
+默认 `smoke` 运行两档缩小链路检查；显式 `matrix` 运行 60 个有界样本，测量时长合计 60 分钟，含预热和最坏排空的理论上界约 190 分钟，Job 硬超时为 240 分钟。审批编号和原因使用引用安全的环境变量传递；连接、ClusterId 与 SASL Secret 由 `kafka-capacity` Environment 注入；Smoke/Matrix 使用独立可选 Budget，写入临时文件前先清理残留，并由退出 Trap 与 `always()` 步骤删除。官方 Actions 固定到不可变提交，Topic 不自动删除，只上传当前运行证据并保留 30 天。
+
+- [x] **Step 3: 验证、复审并提交**
+
+运行聚焦契约、Performance Governance、Governance、affected inner/slice/merge、`git diff --check`；工作流不得在本任务实际触发。独立复审关闭 Critical/Important 后提交。
+
+Result: 工作流契约 4/4、Performance Governance 13/13、Governance 27/27 通过；任务快照的 affected inner/slice/merge 均判定不影响 Integration。契约精确锁定 manual/main-only、安全 Environment 与专用 Runner、不可变 Action SHA、Secret 步骤隔离、Smoke/Matrix 全部参数、2/60 样本、约 11.6m Matrix 计划消息、190 分钟理论最坏执行时间与 240 分钟 Job 超时。独立终审结论 `Assessment: Ready`，Critical/Important/Minor 均为 0；本任务未触发工作流，未新增真实 Kafka 或容量认证证据，状态保持 `Capacity-not-verified`。

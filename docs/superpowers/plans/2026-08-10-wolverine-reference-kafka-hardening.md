@@ -194,6 +194,8 @@ Result: 生产配置构建器的单元门禁已通过；独立 `kafka-capacity` 
 
 按 [`docs/operations/kafka-capacity-runner.md`](../../operations/kafka-capacity-runner.md) 手工执行并归档低速流 p50/p95/p99、高吞吐 msg/s、正确性、资源、故障与恢复证据。禁止只看批量吞吐；完成前继续 `Capacity-not-verified`。
 
+2026-08-13 更新：已增加只允许手动触发、绑定受保护 `kafka-capacity` Environment 与专用 self-hosted Runner 的 Scope A smoke/matrix 工作流。该入口尚未实际运行，且 matrix 不替代 Soak、N+1、故障和恢复演练，因此本 Step 继续保持未完成。
+
 ### Task 4: 高低水位背压与可配置 Offset Commit
 
 **Files:**
