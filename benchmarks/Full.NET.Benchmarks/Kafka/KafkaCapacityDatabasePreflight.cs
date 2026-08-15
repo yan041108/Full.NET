@@ -10,7 +10,8 @@ namespace Full.NET.Benchmarks.Kafka;
 /// 在 Kafka 建 Topic 前验证专用数据库身份、Inbox schema 与 CDC Kafka 所有权。
 /// </summary>
 public sealed class KafkaCapacityDatabasePreflight(
-    KafkaCapacityDatabaseConfiguration configuration)
+    KafkaCapacityDatabaseConfiguration configuration,
+    bool requireOutboxTable = false)
     : IKafkaCapacityDriverPreflight
 {
     public async Task ValidateAsync(CancellationToken cancellationToken)
@@ -41,13 +42,25 @@ public sealed class KafkaCapacityDatabasePreflight(
                 throw Rejected("database_identity_mismatch");
             }
 
+            var requiredTables = requireOutboxTable
+                ? new[]
+                {
+                    "fn_messaging_inbox_message",
+                    "fn_messaging_stream_ownership",
+                    "fn_messaging_outbox_event",
+                }
+                : new[]
+                {
+                    "fn_messaging_inbox_message",
+                    "fn_messaging_stream_ownership",
+                };
             var schemaCount = await ScalarAsync<long>(
                 connection,
                 configuration.Provider == DatabaseProvider.SqlServer
-                    ? "SELECT COUNT_BIG(*) FROM sys.tables WHERE name IN (N'fn_messaging_inbox_message', N'fn_messaging_stream_ownership');"
-                    : "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('fn_messaging_inbox_message', 'fn_messaging_stream_ownership');",
+                    ? BuildSqlServerTableCountSql(requiredTables)
+                    : BuildMySqlTableCountSql(requiredTables),
                 cancellationToken).ConfigureAwait(false);
-            if (schemaCount != 2)
+            if (schemaCount != requiredTables.Length)
             {
                 throw Rejected("database_schema_missing");
             }
@@ -75,8 +88,24 @@ public sealed class KafkaCapacityDatabasePreflight(
         {
             throw new KafkaCapacityControlPlaneException(
                 "database_preflight_failed",
-                $"Scope B database preflight failed without exposing connection details ({exception.GetType().Name}).");
+                $"Kafka capacity database preflight failed without exposing connection details ({exception.GetType().Name}).");
         }
+    }
+
+    private static string BuildSqlServerTableCountSql(IReadOnlyList<string> tableNames)
+    {
+        var names = string.Join(
+            ", ",
+            tableNames.Select(static name => $"N'{name}'"));
+        return $"SELECT COUNT_BIG(*) FROM sys.tables WHERE name IN ({names});";
+    }
+
+    private static string BuildMySqlTableCountSql(IReadOnlyList<string> tableNames)
+    {
+        var names = string.Join(
+            ", ",
+            tableNames.Select(static name => $"'{name}'"));
+        return $"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ({names});";
     }
 
     private DbConnection CreateConnection() => configuration.Provider switch
@@ -114,5 +143,5 @@ public sealed class KafkaCapacityDatabasePreflight(
     }
 
     private static KafkaCapacityControlPlaneException Rejected(string reasonCode) =>
-        new(reasonCode, "Scope B database preflight rejected the target environment.");
+        new(reasonCode, "Kafka capacity database preflight rejected the target environment.");
 }

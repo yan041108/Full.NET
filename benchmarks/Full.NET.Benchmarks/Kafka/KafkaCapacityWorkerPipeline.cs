@@ -122,7 +122,10 @@ public sealed class KafkaCapacityWorkerSubscription(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!observer.OnHandled(payload.Span))
+        if (!KafkaCapacityEnvelopePayloadDecoder.TryUnwrapEnvelopeBytes(
+                payload.Span,
+                out var envelopeBytes)
+            || !observer.OnHandled(envelopeBytes))
         {
             throw new InvalidDataException(
                 "Scope B handler rejected an invalid capacity payload.");

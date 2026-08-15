@@ -25,6 +25,11 @@ public static class KafkaCapacityScopeCodes
     public const string WorkerInboxHandler = "worker_inbox_handler";
 
     /// <summary>
+    /// 表示业务事务、Outbox、CDC、Kafka 与 Inbox 的全链路容量范围。
+    /// </summary>
+    public const string TransactionOutboxCdc = "transaction_outbox_cdc";
+
+    /// <summary>
     /// 限制进入预算、工件和客户端标识的范围码长度。
     /// </summary>
     public const int MaximumLength = 64;

@@ -86,6 +86,14 @@ public sealed record KafkaCapacityPerformanceEvidence(
     long LibrdkafkaStatisticsDroppedSnapshots = 0);
 
 /// <summary>
+/// Scope C 专用扩展证据；仅 transaction_outbox_cdc 样本写入报告。
+/// </summary>
+public sealed record KafkaCapacityOutboxCdcExtensionEvidence(
+    long CdcPublished,
+    KafkaCapacityLatencySnapshot OutboxCommitLatency,
+    KafkaCapacityLatencySnapshot CdcToKafkaLatency);
+
+/// <summary>
 /// 表示可写入报告的单样本安全证据。
 /// </summary>
 public sealed record KafkaCapacitySampleEvidence(
@@ -100,7 +108,8 @@ public sealed record KafkaCapacitySampleEvidence(
     KafkaCapacityIntegrityEvidence Integrity,
     KafkaCapacityPerformanceEvidence Performance,
     IReadOnlyList<string> FailureCodes,
-    bool? PerformanceBudgetPassed = null);
+    bool? PerformanceBudgetPassed = null,
+    KafkaCapacityOutboxCdcExtensionEvidence? OutboxCdc = null);
 
 /// <summary>
 /// 表示 Kafka 集群的最小身份元数据。

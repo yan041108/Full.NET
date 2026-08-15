@@ -276,13 +276,23 @@ public sealed class KafkaCapacityRunner
             configuration.Kafka,
             budget?.Fingerprint);
         var topicManager = new KafkaCapacityTopicManager(adminAdapter);
-        var topic = await topicManager.EnsureTopicAsync(
-            runId,
-            clusterIdHash,
-            options.Partitions,
-            options.ReplicationFactor,
-            existingCheckpoint?.TopicIdentity,
-            cancellationToken);
+        var topic = KafkaCapacityDriverRegistry.UsesRunnerOwnedTopic(options.ScopeCode)
+            ? await topicManager.EnsureTopicAsync(
+                runId,
+                clusterIdHash,
+                options.Partitions,
+                options.ReplicationFactor,
+                existingCheckpoint?.TopicIdentity,
+                cancellationToken)
+            : await KafkaCapacityRunTopicResolver.EnsureTopicAsync(
+                adminAdapter,
+                clusterIdHash,
+                KafkaCapacityConnectorTemplateFactory.ResolveCdcTopicName(
+                    KafkaCapacityWorkerContracts.EventType),
+                options.Partitions,
+                options.ReplicationFactor,
+                existingCheckpoint?.TopicIdentity,
+                cancellationToken);
         var checkpoint = existingCheckpoint
             ?? KafkaCapacityCheckpoint.Create(
                 buildFingerprint,
@@ -385,14 +395,17 @@ public sealed class KafkaCapacityRunner
                 evidence,
                 driverRuntime.StatisticsSource?.SnapshotStatistics() ?? []),
             CancellationToken.None);
-        await topicManager.DeleteOwnedTopicAsync(
-            topic,
-            ShouldDeleteTopic(
-                options.DeleteTopic,
-                samples,
-                evidence,
-                runCancelled),
-            CancellationToken.None);
+        if (KafkaCapacityDriverRegistry.UsesRunnerOwnedTopic(options.ScopeCode))
+        {
+            await topicManager.DeleteOwnedTopicAsync(
+                topic,
+                ShouldDeleteTopic(
+                    options.DeleteTopic,
+                    samples,
+                    evidence,
+                    runCancelled),
+                CancellationToken.None);
+        }
 
         if (runCancelled)
         {

@@ -2,11 +2,11 @@
 
 ## 1. 适用边界
 
-`kafka-capacity` 提供两个已实现的独立容量范围：Scope A `kafka_transport` 测量 Producer、临时 Topic 与 Consumer 传输；Scope B `worker_inbox_handler` 测量真实 `Kafka → 生产分区调度/连续 Offset 水位 → Dapper Inbox 事务 → Dispatcher → Handler`。Scope B 不包含业务写事务、Outbox 或 CDC，因此仍不能代表 Scope C 全链路，也不能解除 ADR-0006 的影子运行与切流门禁。
+`kafka-capacity` 提供三个已实现的独立容量范围：Scope A `kafka_transport` 测量 Producer、临时 Topic 与 Consumer 传输；Scope B `worker_inbox_handler` 测量真实 `Kafka → 生产分区调度/连续 Offset 水位 → Dapper Inbox 事务 → Dispatcher → Handler`；Scope C `transaction_outbox_cdc` 测量 `开环调度 → 业务事务 Outbox → Debezium CDC → Kafka → 生产 Inbox/Handler` 全链路。Scope B 不包含业务写事务、Outbox 或 CDC；Scope C 通过外部 Connect REST 注册容量专用 Connector，Debezium Topic 前缀为 `fullnet.capacity.cdc.*`，Runner 默认不删除这些 Topic。三者均不能解除 ADR-0006 的影子运行与切流门禁。
 
-当前能力状态固定为 `Capacity-not-verified`。Scope B 已通过 SQL Server/MySQL 与真实 Kafka 的缩减集成测试，但尚未在专用生产等价环境执行正式矩阵。后续 Scope C（业务事务＋Outbox＋CDC＋Kafka＋Inbox）继续通过 `IKafkaCapacityScenarioDriverFactory` 和 `IKafkaCapacityScenarioDriver` 扩展，并复用现有配置保护、Topic 所有权、调度、正确性、预算、checkpoint 和报告边界。
+当前能力状态固定为 `Capacity-not-verified`。Scope B 与 Scope C 均已通过 MySQL + 真实 Kafka/Connect 的缩减集成测试；Scope C 的 SQL Server 路径在 Testcontainers CDC Agent 不可用时按设计 `Inconclusive`。尚未在专用生产等价环境执行正式矩阵或 Soak。
 
-CLI 通过 `--scope <code>` 选择 Driver。默认注册表提供 `kafka_transport` 与 `worker_inbox_handler`；未知 Scope 会在设置文件、Secret 和 Kafka 连接加载前以退出码 `2` 失败关闭。ScopeCode 会进入预算键、续跑指纹、checkpoint、报告和临时客户端标识；不同 Scope 的证据不得混用或续跑。
+CLI 通过 `--scope <code>` 选择 Driver。默认注册表提供 `kafka_transport`、`worker_inbox_handler` 与 `transaction_outbox_cdc`；未知 Scope 会在设置文件、Secret 和 Kafka 连接加载前以退出码 `2` 失败关闭。ScopeCode 会进入预算键、续跑指纹、checkpoint、报告和临时客户端标识；不同 Scope 的证据不得混用或续跑。
 
 ## 2. 安全配置
 
@@ -55,7 +55,9 @@ $env:KafkaCapacity__ExecutionEnabled = 'true'
 
 Runner 复用 `KafkaMessagingOptions.BuildClientConfig/BuildProducerConfig/BuildConsumerConfig` 的 TLS、SASL、幂等和队列设置。持久报告只保存连接地址、用户名、RunId、Topic 和审批号的 SHA-256 摘要；`checkpoint.json` 保存续跑必需的 RunId、Topic 身份和完整样本，不包含 Broker 凭据。工件目录仍应按敏感运维证据限制访问。
 
-Scope B 还必须提供 `KafkaCapacity:Database`，或使用同名环境变量注入：`Provider`、`ConnectionString`、`ExpectedDatabaseName`、`CommandTimeoutSeconds` 与 MySQL 的 `MySqlGuidStorageMode=Binary16`。数据库必须预先完成正式迁移，并为 `fullnet.capacity.worker.message` schema 1 准备 `CurrentOwner=CdcKafka` 的所有权记录。Runner 不迁移、不建库、不自动修改所有权；它在任何 Kafka Admin/建 Topic 操作前精确验证数据库名、Inbox/所有权表和当前 Owner。连接字符串不会进入配置摘要、checkpoint 或报告。
+Scope B 与 Scope C 还必须提供 `KafkaCapacity:Database`，或使用同名环境变量注入：`Provider`、`ConnectionString`、`ExpectedDatabaseName`、`CommandTimeoutSeconds` 与 MySQL 的 `MySqlGuidStorageMode=Binary16`。数据库必须预先完成正式迁移，并为 `fullnet.capacity.worker.message` schema 1 准备 `CurrentOwner=CdcKafka` 的所有权记录；Scope C 额外要求 `fn_messaging_outbox_event` 已存在且 Binlog/CDC 前提满足。Runner 不迁移、不建库、不自动修改所有权；它在任何 Kafka Admin/建 Topic 操作前精确验证数据库名、Inbox/Outbox/所有权表和当前 Owner。连接字符串不会进入配置摘要、checkpoint 或报告。
+
+Scope C 还必须提供 `KafkaCapacity:Connect:BaseUri`（Connect REST 根地址），可选 `ConnectorNamePrefix`（默认 `fullnet-capacity`）、`RequestTimeoutSeconds`、`HealthTimeoutSeconds`、`DatabaseHostGateway`、`InternalKafkaBootstrapServers` 与 MySQL Connector 凭据覆盖。Runner **不**自启 Connect 容器；预检仅做 REST 健康探测，Connector 注册/删除由 Scope C Driver 生命周期管理。容量 Connector 模板位于 `deploy/messaging/connectors/*-outbox-capacity.json`，Topic 路由为 `fullnet.capacity.cdc.{MessageType}`；manifest/checkpoint 只保存 Connect 端点与 Connector 名的 SHA-256 摘要。Scope C 默认 `--delete-topic false`（Debezium Topic 供复核）；Runner 结束时不删除容量 Connector 以外的正式 Topic。
 
 ## 3. 执行流程
 
@@ -78,7 +80,7 @@ Environment 需要配置以下 Secret：
 - `KAFKA_CAPACITY_SECURITY_PROTOCOL`
 - `KAFKA_CAPACITY_SASL_MECHANISM`（使用 SASL 时）
 
-触发时必须填写 `approval_id` 与 `reason`，并选择 `smoke` 或 `matrix`。`smoke` 是默认的两档缩小链路检查，只证明执行链与正确性门禁可运行；`matrix` 包含 60 个有界低速/吞吐样本，正式测量时长合计 60 分钟，计入每样本预热与最坏排空后理论上界约 190 分钟，工作流硬超时为 240 分钟。它仍不包含 Soak、N+1 或故障恢复。两种 Profile 都固定使用 `kafka_transport`、`--delete-topic false` 和唯一输出目录；现有 GitHub 工作流保持 Scope A-only。Scope B 同时需要专用 Kafka 与预迁移、隔离的双提供程序数据库，在建立按 Provider 隔离的 Environment、Secret 和清理策略前必须由受控主机手工执行。工作流及 Runner 报告继续标记 `Capacity-not-verified`。每次运行只上传当前 `run_id/run_attempt` 的报告、Checkpoint 和工作流元数据并保留 30 天，正式评审前应转存到受控证据库。
+触发时必须填写 `approval_id` 与 `reason`，并选择 `smoke` 或 `matrix`。`smoke` 是默认的两档缩小链路检查，只证明执行链与正确性门禁可运行；`matrix` 包含 60 个有界低速/吞吐样本，正式测量时长合计 60 分钟，计入每样本预热与最坏排空后理论上界约 190 分钟，工作流硬超时为 240 分钟。它仍不包含 Soak、N+1 或故障恢复。两种 Profile 都固定使用 `kafka_transport`、`--delete-topic false` 和唯一输出目录；现有 GitHub 工作流保持 Scope A-only。Scope B/C 同时需要专用 Kafka、Connect（Scope C）与预迁移、隔离的双提供程序数据库，在建立按 Provider 隔离的 Environment、Secret 和清理策略前必须由受控主机手工执行。Scope C 缩减 smoke 建议更长 `--drain-seconds`（默认集成测试 45s）以覆盖 CDC 延迟。工作流及 Runner 报告继续标记 `Capacity-not-verified`。每次运行只上传当前 `run_id/run_attempt` 的报告、Checkpoint 和工作流元数据并保留 30 天，正式评审前应转存到受控证据库。
 
 若缺少受保护变量、Secret、审批、专用 Runner 或 ClusterId 不匹配，工作流应失败关闭；禁止通过修改工作流默认值、使用普通 Runner 或删除 ClusterId 门禁来迁就环境。容量 Budget 仍是可选的性能判定门禁；没有 Budget 的 `matrix` 只能形成观测证据，不能形成性能预算通过结论。
 
@@ -125,11 +127,35 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
   --max-messages-per-sample 1000
 ```
 
-正式手工认证必须使用已批准的矩阵、持续时间、副本因子和预算文件，并保留默认 `--delete-topic false` 供复核。Runner 为每次运行创建 `fullnet.capacity.<run-id>.v1`，每个样本使用独立临时 Group；Consumer 在 Producer 启动前查询全部计划分区的具体高水位并以该 Offset 显式分配，只有分配完成后才允许发送首条消息。Runner 不提交 Offset，也不修改任何正式或旁路 Group 水位。Admin、Producer 和 Consumer 都使用按 Run/Sample/角色隔离且有长度上限的 ClientId。
+正式手工认证必须使用已批准的矩阵、持续时间、副本因子和预算文件，并保留默认 `--delete-topic false` 供复核。Scope A/B 为每次运行创建 `fullnet.capacity.<run-id>.v1`；Scope C 解析/预创建 Debezium 路由 Topic `fullnet.capacity.cdc.fullnet.capacity.worker.message`（按 MessageType 替换末段）。每个样本使用独立临时 Group；Consumer 在 Producer/Outbox 启动前查询全部计划分区的具体高水位并以该 Offset 显式分配，只有分配完成后才允许发送首条消息。Runner 不提交 Offset，也不修改任何正式或旁路 Group 水位。Admin、Producer 和 Consumer 都使用按 Run/Sample/角色隔离且有长度上限的 ClientId。
+
+Scope C 缩小 smoke 示例（Connect + 预迁移 MySQL 容量库；凭据从 Secret 注入）：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
+  -c Release -- kafka-capacity `
+  --scope 'transaction_outbox_cdc' `
+  --settings '<protected-settings.json>' `
+  --execute true `
+  --approval-id '<change-or-ticket-id>' `
+  --reason 'approved scope c smoke' `
+  --run-id 'scope-c-smoke-<utc-id>' `
+  --output '<protected-artifact-directory>' `
+  --scenarios 'low-rate' `
+  --low-rates '20' `
+  --payload-sizes '128' `
+  --producer-concurrency '2' `
+  --partitions 2 `
+  --replication-factor 1 `
+  --warmup-seconds 0 `
+  --duration-seconds 2 `
+  --drain-seconds 45 `
+  --max-messages-per-sample 100
+```
 
 ## 4. 正确性、预算和背压
 
-以下正确性条件是不可关闭的硬门禁：Ack 与消费数量一致、零丢失、零重复、零损坏、分区内零乱序、零未 Flush、零非法序号且排空完成。发送使用绝对到达时间的有界开放环调度；librdkafka 本地队列满时在同一有界阶段内可取消重试，消息只有被 Producer 接受后才保留入队证据。连续 10 个一秒窗口低于目标 95%、周期快照及最终证据的实际调度 P99 超过预算上限（无预算时为 5 秒）、托管堆峰值超过 2 GiB、延迟直方图溢出或发现正确性错误时，立即停止当前样本并阻止后续升档。停止后 Flush、Broker 水位取证、消费排空和 Consumer Close 共用剩余 `drain-seconds`，关闭阶段不得重新获得完整超时。
+以下正确性条件是不可关闭的硬门禁：Ack 与消费数量一致、零丢失、零重复、零损坏、分区内零乱序、零未 Flush、零非法序号且排空完成。Scope C 额外要求 `Enqueued == Acknowledged == CdcPublished == Consumed`（`samples.ndjson` 的 `outboxCdc.cdcPublished` 扩展字段），Outbox 负载必须使用 Envelope V2 认可的 MessagePack ContentType 进入 CDC Header，否则生产 `KafkaEnvelopeReader` 会在 Inbox 前拒绝消息。发送使用绝对到达时间的有界开放环调度；librdkafka 本地队列满时在同一有界阶段内可取消重试，消息只有被 Producer 接受后才保留入队证据。连续 10 个一秒窗口低于目标 95%、周期快照及最终证据的实际调度 P99 超过预算上限（无预算时为 5 秒）、托管堆峰值超过 2 GiB、延迟直方图溢出或发现正确性错误时，立即停止当前样本并阻止后续升档。停止后 Flush、Broker 水位取证、消费排空和 Consumer Close 共用剩余 `drain-seconds`，关闭阶段不得重新获得完整超时。
 
 性能预算是可选门禁，必须精确绑定环境、ClusterId 摘要、基线提交和完整场景键。示例：
 
@@ -204,6 +230,8 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 - `scheduling_rate_below_95_percent`：说明本机、Producer 队列或 Broker 已连续饱和；降低目标只用于定位，不能把较低目标冒充原预算通过。
 - `schedule_latency_limit_exceeded`、`managed_heap_limit_exceeded`、`latency_histogram_overflow`：保护性停止已触发；保留本档证据并先定位资源或调度瓶颈，禁止继续升档。
 - `producer_flush_incomplete`、`delivery_not_persisted`、`consumer_stopped`、`cancelled`：保留 Topic 和工件，恢复依赖后使用同一输出目录续跑。
+- `cdc_drain_timeout`、`scope_c_correctness_failed`：Scope C CDC 或 Handler 未在 `drain-seconds` 内对齐；先延长排空或降低速率，禁止删除 Debezium Topic 后伪造通过。
+- `connect_not_healthy`、`connect_configuration_invalid`：核对 Connect REST、Connector 模板占位符与容量库网络；禁止在预检失败时继续 Kafka 负载。
 - `payload_corrupted`、`consume_tracking_failed`、丢失、重复或乱序：按正确性事故处理，禁止只重跑到绿色后覆盖原始工件。
 - 报告或 checkpoint 写入失败：视为没有形成可信完成证据；修复受保护目录的空间、权限和原子替换条件后再续跑。
 

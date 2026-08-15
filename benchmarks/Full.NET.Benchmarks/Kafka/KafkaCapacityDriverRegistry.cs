@@ -110,13 +110,23 @@ public sealed class KafkaCapacityDriverRegistry
     }
 
     /// <summary>
-    /// 创建包含已交付 Scope A/B Driver 的默认注册表。
+    /// 创建包含已交付 Scope A/B/C Driver 的默认注册表。
     /// </summary>
     public static KafkaCapacityDriverRegistry CreateDefault() =>
         new([
             new KafkaTransportScenarioDriverFactory(),
             new KafkaWorkerScenarioDriverFactory(),
+            new KafkaOutboxCdcScenarioDriverFactory(),
         ]);
+
+    /// <summary>
+    /// 判断 Runner 是否应创建并删除临时 owned Topic。
+    /// </summary>
+    public static bool UsesRunnerOwnedTopic(string scopeCode) =>
+        !string.Equals(
+            scopeCode,
+            KafkaCapacityScopeCodes.TransactionOutboxCdc,
+            StringComparison.Ordinal);
 }
 
 /// <summary>

@@ -1,0 +1,33 @@
+{
+  "name": "fullnet-mysql-outbox-capacity",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "${FULLNET_MYSQL_HOST}",
+    "database.port": "${FULLNET_MYSQL_PORT}",
+    "database.user": "${FULLNET_MYSQL_USER}",
+    "database.password": "${FULLNET_MYSQL_PASSWORD}",
+    "database.server.id": "1840172602",
+    "database.include.list": "${FULLNET_MYSQL_DATABASE}",
+    "table.include.list": "${FULLNET_MYSQL_DATABASE}.fn_messaging_outbox_event",
+    "topic.prefix": "fullnet.capacity.cdc.mysql",
+    "snapshot.mode": "no_data",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "key.converter.schemas.enable": "false",
+    "schema.history.internal.kafka.topic": "fullnet.capacity.internal.schema-history.mysql",
+    "schema.history.internal.kafka.bootstrap.servers": "${FULLNET_KAFKA_BOOTSTRAP_SERVERS}",
+    "schema.history.internal.kafka.topic.replication.factor": "1",
+    "heartbeat.topics.prefix": "fullnet.capacity.internal.heartbeat.mysql",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.field.event.id": "Id",
+    "transforms.outbox.table.field.event.key": "PartitionKey",
+    "transforms.outbox.table.field.event.type": "MessageType",
+    "transforms.outbox.table.field.event.payload": "Payload",
+    "transforms.outbox.table.field.event.timestamp": "OccurredAtUtc",
+    "transforms.outbox.route.by.field": "MessageType",
+    "transforms.outbox.route.topic.replacement": "fullnet.capacity.cdc.${routedByValue}",
+    "transforms.outbox.table.op.valid.values": "c",
+    "transforms.outbox.table.fields.additional.placement": "Id:header:event_id,MessageType:header:message_type,SchemaVersion:header:schema_version,ContentType:header:content_type,TenantId:header:tenant_id,CorrelationId:header:correlation_id,CausationId:header:causation_id,TraceParent:header:trace_parent,Producer:header:producer,OccurredAtUtc:header:occurred_at_utc"
+  }
+}

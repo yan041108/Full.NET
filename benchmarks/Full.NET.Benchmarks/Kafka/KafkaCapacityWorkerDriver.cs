@@ -2,20 +2,10 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using Confluent.Kafka;
-using Full.NET.Abstractions.Tenancy;
-using Full.NET.Abstractions.Time;
-using Full.NET.Abstractions.Ids;
-using Full.NET.Data.Abstractions;
-using Full.NET.Data.Dapper;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka;
-using Full.NET.Modularity.Messaging;
-using Full.NET.Serialization.MessagePack;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Full.NET.Benchmarks.Kafka;
 
@@ -31,63 +21,7 @@ public sealed class KafkaWorkerScenarioDriverFactory
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var observer = new KafkaCapacityWorkerObserver(100_000_000);
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddOptions<KafkaMessagingOptions>()
-            .Configure(options => CopyKafkaOptions(configuration.Kafka, options));
-        services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
-        services.AddFullNetMessagePack();
-        services.AddScoped<CurrentTenantAccessor>();
-        services.AddScoped<ICurrentTenant>(provider =>
-            provider.GetRequiredService<CurrentTenantAccessor>());
-
-        var values = new Dictionary<string, string?>
-        {
-            [$"{DatabaseOptions.SectionName}:Provider"] =
-                configuration.Database.Provider.ToString(),
-            [$"{DatabaseOptions.SectionName}:ConnectionString"] =
-                configuration.Database.ConnectionString,
-            [$"{DatabaseOptions.SectionName}:CommandTimeoutSeconds"] =
-                configuration.Database.CommandTimeoutSeconds.ToString(
-                    System.Globalization.CultureInfo.InvariantCulture),
-            [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] =
-                configuration.Database.MySqlGuidStorageMode.ToString(),
-        };
-        var databaseConfiguration = new ConfigurationBuilder()
-            .AddInMemoryCollection(values)
-            .Build();
-        services.AddFullNetDapper(databaseConfiguration, "Capacity");
-        services.AddFullNetModularity();
-        services.AddSingleton(observer);
-        services.AddScoped<IIntegrationEventSubscription, KafkaCapacityWorkerSubscription>();
-        services.AddScoped(_ => IntegrationEventTopicDefinition.Create(
-            KafkaCapacityWorkerContracts.TopicCode,
-            KafkaCapacityWorkerContracts.EventType,
-            KafkaCapacityWorkerContracts.SchemaVersion,
-            EventDeliveryOwner.CdcKafka));
-        services.RemoveAll<IIntegrationEventSubscriptionCatalog>();
-        services.RemoveAll<IntegrationEventSubscriptionCatalog>();
-        services.AddScoped<IIntegrationEventSubscriptionCatalog>(provider =>
-            new IntegrationEventSubscriptionCatalog(
-                provider.GetServices<IntegrationEventTopicDefinition>(),
-                provider.GetServices<IIntegrationEventSubscription>()));
-        services.AddScoped(provider =>
-            (IntegrationEventSubscriptionCatalog)provider
-                .GetRequiredService<IIntegrationEventSubscriptionCatalog>());
-        services.AddSingleton<KafkaEnvelopeReader>();
-        services.AddSingleton<KafkaOffsetCommitter>();
-        services.AddSingleton<KafkaFailureClassifier>();
-        services.AddSingleton<KafkaMessagingProducer>();
-        services.AddSingleton<KafkaRetryRouter>();
-        services.AddSingleton<KafkaDeadLetterPublisher>();
-        services.AddSingleton<KafkaConsumerMessageProcessor>();
-
-        var provider = services.BuildServiceProvider(new ServiceProviderOptions
-        {
-            ValidateOnBuild = true,
-            ValidateScopes = true,
-        });
+        var provider = KafkaCapacityServiceFactory.BuildWorkerServices(configuration, observer);
         var executor = new KafkaCapacityWorkerExecutor(
             configuration.Kafka,
             provider,
@@ -96,17 +30,6 @@ public sealed class KafkaWorkerScenarioDriverFactory
             new KafkaWorkerScenarioDriver(executor),
             executor,
             new KafkaCapacityDatabasePreflight(configuration.Database));
-    }
-
-    private static void CopyKafkaOptions(
-        KafkaMessagingOptions source,
-        KafkaMessagingOptions destination)
-    {
-        foreach (var property in typeof(KafkaMessagingOptions).GetProperties()
-                     .Where(static property => property.CanRead && property.CanWrite))
-        {
-            property.SetValue(destination, property.GetValue(source));
-        }
     }
 }
 
@@ -176,29 +99,12 @@ public sealed class KafkaCapacityWorkerExecutor(
         var tracker = new KafkaCapacityIntegrityTracker(
             context.MaximumMessages,
             context.TopicIdentity.Partitions);
-        var plan = new WorkerRoutePlan();
-        var processor = serviceProvider.GetRequiredService<KafkaConsumerMessageProcessor>();
-        using var consumer = new ConsumerBuilder<string, byte[]>(
-                BuildConsumerConfig(context))
-            .Build();
-        await using var scheduler = new KafkaPartitionWorkScheduler(
-            (result, token) => processor.ProcessScheduledMessageAsync(plan, result, token),
-            options);
-        var coordinator = new KafkaConsumerPartitionCoordinator(
-            consumer,
-            scheduler,
+        await using var consumerLoop = new KafkaCapacityWorkerConsumerLoop(
             options,
-            KafkaCapacityWorkerContracts.ConsumerName,
-            serviceProvider.GetRequiredService<ILogger<KafkaCapacityWorkerExecutor>>());
-        var assignments = Enumerable.Range(0, context.TopicIdentity.Partitions)
-            .Select(partition => new TopicPartitionOffset(
-                context.TopicIdentity.TopicName,
-                new Partition(partition),
-                QueryHighWatermark(consumer, context.TopicIdentity.TopicName, partition)))
-            .ToArray();
-        consumer.Assign(assignments);
-        coordinator.OnAssigned(assignments.Select(static item => item.TopicPartition));
-
+            BuildConsumerConfig(context),
+            context.TopicIdentity.TopicName,
+            context.TopicIdentity.Partitions,
+            serviceProvider);
         using var producer = new ProducerBuilder<string, byte[]>(
                 BuildProducerConfig(context))
             .Build();
@@ -289,7 +195,7 @@ public sealed class KafkaCapacityWorkerExecutor(
             cancellationToken);
         while (!schedulingTask.IsCompleted)
         {
-            PollAvailable(consumer, coordinator, tracker, context);
+            consumerLoop.PollAvailable(tracker, context);
             await Task.Yield();
         }
 
@@ -302,10 +208,10 @@ public sealed class KafkaCapacityWorkerExecutor(
         var drainStarted = Stopwatch.StartNew();
         while (drainStarted.Elapsed < context.DrainTimeout)
         {
-            PollAvailable(consumer, coordinator, tracker, context);
-            coordinator.ProcessCompletions(DateTimeOffset.UtcNow);
+            consumerLoop.PollAvailable(tracker, context);
+            consumerLoop.ProcessCompletions(DateTimeOffset.UtcNow);
             if (observer.Snapshot().Processed >= tracker.Complete(false).Acknowledged
-                && scheduler.InFlightCount == 0)
+                && consumerLoop.InFlightCount == 0)
             {
                 break;
             }
@@ -313,17 +219,14 @@ public sealed class KafkaCapacityWorkerExecutor(
             await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
 
-        await scheduler.StopAsync(context.DrainTimeout).ConfigureAwait(false);
-        coordinator.ProcessCompletions(DateTimeOffset.UtcNow);
-        coordinator.OnRevoked(consumer.Assignment);
-        consumer.Close();
+        await consumerLoop.StopAsync(context.DrainTimeout, cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
         var after = WorkerResourceSnapshot.Capture();
 
         var handler = observer.Snapshot();
         var baseIntegrity = tracker.Complete(
             handler.Processed == tracker.Complete(false).Acknowledged
-            && scheduler.InFlightCount == 0);
+            && consumerLoop.InFlightCount == 0);
         var integrity = baseIntegrity with
         {
             Consumed = handler.Processed,
@@ -361,7 +264,7 @@ public sealed class KafkaCapacityWorkerExecutor(
                         / Math.Max(1, Environment.ProcessorCount)
                         * 100d,
                 after.ManagedHeapBytes,
-                scheduler.BufferDepth,
+                consumerLoop.BufferDepth,
                 after.AllocatedBytes - before.AllocatedBytes,
                 after.WorkingSetBytes,
                 after.Gen0Collections - before.Gen0Collections,
@@ -396,14 +299,6 @@ public sealed class KafkaCapacityWorkerExecutor(
         return config;
     }
 
-    private Offset QueryHighWatermark(
-        IConsumer<string, byte[]> consumer,
-        string topic,
-        int partition) =>
-        consumer.QueryWatermarkOffsets(
-            new TopicPartition(topic, new Partition(partition)),
-            TimeSpan.FromMilliseconds(options.DeliveryTimeoutMilliseconds)).High;
-
     private static Message<string, byte[]> BuildMessage(
         long sequence,
         int partition,
@@ -425,66 +320,6 @@ public sealed class KafkaCapacityWorkerExecutor(
             Value = value,
             Headers = headers,
         };
-    }
-
-    private static void PollAvailable(
-        IConsumer<string, byte[]> consumer,
-        KafkaConsumerPartitionCoordinator coordinator,
-        KafkaCapacityIntegrityTracker tracker,
-        KafkaCapacitySampleContext context)
-    {
-        coordinator.ProcessCompletions(DateTimeOffset.UtcNow);
-        coordinator.ResumeDuePartitions(DateTimeOffset.UtcNow);
-        var result = consumer.Consume(TimeSpan.Zero);
-        if (result?.Message is null || result.IsPartitionEOF)
-        {
-            return;
-        }
-
-        if (!KafkaCapacityEnvelopeCodec.TryDecode(result.Message.Value, out var envelope))
-        {
-            tracker.OnCorrupted();
-        }
-        else
-        {
-            tracker.OnConsumed(
-                envelope.GlobalSequence,
-                result.Partition.Value,
-                envelope.PartitionSequence,
-                envelope.RunHash == context.RunHash
-                && envelope.SampleHash == context.SampleHash);
-        }
-
-        if (!coordinator.TryDispatch(result))
-        {
-            throw new InvalidOperationException(
-                "Scope B production scheduler rejected a polled Kafka record.");
-        }
-    }
-
-    private sealed class WorkerRoutePlan : IKafkaConsumerRoutePlan
-    {
-        private int revoked;
-
-        public string ConsumerName => KafkaCapacityWorkerContracts.ConsumerName;
-
-        public bool HasOwnershipRevoked => Volatile.Read(ref revoked) != 0;
-
-        public bool ContainsRoute(string eventType, int schemaVersion) =>
-            string.Equals(
-                eventType,
-                KafkaCapacityWorkerContracts.EventType,
-                StringComparison.Ordinal)
-            && schemaVersion == KafkaCapacityWorkerContracts.SchemaVersion;
-
-        public void SetOwnershipRevoked(
-            string eventType,
-            int schemaVersion,
-            bool isRevoked) =>
-            Volatile.Write(ref revoked, isRevoked ? 1 : 0);
-
-        public string ResolveTopicCode(string topic) =>
-            KafkaCapacityWorkerContracts.TopicCode;
     }
 
     private sealed record WorkerResourceSnapshot(

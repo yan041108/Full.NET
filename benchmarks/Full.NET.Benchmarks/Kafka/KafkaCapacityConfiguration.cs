@@ -40,6 +40,11 @@ public sealed class KafkaCapacityConfiguration
     public KafkaCapacityDatabaseConfiguration Database { get; set; } = new();
 
     /// <summary>
+    /// 获取或设置 Scope C 访问外部 Kafka Connect REST 控制面的配置。
+    /// </summary>
+    public KafkaCapacityConnectConfiguration Connect { get; set; } = new();
+
+    /// <summary>
     /// 从可选 JSON 文件加载配置，并以环境变量覆盖已知配置键。
     /// </summary>
     public static KafkaCapacityConfiguration Load(
@@ -70,6 +75,7 @@ public sealed class KafkaCapacityConfiguration
             static (target, value) => target.ExpectedClusterId = value);
         ApplyKafkaEnvironmentOverrides(configuration, environmentReader);
         ApplyDatabaseEnvironmentOverrides(configuration, environmentReader);
+        ApplyConnectEnvironmentOverrides(configuration, environmentReader);
 
         return configuration;
     }
@@ -84,6 +90,7 @@ public sealed class KafkaCapacityConfiguration
         + $"SaslMechanism={Kafka.SaslMechanism}; "
         + $"DatabaseProvider={Database.Provider}; "
         + $"DatabaseIdentityConfigured={!string.IsNullOrWhiteSpace(Database.ExpectedDatabaseName)}; "
+        + $"ConnectConfigured={!string.IsNullOrWhiteSpace(Connect.BaseUri)}; "
         + $"PartitionsConfig=external";
 
     private static KafkaCapacityConfiguration LoadFile(string settingsPath)
@@ -171,6 +178,31 @@ public sealed class KafkaCapacityConfiguration
 
             property.SetValue(
                 configuration.Database,
+                ConvertEnvironmentValue(value, property.PropertyType));
+        }
+    }
+
+    private static void ApplyConnectEnvironmentOverrides(
+        KafkaCapacityConfiguration configuration,
+        Func<string, string?> environmentReader)
+    {
+        foreach (var property in typeof(KafkaCapacityConnectConfiguration).GetProperties(
+                     BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (!property.CanWrite)
+            {
+                continue;
+            }
+
+            var value = environmentReader(
+                $"{EnvironmentPrefix}Connect__{property.Name}");
+            if (value is null)
+            {
+                continue;
+            }
+
+            property.SetValue(
+                configuration.Connect,
                 ConvertEnvironmentValue(value, property.PropertyType));
         }
     }
