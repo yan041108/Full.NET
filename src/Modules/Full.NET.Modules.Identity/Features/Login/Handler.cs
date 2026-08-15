@@ -15,6 +15,14 @@ using Full.NET.Modules.Identity.Authorization;
 
 namespace Full.NET.Modules.Identity.Features.Login;
 
+/// <summary>
+/// Host 作用域用户名密码登录处理器。事务/并发顺序：
+/// 1) 未知账号仍执行一次 PBKDF2 哈希校验（Timing Defense）防用户名枚举；
+/// 2) RecordFailureAsync / RecordSuccessAsync 使用乐观并发 + 最多 32 次重试推进 Version，
+///    冲突后重新读取最新用户快照并重新验证密码，避免并发改密/停用被旧会话绕过；
+/// 3) 成功后写入 RefreshSession、写入 AuthAuditEvent、签发 Access Token；
+/// 4) CSRF Token 与 Refresh Token 同步生成，由 Endpoint 层写 Cookie。
+/// </summary>
 internal sealed class Handler(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

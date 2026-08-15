@@ -101,10 +101,32 @@ public static class OutboxDeadLetterReasons
     public const string LegacyOwnerRevoked = "outbox.legacy_owner_revoked";
 }
 
+/// <summary>
+/// 当 Outbox 状态更新因租约所有权变更而失败时抛出：当前 Worker 持有的 LockId
+/// 已不再是目标消息行的所有者（租约到期被其他 Worker 抢占，或已被标记为终态）。
+/// Relay Worker 捕获该异常后必须放弃当前批次的后续确认，避免重复发布。
+/// </summary>
+/// <remarks>
+/// 典型触发路径：Relay 处理批次过慢 → 租约过期 → 另一个 Worker 的 AcquireAsync
+/// 抢占并更新了 LockId → 当前 Worker 调用 MarkProcessed/MarkFailed 时
+/// WHERE Id = @Id AND LockId = @LockId 条件不匹配 → 影响行数 0 → 抛出本异常。
+/// 该异常是至少一次投递语义的固有组成部分，不代表系统故障，无需告警。
+/// </remarks>
 public sealed class OutboxConcurrencyException(Guid id, Guid lockId)
     : InvalidOperationException(
         $"Outbox message '{id:D}' is no longer owned by lock '{lockId:D}'.");
 
+/// <summary>
+/// 当 Outbox 批次级租约续期失败（整个 LockId 对应的所有行都已不再归属当前 Worker）
+/// 时抛出。与 <see cref="OutboxConcurrencyException"/> 单条失败不同，本异常表示
+/// 整个批次的租约已丢失，Worker 必须立即停止处理当前批次剩余消息。
+/// </summary>
+/// <remarks>
+/// 典型触发路径：数据库分区切换 / 长 GC 停顿导致 RenewLeaseAsync 超时 → 整个批次
+/// 租约过期。捕获本异常后应：1) 停止当前批次中未处理消息的发布；
+/// 2) 记录 WARN 级别日志（单条 INFO，批量 WARN）；3) 等待下一轮 AcquireAsync
+/// 重新领取后再处理，不得强行 MarkProcessed 导致丢失死信判断。
+/// </remarks>
 public sealed class OutboxLeaseLostException(Guid lockId)
     : InvalidOperationException(
         $"Outbox lease '{lockId:D}' is no longer owned.");

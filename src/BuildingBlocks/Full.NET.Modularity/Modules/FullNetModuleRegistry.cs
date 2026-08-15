@@ -49,6 +49,13 @@ public sealed class FullNetModuleRegistry
         }
     }
 
+    /// <summary>
+    /// 基于 DFS 拓扑排序返回按依赖顺序排列的模块列表；先执行依赖的模块先出列。
+    /// </summary>
+    /// <remarks>
+    /// 首次调用时执行完整校验：缺失依赖、循环依赖、注册后名称变更均会抛异常终止装配。
+    /// 相同入度下按稳定键 Ordinal 排序，保证跨进程启动顺序一致。
+    /// </remarks>
     public IReadOnlyList<IFullNetModule> GetOrderedModules()
     {
         var ordered = new List<IFullNetModule>(_modules.Count);

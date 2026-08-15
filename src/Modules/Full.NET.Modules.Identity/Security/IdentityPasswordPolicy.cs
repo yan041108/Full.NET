@@ -2,10 +2,20 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Security;
 
+/// <summary>
+/// 强密码策略校验器。要求 12+ 长度、大写/小写/数字/非字母数字四类字符，
+/// 并为每类违规返回独立的可翻译错误码；当前不做历史密码重复或弱字典比较，
+/// 留作后续策略扩展点。
+/// </summary>
 internal static class IdentityPasswordPolicy
 {
+    /// <summary>密码最小长度（字符数）。</summary>
     public const int MinimumLength = 12;
 
+    /// <summary>
+    /// 执行密码策略校验并返回全部违规项集合；空集合表示通过。
+    /// 不含密码明文或可推测片段，返回结果可安全写入响应。
+    /// </summary>
     public static IReadOnlyList<IdentityPasswordPolicyViolation> Validate(
         string? password)
     {

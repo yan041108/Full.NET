@@ -25,6 +25,10 @@ using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity;
 
+/// <summary>
+/// Identity 业务模块入口。负责宿主侧与租户侧的认证/授权体系、会话管理、
+/// 导航菜单、用户与角色管理、API Key 凭据、签名认证以及 TOTP 强认证等核心身份能力。
+/// </summary>
 public sealed class IdentityModule : IFullNetModule
 {
     /// <summary>

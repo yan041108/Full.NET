@@ -5,6 +5,11 @@ using Full.NET.Modules.Identity.Security;
 
 namespace Full.NET.Modules.Identity.Authorization;
 
+/// <summary>
+/// 自定义 IAuthorizationPolicyProvider，把 FullNetPermissionPolicies.For(code) 格式的策略名
+/// 动态构造成基于 FullNetPermissionRequirement 的 AuthorizationPolicy；未知策略名回退到默认实现。
+/// OpenAccess 前缀策略额外包含 SignatureAuthentication 方案，供对外开放的签名认证端点使用。
+/// </summary>
 internal sealed class FullNetPermissionPolicyProvider : IAuthorizationPolicyProvider
 {
     private readonly DefaultAuthorizationPolicyProvider _fallback;
@@ -26,6 +31,11 @@ internal sealed class FullNetPermissionPolicyProvider : IAuthorizationPolicyProv
     public Task<AuthorizationPolicy?> GetFallbackPolicyAsync() =>
         _fallback.GetFallbackPolicyAsync();
 
+    /// <summary>
+    /// 解析策略名并构造授权策略：FullNet.OpenAccess:xxx 前缀允许 API Key + 签名认证，
+    /// FullNet.Permission:xxx 仅要求已认证用户 + 指定权限码。未知权限码返回 null 触发
+    /// ASP.NET Core 的策略未找到错误，避免误放行。
+    /// </summary>
     public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
     {
         if (TryReadOpenAccessPolicy(policyName, out var openAccessPermission))
@@ -50,9 +60,11 @@ internal sealed class FullNetPermissionPolicyProvider : IAuthorizationPolicyProv
             BuildPermissionPolicy(permissionCode, includeSignatureAuthentication: false));
     }
 
+    /// <summary>基于权限码构造标准权限策略名，供 [Authorize(Policy = ...)] 使用。</summary>
     public static string CreatePolicyName(string permissionCode) =>
         FullNetPermissionPolicies.For(permissionCode);
 
+    /// <summary>构造包含签名认证方案的 OpenAccess 权限策略名。</summary>
     public static string CreateOpenAccessPolicyName(string permissionCode) =>
         $"FullNet.OpenAccess:{permissionCode}";
 

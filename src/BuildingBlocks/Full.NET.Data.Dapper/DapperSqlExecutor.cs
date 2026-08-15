@@ -7,6 +7,18 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Data.Dapper;
 
+/// <summary>
+/// Dapper SQL 执行器，实现 <see cref="IQueryExecutor"/>、<see cref="ICommandExecutor"/> 与
+/// <see cref="IMultiResultQueryExecutor"/>，是所有 SQL 语句的统一执行入口。
+/// </summary>
+/// <remarks>
+/// <para>关键不变量：每次执行前均通过 <see cref="SqlScopeGuard.Validate"/> 进行租户范围与绑定校验，
+/// 这是多租户数据隔离的第一道防线（SqlScopeGuard 本身为最后一道）。</para>
+/// <para>观测能力：所有操作均通过 <see cref="DapperTelemetry"/> 记录 OpenTelemetry Metrics，
+/// 并通过结构化日志输出 Statement 名称、Provider、耗时与错误码。</para>
+/// <para>异常映射：Execute 操作会通过 <see cref="DataCommandExceptionMapper"/> 将 Provider 特定的
+/// 数据库异常映射为领域异常（如唯一键冲突 → ConcurrencyException）。</para>
+/// </remarks>
 internal sealed class DapperSqlExecutor(
     DbSession session,
     ICurrentTenant currentTenant,
@@ -16,6 +28,14 @@ internal sealed class DapperSqlExecutor(
 {
     private readonly DatabaseOptions _options = options.Value;
 
+    /// <summary>
+    /// 异步执行查询并返回单条结果；若无匹配则返回默认值。
+    /// </summary>
+    /// <typeparam name="T">结果元素类型。</typeparam>
+    /// <param name="statement">SQL 语句定义（含名称、文本、数据范围）。</param>
+    /// <param name="parameters">匿名对象或 DynamicParameters，可 null。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>单条结果或 default(T)。</returns>
     public async Task<T?> QuerySingleOrDefaultAsync<T>(
         SqlStatement statement,
         object? parameters = null,
@@ -50,6 +70,14 @@ internal sealed class DapperSqlExecutor(
         }
     }
 
+    /// <summary>
+    /// 异步执行查询并返回结果集只读列表。
+    /// </summary>
+    /// <typeparam name="T">结果元素类型。</typeparam>
+    /// <param name="statement">SQL 语句定义。</param>
+    /// <param name="parameters">匿名对象或 DynamicParameters，可 null。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>匹配行的只读列表；无匹配时返回空集合（非 null）。</returns>
     public async Task<IReadOnlyList<T>> QueryAsync<T>(
         SqlStatement statement,
         object? parameters = null,
@@ -81,6 +109,14 @@ internal sealed class DapperSqlExecutor(
         }
     }
 
+    /// <summary>
+    /// 异步执行非查询 SQL 语句（INSERT / UPDATE / DELETE / DDL），返回受影响行数。
+    /// </summary>
+    /// <param name="statement">SQL 语句定义。</param>
+    /// <param name="parameters">匿名对象或 DynamicParameters，可 null。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>受影响行数。</returns>
+    /// <remarks>数据库异常会先经 <see cref="DataCommandExceptionMapper.TryMap"/> 尝试映射为领域异常后再抛出。</remarks>
     public async Task<int> ExecuteAsync(
         SqlStatement statement,
         object? parameters = null,
@@ -116,6 +152,16 @@ internal sealed class DapperSqlExecutor(
         }
     }
 
+    /// <summary>
+    /// 异步执行包含多个结果集的 SQL 批处理，通过 projector 委托顺序消费每个结果集并投影为最终结果。
+    /// </summary>
+    /// <typeparam name="TResult">投影后的最终结果类型。</typeparam>
+    /// <param name="statement">SQL 语句定义（可含多个 SELECT）。</param>
+    /// <param name="parameters">匿名对象或 DynamicParameters，可 null。</param>
+    /// <param name="projector">消费 <see cref="IMultiResultReader"/> 的投影委托；必须按顺序完全消费所有结果集。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>投影后的结果。</returns>
+    /// <exception cref="InvalidOperationException">当 projector 未完全消费所有结果集时抛出，防止遗漏数据。</exception>
     public async Task<TResult> QueryMultipleAsync<TResult>(
         SqlStatement statement,
         object? parameters,

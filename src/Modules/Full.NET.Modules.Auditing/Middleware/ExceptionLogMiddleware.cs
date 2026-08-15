@@ -8,7 +8,9 @@ using Microsoft.AspNetCore.Http;
 namespace Full.NET.Modules.Auditing.Middleware;
 
 /// <summary>
-/// 捕获 Endpoint 未处理异常并尽力落库后重抛，交给统一 ExceptionHandler。
+/// HTTP 异常日志中间件。必须最靠近 Endpoint 安装，捕获 Endpoint 未处理异常（排除 OperationCanceledException），
+/// 提取异常类型、请求上下文、用户/租户、TraceId、IP 指纹，尽力经 ExceptionLogWriter 捕获 → B0/B1 分级写入落库后重抛，
+/// 交由外层统一 ExceptionHandler 返回友好响应；绝不吞异常。
 /// </summary>
 internal sealed class ExceptionLogMiddleware(RequestDelegate next)
 {

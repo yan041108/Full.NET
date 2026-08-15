@@ -8,7 +8,10 @@ using Microsoft.AspNetCore.Http;
 namespace Full.NET.Modules.Auditing.Middleware;
 
 /// <summary>
-/// 记录已认证写操作（POST/PUT/PATCH/DELETE）汇总行；写库失败不影响响应。
+/// HTTP 操作日志中间件。记录已认证用户的写操作请求（POST/PUT/PATCH/DELETE，排除 /health /openapi /scalar 等非业务端点），
+/// 汇总行包含 ActionKey、HTTP 方法、路径、状态码、耗时、用户/租户、TraceId、IP 指纹、权限码等，
+/// 最终经 OperationLogWriter 捕获 → AuditWriteBuffer 缓冲 → AuditWriteCoordinatorMiddleware 按 B0/B1 分级写入：
+/// B0（同事务域内关键变更）同步落库、B1（常规操作）走有界 Channel 异步批量落库；写入失败不影响业务响应。
 /// </summary>
 internal sealed class OperationLogMiddleware(RequestDelegate next)
 {

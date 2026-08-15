@@ -14,6 +14,32 @@ using global::Dapper;
 
 namespace Full.NET.Data.Dapper;
 
+/// <summary>
+/// Full.NET Dapper 数据访问模块的依赖注入扩展方法集合，入口为
+/// <see cref="AddFullNetDapper(IServiceCollection, IConfiguration)"/> 系列重载。
+/// </summary>
+/// <remarks>
+/// <para><b>注册内容概览：</b></para>
+/// <list type="number">
+/// <item>Dapper TypeHandler 层：移除内置 Guid 映射并注册
+/// <see cref="AssignedGuidTypeHandler"/>（RFC 9562 Big-Endian + 禁止 Empty）与
+/// <see cref="UtcDateTimeOffsetTypeHandler"/>（双向 UTC 标准化）。</item>
+/// <item>Options 层：绑定 <see cref="DatabaseOptions"/> 与 <see cref="MessagingOutboxOptions"/>，
+/// 并执行生产环境强约束校验（MySQL 必须显式 Binary16 GuidStorageMode 等）。</item>
+/// <item>基础设施层：<see cref="DbConnectionFactory"/>（Singleton）、
+/// <see cref="DbSession"/>（Scoped，实现 <see cref="IDbTransactionCoordinator"/>）、
+/// <see cref="DapperSqlExecutor"/>（Scoped，实现三个 Executor 接口）、
+/// <see cref="DapperDatabaseSessionLock"/>（Singleton 分布式锁）。</item>
+/// <item>Messaging 层：<see cref="DapperOutboxWriter"/>（Legacy）/
+/// <see cref="DapperAppendOnlyOutboxWriter"/>（Append-Only）/
+/// <see cref="DapperRoutedOutboxWriter"/>（按所有权路由，注册为 IOutboxWriter 接口）、
+/// <see cref="DapperEventStreamOwnershipGate"/>（CAS 所有权门禁）、
+/// <see cref="DapperOutboxStore"/>（领取/续租/完成/死信）、
+/// <see cref="DapperIntegrationEventInbox"/>（消费端去重）。</item>
+/// <item>可观测性层：OpenTelemetry Meter（DapperTelemetry）、
+/// 两类健康检查（database-connectivity + database-schema-contract）。</item>
+/// </list>
+/// </remarks>
 public static class ServiceCollectionExtensions
 {
     /// <summary>

@@ -9,6 +9,17 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Tenancy;
 
+/// <summary>
+/// 在 BeforeAuthorization 阶段建立 ICurrentTenant 上下文的管道中间件。
+/// 解析顺序不变量（严格按优先级）：
+/// 1) 请求非 /api → 跳过，交给 SPA 静态资源处理；
+/// 2) 已认证 + 存在 TenantId Claim（从切换写入的新令牌）→ 按 Claim 值解析并校验 Claim 与 Domain 是否一致；
+/// 3) 已认证但无 TenantId Claim → HostDomains 命中则进入 Host Scope，否则拒绝上下文不匹配；
+/// 4) 未认证 + HostDomains 命中 → Host Scope；
+/// 5) 未认证 + 非 HostDomains → 按域名解析租户进入对应 Scope，无租户返回 404 HostNotFound。
+/// 安全边界：TenantId Claim 必须为单值且 Guid，重复或畸形值一律返回 403 避免歧义解释；
+/// finally 中显式 Clear，防止 Scoped 回收延迟导致上下文残留到下一次请求复用。
+/// </summary>
 internal sealed class TenantResolutionMiddleware(RequestDelegate next)
 {
     private const string TenantItemKey = "FullNet.TenantId";

@@ -27,6 +27,12 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Tenancy;
 
+/// <summary>
+/// Tenancy 多租户模块入口。负责租户开通（Provision）、租户上下文解析、
+/// 授权用户跨租户切换、Host 侧租户管理与禁用、以及租户变更时的 FusionCache 多级缓存失效。
+/// 解析管道在 BeforeAuthorization 阶段注册，早于授权建立 ICurrentTenant 上下文；
+/// 依赖 Identity 模块作为用户与会话的底层基座。
+/// </summary>
 public sealed class TenancyModule : IFullNetModule
 {
     public string Name => "Tenancy";

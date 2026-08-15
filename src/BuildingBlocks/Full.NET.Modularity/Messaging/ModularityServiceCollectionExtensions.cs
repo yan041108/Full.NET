@@ -6,8 +6,21 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modularity.Messaging;
 
+/// <summary>
+/// Modularity 核心服务注册扩展；集中注册模块注册表、CQRS 分发器、集成事件调度器
+/// 及其默认空回退实现，确保精简宿主（未加载 Messaging 模块）的 DI 图也能闭合。
+/// </summary>
 public static class ModularityServiceCollectionExtensions
 {
+    /// <summary>
+    /// 向服务集合注册 Modularity 基础设施：
+    /// 单例 <c>FullNetModuleRegistry</c>、默认空目录 <c>IFullNetModuleCatalog</c>、
+    /// Scoped CQRS 分发器、集成事件消费者调度器，以及空订阅目录安全回退。
+    /// </summary>
+    /// <remarks>
+    /// 幂等调用安全：对 <c>FullNetModuleRegistry</c> 与默认空实现均采用 TryAdd 语义，
+    /// 多次调用不会重复注册或覆盖已存在的真实实现（如 Messaging 模块替换的订阅目录）。
+    /// </remarks>
     public static IServiceCollection AddFullNetModularity(this IServiceCollection services)
     {
         if (!services.Any(item => item.ServiceType == typeof(FullNetModuleRegistry)))

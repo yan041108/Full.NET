@@ -13,6 +13,14 @@ using Full.NET.Modules.Identity.Authorization;
 
 namespace Full.NET.Modules.Identity.Features.RefreshSession;
 
+/// <summary>
+/// Refresh Token 轮换处理器。核心安全机制：
+/// 1) 只对 Refresh Token 的 SHA-256 哈希做查询，数据库中从不保留明文；
+/// 2) ConsumedAtUtc 检测到重用（Replay Attack）时立即撤销整个 Session Family 并写审计；
+/// 3) 以 Version 字段做乐观并发 + 最多一次重试消耗当前会话，冲突时重读确认是否被并发消费；
+/// 4) 轮换成功后插入新 Session（继承 FamilyId + ActiveTenantId），旧行标记 ReplacedById。
+/// 轮换结束重新签发 Access Token/CSRF Token，权限与超管投影从实时 DB 快照读取。
+/// </summary>
 internal sealed class Handler(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

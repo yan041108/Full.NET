@@ -9,6 +9,13 @@ using Full.NET.Modules.Identity.Security;
 
 namespace Full.NET.Modules.Identity.Features.Logout;
 
+/// <summary>
+/// 登出处理器。安全要点：
+/// 1) 以 Refresh Token 哈希查找会话后，直接按 FamilyId 撤销整族 Session，
+///    避免只撤销当前 Session 时 Refresh 并发获胜留下替代会话的窗口；
+/// 2) 找不到 Session 时静默成功，符合 CSRF 场景与重复点击的幂等期望；
+/// 3) 审计事件携带当前 ActiveTenantId，便于切换租户后的行为审计追踪。
+/// </summary>
 internal sealed class Handler(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

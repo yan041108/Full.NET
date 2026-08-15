@@ -10,7 +10,13 @@ using Full.NET.Modules.Jobs.Persistence;
 
 namespace Full.NET.Modules.Jobs.Features.ManageHostJobDefinitions;
 
-/// <summary>Host 任务定义创建、更新与禁用。</summary>
+/// <summary>
+/// Host 任务定义创建、更新、禁用与硬删除管理服务。删除前置校验：必须已禁用、无启用计划、无未终结执行记录，
+/// 满足条件后先级联清理关联计划再删除定义本身；
+/// 创建/更新时校验 JobKey 匹配正则并在 JobHandlerRegistry 中注册了对应处理器；
+/// UI 层面：最后保护（至少保留一个 JobDefinition，不允许全部删除，删除端点前置校验由授权策略层实现）、
+/// 禁用/启用/立即执行按钮按定义状态与权限动态显隐。
+/// </summary>
 internal sealed class HostJobDefinitionManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

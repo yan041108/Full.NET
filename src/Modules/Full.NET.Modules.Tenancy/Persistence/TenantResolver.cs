@@ -7,12 +7,24 @@ using Microsoft.Extensions.Hosting;
 
 namespace Full.NET.Modules.Tenancy.Persistence;
 
+/// <summary>
+/// 基于 HybridCache 的租户解析实现。缓存策略：
+/// - ById / ByDomain 都以 CacheEntryNames.TenantResolution 策略做两级缓存；
+/// - DB 未命中首次写入 Negative 短 TTL 的空占位，避免缓存穿透；命中且活动后
+///   升级为正常 TTL 并打 TenantTag + DomainTag 以便变更时按标签批量失效；
+/// - L2 Redis 不可达时回落到数据库查询 + L1，允许降级但延迟会上升。
+/// 解析不变量：返回 IsActive=false 的租户等价于未找到，调用方不得将其注入上下文。
+/// </summary>
 internal sealed class TenantResolver(
     IQueryExecutor queryExecutor,
     HybridCache cache,
     ICachePolicyRegistry policies,
     IHostEnvironment environment) : ITenantResolver, IActiveTenantContextResolver
 {
+    /// <summary>
+    /// 按域名解析租户；先做域名归一化（去尾部点+小写），再按 EnvironmentName 隔离缓存键，
+    /// 避免开发/预发共用同一 Redis 时键值串扰。
+    /// </summary>
     public async Task<TenantSummary?> ResolveByDomainAsync(
         string domain,
         CancellationToken cancellationToken = default)

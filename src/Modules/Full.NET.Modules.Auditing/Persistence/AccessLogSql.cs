@@ -2,6 +2,11 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Auditing.Persistence;
 
+/// <summary>
+/// 访问日志 SQL 语句集合。提供单条插入、按时间范围+HTTP 方法+状态码+路径包含的过滤计数与分页查询，
+/// 以及基于 (OccurredAtUtc, Id) 元组的游标分页语句（SQL Server/MySQL 各自适配）——游标分页避免深分页 OFFSET 巨大时的性能退化，
+/// 适合时间序列海量数据滚动浏览。配合 AuditingContainsTimeRangePolicy 强制时间范围过滤。
+/// </summary>
 internal static class AccessLogSql
 {
     public static readonly SqlStatement Insert = new(

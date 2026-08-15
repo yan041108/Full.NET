@@ -2,6 +2,11 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Settings.Persistence;
 
+/// <summary>
+/// Host 系统配置项 SQL 语句集合。提供配置项的分页列表、全量查询、按 Key/Id 查找、分组名去重、
+/// 插入、更新、禁用、硬删除（仅禁用项）、批量硬删除、按 ConfigKey 批量更新值等语句。
+/// 所有语句限定 Host 数据作用域（TenantId 为 NULL）。
+/// </summary>
 internal static class ConfigEntrySql
 {
     public static readonly SqlStatement CountHostConfigEntries = new(

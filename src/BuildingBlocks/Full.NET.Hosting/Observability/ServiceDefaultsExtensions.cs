@@ -16,8 +16,22 @@ using Serilog.Formatting.Compact;
 
 namespace Full.NET.Hosting.Observability;
 
+/// <summary>
+/// 宿主级默认能力注入入口；统一装配 Serilog 结构化日志、OpenTelemetry Tracing/Metrics、
+/// 全局异常处理、本地化、健康检查、标准结果映射与 HTTP 弹性韧性。
+/// 调用应位于 Program.cs 的最早期，确保后续所有服务注册均可复用本扩展已就绪的基础设施。
+/// </summary>
 public static class ServiceDefaultsExtensions
 {
+    /// <summary>
+    /// 向宿主注册 Full.NET 默认服务：Serilog + 双缓冲异步管道、OTel Metrics/Tracing、
+    /// ProblemDetails/异常处理、本地化资源、健康检查、HTTP 操作日志、
+    /// 标准 <see cref="IApiResultMapper"/> 以及 HttpClient 标准韧性策略（ServiceDiscovery + Polly）。
+    /// </summary>
+    /// <param name="builder">宿主应用构建器；用于读取配置与写入 <see cref="IServiceCollection"/>。</param>
+    /// <exception cref="OptionsValidationException">
+    /// LoggingOptions 存在缓冲配置非法（BlockWhenFull=true、缓冲区大小非正、刷新超时超限）时启动期抛出。
+    /// </exception>
     public static IHostApplicationBuilder AddFullNetServiceDefaults(
         this IHostApplicationBuilder builder)
     {

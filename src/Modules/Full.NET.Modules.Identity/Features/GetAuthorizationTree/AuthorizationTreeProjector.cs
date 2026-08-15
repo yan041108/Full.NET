@@ -3,8 +3,17 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Features.GetAuthorizationTree;
 
+/// <summary>
+/// 将 AuthorizationCatalog 投影为角色授权页面使用的树形响应（模块 → 页面 → 动作）。
+/// 过滤掉超管自管理类特殊权限，仅保留 Host/Tenant 作用域中可分配给普通角色的权限；
+/// 父子结构以递归方式按 Order/Id 稳定排序，保证前端展示一致。
+/// </summary>
 internal sealed class AuthorizationTreeProjector(AuthorizationCatalog catalog)
 {
+    /// <summary>
+    /// 投影宿主管理端角色授权树。返回 Module → Page → Action 三层结构，
+    /// 不含 identity.super_administrators.* 范围下不可通过普通角色分配的权限。
+    /// </summary>
     public IReadOnlyList<AuthorizationTreeModuleResponse> ProjectHostTree()
     {
         var assignablePermissions = catalog.Permissions

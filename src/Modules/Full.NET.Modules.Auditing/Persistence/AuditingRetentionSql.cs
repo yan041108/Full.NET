@@ -3,6 +3,12 @@ using Full.NET.Modules.Auditing.Retention;
 
 namespace Full.NET.Modules.Auditing.Persistence;
 
+/// <summary>
+/// 审计保留策略清理 SQL 语句集合。为 Access/Operation/Exception/Outbound 四类日志分别提供：
+/// SQL Server 原生 DELETE TOP(N) WHERE OccurredAtUtc 小于截止时间；
+/// MySQL 分两段式：先 SELECT 锁定批次 Id 再 DELETE BY ID，避免 DELETE LIMIT 触发表锁。
+/// 所有删除语句使用精确截止时间戳而非批量时间窗口，保证可恢复与可观测。
+/// </summary>
 internal static class AuditingRetentionSql
 {
     private static readonly SqlStatement DeleteAccessSqlServer = new(

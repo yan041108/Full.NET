@@ -2,6 +2,11 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Auditing.Persistence;
 
+/// <summary>
+/// 出站调用日志 SQL 语句集合。提供单条插入、按时间范围+HTTP 方法+状态码+目标 URI 过滤的计数与分页查询，
+/// 以及按 Id 查找语句。记录出站 HTTP 调用的请求/响应摘要、耗时、成功标记、TraceId 等，
+/// 供依赖第三方服务时的故障回溯与 SLA 监控。
+/// </summary>
 internal static class OutboundCallLogSql
 {
     public static readonly SqlStatement Insert = new(

@@ -2,6 +2,11 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Auditing.Persistence;
 
+/// <summary>
+/// 异常日志 SQL 语句集合。提供单条插入、按时间范围+异常类型包含+路径包含的过滤计数与分页查询，
+/// 以及按 Id 查找语句。分页查询配合 AuditingContainsTimeRangePolicy 强制时间范围，避免全表扫描。
+/// 查询层返回时对消息/堆栈做安全脱敏（仅返回 SafeExceptionMessage，不直接透传原始异常文本）。
+/// </summary>
 internal static class ExceptionLogSql
 {
     public static readonly SqlStatement Insert = new(

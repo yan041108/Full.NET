@@ -6,6 +6,27 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Data.Dapper.Outbox;
 
+/// <summary>
+/// 传统 Outbox 存储，实现 <see cref="IOutboxStore"/>（消息领取/续租/完成/死信）、
+/// <see cref="IOutboxBacklogReader"/>（积压快照）与 <see cref="IOutboxRetentionStore"/>（已处理批量清理）。
+/// 仅作用于 <c>fn_outbox_message</c> 表（LegacyPolling 模式），CdcKafka 模式的 append-only 表不经过本类。
+/// </summary>
+/// <remarks>
+/// <para><b>基于 Lease 的并发领取模型：</b>
+/// AcquireAsync 分配唯一 LockId 与 LockedUntil 时间戳，将候选行标记为"被当前 Worker 持有"；
+/// 其他 Worker 会跳过已被持有的行（LockedUntil > Now），避免重复投递。
+/// MySQL 领取采用"先 SELECT ... FOR UPDATE SKIP LOCKED 取主键 → UPDATE 声明所有权 → SELECT 读回"
+/// 三步事务，以降低 InnoDB 二级索引上的 gap lock 争用。</para>
+/// <para><b>状态机不变量：</b>
+/// Pending（Attempts 递增、NextAttemptAt 控制重试）→ Processing（Lease 持有）
+/// → Processed（软标记，后续由 Retention 批量 DELETE）/ Failed（含 NextAttemptAt）→ DeadLetter（终态，人工介入）。
+/// 每次状态迁移均以 (Id, LockId) 复合条件更新，影响行数不为 1 时抛出
+/// <see cref="OutboxConcurrencyException"/>，防止 Lease 过期后被两个 Worker 同时操作。</para>
+/// <para><b>Provider 差异：</b>SQL Server 使用单条 UPDATE ... OUTPUT 原子领取；
+/// MySQL 因 SKIP LOCKED 语义与 UPDATE 限制分三步事务。
+/// 所有读取快照操作对 DATETIME 列统一做 DateTimeKind.Utc 标注。</para>
+/// <para><b>错误截断：</b>MarkFailed / MarkDeadLetter 写入的错误信息被截断至 2000 字符以内，防止列溢出。</para>
+/// </remarks>
 internal sealed class DapperOutboxStore(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -18,6 +39,11 @@ internal sealed class DapperOutboxStore(
     private const int MaximumErrorLength = 2000;
     private readonly DatabaseOptions _databaseOptions = databaseOptions.Value;
 
+    /// <summary>
+    /// 读取全局 Outbox 积压快照（待处理、到期重试、活动 Lease、死信数量与最旧时间戳）。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>按 Provider 实现的快照结果。</returns>
     public Task<OutboxBacklogSnapshot> ReadBacklogAsync(
         CancellationToken cancellationToken) =>
         _databaseOptions.Provider switch
@@ -29,6 +55,14 @@ internal sealed class DapperOutboxStore(
                 $"Database provider '{_databaseOptions.Provider}' is not supported.")
         };
 
+    /// <summary>
+    /// 读取指定 MessageType 集合与 SchemaVersion 的版本退役快照，用于判断旧版本消息是否全部处理完毕。
+    /// </summary>
+    /// <param name="messageTypes">非空事件类型集合（内部自动去重）。</param>
+    /// <param name="schemaVersion">目标 Schema 版本号（从 1 开始）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>待处理 + 死信数量与最旧未处理时间戳。</returns>
+    /// <exception cref="ArgumentException">当 messageTypes 为空或含空字符串时抛出。</exception>
     public Task<OutboxVersionRetirementSnapshot> ReadVersionRetirementAsync(
         IReadOnlyCollection<string> messageTypes,
         int schemaVersion,
@@ -66,6 +100,13 @@ internal sealed class DapperOutboxStore(
         };
     }
 
+    /// <summary>
+    /// 读取单条事件流（Event Type + SchemaVersion）粒度的积压快照。
+    /// </summary>
+    /// <param name="eventType">事件类型全限定名。</param>
+    /// <param name="schemaVersion">Schema 版本号。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>该流的积压与死信统计。</returns>
     public Task<OutboxBacklogSnapshot> ReadStreamBacklogAsync(
         string eventType,
         int schemaVersion,
@@ -92,6 +133,13 @@ internal sealed class DapperOutboxStore(
         };
     }
 
+    /// <summary>
+    /// 读取指定事件流最后一条已产生的事件位置快照，用于 Cutoff 判定与顺序校验。
+    /// </summary>
+    /// <param name="eventType">事件类型全限定名。</param>
+    /// <param name="schemaVersion">Schema 版本号。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>最后一条事件的快照；若流内暂无事件则返回 null。</returns>
     public Task<OutboxStreamCutoffSnapshot?> ReadLastStreamEventAsync(
         string eventType,
         int schemaVersion,
@@ -112,6 +160,16 @@ internal sealed class DapperOutboxStore(
             cancellationToken);
     }
 
+    /// <summary>
+    /// 领取一批待投递的 Outbox 消息，通过 LockId + LockedUntil 声明临时所有权（Lease-based Claim）。
+    /// </summary>
+    /// <param name="batchSize">单次最大领取数量；必须大于 0。</param>
+    /// <param name="lease">Lease 有效期；超时后其他 Worker 可重新领取。必须大于 Zero。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已成功声明所有权的消息信封列表（可能为空）。每个信封携带本批次唯一 LockId。</returns>
+    /// <remarks>
+    /// SQL Server 通过 UPDATE ... OUTPUT 原子完成；MySQL 通过显式事务 + SKIP LOCKED 主键声明降低争用。
+    /// </remarks>
     public Task<IReadOnlyList<OutboxEnvelope>> AcquireAsync(
         int batchSize,
         TimeSpan lease,
@@ -146,6 +204,13 @@ internal sealed class DapperOutboxStore(
         };
     }
 
+    /// <summary>
+    /// 按时间批量物理删除已标记为 Processed 的 Outbox 行（Retention 清理）。
+    /// </summary>
+    /// <param name="cutoffUtc">处理时间早于此 UTC 时间戳的 Processed 行将被清理。</param>
+    /// <param name="batchSize">单次 DELETE 最大行数；防止长时间锁表。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>实际删除的行数（介于 0 与 batchSize 之间）。</returns>
     public Task<int> DeleteProcessedBatchAsync(
         DateTimeOffset cutoffUtc,
         int batchSize,
@@ -167,6 +232,14 @@ internal sealed class DapperOutboxStore(
         };
     }
 
+    /// <summary>
+    /// 续租当前 Worker 持有的 Outbox Lease，防止长耗时投递过程中 Lease 超时导致所有权丢失。
+    /// </summary>
+    /// <param name="messageIds">需要续租的消息 Id 集合（非空、无 Empty、内部去重）。</param>
+    /// <param name="lockId">领取时分配的 LockId，必须匹配否则视为已丢失。</param>
+    /// <param name="lease">新增的 Lease 时长（必须大于 Zero）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <exception cref="OutboxLeaseLostException">当影响行数为 0 时抛出，表示至少有一条消息的 Lease 已被其他 Worker 抢占或已迁移至其他状态。</exception>
     public async Task RenewLeaseAsync(
         IReadOnlyCollection<Guid> messageIds,
         Guid lockId,
@@ -214,6 +287,13 @@ internal sealed class DapperOutboxStore(
         }
     }
 
+    /// <summary>
+    /// 将单条 Outbox 消息标记为 Processed（成功投递完毕），软标记后由 Retention Job 物理删除。
+    /// </summary>
+    /// <param name="id">消息 Id。</param>
+    /// <param name="lockId">领取时分配的 LockId，复合条件防止并发冲突。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <exception cref="OutboxConcurrencyException">当影响行数不为 1 时抛出（Lease 丢失或重复标记）。</exception>
     public async Task MarkProcessedAsync(
         Guid id,
         Guid lockId,
@@ -228,6 +308,15 @@ internal sealed class DapperOutboxStore(
         EnsureSingleRow(affectedRows, id, lockId);
     }
 
+    /// <summary>
+    /// 将 Outbox 消息标记为 Failed（投递失败但仍可重试），写入错误信息并设定下次重试时间。
+    /// </summary>
+    /// <param name="id">消息 Id。</param>
+    /// <param name="lockId">领取时分配的 LockId，复合条件防止并发冲突。</param>
+    /// <param name="error">错误详情；超过 2000 字符会被截断以避免列溢出。</param>
+    /// <param name="nextAttemptAt">下次可重试的 UTC 时间戳。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <exception cref="OutboxConcurrencyException">当影响行数不为 1 时抛出。</exception>
     public async Task MarkFailedAsync(
         Guid id,
         Guid lockId,
@@ -254,6 +343,16 @@ internal sealed class DapperOutboxStore(
         EnsureSingleRow(affectedRows, id, lockId);
     }
 
+    /// <summary>
+    /// 将 Outbox 消息标记为 DeadLetter（终态，超出重试次数或遇到不可恢复错误），不再自动重试。
+    /// </summary>
+    /// <param name="id">消息 Id。</param>
+    /// <param name="lockId">领取时分配的 LockId，复合条件防止并发冲突。</param>
+    /// <param name="error">最终错误详情；超过 2000 字符会被截断。</param>
+    /// <param name="deadLetterReasonCode">死信原因码（领域枚举字符串），用于运营分类统计。</param>
+    /// <param name="deadLetteredAt">进入死信的 UTC 时间戳。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <exception cref="OutboxConcurrencyException">当影响行数不为 1 时抛出。</exception>
     public async Task MarkDeadLetterAsync(
         Guid id,
         Guid lockId,

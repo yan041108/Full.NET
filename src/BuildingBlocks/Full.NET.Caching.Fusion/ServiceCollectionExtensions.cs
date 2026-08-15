@@ -12,11 +12,25 @@ using Full.NET.Caching.Fusion.Health;
 
 namespace Full.NET.Caching.Fusion;
 
+/// <summary>
+/// FusionCache + Redis 分层缓存的 <see cref="IServiceCollection"/> 注册入口。
+/// 在启动期完成配置校验、策略注册表构建、Backplane 隔离检查与 OTel 指标桥接，
+/// 避免首个业务请求才暴露缓存配置错误。
+/// </summary>
 public static class ServiceCollectionExtensions
 {
     // 与 RealtimeOptions.SectionName 对齐，避免 BuildingBlocks 循环引用。
     private const string RealtimeSectionName = "Realtime";
 
+    /// <summary>
+    /// 注册 Full.NET 受治理缓存基础设施：绑定 <see cref="CacheOptions"/>、
+    /// 构建并校验 <see cref="ICachePolicyRegistry"/>、配置 FusionCache + Redis L2 + Backplane、
+    /// 注入可靠性监控 <see cref="FusionCacheReliabilityMonitor"/> 与 OTel Tracing/Metrics。
+    /// </summary>
+    /// <param name="services">宿主服务集合。</param>
+    /// <param name="configuration">应用配置根，读取 <c>Cache</c> 与 <c>Realtime</c> 节。</param>
+    /// <param name="environment">规范化部署环境名，用于 Redis InstanceName 前缀与生产/开发策略判断。</param>
+    /// <exception cref="OptionsValidationException">配置不满足契约（TTL 非正、Redis 共享冲突等）时启动期直接抛出。</exception>
     public static IServiceCollection AddFullNetCaching(
         this IServiceCollection services,
         IConfiguration configuration,

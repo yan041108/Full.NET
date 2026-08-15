@@ -2,6 +2,10 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Auditing.Persistence;
 
+/// <summary>
+/// 操作日志 SQL 语句集合。提供单条插入、按时间范围+HTTP 方法+成功标记+路径包含的过滤计数与分页查询（SQL Server 动态 WHERE、MySQL 原生参数化），
+/// 以及按 Id 查找语句。分页查询配合 AuditingContainsTimeRangePolicy 强制时间范围，避免全表扫描。
+/// </summary>
 internal static class OperationLogSql
 {
     public static readonly SqlStatement Insert = new(

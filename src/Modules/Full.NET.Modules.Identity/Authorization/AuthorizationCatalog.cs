@@ -2,6 +2,11 @@ using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Identity.Authorization;
 
+/// <summary>
+/// 权限码目录与导航定义的不可变注册表。聚合全部 IAuthorizationCatalogContributor，
+/// 在启动时完成父子约束、去重、无环、作用域包含与页面/动作权限绑定等一致性校验。
+/// 不允许在运行时动态追加权限——新增权限需通过模块 Contributor 重新发布。
+/// </summary>
 internal sealed class AuthorizationCatalog
 {
     private AuthorizationCatalog(
@@ -18,16 +23,28 @@ internal sealed class AuthorizationCatalog
         Actions = actions;
     }
 
+    /// <summary>注册的模块列表，按 Order 与 Key 排序。</summary>
     public IReadOnlyList<AuthorizationModuleDefinition> Modules { get; }
 
+    /// <summary>Navigation Id → 所属 Module Key 的映射，用于授权树投影归属。</summary>
     public IReadOnlyDictionary<string, string> NavigationModuleKeys { get; }
 
+    /// <summary>全局权限定义，按 Code 字典序排序，代码为唯一主键。</summary>
     public IReadOnlyList<PermissionDefinition> Permissions { get; }
 
+    /// <summary>导航菜单定义（含父子引用），按 Order/Id 排序。</summary>
     public IReadOnlyList<NavigationDefinition> Navigation { get; }
 
+    /// <summary>页面动作（按钮级）定义，挂载于特定 Navigation 并绑定独立权限。</summary>
     public IReadOnlyList<AuthorizationActionDefinition> Actions { get; }
 
+    /// <summary>
+    /// 从所有已注册的 IAuthorizationCatalogContributor 聚合并构造不可变目录。
+    /// 构造时即执行全部一致性校验：权限/导航/动作无重复、导航父子关系无环且不孤立、
+    /// 动作权限作用域必须被父页面权限作用域包含，不允许动作复用页面读权限。
+    /// </summary>
+    /// <param name="contributors">来自各业务模块的权限目录贡献者集合。</param>
+    /// <exception cref="InvalidOperationException">当目录违反任何一致性约束时抛出。</exception>
     public static AuthorizationCatalog Create(
         IEnumerable<IAuthorizationCatalogContributor> contributors)
     {

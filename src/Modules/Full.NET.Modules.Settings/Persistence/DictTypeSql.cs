@@ -2,6 +2,11 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Settings.Persistence;
 
+/// <summary>
+/// Host 数据字典类型 SQL 语句集合。提供字典类型的分页列表、全量查询、按 Id/Code 查找、
+/// 启用字典项计数、插入、更新、禁用、级联删除字典项后硬删除类型（仅禁用且无活跃项）等语句。
+/// 所有语句限定 Host 数据作用域（TenantId 为 NULL）。
+/// </summary>
 internal static class DictTypeSql
 {
     public static readonly SqlStatement CountHostDictTypes = new(

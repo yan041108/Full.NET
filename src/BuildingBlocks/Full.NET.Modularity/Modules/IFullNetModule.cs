@@ -30,6 +30,12 @@ public interface IFullNetModule
     {
     }
 
+    /// <summary>
+    /// 映射模块对外暴露的 HTTP 端点（API Controller、Minimal API、gRPC 等）；宿主在路由阶段统一调用。
+    /// </summary>
+    /// <remarks>
+    /// 端点注册需遵循模块的路由前缀与授权策略约定；若模块不提供 HTTP 能力，可留空实现。
+    /// </remarks>
     void MapEndpoints(IEndpointRouteBuilder endpoints);
 
     /// <summary>

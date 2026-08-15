@@ -6,6 +6,13 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Full.NET.Modules.Identity.Security;
 
+/// <summary>
+/// RSA 多密钥签名环。维护一份激活的 SigningCredentials（含私钥，用于签发）
+/// 与多份 ValidationKeys（仅公钥，用于验签），支持签发密钥平滑轮转：
+/// 在 ActiveKeyId 指向的新密钥签发成功后，旧公钥仍保留在 ValidationKeys 中，
+/// 直到现存旧 Access Token 全部过期。最小密钥长度 2048-bit；Development 未配置时
+/// 可允许生成 3072-bit 临时密钥但 Production 必须禁用。
+/// </summary>
 internal sealed class RsaSigningKeyRing : IDisposable
 {
     private readonly List<RSA> _ownedKeys = [];
@@ -89,8 +96,10 @@ internal sealed class RsaSigningKeyRing : IDisposable
         ValidationKeys = validationKeys;
     }
 
+    /// <summary>当前激活签名凭据（含私钥），每次签发 JWT 时使用。</summary>
     public SigningCredentials SigningCredentials { get; }
 
+    /// <summary>参与 JWT 验签的所有公钥集合，至少包含当前激活 Key，用于支持多密钥平滑轮转。</summary>
     public IReadOnlyCollection<SecurityKey> ValidationKeys { get; }
 
     public void Dispose()

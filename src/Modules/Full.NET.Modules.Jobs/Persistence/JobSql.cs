@@ -2,6 +2,16 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Jobs.Persistence;
 
+/// <summary>
+/// Jobs 模块 SQL 语句集合。覆盖三大聚合：
+/// 1) JobDefinition 定义：分页列表（SQL Server/MySQL 适配）、按 Id/JobKey 查找、启用分组去重、
+///    插入、更新、禁用、硬删除、活跃计划/执行计数防御性校验；
+/// 2) JobSchedule 计划：按定义分页列表（含关联定义 JOIN）、按 Id 查找详情、启用定义下拉选项、
+///    插入、更新、暂停/恢复、硬删除、按定义级联清理；
+/// 3) JobExecution 执行：按定义分页列表、按 Id 查找、插入待处理、申领租约、更新状态/错误/重试、
+///    按定义清空终态记录。
+/// Host 作用域语句均限定 TenantId IS NULL。
+/// </summary>
 internal static class JobSql
 {
     public static readonly SqlStatement ListDefinitionsSqlServer =

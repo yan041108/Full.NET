@@ -12,7 +12,13 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 
 /// <summary>
-/// 通过锁定唯一系统角色串行化授予和撤销，保证双数据库下最后一名保护可线性化。
+/// 超级管理员授予/撤销服务。并发保护与安全边界：
+/// 1) 写入操作全程包裹在 ICommandTransaction 内同事务提交/回滚；
+/// 2) Grant/Revoke 先以 SQL Server (UPDLOCK) / MySql (SELECT ... FOR UPDATE)
+///    行锁锁定唯一的超管保护角色，串行化全部写请求，消除并发撤销最后一名时的竞态；
+/// 3) Revoke 执行前实时 CountActiveSuperAdministrators，保留最后一名不可撤销；
+/// 4) 变更完成后同步轮换目标用户 SecurityStamp、撤销全部 Refresh Session、
+///    写入审计，使被撤销者的现存 JWT/Refresh 立即失效。
 /// </summary>
 internal sealed class SuperAdministratorService(
     IQueryExecutor queryExecutor,
@@ -22,6 +28,10 @@ internal sealed class SuperAdministratorService(
     IClock clock,
     IIdGenerator idGenerator) : ISuperAdministratorService
 {
+    /// <summary>
+    /// 授予目标用户宿主超级管理员角色；已授予为幂等无副作用。
+    /// 要求操作者本身是活动超管且 EnableRemoteSuperAdministratorManagement 为 true（由 Endpoint 层把关）。
+    /// </summary>
     public Task<Result<SuperAdministratorChangeResponse>> GrantAsync(
         Guid operatorUserId,
         Guid targetUserId,
@@ -30,6 +40,10 @@ internal sealed class SuperAdministratorService(
             token => GrantCoreAsync(operatorUserId, targetUserId, token),
             cancellationToken);
 
+    /// <summary>
+    /// 撤销目标用户宿主超级管理员角色；若当前仅剩最后一名活动超管则拒绝，
+    /// 以保证系统永远保留至少一名可登录超管。
+    /// </summary>
     public Task<Result<SuperAdministratorChangeResponse>> RevokeAsync(
         Guid operatorUserId,
         Guid targetUserId,

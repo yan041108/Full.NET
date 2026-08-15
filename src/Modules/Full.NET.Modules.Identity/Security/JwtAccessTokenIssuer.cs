@@ -8,6 +8,12 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Full.NET.Modules.Identity.Security;
 
+/// <summary>
+/// 基于 RSA 签名环的 JWT Access Token 签发实现。使用 JsonWebTokenHandler 直接构造描述符，
+/// 不依赖 JwtBearerMiddleware 的自动签发路径；将 User、Session、Tenant、Scope、Permission、
+/// SecurityStamp 与 SuperAdministrator 声明全部写入签名保护的 Claim 集合，
+/// 配合 PermissionClaimEvaluator 在验签后统一解释。
+/// </summary>
 internal sealed class JwtAccessTokenIssuer(
     IOptions<IdentityOptions> options,
     RsaSigningKeyRing keyRing,

@@ -6,8 +6,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modularity.Modules;
 
+/// <summary>
+/// 模块装配辅助扩展；提供从模块注册、端点映射、中间件注入到目录快照物化的完整链式 API，
+/// 供宿主 Composition 层在启动时以声明式方式编排模块。
+/// </summary>
 public static class ModuleExtensions
 {
+    /// <summary>
+    /// 通过无参构造器实例化并注册模块；适用于不含启动时参数的标准模块。
+    /// </summary>
     public static IServiceCollection AddFullNetModule<TModule>(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -28,6 +35,10 @@ public static class ModuleExtensions
         return services;
     }
 
+    /// <summary>
+    /// 按模块依赖顺序遍历所有已注册模块，依次调用其 <see cref="IFullNetModule.MapEndpoints"/>，
+    /// 确保先置模块（如多租户、认证）的路由约定在业务模块之前生效。
+    /// </summary>
     public static IEndpointRouteBuilder MapFullNetModules(
         this IEndpointRouteBuilder endpoints)
     {

@@ -12,9 +12,18 @@ namespace Full.NET.Hosting.RateLimiting;
 
 /// <summary>
 /// 统一注册 Host API 限流基础设施与全局限流策略。
+/// 支持固定窗口、滑动窗口与令牌桶三类策略，拒绝响应统一走 <see cref="IApiResultMapper"/>
+/// 输出结构化 ProblemDetails，避免默认 429 文本响应与宿主 API 信封不一致。
 /// </summary>
 public static class FullNetRateLimitExtensions
 {
+    /// <summary>
+    /// 注册限流选项校验、<see cref="RateLimitPolicyErrorCodes"/>、
+    /// 全局 <see cref="GlobalApiRateLimiterConfigurator"/> 以及 ASP.NET Core RateLimiter 中间件，
+    /// 并配置 OnRejected 回调以统一映射 429 响应体。
+    /// </summary>
+    /// <param name="services">宿主服务集合。</param>
+    /// <param name="configuration">应用配置根，读取 <c>RateLimiting</c> 节。</param>
     public static IServiceCollection AddFullNetRateLimiter(
         this IServiceCollection services,
         IConfiguration configuration)

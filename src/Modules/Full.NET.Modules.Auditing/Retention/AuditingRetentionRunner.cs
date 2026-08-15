@@ -27,6 +27,12 @@ internal sealed record AuditingRetentionResult(
         AccessDeleted + OperationDeleted + ExceptionDeleted + OutboundDeleted;
 }
 
+/// <summary>
+/// 审计保留策略清理执行器。按类别（Access/Operation/Exception/Outbound）独立配置保留天数，
+/// 每轮按配置 BatchSize 分批次 TOP(N) 删除超期记录直至不足一批或触及 MaxBatchesPerRun 上限；
+/// SQL Server 走原生 DELETE TOP，MySQL 走事务内先 SELECT  CLAIM 再 DELETE BY ID 两段式，
+/// 避免 MySQL DELETE LIMIT 触发表锁，保证数据库低影响后台清理。
+/// </summary>
 internal sealed class AuditingRetentionRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

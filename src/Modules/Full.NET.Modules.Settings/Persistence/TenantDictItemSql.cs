@@ -2,6 +2,11 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Settings.Persistence;
 
+/// <summary>
+/// 租户数据字典项 SQL 语句集合。提供租户下字典项按类型计数、分页列表、按 Id 查找、
+/// 插入、更新、禁用、硬删除等语句。通过 INNER JOIN 字典类型表确保租户隔离，
+/// 所有语句绑定当前租户上下文（TenantRequired）。
+/// </summary>
 internal static class TenantDictItemSql
 {
     public static readonly SqlStatement CountByTypeId = new(

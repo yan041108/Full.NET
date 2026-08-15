@@ -18,6 +18,14 @@ using OpenTelemetry.Metrics;
 
 namespace Full.NET.Modules.Jobs;
 
+/// <summary>
+/// Jobs 业务模块入口。注册 Host 任务定义（JobDefinition）、调度计划（JobSchedule，Cron/一次性）、
+/// 执行记录（JobExecution）的管理与只读查询服务、Cron 调度计算与分发器、任务处理器抽象（IJobHandler/JobHandlerRegistry）、
+/// 手动触发服务，并映射定义/计划/执行三类端点。
+/// AddServices 仅装配查询与管理；AddBackgroundServices（仅 Worker）额外装配 JobsWorkerOptions、
+/// JobExecutionHostedProcessor 轮询 BackgroundService（到期调度派发 + 待处理执行 + 积压采样可观测）。
+/// 依赖 Identity 模块提供授权目录。
+/// </summary>
 public sealed class JobsModule : IFullNetModule
 {
     public string Name => "Jobs";

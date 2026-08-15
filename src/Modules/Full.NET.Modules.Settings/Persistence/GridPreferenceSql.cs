@@ -2,6 +2,10 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Settings.Persistence;
 
+/// <summary>
+/// 用户网格偏好 SQL 语句集合。提供按用户与 GridKey 查找、插入、当前 Schema 更新、
+/// 过期 Schema 替换、删除等语句。支持 HybridCache 二级缓存读写，数据作用域为全局（按 UserId 天然隔离）。
+/// </summary>
 internal static class GridPreferenceSql
 {
     public static readonly SqlStatement FindByUserAndGrid = new(

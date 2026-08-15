@@ -10,7 +10,11 @@ using Full.NET.Modules.Jobs.Persistence;
 
 namespace Full.NET.Modules.Jobs.Features.ManageHostJobExecutions;
 
-/// <summary>手动触发 Host 任务执行。</summary>
+/// <summary>
+/// Host 任务手动触发执行服务。按定义 Id 定位已启用定义后，事务内立即写入一条 Pending 状态执行记录（TriggerKind=Manual），
+/// 紧接着调用 JobExecutionRunner.ProcessPendingAsync 在当前作用域内立刻调度执行该实例（无需等待下一次轮询周期），
+/// 最后回查最新执行状态返回。全程单事务写入执行记录，确保立即触发可追溯。
+/// </summary>
 internal sealed class HostJobTriggerService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

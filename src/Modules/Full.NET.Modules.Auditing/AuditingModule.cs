@@ -23,6 +23,12 @@ using OpenTelemetry.Metrics;
 
 namespace Full.NET.Modules.Auditing;
 
+/// <summary>
+/// Auditing 业务模块入口。注册操作/异常/访问/出站调用四类审计日志的写入缓冲（B0 同事务/B1 异步有界 Channel/B2 Fire-and-Forget 三可靠性分级）、
+/// 游标分页只读查询、审计保留策略后台清理服务、中间件管道（AuditWriteCoordinator→Operation→Exception），
+/// 并映射查询端点与环境探针端点。依赖 Identity 模块提供授权目录。
+/// 仅在 Worker AddBackgroundServices 中装配保留清理 BackgroundService，避免 API 进程重复执行。
+/// </summary>
 public sealed class AuditingModule : IFullNetModule
 {
     public string Name => "Auditing";

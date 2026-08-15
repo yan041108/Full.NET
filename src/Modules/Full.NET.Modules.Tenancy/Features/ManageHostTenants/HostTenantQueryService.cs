@@ -6,11 +6,17 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 
-/// <summary>Host 租户分页列表与详情只读查询。</summary>
+/// <summary>
+/// Host 侧租户只读查询服务。提供分页列表与单条详情，支持 SQL Server/MySQL 两种分页方言。
+/// 列表查询不走解析缓存，每次直接查最新持久化，确保管理端禁用/改名后 UI 立即可见。
+/// </summary>
 internal sealed class HostTenantQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>
+    /// 按创建顺序倒序的宿主租户分页列表；pageSize 范围 [1, 100] 自动夹取。
+    /// </summary>
     public async Task<Result<PagedResult<TenantSummary>>> ListAsync(
         int page,
         int pageSize,
@@ -40,6 +46,10 @@ internal sealed class HostTenantQueryService(
             new PagedResult<TenantSummary>(items, page, pageSize, total));
     }
 
+    /// <summary>
+    /// 按 ID 查询单个租户详情；找不到返回 TenancyErrorCodes.NotFound。
+    /// 写操作成功后通常使用本方法重新读取最新数据作为响应体。
+    /// </summary>
     public async Task<Result<TenantSummary>> GetByIdAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default)

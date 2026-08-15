@@ -12,7 +12,14 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Jobs.Features.ManageHostJobSchedules;
 
-/// <summary>管理 Host 任务计划，并在写入前固定时区和下一次 UTC 触发时刻。</summary>
+/// <summary>
+/// Host 任务计划创建、更新、暂停/恢复、删除与 Cron 预览管理服务。
+/// 写入前固定时区（NormalizeTimeZoneId）并计算下一次 UTC 触发时刻；支持 Cron 周期性（Cronos 库解析 Standard 格式）
+/// 与 OneTime 一次性两类触发器；Cron 预览端点提供表单输入时的下一次触发时刻即时反馈；
+/// 创建/更新时校验：起始时间必须早于结束时间、一次性计划不携带 Cron、Cron 表达式合法；
+/// 列表响应聚合 NumberOfErrors 供 UI 显示出错次数红色 Tag。
+/// 删除前置校验：无 pending/running 未终结执行记录。
+/// </summary>
 internal sealed class HostJobScheduleService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

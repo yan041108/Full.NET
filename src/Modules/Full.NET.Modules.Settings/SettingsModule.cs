@@ -22,6 +22,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modules.Settings;
 
+/// <summary>
+/// Settings 业务模块入口。注册系统参数配置、Host/Tenant 双作用域数据字典、枚举目录与用户网格偏好等领域服务，
+/// 提供配置项 CRUD、字典类型与项管理（Host/Tenant 隔离）、枚举目录查询、网格偏好读写、诊断策略等功能，
+/// 并映射对应 API 端点。依赖 Identity 模块提供授权目录与身份上下文。
+/// </summary>
 public sealed class SettingsModule : IFullNetModule
 {
     public string Name => "Settings";

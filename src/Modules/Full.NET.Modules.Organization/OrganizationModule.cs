@@ -24,6 +24,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modules.Organization;
 
+/// <summary>
+/// Organization 业务模块入口：提供租户组织树（部门）、岗位、职级序列、用户隶属关系管理，
+/// 并通过 Integration Event 将组织单元变更跨模块发布给 Identity 做投影对账。
+/// 事务不变量：机构单元父子层级禁止形成环；用户主部门在同一租户内唯一。
+/// </summary>
 public sealed class OrganizationModule : IFullNetModule
 {
     public string Name => "Organization";

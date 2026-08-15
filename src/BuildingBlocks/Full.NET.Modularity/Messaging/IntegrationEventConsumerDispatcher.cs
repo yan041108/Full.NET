@@ -17,6 +17,20 @@ public sealed class IntegrationEventConsumerDispatcher(
     CurrentTenantAccessor currentTenant,
     IEnumerable<IIntegrationEventHandlerRegistry>? handlerRegistries = null)
 {
+    /// <summary>
+    /// 消费单条集成事件：按 ConsumerName + EventType + SchemaVersion 精确匹配订阅，
+    /// 执行 Inbox 前置声明（幂等去重）、租户上下文恢复、所有权闸门、业务 Handler 调用
+    /// 与 processed 标记，所有步骤包裹在单个数据库事务中原子提交。
+    /// </summary>
+    /// <param name="consumerName">消费者组名，与订阅声明一致。</param>
+    /// <param name="envelope">事件信封，包含元数据与载荷；路由校验后才会恢复租户信息。</param>
+    /// <param name="handler">预匹配的订阅处理器；本方法会再次校验与目录一致性防止篡改。</param>
+    /// <returns>
+    /// <c>AlreadyProcessed</c> 表示 Inbox 判定重复投递，业务未重放；
+    /// <c>Processed</c> 表示 Handler 执行成功且已标记 processed。
+    /// </returns>
+    /// <exception cref="EventDeliveryOwnershipRevokedException">CDC Kafka 所有权变更，需回滚重试。</exception>
+    /// <exception cref="IntegrationEventPermanentException">MessageId 载荷冲突等不可恢复错误。</exception>
     public async Task<InboxConsumeResult> ConsumeAsync(
         string consumerName,
         IntegrationEventEnvelope envelope,
