@@ -32,6 +32,79 @@ test('纯文档和客户端改动不启动 Integration', () => {
   assert.deepEqual(selection.targets, []);
 });
 
+test('纯 benchmarks 改动不启动 Integration', () => {
+  const selection = classifyChangedPaths([
+    'benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityRunner.cs'
+  ]);
+
+  assert.equal(selection.mode, 'none');
+  assert.deepEqual(selection.targets, []);
+});
+
+test('Kafka 部署模板选择 messaging-heavy 分片', () => {
+  const selection = classifyChangedPaths([
+    'deploy/messaging/connectors/mysql-outbox-capacity.json'
+  ]);
+
+  assert.equal(selection.mode, 'focused');
+  assert.deepEqual(selection.targets, [
+    { kind: 'shard', name: 'messaging-heavy' }
+  ]);
+});
+
+test('Messaging.Kafka 基础设施同时选择 Outbox 与 messaging-heavy', () => {
+  const selection = classifyChangedPaths([
+    'src/BuildingBlocks/Full.NET.Messaging.Kafka/KafkaEnvelopeReader.cs'
+  ]);
+
+  assert.equal(selection.mode, 'focused');
+  assert.deepEqual(
+    selection.targets.map(target => target.name).sort(),
+    ['Outbox', 'messaging-heavy']
+  );
+});
+
+test('merge 默认排除 messaging-heavy，slice 仍保留', () => {
+  const targets = classifyChangedPaths([
+    'deploy/messaging/connectors/mysql-outbox-capacity.json'
+  ]).targets;
+
+  assert.deepEqual(
+    targetsForPhase(targets, 'slice').map(target => target.name),
+    ['messaging-heavy']
+  );
+  assert.deepEqual(
+    targetsForPhase(targets, 'merge').map(target => target.name),
+    []
+  );
+  assert.deepEqual(
+    targetsForPhase(targets, 'merge', { includeHeavy: true })
+      .map(target => target.name)
+      .sort(),
+    ['messaging-heavy', 'smoke']
+  );
+  assert.deepEqual(
+    targetsForPhase(
+      classifyChangedPaths([
+        'src/Modules/Full.NET.Modules.Settings/Persistence/Queries.cs'
+      ]).targets,
+      'merge'
+    ).map(target => target.name).sort(),
+    ['Settings', 'smoke']
+  );
+});
+
+test('Messaging 重测 Integration 路径选择 messaging-heavy 分片', () => {
+  const selection = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/KafkaOutboxCdcCapacityRunnerTests.cs'
+  ]);
+
+  assert.equal(selection.mode, 'focused');
+  assert.deepEqual(selection.targets, [
+    { kind: 'shard', name: 'messaging-heavy' }
+  ]);
+});
+
 test('宿主运行时 App_Data 不扩大 Integration 影响集', () => {
   const selection = classifyChangedPaths([
     'docs/development/getting-started.md',
@@ -413,6 +486,21 @@ test('任务快照内容比较使用有界并发并保持结果顺序', async ()
   assert.deepEqual(results, [2, 4, 6, 8, 10, 12]);
 });
 
+test('inner 聚焦发现只强制 MySQL Provider', () => {
+  const mySql = {
+    displayName: 'query_with_mysql',
+    type: { typeName: 'AuditingApiMySqlTests' }
+  };
+
+  assert.doesNotThrow(() =>
+    verifyFocusedDiscovery([mySql], { phase: 'inner' })
+  );
+  assert.throws(
+    () => verifyFocusedDiscovery([mySql], { phase: 'slice' }),
+    /SQL Server/
+  );
+});
+
 test('聚焦发现必须同时包含 SQL Server 与 MySQL', () => {
   const sqlServer = {
     displayName: 'query_with_sql_server',
@@ -436,7 +524,8 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       baseRef: 'abc123',
       phase: 'slice',
       planOnly: true,
-      snapshotId: null
+      snapshotId: null,
+      includeHeavy: false
     }
   );
   assert.deepEqual(
@@ -445,7 +534,18 @@ test('命令参数要求显式任务基线并支持只规划模式', () => {
       baseRef: null,
       phase: 'inner',
       planOnly: false,
-      snapshotId: 'task-123'
+      snapshotId: 'task-123',
+      includeHeavy: false
+    }
+  );
+  assert.deepEqual(
+    parseArguments(['--base', 'abc123', '--include-heavy', '--phase', 'merge']),
+    {
+      baseRef: 'abc123',
+      phase: 'merge',
+      planOnly: false,
+      snapshotId: null,
+      includeHeavy: true
     }
   );
   assert.throws(() => parseArguments([]), /--base/);

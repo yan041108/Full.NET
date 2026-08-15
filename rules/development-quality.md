@@ -296,14 +296,21 @@
 | --- | --- | --- |
 | `inner` | 每次代码迭代 | 编译、Unit/Contract/类型检查；Identity、Tenancy、Outbox、缓存、迁移和共享宿主等高风险变更立即运行登记的聚焦 Integration |
 | `slice` | 一个 API＋数据库＋客户端纵向功能切片关闭，最长不超过两个工作日 | 运行该切片全部 affected 双库 Integration 与受影响客户端测试 |
-| `merge` | PR、合并候选或每日功能列车 | 运行 slice 影响集并追加双库 Smoke；可将多个相关功能批量验证一次 |
+| `merge` | PR、合并候选或每日功能列车 | 运行 slice 影响集并追加双库 Smoke；默认排除 `messaging-heavy` 分片（Kafka/CDC/Capacity Docker 重测），Messaging 变更在 slice 验证，完整重测由 `main` CI 第五分片承担；需要本地复核重测时使用 `--include-heavy` |
 | `main` | 受保护分支 CI | 运行测试矩阵中的完整互斥分片和汇总门禁 |
 
 本地任务禁止运行 `test:integration:full`，只运行从任务边界计算出的受影响测试；共享路径不得自动升级为完整集合。完整集合只保留给 `main` CI。准备发布时以最近一次目标 `main` CI 全量门禁为完整 Integration 证据，本地仍只补跑发布变更的影响集。
 
 本地标准入口为 `pnpm test:integration:affected:plan` 和 `pnpm test:integration:affected`。`test:integration:full` 只保留为 CI 维护诊断入口，普通本地任务禁止调用；完成耗时基线或排查慢测时必须对受影响 TRX 运行 `pnpm test:integration:durations`，不得只凭单次墙钟时间修改并行度、共享数据库或测试隔离策略。
 
-代码、SQL、配置或脚本任务开始时必须记录 `git rev-parse HEAD`。工作区已脏或任务跨窗口时必须运行 `pnpm test:task:start -- <task-id>` 创建任务快照；后续通过 `--snapshot <task-id>` 只选择任务开始后真正改变的文件。干净且单窗口任务可继续使用 `--base <任务基线>`。先运行 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase <inner|slice|merge>` 审查影响集，再运行对应 affected 命令。选择器排除 `App_Data` 等运行时工件，合并多个过滤目标并按 UID 去重；已在测试矩阵登记恢复集的迁移运行对应双库恢复测试和受影响模块测试，未登记迁移安全降级到 migrations 分片并追加可识别的受影响模块，迁移 Runner 或共享夹具也运行 migrations 分片。不得通过遗漏路径、改写边界或手工缩小 `--filter` 规避受影响测试。
+代码、SQL、配置或脚本任务开始时必须记录 `git rev-parse HEAD`。工作区已脏或任务跨窗口时必须运行 `pnpm test:task:start -- <task-id>` 创建任务快照；后续通过 `--snapshot <task-id>` 只选择任务开始后真正改变的文件。干净且单窗口任务可继续使用 `--base <任务基线>`。先运行 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase <inner|slice|merge>` 审查影响集，再运行对应 affected 命令。`inner` 阶段聚焦测试只强制 MySQL Provider；`slice` 与 `merge` 仍要求同场景 SQL Server 与 MySQL。`merge` 默认跳过 `messaging-heavy`；Messaging/Kafka/CDC/Capacity 变更先在 `slice` 验证，必要时追加 `--include-heavy`。选择器排除 `App_Data`、纯 `benchmarks/` 文档式变更等运行时或基准工件，合并多个过滤目标并按 UID 去重；已在测试矩阵登记恢复集的迁移运行对应双库恢复测试和受影响模块测试，未登记迁移安全降级到 migrations 分片并追加可识别的受影响模块，迁移 Runner 或共享夹具也运行 migrations 分片。不得通过遗漏路径、改写边界或手工缩小 `--filter` 规避受影响测试。
+
+### 11.2 新增 Integration 测试门禁
+
+1. 新增行为默认先在 Unit 或 Architecture 测试覆盖；只有 Unit 无法证明真实 DB、Broker、Connect、租户隔离或双 Provider 差异时，才允许新增 Integration 测试。
+2. 新增 Integration 测试前必须说明：为何 Unit 不足、是否必须双库 `[DataRow]`、能否并入现有 `[TestClass]`/fixture，以及是否属于 `messaging-heavy` 重测。
+3. Kafka/CDC/Capacity/Debezium 全链路或 `[RequiresDocker]` 长时测试只能进入 `messaging-heavy` 分片或专项 workflow，禁止加入 Smoke 或普通模块聚焦集。
+4. 增删 Integration 后必须更新 [`eng/testing/test-matrix.json`](../eng/testing/test-matrix.json) 并运行 `pnpm test:integration:partitions`；慢测排查使用 `pnpm test:integration:durations`，不得凭单次墙钟时间调整隔离策略。
 
 ## 12. 文档、依赖与发布许可
 

@@ -17,6 +17,7 @@ const testMatrix = loadTestMatrix();
 const assembly = testMatrix.integration.assembly;
 const migrationSelections = testMatrix.integration.migrationSelections ?? {};
 const smokeFilter = testMatrix.integration.shards.smoke.filter;
+const mergeDeferredShardNames = new Set(['messaging-heavy']);
 
 const focusedModules = new Set([
   'Auditing',
@@ -44,6 +45,7 @@ const integrationModules = [
 const noIntegrationPrefixes = [
   '.agents/',
   '.github/',
+  'benchmarks/',
   'docs/',
   'rules/',
   'ui/',
@@ -129,6 +131,27 @@ function filterTarget(name, filter = `FullyQualifiedName~${name}Api`) {
   return { kind: 'filter', name, filter };
 }
 
+function addMessagingHeavyTarget(targets) {
+  addTarget(targets, { kind: 'shard', name: 'messaging-heavy' });
+}
+
+function isMessagingHeavyIntegrationPath(filePath) {
+  return /KafkaCapacity|KafkaOutbox|CdcDebezium|EventDelivery|KafkaReplay|KafkaFailure|KafkaSubscription|BinlogShadow|CdcShadow|CdcCrash/i
+    .test(path.posix.basename(filePath));
+}
+
+function classifyMessagingPath(filePath, targets) {
+  if (filePath.startsWith('deploy/messaging/')) {
+    addMessagingHeavyTarget(targets);
+    return 'Messaging 部署模板';
+  }
+  if (filePath.startsWith('tests/performance/kafka-capacity')) {
+    addMessagingHeavyTarget(targets);
+    return 'Kafka 容量 workflow 契约';
+  }
+  return null;
+}
+
 function addTarget(targets, target) {
   targets.set(`${target.kind}:${target.name}`, target);
 }
@@ -194,6 +217,14 @@ function classifyBuildingBlock(filePath, targets) {
     );
     return 'Outbox 基础设施';
   }
+  if (/Full\.NET\.Messaging\.Kafka/.test(filePath)) {
+    addTarget(
+      targets,
+      filterTarget('Outbox', 'FullyQualifiedName~Outbox')
+    );
+    addMessagingHeavyTarget(targets);
+    return 'Kafka 消息基础设施';
+  }
   if (/Full\.NET\.Caching/.test(filePath)) {
     addTarget(
       targets,
@@ -257,6 +288,10 @@ function classifyIntegrationPath(filePath, targets) {
 
   const moduleName = moduleFromIntegrationPath(filePath);
   if (moduleName === 'Messaging') {
+    if (isMessagingHeavyIntegrationPath(filePath)) {
+      addMessagingHeavyTarget(targets);
+      return 'Messaging 重测 Integration';
+    }
     addTarget(
       targets,
       filterTarget('Outbox', 'FullyQualifiedName~OutboxRecoveryTests')
@@ -294,6 +329,12 @@ export function classifyChangedPaths(paths) {
 
   for (const filePath of normalizedPaths) {
     if (isLocalNoise(filePath)) {
+      continue;
+    }
+
+    const messagingReason = classifyMessagingPath(filePath, targets);
+    if (messagingReason) {
+      reasons.push(`${messagingReason}：${filePath}`);
       continue;
     }
 
@@ -399,7 +440,7 @@ export function classifyChangedPaths(paths) {
   };
 }
 
-export function verifyFocusedDiscovery(tests) {
+export function verifyFocusedDiscovery(tests, { phase = 'slice' } = {}) {
   if (tests.length === 0) {
     throw new Error('聚焦过滤器没有发现任何 Integration 测试。');
   }
@@ -407,7 +448,11 @@ export function verifyFocusedDiscovery(tests) {
   const identities = tests.map(test =>
     `${test.type?.typeName ?? ''} ${test.displayName ?? ''}`
   );
-  if (!identities.some(identity => /sqlserver|sql_server/i.test(identity))) {
+  const requireSqlServer = phase !== 'inner';
+  if (
+    requireSqlServer
+    && !identities.some(identity => /sqlserver|sql_server/i.test(identity))
+  ) {
     throw new Error('聚焦测试缺少 SQL Server Provider 覆盖。');
   }
   if (!identities.some(identity => /mysql|my_sql/i.test(identity))) {
@@ -415,7 +460,11 @@ export function verifyFocusedDiscovery(tests) {
   }
 }
 
-export function targetsForPhase(targets, phase) {
+export function targetsForPhase(
+  targets,
+  phase,
+  { includeHeavy = false } = {}
+) {
   if (!phases.has(phase)) {
     throw new Error('验证阶段只支持 inner、slice 或 merge。');
   }
@@ -432,12 +481,19 @@ export function targetsForPhase(targets, phase) {
 
   const selected = new Map();
   for (const target of targets) {
+    if (
+      !includeHeavy
+      && target.kind === 'shard'
+      && mergeDeferredShardNames.has(target.name)
+    ) {
+      continue;
+    }
     const mergeTarget = target.kind === 'shard' && target.name === 'smoke'
       ? filterTarget('smoke', smokeFilter)
       : target;
     addTarget(selected, mergeTarget);
   }
-  if (targets.some(target => target.kind !== 'tooling')) {
+  if ([...selected.values()].some(target => target.kind !== 'tooling')) {
     addTarget(selected, filterTarget('smoke', smokeFilter));
   }
   return [...selected.values()];
@@ -467,7 +523,7 @@ function testIdentity(test) {
     ].filter(Boolean).join('.');
 }
 
-export function combineFilterTargets(targets, discoveries) {
+export function combineFilterTargets(targets, discoveries, { phase = 'slice' } = {}) {
   const filterTargets = targets.filter(target => target.kind === 'filter');
   if (filterTargets.length === 0) {
     throw new Error('合并执行至少需要一个 filter 目标。');
@@ -476,7 +532,7 @@ export function combineFilterTargets(targets, discoveries) {
   const uniqueTests = new Map();
   for (const target of filterTargets) {
     const tests = discoveries.get(target.name) ?? [];
-    verifyFocusedDiscovery(tests);
+    verifyFocusedDiscovery(tests, { phase });
     for (const test of tests) {
       uniqueTests.set(testIdentity(test), test);
     }
@@ -502,11 +558,16 @@ export function parseArguments(args) {
   let snapshotId = null;
   let phase = 'slice';
   let planOnly = false;
+  let includeHeavy = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === '--plan') {
       planOnly = true;
+      continue;
+    }
+    if (argument === '--include-heavy') {
+      includeHeavy = true;
       continue;
     }
     if (argument === '--base') {
@@ -551,7 +612,7 @@ export function parseArguments(args) {
     throw new Error('--phase 只支持 inner、slice 或 merge。');
   }
 
-  return { baseRef, phase, planOnly, snapshotId };
+  return { baseRef, phase, planOnly, snapshotId, includeHeavy };
 }
 
 function lines(value) {
@@ -907,7 +968,8 @@ async function runCli(args, cwd = process.cwd()) {
     baseRef,
     phase,
     planOnly,
-    snapshotId
+    snapshotId,
+    includeHeavy
   } = parseArguments(args);
   const paths = await collectChangedPaths({ baseRef, snapshotId, cwd });
   if (paths.length === 0) {
@@ -917,7 +979,9 @@ async function runCli(args, cwd = process.cwd()) {
   }
 
   const selection = classifyChangedPaths(paths);
-  const executionTargets = targetsForPhase(selection.targets, phase);
+  const executionTargets = targetsForPhase(selection.targets, phase, {
+    includeHeavy
+  });
   process.stdout.write(
     renderSelection(
       paths,
@@ -992,11 +1056,15 @@ async function runCli(args, cwd = process.cwd()) {
     );
     const combined = combineFilterTargets(
       filterTargets,
-      new Map(discoveredEntries)
+      new Map(discoveredEntries),
+      { phase }
     );
+    const providerNote = phase === 'inner'
+      ? '已确认 MySQL Provider（inner 不要求 SQL Server）。'
+      : '已确认各目标双 Provider。';
     process.stdout.write(
       `${combined.targetNames.join(', ')} 聚焦发现：`
-      + `${combined.discoveredCount} 项（UID 去重），已确认各目标双 Provider。\n`
+      + `${combined.discoveredCount} 项（UID 去重），${providerNote}\n`
     );
     await runProcess(
       'dotnet',

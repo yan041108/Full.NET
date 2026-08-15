@@ -10,6 +10,7 @@ import {
   argumentsFor,
   shards
 } from '../../scripts/testing/run-integration-shard.mjs';
+import { loadTestMatrix } from '../../scripts/testing/run-dotnet-test-suite.mjs';
 import {
   verifyPartitionSets
 } from '../../scripts/testing/verify-integration-shards.mjs';
@@ -79,24 +80,17 @@ test('TRX 报告按耗时降序输出最慢测试', () => {
   }
 });
 
-test('四个 CI 分片数量精确覆盖全量门槛', () => {
-  const partition = [
-    shards['api-sqlserver'],
-    shards['api-mysql'],
-    shards.migrations,
-    shards.infrastructure
-  ];
+test('main CI 分片数量精确覆盖全量门槛', () => {
+  const matrix = loadTestMatrix();
+  const partition = matrix.integration.mainPartitions.map(
+    name => shards[name]
+  );
 
   assert.equal(
     partition.reduce((sum, shard) => sum + shard.minimum, 0),
     shards.full.minimum
   );
-  for (const name of [
-    'api-sqlserver',
-    'api-mysql',
-    'migrations',
-    'infrastructure'
-  ]) {
+  for (const name of matrix.integration.mainPartitions) {
     const args = argumentsFor(name);
     assert.ok(args.includes('--filter'));
     assert.ok(args.includes('--minimum-expected-tests'));

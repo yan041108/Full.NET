@@ -18,7 +18,8 @@ const partitionNames = [
   'api-sqlserver',
   'api-mysql',
   'migrations',
-  'infrastructure'
+  'infrastructure',
+  'messaging-heavy'
 ];
 
 export function verifyPartitionSets(fullTests, partitions) {

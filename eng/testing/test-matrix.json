@@ -29,6 +29,7 @@
         "integration-matrix": 30,
         "integration-tooling": 5,
         "migrations": 1800,
+        "messaging-heavy": 2400,
         "smoke": 180
       }
     },
@@ -218,7 +219,8 @@
       "api-sqlserver",
       "api-mysql",
       "migrations",
-      "infrastructure"
+      "infrastructure",
+      "messaging-heavy"
     ],
     "shards": {
       "smoke": {
@@ -242,8 +244,13 @@
         "timeout": "90m"
       },
       "infrastructure": {
-        "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations",
-        "minimum": 177,
+        "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests",
+        "minimum": 126,
+        "timeout": "60m"
+      },
+      "messaging-heavy": {
+        "filter": "FullyQualifiedName~KafkaCapacityRunnerTests|FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests|FullyQualifiedName~MySqlCdcDebeziumInboxE2ETests|FullyQualifiedName~SqlServerCdcDebeziumInboxE2ETests|FullyQualifiedName~EventDeliveryCutoverTests|FullyQualifiedName~EventDeliveryRollbackTests|FullyQualifiedName~CdcCrashPointTests|FullyQualifiedName~KafkaFailureRecoveryTests|FullyQualifiedName~KafkaReplayTests|FullyQualifiedName~KafkaSubscriptionTests|FullyQualifiedName~MySqlBinlogShadowTests|FullyQualifiedName~SqlServerCdcShadowTests",
+        "minimum": 51,
         "timeout": "60m"
       },
       "full": {

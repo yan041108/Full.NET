@@ -22,6 +22,7 @@
     "test:integration:api:mysql": "node scripts/testing/run-integration-shard.mjs api-mysql",
     "test:integration:migrations": "node scripts/testing/run-integration-shard.mjs migrations",
     "test:integration:infrastructure": "node scripts/testing/run-integration-shard.mjs infrastructure",
+    "test:integration:messaging-heavy": "node scripts/testing/run-integration-shard.mjs messaging-heavy",
     "test:integration:full": "node scripts/testing/run-integration-shard.mjs full",
     "test:integration:durations": "node scripts/testing/analyze-trx-durations.mjs",
     "test:integration:partitions": "node scripts/testing/verify-integration-shards.mjs",

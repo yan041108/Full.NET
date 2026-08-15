@@ -37,6 +37,7 @@ test('仓库必须提供分层 Integration 命令和耗时分析入口', async (
     'test:integration:api:mysql',
     'test:integration:migrations',
     'test:integration:infrastructure',
+    'test:integration:messaging-heavy',
     'test:integration:full',
     'test:integration:durations',
     'test:integration:partitions',
@@ -68,6 +69,8 @@ test('开发规则必须按开发阶段分层，并把完整集合留给 main CI
   );
   assert.match(rules, /test:integration:affected:plan/);
   assert.match(rules, /test:integration:affected/);
+  assert.match(rules, /messaging-heavy/);
+  assert.match(rules, /11\.2 新增 Integration 测试门禁/);
   assert.match(rules, /任务基线/);
   assert.match(rules, /完整集合只保留给 `main` CI/);
   assert.match(rules, /本地任务禁止运行 `test:integration:full`/);
