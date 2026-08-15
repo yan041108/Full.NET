@@ -66,6 +66,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<KafkaEnvelopeReader>();
         services.TryAddSingleton<KafkaOffsetCommitter>();
         services.TryAddSingleton<KafkaFailureClassifier>();
+        services.TryAddSingleton<KafkaConsumerMessageProcessor>();
         services.TryAddSingleton<KafkaMessagingProducer>();
         services.TryAddSingleton<KafkaRetryRouter>();
         services.TryAddSingleton<KafkaDeadLetterPublisher>();

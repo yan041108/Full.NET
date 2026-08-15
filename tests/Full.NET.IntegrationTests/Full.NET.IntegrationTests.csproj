@@ -4,6 +4,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\benchmarks\Full.NET.Benchmarks\Full.NET.Benchmarks.csproj" Aliases="kafkabenchmarks" />
     <ProjectReference Include="..\..\src\Tools\Full.NET.CodeGeneration.Cli\Full.NET.CodeGeneration.Cli.csproj" Aliases="codegencli" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.CodeGeneration\Full.NET.Data.CodeGeneration.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />

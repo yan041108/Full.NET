@@ -184,11 +184,17 @@ Expected: FAIL，原因是批量配置尚未暴露。
 
 `LingerMs` 允许 0-1000，`BatchSize` 允许 1 KiB-1 MiB，Queue Messages 允许 1-1,000,000，Queue KiB 允许 1 MiB-2 GiB，幂等 Producer 的 `MaxInFlight` 只允许 1-5。
 
-- [ ] **Step 4: 运行 GREEN 与低速延迟基准**（单元 GREEN 已完成；生产等价延迟/吞吐基准待执行）
+- [x] **Step 4a: 独立 Runner 与缩小验证入口落盘**
 
 Run: `dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter FullyQualifiedName~KafkaMessagingOptionsTests`
 
-Expected: PASS。负载记录必须同时包含低速流 p50/p95 与高吞吐流 msg/s，禁止只看批量吞吐。
+Result: 生产配置构建器的单元门禁已通过；独立 `kafka-capacity` Runner、低速延迟与有界开放环吞吐、正确性硬门禁、预算、checkpoint、TopicId 删除保护和真实 Kafka 缩小测试均已落盘。当前开发机 Docker Engine 未运行，真实 Kafka 测试在容器启动前环境阻断，因此不登记为已通过的 Kafka 运行证据。
+
+- [ ] **Step 4b: 专用生产等价 Kafka 低速延迟与饱和吞吐认证**
+
+按 [`docs/operations/kafka-capacity-runner.md`](../../operations/kafka-capacity-runner.md) 手工执行并归档低速流 p50/p95/p99、高吞吐 msg/s、正确性、资源、故障与恢复证据。禁止只看批量吞吐；完成前继续 `Capacity-not-verified`。
+
+2026-08-13 更新：已增加只允许手动触发、绑定受保护 `kafka-capacity` Environment 与专用 self-hosted Runner 的 Scope A smoke/matrix 工作流。该入口尚未实际运行，且 matrix 不替代 Soak、N+1、故障和恢复演练，因此本 Step 继续保持未完成。
 
 ### Task 4: 高低水位背压与可配置 Offset Commit
 
@@ -391,3 +397,10 @@ Expected: 依赖方向、低基数指标和性能证据门禁全部通过。
 - Architecture 99/99、Naming 24/24、SQL Safety 5/5、Governance 27/27、Performance Governance 9/9 全部通过。
 - `pnpm test:integration:affected -- --snapshot codex-wolverine-f1-20260810 --phase merge`：106/106 通过，用时 21 分 57 秒。
 - 独立代码复审结论为 `Ready: Yes`，Critical/Important 均为 0；生产等价容量状态仍为 `Capacity-not-verified`。
+
+### Kafka Transport Capacity Runner 补证状态（2026-08-12）
+
+- Scope A 独立 Confluent.Kafka Runner 与 Scope B `worker_inbox_handler` 已实现；Scope B 复用生产分区调度、连续 Offset 水位、Dapper Inbox、Dispatcher 与 Handler。`IKafkaCapacityScenarioDriver` 继续为 Scope C 保留扩展点；正式容量矩阵尚未运行，状态仍为 `Capacity-not-verified`。
+- 聚焦 Kafka Capacity 单元测试与完整 Unit 套件通过，Integration 项目 Release 构建 0 警告、0 错误，测试分片与治理门禁通过。
+- 真实 Kafka 缩小测试已覆盖低速/吞吐正确性、旁路 Group Offset 隔离、同名替换 TopicId 删除保护和取消证据；本机 Docker Engine 未运行，本轮没有把该套件记为通过。
+- 专用生产等价 Kafka 的正式低速、饱和、Soak、N+1、故障和恢复证据仍未执行，Task 3 Step 4b 保持未完成，整体继续 `Capacity-not-verified`。

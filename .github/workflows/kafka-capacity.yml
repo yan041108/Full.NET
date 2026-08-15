@@ -1,0 +1,206 @@
+name: Kafka transport capacity
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Bounded workload profile
+        required: true
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - matrix
+      approval_id:
+        description: Approved change or capacity ticket
+        required: true
+        type: string
+      reason:
+        description: Reason for running dedicated Kafka load
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kafka-capacity-dedicated-cluster
+  cancel-in-progress: false
+
+jobs:
+  capacity:
+    if: github.ref == 'refs/heads/main'
+    environment: kafka-capacity
+    runs-on: [self-hosted, linux, x64, kafka-capacity]
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare evidence directory
+        shell: bash
+        env:
+          CAPACITY_PROFILE: ${{ inputs.profile }}
+        run: |
+          set -euo pipefail
+          output="BenchmarkDotNet.Artifacts/kafka-capacity/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -p "$output"
+          printf '%s\n' \
+            'CapacityStatus=Capacity-not-verified' \
+            "Profile=$CAPACITY_PROFILE" \
+            "GitSha=$GITHUB_SHA" \
+            > "$output/workflow-metadata.txt"
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore benchmark
+        run: dotnet restore benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj
+
+      - name: Build benchmark
+        run: >-
+          dotnet build
+          benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj
+          --configuration Release
+          --no-restore
+
+      - name: Prepare smoke performance budget
+        if: inputs.profile == 'smoke'
+        shell: bash
+        env:
+          KAFKA_CAPACITY_BUDGET_JSON: ${{ secrets.KAFKA_CAPACITY_SMOKE_BUDGET_JSON }}
+        run: |
+          set -euo pipefail
+          umask 077
+          budget="$RUNNER_TEMP/kafka-capacity-budget.json"
+          rm -f "$budget"
+          if [[ -n "$KAFKA_CAPACITY_BUDGET_JSON" ]]; then
+            printf '%s' "$KAFKA_CAPACITY_BUDGET_JSON" > "$budget"
+          fi
+
+      - name: Prepare matrix performance budget
+        if: inputs.profile == 'matrix'
+        shell: bash
+        env:
+          KAFKA_CAPACITY_BUDGET_JSON: ${{ secrets.KAFKA_CAPACITY_MATRIX_BUDGET_JSON }}
+        run: |
+          set -euo pipefail
+          umask 077
+          budget="$RUNNER_TEMP/kafka-capacity-budget.json"
+          rm -f "$budget"
+          if [[ -n "$KAFKA_CAPACITY_BUDGET_JSON" ]]; then
+            printf '%s' "$KAFKA_CAPACITY_BUDGET_JSON" > "$budget"
+          fi
+
+      - name: Run bounded Kafka capacity profile
+        shell: bash
+        env:
+          KafkaCapacity__ExecutionEnabled: "true"
+          KafkaCapacity__EnvironmentName: CapacityCertification
+          KafkaCapacity__ExpectedClusterId: ${{ secrets.KAFKA_CAPACITY_EXPECTED_CLUSTER_ID }}
+          KafkaCapacity__Kafka__Enabled: "true"
+          KafkaCapacity__Kafka__BootstrapServers: ${{ secrets.KAFKA_CAPACITY_BOOTSTRAP_SERVERS }}
+          KafkaCapacity__Kafka__SecurityProtocol: ${{ vars.KAFKA_CAPACITY_SECURITY_PROTOCOL }}
+          KafkaCapacity__Kafka__SaslMechanism: ${{ vars.KAFKA_CAPACITY_SASL_MECHANISM }}
+          KafkaCapacity__Kafka__SaslUsername: ${{ secrets.KAFKA_CAPACITY_SASL_USERNAME }}
+          KafkaCapacity__Kafka__SaslPassword: ${{ secrets.KAFKA_CAPACITY_SASL_PASSWORD }}
+          CAPACITY_APPROVAL_ID: ${{ inputs.approval_id }}
+          CAPACITY_REASON: ${{ inputs.reason }}
+          CAPACITY_PROFILE: ${{ inputs.profile }}
+        run: |
+          set -euo pipefail
+          umask 077
+          output="BenchmarkDotNet.Artifacts/kafka-capacity/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          budget="$RUNNER_TEMP/kafka-capacity-budget.json"
+          trap 'rm -f "$budget"' EXIT
+
+          common=(
+            --scope kafka_transport
+            --execute true
+            --approval-id "$CAPACITY_APPROVAL_ID"
+            --reason "$CAPACITY_REASON"
+            --run-id "gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            --output "$output"
+            --delete-topic false
+          )
+          case "$CAPACITY_PROFILE" in
+            smoke)
+              profile=(
+                --scenarios low-rate,throughput
+                --low-rates 20
+                --throughput-rates 200
+                --payload-sizes 128
+                --producer-concurrency 2
+                --partitions 2
+                --replication-factor 1
+                --repetitions 1
+                --warmup-seconds 1
+                --duration-seconds 2
+                --drain-seconds 15
+                --max-messages-per-sample 1000
+              )
+              ;;
+            matrix)
+              profile=(
+                --scenarios low-rate,throughput
+                --low-rates 10,100
+                --throughput-rates 1000,5000,10000
+                --payload-sizes 256,4096
+                --producer-concurrency 1,4
+                --partitions 12
+                --replication-factor 3
+                --repetitions 3
+                --warmup-seconds 10
+                --duration-seconds 60
+                --drain-seconds 120
+                --max-messages-per-sample 5000000
+              )
+              ;;
+            *)
+              echo "Unsupported capacity profile." >&2
+              exit 2
+              ;;
+          esac
+
+          if [[ -s "$budget" ]]; then
+            common+=(--budget "$budget")
+          fi
+
+          dotnet run \
+            --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj \
+            --configuration Release \
+            --no-build -- \
+            kafka-capacity \
+            "${common[@]}" \
+            "${profile[@]}"
+
+      - name: Finalize workflow metadata
+        if: always()
+        shell: bash
+        env:
+          WORKFLOW_JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          output="BenchmarkDotNet.Artifacts/kafka-capacity/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -p "$output"
+          printf '%s\n' \
+            'CapacityStatus=Capacity-not-verified' \
+            "WorkflowJobStatus=$WORKFLOW_JOB_STATUS" \
+            > "$output/workflow-final-status.txt"
+
+      - name: Cleanup temporary budget
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/kafka-capacity-budget.json"
+
+      - name: Upload Kafka capacity evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kafka-capacity-${{ inputs.profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: BenchmarkDotNet.Artifacts/kafka-capacity/${{ github.run_id }}-${{ github.run_attempt }}/**
+          if-no-files-found: error
+          retention-days: 30

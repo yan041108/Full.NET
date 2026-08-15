@@ -27,7 +27,29 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
         var container = new KafkaBuilder("apache/kafka:4.1.2")
             .Build();
         await container.StartAsync().ConfigureAwait(false);
-        return new KafkaTestEnvironment(container);
+        var environment = new KafkaTestEnvironment(container);
+        await environment.WaitForIdempotentProducerAsync().ConfigureAwait(false);
+        return environment;
+    }
+
+    private async Task WaitForIdempotentProducerAsync()
+    {
+        const string readinessTopic = "fullnet.integration.readiness.v1";
+        await EnsureTopicsAsync(readinessTopic).ConfigureAwait(false);
+        using var producer = CreateProducer("fullnet-integration-readiness");
+        var delivery = await producer.ProduceAsync(
+                readinessTopic,
+                new Message<string, byte[]>
+                {
+                    Key = "readiness",
+                    Value = [1],
+                })
+            .ConfigureAwait(false);
+        if (delivery.Status != PersistenceStatus.Persisted)
+        {
+            throw new InvalidOperationException(
+                $"Kafka readiness probe was not persisted: {delivery.Status}.");
+        }
     }
 
     public KafkaMessagingOptions CreateOptions(string clientId) =>
@@ -65,6 +87,17 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
 
     public async Task EnsureTopicsAsync(params string[] topics)
     {
+        await EnsureTopicsAsync(
+            partitions: 1,
+            replicationFactor: 1,
+            topics).ConfigureAwait(false);
+    }
+
+    public async Task EnsureTopicsAsync(
+        int partitions,
+        short replicationFactor,
+        params string[] topics)
+    {
         using var admin = new AdminClientBuilder(new AdminClientConfig
         {
             BootstrapServers = BootstrapServers,
@@ -75,8 +108,8 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
                 topics.Distinct(StringComparer.Ordinal).Select(topic => new TopicSpecification
                 {
                     Name = topic,
-                    NumPartitions = 1,
-                    ReplicationFactor = 1,
+                    NumPartitions = partitions,
+                    ReplicationFactor = replicationFactor,
                 })).ConfigureAwait(false);
         }
         catch (CreateTopicsException exception) when (

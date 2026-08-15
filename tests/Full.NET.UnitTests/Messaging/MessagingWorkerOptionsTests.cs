@@ -34,6 +34,12 @@ public sealed class MessagingWorkerOptionsTests
             constructorParameters,
             typeof(IEnumerable<IIntegrationEventSubscription>));
         CollectionAssert.Contains(constructorParameters, typeof(IServiceScopeFactory));
+        CollectionAssert.Contains(
+            constructorParameters,
+            typeof(KafkaConsumerMessageProcessor));
+        CollectionAssert.DoesNotContain(
+            constructorParameters,
+            typeof(KafkaEnvelopeReader));
     }
 
   private const string EventType = "fullnet.tenancy.tenant.changed";

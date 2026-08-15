@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.Globalization;
 using Full.NET.Abstractions.Results;
@@ -12,7 +13,7 @@ public sealed class ResourceErrorMessageLocalizerTests
     [TestMethod]
     public void Fallback_counter_contains_only_stable_code_and_locale_tags()
     {
-        var measurements = new List<FallbackMeasurement>();
+        var measurements = new ConcurrentQueue<FallbackMeasurement>();
         using var listener = new MeterListener
         {
             InstrumentPublished = (instrument, meterListener) =>
@@ -24,7 +25,7 @@ public sealed class ResourceErrorMessageLocalizerTests
             },
         };
         listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
-            measurements.Add(new FallbackMeasurement(
+            measurements.Enqueue(new FallbackMeasurement(
                 instrument.Name,
                 value,
                 tags.ToArray())));

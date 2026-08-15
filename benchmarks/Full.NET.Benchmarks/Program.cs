@@ -2,6 +2,7 @@ using BenchmarkDotNet.Running;
 using Full.NET.Benchmarks;
 using Full.NET.Benchmarks.Auditing;
 using Full.NET.Benchmarks.Jobs;
+using Full.NET.Benchmarks.Kafka;
 using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Benchmarks.Outbox;
 
@@ -89,6 +90,20 @@ else if (args.FirstOrDefault() is "jobs-capacity")
 
     await JobsCapacityRunner.RunAsync(
         JobsCapacityOptions.Parse(capacityArguments));
+}
+else if (args.FirstOrDefault() is "kafka-capacity")
+{
+    var capacityArguments = args.Skip(1).ToArray();
+    if (capacityArguments.Contains(
+            "--help",
+            StringComparer.OrdinalIgnoreCase))
+    {
+        Console.WriteLine(KafkaCapacityOptions.HelpText);
+        return;
+    }
+
+    Environment.ExitCode = (int)await KafkaCapacityRunner.RunCommandAsync(
+        capacityArguments);
 }
 else
 {

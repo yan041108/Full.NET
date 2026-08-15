@@ -5,8 +5,11 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.MySql\Full.NET.Data.MySql.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Migrations.DbUp\Full.NET.Migrations.DbUp.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Messaging.Kafka\Full.NET.Messaging.Kafka.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Serialization.MessagePack\Full.NET.Serialization.MessagePack.csproj" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Api\Full.NET.Host.Api.csproj" Aliases="apiHost" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Worker\Full.NET.Host.Worker.csproj" Aliases="workerhost" />

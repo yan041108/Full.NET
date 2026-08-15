@@ -54,6 +54,7 @@ Producer 和 Consumer 分别通过 `KafkaMessagingOptions.BuildProducerConfig()`
 | `KafkaCapacityScenarioCatalog` | 生成稳定、有界、可指纹化的低速与吞吐样本 |
 | `KafkaCapacityTopicManager` | 创建唯一 Topic，记录 TopicId，并保护显式删除 |
 | `IKafkaCapacityScenarioDriver` | 隔离工作负载范围；本次只提供 `KafkaTransportScenarioDriver` |
+| `KafkaCapacityDriverRegistry` | 在连接 Kafka 前按稳定 ScopeCode 选择唯一 Driver Factory；未知或重复范围失败关闭 |
 | `KafkaCapacityOpenLoopScheduler` | 按目标到达率调度，记录调度迟滞，并向有界发送通道施加背压 |
 | `KafkaCapacityIntegrityTracker` | 核对 Ack、消费、Hash、重复、丢失、分区顺序和排空状态 |
 | `KafkaCapacityLatencyHistogram` | 以固定内存记录延迟分布和溢出，输出 P50/P95/P99/Max |
@@ -62,7 +63,7 @@ Producer 和 Consumer 分别通过 `KafkaMessagingOptions.BuildProducerConfig()`
 | `KafkaCapacityReportWriter` | 写入 manifest、样本、直方图、统计快照和 Markdown 摘要 |
 | `KafkaCapacityRunner` | 编排预检、Topic、Consumer、预热、采样、排空、评估和报告 |
 
-`IKafkaCapacityScenarioDriver` 的稳定输入是不可变的 `KafkaCapacitySampleContext`，稳定输出是 `KafkaCapacitySampleEvidence`。未来 B“Worker＋Inbox＋Handler”和 C“业务事务＋Outbox＋CDC＋Kafka＋Inbox”只能新增 Driver；不得复制配置保护、统计、预算、checkpoint、报告或 Topic 所有权逻辑。不同 Driver 的 `ScopeCode` 必须进入样本指纹，禁止跨范围比较或续跑。
+`IKafkaCapacityScenarioDriver` 的稳定输入是不可变的 `KafkaCapacitySampleContext`，稳定输出是 `KafkaCapacitySampleEvidence`。命令通过 `--scope` 选择已注册的唯一 Driver Factory；第一版默认值与唯一内置值仍为 `kafka_transport`，未注册范围必须在加载 Secret、连接 Kafka 或创建 Topic 前失败关闭。Factory 接收已统一加载的完整 Runner 配置并返回 Driver 与可选统计源，使未来数据库链路可以扩展同一配置根而不绕开保护入口；Factory 只允许构造运行时对象，不得连接数据库、Kafka 或其他外部依赖。Runner 必须在构建 AdminClient 或执行任何 Kafka I/O 前创建 Runtime 并校验 Factory/Driver Scope 一致。公共 Runner 继续独占配置保护、Topic、预算、checkpoint 和报告编排。未来 B“Worker＋Inbox＋Handler”和 C“业务事务＋Outbox＋CDC＋Kafka＋Inbox”只能新增 Driver/Factory；不得复制配置保护、统计、预算、checkpoint、报告或 Topic 所有权逻辑。不同 Driver 的 `ScopeCode` 必须进入样本、预算键、场景指纹、checkpoint 与 manifest，禁止跨范围比较或续跑。
 
 ## 4. 配置与 Secret
 
@@ -98,6 +99,7 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj \
 | 参数 | 默认值 | 有效范围/规则 |
 | --- | --- | --- |
 | `--scenarios` | `low-rate,throughput` | 不重复子集 |
+| `--scope` | `kafka_transport` | 稳定小写机器码；必须存在唯一已注册 Driver Factory |
 | `--low-rates` | `10` | 每项 1..10,000 msg/s |
 | `--throughput-rates` | `1000` | 每项 1..1,000,000 msg/s，严格递增 |
 | `--payload-sizes` | `256` | 每项 64..1,048,576 bytes |
@@ -129,7 +131,7 @@ Runner 通过 AdminClient 查询 ClusterId、Broker 数和 Topic。目标 Topic 
 fullnet.capacity.<run-id>.<sample-id>.transport
 ```
 
-Consumer 必须在预热前完成分区分配，并保持 `EnableAutoCommit=false`、`EnableAutoOffsetStore=false`。Runner 不修改任何正式 Consumer Group Offset。样本结束后只提交或关闭自己的临时 Group；提交行为不属于吞吐成功条件。
+Scope A 保持上述兼容格式；未来 Scope 的 GroupId 与 ClientId 额外包含其稳定 `ScopeCode` 段。标识超过长度上限时保留 Scope/角色后缀并加入截断前完整前缀的稳定摘要，禁止不同样本因朴素截断发生碰撞。Consumer 必须在预热前完成分区分配，并保持 `EnableAutoCommit=false`、`EnableAutoOffsetStore=false`。Runner 不修改任何正式 Consumer Group Offset。样本结束后只提交或关闭自己的临时 Group；提交行为不属于吞吐成功条件。
 
 消息值是固定版本的二进制测试信封。`--payload-sizes` 表示完整 `Message.Value` 的字节数，固定字段占用后由确定性填充数据补足；不能把 Envelope 开销隐藏在报告之外。信封至少包含：
 
@@ -216,7 +218,7 @@ Checkpoint 使用 SchemaVersion 和原子临时文件替换，只登记完整关
 | `6` | 性能预算失败 |
 | `130` | 用户取消；已尽力排空并保存不完整证据 |
 
-报告必须固定输出 `Scope=KafkaTransport` 和 `CapacityStatus=Capacity-not-verified`。控制台及全部工件需要经过同一 allowlist 投影，不允许先序列化完整 Kafka 配置再做字符串替换。
+报告必须输出本次注册 Driver 的稳定 ScopeCode 和固定 `CapacityStatus=Capacity-not-verified`。控制台及全部工件需要经过同一 allowlist 投影，不允许先序列化完整 Kafka 配置再做字符串替换。
 
 ## 11. 错误、取消与资源释放
 
