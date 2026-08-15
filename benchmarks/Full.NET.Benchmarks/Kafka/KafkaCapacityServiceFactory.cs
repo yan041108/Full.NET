@@ -32,6 +32,7 @@ public static class KafkaCapacityServiceFactory
         services.AddScoped<IIntegrationEventSubscription, KafkaCapacityWorkerSubscription>();
         RegisterWorkerMessaging(services);
         RegisterKafkaProcessor(services);
+        ApplyHostParityMode(services, configuration);
         return BuildProvider(services);
     }
 
@@ -46,12 +47,17 @@ public static class KafkaCapacityServiceFactory
         services.AddScoped<IIntegrationEventSubscription, KafkaCapacityWorkerSubscription>();
         RegisterWorkerMessaging(services);
         RegisterKafkaProcessor(services);
-        services.RemoveAll<IIntegrationEventSerializer>();
-        services.AddSingleton<IIntegrationEventSerializer, KafkaCapacityRawIntegrationEventSerializer>();
-        services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
-        services.AddSingleton<IEffectiveEventDeliveryOwnerResolver, KafkaCapacityCdcOwnerResolver>();
-        services.RemoveAll<IEventStreamOwnershipGate>();
-        services.AddScoped<IEventStreamOwnershipGate, KafkaCapacityPermissiveOwnershipGate>();
+        ApplyHostParityMode(services, configuration);
+        if (configuration.HostParityMode == KafkaCapacityHostParityMode.Fast)
+        {
+            services.RemoveAll<IIntegrationEventSerializer>();
+            services.AddSingleton<IIntegrationEventSerializer, KafkaCapacityRawIntegrationEventSerializer>();
+            services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
+            services.AddSingleton<IEffectiveEventDeliveryOwnerResolver, KafkaCapacityCdcOwnerResolver>();
+            services.RemoveAll<IEventStreamOwnershipGate>();
+            services.AddScoped<IEventStreamOwnershipGate, KafkaCapacityPermissiveOwnershipGate>();
+        }
+
         return BuildProvider(services);
     }
 
@@ -117,6 +123,16 @@ public static class KafkaCapacityServiceFactory
         services.AddSingleton<KafkaRetryRouter>();
         services.AddSingleton<KafkaDeadLetterPublisher>();
         services.AddSingleton<KafkaConsumerMessageProcessor>();
+    }
+
+    private static void ApplyHostParityMode(
+        ServiceCollection services,
+        KafkaCapacityConfiguration configuration)
+    {
+        // WorkerParity 保留 AddFullNetDapper 默认的 IEventStreamOwnershipGate 与
+        // IEffectiveEventDeliveryOwnerResolver；Fast 模式的宽松 override 在 Scope C 分支处理。
+        _ = services;
+        _ = configuration;
     }
 
     private static ServiceProvider BuildProvider(ServiceCollection services) =>

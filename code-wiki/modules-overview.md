@@ -115,14 +115,16 @@ public static IServiceCollection AddFullNetModules(this IServiceCollection servi
 | **CodeGeneration** | `CodeGeneration` | `Full.NET.Modules.CodeGeneration` | CRUD 模板管理、预览、执行、Git 集成、检查点回滚链 |
 | **SerialNumbers** | `SerialNumbers` | `Full.NET.Modules.SerialNumbers` | 编号规则、原子生成、并发控制 |
 
-### 3.2 存在 Contracts 独立项目的模块（有真实跨模块消费者）
+### 3.2 存在 Contracts 独立项目的模块
 
-| Contracts 项目 | 消费者 |
-|----------------|--------|
-| `Full.NET.Modules.Identity.Contracts` | Organization、Tenancy 等需要用户目录只读投影 |
-| `Full.NET.Modules.Organization.Contracts` | Identity 数据范围过滤、组织单元选择目录 |
-| `Full.NET.Modules.Settings.Contracts` | 其他模块读取平台配置 |
-| `Full.NET.Modules.Files.Contracts` | 其他模块引用文件资源 |
+| Contracts 项目 | 跨模块 `.csproj` 消费者（2026-08-16 基线） | 说明 |
+|----------------|---------------------------------------------|------|
+| `Full.NET.Modules.Identity.Contracts` | Auditing、CodeGeneration、Document、Files、Jobs、Messaging、Notifications、Organization、SerialNumbers、Settings、Tenancy | 平台 hub：权限、会话、Host 目录 Port 等 |
+| `Full.NET.Modules.Files.Contracts` | Document | 文件引用声明 |
+| `Full.NET.Modules.Organization.Contracts` | 无（仅 Organization 主项目自引用） | OpenAPI/序列化隔离，暂无外部模块消费者 |
+| `Full.NET.Modules.Settings.Contracts` | 无（仅 Settings 主项目自引用） | OpenAPI/序列化隔离，暂无外部模块消费者 |
+
+是否保留独立 `.Contracts` 项目以 **真实跨模块编译引用** 为准；禁止在 wiki 中假设 Identity 仍引用 `Organization.Contracts`。
 
 ---
 

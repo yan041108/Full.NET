@@ -52,6 +52,8 @@ public static class ServiceCollectionExtensions
 
             return new KafkaConnectAdminClient(httpClient);
         });
+        services.TryAddSingleton<IKafkaConnectAdminClient>(
+            serviceProvider => serviceProvider.GetRequiredService<KafkaConnectAdminClient>());
 
         var rollbackOptions = new KafkaConnectRollbackOptions();
         configuration.GetSection(KafkaConnectRollbackOptions.SectionName).Bind(rollbackOptions);

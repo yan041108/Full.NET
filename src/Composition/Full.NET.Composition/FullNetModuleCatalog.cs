@@ -84,7 +84,8 @@ public static class FullNetModuleCatalog
         {
             case FullNetHostProfile.Api:
                 services.AddFullNetModularity();
-                foreach (var module in CreateModules())
+                var apiModules = CreateModules(configuration);
+                foreach (var module in apiModules)
                 {
                     services.AddFullNetModule(module, configuration);
                 }
@@ -95,7 +96,7 @@ public static class FullNetModuleCatalog
 
             case FullNetHostProfile.Migrator:
                 services.AddFullNetModularity();
-                foreach (var module in CreateModules())
+                foreach (var module in CreateModules(configuration))
                 {
                     module.AddMigrationServices(services, configuration);
                 }
@@ -104,7 +105,7 @@ public static class FullNetModuleCatalog
 
             case FullNetHostProfile.Worker:
                 // Worker 只装配各模块声明的后台能力，避免把 HTTP、认证和完整模块依赖图带入后台进程。
-                foreach (var module in CreateModules())
+                foreach (var module in CreateModules(configuration))
                 {
                     module.AddBackgroundServices(services, configuration);
                 }
@@ -122,9 +123,13 @@ public static class FullNetModuleCatalog
     }
 
     /// <summary>
-    /// 官方模块的唯一集中清单，按依赖顺序排列；新增模块只在此追加一行。
+    /// 官方模块的唯一集中清单；新增模块只在此追加一行。
     /// </summary>
-    private static IReadOnlyList<IFullNetModule> CreateModules() =>
+    /// <remarks>
+    /// Composition 项目引用全部实现以形成编译闭包；<see cref="CreateModules"/> 按
+    /// <c>FullNet:Modules</c> 配置裁剪运行时注册子集。
+    /// </remarks>
+    private static IReadOnlyList<IFullNetModule> CreateAllModules() =>
     [
         new IdentityModule(),
         new AuditingModule(),
@@ -139,6 +144,9 @@ public static class FullNetModuleCatalog
         new CodeGenerationModule(),
         new SerialNumbersModule(),
     ];
+
+    private static IReadOnlyList<IFullNetModule> CreateModules(IConfiguration configuration) =>
+        FullNetModuleSelection.ResolveEnabledModules(configuration, CreateAllModules());
 
     private static readonly string[] OfficialHostProfiles =
     [

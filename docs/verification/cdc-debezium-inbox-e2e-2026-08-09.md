@@ -15,7 +15,7 @@
 ## 已落地基础设施
 
 - `CdcDebeziumPipelineFixture`：Kafka + Connect 测试栈（内部 `kafka:9092`，宿主 `EXTERNAL` 监听器）
-- `DebeziumConnectAdminClient` / `DebeziumConnectorTemplateFactory`：Connect REST 与 `deploy/messaging/connectors/*` 模板替换
+- `KafkaConnectAdminClient` / `DebeziumConnectorTemplateFactory`：Connect REST 与 `deploy/messaging/connectors/*` 模板替换
 - `CdcDebeziumE2ESupport`：Kafka 消费与 Inbox 断言辅助
 - `SqlServerCdcDebeziumInboxE2ETests` / `MySqlCdcDebeziumInboxE2ETests`：真实链路入口（环境不足时 `Assert.Inconclusive`）
 - Connector 模板补充 Outbox → Kafka header 映射（`event_id`、`message_type`、`trace_parent` 等）
@@ -29,7 +29,7 @@ dotnet test tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj `
   --filter "FullyQualifiedName~MySqlCdcDebeziumInboxE2ETests"
 ```
 
-**最新结果（2026-08-09）：** MySQL 7/7 通过（含失败场景）；SQL Server happy path 仍为 Inconclusive。
+**最新结果（2026-08-16）：** MySQL 7/7 通过（含失败场景）；SQL Server happy path 在 Testcontainers 上仍为 **Inconclusive**（已知 Agent 债务，见 [`sqlserver-cdc-ci-debt.md`](sqlserver-cdc-ci-debt.md)）。Nightly 外部实例路径见 [`.github/workflows/sqlserver-cdc-nightly.yml`](../../.github/workflows/sqlserver-cdc-nightly.yml)。
 
 ```powershell
 dotnet test tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj `
@@ -60,7 +60,7 @@ dotnet test tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj `
 
 ## 未验证项 / 风险
 
-1. SQL Server CDC Agent/capture job 在 Testcontainers 中可能长期 `Inconclusive`（与既有 shadow 测试一致）。
+1. SQL Server CDC Agent/capture job 在 Testcontainers 中为**登记环境债务**（`Inconclusive`，非 Pass）；外部 Agent 实例由 nightly workflow 提供 Pass/Fail 证据。见 [`sqlserver-cdc-ci-debt.md`](sqlserver-cdc-ci-debt.md)。
 2. MySQL Debezium 任务状态与 binlog 位点需进一步采集（失败时输出 Connector `/status` JSON）。
 3. 失败场景矩阵：MySQL 已覆盖重复投递、Connector 重启、Offset 未提交重投、Connector 暂停/恢复、Retry 路由与 Broker 中断；DLQ/Rebalance/切流回退 E2E 仍待实现。
 4. 生产 `IEventDeliveryRollbackReadinessReader` 已提供 Kafka Connect 适配器（`Messaging:KafkaConnectRollback:Enabled` 门控）；默认仍为失败关闭。

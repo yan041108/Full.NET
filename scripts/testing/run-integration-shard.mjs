@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { loadTestMatrix } from './run-dotnet-test-suite.mjs';
+import { renderSummary, summarizeTrxOutcomes } from './summarize-trx-outcomes.mjs';
 
 const matrix = loadTestMatrix();
 const assembly = matrix.integration.assembly;
@@ -32,6 +34,23 @@ export function argumentsFor(shardName) {
   return args;
 }
 
+function reportTrxOutcomes(shardName) {
+  const trxFile = `Full.NET.IntegrationTests-${shardName}.trx`;
+  if (!existsSync(trxFile)) {
+    return;
+  }
+
+  const xml = readFileSync(trxFile, 'utf8');
+  const report = summarizeTrxOutcomes(xml);
+  process.stdout.write(`\n${renderSummary(report)}\n`);
+  if (shardName === 'messaging-heavy' && report.outcomes.Inconclusive > 0) {
+    process.stdout.write(
+      '注意：messaging-heavy 含 Inconclusive 项；SQL Server CDC 在 Testcontainers 上为已知环境债务，'
+      + '不得当作双库验收 Pass。见 docs/verification/sqlserver-cdc-ci-debt.md\n'
+    );
+  }
+}
+
 function run(shardName) {
   const child = spawn('dotnet', argumentsFor(shardName), {
     cwd: process.cwd(),
@@ -47,6 +66,15 @@ function run(shardName) {
       process.stderr.write(`Integration 分片被信号 ${signal} 终止。\n`);
       process.exitCode = 1;
       return;
+    }
+    if (code === 0) {
+      try {
+        reportTrxOutcomes(shardName);
+      } catch (error) {
+        process.stderr.write(`${error.message}\n`);
+        process.exitCode = 1;
+        return;
+      }
     }
     process.exitCode = code ?? 1;
   });

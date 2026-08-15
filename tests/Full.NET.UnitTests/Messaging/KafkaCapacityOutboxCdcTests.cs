@@ -1,6 +1,8 @@
 using Full.NET.Benchmarks.Kafka;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
+using Full.NET.Messaging.Kafka;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 
 namespace Full.NET.UnitTests.Messaging;
@@ -39,6 +41,30 @@ public sealed class KafkaCapacityOutboxCdcTests
     }
 
     [TestMethod]
+    public async Task Worker_parity_mode_skips_fast_only_overrides_for_scope_C()
+    {
+        var configuration = new KafkaCapacityConfiguration
+        {
+            HostParityMode = KafkaCapacityHostParityMode.WorkerParity,
+            Database = new KafkaCapacityDatabaseConfiguration
+            {
+                Provider = DatabaseProvider.MySql,
+                ConnectionString = "Server=127.0.0.1;Database=capacity;User=root;Password=x;",
+                ExpectedDatabaseName = "capacity",
+            },
+            Kafka = new KafkaMessagingOptions { Enabled = true, BootstrapServers = "127.0.0.1:9092" },
+        };
+        var provider = KafkaCapacityServiceFactory.BuildOutboxCdcServices(
+            configuration,
+            new KafkaCapacityWorkerObserver(1));
+        await using var scope = provider.CreateAsyncScope();
+        Assert.IsFalse(
+            scope.ServiceProvider.GetServices<IEventStreamOwnershipGate>()
+                .Any(gate => gate.GetType().Name.Contains("Permissive", StringComparison.Ordinal)));
+        await provider.DisposeAsync();
+    }
+
+    [TestMethod]
     public void Configuration_loads_connect_overrides_without_disclosing_endpoint()
     {
         var environment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
@@ -58,6 +84,23 @@ public sealed class KafkaCapacityOutboxCdcTests
         Assert.AreEqual("fullnet-capacity-it", configuration.Connect.ConnectorNamePrefix);
         Assert.AreEqual("kafka:9092", configuration.Connect.InternalKafkaBootstrapServers);
         Assert.IsFalse(configuration.ToString().Contains("connect:8083", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Configuration_loads_host_parity_mode_from_environment()
+    {
+        var environment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["KafkaCapacity__HostParityMode"] = "WorkerParity",
+        };
+
+        var configuration = KafkaCapacityConfiguration.Load(
+            KafkaCapacityOptions.Parse(["--scope", KafkaCapacityScopeCodes.WorkerInboxHandler]),
+            environment.GetValueOrDefault);
+
+        Assert.AreEqual(
+            KafkaCapacityHostParityMode.WorkerParity,
+            configuration.HostParityMode);
     }
 
     [TestMethod]

@@ -113,31 +113,9 @@ internal static class CdcShadowFixture
 
     internal static async Task<bool> TryEnableSqlServerCdcAsync(string connectionString)
     {
-        await using var connection = new SqlConnection(connectionString);
-        try
-        {
-            await connection.ExecuteAsync("EXEC sys.sp_cdc_enable_db;");
-            await connection.ExecuteAsync(
-                """
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM cdc.change_tables
-                    WHERE capture_instance = N'fullnet_fn_messaging_outbox_event')
-                BEGIN
-                    EXEC sys.sp_cdc_enable_table
-                        @source_schema = N'dbo',
-                        @source_name = N'fn_messaging_outbox_event',
-                        @role_name = NULL,
-                        @capture_instance = N'fullnet_fn_messaging_outbox_event',
-                        @supports_net_changes = 0;
-                END
-                """);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        var result = await SqlServerCdcTestSupport.TryEnableCdcAsync(connectionString)
+            .ConfigureAwait(false);
+        return result.Succeeded;
     }
 
     internal static async Task<bool> WaitForSqlServerCdcInsertAsync(

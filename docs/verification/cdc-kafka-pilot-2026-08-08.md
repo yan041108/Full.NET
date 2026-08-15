@@ -39,12 +39,13 @@
 - N+1 Broker、retention 排空与灾难恢复演练。
 - Organization 生产配置下 append-only Outbox 与 Legacy 轮询并存的完整排空时序（Organization 当前仍使用 Legacy `IOutboxWriter` 无 metadata  overload）。
 
-## 2026-08-09 复审发现
+## 2026-08-09 复审发现（2026-08-16 更新）
 
-- `TenantUnitManagementService` 仍通过 Legacy `IOutboxWriter` 写 `fn_outbox_message`，Debezium 不会从真实业务写入获得试点事件。
-- 生产依赖注入中没有任何 `IIntegrationEventSubscription`；Kafka Worker 即使启动也没有业务路由。Worker 现已在 `CdcKafka` 模式下对此失败关闭。
-- `MessagingWorkerMode.CdcKafka` 会停止整个 Legacy `OutboxProcessor`，与“仅切一个事件流、其他事件流继续轮询”的所有权模型冲突。
-- 原集成测试通过镜像 append-only 行模拟 cutoff，没有验证真实生产者、Debezium、Kafka、Inbox 和 Identity 投影副作用的完整链路。
+- Organization 生产写入路径仍在向 Legacy Outbox 演进；真实 **Routed Outbox + metadata** 与 CDC 全链路 E2E 见 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md) 验收项。
+- Identity 已在 `AddBackgroundServices` 注册 `OrganizationUnitChangedKafkaSubscription`；HybridKafka 模式下 Worker 可路由到业务 Handler，但 **Delivery 路径仍为 Designing / Shadow-only**，切流开关默认关闭。
+- `MessagingWorkerMode.CdcKafka` 作为全局 Worker 模式已收敛为 `HybridKafka` + 流级所有权；仍须按流切流，禁止误关全局 Legacy 轮询。
+- 原集成测试通过镜像 append-only 行模拟 cutoff；真实生产者、Debezium、Kafka、Inbox 与 Identity 投影副作用的完整链路仍待 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md) 全部验收。
+- **2026-08-16 增补：** MySQL 上 `OrganizationCdcKafkaIdentityProjectionMySqlE2ETests` 已验证 routed append-only Outbox → Debezium → Kafka → Inbox → `fn_identity_organization_unit_projection` 单条 happy path；Delivery 状态 **仍为 Designing / Shadow-only**，SQL Server 对称证据依赖 [`sqlserver-cdc-ci-debt.md`](sqlserver-cdc-ci-debt.md) 外部实例或 nightly。
 
 在 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md) 全部验收前，不得恢复 `Pilot` 状态或调用正式切流 API。
 

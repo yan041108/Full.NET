@@ -55,6 +55,10 @@ public sealed class KafkaCapacityRunner
             var configuration = KafkaCapacityConfiguration.Load(
                 options,
                 environmentReader);
+            if (options.HostParityMode != KafkaCapacityHostParityMode.Fast)
+            {
+                configuration.HostParityMode = options.HostParityMode;
+            }
             var driverRuntime = KafkaCapacityDriverRegistry.CreateRuntime(
                 driverFactory,
                 configuration);

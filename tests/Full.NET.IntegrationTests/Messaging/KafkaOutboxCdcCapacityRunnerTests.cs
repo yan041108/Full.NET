@@ -7,6 +7,7 @@ using Dapper;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.Migrations.DbUp;
+using Full.NET.Messaging.Kafka;
 using Full.NET.IntegrationTests.Migrations;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -180,8 +181,9 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
 
     private static async Task<ScopeCScenario?> TryCreateSqlServerScenarioAsync()
     {
-        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
-        if (!await CdcShadowFixture.TryEnableSqlServerCdcAsync(connectionString))
+        var connectionString = await SqlServerCdcTestSupport.ResolveConnectionStringAsync();
+        var cdcEnablement = await SqlServerCdcTestSupport.TryEnableCdcAsync(connectionString);
+        if (!cdcEnablement.Succeeded)
         {
             return null;
         }
@@ -276,7 +278,7 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
 
     private sealed class ScopeCScenario(
         CdcDebeziumPipelineEnvironment pipeline,
-        DebeziumConnectAdminClient connectAdmin,
+        KafkaConnectAdminClient connectAdmin,
         DatabaseOptions options,
         string connectionString,
         string databaseName) : IAsyncDisposable

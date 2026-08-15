@@ -23,7 +23,7 @@
 | 区域 | 路径 |
 | --- | --- |
 | Scope C Driver | `benchmarks/Full.NET.Benchmarks/Kafka/KafkaCapacityOutboxCdcDriver.cs` |
-| Outbox / CDC / Connect | `KafkaCapacityOutboxProducer.cs`、`KafkaCapacityCdcTracker.cs`、`KafkaCapacityConnectAdminClient.cs`、`KafkaCapacityConnectorTemplateFactory.cs` |
+| Outbox / CDC / Connect | `KafkaCapacityOutboxProducer.cs`、`KafkaCapacityCdcTracker.cs`、`KafkaConnectAdminClient`（BuildingBlocks 共享）、`KafkaCapacityConnectorTemplateFactory.cs` |
 | 消费内核抽取 | `KafkaCapacityWorkerConsumerLoop.cs` |
 | Topic 策略 | `KafkaCapacityRunTopicResolver.cs` |
 | Connector 模板 | `deploy/messaging/connectors/mysql-outbox-capacity.json`、`sqlserver-outbox-capacity.json` |

@@ -1,3 +1,5 @@
+using Full.NET.Messaging.Kafka;
+
 namespace Full.NET.IntegrationTests.Messaging;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace Full.NET.IntegrationTests.Messaging;
 internal static class CdcDebeziumConnectorTestSupport
 {
     internal static async Task RegisterHealthyShadowConnectorAsync(
-        DebeziumConnectAdminClient connectAdmin,
+        KafkaConnectAdminClient connectAdmin,
         string connectorName,
         IReadOnlyDictionary<string, string> connectorConfig,
         TimeSpan timeout)

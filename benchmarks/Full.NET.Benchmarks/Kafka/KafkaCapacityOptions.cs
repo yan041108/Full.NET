@@ -41,6 +41,7 @@ public sealed record KafkaCapacityOptions
           --execute <true|false>
           --approval-id <id>
           --reason <text>
+          --host-parity-mode <fast|worker>   Scope B/C DI: Fast (default) or WorkerParity
         """;
 
     public bool Execute { get; init; }
@@ -89,6 +90,9 @@ public sealed record KafkaCapacityOptions
     public string? RunId { get; init; }
 
     public string OutputDirectory { get; init; } = CreateDefaultOutputDirectory();
+
+    public KafkaCapacityHostParityMode HostParityMode { get; init; } =
+        KafkaCapacityHostParityMode.Fast;
 
     /// <summary>
     /// 解析命令行参数；未知参数必须失败关闭。
@@ -196,6 +200,7 @@ public sealed record KafkaCapacityOptions
             OutputDirectory = values.GetValueOrDefault(
                 "--output",
                 CreateDefaultOutputDirectory()),
+            HostParityMode = ParseHostParityMode(values),
         };
         if (string.IsNullOrWhiteSpace(options.OutputDirectory))
         {
@@ -378,6 +383,24 @@ public sealed record KafkaCapacityOptions
         }
     }
 
+    private static KafkaCapacityHostParityMode ParseHostParityMode(
+        IReadOnlyDictionary<string, string> values)
+    {
+        if (!values.TryGetValue("--host-parity-mode", out var raw))
+        {
+            return KafkaCapacityHostParityMode.Fast;
+        }
+
+        return raw.ToLowerInvariant() switch
+        {
+            "fast" => KafkaCapacityHostParityMode.Fast,
+            "worker" or "workerparity" => KafkaCapacityHostParityMode.WorkerParity,
+            _ => throw new ArgumentException(
+                "--host-parity-mode 必须是 fast 或 worker。",
+                "--host-parity-mode"),
+        };
+    }
+
     private static readonly string[] KnownOptions =
     [
         "--scenarios",
@@ -403,6 +426,7 @@ public sealed record KafkaCapacityOptions
         "--reason",
         "--run-id",
         "--output",
+        "--host-parity-mode",
     ];
 
     private static string CreateDefaultOutputDirectory() => Path.Combine(

@@ -15,7 +15,7 @@
 | P1 | 合并修复把任意“反向模块依赖”作为 Contracts 引用豁免，可能静默放过新的双向契约环。 | 通用豁免收紧为 Identity→Organization 唯一精确债务，并附原因与移除任务；任意反向依赖负向 fixture 已锁定。 |
 | P1 | 本地事务扫描器把 `Full.NET.Modules.Files.Contracts` 解析为模块 `files.contracts`，迫使同模块调用看起来像跨模块债务。 | 模块目录名统一去除 `.Contracts` 后缀；Files/Identity 契约所有者 fixture 与完整事务目录门禁通过。 |
 | P1 | 能力矩阵仍列出已完成的 5 个事务债务、2 个缓存 allowlist、Document claim 和 Vue 契约门禁，可能让 Cursor 重复开发。 | 能力状态与优先级按当前实现和剩余风险更新。 |
-| P1 | Identity 机构投影验证只证明版本写入和测试内回填；原计划要求的断点、dry-run、差异对账及可运行入口尚未交付。 | 不改写为已完成；纳入新的 Cursor Task 3。 |
+| P1 | Identity 机构投影验证只证明版本写入和测试内回填；原计划要求的断点、dry-run、差异对账及可运行入口尚未交付。 | Task 3 已交付 reconcile 端点与 keyset/dry-run/apply；见 [`cursor-post-review-follow-up`](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md)。 |
 
 ## RED→GREEN 证据
 
@@ -26,4 +26,4 @@
 
 ## 剩余边界
 
-当前修复使用事务内双检查与条件 DML关闭已确认漏洞，但尚缺两套数据库上“Claim/删除同时起跑”的高竞争测试和显式统一行锁顺序。Identity→Organization 仍是一项精确模块契约债务，不得把债务目录清零误写为模块依赖完全无环。后续执行清单见 [`2026-08-08-cursor-post-review-follow-up.md`](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md)。
+当前修复使用事务内双检查与条件 DML 关闭已确认漏洞，但尚缺两套数据库上“Claim/删除同时起跑”的高竞争测试和显式统一行锁顺序（仍为 P0 队列项）。Identity→Organization 反向契约债务已于 2026-08-08 后续计划 Task 2 退役：Organization 实现 `Identity.Contracts` 中的 consumer-owned Port，Architecture 反向契约目录为空。后续执行清单见 [`2026-08-08-cursor-post-review-follow-up.md`](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md)。

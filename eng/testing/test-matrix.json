@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 1433,
+      "minimum": 1437,
       "timeout": "10m"
     },
     "compatibility": {
@@ -249,12 +249,12 @@
         "timeout": "60m"
       },
       "messaging-heavy": {
-        "filter": "FullyQualifiedName~KafkaCapacityRunnerTests|FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests|FullyQualifiedName~MySqlCdcDebeziumInboxE2ETests|FullyQualifiedName~SqlServerCdcDebeziumInboxE2ETests|FullyQualifiedName~EventDeliveryCutoverTests|FullyQualifiedName~EventDeliveryRollbackTests|FullyQualifiedName~CdcCrashPointTests|FullyQualifiedName~KafkaFailureRecoveryTests|FullyQualifiedName~KafkaReplayTests|FullyQualifiedName~KafkaSubscriptionTests|FullyQualifiedName~MySqlBinlogShadowTests|FullyQualifiedName~SqlServerCdcShadowTests",
-        "minimum": 51,
+        "filter": "FullyQualifiedName~KafkaCapacityRunnerTests|FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests|FullyQualifiedName~MySqlCdcDebeziumInboxE2ETests|FullyQualifiedName~SqlServerCdcDebeziumInboxE2ETests|FullyQualifiedName~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests|FullyQualifiedName~EventDeliveryCutoverTests|FullyQualifiedName~EventDeliveryRollbackTests|FullyQualifiedName~CdcCrashPointTests|FullyQualifiedName~KafkaFailureRecoveryTests|FullyQualifiedName~KafkaReplayTests|FullyQualifiedName~KafkaSubscriptionTests|FullyQualifiedName~MySqlBinlogShadowTests|FullyQualifiedName~SqlServerCdcShadowTests",
+        "minimum": 52,
         "timeout": "60m"
       },
       "full": {
-        "minimum": 585,
+        "minimum": 586,
         "timeout": "90m"
       }
     }

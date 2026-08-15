@@ -2,7 +2,7 @@
 
 - 状态：已批准
 - 日期：2026-07-18
-- 修订：2026-07-22，明确模块项目拓扑门禁；2026-07-26，增加表所有权与消费方 Port 门禁；2026-08-07，明确模块内/模块间数据关联与事务标准；2026-08-08，补充存量债务退役、本地投影和跨模块状态机验收标准
+- 修订：2026-07-22，明确模块项目拓扑门禁；2026-07-26，增加表所有权与消费方 Port 门禁；2026-08-07，明确模块内/模块间数据关联与事务标准；2026-08-08，补充存量债务退役、本地投影和跨模块状态机验收标准；2026-08-16，背景更新为 12 官方模块，architecture 债务目录清零表述
 - 决策者：项目所有者在当前任务中明确确认
 - 适用范围：Full.NET 1.0 总体架构、宿主职责和后续模块运行拓扑演进
 - 来源评估：[Full.NET 综合架构方案评估](../../verification/architecture-assessment-2026-07-18.md)
@@ -10,7 +10,7 @@
 
 ## 背景
 
-Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的快速开发底座。代码已经具备显式模块入口、集中 Composition、API/Worker/Migrator Host Profile、双数据库迁移、事务 Outbox、缓存和架构测试；真正落地的业务模块当前主要是 Identity 与 Tenancy。
+Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的快速开发底座。代码已经具备显式模块入口、集中 Composition、API/Worker/Migrator Host Profile、双数据库迁移、事务 Outbox、缓存和架构测试；[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 已注册 **12 个官方业务模块**（Identity、Tenancy、Organization、Settings、Auditing、Files、Document、Notifications、Jobs、Messaging、CodeGeneration、SerialNumbers），各模块成熟度以 [`capability-status.md`](../../roadmap/capability-status.md) 为准。
 
 需要在快速交付、模块生态和未来独立伸缩之间建立稳定边界。过早全面微服务化会放大双数据库、协议版本、可靠消息、部署和测试成本；只保留松散单体约定又会让模块随着业务增长直接共享内部代码和数据表。
 
@@ -49,7 +49,14 @@ Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的�
 4. 新增可选项目必须在已批准 Spec 或计划中记录消费者、依赖方向、收益和对应架构测试；
 5. 缺少上述证据时保持一个主项目，通过 `internal`、命名空间、显式注册入口、Host Profile 和架构测试维持边界。
 
-当前 `Identity.Contracts` 与 `Organization.Contracts` 已有真实跨模块消费者，可以保留；`Tenancy.Http` 是待结合依赖硬化结果复核的存量拆分，不构成新模块模板。是否合并存量项目必须单独评估引用图、宿主装配和回归成本，不在本次文档决策中静默执行。
+当前 `Identity.Contracts` 已被多个官方模块引用，可以保留；`Organization.Contracts` 与 `Settings.Contracts` 目前仅服务本模块 OpenAPI/序列化隔离，无外部 `.csproj` 消费者。`Tenancy.Http` 是待结合依赖硬化结果复核的存量拆分，不构成新模块模板。是否合并存量项目必须单独评估引用图、宿主装配和回归成本，不在本次文档决策中静默执行。
+
+## 编译闭包与运行时模块裁剪（2026-08-16）
+
+1. **编译闭包**：[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 的 Composition 项目引用全部 12 个官方模块实现，保证 Admin.NET 对标、集成测试与 Architecture 扫描的完整闭包；这不是“第二个精简解决方案”。
+2. **运行时裁剪**：通过 `FullNet:Modules:Preset`（`Full` 默认 / `Minimal` 快速底座）或 `FullNet:Modules:Enabled` 显式列表，控制 Api/Worker/Migrator **注册** 哪些模块；未启用模块不得暴露生产 HTTP Endpoint（Architecture 门禁验证）。
+3. **快速底座**：`Minimal` = Identity + Tenancy + Settings + Organization；仍须满足模块依赖 DAG，且 **必须** 包含 Identity。
+4. **禁止**：为裁剪而从 Composition 删除 `.csproj` 引用，或在宿主绕过 Catalog 手工 `AddModule`。
 
 ## 数据所有权与消费方 Port 门禁
 
@@ -101,7 +108,7 @@ Full.NET 以业务不变量而不是菜单、页面或物理表数量划分模�
 5. 消费事件时不得逐条同步回调所有者；确需补偿查询时必须批量、限速、可取消，并与正常消息消费解耦。
 6. 从同步 Port 切换到投影必须采用 expand→backfill→dual-check→cutover→retire，未证明投影完整前不得删除旧路径或债务登记。
 
-截至 2026-08-08，历史 `fn_identity_role_data_scope_unit.UnitId -> fn_organization_unit.Id` 跨模块外键已由成对可恢复迁移移除，跨模块表访问与外键债务目录均为空。剩余跨模块本地事务依赖以 [`module-local-transaction-debt.json`](../../../contracts/architecture/module-local-transaction-debt.json) 为唯一权威清单，并按[后续硬化计划](../../superpowers/plans/2026-08-08-architecture-gap-follow-up.md)逐项退役。
+截至 2026-08-16，历史 `fn_identity_role_data_scope_unit.UnitId -> fn_organization_unit.Id` 跨模块外键已由成对可恢复迁移移除；跨模块表访问、外键与本地事务三份 architecture 债务目录均为空，`AllowedReverseContractDependencies` 无登记例外。后续增强以 capability-status 与专门计划跟踪，不再通过债务 JSON 隐式保留旧路径。
 
 ## 局部服务拆分门禁
 

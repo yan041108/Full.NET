@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
+using Full.NET.Messaging.Kafka;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
@@ -126,7 +127,7 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
             internalKafkaBootstrapServers: $"{KafkaAlias}:{KafkaInternalPort}");
     }
 
-    public DebeziumConnectAdminClient CreateConnectAdminClient() =>
+    public KafkaConnectAdminClient CreateConnectAdminClient() =>
         new(ConnectBaseUri);
 
     public async Task InterruptBrokerAsync()

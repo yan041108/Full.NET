@@ -13,7 +13,7 @@
 | Topic 机器码 | `organization.unit-changed.v1` |
 | 目录默认所有权 | `LegacyPolling` |
 | 候选生产者 | Organization 模块 `TenantUnitManagementService`（当前仍写 Legacy Outbox） |
-| 候选消费者 | Identity 模块 `OrganizationUnitChangedIntegrationEventHandler`（尚未注册 Kafka 订阅） |
+| 候选消费者 | Identity 模块 `OrganizationUnitChangedIntegrationEventHandler`；`OrganizationUnitChangedKafkaSubscription` 已在 `IdentityModule.AddBackgroundServices` 注册（HybridKafka 模式下生效，**非正式切流**） |
 | 遗留重放 | Identity 机构单元投影对账 API（`reconcile_dry_run` / `reconcile_apply`） |
 
 选择依据：无支付/安全不可逆外部副作用；消费方通过投影版本比较收敛重复与乱序；存在 Legacy 对账路径。

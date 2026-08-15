@@ -1,5 +1,7 @@
 # Full.NET 综合架构方案评估
 
+> **历史快照（2026-07-18）：** 本文记录评估当时的事实与采纳结果；当前官方模块规模、能力状态与债务登记以 [`capability-status.md`](../roadmap/capability-status.md)、[`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) 与 Architecture 债务 JSON 为准。
+
 - 日期：2026-07-18
 - 类型：架构评估与采纳记录
 - 状态：已复核，核心建议已采纳

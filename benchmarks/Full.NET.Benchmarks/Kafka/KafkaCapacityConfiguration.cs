@@ -45,6 +45,12 @@ public sealed class KafkaCapacityConfiguration
     public KafkaCapacityConnectConfiguration Connect { get; set; } = new();
 
     /// <summary>
+    /// 获取或设置 Scope B/C 与 Worker 宿主 DI 的对齐模式；默认 Fast。
+    /// </summary>
+    public KafkaCapacityHostParityMode HostParityMode { get; set; } =
+        KafkaCapacityHostParityMode.Fast;
+
+    /// <summary>
     /// 从可选 JSON 文件加载配置，并以环境变量覆盖已知配置键。
     /// </summary>
     public static KafkaCapacityConfiguration Load(
@@ -76,6 +82,24 @@ public sealed class KafkaCapacityConfiguration
         ApplyKafkaEnvironmentOverrides(configuration, environmentReader);
         ApplyDatabaseEnvironmentOverrides(configuration, environmentReader);
         ApplyConnectEnvironmentOverrides(configuration, environmentReader);
+        ApplyEnvironmentOverride(
+            configuration,
+            nameof(HostParityMode),
+            environmentReader,
+            static (target, value) =>
+            {
+                if (!Enum.TryParse<KafkaCapacityHostParityMode>(
+                        value,
+                        ignoreCase: true,
+                        out var mode)
+                    || !Enum.IsDefined(mode))
+                {
+                    throw new InvalidDataException(
+                        "KafkaCapacity__HostParityMode must be Fast or WorkerParity.");
+                }
+
+                target.HostParityMode = mode;
+            });
 
         return configuration;
     }
@@ -91,6 +115,7 @@ public sealed class KafkaCapacityConfiguration
         + $"DatabaseProvider={Database.Provider}; "
         + $"DatabaseIdentityConfigured={!string.IsNullOrWhiteSpace(Database.ExpectedDatabaseName)}; "
         + $"ConnectConfigured={!string.IsNullOrWhiteSpace(Connect.BaseUri)}; "
+        + $"HostParityMode={HostParityMode}; "
         + $"PartitionsConfig=external";
 
     private static KafkaCapacityConfiguration LoadFile(string settingsPath)

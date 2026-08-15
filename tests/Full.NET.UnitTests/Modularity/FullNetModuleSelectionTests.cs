@@ -1,0 +1,62 @@
+using Full.NET.Composition;
+using Full.NET.Modules.Document;
+using Full.NET.Modules.Identity;
+using Microsoft.Extensions.Configuration;
+
+namespace Full.NET.UnitTests.Modularity;
+
+[TestClass]
+public sealed class FullNetModuleSelectionTests
+{
+    [TestMethod]
+    public void Default_configuration_enables_all_official_modules()
+    {
+        var enabled = FullNetModuleSelection.ResolveEnabledNames(CreateConfiguration());
+
+        Assert.HasCount(FullNetModuleSelection.OfficialModuleNames.Count, enabled);
+        foreach (var name in FullNetModuleSelection.OfficialModuleNames)
+        {
+            Assert.IsTrue(enabled.Contains(name));
+        }
+    }
+
+    [TestMethod]
+    public void Minimal_preset_enables_core_platform_modules_only()
+    {
+        var enabled = FullNetModuleSelection.ResolveEnabledNames(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = FullNetModuleSelectionOptions.Presets.Minimal,
+        }));
+
+        CollectionAssert.AreEquivalent(
+            FullNetModuleSelection.MinimalPresetModuleNames.ToArray(),
+            enabled.ToArray());
+    }
+
+    [TestMethod]
+    public void Explicit_enabled_list_must_include_module_dependencies()
+    {
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            FullNetModuleSelection.ResolveEnabledModules(
+                CreateConfiguration(new Dictionary<string, string?>
+                {
+                    ["FullNet:Modules:Enabled:0"] = "Identity",
+                    ["FullNet:Modules:Enabled:1"] = "Document",
+                }),
+                [new IdentityModule(), new DocumentModule()]));
+
+        StringAssert.Contains(exception.Message, "Files");
+    }
+
+    private static IConfiguration CreateConfiguration(
+        IReadOnlyDictionary<string, string?>? values = null)
+    {
+        var builder = new ConfigurationBuilder();
+        if (values is not null)
+        {
+            builder.AddInMemoryCollection(values);
+        }
+
+        return builder.Build();
+    }
+}

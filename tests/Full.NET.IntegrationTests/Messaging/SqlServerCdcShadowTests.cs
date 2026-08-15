@@ -26,7 +26,7 @@ public sealed class SqlServerCdcShadowTests
 
     {
 
-        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        var connectionString = await SqlServerCdcTestSupport.ResolveConnectionStringAsync();
 
         var options = new DatabaseOptions
 
@@ -44,13 +44,13 @@ public sealed class SqlServerCdcShadowTests
 
 
 
-        if (!await CdcShadowFixture.TryEnableSqlServerCdcAsync(connectionString))
+        var cdcEnablement = await SqlServerCdcTestSupport.TryEnableCdcAsync(connectionString);
+
+        if (!cdcEnablement.Succeeded)
 
         {
 
-            Assert.Inconclusive(
-
-                "SQL Server CDC could not be enabled in the test container (Agent/capture job gap).");
+            Assert.Inconclusive(SqlServerCdcTestSupport.BuildInconclusiveMessage(cdcEnablement));
 
         }
 
@@ -92,7 +92,7 @@ public sealed class SqlServerCdcShadowTests
 
     {
 
-        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        var connectionString = await SqlServerCdcTestSupport.ResolveConnectionStringAsync();
 
         var options = new DatabaseOptions
 
@@ -110,13 +110,13 @@ public sealed class SqlServerCdcShadowTests
 
 
 
-        if (!await CdcShadowFixture.TryEnableSqlServerCdcAsync(connectionString))
+        var cdcEnablement = await SqlServerCdcTestSupport.TryEnableCdcAsync(connectionString);
+
+        if (!cdcEnablement.Succeeded)
 
         {
 
-            Assert.Inconclusive(
-
-                "SQL Server CDC could not be enabled in the test container (Agent/capture job gap).");
+            Assert.Inconclusive(SqlServerCdcTestSupport.BuildInconclusiveMessage(cdcEnablement));
 
         }
 

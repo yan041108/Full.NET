@@ -1,6 +1,6 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-08-10。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-08-16。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 ## 状态定义
 
@@ -20,12 +20,12 @@
 |---|---|---|
 | 模块化单体、API/Worker/Migrator 运行角色 | Build-verified | [总体架构规格](../superpowers/specs/2026-07-17-fullnet-architecture-design.md)、[`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) 与 Architecture 门禁共同约束；尚未触发全面微服务拆分门槛。 |
 | 命名、迁移与 CRUD 生成治理 | Build-verified | 统一由 [`rules/naming-conventions.md`](../../rules/naming-conventions.md)、迁移命名测试和 CodeGeneration 契约门禁约束。 |
-| Dapper、租户 SQL 与命令事务边界 | Build-verified | 模块内强事务已形成统一边界，`module-local-transaction-debt.json` 已清零；Identity 消费 Organization 投影契约仍形成一项精确的反向模块契约债务，后续按 [Cursor 审查计划](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md)退役。 |
+| Dapper、租户 SQL 与命令事务边界 | Build-verified | 模块内强事务已形成统一边界；三份 architecture 债务目录（local-transaction / table-access / cross-foreign-key）与 `AllowedReverseContractDependencies` 均已清零。Organization 单位投影采用消费方拥有的 `Identity.Contracts` Port + Organization 侧适配器，模块依赖 DAG 无登记例外。 |
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |
 | 事务 Outbox、租约、重试与死信 | Build-verified | 仅承载需要事务原子性的重要 Integration Event；缓存失效、日志、Trace、Metrics 与普通审计禁止进入 Outbox。 |
-| CDC Relay / Kafka | Designing / Shadow-only | 2026-08-09 复审降回 Designing / Shadow-only；无生产等价的生产者→CDC→Kafka→Inbox→消费者认证证据，见 docs/verification/cdc-kafka-pilot-2026-08-08.md。2026-08-10 保持 Full.NET 自有主链路并将 Wolverine 固定为参考/性能对标；Cooperative Sticky 离线迁移门禁、Static Membership、Kafka 4 Consumer Protocol、Producer 有界批量、Key 固定槽并行、统一高低水位背压、可配置连续 Offset Commit、双库 Inbox 只读批量预检、一次性范围重放、Handler 编译期注册表及低基数 Activity/Gauge 已完成构建和聚焦集成验证。安全默认仍为 Legacy Range、单槽、分区容量 `1/0` 和 `PerMessage`；API 只注册重放操作且默认关闭，显式启用仍受 1000 条/32 分区/45 秒配置上限、单次原生调用余量与终态审计约束，不启动常驻 Consumer。真实 CDC 全链路、生产等价容量、Soak、N+1 与恢复演练仍未完成，整体继续 `Capacity-not-verified`，不得执行正式切流。实施与剩余门禁见[专项计划](../superpowers/plans/2026-08-10-wolverine-reference-kafka-hardening.md)。 |
-| Kafka Capacity Runner | Build-verified | Scope A `kafka_transport`、Scope B `worker_inbox_handler` 与 Scope C `transaction_outbox_cdc` 已实现。Scope B 复用生产分区有界调度、连续 Offset 水位、Envelope、Dapper Inbox 事务、Dispatcher、Handler、Retry/DLQ 处理核心；Scope C 追加业务事务 Outbox、外部 Connect REST、Debezium 容量 Connector（`fullnet.capacity.cdc.*`）与 `outboxCdc` 扩展证据，消费侧复用 Scope B 内核。Scope B/C 在 Kafka I/O 前验证专用数据库身份、schema、Outbox（Scope C）与 CdcKafka 所有权；MySQL + 真实 Kafka/Connect 缩减集成测试已通过，Scope C SQL Server 在 Testcontainers CDC 不可用时 Inconclusive。Scope A 手动工作流保持 A-only；正式生产等价矩阵、Soak、N+1、故障和恢复认证仍未执行，状态继续 `Capacity-not-verified`。使用边界见[运维手册](../operations/kafka-capacity-runner.md)。 |
+| CDC Relay / Kafka **（Delivery 路径）** | Designing / Shadow-only | **Delivery 路径**仍为 Designing / Shadow-only；不得因 Scope B/C 工具或 Build 级 Consumer 硬化而升级切流状态。2026-08-16：MySQL 上已补充 Organization routed Outbox → CDC → Kafka → Identity 投影单条 happy path 集成测试（`OrganizationCdcKafkaIdentityProjectionMySqlE2ETests`），**仍不**升级 Production-verified。见 [`cdc-kafka-pilot-2026-08-08.md`](../verification/cdc-kafka-pilot-2026-08-08.md) 与 [`messaging-runtime-topology.md`](../operations/messaging-runtime-topology.md)。 |
+| Kafka Capacity Runner **（测量工具，非 Delivery）** | Build-verified | **工具可用** ≠ Delivery 可切流。Scope A/B/C 已实现；Scope B/C 复用生产 Inbox/Dispatcher 核心，Scope C 追加 Outbox+Connect+CDC。MySQL 缩减集成测试已通过；SQL Server CDC 在 Testcontainers 上 Inconclusive。正式生产等价矩阵、Soak、N+1、故障恢复 **未执行**，测量结果继续 `Capacity-not-verified`。见 [`kafka-capacity-runner.md`](../operations/kafka-capacity-runner.md) 与 [`messaging-runtime-topology.md`](../operations/messaging-runtime-topology.md)。 |
 | FusionCache 多实例缓存治理 | Build-verified | 当前写路径使用提交后本实例 L1/L2 删除、Redis Backplane 与 TTL/版本兜底；Tenancy 与 Grid Preference 已纳入统一策略注册表，Architecture 手工策略 allowlist 为零；旧缓存事件处理器只作兼容排空。 |
 | 健康检查与运行角色就绪探针 | Build-verified | API、Worker、Migrator 和关键基础设施有独立就绪语义；生产阈值仍由环境配置验收。 |
 | HTTP 状态码、ProblemDetails 与兼容包络 | Build-verified | 标准 API 默认采用状态码与 ProblemDetails；Admin.NET 包络仅允许存在于兼容适配层。 |
@@ -41,11 +41,11 @@
 | Grid Preference | Build-verified | 读写和缓存已落地；缓存策略仍需从 Architecture allowlist 迁入统一策略注册表。 |
 | Host / Tenant 审计与操作日志 | Build-verified | 审计、HTTP Operation Log 与 Outbox 职责已分离。 |
 | 审计归档与保留 | Build-verified | 归档、导出、完整性与恢复边界已有验证；生产保留周期由运维配置。 |
-| Organization 单位、职位与成员关系 | Build-verified | 模块内关联使用本模块 SQL 与事务；跨 Identity 引用仍需通过投影和对账退役存量本地事务债务。 |
+| Organization 单位、职位与成员关系 | Build-verified | 模块内关联使用本模块 SQL 与事务；Identity 侧本地投影与 Host 对账端点（keyset、dry-run、apply）已落地，见 [`cursor-post-review-follow-up`](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md) Task 2–3。 |
 | Files 本地存储、Provider 与上传状态机 | Build-verified | ProviderKey、Pending→Publishing→Ready、补偿与对账、双库迁移均已有验证。 |
-| Document | Implementing | 2026-08-09 复审：安全分享协议与 Vue 管理端尚未通过，先失败关闭部分路径，等 Document 收口计划全部门禁通过再升 Build-verified。文档版本与附件关联及 Document→Files claim/reconcile 已落地，跨模块本地事务债务清零；审查已补回 Files 事务内删除保护、条件 Claim/删除和 Released 终态失败关闭，双 Provider 聚焦切片通过，真实高竞争矩阵仍列为 P0。 |
+| Document | Implementing | 2026-08-09 复审：安全分享协议与 Vue 管理端尚未通过，先失败关闭部分路径，等 Document 收口计划全部门禁通过再升 Build-verified。文档版本与附件关联及 Document→Files claim/reconcile 已落地，Architecture 三份模块边界债务目录均为空；审查已补回 Files 事务内删除保护、条件 Claim/删除和 Released 终态失败关闭，双 Provider 聚焦切片通过，真实高竞争矩阵仍列为 P0。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
-| Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径仍有一项跨模块本地事务债务待移出事务或改为投影。 |
+| Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径在事务外调用 `IHostUserDirectory` 校验收件人，事务内仅写入 Notifications 表，Architecture 本地事务扫描无登记债务。 |
 | Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。 |
 | 在线会话治理 | Build-verified | 会话状态、撤销与多实例协调已有基础能力。 |
 | 受保护超级管理员 | Build-verified | 动态投影授权目录权限，仍受租户、会话、Endpoint、审计和最后一名保护约束。 |
@@ -72,8 +72,8 @@
 
 ### P1：模块边界与一致性
 
-1. 将 Identity 的 Organization 单位投影事件/回填 Port 收敛为消费方最小契约，移除当前精确反向契约债务，恢复模块依赖 DAG 无例外。
-2. 把 Identity 机构投影回填从仅供测试调用的内部循环升级为 keyset、断点、dry-run、apply 与差异对账的有界 Host 运维能力。
+1. ~~将 Identity 的 Organization 单位投影事件/回填 Port 收敛为消费方最小契约~~ **已完成**（2026-08-08 后续计划 Task 2；Architecture 反向契约目录为空）。
+2. ~~把 Identity 机构投影回填升级为 keyset、断点、dry-run、apply 与差异对账的有界 Host 运维能力~~ **已完成**（Task 3；`/api/v1/identity/organization-unit-projections/reconcile`）。
 3. 将 Layui 从活动客户端测试、构建、E2E 与包体门禁移出，只保留冻结目录失败关闭和显式维护例外。
 
 ### P2：契约与演进

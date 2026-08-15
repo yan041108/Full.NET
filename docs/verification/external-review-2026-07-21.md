@@ -1,5 +1,7 @@
 # 外部全面分析复核与吸收记录
 
+> **历史快照（2026-07-21）：** 本文复核当时“双模块底座”表述；当前 Composition 编译闭包与运行时裁剪见 [`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) 与 [`capability-status.md`](../roadmap/capability-status.md)。
+
 - 复核日期：2026-07-21
 - 复核起点：当前 `main`（含 pre-v1 naming 010/011 与 Integration 门槛 **85**）
 - 输入：项目所有者提供的第三方只读全面分析报告（未改仓库文件）

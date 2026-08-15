@@ -209,6 +209,14 @@
 - 验证：SQL Server/MySQL 分别覆盖迁移、运行锁、Baseline 首次/重复、Overlay 继承、冲突、失败重跑、Outbox，以及 Production 允许 Baseline/拒绝其他 profile；Architecture Tests 断言 API/Worker 与业务模块不依赖 Seed 执行器且测试 Contributor 不进入发布物；日志和审计不得包含 Secret、连接串、Token 或异常堆栈
 - 例外：无。生产初始化必须进入 Baseline；不能把开发/演示数据改名后放入 Baseline 绕过门禁
 
+### R-20260816-identity-contracts-hub-boundary：Identity.Contracts 只允许跨模块稳定契约
+
+- 状态：强制
+- 来源：设计缺陷清单 P1 收尾；反向契约债务已清零，需防止 owner-domain 事件再次进入 hub
+- 适用范围：`Full.NET.Modules.Identity.Contracts` 及引用它的模块 Contracts/Consumer Port
+- 规则：`Identity.Contracts` **允许**：consumer-owned 只读 Port（如 `IIdentityOrganizationUnitProjectionSource`）、Identity 侧订阅所需的稳定 Integration Event 类型与常量（如 `IdentityOrganizationUnitChangedIntegrationEvent`）、Host 运维/Reconcile DTO 与权限码。**禁止**：Organization/Document/Files 等 owner 模块的领域事件定义、持久化实体、Repository 或写入 Port 放入 Identity hub；跨模块写入仍经 Outbox + 消费方本地 Handler/投影
+- 验证：Architecture Tests 扫描 Contracts 依赖方向；`AllowedReverseContractDependencies` 保持空；新增 hub 类型必须附带 consumer-owned 或 Identity-owned 说明
+
 ## 7. API、错误与序列化契约
 
 1. 对外 HTTP API 必须使用标准 HTTP 状态码与 ProblemDetails；领域失败不得默认返回 `200 OK`。

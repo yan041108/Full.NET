@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using Confluent.Kafka;
 using Full.NET.Data.Abstractions;
+using Full.NET.Messaging.Kafka;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.Benchmarks.Kafka;
@@ -26,7 +27,7 @@ public sealed class KafkaOutboxCdcScenarioDriverFactory
             provider,
             observer,
             new KafkaCapacityOutboxProducer(),
-            new KafkaCapacityConnectAdminClient(configuration.Connect));
+            KafkaCapacityConnectClients.Create(configuration.Connect));
         return new KafkaCapacityDriverRuntime(
             new KafkaOutboxCdcScenarioDriver(executor),
             executor,
@@ -65,7 +66,7 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
     ServiceProvider serviceProvider,
     KafkaCapacityWorkerObserver observer,
     KafkaCapacityOutboxProducer outboxProducer,
-    KafkaCapacityConnectAdminClient connectAdmin)
+    KafkaConnectAdminClient connectAdmin)
     : IKafkaCapacityStatisticsSource, IAsyncDisposable
 {
     private readonly ConcurrentQueue<KafkaCapacityLibrdkafkaStatisticsEvidence> statistics = new();
@@ -138,7 +139,10 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
             connectorConfig,
             cancellationToken).ConfigureAwait(false);
         activeConnectorName = connectorName;
-        if (!await connectAdmin.WaitForConnectorHealthyAsync(connectorName, cancellationToken)
+        if (!await connectAdmin.WaitForConnectorHealthyAsync(
+                connectorName,
+                TimeSpan.FromSeconds(configuration.Connect.HealthTimeoutSeconds),
+                cancellationToken)
                 .ConfigureAwait(false))
         {
             return new KafkaCapacitySampleEvidence(
@@ -375,5 +379,24 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
                 GC.CollectionCount(1),
                 GC.CollectionCount(2));
         }
+    }
+}
+
+/// <summary>
+/// 容量 Runner 对 BuildingBlocks <see cref="KafkaConnectAdminClient"/> 的薄工厂。
+/// </summary>
+internal static class KafkaCapacityConnectClients
+{
+    public static KafkaConnectAdminClient Create(KafkaCapacityConnectConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        if (!Uri.TryCreate(configuration.BaseUri, UriKind.Absolute, out var baseUri))
+        {
+            throw new InvalidDataException("Connect BaseUri is invalid.");
+        }
+
+        return new KafkaConnectAdminClient(
+            baseUri,
+            TimeSpan.FromSeconds(configuration.RequestTimeoutSeconds));
     }
 }

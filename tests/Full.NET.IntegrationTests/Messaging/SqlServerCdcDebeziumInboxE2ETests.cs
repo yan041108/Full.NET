@@ -14,7 +14,7 @@ public sealed class SqlServerCdcDebeziumInboxE2ETests
     public async Task SqlServer_committed_outbox_reaches_kafka_via_debezium_and_inbox()
     {
         var pipeline = await CdcDebeziumPipelineFixture.GetOrStartAsync();
-        var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
+        var connectionString = await SqlServerCdcTestSupport.ResolveConnectionStringAsync();
         var options = new DatabaseOptions
         {
             Provider = DatabaseProvider.SqlServer,
@@ -23,10 +23,10 @@ public sealed class SqlServerCdcDebeziumInboxE2ETests
         };
         await MessagingOutboxTestSupport.MigrateAsync(options);
 
-        if (!await CdcShadowFixture.TryEnableSqlServerCdcAsync(connectionString))
+        var cdcEnablement = await SqlServerCdcTestSupport.TryEnableCdcAsync(connectionString);
+        if (!cdcEnablement.Succeeded)
         {
-            Assert.Inconclusive(
-                "SQL Server CDC could not be enabled in the test container (Agent/capture job gap).");
+            Assert.Inconclusive(SqlServerCdcTestSupport.BuildInconclusiveMessage(cdcEnablement));
         }
 
         using var connectAdmin = pipeline.CreateConnectAdminClient();

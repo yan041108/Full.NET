@@ -4,7 +4,19 @@
 
 `kafka-capacity` 提供三个已实现的独立容量范围：Scope A `kafka_transport` 测量 Producer、临时 Topic 与 Consumer 传输；Scope B `worker_inbox_handler` 测量真实 `Kafka → 生产分区调度/连续 Offset 水位 → Dapper Inbox 事务 → Dispatcher → Handler`；Scope C `transaction_outbox_cdc` 测量 `开环调度 → 业务事务 Outbox → Debezium CDC → Kafka → 生产 Inbox/Handler` 全链路。Scope B 不包含业务写事务、Outbox 或 CDC；Scope C 通过外部 Connect REST 注册容量专用 Connector，Debezium Topic 前缀为 `fullnet.capacity.cdc.*`，Runner 默认不删除这些 Topic。三者均不能解除 ADR-0006 的影子运行与切流门禁。
 
-当前能力状态固定为 `Capacity-not-verified`。Scope B 与 Scope C 均已通过 MySQL + 真实 Kafka/Connect 的缩减集成测试；Scope C 的 SQL Server 路径在 Testcontainers CDC Agent 不可用时按设计 `Inconclusive`。尚未在专用生产等价环境执行正式矩阵或 Soak。
+当前能力状态固定为 `Capacity-not-verified`。Scope B 与 Scope C 均已通过 MySQL + 真实 Kafka/Connect 的缩减集成测试；Scope C 的 SQL Server 路径在 Testcontainers CDC Agent 不可用时按设计 `Inconclusive`（见 [`sqlserver-cdc-ci-debt.md`](../verification/sqlserver-cdc-ci-debt.md)）。尚未在专用生产等价环境执行正式矩阵或 Soak。
+
+### 1.1 DI 边界对照（Worker vs Capacity）
+
+| 组件 | Worker 宿主 | Capacity **Fast**（默认） | Capacity **WorkerParity** |
+| --- | --- | --- | --- |
+| Inbox / Dispatcher / Kafka 处理器 | 生产注册 | 同左（Scope B/C） | 同左 |
+| `IEventStreamOwnershipGate` | `DapperEventStreamOwnershipGate` | Scope C：`KafkaCapacityPermissiveOwnershipGate` | 保留 Dapper 默认（无 Permissive override） |
+| `IEffectiveEventDeliveryOwnerResolver` | 数据库所有权表 | Scope C：固定 `CdcKafka` 合成解析 | 保留 Dapper 默认 |
+| `IIntegrationEventSubscription` | 模块显式注册 | 合成 `fullnet.capacity.worker.message` | 同 Fast（仍为容量专用事件） |
+| 切流/认证语义 | 生产配置 | **非切流证据** | 更接近 Worker 门控，仍 **非** Production-verified |
+
+CLI / 配置：`--host-parity-mode fast|worker` 或 `KafkaCapacity__HostParityMode=WorkerParity`。Fast 用于开发迭代；正式对比 Worker 行为或 merge 候选复核时使用 WorkerParity。
 
 CLI 通过 `--scope <code>` 选择 Driver。默认注册表提供 `kafka_transport`、`worker_inbox_handler` 与 `transaction_outbox_cdc`；未知 Scope 会在设置文件、Secret 和 Kafka 连接加载前以退出码 `2` 失败关闭。ScopeCode 会进入预算键、续跑指纹、checkpoint、报告和临时客户端标识；不同 Scope 的证据不得混用或续跑。
 

@@ -1,4 +1,5 @@
 using Full.NET.Data.Abstractions;
+using Full.NET.Messaging.Kafka;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
@@ -9,7 +10,7 @@ internal sealed class CdcDebeziumMySqlE2EScenario : IAsyncDisposable
 {
     private CdcDebeziumMySqlE2EScenario(
         CdcDebeziumPipelineEnvironment pipeline,
-        DebeziumConnectAdminClient connectAdmin,
+        KafkaConnectAdminClient connectAdmin,
         DatabaseOptions options,
         string connectionString)
     {
@@ -21,7 +22,7 @@ internal sealed class CdcDebeziumMySqlE2EScenario : IAsyncDisposable
 
     public CdcDebeziumPipelineEnvironment Pipeline { get; }
 
-    public DebeziumConnectAdminClient ConnectAdmin { get; }
+    public KafkaConnectAdminClient ConnectAdmin { get; }
 
     public DatabaseOptions Options { get; }
 

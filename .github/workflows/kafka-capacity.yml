@@ -11,6 +11,7 @@ on:
         options:
           - smoke
           - matrix
+          - scope_b_smoke
       approval_id:
         description: Approved change or capacity ticket
         required: true
@@ -110,6 +111,8 @@ jobs:
           CAPACITY_APPROVAL_ID: ${{ inputs.approval_id }}
           CAPACITY_REASON: ${{ inputs.reason }}
           CAPACITY_PROFILE: ${{ inputs.profile }}
+          KAFKA_CAPACITY_MYSQL_CONNECTION_STRING: ${{ secrets.KAFKA_CAPACITY_MYSQL_CONNECTION_STRING }}
+          KAFKA_CAPACITY_MYSQL_DATABASE_NAME: ${{ vars.KAFKA_CAPACITY_MYSQL_DATABASE_NAME }}
         run: |
           set -euo pipefail
           umask 077
@@ -118,7 +121,6 @@ jobs:
           trap 'rm -f "$budget"' EXIT
 
           common=(
-            --scope kafka_transport
             --execute true
             --approval-id "$CAPACITY_APPROVAL_ID"
             --reason "$CAPACITY_REASON"
@@ -129,6 +131,7 @@ jobs:
           case "$CAPACITY_PROFILE" in
             smoke)
               profile=(
+                --scope kafka_transport
                 --scenarios low-rate,throughput
                 --low-rates 20
                 --throughput-rates 200
@@ -145,6 +148,7 @@ jobs:
               ;;
             matrix)
               profile=(
+                --scope kafka_transport
                 --scenarios low-rate,throughput
                 --low-rates 10,100
                 --throughput-rates 1000,5000,10000
@@ -157,6 +161,32 @@ jobs:
                 --duration-seconds 60
                 --drain-seconds 120
                 --max-messages-per-sample 5000000
+              )
+              ;;
+            scope_b_smoke)
+              if [[ -z "${KAFKA_CAPACITY_MYSQL_CONNECTION_STRING:-}" ]]; then
+                echo "KAFKA_CAPACITY_MYSQL_CONNECTION_STRING not configured; skipping Scope B smoke."
+                exit 0
+              fi
+              export KafkaCapacity__Database__Provider=MySql
+              export KafkaCapacity__Database__ConnectionString="$KAFKA_CAPACITY_MYSQL_CONNECTION_STRING"
+              export KafkaCapacity__Database__ExpectedDatabaseName="${KAFKA_CAPACITY_MYSQL_DATABASE_NAME:-fullnet_capacity}"
+              export KafkaCapacity__Database__CommandTimeoutSeconds=60
+              export KafkaCapacity__Database__MySqlGuidStorageMode=Binary16
+              profile=(
+                --scope worker_inbox_handler
+                --host-parity-mode worker
+                --scenarios low-rate
+                --low-rates 20
+                --payload-sizes 128
+                --producer-concurrency 2
+                --partitions 2
+                --replication-factor 1
+                --repetitions 1
+                --warmup-seconds 0
+                --duration-seconds 2
+                --drain-seconds 30
+                --max-messages-per-sample 100
               )
               ;;
             *)

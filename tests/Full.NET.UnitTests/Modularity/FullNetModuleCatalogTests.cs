@@ -196,8 +196,35 @@ public sealed class FullNetModuleCatalogTests
             && descriptor.Lifetime == ServiceLifetime.Singleton));
     }
 
+    [TestMethod]
+    public void Minimal_preset_registers_only_declared_modules_in_api_profile()
+    {
+        var services = CreateServices();
+        var configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = FullNetModuleSelectionOptions.Presets.Minimal,
+        });
+
+        services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Api);
+
+        using var provider = services.BuildServiceProvider();
+        var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
+        Assert.HasCount(FullNetModuleSelection.MinimalPresetModuleNames.Count, catalog.List());
+        Assert.IsNull(catalog.FindByKey("Document"));
+        Assert.IsNotNull(catalog.FindByKey("Organization"));
+    }
+
     private static ServiceCollection CreateServices() => new();
 
-    private static IConfiguration CreateConfiguration() =>
-        new ConfigurationBuilder().Build();
+    private static IConfiguration CreateConfiguration(
+        IReadOnlyDictionary<string, string?>? values = null)
+    {
+        var builder = new ConfigurationBuilder();
+        if (values is not null)
+        {
+            builder.AddInMemoryCollection(values);
+        }
+
+        return builder.Build();
+    }
 }
