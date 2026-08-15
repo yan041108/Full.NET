@@ -400,7 +400,7 @@ Expected: 依赖方向、低基数指标和性能证据门禁全部通过。
 
 ### Kafka Transport Capacity Runner 补证状态（2026-08-12）
 
-- Scope A 独立 Confluent.Kafka Runner 已实现，复用生产 TLS/SASL、幂等 Producer、队列和 Consumer 配置构建器；为后续 Scope B/C 保留 `IKafkaCapacityScenarioDriver` 扩展点。
+- Scope A 独立 Confluent.Kafka Runner 与 Scope B `worker_inbox_handler` 已实现；Scope B 复用生产分区调度、连续 Offset 水位、Dapper Inbox、Dispatcher 与 Handler。`IKafkaCapacityScenarioDriver` 继续为 Scope C 保留扩展点；正式容量矩阵尚未运行，状态仍为 `Capacity-not-verified`。
 - 聚焦 Kafka Capacity 单元测试与完整 Unit 套件通过，Integration 项目 Release 构建 0 警告、0 错误，测试分片与治理门禁通过。
 - 真实 Kafka 缩小测试已覆盖低速/吞吐正确性、旁路 Group Offset 隔离、同名替换 TopicId 删除保护和取消证据；本机 Docker Engine 未运行，本轮没有把该套件记为通过。
 - 专用生产等价 Kafka 的正式低速、饱和、Soak、N+1、故障和恢复证据仍未执行，Task 3 Step 4b 保持未完成，整体继续 `Capacity-not-verified`。

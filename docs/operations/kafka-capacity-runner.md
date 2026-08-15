@@ -2,11 +2,11 @@
 
 ## 1. 适用边界
 
-`kafka-capacity` 是独立的 Scope A 传输容量工具，只测量 Full.NET 生产 Kafka 配置构建器生成的 Producer、临时 Topic 和临时 Consumer Group。它不启动 CDC、Outbox、Inbox、业务 Handler、Retry/DLQ 或正式 Worker，因此结果不能代表完整业务事件链路，也不能解除 ADR-0006 的影子运行与切流门禁。
+`kafka-capacity` 提供两个已实现的独立容量范围：Scope A `kafka_transport` 测量 Producer、临时 Topic 与 Consumer 传输；Scope B `worker_inbox_handler` 测量真实 `Kafka → 生产分区调度/连续 Offset 水位 → Dapper Inbox 事务 → Dispatcher → Handler`。Scope B 不包含业务写事务、Outbox 或 CDC，因此仍不能代表 Scope C 全链路，也不能解除 ADR-0006 的影子运行与切流门禁。
 
-当前能力状态固定为 `Capacity-not-verified`。只有在专用生产等价 Kafka 上完成低速延迟、饱和吞吐、故障、Soak、N+1 和恢复演练，并归档可复核证据后，才能另行评审生产容量状态。后续 Scope B（Worker＋Inbox＋Handler）与 Scope C（业务事务＋Outbox＋CDC＋Kafka＋Inbox）必须新增 `IKafkaCapacityScenarioDriverFactory` 和 `IKafkaCapacityScenarioDriver`，复用现有配置保护、Topic 所有权、调度、正确性、预算、checkpoint 和报告边界。
+当前能力状态固定为 `Capacity-not-verified`。Scope B 已通过 SQL Server/MySQL 与真实 Kafka 的缩减集成测试，但尚未在专用生产等价环境执行正式矩阵。后续 Scope C（业务事务＋Outbox＋CDC＋Kafka＋Inbox）继续通过 `IKafkaCapacityScenarioDriverFactory` 和 `IKafkaCapacityScenarioDriver` 扩展，并复用现有配置保护、Topic 所有权、调度、正确性、预算、checkpoint 和报告边界。
 
-CLI 通过 `--scope <code>` 选择 Driver。当前默认注册表只提供 `kafka_transport`；未注册的 Scope 会在设置文件、Secret 和 Kafka 连接加载前以退出码 `2` 失败关闭。ScopeCode 会进入预算键、续跑指纹、checkpoint、报告和临时客户端标识；不同 Scope 的证据不得混用或续跑。
+CLI 通过 `--scope <code>` 选择 Driver。默认注册表提供 `kafka_transport` 与 `worker_inbox_handler`；未知 Scope 会在设置文件、Secret 和 Kafka 连接加载前以退出码 `2` 失败关闭。ScopeCode 会进入预算键、续跑指纹、checkpoint、报告和临时客户端标识；不同 Scope 的证据不得混用或续跑。
 
 ## 2. 安全配置
 
@@ -55,6 +55,8 @@ $env:KafkaCapacity__ExecutionEnabled = 'true'
 
 Runner 复用 `KafkaMessagingOptions.BuildClientConfig/BuildProducerConfig/BuildConsumerConfig` 的 TLS、SASL、幂等和队列设置。持久报告只保存连接地址、用户名、RunId、Topic 和审批号的 SHA-256 摘要；`checkpoint.json` 保存续跑必需的 RunId、Topic 身份和完整样本，不包含 Broker 凭据。工件目录仍应按敏感运维证据限制访问。
 
+Scope B 还必须提供 `KafkaCapacity:Database`，或使用同名环境变量注入：`Provider`、`ConnectionString`、`ExpectedDatabaseName`、`CommandTimeoutSeconds` 与 MySQL 的 `MySqlGuidStorageMode=Binary16`。数据库必须预先完成正式迁移，并为 `fullnet.capacity.worker.message` schema 1 准备 `CurrentOwner=CdcKafka` 的所有权记录。Runner 不迁移、不建库、不自动修改所有权；它在任何 Kafka Admin/建 Topic 操作前精确验证数据库名、Inbox/所有权表和当前 Owner。连接字符串不会进入配置摘要、checkpoint 或报告。
+
 ## 3. 执行流程
 
 ### 3.1 手动认证工作流
@@ -76,7 +78,7 @@ Environment 需要配置以下 Secret：
 - `KAFKA_CAPACITY_SECURITY_PROTOCOL`
 - `KAFKA_CAPACITY_SASL_MECHANISM`（使用 SASL 时）
 
-触发时必须填写 `approval_id` 与 `reason`，并选择 `smoke` 或 `matrix`。`smoke` 是默认的两档缩小链路检查，只证明执行链与正确性门禁可运行；`matrix` 包含 60 个有界低速/吞吐样本，正式测量时长合计 60 分钟，计入每样本预热与最坏排空后理论上界约 190 分钟，工作流硬超时为 240 分钟。它仍不包含 Soak、N+1 或故障恢复。两种 Profile 都固定使用 `kafka_transport`、`--delete-topic false` 和唯一输出目录；工作流及 Runner 报告继续标记 `Capacity-not-verified`。每次运行只上传当前 `run_id/run_attempt` 的报告、Checkpoint 和工作流元数据并保留 30 天，正式评审前应转存到受控证据库。
+触发时必须填写 `approval_id` 与 `reason`，并选择 `smoke` 或 `matrix`。`smoke` 是默认的两档缩小链路检查，只证明执行链与正确性门禁可运行；`matrix` 包含 60 个有界低速/吞吐样本，正式测量时长合计 60 分钟，计入每样本预热与最坏排空后理论上界约 190 分钟，工作流硬超时为 240 分钟。它仍不包含 Soak、N+1 或故障恢复。两种 Profile 都固定使用 `kafka_transport`、`--delete-topic false` 和唯一输出目录；现有 GitHub 工作流保持 Scope A-only。Scope B 同时需要专用 Kafka 与预迁移、隔离的双提供程序数据库，在建立按 Provider 隔离的 Environment、Secret 和清理策略前必须由受控主机手工执行。工作流及 Runner 报告继续标记 `Capacity-not-verified`。每次运行只上传当前 `run_id/run_attempt` 的报告、Checkpoint 和工作流元数据并保留 30 天，正式评审前应转存到受控证据库。
 
 若缺少受保护变量、Secret、审批、专用 Runner 或 ClusterId 不匹配，工作流应失败关闭；禁止通过修改工作流默认值、使用普通 Runner 或删除 ClusterId 门禁来迁就环境。容量 Budget 仍是可选的性能判定门禁；没有 Budget 的 `matrix` 只能形成观测证据，不能形成性能预算通过结论。
 

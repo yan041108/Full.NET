@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Kafka;
 
 namespace Full.NET.Benchmarks.Kafka;
@@ -34,6 +35,11 @@ public sealed class KafkaCapacityConfiguration
     public KafkaMessagingOptions Kafka { get; set; } = new();
 
     /// <summary>
+    /// 获取或设置 Scope B/C 复用生产持久化边界时使用的专用容量数据库配置。
+    /// </summary>
+    public KafkaCapacityDatabaseConfiguration Database { get; set; } = new();
+
+    /// <summary>
     /// 从可选 JSON 文件加载配置，并以环境变量覆盖已知配置键。
     /// </summary>
     public static KafkaCapacityConfiguration Load(
@@ -63,6 +69,7 @@ public sealed class KafkaCapacityConfiguration
             environmentReader,
             static (target, value) => target.ExpectedClusterId = value);
         ApplyKafkaEnvironmentOverrides(configuration, environmentReader);
+        ApplyDatabaseEnvironmentOverrides(configuration, environmentReader);
 
         return configuration;
     }
@@ -74,7 +81,10 @@ public sealed class KafkaCapacityConfiguration
         $"ExecutionEnabled={ExecutionEnabled}; EnvironmentName={EnvironmentName}; "
         + $"ExpectedClusterIdConfigured={!string.IsNullOrWhiteSpace(ExpectedClusterId)}; "
         + $"KafkaEnabled={Kafka.Enabled}; SecurityProtocol={Kafka.SecurityProtocol}; "
-        + $"SaslMechanism={Kafka.SaslMechanism}; PartitionsConfig=external";
+        + $"SaslMechanism={Kafka.SaslMechanism}; "
+        + $"DatabaseProvider={Database.Provider}; "
+        + $"DatabaseIdentityConfigured={!string.IsNullOrWhiteSpace(Database.ExpectedDatabaseName)}; "
+        + $"PartitionsConfig=external";
 
     private static KafkaCapacityConfiguration LoadFile(string settingsPath)
     {
@@ -140,6 +150,31 @@ public sealed class KafkaCapacityConfiguration
         }
     }
 
+    private static void ApplyDatabaseEnvironmentOverrides(
+        KafkaCapacityConfiguration configuration,
+        Func<string, string?> environmentReader)
+    {
+        foreach (var property in typeof(KafkaCapacityDatabaseConfiguration).GetProperties(
+                     BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (!property.CanWrite)
+            {
+                continue;
+            }
+
+            var value = environmentReader(
+                $"{EnvironmentPrefix}Database__{property.Name}");
+            if (value is null)
+            {
+                continue;
+            }
+
+            property.SetValue(
+                configuration.Database,
+                ConvertEnvironmentValue(value, property.PropertyType));
+        }
+    }
+
     private static object? ConvertEnvironmentValue(string value, Type targetType)
     {
         if (targetType == typeof(string))
@@ -190,4 +225,36 @@ public sealed class KafkaCapacityConfiguration
     {
         public KafkaCapacityConfiguration? KafkaCapacity { get; set; }
     }
+}
+
+/// <summary>
+/// 保存容量 Runner 访问专用 SQL Server 或 MySQL 数据库所需的受控配置。
+/// </summary>
+public sealed class KafkaCapacityDatabaseConfiguration
+{
+    /// <summary>
+    /// 获取或设置正式支持的数据库提供程序。
+    /// </summary>
+    public DatabaseProvider Provider { get; set; } = DatabaseProvider.SqlServer;
+
+    /// <summary>
+    /// 获取或设置专用容量数据库连接字符串；该值不得进入日志或证据文件。
+    /// </summary>
+    public string ConnectionString { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 获取或设置执行前必须精确匹配的数据库名，防止容量负载误入其他环境。
+    /// </summary>
+    public string ExpectedDatabaseName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 获取或设置数据库前置检查和命令的超时秒数。
+    /// </summary>
+    public int CommandTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// 获取或设置与正式运行库一致的 MySQL UUID 物理存储模式。
+    /// </summary>
+    public MySqlGuidStorageMode MySqlGuidStorageMode { get; set; } =
+        MySqlGuidStorageMode.Binary16;
 }

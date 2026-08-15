@@ -1,4 +1,5 @@
 using Full.NET.Benchmarks.Kafka;
+using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Kafka;
 
 namespace Full.NET.UnitTests.Messaging;
@@ -45,7 +46,7 @@ public sealed class KafkaCapacityOptionsTests
     {
         var options = KafkaCapacityOptions.Parse([
             "--scenarios", "low-rate,throughput",
-            "--scope", "worker_inbox_handler",
+            "--scope", KafkaCapacityScopeCodes.WorkerInboxHandler,
             "--low-rates", "1,10",
             "--throughput-rates", "1000,5000",
             "--payload-sizes", "128,4096",
@@ -70,7 +71,7 @@ public sealed class KafkaCapacityOptionsTests
         ]);
 
         Assert.IsTrue(options.Execute);
-        Assert.AreEqual("worker_inbox_handler", options.ScopeCode);
+        Assert.AreEqual(KafkaCapacityScopeCodes.WorkerInboxHandler, options.ScopeCode);
         Assert.AreEqual(12, options.Partitions);
         Assert.AreEqual(3, options.ReplicationFactor);
         Assert.AreEqual(TimeSpan.FromSeconds(15), options.Duration);
@@ -78,7 +79,7 @@ public sealed class KafkaCapacityOptionsTests
         Assert.AreEqual("run-42", options.RunId);
         Assert.HasCount(32, KafkaCapacityScenarioCatalog.Build(options));
         Assert.IsTrue(KafkaCapacityScenarioCatalog.Build(options).All(sample =>
-            sample.ScopeCode == "worker_inbox_handler"));
+            sample.ScopeCode == KafkaCapacityScopeCodes.WorkerInboxHandler));
     }
 
     [TestMethod]
@@ -232,6 +233,39 @@ public sealed class KafkaCapacityOptionsTests
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [TestMethod]
+    public void Configuration_loads_scope_B_database_overrides_without_disclosing_secrets()
+    {
+        var environment = new Dictionary<string, string?>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            ["KafkaCapacity__Database__Provider"] = "MySql",
+            ["KafkaCapacity__Database__ConnectionString"] =
+                "Server=database;Password=must-not-leak",
+            ["KafkaCapacity__Database__ExpectedDatabaseName"] = "fullnet_capacity",
+            ["KafkaCapacity__Database__CommandTimeoutSeconds"] = "17",
+        };
+
+        var configuration = KafkaCapacityConfiguration.Load(
+            KafkaCapacityOptions.Parse([]),
+            environment.GetValueOrDefault);
+
+        Assert.AreEqual(DatabaseProvider.MySql, configuration.Database.Provider);
+        Assert.AreEqual(
+            "Server=database;Password=must-not-leak",
+            configuration.Database.ConnectionString);
+        Assert.AreEqual(
+            "fullnet_capacity",
+            configuration.Database.ExpectedDatabaseName);
+        Assert.AreEqual(17, configuration.Database.CommandTimeoutSeconds);
+        Assert.IsFalse(configuration.ToString().Contains(
+            "must-not-leak",
+            StringComparison.Ordinal));
+        Assert.IsFalse(configuration.ToString().Contains(
+            "Server=database",
+            StringComparison.Ordinal));
     }
 
     [TestMethod]

@@ -20,6 +20,11 @@ public static class KafkaCapacityScopeCodes
     public const string KafkaTransport = "kafka_transport";
 
     /// <summary>
+    /// 表示 Kafka Consumer、Inbox、Dispatcher 与业务 Handler 的消费链范围。
+    /// </summary>
+    public const string WorkerInboxHandler = "worker_inbox_handler";
+
+    /// <summary>
     /// 限制进入预算、工件和客户端标识的范围码长度。
     /// </summary>
     public const int MaximumLength = 64;

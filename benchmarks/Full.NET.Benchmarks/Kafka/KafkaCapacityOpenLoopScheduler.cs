@@ -182,7 +182,7 @@ public sealed class KafkaCapacityOpenLoopScheduler : IKafkaCapacityWorkloadSched
             }
 
             var now = clock.GetTimestampMicroseconds();
-            if (now < deadline)
+            while (now < deadline)
             {
                 await clock.DelayAsync(
                     TimeSpan.FromTicks((deadline - now) * 10),

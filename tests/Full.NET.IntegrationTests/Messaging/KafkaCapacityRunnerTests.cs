@@ -3,6 +3,15 @@ extern alias kafkabenchmarks;
 using System.Text.Json;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
+using Dapper;
+using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
+using Full.NET.Migrations.DbUp;
+using Full.NET.IntegrationTests.Migrations;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using MySqlConnector;
 using ConfluentKafkaCapacityAdminClient = kafkabenchmarks::Full.NET.Benchmarks.Kafka.ConfluentKafkaCapacityAdminClient;
 using ConfluentKafkaCapacityConsumerFactory = kafkabenchmarks::Full.NET.Benchmarks.Kafka.ConfluentKafkaCapacityConsumerFactory;
 using ConfluentKafkaCapacityProducerFactory = kafkabenchmarks::Full.NET.Benchmarks.Kafka.ConfluentKafkaCapacityProducerFactory;
@@ -18,6 +27,8 @@ using KafkaCapacityScenarioCatalog = kafkabenchmarks::Full.NET.Benchmarks.Kafka.
 using KafkaCapacityTopicManager = kafkabenchmarks::Full.NET.Benchmarks.Kafka.KafkaCapacityTopicManager;
 using KafkaCapacityTopicDescription = kafkabenchmarks::Full.NET.Benchmarks.Kafka.KafkaCapacityTopicDescription;
 using KafkaCapacityTransportExecutor = kafkabenchmarks::Full.NET.Benchmarks.Kafka.KafkaCapacityTransportExecutor;
+using KafkaCapacityScopeCodes = kafkabenchmarks::Full.NET.Benchmarks.Kafka.KafkaCapacityScopeCodes;
+using KafkaCapacityWorkerContracts = kafkabenchmarks::Full.NET.Benchmarks.Kafka.KafkaCapacityWorkerContracts;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
@@ -25,6 +36,103 @@ namespace Full.NET.IntegrationTests.Messaging;
 [DoNotParallelize]
 public sealed class KafkaCapacityRunnerTests
 {
+    [TestMethod]
+    [TestCategory("RequiresDocker")]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Scope_B_uses_real_Kafka_worker_Inbox_and_handler(
+        DatabaseProvider provider)
+    {
+        var kafka = await KafkaFixture.GetOrStartAsync().ConfigureAwait(false);
+        var connectionString = provider == DatabaseProvider.SqlServer
+            ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
+            : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+        await MigrateAndSeedScopeBOwnershipAsync(provider, connectionString);
+        using var admin = new AdminClientBuilder(new AdminClientConfig
+        {
+            BootstrapServers = kafka.BootstrapServers,
+        }).Build();
+        var cluster = await admin.DescribeClusterAsync(
+            new DescribeClusterOptions { RequestTimeout = TimeSpan.FromSeconds(10) });
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            $"fullnet-kafka-capacity-scope-b-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var settings = Path.Combine(root, "settings.json");
+        var output = Path.Combine(root, "evidence");
+        var databaseName = provider == DatabaseProvider.SqlServer
+            ? new SqlConnectionStringBuilder(connectionString).InitialCatalog
+            : new MySqlConnectionStringBuilder(connectionString).Database;
+        await File.WriteAllTextAsync(
+            settings,
+            JsonSerializer.Serialize(new
+            {
+                KafkaCapacity = new
+                {
+                    ExecutionEnabled = true,
+                    EnvironmentName = "Capacity",
+                    ExpectedClusterId = cluster.ClusterId,
+                    Kafka = kafka.CreateOptions("capacity-scope-b-it"),
+                    Database = new
+                    {
+                        Provider = provider.ToString(),
+                        ConnectionString = connectionString,
+                        ExpectedDatabaseName = databaseName,
+                        CommandTimeoutSeconds = 30,
+                        MySqlGuidStorageMode = "Binary16",
+                    },
+                },
+            }));
+        try
+        {
+            var exitCode = await KafkaCapacityRunner.RunCommandAsync([
+                "--settings", settings,
+                "--scope", KafkaCapacityScopeCodes.WorkerInboxHandler,
+                "--execute", "true",
+                "--approval-id", "integration-test",
+                "--reason", "scope-b-real-pipeline",
+                "--run-id", $"scope-b-{Guid.NewGuid():N}",
+                "--output", output,
+                "--scenarios", "low-rate",
+                "--low-rates", "20",
+                "--payload-sizes", "128",
+                "--producer-concurrency", "2",
+                "--partitions", "2",
+                "--replication-factor", "1",
+                "--warmup-seconds", "0",
+                "--duration-seconds", "2",
+                "--drain-seconds", "20",
+                "--max-messages-per-sample", "100",
+            ]);
+
+            Assert.AreEqual(KafkaCapacityExitCode.Success, exitCode);
+            var sample = JsonSerializer.Deserialize<KafkaCapacitySampleEvidence>(
+                File.ReadAllLines(Path.Combine(output, "samples.ndjson")).Single(),
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)
+                {
+                    Converters =
+                    {
+                        new System.Text.Json.Serialization.JsonStringEnumConverter(),
+                    },
+                })!;
+            Assert.AreEqual(KafkaCapacityScopeCodes.WorkerInboxHandler, sample.ScopeCode);
+            Assert.IsTrue(sample.Integrity.CorrectnessPassed);
+            Assert.IsGreaterThan(0, sample.Integrity.Consumed);
+            Assert.AreEqual(sample.Integrity.Acknowledged, sample.Integrity.Consumed);
+            Assert.AreEqual(
+                sample.Integrity.Consumed,
+                sample.Performance.EndToEndLatency.Count);
+            Assert.AreEqual(
+                sample.Integrity.Acknowledged,
+                sample.Performance.AcknowledgementLatency.Count);
+            Assert.IsGreaterThan(0, sample.Performance.ScheduleLatency.Count);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [TestMethod]
     [TestCategory("RequiresDocker")]
     public async Task Real_Kafka_low_rate_and_throughput_are_correct_and_topic_is_retained()
@@ -77,7 +185,6 @@ public sealed class KafkaCapacityRunnerTests
                 "--max-messages-per-sample", "1000",
             ]);
 
-            Assert.AreEqual(KafkaCapacityExitCode.Success, exitCode);
             var samples = File.ReadAllLines(Path.Combine(output, "samples.ndjson"))
                 .Where(static line => !string.IsNullOrWhiteSpace(line))
                 .Select(line => JsonSerializer.Deserialize<KafkaCapacitySampleEvidence>(
@@ -88,8 +195,12 @@ public sealed class KafkaCapacityRunnerTests
                         {
                             new System.Text.Json.Serialization.JsonStringEnumConverter(),
                         },
-                    })!)
+                })!)
                 .ToArray();
+            Assert.AreEqual(
+                KafkaCapacityExitCode.Success,
+                exitCode,
+                JsonSerializer.Serialize(samples));
             Assert.HasCount(2, samples);
             Assert.IsTrue(samples.All(static sample =>
                 sample.State == KafkaCapacitySampleState.Completed
@@ -262,6 +373,66 @@ public sealed class KafkaCapacityRunnerTests
                 CancellationToken.None)) is not null,
             timeout);
         return topic!;
+    }
+
+    private static async Task MigrateAndSeedScopeBOwnershipAsync(
+        DatabaseProvider provider,
+        string connectionString)
+    {
+        var options = Options.Create(new DatabaseOptions
+        {
+            Provider = provider,
+            ConnectionString = connectionString,
+            MySqlGuidStorageMode = provider == DatabaseProvider.MySql
+                ? MySqlGuidStorageMode.Binary16
+                : MySqlGuidStorageMode.LegacyChar36,
+            CommandTimeoutSeconds = 60,
+        });
+        var migration = new DbUpMigrationRunner(
+            options,
+            NullLoggerFactory.Instance,
+            MigrationContractOptionFactory.UuidOptions(),
+            MigrationContractOptionFactory.NamingOptions());
+        Assert.IsTrue((await migration.MigrateAsync()).Successful);
+        var parameters = new
+        {
+            MessageType = KafkaCapacityWorkerContracts.EventType,
+            SchemaVersion = KafkaCapacityWorkerContracts.SchemaVersion,
+            TopicCode = KafkaCapacityWorkerContracts.TopicCode,
+        };
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO dbo.fn_messaging_stream_ownership
+                    (MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
+                     CutoffEventId, CutoffOccurredAtUtc, Reason, CreatedAtUtc, UpdatedAtUtc)
+                VALUES
+                    (@MessageType, @SchemaVersion, @TopicCode, 2, 0,
+                     '00000000-0000-0000-0000-000000000000', SYSDATETIMEOFFSET(),
+                     N'Scope B capacity integration test', SYSDATETIMEOFFSET(), SYSDATETIMEOFFSET());
+                """,
+                parameters);
+            return;
+        }
+
+        await using var mySql = new MySqlConnection(
+            MySqlConnectionStringPolicy.Create(
+                connectionString,
+                MySqlGuidStorageMode.Binary16,
+                allowUserVariables: false));
+        await mySql.ExecuteAsync(
+            """
+            INSERT INTO fn_messaging_stream_ownership
+                (MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner,
+                 CutoffEventId, CutoffOccurredAtUtc, Reason, CreatedAtUtc, UpdatedAtUtc)
+            VALUES
+                (@MessageType, @SchemaVersion, @TopicCode, 2, 0,
+                 0x00000000000000000000000000000000, UTC_TIMESTAMP(6),
+                 'Scope B capacity integration test', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6));
+            """,
+            parameters);
     }
 
     private static async Task WaitUntilAsync(

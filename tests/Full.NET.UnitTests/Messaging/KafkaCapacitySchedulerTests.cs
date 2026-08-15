@@ -17,7 +17,7 @@ public sealed class KafkaCapacitySchedulerTests
         Assert.AreSame(transport, registry.GetRequired(
             KafkaCapacityScopeCodes.KafkaTransport));
         Assert.ThrowsExactly<InvalidDataException>(() =>
-            registry.GetRequired("worker_inbox_handler"));
+            registry.GetRequired(KafkaCapacityScopeCodes.WorkerInboxHandler));
         Assert.ThrowsExactly<InvalidDataException>(() =>
             new KafkaCapacityDriverRegistry([
                 transport,
@@ -30,7 +30,7 @@ public sealed class KafkaCapacitySchedulerTests
     {
         var factory = new RecordingDriverFactory(
             KafkaCapacityScopeCodes.KafkaTransport,
-            runtimeScopeCode: "worker_inbox_handler");
+            runtimeScopeCode: KafkaCapacityScopeCodes.WorkerInboxHandler);
 
         Assert.ThrowsExactly<InvalidDataException>(() =>
             KafkaCapacityDriverRegistry.CreateRuntime(
@@ -43,6 +43,79 @@ public sealed class KafkaCapacitySchedulerTests
                         BootstrapServers = "broker",
                     },
                 }));
+    }
+
+    [TestMethod]
+    public async Task Execution_runs_driver_preflight_before_Kafka_configuration_is_built()
+    {
+        var preflight = new RejectingPreflight();
+        var registry = new KafkaCapacityDriverRegistry([
+            new RecordingDriverFactory(
+                KafkaCapacityScopeCodes.WorkerInboxHandler,
+                preflight: preflight),
+        ]);
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["KafkaCapacity__ExecutionEnabled"] = "true",
+            ["KafkaCapacity__EnvironmentName"] = "Capacity",
+            ["KafkaCapacity__ExpectedClusterId"] = "expected",
+            ["KafkaCapacity__Kafka__Enabled"] = "true",
+            // 若 Kafka 配置先构建，此非法值会先产生 InvalidConfiguration。
+            ["KafkaCapacity__Kafka__BootstrapServers"] = "\0",
+        };
+
+        var exitCode = await KafkaCapacityRunner.RunCommandAsync(
+            [
+                "--scope", KafkaCapacityScopeCodes.WorkerInboxHandler,
+                "--execute", "true",
+                "--approval-id", "PERF-42",
+                "--reason", "scope-b-preflight-order",
+            ],
+            registry,
+            environment.GetValueOrDefault,
+            CancellationToken.None);
+
+        Assert.AreEqual(KafkaCapacityExitCode.EnvironmentRejected, exitCode);
+        Assert.AreEqual(1, preflight.CallCount);
+    }
+
+    [TestMethod]
+    public void Default_registry_contains_scope_B_worker_driver()
+    {
+        var factory = KafkaCapacityDriverRegistry.CreateDefault()
+            .GetRequired(KafkaCapacityScopeCodes.WorkerInboxHandler);
+
+        Assert.AreEqual(KafkaCapacityScopeCodes.WorkerInboxHandler, factory.ScopeCode);
+    }
+
+    [TestMethod]
+    public void Scope_B_warmup_context_is_isolated_from_measurement_identity()
+    {
+        var sample = new KafkaCapacitySample(
+            KafkaCapacityScopeCodes.WorkerInboxHandler,
+            "sample-a",
+            KafkaCapacityScenario.Throughput,
+            100,
+            128,
+            2,
+            1);
+        var context = KafkaCapacitySampleContext.Create(
+            sample,
+            new KafkaCapacityTopicIdentity("cluster", "topic", "id", 2, 1),
+            "run-a",
+            warmup: TimeSpan.FromSeconds(2),
+            duration: TimeSpan.FromSeconds(5),
+            drainTimeout: TimeSpan.FromSeconds(3),
+            maximumMessages: 1_000);
+
+        var warmup = context.CreateWarmupPhase();
+
+        Assert.AreEqual(TimeSpan.Zero, warmup.Warmup);
+        Assert.AreEqual(TimeSpan.FromSeconds(2), warmup.Duration);
+        Assert.AreEqual(200, warmup.MaximumMessages);
+        Assert.AreEqual(context.RunHash, warmup.RunHash);
+        Assert.AreNotEqual(context.SampleHash, warmup.SampleHash);
+        Assert.AreEqual(context.ConsumerGroupId, warmup.ConsumerGroupId);
     }
     [TestMethod]
     public async Task Open_loop_deadlines_do_not_depend_on_previous_completion()
@@ -74,6 +147,30 @@ public sealed class KafkaCapacitySchedulerTests
         Assert.HasCount(20, ordered);
         Assert.AreEqual(0L, ordered[0].ScheduledTimestampMicroseconds);
         Assert.AreEqual(1_900_000L, ordered[^1].ScheduledTimestampMicroseconds);
+    }
+
+    [TestMethod]
+    public async Task Scheduler_does_not_publish_a_deadline_before_monotonic_clock_reaches_it()
+    {
+        var clock = new EarlyWakeClock();
+        var scheduler = new KafkaCapacityOpenLoopScheduler(clock);
+        var publishedBeforeDeadline = false;
+
+        await scheduler.RunAsync(
+            targetMessagesPerSecond: 2,
+            duration: TimeSpan.FromSeconds(1),
+            maximumMessages: 2,
+            producerConcurrency: 1,
+            (message, _) =>
+            {
+                publishedBeforeDeadline |=
+                    clock.GetTimestampMicroseconds()
+                    < message.ScheduledTimestampMicroseconds;
+                return ValueTask.CompletedTask;
+            },
+            CancellationToken.None);
+
+        Assert.IsFalse(publishedBeforeDeadline);
     }
 
     [TestMethod]
@@ -820,7 +917,9 @@ public sealed class KafkaCapacitySchedulerTests
 
     private sealed class RecordingDriverFactory(
         string scopeCode,
-        string? runtimeScopeCode = null) : IKafkaCapacityScenarioDriverFactory
+        string? runtimeScopeCode = null,
+        IKafkaCapacityDriverPreflight? preflight = null)
+        : IKafkaCapacityScenarioDriverFactory
     {
         public string ScopeCode => scopeCode;
 
@@ -828,7 +927,21 @@ public sealed class KafkaCapacitySchedulerTests
             KafkaCapacityConfiguration configuration) =>
             new(
                 new ScopeOverrideDriver(runtimeScopeCode ?? scopeCode),
-                StatisticsSource: null);
+                StatisticsSource: null,
+                Preflight: preflight);
+    }
+
+    private sealed class RejectingPreflight : IKafkaCapacityDriverPreflight
+    {
+        public int CallCount { get; private set; }
+
+        public Task ValidateAsync(CancellationToken cancellationToken)
+        {
+            CallCount++;
+            throw new KafkaCapacityControlPlaneException(
+                "database_preflight_failed",
+                "Scope B database preflight failed.");
+        }
     }
 
     private sealed class ScopeOverrideDriver(string scopeCode)
@@ -1293,6 +1406,24 @@ public sealed class KafkaCapacitySchedulerTests
             Interlocked.Add(
                 ref timestampMicroseconds,
                 checked(microseconds * delayMultiplier));
+        }
+    }
+
+    private sealed class EarlyWakeClock : IKafkaCapacityClock
+    {
+        private long timestampMicroseconds;
+
+        public long GetTimestampMicroseconds() => timestampMicroseconds;
+
+        public ValueTask DelayAsync(
+            TimeSpan delay,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var requested = Math.Max(1, (long)Math.Ceiling(
+                delay.TotalMilliseconds * 1_000d));
+            timestampMicroseconds += Math.Max(1, requested / 2);
+            return ValueTask.CompletedTask;
         }
     }
 }

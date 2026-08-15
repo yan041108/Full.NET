@@ -19,11 +19,23 @@ public interface IKafkaCapacityScenarioDriverFactory
 }
 
 /// <summary>
+/// 在任何 Kafka 管理操作前验证特定 Scope 的外部依赖与安全边界。
+/// </summary>
+public interface IKafkaCapacityDriverPreflight
+{
+    /// <summary>
+    /// 执行无架构变更的前置检查；失败必须关闭本次容量执行。
+    /// </summary>
+    Task ValidateAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// 保存一次容量执行共享的 Driver 和统计投影边界。
 /// </summary>
 public sealed record KafkaCapacityDriverRuntime(
     IKafkaCapacityScenarioDriver Driver,
-    IKafkaCapacityStatisticsSource? StatisticsSource);
+    IKafkaCapacityStatisticsSource? StatisticsSource,
+    IKafkaCapacityDriverPreflight? Preflight = null);
 
 /// <summary>
 /// 按稳定 ScopeCode 选择唯一 Driver Factory，防止未来范围复制公共控制面。
@@ -98,10 +110,13 @@ public sealed class KafkaCapacityDriverRegistry
     }
 
     /// <summary>
-    /// 创建当前只包含 Scope A 传输 Driver 的默认注册表。
+    /// 创建包含已交付 Scope A/B Driver 的默认注册表。
     /// </summary>
     public static KafkaCapacityDriverRegistry CreateDefault() =>
-        new([new KafkaTransportScenarioDriverFactory()]);
+        new([
+            new KafkaTransportScenarioDriverFactory(),
+            new KafkaWorkerScenarioDriverFactory(),
+        ]);
 }
 
 /// <summary>

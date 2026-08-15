@@ -33,14 +33,28 @@ public sealed class KafkaCapacityRunner
 
     public static async Task<KafkaCapacityExitCode> RunCommandAsync(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await RunCommandAsync(
+            arguments,
+            KafkaCapacityDriverRegistry.CreateDefault(),
+            Environment.GetEnvironmentVariable,
+            cancellationToken);
+
+    internal static async Task<KafkaCapacityExitCode> RunCommandAsync(
+        IReadOnlyList<string> arguments,
+        KafkaCapacityDriverRegistry driverRegistry,
+        Func<string, string?> environmentReader,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(driverRegistry);
+        ArgumentNullException.ThrowIfNull(environmentReader);
         try
         {
             var options = KafkaCapacityOptions.Parse(arguments);
-            var driverFactory = KafkaCapacityDriverRegistry.CreateDefault()
-                .GetRequired(options.ScopeCode);
-            var configuration = KafkaCapacityConfiguration.Load(options);
+            var driverFactory = driverRegistry.GetRequired(options.ScopeCode);
+            var configuration = KafkaCapacityConfiguration.Load(
+                options,
+                environmentReader);
             var driverRuntime = KafkaCapacityDriverRegistry.CreateRuntime(
                 driverFactory,
                 configuration);
@@ -66,15 +80,38 @@ public sealed class KafkaCapacityRunner
                 }
 
                 Console.WriteLine("CapacityStatus=Capacity-not-verified; Mode=DryRun");
+                if (driverRuntime.Driver is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else if (driverRuntime.Driver is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+
                 return KafkaCapacityExitCode.Success;
             }
 
-            return await ExecuteCommandAsync(
-                options,
-                configuration,
-                samples,
-                driverRuntime,
-                cancellationToken);
+            try
+            {
+                return await ExecuteCommandAsync(
+                    options,
+                    configuration,
+                    samples,
+                    driverRuntime,
+                    cancellationToken);
+            }
+            finally
+            {
+                if (driverRuntime.Driver is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else if (driverRuntime.Driver is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -85,12 +122,16 @@ public sealed class KafkaCapacityRunner
             Console.Error.WriteLine(exception.ReasonCode);
             return KafkaCapacityExitCode.EnvironmentRejected;
         }
-        catch (ArgumentException)
+        catch (ArgumentException exception)
         {
+            Console.Error.WriteLine(
+                $"invalid_configuration:{exception.GetType().Name}:{exception.ParamName}");
             return KafkaCapacityExitCode.InvalidConfiguration;
         }
-        catch (InvalidDataException)
+        catch (InvalidDataException exception)
         {
+            Console.Error.WriteLine(
+                $"invalid_configuration:{exception.GetType().Name}");
             return KafkaCapacityExitCode.InvalidConfiguration;
         }
         catch (JsonException)
@@ -168,6 +209,11 @@ public sealed class KafkaCapacityRunner
         KafkaCapacityDriverRuntime driverRuntime,
         CancellationToken cancellationToken)
     {
+        if (driverRuntime.Preflight is not null)
+        {
+            await driverRuntime.Preflight.ValidateAsync(cancellationToken);
+        }
+
         var generatedRunId = string.Create(
             CultureInfo.InvariantCulture,
             $"{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}");

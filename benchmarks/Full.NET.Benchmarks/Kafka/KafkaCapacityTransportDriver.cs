@@ -145,6 +145,35 @@ public sealed class KafkaCapacitySampleContext
             maximumScheduleLatencyMicroseconds);
     }
 
+    internal KafkaCapacitySampleContext CreateWarmupPhase()
+    {
+        if (Warmup <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException(
+                "Kafka capacity warmup phase requires a positive duration.");
+        }
+
+        var plannedMessages = checked((int)Math.Min(
+            MaximumMessages,
+            Math.Max(
+                1,
+                Math.Ceiling(
+                    Sample.TargetMessagesPerSecond * Warmup.TotalSeconds))));
+        return new KafkaCapacitySampleContext(
+            Sample,
+            TopicIdentity,
+            ConsumerGroupId,
+            ProducerClientId,
+            ConsumerClientId,
+            RunHash,
+            SampleHash ^ 0xA5A5_A5A5,
+            TimeSpan.Zero,
+            Warmup,
+            DrainTimeout,
+            plannedMessages,
+            MaximumScheduleLatencyMicroseconds);
+    }
+
     private static uint Hash32(string value)
     {
         var bytes = Convert.FromHexString(KafkaCapacityFingerprint.Sha256(value));

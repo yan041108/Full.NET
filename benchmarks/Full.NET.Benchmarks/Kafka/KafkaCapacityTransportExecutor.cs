@@ -153,6 +153,10 @@ public sealed class KafkaCapacityTransportExecutor : IKafkaCapacityTransportExec
                 {
                     var failedState = new PhaseState(context, context.SampleHash);
                     failedState.AddFailure("warmup_failed");
+                    foreach (var failureCode in warmupResult.FailureCodes)
+                    {
+                        failedState.AddFailure($"warmup_{failureCode}");
+                    }
                     finalState = failedState;
                     finalScheduling = EmptySchedulingResult("warmup_failed");
                     drainMilliseconds = warmupResult.DrainMilliseconds;
