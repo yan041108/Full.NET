@@ -34,32 +34,58 @@ public static class SharedDatabaseFixture
     private static readonly SemaphoreSlim MySqlStartLock = new(1, 1);
     private static readonly SemaphoreSlim RedisStartLock = new(1, 1);
 
+    /// <summary>
+    /// CI 默认销毁容器；本地默认复用，避免每次 inner 都重新拉起 SQL Server/MySQL。
+    /// 设置 <c>FULLNET_TESTCONTAINERS_REUSE=0</c> 可强制关闭复用。
+    /// </summary>
+    internal static bool ReuseContainers =>
+        !IsCiEnvironment
+        && !string.Equals(
+            Environment.GetEnvironmentVariable("FULLNET_TESTCONTAINERS_REUSE"),
+            "0",
+            StringComparison.Ordinal);
+
+    internal static bool IsCiEnvironment =>
+        string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(
+            Environment.GetEnvironmentVariable("GITHUB_ACTIONS"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
     [AssemblyInitialize]
     public static void Initialize(TestContext testContext)
     {
         // 仅保留程序集级清理生命周期；具体依赖由首个消费者异步启动。
         _ = testContext;
+        if (ReuseContainers)
+        {
+            // Testcontainers 默认关闭 reuse；必须在 Build() 前打开，本地 inner 才能接回已有容器。
+            Environment.SetEnvironmentVariable("TESTCONTAINERS_REUSE_ENABLE", "true");
+        }
     }
 
     [AssemblyCleanup]
     public static async Task CleanupAsync()
     {
-        if (_redis is not null)
+        if (!ReuseContainers)
         {
-            await _redis.DisposeAsync();
-            _redis = null;
-        }
+            if (_redis is not null)
+            {
+                await _redis.DisposeAsync();
+                _redis = null;
+            }
 
-        if (_mySql is not null)
-        {
-            await _mySql.DisposeAsync();
-            _mySql = null;
-        }
+            if (_mySql is not null)
+            {
+                await _mySql.DisposeAsync();
+                _mySql = null;
+            }
 
-        if (_sqlServer is not null)
-        {
-            await _sqlServer.DisposeAsync();
-            _sqlServer = null;
+            if (_sqlServer is not null)
+            {
+                await _sqlServer.DisposeAsync();
+                _sqlServer = null;
+            }
         }
 
         await Messaging.KafkaFixture.DisposeAsync();
@@ -141,9 +167,14 @@ public static class SharedDatabaseFixture
                 return _sqlServer;
             }
 
-            var container = new MsSqlBuilder(SqlServerImage)
-                .WithPassword(Password)
-                .Build();
+            var builder = new MsSqlBuilder(SqlServerImage).WithPassword(Password);
+            if (ReuseContainers)
+            {
+                // 复用同一容器实例，测试库名仍按 GUID 隔离，不共享可变业务数据。
+                builder = builder.WithReuse(true).WithName("fullnet-it-mssql");
+            }
+
+            var container = builder.Build();
             try
             {
                 await container.StartAsync();
@@ -177,7 +208,7 @@ public static class SharedDatabaseFixture
                 return _mySql;
             }
 
-            var container = new MySqlBuilder(MySqlImage)
+            var builder = new MySqlBuilder(MySqlImage)
                 .WithCommand("--log-bin-trust-function-creators=1")
                 .WithCommand("--log-bin=mysql-bin")
                 .WithCommand("--binlog-format=ROW")
@@ -185,8 +216,13 @@ public static class SharedDatabaseFixture
                 .WithCommand("--server-id=1840172600")
                 .WithDatabase("fullnet")
                 .WithUsername(MySqlAppUser)
-                .WithPassword(Password)
-                .Build();
+                .WithPassword(Password);
+            if (ReuseContainers)
+            {
+                builder = builder.WithReuse(true).WithName("fullnet-it-mysql");
+            }
+
+            var container = builder.Build();
             try
             {
                 await container.StartAsync();
@@ -220,7 +256,13 @@ public static class SharedDatabaseFixture
                 return _redis;
             }
 
-            var container = new RedisBuilder(RedisImage).Build();
+            var builder = new RedisBuilder(RedisImage);
+            if (ReuseContainers)
+            {
+                builder = builder.WithReuse(true).WithName("fullnet-it-redis");
+            }
+
+            var container = builder.Build();
             try
             {
                 await container.StartAsync();
@@ -238,6 +280,48 @@ public static class SharedDatabaseFixture
             RedisStartLock.Release();
         }
     }
+
+    /// <summary>
+    /// 返回指向 SQL Server master 的连接串，供模板克隆在库级执行 BACKUP/RESTORE。
+    /// </summary>
+    internal static async Task<string> GetSqlServerMasterConnectionStringAsync()
+    {
+        var container = await GetOrStartSqlServerAsync();
+        var builder = new SqlConnectionStringBuilder(container.GetConnectionString())
+        {
+            InitialCatalog = "master",
+        };
+        return builder.ConnectionString;
+    }
+
+    /// <summary>
+    /// 返回 MySQL root 连接串，供模板克隆建库、授权和跨库 COPY。
+    /// </summary>
+    internal static async Task<string> GetMySqlRootConnectionStringAsync()
+    {
+        var container = await GetOrStartMySqlAsync();
+        var builder = new MySqlConnectionStringBuilder(container.GetConnectionString())
+        {
+            UserID = "root",
+            Password = Password,
+            Database = string.Empty,
+        };
+        return builder.ConnectionString;
+    }
+
+    internal static string GetSqlServerDatabaseName(string connectionString) =>
+        new SqlConnectionStringBuilder(connectionString).InitialCatalog;
+
+    internal static string GetMySqlDatabaseName(string connectionString) =>
+        new MySqlConnectionStringBuilder(connectionString).Database;
+
+    internal static string QuoteSqlServerIdent(string name) =>
+        "[" + name.Replace("]", "]]", StringComparison.Ordinal) + "]";
+
+    internal static string QuoteMySqlIdent(string name) =>
+        "`" + name.Replace("`", "``", StringComparison.Ordinal) + "`";
+
+    internal static string MySqlApplicationUserName => MySqlAppUser;
 
     // 库名需短于 MySQL 的 64 字符上限并且是合法标识符；固定前缀 + N 格式 GUID 满足两库要求。
     private static string CreateDatabaseName() =>

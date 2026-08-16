@@ -216,14 +216,18 @@ internal static class IdentityApiAssertions
                     StringComparer.Ordinal))
             .OrderBy(item => item.Order)
             .ToArray();
-        var navigationById = navigation.ToDictionary(
-            item => item.Id,
-            StringComparer.Ordinal);
+        // 目录同步会把代码里的根页面挂到 module-* 目录下；契约只要求内置节点仍在树中。
+        var navigationById = FlattenNavigation(navigation)
+            .GroupBy(item => item.Id, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First(),
+                StringComparer.Ordinal);
         foreach (var expectedNavigation in expectedRootNavigation)
         {
             Assert.IsTrue(
                 navigationById.TryGetValue(expectedNavigation.Id, out var actualNavigation),
-                $"缺少内置 Host 导航节点 '{expectedNavigation.Id}'。");
+                $"缺少内置 Host 导航节点 '{expectedNavigation.Id}'。实际根节点：{string.Join(", ", navigation.Select(item => item.Id))}。");
             Assert.AreEqual(
                 expectedNavigation.ComponentKey,
                 actualNavigation.ComponentKey);
@@ -614,5 +618,18 @@ internal static class IdentityApiAssertions
             $"{name}=",
             StringComparison.Ordinal));
         return cookie.Split(';', 2)[0][(name.Length + 1)..];
+    }
+
+    private static IEnumerable<NavigationNodeResponse> FlattenNavigation(
+        IEnumerable<NavigationNodeResponse> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            yield return node;
+            foreach (var child in FlattenNavigation(node.Children))
+            {
+                yield return child;
+            }
+        }
     }
 }

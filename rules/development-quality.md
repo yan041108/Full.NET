@@ -34,6 +34,7 @@
 | 在业务模块直接引入 Dapper 扩展、连接、事务或自动 CRUD | 绕过租户守卫、事务/Outbox 和 SQL 审查边界 | R-20260718-dapper-tooling-boundary |
 | 认证前或租户上下文内读取 Host 目录，却把 SQL 误标为 `HostOnly` | API Key 等认证入口不可用，或进入租户后 Host 目录查询异常 | R-20260726-host-catalog-sql-scope |
 | 把每个 CRUD、菜单、实体或用例拆成独立项目，或把 `Contracts`/`.Http` 当作模块标配 | 项目数量膨胀、构建与装配成本上升，并形成没有业务意义的物理边界 | 第 3 节 |
+| 每次代码迭代都跑完整浏览器 E2E、真实栈或 Integration 全量 | 内循环被无关套件拖成数十分钟，真正缺陷被噪音淹没 | R-20260816-local-test-inner-budget |
 
 ## 2. 任务开始与范围控制
 
@@ -309,7 +310,7 @@
 
 本地任务禁止运行 `test:integration:full`，只运行从任务边界计算出的受影响测试；共享路径不得自动升级为完整集合。完整集合只保留给 `main` CI。准备发布时以最近一次目标 `main` CI 全量门禁为完整 Integration 证据，本地仍只补跑发布变更的影响集。
 
-本地标准入口为 `pnpm test:integration:affected:plan` 和 `pnpm test:integration:affected`。`test:integration:full` 只保留为 CI 维护诊断入口，普通本地任务禁止调用；完成耗时基线或排查慢测时必须对受影响 TRX 运行 `pnpm test:integration:durations`，不得只凭单次墙钟时间修改并行度、共享数据库或测试隔离策略。
+本地标准入口为 `pnpm test:inner`、`pnpm test:slice`、`pnpm test:integration:affected:plan` 和 `pnpm test:integration:affected`。`inner` 阶段必须使用 `pnpm test:inner`（或等价的 `test:integration:affected --phase inner`），禁止用 `pnpm test:e2e:real`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 `messaging-heavy` 代替内循环。`test:e2e:real` 只用于 `Verified` 关闭或真实 CORS/Cookie/Session 缺陷；完整 `test:e2e:admin` 属于 slice/客户端契约关闭，不进入每次代码迭代。`test:integration:full` 只保留为 CI 维护诊断入口，普通本地任务禁止调用。完成耗时基线或排查慢测时必须对受影响 TRX 运行 `pnpm test:integration:durations`，不得只凭单次墙钟时间修改并行度，也不得让多个用例共享可变业务数据库。只读 schema 模板克隆到独立数据库、本地 Testcontainers 复用，以及 inner 缩小浏览器套件，属于已批准的加速手段，不在此禁令内。
 
 代码、SQL、配置或脚本任务开始时必须记录 `git rev-parse HEAD`。工作区已脏或任务跨窗口时必须运行 `pnpm test:task:start -- <task-id>` 创建任务快照；后续通过 `--snapshot <task-id>` 只选择任务开始后真正改变的文件。干净且单窗口任务可继续使用 `--base <任务基线>`。先运行 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase <inner|slice|merge>` 审查影响集，再运行对应 affected 命令。`inner` 阶段聚焦测试只强制 MySQL Provider；`slice` 与 `merge` 仍要求同场景 SQL Server 与 MySQL。`merge` 默认跳过 `messaging-heavy`；Messaging/Kafka/CDC/Capacity 变更先在 `slice` 验证，必要时追加 `--include-heavy`。选择器排除 `App_Data`、纯 `benchmarks/` 文档式变更等运行时或基准工件，合并多个过滤目标并按 UID 去重；已在测试矩阵登记恢复集的迁移运行对应双库恢复测试和受影响模块测试，未登记迁移安全降级到 migrations 分片并追加可识别的受影响模块，迁移 Runner 或共享夹具也运行 migrations 分片。不得通过遗漏路径、改写边界或手工缩小 `--filter` 规避受影响测试。
 
@@ -318,7 +319,17 @@
 1. 新增行为默认先在 Unit 或 Architecture 测试覆盖；只有 Unit 无法证明真实 DB、Broker、Connect、租户隔离或双 Provider 差异时，才允许新增 Integration 测试。
 2. 新增 Integration 测试前必须说明：为何 Unit 不足、是否必须双库 `[DataRow]`、能否并入现有 `[TestClass]`/fixture，以及是否属于 `messaging-heavy` 重测。
 3. Kafka/CDC/Capacity/Debezium 全链路或 `[RequiresDocker]` 长时测试只能进入 `messaging-heavy` 分片或专项 workflow，禁止加入 Smoke 或普通模块聚焦集。
-4. 增删 Integration 后必须更新 [`eng/testing/test-matrix.json`](../eng/testing/test-matrix.json) 并运行 `pnpm test:integration:partitions`；慢测排查使用 `pnpm test:integration:durations`，不得凭单次墙钟时间调整隔离策略。
+4. 增删 Integration 后必须更新 [`eng/testing/test-matrix.json`](../eng/testing/test-matrix.json) 并运行 `pnpm test:integration:partitions`；慢测排查使用 `pnpm test:integration:durations`，不得凭单次墙钟时间让多个用例共享可变业务数据库。
+
+### R-20260816-local-test-inner-budget：本地内循环必须走分层漏斗，禁止用全量套件冒充 inner
+
+- 状态：强制
+- 来源：项目所有者明确要求加快测试与开发速度，并授权修改测试规则；代理在 Document 等切片中把 `test:e2e:real`、完整 Playwright 和双库 Integration 当作每次迭代门禁，导致内循环数十分钟
+- 适用范围：本地开发、修复、重构和代理自动验证；不降低 `main` CI 全量分片或 `Verified` 真实栈门槛
+- 风险：每次改几行代码都启动完整浏览器、真实 Migrator/API/Worker 或 585 项 Integration，开发反馈被拖垮，同时把 inner 通过误报为 slice/`Verified`
+- 规则：`inner` 必须使用 `pnpm test:inner`（审查影响集时用 `pnpm test:integration:affected:plan -- --phase inner`）。禁止在 inner 运行 `pnpm test:e2e:real`、`pnpm test:e2e:real:mysql`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 `messaging-heavy`。`slice` 使用 `pnpm test:slice` 或 `test:integration:affected --phase slice`，覆盖该纵向切片的双库 Integration 与受影响客户端测试。`test:e2e:real` 只用于功能 `Verified` 关闭，或修复真实 CORS、Cookie、CSRF、Session 与跨 Origin 凭据问题。每个 API Integration 用例仍必须使用独立数据库；允许把只读、已迁移的 schema 模板（不含租户/管理员/导航业务行）克隆到这些独立库，每个用例仍必须自行执行供给与引导。禁止多个用例共享同一可变业务库。本地默认复用 Testcontainers 容器；CI 必须销毁。设置 `FULLNET_TESTCONTAINERS_REUSE=0` 或 `FULLNET_API_SCHEMA_TEMPLATE=0` 可关闭对应加速
+- 验证：`tests/governance/integration-test-feedback.test.mjs` 锁定 `test:inner`/`test:slice`、inner 禁令和模板克隆/复用入口；`pnpm test:governance` 与 `pnpm test:integration:tooling` 必须通过
+- 例外：用户在当前任务中明确要求运行真实栈或完整浏览器套件时可以执行，但不得把该结果写成 inner 完成证据
 
 ## 12. 文档、依赖与发布许可
 

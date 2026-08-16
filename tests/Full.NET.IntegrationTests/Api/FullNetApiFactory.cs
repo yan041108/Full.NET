@@ -113,7 +113,9 @@ internal sealed class FullNetApiFactory(
         return settings;
     }
 
-    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    public async Task InitializeAsync(
+        CancellationToken cancellationToken = default,
+        bool useSchemaTemplate = true)
     {
         await _initializationLock.WaitAsync(cancellationToken);
         try
@@ -123,70 +125,23 @@ internal sealed class FullNetApiFactory(
                 return;
             }
 
-            await new DbUpMigrationRunner(
-                    Options.Create(new DatabaseOptions
-                    {
-                        Provider = provider,
-                        ConnectionString = connectionString,
-                        MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
-                        CommandTimeoutSeconds = 300,
-                    }),
-                    NullLoggerFactory.Instance,
-                    Options.Create(new UuidBinaryContractOptions
-                    {
-                        MaintenanceMode = true,
-                        BackupVerified = true,
-                        LegacyWritersStopped = true,
-                        DestructiveDdlApprovalId = "test-api-uuid-contract-009",
-                    }),
-                    MigrationContractOptionFactory.NamingOptions())
-                .MigrateAsync(cancellationToken);
-            using var bootstrapClient = CreateClient();
-            await using var scope = Services.CreateAsyncScope();
-            var currentTenant = scope.ServiceProvider
-                .GetRequiredService<CurrentTenantAccessor>();
-            currentTenant.SetHost();
-            try
+            if (useSchemaTemplate)
             {
-                var result = await scope.ServiceProvider
-                    .GetRequiredService<ITenantProvisioningService>()
-                    .ProvisionAsync(
-                        new ProvisionTenantRequest(
-                            "acme",
-                            "Acme Corporation",
-                            "acme.localhost"),
-                        cancellationToken);
-                if (!result.IsSuccess
-                    && result.Error?.Code is not TenancyErrorCodes.IdentifierExists
-                    && result.Error?.Code is not TenancyErrorCodes.DomainExists)
-                {
-                    throw new InvalidOperationException(
-                        $"Test tenant provisioning failed: {result.Error?.Code} - "
-                        + result.Error?.Message);
-                }
-
-                var bootstrap = await scope.ServiceProvider
-                    .GetRequiredService<IIdentityBootstrapService>()
-                    .BootstrapHostAdminAsync(
-                        new BootstrapHostAdminRequest(
-                            "admin",
-                            TestPassword,
-                            "系统管理员"),
-                        cancellationToken);
-                if (!bootstrap.IsSuccess)
-                {
-                    throw new InvalidOperationException(
-                        $"Test identity bootstrap failed: {bootstrap.Error?.Code}");
-                }
-
-                await scope.ServiceProvider
-                    .GetRequiredService<HostNavigationCatalogSyncService>()
-                    .SyncMissingCatalogEntriesAsync(cancellationToken);
+                // 空库先克隆只含 DbUp schema 的模板，避免每个用例重跑 90+ 条迁移；
+                // 租户供给、管理员引导和导航同步仍由本用例执行，保持与非克隆路径相同的业务数据。
+                await ApiSchemaTemplate.TryHydrateEmptyDatabaseAsync(
+                        provider,
+                        connectionString,
+                        (templateConnectionString, templateCancellation) =>
+                            RunDbUpMigrationsAsync(
+                                provider,
+                                templateConnectionString,
+                                templateCancellation),
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
-            finally
-            {
-                currentTenant.Clear();
-            }
+
+            await MigrateAndBootstrapAsync(cancellationToken).ConfigureAwait(false);
 
             SubscribeBackplaneEvents();
             _initialized = true;
@@ -194,6 +149,81 @@ internal sealed class FullNetApiFactory(
         finally
         {
             _initializationLock.Release();
+        }
+    }
+
+    private static Task RunDbUpMigrationsAsync(
+        DatabaseProvider databaseProvider,
+        string migrateConnectionString,
+        CancellationToken cancellationToken) =>
+        new DbUpMigrationRunner(
+                Options.Create(new DatabaseOptions
+                {
+                    Provider = databaseProvider,
+                    ConnectionString = migrateConnectionString,
+                    MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+                    CommandTimeoutSeconds = 300,
+                }),
+                NullLoggerFactory.Instance,
+                Options.Create(new UuidBinaryContractOptions
+                {
+                    MaintenanceMode = true,
+                    BackupVerified = true,
+                    LegacyWritersStopped = true,
+                    DestructiveDdlApprovalId = "test-api-uuid-contract-009",
+                }),
+                MigrationContractOptionFactory.NamingOptions())
+            .MigrateAsync(cancellationToken);
+
+    private async Task MigrateAndBootstrapAsync(CancellationToken cancellationToken)
+    {
+        await RunDbUpMigrationsAsync(provider, connectionString, cancellationToken)
+            .ConfigureAwait(false);
+        using var bootstrapClient = CreateClient();
+        await using var scope = Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider
+            .GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var result = await scope.ServiceProvider
+                .GetRequiredService<ITenantProvisioningService>()
+                .ProvisionAsync(
+                    new ProvisionTenantRequest(
+                        "acme",
+                        "Acme Corporation",
+                        "acme.localhost"),
+                    cancellationToken);
+            if (!result.IsSuccess
+                && result.Error?.Code is not TenancyErrorCodes.IdentifierExists
+                && result.Error?.Code is not TenancyErrorCodes.DomainExists)
+            {
+                throw new InvalidOperationException(
+                    $"Test tenant provisioning failed: {result.Error?.Code} - "
+                    + result.Error?.Message);
+            }
+
+            var bootstrap = await scope.ServiceProvider
+                .GetRequiredService<IIdentityBootstrapService>()
+                .BootstrapHostAdminAsync(
+                    new BootstrapHostAdminRequest(
+                        "admin",
+                        TestPassword,
+                        "系统管理员"),
+                    cancellationToken);
+            if (!bootstrap.IsSuccess)
+            {
+                throw new InvalidOperationException(
+                    $"Test identity bootstrap failed: {bootstrap.Error?.Code}");
+            }
+
+            await scope.ServiceProvider
+                .GetRequiredService<HostNavigationCatalogSyncService>()
+                .SyncMissingCatalogEntriesAsync(cancellationToken);
+        }
+        finally
+        {
+            currentTenant.Clear();
         }
     }
 

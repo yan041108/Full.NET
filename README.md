@@ -39,7 +39,9 @@ pnpm test:dotnet:compatibility -- --no-build
 pnpm test:dotnet:architecture -- --no-build
 # 日常按风险选择：冒烟、单提供程序 API、迁移或其他基础设施
 # 任务开始先记录：$taskBase = git rev-parse HEAD
+# 日常 inner / 切片关闭：pnpm test:inner -- --base $taskBase
 # 完成时自动判定 none / tooling / 双库 focused / 专项分片
+pnpm test:inner -- --base $taskBase --plan
 pnpm test:integration:affected:plan -- --base $taskBase
 pnpm test:integration:affected -- --base $taskBase
 pnpm test:integration:smoke
@@ -61,7 +63,7 @@ dotnet run --project src/Hosts/Full.NET.AppHost/Full.NET.AppHost.csproj
 [`eng/testing/test-matrix.json`](eng/testing/test-matrix.json)。`main` CI 运行其中的
 全部互斥分片；本地任务不得运行完整集合。
 
-Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。工作区已脏或任务跨窗口时先用 `test:task:start` 创建快照，再按 `inner`、`slice`、`merge` 阶段使用 `test:integration:affected` 自动选择验证范围；多个过滤目标会按 UID 去重并合并为一次进程。本地只运行受影响测试，完整集合只保留给 `main` CI 的互斥并行分片。
+Integration 依赖按需启动：SQL Server 聚焦测试不会额外启动 MySQL/Redis，反之亦然。工作区已脏或任务跨窗口时先用 `test:task:start` 创建快照，再按 `inner`、`slice`、`merge` 阶段使用 `pnpm test:inner` / `pnpm test:slice` / `test:integration:affected` 自动选择验证范围；多个过滤目标会按 UID 去重并合并为一次进程。本地只运行受影响测试，完整集合只保留给 `main` CI 的互斥并行分片。inner 不要跑 `test:e2e:real` 或完整 `test:e2e:admin`。
 
 AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运行会要求输入宿主管理员账号和强密码，其中密码按 Secret Parameter 处理；Migrator 成功退出后，API 与 Worker 才会启动，本地 `localhost` 租户和宿主管理员均被幂等创建。Bootstrap 现在幂等创建受保护超级管理员角色，不再同步逐项权限；签名 Claim、当前作用域动态权限、逐请求 Session/SecurityStamp 校验、双库并发最后一名保护、远程授予/撤销 API、事务内可追责审计和 Vue/Layui 对等管理页已经实现。远程写操作只允许 Development/Testing 显式开启，Production 在 MFA/强认证 Provider 落地前无法开启；账号禁用/删除路径保护和真实后端浏览器 E2E 仍按[设计](docs/superpowers/specs/2026-07-18-super-administrator-design.md)与[计划](docs/superpowers/plans/2026-07-18-super-administrator.md)后续交付，因此当前不能标记为完整 `Verified`。
 

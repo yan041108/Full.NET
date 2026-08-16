@@ -36,16 +36,16 @@ pnpm test:dotnet:architecture -- --no-build
 
 ```powershell
 $taskBase = git rev-parse HEAD
-pnpm test:integration:affected:plan -- --base $taskBase --phase inner
-pnpm test:integration:affected -- --base $taskBase --phase slice
+pnpm test:inner -- --base $taskBase --plan
+pnpm test:slice -- --base $taskBase
 ```
 
 工作区已经有其他改动或任务跨多个窗口时，使用任务快照：
 
 ```powershell
 pnpm test:task:start -- <task-id>
-pnpm test:integration:affected:plan -- --snapshot <task-id> --phase inner
-pnpm test:integration:affected -- --snapshot <task-id> --phase slice
+pnpm test:inner -- --snapshot <task-id> --plan
+pnpm test:slice -- --snapshot <task-id>
 pnpm test:integration:affected -- --snapshot <task-id> --phase merge
 ```
 
@@ -108,6 +108,8 @@ Vue 使用 `/api/v1`、标准 HTTP 状态码和 ProblemDetails，并从 `@fullne
 无权限时 Vue 不创建对应页面或操作按钮，但前端隐藏只改善体验。所有受保护 Endpoint 仍必须使用同一稳定权限码重新授权，绕过前端直接调用必须返回 403。
 
 ### 3.2 真实后端浏览器测试
+
+`pnpm test:e2e:real` **不是** inner 门禁，只用于功能 `Verified` 关闭，或修复真实 CORS、Cookie、CSRF、Session 与跨 Origin 凭据问题。日常代码迭代使用 `pnpm test:inner`。
 
 真实栈 E2E 需要 Docker、.NET 10 SDK 和可用的本地端口：
 

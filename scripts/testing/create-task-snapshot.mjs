@@ -11,7 +11,8 @@ async function run(args) {
   const snapshot = await createTaskSnapshot({ id: args[0] });
   process.stdout.write(
     `任务快照已创建：${snapshot.id}\n`
-    + `后续验证：pnpm test:integration:affected:plan -- --snapshot ${snapshot.id}\n`
+    + `后续验证：pnpm test:inner -- --snapshot ${snapshot.id} --plan\n`
+    + `或：pnpm test:integration:affected:plan -- --snapshot ${snapshot.id} --phase inner\n`
   );
 }
 

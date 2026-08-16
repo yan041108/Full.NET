@@ -133,7 +133,7 @@ Full.NET 当前基线保持强化型模块化单体。微服务、分片和多�
 
 ## 7. 完成验证
 
-1. 按 `inner`、`slice`、`merge` 阶段运行受影响测试和 `pnpm test:naming`，再运行 Release 构建；先执行 `test:integration:affected:plan` 审查影响集，再执行 affected。工作区已脏时使用任务快照，干净单窗口任务可使用任务基线。本地任务只运行受影响测试；完整集合只保留给 `main` CI 的互斥并行分片。
+1. 按 `inner`、`slice`、`merge` 阶段运行受影响测试和 `pnpm test:naming`，再运行 Release 构建；inner 使用 `pnpm test:inner`，禁止用 `test:e2e:real`、完整 `test:e2e:admin` 或 `test:integration:full` 代替。先执行 `test:integration:affected:plan` 审查影响集，再执行 affected。工作区已脏时使用任务快照，干净单窗口任务可使用任务基线。本地任务只运行受影响测试；完整集合只保留给 `main` CI 的互斥并行分片。
 2. 使用测试矩阵生成的最低发现数防止零测试假通过；增删测试只更新 `eng/testing/test-matrix.json`，README、开发文档、CI 与 Skill 不复制数字。
 3. 数据变更必须实际运行 SQL Server/MySQL 集成测试。依赖不可用时报告未验证项，不得写成通过。
 4. 检查 `git diff --check`、架构依赖、UTF-8、许可证和工作区状态。

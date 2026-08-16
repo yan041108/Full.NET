@@ -7,17 +7,19 @@ export default defineConfig({
   workers: 4,
   forbidOnly: Boolean(process.env.GITHUB_ACTIONS),
   retries: process.env.GITHUB_ACTIONS ? 1 : 0,
-  reporter: process.env.GITHUB_ACTIONS ? 'github' : 'list',
+  reporter: process.env.GITHUB_ACTIONS ? 'github' : 'line',
   use: {
     // 本地复用系统 Edge，GitHub Actions 则使用流水线安装的 Chromium。
     channel: process.env.GITHUB_ACTIONS ? undefined : 'msedge',
     trace: 'retain-on-failure'
   },
   webServer: {
-    command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host 127.0.0.1 --port 15173',
+    command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host 127.0.0.1 --port 15173 --logLevel error',
     url: 'http://127.0.0.1:15173',
     env: { VITE_REALTIME_ENABLED: 'false' },
-    reuseExistingServer: !process.env.CI
+    reuseExistingServer: !process.env.CI,
+    stdout: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'ignore',
+    stderr: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'pipe'
   },
   projects: [
     {

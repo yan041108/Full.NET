@@ -228,6 +228,11 @@ test('共享与安全关键改动选择对应影响集而不升级全量', () =>
       'shard'
     ],
     [
+      'tests/Full.NET.IntegrationTests/ApiSchemaTemplate.cs',
+      'smoke',
+      'shard'
+    ],
+    [
       'tests/Full.NET.IntegrationTests/Migrations/MySqlMigrationTests.cs',
       'migrations',
       'shard'
@@ -728,6 +733,22 @@ test('聚焦执行参数使用发现数门槛、双库过滤器和独立 TRX', (
   );
   assert.ok(args.includes('--report-trx'));
   assert.ok(args.includes('Full.NET.IntegrationTests-affected-auditing.trx'));
+  assert.deepEqual(
+    args.slice(args.indexOf('--timeout'), args.indexOf('--timeout') + 2),
+    ['--timeout', '30m']
+  );
+  const large = argumentsForFocused(
+    {
+      kind: 'filter',
+      name: 'Identity',
+      filter: 'FullyQualifiedName~Identity'
+    },
+    103
+  );
+  assert.deepEqual(
+    large.slice(large.indexOf('--timeout'), large.indexOf('--timeout') + 2),
+    ['--timeout', '52m']
+  );
   assert.throws(
     () => argumentsForFocused({ kind: 'shard' }, 6),
     /filter/

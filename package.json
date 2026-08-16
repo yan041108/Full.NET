@@ -13,6 +13,8 @@
     "test:performance-governance": "node --test tests/performance/*.test.mjs",
     "test:bundle-budgets": "node scripts/testing/check-frontend-bundle-budget.mjs",
     "test:task:start": "node scripts/testing/create-task-snapshot.mjs",
+    "test:inner": "node scripts/testing/run-affected-integration.mjs --phase inner",
+    "test:slice": "node scripts/testing/run-affected-integration.mjs --phase slice",
     "test:integration:affected:plan": "node scripts/testing/run-affected-integration.mjs --plan",
     "test:integration:affected": "node scripts/testing/run-affected-integration.mjs",
     "test:dotnet:unit": "node scripts/testing/run-dotnet-test-suite.mjs unit",

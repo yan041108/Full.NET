@@ -90,6 +90,8 @@ Integration 按变更风险分层，优先使用仓库标准入口：
 
 ```powershell
 $taskBase = git rev-parse HEAD
+pnpm test:inner -- --base $taskBase --plan
+pnpm test:inner -- --base $taskBase
 pnpm test:integration:affected:plan -- --base $taskBase
 pnpm test:integration:affected -- --base $taskBase
 pnpm test:integration:smoke

@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.GITHUB_ACTIONS),
   retries: process.env.GITHUB_ACTIONS ? 1 : 0,
-  reporter: process.env.GITHUB_ACTIONS ? 'github' : 'list',
+  reporter: process.env.GITHUB_ACTIONS ? 'github' : 'line',
   globalSetup: './global-setup.mjs',
   globalTeardown: './global-teardown.mjs',
   use: {
@@ -16,9 +16,11 @@ export default defineConfig({
     trace: 'retain-on-failure'
   },
   webServer: {
-    command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host localhost --port 25173',
+    command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host localhost --port 25173 --logLevel error',
     url: 'http://localhost:25173',
-    reuseExistingServer: process.env.FULLNET_E2E_REUSE_SERVER === '1',
+    reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+    stdout: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'ignore',
+    stderr: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'pipe',
     env: {
       VITE_API_BASE_URL: apiBaseUrl
     }

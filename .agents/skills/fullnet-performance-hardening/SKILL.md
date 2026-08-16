@@ -92,7 +92,7 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 4. 前端变化运行双管理端测试、生产构建并记录包体。
 5. 更新 Verification、运行 `git diff --check` 和 `git status`。
 6. 只声明数据支持的收益；未执行生产等价压测时禁止承诺固定 QPS。
-7. 开发迭代使用 `--phase inner`，切片关闭使用 `--phase slice`，合并候选使用 `--phase merge`；先运行 `test:integration:affected:plan` 审查影响集，再运行 affected。工作区已脏时使用任务快照，干净单窗口任务可使用任务基线。本地任务禁止运行全量；完整集合只保留给 `main` CI 的互斥并行分片。
+7. 开发迭代使用 `pnpm test:inner`（`--phase inner`），切片关闭使用 `pnpm test:slice`，合并候选使用 `--phase merge`；先运行 `test:integration:affected:plan` 审查影响集，再运行 affected。inner 禁止 `test:e2e:real` 和完整 `test:e2e:admin`。工作区已脏时使用任务快照，干净单窗口任务可使用任务基线。本地任务禁止运行全量；完整集合只保留给 `main` CI 的互斥并行分片。
 
 ## 常见错误
 

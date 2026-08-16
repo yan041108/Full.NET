@@ -280,6 +280,7 @@ function classifyIntegrationPath(filePath, targets) {
     filePath === 'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj'
     || filePath === 'tests/Full.NET.IntegrationTests/MSTestSettings.cs'
     || filePath === 'tests/Full.NET.IntegrationTests/SharedDatabaseFixture.cs'
+    || filePath === 'tests/Full.NET.IntegrationTests/ApiSchemaTemplate.cs'
     || filePath === 'tests/Full.NET.IntegrationTests/Api/FullNetApiFactory.cs'
   ) {
     addTarget(targets, { kind: 'shard', name: 'smoke' });
@@ -511,6 +512,11 @@ export function estimateSelectionSeconds(targets) {
     seconds,
     exceedsSliceBudget: seconds > sliceBudgetSeconds
   };
+}
+
+function focusedTimeoutMinutes(discoveredCount) {
+  // 双 worker 下按每用例约一分钟估算；30 分钟下限会截断 Identity 这类 100+ 聚焦集。
+  return Math.max(30, Math.ceil(discoveredCount / 2));
 }
 
 function testIdentity(test) {
@@ -855,7 +861,7 @@ export function argumentsForFocused(target, discoveredCount) {
     '--minimum-expected-tests',
     String(discoveredCount),
     '--timeout',
-    '30m',
+    `${focusedTimeoutMinutes(discoveredCount)}m`,
     '--report-trx',
     '--report-trx-filename',
     `Full.NET.IntegrationTests-affected-${target.name.toLowerCase()}.trx`
