@@ -83,6 +83,9 @@ internal static class CodeGenerationPreviewAssertions
         Assert.IsTrue(preview.Artifacts.Any(artifact =>
             artifact.Kind == "vue_client"));
         Assert.IsTrue(preview.Artifacts.Any(artifact =>
+            artifact.Kind == "vue_view"));
+        // Layui 客户端已冻结，Host 预览默认不再发出 layui_client。
+        Assert.IsFalse(preview.Artifacts.Any(artifact =>
             artifact.Kind == "layui_client"));
     }
 

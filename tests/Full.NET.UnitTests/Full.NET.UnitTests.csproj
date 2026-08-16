@@ -40,4 +40,8 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="NSubstitute" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="CodeGeneration\Fixtures\**\*.fragment.cs" />
+    <None Include="CodeGeneration\Fixtures\**\*.fragment.cs" />
+  </ItemGroup>
 </Project>

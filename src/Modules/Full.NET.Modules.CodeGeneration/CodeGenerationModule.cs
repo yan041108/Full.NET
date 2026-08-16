@@ -38,12 +38,14 @@ public sealed class CodeGenerationModule : IFullNetModule
         services.TryAddScoped<CodeGenerationRunService>();
         services.TryAddScoped<CodeGenerationRunQueryService>();
         services.TryAddScoped<CodeGenerationApplyService>();
+        services.TryAddScoped<CodeGenerationArtifactDownloadService>();
         services.TryAddScoped<CodeGenerationRollbackService>();
         services.TryAddSingleton<ICodeGenerationWorkspaceLockBackend,
             SessionAppLockWorkspaceLockBackend>();
         services.TryAddSingleton<CodeGenerationApplyGate>();
         services.TryAddScoped<CodeGenerationTemplateQueryService>();
         services.TryAddScoped<CodeGenerationTemplateManagementService>();
+        services.TryAddScoped<Features.BrowseHostCatalog.CodeGenerationCatalogQueryService>();
         services.AddOptions<CodeGenerationApplyOptions>()
             .Bind(configuration.GetSection(
                 CodeGenerationApplyOptions.SectionName))
@@ -77,6 +79,7 @@ public sealed class CodeGenerationModule : IFullNetModule
     {
         Features.PreviewCrudGeneration.Endpoint.Map(endpoints);
         Features.ManageHostTemplates.Endpoint.Map(endpoints);
+        Features.BrowseHostCatalog.Endpoint.Map(endpoints);
         Features.ManageHostRuns.Endpoint.Map(endpoints);
     }
 

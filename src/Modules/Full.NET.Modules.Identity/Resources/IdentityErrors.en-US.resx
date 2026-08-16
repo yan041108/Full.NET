@@ -32,6 +32,7 @@
   <data name="identity.mfa.not_enrolled" xml:space="preserve"><value>TOTP has not been enabled for this account.</value></data>
   <data name="identity.users.username_exists" xml:space="preserve"><value>A host user with this username already exists.</value></data>
   <data name="identity.users.not_found" xml:space="preserve"><value>The host user was not found.</value></data>
+  <data name="identity.users.super_administrator_import_rejected" xml:space="preserve"><value>Importing a super administrator is not allowed.</value></data>
   <data name="identity.roles.code_exists" xml:space="preserve"><value>A host role with this code already exists.</value></data>
   <data name="identity.roles.not_found" xml:space="preserve"><value>The host role was not found.</value></data>
   <data name="identity.roles.system_locked" xml:space="preserve"><value>System roles are protected and cannot be changed.</value></data>

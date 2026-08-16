@@ -2,15 +2,14 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
 using Full.NET.Data.CodeGeneration.Generation;
-using Full.NET.Data.CodeGeneration.Integration;
 using Full.NET.Data.CodeGeneration.Schema;
 
-namespace Full.NET.CodeGeneration.Cli;
+namespace Full.NET.Data.CodeGeneration.Integration;
 
 /// <summary>
 /// 保存一次隔离模块编译验证的稳定结果。
 /// </summary>
-internal sealed class ModuleIntegrationCompilationResult
+public sealed class ModuleIntegrationCompilationResult
 {
     private ModuleIntegrationCompilationResult(
         bool succeeded,
@@ -36,7 +35,7 @@ internal sealed class ModuleIntegrationCompilationResult
 /// <summary>
 /// 将生成后端临时注入目标模块，并把全部构建工件限制在命令拥有的临时目录。
 /// </summary>
-internal static class ModuleIntegrationCompilationCommand
+public static class ModuleIntegrationCompilationCommand
 {
     private const int MaximumDiagnostics = 20;
 

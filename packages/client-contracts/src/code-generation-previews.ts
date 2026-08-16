@@ -49,10 +49,48 @@ export type CodeGenerationScene =
 export type CodeGenerationArtifactKind =
   | 'backend'
   | 'vue_client'
+  | 'vue_view'
   | 'layui_client'
   | 'report'
   | 'migration_template'
   | 'integration_test_template';
+
+export type CodeGenerationColumnControlKind =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'switch'
+  | 'datetime'
+  | 'uuid'
+  | 'Text'
+  | 'Textarea'
+  | 'Number'
+  | 'Switch'
+  | 'DateTime'
+  | 'Uuid';
+
+export type CodeGenerationColumnQueryKind =
+  | 'none'
+  | 'equals'
+  | 'contains'
+  | 'range'
+  | 'None'
+  | 'Equals'
+  | 'Contains'
+  | 'Range';
+
+export interface CodeGenerationPreviewColumnUiRequest {
+  controlKind: CodeGenerationColumnControlKind;
+  showInList: boolean;
+  includeInCreate: boolean;
+  includeInUpdate: boolean;
+  required: boolean;
+  sortable: boolean;
+  queryable: boolean;
+  queryKind: CodeGenerationColumnQueryKind;
+  unique: boolean;
+  includeInImportExport: boolean;
+}
 
 export interface CodeGenerationPreviewColumnRequest {
   databaseName: string;
@@ -63,6 +101,7 @@ export interface CodeGenerationPreviewColumnRequest {
   maxLength: number | null;
   numericPrecision: number | null;
   numericScale: number | null;
+  ui?: CodeGenerationPreviewColumnUiRequest;
 }
 
 export interface CodeGenerationSchemaBase {
@@ -94,6 +133,8 @@ export interface CodeGenerationRelationshipRequest {
   dependentEntityKey: string;
   dependentColumnName: string;
   dependentDataScope: CodeGenerationDataScope;
+  compositeKeyColumnNames?: string[];
+  cascadeDelete?: boolean;
 }
 
 export type CodeGenerationPreviewRequest =
@@ -124,6 +165,9 @@ export interface CodeGenerationPreviewResponse {
   readPermission: string;
   writePermission: string;
   artifacts: CodeGenerationPreviewArtifact[];
+  createPermission?: string;
+  updatePermission?: string;
+  disablePermission?: string;
 }
 
 const dataScopes = new Set<CodeGenerationDataScope>([
@@ -174,9 +218,34 @@ const scenes = new Set<CodeGenerationScene>([
   'MasterDetail',
   'ManyToMany'
 ]);
+const controlKinds = new Set<CodeGenerationColumnControlKind>([
+  'text',
+  'textarea',
+  'number',
+  'switch',
+  'datetime',
+  'uuid',
+  'Text',
+  'Textarea',
+  'Number',
+  'Switch',
+  'DateTime',
+  'Uuid'
+]);
+const queryKinds = new Set<CodeGenerationColumnQueryKind>([
+  'none',
+  'equals',
+  'contains',
+  'range',
+  'None',
+  'Equals',
+  'Contains',
+  'Range'
+]);
 const artifactKinds = new Set<CodeGenerationArtifactKind>([
   'backend',
   'vue_client',
+  'vue_view',
   'layui_client',
   'report',
   'migration_template',
@@ -200,7 +269,7 @@ export function isCodeGenerationPreviewRequest(
     && Array.isArray(value.columns)
     && value.columns.length > 0
     && value.columns.length <= 128
-    && value.columns.every(isPreviewColumn)
+    && value.columns.every(isCodeGenerationPreviewColumnRequest)
     && hasValidLifecycleShape(value);
 }
 
@@ -215,7 +284,7 @@ export function isCodeGenerationPreviewResponse(
     && value.artifacts.every(isPreviewArtifact);
 }
 
-function isPreviewColumn(
+export function isCodeGenerationPreviewColumnRequest(
   value: unknown
 ): value is CodeGenerationPreviewColumnRequest {
   return isRecord(value)
@@ -226,7 +295,24 @@ function isPreviewColumn(
     && typeof value.isNullable === 'boolean'
     && isNullableInteger(value.maxLength)
     && isNullableInteger(value.numericPrecision)
-    && isNullableInteger(value.numericScale);
+    && isNullableInteger(value.numericScale)
+    && (value.ui === undefined || isColumnUi(value.ui));
+}
+
+function isColumnUi(
+  value: unknown
+): value is CodeGenerationPreviewColumnUiRequest {
+  return isRecord(value)
+    && controlKinds.has(value.controlKind as CodeGenerationColumnControlKind)
+    && typeof value.showInList === 'boolean'
+    && typeof value.includeInCreate === 'boolean'
+    && typeof value.includeInUpdate === 'boolean'
+    && typeof value.required === 'boolean'
+    && typeof value.sortable === 'boolean'
+    && typeof value.queryable === 'boolean'
+    && queryKinds.has(value.queryKind as CodeGenerationColumnQueryKind)
+    && typeof value.unique === 'boolean'
+    && typeof value.includeInImportExport === 'boolean';
 }
 
 function isPreviewArtifact(

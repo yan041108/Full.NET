@@ -11,8 +11,8 @@ public sealed record ModuleClientRouteTarget
         string routePath,
         string vueRouteName,
         string vueComponentPath,
-        string layuiControllerPath,
-        string layuiControllerExport)
+        string? layuiControllerPath,
+        string? layuiControllerExport)
     {
         RoutePath = routePath;
         VueRouteName = vueRouteName;
@@ -27,19 +27,19 @@ public sealed record ModuleClientRouteTarget
 
     public string VueComponentPath { get; }
 
-    public string LayuiControllerPath { get; }
+    public string? LayuiControllerPath { get; }
 
-    public string LayuiControllerExport { get; }
+    public string? LayuiControllerExport { get; }
 
     /// <summary>
-    /// 创建经过稳定机器码和仓库相对路径校验的双端路由映射。
+    /// 创建经过稳定机器码和仓库相对路径校验的路由映射；Layui 两端必须同时缺省或同时提供。
     /// </summary>
     public static ModuleClientRouteTarget Create(
         string routePath,
         string vueRouteName,
         string vueComponentPath,
-        string layuiControllerPath,
-        string layuiControllerExport)
+        string? layuiControllerPath = null,
+        string? layuiControllerExport = null)
     {
         if (!IsRoutePath(routePath))
         {
@@ -55,7 +55,15 @@ public sealed record ModuleClientRouteTarget
                 nameof(vueRouteName));
         }
 
-        if (!IsControllerExport(layuiControllerExport))
+        var hasLayuiPath = !string.IsNullOrWhiteSpace(layuiControllerPath);
+        var hasLayuiExport = !string.IsNullOrWhiteSpace(layuiControllerExport);
+        if (hasLayuiPath != hasLayuiExport)
+        {
+            throw new ArgumentException(
+                "Layui controller 路径与 export 必须同时提供或同时省略。");
+        }
+
+        if (hasLayuiExport && !IsControllerExport(layuiControllerExport!))
         {
             throw new ArgumentException(
                 "Layui controller export 必须使用 create{Name}Controller。",
@@ -65,17 +73,21 @@ public sealed record ModuleClientRouteTarget
         var vuePath = GenerationArtifactPath.Validate(
             vueComponentPath,
             nameof(vueComponentPath));
-        var layuiPath = GenerationArtifactPath.Validate(
-            layuiControllerPath,
-            nameof(layuiControllerPath));
         RequireSuffix(vuePath, ".vue", nameof(vueComponentPath));
-        RequireSuffix(layuiPath, ".js", nameof(layuiControllerPath));
-        if (StringComparer.OrdinalIgnoreCase.Equals(
-                vuePath,
-                layuiPath))
+        string? layuiPath = null;
+        if (hasLayuiPath)
         {
-            throw new ArgumentException(
-                "Vue View 与 Layui controller 路径不得重复。");
+            layuiPath = GenerationArtifactPath.Validate(
+                layuiControllerPath!,
+                nameof(layuiControllerPath));
+            RequireSuffix(layuiPath, ".js", nameof(layuiControllerPath));
+            if (StringComparer.OrdinalIgnoreCase.Equals(
+                    vuePath,
+                    layuiPath))
+            {
+                throw new ArgumentException(
+                    "Vue View 与 Layui controller 路径不得重复。");
+            }
         }
 
         return new ModuleClientRouteTarget(
@@ -83,7 +95,7 @@ public sealed record ModuleClientRouteTarget
             vueRouteName,
             vuePath,
             layuiPath,
-            layuiControllerExport);
+            hasLayuiExport ? layuiControllerExport : null);
     }
 
     private static bool IsRoutePath(string value)
@@ -160,8 +172,9 @@ public sealed record ModuleIntegrationTarget
         string compositionProjectPath,
         string compositionCatalogPath,
         string vueRouterPath,
-        string layuiRouterPath,
-        ModuleClientRouteTarget? clientRoute)
+        string? layuiRouterPath,
+        ModuleClientRouteTarget? clientRoute,
+        string? authorizationContributorPath)
     {
         ModuleName = moduleName;
         ModuleProjectPath = moduleProjectPath;
@@ -171,6 +184,7 @@ public sealed record ModuleIntegrationTarget
         VueRouterPath = vueRouterPath;
         LayuiRouterPath = layuiRouterPath;
         ClientRoute = clientRoute;
+        AuthorizationContributorPath = authorizationContributorPath;
     }
 
     public string ModuleName { get; }
@@ -185,9 +199,12 @@ public sealed record ModuleIntegrationTarget
 
     public string VueRouterPath { get; }
 
-    public string LayuiRouterPath { get; }
+    public string? LayuiRouterPath { get; }
 
     public ModuleClientRouteTarget? ClientRoute { get; }
+
+    /// <summary>可选的目标模块 AuthorizationContributor 路径；缺省时不插入菜单片段。</summary>
+    public string? AuthorizationContributorPath { get; }
 
     /// <summary>
     /// 创建经过可移植路径校验的显式接入目标。
@@ -199,8 +216,9 @@ public sealed record ModuleIntegrationTarget
         string compositionProjectPath,
         string compositionCatalogPath,
         string vueRouterPath,
-        string layuiRouterPath,
-        ModuleClientRouteTarget? clientRoute = null)
+        string? layuiRouterPath,
+        ModuleClientRouteTarget? clientRoute = null,
+        string? authorizationContributorPath = null)
     {
         if (string.IsNullOrWhiteSpace(moduleName)
             || !IsIdentifier(moduleName))
@@ -210,7 +228,7 @@ public sealed record ModuleIntegrationTarget
                 nameof(moduleName));
         }
 
-        var paths = new[]
+        var pathList = new List<string>
         {
             GenerationArtifactPath.Validate(
                 moduleProjectPath,
@@ -227,42 +245,66 @@ public sealed record ModuleIntegrationTarget
             GenerationArtifactPath.Validate(
                 vueRouterPath,
                 nameof(vueRouterPath)),
-            GenerationArtifactPath.Validate(
-                layuiRouterPath,
-                nameof(layuiRouterPath)),
         };
-        var allPaths = clientRoute is null
-            ? paths
-            : paths
-                .Concat(
-                [
-                    clientRoute.VueComponentPath,
-                    clientRoute.LayuiControllerPath,
-                ])
-                .ToArray();
-        if (allPaths.Distinct(StringComparer.OrdinalIgnoreCase).Count()
-            != allPaths.Length)
+        string? layuiPath = null;
+        if (!string.IsNullOrWhiteSpace(layuiRouterPath))
+        {
+            layuiPath = GenerationArtifactPath.Validate(
+                layuiRouterPath,
+                nameof(layuiRouterPath));
+            pathList.Add(layuiPath);
+        }
+
+        string? contributorPath = null;
+        if (!string.IsNullOrWhiteSpace(authorizationContributorPath))
+        {
+            contributorPath = GenerationArtifactPath.Validate(
+                authorizationContributorPath,
+                nameof(authorizationContributorPath));
+            pathList.Add(contributorPath);
+        }
+
+        if (clientRoute is not null)
+        {
+            pathList.Add(clientRoute.VueComponentPath);
+            if (clientRoute.LayuiControllerPath is not null)
+            {
+                pathList.Add(clientRoute.LayuiControllerPath);
+            }
+        }
+
+        if (pathList.Distinct(StringComparer.OrdinalIgnoreCase).Count()
+            != pathList.Count)
         {
             throw new ArgumentException(
                 "模块接入目标路径不得重复或形成不可移植的大小写别名。");
         }
 
-        RequireSuffix(paths[0], ".csproj", nameof(moduleProjectPath));
-        RequireSuffix(paths[1], ".cs", nameof(moduleEntryPointPath));
-        RequireSuffix(paths[2], ".csproj", nameof(compositionProjectPath));
-        RequireSuffix(paths[3], ".cs", nameof(compositionCatalogPath));
-        RequireSuffix(paths[4], ".ts", nameof(vueRouterPath));
-        RequireSuffix(paths[5], ".js", nameof(layuiRouterPath));
+        RequireSuffix(pathList[0], ".csproj", nameof(moduleProjectPath));
+        RequireSuffix(pathList[1], ".cs", nameof(moduleEntryPointPath));
+        RequireSuffix(pathList[2], ".csproj", nameof(compositionProjectPath));
+        RequireSuffix(pathList[3], ".cs", nameof(compositionCatalogPath));
+        RequireSuffix(pathList[4], ".ts", nameof(vueRouterPath));
+        if (layuiPath is not null)
+        {
+            RequireSuffix(layuiPath, ".js", nameof(layuiRouterPath));
+        }
+
+        if (contributorPath is not null)
+        {
+            RequireSuffix(contributorPath, ".cs", nameof(authorizationContributorPath));
+        }
 
         return new ModuleIntegrationTarget(
             moduleName,
-            paths[0],
-            paths[1],
-            paths[2],
-            paths[3],
-            paths[4],
-            paths[5],
-            clientRoute);
+            pathList[0],
+            pathList[1],
+            pathList[2],
+            pathList[3],
+            pathList[4],
+            layuiPath,
+            clientRoute,
+            contributorPath);
     }
 
     private static bool IsIdentifier(string value) =>

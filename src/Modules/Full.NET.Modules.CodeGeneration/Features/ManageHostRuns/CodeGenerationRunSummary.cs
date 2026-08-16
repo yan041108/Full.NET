@@ -67,6 +67,7 @@ internal static class CodeGenerationRunSummary
             GeneratedArtifactKind.MigrationTemplate => "migration_template",
             GeneratedArtifactKind.IntegrationTestTemplate =>
                 "integration_test_template",
+            GeneratedArtifactKind.VueView => "vue_view",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(kind),
                 kind,

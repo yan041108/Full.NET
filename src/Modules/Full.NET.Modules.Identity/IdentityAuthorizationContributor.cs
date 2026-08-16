@@ -90,6 +90,10 @@ internal sealed class IdentityAuthorizationContributor
             "导出 Host 用户",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityUserManagementPermissions.Import,
+            "导入 Host 用户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityRoleFieldGrantPermissions.Read,
             "读取角色字段授权",
             AuthorizationScope.Host),
@@ -302,6 +306,13 @@ internal sealed class IdentityAuthorizationContributor
             "导出用户",
             "export",
             80),
+        new AuthorizationActionDefinition(
+            "identity.users.import",
+            "users",
+            IdentityUserManagementPermissions.Import,
+            "导入用户",
+            "import",
+            90),
         new AuthorizationActionDefinition(
             "identity.roles.create",
             "roles",

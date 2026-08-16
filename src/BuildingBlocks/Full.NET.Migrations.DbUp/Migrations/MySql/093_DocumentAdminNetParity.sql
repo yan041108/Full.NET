@@ -13,7 +13,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_category'
           AND COLUMN_NAME = 'Code'
-    ) THENALTER TABLE fn_document_category ADD Code varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '编码'
+    ) THEN
+        ALTER TABLE fn_document_category ADD Code varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '编码';
     END IF;
 
     IF NOT EXISTS
@@ -22,7 +23,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_category'
           AND COLUMN_NAME = 'Icon'
-    ) THENALTER TABLE fn_document_category ADD Icon varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '图标'
+    ) THEN
+        ALTER TABLE fn_document_category ADD Icon varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '图标';
     END IF;
 
     IF NOT EXISTS
@@ -31,7 +33,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_category'
           AND COLUMN_NAME = 'Color'
-    ) THENALTER TABLE fn_document_category ADD Color varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '颜色'
+    ) THEN
+        ALTER TABLE fn_document_category ADD Color varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '颜色';
     END IF;
 
     IF NOT EXISTS
@@ -40,7 +43,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_category'
           AND COLUMN_NAME = 'Description'
-    ) THENALTER TABLE fn_document_category ADD Description varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '描述'
+    ) THEN
+        ALTER TABLE fn_document_category ADD Description varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '描述';
     END IF;
 
     -- ============================================================
@@ -52,7 +56,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_tag'
           AND COLUMN_NAME = 'Color'
-    ) THENALTER TABLE fn_document_tag ADD Color varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '颜色'
+    ) THEN
+        ALTER TABLE fn_document_tag ADD Color varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '颜色';
     END IF;
 
     IF NOT EXISTS
@@ -61,7 +66,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_tag'
           AND COLUMN_NAME = 'UseCount'
-    ) THENALTER TABLE fn_document_tag ADD UseCount int NOT NULL DEFAULT 0 COMMENT '使用次数'
+    ) THEN
+        ALTER TABLE fn_document_tag ADD UseCount int NOT NULL DEFAULT 0 COMMENT '使用次数';
     END IF;
 
     -- 2.1 fn_document_tag 补齐：Code/Icon/Description（与 Category 统一字段集）
@@ -71,7 +77,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_tag'
           AND COLUMN_NAME = 'Code'
-    ) THENALTER TABLE fn_document_tag ADD Code varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '编码'
+    ) THEN
+        ALTER TABLE fn_document_tag ADD Code varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '编码';
     END IF;
 
     IF NOT EXISTS
@@ -80,7 +87,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_tag'
           AND COLUMN_NAME = 'Icon'
-    ) THENALTER TABLE fn_document_tag ADD Icon varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '图标'
+    ) THEN
+        ALTER TABLE fn_document_tag ADD Icon varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '图标';
     END IF;
 
     IF NOT EXISTS
@@ -89,7 +97,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_tag'
           AND COLUMN_NAME = 'Description'
-    ) THENALTER TABLE fn_document_tag ADD Description varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '描述'
+    ) THEN
+        ALTER TABLE fn_document_tag ADD Description varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '描述';
     END IF;
 
     -- ============================================================
@@ -101,7 +110,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_item'
           AND COLUMN_NAME = 'DocumentNo'
-    ) THENALTER TABLE fn_document_item ADD DocumentNo varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '文档编号'
+    ) THEN
+        ALTER TABLE fn_document_item ADD DocumentNo varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '文档编号';
     END IF;
 
     IF NOT EXISTS
@@ -110,7 +120,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_item'
           AND COLUMN_NAME = 'DocumentType'
-    ) THENALTER TABLE fn_document_item ADD DocumentType int NOT NULL DEFAULT 99 COMMENT '文档类型'
+    ) THEN
+        ALTER TABLE fn_document_item ADD DocumentType int NOT NULL DEFAULT 99 COMMENT '文档类型';
     END IF;
 
     IF NOT EXISTS
@@ -119,7 +130,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_item'
           AND COLUMN_NAME = 'SizeKb'
-    ) THENALTER TABLE fn_document_item ADD SizeKb bigint NOT NULL DEFAULT 0 COMMENT '大小(KB)'
+    ) THEN
+        ALTER TABLE fn_document_item ADD SizeKb bigint NOT NULL DEFAULT 0 COMMENT '大小(KB)';
     END IF;
 
     IF NOT EXISTS
@@ -128,7 +140,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_item'
           AND COLUMN_NAME = 'Thumbnail'
-    ) THENALTER TABLE fn_document_item ADD Thumbnail varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '缩略图'
+    ) THEN
+        ALTER TABLE fn_document_item ADD Thumbnail varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '缩略图';
     END IF;
 
     IF NOT EXISTS
@@ -137,7 +150,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_item'
           AND COLUMN_NAME = 'Status'
-    ) THENALTER TABLE fn_document_item ADD Status int NOT NULL DEFAULT 2 COMMENT '状态'
+    ) THEN
+        ALTER TABLE fn_document_item ADD Status int NOT NULL DEFAULT 2 COMMENT '状态';
     END IF;
 
     IF NOT EXISTS
@@ -146,7 +160,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_item'
           AND COLUMN_NAME = 'LastAccessTime'
-    ) THENALTER TABLE fn_document_item ADD LastAccessTime datetime(6) NULL COMMENT '最后访问时间'
+    ) THEN
+        ALTER TABLE fn_document_item ADD LastAccessTime datetime(6) NULL COMMENT '最后访问时间';
     END IF;
 
     IF NOT EXISTS
@@ -155,7 +170,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_item'
           AND COLUMN_NAME = 'AccessCount'
-    ) THENALTER TABLE fn_document_item ADD AccessCount int NOT NULL DEFAULT 0 COMMENT '访问次数'
+    ) THEN
+        ALTER TABLE fn_document_item ADD AccessCount int NOT NULL DEFAULT 0 COMMENT '访问次数';
     END IF;
 
     IF NOT EXISTS
@@ -164,7 +180,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_item'
           AND COLUMN_NAME = 'Sort'
-    ) THENALTER TABLE fn_document_item ADD Sort int NOT NULL DEFAULT 0 COMMENT '排序'
+    ) THEN
+        ALTER TABLE fn_document_item ADD Sort int NOT NULL DEFAULT 0 COMMENT '排序';
     END IF;
 
     -- ============================================================
@@ -176,7 +193,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_version'
           AND COLUMN_NAME = 'ChangeDescription'
-    ) THENALTER TABLE fn_document_version ADD ChangeDescription varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '变更说明'
+    ) THEN
+        ALTER TABLE fn_document_version ADD ChangeDescription varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '变更说明';
     END IF;
 
     IF NOT EXISTS
@@ -185,7 +203,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_version'
           AND COLUMN_NAME = 'FileName'
-    ) THENALTER TABLE fn_document_version ADD FileName varchar(260) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '文件名'
+    ) THEN
+        ALTER TABLE fn_document_version ADD FileName varchar(260) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '文件名';
     END IF;
 
     IF NOT EXISTS
@@ -194,7 +213,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_version'
           AND COLUMN_NAME = 'MimeType'
-    ) THENALTER TABLE fn_document_version ADD MimeType varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT 'MIME 类型'
+    ) THEN
+        ALTER TABLE fn_document_version ADD MimeType varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT 'MIME 类型';
     END IF;
 
     IF NOT EXISTS
@@ -203,7 +223,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_version'
           AND COLUMN_NAME = 'Extension'
-    ) THENALTER TABLE fn_document_version ADD Extension varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '文件扩展名'
+    ) THEN
+        ALTER TABLE fn_document_version ADD Extension varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '文件扩展名';
     END IF;
 
     -- ============================================================
@@ -230,7 +251,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_permission'
           AND COLUMN_NAME = 'TenantId'
-    ) THENALTER TABLE fn_document_permission ADD TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级'
+    ) THEN
+        ALTER TABLE fn_document_permission ADD TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级';
     END IF;
 
     IF NOT EXISTS
@@ -239,8 +261,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_permission'
           AND COLUMN_NAME = 'DocumentId'
-    ) THENALTER TABLE fn_document_permission ADD DocumentId BINARY(16) NOT NULL
-            DEFAULT (0x00000000000000000000000000000000) COMMENT '文档标识'
+    ) THEN
+        ALTER TABLE fn_document_permission ADD DocumentId BINARY(16) NOT NULL
+            DEFAULT (0x00000000000000000000000000000000) COMMENT '文档标识';
         ALTER TABLE fn_document_permission
             ALTER COLUMN DocumentId DROP DEFAULT;
     END IF;
@@ -251,8 +274,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_permission'
           AND COLUMN_NAME = 'UserId'
-    ) THENALTER TABLE fn_document_permission ADD UserId BINARY(16) NOT NULL
-            DEFAULT (0x00000000000000000000000000000000) COMMENT '用户标识'
+    ) THEN
+        ALTER TABLE fn_document_permission ADD UserId BINARY(16) NOT NULL
+            DEFAULT (0x00000000000000000000000000000000) COMMENT '用户标识';
         ALTER TABLE fn_document_permission
             ALTER COLUMN UserId DROP DEFAULT;
     END IF;
@@ -263,8 +287,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_permission'
           AND COLUMN_NAME = 'PermissionLevel'
-    ) THENALTER TABLE fn_document_permission ADD PermissionLevel varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
-            DEFAULT '' COMMENT '权限级别'
+    ) THEN
+        ALTER TABLE fn_document_permission ADD PermissionLevel varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
+            DEFAULT '' COMMENT '权限级别';
         ALTER TABLE fn_document_permission
             ALTER COLUMN PermissionLevel DROP DEFAULT;
     END IF;
@@ -275,8 +300,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_permission'
           AND COLUMN_NAME = 'CreatedAtUtc'
-    ) THENALTER TABLE fn_document_permission ADD CreatedAtUtc datetime(6) NOT NULL
-            DEFAULT '1970-01-01 00:00:00' COMMENT '创建时间(UTC)'
+    ) THEN
+        ALTER TABLE fn_document_permission ADD CreatedAtUtc datetime(6) NOT NULL
+            DEFAULT '1970-01-01 00:00:00' COMMENT '创建时间(UTC)';
         ALTER TABLE fn_document_permission
             ALTER COLUMN CreatedAtUtc DROP DEFAULT;
     END IF;
@@ -332,8 +358,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'PasswordHash'
-    ) THENALTER TABLE fn_document_share ADD PasswordHash varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL
-            AFTER ShareCode COMMENT '密码哈希'
+    ) THEN
+        ALTER TABLE fn_document_share ADD PasswordHash varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL
+            COMMENT '密码哈希' AFTER ShareCode;
         UPDATE fn_document_share
             SET PasswordHash = Password
             WHERE PasswordHash IS NULL;
@@ -345,8 +372,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'PasswordHash'
-    ) THENALTER TABLE fn_document_share ADD PasswordHash varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL
-            AFTER ShareCode COMMENT '密码哈希'
+    ) THEN
+        ALTER TABLE fn_document_share ADD PasswordHash varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL
+            COMMENT '密码哈希' AFTER ShareCode;
     END IF;
 
     -- 中文注释：PasswordHash 已存在但字符长度 < 1024 时扩展，容纳 ASP.NET Core Identity v3 PBKDF2 输出。
@@ -391,7 +419,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'TenantId'
-    ) THENALTER TABLE fn_document_share ADD TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级'
+    ) THEN
+        ALTER TABLE fn_document_share ADD TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级';
     END IF;
 
     IF NOT EXISTS
@@ -400,8 +429,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'DocumentId'
-    ) THENALTER TABLE fn_document_share ADD DocumentId BINARY(16) NOT NULL
-            DEFAULT (0x00000000000000000000000000000000) COMMENT '文档标识'
+    ) THEN
+        ALTER TABLE fn_document_share ADD DocumentId BINARY(16) NOT NULL
+            DEFAULT (0x00000000000000000000000000000000) COMMENT '文档标识';
         ALTER TABLE fn_document_share
             ALTER COLUMN DocumentId DROP DEFAULT;
     END IF;
@@ -412,8 +442,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'ShareCode'
-    ) THENALTER TABLE fn_document_share ADD ShareCode varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
-            DEFAULT '' COMMENT '分享码'
+    ) THEN
+        ALTER TABLE fn_document_share ADD ShareCode varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
+            DEFAULT '' COMMENT '分享码';
         ALTER TABLE fn_document_share
             ALTER COLUMN ShareCode DROP DEFAULT;
     END IF;
@@ -424,8 +455,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'ExpireTime'
-    ) THENALTER TABLE fn_document_share ADD ExpireTime datetime(6) NOT NULL
-            DEFAULT '1970-01-01 00:00:00' COMMENT '过期时间'
+    ) THEN
+        ALTER TABLE fn_document_share ADD ExpireTime datetime(6) NOT NULL
+            DEFAULT '1970-01-01 00:00:00' COMMENT '过期时间';
         ALTER TABLE fn_document_share
             ALTER COLUMN ExpireTime DROP DEFAULT;
     END IF;
@@ -436,7 +468,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'MaxAccessCount'
-    ) THENALTER TABLE fn_document_share ADD MaxAccessCount int NULL COMMENT '最大访问次数'
+    ) THEN
+        ALTER TABLE fn_document_share ADD MaxAccessCount int NULL COMMENT '最大访问次数';
     END IF;
 
     IF NOT EXISTS
@@ -445,7 +478,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'AccessCount'
-    ) THENALTER TABLE fn_document_share ADD AccessCount int NOT NULL DEFAULT 0 COMMENT '访问次数'
+    ) THEN
+        ALTER TABLE fn_document_share ADD AccessCount int NOT NULL DEFAULT 0 COMMENT '访问次数';
     END IF;
 
     IF NOT EXISTS
@@ -454,7 +488,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'IsEnabled'
-    ) THENALTER TABLE fn_document_share ADD IsEnabled boolean NOT NULL DEFAULT true COMMENT '是否启用'
+    ) THEN
+        ALTER TABLE fn_document_share ADD IsEnabled boolean NOT NULL DEFAULT true COMMENT '是否启用';
     END IF;
 
     IF NOT EXISTS
@@ -463,7 +498,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'Version'
-    ) THENALTER TABLE fn_document_share ADD Version bigint NOT NULL DEFAULT 1 COMMENT '乐观并发版本号'
+    ) THEN
+        ALTER TABLE fn_document_share ADD Version bigint NOT NULL DEFAULT 1 COMMENT '乐观并发版本号';
     END IF;
 
     IF NOT EXISTS
@@ -472,8 +508,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_document_share'
           AND COLUMN_NAME = 'CreatedAtUtc'
-    ) THENALTER TABLE fn_document_share ADD CreatedAtUtc datetime(6) NOT NULL
-            DEFAULT '1970-01-01 00:00:00' COMMENT '创建时间(UTC)'
+    ) THEN
+        ALTER TABLE fn_document_share ADD CreatedAtUtc datetime(6) NOT NULL
+            DEFAULT '1970-01-01 00:00:00' COMMENT '创建时间(UTC)';
         ALTER TABLE fn_document_share
             ALTER COLUMN CreatedAtUtc DROP DEFAULT;
     END IF;

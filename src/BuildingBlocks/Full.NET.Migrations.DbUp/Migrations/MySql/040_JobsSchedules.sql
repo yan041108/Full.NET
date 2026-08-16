@@ -51,7 +51,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_jobs_execution'
           AND COLUMN_NAME = 'JobScheduleId'
-    ) THENALTER TABLE fn_jobs_execution ADD JobScheduleId BINARY(16) NULL COMMENT '任务调度标识'
+    ) THEN
+        ALTER TABLE fn_jobs_execution ADD JobScheduleId BINARY(16) NULL COMMENT '任务调度标识';
     END IF;
 
     IF NOT EXISTS
@@ -61,7 +62,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_jobs_execution'
           AND COLUMN_NAME = 'ScheduledForUtc'
-    ) THENALTER TABLE fn_jobs_execution ADD ScheduledForUtc datetime(6) NULL COMMENT '计划执行时间(UTC)'
+    ) THEN
+        ALTER TABLE fn_jobs_execution ADD ScheduledForUtc datetime(6) NULL COMMENT '计划执行时间(UTC)';
     END IF;
 
     IF NOT EXISTS

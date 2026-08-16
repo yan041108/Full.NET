@@ -61,6 +61,114 @@ internal sealed class HostUserManagementService(
             token => ResetPasswordCoreAsync(userId, request, token),
             cancellationToken);
 
+    /// <summary>逐行导入；超级管理员账号类型直接拒绝且不创建。</summary>
+    public async Task<Result<ImportHostUsersResponse>> ImportAsync(
+        ImportHostUsersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var rows = request.Rows ?? [];
+        var results = new List<ImportHostUserRowResult>(rows.Count);
+        var succeeded = 0;
+        var line = 0;
+        foreach (var row in rows)
+        {
+            line++;
+            if (row is null)
+            {
+                results.Add(new ImportHostUserRowResult(
+                    line,
+                    false,
+                    null,
+                    ValidationErrorCodes.Failed,
+                    "Import row is required."));
+                continue;
+            }
+
+            if (string.Equals(
+                    row.AccountType?.Trim(),
+                    IdentityAccountTypes.SuperAdmin,
+                    StringComparison.Ordinal))
+            {
+                results.Add(new ImportHostUserRowResult(
+                    line,
+                    false,
+                    null,
+                    IdentityErrorCodes.SuperAdministratorImportRejected,
+                    "Importing a super administrator is not allowed."));
+                continue;
+            }
+
+            var created = await CreateAsync(row, null, cancellationToken)
+                .ConfigureAwait(false);
+            if (created.IsSuccess)
+            {
+                succeeded++;
+                results.Add(new ImportHostUserRowResult(
+                    line,
+                    true,
+                    created.Value!.Id,
+                    null,
+                    null));
+                continue;
+            }
+
+            results.Add(new ImportHostUserRowResult(
+                line,
+                false,
+                null,
+                created.Error?.Code,
+                created.Error?.Message));
+        }
+
+        return Result<ImportHostUsersResponse>.Success(
+            new ImportHostUsersResponse(succeeded, results));
+    }
+
+    /// <summary>逐个停用，复用最后一名超级管理员保护。</summary>
+    public Task<Result<BatchHostUserStatusResponse>> BatchDisableAsync(
+        BatchHostUserIdsRequest request,
+        CancellationToken cancellationToken = default) =>
+        BatchSetActiveAsync(request, disable: true, cancellationToken);
+
+    /// <summary>逐个启用已停用账号。</summary>
+    public Task<Result<BatchHostUserStatusResponse>> BatchEnableAsync(
+        BatchHostUserIdsRequest request,
+        CancellationToken cancellationToken = default) =>
+        BatchSetActiveAsync(request, disable: false, cancellationToken);
+
+    private async Task<Result<BatchHostUserStatusResponse>> BatchSetActiveAsync(
+        BatchHostUserIdsRequest request,
+        bool disable,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var userIds = request.UserIds ?? [];
+        var results = new List<BatchHostUserStatusItem>(userIds.Count);
+        var succeeded = 0;
+        foreach (var userId in userIds)
+        {
+            var changed = disable
+                ? await DisableAsync(userId, cancellationToken).ConfigureAwait(false)
+                : await EnableAsync(userId, cancellationToken).ConfigureAwait(false);
+            if (changed.IsSuccess)
+            {
+                succeeded++;
+                results.Add(new BatchHostUserStatusItem(userId, true, null, null));
+                continue;
+            }
+
+            results.Add(new BatchHostUserStatusItem(
+                userId,
+                false,
+                changed.Error?.Code,
+                changed.Error?.Message));
+        }
+
+        return Result<BatchHostUserStatusResponse>.Success(
+            new BatchHostUserStatusResponse(succeeded, results));
+    }
+
     private async Task<Result<HostUserResponse>> CreateCoreAsync(
         CreateHostUserRequest request,
         IReadOnlyCollection<string>? allowedProfileFieldKeys,

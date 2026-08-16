@@ -33,6 +33,9 @@ vi.mock('../api/users', () => ({
   disableHostUser: vi.fn(),
   enableHostUser: vi.fn(),
   exportHostUsers: vi.fn(),
+  importHostUsers: vi.fn(),
+  batchDisableHostUsers: vi.fn(),
+  batchEnableHostUsers: vi.fn(),
   getHostUserRoles: vi.fn(),
   listHostUsers: vi.fn(),
   replaceHostUserRoles: vi.fn(),
@@ -215,6 +218,9 @@ describe('Vue 用户管理页', () => {
     expect(wrapper.text()).toContain('活动用户');
     expect(wrapper.find('[data-testid="users-action-create"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-export"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="users-action-import"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="users-action-batch-disable"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="users-action-batch-enable"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-roles"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-reset-password"]').exists()).toBe(false);
@@ -364,7 +370,8 @@ describe('Vue 用户管理页', () => {
     ['identity.users.assign_roles', 'users-action-roles'],
     ['identity.users.reset_password', 'users-action-reset-password'],
     ['identity.users.disable', 'users-action-disable'],
-    ['identity.users.export', 'users-action-export']
+    ['identity.users.export', 'users-action-export'],
+    ['identity.users.import', 'users-action-import']
   ])('仅授予 %s 时只暴露对应控件', async (permission, testId) => {
     const wrapper = mountUsers(['identity.users.read', permission]);
     await flushPromises();
@@ -377,8 +384,22 @@ describe('Vue 用户管理页', () => {
       'users-action-reset-password',
       'users-action-disable',
       'users-action-enable',
-      'users-action-export'
-    ].filter(id => id !== testId);
+      'users-action-export',
+      'users-action-import',
+      'users-action-batch-disable',
+      'users-action-batch-enable'
+    ].filter(id => {
+      if (id === testId) {
+        return false;
+      }
+      if (permission === 'identity.users.disable' && id === 'users-action-batch-disable') {
+        return false;
+      }
+      if (permission === 'identity.users.enable' && id === 'users-action-batch-enable') {
+        return false;
+      }
+      return true;
+    });
     for (const id of otherIds) {
       expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(false);
     }

@@ -28,6 +28,27 @@ export interface CodeGenerationRunPreviewResponse {
 
 export interface CodeGenerationRunApplyRequest {
   previewRunId: string;
+  integrationTarget?: CodeGenerationIntegrationTarget;
+}
+
+export interface CodeGenerationIntegrationTarget {
+  moduleName: string;
+  moduleProjectPath: string;
+  moduleEntryPointPath: string;
+  compositionProjectPath: string;
+  compositionCatalogPath: string;
+  vueRouterPath: string;
+  layuiRouterPath?: string;
+  clientRoute?: CodeGenerationClientRouteTarget;
+  authorizationContributorPath?: string;
+}
+
+export interface CodeGenerationClientRouteTarget {
+  routePath: string;
+  vueRouteName: string;
+  vueComponentPath: string;
+  layuiControllerPath?: string;
+  layuiControllerExport?: string;
 }
 
 export interface CodeGenerationRunApplyResponse {

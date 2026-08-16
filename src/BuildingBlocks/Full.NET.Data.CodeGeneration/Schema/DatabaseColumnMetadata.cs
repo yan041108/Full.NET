@@ -1,6 +1,9 @@
 namespace Full.NET.Data.CodeGeneration.Schema;
 
-internal sealed record DatabaseColumnMetadata(
+/// <summary>
+/// 保存 INFORMATION_SCHEMA 读出的原始列形态，尚未经过 CRUD 不变量校验。
+/// </summary>
+public sealed record DatabaseColumnMetadata(
     string Name,
     string DataType,
     string ColumnType,

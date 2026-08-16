@@ -11,6 +11,7 @@ namespace Full.NET.Data.CodeGeneration.Schema;
 /// <param name="MaxLength">字符串最大长度；非字符串必须为空。</param>
 /// <param name="NumericPrecision">Decimal 总有效位数；非 Decimal 必须为空。</param>
 /// <param name="NumericScale">Decimal 小数位数；非 Decimal 必须为空。</param>
+/// <param name="Ui">可选展示元数据；空值表示生成时按列名与类型推导，且不进入旧模板哈希。</param>
 public sealed record FullNetColumn(
     string DatabaseName,
     string ClrPropertyName,
@@ -19,4 +20,12 @@ public sealed record FullNetColumn(
     bool IsNullable = false,
     int? MaxLength = null,
     int? NumericPrecision = null,
-    int? NumericScale = null);
+    int? NumericScale = null,
+    FullNetColumnUi? Ui = null)
+{
+    /// <summary>
+    /// 解析展示元数据；未声明时按物理列推导，保证生成器始终看到完整 UI 决策。
+    /// </summary>
+    public FullNetColumnUi ResolvedUi =>
+        Ui ?? FullNetColumnUi.DefaultFor(DatabaseName, ScalarType, IsNullable);
+}

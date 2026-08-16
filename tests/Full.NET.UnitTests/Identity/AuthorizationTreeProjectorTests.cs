@@ -150,6 +150,7 @@ public sealed class AuthorizationTreeProjectorTests
                 "identity.users.disable",
                 "identity.users.enable",
                 "identity.users.export",
+                "identity.users.import",
             },
             usersPage.Actions.Select(action => action.PermissionCode).ToArray());
         Assert.AreEqual("identity.users.read", usersPage.PermissionCode);

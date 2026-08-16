@@ -39,7 +39,13 @@ public sealed class FullNetCrudSchema
         Relationships = relationships;
         Columns = columns;
         ReadPermission = $"{moduleKey}.{permissionResourceName}.read";
-        WritePermission = $"{moduleKey}.{permissionResourceName}.write";
+        CreatePermission = $"{moduleKey}.{permissionResourceName}.create";
+        UpdatePermission = $"{moduleKey}.{permissionResourceName}.update";
+        DisablePermission = $"{moduleKey}.{permissionResourceName}.disable";
+        // 遗留 hasVersion Schema 继续发出 .write；显式能力把兼容字段对齐到 update。
+        WritePermission = usesLegacyEntityCapabilities
+            ? $"{moduleKey}.{permissionResourceName}.write"
+            : UpdatePermission;
     }
 
     /// <summary>获取冻结的项目所有权键。</summary>
@@ -69,7 +75,18 @@ public sealed class FullNetCrudSchema
     /// <summary>获取只读权限码。</summary>
     public string ReadPermission { get; }
 
-    /// <summary>获取写权限码。</summary>
+    /// <summary>获取创建权限码。</summary>
+    public string CreatePermission { get; }
+
+    /// <summary>获取更新权限码。</summary>
+    public string UpdatePermission { get; }
+
+    /// <summary>获取停用或删除权限码。</summary>
+    public string DisablePermission { get; }
+
+    /// <summary>
+    /// 获取兼容写权限码。遗留 Schema 为 <c>.write</c>；显式 Schema 等于 <see cref="UpdatePermission"/>。
+    /// </summary>
     public string WritePermission { get; }
 
     /// <summary>获取是否要求可信租户上下文。</summary>

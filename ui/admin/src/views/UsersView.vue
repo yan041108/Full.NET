@@ -54,11 +54,14 @@ import {
   type OrganizationUnitTreeNode
 } from '../organization/org-unit-tree';
 import {
+  batchDisableHostUsers,
+  batchEnableHostUsers,
   createHostUser,
   disableHostUser,
   enableHostUser,
   exportHostUsers,
   getHostUserRoles,
+  importHostUsers,
   listHostUsers,
   replaceHostUserRoles,
   resetHostUserPassword,
@@ -148,6 +151,7 @@ const userUnits = ref<OrganizationUserUnit[]>([]);
 const userPositions = ref<OrganizationUserPosition[]>([]);
 const loading = ref(false);
 const changing = ref(false);
+const selectedUsers = ref<HostUser[]>([]);
 const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({
@@ -1558,6 +1562,127 @@ async function exportUsers(): Promise<void> {
   }
 }
 
+async function importUsers(): Promise<void> {
+  if (changing.value) {
+    return;
+  }
+
+  try {
+    const { value } = await ElMessageBox.prompt(
+      t('users.importPrompt'),
+      t('users.import'),
+      {
+        confirmButtonText: t('users.import'),
+        cancelButtonText: t('hostDocumentItems.cancel'),
+        inputType: 'textarea'
+      }
+    );
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) {
+      throw new Error('client.invalid_host_user_import');
+    }
+    changing.value = true;
+    problem.value = undefined;
+    const result = await importHostUsers(
+      parsed.map(row => {
+        const record = row as Record<string, unknown>;
+        return {
+          username: String(record.username ?? ''),
+          displayName: String(record.displayName ?? ''),
+          password: String(record.password ?? ''),
+          accountType: typeof record.accountType === 'string'
+            ? record.accountType
+            : null
+        };
+      })
+    );
+    ElMessage.success(t('users.importSuccess', { count: result.succeededCount }));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+function onUserSelectionChange(rows: HostUser[]): void {
+  selectedUsers.value = rows;
+}
+
+async function batchDisableSelected(): Promise<void> {
+  if (changing.value) {
+    return;
+  }
+  const userIds = selectedUsers.value
+    .filter(user => user.isActive)
+    .map(user => user.id);
+  if (userIds.length === 0) {
+    ElMessage.warning(t('users.batchEmpty'));
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('users.batchDisable'),
+      t('users.disable'),
+      {
+        type: 'warning',
+        confirmButtonText: t('users.batchDisable'),
+        cancelButtonText: t('hostDocumentItems.cancel')
+      }
+    );
+    changing.value = true;
+    const result = await batchDisableHostUsers(userIds);
+    ElMessage.success(t('users.batchSuccess', { count: result.succeededCount }));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function batchEnableSelected(): Promise<void> {
+  if (changing.value) {
+    return;
+  }
+  const userIds = selectedUsers.value
+    .filter(user => !user.isActive)
+    .map(user => user.id);
+  if (userIds.length === 0) {
+    ElMessage.warning(t('users.batchEmpty'));
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('users.batchEnable'),
+      t('users.enable'),
+      {
+        confirmButtonText: t('users.batchEnable'),
+        cancelButtonText: t('hostDocumentItems.cancel')
+      }
+    );
+    changing.value = true;
+    const result = await batchEnableHostUsers(userIds);
+    ElMessage.success(t('users.batchSuccess', { count: result.succeededCount }));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 function avatarText(user: HostUser): string {
   return (hasEffectiveField('nickname', user) ? user.profile?.nickname?.slice(0, 1) : undefined)
     || user.displayName.slice(0, 1)
@@ -1771,6 +1896,36 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                   {{ t('users.export') }}
                 </el-button>
               </PermissionGate>
+              <PermissionGate code="identity.users.import">
+                <el-button
+                  data-testid="users-action-import"
+                  plain
+                  :disabled="changing"
+                  @click="importUsers"
+                >
+                  {{ t('users.import') }}
+                </el-button>
+              </PermissionGate>
+              <PermissionGate code="identity.users.disable">
+                <el-button
+                  data-testid="users-action-batch-disable"
+                  plain
+                  :disabled="changing"
+                  @click="batchDisableSelected"
+                >
+                  {{ t('users.batchDisable') }}
+                </el-button>
+              </PermissionGate>
+              <PermissionGate code="identity.users.enable">
+                <el-button
+                  data-testid="users-action-batch-enable"
+                  plain
+                  :disabled="changing"
+                  @click="batchEnableSelected"
+                >
+                  {{ t('users.batchEnable') }}
+                </el-button>
+              </PermissionGate>
             </template>
           </ArtTableHeader>
 
@@ -1786,7 +1941,9 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
               class="users-data-table"
               :class="{ 'art-table--header-bg': tableHeaderBackground }"
               style="width: 100%"
+              @selection-change="onUserSelectionChange"
             >
+              <el-table-column type="selection" width="48" />
               <el-table-column :label="t('users.columnIndex')" width="72" align="center">
                 <template #default="{ $index }">
                   {{ rowIndex($index) }}
@@ -1921,7 +2078,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 align="center"
               >
                 <template #default="{ row }">
-                  <ArtTableActionGroup>
+                  <ArtTableActionGroup :max-visible="8">
                     <PermissionGate code="identity.users.update">
                       <ArtTableActionButton
                         type="edit"

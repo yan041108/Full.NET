@@ -215,9 +215,18 @@ public static class ModuleIntegrationPlanner
         ModuleIntegrationSnapshot snapshot,
         bool vue)
     {
+        if (!vue && target.LayuiRouterPath is null)
+        {
+            return new ModuleIntegrationPlanItem(
+                area,
+                ModuleIntegrationStatus.Satisfied,
+                target.VueRouterPath,
+                "未声明 Layui 路由；仅规划 Vue 接入。");
+        }
+
         var routerPath = vue
             ? target.VueRouterPath
-            : target.LayuiRouterPath;
+            : target.LayuiRouterPath!;
         var route = target.ClientRoute;
         if (route is null)
         {
@@ -246,7 +255,7 @@ public static class ModuleIntegrationPlanner
         var adapterPath = vue
             ? route.VueComponentPath
             : route.LayuiControllerPath;
-        if (!snapshot.TryGetContent(adapterPath, out var adapter))
+        if (!snapshot.TryGetContent(adapterPath!, out var adapter))
         {
             return new ModuleIntegrationPlanItem(
                 area,
@@ -258,7 +267,7 @@ public static class ModuleIntegrationPlanner
         if (string.IsNullOrWhiteSpace(adapter)
             || (!vue && !ContainsLayuiExport(
                 adapter,
-                route.LayuiControllerExport)))
+                route.LayuiControllerExport!)))
         {
             return new ModuleIntegrationPlanItem(
                 area,

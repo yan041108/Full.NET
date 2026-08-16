@@ -134,7 +134,7 @@ function stripMySqlComments(sql) {
 
 function applyMySqlAlterAddComments(sql, catalog) {
   const alterAddPattern = new RegExp(
-    `^\\s*ALTER TABLE\\s+([a-z0-9_]+)\\s+ADD\\s+(?:COLUMN\\s+)?([A-Z][A-Za-z0-9]*)\\s+(${SQL_TYPE_PATTERN})([\\s\\S]*?);`,
+    `^\\s*ALTER TABLE\\s+([a-z0-9_]+)\\s+ADD\\s+(?:COLUMN\\s+)?([A-Z][A-Za-z0-9]*)\\s+(${SQL_TYPE_PATTERN})((?:(?!\\n\\s*ALTER\\s+TABLE)[\\s\\S])*?);`,
     'gim'
   );
   return sql.replace(
@@ -148,9 +148,27 @@ function applyMySqlAlterAddComments(sql, catalog) {
       if (/\bCOMMENT\b/i.test(statement)) {
         return statement;
       }
-      return `ALTER TABLE ${tableName} ADD ${columnName} ${typeToken}${trimmedRest} COMMENT '${escapeSqlString(comment)}';`;
+      const leading = statement.match(/^\s*/)?.[0] ?? '';
+      const afterMatch = trimmedRest.match(/(\s+)((?:FIRST|AFTER\s+[A-Za-z0-9]+)\s*;?\s*)$/i);
+      if (afterMatch) {
+        const beforeAfter = trimmedRest.slice(0, trimmedRest.length - afterMatch[0].length);
+        const terminator = /;\s*$/.test(afterMatch[2]) ? ';' : '';
+        const position = afterMatch[2].replace(/;\s*$/, '').trim();
+        return `${leading}ALTER TABLE ${tableName} ADD ${columnName} ${typeToken}${beforeAfter} COMMENT '${escapeSqlString(comment)}' ${position}${terminator}`;
+      }
+      return `${leading}ALTER TABLE ${tableName} ADD ${columnName} ${typeToken}${trimmedRest} COMMENT '${escapeSqlString(comment)}';`;
     }
   );
+}
+
+/** 判断 ALTER 是否位于 EXEC(N'...') 动态 SQL 内部，避免把扩展属性写进字符串字面量。 */
+function isInsideSqlServerExecString(sql, matchIndex) {
+  const before = sql.slice(0, matchIndex);
+  const lastExec = before.lastIndexOf("EXEC(N'");
+  if (lastExec < 0) {
+    return false;
+  }
+  return before.lastIndexOf("');") < lastExec;
 }
 
 function applySqlServerAlterAddComments(sql, catalog) {
@@ -160,7 +178,10 @@ function applySqlServerAlterAddComments(sql, catalog) {
   );
   return sql.replace(
     alterAddPattern,
-    (statement, tableName, columnName, typeToken, rest) => {
+    (statement, tableName, columnName, typeToken, rest, offset, source) => {
+      if (isInsideSqlServerExecString(source, offset)) {
+        return statement;
+      }
       const comment = getColumnComment(catalog, tableName, columnName);
       if (!comment || statement.includes('sp_addextendedproperty')) {
         return statement;

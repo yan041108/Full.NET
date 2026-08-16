@@ -1,3 +1,5 @@
+using Full.NET.Data.CodeGeneration.Integration;
+
 namespace Full.NET.CodeGeneration.Cli;
 
 /// <summary>

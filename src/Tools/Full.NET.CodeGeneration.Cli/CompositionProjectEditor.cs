@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Xml;
 using System.Xml.Linq;
 
+using Full.NET.Data.CodeGeneration.Integration;
+
 namespace Full.NET.CodeGeneration.Cli;
 
 /// <summary>

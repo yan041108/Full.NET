@@ -586,6 +586,83 @@ internal static class IdentityUserManagementAssertions
                 "拒绝创建",
                 password),
             cancellationToken);
+
+        var importToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.Import,
+            ],
+            cancellationToken);
+        await AssertOkAsync(
+            client,
+            importToken,
+            HttpMethod.Post,
+            "/api/v1/identity/users/import",
+            new ImportHostUsersRequest(
+            [
+                new CreateHostUserRequest(
+                    $"imported-{Guid.NewGuid():N}",
+                    "导入用户",
+                    password),
+            ]),
+            cancellationToken);
+        using var rejectedImport = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users/import",
+            importToken,
+            new ImportHostUsersRequest(
+            [
+                new CreateHostUserRequest(
+                    $"sa-import-{Guid.NewGuid():N}",
+                    "拒绝超管导入",
+                    password,
+                    IdentityAccountTypes.SuperAdmin),
+            ]));
+        using var rejectedResponse = await client.SendAsync(
+            rejectedImport,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, rejectedResponse.StatusCode);
+        var rejected = await rejectedResponse.Content
+            .ReadFromJsonAsync<ImportHostUsersResponse>(cancellationToken);
+        Assert.IsNotNull(rejected);
+        Assert.AreEqual(0, rejected.SucceededCount);
+        Assert.AreEqual(
+            IdentityErrorCodes.SuperAdministratorImportRejected,
+            rejected.Results.Single().ErrorCode);
+        await AssertPermissionDeniedAsync(
+            client,
+            exportToken,
+            HttpMethod.Post,
+            "/api/v1/identity/users/import",
+            new ImportHostUsersRequest(
+            [
+                new CreateHostUserRequest(
+                    $"denied-import-{Guid.NewGuid():N}",
+                    "拒绝导入",
+                    password),
+            ]),
+            cancellationToken);
+
+        var batchDisableToken = await factory.CreateHostAccessTokenAsync(
+            [
+                IdentityUserManagementPermissions.Read,
+                IdentityUserManagementPermissions.Disable,
+            ],
+            cancellationToken);
+        var batchTarget = await CreateHostUserAsync(
+            client,
+            adminToken,
+            $"batch-disable-{Guid.NewGuid():N}",
+            "批量停用目标",
+            password,
+            cancellationToken);
+        await AssertOkAsync(
+            client,
+            batchDisableToken,
+            HttpMethod.Post,
+            "/api/v1/identity/users/batch-disable",
+            new BatchHostUserIdsRequest([batchTarget.Id]),
+            cancellationToken);
     }
 
     private static async Task<HostUserResponse> CreateHostUserAsync(

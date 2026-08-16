@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 1437,
+      "minimum": 1445,
       "timeout": "10m"
     },
     "compatibility": {
@@ -202,6 +202,21 @@
       "085": {
         "filter": "FullyQualifiedName~Migration085FilesFileReferenceClaimRecoveryTests.MySql_|FullyQualifiedName~Migration085FilesFileReferenceClaimRecoveryTests.SqlServer_"
       },
+      "086": {
+        "filter": "FullyQualifiedName~Migration086IdentityUserProfileEmergencyContactRelationRecoveryTests.MySql_|FullyQualifiedName~Migration086IdentityUserProfileEmergencyContactRelationRecoveryTests.SqlServer_"
+      },
+      "087": {
+        "filter": "FullyQualifiedName~Migration087IdentityUserAccountTypeRecoveryTests.MySql_|FullyQualifiedName~Migration087IdentityUserAccountTypeRecoveryTests.SqlServer_"
+      },
+      "088": {
+        "filter": "FullyQualifiedName~Migration088IdentityNavigationMenuMetaRecoveryTests.MySql_|FullyQualifiedName~Migration088IdentityNavigationMenuMetaRecoveryTests.SqlServer_"
+      },
+      "089": {
+        "filter": "FullyQualifiedName~Migration089JobsDefinitionAndScheduleEnhancementsRecoveryTests.MySql_|FullyQualifiedName~Migration089JobsDefinitionAndScheduleEnhancementsRecoveryTests.SqlServer_"
+      },
+      "090": {
+        "filter": "FullyQualifiedName~Migration090SettingsConfigEntryGroupNameRecoveryTests.MySql_|FullyQualifiedName~Migration090SettingsConfigEntryGroupNameRecoveryTests.SqlServer_"
+      },
       "091": {
         "filter": "FullyQualifiedName~Migration091MessagingOutboxInboxRecoveryTests.MySql_|FullyQualifiedName~Migration091MessagingOutboxInboxRecoveryTests.SqlServer_"
       },
@@ -230,21 +245,21 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 58,
+        "minimum": 62,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 58,
+        "minimum": 62,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 296,
+        "minimum": 306,
         "timeout": "90m"
       },
       "infrastructure": {
-        "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests",
+        "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests",
         "minimum": 126,
         "timeout": "60m"
       },
@@ -254,7 +269,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 594,
+        "minimum": 612,
         "timeout": "90m"
       }
     }

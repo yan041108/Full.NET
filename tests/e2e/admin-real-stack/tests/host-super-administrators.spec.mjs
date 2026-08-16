@@ -61,6 +61,25 @@ test('Host 管理员可从真实 API 加载超管目录并完成密码重认证�
     .toBeVisible();
 });
 
+test('撤销最后一名超级管理员时页面展示稳定错误码', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  const clientKind = testInfo.project.metadata.clientKind;
+  test.skip(clientKind === 'layui', 'Layui 管理端已冻结，最后一名保护只验收 Vue。');
+
+  await loginAsHostAdmin(page);
+
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  await navigation.getByRole('link', { name: /超级管理员/ }).click();
+  await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible();
+
+  const adminRow = page.locator('.el-table__row').filter({ hasText: 'admin' }).first();
+  await adminRow.getByRole('button', { name: '撤销权限' }).click();
+  await confirmRevokeDialogs(page, clientKind, adminPassword);
+
+  await expect(page.getByText('identity.super_administrator.last_remaining', { exact: true }))
+    .toBeVisible({ timeout: 15_000 });
+});
+
 /** 确认撤销所需的密码与可选 TOTP 二次提示（Vue MessageBox / Layui Layer）。 */
 async function confirmRevokeDialogs(page, clientKind, currentPassword) {
   if (clientKind === 'layui') {

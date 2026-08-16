@@ -17,7 +17,7 @@ import {
   type CodeGenerationRunResponse,
   type CodeGenerationRunStatus
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { request, requestBlob } from './http';
 
 export async function previewTrackedCodeGeneration(
   input: CodeGenerationRunPreviewRequest
@@ -126,4 +126,10 @@ export async function listCodeGenerationRuns(
   }
 
   return value;
+}
+
+export async function downloadCodeGenerationArtifacts(runId: string): Promise<Blob> {
+  return requestBlob(
+    `/api/v1/code-generation/runs/${encodeURIComponent(runId)}/artifacts.zip`
+  );
 }

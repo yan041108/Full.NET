@@ -50,6 +50,14 @@ internal sealed class CodeGenerationAuthorizationContributor
             CodeGenerationRunPermissions.Rollback,
             "回滚已成功的代码生成 Apply",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            CodeGenerationRunPermissions.Download,
+            "下载已成功的代码生成产物",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            CodeGenerationCatalogPermissions.Read,
+            "读取代码生成数据库目录",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -101,5 +109,19 @@ internal sealed class CodeGenerationAuthorizationContributor
             "删除模板",
             "delete",
             30),
+        new AuthorizationActionDefinition(
+            "codegen.catalog.read",
+            "code-generation-templates",
+            CodeGenerationCatalogPermissions.Read,
+            "读取数据库目录",
+            "catalog",
+            40),
+        new AuthorizationActionDefinition(
+            "codegen.runs.download",
+            "code-generation-previews",
+            CodeGenerationRunPermissions.Download,
+            "下载生成产物",
+            "download",
+            10),
     ];
 }

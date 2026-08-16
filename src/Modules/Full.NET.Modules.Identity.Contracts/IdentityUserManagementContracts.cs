@@ -29,6 +29,9 @@ public static class IdentityUserManagementPermissions
     /// <summary>按当前字段投影导出 Host 用户。</summary>
     public const string Export = "identity.users.export";
 
+    /// <summary>导入 Host 用户；禁止导入超级管理员。</summary>
+    public const string Import = "identity.users.import";
+
     /// <summary>迁移 054 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.users.write";
 }
@@ -124,3 +127,36 @@ public sealed record HostUserProjectedFieldsResponse(
     string? PreferredLocale,
     int? FailedLoginCount,
     DateTimeOffset? LockoutEndUtc);
+
+/// <summary>批量导入 Host 用户；逐行报告，禁止超级管理员账号类型。</summary>
+public sealed record ImportHostUsersRequest(
+    IReadOnlyList<CreateHostUserRequest> Rows);
+
+/// <summary>单行导入结果。</summary>
+public sealed record ImportHostUserRowResult(
+    int Line,
+    bool Succeeded,
+    Guid? UserId,
+    string? ErrorCode,
+    string? Message);
+
+/// <summary>导入汇总。</summary>
+public sealed record ImportHostUsersResponse(
+    int SucceededCount,
+    IReadOnlyList<ImportHostUserRowResult> Results);
+
+/// <summary>批量启用或停用的用户标识列表。</summary>
+public sealed record BatchHostUserIdsRequest(
+    IReadOnlyList<Guid> UserIds);
+
+/// <summary>批量状态变更的单条结果。</summary>
+public sealed record BatchHostUserStatusItem(
+    Guid UserId,
+    bool Succeeded,
+    string? ErrorCode,
+    string? Message);
+
+/// <summary>批量启用或停用汇总。</summary>
+public sealed record BatchHostUserStatusResponse(
+    int SucceededCount,
+    IReadOnlyList<BatchHostUserStatusItem> Results);

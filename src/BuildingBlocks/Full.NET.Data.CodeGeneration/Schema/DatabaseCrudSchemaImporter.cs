@@ -12,20 +12,7 @@ public static class DatabaseCrudSchemaImporter
 {
     // 两条查询都固定到默认 Schema，并通过约束名、表与 Schema 联合连接，避免同名约束串表。
     private const string SqlServerColumnsSql =
-        """
-        SELECT COLUMN_NAME AS ColumnName,
-               DATA_TYPE AS DataType,
-               DATA_TYPE AS ColumnType,
-               IS_NULLABLE AS IsNullable,
-               CHARACTER_MAXIMUM_LENGTH AS MaxLength,
-               NUMERIC_PRECISION AS NumericPrecision,
-               NUMERIC_SCALE AS NumericScale,
-               ORDINAL_POSITION AS OrdinalPosition
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = 'dbo'
-          AND TABLE_NAME = @TableName
-        ORDER BY ORDINAL_POSITION
-        """;
+        DatabaseCatalogQueries.ListColumnsSqlServer;
 
     private const string SqlServerPrimaryKeySql =
         """
@@ -46,20 +33,7 @@ public static class DatabaseCrudSchemaImporter
         """;
 
     private const string MySqlColumnsSql =
-        """
-        SELECT COLUMN_NAME AS ColumnName,
-               DATA_TYPE AS DataType,
-               COLUMN_TYPE AS ColumnType,
-               IS_NULLABLE AS IsNullable,
-               CHARACTER_MAXIMUM_LENGTH AS MaxLength,
-               NUMERIC_PRECISION AS NumericPrecision,
-               NUMERIC_SCALE AS NumericScale,
-               ORDINAL_POSITION AS OrdinalPosition
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = @TableName
-        ORDER BY ORDINAL_POSITION
-        """;
+        DatabaseCatalogQueries.ListColumnsMySql;
 
     private const string MySqlPrimaryKeySql =
         """

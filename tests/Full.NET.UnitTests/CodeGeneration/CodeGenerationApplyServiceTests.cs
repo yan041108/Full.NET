@@ -455,6 +455,7 @@ public sealed class CodeGenerationApplyServiceTests
             GeneratedArtifactKind.MigrationTemplate => "migration_template",
             GeneratedArtifactKind.IntegrationTestTemplate =>
                 "integration_test_template",
+            GeneratedArtifactKind.VueView => "vue_view",
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
 

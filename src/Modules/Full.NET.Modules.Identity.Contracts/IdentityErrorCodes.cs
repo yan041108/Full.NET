@@ -102,6 +102,10 @@ public static class IdentityErrorCodes
     /// <summary>目标 Host 用户不存在。</summary>
     public const string UserNotFound = "identity.users.not_found";
 
+    /// <summary>导入行试图授予超级管理员，已拒绝。</summary>
+    public const string SuperAdministratorImportRejected =
+        "identity.users.super_administrator_import_rejected";
+
     /// <summary>Host 角色编码在作用域内已存在。</summary>
     public const string RoleCodeExists = "identity.roles.code_exists";
 
@@ -251,6 +255,7 @@ public static class IdentityErrorCodes
         MfaTotpNotEnrolled,
         UsernameExists,
         UserNotFound,
+        SuperAdministratorImportRejected,
         RoleCodeExists,
         RoleNotFound,
         RoleSystemLocked,

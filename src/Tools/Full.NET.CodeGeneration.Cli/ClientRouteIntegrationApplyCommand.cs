@@ -83,13 +83,13 @@ internal static class ClientRouteIntegrationApplyCommand
             root,
             target.CompositionCatalogPath);
         var vueRouter = Resolve(root, target.VueRouterPath);
-        var layuiRouter = Resolve(root, target.LayuiRouterPath);
+        var layuiRouter = Resolve(root, target.LayuiRouterPath!);
         var vueComponent = Resolve(
             root,
             route.VueComponentPath);
         var layuiController = Resolve(
             root,
-            route.LayuiControllerPath);
+            route.LayuiControllerPath!);
         var requiredFiles = new[]
         {
             moduleProject,
@@ -164,7 +164,7 @@ internal static class ClientRouteIntegrationApplyCommand
 
         if (!ContainsLayuiExport(
                 originals[layuiController],
-                route.LayuiControllerExport))
+                route.LayuiControllerExport!))
         {
             return Failure(
                 "显式 Layui controller 文件不包含目标 export function。");
@@ -176,7 +176,7 @@ internal static class ClientRouteIntegrationApplyCommand
             route);
         var layuiEdit = LayuiRouteIntegrationEditor.Edit(
             originals[layuiRouter],
-            target.LayuiRouterPath,
+            target.LayuiRouterPath!,
             route);
         if (!vueEdit.Succeeded || !layuiEdit.Succeeded)
         {

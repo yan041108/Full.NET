@@ -4,8 +4,8 @@ BEGIN
     EXEC(N'
         ALTER TABLE dbo.fn_files_file
             ADD ProviderKey varchar(64) COLLATE Latin1_General_100_BIN2 NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'存储提供程序键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_files_file', @level2type=N'COLUMN', @level2name=N'ProviderKey';
     ');
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'存储提供程序键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_files_file', @level2type=N'COLUMN', @level2name=N'ProviderKey';
 END;
 
 EXEC(N'

@@ -64,6 +64,48 @@ internal static class Endpoint
         .Produces<IReadOnlyList<HostUserResponse>>(StatusCodes.Status200OK)
         .RequireOpenAccessAuthentication(IdentityUserManagementPermissions.Export);
 
+        group.MapPost("/import", async (
+            ImportHostUsersRequest request,
+            HostUserManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ImportAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<ImportHostUsersResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Import);
+
+        group.MapPost("/batch-disable", async (
+            BatchHostUserIdsRequest request,
+            HostUserManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.BatchDisableAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<BatchHostUserStatusResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Disable);
+
+        group.MapPost("/batch-enable", async (
+            BatchHostUserIdsRequest request,
+            HostUserManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.BatchEnableAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<BatchHostUserStatusResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Enable);
+
         group.MapGet("/{userId:guid}", async (
             Guid userId,
             HostUserQueryService queries,

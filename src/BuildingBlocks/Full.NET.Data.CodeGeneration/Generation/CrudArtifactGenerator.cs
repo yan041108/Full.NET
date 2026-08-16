@@ -62,6 +62,14 @@ public static class CrudArtifactGenerator
                 GeneratedArtifactKind.VueClient,
                 GenerateVueClient(schema)),
             new GeneratedArtifact(
+                $"clients/vue/{schema.ApiResourceName}View.vue",
+                GeneratedArtifactKind.VueView,
+                CrudVueViewGenerator.Generate(schema)),
+            new GeneratedArtifact(
+                $"backend/{schema.ClrTypeName}AuthorizationContributor.fragment.cs",
+                GeneratedArtifactKind.Backend,
+                CrudAuthorizationContributorFragmentGenerator.Generate(schema)),
+            new GeneratedArtifact(
                 $"reports/{schema.ApiResourceName}.generation.json",
                 GeneratedArtifactKind.Report,
                 GenerateReport(schema)),
@@ -449,6 +457,9 @@ public static class CrudArtifactGenerator
             schema.ApiResourceName,
             schema.PermissionResourceName,
             schema.ReadPermission,
+            schema.CreatePermission,
+            schema.UpdatePermission,
+            schema.DisablePermission,
             schema.WritePermission,
             schema.IsTenantScoped,
             dataScope = FullNetCrudWireValues.ToWireValue(schema.DataScope),
@@ -468,6 +479,8 @@ public static class CrudArtifactGenerator
                 relationship.DependentColumnName,
                 dependentDataScope = FullNetCrudWireValues.ToWireValue(
                     relationship.DependentDataScope),
+                compositeKeyColumnNames = relationship.CompositeKeyColumnNames,
+                cascadeDelete = relationship.CascadeDelete,
             }),
             entityCapabilities,
             migrationTemplateGenerated =
@@ -530,7 +543,9 @@ public static class CrudArtifactGenerator
             public static class {{schema.ClrTypeName}}Permissions
             {
                 public const string Read = "{{schema.ReadPermission}}";
-                public const string Write = "{{schema.WritePermission}}";
+                public const string Create = "{{schema.CreatePermission}}";
+                public const string Update = "{{schema.UpdatePermission}}";
+                public const string Disable = "{{schema.DisablePermission}}";
             }
 
             public sealed record {{schema.ClrTypeName}}Response(
@@ -813,6 +828,9 @@ public static class CrudArtifactGenerator
 
             export const {{LowerFirst(schema.ClrTypeName)}}Permissions = {
               read: '{{schema.ReadPermission}}',
+              create: '{{schema.CreatePermission}}',
+              update: '{{schema.UpdatePermission}}',
+              disable: '{{schema.DisablePermission}}',
               write: '{{schema.WritePermission}}'
             } as const;
 
@@ -874,6 +892,9 @@ public static class CrudArtifactGenerator
             $$"""
             export const {{LowerFirst(schema.ClrTypeName)}}Permissions = Object.freeze({
               read: '{{schema.ReadPermission}}',
+              create: '{{schema.CreatePermission}}',
+              update: '{{schema.UpdatePermission}}',
+              disable: '{{schema.DisablePermission}}',
               write: '{{schema.WritePermission}}'
             });
 
@@ -1024,15 +1045,42 @@ public static class CrudArtifactGenerator
 
         if (schema.Scene == FullNetCrudScene.Tree)
         {
-            throw new NotSupportedException(
-                "Tree 可执行生成必须先提供同租户父节点校验、悬挂节点防护与环检测；当前仅允许 Schema 和 CLI 建模。");
+            return;
         }
 
         if (schema.Scene is FullNetCrudScene.MasterDetail
             or FullNetCrudScene.ManyToMany)
         {
+            EnsureRelationalGenerationReady(schema);
+        }
+    }
+
+    /// <summary>
+    /// 关系场景必须显式声明同作用域、复合键与级联语义，禁止跨模块猜测。
+    /// </summary>
+    private static void EnsureRelationalGenerationReady(FullNetCrudSchema schema)
+    {
+        if (schema.Relationships.Count == 0)
+        {
             throw new NotSupportedException(
-                "关系场景必须等待聚合事务、复合键和级联语义显式声明后再生成可执行产物。");
+                "关系场景必须声明本模块聚合关系后再生成可执行产物。");
+        }
+
+        foreach (var relationship in schema.Relationships)
+        {
+            if (relationship.PrincipalDataScope != schema.DataScope
+                || relationship.DependentDataScope != schema.DataScope)
+            {
+                throw new NotSupportedException(
+                    "跨模块或跨数据作用域关系继续禁止生成可执行产物。");
+            }
+
+            if (relationship.CompositeKeyColumnNames is not { Count: > 0 }
+                || relationship.CascadeDelete is null)
+            {
+                throw new NotSupportedException(
+                    "关系场景必须等待聚合事务、复合键和级联语义显式声明后再生成可执行产物。");
+            }
         }
     }
 }

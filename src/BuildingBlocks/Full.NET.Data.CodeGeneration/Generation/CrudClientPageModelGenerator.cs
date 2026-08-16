@@ -436,9 +436,16 @@ internal static class CrudClientPageModelGenerator
               const canRead = computed(() =>
                 dependencies.hasPermission({{entityVariable}}Permissions.read)
               );
-              const canWrite = computed(() =>
-                dependencies.hasPermission({{entityVariable}}Permissions.write)
+              const canCreate = computed(() =>
+                dependencies.hasPermission({{entityVariable}}Permissions.create)
               );
+              const canUpdate = computed(() =>
+                dependencies.hasPermission({{entityVariable}}Permissions.update)
+              );
+              const canDisable = computed(() =>
+                dependencies.hasPermission({{entityVariable}}Permissions.disable)
+              );
+              const canWrite = canUpdate;
 
               async function load(
                 nextPage = page.value,
@@ -467,7 +474,7 @@ internal static class CrudClientPageModelGenerator
               async function create(
                 input: Create{{schema.ClrTypeName}}Request
               ): Promise<boolean> {
-                if (!canWrite.value || changing.value) return false;
+                if (!canCreate.value || changing.value) return false;
                 changing.value = true;
                 try {
                   await api.create(input);
@@ -493,6 +500,9 @@ internal static class CrudClientPageModelGenerator
                 loading: readonly(loading),
                 changing: readonly(changing),
                 canRead,
+                canCreate,
+                canUpdate,
+                canDisable,
                 canWrite,
                 load,
                 create{{returnedActions}}
@@ -521,7 +531,7 @@ internal static class CrudClientPageModelGenerator
               item: {{schema.ClrTypeName}}Response,
               input: {{schema.ClrTypeName}}PageUpdate
             ): Promise<boolean> {
-              if (!canWrite.value || changing.value) return false;
+              if (!canUpdate.value || changing.value) return false;
               changing.value = true;
               try {
             {{IndentLines(call, 4)}}
@@ -559,7 +569,7 @@ internal static class CrudClientPageModelGenerator
             async function remove(
               item: {{schema.ClrTypeName}}Response
             ): Promise<boolean> {
-              if (!canWrite.value || changing.value) return false;
+              if (!canDisable.value || changing.value) return false;
               changing.value = true;
               try {
             {{IndentLines(call, 4)}}

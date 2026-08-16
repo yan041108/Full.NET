@@ -673,6 +673,8 @@ internal static class CrudBackendFeatureGenerator
                 """);
         }
 
+        members.AddRange(CrudSceneGuardGenerator.ExtraErrorMembers(schema));
+
         return "\n\n" + $$"""
         public static class {{schema.ClrTypeName}}ErrorCodes
         {
@@ -946,7 +948,9 @@ internal static class CrudBackendFeatureGenerator
                 {
             {{contextGuardLine}}
             {{IndentLines(createCoreAuthorization, 8)}}{{IndentLines(validationCall, 8)}}        var {{idParameter}} = idGenerator.NewId();
-                    var affectedRows = await commandExecutor.ExecuteAsync(
+            {{IndentLines(
+                CrudSceneGuardGenerator.CreateGuardCall(schema, idParameter),
+                8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
                             {{schema.ClrTypeName}}Sql.InsertStatement,
                             new
                             {
@@ -968,7 +972,7 @@ internal static class CrudBackendFeatureGenerator
                         .ConfigureAwait(false);
                 }
             {{updateMethods}}{{deleteMethods}}
-            {{contextGuardMethod}}{{validationMethod}}{{conflictMethods}}
+            {{contextGuardMethod}}{{validationMethod}}{{conflictMethods}}{{CrudSceneGuardGenerator.Methods(schema, idParameter)}}
 
                 private static Result<{{schema.ClrTypeName}}Response> NotFound() =>
                     {{schema.ClrTypeName}}FeatureErrors.NotFound();
@@ -980,7 +984,7 @@ internal static class CrudBackendFeatureGenerator
                     Result<{{schema.ClrTypeName}}Response>.Failure(new Error(
                         {{schema.ClrTypeName}}ErrorCodes.NotFound,
                         "The resource was not found.",
-                        ErrorType.NotFound));
+                        ErrorType.NotFound));{{CrudSceneGuardGenerator.ExtraErrorFactories(schema)}}
             }
             """);
     }
@@ -1086,7 +1090,9 @@ internal static class CrudBackendFeatureGenerator
                 CancellationToken cancellationToken)
             {
         {{contextGuardLine}}
-        {{IndentLines(authorizationBlock, 4)}}{{IndentLines(validationCall, 4)}}        var affectedRows = await commandExecutor.ExecuteAsync(
+        {{IndentLines(authorizationBlock, 4)}}{{IndentLines(validationCall, 4)}}{{IndentLines(
+            CrudSceneGuardGenerator.UpdateGuardCall(schema, idParameter),
+            8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.UpdateStatement,
                         new
                         {
@@ -1156,7 +1162,9 @@ internal static class CrudBackendFeatureGenerator
                 }
 
         {{IndentLines(authorizationBlock, 8)}}
-                var affectedRows = await commandExecutor.ExecuteAsync(
+            {{IndentLines(
+                CrudSceneGuardGenerator.DeleteGuardCall(schema, idParameter),
+                8)}}                var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.DeleteStatement,
                         new
                         {
@@ -1429,7 +1437,7 @@ internal static class CrudBackendFeatureGenerator
             {{IndentLines(createEndpointHandler, 8)}}
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status201Created)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
-                        {{schema.ClrTypeName}}Permissions.Write));
+                        {{schema.ClrTypeName}}Permissions.Create));
             {{updateEndpoint}}{{deleteEndpoint}}
                 }
 
@@ -1509,7 +1517,7 @@ internal static class CrudBackendFeatureGenerator
             })
             .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
             .RequireAuthorization(FullNetPermissionPolicies.For(
-                {{schema.ClrTypeName}}Permissions.Write));
+                {{schema.ClrTypeName}}Permissions.Update));
             """,
             8);
 
@@ -1547,7 +1555,7 @@ internal static class CrudBackendFeatureGenerator
             })
             .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
             .RequireAuthorization(FullNetPermissionPolicies.For(
-                {{schema.ClrTypeName}}Permissions.Write));
+                {{schema.ClrTypeName}}Permissions.Disable));
             """,
             8);
     }
@@ -1804,7 +1812,7 @@ internal static class CrudBackendFeatureGenerator
         return string.Join(
             "\n",
             content.Split('\n').Select(line =>
-                line.Length == 0 ? string.Empty : indentation + line));
+                string.IsNullOrWhiteSpace(line) ? string.Empty : indentation + line));
     }
 
     private static string Normalize(string content)

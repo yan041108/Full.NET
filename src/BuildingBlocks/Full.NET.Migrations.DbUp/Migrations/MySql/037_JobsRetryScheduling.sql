@@ -11,7 +11,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_jobs_execution'
           AND COLUMN_NAME = 'NextAttemptAtUtc'
-    ) THENALTER TABLE fn_jobs_execution ADD NextAttemptAtUtc datetime(6) NULL COMMENT '下次重试时间(UTC)'
+    ) THEN
+        ALTER TABLE fn_jobs_execution ADD NextAttemptAtUtc datetime(6) NULL COMMENT '下次重试时间(UTC)';
     END IF;
 
     IF EXISTS

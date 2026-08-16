@@ -222,7 +222,7 @@ public sealed class ModuleIntegrationPlannerTests
               });
             }
             """;
-        files[target.LayuiRouterPath] =
+        files[target.LayuiRouterPath!] =
             """
             export function createLayuiRouteControllerDefinitions(root, options) {
               const sharedOptions = {};
@@ -232,7 +232,7 @@ public sealed class ModuleIntegrationPlannerTests
             """;
         files[route.VueComponentPath] =
             "<template><main>Products</main></template>";
-        files[route.LayuiControllerPath] =
+        files[route.LayuiControllerPath!] =
             "export function createCatalogProductsController() {}";
 
         var changePlan = ModuleIntegrationPlanner.Plan(
@@ -244,10 +244,10 @@ public sealed class ModuleIntegrationPlannerTests
                 files[target.VueRouterPath],
                 target.VueRouterPath,
                 route).DesiredContent;
-        files[target.LayuiRouterPath] =
+        files[target.LayuiRouterPath!] =
             LayuiRouteIntegrationEditor.Edit(
-                files[target.LayuiRouterPath],
-                target.LayuiRouterPath,
+                files[target.LayuiRouterPath!],
+                target.LayuiRouterPath!,
                 route).DesiredContent;
         var satisfiedPlan = ModuleIntegrationPlanner.Plan(
             FullNetCrudSchemaTests.CreateProductSchema(),
@@ -396,6 +396,6 @@ public sealed class ModuleIntegrationPlannerTests
                 }
                 """,
             [target.VueRouterPath] = "export const routes = [];",
-            [target.LayuiRouterPath] = "export const routes = [];",
+            [target.LayuiRouterPath!] = "export const routes = [];",
         };
 }

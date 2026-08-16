@@ -186,6 +186,7 @@ internal sealed class DiagnosticPolicyStore(
         string ConfigKey,
         string DisplayName,
         string? Description,
+        string? GroupName,
         string ValueKind,
         string Value,
         int DisplayOrder,

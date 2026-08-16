@@ -36,12 +36,18 @@ internal static class ModuleIntegrationPlanCommand
             target.CompositionProjectPath,
             target.CompositionCatalogPath,
             target.VueRouterPath,
-            target.LayuiRouterPath,
         };
+        if (target.LayuiRouterPath is not null)
+        {
+            paths.Add(target.LayuiRouterPath);
+        }
         if (target.ClientRoute is not null)
         {
             paths.Add(target.ClientRoute.VueComponentPath);
-            paths.Add(target.ClientRoute.LayuiControllerPath);
+            if (target.ClientRoute.LayuiControllerPath is not null)
+            {
+                paths.Add(target.ClientRoute.LayuiControllerPath);
+            }
         }
         var files = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var relativePath in paths)

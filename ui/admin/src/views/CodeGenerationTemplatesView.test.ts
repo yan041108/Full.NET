@@ -18,6 +18,12 @@ vi.mock('../api/code-generation-templates', () => ({
   updateCodeGenerationTemplate: vi.fn()
 }));
 
+vi.mock('../api/code-generation-catalog', () => ({
+  listCodeGenerationCatalogTables: vi.fn().mockResolvedValue([]),
+  listCodeGenerationCatalogColumns: vi.fn(),
+  syncCodeGenerationCatalogColumns: vi.fn()
+}));
+
 const listMock = vi.mocked(listCodeGenerationTemplates);
 const template = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',

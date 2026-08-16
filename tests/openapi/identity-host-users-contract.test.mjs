@@ -35,7 +35,7 @@ test('Host 用户 OpenAPI 夹具结构完整且路径唯一', async () => {
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^identity\.users\.(read|write|export)$/u);
+      assert.match(operation.permission, /^identity\.users\.(read|write|export|import|disable|enable)$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -70,6 +70,15 @@ test('Host 用户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ])],
     ['/api/v1/identity/users/export', new Map([
       ['GET', 'MapGet("/export",']
+    ])],
+    ['/api/v1/identity/users/import', new Map([
+      ['POST', 'MapPost("/import",']
+    ])],
+    ['/api/v1/identity/users/batch-disable', new Map([
+      ['POST', 'MapPost("/batch-disable",']
+    ])],
+    ['/api/v1/identity/users/batch-enable', new Map([
+      ['POST', 'MapPost("/batch-enable",']
     ])],
     ['/api/v1/identity/users/{userId}', new Map([
       ['GET', 'MapGet("/{userId:guid}",'],
@@ -111,5 +120,6 @@ test('Host 用户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   }
 
   assert.ok(contract.paths.some(entry => entry.path === '/api/v1/identity/users/export'));
+  assert.ok(contract.paths.some(entry => entry.path === '/api/v1/identity/users/import'));
   assert.ok(contract.schemas.HostUserResponse.properties.includes('projectedFields'));
 });

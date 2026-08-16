@@ -17,6 +17,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   applyTrackedCodeGeneration,
+  downloadCodeGenerationArtifacts,
   executeTrackedCodeGenerationRollback,
   listCodeGenerationRuns,
   previewTrackedCodeGeneration
@@ -115,6 +116,7 @@ const canReadRuns = computed(() => session.can('codegen.runs.read'));
 const canExecuteRuns = computed(() => session.can('codegen.runs.execute'));
 const canApplyRuns = computed(() => session.can('codegen.runs.apply'));
 const canRollbackRuns = computed(() => session.can('codegen.runs.rollback'));
+const canDownloadRuns = computed(() => session.can('codegen.runs.download'));
 
 const selectedArtifact = computed<CodeGenerationPreviewArtifact | undefined>(
   () => preview.value?.artifacts.find(
@@ -273,6 +275,25 @@ async function applyReviewedPreview(): Promise<void> {
     problem.value = readProblem(error, 'client.codegen_apply_failed');
   } finally {
     applying.value = false;
+  }
+}
+
+async function downloadReviewedArtifacts(): Promise<void> {
+  const reviewed = reviewedPreview.value;
+  if (!canDownloadRuns.value || !reviewed) {
+    return;
+  }
+
+  try {
+    const blob = await downloadCodeGenerationArtifacts(reviewed.runId);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `codegen-${reviewed.runId}.zip`;
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (error: unknown) {
+    problem.value = readProblem(error, 'client.codegen_preview_failed');
   }
 }
 
@@ -454,6 +475,15 @@ function readProblem(
             @click="applyReviewedPreview"
           >
             {{ t('codeGeneration.apply') }}
+          </ElButton>
+          <ElButton
+            v-if="canDownloadRuns"
+            plain
+            data-testid="codegen-download"
+            :disabled="!reviewedPreview"
+            @click="downloadReviewedArtifacts"
+          >
+            {{ t('codeGeneration.download') }}
           </ElButton>
         </div>
       </ElCard>

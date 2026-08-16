@@ -93,16 +93,33 @@ internal static class CodeGenerationRunAssertions
             executor.AccessToken,
             cancellationToken);
 
-        using (var executorCannotRead = await client.SendAsync(
+        var downloader = await factory.CreateHostIdentityAsync(
+            $"codegen-run-downloader-{Guid.NewGuid():N}",
+            [CodeGenerationRunPermissions.Download],
+            cancellationToken);
+
+        using (var readerCannotDownload = await client.SendAsync(
                    Authorized(
                        HttpMethod.Get,
-                       RunsPath,
-                       executor.AccessToken),
+                       $"{RunsPath}/{tracked.RunId:D}/artifacts.zip",
+                       reader.AccessToken),
                    cancellationToken))
         {
             Assert.AreEqual(
                 HttpStatusCode.Forbidden,
-                executorCannotRead.StatusCode);
+                readerCannotDownload.StatusCode);
+        }
+
+        using (var inlinePreviewCannotDownload = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       $"{RunsPath}/{tracked.RunId:D}/artifacts.zip",
+                       downloader.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(
+                HttpStatusCode.BadRequest,
+                inlinePreviewCannotDownload.StatusCode);
         }
 
         await VerifyApplyAsync(
@@ -112,6 +129,7 @@ internal static class CodeGenerationRunAssertions
             applier,
             roller,
             reviewer,
+            downloader,
             tracked.RunId,
             applyWorkspaceRoot,
             cancellationToken);
@@ -255,6 +273,7 @@ internal static class CodeGenerationRunAssertions
         HostTestIdentity applier,
         HostTestIdentity roller,
         HostTestIdentity reviewer,
+        HostTestIdentity downloader,
         Guid inlinePreviewRunId,
         string workspaceRoot,
         CancellationToken cancellationToken)
@@ -397,6 +416,24 @@ internal static class CodeGenerationRunAssertions
             Assert.AreEqual(applied.ManifestSha256, run.ManifestSha256);
             Assert.IsNull(run.SourceApplyRunId);
             Assert.IsNull(run.ErrorCode);
+        }
+
+        using (var download = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       $"{RunsPath}/{applied.RunId:D}/artifacts.zip",
+                       downloader.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, download.StatusCode);
+            Assert.AreEqual(
+                "application/zip",
+                download.Content.Headers.ContentType?.MediaType);
+            var zip = await download.Content.ReadAsByteArrayAsync(
+                cancellationToken);
+            Assert.IsGreaterThan(4, zip.Length);
+            Assert.AreEqual((byte)'P', zip[0]);
+            Assert.AreEqual((byte)'K', zip[1]);
         }
 
         using var invalid = await client.SendAsync(

@@ -81,7 +81,11 @@ public sealed record CodeGenerationRelationshipRequest(
     string PrincipalDataScope,
     string DependentEntityKey,
     string DependentColumnName,
-    string DependentDataScope);
+    string DependentDataScope,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<string>? CompositeKeyColumnNames = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? CascadeDelete = null);
 
 /// <summary>
 /// 表示预览请求中的一个显式字段。
@@ -94,6 +98,7 @@ public sealed record CodeGenerationRelationshipRequest(
 /// <param name="MaxLength">字符串最大长度。</param>
 /// <param name="NumericPrecision">定点数总有效位数。</param>
 /// <param name="NumericScale">定点数小数位数。</param>
+/// <param name="Ui">可选展示元数据；缺省时不进入旧模板哈希。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationPreviewColumnRequest(
     string DatabaseName,
@@ -103,20 +108,47 @@ public sealed record CodeGenerationPreviewColumnRequest(
     bool IsNullable,
     int? MaxLength,
     int? NumericPrecision,
-    int? NumericScale);
+    int? NumericScale,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    CodeGenerationPreviewColumnUiRequest? Ui = null);
+
+/// <summary>
+/// 表示列的展示、表单与查询决策，不得改写物理列名。
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CodeGenerationPreviewColumnUiRequest(
+    string ControlKind,
+    bool ShowInList,
+    bool IncludeInCreate,
+    bool IncludeInUpdate,
+    bool Required,
+    bool Sortable,
+    bool Queryable,
+    string QueryKind,
+    bool Unique,
+    bool IncludeInImportExport);
 
 /// <summary>
 /// 表示一次确定性的只读 CRUD 产物预览。
 /// </summary>
 /// <param name="DatabaseTableName">通过共享命名规则校验的表名。</param>
 /// <param name="ReadPermission">生成的读取权限码。</param>
-/// <param name="WritePermission">生成的写入权限码。</param>
+/// <param name="WritePermission">兼容写权限码；显式 Schema 等于 update。</param>
+/// <param name="CreatePermission">生成的创建权限码。</param>
+/// <param name="UpdatePermission">生成的更新权限码。</param>
+/// <param name="DisablePermission">生成的停用或删除权限码。</param>
 /// <param name="Artifacts">按相对路径稳定排序的内存产物。</param>
 public sealed record CodeGenerationPreviewResponse(
     string DatabaseTableName,
     string ReadPermission,
     string WritePermission,
-    IReadOnlyList<CodeGenerationPreviewArtifactResponse> Artifacts);
+    IReadOnlyList<CodeGenerationPreviewArtifactResponse> Artifacts,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? CreatePermission = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? UpdatePermission = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? DisablePermission = null);
 
 /// <summary>
 /// 表示一个尚未写入工作区的生成产物。

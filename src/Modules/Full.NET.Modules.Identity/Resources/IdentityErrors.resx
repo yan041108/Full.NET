@@ -32,6 +32,7 @@
   <data name="identity.mfa.not_enrolled" xml:space="preserve"><value>当前账号尚未启用 TOTP。</value></data>
   <data name="identity.users.username_exists" xml:space="preserve"><value>该 Host 用户名已存在。</value></data>
   <data name="identity.users.not_found" xml:space="preserve"><value>未找到指定的 Host 用户。</value></data>
+  <data name="identity.users.super_administrator_import_rejected" xml:space="preserve"><value>禁止通过导入创建超级管理员。</value></data>
   <data name="identity.roles.code_exists" xml:space="preserve"><value>该 Host 角色编码已存在。</value></data>
   <data name="identity.roles.not_found" xml:space="preserve"><value>未找到指定的 Host 角色。</value></data>
   <data name="identity.roles.system_locked" xml:space="preserve"><value>系统角色受保护，禁止变更。</value></data>

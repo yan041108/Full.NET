@@ -24,7 +24,10 @@ public static class ModuleIntegrationBackendWorkspace
             CrudArtifactGenerator
                 .Generate(schema)
                 .Where(artifact =>
-                    artifact.Kind == GeneratedArtifactKind.Backend)
+                    artifact.Kind == GeneratedArtifactKind.Backend
+                    && artifact.RelativePath.EndsWith(
+                        ".g.cs",
+                        StringComparison.Ordinal))
                 .Select(artifact => new GeneratedArtifact(
                     prefix + Path.GetFileName(artifact.RelativePath),
                     artifact.Kind,

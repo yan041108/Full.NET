@@ -17,6 +17,9 @@
     },
     "/api/v1/code-generation/runs/{runId}": {
       "get": ["200", "404"]
+    },
+    "/api/v1/code-generation/runs/{runId}/artifacts.zip": {
+      "get": ["200", "400", "404", "409"]
     }
   },
   "schemas": {
@@ -30,7 +33,8 @@
       "preview"
     ],
     "CodeGenerationRunApplyRequest": [
-      "previewRunId"
+      "previewRunId",
+      "integrationTarget"
     ],
     "CodeGenerationRunApplyResponse": [
       "runId",

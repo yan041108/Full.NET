@@ -57,7 +57,16 @@ internal sealed class CodeGenerationPreviewService(
                 schema.DatabaseTableName,
                 schema.ReadPermission,
                 schema.WritePermission,
-                Array.AsReadOnly(artifacts)));
+                Array.AsReadOnly(artifacts),
+                schema.UsesLegacyEntityCapabilities
+                    ? null
+                    : schema.CreatePermission,
+                schema.UsesLegacyEntityCapabilities
+                    ? null
+                    : schema.UpdatePermission,
+                schema.UsesLegacyEntityCapabilities
+                    ? null
+                    : schema.DisablePermission));
     }
 
     private static string ToMachineCode(GeneratedArtifactKind kind) =>
@@ -70,6 +79,7 @@ internal sealed class CodeGenerationPreviewService(
             GeneratedArtifactKind.MigrationTemplate => "migration_template",
             GeneratedArtifactKind.IntegrationTestTemplate =>
                 "integration_test_template",
+            GeneratedArtifactKind.VueView => "vue_view",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(kind),
                 kind,

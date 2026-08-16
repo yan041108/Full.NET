@@ -10,6 +10,7 @@ export const HOST_ROLE_ASSIGNABLE_PERMISSIONS = [
   'identity.users.disable',
   'identity.users.enable',
   'identity.users.export',
+  'identity.users.import',
   'identity.roles.read',
   'identity.roles.create',
   'identity.roles.update',

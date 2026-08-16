@@ -33,6 +33,42 @@
       ]
     },
     {
+      "path": "/api/v1/identity/users/import",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.users.import",
+          "successStatus": 200,
+          "requestSchema": "ImportHostUsersRequest",
+          "responseSchema": "ImportHostUsersResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/users/batch-disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.users.disable",
+          "successStatus": 200,
+          "requestSchema": "BatchHostUserIdsRequest",
+          "responseSchema": "BatchHostUserStatusResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/users/batch-enable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.users.enable",
+          "successStatus": 200,
+          "requestSchema": "BatchHostUserIdsRequest",
+          "responseSchema": "BatchHostUserStatusResponse"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/identity/users/{userId}",
       "operations": [
         {
@@ -125,6 +161,28 @@
     "ResetHostUserPasswordRequest": {
       "properties": [
         "password"
+      ]
+    },
+    "ImportHostUsersRequest": {
+      "properties": [
+        "rows"
+      ]
+    },
+    "ImportHostUsersResponse": {
+      "properties": [
+        "succeededCount",
+        "results"
+      ]
+    },
+    "BatchHostUserIdsRequest": {
+      "properties": [
+        "userIds"
+      ]
+    },
+    "BatchHostUserStatusResponse": {
+      "properties": [
+        "succeededCount",
+        "results"
       ]
     },
     "HostUserResponsePage": {

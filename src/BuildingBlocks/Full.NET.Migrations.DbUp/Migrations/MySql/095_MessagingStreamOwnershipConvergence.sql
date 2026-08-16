@@ -11,7 +11,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_messaging_stream_ownership'
           AND COLUMN_NAME = 'RollbackState'
-    ) THENALTER TABLE fn_messaging_stream_ownership ADD RollbackState tinyint NOT NULL DEFAULT 0 COMMENT '回滚状态'
+    ) THEN
+        ALTER TABLE fn_messaging_stream_ownership ADD RollbackState tinyint NOT NULL DEFAULT 0 COMMENT '回滚状态';
     END IF;
     IF NOT EXISTS
     (
@@ -20,7 +21,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_messaging_stream_ownership'
           AND COLUMN_NAME = 'RollbackGeneration'
-    ) THENALTER TABLE fn_messaging_stream_ownership ADD RollbackGeneration binary(16) NULL COMMENT '回滚代数'
+    ) THEN
+        ALTER TABLE fn_messaging_stream_ownership ADD RollbackGeneration binary(16) NULL COMMENT '回滚代数';
     END IF;
     IF NOT EXISTS
     (
@@ -29,7 +31,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_messaging_stream_ownership'
           AND COLUMN_NAME = 'RollbackPreparedAtUtc'
-    ) THENALTER TABLE fn_messaging_stream_ownership ADD RollbackPreparedAtUtc datetime(6) NULL COMMENT '回滚准备时间(UTC)'
+    ) THEN
+        ALTER TABLE fn_messaging_stream_ownership ADD RollbackPreparedAtUtc datetime(6) NULL COMMENT '回滚准备时间(UTC)';
     END IF;
 
     IF NOT EXISTS

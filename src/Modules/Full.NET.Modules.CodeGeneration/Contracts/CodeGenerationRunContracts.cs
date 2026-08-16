@@ -17,6 +17,8 @@ public static class CodeGenerationRunPermissions
     /// 回滚已成功 Apply；不得复用 apply/execute 权限。
     /// </summary>
     public const string Rollback = "codegen.runs.rollback";
+
+    public const string Download = "codegen.runs.download";
 }
 
 /// <summary>
@@ -93,6 +95,9 @@ public static class CodeGenerationRunErrorCodes
     public const string InvalidRollbackChain =
         "codegen.run.invalid_rollback_chain";
 
+    public const string InvalidDownloadRun =
+        "codegen.run.invalid_download_run";
+
     public const string GitSyncFailed = "codegen.run.git_sync_failed";
 
     public const string GitPublishFailed = "codegen.run.git_publish_failed";
@@ -118,7 +123,34 @@ public sealed record CodeGenerationRunPreviewResponse(
 /// 表示一次绑定已审查预览的 Apply 请求；工作区和源码均不得由客户端指定。
 /// </summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record CodeGenerationRunApplyRequest(Guid PreviewRunId);
+public sealed record CodeGenerationRunApplyRequest(
+    Guid PreviewRunId,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    CodeGenerationIntegrationTargetRequest? IntegrationTarget = null);
+
+/// <summary>
+/// 调用方显式确认的模块接入目标；缺省时 Host Apply 只写入工作区产物。
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CodeGenerationIntegrationTargetRequest(
+    string ModuleName,
+    string ModuleProjectPath,
+    string ModuleEntryPointPath,
+    string CompositionProjectPath,
+    string CompositionCatalogPath,
+    string VueRouterPath,
+    string? LayuiRouterPath = null,
+    CodeGenerationClientRouteTargetRequest? ClientRoute = null,
+    string? AuthorizationContributorPath = null);
+
+/// <summary>显式 Vue 路由映射；Layui 路径缺省时只改 Vue。</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CodeGenerationClientRouteTargetRequest(
+    string RoutePath,
+    string VueRouteName,
+    string VueComponentPath,
+    string? LayuiControllerPath = null,
+    string? LayuiControllerExport = null);
 
 /// <summary>
 /// 表示本地工作区成功提交后的稳定摘要，不暴露服务器路径或生成源码。

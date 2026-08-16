@@ -50,7 +50,8 @@ internal sealed class CodeGenerationSchemaNormalizer
         {
             var input = request.Columns[index];
             if (input is null
-                || !TryParseScalarType(input.ScalarType, out var scalarType))
+                || !TryParseScalarType(input.ScalarType, out var scalarType)
+                || !TryParseColumnUi(input.Ui, out var ui, out var canonicalUi))
             {
                 return Failure();
             }
@@ -63,10 +64,12 @@ internal sealed class CodeGenerationSchemaNormalizer
                 input.IsNullable,
                 input.MaxLength,
                 input.NumericPrecision,
-                input.NumericScale);
+                input.NumericScale,
+                ui);
             canonicalColumns[index] = input with
             {
                 ScalarType = ToWireValue(scalarType),
+                Ui = canonicalUi,
             };
         }
 
@@ -167,7 +170,9 @@ internal sealed class CodeGenerationSchemaNormalizer
                 principalDataScope,
                 relationship.DependentEntityKey,
                 relationship.DependentColumnName,
-                dependentDataScope);
+                dependentDataScope,
+                relationship.CompositeKeyColumnNames,
+                relationship.CascadeDelete);
             canonicalRelationships[index] = relationship with
             {
                 PrincipalDataScope = ToWireValue(principalDataScope),
@@ -370,6 +375,121 @@ internal sealed class CodeGenerationSchemaNormalizer
             FullNetCrudScene.Tree => "tree",
             FullNetCrudScene.MasterDetail => "master.detail",
             FullNetCrudScene.ManyToMany => "many.to.many",
+            _ => throw new ArgumentOutOfRangeException(nameof(value)),
+        };
+
+    private static bool TryParseColumnUi(
+        CodeGenerationPreviewColumnUiRequest? input,
+        out FullNetColumnUi? ui,
+        out CodeGenerationPreviewColumnUiRequest? canonical)
+    {
+        ui = null;
+        canonical = null;
+        if (input is null)
+        {
+            return true;
+        }
+
+        if (!TryParseControlKind(input.ControlKind, out var controlKind)
+            || !TryParseQueryKind(input.QueryKind, out var queryKind))
+        {
+            return false;
+        }
+
+        ui = new FullNetColumnUi(
+            controlKind,
+            input.ShowInList,
+            input.IncludeInCreate,
+            input.IncludeInUpdate,
+            input.Required,
+            input.Sortable,
+            input.Queryable,
+            queryKind,
+            input.Unique,
+            input.IncludeInImportExport);
+        canonical = new CodeGenerationPreviewColumnUiRequest(
+            ToWireValue(controlKind),
+            input.ShowInList,
+            input.IncludeInCreate,
+            input.IncludeInUpdate,
+            input.Required,
+            input.Sortable,
+            input.Queryable,
+            ToWireValue(queryKind),
+            input.Unique,
+            input.IncludeInImportExport);
+        return true;
+    }
+
+    private static bool TryParseControlKind(
+        string? value,
+        out FullNetColumnControlKind result)
+    {
+        result = value switch
+        {
+            "text" or "Text" => FullNetColumnControlKind.Text,
+            "textarea" or "Textarea" => FullNetColumnControlKind.Textarea,
+            "number" or "Number" => FullNetColumnControlKind.Number,
+            "switch" or "Switch" => FullNetColumnControlKind.Switch,
+            "datetime" or "DateTime" => FullNetColumnControlKind.DateTime,
+            "uuid" or "Uuid" => FullNetColumnControlKind.Uuid,
+            _ => default,
+        };
+        return value is "text"
+            or "Text"
+            or "textarea"
+            or "Textarea"
+            or "number"
+            or "Number"
+            or "switch"
+            or "Switch"
+            or "datetime"
+            or "DateTime"
+            or "uuid"
+            or "Uuid";
+    }
+
+    private static bool TryParseQueryKind(
+        string? value,
+        out FullNetColumnQueryKind result)
+    {
+        result = value switch
+        {
+            "none" or "None" => FullNetColumnQueryKind.None,
+            "equals" or "Equals" => FullNetColumnQueryKind.Equals,
+            "contains" or "Contains" => FullNetColumnQueryKind.Contains,
+            "range" or "Range" => FullNetColumnQueryKind.Range,
+            _ => default,
+        };
+        return value is "none"
+            or "None"
+            or "equals"
+            or "Equals"
+            or "contains"
+            or "Contains"
+            or "range"
+            or "Range";
+    }
+
+    private static string ToWireValue(FullNetColumnControlKind value) =>
+        value switch
+        {
+            FullNetColumnControlKind.Text => "text",
+            FullNetColumnControlKind.Textarea => "textarea",
+            FullNetColumnControlKind.Number => "number",
+            FullNetColumnControlKind.Switch => "switch",
+            FullNetColumnControlKind.DateTime => "datetime",
+            FullNetColumnControlKind.Uuid => "uuid",
+            _ => throw new ArgumentOutOfRangeException(nameof(value)),
+        };
+
+    private static string ToWireValue(FullNetColumnQueryKind value) =>
+        value switch
+        {
+            FullNetColumnQueryKind.None => "none",
+            FullNetColumnQueryKind.Equals => "equals",
+            FullNetColumnQueryKind.Contains => "contains",
+            FullNetColumnQueryKind.Range => "range",
             _ => throw new ArgumentOutOfRangeException(nameof(value)),
         };
 }

@@ -223,7 +223,7 @@ internal static class LayuiRouteIntegrationEditor
 
         var relativeImport = ClientRouteText.RelativeImport(
             routerPath,
-            route.LayuiControllerPath);
+            route.LayuiControllerPath!);
         var routeNeedle =
             $"['{route.RoutePath}', defineController(";
         var routeLines = sanitized
@@ -247,7 +247,7 @@ internal static class LayuiRouteIntegrationEditor
                     routeLines[0],
                     routeNeedle,
                     relativeImport,
-                    route.LayuiControllerExport))
+                    route.LayuiControllerExport!))
             {
                 return ClientRouteIntegrationEditResult.Success(
                     source,
@@ -281,7 +281,7 @@ internal static class LayuiRouteIntegrationEditor
         var blockText =
             $"{entryIndent}['{route.RoutePath}', defineController({newline}"
             + $"{entryIndent}  () => import('{relativeImport}'),{newline}"
-            + $"{entryIndent}  '{route.LayuiControllerExport}',{newline}"
+            + $"{entryIndent}  '{route.LayuiControllerExport!}',{newline}"
             + $"{entryIndent}  root,{newline}"
             + $"{entryIndent}  sharedOptions{newline}"
             + $"{entryIndent})]{newline}";

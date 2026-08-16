@@ -58,6 +58,7 @@ public sealed class AuthorizationCatalogTests
                 "identity.users.disable",
                 "identity.users.enable",
                 "identity.users.export",
+                "identity.users.import",
                 "identity.users.read",
                 "identity.users.reset_password",
                 "identity.users.update",
@@ -158,6 +159,7 @@ public sealed class AuthorizationCatalogTests
             ["disable"] = "identity.users.disable",
             ["enable"] = "identity.users.enable",
             ["export"] = "identity.users.export",
+            ["import"] = "identity.users.import",
         };
 
         var usersActions = catalog.Actions

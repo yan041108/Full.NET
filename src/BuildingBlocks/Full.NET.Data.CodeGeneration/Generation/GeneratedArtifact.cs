@@ -22,6 +22,9 @@ public enum GeneratedArtifactKind
 
     /// <summary>需要随正式迁移落位后复制到 IntegrationTests 的验证草案。</summary>
     IntegrationTestTemplate = 6,
+
+    /// <summary>可落地的 Vue 3 SFC 页面，消费页面模型而不是再发明状态机。</summary>
+    VueView = 7,
 }
 
 /// <summary>

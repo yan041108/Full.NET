@@ -8,21 +8,6 @@ namespace Full.NET.Data.CodeGeneration.Schema;
 /// </summary>
 public static class DatabaseTableCatalogReader
 {
-    private const string SqlServerSql =
-        """
-        SELECT TABLE_NAME AS TableName
-        FROM INFORMATION_SCHEMA.TABLES
-        WHERE TABLE_SCHEMA = 'dbo'
-          AND TABLE_TYPE = 'BASE TABLE'
-        """;
-
-    private const string MySqlSql =
-        """
-        SELECT TABLE_NAME AS TableName
-        FROM INFORMATION_SCHEMA.TABLES
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_TYPE = 'BASE TABLE'
-        """;
 
     /// <summary>
     /// 读取当前数据库的基础表名称，并使用 ordinal 规则确定性排序。
@@ -46,8 +31,10 @@ public static class DatabaseTableCatalogReader
 
         var sql = provider switch
         {
-            DatabaseMetadataProvider.SqlServer => SqlServerSql,
-            DatabaseMetadataProvider.MySql => MySqlSql,
+            DatabaseMetadataProvider.SqlServer =>
+                DatabaseCatalogQueries.ListTablesSqlServer,
+            DatabaseMetadataProvider.MySql =>
+                DatabaseCatalogQueries.ListTablesMySql,
             _ => throw new ArgumentOutOfRangeException(
                 nameof(provider),
                 provider,

@@ -55,6 +55,28 @@ internal static class FullNetCrudWireValues
             _ => throw Unsupported(value),
         };
 
+    internal static string ToWireValue(FullNetColumnControlKind value) =>
+        value switch
+        {
+            FullNetColumnControlKind.Text => "text",
+            FullNetColumnControlKind.Textarea => "textarea",
+            FullNetColumnControlKind.Number => "number",
+            FullNetColumnControlKind.Switch => "switch",
+            FullNetColumnControlKind.DateTime => "datetime",
+            FullNetColumnControlKind.Uuid => "uuid",
+            _ => throw Unsupported(value),
+        };
+
+    internal static string ToWireValue(FullNetColumnQueryKind value) =>
+        value switch
+        {
+            FullNetColumnQueryKind.None => "none",
+            FullNetColumnQueryKind.Equals => "equals",
+            FullNetColumnQueryKind.Contains => "contains",
+            FullNetColumnQueryKind.Range => "range",
+            _ => throw Unsupported(value),
+        };
+
     internal static bool TryParse(
         string value,
         out FullNetCrudScene result) =>
@@ -126,6 +148,34 @@ internal static class FullNetCrudWireValues
                     "DateTimeUtc",
                     FullNetScalarType.DateTimeUtc),
                 ("decimal", "Decimal", FullNetScalarType.Decimal),
+            ],
+            out result);
+
+    internal static bool TryParse(
+        string value,
+        out FullNetColumnControlKind result) =>
+        TryParse(
+            value,
+            [
+                ("text", "Text", FullNetColumnControlKind.Text),
+                ("textarea", "Textarea", FullNetColumnControlKind.Textarea),
+                ("number", "Number", FullNetColumnControlKind.Number),
+                ("switch", "Switch", FullNetColumnControlKind.Switch),
+                ("datetime", "DateTime", FullNetColumnControlKind.DateTime),
+                ("uuid", "Uuid", FullNetColumnControlKind.Uuid),
+            ],
+            out result);
+
+    internal static bool TryParse(
+        string value,
+        out FullNetColumnQueryKind result) =>
+        TryParse(
+            value,
+            [
+                ("none", "None", FullNetColumnQueryKind.None),
+                ("equals", "Equals", FullNetColumnQueryKind.Equals),
+                ("contains", "Contains", FullNetColumnQueryKind.Contains),
+                ("range", "Range", FullNetColumnQueryKind.Range),
             ],
             out result);
 

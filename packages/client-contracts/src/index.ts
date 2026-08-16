@@ -720,9 +720,16 @@ export type {
 } from './tenancy.js';
 
 export {
+  isCodeGenerationPreviewColumnRequest,
   isCodeGenerationPreviewRequest,
   isCodeGenerationPreviewResponse
 } from './code-generation-previews.js';
+
+export {
+  isCodeGenerationCatalogColumnListResponse,
+  isCodeGenerationCatalogColumnSyncResponse,
+  isCodeGenerationCatalogTableResponse
+} from './code-generation-catalog.js';
 
 export {
   isCodeGenerationTemplatePage,
@@ -785,13 +792,23 @@ export type {
 } from './grid-preferences.js';
 
 export type {
+  CodeGenerationCatalogColumnListResponse,
+  CodeGenerationCatalogColumnSyncRequest,
+  CodeGenerationCatalogColumnSyncResponse,
+  CodeGenerationCatalogTableResponse
+} from './code-generation-catalog.js';
+
+export type {
   CodeGenerationArtifactKind,
+  CodeGenerationColumnControlKind,
+  CodeGenerationColumnQueryKind,
   CodeGenerationDataScope,
   CodeGenerationDeleteMode,
   CodeGenerationEntityCapabilitiesRequest,
   CodeGenerationOwnershipMode,
   CodeGenerationPreviewArtifact,
   CodeGenerationPreviewColumnRequest,
+  CodeGenerationPreviewColumnUiRequest,
   CodeGenerationPreviewRequest,
   CodeGenerationPreviewResponse,
   CodeGenerationRelationshipRequest,

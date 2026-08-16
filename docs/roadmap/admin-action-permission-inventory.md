@@ -33,6 +33,9 @@
 | `UsersView.vue` | 重置密码 | ~~`identity.users.write`~~ | `identity.users.reset_password` | 054 |
 | `UsersView.vue` | 禁用/启用 | ~~`identity.users.write`~~ | `identity.users.disable` / `enable` | 054 |
 | `UsersView.vue` | 导出 | `identity.users.export` | 同左（原本已独立） | 无 |
+| `UsersView.vue` | 导入 | `identity.users.import` | 同左（Contributor 登记，无新迁移） | 无 |
+| `UsersView.vue` | 批量停用 | `identity.users.disable` | 同左 | 无 |
+| `UsersView.vue` | 批量启用 | `identity.users.enable` | 同左 | 无 |
 
 ## W1：Identity Roles（已完成）
 
@@ -234,6 +237,8 @@
 | `CodeGenerationTemplatesView.vue` | 更新 | `codegen.templates.update` | 076 |
 | `CodeGenerationTemplatesView.vue` | 删除 | `codegen.templates.delete` | 076 |
 | `CodeGenerationPreviewsView.vue` | 加载模板到 Schema | `codegen.templates.read` | 无 |
+| `CodeGenerationTemplatesView.vue` | 表目录 | `codegen.catalog.read` | 无（Contributor 登记） |
+| `CodeGenerationPreviewsView.vue` | 下载生成物 | `codegen.runs.download` | 无（Contributor 登记） |
 
 ## W4：SerialNumbers Rules（077）
 

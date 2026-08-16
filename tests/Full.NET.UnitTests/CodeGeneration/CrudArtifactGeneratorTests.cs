@@ -23,6 +23,7 @@ public sealed class CrudArtifactGeneratorTests
         CollectionAssert.AreEqual(
             new[]
             {
+                "backend/ProductAuthorizationContributor.fragment.cs",
                 "backend/ProductContracts.g.cs",
                 "backend/ProductEndpoint.g.cs",
                 "backend/ProductFeature.g.cs",
@@ -32,6 +33,7 @@ public sealed class CrudArtifactGeneratorTests
                 "clients/layui/products.generated.js",
                 "clients/vue/products-page.generated.ts",
                 "clients/vue/products.generated.ts",
+                "clients/vue/productsView.vue",
                 "reports/products.generation.json",
                 "templates/migrations/MySql/CreateProduct.sql.template",
                 "templates/migrations/SqlServer/CreateProduct.sql.template",
@@ -599,9 +601,9 @@ public sealed class CrudArtifactGeneratorTests
         Assert.IsFalse(endpoint.Contains("MapPut(", StringComparison.Ordinal));
         Assert.IsFalse(endpoint.Contains("/delete", StringComparison.Ordinal));
         Assert.IsFalse(endpoint.Contains("/disable", StringComparison.Ordinal));
-        Assert.IsFalse(vue.Contains("update:", StringComparison.Ordinal));
-        Assert.IsFalse(vue.Contains("delete:", StringComparison.Ordinal));
-        Assert.IsFalse(vue.Contains("disable:", StringComparison.Ordinal));
+        Assert.IsFalse(vue.Contains("update: (id", StringComparison.Ordinal));
+        Assert.IsFalse(vue.Contains("delete: (id", StringComparison.Ordinal));
+        Assert.IsFalse(vue.Contains("disable: (id", StringComparison.Ordinal));
         Assert.IsFalse(vuePage.Contains(
             "async function update",
             StringComparison.Ordinal));
@@ -619,13 +621,20 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
-    public void Generate_rejects_tree_until_parent_scope_and_cycle_guards_exist()
+    public void Generate_tree_emits_parent_scope_and_cycle_guards()
     {
-        var error = Assert.ThrowsExactly<NotSupportedException>(() =>
-            GenerateWithLayui(CreateTreeSchema()));
+        var artifacts = GenerateWithLayui(CreateTreeSchema());
+        var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
+        var vueView = Artifact(artifacts, "clients/vue/productsView.vue");
 
-        StringAssert.Contains(error.Message, "同租户父节点");
-        StringAssert.Contains(error.Message, "环");
+        StringAssert.Contains(feature, "EnsureTreeParentAsync");
+        StringAssert.Contains(feature, "ParentCycle");
+        StringAssert.Contains(feature, "for (var depth = 0; depth < 32; depth++)");
+        StringAssert.Contains(vueView, "useProductPage");
+        Assert.AreEqual(
+            GeneratedArtifactKind.VueView,
+            artifacts.Single(artifact =>
+                artifact.RelativePath == "clients/vue/productsView.vue").Kind);
     }
 
     [TestMethod]
@@ -691,6 +700,57 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
+    public void Generate_master_detail_with_explicit_composite_and_cascade_emits_guards()
+    {
+        var relationship = new FullNetCrudRelationship(
+            PrincipalEntityKey: "product",
+            PrincipalColumnName: "Id",
+            PrincipalDataScope: FullNetCrudDataScope.TenantRequired,
+            DependentEntityKey: "product_item",
+            DependentColumnName: "ProductId",
+            DependentDataScope: FullNetCrudDataScope.TenantRequired,
+            CompositeKeyColumnNames: ["ProductId"],
+            CascadeDelete: true);
+        var artifacts = GenerateWithLayui(
+            CreateExplicitLifecycleSchema(
+                scene: FullNetCrudScene.MasterDetail,
+                relationships: [relationship]));
+        var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
+        var contracts = Artifact(artifacts, "backend/ProductContracts.g.cs");
+        var endpoint = Artifact(artifacts, "backend/ProductEndpoint.g.cs");
+
+        StringAssert.Contains(feature, "CascadeDeleteDependentsAsync");
+        StringAssert.Contains(contracts, "public const string Create");
+        StringAssert.Contains(contracts, "catalog.products.create");
+        StringAssert.Contains(endpoint, "ProductPermissions.Create");
+        StringAssert.Contains(endpoint, "ProductPermissions.Update");
+        StringAssert.Contains(endpoint, "ProductPermissions.Disable");
+        Assert.IsFalse(contracts.Contains(
+            "public const string Write",
+            StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Generate_rejects_cross_scope_relationships()
+    {
+        var relationship = new FullNetCrudRelationship(
+            PrincipalEntityKey: "product",
+            PrincipalColumnName: "Id",
+            PrincipalDataScope: FullNetCrudDataScope.HostOnly,
+            DependentEntityKey: "product_item",
+            DependentColumnName: "ProductId",
+            DependentDataScope: FullNetCrudDataScope.TenantRequired,
+            CompositeKeyColumnNames: ["ProductId"],
+            CascadeDelete: false);
+        var error = Assert.ThrowsExactly<ArgumentException>(() =>
+            CreateExplicitLifecycleSchema(
+                scene: FullNetCrudScene.MasterDetail,
+                relationships: [relationship]));
+
+        StringAssert.Contains(error.Message, "跨数据作用域");
+    }
+
+    [TestMethod]
     public void Generate_organization_owned_soft_delete_emits_authorization_and_scope_fragments()
     {
         var artifacts = GenerateWithLayui(
@@ -730,16 +790,19 @@ public sealed class CrudArtifactGeneratorTests
     }
 
     [TestMethod]
-    public void Generate_rejects_tree_scene_even_when_organization_unit_owned()
+    public void Generate_tree_scene_succeeds_when_organization_unit_owned()
     {
-        var error = Assert.ThrowsExactly<NotSupportedException>(() =>
-            GenerateWithLayui(
-                CreateExplicitLifecycleSchema(
-                    scene: FullNetCrudScene.Tree,
-                    ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit)));
+        var artifacts = GenerateWithLayui(
+            CreateExplicitLifecycleSchema(
+                scene: FullNetCrudScene.Tree,
+                ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit));
 
-        StringAssert.Contains(error.Message, "同租户父节点");
-        StringAssert.Contains(error.Message, "环");
+        StringAssert.Contains(
+            Artifact(artifacts, "backend/ProductFeature.g.cs"),
+            "EnsureTreeParentAsync");
+        StringAssert.Contains(
+            Artifact(artifacts, "backend/ProductFeature.g.cs"),
+            "OrganizationUnitId");
     }
 
     [TestMethod]

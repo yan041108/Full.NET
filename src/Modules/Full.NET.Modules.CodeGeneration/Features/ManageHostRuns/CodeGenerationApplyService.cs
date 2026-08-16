@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.CodeGeneration.Generation;
+using Full.NET.Data.CodeGeneration.Integration;
 using Full.NET.Modules.CodeGeneration.Configuration;
 using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.CodeGeneration.Git;
@@ -216,6 +217,48 @@ internal sealed class CodeGenerationApplyService(
                         plan,
                         cancellationToken)
                     .ConfigureAwait(false);
+
+                if (request.IntegrationTarget is not null)
+                {
+                    ModuleIntegrationTarget target;
+                    try
+                    {
+                        target = MapIntegrationTarget(request.IntegrationTarget);
+                    }
+                    catch (ArgumentException exception)
+                    {
+                        await FailAsync(
+                                runId,
+                                CodeGenerationRunErrorCodes.ApplyFailed,
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
+                        return Failure(
+                            CodeGenerationRunErrorCodes.InvalidApplyPreview,
+                            exception.Message,
+                            ErrorType.Validation);
+                    }
+
+                    var integration = await ModuleIntegrationHostOrchestrator
+                        .ApplyAsync(
+                            options.Value.WorkspaceRoot,
+                            normalized.Value.Schema,
+                            target,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!integration.Succeeded)
+                    {
+                        await FailAsync(
+                                runId,
+                                CodeGenerationRunErrorCodes.ApplyFailed,
+                                CancellationToken.None)
+                            .ConfigureAwait(false);
+                        return Failure(
+                            CodeGenerationRunErrorCodes.ApplyFailed,
+                            integration.Diagnostics.FirstOrDefault()
+                                ?? "The code generation integration apply failed.",
+                            ErrorType.Unexpected);
+                    }
+                }
             }
             catch (OperationCanceledException)
                 when (cancellationToken.IsCancellationRequested)
@@ -303,6 +346,29 @@ internal sealed class CodeGenerationApplyService(
             throw new InvalidOperationException(
                 $"Code generation run {operation} affected {affectedRows} rows instead of one.");
         }
+    }
+
+    private static ModuleIntegrationTarget MapIntegrationTarget(
+        CodeGenerationIntegrationTargetRequest request)
+    {
+        var clientRoute = request.ClientRoute is null
+            ? null
+            : ModuleClientRouteTarget.Create(
+                request.ClientRoute.RoutePath,
+                request.ClientRoute.VueRouteName,
+                request.ClientRoute.VueComponentPath,
+                request.ClientRoute.LayuiControllerPath,
+                request.ClientRoute.LayuiControllerExport);
+        return ModuleIntegrationTarget.Create(
+            request.ModuleName,
+            request.ModuleProjectPath,
+            request.ModuleEntryPointPath,
+            request.CompositionProjectPath,
+            request.CompositionCatalogPath,
+            request.VueRouterPath,
+            request.LayuiRouterPath,
+            clientRoute,
+            request.AuthorizationContributorPath);
     }
 
     private static Result<CodeGenerationRunApplyResponse> Failure(

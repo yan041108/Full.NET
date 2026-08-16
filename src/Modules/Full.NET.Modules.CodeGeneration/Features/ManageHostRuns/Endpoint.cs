@@ -171,6 +171,32 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationRunPermissions.Read));
+
+        group.MapGet("/{runId:guid}/artifacts.zip", async (
+            Guid runId,
+            CodeGenerationArtifactDownloadService downloads,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await downloads.DownloadAsync(runId, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.File(
+                result.Value!.Content,
+                "application/zip",
+                result.Value.FileName);
+        })
+        .Produces(StatusCodes.Status200OK, contentType: "application/zip")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            CodeGenerationRunPermissions.Download));
     }
 
     private static bool TryResolveUserId(

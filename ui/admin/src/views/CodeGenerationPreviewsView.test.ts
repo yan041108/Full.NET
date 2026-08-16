@@ -26,6 +26,7 @@ vi.mock('../auth/session', () => ({
 
 vi.mock('../api/code-generation-runs', () => ({
   applyTrackedCodeGeneration: vi.fn(),
+  downloadCodeGenerationArtifacts: vi.fn(),
   listCodeGenerationRuns: vi.fn(),
   previewTrackedCodeGeneration: vi.fn()
 }));
@@ -88,7 +89,8 @@ describe('Vue 代码生成预览页', () => {
       'codegen.runs.read',
       'codegen.runs.execute',
       'codegen.runs.apply',
-      'codegen.runs.rollback'
+      'codegen.runs.rollback',
+      'codegen.runs.download'
     ]);
     trackedPreviewMock.mockReset().mockResolvedValue({
       runId: '0198f36e-f7a7-7c52-9cbb-774e67411212',

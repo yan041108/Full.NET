@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Full.NET.Data.CodeGeneration.Generation;
+using Full.NET.Data.CodeGeneration.Integration;
 using Full.NET.Data.CodeGeneration.Schema;
 
 namespace Full.NET.CodeGeneration.Cli;

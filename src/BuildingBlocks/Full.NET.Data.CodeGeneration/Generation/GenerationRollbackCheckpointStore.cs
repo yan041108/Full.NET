@@ -114,7 +114,8 @@ public static class GenerationRollbackCheckpointStore
                 Path.Combine(pendingPath, MetadataFileName),
                 json,
                 cancellationToken);
-            Directory.Move(pendingPath, finalPath);
+            // Windows 在刚写完的目录上立即 Move 可能被索引或杀毒短暂锁住。
+            MovePendingDirectory(pendingPath, finalPath);
         }
         catch
         {
@@ -331,6 +332,25 @@ public static class GenerationRollbackCheckpointStore
         }
 
         return contents;
+    }
+
+    private static void MovePendingDirectory(string pendingPath, string finalPath)
+    {
+        const int maxAttempts = 8;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Move(pendingPath, finalPath);
+                return;
+            }
+            catch (Exception exception) when (
+                attempt < maxAttempts
+                && exception is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(TimeSpan.FromMilliseconds(25 * attempt));
+            }
+        }
     }
 
     private static void TryDeletePendingDirectory(string path)

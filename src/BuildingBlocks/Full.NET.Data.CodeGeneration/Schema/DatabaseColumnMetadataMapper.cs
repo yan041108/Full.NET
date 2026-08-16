@@ -1,6 +1,9 @@
 namespace Full.NET.Data.CodeGeneration.Schema;
 
-internal static class DatabaseColumnMetadataMapper
+/// <summary>
+/// 把数据库列元数据映射为 Full.NET 标量列；无法安全表达的类型必须失败而不是猜测。
+/// </summary>
+public static class DatabaseColumnMetadataMapper
 {
     public static IReadOnlyList<FullNetColumn> Map(
         DatabaseMetadataProvider provider,
@@ -11,6 +14,26 @@ internal static class DatabaseColumnMetadataMapper
             .OrderBy(column => column.OrdinalPosition)
             .Select(column => MapColumn(provider, column))
             .ToArray();
+    }
+
+    /// <summary>
+    /// 尝试映射单列；不支持的物理类型返回 false，供目录跳过而不是阻断整张表列表。
+    /// </summary>
+    public static bool TryMap(
+        DatabaseMetadataProvider provider,
+        DatabaseColumnMetadata metadata,
+        out FullNetColumn column)
+    {
+        try
+        {
+            column = MapColumn(provider, metadata);
+            return true;
+        }
+        catch (NotSupportedException)
+        {
+            column = null!;
+            return false;
+        }
     }
 
     private static FullNetColumn MapColumn(

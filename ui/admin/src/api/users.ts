@@ -28,6 +28,61 @@ export async function exportHostUsers(): Promise<HostUser[]> {
   return value;
 }
 
+export async function importHostUsers(
+  rows: Array<{
+    username: string;
+    displayName: string;
+    password: string;
+    accountType?: string | null;
+  }>
+): Promise<{ succeededCount: number }> {
+  const value = await request<unknown>('/api/v1/identity/users/import', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ rows })
+  });
+  if (
+    typeof value !== 'object'
+    || value === null
+    || typeof (value as { succeededCount?: unknown }).succeededCount !== 'number'
+  ) {
+    throw new Error('client.invalid_host_user_import');
+  }
+  return { succeededCount: (value as { succeededCount: number }).succeededCount };
+}
+
+export async function batchDisableHostUsers(userIds: string[]): Promise<{ succeededCount: number }> {
+  const value = await request<unknown>('/api/v1/identity/users/batch-disable', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userIds })
+  });
+  if (
+    typeof value !== 'object'
+    || value === null
+    || typeof (value as { succeededCount?: unknown }).succeededCount !== 'number'
+  ) {
+    throw new Error('client.invalid_host_user_batch');
+  }
+  return { succeededCount: (value as { succeededCount: number }).succeededCount };
+}
+
+export async function batchEnableHostUsers(userIds: string[]): Promise<{ succeededCount: number }> {
+  const value = await request<unknown>('/api/v1/identity/users/batch-enable', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userIds })
+  });
+  if (
+    typeof value !== 'object'
+    || value === null
+    || typeof (value as { succeededCount?: unknown }).succeededCount !== 'number'
+  ) {
+    throw new Error('client.invalid_host_user_batch');
+  }
+  return { succeededCount: (value as { succeededCount: number }).succeededCount };
+}
+
 export async function createHostUser(
   username: string,
   displayName: string,
