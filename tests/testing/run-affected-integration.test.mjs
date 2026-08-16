@@ -173,14 +173,25 @@ test('CodeGeneration 元数据变化只选择对应双库专项测试', () => {
     assert.equal(selection.mode, 'focused');
     assert.deepEqual(selection.targets, [
       {
-        filter: 'FullyQualifiedName~CodeGeneration',
+        filter:
+          'FullyQualifiedName~Full.NET.IntegrationTests.Api.CodeGenerationApi'
+          + '|FullyQualifiedName~Full.NET.IntegrationTests.CodeGeneration.',
         kind: 'filter',
         name: 'CodeGeneration'
       }
     ]);
     assert.deepEqual(
       targetsForPhase(selection.targets, 'inner'),
-      selection.targets
+      [
+        {
+          filter:
+            '(FullyQualifiedName~Full.NET.IntegrationTests.Api.CodeGenerationApi'
+            + '|FullyQualifiedName~Full.NET.IntegrationTests.CodeGeneration.)'
+            + '&FullyQualifiedName~MySql',
+          kind: 'filter',
+          name: 'CodeGeneration'
+        }
+      ]
     );
   }
 });
@@ -193,7 +204,9 @@ test('CodeGeneration 模块变化选择完整 CodeGeneration 聚焦集而不是 
   assert.equal(selection.mode, 'focused');
   assert.deepEqual(selection.targets, [
     {
-      filter: 'FullyQualifiedName~CodeGeneration',
+      filter:
+        'FullyQualifiedName~Full.NET.IntegrationTests.Api.CodeGenerationApi'
+        + '|FullyQualifiedName~Full.NET.IntegrationTests.CodeGeneration.',
       kind: 'filter',
       name: 'CodeGeneration'
     }
@@ -489,6 +502,57 @@ test('任务快照内容比较使用有界并发并保持结果顺序', async ()
 
   assert.equal(maximumActive, 3);
   assert.deepEqual(results, [2, 4, 6, 8, 10, 12]);
+});
+
+test('Identity、Tenancy、Outbox 过滤器不得命中迁移恢复或 CDC 重测', () => {
+  const identity = classifyChangedPaths([
+    'src/Modules/Full.NET.Modules.Identity/Security/AccessSessionValidator.cs'
+  ]).targets[0];
+  const tenancy = classifyChangedPaths([
+    'src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantQueries.cs'
+  ]).targets[0];
+  const outbox = classifyChangedPaths([
+    'src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperOutboxStore.cs'
+  ]).targets[0];
+
+  assert.equal(
+    identity.filter,
+    'FullyQualifiedName~Full.NET.IntegrationTests.Api.IdentityApi'
+      + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests'
+  );
+  assert.equal(
+    tenancy.filter,
+    'FullyQualifiedName~Full.NET.IntegrationTests.Api.TenancyApi'
+  );
+  assert.equal(
+    outbox.filter,
+    'FullyQualifiedName~Full.NET.IntegrationTests.Messaging.MessagingOutbox'
+      + '|FullyQualifiedName~Full.NET.IntegrationTests.Messaging.OutboxRecoveryTests'
+  );
+});
+
+test('inner 把 Smoke 和聚焦过滤器收成 MySQL，且忽略 Messaging 非测试资产', () => {
+  const smoke = targetsForPhase(
+    classifyChangedPaths([
+      'tests/Full.NET.IntegrationTests/SharedDatabaseFixture.cs'
+    ]).targets,
+    'inner'
+  );
+  const identity = targetsForPhase(
+    classifyChangedPaths([
+      'src/Modules/Full.NET.Modules.Identity/Security/AccessSessionValidator.cs'
+    ]).targets,
+    'inner'
+  );
+  const asset = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Messaging/Assets/debezium-connect-java.security.override'
+  ]);
+
+  assert.equal(smoke[0].kind, 'filter');
+  assert.match(smoke[0].filter, /^\(/);
+  assert.match(smoke[0].filter, /&FullyQualifiedName~MySql$/);
+  assert.match(identity[0].filter, /&FullyQualifiedName~MySql$/);
+  assert.equal(asset.mode, 'none');
 });
 
 test('inner 聚焦发现只强制 MySQL Provider', () => {

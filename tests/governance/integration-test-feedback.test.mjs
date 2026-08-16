@@ -89,6 +89,8 @@ test('开发规则必须按开发阶段分层，并把完整集合留给 main CI
   assert.match(rules, /pnpm test:inner/);
   assert.match(rules, /禁止在 inner 运行 `pnpm test:e2e:real`/);
   assert.match(rules, /只读、已迁移的 schema 模板/);
+  assert.match(rules, /附加 `FullyQualifiedName~MySql`/);
+  assert.match(rules, /禁止用 `~Identity`/);
 });
 
 test('其它任务窗口使用快照和受影响测试选择器，不复制测试总数', async () => {

@@ -17,6 +17,17 @@ const testMatrix = loadTestMatrix();
 const assembly = testMatrix.integration.assembly;
 const migrationSelections = testMatrix.integration.migrationSelections ?? {};
 const smokeFilter = testMatrix.integration.shards.smoke.filter;
+const identityFilter =
+  'FullyQualifiedName~Full.NET.IntegrationTests.Api.IdentityApi'
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests';
+const tenancyFilter =
+  'FullyQualifiedName~Full.NET.IntegrationTests.Api.TenancyApi';
+const codeGenerationFilter =
+  'FullyQualifiedName~Full.NET.IntegrationTests.Api.CodeGenerationApi'
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.CodeGeneration.';
+const outboxFilter =
+  'FullyQualifiedName~Full.NET.IntegrationTests.Messaging.MessagingOutbox'
+  + '|FullyQualifiedName~Full.NET.IntegrationTests.Messaging.OutboxRecoveryTests';
 const mergeDeferredShardNames = new Set(['messaging-heavy']);
 
 const focusedModules = new Set([
@@ -157,18 +168,38 @@ function addTarget(targets, target) {
 }
 
 function addModuleTarget(targets, moduleName) {
-  if (
-    moduleName === 'Identity'
-    || moduleName === 'Tenancy'
-    || moduleName === 'CodeGeneration'
-  ) {
-    addTarget(
-      targets,
-      filterTarget(moduleName, `FullyQualifiedName~${moduleName}`)
-    );
+  if (moduleName === 'Identity') {
+    addTarget(targets, filterTarget('Identity', identityFilter));
+    return;
+  }
+  if (moduleName === 'Tenancy') {
+    addTarget(targets, filterTarget('Tenancy', tenancyFilter));
+    return;
+  }
+  if (moduleName === 'CodeGeneration') {
+    addTarget(targets, filterTarget('CodeGeneration', codeGenerationFilter));
     return;
   }
   addTarget(targets, filterTarget(moduleName));
+}
+
+function applyInnerProviderFilter(filter) {
+  return `(${filter})&FullyQualifiedName~MySql`;
+}
+
+function narrowToInnerProvider(target) {
+  if (target.kind === 'shard' && target.name === 'smoke') {
+    return filterTarget('smoke', applyInnerProviderFilter(smokeFilter));
+  }
+
+  if (target.kind === 'filter' && target.filter) {
+    return {
+      ...target,
+      filter: applyInnerProviderFilter(target.filter)
+    };
+  }
+
+  return target;
 }
 
 function migrationDetails(filePath) {
@@ -213,14 +244,14 @@ function classifyBuildingBlock(filePath, targets) {
   if (/Outbox/i.test(filePath)) {
     addTarget(
       targets,
-      filterTarget('Outbox', 'FullyQualifiedName~Outbox')
+      filterTarget('Outbox', outboxFilter)
     );
     return 'Outbox 基础设施';
   }
   if (/Full\.NET\.Messaging\.Kafka/.test(filePath)) {
     addTarget(
       targets,
-      filterTarget('Outbox', 'FullyQualifiedName~Outbox')
+      filterTarget('Outbox', outboxFilter)
     );
     addMessagingHeavyTarget(targets);
     return 'Kafka 消息基础设施';
@@ -249,7 +280,7 @@ function classifyBuildingBlock(filePath, targets) {
   if (/Full\.NET\.Data\.CodeGeneration/.test(filePath)) {
     addTarget(
       targets,
-      filterTarget('CodeGeneration', 'FullyQualifiedName~CodeGeneration')
+      filterTarget('CodeGeneration', codeGenerationFilter)
     );
     return '代码生成基础设施';
   }
@@ -293,9 +324,12 @@ function classifyIntegrationPath(filePath, targets) {
       addMessagingHeavyTarget(targets);
       return 'Messaging 重测 Integration';
     }
+    if (!filePath.endsWith('.cs')) {
+      return 'Messaging 非测试资产';
+    }
     addTarget(
       targets,
-      filterTarget('Outbox', 'FullyQualifiedName~OutboxRecoveryTests')
+      filterTarget('Outbox', outboxFilter)
     );
     return 'Outbox Integration';
   }
@@ -311,10 +345,14 @@ function classifyIntegrationPath(filePath, targets) {
     ['Caching', 'CodeGeneration', 'Realtime', 'Seeding', 'Data']
       .includes(moduleName)
   ) {
-    addTarget(
-      targets,
-      filterTarget(moduleName, `FullyQualifiedName~${moduleName}`)
-    );
+    if (moduleName === 'CodeGeneration') {
+      addModuleTarget(targets, moduleName);
+    } else {
+      addTarget(
+        targets,
+        filterTarget(moduleName, `FullyQualifiedName~${moduleName}`)
+      );
+    }
     return `基础设施 Integration：${moduleName}`;
   }
 
@@ -387,7 +425,7 @@ export function classifyChangedPaths(paths) {
     if (filePath.startsWith('src/Tools/Full.NET.CodeGeneration.Cli/')) {
       addTarget(
         targets,
-        filterTarget('CodeGeneration', 'FullyQualifiedName~CodeGeneration')
+        filterTarget('CodeGeneration', codeGenerationFilter)
       );
       reasons.push(`代码生成 CLI：${filePath}`);
       continue;
@@ -400,7 +438,7 @@ export function classifyChangedPaths(paths) {
       if (/Outbox/i.test(filePath)) {
         addTarget(
           targets,
-          filterTarget('Outbox', 'FullyQualifiedName~Outbox')
+          filterTarget('Outbox', outboxFilter)
         );
         reasons.push(`Outbox 宿主：${filePath}`);
       } else {
@@ -474,10 +512,12 @@ export function targetsForPhase(
     return [...targets];
   }
   if (phase === 'inner') {
-    return targets.filter(target =>
-      immediateTargetNames.has(target.name)
-      || target.name.startsWith('migration-')
-    );
+    return targets
+      .filter(target =>
+        immediateTargetNames.has(target.name)
+        || target.name.startsWith('migration-')
+      )
+      .map(narrowToInnerProvider);
   }
 
   const selected = new Map();

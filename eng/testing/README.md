@@ -34,7 +34,7 @@
 
 ## inner 与双库
 
-`inner` 聚焦测试只强制 **MySQL** Provider，用于加快内循环；`slice` 与 `merge` 仍要求双库。SQL/迁移/租户相关变更不得在 inner 阶段单独宣布完成。
+`inner` 聚焦测试只强制 **MySQL** Provider，Smoke 也只跑 MySQL 项；`slice` 与 `merge` 仍要求双库。SQL/迁移/租户相关变更不得在 inner 阶段单独宣布完成。
 
 ## 慢测与分片
 
