@@ -38,6 +38,41 @@ public sealed class ModuleSelectionEndpointTests
             "Messaging 未启用时不应暴露 /api/v1/messaging/* Endpoint。");
     }
 
+    [TestMethod]
+    public void Platform_preset_excludes_content_and_codegen_endpoints()
+    {
+        using var app = BuildApiApplication(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = FullNetModuleSelectionOptions.Presets.Platform,
+        });
+
+        var routes = CollectApiV1Routes(app);
+        Assert.IsTrue(routes.Any(route => route.Contains("/messaging/", StringComparison.Ordinal)));
+        Assert.IsTrue(routes.Any(route => route.Contains("/jobs/", StringComparison.Ordinal)));
+        Assert.IsFalse(
+            routes.Any(route => route.Contains("/document/", StringComparison.Ordinal)),
+            "Platform 预设不应暴露 Document Endpoint。");
+        Assert.IsFalse(
+            routes.Any(route => route.Contains("/code-generation/", StringComparison.Ordinal)),
+            "Platform 预设不应暴露 CodeGeneration Endpoint。");
+    }
+
+    [TestMethod]
+    public void Content_preset_excludes_codegen_endpoints()
+    {
+        using var app = BuildApiApplication(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = FullNetModuleSelectionOptions.Presets.Content,
+        });
+
+        var routes = CollectApiV1Routes(app);
+        Assert.IsTrue(routes.Any(route => route.Contains("/document/", StringComparison.Ordinal)));
+        Assert.IsTrue(routes.Any(route => route.Contains("/files/", StringComparison.Ordinal)));
+        Assert.IsFalse(
+            routes.Any(route => route.Contains("/code-generation/", StringComparison.Ordinal)),
+            "Content 预设不应暴露 CodeGeneration Endpoint。");
+    }
+
     private static WebApplication BuildApiApplication(
         IReadOnlyDictionary<string, string?> extraConfiguration)
     {

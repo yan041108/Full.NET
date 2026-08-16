@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test:governance": "node --test tests/governance/*.test.mjs",
+    "generate:module-dependency-graph": "node eng/architecture/generate-module-dependency-graph.mjs",
     "test:skills": "python -X utf8 tests/skills/validate_project_skills.py",
     "test:performance-governance": "node --test tests/performance/*.test.mjs",
     "test:bundle-budgets": "node scripts/testing/check-frontend-bundle-budget.mjs",

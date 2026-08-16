@@ -10,7 +10,7 @@ using Full.NET.Messaging.Kafka;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
-using Full.NET.Modules.Messaging;
+using Full.NET.Modules.Identity;
 using Full.NET.Serialization.MessagePack;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,26 +25,8 @@ internal static class OrganizationCdcKafkaIdentityProjectionE2ESupport
 {
     internal const string PilotUnitName = "pilot-unit";
 
-    internal static async Task SeedPilotStreamOwnershipAsync(DatabaseOptions options)
-    {
-        await using var connection = new MySqlConnection(options.ConnectionString);
-        await connection.ExecuteAsync(
-            """
-            INSERT INTO fn_messaging_stream_ownership
-                (MessageType, SchemaVersion, CurrentOwner, ChangedAtUtc, ChangedBy)
-            SELECT @MessageType, @SchemaVersion, @CurrentOwner, UTC_TIMESTAMP(6), @ChangedBy
-            WHERE NOT EXISTS (
-                SELECT 1 FROM fn_messaging_stream_ownership
-                WHERE MessageType = @MessageType AND SchemaVersion = @SchemaVersion);
-            """,
-            new
-            {
-                MessageType = EventDeliveryPilotTestSupport.PilotEventType,
-                SchemaVersion = EventDeliveryPilotTestSupport.PilotSchemaVersion,
-                CurrentOwner = EventDeliveryOwner.CdcKafka.ToString(),
-                ChangedBy = "organization-cdc-pilot-e2e",
-            });
-    }
+    internal static async Task SeedPilotStreamOwnershipAsync(DatabaseOptions options) =>
+        await OrganizationUnitCdcKafkaEndToEndSupport.SeedCdcKafkaStreamOwnershipAsync(options);
 
     internal static async Task<InboxConsumeStatus> ConsumeOrganizationEventThroughInboxAsync(
         DatabaseOptions options,
@@ -63,7 +45,7 @@ internal static class OrganizationCdcKafkaIdentityProjectionE2ESupport
         var subscription = scope.ServiceProvider
             .GetRequiredService<IIntegrationEventSubscription>();
         var catalog = new IntegrationEventSubscriptionCatalog(
-            [MessagingTopicDefinitions.OrganizationUnitChanged],
+            [IdentityIntegrationEventTopicDefinitions.OrganizationUnitChanged],
             [subscription]);
         var dispatcher = new IntegrationEventConsumerDispatcher(
             scope.ServiceProvider.GetRequiredService<ICommandTransaction>(),
@@ -108,18 +90,12 @@ internal static class OrganizationCdcKafkaIdentityProjectionE2ESupport
         DatabaseOptions options,
         Guid tenantId,
         Guid unitId,
-        string expectedName)
-    {
-        await using var connection = new MySqlConnection(options.ConnectionString);
-        var name = await connection.QuerySingleOrDefaultAsync<string?>(
-            """
-            SELECT Name
-            FROM fn_identity_organization_unit_projection
-            WHERE TenantId = @TenantId AND UnitId = @UnitId
-            """,
-            new { TenantId = tenantId, UnitId = unitId });
-        return string.Equals(name, expectedName, StringComparison.Ordinal);
-    }
+        string expectedName) =>
+        await OrganizationUnitCdcKafkaEndToEndSupport.ProjectionExistsAsync(
+            options,
+            tenantId,
+            unitId,
+            expectedName);
 
     private static ServiceProvider BuildIdentityProjectionInboxServices(DatabaseOptions options)
     {

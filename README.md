@@ -67,7 +67,7 @@ AppHost 默认启动 SQL Server、Redis、Migrator、API 和 Worker。首次运�
 
 模块化种子管道已经接管 Migrator：默认只迁移，显式 `--seed baseline|development|demo|test` 才播种，AppHost 使用 `--seed development`。管线已实现确定性 Profile 继承、SQL Server/MySQL 数据库锁与执行审计、Baseline 宿主管理员 Contributor 和 Development 本地租户 Contributor；`--seed-local` 仅保留为带弃用告警的兼容别名。Production Bootstrap Secret 运维 Runbook 与缺 Secret 双库拒绝已落地（见 [docs/operations/seed-production-baseline.md](docs/operations/seed-production-baseline.md)）；完整 Aspire/CI Profile E2E 与 MFA 到位前的远程超管写操作仍开放，因此 Production Seed 仍不能标记为 `Verified`。设计与后续步骤见[种子数据模块设计](docs/superpowers/specs/2026-07-17-seed-data-module-design.md)和[实施计划](docs/superpowers/plans/2026-07-17-seed-data-module.md)。
 
-新人阅读路径见 [Onboarding](docs/development/onboarding.md)；更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。Outbox 多副本拓扑见 [Outbox Worker 运维说明](docs/operations/outbox-worker-topology.md)；**Messaging / CDC / Kafka 当前真实拓扑**见 [Messaging 运行时拓扑](docs/operations/messaging-runtime-topology.md)。1.0 前 Tenancy/Outbox 命名规范化自动化证据见 [验证记录](docs/verification/pre-v1-naming-normalization.md)。新增数据库对象、API、机器码或生成模板必须遵守 [Full.NET 命名规范](rules/naming-conventions.md)：官方表保留 `fn` OwnerKey，项目表使用脚手架阶段冻结的项目 OwnerKey，`sys` 不作为项目表前缀。当前能力以[状态矩阵](docs/roadmap/capability-status.md)为唯一总览；架构设计及 Admin.NET 功能对标路线位于 `docs/`。
+新人阅读路径见 [Onboarding](docs/development/onboarding.md)；更完整的数据库切换、部署顺序、缓存和 API 约定见 [本地开发指南](docs/development/getting-started.md)。**平台运行时拓扑**见 [platform-runtime-topology.md](docs/operations/platform-runtime-topology.md)；**Messaging / CDC / Kafka** 见 [messaging-runtime-topology.md](docs/operations/messaging-runtime-topology.md)。Outbox 多副本拓扑见 [Outbox Worker 运维说明](docs/operations/outbox-worker-topology.md)。Delivery 试点已 `Build-verified / Pilot`，**默认不切流**（`Messaging:DeliveryCutover:Enabled=false`）。1.0 前 Tenancy/Outbox 命名规范化自动化证据见 [验证记录](docs/verification/pre-v1-naming-normalization.md)。新增数据库对象、API、机器码或生成模板必须遵守 [Full.NET 命名规范](rules/naming-conventions.md)：官方表保留 `fn` OwnerKey，项目表使用脚手架阶段冻结的项目 OwnerKey，`sys` 不作为项目表前缀。当前能力以[状态矩阵](docs/roadmap/capability-status.md)为唯一总览；架构设计及 Admin.NET 功能对标路线位于 `docs/`。
 
 客户端基础验证：
 
@@ -89,8 +89,8 @@ pnpm test:e2e:uniapp
 
 ## 客户端规划
 
-- `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus 主管理端；已迁入 MIT Art Design Pro 管理壳层（见 `docs/verification/admin-art-design-pro.md`），ECharts 图表与 Tiptap Core 富文本基线按独立计划推进，保留 Full.NET 自有认证、租户、权限和 API 契约；
-- `ui/admin-layui`：基于 MIT Layui 2 独立实现的 HTML/CSS/原生 JavaScript 管理端，与 Vue 覆盖相同后台功能并同步验收；layuiAdmin 仅作交互参考，不复制其非 MIT 主题资产；
+- `ui/admin`：Vue 3 + TypeScript + Vite + Element Plus **唯一持续交付**的后台管理端；已迁入 MIT Art Design Pro 管理壳层（见 `docs/verification/admin-art-design-pro.md`），ECharts 图表与 Tiptap Core 富文本基线按独立计划推进，保留 Full.NET 自有认证、租户、权限和 API 契约；
+- `ui/admin-layui`：自 2026-08-02 起 **Frozen**（停止新功能；仅授权安全修复/迁移/退役）；不再参与活动 CI/E2E/包体门禁；
 - `clients/uniapp`：一套代码覆盖 H5、微信小程序和支付宝小程序，已引入官方 uni-ui、easycom 与 Full.NET 主题令牌；
 - `clients/flutter`：原生 Android/iOS 与 Windows/macOS/Linux 桌面客户端，采用 Flutter 3.44 Material 3 + Cupertino；当前尚未创建工程；
 - .NET MAUI：仅在真实 C#/Windows 企业需求命中决策门禁后提供可选模板。

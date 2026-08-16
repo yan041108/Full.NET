@@ -8,7 +8,8 @@ public sealed class FullNetModuleSelectionOptions
     public const string SectionName = "FullNet:Modules";
 
     /// <summary>
-    /// 预设名称：<see cref="Presets.Full"/>（默认）或 <see cref="Presets.Minimal"/>。
+    /// 预设名称：<see cref="Presets.Full"/>（默认）、<see cref="Presets.Minimal"/>、
+    /// <see cref="Presets.Platform"/> 或 <see cref="Presets.Content"/>。
     /// </summary>
     public string Preset { get; init; } = Presets.Full;
 
@@ -25,5 +26,15 @@ public sealed class FullNetModuleSelectionOptions
         /// 快速底座：Identity + Tenancy + Settings + Organization。
         /// </summary>
         public const string Minimal = "Minimal";
+
+        /// <summary>
+        /// 平台底座：Minimal + Auditing + Notifications + Jobs + Messaging。
+        /// </summary>
+        public const string Platform = "Platform";
+
+        /// <summary>
+        /// 内容底座：Platform + Files + Document。
+        /// </summary>
+        public const string Content = "Content";
     }
 }

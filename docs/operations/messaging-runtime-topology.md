@@ -64,6 +64,7 @@ flowchart TB
 | Kafka Producer/Consumer、Envelope、Connect 客户端 | `BuildingBlocks/Full.NET.Messaging.Kafka` | Broker 运行时 |
 | Inbox 事务 + Handler 调度 | `BuildingBlocks/Full.NET.Modularity/Messaging` | `IntegrationEventConsumerDispatcher` |
 | 流所有权、切流/回退、DLQ、Kafka 重放 API | `Modules/Full.NET.Modules.Messaging` | 运维控制面 + 持久化 SQL |
+| 宿主 Messaging DI 门面 | `Composition/MessagingRuntimeServiceCollectionExtensions` | Api 重放 / Worker HybridKafka 统一入口 |
 | Legacy 轮询 Worker | `Hosts/Full.NET.Host.Worker/OutboxProcessor.cs` | **当前生产主路径** |
 | Shadow 比对 | `Hosts/Full.NET.Host.Worker/ShadowEventComparisonProcessor.cs` | 非切流 |
 | HybridKafka Consumer | `Hosts/Full.NET.Host.Worker` + `KafkaConsumerWorker` | 仅 `CdcKafka` 所有权流 |
@@ -71,7 +72,9 @@ flowchart TB
 | 容量测量 Runner | `benchmarks/Full.NET.Benchmarks/Kafka` | **非生产 DI**；见 [`kafka-capacity-runner.md`](kafka-capacity-runner.md) |
 | Connector 模板 / 本地 Compose | `deploy/messaging/` | 开发、Shadow、容量专用 |
 
-**边界原则：** Broker/Connect/Consumer 运行时归 BuildingBlocks；运维 API 与所有权表归 Messaging 模块。Connect REST 统一使用 `BuildingBlocks/Full.NET.Messaging.Kafka` 的 `IKafkaConnectAdminClient` / `KafkaConnectAdminClient`（集成测试与 Capacity Runner 引用同一实现，禁止再复制第四套客户端）。
+| Identity 消费方 Topic 目录 | `Modules/Full.NET.Modules.Identity/IdentityIntegrationEventTopicDefinitions` | Organization 单位变更试点 Topic |
+
+**边界原则：** Broker/Connect/Consumer 运行时归 BuildingBlocks；运维 API 与所有权表归 Messaging 模块；Topic 目录归消费方模块（Identity）。Connect REST 统一使用 `IKafkaConnectAdminClient` / `KafkaConnectAdminClient`。宿主装配使用 [`MessagingRuntimeServiceCollectionExtensions`](../../src/Composition/Full.NET.Composition/MessagingRuntimeServiceCollectionExtensions.cs)。
 
 ## 交付模式对照
 

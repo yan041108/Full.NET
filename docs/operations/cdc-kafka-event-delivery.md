@@ -12,7 +12,7 @@
 | Schema | `1` |
 | Topic 机器码 | `organization.unit-changed.v1` |
 | 目录默认所有权 | `LegacyPolling` |
-| 候选生产者 | Organization 模块 `TenantUnitManagementService`（当前仍写 Legacy Outbox） |
+| 候选生产者 | Organization 模块 `TenantUnitManagementService`（经 `DapperRoutedOutboxWriter` 按 effective ownership 路由；`CdcKafka` 时写 append-only Outbox + metadata） |
 | 候选消费者 | Identity 模块 `OrganizationUnitChangedIntegrationEventHandler`；`OrganizationUnitChangedKafkaSubscription` 已在 `IdentityModule.AddBackgroundServices` 注册（HybridKafka 模式下生效，**非正式切流**） |
 | 遗留重放 | Identity 机构单元投影对账 API（`reconcile_dry_run` / `reconcile_apply`） |
 

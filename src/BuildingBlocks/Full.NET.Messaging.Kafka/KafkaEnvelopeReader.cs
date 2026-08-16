@@ -42,8 +42,15 @@ public sealed class KafkaEnvelopeReader
             return false;
         }
 
-        var payload = consumeResult.Message.Value;
-        if (payload is null || payload.Length == 0)
+        var rawPayload = consumeResult.Message.Value;
+        if (rawPayload is null)
+        {
+            failureCode = IntegrationEventFailureCodes.PayloadRequired;
+            return false;
+        }
+
+        var payload = KafkaConnectPayloadNormalizer.Normalize(rawPayload);
+        if (payload.IsEmpty)
         {
             failureCode = IntegrationEventFailureCodes.PayloadRequired;
             return false;

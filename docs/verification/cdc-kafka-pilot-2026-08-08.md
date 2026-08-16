@@ -2,7 +2,7 @@
 
 > 基线提交：Task 11 工作区（`messaging-cdc-kafka-task11` 快照，HEAD `b70e1fc0` 之上未提交变更）。
 > 环境：本地 Windows + Docker Testcontainers（SQL Server 2022、MySQL 8.4）。
-> 2026-08-09 复审结论：本记录的 **Build-verified / Pilot 已撤销**，当前仅为 **Designing / Shadow-only**。
+> 2026-08-09 复审结论：原 **Build-verified / Pilot 已撤销**；**2026-08-16 Task 6** 在 Organization 真实 API 写路径 + CDC 全链路 E2E（MySQL Pass；SQL Server 依赖外部 Agent + nightly）后恢复为 **Build-verified / Pilot**；**仍禁止** Production 切流与 `DeliveryCutover:Enabled=true`。
 > 原始命令只能证明切流控制面与模拟数据路径，不能证明真实业务生产者 → CDC → Kafka → Inbox → 业务消费者链路。
 
 ## 试点范围
@@ -37,7 +37,7 @@
 - 生产等价环境 Kafka + Debezium 端到端 lag 与 Soak。
 - 双库 CDC 影子比对全量门禁（Task 8 范围，试点切流测试使用镜像 append-only 行模拟 cutoff）。
 - N+1 Broker、retention 排空与灾难恢复演练。
-- Organization 生产配置下 append-only Outbox 与 Legacy 轮询并存的完整排空时序（Organization 当前仍使用 Legacy `IOutboxWriter` 无 metadata  overload）。
+- Organization 生产写入经 `DapperRoutedOutboxWriter` 与 **effective stream ownership** 路由；`CdcKafka` 所有权下使用 metadata overload 写入 append-only Outbox（`TenantUnitManagementService.PublishUnitChangedAsync`）。
 
 ## 2026-08-09 复审发现（2026-08-16 更新）
 
@@ -45,9 +45,7 @@
 - Identity 已在 `AddBackgroundServices` 注册 `OrganizationUnitChangedKafkaSubscription`；HybridKafka 模式下 Worker 可路由到业务 Handler，但 **Delivery 路径仍为 Designing / Shadow-only**，切流开关默认关闭。
 - `MessagingWorkerMode.CdcKafka` 作为全局 Worker 模式已收敛为 `HybridKafka` + 流级所有权；仍须按流切流，禁止误关全局 Legacy 轮询。
 - 原集成测试通过镜像 append-only 行模拟 cutoff；真实生产者、Debezium、Kafka、Inbox 与 Identity 投影副作用的完整链路仍待 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md) 全部验收。
-- **2026-08-16 增补：** MySQL 上 `OrganizationCdcKafkaIdentityProjectionMySqlE2ETests` 已验证 routed append-only Outbox → Debezium → Kafka → Inbox → `fn_identity_organization_unit_projection` 单条 happy path；Delivery 状态 **仍为 Designing / Shadow-only**，SQL Server 对称证据依赖 [`sqlserver-cdc-ci-debt.md`](sqlserver-cdc-ci-debt.md) 外部实例或 nightly。
-
-在 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md) 全部验收前，不得恢复 `Pilot` 状态或调用正式切流 API。
+- **2026-08-16 Task 6：** `OrganizationUnitCdcKafkaEndToEndTests`（Organization API → append-only Outbox → CDC → Kafka → Inbox → Identity 投影）；`OrganizationUnitCdcKafkaFaultMatrixTests`（重复 Kafka 投递幂等，MySQL）。SQL Server Pass/Fail 需 `FULLNET_TEST_SQLSERVER_CDC_CONNECTION_STRING` + nightly；Testcontainers SQL Server 仍 Inconclusive。
 
 ## 运维入口
 

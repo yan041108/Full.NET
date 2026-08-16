@@ -129,10 +129,14 @@ public static class KafkaCapacityServiceFactory
         ServiceCollection services,
         KafkaCapacityConfiguration configuration)
     {
-        // WorkerParity 保留 AddFullNetDapper 默认的 IEventStreamOwnershipGate 与
-        // IEffectiveEventDeliveryOwnerResolver；Fast 模式的宽松 override 在 Scope C 分支处理。
-        _ = services;
-        _ = configuration;
+        if (configuration.HostParityMode != KafkaCapacityHostParityMode.WorkerParity)
+        {
+            return;
+        }
+
+        // WorkerParity：移除 Fast 专用 serializer/ownership override，保留 AddFullNetDapper 默认门控。
+        services.RemoveAll<IIntegrationEventSerializer>();
+        services.AddFullNetMessagePack();
     }
 
     private static ServiceProvider BuildProvider(ServiceCollection services) =>

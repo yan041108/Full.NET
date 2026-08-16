@@ -11,10 +11,13 @@ namespace Full.NET.UnitTests.CodeGeneration;
 [TestClass]
 public sealed class CrudArtifactGeneratorTests
 {
+    private static IReadOnlyList<GeneratedArtifact> GenerateWithLayui(FullNetCrudSchema schema) =>
+        CrudArtifactGenerator.Generate(schema, includeLayuiClientArtifacts: true);
+
     [TestMethod]
     public void Generate_emits_sorted_unique_cross_stack_artifacts()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
 
         CollectionAssert.AreEqual(
@@ -48,7 +51,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_explicit_scope_emits_paired_non_executable_migration_templates()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
         var sqlServer = Artifact(
             artifacts,
@@ -88,7 +91,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_integration_template_targets_both_providers_and_exact_shape()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
         var template = Artifact(
             artifacts,
@@ -106,7 +109,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_backend_contracts_and_sql_keep_crud_boundaries()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
         var contracts = Artifact(artifacts, "backend/ProductContracts.g.cs");
         var sql = Artifact(artifacts, "backend/ProductSql.g.cs");
@@ -141,7 +144,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_tenant_backend_feature_uses_fullnet_runtime_boundaries()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
         var endpoint = Artifact(artifacts, "backend/ProductEndpoint.g.cs");
         var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
@@ -210,7 +213,7 @@ public sealed class CrudArtifactGeneratorTests
                 .Where(column => column.DatabaseName != "TenantId")
                 .ToArray());
 
-        var paths = CrudArtifactGenerator.Generate(schema)
+        var paths = GenerateWithLayui(schema)
             .Select(artifact => artifact.RelativePath)
             .ToArray();
 
@@ -230,7 +233,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_host_scope_emits_host_only_runtime_without_tenant_binding()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             CreateExplicitScopeSchema(FullNetCrudDataScope.HostOnly));
         var paths = artifacts
             .Select(artifact => artifact.RelativePath)
@@ -260,7 +263,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_global_scope_emits_global_runtime_without_context_dependency()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             CreateExplicitScopeSchema(FullNetCrudDataScope.Global));
         var sql = Artifact(artifacts, "backend/ProductSql.g.cs");
         var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
@@ -326,7 +329,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_clients_share_api_and_permission_contracts()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
         var vue = Artifact(artifacts, "clients/vue/products.generated.ts");
         var layui = Artifact(artifacts, "clients/layui/products.generated.js");
@@ -353,7 +356,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_page_models_reuse_clients_and_guard_write_actions()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
         var vue = Artifact(
             artifacts,
@@ -409,7 +412,7 @@ public sealed class CrudArtifactGeneratorTests
                 _ => column,
             })
             .ToArray();
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema(columns: columns));
         var vue = Artifact(
             artifacts,
@@ -430,7 +433,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_report_preserves_explicit_cross_stack_names()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
         using var report = JsonDocument.Parse(Artifact(
             artifacts,
@@ -449,7 +452,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_report_marks_legacy_entity_capability_shape()
     {
-        var legacyArtifacts = CrudArtifactGenerator.Generate(
+        var legacyArtifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
 
         using var legacyReport = JsonDocument.Parse(Artifact(
@@ -480,7 +483,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_explicit_soft_delete_controls_audit_and_lifecycle_fields_on_the_server()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             CreateExplicitLifecycleSchema());
         var contracts = Artifact(artifacts, "backend/ProductContracts.g.cs");
         var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
@@ -574,7 +577,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_immutable_entity_omits_update_and_delete_entry_points()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             CreateImmutableSchema());
         var contracts = Artifact(artifacts, "backend/ProductContracts.g.cs");
         var endpoint = Artifact(artifacts, "backend/ProductEndpoint.g.cs");
@@ -619,7 +622,7 @@ public sealed class CrudArtifactGeneratorTests
     public void Generate_rejects_tree_until_parent_scope_and_cycle_guards_exist()
     {
         var error = Assert.ThrowsExactly<NotSupportedException>(() =>
-            CrudArtifactGenerator.Generate(CreateTreeSchema()));
+            GenerateWithLayui(CreateTreeSchema()));
 
         StringAssert.Contains(error.Message, "同租户父节点");
         StringAssert.Contains(error.Message, "环");
@@ -628,7 +631,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_explicit_hard_delete_uses_physical_delete_without_soft_delete_fields()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             CreateHardDeleteSchema());
         var sql = Artifact(artifacts, "backend/ProductSql.g.cs");
 
@@ -642,7 +645,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_explicit_dual_provider_templates_emit_only_declared_lifecycle_columns()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             CreateExplicitLifecycleSchema());
         var sqlServer = Artifact(
             artifacts,
@@ -682,7 +685,7 @@ public sealed class CrudArtifactGeneratorTests
             relationships: [relationship]);
 
         var relationalError = Assert.ThrowsExactly<NotSupportedException>(() =>
-            CrudArtifactGenerator.Generate(relational));
+            GenerateWithLayui(relational));
 
         StringAssert.Contains(relationalError.Message, "聚合事务");
     }
@@ -690,7 +693,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_organization_owned_soft_delete_emits_authorization_and_scope_fragments()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             CreateExplicitLifecycleSchema(
                 ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit));
         var contracts = Artifact(artifacts, "backend/ProductContracts.g.cs");
@@ -730,7 +733,7 @@ public sealed class CrudArtifactGeneratorTests
     public void Generate_rejects_tree_scene_even_when_organization_unit_owned()
     {
         var error = Assert.ThrowsExactly<NotSupportedException>(() =>
-            CrudArtifactGenerator.Generate(
+            GenerateWithLayui(
                 CreateExplicitLifecycleSchema(
                     scene: FullNetCrudScene.Tree,
                     ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit)));
@@ -755,7 +758,7 @@ public sealed class CrudArtifactGeneratorTests
             ownershipMode: FullNetCrudOwnershipMode.OrganizationUnit);
 
         var error = Assert.ThrowsExactly<NotSupportedException>(() =>
-            CrudArtifactGenerator.Generate(relational));
+            GenerateWithLayui(relational));
 
         StringAssert.Contains(error.Message, "聚合事务");
     }
@@ -763,7 +766,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_builds_valid_client_identifier_for_kebab_case_resource()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema(
                 apiResourceName: "product-items"));
 
@@ -788,7 +791,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_uses_string_wire_format_for_int64_and_decimal()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema(
                 columns:
                 [
@@ -910,11 +913,11 @@ public sealed class CrudArtifactGeneratorTests
     public void Generate_is_byte_stable_across_repetition_and_current_culture()
     {
         var schema = FullNetCrudSchemaTests.CreateProductSchema();
-        var first = CrudArtifactGenerator.Generate(schema);
+        var first = GenerateWithLayui(schema);
         IReadOnlyList<GeneratedArtifact> second;
         using (new CultureScope("tr-TR"))
         {
-            second = CrudArtifactGenerator.Generate(schema);
+            second = GenerateWithLayui(schema);
         }
 
         CollectionAssert.AreEqual(
@@ -925,7 +928,7 @@ public sealed class CrudArtifactGeneratorTests
     [TestMethod]
     public void Generate_matches_compiled_catalog_product_fixtures()
     {
-        var artifacts = CrudArtifactGenerator.Generate(
+        var artifacts = GenerateWithLayui(
             FullNetCrudSchemaTests.CreateProductSchema());
         var fixtureRoot = Path.Combine(
             FindRepositoryRoot(),

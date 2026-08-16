@@ -19,12 +19,16 @@
 1. 官方 Linux SQL Server 容器镜像**不包含可用的 SQL Server Agent**（或 Agent 非 Running）。
 2. CDC 变更捕获依赖 Agent 调度 capture job；仅执行 `sp_cdc_enable_db` / `sp_cdc_enable_table` 不足以在 CI 容器内产生 `cdc.*_CT` 变更。
 3. MySQL 路径已在 `SharedDatabaseFixture` 启动参数中启用 binlog ROW/FULL，故 E2E 可 Pass/Fail。
+4. SQL Server Outbox 列 `OccurredAtUtc` 为 `datetimeoffset(7)`；Debezium Outbox EventRouter 的 `table.field.event.timestamp` 需要 INT64，配置该字段会导致 Connect task 在处理首条 CDC 变更时 FAILED。SQL Server 连接器模板因此省略该键，业务时间仍经 `OccurredAtUtc:header:occurred_at_utc` 传递。
+5. 宿主机 SQL Server + Docker Debezium Connect 时，JDBC 可能触发 Java 证书算法约束；集成测试栈通过挂载 `tests/Full.NET.IntegrationTests/Messaging/Assets/debezium-connect-java.config` 放宽策略，并在 SQL Server 配置管理器中允许非加密连接（`ForceEncryption=0`）。
 
 ## 受影响的测试（`messaging-heavy` 分片）
 
 - `SqlServerCdcDebeziumInboxE2ETests`
 - `SqlServerCdcShadowTests`（CDC 相关方法；Kafka fingerprint 对照不依赖 CDC Agent）
 - `KafkaOutboxCdcCapacityRunnerTests` — `[DataRow(DatabaseProvider.SqlServer)]`
+- `OrganizationUnitCdcKafkaEndToEndTests`（SqlServer DataRow）
+- `OrganizationUnitCdcKafkaFaultMatrixTests`（MySQL；messaging-heavy）
 
 实现入口：`tests/Full.NET.IntegrationTests/Messaging/SqlServerCdcTestSupport.cs`。
 

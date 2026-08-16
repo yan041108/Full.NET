@@ -10,6 +10,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Messaging.Abstractions;
 using Microsoft.Extensions.Options;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity;
 using Full.NET.Modules.Messaging;
 using Full.NET.Modules.Messaging.Auditing;
 using Full.NET.Modules.Messaging.Contracts;
@@ -62,7 +63,7 @@ internal static class EventDeliveryPilotTestSupport
         services.AddSingleton(
             rollbackReadinessReader
             ?? new FailClosedEventDeliveryRollbackReadinessReader());
-        var pilotTopic = MessagingTopicDefinitions.OrganizationUnitChanged;
+        var pilotTopic = IdentityIntegrationEventTopicDefinitions.OrganizationUnitChanged;
         services.AddSingleton<IIntegrationEventHandler, PilotEventRecordingHandler>();
         services.TryAddScoped<EventStreamOwnershipStore>();
         services.TryAddScoped<IEventStreamOwnershipStore>(

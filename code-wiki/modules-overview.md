@@ -126,6 +126,30 @@ public static IServiceCollection AddFullNetModules(this IServiceCollection servi
 
 是否保留独立 `.Contracts` 项目以 **真实跨模块编译引用** 为准；禁止在 wiki 中假设 Identity 仍引用 `Organization.Contracts`。
 
+**Contracts 拆分决策表（2026-08-16）：**
+
+| 条件 | 建议 |
+|------|------|
+| ≥1 个其他模块 `.csproj` 需要稳定 DTO/Port/事件类型 | 独立 `{Module}.Contracts.csproj` |
+| 仅本模块 OpenAPI/序列化隔离，无外部 consumer | 可保留 isolation-only `.Contracts`（须 ADR/wiki 登记豁免） |
+| 仅本模块 Features 使用的 DTO | 主项目内 `Contracts/` 目录即可（见 §3.3） |
+| 跨模块读取 Port / Integration Event | **消费方** Contracts 定义 Port 与 wire 类型；owner 模块实现适配器（见 ADR-0002 数据所有权） |
+
+### 3.3 主项目内 Contracts 目录（无独立 `.csproj`）
+
+| 模块 | 命名空间示例 | 说明 |
+|------|--------------|------|
+| Tenancy | `Full.NET.Modules.Tenancy.Contracts` | 租户摘要等内部公开契约 |
+| Auditing | `Full.NET.Modules.Auditing.Contracts` | 审计 DTO |
+| Jobs | `Full.NET.Modules.Jobs.Contracts` | 调度契约 |
+| Messaging | `Full.NET.Modules.Messaging.Contracts` | 运维控制面 DTO |
+| Document | `Full.NET.Modules.Document.Contracts` | 文档模块 DTO |
+| Notifications | `Full.NET.Modules.Notifications.Contracts` | 通知 DTO |
+| CodeGeneration | `Full.NET.Modules.CodeGeneration.Contracts` | 生成器契约 |
+| SerialNumbers | `Full.NET.Modules.SerialNumbers.Contracts` | 编号规则 DTO |
+
+Consumer Port 范例见 [`OrganizationUnitProjectionContracts.cs`](../src/Modules/Full.NET.Modules.Identity.Contracts/OrganizationUnitProjectionContracts.cs) 与 ADR-0002 §数据所有权。
+
 ---
 
 ## 4. 模块表命名约定

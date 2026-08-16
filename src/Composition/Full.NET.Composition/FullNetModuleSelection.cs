@@ -32,6 +32,32 @@ public static class FullNetModuleSelection
         "Organization",
     ];
 
+    public static readonly IReadOnlyList<string> PlatformPresetModuleNames =
+    [
+        "Identity",
+        "Tenancy",
+        "Settings",
+        "Organization",
+        "Auditing",
+        "Notifications",
+        "Jobs",
+        "Messaging",
+    ];
+
+    public static readonly IReadOnlyList<string> ContentPresetModuleNames =
+    [
+        "Identity",
+        "Tenancy",
+        "Settings",
+        "Organization",
+        "Auditing",
+        "Notifications",
+        "Jobs",
+        "Messaging",
+        "Files",
+        "Document",
+    ];
+
     public static IReadOnlySet<string> ResolveEnabledNames(IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
@@ -52,6 +78,20 @@ public static class FullNetModuleSelection
                      StringComparison.OrdinalIgnoreCase))
         {
             enabledNames = MinimalPresetModuleNames;
+        }
+        else if (string.Equals(
+                     options.Preset,
+                     FullNetModuleSelectionOptions.Presets.Platform,
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            enabledNames = PlatformPresetModuleNames;
+        }
+        else if (string.Equals(
+                     options.Preset,
+                     FullNetModuleSelectionOptions.Presets.Content,
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            enabledNames = ContentPresetModuleNames;
         }
         else
         {

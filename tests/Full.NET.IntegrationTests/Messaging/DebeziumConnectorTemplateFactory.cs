@@ -33,7 +33,15 @@ internal static class DebeziumConnectorTemplateFactory
             ["FULLNET_SQLSERVER_DATABASE"] = builder.InitialCatalog,
             ["FULLNET_KAFKA_BOOTSTRAP_SERVERS"] = kafkaBootstrapServers,
         };
-        return Substitute(template.Config, replacements);
+        var resolved = new Dictionary<string, string>(
+            Substitute(template.Config, replacements),
+            StringComparer.Ordinal);
+        // Connect 容器经 hostGateway 访问宿主机 SQL Server；JDBC 与 .NET 连接串 TLS 策略分离。
+        resolved["database.encrypt"] = "false";
+        resolved["database.trustServerCertificate"] = "true";
+        // Outbox EventRouter 的 table.field.event.timestamp 需要 INT64；SQL Server datetimeoffset 映射为 ZonedTimestamp。
+        resolved.Remove("transforms.outbox.table.field.event.timestamp");
+        return resolved;
     }
 
     public static async Task<IReadOnlyDictionary<string, string>> CreateMySqlShadowConfigAsync(

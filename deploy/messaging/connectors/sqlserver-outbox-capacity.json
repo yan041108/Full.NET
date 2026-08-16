@@ -25,7 +25,6 @@
     "transforms.outbox.table.field.event.key": "PartitionKey",
     "transforms.outbox.table.field.event.type": "MessageType",
     "transforms.outbox.table.field.event.payload": "Payload",
-    "transforms.outbox.table.field.event.timestamp": "OccurredAtUtc",
     "transforms.outbox.route.by.field": "MessageType",
     "transforms.outbox.route.topic.replacement": "fullnet.capacity.cdc.${routedByValue}",
     "transforms.outbox.table.op.valid.values": "c",

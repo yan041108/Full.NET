@@ -34,6 +34,32 @@ public sealed class FullNetModuleSelectionTests
     }
 
     [TestMethod]
+    public void Platform_preset_enables_platform_modules()
+    {
+        var enabled = FullNetModuleSelection.ResolveEnabledNames(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = FullNetModuleSelectionOptions.Presets.Platform,
+        }));
+
+        CollectionAssert.AreEquivalent(
+            FullNetModuleSelection.PlatformPresetModuleNames.ToArray(),
+            enabled.ToArray());
+    }
+
+    [TestMethod]
+    public void Content_preset_enables_content_modules()
+    {
+        var enabled = FullNetModuleSelection.ResolveEnabledNames(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Preset"] = FullNetModuleSelectionOptions.Presets.Content,
+        }));
+
+        CollectionAssert.AreEquivalent(
+            FullNetModuleSelection.ContentPresetModuleNames.ToArray(),
+            enabled.ToArray());
+    }
+
+    [TestMethod]
     public void Explicit_enabled_list_must_include_module_dependencies()
     {
         var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>

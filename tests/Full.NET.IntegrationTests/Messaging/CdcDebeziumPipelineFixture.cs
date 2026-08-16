@@ -84,10 +84,14 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
                 .UntilMessageIsLogged("Kafka Server started"))
             .Build();
 
+        var javaCryptoPolicy = ResolveJavaCryptoPolicyPath();
         var connect = new ContainerBuilder(DebeziumImage)
             .WithNetwork(network)
             .WithExtraHost("host.docker.internal", "host-gateway")
             .WithPortBinding(8083, true)
+            .WithBindMount(
+                javaCryptoPolicy,
+                "/etc/crypto-policies/back-ends/java.config")
             .WithEnvironment("BOOTSTRAP_SERVERS", $"{KafkaAlias}:{KafkaInternalPort}")
             .WithEnvironment("GROUP_ID", "fullnet-debezium-connect-test")
             .WithEnvironment("CONFIG_STORAGE_TOPIC", "fullnet.dev.shadow.internal.connect-config")
@@ -151,6 +155,19 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
         var port = (ushort)((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
         return port;
+    }
+
+    private static string ResolveJavaCryptoPolicyPath()
+    {
+        var repositoryRoot = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        return Path.Combine(
+            repositoryRoot,
+            "tests",
+            "Full.NET.IntegrationTests",
+            "Messaging",
+            "Assets",
+            "debezium-connect-java.config");
     }
 }
 

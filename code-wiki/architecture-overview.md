@@ -183,6 +183,8 @@ src/
 
 ### 4.1 Dapper-First 原则
 
+权威 SQL 三入口说明见 [`dapper-sql-sources.md`](dapper-sql-sources.md)。
+
 - **禁止引入 EF Core** 作为业务数据访问路径
 - **所有 SQL 参数化**；表名/排序片段来自封闭白名单
 - **禁止 SELECT \***；禁止无 WHERE 的 UPDATE/DELETE

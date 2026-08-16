@@ -19,8 +19,11 @@ public static class CrudArtifactGenerator
     /// 生成不依赖当前时间、文化、机器路径或随机数的内存产物清单。
     /// </summary>
     /// <param name="schema">已经通过 Naming Profile 与 CRUD 不变量校验的输入。</param>
+    /// <param name="includeLayuiClientArtifacts">是否生成 Layui 客户端产物；默认 false（Frozen 客户端仅授权维护时启用）。</param>
     /// <returns>按相对路径稳定排序且路径唯一的只读产物集合。</returns>
-    public static IReadOnlyList<GeneratedArtifact> Generate(FullNetCrudSchema schema)
+    public static IReadOnlyList<GeneratedArtifact> Generate(
+        FullNetCrudSchema schema,
+        bool includeLayuiClientArtifacts = false)
     {
         ArgumentNullException.ThrowIfNull(schema);
         EnsureSupportedExplicitCapabilities(schema);
@@ -35,14 +38,21 @@ public static class CrudArtifactGenerator
                 $"backend/{schema.ClrTypeName}Sql.g.cs",
                 GeneratedArtifactKind.Backend,
                 GenerateSql(schema)),
-            new GeneratedArtifact(
+        };
+        if (includeLayuiClientArtifacts)
+        {
+            artifacts.Add(new GeneratedArtifact(
                 $"clients/layui/{schema.ApiResourceName}-page.generated.js",
                 GeneratedArtifactKind.LayuiClient,
-                CrudClientPageModelGenerator.GenerateLayui(schema)),
-            new GeneratedArtifact(
+                CrudClientPageModelGenerator.GenerateLayui(schema)));
+            artifacts.Add(new GeneratedArtifact(
                 $"clients/layui/{schema.ApiResourceName}.generated.js",
                 GeneratedArtifactKind.LayuiClient,
-                GenerateLayuiClient(schema)),
+                GenerateLayuiClient(schema)));
+        }
+
+        artifacts.AddRange(
+        [
             new GeneratedArtifact(
                 $"clients/vue/{schema.ApiResourceName}-page.generated.ts",
                 GeneratedArtifactKind.VueClient,
@@ -55,7 +65,7 @@ public static class CrudArtifactGenerator
                 $"reports/{schema.ApiResourceName}.generation.json",
                 GeneratedArtifactKind.Report,
                 GenerateReport(schema)),
-        };
+        ]);
         if (schema.DataScope != FullNetCrudDataScope.Unspecified)
         {
             artifacts.Add(new GeneratedArtifact(

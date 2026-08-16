@@ -43,11 +43,14 @@ internal static class SqlServerCdcTestSupport
 
         if (!await IsSqlServerAgentRunningAsync(connection))
         {
-            return new CdcEnablementResult(
-                false,
-                "SQL Server Agent is not running; CDC capture jobs cannot start.",
-                AgentUnavailable: true,
-                usedExternal);
+            if (!usedExternal)
+            {
+                return new CdcEnablementResult(
+                    false,
+                    "SQL Server Agent is not running; CDC capture jobs cannot start.",
+                    AgentUnavailable: true,
+                    usedExternal);
+            }
         }
 
         try

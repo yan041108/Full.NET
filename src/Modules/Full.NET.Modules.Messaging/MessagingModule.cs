@@ -69,21 +69,6 @@ public sealed class MessagingModule : IFullNetModule
 
     private static void RegisterMessagingCore(IServiceCollection services)
     {
-        // 修复意图：Topic 目录条目是带 TopicCode/EventType/SchemaVersion 元数据的单例值对象，
-        // 不是按实现类型区分的策略接口。TryAddEnumerable 对工厂返回相同 ServiceType 的描述符
-        // 会抛 ArgumentException（无法区分两个 Func<,> 注册是否应该都保留），因此改为：
-        // 1) 按稳定语义键 TopicCode 先去重（而非 ReferenceEquals，避免不同装配阶段重新 new 同语义条目）
-        // 2) 直接用 AddSingleton(实例) 注入，保证 API/Worker 两次 AddServices/AddBackgroundServices
-        //    都幂等不抛错。
-        var topic = MessagingTopicDefinitions.OrganizationUnitChanged;
-        if (!services.Any(descriptor =>
-                descriptor.ServiceType == typeof(IntegrationEventTopicDefinition)
-                && descriptor.ImplementationInstance is IntegrationEventTopicDefinition existing
-                && existing.TopicCode == topic.TopicCode))
-        {
-            services.AddSingleton(topic);
-        }
-
         services.TryAddScoped<EventStreamOwnershipStore>();
         services.TryAddScoped<IEventStreamOwnershipStore>(
             provider => provider.GetRequiredService<EventStreamOwnershipStore>());

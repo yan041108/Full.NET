@@ -24,7 +24,7 @@
 | UUID v7 逻辑主键与双库物理映射 | Build-verified | SQL Server `uniqueidentifier` 与 MySQL `binary(16)` 已由 008/009 扩展—回填—收缩迁移及恢复测试覆盖；生产维护窗口、备份和 RPO/RTO 演练仍待环境验收。 |
 | SQL Server/MySQL 成对迁移 | Build-verified | 迁移命名、顺序、恢复和双 Provider 集成测试已形成门禁。 |
 | 事务 Outbox、租约、重试与死信 | Build-verified | 仅承载需要事务原子性的重要 Integration Event；缓存失效、日志、Trace、Metrics 与普通审计禁止进入 Outbox。 |
-| CDC Relay / Kafka **（Delivery 路径）** | Designing / Shadow-only | **Delivery 路径**仍为 Designing / Shadow-only；不得因 Scope B/C 工具或 Build 级 Consumer 硬化而升级切流状态。2026-08-16：MySQL 上已补充 Organization routed Outbox → CDC → Kafka → Identity 投影单条 happy path 集成测试（`OrganizationCdcKafkaIdentityProjectionMySqlE2ETests`），**仍不**升级 Production-verified。见 [`cdc-kafka-pilot-2026-08-08.md`](../verification/cdc-kafka-pilot-2026-08-08.md) 与 [`messaging-runtime-topology.md`](../operations/messaging-runtime-topology.md)。 |
+| CDC Relay / Kafka **（Delivery 路径）** | Build-verified / Pilot | Organization 真实 API 写路径 + `OrganizationUnitCdcKafkaEndToEndTests` / 故障矩阵已落地；MySQL 本地 E2E 在 outbox 路由修复后可达 Inbox 前段，Debezium 发布仍依赖 Docker 环境稳定性；SQL Server 对称证据需 `FULLNET_TEST_SQLSERVER_CDC_CONNECTION_STRING` + Agent。**仍禁止** `DeliveryCutover:Enabled=true` 与 Production-verified。见 [`cdc-kafka-pilot-2026-08-08.md`](../verification/cdc-kafka-pilot-2026-08-08.md)。 |
 | Kafka Capacity Runner **（测量工具，非 Delivery）** | Build-verified | **工具可用** ≠ Delivery 可切流。Scope A/B/C 已实现；Scope B/C 复用生产 Inbox/Dispatcher 核心，Scope C 追加 Outbox+Connect+CDC。MySQL 缩减集成测试已通过；SQL Server CDC 在 Testcontainers 上 Inconclusive。正式生产等价矩阵、Soak、N+1、故障恢复 **未执行**，测量结果继续 `Capacity-not-verified`。见 [`kafka-capacity-runner.md`](../operations/kafka-capacity-runner.md) 与 [`messaging-runtime-topology.md`](../operations/messaging-runtime-topology.md)。 |
 | FusionCache 多实例缓存治理 | Build-verified | 当前写路径使用提交后本实例 L1/L2 删除、Redis Backplane 与 TTL/版本兜底；Tenancy 与 Grid Preference 已纳入统一策略注册表，Architecture 手工策略 allowlist 为零；旧缓存事件处理器只作兼容排空。 |
 | 健康检查与运行角色就绪探针 | Build-verified | API、Worker、Migrator 和关键基础设施有独立就绪语义；生产阈值仍由环境配置验收。 |
@@ -38,7 +38,7 @@
 | Host / Tenant 字典 | Build-verified | 模块内查询、事务、双库和 Vue 管理页已形成完整切片。 |
 | Host / Tenant 配置参数 | Build-verified | 权威写入与跨实例生效遵循版本化事件、缓存失效和本地投影标准。 |
 | 枚举目录 | Build-verified | 机器码与翻译文本分离，客户端通过共享契约消费。 |
-| Grid Preference | Build-verified | 读写和缓存已落地；缓存策略仍需从 Architecture allowlist 迁入统一策略注册表。 |
+| Grid Preference | Build-verified | 读写和缓存已落地；缓存策略已迁入统一策略注册表，Architecture 手工策略 allowlist 为零（见 [`cache-policy-zero-allowlist-2026-08-08.md`](../verification/cache-policy-zero-allowlist-2026-08-08.md)）。 |
 | Host / Tenant 审计与操作日志 | Build-verified | 审计、HTTP Operation Log 与 Outbox 职责已分离。 |
 | 审计归档与保留 | Build-verified | 归档、导出、完整性与恢复边界已有验证；生产保留周期由运维配置。 |
 | Organization 单位、职位与成员关系 | Build-verified | 模块内关联使用本模块 SQL 与事务；Identity 侧本地投影与 Host 对账端点（keyset、dry-run、apply）已落地，见 [`cursor-post-review-follow-up`](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md) Task 2–3。 |
@@ -74,7 +74,7 @@
 
 1. ~~将 Identity 的 Organization 单位投影事件/回填 Port 收敛为消费方最小契约~~ **已完成**（2026-08-08 后续计划 Task 2；Architecture 反向契约目录为空）。
 2. ~~把 Identity 机构投影回填升级为 keyset、断点、dry-run、apply 与差异对账的有界 Host 运维能力~~ **已完成**（Task 3；`/api/v1/identity/organization-unit-projections/reconcile`）。
-3. 将 Layui 从活动客户端测试、构建、E2E 与包体门禁移出，只保留冻结目录失败关闭和显式维护例外。
+3. ~~将 Layui 从活动客户端测试、构建、E2E 与包体门禁移出~~ **已完成**（2026-08-08；见 [`layui-active-gate-retirement-2026-08-08.md`](../verification/layui-active-gate-retirement-2026-08-08.md)）。
 
 ### P2：契约与演进
 

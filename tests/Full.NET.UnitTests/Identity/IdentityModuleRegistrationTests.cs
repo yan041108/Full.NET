@@ -8,7 +8,6 @@ using Full.NET.Hosting.Api;
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Localization;
 using Full.NET.Messaging.Abstractions;
-using MessagingModuleTopics = Full.NET.Modules.Messaging.MessagingTopicDefinitions;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;

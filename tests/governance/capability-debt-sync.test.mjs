@@ -71,3 +71,20 @@ test('AllowedReverseContractDependencies 为空时文档不得声称反向契约
     /反向.*契约债务|精确.*模块契约债务/
   );
 });
+
+test('Grid Preference 与 FusionCache 缓存 allowlist 表述不得矛盾', async () => {
+  const capabilityStatus = await read('docs/roadmap/capability-status.md');
+
+  assert.match(
+    capabilityStatus,
+    /FusionCache 多实例缓存治理[\s\S]*?Architecture 手工策略 allowlist 为零/
+  );
+  assert.doesNotMatch(
+    capabilityStatus,
+    /Grid Preference[\s\S]*?仍需从 Architecture allowlist 迁入/
+  );
+  assert.match(
+    capabilityStatus,
+    /Grid Preference[\s\S]*?allowlist 为零/
+  );
+});

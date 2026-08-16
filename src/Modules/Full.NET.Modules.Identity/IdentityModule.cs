@@ -133,6 +133,7 @@ public sealed class IdentityModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        RegisterOrganizationUnitChangedTopic(services);
         AddOrganizationUnitProjection(services);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
@@ -155,5 +156,17 @@ public sealed class IdentityModule : IFullNetModule
             provider.GetRequiredService<OrganizationUnitProjectionDirectory>());
         services.TryAddScoped<OrganizationUnitProjectionBackfillService>();
         services.TryAddScoped<OrganizationUnitProjectionReconciliationService>();
+    }
+
+    internal static void RegisterOrganizationUnitChangedTopic(IServiceCollection services)
+    {
+        var topic = IdentityIntegrationEventTopicDefinitions.OrganizationUnitChanged;
+        if (!services.Any(descriptor =>
+                descriptor.ServiceType == typeof(IntegrationEventTopicDefinition)
+                && descriptor.ImplementationInstance is IntegrationEventTopicDefinition existing
+                && existing.TopicCode == topic.TopicCode))
+        {
+            services.AddSingleton(topic);
+        }
     }
 }

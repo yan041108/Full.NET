@@ -1,10 +1,12 @@
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 
-namespace Full.NET.Modules.Messaging;
+namespace Full.NET.Modules.Identity;
 
-/// <summary>消息运维与试点切流注册的官方 Topic 目录条目。</summary>
-internal static class MessagingTopicDefinitions
+/// <summary>
+/// Identity 消费方订阅所需的官方 Integration Event Topic 目录条目。
+/// </summary>
+internal static class IdentityIntegrationEventTopicDefinitions
 {
     public const string OrganizationUnitChangedTopicCode = "organization.unit-changed.v1";
 
