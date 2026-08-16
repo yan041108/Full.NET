@@ -1,4 +1,6 @@
 ﻿import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
+import { useAdminI18n } from '../../../i18n/adminI18n';
+import { labelComboboxesIn, scheduleComboboxLabeling } from '../accessibility/labelComboboxes';
 
 export interface ArtCrudTableLayoutOptions {
   /** 表格底部为分页预留的像素高度。 */
@@ -8,6 +10,7 @@ export interface ArtCrudTableLayoutOptions {
 /** 管理端 CRUD 列表页表格区域高度与表头样式。 */
 export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
   const bottomOffset = options.bottomOffset ?? 68;
+  const { t } = useAdminI18n();
   const tableMainRef = ref<HTMLElement | null>(null);
   const tableHeight = ref(360);
   const tableSize = ref<'large' | 'default' | 'small'>('default');
@@ -21,6 +24,15 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
       : 'var(--art-default-box-color)'
   }));
 
+  function labelPaginationComboboxes(): void {
+    const container = tableMainRef.value;
+    if (!container) {
+      return;
+    }
+
+    labelComboboxesIn(container, { pageSize: t('table.pageSize') });
+  }
+
   function updateTableHeight(): void {
     const container = tableMainRef.value;
     if (!container) {
@@ -28,20 +40,33 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
     }
     const top = container.getBoundingClientRect().top;
     tableHeight.value = Math.max(240, window.innerHeight - top - bottomOffset);
+    void nextTick(labelPaginationComboboxes);
   }
 
   onMounted(() => {
     updateTableHeight();
     window.addEventListener('resize', updateTableHeight);
+    schedulePaginationLabeling();
   });
 
   onActivated(() => {
     void nextTick(updateTableHeight);
+    schedulePaginationLabeling();
   });
 
   onUnmounted(() => {
     window.removeEventListener('resize', updateTableHeight);
   });
+
+  function schedulePaginationLabeling(): void {
+    const container = tableMainRef.value;
+    if (!container) {
+      void nextTick(labelPaginationComboboxes);
+      return;
+    }
+
+    scheduleComboboxLabeling(container, { pageSize: t('table.pageSize') });
+  }
 
   function watchLoading(loading: Ref<boolean>): void {
     watch(loading, () => {

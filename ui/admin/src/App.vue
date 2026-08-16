@@ -35,6 +35,7 @@ import './framework/art-design/theme/art-sidebar-menu.css';
 import './framework/art-design/theme/art-menu-layouts.css';
 import './framework/art-design/theme/art-settings-panel.css';
 import './framework/art-design/auth/art-login.css';
+import { scheduleComboboxLabeling } from './framework/art-design/accessibility/labelComboboxes';
 
 const route = useRoute();
 const router = useRouter();
@@ -94,6 +95,23 @@ watch(
 onUnmounted(() => {
   void notificationsRealtime.dispose();
 });
+
+watch(
+  () => [route.path, session.isAuthenticated] as const,
+  ([, authenticated]) => {
+    if (!authenticated) {
+      return;
+    }
+
+    void nextTick(() => {
+      scheduleComboboxLabeling(document, {
+        pageSize: t('table.pageSize'),
+        tenantSelector: t('shell.tenantSelector')
+      });
+    });
+  },
+  { immediate: true }
+);
 
 const selectedContext = computed(() =>
   session.currentUser?.tenantId ?? hostContextValue

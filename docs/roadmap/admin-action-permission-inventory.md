@@ -256,6 +256,38 @@
 | `HostDocumentItemsView.vue` | 上传新版本 | `document.host_documents.add_version` | 078 |
 | `HostDocumentItemsView.vue` | 删除 | `document.host_documents.delete` | 无 |
 | `HostDocumentItemsView.vue` | 恢复 | `document.host_documents.restore` | 078 |
+| `HostDocumentItemsView.vue` | 下载 | `document.host_documents.download` | 078 |
+| `HostDocumentItemsView.vue` | 预览 | `document.host_documents.read` | Admin.NET parity 2026-08 |
+| `HostDocumentItemsView.vue` | 版本历史 | `document.host_documents.read` | Admin.NET parity 2026-08 |
+
+## W5：Document Recycle Bin（Admin.NET parity）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `DocumentRecycleBinView.vue` | 页面 | `document.host_recycle_bin.read` | Admin.NET parity 2026-08 |
+| `DocumentRecycleBinView.vue` | 恢复 | `document.host_recycle_bin.restore` | Admin.NET parity 2026-08 |
+| `DocumentRecycleBinView.vue` | 彻底删除 | `document.host_recycle_bin.purge` | Admin.NET parity 2026-08 |
+
+## W5：Document Shares（Admin.NET parity）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `DocumentSharesView.vue` | 页面 | `document.host_shares.read` | Admin.NET parity 2026-08 |
+| `DocumentSharesView.vue` | 创建 | `document.host_shares.create` | Admin.NET parity 2026-08 |
+| `DocumentSharesView.vue` | 启用/禁用 | `document.host_shares.update_status` | Admin.NET parity 2026-08 |
+
+## W5：Document Permissions（Admin.NET parity）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `DocumentPermissionsView.vue` | 页面 | `document.host_permissions.read` | Admin.NET parity 2026-08 |
+| `DocumentPermissionsView.vue` | 保存 ACL | `document.host_permissions.set` | Admin.NET parity 2026-08 |
+
+## W5：Document Statistics（Admin.NET parity）
+
+| Vue 入口 | 操作 | 权限码 | 迁移 |
+| --- | --- | --- | --- |
+| `DocumentStatisticsView.vue` | 页面 | `document.host_statistics.read` | Admin.NET parity 2026-08 |
 
 ## W5：Document Categories（079）
 

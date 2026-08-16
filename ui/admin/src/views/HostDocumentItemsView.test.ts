@@ -12,9 +12,9 @@ import {
   restoreDocumentItem,
   updateDocumentItem,
   uploadDocumentVersion
-} from '../api/document-items';
+} from '../api/host-document-items';
 
-vi.mock('../api/document-items', () => ({
+vi.mock('../api/host-document-items', () => ({
   createDocumentItem: vi.fn(),
   deleteDocumentItem: vi.fn(),
   downloadDocumentContent: vi.fn(),

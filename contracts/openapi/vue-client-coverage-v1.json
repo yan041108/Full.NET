@@ -116,7 +116,7 @@
         "packages/client-contracts/src/document-categories.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-categories-tags-v1.json",
-      "apiModule": "ui/admin/src/api/document-categories.ts",
+      "apiModule": "ui/admin/src/api/host-document-categories.ts",
       "routePrefixes": [
         "/api/v1/document/host/categories"
       ]
@@ -126,7 +126,7 @@
         "packages/client-contracts/src/document-items.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-items-v1.json",
-      "apiModule": "ui/admin/src/api/document-items.ts",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
       "routePrefixes": [
         "/api/v1/document/host/items"
       ]
@@ -136,7 +136,7 @@
         "packages/client-contracts/src/document-tags.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-categories-tags-v1.json",
-      "apiModule": "ui/admin/src/api/document-tags.ts",
+      "apiModule": "ui/admin/src/api/host-document-tags.ts",
       "routePrefixes": [
         "/api/v1/document/host/tags"
       ]
@@ -455,13 +455,13 @@
     { "apiModule": "ui/admin/src/api/config-entries.ts", "consumers": ["ui/admin/src/views/ConfigEntriesView.vue"] },
     { "apiModule": "ui/admin/src/api/diagnostic-policy.ts", "consumers": ["ui/admin/src/views/DiagnosticPolicyView.vue"] },
     { "apiModule": "ui/admin/src/api/dict-types.ts", "consumers": ["ui/admin/src/views/DictTypesView.vue"] },
-    { "apiModule": "ui/admin/src/api/document-categories.ts", "consumers": ["ui/admin/src/views/DocumentCategoriesView.vue"] },
-    { "apiModule": "ui/admin/src/api/document-items.ts", "consumers": ["ui/admin/src/views/HostDocumentItemsView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-document-categories.ts", "consumers": ["ui/admin/src/views/DocumentCategoriesView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-document-items.ts", "consumers": ["ui/admin/src/views/HostDocumentItemsView.vue"] },
     { "apiModule": "ui/admin/src/api/document-permissions.ts", "consumers": ["ui/admin/src/views/DocumentPermissionsView.vue"] },
     { "apiModule": "ui/admin/src/api/document-recycle-bin.ts", "consumers": ["ui/admin/src/views/DocumentRecycleBinView.vue"] },
     { "apiModule": "ui/admin/src/api/document-shares.ts", "consumers": ["ui/admin/src/views/DocumentSharesView.vue"] },
     { "apiModule": "ui/admin/src/api/document-statistics.ts", "consumers": ["ui/admin/src/views/DocumentStatisticsView.vue"] },
-    { "apiModule": "ui/admin/src/api/document-tags.ts", "consumers": ["ui/admin/src/views/DocumentTagsView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-document-tags.ts", "consumers": ["ui/admin/src/views/DocumentTagsView.vue"] },
     { "apiModule": "ui/admin/src/api/enum-catalogs.ts", "consumers": ["ui/admin/src/views/EnumCatalogsView.vue"] },
     { "apiModule": "ui/admin/src/api/exception-logs.ts", "consumers": ["ui/admin/src/views/ExceptionLogsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-announcements.ts", "consumers": ["ui/admin/src/views/HostAnnouncementsView.vue"] },

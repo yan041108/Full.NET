@@ -20,7 +20,7 @@
   --art-header-bg: #ffffff;
   --art-header-border: var(--art-card-border);
   --art-breadcrumb-text: #6b7684;
-  --art-tab-text: #6b7684;
+  --art-tab-text: #4b5563;
   --art-tab-active-text: var(--art-theme-text);
   --art-tab-bg: transparent;
   --art-active-color: rgb(64 158 255 / 10%);
@@ -59,6 +59,7 @@
   overflow: hidden;
   background: var(--art-default-bg-color);
   color: var(--fullnet-color-ink);
+  --el-table-header-text-color: var(--art-gray-800);
 }
 
 .art-admin-shell__sidebar {
@@ -91,6 +92,15 @@
 .art-admin-shell .el-select__wrapper {
   min-height: 32px;
   border-radius: calc(var(--art-custom-radius) / 2);
+}
+
+.art-admin-shell .el-table th.el-table__cell .cell {
+  color: var(--art-gray-800);
+  font-weight: 600;
+}
+
+.art-admin-shell .el-table__empty-text {
+  color: var(--art-gray-600, #606266);
 }
 
 .art-admin-shell .locale-selector select {

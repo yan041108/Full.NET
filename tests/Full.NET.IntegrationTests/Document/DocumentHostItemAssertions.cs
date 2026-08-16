@@ -67,6 +67,7 @@ internal static class DocumentHostItemAssertions
             cancellationToken);
         await VerifyInvalidFileReferenceAsync(client, writer.AccessToken, created.Id, cancellationToken);
         await VerifyDeleteAndRestoreAsync(client, writer.AccessToken, withVersion, cancellationToken);
+        await VerifyVersionsAndPreviewAsync(client, writer.AccessToken, withVersion, cancellationToken);
     }
 
     private static async Task<HostDocumentItemResponse> CreateItemAsync(
@@ -236,6 +237,67 @@ internal static class DocumentHostItemAssertions
         var loaded = await getResponse.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
         Assert.IsNotNull(loaded);
         Assert.AreEqual(item.CurrentVersion!.FileId, loaded.CurrentVersion!.FileId);
+    }
+
+    private static async Task VerifyVersionsAndPreviewAsync(
+        HttpClient client,
+        string token,
+        HostDocumentItemResponse item,
+        CancellationToken cancellationToken)
+    {
+        using (var versionsResponse = await client.SendAsync(
+                   Authorized(HttpMethod.Get, $"{ItemsPath}/{item.Id:D}/versions", token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, versionsResponse.StatusCode);
+            var versions = await versionsResponse.Content.ReadFromJsonAsync<HostDocumentVersionResponse[]>(
+                cancellationToken);
+            Assert.IsNotNull(versions);
+            Assert.AreEqual(1, versions.Length);
+            Assert.AreEqual(item.CurrentVersion!.Id, versions[0].Id);
+        }
+
+        using (var previewResponse = await client.SendAsync(
+                   Authorized(HttpMethod.Get, $"{ItemsPath}/{item.Id:D}/preview", token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, previewResponse.StatusCode);
+            Assert.AreEqual("text/plain", previewResponse.Content.Headers.ContentType?.MediaType);
+            var bytes = await previewResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+            Assert.IsTrue(bytes.Length > 0);
+        }
+
+        var officePayload = Encoding.UTF8.GetBytes("fake-office-content");
+        using var officeUpload = new MultipartFormDataContent();
+        var officeFile = new ByteArrayContent(officePayload);
+        officeFile.Headers.ContentType = new MediaTypeHeaderValue(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        officeUpload.Add(officeFile, "file", "document.docx");
+        using var officeUploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{ItemsPath}/{item.Id:D}/versions/upload")
+        {
+            Content = officeUpload,
+        };
+        officeUploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var officeUploadResponse = await client.SendAsync(officeUploadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, officeUploadResponse.StatusCode);
+        var officeVersion = await officeUploadResponse.Content.ReadFromJsonAsync<HostDocumentItemResponse>(
+            cancellationToken);
+        Assert.IsNotNull(officeVersion?.CurrentVersion);
+
+        using var unsupportedPreview = await client.SendAsync(
+            Authorized(
+                HttpMethod.Get,
+                $"{ItemsPath}/{item.Id:D}/preview",
+                token),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, unsupportedPreview.StatusCode);
+        using var unsupportedProblem = JsonDocument.Parse(
+            await unsupportedPreview.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            DocumentErrorCodes.PreviewNotSupported,
+            unsupportedProblem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task VerifyInvalidFileReferenceAsync(

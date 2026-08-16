@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -41,6 +42,19 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
+
+        group.MapGet("/{itemId:guid}/versions", async (
+            Guid itemId,
+            HostDocumentItemQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ListVersionsAsync(itemId, cancellationToken).ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<IReadOnlyList<HostDocumentVersionResponse>>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
 
         group.MapPost("/", async (
@@ -145,6 +159,35 @@ internal static class Endpoint
         .DisableAntiforgery()
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.AddVersion));
 
+        group.MapGet("/{itemId:guid}/preview", async (
+            Guid itemId,
+            HostDocumentItemQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.OpenVersionPreviewAsync(itemId, null, cancellationToken)
+                .ConfigureAwait(false);
+            return MapPreviewResult(result, mapper, httpContext);
+        })
+        .Produces(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
+
+        group.MapGet("/{itemId:guid}/versions/{versionId:guid}/preview", async (
+            Guid itemId,
+            Guid versionId,
+            HostDocumentItemQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.OpenVersionPreviewAsync(itemId, versionId, cancellationToken)
+                .ConfigureAwait(false);
+            return MapPreviewResult(result, mapper, httpContext);
+        })
+        .Produces(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
+
         group.MapGet("/{itemId:guid}/content", async (
             Guid itemId,
             HostDocumentItemQueryService queries,
@@ -217,5 +260,25 @@ internal static class Endpoint
         userId = default;
         var subject = httpContext.User.FindFirst("sub")?.Value;
         return Guid.TryParse(subject, out userId);
+    }
+
+    private static IResult MapPreviewResult(
+        Result<HostFileContent> result,
+        IApiResultMapper mapper,
+        HttpContext httpContext)
+    {
+        if (!result.IsSuccess)
+        {
+            return mapper.Map(
+                Result<HostDocumentItemResponse>.Failure(result.Error!),
+                httpContext);
+        }
+
+        var content = result.Value!;
+        httpContext.Response.Headers.ContentDisposition = "inline";
+        return Results.File(
+            content.Content,
+            content.ContentType,
+            enableRangeProcessing: true);
     }
 }

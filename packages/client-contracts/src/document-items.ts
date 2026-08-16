@@ -152,6 +152,10 @@ export function isHostDocumentVersionResponse(value: unknown): value is HostDocu
     && isGuid(value.uploadedByUserId);
 }
 
+export function isHostDocumentVersionList(value: unknown): value is HostDocumentVersionResponse[] {
+  return Array.isArray(value) && value.every(isHostDocumentVersionResponse);
+}
+
 export function isHostDocumentTagAssignmentResponse(value: unknown): value is HostDocumentTagAssignmentResponse {
   return isRecord(value)
     && isGuid(value.tagId)

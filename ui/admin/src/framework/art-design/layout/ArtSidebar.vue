@@ -40,7 +40,7 @@ const menuPopperClass = computed(() =>
 </script>
 
 <template>
-  <aside
+  <nav
     class="art-sidebar"
     :class="[{ 'is-collapsed': menuCollapsed }, sidebarClass]"
     :aria-label="mainNavigationLabel"
@@ -70,7 +70,7 @@ const menuPopperClass = computed(() =>
         <ArtSidebarSubmenu :items="navigation" />
       </ElMenu>
     </div>
-  </aside>
+  </nav>
 </template>
 
 <style scoped>

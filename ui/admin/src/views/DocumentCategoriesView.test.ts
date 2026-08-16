@@ -8,9 +8,9 @@ import {
   deleteDocumentCategory,
   listDocumentCategories,
   updateDocumentCategory
-} from '../api/document-categories';
+} from '../api/host-document-categories';
 
-vi.mock('../api/document-categories', () => ({
+vi.mock('../api/host-document-categories', () => ({
   createDocumentCategory: vi.fn(),
   deleteDocumentCategory: vi.fn(),
   listDocumentCategories: vi.fn(),

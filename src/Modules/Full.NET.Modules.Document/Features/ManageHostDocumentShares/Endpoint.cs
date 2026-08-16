@@ -4,6 +4,7 @@ using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentShares;
@@ -92,6 +93,7 @@ internal static class Endpoint
         })
         .Accepts<AccessHostDocumentShareRequest>("application/json")
         .Produces<HostDocumentShareAccessResponse>(StatusCodes.Status200OK)
+        .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
         .AllowAnonymous();
     }
 }

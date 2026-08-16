@@ -43,6 +43,12 @@
                       "path":  "/api/v1/document/host/items/{itemId}/versions",
                       "operations":  [
                                          {
+                                             "method":  "GET",
+                                             "permission":  "document.host_documents.read",
+                                             "successStatus":  200,
+                                             "responseSchema":  "HostDocumentVersionResponseList"
+                                         },
+                                         {
                                              "method":  "POST",
                                              "permission":  "document.host_documents.add_version",
                                              "successStatus":  200,
@@ -59,6 +65,26 @@
                                              "permission":  "document.host_documents.add_version",
                                              "successStatus":  200,
                                              "responseSchema":  "HostDocumentItemResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/document/host/items/{itemId}/preview",
+                      "operations":  [
+                                         {
+                                             "method":  "GET",
+                                             "permission":  "document.host_documents.read",
+                                             "successStatus":  200
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/document/host/items/{itemId}/versions/{versionId}/preview",
+                      "operations":  [
+                                         {
+                                             "method":  "GET",
+                                             "permission":  "document.host_documents.read",
+                                             "successStatus":  200
                                          }
                                      ]
                   },
@@ -133,10 +159,17 @@
                                                                            "fileId",
                                                                            "contentHash",
                                                                            "sizeBytes",
+                                                                           "changeDescription",
                                                                            "createdAtUtc",
                                                                            "uploadedByUserId"
                                                                        ]
                                                     },
+                    "HostDocumentVersionResponseList":  {
+                                                            "properties":  [
+
+                                                                           ],
+                                                            "itemSchema":  "HostDocumentVersionResponse"
+                                                        },
                     "HostDocumentItemResponse":  {
                                                      "properties":  [
                                                                         "id",

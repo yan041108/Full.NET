@@ -94,6 +94,17 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             75,
             HostDocumentSharePermissions.Read),
         new NavigationDefinition(
+            "document-permissions",
+            null,
+            "document-permissions",
+            "/document/permissions",
+            "document-permissions",
+            "文档权限",
+            "Document Permissions",
+            "lock",
+            76,
+            HostDocumentPermissionManagementPermissions.Read),
+        new NavigationDefinition(
             "document-statistics",
             null,
             "document-statistics",
@@ -102,7 +113,7 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "文档统计",
             "Document Statistics",
             "chart-bar",
-            76,
+            77,
             HostDocumentStatisticsPermissions.Read),
     ];
 
@@ -208,11 +219,11 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             20),
         new AuthorizationActionDefinition(
             "document.host_permissions.set",
-            "host-document-items",
+            "document-permissions",
             HostDocumentPermissionManagementPermissions.Set,
-            "设置权限",
+            "保存 ACL",
             "set_permissions",
-            60),
+            10),
         new AuthorizationActionDefinition(
             "document.host_shares.create",
             "document-shares",

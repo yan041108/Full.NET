@@ -8,6 +8,7 @@ public static class DocumentErrorCodes
     public const string VersionConflict = "document.host_document.version_conflict";
     public const string InvalidFileReference = "document.host_document.invalid_file_reference";
     public const string NoCurrentVersion = "document.host_document.no_current_version";
+    public const string PreviewNotSupported = "document.host_document.preview_not_supported";
     public const string CategoryInvalid = "document.host_category.invalid";
     public const string CategoryNotFound = "document.host_category.not_found";
     public const string CategoryNameExists = "document.host_category.name_exists";
@@ -45,6 +46,7 @@ public static class DocumentErrorCodes
         VersionConflict,
         InvalidFileReference,
         NoCurrentVersion,
+        PreviewNotSupported,
         CategoryInvalid,
         CategoryNotFound,
         CategoryNameExists,

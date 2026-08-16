@@ -43,7 +43,7 @@
 | 审计归档与保留 | Build-verified | 归档、导出、完整性与恢复边界已有验证；生产保留周期由运维配置。 |
 | Organization 单位、职位与成员关系 | Build-verified | 模块内关联使用本模块 SQL 与事务；Identity 侧本地投影与 Host 对账端点（keyset、dry-run、apply）已落地，见 [`cursor-post-review-follow-up`](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md) Task 2–3。 |
 | Files 本地存储、Provider 与上传状态机 | Build-verified | ProviderKey、Pending→Publishing→Ready、补偿与对账、双库迁移均已有验证。 |
-| Document | Build-verified | 2026-08-16：分享口令哈希 + Version 乐观锁并发、Admin.NET 对称后端矩阵（recycle-bin/permissions/shares/statistics）、Vue 四页与调用点门禁已通过双库与前端验证；Files Claim/Delete 并发矩阵已关闭（P0 #1）。仍非 Production-verified。见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md)。 |
+| Document | Build-verified | 2026-08-16：核心 Verified 切片（限流、版本历史、MVP 预览、统计修复、OpenAPI/权限清单、Integration 双库）已落地；admin-parity WCAG 全绿与 admin-real-stack 双库 E2E 复验仍待 fresh 输出后升档。仍非 Production-verified。见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md)。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
 | Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径在事务外调用 `IHostUserDirectory` 校验收件人，事务内仅写入 Notifications 表，Architecture 本地事务扫描无登记债务。 |
 | Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。 |

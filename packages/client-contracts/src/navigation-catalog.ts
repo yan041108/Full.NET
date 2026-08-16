@@ -145,6 +145,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/document/shares'
   },
   {
+    componentKey: 'document-permissions',
+    routeName: 'document-permissions',
+    path: '/document/permissions'
+  },
+  {
     componentKey: 'document-statistics',
     routeName: 'document-statistics',
     path: '/document/statistics'

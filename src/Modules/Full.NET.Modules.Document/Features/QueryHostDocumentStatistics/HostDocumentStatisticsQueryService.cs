@@ -82,7 +82,7 @@ internal sealed class HostDocumentStatisticsQueryService(
             byCategoryResponse,
             shareCounts.ShareCount,
             shareCounts.TodayAccessCount,
-            shareCounts.TodayAccessCount,
+            shareCounts.TodayDownloadCount,
             shareCounts.TodayCreatedCount,
             shareCounts.RecycleBinCount);
 

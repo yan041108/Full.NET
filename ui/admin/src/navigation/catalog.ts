@@ -122,6 +122,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.documentShares.title',
     captionKey: 'navigation.documentShares.caption'
   }],
+  ['document-permissions', {
+    titleKey: 'navigation.documentPermissions.title',
+    captionKey: 'navigation.documentPermissions.caption'
+  }],
   ['document-statistics', {
     titleKey: 'navigation.documentStatistics.title',
     captionKey: 'navigation.documentStatistics.caption'

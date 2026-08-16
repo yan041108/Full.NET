@@ -1,8 +1,10 @@
 import {
   isHostDocumentItemPage,
   isHostDocumentItemResponse,
+  isHostDocumentVersionList,
   type HostDocumentItemPage,
-  type HostDocumentItemResponse
+  type HostDocumentItemResponse,
+  type HostDocumentVersionResponse
 } from '@fullnet/client-contracts';
 import { request, requestBlob } from './http';
 
@@ -79,6 +81,30 @@ export async function downloadDocumentContent(itemId: string): Promise<Blob> {
   );
 }
 
+export async function listDocumentVersions(
+  itemId: string
+): Promise<HostDocumentVersionResponse[]> {
+  const value = await request<unknown>(
+    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/versions`
+  );
+  if (!isHostDocumentVersionList(value)) {
+    throw new Error('client.invalid_document_version_list');
+  }
+  return value;
+}
+
+export async function previewDocumentContent(
+  itemId: string,
+  versionId?: string
+): Promise<Blob> {
+  const suffix = versionId
+    ? `/versions/${encodeURIComponent(versionId)}/preview`
+    : '/preview';
+  return requestBlob(
+    `/api/v1/document/host/items/${encodeURIComponent(itemId)}${suffix}`
+  );
+}
+
 /** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
 export function openDocumentBlob(blob: Blob): void {
   const url = URL.createObjectURL(blob);
@@ -142,4 +168,4 @@ export async function restoreDocumentItem(
   return value;
 }
 
-export type { HostDocumentItemPage, HostDocumentItemResponse };
+export type { HostDocumentItemPage, HostDocumentItemResponse, HostDocumentVersionResponse };

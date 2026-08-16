@@ -212,6 +212,8 @@ internal sealed class DocumentStatisticsShareCountRecord
 
     public long TodayAccessCount { get; init; }
 
+    public long TodayDownloadCount { get; init; }
+
     public long TodayCreatedCount { get; init; }
 
     public long RecycleBinCount { get; init; }

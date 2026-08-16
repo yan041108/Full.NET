@@ -206,6 +206,7 @@ export {
   isHostDocumentTagAssignmentResponse,
   isHostDocumentType,
   isHostDocumentVersionResponse,
+  isHostDocumentVersionList,
   isRestoreHostDocumentItemRequest,
   isUpdateHostDocumentItemRequest
 } from './document-items.js';

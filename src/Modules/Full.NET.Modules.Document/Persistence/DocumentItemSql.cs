@@ -317,6 +317,30 @@ internal static class DocumentItemSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListVersionsByItemId = new(
+        "document.host_item.versions.list",
+        """
+        SELECT
+            Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
+            ChangeDescription, UploadedByUserId, CreatedAtUtc
+        FROM fn_document_version
+        WHERE DocumentItemId = @DocumentItemId
+        ORDER BY VersionNumber DESC
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindVersionById = new(
+        "document.host_item.versions.find_by_id",
+        """
+        SELECT
+            Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
+            ChangeDescription, UploadedByUserId, CreatedAtUtc
+        FROM fn_document_version
+        WHERE Id = @VersionId
+          AND DocumentItemId = @DocumentItemId
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement StatisticsShareCountSqlServer = new(
         "document.host_statistics.share_count.sql_server",
         """
@@ -324,6 +348,10 @@ internal static class DocumentItemSql
             (SELECT COUNT(1) FROM fn_document_share WHERE TenantId IS NULL) AS ShareCount,
             (SELECT ISNULL(SUM(s.AccessCount), 0) FROM fn_document_share s
              WHERE s.TenantId IS NULL AND CAST(s.CreatedAtUtc AS DATE) = CAST(GETUTCDATE() AS DATE)) AS TodayAccessCount,
+            (SELECT COUNT(1) FROM fn_document_item i
+             WHERE i.TenantId IS NULL AND i.IsDeleted = 0
+               AND i.LastAccessTime IS NOT NULL
+               AND CAST(i.LastAccessTime AS DATE) = CAST(GETUTCDATE() AS DATE)) AS TodayDownloadCount,
             (SELECT COUNT(1) FROM fn_document_share s
              WHERE s.TenantId IS NULL AND CAST(s.CreatedAtUtc AS DATE) = CAST(GETUTCDATE() AS DATE)) AS TodayCreatedCount,
             (SELECT COUNT(1) FROM fn_document_item WHERE TenantId IS NULL AND IsDeleted = 1) AS RecycleBinCount;
@@ -337,6 +365,10 @@ internal static class DocumentItemSql
             (SELECT COUNT(1) FROM fn_document_share WHERE TenantId IS NULL) AS ShareCount,
             (SELECT IFNULL(SUM(s.AccessCount), 0) FROM fn_document_share s
              WHERE s.TenantId IS NULL AND DATE(s.CreatedAtUtc) = UTC_DATE()) AS TodayAccessCount,
+            (SELECT COUNT(1) FROM fn_document_item i
+             WHERE i.TenantId IS NULL AND i.IsDeleted = 0
+               AND i.LastAccessTime IS NOT NULL
+               AND DATE(i.LastAccessTime) = UTC_DATE()) AS TodayDownloadCount,
             (SELECT COUNT(1) FROM fn_document_share s
              WHERE s.TenantId IS NULL AND DATE(s.CreatedAtUtc) = UTC_DATE()) AS TodayCreatedCount,
             (SELECT COUNT(1) FROM fn_document_item WHERE TenantId IS NULL AND IsDeleted = 1) AS RecycleBinCount;

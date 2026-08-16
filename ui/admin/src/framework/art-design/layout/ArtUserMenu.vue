@@ -2,7 +2,7 @@
 
 import { SwitchButton } from '@element-plus/icons-vue';
 
-import { ElButton, ElOption, ElPopover, ElSelect } from 'element-plus';
+import { ElButton, ElFormItem, ElOption, ElPopover, ElSelect } from 'element-plus';
 
 
 
@@ -103,43 +103,24 @@ const visible = defineModel<boolean>('open', { default: false });
 
 
       <div v-if="canReadTenants" class="art-user-menu__tenant">
-
-        <label for="art-user-tenant-select">{{ tenantSelectorLabel }}</label>
-
-        <el-select
-
-          id="art-user-tenant-select"
-
-          data-testid="shell-tenant-select"
-
-          :model-value="selectedContext"
-
-          :disabled="switching || !canSwitchTenant"
-
-          :aria-label="tenantSelectorLabel"
-
-          size="small"
-
-          @change="value => emit('switchTenant', String(value))"
-
-        >
-
-          <el-option label="Full.NET Host" :value="hostContextValue" />
-
-          <el-option
-
-            v-for="tenant in availableTenants"
-
-            :key="tenant.id"
-
-            :label="tenant.name"
-
-            :value="tenant.id"
-
-          />
-
-        </el-select>
-
+        <el-form-item :label="tenantSelectorLabel" class="art-user-menu__tenant-field">
+          <el-select
+            data-testid="shell-tenant-select"
+            :model-value="selectedContext"
+            :disabled="switching || !canSwitchTenant"
+            :aria-label="tenantSelectorLabel"
+            size="small"
+            @change="value => emit('switchTenant', String(value))"
+          >
+            <el-option label="Full.NET Host" :value="hostContextValue" />
+            <el-option
+              v-for="tenant in availableTenants"
+              :key="tenant.id"
+              :label="tenant.name"
+              :value="tenant.id"
+            />
+          </el-select>
+        </el-form-item>
       </div>
 
 

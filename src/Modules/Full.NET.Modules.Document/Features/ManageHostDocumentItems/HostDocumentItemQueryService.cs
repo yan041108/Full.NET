@@ -86,6 +86,114 @@ internal sealed class HostDocumentItemQueryService(
             .ConfigureAwait(false);
     }
 
+    public async Task<Result<IReadOnlyList<HostDocumentVersionResponse>>> ListVersionsAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                DocumentItemSql.FindActiveById,
+                new { Id = itemId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (item is null)
+        {
+            return Result<IReadOnlyList<HostDocumentVersionResponse>>.Failure(NotFoundError());
+        }
+
+        var versions = await queryExecutor
+            .QueryAsync<DocumentVersionRecord>(
+                DocumentItemSql.ListVersionsByItemId,
+                new { DocumentItemId = itemId },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return Result<IReadOnlyList<HostDocumentVersionResponse>>.Success(
+            versions.Select(HostDocumentItemResponseMapper.MapVersion).ToArray());
+    }
+
+    public async Task<Result<HostFileContent>> OpenVersionPreviewAsync(
+        Guid itemId,
+        Guid? versionId,
+        CancellationToken cancellationToken = default)
+    {
+        var fileIdResult = await ResolvePreviewFileIdAsync(itemId, versionId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!fileIdResult.IsSuccess)
+        {
+            return Result<HostFileContent>.Failure(fileIdResult.Error!);
+        }
+
+        var contentResult = await hostFileContentReader
+            .OpenReadyContentAsync(fileIdResult.Value, cancellationToken)
+            .ConfigureAwait(false);
+        if (!contentResult.IsSuccess)
+        {
+            return contentResult;
+        }
+
+        if (!IsPreviewSupportedMime(contentResult.Value!.ContentType))
+        {
+            contentResult.Value.Content.Dispose();
+            return Result<HostFileContent>.Failure(PreviewNotSupportedError());
+        }
+
+        return contentResult;
+    }
+
+    private async Task<Result<Guid>> ResolvePreviewFileIdAsync(
+        Guid itemId,
+        Guid? versionId,
+        CancellationToken cancellationToken)
+    {
+        if (versionId is null)
+        {
+            var record = await queryExecutor
+                .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                    DocumentItemSql.FindActiveById,
+                    new { Id = itemId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (record is null)
+            {
+                return Result<Guid>.Failure(NotFoundError());
+            }
+
+            if (record.FileId is null)
+            {
+                return Result<Guid>.Failure(NoCurrentVersionError());
+            }
+
+            return Result<Guid>.Success(record.FileId.Value);
+        }
+
+        var version = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentVersionRecord>(
+                DocumentItemSql.FindVersionById,
+                new { VersionId = versionId.Value, DocumentItemId = itemId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (version is null)
+        {
+            return Result<Guid>.Failure(NotFoundError());
+        }
+
+        return Result<Guid>.Success(version.FileId);
+    }
+
+    private static bool IsPreviewSupportedMime(string contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return false;
+        }
+
+        var normalized = contentType.Split(';', 2)[0].Trim().ToLowerInvariant();
+        return normalized.StartsWith("text/", StringComparison.Ordinal)
+            || normalized.StartsWith("image/", StringComparison.Ordinal)
+            || normalized == "application/pdf";
+    }
+
     private static HostDocumentItemResponse Map(DocumentItemDetailRecord record) =>
         HostDocumentItemResponseMapper.Map(record);
 
@@ -97,4 +205,7 @@ internal sealed class HostDocumentItemQueryService(
 
     private static Error NoCurrentVersionError() =>
         new(DocumentErrorCodes.NoCurrentVersion, "Document item has no downloadable version.", ErrorType.NotFound);
+
+    private static Error PreviewNotSupportedError() =>
+        new(DocumentErrorCodes.PreviewNotSupported, "Document preview is not supported for this content type.", ErrorType.BusinessRule);
 }

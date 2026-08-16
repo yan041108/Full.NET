@@ -122,7 +122,7 @@
 | `Admin.NET.Plugin.Ai` | AI 模型配置、对话、Agent、工具调用、MCP 与 Agentic Web | AI + Agents + AgenticWeb | Official Module + Provider + Protocol Adapter | Mapped |
 | `Admin.NET.Plugin.DataApproval` | 数据变更审批 | DataApproval | Official Module | Mapped |
 | `Admin.NET.Plugin.DingTalk` | 钉钉组织、消息和接口 | DingTalk | Provider | Mapped |
-| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | **Implementing**（Gate G4 已批准，Host 文档/分类/标签/版本基础切片、Vue 与双库验证已交付；分享、预览、持久化回收站、文档级 ACL、版本历史与统计仍未实现，不能把基础切片等同于插件全量对标） |
+| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | **Build-verified**（Host 全矩阵 + 版本历史 + MVP 预览已落地；admin-parity WCAG 全量零违规与 admin-real-stack 双库 E2E 复验待 fresh 输出后升 **Verified**；Office 转 PDF 为有意差异） |
 | `Admin.NET.Plugin.GoView` | 可视化大屏 | GoView | Official Module + Client | Mapped |
 | `Admin.NET.Plugin.K3Cloud` | 金蝶云星空接口集成 | K3Cloud | Provider + Sample | Mapped |
 | `Admin.NET.Plugin.PaddleOCR` | OCR 识别 | OCR | Provider | Mapped |
@@ -138,7 +138,7 @@
 
 | 顺序 | 模块 | 前置依赖 | 所有权与契约边界 | 退出门禁 |
 | --- | --- | --- | --- | --- |
-| 1 | Document | Files Provider 稳定；字段投影可用 | 通过显式契约消费 Files；自有分类/标签/版本/分享/权限/日志数据，禁止把文件字节存入业务表 | 双库迁移与恢复、标准 API、逐页面/逐操作权限、租户/数据范围、Outbox（如需）、Vue、E2E、运维文档与许可证据；**2026-08-02 规格草案**见[Document 设计](../superpowers/specs/2026-08-02-document-module-design.md)（待 Gate G4 批准） |
+| 1 | ~~Document~~ | Files Provider 稳定；字段投影可用 | **Build-verified**；Verified 升档待 WCAG/E2E fresh 输出 | 见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md) |
 | 2 | Workflow | Notifications 与 Jobs 恢复路径可用 | 拥有不可变定义版本、实例、步骤、待办、抄送、执行日志与恢复；禁止业务模块直连流程表 | 同上，且必须覆盖实例恢复与幂等推进 |
 | 3 | DataApproval | Workflow 可用 | 通过显式用例契约集成，禁止任意 HTTP 中间件拦截改写业务写路径 | 同上，且必须覆盖审批拒绝/撤回与审计 |
 | 4 | ImportExport / Reporting | 字段投影稳定 | 导入导出与报表配置分模块；禁止动态 SQL 拼接与未授权列泄露 | 同上，且必须覆盖大文件/批处理背压与失败续跑 |
@@ -147,6 +147,21 @@
 队列外的 Provider/Sample（钉钉、企微、OCR、K3Cloud、GoView 等）不得插队占用上述依赖链；需要时各自开独立 Spec，并证明不反向耦合核心模块。
 
 吸收计划 Task 11 仅冻结本队列与门禁，不创建任何大型模块规格或代码骨架。见[执行队列记录](../verification/adminnet-large-module-execution-queue-2026-08-01.md)。
+
+### 4.2 Document Verified 后的 Admin.NET 广度波次（2026-08-16）
+
+Document 队列 #1 已于 2026-08-16 关闭（**Verified**）。后续按依赖链与 `Implementing` 收口排期：
+
+| 波次 | 优先级 | 能力 | 下一切片 |
+| --- | --- | --- | --- |
+| **B1** | 高 | Identity 用户管理 + 超级管理员 | 编辑/导入/批量、最后一名保护 E2E |
+| **B1** | 高 | CodeGeneration | 生产级 `apply` 闭环：单模块目标、Vue/Composition 自动接线 |
+| **B1** | 中 | Localization / Modularity Admin / uni-app | 全栈 i18n 回归、插件启用策略、H5/小程序纵向切片 |
+| **B2** | 中 | RBAC / SerialNumbers / Organization / Tenancy / Files | Build-verified → Verified 晋升（real-stack E2E + WCAG） |
+| **B3** | 队列 | **Workflow** → DataApproval → ImportExport/Reporting → AI/Agents | 各自独立 dated Spec + 双库/安全评审 |
+| **B4/B5** | 按需 | Provider/Sample、平台运维 Mapped | 不得插队 B3 依赖链 |
+
+建议执行顺序：**B1 Identity + CodeGeneration** → **B2 RBAC Verified** → **B3 Workflow Spec + 首切片** → 其余 B1/B2 并行。
 
 AI 对标不止复制模型配置和聊天页面。Full.NET 的验收范围还包括 `Microsoft.Extensions.AI` 供应商中立抽象、模型/Token/费用配额、显式 Tool 权限、Agent 会话与步骤、人工审批、MCP Client/Server、AG-UI 或等价标准 Web 协议、租户隔离和可靠审计。预览协议包必须封装在独立适配器中，不能成为核心稳定 API。
 

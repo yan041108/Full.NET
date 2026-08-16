@@ -34,7 +34,7 @@ import {
   deleteDocumentTag,
   listDocumentTags,
   updateDocumentTag
-} from '../api/document-tags';
+} from '../api/host-document-tags';
 
 defineOptions({ name: 'DocumentTagsView' });
 

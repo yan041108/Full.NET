@@ -8,9 +8,9 @@ import {
   deleteDocumentTag,
   listDocumentTags,
   updateDocumentTag
-} from '../api/document-tags';
+} from '../api/host-document-tags';
 
-vi.mock('../api/document-tags', () => ({
+vi.mock('../api/host-document-tags', () => ({
   createDocumentTag: vi.fn(),
   deleteDocumentTag: vi.fn(),
   listDocumentTags: vi.fn(),

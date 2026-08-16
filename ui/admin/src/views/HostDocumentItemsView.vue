@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElInput, ElMessage, ElMessageBox, ElPagination, ElTable, ElTableColumn } from 'element-plus';
+import { ElButton, ElCard, ElDrawer, ElInput, ElMessage, ElMessageBox, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
 // 为避免 barrel 层重复标识符冲突，此处用新版 Response 类型别名旧名
-import type { FullNetProblemDetails, HostDocumentItemResponse as HostDocumentItem } from '@fullnet/client-contracts';
+import type {
+  FullNetProblemDetails,
+  HostDocumentItemResponse as HostDocumentItem,
+  HostDocumentVersionResponse
+} from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -18,11 +22,13 @@ import {
   deleteDocumentItem,
   downloadDocumentContent,
   listDocumentItems,
+  listDocumentVersions,
   openDocumentBlob,
+  previewDocumentContent,
   restoreDocumentItem,
   updateDocumentItem,
   uploadDocumentVersion
-} from '../api/document-items';
+} from '../api/host-document-items';
 
 defineOptions({ name: 'HostDocumentItemsView' });
 
@@ -45,6 +51,10 @@ const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const versionFile = ref<File | null>(null);
 const versionTargetId = ref<string>();
+const versionHistoryVisible = ref(false);
+const versionHistoryItem = ref<HostDocumentItem>();
+const versionHistory = ref<HostDocumentVersionResponse[]>([]);
+const versionHistoryLoading = ref(false);
 const editingId = ref<string>();
 const recentlyDeleted = ref<DeletedDocumentEntry[]>([]);
 const searchForm = ref<Record<string, string | undefined>>({});
@@ -55,6 +65,7 @@ const canAddVersion = computed(() => session.can('document.host_documents.add_ve
 const canDelete = computed(() => session.can('document.host_documents.delete'));
 const canRestore = computed(() => session.can('document.host_documents.restore'));
 const canDownload = computed(() => session.can('document.host_documents.download'));
+const canRead = computed(() => session.can('document.host_documents.read'));
 const editingItem = computed(() => items.value.find(entry => entry.id === editingId.value));
 
 const {
@@ -283,13 +294,55 @@ async function downloadFile(itemId: string): Promise<void> {
   }
 }
 
+async function previewFile(item: HostDocumentItem, versionId?: string): Promise<void> {
+  if (changing.value || !canRead.value || !item.currentVersion) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const blob = await previewDocumentContent(item.id, versionId);
+    openDocumentBlob(blob);
+  } catch (error: unknown) {
+    if (isFullNetProblemDetails(error) && error.code === 'document.host_document.preview_not_supported') {
+      ElMessage.warning(t('hostDocumentItems.previewNotSupported'));
+      return;
+    }
+    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function openVersionHistory(item: HostDocumentItem): Promise<void> {
+  versionHistoryItem.value = item;
+  versionHistoryVisible.value = true;
+  versionHistoryLoading.value = true;
+  versionHistory.value = [];
+  try {
+    versionHistory.value = await listDocumentVersions(item.id);
+  } catch (error: unknown) {
+    versionHistoryVisible.value = false;
+    problem.value = toProblem(error, 'hostDocumentItems.versionHistoryLoadFailed');
+  } finally {
+    versionHistoryLoading.value = false;
+  }
+}
+
+function isCurrentVersion(item: HostDocumentItem, version: HostDocumentVersionResponse): boolean {
+  return item.currentVersion?.id === version.id;
+}
+
 function findDeletedEntry(item: HostDocumentItem): DeletedDocumentEntry | undefined {
   return recentlyDeleted.value.find(entry => entry.item.id === item.id);
 }
 
 function toProblem(
   error: unknown,
-  fallbackKey: 'hostDocumentItems.loadFailed' | 'hostDocumentItems.operationFailed' = 'hostDocumentItems.loadFailed'
+  fallbackKey:
+    | 'hostDocumentItems.loadFailed'
+    | 'hostDocumentItems.operationFailed'
+    | 'hostDocumentItems.versionHistoryLoadFailed' = 'hostDocumentItems.loadFailed'
 ): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -404,9 +457,19 @@ function toProblem(
               </template>
             </el-table-column>
 
-            <el-table-column :label="t('users.columnActions')" width="320" fixed="right" align="center">
+            <el-table-column :label="t('users.columnActions')" width="420" fixed="right" align="center">
               <template #default="{ row }">
                 <div class="art-crud-table-actions">
+                  <PermissionGate v-if="row.currentVersion" code="document.host_documents.read">
+                    <el-button plain size="small" data-testid="host-document-item-preview" :disabled="changing" @click="previewFile(row as HostDocumentItem)">
+                      {{ t('hostDocumentItems.preview') }}
+                    </el-button>
+                  </PermissionGate>
+                  <PermissionGate code="document.host_documents.read">
+                    <el-button plain size="small" data-testid="host-document-item-version-history" :disabled="changing" @click="openVersionHistory(row as HostDocumentItem)">
+                      {{ t('hostDocumentItems.versionHistory') }}
+                    </el-button>
+                  </PermissionGate>
                   <PermissionGate v-if="row.currentVersion" code="document.host_documents.download">
                     <el-button plain size="small" data-testid="host-document-item-download" :disabled="changing" @click="downloadFile(row.id)">
                       {{ t('hostDocumentItems.download') }}
@@ -457,6 +520,54 @@ function toProblem(
         </div>
       </div>
     </el-card>
+
+    <el-drawer
+      v-model="versionHistoryVisible"
+      :title="t('hostDocumentItems.versionHistoryTitle')"
+      size="520px"
+      data-testid="host-document-item-version-drawer"
+    >
+      <el-table
+        v-loading="versionHistoryLoading"
+        :data="versionHistory"
+        size="small"
+        class="art-crud-data-table"
+      >
+        <el-table-column :label="t('hostDocumentItems.versionLabel')" width="100" align="center">
+          <template #default="{ row }">
+            <span translate="no">{{ row.versionNumber }}</span>
+            <el-tag
+              v-if="versionHistoryItem && isCurrentVersion(versionHistoryItem, row)"
+              size="small"
+              type="success"
+              class="host-document-items-view__current-tag"
+            >
+              {{ t('hostDocumentItems.currentVersionTag') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('hostDocumentItems.changeDescription')" min-width="160">
+          <template #default="{ row }">
+            <span translate="no">{{ row.changeDescription ?? '—' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('users.columnActions')" width="120" align="center">
+          <template #default="{ row }">
+            <PermissionGate code="document.host_documents.read">
+              <el-button
+                plain
+                size="small"
+                data-testid="host-document-item-version-preview"
+                :disabled="changing || !versionHistoryItem"
+                @click="versionHistoryItem && previewFile(versionHistoryItem, row.id)"
+              >
+                {{ t('hostDocumentItems.preview') }}
+              </el-button>
+            </PermissionGate>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-drawer>
 
     <el-card v-if="recentlyDeleted.length && canRestore" class="art-table-card host-document-items-view__deleted" shadow="never">
       <template #header>

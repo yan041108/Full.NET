@@ -197,7 +197,7 @@ test('跳转链接和路由切换保持可见焦点', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(page.locator('#main-content')).toBeFocused();
 
-  await page.getByRole('link', { name: /租户上下文/ }).click();
+  await page.getByRole('menuitem', { name: /租户上下文/ }).click();
 
   await expect(page.getByRole('heading', { name: '租户上下文' }))
     .toBeFocused();
@@ -286,6 +286,31 @@ test('壳层全局搜索、主题与移动导航可键盘操作', async ({ page 
   await expect(page.locator('html')).toHaveAttribute('data-art-theme', 'dark');
 });
 
+test('Document 管理页通过 WCAG 2.2 A/AA 自动检查', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'vue-admin', 'Document 页面仅在 Vue 管理端验收。');
+  test.setTimeout(120_000);
+
+  await mockDocumentAdminSession(page);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: '早上好，系统管理员' })).toBeVisible();
+
+  const documentPaths = [
+    ['/document/host-items', 'Host 文档库'],
+    ['/document/recycle-bin', '文档回收站'],
+    ['/document/shares', '文档分享'],
+    ['/document/permissions', '文档权限'],
+    ['/document/statistics', '文档统计']
+  ];
+
+  for (const [path, heading] of documentPaths) {
+    await page.goto(`/#${path}`);
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible({
+      timeout: 15_000
+    });
+    await expectNoWcagViolations(page);
+  }
+});
+
 test('双端标签页可切换并保持可访问性', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
 
@@ -294,7 +319,7 @@ test('双端标签页可切换并保持可访问性', async ({ page }, testInfo)
 
   if (clientKind === 'vue') {
     await expect(page.getByRole('tablist', { name: '已打开页面' })).toBeVisible();
-    await page.getByRole('link', { name: /租户上下文/ }).click();
+    await page.getByRole('menuitem', { name: /租户上下文/ }).click();
     await expect(page.getByRole('heading', { name: '租户上下文' })).toBeVisible();
     await expect(page.getByRole('tab', { name: /租户上下文/ })).toHaveAttribute('aria-selected', 'true');
     await page.getByRole('tab', { name: /工作台/ }).click();
@@ -402,7 +427,8 @@ async function mockAuthenticatedSession(page, options = {}) {
       contentType: 'application/json',
       body: JSON.stringify(currentUserResponse(
         server.preferredLocale,
-        server.profileVersion
+        server.profileVersion,
+        options.permissions
       ))
     });
   });
@@ -416,6 +442,100 @@ async function mockAuthenticatedSession(page, options = {}) {
     contentType: 'application/json',
     body: JSON.stringify(availableTenants())
   }));
+  await page.route('**/api/v1/platform/host-dashboard-summary', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      activeTenantCount: 0,
+      onlineSessionCount: 0,
+      todayRequestCount: 0,
+      todayErrorRate: 0,
+      recentActivities: []
+    })
+  }));
+  await page.route('**/api/v1/tenancy/tenants**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      items: availableTenants(),
+      page: 1,
+      pageSize: 20,
+      total: availableTenants().length
+    })
+  }));
+  return server;
+}
+
+const documentAdminPermissions = [
+  'identity.navigation.read',
+  'platform.dashboard.read',
+  'tenancy.tenants.read',
+  'tenancy.tenants.switch',
+  'document.host_documents.read',
+  'document.host_documents.create',
+  'document.host_documents.update',
+  'document.host_documents.add_version',
+  'document.host_documents.delete',
+  'document.host_documents.restore',
+  'document.host_recycle_bin.read',
+  'document.host_recycle_bin.restore',
+  'document.host_recycle_bin.purge',
+  'document.host_permissions.read',
+  'document.host_permissions.set',
+  'document.host_shares.read',
+  'document.host_shares.create',
+  'document.host_shares.update_status',
+  'document.host_statistics.read'
+];
+
+async function mockDocumentAdminSession(page) {
+  const server = await mockAuthenticatedSession(page, {
+    permissions: documentAdminPermissions
+  });
+  await page.route('**/api/v1/navigation', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(documentNavigationResponse())
+  }));
+  await page.route('**/api/v1/document/**', route => {
+    const url = route.request().url();
+    if (url.includes('/statistics')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          summary: { totalItems: 0, totalVersions: 0, totalSizeKb: 0, totalSizeInfo: '0 B' },
+          byType: [],
+          byCategory: [],
+          shareCount: 0,
+          todayAccessCount: 0,
+          todayDownloadCount: 0,
+          todayCreatedCount: 0,
+          recycleBinCount: 0
+        })
+      });
+    }
+
+    if (url.includes('/permissions/by-document/')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([])
+      });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [],
+        page: 1,
+        pageSize: 20,
+        total: 0
+      })
+    });
+  });
+
   return server;
 }
 
@@ -427,7 +547,11 @@ function tokenResponse() {
   };
 }
 
-function currentUserResponse(preferredLocale = 'zh-CN', profileVersion = 1) {
+function currentUserResponse(
+  preferredLocale = 'zh-CN',
+  profileVersion = 1,
+  permissions = null
+) {
   return {
     id: 'e2e-user-id',
     username: 'admin',
@@ -436,7 +560,7 @@ function currentUserResponse(preferredLocale = 'zh-CN', profileVersion = 1) {
     actorScope: 'host',
     scope: 'host',
     isSuperAdministrator: true,
-    permissions: [
+    permissions: permissions ?? [
       'identity.navigation.read',
       'platform.dashboard.read',
       'tenancy.tenants.read',
@@ -462,6 +586,42 @@ function navigationResponse() {
       title: 'SERVER CONTROLLED TITLE', caption: 'SERVER CONTROLLED CAPTION',
       icon: 'building', order: 20,
       requiredPermission: 'tenancy.tenants.read', children: []
+    }
+  ];
+}
+
+function documentNavigationResponse() {
+  return [
+    ...navigationResponse(),
+    {
+      id: 'host-document-items', parentId: null, routeName: 'host-document-items',
+      path: '/document/host-items', componentKey: 'host-document-items',
+      title: 'Host 文档库', caption: 'Host 文档库', icon: 'document', order: 30,
+      requiredPermission: 'document.host_documents.read', children: []
+    },
+    {
+      id: 'document-recycle-bin', parentId: null, routeName: 'document-recycle-bin',
+      path: '/document/recycle-bin', componentKey: 'document-recycle-bin',
+      title: '文档回收站', caption: '文档回收站', icon: 'delete', order: 31,
+      requiredPermission: 'document.host_recycle_bin.read', children: []
+    },
+    {
+      id: 'document-shares', parentId: null, routeName: 'document-shares',
+      path: '/document/shares', componentKey: 'document-shares',
+      title: '文档分享', caption: '文档分享', icon: 'share', order: 32,
+      requiredPermission: 'document.host_shares.read', children: []
+    },
+    {
+      id: 'document-permissions', parentId: null, routeName: 'document-permissions',
+      path: '/document/permissions', componentKey: 'document-permissions',
+      title: '文档权限', caption: '文档权限', icon: 'lock', order: 33,
+      requiredPermission: 'document.host_permissions.read', children: []
+    },
+    {
+      id: 'document-statistics', parentId: null, routeName: 'document-statistics',
+      path: '/document/statistics', componentKey: 'document-statistics',
+      title: '文档统计', caption: '文档统计', icon: 'chart-bar', order: 34,
+      requiredPermission: 'document.host_statistics.read', children: []
     }
   ];
 }

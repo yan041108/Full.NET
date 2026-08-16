@@ -26,6 +26,7 @@ internal static class DocumentAuthorizationAssertions
                 HostDocumentTagPermissions.Read,
                 HostDocumentRecycleBinPermissions.Read,
                 HostDocumentSharePermissions.Read,
+                HostDocumentPermissionManagementPermissions.Read,
                 HostDocumentStatisticsPermissions.Read,
             ],
             cancellationToken);
@@ -57,6 +58,8 @@ internal static class DocumentAuthorizationAssertions
                 HostDocumentSharePermissions.Read,
                 HostDocumentSharePermissions.Create,
                 HostDocumentSharePermissions.UpdateStatus,
+                HostDocumentPermissionManagementPermissions.Read,
+                HostDocumentPermissionManagementPermissions.Set,
                 HostDocumentStatisticsPermissions.Read,
             ],
             cancellationToken);
@@ -140,12 +143,33 @@ internal static class DocumentAuthorizationAssertions
         var navigation = await response.Content.ReadFromJsonAsync<NavigationNodeResponse[]>(
             cancellationToken);
         Assert.IsNotNull(navigation);
-        Assert.IsTrue(navigation.Any(item => item.Id == "host-document-items"));
-        Assert.IsTrue(navigation.Any(item => item.Id == "document-categories"));
-        Assert.IsTrue(navigation.Any(item => item.Id == "document-tags"));
-        Assert.IsTrue(navigation.Any(item => item.Id == "document-recycle-bin"));
-        Assert.IsTrue(navigation.Any(item => item.Id == "document-shares"));
-        Assert.IsTrue(navigation.Any(item => item.Id == "document-statistics"));
+        Assert.IsTrue(ContainsNavigationId(navigation, "host-document-items"));
+        Assert.IsTrue(ContainsNavigationId(navigation, "document-categories"));
+        Assert.IsTrue(ContainsNavigationId(navigation, "document-tags"));
+        Assert.IsTrue(ContainsNavigationId(navigation, "document-recycle-bin"));
+        Assert.IsTrue(ContainsNavigationId(navigation, "document-shares"));
+        Assert.IsTrue(ContainsNavigationId(navigation, "document-permissions"));
+        Assert.IsTrue(ContainsNavigationId(navigation, "document-statistics"));
+    }
+
+    private static bool ContainsNavigationId(
+        IReadOnlyList<NavigationNodeResponse> nodes,
+        string id)
+    {
+        foreach (var node in nodes)
+        {
+            if (string.Equals(node.Id, id, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (ContainsNavigationId(node.Children, id))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static async Task VerifyManagerNavigationAsync(
@@ -167,11 +191,12 @@ internal static class DocumentAuthorizationAssertions
                      "document-tags",
                      "document-recycle-bin",
                      "document-shares",
+                     "document-permissions",
                      "document-statistics",
                  })
         {
             Assert.IsTrue(
-                navigation.Any(item => item.Id == id),
+                ContainsNavigationId(navigation, id),
                 $"缺少导航节点：{id}");
         }
     }

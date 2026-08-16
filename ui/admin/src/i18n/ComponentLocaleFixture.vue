@@ -11,7 +11,11 @@ const selectedDate = ref<Date>();
     data-component-locale-fixture
     aria-label="Component locale verification"
   >
-    <el-date-picker v-model="selectedDate" type="date" />
+    <el-date-picker
+      v-model="selectedDate"
+      type="date"
+      aria-label="日期选择"
+    />
     <el-pagination background layout="prev, pager, next" :page-size="10" :total="30" />
   </section>
 </template>

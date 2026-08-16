@@ -24,7 +24,7 @@ internal static class HostDocumentItemResponseMapper
             record.AccessCount,
             record.Sort,
             record.LastAccessTime,
-            MapVersion(record),
+            MapCurrentVersion(record),
             tags ?? Array.Empty<HostDocumentTagAssignmentResponse>(),
             record.CreatedAtUtc,
             record.CreatedByUserId,
@@ -34,7 +34,18 @@ internal static class HostDocumentItemResponseMapper
             record.DeletedByUserId,
             record.Version);
 
-    private static HostDocumentVersionResponse? MapVersion(DocumentItemDetailRecord record) =>
+    internal static HostDocumentVersionResponse MapVersion(DocumentVersionRecord record) =>
+        new(
+            record.Id,
+            record.VersionNumber,
+            record.FileId,
+            record.ContentHash,
+            record.SizeBytes,
+            record.ChangeDescription,
+            record.CreatedAtUtc,
+            record.UploadedByUserId);
+
+    private static HostDocumentVersionResponse? MapCurrentVersion(DocumentItemDetailRecord record) =>
         record.VersionId is null
             ? null
             : new HostDocumentVersionResponse(

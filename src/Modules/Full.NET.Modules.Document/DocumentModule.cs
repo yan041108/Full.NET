@@ -1,28 +1,50 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
+using Full.NET.Hosting.RateLimiting;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Document.Configuration;
+using Full.NET.Modules.Document.RateLimiting;
 using Full.NET.Modules.Document.Resources;
 using Full.NET.Modules.Document.Security;
 using Full.NET.Modules.Document.Serialization;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document;
 
 public sealed class DocumentModule : IFullNetModule
 {
+    /// <summary>
+    /// 匿名分享访问 POST 端点限流策略，按 IP 分区防止口令暴力与计数滥用。
+    /// </summary>
+    internal const string AnonymousShareAccessRateLimitPolicy = "document-anonymous-share-access";
+
     public string Name => "Document";
 
     public IReadOnlyCollection<string> Dependencies => ["Identity", "Files"];
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddOptions<DocumentOptions>()
+            .Bind(configuration.GetSection(DocumentOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DocumentOptions>,
+            DocumentOptionsValidator>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IConfigureOptions<RateLimiterOptions>,
+            DocumentRateLimiterPolicyConfigurator>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IConfigureOptions<RateLimitPolicyErrorCodes>,
+            DocumentRateLimiterPolicyConfigurator>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             DocumentAuthorizationContributor>());

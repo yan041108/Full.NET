@@ -95,4 +95,19 @@ public sealed class DocumentApiSqlServerTests
 
         await DocumentAdminNetParityAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Document_share_rate_limit_follows_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["RateLimiting:EnableGlobalApiLimit"] = "false",
+                ["Document:AnonymousShareAccessRateLimitPermitLimitPerMinute"] = "2",
+            });
+
+        await DocumentShareRateLimitAssertions.VerifyAsync(factory);
+    }
 }

@@ -34,7 +34,7 @@ import {
   deleteDocumentCategory,
   listDocumentCategories,
   updateDocumentCategory
-} from '../api/document-categories';
+} from '../api/host-document-categories';
 
 defineOptions({ name: 'DocumentCategoriesView' });
 

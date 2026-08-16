@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDocumentCategory, listDocumentCategories } from './document-categories';
+import { createDocumentCategory, listDocumentCategories } from './host-document-categories';
 
 const requestMock = vi.fn();
 
