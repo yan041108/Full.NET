@@ -85,12 +85,14 @@ internal static class DocumentShareSql
         "document.host_share.try_consume_access",
         """
         UPDATE fn_document_share
-        SET AccessCount = AccessCount + 1
+        SET AccessCount = AccessCount + 1,
+            Version = Version + 1
         WHERE Id = @Id
           AND TenantId IS NULL
           AND IsEnabled = 1
           AND ExpireTime >= @Now
           AND (MaxAccessCount IS NULL OR AccessCount < MaxAccessCount)
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 }

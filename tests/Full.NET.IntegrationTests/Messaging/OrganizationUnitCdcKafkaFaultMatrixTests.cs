@@ -13,38 +13,105 @@ public sealed class OrganizationUnitCdcKafkaFaultMatrixTests
 {
     [TestMethod]
     [TestCategory("RequiresDocker")]
-    public async Task MySql_duplicate_kafka_delivery_is_idempotent_for_inbox_and_projection()
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task MySql_duplicate_kafka_delivery_is_idempotent_for_inbox_and_projection(
+        DatabaseProvider provider)
     {
-        await using var scenario = await RequireMySqlScenarioAsync();
-        await OrganizationUnitCdcKafkaEndToEndSupport.SeedCdcKafkaStreamOwnershipAsync(
-            scenario.Options);
-        await using var factory = new FullNetApiFactory(
-            DatabaseProvider.MySql,
-            scenario.ConnectionString);
-        var (tenantId, unitId, unitName) =
-            await OrganizationUnitCdcKafkaEndToEndSupport.CreateOrganizationUnitViaApiAsync(
-                factory,
-                CancellationToken.None);
+        await RunDuplicateDeliveryFaultMatrixAsync(provider);
+    }
 
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    public async Task SqlServer_duplicate_kafka_delivery_is_idempotent_for_inbox_and_projection(
+        DatabaseProvider provider)
+    {
+        await RunDuplicateDeliveryFaultMatrixAsync(provider);
+    }
+
+    private static async Task RunDuplicateDeliveryFaultMatrixAsync(DatabaseProvider provider)
+    {
+        var pipeline = await CdcDebeziumPipelineFixture.GetOrStartAsync();
+        var connectionString = provider == DatabaseProvider.MySql
+            ? await SharedDatabaseFixture.CreateMySqlDatabaseAsync()
+            : await SqlServerCdcTestSupport.ResolveConnectionStringAsync();
+        var options = new DatabaseOptions
+        {
+            Provider = provider,
+            ConnectionString = connectionString,
+            MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16,
+            CommandTimeoutSeconds = 300,
+        };
+        await MessagingOutboxTestSupport.MigrateAsync(options);
+
+        if (provider == DatabaseProvider.MySql)
+        {
+            var binlogStatus = await CdcShadowFixture.ReadMySqlBinlogStatusAsync(connectionString);
+            if (!binlogStatus.IsRowFullEnabled)
+            {
+                Assert.Inconclusive("MySQL binlog ROW/FULL is unavailable.");
+            }
+        }
+        else
+        {
+            var cdcEnablement = await SqlServerCdcTestSupport.TryEnableCdcAsync(connectionString);
+            if (!cdcEnablement.Succeeded)
+            {
+                Assert.Inconclusive(SqlServerCdcTestSupport.BuildInconclusiveMessage(cdcEnablement));
+            }
+        }
+
+        await OrganizationUnitCdcKafkaEndToEndSupport.SeedCdcKafkaStreamOwnershipAsync(options);
+
+        using var connectAdmin = pipeline.CreateConnectAdminClient();
+        if (!await connectAdmin.WaitUntilReadyAsync(TimeSpan.FromSeconds(60)))
+        {
+            Assert.Inconclusive("Debezium Connect did not become ready within timeout.");
+        }
+
+        await using var factory = new FullNetApiFactory(provider, connectionString);
         var connectorName = $"fullnet-org-fault-{Guid.NewGuid():N}";
-        var connectorConfig = await scenario.CreateConnectorConfigAsync();
+        var connectorConfig = provider == DatabaseProvider.MySql
+            ? await DebeziumConnectorTemplateFactory.CreateMySqlShadowConfigAsync(
+                connectionString,
+                pipeline.HostGateway,
+                pipeline.InternalKafkaBootstrapServers)
+            : await DebeziumConnectorTemplateFactory.CreateSqlServerShadowConfigAsync(
+                connectionString,
+                pipeline.HostGateway,
+                pipeline.InternalKafkaBootstrapServers);
         try
         {
             await CdcDebeziumConnectorTestSupport.RegisterHealthyShadowConnectorAsync(
-                scenario.ConnectAdmin,
+                connectAdmin,
                 connectorName,
                 connectorConfig,
-                TimeSpan.FromSeconds(120));
+                TimeSpan.FromSeconds(240));
+
+            var (tenantId, unitId, unitName) =
+                await OrganizationUnitCdcKafkaEndToEndSupport.CreateOrganizationUnitViaApiAsync(
+                    factory,
+                    CancellationToken.None);
 
             var eventId = await OrganizationUnitCdcKafkaEndToEndSupport
-                .ReadLatestOrganizationOutboxEventIdAsync(scenario.Options);
+                .ReadLatestOrganizationOutboxEventIdAsync(options);
             var topic = CdcDebeziumE2ESupport.GetShadowTopic(
                 EventDeliveryPilotTestSupport.PilotEventType);
+
+            if (provider == DatabaseProvider.SqlServer
+                && !await CdcShadowFixture.WaitForSqlServerCdcInsertAsync(
+                    connectionString,
+                    eventId,
+                    TimeSpan.FromSeconds(180)))
+            {
+                Assert.Inconclusive(
+                    "SQL Server CDC change table did not observe organization outbox insert.");
+            }
+
             var consumed = await CdcDebeziumE2ESupport.TryConsumeShadowEventAsync(
-                scenario.Pipeline,
+                pipeline,
                 topic,
                 eventId,
-                TimeSpan.FromSeconds(120));
+                TimeSpan.FromSeconds(240));
             if (consumed is null)
             {
                 Assert.Inconclusive(
@@ -52,14 +119,14 @@ public sealed class OrganizationUnitCdcKafkaFaultMatrixTests
             }
 
             var first = await OrganizationCdcKafkaIdentityProjectionE2ESupport
-                .ConsumeOrganizationEventThroughInboxAsync(scenario.Options, consumed);
+                .ConsumeOrganizationEventThroughInboxAsync(options, consumed);
             var second = await OrganizationCdcKafkaIdentityProjectionE2ESupport
-                .ConsumeOrganizationEventThroughInboxAsync(scenario.Options, consumed);
+                .ConsumeOrganizationEventThroughInboxAsync(options, consumed);
             Assert.AreEqual(InboxConsumeStatus.Processed, first);
-            Assert.AreEqual(InboxConsumeStatus.Processed, second);
+            Assert.AreEqual(InboxConsumeStatus.AlreadyProcessed, second);
 
             var projected = await OrganizationUnitCdcKafkaEndToEndSupport.ProjectionExistsAsync(
-                scenario.Options,
+                options,
                 tenantId,
                 unitId,
                 unitName);
@@ -67,19 +134,7 @@ public sealed class OrganizationUnitCdcKafkaFaultMatrixTests
         }
         finally
         {
-            await scenario.ConnectAdmin.DeleteConnectorAsync(connectorName);
+            await connectAdmin.DeleteConnectorAsync(connectorName);
         }
-    }
-
-    private static async Task<CdcDebeziumMySqlE2EScenario> RequireMySqlScenarioAsync()
-    {
-        var scenario = await CdcDebeziumMySqlE2EScenario.TryCreateAsync();
-        if (scenario is null)
-        {
-            Assert.Inconclusive(
-                "MySQL CDC/Debezium prerequisites are unavailable in this environment.");
-        }
-
-        return scenario;
     }
 }

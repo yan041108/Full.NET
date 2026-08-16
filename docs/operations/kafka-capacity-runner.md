@@ -4,7 +4,7 @@
 
 `kafka-capacity` 提供三个已实现的独立容量范围：Scope A `kafka_transport` 测量 Producer、临时 Topic 与 Consumer 传输；Scope B `worker_inbox_handler` 测量真实 `Kafka → 生产分区调度/连续 Offset 水位 → Dapper Inbox 事务 → Dispatcher → Handler`；Scope C `transaction_outbox_cdc` 测量 `开环调度 → 业务事务 Outbox → Debezium CDC → Kafka → 生产 Inbox/Handler` 全链路。Scope B 不包含业务写事务、Outbox 或 CDC；Scope C 通过外部 Connect REST 注册容量专用 Connector，Debezium Topic 前缀为 `fullnet.capacity.cdc.*`，Runner 默认不删除这些 Topic。三者均不能解除 ADR-0006 的影子运行与切流门禁。
 
-当前能力状态固定为 `Capacity-not-verified`。Scope B 与 Scope C 均已通过 MySQL + 真实 Kafka/Connect 的缩减集成测试；Scope C 的 SQL Server 路径在 Testcontainers CDC Agent 不可用时按设计 `Inconclusive`（见 [`sqlserver-cdc-ci-debt.md`](../verification/sqlserver-cdc-ci-debt.md)）。尚未在专用生产等价环境执行正式矩阵或 Soak。
+当前能力状态固定为 `Capacity-not-verified`。Scope B 与 Scope C 均已通过 MySQL + 真实 Kafka/Connect 的缩减集成测试；Scope C 的 SQL Server 路径在 Testcontainers CDC Agent 不可用时按设计 `Inconclusive`（见 [`sqlserver-cdc-ci-debt.md`](../verification/sqlserver-cdc-ci-debt.md)）。**Scope B/C 集成测试只证明链路可运行，不等于生产等价 1/2/4/8 实例矩阵或 Soak 已通过**；正式认证 checklist 见 [`eng/load/README.md`](../../eng/load/README.md)。尚未在专用生产等价环境执行正式矩阵或 Soak。
 
 ### 1.1 DI 边界对照（Worker vs Capacity）
 

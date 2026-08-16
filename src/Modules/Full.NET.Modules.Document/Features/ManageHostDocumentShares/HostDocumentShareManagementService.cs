@@ -139,7 +139,7 @@ internal sealed class HostDocumentShareManagementService(
         // 有效性与访问上限必须由同一条更新语句判断；内存预检不能承担并发正确性。
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentShareSql.TryConsumeAccess,
-                new { share.Id, Now = now },
+                new { share.Id, Now = now, share.Version },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)

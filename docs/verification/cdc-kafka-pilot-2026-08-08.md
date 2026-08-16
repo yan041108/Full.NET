@@ -41,10 +41,10 @@
 
 ## 2026-08-09 复审发现（2026-08-16 更新）
 
-- Organization 生产写入路径仍在向 Legacy Outbox 演进；真实 **Routed Outbox + metadata** 与 CDC 全链路 E2E 见 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md) 验收项。
-- Identity 已在 `AddBackgroundServices` 注册 `OrganizationUnitChangedKafkaSubscription`；HybridKafka 模式下 Worker 可路由到业务 Handler，但 **Delivery 路径仍为 Designing / Shadow-only**，切流开关默认关闭。
+- ~~Organization 生产写入路径仍在向 Legacy Outbox 演进~~ **已解决**：`TenantUnitManagementService` 经 `DapperRoutedOutboxWriter` 写入 append-only Outbox；见 Task 6 E2E。
+- Identity 已在 `AddBackgroundServices` 注册 `OrganizationUnitChangedKafkaSubscription`；HybridKafka 模式下 Worker 可路由到业务 Handler。**Delivery 路径为 `Build-verified / Pilot`**，切流开关仍默认关闭。
 - `MessagingWorkerMode.CdcKafka` 作为全局 Worker 模式已收敛为 `HybridKafka` + 流级所有权；仍须按流切流，禁止误关全局 Legacy 轮询。
-- 原集成测试通过镜像 append-only 行模拟 cutoff；真实生产者、Debezium、Kafka、Inbox 与 Identity 投影副作用的完整链路仍待 [`2026-08-09-cdc-kafka-real-pilot-correction`](../superpowers/plans/2026-08-09-cdc-kafka-real-pilot-correction.md) 全部验收。
+- ~~原集成测试通过镜像 append-only 行模拟 cutoff；真实生产者、Debezium、Kafka、Inbox 与 Identity 投影副作用的完整链路仍待验收~~ **MySQL 全链路已通过**；SQL Server 见下条。
 - **2026-08-16 Task 6：** `OrganizationUnitCdcKafkaEndToEndTests`（Organization API → append-only Outbox → CDC → Kafka → Inbox → Identity 投影）；`OrganizationUnitCdcKafkaFaultMatrixTests`（重复 Kafka 投递幂等，MySQL）。SQL Server Pass/Fail 需 `FULLNET_TEST_SQLSERVER_CDC_CONNECTION_STRING` + nightly；Testcontainers SQL Server 仍 Inconclusive。
 
 ## 运维入口

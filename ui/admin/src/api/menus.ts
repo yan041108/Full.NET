@@ -88,9 +88,21 @@ export async function syncHostMenuCatalog(): Promise<{
   skipped: number;
   reparented: number;
 }> {
-  const value = await request<{ created: number; skipped: number; reparented: number }>(
+  const value = await request<unknown>(
     '/api/v1/identity/menus/sync-catalog',
     { method: 'POST' }
   );
+  if (
+    typeof value !== 'object'
+    || value === null
+    || !('created' in value)
+    || !('skipped' in value)
+    || !('reparented' in value)
+    || typeof value.created !== 'number'
+    || typeof value.skipped !== 'number'
+    || typeof value.reparented !== 'number'
+  ) {
+    throw new Error('client.invalid_host_menu_sync_result');
+  }
   return value;
 }

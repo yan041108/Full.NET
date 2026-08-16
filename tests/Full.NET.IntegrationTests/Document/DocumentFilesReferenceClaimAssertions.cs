@@ -76,6 +76,39 @@ internal static class DocumentFilesReferenceClaimAssertions
         }
     }
 
+    /// <summary>无启动门闩的并发矩阵，验证行锁顺序在真实竞争下仍保持终端不变量。</summary>
+    public static async Task VerifyClaimDeleteUnsynchronizedConcurrencyAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var fileId = await SeedReadyHostFileAsync(factory, cancellationToken);
+            await RunClaimDeleteRaceUnsynchronizedAsync(factory, fileId, cancellationToken);
+        }
+    }
+
+    /// <summary>HTTP 删除路径与服务内 Claim 并发，验证 Endpoint 与 Files 事务语义一致。</summary>
+    public static async Task VerifyClaimDeleteHttpConcurrencyAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var client = factory.CreateClient();
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var fileId = await SeedReadyHostFileAsync(factory, cancellationToken);
+            await RunClaimDeleteHttpRaceAsync(
+                factory,
+                client,
+                adminToken,
+                fileId,
+                cancellationToken);
+        }
+    }
+
     private static async Task RunClaimDeleteRaceAsync(
         FullNetApiFactory factory,
         Guid fileId,
@@ -135,9 +168,124 @@ internal static class DocumentFilesReferenceClaimAssertions
         }, cancellationToken);
 
         await Task.WhenAll(claimTask, deleteTask).WaitAsync(TimeSpan.FromMinutes(2), cancellationToken);
-        var claimResult = await claimTask;
-        var deleteResult = await deleteTask;
+        await AssertClaimDeleteTerminalStateAsync(
+            factory,
+            fileId,
+            await claimTask,
+            await deleteTask,
+            cancellationToken);
+    }
 
+    private static async Task RunClaimDeleteRaceUnsynchronizedAsync(
+        FullNetApiFactory factory,
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var consumerReferenceId = Guid.CreateVersion7();
+        var idempotencyKey = $"integration-unsync-race:{consumerReferenceId:N}";
+        var claimRequest = new HostFileReferenceClaimRequest(
+            idempotencyKey,
+            HostFileReferenceClaimConsumerModules.Document,
+            consumerReferenceId,
+            fileId);
+
+        var claimTask = Task.Run(async () =>
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var claimService = scope.ServiceProvider
+                .GetRequiredService<IHostFileReferenceClaimService>();
+            return await claimService.ClaimAsync(claimRequest, cancellationToken);
+        }, cancellationToken);
+
+        var deleteTask = Task.Run(async () =>
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var deleteService = scope.ServiceProvider
+                .GetRequiredService<HostFileManagementService>();
+            return await deleteService.DeleteAsync(fileId, cancellationToken);
+        }, cancellationToken);
+
+        await Task.WhenAll(claimTask, deleteTask).WaitAsync(TimeSpan.FromMinutes(2), cancellationToken);
+        await AssertClaimDeleteTerminalStateAsync(
+            factory,
+            fileId,
+            await claimTask,
+            await deleteTask,
+            cancellationToken);
+    }
+
+    private static async Task RunClaimDeleteHttpRaceAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        string adminToken,
+        Guid fileId,
+        CancellationToken cancellationToken)
+    {
+        var consumerReferenceId = Guid.CreateVersion7();
+        var idempotencyKey = $"integration-http-race:{consumerReferenceId:N}";
+        var claimRequest = new HostFileReferenceClaimRequest(
+            idempotencyKey,
+            HostFileReferenceClaimConsumerModules.Document,
+            consumerReferenceId,
+            fileId);
+
+        var claimTask = Task.Run(async () =>
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var claimService = scope.ServiceProvider
+                .GetRequiredService<IHostFileReferenceClaimService>();
+            return await claimService.ClaimAsync(claimRequest, cancellationToken);
+        }, cancellationToken);
+
+        var deleteTask = Task.Run(async () =>
+        {
+            using var deleteRequest = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"/api/v1/files/host-files/{fileId:D}/delete")
+            {
+                Content = JsonContent.Create(new { }),
+            };
+            deleteRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+            using var deleteResponse = await client.SendAsync(deleteRequest, cancellationToken);
+            if (deleteResponse.IsSuccessStatusCode)
+            {
+                return Result<HostFileResponse>.Success(new HostFileResponse(
+                    fileId,
+                    "race.bin",
+                    "application/octet-stream",
+                    4,
+                    null,
+                    DateTimeOffset.UtcNow,
+                    Guid.CreateVersion7()));
+            }
+
+            using var problem = JsonDocument.Parse(
+                await deleteResponse.Content.ReadAsStringAsync(cancellationToken));
+            var code = problem.RootElement.GetProperty("code").GetString()
+                ?? FilesErrorCodes.FileReferenced;
+            return Result<HostFileResponse>.Failure(
+                new Error(code, code, ErrorType.Conflict));
+        }, cancellationToken);
+
+        await Task.WhenAll(claimTask, deleteTask).WaitAsync(TimeSpan.FromMinutes(2), cancellationToken);
+        await AssertClaimDeleteTerminalStateAsync(
+            factory,
+            fileId,
+            await claimTask,
+            await deleteTask,
+            cancellationToken);
+    }
+
+    private static async Task AssertClaimDeleteTerminalStateAsync(
+        FullNetApiFactory factory,
+        Guid fileId,
+        Result<HostFileReferenceClaimResult> claimResult,
+        Result<HostFileResponse> deleteResult,
+        CancellationToken cancellationToken)
+    {
         await using var verifyScope = factory.Services.CreateAsyncScope();
         verifyScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
         var query = verifyScope.ServiceProvider.GetRequiredService<IQueryExecutor>();

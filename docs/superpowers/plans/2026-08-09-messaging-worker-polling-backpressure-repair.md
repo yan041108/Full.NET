@@ -4,7 +4,7 @@
 
 **可靠性边界：** 业务事务只写一个 Outbox；Legacy/Shadow 仍由旧 Worker 消费；CDC 流只写追加表并由 Broker/Inbox 消费；任何背压都只能延迟处理，不能丢弃事件或提前提交 Offset。
 
-**实施状态（2026-08-09）：** Task 1—4 已完成代码修复与聚焦验证；Task 5 的本地构建、单元、双库切换/回退/Inbox、Kafka Retry/DLQ/中断恢复已完成。真实 Debezium SQL Server/MySQL 全链路与生产等价容量认证仍未完成，因此切流默认关闭并继续标记 `Capacity-not-verified`。
+**实施状态（2026-08-09）：** Task 1—4 已完成代码修复与聚焦验证；Task 5 的本地构建、单元、双库切换/回退/Inbox、Kafka Retry/DLQ/中断恢复已完成。**2026-08-16 superseded：** Organization CDC E2E 恢复 `Build-verified / Pilot`（Task 6）；真实 Debezium 全链路与生产等价容量认证仍未完成，切流默认关闭并继续标记 `Capacity-not-verified`。
 
 ## Task 1：恢复 Legacy Outbox 正确路由并降低空转轮询
 
@@ -33,7 +33,7 @@
 - 在生产者读所有权/写 Outbox 与切流更新之间建立同一数据库事务可证明的流级互斥；SQL Server/MySQL 必须成对实现。
 - 在互斥与真实双库 CDC→Kafka→Inbox E2E 完成前，正式 `CdcKafka` 切流入口保持失败关闭，不能依赖文档提醒。
 - 回退同样失败关闭：第一事务先等待既有生产者并提交持久化 generation fence，新生产者停止写入后才在事务外执行 Connector fencing 与 Broker 排空；最终事务只接受同一 generation 且 CDC 位点覆盖数据库 producer fence 的证明。生产适配器未完成时保留拒绝全部回退的默认实现。
-- 删除或隔离 synthetic mirror 证据，能力状态保持 `Designing / Shadow-only`。
+- 删除或隔离 synthetic mirror 证据；**2026-08-16 superseded：** 能力状态已升为 `Build-verified / Pilot`（见 Task 6 E2E），仍禁止默认切流。
 
 ## Task 5：验证
 

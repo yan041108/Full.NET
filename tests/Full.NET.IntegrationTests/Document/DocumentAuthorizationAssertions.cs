@@ -24,6 +24,9 @@ internal static class DocumentAuthorizationAssertions
                 HostDocumentPermissions.Read,
                 HostDocumentCategoryPermissions.Read,
                 HostDocumentTagPermissions.Read,
+                HostDocumentRecycleBinPermissions.Read,
+                HostDocumentSharePermissions.Read,
+                HostDocumentStatisticsPermissions.Read,
             ],
             cancellationToken);
 
@@ -48,6 +51,13 @@ internal static class DocumentAuthorizationAssertions
                 HostDocumentTagPermissions.Create,
                 HostDocumentTagPermissions.Update,
                 HostDocumentTagPermissions.Delete,
+                HostDocumentRecycleBinPermissions.Read,
+                HostDocumentRecycleBinPermissions.Restore,
+                HostDocumentRecycleBinPermissions.Purge,
+                HostDocumentSharePermissions.Read,
+                HostDocumentSharePermissions.Create,
+                HostDocumentSharePermissions.UpdateStatus,
+                HostDocumentStatisticsPermissions.Read,
             ],
             cancellationToken);
         await VerifyManagerNavigationAsync(client, manager.AccessToken, cancellationToken);
@@ -133,6 +143,9 @@ internal static class DocumentAuthorizationAssertions
         Assert.IsTrue(navigation.Any(item => item.Id == "host-document-items"));
         Assert.IsTrue(navigation.Any(item => item.Id == "document-categories"));
         Assert.IsTrue(navigation.Any(item => item.Id == "document-tags"));
+        Assert.IsTrue(navigation.Any(item => item.Id == "document-recycle-bin"));
+        Assert.IsTrue(navigation.Any(item => item.Id == "document-shares"));
+        Assert.IsTrue(navigation.Any(item => item.Id == "document-statistics"));
     }
 
     private static async Task VerifyManagerNavigationAsync(
@@ -147,7 +160,15 @@ internal static class DocumentAuthorizationAssertions
         var navigation = await response.Content.ReadFromJsonAsync<NavigationNodeResponse[]>(
             cancellationToken);
         Assert.IsNotNull(navigation);
-        foreach (var id in new[] { "host-document-items", "document-categories", "document-tags" })
+        foreach (var id in new[]
+                 {
+                     "host-document-items",
+                     "document-categories",
+                     "document-tags",
+                     "document-recycle-bin",
+                     "document-shares",
+                     "document-statistics",
+                 })
         {
             Assert.IsTrue(
                 navigation.Any(item => item.Id == id),

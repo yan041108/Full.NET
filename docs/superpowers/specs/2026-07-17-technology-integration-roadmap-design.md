@@ -23,7 +23,7 @@ Full.NET 继续采用“轻量核心 + 官方模块 + 可选 Provider”的结�
 | Mapperly | M3 优先评估 | CodeGeneration/模板 |
 | Hangfire | 不作为默认任务引擎 | 用户显式选择的可选 Provider |
 | Quartz.NET | M3 默认调度器候选 | Jobs Provider |
-| Kafka / CDC Relay / EventBus Provider | 已批准提前分阶段实施；采用 Apache Kafka + Debezium + Full.NET Kafka Provider/Inbox，不引入 CAP/MassTransit | 当前 `Designing`，按 ADR-0006 从 Shadow 到单流试点 |
+| Kafka / CDC Relay / EventBus Provider | 已批准提前分阶段实施；采用 Apache Kafka + Debezium + Full.NET Kafka Provider/Inbox，不引入 CAP/MassTransit | 当前 **`Build-verified / Pilot`**（Organization 流；默认不切流），见 [`cdc-kafka-pilot-2026-08-08.md`](../../verification/cdc-kafka-pilot-2026-08-08.md) |
 | YARP | 服务拆分、多上游或 BFF 出现后引入 | M4+ Gateway Provider |
 | Envoy/Linkerd | 不作为 NuGet 依赖 | M5+ 部署模板 |
 | NSubstitute | 保持唯一 Mock 框架 | Test Infrastructure |

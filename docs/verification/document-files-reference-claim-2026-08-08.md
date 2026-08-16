@@ -22,4 +22,4 @@ Task 6 from `docs/superpowers/plans/2026-08-08-architecture-gap-follow-up.md`: D
 ## Notes
 
 - 2026-08-08 Cursor 后续审查纠正：删除保护不得放在 Files 事务外。当前实现已在 Files 本地事务内检查，并以条件 Claim/条件删除 SQL 关闭检查—写入竞态；`released` 幂等键复用失败关闭。
-- **Task 1（post-review）**：Claim/Delete 共享 `fn_files_file` 行锁（SQL Server `UPDLOCK,HOLDLOCK` / MySQL `FOR UPDATE`）；双库 20×2 次竞争矩阵通过（`DocumentFilesReferenceClaim_race_is_atomic_*`）。
+- **Task 1（post-review）**：Claim/Delete 共享 `fn_files_file` 行锁（SQL Server `UPDLOCK,HOLDLOCK` / MySQL `FOR UPDATE`）；双库 20×2 次门闩竞争矩阵、20 次无门闩竞争矩阵与 HTTP 删除路径变体通过（`DocumentFilesReferenceClaim_*`）。

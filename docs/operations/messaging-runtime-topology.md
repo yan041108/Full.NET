@@ -9,7 +9,7 @@
 | Worker 默认模式 | `LegacyPolling` |
 | 正式 Kafka Consumer | **关闭**（`HybridKafka` 仅在运维显式启用且流所有权为 `CdcKafka` 时参与 Inbox） |
 | 切流开关 | `Messaging:DeliveryCutover:Enabled=false`（默认） |
-| CDC/Kafka 能力状态 | `Designing / Shadow-only`，**不得正式切流** |
+| CDC/Kafka 能力状态 | `Build-verified / Pilot`，**默认不得正式切流**（`DeliveryCutover:Enabled=false`） |
 | 容量 Runner | 工具 `Build-verified`；测量结果 **`Capacity-not-verified`** |
 
 Legacy 轮询语义详见 [`outbox-worker-topology.md`](outbox-worker-topology.md)。试点切流 API 与 Shadow 模式详见 [`cdc-kafka-event-delivery.md`](cdc-kafka-event-delivery.md)。
@@ -89,7 +89,7 @@ flowchart TB
 
 | 读者可能误解 | 实际边界 |
 | --- | --- |
-| “Scope B/C 集成测试通过 = 可切流” | 否。Delivery 路径仍为 `Designing / Shadow-only` |
+| “Scope B/C 集成测试通过 = 可切流” | 否。Delivery 路径为 `Build-verified / Pilot`，仍禁止默认切流 |
 | “Kafka Capacity Runner = Build-verified” | 仅表示 **工具与预检** 可构建运行；不等于 Delivery 或容量 Production-verified |
 | “Runner 复用 Inbox 核心 = 生产等价” | Runner 使用精简 `ServiceProvider`、可选 permissive 所有权；**不是** Worker 完整宿主图 |
 | “MySQL CDC E2E 通过 = 双库已验收” | SQL Server CDC 在 Testcontainers 上为登记 Inconclusive；见 [`sqlserver-cdc-ci-debt.md`](../verification/sqlserver-cdc-ci-debt.md) 与 [`cdc-debezium-inbox-e2e-2026-08-09.md`](../verification/cdc-debezium-inbox-e2e-2026-08-09.md) |

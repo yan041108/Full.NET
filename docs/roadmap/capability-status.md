@@ -43,7 +43,7 @@
 | 审计归档与保留 | Build-verified | 归档、导出、完整性与恢复边界已有验证；生产保留周期由运维配置。 |
 | Organization 单位、职位与成员关系 | Build-verified | 模块内关联使用本模块 SQL 与事务；Identity 侧本地投影与 Host 对账端点（keyset、dry-run、apply）已落地，见 [`cursor-post-review-follow-up`](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md) Task 2–3。 |
 | Files 本地存储、Provider 与上传状态机 | Build-verified | ProviderKey、Pending→Publishing→Ready、补偿与对账、双库迁移均已有验证。 |
-| Document | Implementing | 2026-08-09 复审：安全分享协议与 Vue 管理端尚未通过，先失败关闭部分路径，等 Document 收口计划全部门禁通过再升 Build-verified。文档版本与附件关联及 Document→Files claim/reconcile 已落地，Architecture 三份模块边界债务目录均为空；审查已补回 Files 事务内删除保护、条件 Claim/删除和 Released 终态失败关闭，双 Provider 聚焦切片通过，真实高竞争矩阵仍列为 P0。 |
+| Document | Build-verified | 2026-08-16：分享口令哈希 + Version 乐观锁并发、Admin.NET 对称后端矩阵（recycle-bin/permissions/shares/statistics）、Vue 四页与调用点门禁已通过双库与前端验证；Files Claim/Delete 并发矩阵已关闭（P0 #1）。仍非 Production-verified。见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md)。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
 | Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径在事务外调用 `IHostUserDirectory` 校验收件人，事务内仅写入 Notifications 表，Architecture 本地事务扫描无登记债务。 |
 | Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。 |
@@ -67,7 +67,7 @@
 
 ### P0：引用一致性与并发证明
 
-1. 为 Files Claim 与文件删除建立 SQL Server/MySQL 真实并发矩阵，统一文件行锁顺序，证明结果只能是“Claim 成功、删除冲突”或“删除成功、Claim 失败”。
+1. ~~为 Files Claim 与文件删除建立 SQL Server/MySQL 真实并发矩阵，统一文件行锁顺序，证明结果只能是“Claim 成功、删除冲突”或“删除成功、Claim 失败”。~~ **已完成**（2026-08-16；`DocumentFilesReferenceClaim_race_is_atomic_*`、无门闩竞争与 HTTP 删除变体）。
 2. 保持已落地的 NuGet/npm 漏洞失败关闭、权威 Markdown UTF-8 和内部链接门禁，不以本轮完成结论移除持续检查。
 
 ### P1：模块边界与一致性
@@ -78,8 +78,8 @@
 
 ### P2：契约与演进
 
-1. 按 ADR-0006/专门计划建立 Event Envelope V2、追加式 Outbox、双库 Inbox、Kafka Provider 和双库 CDC Shadow；完成故障矩阵前不启用正式业务 Consumer。
-2. 为 Vue API 模块建立 OpenAPI、共享 TypeScript 契约与调用点之间的覆盖门禁；在出现真实多客户端或外部 SDK 需求前，不机械引入完整生成式 SDK。
+1. 按 ADR-0006/专门计划建立 Event Envelope V2、追加式 Outbox、双库 Inbox、Kafka Provider 和双库 CDC Shadow；Organization 试点流故障矩阵（MySQL + SQL Server 对称 DataRow）已部分完成；正式切流前仍需 Soak 与 nightly SQL Server 绿。
+2. ~~为 Vue API 模块建立 OpenAPI、共享 TypeScript 契约与调用点之间的覆盖门禁~~ **已完成**（2026-08-16；`validate-vue-api-call-site-coverage.mjs` + `vue-client-coverage-v1.json` consumerModules/infrastructureModules + `OverviewView` 改用 `api/me.ts`）。
 3. 保留 Integration Event 并行版本、精确路由、consumer-first 和退役扫描；只有出现首个真实非加法升级时才实现相邻版本 upgrader，并以真实事件完成 v1→v2 演练。
 4. 在生产等价环境完成 MySQL UUID 迁移维护窗口、备份恢复和 RPO/RTO 演练。
 

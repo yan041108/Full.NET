@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           assembly="tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll"
-          filter="FullyQualifiedName~SqlServerCdcDebeziumInboxE2ETests|FullyQualifiedName~SqlServerCdcShadowTests|FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName~SqlServer|FullyQualifiedName~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName~SqlServer"
+          filter="FullyQualifiedName~SqlServerCdcDebeziumInboxE2ETests|FullyQualifiedName~SqlServerCdcShadowTests|FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName~SqlServer|FullyQualifiedName~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName~SqlServer|FullyQualifiedName~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName~SqlServer"
           dotnet "$assembly" \
             --no-ansi \
             --progress off \

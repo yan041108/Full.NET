@@ -15,7 +15,7 @@
 
 本文档不声明尚未实现的能力，例如相邻版本升级链、生产发布平台自动化门禁、Redis Leader Election 或通用一键自动重放工具。
 
-项目已批准按 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)提前建设追加式 Outbox + CDC Relay + Kafka + Inbox；当前状态仍为 `Designing`，在专门计划完成双库 Shadow、Inbox 故障矩阵和单一发布所有权切换前，本文的数据库租约 Worker 仍是已实现且权威的生产语义。不得因新方案已批准而提前关闭本 Worker 或把计划能力描述为已交付。
+项目已批准按 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)提前建设追加式 Outbox + CDC Relay + Kafka + Inbox；**Legacy 轮询 Worker 仍是生产权威路径**。Delivery 试点流已达 `Build-verified / Pilot`，但 `Messaging:DeliveryCutover:Enabled=false` 为默认；本文的数据库租约 Worker 语义不变。不得因试点 E2E 通过而默认关闭 Legacy 轮询或标记 Production-verified。
 
 ## 2. 默认拓扑
 

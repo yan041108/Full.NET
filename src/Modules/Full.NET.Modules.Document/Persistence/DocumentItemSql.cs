@@ -272,13 +272,28 @@ internal static class DocumentItemSql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement StatisticsByType = new(
-        "document.host_statistics.by_type",
+    public static readonly SqlStatement StatisticsByTypeSqlServer = new(
+        "document.host_statistics.by_type.sql_server",
         """
         SELECT
             v.Extension,
             COUNT(1) AS Count,
             ISNULL(SUM(v.SizeBytes) / 1024, 0) AS TotalSizeKb
+        FROM fn_document_version v
+        INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId
+        WHERE i.TenantId IS NULL AND i.IsDeleted = 0
+        GROUP BY v.Extension
+        ORDER BY Count DESC;
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement StatisticsByTypeMySql = new(
+        "document.host_statistics.by_type.my_sql",
+        """
+        SELECT
+            v.Extension,
+            COUNT(1) AS Count,
+            IFNULL(SUM(v.SizeBytes) / 1024, 0) AS TotalSizeKb
         FROM fn_document_version v
         INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId
         WHERE i.TenantId IS NULL AND i.IsDeleted = 0
@@ -302,8 +317,8 @@ internal static class DocumentItemSql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement StatisticsShareCount = new(
-        "document.host_statistics.share_count",
+    public static readonly SqlStatement StatisticsShareCountSqlServer = new(
+        "document.host_statistics.share_count.sql_server",
         """
         SELECT
             (SELECT COUNT(1) FROM fn_document_share WHERE TenantId IS NULL) AS ShareCount,
@@ -311,6 +326,19 @@ internal static class DocumentItemSql
              WHERE s.TenantId IS NULL AND CAST(s.CreatedAtUtc AS DATE) = CAST(GETUTCDATE() AS DATE)) AS TodayAccessCount,
             (SELECT COUNT(1) FROM fn_document_share s
              WHERE s.TenantId IS NULL AND CAST(s.CreatedAtUtc AS DATE) = CAST(GETUTCDATE() AS DATE)) AS TodayCreatedCount,
+            (SELECT COUNT(1) FROM fn_document_item WHERE TenantId IS NULL AND IsDeleted = 1) AS RecycleBinCount;
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement StatisticsShareCountMySql = new(
+        "document.host_statistics.share_count.my_sql",
+        """
+        SELECT
+            (SELECT COUNT(1) FROM fn_document_share WHERE TenantId IS NULL) AS ShareCount,
+            (SELECT IFNULL(SUM(s.AccessCount), 0) FROM fn_document_share s
+             WHERE s.TenantId IS NULL AND DATE(s.CreatedAtUtc) = UTC_DATE()) AS TodayAccessCount,
+            (SELECT COUNT(1) FROM fn_document_share s
+             WHERE s.TenantId IS NULL AND DATE(s.CreatedAtUtc) = UTC_DATE()) AS TodayCreatedCount,
             (SELECT COUNT(1) FROM fn_document_item WHERE TenantId IS NULL AND IsDeleted = 1) AS RecycleBinCount;
         """,
         SqlDataScope.HostOnly);

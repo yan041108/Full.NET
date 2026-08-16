@@ -6,7 +6,7 @@
 - 架构决策：[`ADR-0006`](../../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)
 - 实施计划：[2026-08-08-transactional-outbox-cdc-kafka.md](../plans/2026-08-08-transactional-outbox-cdc-kafka.md)
 - 当前实现基线：`c8c539915ebc33f666892f82b575f59aaf599453`
-- 能力状态：`Designing`；本文批准开发，不代表功能已经实现或验证
+- 能力状态：`Build-verified / Pilot`（Organization CDC E2E；**默认不切流**）；见 [`cdc-kafka-pilot-2026-08-08.md`](../../verification/cdc-kafka-pilot-2026-08-08.md)
 
 ## 1. 目标与非目标
 

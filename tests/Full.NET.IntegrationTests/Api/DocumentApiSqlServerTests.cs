@@ -27,6 +27,26 @@ public sealed class DocumentApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task DocumentFilesReferenceClaim_unsynchronized_race_is_atomic_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await DocumentFilesReferenceClaimAssertions.VerifyClaimDeleteUnsynchronizedConcurrencyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task DocumentFilesReferenceClaim_http_race_is_atomic_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await DocumentFilesReferenceClaimAssertions.VerifyClaimDeleteHttpConcurrencyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_document_categories_and_tags_follow_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(
@@ -54,5 +74,25 @@ public sealed class DocumentApiSqlServerTests
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
 
         await DocumentShareSecurityAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Document_share_concurrency_is_atomic_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await DocumentShareConcurrencyAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Document_admin_net_parity_follows_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await DocumentAdminNetParityAssertions.VerifyAsync(factory);
     }
 }

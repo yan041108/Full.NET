@@ -29,7 +29,7 @@ dotnet test tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj `
   --filter "FullyQualifiedName~MySqlCdcDebeziumInboxE2ETests"
 ```
 
-**最新结果（2026-08-16）：** MySQL 7/7 通过（含失败场景）；SQL Server happy path 在 Testcontainers 上仍为 **Inconclusive**（已知 Agent 债务，见 [`sqlserver-cdc-ci-debt.md`](sqlserver-cdc-ci-debt.md)）。Nightly 外部实例路径见 [`.github/workflows/sqlserver-cdc-nightly.yml`](../../.github/workflows/sqlserver-cdc-nightly.yml)。
+**最新结果（2026-08-16）：** MySQL 7/7 通过（含失败场景）；`OrganizationUnitCdcKafkaFaultMatrixTests` 含 MySQL 与 SQL Server DataRow（后者需外部 Agent）；SQL Server happy path 在 Testcontainers 上仍为 **Inconclusive**（已知 Agent 债务，见 [`sqlserver-cdc-ci-debt.md`](sqlserver-cdc-ci-debt.md)）。Nightly 外部实例路径见 [`.github/workflows/sqlserver-cdc-nightly.yml`](../../.github/workflows/sqlserver-cdc-nightly.yml)。
 
 ```powershell
 dotnet test tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj `

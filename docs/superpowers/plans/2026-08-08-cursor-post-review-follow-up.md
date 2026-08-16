@@ -44,7 +44,7 @@
 - Produces: provider-specific file-row lock statements selected by trusted `DatabaseOptions.Provider`.
 - Invariant: Claim and Delete acquire the same `fn_files_file` row before inspecting or changing open claims; `released` is terminal and cannot be reused as a successful Claim.
 
-- [ ] **Step 1: Start snapshot and add RED dual-provider race**
+- [x] **Step 1: Start snapshot and add RED dual-provider race**
 
 ```powershell
 pnpm test:task:start -- cursor-review-files-claim-concurrency-20260808
@@ -60,7 +60,7 @@ delete succeeds => claim returns files.file.not_found and no open claim exists
 
 Reject timeout, unobserved deadlock, both-success, deleted-file-plus-open-claim, and Ready-file-without-the-successful-claim result. Verify the test fails against a fixture that removes the shared row lock.
 
-- [ ] **Step 2: Add a shared provider lock order**
+- [x] **Step 2: Add a shared provider lock order**
 
 Add SQL Server and MySQL statements with these semantics:
 
@@ -77,7 +77,7 @@ FOR UPDATE;
 
 Both Claim and Delete must execute the provider-selected statement inside their Files-local transaction before reading active state/open claims. Keep the conditional `INSERT ... SELECT ... DeletedAtUtc IS NULL` and `UPDATE ... NOT EXISTS(open claim)` as defense in depth. Unknown providers throw before mutation.
 
-- [ ] **Step 3: Lock released-idempotency semantics**
+- [x] **Step 3: Lock released-idempotency semantics**
 
 Keep these Unit expectations:
 
@@ -88,7 +88,7 @@ Assert.AreEqual(FilesErrorCodes.FileNotFound, conditionalInsertLostRace.Error!.C
 
 Also cover duplicate Pending and Active requests returning the same Claim ID, payload conflict failing with `files.claim.payload_conflict`, and Confirm/Release racing without reviving Released.
 
-- [ ] **Step 4: Run GREEN and affected slice**
+- [x] **Step 4: Run GREEN and affected slice**
 
 ```powershell
 dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~HostFileReferenceClaimServiceTests|FullyQualifiedName~HostFileManagementServiceTests" --no-restore

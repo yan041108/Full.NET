@@ -9,11 +9,12 @@ import {
 } from '@element-plus/icons-vue';
 import {
   isFullNetProblemDetails,
+  type CurrentUserResponse,
   type FullNetProblemDetails,
   FULLNET_SCALAR_UI_PATH,
   resolveFullNetApiUrl
 } from '@fullnet/client-contracts';
-import { request } from '../api/http';
+import { getCurrentUser } from '../api/me';
 import { getHostDashboardSummary } from '../api/platform-dashboard';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createTrafficLineOption } from '../framework/art-design/charts/fullNetChartTheme';
@@ -23,12 +24,7 @@ const FullNetChart = defineAsyncComponent(() =>
   import('../framework/art-design/charts/FullNetChart.vue')
 );
 
-interface CurrentUser {
-  id: string;
-  displayName: string;
-}
-
-const currentUser = ref<CurrentUser>();
+const currentUser = ref<CurrentUserResponse>();
 const summary = ref<Awaited<ReturnType<typeof getHostDashboardSummary>>>();
 const problem = ref<FullNetProblemDetails>();
 const loading = ref(false);
@@ -156,7 +152,7 @@ async function loadCurrentUser(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    currentUser.value = await request<CurrentUser>('/api/v1/me');
+    currentUser.value = await getCurrentUser();
   } catch (error: unknown) {
     if (isFullNetProblemDetails(error)) {
       problem.value = error;

@@ -20,6 +20,20 @@ internal sealed class HostDocumentStatisticsQueryService(
             _ => throw new InvalidOperationException("The configured database provider is not supported."),
         };
 
+        var byTypeStatement = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => DocumentItemSql.StatisticsByTypeSqlServer,
+            DatabaseProvider.MySql => DocumentItemSql.StatisticsByTypeMySql,
+            _ => throw new InvalidOperationException("The configured database provider is not supported."),
+        };
+
+        var shareCountStatement = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => DocumentItemSql.StatisticsShareCountSqlServer,
+            DatabaseProvider.MySql => DocumentItemSql.StatisticsShareCountMySql,
+            _ => throw new InvalidOperationException("The configured database provider is not supported."),
+        };
+
         var summary = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentStatisticsSummaryRecord>(
                 summaryStatement,
@@ -29,7 +43,7 @@ internal sealed class HostDocumentStatisticsQueryService(
 
         var byType = await queryExecutor
             .QueryAsync<DocumentStatisticsByTypeRecord>(
-                DocumentItemSql.StatisticsByType,
+                byTypeStatement,
                 null,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -43,7 +57,7 @@ internal sealed class HostDocumentStatisticsQueryService(
 
         var shareCounts = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentStatisticsShareCountRecord>(
-                DocumentItemSql.StatisticsShareCount,
+                shareCountStatement,
                 null,
                 cancellationToken)
             .ConfigureAwait(false) ?? new DocumentStatisticsShareCountRecord();

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "paths": {
+    "/api/v1/me": {
+      "get": {
+        "operationId": "getCurrentUser",
+        "responses": {
+          "200": {
+            "description": "Current authenticated user profile"
+          }
+        }
+      }
+    }
+  }
+}

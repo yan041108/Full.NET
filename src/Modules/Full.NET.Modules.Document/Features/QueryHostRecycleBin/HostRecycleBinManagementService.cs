@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 using Full.NET.Modules.Document.Persistence;
 
 namespace Full.NET.Modules.Document.Features.QueryHostRecycleBin;
@@ -12,7 +13,7 @@ internal sealed class HostRecycleBinManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    HostRecycleBinQueryService queries,
+    HostDocumentItemQueryService itemQueries,
     IClock clock)
 {
     public Task<Result<HostDocumentItemResponse>> RestoreAsync(
@@ -76,7 +77,7 @@ internal sealed class HostRecycleBinManagementService(
             return VersionConflict();
         }
 
-        return await queries.GetDeletedByIdAsync(itemId, cancellationToken).ConfigureAwait(false);
+        return await itemQueries.GetByIdAsync(itemId, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<bool>> PurgeCoreAsync(

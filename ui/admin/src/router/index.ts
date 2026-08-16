@@ -140,6 +140,26 @@ export function createAppRouter(
         component: () => import('../views/DocumentTagsView.vue')
       },
       {
+        name: 'document-recycle-bin',
+        path: '/document/recycle-bin',
+        component: () => import('../views/DocumentRecycleBinView.vue')
+      },
+      {
+        name: 'document-shares',
+        path: '/document/shares',
+        component: () => import('../views/DocumentSharesView.vue')
+      },
+      {
+        name: 'document-permissions',
+        path: '/document/permissions',
+        component: () => import('../views/DocumentPermissionsView.vue')
+      },
+      {
+        name: 'document-statistics',
+        path: '/document/statistics',
+        component: () => import('../views/DocumentStatisticsView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

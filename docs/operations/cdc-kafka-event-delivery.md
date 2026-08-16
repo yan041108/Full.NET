@@ -2,9 +2,9 @@
 
 本文记录 Full.NET 事务 Outbox + CDC + Kafka 试点流的运维边界、切流/回退流程与生产门禁。权威架构决策见 [`ADR-0006`](../../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)。
 
-## 候选试点事件流（Designing / Shadow-only）
+## 候选试点事件流（Build-verified / Pilot，默认不切流）
 
-> 当前禁止正式切流。2026-08-09 复审确认真实生产写入、业务订阅注册和单流/Legacy 并存尚未闭环；`CdcKafka` 在没有真实订阅时会拒绝启动。
+> Organization 真实 API 写路径 + CDC 全链路 E2E 已在 MySQL 验证通过（2026-08-16 Task 6）；SQL Server 对称证据需外部 Agent 实例或 nightly workflow。**仍禁止**默认正式切流（`Messaging:DeliveryCutover:Enabled=false`）。
 
 | 字段 | 值 |
 | --- | --- |
@@ -48,7 +48,7 @@
 
 回退采用持久化 generation 的两阶段协议。第一数据库事务取得流级独占锁，等待已取得共享锁的生产者提交，然后写入 `RollbackState=Preparing`、`RollbackGeneration` 与准备时间并提交；此后新生产者在写任何 Outbox 前失败，Kafka Consumer 仍可完成排空。控制面随后在数据库事务外停止并 fence Connector/Consumer、排空或隔离 Broker，并取得 SQL Server CDC LSN 或 MySQL binlog position 覆盖数据库 producer fence 的可机器验证证明。最终事务重新取得独占锁，只接受同一 generation、足够新鲜且 source position 已覆盖 producer fence 的证明，再切回 Legacy 并清除准备状态。失败补偿必须先确认控制面按同一 generation 恢复成功，之后才能在数据库事务内解除 producer fence；控制面恢复失败或进程中断时保留 `Preparing`，让生产者继续失败关闭并等待运维恢复。默认实现始终失败关闭；在生产适配器和真实演练完成前，回退 API 会拒绝执行。
 
-上述 API 只是控制面实现，不代表当前已满足数据面切流条件。真实 SQL Server/MySQL CDC 端到端验收完成前必须保持开关关闭。
+上述 API 只是控制面实现，不代表当前已满足生产切流条件。MySQL 真实 CDC E2E 已通过；SQL Server 依赖外部 Agent 环境。生产 Soak/lag/N+1/DR 完成前必须保持开关关闭。
 
 ## Worker 模式
 
@@ -58,7 +58,7 @@
 | `ShadowCdc` | 是（影子比对） | 否 |
 | `HybridKafka` | 是；只处理仍由 Legacy/Shadow 拥有的流 | 是；只允许 `CdcKafka` 所有权流进入 Inbox |
 
-生产在真实双库 CDC E2E 验收前必须保持 `LegacyPolling`。`CdcKafka` 枚举值仅作为 `HybridKafka` 的一版过渡别名；不能因一个试点流关闭全局轮询。
+生产默认保持 `LegacyPolling` 与 `DeliveryCutover:Enabled=false`。MySQL 试点流 CDC E2E 已 `Build-verified / Pilot`；生产切流前仍需 SQL Server 对称证据、Soak 与运维门禁。
 
 ## 生产门禁（未验证项）
 

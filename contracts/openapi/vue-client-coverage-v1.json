@@ -431,6 +431,64 @@
       "routePrefixes": [
         "/api/v1/identity/users"
       ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/identity.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-me-v1.json",
+      "apiModule": "ui/admin/src/api/me.ts",
+      "routePrefixes": [
+        "/api/v1/me"
+      ]
     }
+  ],
+  "infrastructureModules": [
+    "ui/admin/src/preferences/grid-preferences.ts"
+  ],
+  "consumerModules": [
+    { "apiModule": "ui/admin/src/api/access-logs.ts", "consumers": ["ui/admin/src/views/AccessLogsView.vue"] },
+    { "apiModule": "ui/admin/src/api/api-keys.ts", "consumers": ["ui/admin/src/views/ApiKeysView.vue"] },
+    { "apiModule": "ui/admin/src/api/code-generation-previews.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
+    { "apiModule": "ui/admin/src/api/code-generation-runs.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
+    { "apiModule": "ui/admin/src/api/code-generation-templates.ts", "consumers": ["ui/admin/src/views/CodeGenerationTemplatesView.vue", "ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
+    { "apiModule": "ui/admin/src/api/config-entries.ts", "consumers": ["ui/admin/src/views/ConfigEntriesView.vue"] },
+    { "apiModule": "ui/admin/src/api/diagnostic-policy.ts", "consumers": ["ui/admin/src/views/DiagnosticPolicyView.vue"] },
+    { "apiModule": "ui/admin/src/api/dict-types.ts", "consumers": ["ui/admin/src/views/DictTypesView.vue"] },
+    { "apiModule": "ui/admin/src/api/document-categories.ts", "consumers": ["ui/admin/src/views/DocumentCategoriesView.vue"] },
+    { "apiModule": "ui/admin/src/api/document-items.ts", "consumers": ["ui/admin/src/views/HostDocumentItemsView.vue"] },
+    { "apiModule": "ui/admin/src/api/document-permissions.ts", "consumers": ["ui/admin/src/views/DocumentPermissionsView.vue"] },
+    { "apiModule": "ui/admin/src/api/document-recycle-bin.ts", "consumers": ["ui/admin/src/views/DocumentRecycleBinView.vue"] },
+    { "apiModule": "ui/admin/src/api/document-shares.ts", "consumers": ["ui/admin/src/views/DocumentSharesView.vue"] },
+    { "apiModule": "ui/admin/src/api/document-statistics.ts", "consumers": ["ui/admin/src/views/DocumentStatisticsView.vue"] },
+    { "apiModule": "ui/admin/src/api/document-tags.ts", "consumers": ["ui/admin/src/views/DocumentTagsView.vue"] },
+    { "apiModule": "ui/admin/src/api/enum-catalogs.ts", "consumers": ["ui/admin/src/views/EnumCatalogsView.vue"] },
+    { "apiModule": "ui/admin/src/api/exception-logs.ts", "consumers": ["ui/admin/src/views/ExceptionLogsView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-announcements.ts", "consumers": ["ui/admin/src/views/HostAnnouncementsView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-files.ts", "consumers": ["ui/admin/src/views/HostFilesView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-job-schedules.ts", "consumers": ["ui/admin/src/views/HostJobSchedulesView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-jobs.ts", "consumers": ["ui/admin/src/views/HostJobsView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-user-organization-reference.ts", "consumers": ["ui/admin/src/views/UsersView.vue", "ui/admin/src/views/RolesView.vue"] },
+    { "apiModule": "ui/admin/src/api/inbox-messages.ts", "consumers": ["ui/admin/src/views/InboxMessagesView.vue"] },
+    { "apiModule": "ui/admin/src/api/me.ts", "consumers": ["ui/admin/src/views/OverviewView.vue"] },
+    { "apiModule": "ui/admin/src/api/menus.ts", "consumers": ["ui/admin/src/views/MenusView.vue"] },
+    { "apiModule": "ui/admin/src/api/module-catalog.ts", "consumers": ["ui/admin/src/views/ModuleCatalogView.vue"] },
+    { "apiModule": "ui/admin/src/api/online-sessions.ts", "consumers": ["ui/admin/src/views/OnlineSessionsView.vue"] },
+    { "apiModule": "ui/admin/src/api/operation-logs.ts", "consumers": ["ui/admin/src/views/OperationLogsView.vue"] },
+    { "apiModule": "ui/admin/src/api/org-position-levels.ts", "consumers": ["ui/admin/src/views/OrgPositionLevelsView.vue", "ui/admin/src/views/OrgPositionsView.vue"] },
+    { "apiModule": "ui/admin/src/api/org-positions.ts", "consumers": ["ui/admin/src/views/OrgPositionsView.vue", "ui/admin/src/views/OrgUserPositionsView.vue"] },
+    { "apiModule": "ui/admin/src/api/org-units.ts", "consumers": ["ui/admin/src/views/OrgUnitsView.vue", "ui/admin/src/views/OrgUserUnitsView.vue", "ui/admin/src/views/RolesView.vue", "ui/admin/src/views/OrgPositionsView.vue"] },
+    { "apiModule": "ui/admin/src/api/org-user-positions.ts", "consumers": ["ui/admin/src/views/OrgUserPositionsView.vue"] },
+    { "apiModule": "ui/admin/src/api/org-user-units.ts", "consumers": ["ui/admin/src/views/OrgUserUnitsView.vue"] },
+    { "apiModule": "ui/admin/src/api/outbound-call-logs.ts", "consumers": ["ui/admin/src/views/OutboundCallLogsView.vue"] },
+    { "apiModule": "ui/admin/src/api/platform-dashboard.ts", "consumers": ["ui/admin/src/views/OverviewView.vue"] },
+    { "apiModule": "ui/admin/src/api/roles.ts", "consumers": ["ui/admin/src/views/RolesView.vue", "ui/admin/src/views/UsersView.vue"] },
+    { "apiModule": "ui/admin/src/api/serial-number-rules.ts", "consumers": ["ui/admin/src/views/SerialNumberRulesView.vue"] },
+    { "apiModule": "ui/admin/src/api/superAdministrators.ts", "consumers": ["ui/admin/src/views/SuperAdministratorsView.vue"] },
+    { "apiModule": "ui/admin/src/api/tenant-dict-types.ts", "consumers": ["ui/admin/src/views/TenantDictTypesView.vue"] },
+    { "apiModule": "ui/admin/src/api/tenant-packages.ts", "consumers": ["ui/admin/src/views/TenantPackagesView.vue", "ui/admin/src/views/TenantsView.vue"] },
+    { "apiModule": "ui/admin/src/api/tenants.ts", "consumers": ["ui/admin/src/views/TenantsView.vue"] },
+    { "apiModule": "ui/admin/src/api/totpEnrollment.ts", "consumers": ["ui/admin/src/views/SuperAdministratorsView.vue"] },
+    { "apiModule": "ui/admin/src/api/users.ts", "consumers": ["ui/admin/src/views/UsersView.vue"] }
   ]
 }
