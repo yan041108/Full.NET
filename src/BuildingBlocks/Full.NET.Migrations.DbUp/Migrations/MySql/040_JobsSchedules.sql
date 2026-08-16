@@ -1,23 +1,22 @@
 -- 040：MySQL DDL 会隐式提交，逐项收敛计划表、执行关联列和索引。
-CREATE TABLE IF NOT EXISTS fn_jobs_schedule
-(
-    Id BINARY(16) NOT NULL,
-    TenantId BINARY(16) NULL,
-    JobDefinitionId BINARY(16) NOT NULL,
-    TriggerKind varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    CronExpression varchar(128) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    TimeZoneId varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    OneTimeAtUtc datetime(6) NULL,
-    MisfirePolicy varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    IsEnabled boolean NOT NULL,
-    NextExecutionAtUtc datetime(6) NULL,
-    LastExecutionAtUtc datetime(6) NULL,
-    CompletedAtUtc datetime(6) NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
-    CreatedByUserId BINARY(16) NOT NULL,
-    UpdatedAtUtc datetime(6) NULL,
-    UpdatedByUserId BINARY(16) NULL,
-    Version int NOT NULL DEFAULT 1,
+CREATE TABLE IF NOT EXISTS fn_jobs_schedule (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级',
+    JobDefinitionId BINARY(16) NOT NULL COMMENT '任务定义标识',
+    TriggerKind varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '触发类型',
+    CronExpression varchar(128) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT 'Cron 表达式',
+    TimeZoneId varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '时区标识',
+    OneTimeAtUtc datetime(6) NULL COMMENT '一次性触发时间(UTC)',
+    MisfirePolicy varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '错过触发策略',
+    IsEnabled boolean NOT NULL COMMENT '是否启用',
+    NextExecutionAtUtc datetime(6) NULL COMMENT '下次执行时间(UTC)',
+    LastExecutionAtUtc datetime(6) NULL COMMENT '最后执行时间(UTC)',
+    CompletedAtUtc datetime(6) NULL COMMENT '完成时间(UTC)',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
+    CreatedByUserId BINARY(16) NOT NULL COMMENT '创建人用户标识',
+    UpdatedAtUtc datetime(6) NULL COMMENT '更新时间(UTC)',
+    UpdatedByUserId BINARY(16) NULL COMMENT '更新人用户标识',
+    Version int NOT NULL DEFAULT 1 COMMENT '乐观并发版本号',
     CONSTRAINT PK_fn_jobs_schedule PRIMARY KEY (Id),
     CONSTRAINT FK_fn_jobs_schedule_Definition
         FOREIGN KEY (JobDefinitionId)
@@ -39,7 +38,7 @@ CREATE TABLE IF NOT EXISTS fn_jobs_schedule
              AND OneTimeAtUtc IS NULL)
         ),
     KEY IX_fn_jobs_schedule_JobDefinitionId (JobDefinitionId)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='后台任务调度表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 DROP PROCEDURE IF EXISTS fn_jobs_schedule_migrate;
 DELIMITER $$
@@ -52,9 +51,7 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_jobs_execution'
           AND COLUMN_NAME = 'JobScheduleId'
-    ) THEN
-        ALTER TABLE fn_jobs_execution
-            ADD COLUMN JobScheduleId BINARY(16) NULL;
+    ) THENALTER TABLE fn_jobs_execution ADD JobScheduleId BINARY(16) NULL COMMENT '任务调度标识'
     END IF;
 
     IF NOT EXISTS
@@ -64,9 +61,7 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_jobs_execution'
           AND COLUMN_NAME = 'ScheduledForUtc'
-    ) THEN
-        ALTER TABLE fn_jobs_execution
-            ADD COLUMN ScheduledForUtc datetime(6) NULL;
+    ) THENALTER TABLE fn_jobs_execution ADD ScheduledForUtc datetime(6) NULL COMMENT '计划执行时间(UTC)'
     END IF;
 
     IF NOT EXISTS

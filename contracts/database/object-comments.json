@@ -1,0 +1,969 @@
+{
+  "schemaVersion": 1,
+  "tables": {
+    "fn_auditing_access_log": {
+      "comment": "审计访问日志表",
+      "columns": {
+        "ClientIpFingerprint": "客户端 IP 指纹",
+        "DurationMs": "耗时(毫秒)",
+        "HttpMethod": "HTTP 方法",
+        "Id": "逻辑主键",
+        "IsAuthenticated": "是否已认证",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "RequestPath": "请求路径",
+        "StatusCode": "HTTP 状态码",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceId": "追踪标识",
+        "UserId": "用户标识"
+      }
+    },
+    "fn_auditing_exception_log": {
+      "comment": "审计异常日志表",
+      "columns": {
+        "ClientIpFingerprint": "客户端 IP 指纹",
+        "ExceptionType": "异常类型",
+        "HttpMethod": "HTTP 方法",
+        "Id": "逻辑主键",
+        "Message": "消息文本",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "RequestPath": "请求路径",
+        "StackTrace": "堆栈跟踪",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceId": "追踪标识",
+        "UserId": "用户标识"
+      }
+    },
+    "fn_auditing_operation_log": {
+      "comment": "审计操作日志表",
+      "columns": {
+        "ActionKey": "操作键",
+        "ClientIpFingerprint": "客户端 IP 指纹",
+        "DurationMs": "耗时(毫秒)",
+        "HttpMethod": "HTTP 方法",
+        "Id": "逻辑主键",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "PermissionCode": "权限码",
+        "RequestPath": "请求路径",
+        "StatusCode": "HTTP 状态码",
+        "Succeeded": "是否成功",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceId": "追踪标识",
+        "UserId": "用户标识"
+      }
+    },
+    "fn_auditing_outbound_call": {
+      "comment": "审计出站调用表",
+      "columns": {
+        "DestinationHostCategory": "目标主机类别",
+        "DurationMs": "耗时(毫秒)",
+        "Id": "逻辑主键",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "OperationKey": "操作键",
+        "ProviderKey": "存储提供程序键",
+        "RetryCount": "重试次数",
+        "SafeErrorCode": "安全错误码",
+        "StatusCode": "HTTP 状态码",
+        "Succeeded": "是否成功",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceId": "追踪标识",
+        "UserId": "用户标识"
+      }
+    },
+    "fn_codegeneration_run": {
+      "comment": "代码生成运行表",
+      "columns": {
+        "ArtifactCount": "产物数量",
+        "EntityKey": "实体键",
+        "ErrorCode": "错误码",
+        "FinishedAtUtc": "结束时间(UTC)",
+        "Id": "逻辑主键",
+        "ManifestSha256": "清单 SHA256",
+        "ModuleKey": "模块键",
+        "OperationKind": "操作类型",
+        "RequestedByUserId": "请求人用户标识",
+        "SchemaSha256": "Schema SHA256",
+        "SourceApplyRunId": "来源应用运行标识",
+        "StartedAtUtc": "开始时间(UTC)",
+        "Status": "状态",
+        "SucceededRollbackSourceApplyRunId": "成功回滚来源应用运行标识",
+        "TemplateId": "模板标识",
+        "TemplateVersion": "模板版本"
+      }
+    },
+    "fn_codegeneration_template": {
+      "comment": "代码生成模板表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "DeletedAtUtc": "删除时间(UTC)",
+        "DeletedByUserId": "删除人用户标识",
+        "Description": "描述",
+        "Id": "逻辑主键",
+        "IsDeleted": "是否已软删除",
+        "Name": "名称",
+        "SchemaJson": "Schema(JSON)",
+        "SchemaSha256": "Schema SHA256",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UpdatedByUserId": "更新人用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_document_category": {
+      "comment": "文档分类表",
+      "columns": {
+        "Code": "编码",
+        "Color": "颜色",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DeletedAtUtc": "删除时间(UTC)",
+        "DeletedByUserId": "删除人用户标识",
+        "Description": "描述",
+        "Icon": "图标",
+        "Id": "逻辑主键",
+        "IsDeleted": "是否已软删除",
+        "Name": "名称",
+        "ParentId": "父级标识",
+        "SortOrder": "排序顺序",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_document_item": {
+      "comment": "文档条目表",
+      "columns": {
+        "AccessCount": "访问次数",
+        "CategoryId": "分类标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "CurrentVersionId": "当前版本标识",
+        "DeletedAtUtc": "删除时间(UTC)",
+        "DeletedByUserId": "删除人用户标识",
+        "Description": "描述",
+        "DocumentNo": "文档编号",
+        "DocumentType": "文档类型",
+        "Id": "逻辑主键",
+        "IsDeleted": "是否已软删除",
+        "LastAccessTime": "最后访问时间",
+        "SizeKb": "大小(KB)",
+        "Sort": "排序",
+        "Status": "状态",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "Thumbnail": "缩略图",
+        "Title": "标题",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UpdatedByUserId": "更新人用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_document_permission": {
+      "comment": "文档权限表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentId": "文档标识",
+        "Id": "逻辑主键",
+        "PermissionLevel": "权限级别",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UserId": "用户标识"
+      }
+    },
+    "fn_document_share": {
+      "comment": "文档分享表",
+      "columns": {
+        "AccessCount": "访问次数",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentId": "文档标识",
+        "ExpireTime": "过期时间",
+        "Id": "逻辑主键",
+        "IsEnabled": "是否启用",
+        "MaxAccessCount": "最大访问次数",
+        "PasswordHash": "密码哈希",
+        "ShareCode": "分享码",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_document_tag": {
+      "comment": "文档标签表",
+      "columns": {
+        "Code": "编码",
+        "Color": "颜色",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DeletedAtUtc": "删除时间(UTC)",
+        "DeletedByUserId": "删除人用户标识",
+        "Description": "描述",
+        "Icon": "图标",
+        "Id": "逻辑主键",
+        "IsDeleted": "是否已软删除",
+        "Name": "名称",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UseCount": "使用次数",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_document_tag_assignment": {
+      "comment": "文档标签关联表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentItemId": "文档项标识",
+        "TagId": "标签标识"
+      }
+    },
+    "fn_document_version": {
+      "comment": "文档版本表",
+      "columns": {
+        "ChangeDescription": "变更说明",
+        "ContentHash": "内容哈希",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentItemId": "文档项标识",
+        "Extension": "文件扩展名",
+        "FileId": "文件标识",
+        "FileName": "文件名",
+        "Id": "逻辑主键",
+        "MimeType": "MIME 类型",
+        "SizeBytes": "大小(字节)",
+        "UploadedByUserId": "上传人用户标识",
+        "VersionNumber": "版本号"
+      }
+    },
+    "fn_files_file": {
+      "comment": "文件文件表",
+      "columns": {
+        "ContentHash": "内容哈希",
+        "ContentType": "内容类型",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "DeletedAtUtc": "删除时间(UTC)",
+        "Id": "逻辑主键",
+        "OriginalFileName": "原始文件名",
+        "ProviderKey": "存储提供程序键",
+        "SizeBytes": "大小(字节)",
+        "StorageKey": "存储键",
+        "StorageState": "存储状态",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
+    "fn_files_file_reference_claim": {
+      "comment": "文件文件引用声明表",
+      "columns": {
+        "ConfirmedAtUtc": "确认时间(UTC)",
+        "ConsumerModule": "消费方模块",
+        "ConsumerReferenceId": "消费方引用标识",
+        "ContentHash": "内容哈希",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "FileId": "文件标识",
+        "Id": "逻辑主键",
+        "IdempotencyKey": "幂等键",
+        "ReleasedAtUtc": "释放时间(UTC)",
+        "SizeBytes": "大小(字节)",
+        "State": "状态",
+        "UpdatedAtUtc": "更新时间(UTC)"
+      }
+    },
+    "fn_identity_api_key": {
+      "comment": "身份认证API 密钥表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DisabledAtUtc": "禁用时间(UTC)",
+        "DisplayName": "显示名称",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "KeyHash": "密钥哈希",
+        "KeyPrefix": "密钥前缀",
+        "LastUsedAtUtc": "最后使用时间(UTC)",
+        "PermissionsJson": "权限集合(JSON)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_auth_audit": {
+      "comment": "身份认证审计事件",
+      "columns": {
+        "ActorUserId": "操作者用户标识",
+        "ContextTenantId": "上下文租户标识",
+        "EventType": "事件类型",
+        "Id": "逻辑主键",
+        "IpAddress": "IP 地址",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "ResultCode": "结果码",
+        "SessionId": "会话标识",
+        "Succeeded": "是否成功",
+        "UserAgent": "用户代理",
+        "UserId": "用户标识",
+        "UsernameFingerprint": "用户名指纹"
+      }
+    },
+    "fn_identity_navigation": {
+      "comment": "身份认证导航菜单表",
+      "columns": {
+        "Caption": "显示标题",
+        "ComponentKey": "组件键",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DisplayOrder": "显示顺序",
+        "Icon": "图标",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "IsAffix": "是否固定标签",
+        "IsEmbedded": "是否内嵌页面",
+        "IsHidden": "是否隐藏",
+        "IsKeepAlive": "是否缓存页面",
+        "IsSystem": "是否系统内置",
+        "LinkUrl": "外链地址",
+        "MenuType": "菜单类型",
+        "ParentId": "父级标识",
+        "Path": "路由路径",
+        "Redirect": "重定向路径",
+        "Remark": "备注",
+        "RequiredPermission": "所需权限码",
+        "RouteName": "路由名称",
+        "ScopeKey": "作用域键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "Title": "标题",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_organization_unit_projection": {
+      "comment": "身份认证机构单元投影表",
+      "columns": {
+        "IsActive": "是否启用",
+        "Name": "名称",
+        "ProjectedAtUtc": "投影刷新时间(UTC)",
+        "SourceUpdatedAtUtc": "源更新时间(UTC)",
+        "SourceVersion": "源版本号",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UnitId": "机构单元标识"
+      }
+    },
+    "fn_identity_refresh_session": {
+      "comment": "用户刷新令牌会话",
+      "columns": {
+        "ActiveTenantId": "当前活动租户标识",
+        "ClientId": "客户端标识",
+        "ConsumedAtUtc": "消费时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "FamilyId": "会话族标识",
+        "Id": "逻辑主键",
+        "ReplacedById": "替换会话标识",
+        "RevokedAtUtc": "撤销时间(UTC)",
+        "TokenHash": "令牌哈希",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_role": {
+      "comment": "身份认证角色表",
+      "columns": {
+        "Code": "编码",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DataScopeKind": "数据范围类型",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "IsSuperAdministrator": "是否超级管理员角色",
+        "IsSystem": "是否系统内置",
+        "Name": "名称",
+        "ScopeKey": "作用域键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_role_data_scope_unit": {
+      "comment": "身份认证角色数据范围机构表",
+      "columns": {
+        "RoleId": "角色标识",
+        "UnitId": "机构单元标识"
+      }
+    },
+    "fn_identity_role_field_grant": {
+      "comment": "身份认证角色字段授权表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedById": "创建人标识",
+        "FieldKey": "字段键",
+        "Id": "逻辑主键",
+        "ResourceKey": "资源键",
+        "RoleId": "角色标识"
+      }
+    },
+    "fn_identity_role_permission": {
+      "comment": "身份认证角色权限表",
+      "columns": {
+        "PermissionCode": "权限码",
+        "RoleId": "角色标识"
+      }
+    },
+    "fn_identity_signature_nonce": {
+      "comment": "身份认证签名随机数表",
+      "columns": {
+        "AccessKeyId": "访问密钥标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "Id": "逻辑主键",
+        "NonceDigest": "随机数摘要"
+      }
+    },
+    "fn_identity_user": {
+      "comment": "身份认证用户表",
+      "columns": {
+        "AccountType": "账户类型",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DisplayName": "显示名称",
+        "FailedLoginCount": "登录失败次数",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "LockoutEndUtc": "锁定结束时间(UTC)",
+        "NormalizedUsername": "规范化用户名",
+        "PasswordHash": "密码哈希",
+        "PreferredLocale": "首选语言区域",
+        "ProfileVersion": "资料版本号",
+        "ScopeKey": "作用域键",
+        "SecurityStamp": "安全戳",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Username": "用户名",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_user_profile": {
+      "comment": "身份认证用户资料表",
+      "columns": {
+        "Address": "地址",
+        "BirthDate": "出生日期",
+        "EducationLevel": "学历",
+        "Email": "Email",
+        "EmergencyContact": "紧急联系人",
+        "EmergencyContactAddress": "紧急联系人地址",
+        "EmergencyContactPhone": "紧急联系人电话",
+        "EmployeeNumber": "工号",
+        "Ethnicity": "民族",
+        "Gender": "性别",
+        "GraduatedSchool": "毕业院校",
+        "IdCardNumber": "证件号码",
+        "IdCardType": "证件类型",
+        "JoinDateUtc": "入职时间(UTC)",
+        "Nickname": "昵称",
+        "OfficePhone": "办公电话",
+        "PhoneNumber": "手机号",
+        "PoliticalStatus": "政治面貌",
+        "Remark": "备注",
+        "SortOrder": "排序顺序",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_user_role": {
+      "comment": "身份认证用户角色表",
+      "columns": {
+        "RoleId": "角色标识",
+        "UserId": "用户标识"
+      }
+    },
+    "fn_identity_user_totp": {
+      "comment": "身份认证用户 TOTP表",
+      "columns": {
+        "ConfirmedAtUtc": "确认时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "IsEnabled": "是否启用",
+        "SecretProtected": "受保护密钥",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_jobs_definition": {
+      "comment": "后台任务定义表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "Description": "描述",
+        "DisplayName": "显示名称",
+        "GroupName": "分组名称",
+        "Id": "逻辑主键",
+        "IsEnabled": "是否启用",
+        "JobKey": "任务键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UpdatedByUserId": "更新人用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_jobs_execution": {
+      "comment": "后台任务执行记录表",
+      "columns": {
+        "AttemptCount": "尝试次数",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "ErrorMessage": "错误消息",
+        "FinishedAtUtc": "结束时间(UTC)",
+        "Id": "逻辑主键",
+        "JobDefinitionId": "任务定义标识",
+        "JobScheduleId": "任务调度标识",
+        "LeaseExpiresAtUtc": "租约过期时间(UTC)",
+        "LeaseId": "租约标识",
+        "NextAttemptAtUtc": "下次重试时间(UTC)",
+        "ScheduledForUtc": "计划执行时间(UTC)",
+        "StartedAtUtc": "开始时间(UTC)",
+        "Status": "状态",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TriggerKind": "触发类型"
+      }
+    },
+    "fn_jobs_schedule": {
+      "comment": "后台任务调度表",
+      "columns": {
+        "Args": "调度参数(JSON)",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "CronExpression": "Cron 表达式",
+        "EndTime": "结束时间",
+        "Id": "逻辑主键",
+        "IsEnabled": "是否启用",
+        "JobDefinitionId": "任务定义标识",
+        "LastExecutionAtUtc": "最后执行时间(UTC)",
+        "MisfirePolicy": "错过触发策略",
+        "NextExecutionAtUtc": "下次执行时间(UTC)",
+        "NumberOfErrors": "错误次数",
+        "NumberOfRuns": "运行次数",
+        "OneTimeAtUtc": "一次性触发时间(UTC)",
+        "StartTime": "Start Time",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TimeZoneId": "时区标识",
+        "TriggerKind": "触发类型",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UpdatedByUserId": "更新人用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_messaging_domain_audit": {
+      "comment": "消息投递领域审计表",
+      "columns": {
+        "ActionKey": "操作键",
+        "ActorDisplayName": "操作者显示名",
+        "ActorUserId": "操作者用户标识",
+        "DiffSummaryJson": "差异摘要(JSON)",
+        "EntityId": "实体标识",
+        "Id": "逻辑主键",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "Outcome": "结果",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceId": "追踪标识"
+      }
+    },
+    "fn_messaging_inbox_message": {
+      "comment": "消息收件箱，记录消费者幂等处理状态",
+      "columns": {
+        "Attempts": "重试次数",
+        "ConsumerName": "消费者名称",
+        "LastError": "最后错误",
+        "LastErrorCode": "最后错误码",
+        "MessageId": "消息标识",
+        "MessageType": "消息类型",
+        "PayloadHash": "载荷哈希",
+        "ProcessedAtUtc": "处理完成时间(UTC)",
+        "ReceivedAtUtc": "接收时间(UTC)",
+        "SchemaVersion": "Schema 版本",
+        "Status": "状态",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
+    "fn_messaging_outbox_event": {
+      "comment": "消息发件箱事件，供 CDC 中继投递",
+      "columns": {
+        "CausationId": "因果关联标识",
+        "ContentType": "内容类型",
+        "CorrelationId": "关联标识",
+        "Id": "逻辑主键",
+        "MessageType": "消息类型",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "PartitionKey": "分区键",
+        "Payload": "消息正文",
+        "Producer": "生产者标识",
+        "SchemaVersion": "Schema 版本",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceParent": "追踪父级"
+      }
+    },
+    "fn_messaging_stream_ownership": {
+      "comment": "消息流发布所有权与回滚边界",
+      "columns": {
+        "CdcSourcePositionJson": "CDC 源位置(JSON)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CurrentOwner": "当前所有者",
+        "CutoffEventId": "截止事件标识",
+        "CutoffOccurredAtUtc": "截止事件发生时间(UTC)",
+        "MessageType": "消息类型",
+        "OperatorUserId": "操作人用户标识",
+        "PreviousOwner": "上一任所有者",
+        "Reason": "原因说明",
+        "RollbackBoundaryEventId": "回滚边界事件标识",
+        "RollbackGeneration": "回滚代数",
+        "RollbackOccurredAtUtc": "回滚发生时间(UTC)",
+        "RollbackPreparedAtUtc": "回滚准备时间(UTC)",
+        "RollbackState": "回滚状态",
+        "SchemaVersion": "Schema 版本",
+        "TopicCode": "主题编码",
+        "UpdatedAtUtc": "更新时间(UTC)"
+      }
+    },
+    "fn_notifications_announcement": {
+      "comment": "通知公告表",
+      "columns": {
+        "Content": "内容",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "Id": "逻辑主键",
+        "PublishedAtUtc": "发布时间(UTC)",
+        "Status": "状态",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "Title": "标题",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UpdatedByUserId": "更新人用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_notifications_inbox_message": {
+      "comment": "通知收件箱消息表",
+      "columns": {
+        "Content": "内容",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "Id": "逻辑主键",
+        "ReadAtUtc": "已读时间(UTC)",
+        "RecipientUserId": "接收人用户标识",
+        "Status": "状态",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "Title": "标题"
+      }
+    },
+    "fn_organization_position": {
+      "comment": "组织机构岗位表",
+      "columns": {
+        "Code": "编码",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DisplayOrder": "显示顺序",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "Name": "名称",
+        "PositionLevelId": "职级标识",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UnitId": "机构单元标识",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_organization_position_level": {
+      "comment": "组织机构职级表",
+      "columns": {
+        "Code": "编码",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DisplayOrder": "显示顺序",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "Name": "名称",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_organization_unit": {
+      "comment": "组织机构机构单元表",
+      "columns": {
+        "Code": "编码",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DisplayOrder": "显示顺序",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "Name": "名称",
+        "ParentId": "父级标识",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_organization_user_position": {
+      "comment": "组织机构用户岗位表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "IsPrimary": "是否主关联",
+        "PositionId": "岗位标识",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_organization_user_unit": {
+      "comment": "组织机构用户机构表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "IsPrimary": "是否主关联",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UnitId": "机构单元标识",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_outbox_message": {
+      "comment": "事务发件箱消息，承载待发布的集成事件",
+      "columns": {
+        "Attempts": "重试次数",
+        "ContentType": "内容类型",
+        "DeadLetterReasonCode": "死信原因码",
+        "DeadLetteredAtUtc": "死信时间(UTC)",
+        "Error": "错误信息",
+        "Id": "逻辑主键",
+        "LockId": "锁标识",
+        "LockedUntil": "锁定截止时间",
+        "LockedUntilUtc": "锁定截止时间(UTC)",
+        "MessageType": "消息类型",
+        "NextAttemptAt": "下次重试时间",
+        "NextAttemptAtUtc": "下次重试时间(UTC)",
+        "OccurredAt": "发生时间",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "Payload": "消息正文",
+        "ProcessedAt": "处理完成时间",
+        "ProcessedAtUtc": "处理完成时间(UTC)",
+        "SchemaVersion": "Schema 版本",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceId": "追踪标识",
+        "Type": "类型"
+      }
+    },
+    "fn_pre_v1_naming_contract_state": {
+      "comment": "1.0 前命名契约迁移状态",
+      "columns": {
+        "DestructiveDdlApprovalId": "破坏性 DDL 审批标识",
+        "Id": "逻辑主键",
+        "SchemaMode": "Schema 模式",
+        "UpdatedAtUtc": "更新时间(UTC)"
+      }
+    },
+    "fn_seed_run": {
+      "comment": "种子数据执行运行记录",
+      "columns": {
+        "ApplicationVersion": "应用版本",
+        "CompletedAt": "完成时间",
+        "CorrelationId": "关联标识",
+        "EnvironmentName": "环境名称",
+        "ErrorCode": "错误码",
+        "Id": "逻辑主键",
+        "Profile": "种子配置档",
+        "StartedAt": "开始时间",
+        "Status": "状态"
+      }
+    },
+    "fn_seed_run_item": {
+      "comment": "种子数据贡献者执行明细",
+      "columns": {
+        "CompletedAt": "完成时间",
+        "Contributor": "贡献者名称",
+        "ContributorVersion": "贡献者版本",
+        "CreatedCount": "新建数量",
+        "ErrorCode": "错误码",
+        "RunId": "运行标识",
+        "SkippedCount": "跳过数量",
+        "StartedAt": "开始时间",
+        "Status": "状态",
+        "UpdatedCount": "更新数量"
+      }
+    },
+    "fn_serialnumbers_allocation": {
+      "comment": "序列号分配记录表",
+      "columns": {
+        "AllocatedAtUtc": "分配时间(UTC)",
+        "Id": "逻辑主键",
+        "IdempotencyKey": "幂等键",
+        "ResetBucket": "重置桶",
+        "RuleId": "规则标识",
+        "RuleKey": "规则键",
+        "SequenceValue": "序列值",
+        "SerialNumber": "序列号",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "ScopeTenantKey": "作用域租户键"
+      }
+    },
+    "fn_serialnumbers_counter": {
+      "comment": "序列号计数器表",
+      "columns": {
+        "Id": "逻辑主键",
+        "LastValue": "最后计数值",
+        "ResetBucket": "重置桶",
+        "RuleId": "规则标识",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "ScopeTenantKey": "作用域租户键"
+      }
+    },
+    "fn_serialnumbers_rule": {
+      "comment": "序列号规则表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "Description": "描述",
+        "DisplayName": "显示名称",
+        "DisplayOrder": "显示顺序",
+        "Id": "逻辑主键",
+        "IsEnabled": "是否启用",
+        "MaximumValue": "最大值",
+        "MinimumValue": "最小值",
+        "Pattern": "编号模式",
+        "ResetInterval": "重置周期",
+        "RuleKey": "规则键",
+        "Scope": "作用域",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UpdatedByUserId": "更新人用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_settings_config_entry": {
+      "comment": "系统设置配置项表",
+      "columns": {
+        "ConfigKey": "配置键",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Description": "描述",
+        "DisplayName": "显示名称",
+        "DisplayOrder": "显示顺序",
+        "GroupName": "分组名称",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Value": "值",
+        "ValueKind": "值类型",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_settings_dict_item": {
+      "comment": "系统设置字典项表",
+      "columns": {
+        "Color": "颜色",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DictTypeId": "Dict Type标识",
+        "DisplayOrder": "显示顺序",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "Label": "显示标签",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Value": "值",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_settings_dict_type": {
+      "comment": "系统设置字典类型表",
+      "columns": {
+        "Code": "编码",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Description": "描述",
+        "DisplayOrder": "显示顺序",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "Name": "名称",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_settings_domain_audit": {
+      "comment": "系统设置领域审计表",
+      "columns": {
+        "ActionKey": "操作键",
+        "ActorDisplayName": "操作者显示名",
+        "ActorUserId": "操作者用户标识",
+        "DiffSummaryJson": "差异摘要(JSON)",
+        "EntityId": "实体标识",
+        "Id": "逻辑主键",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "Outcome": "结果",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceId": "追踪标识"
+      }
+    },
+    "fn_settings_user_grid_preference": {
+      "comment": "系统设置user grid preference表",
+      "columns": {
+        "ColumnsJson": "列配置(JSON)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "GridKey": "表格键",
+        "Id": "逻辑主键",
+        "SchemaVersion": "Schema 版本",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_tenancy_domain_audit": {
+      "comment": "租户领域审计表",
+      "columns": {
+        "ActionKey": "操作键",
+        "ActorDisplayName": "操作者显示名",
+        "ActorUserId": "操作者用户标识",
+        "DiffSummaryJson": "差异摘要(JSON)",
+        "EntityId": "实体标识",
+        "Id": "逻辑主键",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "Outcome": "结果",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TraceId": "追踪标识"
+      }
+    },
+    "fn_tenancy_tenant": {
+      "comment": "租户租户表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DefaultLocale": "默认语言区域",
+        "Domain": "域名",
+        "Id": "逻辑主键",
+        "Identifier": "唯一标识符",
+        "IsActive": "是否启用",
+        "Name": "名称",
+        "TenantPackageId": "租户套餐标识",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_tenancy_tenant_package": {
+      "comment": "租户租户套餐表",
+      "columns": {
+        "Code": "编码",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Description": "描述",
+        "Id": "逻辑主键",
+        "IsActive": "是否启用",
+        "Name": "名称",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_tenant_tenant": {
+      "comment": "租户租户表",
+      "columns": {
+        "CreatedAt": "创建时间",
+        "DefaultLocale": "默认语言区域",
+        "Domain": "域名",
+        "Id": "逻辑主键",
+        "Identifier": "唯一标识符",
+        "IsActive": "是否启用",
+        "Name": "名称",
+        "UpdatedAt": "更新时间",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_uuid_contract_state": {
+      "comment": "UUID 二进制契约迁移状态",
+      "columns": {
+        "DestructiveDdlApprovalId": "破坏性 DDL 审批标识",
+        "Id": "逻辑主键",
+        "SchemaMode": "Schema 模式",
+        "UpdatedAtUtc": "更新时间(UTC)"
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@ IF COL_LENGTH(N'dbo.fn_identity_role', N'DataScopeKind') IS NULL
         ADD DataScopeKind varchar(64) NOT NULL
             CONSTRAINT DF_fn_identity_role_DataScopeKind
             DEFAULT ('identity.data_scope.all');
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'数据范围类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'DataScopeKind';
 
 IF OBJECT_ID(N'dbo.fn_identity_role_data_scope_unit', N'U') IS NULL
 BEGIN
@@ -14,6 +15,9 @@ BEGIN
         CONSTRAINT FK_fn_identity_role_data_scope_unit_Role
             FOREIGN KEY (RoleId) REFERENCES dbo.fn_identity_role(Id)
     );
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'身份认证角色数据范围机构表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_data_scope_unit';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'角色标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_data_scope_unit', @level2type=N'COLUMN', @level2name=N'RoleId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'机构单元标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_data_scope_unit', @level2type=N'COLUMN', @level2name=N'UnitId';
     CREATE CLUSTERED INDEX CX_fn_identity_role_data_scope_unit_Role
         ON dbo.fn_identity_role_data_scope_unit(RoleId);
 END;

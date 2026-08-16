@@ -12,9 +12,7 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_settings_config_entry'
           AND COLUMN_NAME = 'GroupName'
-    ) THEN
-        ALTER TABLE fn_settings_config_entry
-            ADD COLUMN GroupName varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL;
+    ) THENALTER TABLE fn_settings_config_entry ADD GroupName varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '分组名称'
     END IF;
 END$$
 DELIMITER ;

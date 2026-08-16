@@ -1,20 +1,19 @@
 -- 043：出站调用审计汇总表。
 
-CREATE TABLE IF NOT EXISTS fn_auditing_outbound_call
-(
-    Id BINARY(16) NOT NULL,
-    OccurredAtUtc datetime(6) NOT NULL,
-    ProviderKey varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    OperationKey varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    DestinationHostCategory varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    StatusCode int NOT NULL,
-    Succeeded tinyint(1) NOT NULL DEFAULT 0,
-    DurationMs int NOT NULL,
-    RetryCount int NOT NULL DEFAULT 0,
-    TraceId varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    SafeErrorCode varchar(128) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    TenantId BINARY(16) NULL,
-    UserId BINARY(16) NULL,
+CREATE TABLE IF NOT EXISTS fn_auditing_outbound_call (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    OccurredAtUtc datetime(6) NOT NULL COMMENT '发生时间(UTC)',
+    ProviderKey varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '存储提供程序键',
+    OperationKey varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '操作键',
+    DestinationHostCategory varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '目标主机类别',
+    StatusCode int NOT NULL COMMENT 'HTTP 状态码',
+    Succeeded tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否成功',
+    DurationMs int NOT NULL COMMENT '耗时(毫秒)',
+    RetryCount int NOT NULL DEFAULT 0 COMMENT '重试次数',
+    TraceId varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '追踪标识',
+    SafeErrorCode varchar(128) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '安全错误码',
+    TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级',
+    UserId BINARY(16) NULL COMMENT '用户标识',
     CONSTRAINT PK_fn_auditing_outbound_call PRIMARY KEY (Id),
     CONSTRAINT CK_fn_auditing_outbound_call_StatusCode
         CHECK (StatusCode BETWEEN 0 AND 999),
@@ -24,7 +23,7 @@ CREATE TABLE IF NOT EXISTS fn_auditing_outbound_call
         CHECK (RetryCount >= 0),
     KEY IX_fn_auditing_outbound_call_OccurredAtUtc_Id (OccurredAtUtc, Id),
     KEY IX_fn_auditing_outbound_call_ProviderKey_OccurredAtUtc (ProviderKey, OccurredAtUtc)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='审计出站调用表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 DROP PROCEDURE IF EXISTS fn_auditing_outbound_call_boundary;
 DELIMITER $$

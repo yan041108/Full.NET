@@ -20,6 +20,19 @@ BEGIN
         CONSTRAINT CK_fn_messaging_outbox_event_SchemaVersion
             CHECK (SchemaVersion > 0)
     );
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息发件箱事件，供 CDC 中继投递', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'因果关联标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'CausationId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'内容类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'ContentType';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'关联标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'CorrelationId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'Id';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'MessageType';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发生时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'OccurredAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'分区键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'PartitionKey';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息正文', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'Payload';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'生产者标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'Producer';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema 版本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'SchemaVersion';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'TenantId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'追踪父级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_outbox_event', @level2type=N'COLUMN', @level2name=N'TraceParent';
 END;
 
 IF OBJECT_ID(N'dbo.fn_messaging_inbox_message', N'U') IS NULL
@@ -47,6 +60,19 @@ BEGIN
         CONSTRAINT CK_fn_messaging_inbox_message_Status
             CHECK (Status IN ('processing', 'processed', 'failed'))
     );
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息收件箱，记录消费者幂等处理状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'重试次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'Attempts';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消费者名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'ConsumerName';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最后错误', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'LastError';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最后错误码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'LastErrorCode';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'MessageId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'MessageType';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'载荷哈希', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'PayloadHash';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'处理完成时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'ProcessedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'接收时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'ReceivedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema 版本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'SchemaVersion';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'Status';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_inbox_message', @level2type=N'COLUMN', @level2name=N'TenantId';
 END;
 
 IF EXISTS

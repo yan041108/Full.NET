@@ -15,6 +15,16 @@ BEGIN
         CreatedByUserId uniqueidentifier NULL,
         CONSTRAINT PK_fn_notifications_inbox_message PRIMARY KEY CLUSTERED (Id)
     );
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'通知收件箱消息表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'内容', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'Content';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'CreatedByUserId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'Id';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'已读时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'ReadAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'接收人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'RecipientUserId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'Status';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'TenantId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'标题', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'Title';
 
     CREATE INDEX IX_fn_notifications_inbox_message_RecipientCreatedAtUtc
         ON dbo.fn_notifications_inbox_message(RecipientUserId, CreatedAtUtc DESC, Id);

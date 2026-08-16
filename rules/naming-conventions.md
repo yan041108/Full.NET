@@ -144,6 +144,15 @@ Provider 物理类型固定如下：
 - SQL Server 与 MySQL 使用相同表、列、索引和约束名称，Provider 语法差异不得改变领域命名；
 - 新名称必须检查两库保留字并在 Linux MySQL 容器验证表名大小写；禁止通过修改 `lower_case_table_names` 掩盖不一致 SQL。
 
+### 6.1 数据库对象注释
+
+1. **所有新建或修改的表与列必须在数据库元数据中携带中文说明。** 说明写入迁移脚本并登记在 `contracts/database/object-comments.json`；脚本注释不能替代数据库 COMMENT / `MS_Description`。
+2. **MySQL** 在 `CREATE TABLE` / `ALTER TABLE ... ADD COLUMN` 中对表使用 `COMMENT='...'`，对列使用列级 `COMMENT '...'`。
+3. **SQL Server** 在同一迁移块内对表与列调用 `sys.sp_addextendedproperty`（`MS_Description`）；`CREATE TABLE` 后、`CREATE INDEX` 前追加，列追加迁移在 `ADD` 语句之后追加。
+4. **注释语言与质量**：使用清晰中文，说明业务语义、边界或不变量（例如 `TenantId` 的 Host/租户含义、UTC 列含义、软删除字段约束）；禁止逐字翻译列名或只写“字段”。
+5. **双库语义一致**：同一表/列在两库的说明文本必须一致；Provider 语法差异不得改变注释含义。
+6. **验证**：运行 `pnpm test:naming` 与 `node scripts/database/validate-sql-comments.mjs`；新增表/列必须先更新 `contracts/database/object-comments.json`（可运行 `node scripts/database/generate-object-comments.mjs` 生成基线后人工校正），再运行 `node scripts/database/apply-migration-comments.mjs` 写回迁移。
+
 ## 7. C#、项目和 Feature
 
 ### 7.1 .NET 标识符
@@ -223,6 +232,7 @@ Provider 物理类型固定如下：
 
 - `.editorconfig`/分析器检查 C# 命名；
 - SQL 命名扫描检查表、列、索引、约束、长度、保留字和双库迁移配对；
+- 数据库对象注释扫描检查 `contracts/database/object-comments.json` 覆盖范围，以及迁移脚本中的 MySQL `COMMENT` 与 SQL Server `MS_Description`；
 - 协议契约测试枚举错误码、权限码、消息类型、指标和配置 Key；
 - 代码生成器快照测试验证相同 Schema 重复生成无漂移、长名称摘要稳定且不会碰撞；
 - SQL Server/MySQL Testcontainers 在 Linux 环境执行迁移和典型 Dapper 投影，验证大小写与直接映射；

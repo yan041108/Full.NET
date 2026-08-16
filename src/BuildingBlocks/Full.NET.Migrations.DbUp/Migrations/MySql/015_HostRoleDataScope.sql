@@ -12,14 +12,13 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
-CREATE TABLE IF NOT EXISTS fn_identity_role_data_scope_unit
-(
-    RoleId BINARY(16) NOT NULL,
-    UnitId BINARY(16) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_identity_role_data_scope_unit (
+    RoleId BINARY(16) NOT NULL COMMENT '角色标识',
+    UnitId BINARY(16) NOT NULL COMMENT '机构单元标识',
     CONSTRAINT PK_fn_identity_role_data_scope_unit PRIMARY KEY (RoleId, UnitId),
     CONSTRAINT FK_fn_identity_role_data_scope_unit_Role
         FOREIGN KEY (RoleId) REFERENCES fn_identity_role(Id)
-);
+) COMMENT='身份认证角色数据范围机构表';
 
 UPDATE fn_identity_role
 SET DataScopeKind = 'identity.data_scope.all'

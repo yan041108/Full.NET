@@ -47,6 +47,7 @@
 2. SQL Server 与 MySQL 使用不同语法实现同一语义时，必须分别解释差异原因，不能只说明“数据库不同”。
 3. 复杂查询必须说明租户边界、索引假设、锁行为或分页稳定性；禁止逐句翻译 SQL。
 4. 所有参数仍必须参数化；注释不能替代防注入、事务或范围守卫。
+5. **数据库元数据注释**：新建或修改表/列时，必须在迁移中写入数据库级中文说明（MySQL `COMMENT`、SQL Server `MS_Description`），并与 `contracts/database/object-comments.json` 保持一致；细则见 [`naming-conventions.md`](naming-conventions.md) 第 6.1 节。
 
 ### 3.4 配置、脚本与运维约束
 

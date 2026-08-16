@@ -2,6 +2,7 @@
 -- SQL Server 通过元数据检查和动态 SQL 支持“DDL 已完成但 DbUp 尚未记账”的恢复路径，各步骤可独立收敛。
 IF COL_LENGTH(N'dbo.fn_identity_role', N'IsSuperAdministrator') IS NULL
     ALTER TABLE dbo.fn_identity_role ADD IsSuperAdministrator bit NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否超级管理员角色', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'IsSuperAdministrator';
 
 EXEC(N'
 UPDATE dbo.fn_identity_role

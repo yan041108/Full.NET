@@ -1,12 +1,11 @@
 -- 041：角色字段授权只保存稳定语义键，作用域和租户边界始终从角色表验证。
-CREATE TABLE IF NOT EXISTS fn_identity_role_field_grant
-(
-    Id BINARY(16) NOT NULL,
-    RoleId BINARY(16) NOT NULL,
-    ResourceKey varchar(160) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    FieldKey varchar(160) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
-    CreatedById BINARY(16) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_identity_role_field_grant (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    RoleId BINARY(16) NOT NULL COMMENT '角色标识',
+    ResourceKey varchar(160) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源键',
+    FieldKey varchar(160) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '字段键',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
+    CreatedById BINARY(16) NOT NULL COMMENT '创建人标识',
     CONSTRAINT PK_fn_identity_role_field_grant PRIMARY KEY (Id),
     CONSTRAINT FK_fn_identity_role_field_grant_Role
         FOREIGN KEY (RoleId) REFERENCES fn_identity_role(Id),
@@ -17,7 +16,7 @@ CREATE TABLE IF NOT EXISTS fn_identity_role_field_grant
     KEY IX_fn_identity_role_field_grant_RoleId (RoleId),
     UNIQUE KEY UX_fn_identity_role_field_grant_RoleResourceField
         (RoleId, ResourceKey, FieldKey)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='身份认证角色字段授权表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 DROP PROCEDURE IF EXISTS fn_identity_role_field_grant_migrate;
 DELIMITER $$

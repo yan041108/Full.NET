@@ -3,6 +3,7 @@ IF COL_LENGTH(N'dbo.fn_files_file', N'StorageState') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_files_file
         ADD StorageState varchar(16) COLLATE Latin1_General_100_BIN2 NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'存储状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_files_file', @level2type=N'COLUMN', @level2name=N'StorageState';
 END;
 
 EXEC(N'

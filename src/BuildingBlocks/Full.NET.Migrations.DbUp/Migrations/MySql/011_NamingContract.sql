@@ -42,17 +42,16 @@ BEGIN
 END$$
 DELIMITER ;
 
-CREATE TABLE IF NOT EXISTS fn_pre_v1_naming_contract_state
-(
-    Id tinyint NOT NULL,
-    SchemaMode varchar(16) NOT NULL,
-    DestructiveDdlApprovalId varchar(64) NOT NULL,
-    UpdatedAtUtc datetime(6) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_pre_v1_naming_contract_state (
+    Id tinyint NOT NULL COMMENT '逻辑主键',
+    SchemaMode varchar(16) NOT NULL COMMENT 'Schema 模式',
+    DestructiveDdlApprovalId varchar(64) NOT NULL COMMENT '破坏性 DDL 审批标识',
+    UpdatedAtUtc datetime(6) NOT NULL COMMENT '更新时间(UTC)',
     CONSTRAINT PK_fn_pre_v1_naming_contract_state PRIMARY KEY (Id),
     CONSTRAINT CK_fn_pre_v1_naming_contract_state_Id CHECK (Id = 1),
     CONSTRAINT CK_fn_pre_v1_naming_contract_state_SchemaMode
         CHECK (SchemaMode IN ('Contracting', 'Contracted'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='1.0 前命名契约迁移状态' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET @naming_tenancy_table := (
     SELECT COUNT(*)

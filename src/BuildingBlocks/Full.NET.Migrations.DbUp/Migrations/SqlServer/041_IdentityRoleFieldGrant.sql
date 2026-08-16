@@ -17,6 +17,13 @@ BEGIN
         CONSTRAINT CK_fn_identity_role_field_grant_FieldKey
             CHECK (LEN(FieldKey) BETWEEN 1 AND 160)
     );
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'身份认证角色字段授权表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_field_grant';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_field_grant', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建人标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_field_grant', @level2type=N'COLUMN', @level2name=N'CreatedById';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'字段键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_field_grant', @level2type=N'COLUMN', @level2name=N'FieldKey';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_field_grant', @level2type=N'COLUMN', @level2name=N'Id';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'资源键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_field_grant', @level2type=N'COLUMN', @level2name=N'ResourceKey';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'角色标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_field_grant', @level2type=N'COLUMN', @level2name=N'RoleId';
 END;
 
 IF EXISTS

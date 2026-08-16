@@ -1,12 +1,11 @@
 -- 042：签名认证 Nonce 防重放。
 
-CREATE TABLE IF NOT EXISTS fn_identity_signature_nonce
-(
-    Id BINARY(16) NOT NULL,
-    AccessKeyId varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    NonceDigest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
-    ExpiresAtUtc datetime(6) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_identity_signature_nonce (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    AccessKeyId varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '访问密钥标识',
+    NonceDigest char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '随机数摘要',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
+    ExpiresAtUtc datetime(6) NOT NULL COMMENT '过期时间(UTC)',
     CONSTRAINT PK_fn_identity_signature_nonce PRIMARY KEY (Id),
     CONSTRAINT CK_fn_identity_signature_nonce_AccessKeyId
         CHECK (CHAR_LENGTH(AccessKeyId) BETWEEN 4 AND 16),
@@ -14,7 +13,7 @@ CREATE TABLE IF NOT EXISTS fn_identity_signature_nonce
         CHECK (CHAR_LENGTH(NonceDigest) = 64),
     UNIQUE KEY UX_fn_identity_signature_nonce_AccessKeyNonce (AccessKeyId, NonceDigest),
     KEY IX_fn_identity_signature_nonce_ExpiresAtUtc_Id (ExpiresAtUtc, Id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='身份认证签名随机数表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET @index_exists := (
     SELECT COUNT(*)

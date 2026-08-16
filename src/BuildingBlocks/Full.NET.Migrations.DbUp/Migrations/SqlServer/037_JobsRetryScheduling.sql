@@ -4,6 +4,7 @@ IF COL_LENGTH(N'dbo.fn_jobs_execution', N'NextAttemptAtUtc') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_execution
         ADD NextAttemptAtUtc datetimeoffset(7) NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'下次重试时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_execution', @level2type=N'COLUMN', @level2name=N'NextAttemptAtUtc';
 END;
 
 IF EXISTS

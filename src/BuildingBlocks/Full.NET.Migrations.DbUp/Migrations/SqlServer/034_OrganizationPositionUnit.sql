@@ -3,6 +3,7 @@ IF COL_LENGTH(N'dbo.fn_organization_position', N'UnitId') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_organization_position
         ADD UnitId uniqueidentifier NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'机构单元标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_organization_position', @level2type=N'COLUMN', @level2name=N'UnitId';
 END;
 
 IF NOT EXISTS

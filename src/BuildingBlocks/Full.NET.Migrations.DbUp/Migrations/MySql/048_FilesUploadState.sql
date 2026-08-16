@@ -10,11 +10,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_files_file'
           AND COLUMN_NAME = 'StorageState'
-    ) THEN
-        ALTER TABLE fn_files_file
-            ADD COLUMN StorageState varchar(16)
+    ) THENALTER TABLE fn_files_file ADD StorageState varchar(16)
                 CHARACTER SET ascii COLLATE ascii_bin NULL
-                AFTER ContentHash;
+                AFTER ContentHash COMMENT '存储状态'
     END IF;
 
     UPDATE fn_files_file

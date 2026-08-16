@@ -18,6 +18,15 @@ BEGIN
         CONSTRAINT CK_fn_settings_user_grid_preference_ColumnsJson
             CHECK (ISJSON(ColumnsJson) = 1)
     );
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'系统设置user grid preference表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'列配置(JSON)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'ColumnsJson';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'表格键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'GridKey';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'Id';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema 版本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'SchemaVersion';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'UserId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'Version';
 
 END;
 

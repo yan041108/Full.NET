@@ -1,20 +1,19 @@
 -- 045：Host 代码生成运行摘要。
-CREATE TABLE IF NOT EXISTS fn_codegeneration_run
-(
-    Id BINARY(16) NOT NULL,
-    TemplateId BINARY(16) NULL,
-    TemplateVersion bigint NULL,
-    OperationKind varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    Status varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    ModuleKey varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    EntityKey varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    SchemaSha256 char(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    ArtifactCount int NOT NULL,
-    ManifestSha256 char(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    ErrorCode varchar(128) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    RequestedByUserId BINARY(16) NOT NULL,
-    StartedAtUtc datetime(6) NOT NULL,
-    FinishedAtUtc datetime(6) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_codegeneration_run (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    TemplateId BINARY(16) NULL COMMENT '模板标识',
+    TemplateVersion bigint NULL COMMENT '模板版本',
+    OperationKind varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '操作类型',
+    Status varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '状态',
+    ModuleKey varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '模块键',
+    EntityKey varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '实体键',
+    SchemaSha256 char(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT 'Schema SHA256',
+    ArtifactCount int NOT NULL COMMENT '产物数量',
+    ManifestSha256 char(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '清单 SHA256',
+    ErrorCode varchar(128) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '错误码',
+    RequestedByUserId BINARY(16) NOT NULL COMMENT '请求人用户标识',
+    StartedAtUtc datetime(6) NOT NULL COMMENT '开始时间(UTC)',
+    FinishedAtUtc datetime(6) NOT NULL COMMENT '结束时间(UTC)',
     CONSTRAINT PK_fn_codegeneration_run PRIMARY KEY (Id),
     CONSTRAINT CK_fn_codegeneration_run_Operation
         CHECK (OperationKind = 'preview'),
@@ -53,7 +52,7 @@ CREATE TABLE IF NOT EXISTS fn_codegeneration_run
         ),
     CONSTRAINT CK_fn_codegeneration_run_Time
         CHECK (FinishedAtUtc >= StartedAtUtc)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='代码生成运行表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- MySQL DDL 会隐式提交，索引修复必须独立覆盖表已存在但索引缺失或形状错误的状态。
 DROP PROCEDURE IF EXISTS fn_codegeneration_run_index;

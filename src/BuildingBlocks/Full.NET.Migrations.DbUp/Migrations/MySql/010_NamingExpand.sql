@@ -1,19 +1,18 @@
 -- 010 Expand：新增规范 Tenancy 表与 Outbox 镜像列；legacy 对象保持可用。
-CREATE TABLE IF NOT EXISTS fn_tenancy_tenant
-(
-    Id BINARY(16) NOT NULL,
-    Identifier varchar(64) NOT NULL,
-    Name varchar(128) NOT NULL,
-    Domain varchar(255) NOT NULL,
-    IsActive boolean NOT NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
-    UpdatedAtUtc datetime(6) NULL,
-    DefaultLocale varchar(35) NOT NULL DEFAULT 'zh-CN',
-    Version int NOT NULL DEFAULT 1,
+CREATE TABLE IF NOT EXISTS fn_tenancy_tenant (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    Identifier varchar(64) NOT NULL COMMENT '唯一标识符',
+    Name varchar(128) NOT NULL COMMENT '名称',
+    Domain varchar(255) NOT NULL COMMENT '域名',
+    IsActive boolean NOT NULL COMMENT '是否启用',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
+    UpdatedAtUtc datetime(6) NULL COMMENT '更新时间(UTC)',
+    DefaultLocale varchar(35) NOT NULL DEFAULT 'zh-CN' COMMENT '默认语言区域',
+    Version int NOT NULL DEFAULT 1 COMMENT '乐观并发版本号',
     CONSTRAINT PK_fn_tenancy_tenant PRIMARY KEY (Id),
     UNIQUE KEY UX_fn_tenancy_tenant_Identifier (Identifier),
     UNIQUE KEY UX_fn_tenancy_tenant_Domain (Domain)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='租户租户表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- CREATE IF NOT EXISTS 不会改已有表；补齐 DefaultLocale 默认值以匹配 004 语义。
 SET @tenancy_default_locale := (

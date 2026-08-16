@@ -10,11 +10,9 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_files_file'
           AND COLUMN_NAME = 'ProviderKey'
-    ) THEN
-        ALTER TABLE fn_files_file
-            ADD COLUMN ProviderKey varchar(64)
+    ) THENALTER TABLE fn_files_file ADD ProviderKey varchar(64)
                 CHARACTER SET ascii COLLATE ascii_bin NULL
-                AFTER SizeBytes;
+                AFTER SizeBytes COMMENT '存储提供程序键'
     END IF;
 
     UPDATE fn_files_file

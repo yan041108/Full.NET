@@ -5,6 +5,7 @@ BEGIN
     EXEC(N'
         ALTER TABLE dbo.fn_codegeneration_run
             ADD SourceApplyRunId uniqueidentifier NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'来源应用运行标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'SourceApplyRunId';
     ');
 END;
 

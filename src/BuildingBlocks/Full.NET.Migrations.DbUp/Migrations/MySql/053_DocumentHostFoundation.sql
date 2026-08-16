@@ -1,17 +1,16 @@
 -- 053：Host 文档库基础表（分类、标签、文档项、版本与标签关联）。
-CREATE TABLE IF NOT EXISTS fn_document_category
-(
-    Id BINARY(16) NOT NULL,
-    TenantId BINARY(16) NULL,
-    ParentId BINARY(16) NULL,
-    Name varchar(128) NOT NULL,
-    SortOrder int NOT NULL DEFAULT 0,
-    IsDeleted boolean NOT NULL DEFAULT false,
-    DeletedAtUtc datetime(6) NULL,
-    DeletedByUserId BINARY(16) NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
-    UpdatedAtUtc datetime(6) NULL,
-    Version int NOT NULL DEFAULT 1,
+CREATE TABLE IF NOT EXISTS fn_document_category (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级',
+    ParentId BINARY(16) NULL COMMENT '父级标识',
+    Name varchar(128) NOT NULL COMMENT '名称',
+    SortOrder int NOT NULL DEFAULT 0 COMMENT '排序顺序',
+    IsDeleted boolean NOT NULL DEFAULT false COMMENT '是否已软删除',
+    DeletedAtUtc datetime(6) NULL COMMENT '删除时间(UTC)',
+    DeletedByUserId BINARY(16) NULL COMMENT '删除人用户标识',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
+    UpdatedAtUtc datetime(6) NULL COMMENT '更新时间(UTC)',
+    Version int NOT NULL DEFAULT 1 COMMENT '乐观并发版本号',
     CONSTRAINT PK_fn_document_category PRIMARY KEY (Id),
     CONSTRAINT CK_fn_document_category_DeleteAudit
         CHECK
@@ -19,19 +18,18 @@ CREATE TABLE IF NOT EXISTS fn_document_category
             (IsDeleted = false AND DeletedAtUtc IS NULL AND DeletedByUserId IS NULL)
             OR (IsDeleted = true AND DeletedAtUtc IS NOT NULL AND DeletedByUserId IS NOT NULL)
         )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='文档分类表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS fn_document_tag
-(
-    Id BINARY(16) NOT NULL,
-    TenantId BINARY(16) NULL,
-    Name varchar(64) NOT NULL,
-    IsDeleted boolean NOT NULL DEFAULT false,
-    DeletedAtUtc datetime(6) NULL,
-    DeletedByUserId BINARY(16) NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
-    UpdatedAtUtc datetime(6) NULL,
-    Version int NOT NULL DEFAULT 1,
+CREATE TABLE IF NOT EXISTS fn_document_tag (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级',
+    Name varchar(64) NOT NULL COMMENT '名称',
+    IsDeleted boolean NOT NULL DEFAULT false COMMENT '是否已软删除',
+    DeletedAtUtc datetime(6) NULL COMMENT '删除时间(UTC)',
+    DeletedByUserId BINARY(16) NULL COMMENT '删除人用户标识',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
+    UpdatedAtUtc datetime(6) NULL COMMENT '更新时间(UTC)',
+    Version int NOT NULL DEFAULT 1 COMMENT '乐观并发版本号',
     CONSTRAINT PK_fn_document_tag PRIMARY KEY (Id),
     CONSTRAINT CK_fn_document_tag_DeleteAudit
         CHECK
@@ -39,24 +37,23 @@ CREATE TABLE IF NOT EXISTS fn_document_tag
             (IsDeleted = false AND DeletedAtUtc IS NULL AND DeletedByUserId IS NULL)
             OR (IsDeleted = true AND DeletedAtUtc IS NOT NULL AND DeletedByUserId IS NOT NULL)
         )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='文档标签表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS fn_document_item
-(
-    Id BINARY(16) NOT NULL,
-    TenantId BINARY(16) NULL,
-    CategoryId BINARY(16) NULL,
-    CurrentVersionId BINARY(16) NULL,
-    Title varchar(256) NOT NULL,
-    Description varchar(2000) NULL,
-    IsDeleted boolean NOT NULL DEFAULT false,
-    DeletedAtUtc datetime(6) NULL,
-    DeletedByUserId BINARY(16) NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
-    CreatedByUserId BINARY(16) NOT NULL,
-    UpdatedAtUtc datetime(6) NULL,
-    UpdatedByUserId BINARY(16) NULL,
-    Version int NOT NULL DEFAULT 1,
+CREATE TABLE IF NOT EXISTS fn_document_item (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级',
+    CategoryId BINARY(16) NULL COMMENT '分类标识',
+    CurrentVersionId BINARY(16) NULL COMMENT '当前版本标识',
+    Title varchar(256) NOT NULL COMMENT '标题',
+    Description varchar(2000) NULL COMMENT '描述',
+    IsDeleted boolean NOT NULL DEFAULT false COMMENT '是否已软删除',
+    DeletedAtUtc datetime(6) NULL COMMENT '删除时间(UTC)',
+    DeletedByUserId BINARY(16) NULL COMMENT '删除人用户标识',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
+    CreatedByUserId BINARY(16) NOT NULL COMMENT '创建人用户标识',
+    UpdatedAtUtc datetime(6) NULL COMMENT '更新时间(UTC)',
+    UpdatedByUserId BINARY(16) NULL COMMENT '更新人用户标识',
+    Version int NOT NULL DEFAULT 1 COMMENT '乐观并发版本号',
     CONSTRAINT PK_fn_document_item PRIMARY KEY (Id),
     CONSTRAINT FK_fn_document_item_Category
         FOREIGN KEY (CategoryId) REFERENCES fn_document_category (Id),
@@ -66,18 +63,17 @@ CREATE TABLE IF NOT EXISTS fn_document_item
             (IsDeleted = false AND DeletedAtUtc IS NULL AND DeletedByUserId IS NULL)
             OR (IsDeleted = true AND DeletedAtUtc IS NOT NULL AND DeletedByUserId IS NOT NULL)
         )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='文档条目表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS fn_document_version
-(
-    Id BINARY(16) NOT NULL,
-    DocumentItemId BINARY(16) NOT NULL,
-    FileId BINARY(16) NOT NULL,
-    VersionNumber int NOT NULL,
-    ContentHash char(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
-    SizeBytes bigint NOT NULL,
-    UploadedByUserId BINARY(16) NOT NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_document_version (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    DocumentItemId BINARY(16) NOT NULL COMMENT '文档项标识',
+    FileId BINARY(16) NOT NULL COMMENT '文件标识',
+    VersionNumber int NOT NULL COMMENT '版本号',
+    ContentHash char(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '内容哈希',
+    SizeBytes bigint NOT NULL COMMENT '大小(字节)',
+    UploadedByUserId BINARY(16) NOT NULL COMMENT '上传人用户标识',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
     CONSTRAINT PK_fn_document_version PRIMARY KEY (Id),
     CONSTRAINT FK_fn_document_version_Item
         FOREIGN KEY (DocumentItemId) REFERENCES fn_document_item (Id),
@@ -88,19 +84,18 @@ CREATE TABLE IF NOT EXISTS fn_document_version
             ContentHash IS NULL
             OR (CHAR_LENGTH(ContentHash) = 64 AND ContentHash REGEXP '^[0-9a-f]{64}$')
         )
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='文档版本表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS fn_document_tag_assignment
-(
-    DocumentItemId BINARY(16) NOT NULL,
-    TagId BINARY(16) NOT NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_document_tag_assignment (
+    DocumentItemId BINARY(16) NOT NULL COMMENT '文档项标识',
+    TagId BINARY(16) NOT NULL COMMENT '标签标识',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
     CONSTRAINT PK_fn_document_tag_assignment PRIMARY KEY (DocumentItemId, TagId),
     CONSTRAINT FK_fn_document_tag_assignment_Item
         FOREIGN KEY (DocumentItemId) REFERENCES fn_document_item (Id),
     CONSTRAINT FK_fn_document_tag_assignment_Tag
         FOREIGN KEY (TagId) REFERENCES fn_document_tag (Id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='文档标签关联表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 DROP PROCEDURE IF EXISTS fn_document_host_indexes;
 DELIMITER $$

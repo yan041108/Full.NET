@@ -188,16 +188,15 @@ DELIMITER ;
 CALL fn_uuid_binary_contract_gate();
 DROP PROCEDURE fn_uuid_binary_contract_gate;
 
-CREATE TABLE IF NOT EXISTS fn_uuid_contract_state
-(
-    Id tinyint NOT NULL,
-    SchemaMode varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    DestructiveDdlApprovalId varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    UpdatedAtUtc datetime(6) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_uuid_contract_state (
+    Id tinyint NOT NULL COMMENT '逻辑主键',
+    SchemaMode varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT 'Schema 模式',
+    DestructiveDdlApprovalId varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '破坏性 DDL 审批标识',
+    UpdatedAtUtc datetime(6) NOT NULL COMMENT '更新时间(UTC)',
     CONSTRAINT PK_fn_uuid_contract_state PRIMARY KEY (Id),
     CONSTRAINT CK_fn_uuid_contract_state_Id CHECK (Id = 1),
     CONSTRAINT CK_fn_uuid_contract_state_SchemaMode CHECK (SchemaMode IN ('Contracting', 'Binary16'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='UUID 二进制契约迁移状态' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 未记账失败可能只留下状态表；重跑必须补齐状态约束后才能持久化 Contracting。
 DROP PROCEDURE IF EXISTS fn_uuid_contract_state_converge;

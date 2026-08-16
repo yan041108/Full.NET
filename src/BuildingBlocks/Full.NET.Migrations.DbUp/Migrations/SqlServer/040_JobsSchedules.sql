@@ -42,18 +42,38 @@ BEGIN
                  AND OneTimeAtUtc IS NULL)
             )
     );
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'后台任务调度表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'完成时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'CompletedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'CreatedByUserId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Cron 表达式', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'CronExpression';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'Id';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'IsEnabled';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'任务定义标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'JobDefinitionId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最后执行时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'LastExecutionAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'错过触发策略', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'MisfirePolicy';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'下次执行时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'NextExecutionAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'一次性触发时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'OneTimeAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'TenantId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'时区标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'TimeZoneId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'触发类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'TriggerKind';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'UpdatedByUserId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'Version';
 END;
 
 IF COL_LENGTH(N'dbo.fn_jobs_execution', N'JobScheduleId') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_execution
         ADD JobScheduleId uniqueidentifier NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'任务调度标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_execution', @level2type=N'COLUMN', @level2name=N'JobScheduleId';
 END;
 
 IF COL_LENGTH(N'dbo.fn_jobs_execution', N'ScheduledForUtc') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_execution
         ADD ScheduledForUtc datetimeoffset(7) NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'计划执行时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_execution', @level2type=N'COLUMN', @level2name=N'ScheduledForUtc';
 END;
 
 -- 新增列与引用该列的索引必须分批编译，否则恢复路径会在 ALTER 执行前解析失败。

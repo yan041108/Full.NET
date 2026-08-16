@@ -23,6 +23,24 @@ BEGIN
         CONSTRAINT FK_fn_identity_navigation_Parent
             FOREIGN KEY (ParentId) REFERENCES dbo.fn_identity_navigation(Id)
     );
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'身份认证导航菜单表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'显示标题', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'Caption';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'组件键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'ComponentKey';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'显示顺序', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'DisplayOrder';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'图标', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'Icon';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'Id';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'IsActive';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否系统内置', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'IsSystem';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'父级标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'ParentId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'路由路径', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'Path';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'所需权限码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'RequiredPermission';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'路由名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'RouteName';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'作用域键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'ScopeKey';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'TenantId';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'标题', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'Title';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'Version';
     CREATE UNIQUE INDEX UX_fn_identity_navigation_Scope_RouteName
         ON dbo.fn_identity_navigation(ScopeKey, RouteName)
         WHERE TenantId IS NULL;

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "tables": {
+    "fn_serialnumbers_counter": {
+      "columns": {
+        "ScopeTenantKey": "作用域租户键"
+      }
+    },
+    "fn_serialnumbers_allocation": {
+      "columns": {
+        "ScopeTenantKey": "作用域租户键"
+      }
+    }
+  }
+}

@@ -4,7 +4,9 @@
 IF COL_LENGTH(N'dbo.fn_outbox_message', N'DeadLetteredAtUtc') IS NULL
     ALTER TABLE dbo.fn_outbox_message
         ADD DeadLetteredAtUtc datetimeoffset(7) NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'死信时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'DeadLetteredAtUtc';
 
 IF COL_LENGTH(N'dbo.fn_outbox_message', N'DeadLetterReasonCode') IS NULL
     ALTER TABLE dbo.fn_outbox_message
         ADD DeadLetterReasonCode nvarchar(128) NULL;
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'死信原因码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'DeadLetterReasonCode';

@@ -75,7 +75,7 @@ function scanProvider(migrations) {
   const columns = new Map();
   const foreignKeys = [];
   for (const { file, sql } of migrations) {
-    const createPattern = /CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:dbo\.)?([A-Za-z][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?:ENGINE\s*=\s*[^;]+)?;/giu;
+    const createPattern = /CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:dbo\.)?([A-Za-z][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?:COMMENT\s*=\s*'[^']*'\s*)?(?:ENGINE\s*=\s*[^;]+)?;/giu;
     for (const create of sql.matchAll(createPattern)) {
       const [, table, body] = create;
       const columnPattern = /^\s*([A-Za-z][A-Za-z0-9_]*)\s+(uniqueidentifier|char\(36\))\s+(NOT\s+NULL|NULL)\b/gimu;

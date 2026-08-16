@@ -10,10 +10,8 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_codegeneration_run'
           AND COLUMN_NAME = 'SourceApplyRunId'
-    ) THEN
-        ALTER TABLE fn_codegeneration_run
-            ADD COLUMN SourceApplyRunId BINARY(16) NULL
-                AFTER TemplateVersion;
+    ) THENALTER TABLE fn_codegeneration_run ADD SourceApplyRunId BINARY(16) NULL
+                AFTER TemplateVersion COMMENT '来源应用运行标识'
     END IF;
 
     IF EXISTS
@@ -48,9 +46,7 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'fn_codegeneration_run'
           AND COLUMN_NAME = 'SucceededRollbackSourceApplyRunId'
-    ) THEN
-        ALTER TABLE fn_codegeneration_run
-            ADD COLUMN SucceededRollbackSourceApplyRunId BINARY(16)
+    ) THENALTER TABLE fn_codegeneration_run ADD SucceededRollbackSourceApplyRunId BINARY(16)
                 GENERATED ALWAYS AS
                 (
                     CASE
@@ -61,7 +57,7 @@ BEGIN
                     END
                 )
                 STORED
-                AFTER SourceApplyRunId;
+                AFTER SourceApplyRunId COMMENT '成功回滚来源应用运行标识'
     END IF;
 
     IF EXISTS
