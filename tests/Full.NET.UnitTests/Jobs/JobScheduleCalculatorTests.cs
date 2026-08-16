@@ -120,6 +120,31 @@ public sealed class JobScheduleCalculatorTests
             decision.NextExecutionAtUtc);
     }
 
+    [TestMethod]
+    public void ExpandCronMacro_MapsDailyMacroToFivePartExpression()
+    {
+        Assert.AreEqual("0 0 * * *", JobScheduleCalculator.ExpandCronMacro("@daily"));
+    }
+
+    [TestMethod]
+    public void DescribeCron_ReturnsStableMachineCodeForMacro()
+    {
+        Assert.AreEqual("jobs.cron.macro.hourly", JobScheduleCalculator.DescribeCron("@hourly"));
+    }
+
+    [TestMethod]
+    public void GetNextCronOccurrences_ReturnsRequestedCount()
+    {
+        var occurrences = JobScheduleCalculator.GetNextCronOccurrences(
+            "0 9 * * *",
+            "UTC",
+            Utc(2026, 8, 17, 0, 0),
+            3);
+
+        Assert.HasCount(3, occurrences);
+        Assert.IsTrue(occurrences[1] > occurrences[0]);
+    }
+
     private static JobScheduleRecord Schedule(
         string triggerKind,
         string misfirePolicy,

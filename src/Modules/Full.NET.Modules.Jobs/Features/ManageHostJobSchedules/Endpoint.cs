@@ -60,6 +60,7 @@ internal static class Endpoint
         group.MapGet("/cron-preview", async (
             string cronExpression,
             string timeZoneId,
+            int? occurrenceCount,
             HostJobScheduleService service,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -68,6 +69,7 @@ internal static class Endpoint
             var result = await service.PreviewCronAsync(
                     cronExpression,
                     timeZoneId,
+                    Math.Clamp(occurrenceCount ?? 5, 1, 10),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);

@@ -13,4 +13,7 @@ internal sealed class JobHandlerRegistry(IEnumerable<IJobHandler> handlers)
 
     public bool TryGetHandler(string jobKey, out IJobHandler? handler) =>
         _handlers.TryGetValue(jobKey, out handler);
+
+    public IReadOnlyList<string> RegisteredJobKeys =>
+        _handlers.Keys.OrderBy(key => key, StringComparer.Ordinal).ToArray();
 }

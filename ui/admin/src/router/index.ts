@@ -180,6 +180,16 @@ export function createAppRouter(
         component: () => import('../views/HostJobSchedulesView.vue')
       },
       {
+        name: 'host-job-executions',
+        path: '/jobs/host-executions',
+        component: () => import('../views/HostJobExecutionsView.vue')
+      },
+      {
+        name: 'host-job-health',
+        path: '/jobs/host-health',
+        component: () => import('../views/HostJobHealthView.vue')
+      },
+      {
         name: 'code-generation-templates',
         path: '/code-generation/templates',
         component: () => import('../views/CodeGenerationTemplatesView.vue')

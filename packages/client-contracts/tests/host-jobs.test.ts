@@ -26,6 +26,7 @@ describe('host-jobs contracts', () => {
     description: '烟囱验证',
     groupName: 'System',
     isEnabled: true,
+    allowConcurrentExecutions: false,
     createdAtUtc: '2026-07-26T00:00:00Z',
     updatedAtUtc: null,
     version: 1
@@ -34,11 +35,14 @@ describe('host-jobs contracts', () => {
   const execution = {
     id: '01912345-6789-7abc-8def-0123456789ac',
     jobDefinitionId: definition.id,
+    jobScheduleId: null,
     status: 'succeeded',
     triggerKind: 'manual',
+    scheduledForUtc: null,
     errorMessage: null,
     startedAtUtc: '2026-07-26T00:00:01Z',
     finishedAtUtc: '2026-07-26T00:00:02Z',
+    nextAttemptAtUtc: null,
     attemptCount: 1,
     createdAtUtc: '2026-07-26T00:00:00Z'
   };
@@ -64,6 +68,7 @@ describe('host-jobs contracts', () => {
     })).toBe(true);
     expect(isUpdateHostJobDefinitionRequest({
       displayName: '探针',
+      allowConcurrentExecutions: false,
       version: 1
     })).toBe(true);
     expect(isDisableHostJobDefinitionRequest({ version: 1 })).toBe(true);
@@ -135,7 +140,9 @@ describe('host-jobs contracts', () => {
       }
     ])).toBe(true);
     expect(isHostJobScheduleCronPreview({
-      nextExecutionAtUtc: '2026-08-03T09:00:00Z'
+      humanDescription: 'jobs.cron.macro.daily',
+      nextExecutionAtUtc: '2026-08-03T09:00:00Z',
+      nextOccurrencesUtc: ['2026-08-03T09:00:00Z', '2026-08-04T09:00:00Z']
     })).toBe(true);
   });
 

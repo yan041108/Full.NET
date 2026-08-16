@@ -100,19 +100,25 @@ internal sealed class HostJobScheduleService(
     public Task<Result<HostJobScheduleCronPreviewResponse>> PreviewCronAsync(
         string cronExpression,
         string timeZoneId,
+        int occurrenceCount = 5,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
             var normalizedTimeZone = JobScheduleCalculator.NormalizeTimeZoneId(timeZoneId);
-            var next = JobScheduleCalculator.GetNextCronOccurrence(
+            var now = clock.UtcNow.ToUniversalTime();
+            var occurrences = JobScheduleCalculator.GetNextCronOccurrences(
                 cronExpression.Trim(),
                 normalizedTimeZone,
-                clock.UtcNow.ToUniversalTime());
+                now,
+                occurrenceCount);
             return Task.FromResult(
                 Result<HostJobScheduleCronPreviewResponse>.Success(
-                    new HostJobScheduleCronPreviewResponse(next)));
+                    new HostJobScheduleCronPreviewResponse(
+                        JobScheduleCalculator.DescribeCron(cronExpression),
+                        occurrences[0],
+                        occurrences)));
         }
         catch (CronFormatException)
         {

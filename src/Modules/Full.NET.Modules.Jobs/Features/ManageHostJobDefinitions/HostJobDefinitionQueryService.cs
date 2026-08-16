@@ -61,6 +61,7 @@ internal sealed class HostJobDefinitionQueryService(
             record.Description,
             record.GroupName,
             record.IsEnabled,
+            record.AllowConcurrentExecutions,
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);

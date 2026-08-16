@@ -8,6 +8,7 @@ import {
   type HostJobDefinition,
   type HostJobDefinitionPage,
   type HostJobExecution,
+  type HostJobExecutionListQuery,
   type HostJobExecutionPage,
   type HostJobGroup
 } from '@fullnet/client-contracts';
@@ -37,7 +38,8 @@ export async function createHostJobDefinition(
   jobKey: string,
   displayName: string,
   description?: string | null,
-  groupName?: string | null
+  groupName?: string | null,
+  allowConcurrentExecutions = false
 ): Promise<HostJobDefinition> {
   const value = await request<unknown>('/api/v1/jobs/host-definitions', {
     method: 'POST',
@@ -45,7 +47,8 @@ export async function createHostJobDefinition(
       jobKey,
       displayName,
       description: description ?? null,
-      groupName: groupName ?? null
+      groupName: groupName ?? null,
+      allowConcurrentExecutions
     })
   });
   if (!isHostJobDefinition(value)) {
@@ -59,7 +62,8 @@ export async function updateHostJobDefinition(
   displayName: string,
   description: string | null,
   version: number,
-  groupName?: string | null
+  groupName?: string | null,
+  allowConcurrentExecutions = false
 ): Promise<HostJobDefinition> {
   const value = await request<unknown>(
     `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}`,
@@ -69,6 +73,7 @@ export async function updateHostJobDefinition(
         displayName,
         description,
         groupName: groupName ?? null,
+        allowConcurrentExecutions,
         version
       })
     }
@@ -123,18 +128,41 @@ export async function triggerHostJobDefinition(
 }
 
 export async function listHostJobExecutions(
-  jobDefinitionId?: string,
-  page = 1,
-  pageSize = 20
+  query: HostJobExecutionListQuery = {}
 ): Promise<HostJobExecutionPage> {
-  const query = jobDefinitionId
-    ? `&jobDefinitionId=${encodeURIComponent(jobDefinitionId)}`
-    : '';
+  const params = new URLSearchParams();
+  params.set('page', String(query.page ?? 1));
+  params.set('pageSize', String(query.pageSize ?? 20));
+  if (query.jobDefinitionId) {
+    params.set('jobDefinitionId', query.jobDefinitionId);
+  }
+  if (query.jobScheduleId) {
+    params.set('jobScheduleId', query.jobScheduleId);
+  }
+  if (query.status) {
+    params.set('status', query.status);
+  }
+  if (query.fromUtc) {
+    params.set('fromUtc', query.fromUtc);
+  }
+  if (query.toUtc) {
+    params.set('toUtc', query.toUtc);
+  }
   const value = await request<unknown>(
-    `/api/v1/jobs/host-executions?page=${page}&pageSize=${pageSize}${query}`
+    `/api/v1/jobs/host-executions?${params.toString()}`
   );
   if (!isHostJobExecutionPage(value)) {
     throw new Error('Invalid host job execution page response');
+  }
+  return value;
+}
+
+export async function getHostJobExecution(id: string): Promise<HostJobExecution> {
+  const value = await request<unknown>(
+    `/api/v1/jobs/host-executions/${encodeURIComponent(id)}`
+  );
+  if (!isHostJobExecution(value)) {
+    throw new Error('Invalid host job execution payload.');
   }
   return value;
 }

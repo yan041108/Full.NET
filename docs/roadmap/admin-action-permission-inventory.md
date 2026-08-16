@@ -227,6 +227,8 @@
 | `HostJobSchedulesView.vue` | 编辑 | `jobs.schedules.update` | 075 |
 | `HostJobSchedulesView.vue` | 暂停 | `jobs.schedules.pause` | 075 |
 | `HostJobSchedulesView.vue` | 恢复 | `jobs.schedules.resume` | 075 |
+| `HostJobExecutionsView.vue` | 页面 | `jobs.executions.read` | 无 |
+| `HostJobHealthView.vue` | 页面 | `jobs.health.read` | 097 |
 
 ## W4：CodeGeneration Templates（076）
 

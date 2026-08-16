@@ -5,6 +5,7 @@ export interface HostJobDefinition {
   description: string | null;
   groupName: string | null;
   isEnabled: boolean;
+  allowConcurrentExecutions: boolean;
   createdAtUtc: string;
   updatedAtUtc: string | null;
   version: number;
@@ -20,13 +21,26 @@ export interface HostJobDefinitionPage {
 export interface HostJobExecution {
   id: string;
   jobDefinitionId: string;
+  jobScheduleId: string | null;
   status: 'pending' | 'running' | 'succeeded' | 'failed';
   triggerKind: string;
+  scheduledForUtc: string | null;
   errorMessage: string | null;
   startedAtUtc: string | null;
   finishedAtUtc: string | null;
+  nextAttemptAtUtc: string | null;
   attemptCount: number;
   createdAtUtc: string;
+}
+
+export interface HostJobExecutionListQuery {
+  page?: number;
+  pageSize?: number;
+  jobDefinitionId?: string;
+  jobScheduleId?: string;
+  status?: string;
+  fromUtc?: string;
+  toUtc?: string;
 }
 
 export interface HostJobExecutionPage {
@@ -41,12 +55,14 @@ export interface CreateHostJobDefinitionRequest {
   displayName: string;
   description?: string | null;
   groupName?: string | null;
+  allowConcurrentExecutions?: boolean;
 }
 
 export interface UpdateHostJobDefinitionRequest {
   displayName: string;
   description?: string | null;
   groupName?: string | null;
+  allowConcurrentExecutions: boolean;
   version: number;
 }
 
@@ -143,7 +159,31 @@ export interface HostJobScheduleDefinitionOption {
 }
 
 export interface HostJobScheduleCronPreview {
+  humanDescription: string;
   nextExecutionAtUtc: string;
+  nextOccurrencesUtc: string[];
+}
+
+export interface HostJobHealthBacklog {
+  pendingCount: number;
+  oldestClaimableCreatedAtUtc: string | null;
+  dueRetryCount: number;
+  oldestDueRetryAtUtc: string | null;
+}
+
+export interface HostJobWorkerInstance {
+  instanceId: string;
+  hostProfile: string;
+  startedAtUtc: string;
+  lastHeartbeatAtUtc: string;
+  workerVersion: string | null;
+  isStale: boolean;
+}
+
+export interface HostJobHealth {
+  registeredHandlers: string[];
+  backlog: HostJobHealthBacklog;
+  workers: HostJobWorkerInstance[];
 }
 
 export function isHostJobSchedule(value: unknown): value is HostJobSchedule {
@@ -256,7 +296,36 @@ export function isHostJobScheduleDefinitionOptionList(
 export function isHostJobScheduleCronPreview(
   value: unknown
 ): value is HostJobScheduleCronPreview {
-  return isRecord(value) && typeof value.nextExecutionAtUtc === 'string';
+  return isRecord(value)
+    && typeof value.humanDescription === 'string'
+    && typeof value.nextExecutionAtUtc === 'string'
+    && Array.isArray(value.nextOccurrencesUtc)
+    && value.nextOccurrencesUtc.every(item => typeof item === 'string');
+}
+
+export function isHostJobHealth(value: unknown): value is HostJobHealth {
+  return isRecord(value)
+    && Array.isArray(value.registeredHandlers)
+    && value.registeredHandlers.every(item => typeof item === 'string')
+    && isRecord(value.backlog)
+    && Number.isInteger(value.backlog.pendingCount)
+    && (value.backlog.oldestClaimableCreatedAtUtc === null
+      || typeof value.backlog.oldestClaimableCreatedAtUtc === 'string')
+    && Number.isInteger(value.backlog.dueRetryCount)
+    && (value.backlog.oldestDueRetryAtUtc === null
+      || typeof value.backlog.oldestDueRetryAtUtc === 'string')
+    && Array.isArray(value.workers)
+    && value.workers.every(isHostJobWorkerInstance);
+}
+
+function isHostJobWorkerInstance(value: unknown): value is HostJobWorkerInstance {
+  return isRecord(value)
+    && isGuid(value.instanceId)
+    && typeof value.hostProfile === 'string'
+    && typeof value.startedAtUtc === 'string'
+    && typeof value.lastHeartbeatAtUtc === 'string'
+    && (value.workerVersion === null || typeof value.workerVersion === 'string')
+    && typeof value.isStale === 'boolean';
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -269,6 +338,7 @@ export function isHostJobDefinition(value: unknown): value is HostJobDefinition 
     && (value.description === null || typeof value.description === 'string')
     && (value.groupName === null || typeof value.groupName === 'string')
     && typeof value.isEnabled === 'boolean'
+    && typeof value.allowConcurrentExecutions === 'boolean'
     && typeof value.createdAtUtc === 'string'
     && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
     && Number.isInteger(value.version);
@@ -289,14 +359,17 @@ export function isHostJobExecution(value: unknown): value is HostJobExecution {
   return isRecord(value)
     && isGuid(value.id)
     && isGuid(value.jobDefinitionId)
+    && (value.jobScheduleId === null || isGuid(value.jobScheduleId))
     && (value.status === 'pending'
       || value.status === 'running'
       || value.status === 'succeeded'
       || value.status === 'failed')
     && isNonEmptyString(value.triggerKind)
+    && (value.scheduledForUtc === null || typeof value.scheduledForUtc === 'string')
     && (value.errorMessage === null || typeof value.errorMessage === 'string')
     && (value.startedAtUtc === null || typeof value.startedAtUtc === 'string')
     && (value.finishedAtUtc === null || typeof value.finishedAtUtc === 'string')
+    && (value.nextAttemptAtUtc === null || typeof value.nextAttemptAtUtc === 'string')
     && Number.isInteger(value.attemptCount)
     && typeof value.createdAtUtc === 'string';
 }
@@ -323,7 +396,9 @@ export function isCreateHostJobDefinitionRequest(
       || typeof value.description === 'string')
     && (value.groupName === undefined
       || value.groupName === null
-      || typeof value.groupName === 'string');
+      || typeof value.groupName === 'string')
+    && (value.allowConcurrentExecutions === undefined
+      || typeof value.allowConcurrentExecutions === 'boolean');
 }
 
 export function isUpdateHostJobDefinitionRequest(
@@ -337,6 +412,7 @@ export function isUpdateHostJobDefinitionRequest(
     && (value.groupName === undefined
       || value.groupName === null
       || typeof value.groupName === 'string')
+    && typeof value.allowConcurrentExecutions === 'boolean'
     && Number.isInteger(value.version);
 }
 

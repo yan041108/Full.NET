@@ -192,6 +192,73 @@ internal static class JobScheduleCalculator
             null);
     }
 
+    public static IReadOnlyList<DateTimeOffset> GetNextCronOccurrences(
+        string cronExpression,
+        string timeZoneId,
+        DateTimeOffset afterUtc,
+        int count)
+    {
+        if (count <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
+
+        count = Math.Min(count, 10);
+        var expanded = ExpandCronMacro(cronExpression);
+        var expression = CronExpression.Parse(expanded, CronFormat.Standard);
+        var zone = ResolveTimeZone(timeZoneId);
+        var cursor = afterUtc.ToUniversalTime();
+        var occurrences = new List<DateTimeOffset>(count);
+        for (var index = 0; index < count; index++)
+        {
+            var next = expression.GetNextOccurrence(cursor, zone)?.ToUniversalTime()
+                ?? throw new InvalidOperationException(
+                    "The cron expression does not have a reachable next occurrence.");
+            occurrences.Add(next);
+            cursor = next;
+        }
+
+        return occurrences;
+    }
+
+    public static string ExpandCronMacro(string cronExpression)
+    {
+        var candidate = cronExpression?.Trim() ?? string.Empty;
+        if (candidate.Length == 0)
+        {
+            throw new InvalidOperationException("The cron expression is required.");
+        }
+
+        return candidate.ToLowerInvariant() switch
+        {
+            "@yearly" or "@annually" => "0 0 1 1 *",
+            "@monthly" => "0 0 1 * *",
+            "@weekly" => "0 0 * * 0",
+            "@daily" => "0 0 * * *",
+            "@hourly" => "0 * * * *",
+            _ => candidate,
+        };
+    }
+
+    public static string DescribeCron(string cronExpression)
+    {
+        var candidate = cronExpression?.Trim() ?? string.Empty;
+        if (candidate.Length == 0)
+        {
+            return "jobs.cron.invalid";
+        }
+
+        return candidate.ToLowerInvariant() switch
+        {
+            "@yearly" or "@annually" => "jobs.cron.macro.yearly",
+            "@monthly" => "jobs.cron.macro.monthly",
+            "@weekly" => "jobs.cron.macro.weekly",
+            "@daily" => "jobs.cron.macro.daily",
+            "@hourly" => "jobs.cron.macro.hourly",
+            _ => "jobs.cron.custom",
+        };
+    }
+
     private static TimeZoneInfo ResolveTimeZone(string timeZoneId)
     {
         var normalized = NormalizeTimeZoneId(timeZoneId);

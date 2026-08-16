@@ -61,6 +61,10 @@ internal sealed class JobExecutionHostedProcessor(
                     cancellationToken)
                 .ConfigureAwait(false);
             await scope.ServiceProvider
+                .GetRequiredService<JobWorkerHeartbeatService>()
+                .UpsertAsync(cancellationToken)
+                .ConfigureAwait(false);
+            await scope.ServiceProvider
                 .GetRequiredService<JobScheduleDispatcher>()
                 .ProcessDueAsync(_options.BatchSize, cancellationToken)
                 .ConfigureAwait(false);

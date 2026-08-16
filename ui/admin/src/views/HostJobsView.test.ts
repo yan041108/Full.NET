@@ -31,6 +31,7 @@ const enabledDefinition = {
   description: 'desc',
   groupName: '',
   isEnabled: true,
+  allowConcurrentExecutions: false,
   createdAtUtc: '2026-07-26T00:00:00Z',
   updatedAtUtc: '2026-07-26T00:00:00Z',
   version: 1
@@ -126,5 +127,26 @@ describe('Vue Host \u4efb\u52a1\u8c03\u5ea6\u9875', () => {
     expect(wrapper.find('[data-testid="host-jobs-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-jobs-trigger"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-jobs-disable"]').exists()).toBe(true);
+  });
+
+  it('read-only \u65f6\u4e0d\u663e\u793a\u5141\u8bb8\u91cd\u53e0\u6267\u884c\u5f00\u5173', async () => {
+    const wrapper = mountWithPermissions(['jobs.definitions.read']);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="host-jobs-allow-concurrent"]').exists()).toBe(false);
+  });
+
+  it('create \u8868\u5355\u9ed8\u8ba4\u5173\u95ed\u5141\u8bb8\u91cd\u53e0\u6267\u884c', async () => {
+    const wrapper = mountWithPermissions([
+      'jobs.definitions.read',
+      'jobs.definitions.create'
+    ]);
+    await flushPromises();
+    await wrapper.find('[data-testid="host-jobs-submit"]').trigger('click');
+    await flushPromises();
+
+    const toggle = wrapper.find('[data-testid="host-jobs-allow-concurrent"]');
+    expect(toggle.exists()).toBe(true);
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
   });
 });

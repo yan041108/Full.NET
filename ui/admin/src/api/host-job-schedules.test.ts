@@ -73,7 +73,9 @@ describe('host-job-schedules api', () => {
         }
       ])
       .mockResolvedValueOnce({
-        nextExecutionAtUtc: '2026-08-03T09:00:00Z'
+        humanDescription: 'jobs.cron.custom',
+        nextExecutionAtUtc: '2026-08-03T09:00:00Z',
+        nextOccurrencesUtc: ['2026-08-03T09:00:00Z']
       });
 
     const options = await listHostJobScheduleDefinitionOptions();

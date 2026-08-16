@@ -74,6 +74,17 @@
       ]
     },
     {
+      "path": "/api/v1/jobs/host-executions/{executionId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "jobs.executions.read",
+          "successStatus": 200,
+          "responseSchema": "HostJobExecutionResponse"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/jobs/host-schedules",
       "operations": [
         {
@@ -99,6 +110,17 @@
           "permission": "jobs.schedules.create",
           "successStatus": 200,
           "responseSchema": "HostJobScheduleDefinitionOptionResponseList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-health",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "jobs.health.read",
+          "successStatus": 200,
+          "responseSchema": "HostJobHealthResponse"
         }
       ]
     },
@@ -163,7 +185,9 @@
         "jobKey",
         "displayName",
         "description",
+        "groupName",
         "isEnabled",
+        "allowConcurrentExecutions",
         "createdAtUtc",
         "updatedAtUtc",
         "version"
@@ -181,13 +205,17 @@
       "properties": [
         "jobKey",
         "displayName",
-        "description"
+        "description",
+        "groupName",
+        "allowConcurrentExecutions"
       ]
     },
     "UpdateHostJobDefinitionRequest": {
       "properties": [
         "displayName",
         "description",
+        "groupName",
+        "allowConcurrentExecutions",
         "version"
       ]
     },
@@ -285,7 +313,16 @@
     },
     "HostJobScheduleCronPreviewResponse": {
       "properties": [
-        "nextExecutionAtUtc"
+        "humanDescription",
+        "nextExecutionAtUtc",
+        "nextOccurrencesUtc"
+      ]
+    },
+    "HostJobHealthResponse": {
+      "properties": [
+        "registeredHandlers",
+        "backlog",
+        "workers"
       ]
     }
   }

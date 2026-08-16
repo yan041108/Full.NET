@@ -160,9 +160,11 @@ internal static class JobsBoundedConcurrencyAssertions
                     """
                     INSERT INTO fn_jobs_definition
                         (Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+                         AllowConcurrentExecutions,
                          CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version)
                     VALUES
                         (@Id, NULL, @JobKey, @DisplayName, NULL, @IsEnabled,
+                         1,
                          @CreatedAtUtc, NULL, @CreatedByUserId, NULL, 1)
                     """,
                     SqlDataScope.HostOnly),

@@ -43,6 +43,10 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "清空任务执行记录",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            HostJobPermissions.HealthRead,
+            "查询任务健康状态",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             HostJobPermissions.SchedulesRead,
             "查询任务计划",
             AuthorizationScope.Host),
@@ -92,6 +96,28 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "calendar",
             58,
             HostJobPermissions.SchedulesRead),
+        new NavigationDefinition(
+            "host-job-executions",
+            null,
+            "host-job-executions",
+            "/jobs/host-executions",
+            "host-job-executions",
+            "执行历史",
+            "Jobs",
+            "document",
+            59,
+            HostJobPermissions.ExecutionsRead),
+        new NavigationDefinition(
+            "host-job-health",
+            null,
+            "host-job-health",
+            "/jobs/host-health",
+            "host-job-health",
+            "集群健康",
+            "Jobs",
+            "monitor",
+            60,
+            HostJobPermissions.HealthRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =

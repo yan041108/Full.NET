@@ -40,14 +40,26 @@ internal sealed class HostJobExecutionQueryService(
         int page,
         int pageSize,
         Guid? jobDefinitionId,
+        Guid? jobScheduleId,
+        string? status,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
+        var filter = new
+        {
+            JobDefinitionId = jobDefinitionId,
+            JobScheduleId = jobScheduleId,
+            Status = string.IsNullOrWhiteSpace(status) ? null : status.Trim(),
+            FromUtc = fromUtc,
+            ToUtc = toUtc,
+        };
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 JobSql.CountExecutions,
-                new { JobDefinitionId = jobDefinitionId },
+                filter,
                 cancellationToken)
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<JobExecutionRecord>(
@@ -56,7 +68,11 @@ internal sealed class HostJobExecutionQueryService(
                 {
                     Offset = offset,
                     PageSize = pageSize,
-                    JobDefinitionId = jobDefinitionId,
+                    filter.JobDefinitionId,
+                    filter.JobScheduleId,
+                    filter.Status,
+                    filter.FromUtc,
+                    filter.ToUtc,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

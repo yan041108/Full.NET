@@ -18,6 +18,8 @@ public static class HostJobPermissions
 
     public const string ExecutionsClear = "jobs.executions.clear";
 
+    public const string HealthRead = "jobs.health.read";
+
     public const string SchedulesRead = "jobs.schedules.read";
 
     public const string SchedulesCreate = "jobs.schedules.create";
@@ -70,6 +72,7 @@ public sealed record HostJobDefinitionResponse(
     string? Description,
     string? GroupName,
     bool IsEnabled,
+    bool AllowConcurrentExecutions,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     int Version);
@@ -78,12 +81,14 @@ public sealed record CreateHostJobDefinitionRequest(
     string JobKey,
     string DisplayName,
     string? Description,
-    string? GroupName);
+    string? GroupName,
+    bool AllowConcurrentExecutions = false);
 
 public sealed record UpdateHostJobDefinitionRequest(
     string DisplayName,
     string? Description,
     string? GroupName,
+    bool AllowConcurrentExecutions,
     int Version);
 
 public sealed record DisableHostJobDefinitionRequest(int Version);
@@ -146,7 +151,28 @@ public sealed record HostJobScheduleDefinitionOptionResponse(
     string DisplayName);
 
 public sealed record HostJobScheduleCronPreviewResponse(
-    DateTimeOffset NextExecutionAtUtc);
+    string HumanDescription,
+    DateTimeOffset NextExecutionAtUtc,
+    IReadOnlyList<DateTimeOffset> NextOccurrencesUtc);
+
+public sealed record HostJobHealthResponse(
+    IReadOnlyList<string> RegisteredHandlers,
+    HostJobHealthBacklogSnapshot Backlog,
+    IReadOnlyList<HostJobWorkerInstanceResponse> Workers);
+
+public sealed record HostJobHealthBacklogSnapshot(
+    long PendingCount,
+    DateTimeOffset? OldestClaimableCreatedAtUtc,
+    long DueRetryCount,
+    DateTimeOffset? OldestDueRetryAtUtc);
+
+public sealed record HostJobWorkerInstanceResponse(
+    Guid InstanceId,
+    string HostProfile,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset LastHeartbeatAtUtc,
+    string? WorkerVersion,
+    bool IsStale);
 
 public sealed record HostJobExecutionResponse(
     Guid Id,

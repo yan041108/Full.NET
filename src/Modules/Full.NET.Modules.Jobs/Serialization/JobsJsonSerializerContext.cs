@@ -21,7 +21,10 @@ namespace Full.NET.Modules.Jobs.Serialization;
 [JsonSerializable(typeof(ChangeHostJobScheduleStateRequest))]
 [JsonSerializable(typeof(HostJobScheduleDefinitionOptionResponse))]
 [JsonSerializable(typeof(IReadOnlyList<HostJobScheduleDefinitionOptionResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<DateTimeOffset>))]
 [JsonSerializable(typeof(HostJobScheduleCronPreviewResponse))]
 [JsonSerializable(typeof(HostJobExecutionResponse))]
 [JsonSerializable(typeof(PagedResult<HostJobExecutionResponse>))]
+[JsonSerializable(typeof(HostJobHealthResponse))]
+[JsonSerializable(typeof(IReadOnlyList<HostJobWorkerInstanceResponse>))]
 internal partial class JobsJsonSerializerContext : JsonSerializerContext;

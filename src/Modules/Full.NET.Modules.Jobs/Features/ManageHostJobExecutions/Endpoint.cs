@@ -19,6 +19,10 @@ internal static class Endpoint
             int? page,
             int? pageSize,
             Guid? jobDefinitionId,
+            Guid? jobScheduleId,
+            string? status,
+            DateTimeOffset? fromUtc,
+            DateTimeOffset? toUtc,
             HostJobExecutionQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -28,11 +32,29 @@ internal static class Endpoint
                     page ?? 1,
                     pageSize ?? 20,
                     jobDefinitionId,
+                    jobScheduleId,
+                    status,
+                    fromUtc,
+                    toUtc,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .Produces<PagedResult<HostJobExecutionResponse>>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsRead));
+
+        group.MapGet("/{executionId:guid}", async (
+            Guid executionId,
+            HostJobExecutionQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.GetByIdAsync(executionId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .Produces<HostJobExecutionResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsRead));
 
         // 清空指定作业定义的终态执行记录，对应 Admin.NET ClearJobTriggerRecord。

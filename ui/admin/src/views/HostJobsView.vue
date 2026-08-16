@@ -96,11 +96,13 @@ const editorForm = reactive<{
   displayName: string;
   description: string;
   groupName: string;
+  allowConcurrentExecutions: boolean;
 }>({
   jobKey: JOBS_WELL_KNOWN_KEYS.ping,
   displayName: '',
   description: '',
-  groupName: ''
+  groupName: '',
+  allowConcurrentExecutions: false
 });
 const fieldErrors = reactive({
   displayName: '',
@@ -341,6 +343,7 @@ function openCreate(): void {
   editorForm.displayName = '';
   editorForm.description = '';
   editorForm.groupName = '';
+  editorForm.allowConcurrentExecutions = false;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -356,6 +359,7 @@ function openEdit(item: HostJobDefinition): void {
   editorForm.displayName = item.displayName;
   editorForm.description = item.description ?? '';
   editorForm.groupName = item.groupName ?? '';
+  editorForm.allowConcurrentExecutions = item.allowConcurrentExecutions;
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -386,7 +390,8 @@ async function create(): Promise<void> {
       editorForm.jobKey,
       editorForm.displayName,
       editorForm.description.trim() || undefined,
-      editorForm.groupName.trim() || null
+      editorForm.groupName.trim() || null,
+      editorForm.allowConcurrentExecutions
     );
     editorOpen.value = false;
     ElMessage.success(t('hostJobs.createSuccess'));
@@ -411,7 +416,8 @@ async function saveEdit(): Promise<void> {
       editorForm.displayName.trim(),
       editorForm.description.trim() || null,
       item.version,
-      editorForm.groupName.trim() || null
+      editorForm.groupName.trim() || null,
+      editorForm.allowConcurrentExecutions
     );
     editorOpen.value = false;
     ElMessage.success(t('hostJobs.updateSuccess'));
@@ -515,7 +521,11 @@ async function loadExecutions(definitionId: string): Promise<void> {
   recordsLoading.value = true;
   recordsProblem.value = undefined;
   try {
-    const result = await listHostJobExecutions(definitionId, executionsPage.value, executionsPageSize.value);
+    const result = await listHostJobExecutions({
+      jobDefinitionId: definitionId,
+      page: executionsPage.value,
+      pageSize: executionsPageSize.value
+    });
     executions.value = result.items;
     executionsTotal.value = result.total;
   } catch (error: unknown) {
@@ -872,6 +882,18 @@ function toProblem(
             :placeholder="t('hostJobs.fieldGroupNamePlaceholder')"
             :disabled="changing"
             maxlength="64"
+          />
+        </el-form-item>
+
+        <!-- 允许重叠执行：默认关闭，对标 Admin.NET Concurrent=false 更安全默认值 -->
+        <el-form-item
+          v-if="editorMode === 'create' ? canCreate : canUpdate"
+          :label="t('hostJobs.fieldAllowConcurrentExecutions')"
+        >
+          <el-switch
+            v-model="editorForm.allowConcurrentExecutions"
+            :disabled="changing"
+            data-testid="host-jobs-allow-concurrent"
           />
         </el-form-item>
       </el-form>

@@ -19,6 +19,12 @@ internal static class JobsMultiWorkerClaimAssertions
         Guid definitionId,
         CancellationToken cancellationToken = default)
     {
+        await SetAllowConcurrentExecutionsAsync(
+            factory,
+            definitionId,
+            allowConcurrentExecutions: true,
+            cancellationToken);
+
         var executionIds = await SeedExecutionsAsync(
             factory,
             definitionId,
@@ -59,6 +65,54 @@ internal static class JobsMultiWorkerClaimAssertions
             definitionId,
             executionIds,
             cancellationToken);
+    }
+
+    private static async Task SetAllowConcurrentExecutionsAsync(
+        FullNetApiFactory factory,
+        Guid definitionId,
+        bool allowConcurrentExecutions,
+        CancellationToken cancellationToken)
+    {
+        await SetAllowConcurrentExecutionsForTestAsync(
+            factory,
+            definitionId,
+            allowConcurrentExecutions,
+            cancellationToken);
+    }
+
+    internal static async Task SetAllowConcurrentExecutionsForTestAsync(
+        FullNetApiFactory factory,
+        Guid definitionId,
+        bool allowConcurrentExecutions,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant =
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            await scope.ServiceProvider.GetRequiredService<ICommandExecutor>()
+                .ExecuteAsync(
+                    new SqlStatement(
+                        "test.jobs.set_allow_concurrent_executions",
+                        """
+                        UPDATE fn_jobs_definition
+                        SET AllowConcurrentExecutions = @AllowConcurrentExecutions
+                        WHERE Id = @Id AND TenantId IS NULL
+                        """,
+                        SqlDataScope.HostOnly),
+                    new
+                    {
+                        Id = definitionId,
+                        AllowConcurrentExecutions = allowConcurrentExecutions,
+                    },
+                    cancellationToken);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     private static async Task<IReadOnlySet<Guid>> SeedExecutionsAsync(

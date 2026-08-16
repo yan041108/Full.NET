@@ -69,7 +69,10 @@ const endTime = ref('');
 const args = ref('');
 const misfirePolicy = ref<string>(JOB_MISFIRE_POLICIES.skip);
 const cronPreviewUtc = ref<string>();
+const cronPreviewDescription = ref<string>();
+const cronPreviewOccurrences = ref<string[]>([]);
 const cronPreviewLoading = ref(false);
+const cronMacroPresets = ['@hourly', '@daily', '@weekly', '@monthly', '@yearly'] as const;
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -164,20 +167,28 @@ async function onPageChange(nextPage: number): Promise<void> {
 async function refreshCronPreview(): Promise<void> {
   if (!isCron.value || !canCreate.value && !canUpdate.value) {
     cronPreviewUtc.value = undefined;
+    cronPreviewDescription.value = undefined;
+    cronPreviewOccurrences.value = [];
     return;
   }
   const expression = cronExpression.value.trim();
   const zone = timeZoneId.value.trim();
   if (!expression || !zone) {
     cronPreviewUtc.value = undefined;
+    cronPreviewDescription.value = undefined;
+    cronPreviewOccurrences.value = [];
     return;
   }
   cronPreviewLoading.value = true;
   try {
     const preview = await previewHostJobScheduleCron(expression, zone);
     cronPreviewUtc.value = preview.nextExecutionAtUtc;
+    cronPreviewDescription.value = preview.humanDescription;
+    cronPreviewOccurrences.value = preview.nextOccurrencesUtc;
   } catch {
     cronPreviewUtc.value = undefined;
+    cronPreviewDescription.value = undefined;
+    cronPreviewOccurrences.value = [];
   } finally {
     cronPreviewLoading.value = false;
   }
@@ -239,6 +250,8 @@ function resetForm(): void {
   args.value = '';
   misfirePolicy.value = JOB_MISFIRE_POLICIES.skip;
   cronPreviewUtc.value = undefined;
+  cronPreviewDescription.value = undefined;
+  cronPreviewOccurrences.value = [];
 }
 
 async function saveEdit(): Promise<void> {
@@ -408,8 +421,29 @@ function toProblem(
         </label>
         <label v-if="isCron">
           <span>{{ t('hostJobSchedules.fieldCron') }}</span>
+          <ElSelect
+            :model-value="''"
+            :placeholder="t('hostJobSchedules.cronMacroPlaceholder')"
+            clearable
+            style="width: 100%; margin-bottom: 8px"
+            @change="value => { if (value) cronExpression = String(value); }"
+          >
+            <ElOption
+              v-for="macro in cronMacroPresets"
+              :key="macro"
+              :label="macro"
+              :value="macro"
+            />
+          </ElSelect>
           <ElInput v-model="cronExpression" :disabled="changing" data-testid="host-job-schedules-cron" />
           <small class="art-muted">{{ t('hostJobSchedules.cronHelp') }}</small>
+          <small
+            v-if="cronPreviewDescription"
+            class="art-muted"
+            translate="no"
+          >
+            {{ t(cronPreviewDescription) }}
+          </small>
           <small
             v-if="cronPreviewUtc || cronPreviewLoading"
             class="art-muted"
@@ -421,6 +455,11 @@ function toProblem(
                 : t('hostJobSchedules.cronPreview', { instant: cronPreviewUtc ?? '' })
             }}
           </small>
+          <ul v-if="cronPreviewOccurrences.length > 0" class="host-job-schedules-cron-occurrences">
+            <li v-for="occurrence in cronPreviewOccurrences" :key="occurrence" translate="no">
+              {{ formatUtc(occurrence) }}
+            </li>
+          </ul>
         </label>
         <label v-else>
           <span>{{ t('hostJobSchedules.fieldOneTimeAt') }}</span>

@@ -226,9 +226,11 @@ public sealed class HostJobScheduleServiceTests
         var result = await service.PreviewCronAsync("0 9 * * *", "UTC");
 
         Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual("jobs.cron.custom", result.Value!.HumanDescription);
         Assert.AreEqual(
             new DateTimeOffset(2026, 7, 31, 9, 0, 0, TimeSpan.Zero),
-            result.Value!.NextExecutionAtUtc);
+            result.Value.NextExecutionAtUtc);
+        Assert.HasCount(5, result.Value.NextOccurrencesUtc);
     }
 
     [TestMethod]
@@ -239,7 +241,7 @@ public sealed class HostJobScheduleServiceTests
         source.Cancel();
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
-            service.PreviewCronAsync("0 9 * * *", "UTC", source.Token));
+            service.PreviewCronAsync("0 9 * * *", "UTC", 5, source.Token));
     }
 
     private static HostJobScheduleService CreateService(ScheduleStore store) =>

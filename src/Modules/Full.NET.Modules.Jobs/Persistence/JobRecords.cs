@@ -21,6 +21,9 @@ internal sealed class JobDefinitionRecord
 
     public bool IsEnabled { get; set; }
 
+    /// <summary>是否允许同一作业定义在集群内重叠执行；对标 Admin.NET SysJobDetail.Concurrent。</summary>
+    public bool AllowConcurrentExecutions { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public DateTimeOffset? UpdatedAtUtc { get; set; }
@@ -98,6 +101,9 @@ internal class JobScheduleRecord
     public Guid? TenantId { get; set; }
 
     public Guid JobDefinitionId { get; set; }
+
+    /// <summary>来自关联定义；调度物化时用于禁止重叠 gate。</summary>
+    public bool AllowConcurrentExecutions { get; set; }
 
     public string TriggerKind { get; set; } = string.Empty;
 

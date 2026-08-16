@@ -25,15 +25,25 @@ internal static class JobsHostDefinitionAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
-        var definition = await VerifyCreateTriggerAndExecutionLifecycleAsync(
+        var lifecycle = await VerifyCreateTriggerAndExecutionLifecycleAsync(
             client,
             cancellationToken);
-        definition = await VerifyExactJobDefinitionActionPermissionBoundariesAsync(
+        await JobsExecutionHistoryAssertions.VerifyAsync(
             factory,
             client,
-            definition,
+            lifecycle.Definition,
+            lifecycle.Execution,
+            cancellationToken);
+        var definition = await VerifyExactJobDefinitionActionPermissionBoundariesAsync(
+            factory,
+            client,
+            lifecycle.Definition,
             cancellationToken);
         await JobsMultiWorkerClaimAssertions.VerifyAsync(
+            factory,
+            definition.Id,
+            cancellationToken);
+        await JobsOverlapControlAssertions.VerifyAsync(
             factory,
             definition.Id,
             cancellationToken);
@@ -70,6 +80,7 @@ internal static class JobsHostDefinitionAssertions
             definition.Id,
             cancellationToken);
         await OpenApiJobsHostDefinitionsContractAssertions.VerifyAsync(client, cancellationToken);
+        await JobsHealthReadonlyAssertions.VerifyAsync(factory, client, cancellationToken);
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(
@@ -89,7 +100,7 @@ internal static class JobsHostDefinitionAssertions
         Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    private static async Task<HostJobDefinitionResponse> VerifyCreateTriggerAndExecutionLifecycleAsync(
+    private static async Task<(HostJobDefinitionResponse Definition, HostJobExecutionResponse Execution)> VerifyCreateTriggerAndExecutionLifecycleAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -112,12 +123,18 @@ internal static class JobsHostDefinitionAssertions
         Assert.IsNotNull(created);
         Assert.AreEqual(JobsWellKnownKeys.Ping, created.JobKey);
         Assert.IsTrue(created.IsEnabled);
+        Assert.IsFalse(created.AllowConcurrentExecutions);
 
         using var updateRequest = CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{created.Id:D}",
             adminToken,
-            new UpdateHostJobDefinitionRequest("更新后名称", "更新后描述", null, created.Version));
+            new UpdateHostJobDefinitionRequest(
+                "更新后名称",
+                "更新后描述",
+                null,
+                false,
+                created.Version));
         using var updateResponse = await client.SendAsync(updateRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, updateResponse.StatusCode);
         var updated = await updateResponse.Content.ReadFromJsonAsync<HostJobDefinitionResponse>(
@@ -170,7 +187,7 @@ internal static class JobsHostDefinitionAssertions
             JobsErrorCodes.DefinitionValidationFailed,
             invalidKeyProblem.RootElement.GetProperty("code").GetString());
 
-        return updated;
+        return (updated, execution);
     }
 
     private static async Task<HostJobDefinitionResponse> VerifyExactJobDefinitionActionPermissionBoundariesAsync(
@@ -203,7 +220,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             cancellationToken,
-            new UpdateHostJobDefinitionRequest("拒绝", null, null, definition.Version));
+            new UpdateHostJobDefinitionRequest("拒绝", null, null, false, definition.Version));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             readOnlyToken,
@@ -238,7 +255,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             cancellationToken,
-            new UpdateHostJobDefinitionRequest("拒绝", null, null, definition.Version));
+            new UpdateHostJobDefinitionRequest("拒绝", null, null, false, definition.Version));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             createOnlyToken,
@@ -264,7 +281,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             updateOnlyToken,
-            new UpdateHostJobDefinitionRequest("边界更新", "正文", null, definition.Version));
+            new UpdateHostJobDefinitionRequest("边界更新", "正文", null, false, definition.Version));
         using var updateOnlyResponse = await client.SendAsync(updateOnlyRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, updateOnlyResponse.StatusCode);
         var updated = await updateOnlyResponse.Content.ReadFromJsonAsync<HostJobDefinitionResponse>(
@@ -318,7 +335,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             cancellationToken,
-            new UpdateHostJobDefinitionRequest("拒绝", null, null, updated.Version));
+            new UpdateHostJobDefinitionRequest("拒绝", null, null, false, updated.Version));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             triggerOnlyToken,
@@ -346,7 +363,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             cancellationToken,
-            new UpdateHostJobDefinitionRequest("拒绝", null, null, updated.Version));
+            new UpdateHostJobDefinitionRequest("拒绝", null, null, false, updated.Version));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             disableOnlyToken,

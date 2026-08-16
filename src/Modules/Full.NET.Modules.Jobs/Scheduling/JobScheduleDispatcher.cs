@@ -51,7 +51,27 @@ internal sealed class JobScheduleDispatcher(
         foreach (var schedule in schedules)
         {
             var decision = JobScheduleCalculator.CalculateDue(schedule, now);
-            if (decision.CreateExecution)
+            var shouldCreateExecution = decision.CreateExecution;
+            if (shouldCreateExecution
+                && !schedule.AllowConcurrentExecutions)
+            {
+                var activeRunningCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                        JobSql.HasActiveRunningForDefinition,
+                        new
+                        {
+                            schedule.JobDefinitionId,
+                            Now = now,
+                            RunningStatus = JobExecutionStatuses.Running,
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (activeRunningCount > 0)
+                {
+                    shouldCreateExecution = false;
+                }
+            }
+
+            if (shouldCreateExecution)
             {
                 await commandExecutor.ExecuteAsync(
                         JobSql.InsertScheduledExecution,
@@ -77,7 +97,7 @@ internal sealed class JobScheduleDispatcher(
                         schedule.Id,
                         IsEnabled = decision.CompletedAtUtc is null,
                         decision.NextExecutionAtUtc,
-                        LastExecutionAtUtc = decision.CreateExecution
+                        LastExecutionAtUtc = shouldCreateExecution
                             ? now
                             : (DateTimeOffset?)null,
                         decision.CompletedAtUtc,

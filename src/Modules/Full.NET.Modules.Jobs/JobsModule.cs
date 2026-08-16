@@ -48,6 +48,8 @@ public sealed class JobsModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostJobExecutions.HostJobExecutionQueryService>();
         services.TryAddScoped<Features.ManageHostJobExecutions.HostJobTriggerService>();
         services.TryAddScoped<Features.ManageHostJobSchedules.HostJobScheduleService>();
+        services.TryAddScoped<Features.ManageHostJobHealth.HostJobHealthQueryService>();
+        services.TryAddSingleton<JobWorkerHeartbeatService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -59,6 +61,7 @@ public sealed class JobsModule : IFullNetModule
         Features.ManageHostJobDefinitions.Endpoint.Map(endpoints);
         Features.ManageHostJobExecutions.Endpoint.Map(endpoints);
         Features.ManageHostJobSchedules.Endpoint.Map(endpoints);
+        Features.ManageHostJobHealth.Endpoint.Map(endpoints);
     }
 
     /// <summary>Worker 轮询执行待处理任务；不引入 HTTP 与完整模块依赖图。</summary>

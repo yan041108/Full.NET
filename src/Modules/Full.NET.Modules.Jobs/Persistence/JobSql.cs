@@ -19,6 +19,7 @@ internal static class JobSql
             "jobs.list_host_definitions.sql_server",
             """
             SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+                   AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE TenantId IS NULL
@@ -32,6 +33,7 @@ internal static class JobSql
             "jobs.list_host_definitions.mysql",
             """
             SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+                   AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE TenantId IS NULL
@@ -55,6 +57,7 @@ internal static class JobSql
             "jobs.find_host_definition_by_id",
             """
             SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+                   AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE Id = @Id AND TenantId IS NULL
@@ -66,6 +69,7 @@ internal static class JobSql
             "jobs.find_host_definitions_by_ids",
             """
             SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+                   AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE TenantId IS NULL
@@ -78,6 +82,7 @@ internal static class JobSql
             "jobs.find_host_definition_by_job_key",
             """
             SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+                   AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
             WHERE JobKey = @JobKey AND TenantId IS NULL
@@ -90,9 +95,11 @@ internal static class JobSql
             """
             INSERT INTO fn_jobs_definition
                 (Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+                 AllowConcurrentExecutions,
                  CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version)
             VALUES
                 (@Id, NULL, @JobKey, @DisplayName, @Description, @GroupName, @IsEnabled,
+                 @AllowConcurrentExecutions,
                  @CreatedAtUtc, NULL, @CreatedByUserId, NULL, @Version)
             """,
             SqlDataScope.HostOnly);
@@ -105,6 +112,7 @@ internal static class JobSql
             SET DisplayName = @DisplayName,
                 Description = @Description,
                 GroupName = @GroupName,
+                AllowConcurrentExecutions = @AllowConcurrentExecutions,
                 UpdatedAtUtc = @UpdatedAtUtc,
                 UpdatedByUserId = @UpdatedByUserId,
                 Version = @NextVersion
@@ -159,6 +167,10 @@ internal static class JobSql
             INNER JOIN fn_jobs_definition d ON d.Id = e.JobDefinitionId
             WHERE e.TenantId IS NULL
               AND (@JobDefinitionId IS NULL OR e.JobDefinitionId = @JobDefinitionId)
+              AND (@JobScheduleId IS NULL OR e.JobScheduleId = @JobScheduleId)
+              AND (@Status IS NULL OR e.Status = @Status)
+              AND (@FromUtc IS NULL OR e.CreatedAtUtc >= @FromUtc)
+              AND (@ToUtc IS NULL OR e.CreatedAtUtc <= @ToUtc)
             ORDER BY e.CreatedAtUtc DESC, e.Id
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """,
@@ -178,6 +190,10 @@ internal static class JobSql
             INNER JOIN fn_jobs_definition d ON d.Id = e.JobDefinitionId
             WHERE e.TenantId IS NULL
               AND (@JobDefinitionId IS NULL OR e.JobDefinitionId = @JobDefinitionId)
+              AND (@JobScheduleId IS NULL OR e.JobScheduleId = @JobScheduleId)
+              AND (@Status IS NULL OR e.Status = @Status)
+              AND (@FromUtc IS NULL OR e.CreatedAtUtc >= @FromUtc)
+              AND (@ToUtc IS NULL OR e.CreatedAtUtc <= @ToUtc)
             ORDER BY e.CreatedAtUtc DESC, e.Id
             LIMIT @PageSize OFFSET @Offset
             """,
@@ -191,6 +207,10 @@ internal static class JobSql
             FROM fn_jobs_execution
             WHERE TenantId IS NULL
               AND (@JobDefinitionId IS NULL OR JobDefinitionId = @JobDefinitionId)
+              AND (@JobScheduleId IS NULL OR JobScheduleId = @JobScheduleId)
+              AND (@Status IS NULL OR Status = @Status)
+              AND (@FromUtc IS NULL OR CreatedAtUtc >= @FromUtc)
+              AND (@ToUtc IS NULL OR CreatedAtUtc <= @ToUtc)
             """,
             SqlDataScope.HostOnly);
 
@@ -401,7 +421,8 @@ internal static class JobSql
                    s.LastExecutionAtUtc, s.CompletedAtUtc,
                    s.NumberOfRuns, s.NumberOfErrors, s.StartTime, s.EndTime, s.Args,
                    s.CreatedAtUtc, s.CreatedByUserId,
-                   s.UpdatedAtUtc, s.UpdatedByUserId, s.Version
+                   s.UpdatedAtUtc, s.UpdatedByUserId, s.Version,
+                   d.AllowConcurrentExecutions
             FROM fn_jobs_schedule AS s WITH (UPDLOCK, READPAST, ROWLOCK)
             INNER JOIN fn_jobs_definition AS d
                 ON d.Id = s.JobDefinitionId
@@ -425,7 +446,8 @@ internal static class JobSql
                    s.LastExecutionAtUtc, s.CompletedAtUtc,
                    s.NumberOfRuns, s.NumberOfErrors, s.StartTime, s.EndTime, s.Args,
                    s.CreatedAtUtc, s.CreatedByUserId,
-                   s.UpdatedAtUtc, s.UpdatedByUserId, s.Version
+                   s.UpdatedAtUtc, s.UpdatedByUserId, s.Version,
+                   d.AllowConcurrentExecutions
             FROM fn_jobs_schedule AS s
             INNER JOIN fn_jobs_definition AS d
                 ON d.Id = s.JobDefinitionId
@@ -546,18 +568,50 @@ internal static class JobSql
         new(
             "jobs.acquire_host_executions.sql_server",
             """
-            ;WITH Pending AS
+            ;WITH Candidate AS
             (
-                SELECT TOP (@BatchSize) e.*
+                SELECT e.*,
+                       d.AllowConcurrentExecutions,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY CASE
+                               WHEN d.AllowConcurrentExecutions = 0 THEN e.JobDefinitionId
+                               ELSE e.Id
+                           END
+                           ORDER BY e.CreatedAtUtc, e.Id
+                       ) AS OverlapRank
                 FROM fn_jobs_execution e WITH (UPDLOCK, READPAST, ROWLOCK)
+                INNER JOIN fn_jobs_definition d
+                    ON d.Id = e.JobDefinitionId
+                   AND d.TenantId IS NULL
                 WHERE e.TenantId IS NULL
                   AND (
                       (e.Status = @PendingStatus
                        AND (e.LeaseExpiresAtUtc IS NULL OR e.LeaseExpiresAtUtc <= @Now)
-                       AND (e.NextAttemptAtUtc IS NULL OR e.NextAttemptAtUtc <= @Now))
+                       AND (e.NextAttemptAtUtc IS NULL OR e.NextAttemptAtUtc <= @Now)
+                       AND (
+                           d.AllowConcurrentExecutions = 1
+                           OR NOT EXISTS (
+                               SELECT 1
+                               FROM fn_jobs_execution r WITH (READPAST)
+                               WHERE r.TenantId IS NULL
+                                 AND r.JobDefinitionId = e.JobDefinitionId
+                                 AND r.Status = @RunningStatus
+                                 AND r.LeaseExpiresAtUtc > @Now
+                           )
+                       ))
                       OR (e.Status = @RunningStatus AND e.LeaseExpiresAtUtc <= @Now)
                   )
-                ORDER BY e.CreatedAtUtc, e.Id
+            ),
+            Pending AS
+            (
+                SELECT TOP (@BatchSize)
+                       Id, TenantId, JobDefinitionId, JobScheduleId, Status,
+                       TriggerKind, ScheduledForUtc, ErrorMessage, StartedAtUtc,
+                       FinishedAtUtc, LeaseId, LeaseExpiresAtUtc, NextAttemptAtUtc,
+                       AttemptCount, CreatedAtUtc
+                FROM Candidate
+                WHERE AllowConcurrentExecutions = 1 OR OverlapRank = 1
+                ORDER BY CreatedAtUtc, Id
             )
             UPDATE Pending
             SET Status = @RunningStatus,
@@ -579,16 +633,50 @@ internal static class JobSql
         new(
             "jobs.select_claimable_host_execution_ids.mysql",
             """
-            SELECT Id
-            FROM fn_jobs_execution
-            WHERE TenantId IS NULL
-              AND (
-                  (Status = @PendingStatus
-                   AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
-                   AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now))
-                  OR (Status = @RunningStatus AND LeaseExpiresAtUtc <= @Now)
-              )
-            ORDER BY CreatedAtUtc, Id
+            SELECT e.Id
+            FROM fn_jobs_execution e
+            INNER JOIN fn_jobs_definition d
+                ON d.Id = e.JobDefinitionId
+               AND d.TenantId IS NULL
+            INNER JOIN (
+                SELECT inner_e.Id,
+                       inner_d.AllowConcurrentExecutions,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY CASE
+                               WHEN inner_d.AllowConcurrentExecutions = 0
+                                   THEN inner_e.JobDefinitionId
+                               ELSE inner_e.Id
+                           END
+                           ORDER BY inner_e.CreatedAtUtc, inner_e.Id
+                       ) AS OverlapRank
+                FROM fn_jobs_execution inner_e
+                INNER JOIN fn_jobs_definition inner_d
+                    ON inner_d.Id = inner_e.JobDefinitionId
+                   AND inner_d.TenantId IS NULL
+                WHERE inner_e.TenantId IS NULL
+                  AND (
+                      (inner_e.Status = @PendingStatus
+                       AND (inner_e.LeaseExpiresAtUtc IS NULL
+                            OR inner_e.LeaseExpiresAtUtc <= @Now)
+                       AND (inner_e.NextAttemptAtUtc IS NULL
+                            OR inner_e.NextAttemptAtUtc <= @Now)
+                       AND (
+                           inner_d.AllowConcurrentExecutions = 1
+                           OR NOT EXISTS (
+                               SELECT 1
+                               FROM fn_jobs_execution r
+                               WHERE r.TenantId IS NULL
+                                 AND r.JobDefinitionId = inner_e.JobDefinitionId
+                                 AND r.Status = @RunningStatus
+                                 AND r.LeaseExpiresAtUtc > @Now
+                           )
+                       ))
+                      OR (inner_e.Status = @RunningStatus
+                          AND inner_e.LeaseExpiresAtUtc <= @Now)
+                  )
+            ) ranked ON ranked.Id = e.Id
+            WHERE ranked.AllowConcurrentExecutions = 1 OR ranked.OverlapRank = 1
+            ORDER BY e.CreatedAtUtc, e.Id
             LIMIT @BatchSize
             FOR UPDATE SKIP LOCKED
             """,
@@ -730,6 +818,22 @@ internal static class JobSql
             """,
             SqlDataScope.HostOnly);
 
+    /// <summary>
+    /// 判断作业定义是否已有有效 running 租约，供调度物化 gate 使用。
+    /// </summary>
+    public static readonly SqlStatement HasActiveRunningForDefinition =
+        new(
+            "jobs.has_active_running_for_definition",
+            """
+            SELECT COUNT(*)
+            FROM fn_jobs_execution
+            WHERE TenantId IS NULL
+              AND JobDefinitionId = @JobDefinitionId
+              AND Status = @RunningStatus
+              AND LeaseExpiresAtUtc > @Now
+            """,
+            SqlDataScope.HostOnly);
+
     /// <summary>删除作业定义关联的全部计划，解除外键约束后才能删除定义本身。</summary>
     public static readonly SqlStatement DeleteSchedulesByDefinition =
         new(
@@ -800,6 +904,52 @@ internal static class JobSql
             SET NumberOfErrors = NumberOfErrors + 1
             WHERE Id = @Id
               AND TenantId IS NULL
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpsertWorkerHeartbeat =
+        new(
+            "jobs.upsert_worker_heartbeat",
+            """
+            MERGE fn_jobs_worker_instance AS target
+            USING (SELECT @InstanceId AS InstanceId) AS source
+                ON target.InstanceId = source.InstanceId
+            WHEN MATCHED THEN
+                UPDATE SET LastHeartbeatAtUtc = @LastHeartbeatAtUtc,
+                           WorkerVersion = @WorkerVersion
+            WHEN NOT MATCHED THEN
+                INSERT (InstanceId, TenantId, HostProfile, StartedAtUtc,
+                        LastHeartbeatAtUtc, WorkerVersion)
+                VALUES (@InstanceId, NULL, @HostProfile, @StartedAtUtc,
+                        @LastHeartbeatAtUtc, @WorkerVersion);
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpsertWorkerHeartbeatMySql =
+        new(
+            "jobs.upsert_worker_heartbeat.mysql",
+            """
+            INSERT INTO fn_jobs_worker_instance
+                (InstanceId, TenantId, HostProfile, StartedAtUtc,
+                 LastHeartbeatAtUtc, WorkerVersion)
+            VALUES
+                (@InstanceId, NULL, @HostProfile, @StartedAtUtc,
+                 @LastHeartbeatAtUtc, @WorkerVersion)
+            ON DUPLICATE KEY UPDATE
+                LastHeartbeatAtUtc = VALUES(LastHeartbeatAtUtc),
+                WorkerVersion = VALUES(WorkerVersion)
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListWorkerInstances =
+        new(
+            "jobs.list_worker_instances",
+            """
+            SELECT InstanceId, HostProfile, StartedAtUtc,
+                   LastHeartbeatAtUtc, WorkerVersion
+            FROM fn_jobs_worker_instance
+            WHERE TenantId IS NULL
+            ORDER BY LastHeartbeatAtUtc DESC, InstanceId
             """,
             SqlDataScope.HostOnly);
 }
