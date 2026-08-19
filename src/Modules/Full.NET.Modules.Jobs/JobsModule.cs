@@ -49,7 +49,6 @@ public sealed class JobsModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostJobExecutions.HostJobTriggerService>();
         services.TryAddScoped<Features.ManageHostJobSchedules.HostJobScheduleService>();
         services.TryAddScoped<Features.ManageHostJobHealth.HostJobHealthQueryService>();
-        services.TryAddSingleton<JobWorkerHeartbeatService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -78,6 +77,7 @@ public sealed class JobsModule : IFullNetModule
                 IValidateOptions<JobsWorkerOptions>,
                 JobsWorkerOptionsValidator>());
         services.AddHostedService<JobExecutionHostedProcessor>();
+        services.TryAddSingleton<JobWorkerHeartbeatService>();
         services
             .AddOpenTelemetry()
             .WithMetrics(metrics =>

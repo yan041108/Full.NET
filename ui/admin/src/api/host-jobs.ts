@@ -43,6 +43,7 @@ export async function createHostJobDefinition(
 ): Promise<HostJobDefinition> {
   const value = await request<unknown>('/api/v1/jobs/host-definitions', {
     method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       jobKey,
       displayName,
@@ -69,6 +70,7 @@ export async function updateHostJobDefinition(
     `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}`,
     {
       method: 'PUT',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         displayName,
         description,
@@ -92,6 +94,7 @@ export async function disableHostJobDefinition(
     `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}/disable`,
     {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ version })
     }
   );
@@ -109,6 +112,7 @@ export async function deleteHostJobDefinition(
     `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}/delete`,
     {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ version })
     }
   );

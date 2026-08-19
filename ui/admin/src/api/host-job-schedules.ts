@@ -92,6 +92,7 @@ export async function createHostJobSchedule(
 ): Promise<HostJobSchedule> {
   const value = await request<unknown>('/api/v1/jobs/host-schedules', {
     method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       jobDefinitionId,
       triggerKind,
@@ -126,6 +127,7 @@ export async function updateHostJobSchedule(
     `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}`,
     {
       method: 'PUT',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         triggerKind,
         cronExpression: cronExpression ?? null,
@@ -153,6 +155,7 @@ export async function pauseHostJobSchedule(
     `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}/pause`,
     {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ version })
     }
   );
@@ -170,6 +173,7 @@ export async function resumeHostJobSchedule(
     `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}/resume`,
     {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ version })
     }
   );
@@ -187,6 +191,7 @@ export async function deleteHostJobSchedule(
     `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}/delete`,
     {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ version })
     }
   );

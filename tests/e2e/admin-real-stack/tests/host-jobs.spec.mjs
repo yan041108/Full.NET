@@ -24,11 +24,11 @@ test('Host 管理员可从真实 API 加载任务定义列表', async ({ page },
   await loginAsHostAdmin(page);
 
   const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /任务调度/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /任务调度/ }).click();
+  await expect(navigation.getByRole('link', { name: /任务定义/ })).toBeVisible();
+  await navigation.getByRole('link', { name: /任务定义/ }).click();
 
   const jobsView = page.locator('.host-jobs-view');
-  await expect(jobsView.getByRole('heading', { name: /任务调度/, level: 1 })).toBeVisible();
+  await expect(jobsView.getByRole('heading', { name: /任务定义/, level: 1 })).toBeVisible();
 });
 
 test('受限 Host 账号访问任务定义 API 被拒绝且导航裁剪', async ({

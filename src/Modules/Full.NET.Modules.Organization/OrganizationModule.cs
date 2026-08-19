@@ -83,6 +83,18 @@ public sealed class OrganizationModule : IFullNetModule
                 OrganizationJsonSerializerContext.Default));
     }
 
+    /// <summary>
+    /// 注册 Worker 消费 Identity 机构单元投影对账所需的最小 Organization 只读 Port。
+    /// </summary>
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.TryAddScoped<TenantUnits.OrganizationUnitProjectionCatalog>();
+        services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
+            provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());
+    }
+
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageTenantUnits.Endpoint.Map(endpoints);

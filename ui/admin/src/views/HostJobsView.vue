@@ -398,6 +398,10 @@ async function create(): Promise<void> {
     await load();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'hostJobs.operationFailed');
+    // 任务键冲突时刷新列表，避免库中已有定义但页面仍显示空表。
+    if (isFullNetProblemDetails(error) && error.code === 'jobs.definition_job_key_exists') {
+      await load();
+    }
   } finally {
     changing.value = false;
   }

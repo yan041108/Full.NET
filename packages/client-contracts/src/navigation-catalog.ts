@@ -180,6 +180,16 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/jobs/host-schedules'
   },
   {
+    componentKey: 'host-job-executions',
+    routeName: 'host-job-executions',
+    path: '/jobs/host-executions'
+  },
+  {
+    componentKey: 'host-job-health',
+    routeName: 'host-job-health',
+    path: '/jobs/host-health'
+  },
+  {
     componentKey: 'code-generation-templates',
     routeName: 'code-generation-templates',
     path: '/code-generation/templates'

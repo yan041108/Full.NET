@@ -2060,8 +2060,8 @@ test('任务调度列表在两端保持一致', async ({ page }, testInfo) => {
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /任务调度/ }).click();
-  await expect(page.getByRole('heading', { name: '任务调度', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: /任务定义/ }).click();
+  await expect(page.getByRole('heading', { name: '任务定义', exact: true })).toBeVisible();
   await expect(page.getByText('尚无任务定义', { exact: true })).toBeVisible();
 
   const jobsView = routeView(page, clientKind, 'host-jobs', '.host-jobs-view');
@@ -3656,7 +3656,7 @@ function navigationResponse(unknownComponent = false, activeTenantId = null) {
     {
       id: 'host-jobs', parentId: null, routeName: 'host-jobs',
       path: '/jobs/host-definitions', componentKey: 'host-jobs',
-      title: '任务调度', caption: 'Host 作用域任务定义与执行',
+      title: '任务定义', caption: 'Host 作用域任务定义与执行',
       icon: 'timer', order: 57, requiredPermission: 'jobs.definitions.read', children: []
     },
     {

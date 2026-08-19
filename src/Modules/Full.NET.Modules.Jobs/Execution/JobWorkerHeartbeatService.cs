@@ -1,14 +1,16 @@
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Jobs.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Jobs.Execution;
 
 /// <summary>维护当前 Worker 进程在数据库中的心跳记录。</summary>
 internal sealed class JobWorkerHeartbeatService(
-    ICommandExecutor commandExecutor,
+    IServiceScopeFactory scopeFactory,
     IClock clock,
     IOptions<DatabaseOptions> databaseOptions,
     IOptions<JobsWorkerOptions> workerOptions)
@@ -26,21 +28,34 @@ internal sealed class JobWorkerHeartbeatService(
             _ => throw new InvalidOperationException(
                 $"Unsupported database provider '{databaseOptions.Value.Provider}'."),
         };
-        await commandExecutor.ExecuteAsync(
-                statement,
-                new
-                {
-                    InstanceId = _instanceId,
-                    HostProfile = Environment.MachineName,
-                    StartedAtUtc = _startedAtUtc,
-                    LastHeartbeatAtUtc = now,
-                    WorkerVersion = typeof(JobWorkerHeartbeatService).Assembly
-                        .GetName()
-                        .Version?
-                        .ToString(),
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider
+            .GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var commandExecutor = scope.ServiceProvider
+                .GetRequiredService<ICommandExecutor>();
+            await commandExecutor.ExecuteAsync(
+                    statement,
+                    new
+                    {
+                        InstanceId = _instanceId,
+                        HostProfile = Environment.MachineName,
+                        StartedAtUtc = _startedAtUtc,
+                        LastHeartbeatAtUtc = now,
+                        WorkerVersion = typeof(JobWorkerHeartbeatService).Assembly
+                            .GetName()
+                            .Version?
+                            .ToString(),
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     public TimeSpan StaleThreshold =>
