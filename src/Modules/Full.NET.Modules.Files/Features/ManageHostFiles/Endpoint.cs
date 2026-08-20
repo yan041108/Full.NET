@@ -23,7 +23,7 @@ internal static class Endpoint
 
         var group = endpoints.MapGroup("/api/v1/files/host-files")
 
-            .WithTags("Files");
+            .WithTags("FilesHostFiles");
 
 
 
@@ -57,7 +57,10 @@ internal static class Endpoint
 
         })
 
+        .WithName("filesListHostFiles")
         .Produces<PagedResult<HostFileResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
 
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Read));
 
@@ -85,7 +88,10 @@ internal static class Endpoint
 
         })
 
+        .WithName("filesGetHostFile")
         .Produces<HostFileResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
 
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Read));
 
@@ -171,7 +177,11 @@ internal static class Endpoint
 
         })
 
+        .WithName("filesUploadHostFile")
+        .Accepts<IFormFile>("multipart/form-data")
         .Produces<HostFileResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
 
         .DisableAntiforgery()
 
@@ -235,7 +245,10 @@ internal static class Endpoint
 
         })
 
-        .Produces(StatusCodes.Status200OK)
+        .WithName("filesDownloadHostFileContent")
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
 
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Download));
 
@@ -263,7 +276,10 @@ internal static class Endpoint
 
         })
 
+        .WithName("filesDeleteHostFile")
         .Produces<HostFileResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
 
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Delete));
 

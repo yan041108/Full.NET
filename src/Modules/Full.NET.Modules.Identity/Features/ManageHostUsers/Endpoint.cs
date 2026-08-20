@@ -15,7 +15,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/users")
-            .WithTags("Identity");
+            .WithTags("IdentityHostUsers");
 
         group.MapGet("/", async (
             int? page,
@@ -39,7 +39,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityListHostUsers")
         .Produces<PagedResult<HostUserResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireOpenAccessAuthentication(IdentityUserManagementPermissions.Read)
         .RequireRateLimiting(IdentityModule.SignatureAuthenticationRateLimitPolicy);
 
@@ -61,7 +64,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityExportHostUsers")
         .Produces<IReadOnlyList<HostUserResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireOpenAccessAuthentication(IdentityUserManagementPermissions.Export);
 
         group.MapPost("/import", async (
@@ -75,7 +81,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityImportHostUsers")
         .Produces<ImportHostUsersResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Import);
 
         group.MapPost("/batch-disable", async (
@@ -89,7 +98,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityBatchDisableHostUsers")
         .Produces<BatchHostUserStatusResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Disable);
 
         group.MapPost("/batch-enable", async (
@@ -103,7 +115,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityBatchEnableHostUsers")
         .Produces<BatchHostUserStatusResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Enable);
 
         group.MapGet("/{userId:guid}", async (
@@ -126,7 +141,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityGetHostUser")
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Read);
 
         group.MapPost("/", async (
@@ -171,7 +189,10 @@ internal static class Endpoint
                 $"/api/v1/identity/users/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("identityCreateHostUser")
         .Produces<HostUserResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Create);
 
         group.MapPut("/{userId:guid}", async (
@@ -211,7 +232,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityUpdateHostUser")
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Update);
 
         group.MapPost("/{userId:guid}/disable", async (
@@ -225,7 +249,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityDisableHostUser")
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Disable);
 
         group.MapPost("/{userId:guid}/enable", async (
@@ -239,7 +266,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityEnableHostUser")
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Enable);
 
         group.MapPost("/{userId:guid}/reset-password", async (
@@ -254,7 +284,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityResetHostUserPassword")
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.ResetPassword);
 
         group.MapGet("/{userId:guid}/roles", async (
@@ -268,8 +301,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(IdentityUserManagementPermissions.Read)
-        .Produces<HostUserRolesResponse>(StatusCodes.Status200OK);
+        .WithName("identityGetHostUserRoles")
+        .Produces<HostUserRolesResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Read);
 
         group.MapPut("/{userId:guid}/roles", async (
             Guid userId,
@@ -283,8 +319,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .RequireFullNetPermission(IdentityUserManagementPermissions.AssignRoles)
-        .Produces<HostUserRolesResponse>(StatusCodes.Status200OK);
+        .WithName("identityReplaceHostUserRoles")
+        .Produces<HostUserRolesResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.AssignRoles);
     }
 
     private static bool TryGetSubject(

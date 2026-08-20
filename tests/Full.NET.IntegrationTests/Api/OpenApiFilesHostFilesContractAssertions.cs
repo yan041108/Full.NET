@@ -19,6 +19,7 @@ internal static class OpenApiFilesHostFilesContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -68,6 +69,16 @@ internal static class OpenApiFilesHostFilesContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "FilesHostFiles";
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files", HttpMethod.Get, "filesListHostFiles", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}", HttpMethod.Get, "filesGetHostFile", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files", HttpMethod.Post, "filesUploadHostFile", tag, 201, "application/json", "multipart/form-data");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/content", HttpMethod.Get, "filesDownloadHostFileContent", tag, 200, "application/octet-stream");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/delete", HttpMethod.Post, "filesDeleteHostFile", tag, 200, "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

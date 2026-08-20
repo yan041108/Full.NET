@@ -127,6 +127,22 @@ test('Api assertion 支持文件映射到所属模块而不是 Smoke', () => {
   );
 });
 
+test('客户端生成试点 OpenAPI 断言精确选择三个所属模块', () => {
+  const identity = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Api/OpenApiHostUsersContractAssertions.cs'
+  ]);
+  const shared = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Api/OpenApiPilotContractAssertions.cs'
+  ]);
+
+  assert.deepEqual(identity.targets.map(target => target.name), ['Identity']);
+  assert.deepEqual(shared.targets.map(target => target.name), [
+    'Files',
+    'Identity',
+    'Settings'
+  ]);
+});
+
 test('普通单模块改动选择双库聚焦测试', () => {
   for (const moduleName of [
     'Auditing',

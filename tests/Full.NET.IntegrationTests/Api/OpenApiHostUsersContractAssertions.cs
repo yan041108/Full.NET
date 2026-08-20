@@ -19,6 +19,7 @@ internal static class OpenApiHostUsersContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -70,6 +71,24 @@ internal static class OpenApiHostUsersContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "IdentityHostUsers";
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users", HttpMethod.Get, "identityListHostUsers", tag, 200, "application/json", allowsSignature: true);
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/export", HttpMethod.Get, "identityExportHostUsers", tag, 200, "application/json", allowsSignature: true);
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/import", HttpMethod.Post, "identityImportHostUsers", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/batch-disable", HttpMethod.Post, "identityBatchDisableHostUsers", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/batch-enable", HttpMethod.Post, "identityBatchEnableHostUsers", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}", HttpMethod.Get, "identityGetHostUser", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users", HttpMethod.Post, "identityCreateHostUser", tag, 201, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}", HttpMethod.Put, "identityUpdateHostUser", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/disable", HttpMethod.Post, "identityDisableHostUser", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/enable", HttpMethod.Post, "identityEnableHostUser", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/reset-password", HttpMethod.Post, "identityResetHostUserPassword", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/roles", HttpMethod.Get, "identityGetHostUserRoles", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/users/{userId}/roles", HttpMethod.Put, "identityReplaceHostUserRoles", tag, 200, "application/json", "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

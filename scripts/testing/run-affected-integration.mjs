@@ -116,6 +116,11 @@ function moduleFromSourcePath(filePath) {
 }
 
 function moduleFromIntegrationPath(filePath) {
+  if (filePath ===
+      'tests/Full.NET.IntegrationTests/Api/OpenApiHostUsersContractAssertions.cs') {
+    return 'Identity';
+  }
+
   const apiMatch =
     /^tests\/Full\.NET\.IntegrationTests\/Api\/([A-Za-z]+)Api(?:MySql|SqlServer)Tests\.cs$/
       .exec(filePath);
@@ -316,6 +321,14 @@ function classifyIntegrationPath(filePath, targets) {
   ) {
     addTarget(targets, { kind: 'shard', name: 'smoke' });
     return 'Integration 共享夹具';
+  }
+
+  if (filePath ===
+      'tests/Full.NET.IntegrationTests/Api/OpenApiPilotContractAssertions.cs') {
+    for (const moduleName of ['Identity', 'Files', 'Settings']) {
+      addModuleTarget(targets, moduleName);
+    }
+    return '客户端生成试点共享 OpenAPI 断言';
   }
 
   const moduleName = moduleFromIntegrationPath(filePath);

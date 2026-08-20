@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.AspNetCore.Routing;
@@ -26,6 +27,7 @@ public static class FullNetOpenApiExtensions
         services.AddOpenApi(DocumentName, options =>
         {
             options.AddDocumentTransformer(ApplyDocumentMetadataAsync);
+            options.AddOperationTransformer(ApplyOperationSecurityAsync);
         });
         return services;
     }
@@ -77,4 +79,46 @@ public static class FullNetOpenApiExtensions
 
         return Task.CompletedTask;
     }
+
+    private static Task ApplyOperationSecurityAsync(
+        OpenApiOperation operation,
+        OpenApiOperationTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        var endpointMetadata = context.Description.ActionDescriptor.EndpointMetadata;
+        if (endpointMetadata.OfType<IAllowAnonymous>().Any())
+        {
+            return Task.CompletedTask;
+        }
+
+        var authorization = endpointMetadata.OfType<IAuthorizeData>().ToArray();
+        if (authorization.Length == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var document = context.Document
+            ?? throw new InvalidOperationException("OpenAPI Operation 转换缺少所属文档。");
+        operation.Security =
+        [
+            CreateSecurityRequirement("Bearer", document),
+            CreateSecurityRequirement("ApiKey", document),
+        ];
+        if (authorization.Any(data => data.Policy?.StartsWith(
+                "FullNet.OpenAccess:",
+                StringComparison.Ordinal) == true))
+        {
+            operation.Security.Add(CreateSecurityRequirement("Signature", document));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static OpenApiSecurityRequirement CreateSecurityRequirement(
+        string schemeName,
+        OpenApiDocument document) =>
+        new()
+        {
+            [new OpenApiSecuritySchemeReference(schemeName, document, externalResource: null)] = [],
+        };
 }

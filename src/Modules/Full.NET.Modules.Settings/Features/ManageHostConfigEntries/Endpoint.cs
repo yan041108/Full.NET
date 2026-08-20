@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/settings/config-entries")
-            .WithTags("Settings");
+            .WithTags("SettingsHostConfigEntries");
 
         group.MapGet("/", async (
             int? page,
@@ -30,7 +30,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListHostConfigEntries")
         .Produces<PagedResult<ConfigEntryResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Read));
 
@@ -45,7 +48,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsGetHostConfigEntryByKey")
         .Produces<ConfigEntryResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Read));
 
@@ -60,7 +66,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsGetHostConfigEntry")
         .Produces<ConfigEntryResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Read));
 
@@ -82,7 +91,10 @@ internal static class Endpoint
                 $"/api/v1/settings/config-entries/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("settingsCreateHostConfigEntry")
         .Produces<ConfigEntryResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Create));
 
@@ -98,7 +110,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsUpdateHostConfigEntry")
         .Produces<ConfigEntryResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Update));
 
@@ -113,7 +128,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsDisableHostConfigEntry")
         .Produces<ConfigEntryResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Disable));
 
@@ -135,7 +153,10 @@ internal static class Endpoint
 
             return Results.NoContent();
         })
+        .WithName("settingsDeleteHostConfigEntry")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Delete));
 
@@ -156,7 +177,10 @@ internal static class Endpoint
 
             return Results.NoContent();
         })
+        .WithName("settingsBatchDeleteHostConfigEntries")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Delete));
 
@@ -172,7 +196,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
-        .Produces(StatusCodes.Status200OK)
+        .WithName("settingsBatchUpdateHostConfigEntryValues")
+        .Produces<bool>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Update));
 
@@ -187,7 +214,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListAllHostConfigEntries")
         .Produces<IReadOnlyList<ConfigEntryResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Read));
 
@@ -202,7 +232,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListHostConfigEntryGroups")
         .Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ConfigEntryManagementPermissions.Read));
     }

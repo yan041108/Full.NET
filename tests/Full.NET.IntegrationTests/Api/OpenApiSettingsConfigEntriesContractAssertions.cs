@@ -19,6 +19,7 @@ internal static class OpenApiSettingsConfigEntriesContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -68,6 +69,22 @@ internal static class OpenApiSettingsConfigEntriesContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "SettingsHostConfigEntries";
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries", HttpMethod.Get, "settingsListHostConfigEntries", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/by-key/{configKey}", HttpMethod.Get, "settingsGetHostConfigEntryByKey", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/{configEntryId}", HttpMethod.Get, "settingsGetHostConfigEntry", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries", HttpMethod.Post, "settingsCreateHostConfigEntry", tag, 201, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/{configEntryId}", HttpMethod.Put, "settingsUpdateHostConfigEntry", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/{configEntryId}/disable", HttpMethod.Post, "settingsDisableHostConfigEntry", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/{configEntryId}/delete", HttpMethod.Post, "settingsDeleteHostConfigEntry", tag, 204, null, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/batch-delete", HttpMethod.Post, "settingsBatchDeleteHostConfigEntries", tag, 204, null, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/batch-update-values", HttpMethod.Post, "settingsBatchUpdateHostConfigEntryValues", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/list", HttpMethod.Get, "settingsListAllHostConfigEntries", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/settings/config-entries/groups", HttpMethod.Get, "settingsListHostConfigEntryGroups", tag, 200, "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)
