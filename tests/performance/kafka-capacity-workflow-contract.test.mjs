@@ -172,11 +172,15 @@ test('Kafka capacity workflow has bounded smoke and explicit matrix profiles', a
   const smokeArguments = readProfileArguments(executionStep, 'smoke');
   const matrixArguments = readProfileArguments(executionStep, 'matrix');
 
-  assert.match(workflow, /options:\s*\n\s+- smoke\s*\n\s+- matrix/);
+  assert.match(
+    workflow,
+    /options:\s*\n\s+- smoke\s*\n\s+- matrix\s*\n\s+- scope_b_smoke\s*\n\s+- scope_c_smoke/
+  );
   assert.match(workflow, /--scope kafka_transport/);
   assert.match(workflow, /--execute true/);
   assert.match(workflow, /--delete-topic false/);
   assert.deepEqual(smokeArguments, [
+    ['scope', 'kafka_transport'],
     ['scenarios', 'low-rate,throughput'],
     ['low-rates', '20'],
     ['throughput-rates', '200'],
@@ -191,6 +195,7 @@ test('Kafka capacity workflow has bounded smoke and explicit matrix profiles', a
     ['max-messages-per-sample', '1000'],
   ]);
   assert.deepEqual(matrixArguments, [
+    ['scope', 'kafka_transport'],
     ['scenarios', 'low-rate,throughput'],
     ['low-rates', '10,100'],
     ['throughput-rates', '1000,5000,10000'],
@@ -224,6 +229,53 @@ test('Kafka capacity workflow has bounded smoke and explicit matrix profiles', a
   assert.match(executionStep, /\*\)\s+echo "Unsupported capacity profile\." >&2\s+exit 2/);
   assert.match(workflow, /CapacityStatus=Capacity-not-verified/);
   assert.doesNotMatch(workflow, /CapacityStatus=(Verified|Certified)/);
+});
+
+test('Kafka capacity workflow bounds Scope C smoke with worker parity and secret skip', async () => {
+  const workflow = await readWorkflow();
+  const executionStep = readNamedStep(workflow, 'Run bounded Kafka capacity profile');
+  const scopeCArguments = readProfileArguments(executionStep, 'scope_c_smoke');
+  const scopeCArm = new RegExp(
+    '^ {12}scope_c_smoke\\)\\r?\\n([\\s\\S]*?)^ {14};;$',
+    'm'
+  ).exec(executionStep);
+  assert.ok(scopeCArm, 'missing scope_c_smoke case arm');
+  const scopeCBody = scopeCArm[1];
+
+  assert.deepEqual(scopeCArguments, [
+    ['scope', 'transaction_outbox_cdc'],
+    ['host-parity-mode', 'worker'],
+    ['scenarios', 'low-rate'],
+    ['low-rates', '20'],
+    ['payload-sizes', '128'],
+    ['producer-concurrency', '2'],
+    ['partitions', '2'],
+    ['replication-factor', '1'],
+    ['repetitions', '1'],
+    ['warmup-seconds', '0'],
+    ['duration-seconds', '2'],
+    ['drain-seconds', '45'],
+    ['max-messages-per-sample', '100'],
+  ]);
+  assert.match(
+    scopeCBody,
+    /KAFKA_CAPACITY_MYSQL_CONNECTION_STRING not configured; skipping Scope C smoke\./
+  );
+  assert.match(
+    scopeCBody,
+    /KAFKA_CAPACITY_CONNECT_BASE_URI not configured; skipping Scope C smoke\./
+  );
+  assert.match(scopeCBody, /KafkaCapacity__Connect__BaseUri="\$KAFKA_CAPACITY_CONNECT_BASE_URI"/);
+  assert.match(
+    executionStep,
+    /KAFKA_CAPACITY_CONNECT_BASE_URI: \$\{\{ secrets\.KAFKA_CAPACITY_CONNECT_BASE_URI \}\}/
+  );
+  assert.doesNotMatch(scopeCBody, /echo "\$KAFKA_CAPACITY_/);
+  assert.doesNotMatch(scopeCBody, /echo .*ConnectionString/i);
+  assert.doesNotMatch(scopeCBody, /set -x/);
+  assert.match(scopeCBody, /--scope transaction_outbox_cdc/);
+  assert.match(scopeCBody, /--host-parity-mode worker/);
+  assert.doesNotMatch(scopeCBody, /--host-parity-mode fast/);
 });
 
 test('Kafka capacity workflow always preserves bounded evidence', async () => {

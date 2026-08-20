@@ -12,6 +12,7 @@ on:
           - smoke
           - matrix
           - scope_b_smoke
+          - scope_c_smoke
       approval_id:
         description: Approved change or capacity ticket
         required: true
@@ -113,6 +114,8 @@ jobs:
           CAPACITY_PROFILE: ${{ inputs.profile }}
           KAFKA_CAPACITY_MYSQL_CONNECTION_STRING: ${{ secrets.KAFKA_CAPACITY_MYSQL_CONNECTION_STRING }}
           KAFKA_CAPACITY_MYSQL_DATABASE_NAME: ${{ vars.KAFKA_CAPACITY_MYSQL_DATABASE_NAME }}
+          KAFKA_CAPACITY_CONNECT_BASE_URI: ${{ secrets.KAFKA_CAPACITY_CONNECT_BASE_URI }}
+          KAFKA_CAPACITY_CONNECT_INTERNAL_BOOTSTRAP: ${{ vars.KAFKA_CAPACITY_CONNECT_INTERNAL_BOOTSTRAP }}
         run: |
           set -euo pipefail
           umask 077
@@ -186,6 +189,41 @@ jobs:
                 --warmup-seconds 0
                 --duration-seconds 2
                 --drain-seconds 30
+                --max-messages-per-sample 100
+              )
+              ;;
+            scope_c_smoke)
+              # 缺少 Scope C 依赖 Secret 时安全跳过；只打印 Secret 名，禁止回显连接串/端点值。
+              if [[ -z "${KAFKA_CAPACITY_MYSQL_CONNECTION_STRING:-}" ]]; then
+                echo "KAFKA_CAPACITY_MYSQL_CONNECTION_STRING not configured; skipping Scope C smoke."
+                exit 0
+              fi
+              if [[ -z "${KAFKA_CAPACITY_CONNECT_BASE_URI:-}" ]]; then
+                echo "KAFKA_CAPACITY_CONNECT_BASE_URI not configured; skipping Scope C smoke."
+                exit 0
+              fi
+              export KafkaCapacity__Database__Provider=MySql
+              export KafkaCapacity__Database__ConnectionString="$KAFKA_CAPACITY_MYSQL_CONNECTION_STRING"
+              export KafkaCapacity__Database__ExpectedDatabaseName="${KAFKA_CAPACITY_MYSQL_DATABASE_NAME:-fullnet_capacity}"
+              export KafkaCapacity__Database__CommandTimeoutSeconds=60
+              export KafkaCapacity__Database__MySqlGuidStorageMode=Binary16
+              export KafkaCapacity__Connect__BaseUri="$KAFKA_CAPACITY_CONNECT_BASE_URI"
+              if [[ -n "${KAFKA_CAPACITY_CONNECT_INTERNAL_BOOTSTRAP:-}" ]]; then
+                export KafkaCapacity__Connect__InternalKafkaBootstrapServers="$KAFKA_CAPACITY_CONNECT_INTERNAL_BOOTSTRAP"
+              fi
+              profile=(
+                --scope transaction_outbox_cdc
+                --host-parity-mode worker
+                --scenarios low-rate
+                --low-rates 20
+                --payload-sizes 128
+                --producer-concurrency 2
+                --partitions 2
+                --replication-factor 1
+                --repetitions 1
+                --warmup-seconds 0
+                --duration-seconds 2
+                --drain-seconds 45
                 --max-messages-per-sample 100
               )
               ;;

@@ -84,6 +84,8 @@ Environment 需要配置以下 Secret：
 - `KAFKA_CAPACITY_SASL_USERNAME`、`KAFKA_CAPACITY_SASL_PASSWORD`（使用 SASL 时）
 - `KAFKA_CAPACITY_SMOKE_BUDGET_JSON`（可选；必须精确覆盖 smoke 计划）
 - `KAFKA_CAPACITY_MATRIX_BUDGET_JSON`（可选；必须精确覆盖 matrix 计划）
+- `KAFKA_CAPACITY_MYSQL_CONNECTION_STRING`（`scope_b_smoke` / `scope_c_smoke`；缺失时对应 Profile **安全跳过** `exit 0`，只打印 Secret 名）
+- `KAFKA_CAPACITY_CONNECT_BASE_URI`（仅 `scope_c_smoke`；缺失时安全跳过；禁止写入日志或命令行参数）
 
 两份 Budget 独立配置，禁止用 matrix Budget 运行 smoke 或反向复用。选中 Profile 的 Budget 原文只写入 Runner 临时目录；工作流在写入前清理同名残留，并通过退出 Trap 与 `always()` 清理步骤双重删除。
 
@@ -91,10 +93,21 @@ Environment 需要配置以下 Secret：
 
 - `KAFKA_CAPACITY_SECURITY_PROTOCOL`
 - `KAFKA_CAPACITY_SASL_MECHANISM`（使用 SASL 时）
+- `KAFKA_CAPACITY_MYSQL_DATABASE_NAME`（Scope B/C；默认 `fullnet_capacity`）
+- `KAFKA_CAPACITY_CONNECT_INTERNAL_BOOTSTRAP`（可选；Connect 容器内 Kafka bootstrap）
 
-触发时必须填写 `approval_id` 与 `reason`，并选择 `smoke` 或 `matrix`。`smoke` 是默认的两档缩小链路检查，只证明执行链与正确性门禁可运行；`matrix` 包含 60 个有界低速/吞吐样本，正式测量时长合计 60 分钟，计入每样本预热与最坏排空后理论上界约 190 分钟，工作流硬超时为 240 分钟。它仍不包含 Soak、N+1 或故障恢复。两种 Profile 都固定使用 `kafka_transport`、`--delete-topic false` 和唯一输出目录；现有 GitHub 工作流保持 Scope A-only。Scope B/C 同时需要专用 Kafka、Connect（Scope C）与预迁移、隔离的双提供程序数据库，在建立按 Provider 隔离的 Environment、Secret 和清理策略前必须由受控主机手工执行。Scope C 缩减 smoke 建议更长 `--drain-seconds`（默认集成测试 45s）以覆盖 CDC 延迟。工作流及 Runner 报告继续标记 `Capacity-not-verified`。每次运行只上传当前 `run_id/run_attempt` 的报告、Checkpoint 和工作流元数据并保留 30 天，正式评审前应转存到受控证据库。
+触发时必须填写 `approval_id` 与 `reason`，并选择 Profile：
 
-若缺少受保护变量、Secret、审批、专用 Runner 或 ClusterId 不匹配，工作流应失败关闭；禁止通过修改工作流默认值、使用普通 Runner 或删除 ClusterId 门禁来迁就环境。容量 Budget 仍是可选的性能判定门禁；没有 Budget 的 `matrix` 只能形成观测证据，不能形成性能预算通过结论。
+| Profile | Scope | 用途 |
+| --- | --- | --- |
+| `smoke`（默认） | `kafka_transport` | 两档缩小链路检查，只证明执行链与正确性门禁可运行 |
+| `matrix` | `kafka_transport` | 60 个有界低速/吞吐样本；正式测量合计 60 分钟，计入预热与最坏排空后理论上界约 190 分钟 |
+| `scope_b_smoke` | `worker_inbox_handler` + `--host-parity-mode worker` | MySQL Inbox/Handler 缩小 smoke；缺 DB Secret 时跳过 |
+| `scope_c_smoke` | `transaction_outbox_cdc` + **强制** `--host-parity-mode worker` | Outbox→CDC→Kafka→Inbox 缩小 smoke；缺 DB 或 Connect Secret 时跳过；`--drain-seconds 45` |
+
+工作流硬超时为 240 分钟。`matrix` 仍不包含 Soak、N+1 或故障恢复。`smoke`/`matrix` 固定 `--delete-topic false` 和唯一输出目录。`scope_c_smoke` 复用同一证据目录与 `Capacity-not-verified` 元数据；Connect 端点与数据库连接串仅经环境变量注入 Runner，不得出现在 `echo`、命令参数或上传工件明文中。缺少受保护 Kafka Cluster Secret、审批、专用 Runner 或 ClusterId 不匹配时，工作流应失败关闭；Scope B/C 依赖 Secret 缺失则按上表安全跳过，禁止用空连接串硬跑。容量 Budget 仍是可选的性能判定门禁；没有 Budget 的 `matrix` 只能形成观测证据，不能形成性能预算通过结论。每次运行只上传当前 `run_id/run_attempt` 的报告、Checkpoint 和工作流元数据并保留 30 天，正式评审前应转存到受控证据库。
+
+正式生产等价矩阵与 Soak 仍须在按 Provider 隔离的 Environment、Secret 和清理策略齐备后手工或专用 Profile 执行；本工作流的 `scope_c_smoke` **不能**解除 ADR-0006 影子运行，也不得把 `Messaging:DeliveryCutover:Enabled` 设为 `true`。
 
 ### 3.2 本地或专用主机命令
 
