@@ -19,8 +19,15 @@ export async function loginAsHostAdmin(page, baseUrl = '/') {
 
 /** 登录 Development 受限查看者并等待动态导航就绪。 */
 export async function loginAsHostViewer(page, baseUrl = '/') {
+  await page.context().clearCookies();
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem('fullnet.admin.locale', 'zh-CN');
+  });
   await page.goto(baseUrl);
-  await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible({
+    timeout: 15_000
+  });
   await page.getByLabel('账号', { exact: true }).fill(viewerUsername);
   await page.getByLabel('密码', { exact: true }).fill(viewerPassword);
   await page.getByRole('button', { name: '进入控制台' }).click();
@@ -219,8 +226,8 @@ export async function assignHostUserRolesViaApi(request, clientKind, userId, rol
  */
 export async function provisionLimitedHostUserViaApi(request, clientKind, options) {
   const stamp = Date.now().toString(36);
-  const roleCode = options.roleCode ?? `e2e_role_${stamp}`;
-  const username = options.username ?? `e2e_user_${stamp}`;
+  const roleCode = options.roleCode ?? `e2e-role-${stamp}`;
+  const username = options.username ?? `e2e-user-${stamp}`;
   const password = options.password ?? (process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure');
   const role = await createHostRoleWithPermissionsViaApi(request, clientKind, {
     code: roleCode,
@@ -243,14 +250,41 @@ export async function provisionLimitedHostUserViaApi(request, clientKind, option
 
 /** 使用指定凭据登录 Host 管理端并等待动态导航就绪。 */
 export async function loginAsHostUser(page, username, password, baseUrl = '/') {
+  await page.context().clearCookies();
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem('fullnet.admin.locale', 'zh-CN');
+  });
   await page.goto(baseUrl);
-  await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible({
+    timeout: 15_000
+  });
   await page.getByLabel('账号', { exact: true }).fill(username);
   await page.getByLabel('密码', { exact: true }).fill(password);
   await page.getByRole('button', { name: '进入控制台' }).click();
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 15_000
   });
+}
+
+/**
+ * 展开 Art 侧栏分组后点击叶子导航链接。
+ * 分组菜单默认折叠时叶子 link 不在可点击树中。
+ */
+export async function clickMainNavLink(page, linkName, groupTitle) {
+  const navigation = page.getByRole('navigation', { name: '主导航' }).first();
+  const link = navigation.getByRole('link', { name: linkName });
+  if ((await link.count()) === 0 || !(await link.first().isVisible().catch(() => false))) {
+    if (groupTitle) {
+      const groupTitleNode = navigation.locator('.el-sub-menu__title').filter({
+        hasText: groupTitle
+      });
+      await expect(groupTitleNode.first()).toBeVisible({ timeout: 15_000 });
+      await groupTitleNode.first().click();
+    }
+  }
+  await expect(link.first()).toBeVisible({ timeout: 15_000 });
+  await link.first().click();
 }
 
 /** 使用指定凭据经真实登录 API 获取 Access Token。 */

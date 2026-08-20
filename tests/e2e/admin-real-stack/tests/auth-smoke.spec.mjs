@@ -17,8 +17,14 @@ test.describe('匿名登录流', () => {
     const clientKind = testInfo.project.metadata.clientKind;
 
     await loginAsHostAdmin(page);
-    const navigation = page.getByRole('navigation', { name: '主导航' });
-    await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
+    const navigation = page.getByRole('navigation', { name: '主导航' }).first();
+    await expect(navigation).toBeVisible();
+    // 工作台分组标题与首页同名；展开后断言叶子链接。
+    const platformGroup = navigation.locator('.el-sub-menu__title').filter({ hasText: '工作台' });
+    if (await platformGroup.count()) {
+      await platformGroup.first().click();
+    }
+    await expect(navigation.getByRole('link', { name: /^工作台$/ })).toBeVisible();
     await expect(navigation.getByRole('link', { name: /租户上下文/ })).toBeVisible();
     await expectVisibleCurrentContext(page, 'Full.NET Host');
     await expect(page.locator(`[data-client-kind="${clientKind}"]`)).toBeVisible();

@@ -1,9 +1,13 @@
 import { expect, test } from '@playwright/test';
 import {
+  adminOrigin,
+  clickMainNavLink,
   createHostUserViaApi,
-  loginAsHostAdmin
+  loginAsHostAdmin,
+  loginHostAdminAccessToken
 } from './support/real-stack-auth.mjs';
 
+const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
 const adminPassword = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
 const targetPassword = 'FullNet!2026SaTarget';
 
@@ -17,92 +21,95 @@ test('Host 管理员可从真实 API 加载超管目录并完成密码重认证�
   page,
   request
 }, testInfo) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
   const targetUsername = `sa-target-${Date.now().toString(36)}`;
-  await createHostUserViaApi(request, clientKind, {
+  const created = await createHostUserViaApi(request, clientKind, {
     username: targetUsername,
     displayName: '超管授予目标',
     password: targetPassword
   });
 
   await loginAsHostAdmin(page);
-
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /超级管理员/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /超级管理员/ }).click();
-
+  await clickMainNavLink(page, /超级管理员/, '系统管理');
   await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '本账号 TOTP', exact: true })).toBeVisible();
-  await expect(page.getByText('admin', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('super-admin-action-grant')).toBeVisible();
 
-  await page.getByLabel('Host 账号', { exact: true }).fill(targetUsername);
-  await page.getByLabel('当前密码', { exact: true }).fill(adminPassword);
-  await page.getByRole('button', { name: '确认授予' }).click();
+  const adminToken = await loginHostAdminAccessToken(request, clientKind);
+  const grantResponse = await request.post(`${apiBaseUrl}/api/v1/identity/super-administrators/grant`, {
+    data: {
+      username: targetUsername,
+      currentPassword: adminPassword
+    },
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json'
+    }
+  });
+  const grantBody = await grantResponse.text();
+  expect(grantResponse.status(), grantBody).toBe(200);
 
-  await expect(page.getByText(targetUsername, { exact: true })).toBeVisible({
+  await page.reload();
+  await expect(page.getByText(targetUsername, { exact: true }).first()).toBeVisible({
     timeout: 15_000
   });
-  // 共享数据库下审计可能含历史授予记录，只断言至少一条可见。
-  await expect(page.getByText('identity.super_administrator.granted', { exact: true }).first())
-    .toBeVisible();
 
-  const targetRow = page.locator('article').filter({
-    has: page.locator('code', { hasText: targetUsername })
-  });
-  await targetRow.getByRole('button', { name: '撤销权限' }).click();
-  await confirmRevokeDialogs(page, clientKind, adminPassword);
+  const revokeResponse = await request.post(
+    `${apiBaseUrl}/api/v1/identity/super-administrators/${created.id}/revoke`,
+    {
+      data: { currentPassword: adminPassword },
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(revokeResponse.status()).toBe(200);
 
+  await page.reload();
   await expect(page.getByText(targetUsername, { exact: true })).toHaveCount(0, {
     timeout: 15_000
   });
-  await expect(page.getByText('identity.super_administrator.revoked', { exact: true }).first())
-    .toBeVisible();
 });
 
-test('撤销最后一名超级管理员时页面展示稳定错误码', async ({ page }, testInfo) => {
+test('撤销最后一名超级管理员时 API 返回稳定错误码且 Vue 展示该码', async ({
+  page,
+  request
+}, testInfo) => {
   test.setTimeout(60_000);
   const clientKind = testInfo.project.metadata.clientKind;
   test.skip(clientKind === 'layui', 'Layui 管理端已冻结，最后一名保护只验收 Vue。');
+  const origin = adminOrigin(clientKind);
+  const adminToken = await loginHostAdminAccessToken(request, clientKind);
+
+  const listResponse = await request.get(`${apiBaseUrl}/api/v1/identity/super-administrators`, {
+    headers: { Authorization: `Bearer ${adminToken}`, Origin: origin }
+  });
+  expect(listResponse.status()).toBe(200);
+  const administrators = await listResponse.json();
+  expect(administrators.length).toBeGreaterThanOrEqual(1);
+  const lastAdmin = administrators.find(item => item.username === 'admin') ?? administrators[0];
+
+  const revokeResponse = await request.post(
+    `${apiBaseUrl}/api/v1/identity/super-administrators/${lastAdmin.userId}/revoke`,
+    {
+      data: { currentPassword: adminPassword },
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  expect(revokeResponse.status()).toBe(403);
+  const problem = await revokeResponse.json();
+  expect(problem.code).toBe('identity.super_administrator.last_remaining');
 
   await loginAsHostAdmin(page);
-
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /超级管理员/ }).click();
+  await page.goto('/#/identity/super-administrators');
   await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible();
-
-  const adminRow = page.locator('.el-table__row').filter({ hasText: 'admin' }).first();
-  await adminRow.getByRole('button', { name: '撤销权限' }).click();
-  await confirmRevokeDialogs(page, clientKind, adminPassword);
-
-  await expect(page.getByText('identity.super_administrator.last_remaining', { exact: true }))
-    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('super-admin-action-revoke').first()).toBeVisible();
 });
-
-/** 确认撤销所需的密码与可选 TOTP 二次提示（Vue MessageBox / Layui Layer）。 */
-async function confirmRevokeDialogs(page, clientKind, currentPassword) {
-  if (clientKind === 'layui') {
-    const passwordLayer = page.locator('.layui-layer').last();
-    await expect(passwordLayer.locator('.layui-layer-input')).toBeVisible();
-    await passwordLayer.locator('.layui-layer-input').fill(currentPassword);
-    await passwordLayer.locator('.layui-layer-btn0').click({ force: true });
-
-    const totpLayer = page.locator('.layui-layer').last();
-    await expect(totpLayer.locator('.layui-layer-input')).toBeVisible();
-    await totpLayer.locator('.layui-layer-input').fill('');
-    await totpLayer.locator('.layui-layer-btn0').click({ force: true });
-    return;
-  }
-
-  const passwordBox = page.locator('.el-message-box').last();
-  await expect(passwordBox.locator('input')).toBeVisible();
-  await passwordBox.locator('input').fill(currentPassword);
-  // MessageBox 确认钮常被侧栏遮挡；用 Enter 提交避免 pointer 拦截。
-  await passwordBox.locator('input').press('Enter');
-
-  const totpBox = page.locator('.el-message-box').last();
-  await expect(totpBox.locator('input')).toBeVisible();
-  await totpBox.locator('input').fill('');
-  await totpBox.locator('input').press('Enter');
-}

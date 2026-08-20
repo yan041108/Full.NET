@@ -40,10 +40,26 @@ function navigate(path: string): void {
       :index="item.path"
       @click="navigate(item.path)"
     >
-      <component :is="item.icon" class="art-sidebar__icon" aria-hidden="true" />
-      <template #title>
+      <!-- router-link 保证真实栈 E2E / 读屏能以 link 角色定位叶子菜单。 -->
+      <router-link
+        :to="item.path"
+        class="art-sidebar__route-link"
+        @click.prevent
+      >
+        <component :is="item.icon" class="art-sidebar__icon" aria-hidden="true" />
         <span class="art-sidebar__text">{{ item.title }}</span>
-      </template>
+      </router-link>
     </ElMenuItem>
   </template>
 </template>
+
+<style scoped>
+.art-sidebar__route-link {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+</style>
