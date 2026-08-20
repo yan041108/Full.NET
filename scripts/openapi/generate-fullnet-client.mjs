@@ -555,10 +555,14 @@ async function assertGeneratedFilesMatch(outputDirectory, expectedFiles) {
   }
   for (const [fileName, expected] of Object.entries(expectedFiles)) {
     const actual = await readFile(path.join(outputDirectory, fileName), 'utf8');
-    if (actual !== expected) {
+    if (normalizeLineEndings(actual) !== normalizeLineEndings(expected)) {
       throw new Error(`客户端生成文件漂移：${fileName}。`);
     }
   }
+}
+
+function normalizeLineEndings(value) {
+  return value.replace(/\r\n?/gu, '\n');
 }
 
 function parseArguments(args) {

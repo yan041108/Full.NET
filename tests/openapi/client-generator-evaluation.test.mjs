@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -64,6 +64,29 @@ test('生成器只产生 Full.NET models、guards、operations 与公开入口',
       files['index.generated.ts'],
       /(?:Configuration|BaseAPI|runtime|http\.js)/u
     );
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('零漂移检查接受 Git autocrlf 产生的 CRLF 工作树文件', async () => {
+  const { generateFullNetClient } = await import(
+    '../../scripts/openapi/generate-fullnet-client.mjs'
+  );
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'fullnet-generator-crlf-'));
+  try {
+    await generateFullNetClient({ inputPath: snapshotPath, outputDirectory: temporaryRoot });
+    await Promise.all(expectedFileNames.map(async fileName => {
+      const filePath = path.join(temporaryRoot, fileName);
+      const content = await readFile(filePath, 'utf8');
+      await writeFile(filePath, content.replaceAll('\n', '\r\n'), 'utf8');
+    }));
+
+    await generateFullNetClient({
+      inputPath: snapshotPath,
+      outputDirectory: temporaryRoot,
+      check: true
+    });
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
