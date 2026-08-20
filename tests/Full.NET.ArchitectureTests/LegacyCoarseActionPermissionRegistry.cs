@@ -39,6 +39,7 @@ internal static class LegacyCoarseActionPermissionRegistry
         "document.host_documents.write",
         "document.categories.manage",
         "document.tags.manage",
+        "identity.super_administrators.manage",
     };
 
     internal static bool IsRetiredPermissionCode(string permissionCode) =>
@@ -57,7 +58,5 @@ internal static class LegacyCoarseActionPermissionRegistry
 
     internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal)
     {
-        "POST /api/v1/identity/super-administrators/grant|identity.super_administrators.manage",
-        "POST /api/v1/identity/super-administrators/{targetUserId:guid}/revoke|identity.super_administrators.manage",
     };
 }

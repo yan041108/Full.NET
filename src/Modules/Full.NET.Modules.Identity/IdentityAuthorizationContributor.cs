@@ -12,6 +12,11 @@ internal sealed class IdentityAuthorizationContributor
     internal const string NavigationRead = "identity.navigation.read";
     internal const string SuperAdministratorsRead =
         "identity.super_administrators.read";
+    internal const string SuperAdministratorsGrant =
+        "identity.super_administrators.grant";
+    internal const string SuperAdministratorsRevoke =
+        "identity.super_administrators.revoke";
+    /// <summary>已退役粗粒度码；仅供迁移与 Architecture 退役清单引用。</summary>
     internal const string SuperAdministratorsManage =
         "identity.super_administrators.manage";
 
@@ -30,8 +35,12 @@ internal sealed class IdentityAuthorizationContributor
             "查看超级管理员",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            SuperAdministratorsManage,
-            "管理超级管理员",
+            SuperAdministratorsGrant,
+            "授予超级管理员",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            SuperAdministratorsRevoke,
+            "撤销超级管理员",
             AuthorizationScope.Host),
         new PermissionDefinition(
             IdentityUserManagementPermissions.Read,

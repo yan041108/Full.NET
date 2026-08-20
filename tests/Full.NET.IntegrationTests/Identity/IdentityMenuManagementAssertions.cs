@@ -68,6 +68,8 @@ internal static class IdentityMenuManagementAssertions
         CollectionAssert.Contains(codes, "notifications.announcements.read");
         CollectionAssert.Contains(codes, "settings.config.read");
         CollectionAssert.DoesNotContain(codes, "identity.super_administrators.manage");
+        CollectionAssert.DoesNotContain(codes, "identity.super_administrators.grant");
+        CollectionAssert.DoesNotContain(codes, "identity.super_administrators.revoke");
     }
 
     private static async Task VerifyCustomMenuRejectsParentCycleAsync(

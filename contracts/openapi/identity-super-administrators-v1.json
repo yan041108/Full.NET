@@ -30,7 +30,7 @@
                       "operations":  [
                                          {
                                              "method":  "POST",
-                                             "permission":  "identity.super_administrators.manage",
+                                             "permission":  "identity.super_administrators.grant",
                                              "successStatus":  200,
                                              "requestSchema":  "GrantSuperAdministratorRequest",
                                              "responseSchema":  "SuperAdministratorChangeResponse"
@@ -42,7 +42,7 @@
                       "operations":  [
                                          {
                                              "method":  "POST",
-                                             "permission":  "identity.super_administrators.manage",
+                                             "permission":  "identity.super_administrators.revoke",
                                              "successStatus":  200,
                                              "requestSchema":  "RevokeSuperAdministratorRequest",
                                              "responseSchema":  "SuperAdministratorChangeResponse"

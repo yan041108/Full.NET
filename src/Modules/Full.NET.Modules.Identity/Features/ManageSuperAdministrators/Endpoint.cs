@@ -59,7 +59,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .RequireFullNetPermission(
-            IdentityAuthorizationContributor.SuperAdministratorsManage)
+            IdentityAuthorizationContributor.SuperAdministratorsGrant)
         .RequireRateLimiting("identity-super-administrator-write");
 
         group.MapPost("/{targetUserId:guid}/revoke", async (
@@ -86,7 +86,7 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .RequireFullNetPermission(
-            IdentityAuthorizationContributor.SuperAdministratorsManage)
+            IdentityAuthorizationContributor.SuperAdministratorsRevoke)
         .RequireRateLimiting("identity-super-administrator-write");
     }
 

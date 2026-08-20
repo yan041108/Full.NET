@@ -106,7 +106,9 @@ const {
   watchLoading
 } = useArtCrudTableLayout();
 
-const canManage = computed(() => session.can('identity.super_administrators.manage'));
+const canGrant = computed(() => session.can('identity.super_administrators.grant'));
+const canRevoke = computed(() => session.can('identity.super_administrators.revoke'));
+const canManage = computed(() => canGrant.value || canRevoke.value);
 
 const filteredAdministrators = computed(() => {
   let rows = allAdministrators.value;
@@ -318,7 +320,7 @@ async function submitGrant(): Promise<void> {
   if (changing.value || !applyGrantFieldErrors()) {
     return;
   }
-  if (!canManage.value) {
+  if (!canGrant.value) {
     return;
   }
   changing.value = true;
@@ -345,7 +347,7 @@ async function submitRevoke(): Promise<void> {
   if (changing.value || !administrator || !applyRevokeFieldErrors()) {
     return;
   }
-  if (!canManage.value) {
+  if (!canRevoke.value) {
     return;
   }
   changing.value = true;
@@ -459,7 +461,7 @@ function toProblem(
           @refresh="load"
         >
           <template #left>
-            <PermissionGate code="identity.super_administrators.manage">
+            <PermissionGate code="identity.super_administrators.grant">
               <el-button
                 type="primary"
                 plain
@@ -523,7 +525,7 @@ function toProblem(
             >
               <template #default="{ row }">
                 <ArtTableActionGroup>
-                  <PermissionGate v-if="canManage" code="identity.super_administrators.manage">
+                  <PermissionGate v-if="canRevoke" code="identity.super_administrators.revoke">
                     <ArtTableActionButton
                       type="delete"
                       test-id="super-admin-action-revoke"
@@ -577,7 +579,7 @@ function toProblem(
       :confirm-label="t('superAdmin.grant')"
       :cancel-label="t('users.cancel')"
       confirm-test-id="super-admin-grant-submit"
-      :show-confirm="canManage"
+      :show-confirm="canGrant"
       @confirm="submitGrant"
     >
       <el-form
@@ -631,7 +633,7 @@ function toProblem(
       :confirm-label="t('superAdmin.revoke')"
       :cancel-label="t('users.cancel')"
       confirm-test-id="super-admin-revoke-submit"
-      :show-confirm="canManage"
+      :show-confirm="canRevoke"
       @confirm="submitRevoke"
     >
       <el-form

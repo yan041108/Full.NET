@@ -324,7 +324,9 @@ W4–W5 计划 Tasks 1–10 已全部交付；库存冻结清单无剩余条目�
 
 | 权限码 | Vue 入口（示例） | 说明 |
 | --- | --- | --- |
-| `identity.super_administrators.manage` | `SuperAdministratorsView.vue`（授予/撤销共用） | 超级管理员治理面；grant/revoke 共用 manage |
+| `identity.super_administrators.grant` | `SuperAdministratorsView.vue`（授予） | 授予超管 |
+| `identity.super_administrators.revoke` | `SuperAdministratorsView.vue`（撤销） | 撤销超管 |
+| ~~`identity.super_administrators.manage`~~ | 退役（099） | 已拆分为 grant/revoke |
 
 ## 退役权限
 
