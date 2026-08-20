@@ -95,6 +95,11 @@ public sealed record KafkaCapacityOptions
         KafkaCapacityHostParityMode.Fast;
 
     /// <summary>
+    /// 获取命令行是否显式指定宿主对齐模式，以区分默认值与覆盖值。
+    /// </summary>
+    public bool HostParityModeSpecified { get; init; }
+
+    /// <summary>
     /// 解析命令行参数；未知参数必须失败关闭。
     /// </summary>
     public static KafkaCapacityOptions Parse(IReadOnlyList<string> arguments)
@@ -201,6 +206,7 @@ public sealed record KafkaCapacityOptions
                 "--output",
                 CreateDefaultOutputDirectory()),
             HostParityMode = ParseHostParityMode(values),
+            HostParityModeSpecified = values.ContainsKey("--host-parity-mode"),
         };
         if (string.IsNullOrWhiteSpace(options.OutputDirectory))
         {

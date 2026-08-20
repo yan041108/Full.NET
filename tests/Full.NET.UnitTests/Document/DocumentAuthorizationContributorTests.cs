@@ -70,7 +70,6 @@ public sealed class DocumentAuthorizationContributorTests
             ["download"] = HostDocumentPermissions.Download,
             ["delete"] = HostDocumentPermissions.Delete,
             ["restore"] = HostDocumentPermissions.Restore,
-            ["set_permissions"] = HostDocumentPermissionManagementPermissions.Set,
         };
         var itemActions = catalog.Actions
             .Where(action => action.NavigationId == "host-document-items")
@@ -79,6 +78,11 @@ public sealed class DocumentAuthorizationContributorTests
                 action => action.PermissionCode,
                 StringComparer.Ordinal);
         CollectionAssert.AreEquivalent(expectedItemActions, itemActions);
+        Assert.AreEqual(
+            HostDocumentPermissionManagementPermissions.Set,
+            catalog.Actions.Single(action =>
+                action.NavigationId == "document-permissions"
+                && action.ClientActionKey == "set_permissions").PermissionCode);
 
         var expectedCategoryActions = new Dictionary<string, string>(StringComparer.Ordinal)
         {

@@ -131,7 +131,8 @@ if (commandLine.VersionRetirement is null)
     // HybridKafka（含过时别名 CdcKafka）模式注册 Kafka 模块化与消费能力。
     if (messagingWorkerMode == MessagingWorkerMode.HybridKafka)
     {
-        builder.Services.AddFullNetMessagingWorkerRuntime(
+        builder.Services.AddFullNetModularity();
+        builder.Services.AddFullNetKafkaMessaging(
             builder.Configuration,
             builder.Environment.EnvironmentName);
     }

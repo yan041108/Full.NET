@@ -185,4 +185,34 @@ public sealed class KafkaCapacityOutboxCdcTests
             config["transforms.outbox.route.topic.replacement"]);
         StringAssert.Contains(config["table.include.list"], "fn_messaging_outbox_event");
     }
+
+    [TestMethod]
+    public void Scope_C_scheduler_does_not_synchronously_block_async_outbox_commits()
+    {
+        var sourcePath = Path.Combine(
+            FindRepositoryRoot(),
+            "benchmarks",
+            "Full.NET.Benchmarks",
+            "Kafka",
+            "KafkaCapacityOutboxCdcDriver.cs");
+        var source = File.ReadAllText(sourcePath);
+
+        Assert.IsFalse(source.Contains(".GetAwaiter()", StringComparison.Ordinal));
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("无法定位 Full.NET 仓库根目录。");
+    }
 }

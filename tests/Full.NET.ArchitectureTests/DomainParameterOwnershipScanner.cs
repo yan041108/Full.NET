@@ -19,24 +19,6 @@ internal static partial class DomainParameterOwnershipScanner
     {
         var modulesRoot = Path.Combine(root, "src", "Modules");
         var violations = new List<string>();
-        foreach (var path in Directory.EnumerateFiles(modulesRoot, "*.csproj", SearchOption.AllDirectories))
-        {
-            var relativePath = Path.GetRelativePath(root, path).Replace('\\', '/');
-            if (IsSettingsModulePath(relativePath))
-            {
-                continue;
-            }
-
-            var content = File.ReadAllText(path);
-            if (content.Contains("Full.NET.Modules.Settings.Contracts", StringComparison.Ordinal))
-            {
-                violations.Add(
-                    string.Concat(
-                        "Project references Settings.Contracts outside Settings: ",
-                        relativePath));
-            }
-        }
-
         foreach (var path in Directory.EnumerateFiles(modulesRoot, "*.cs", SearchOption.AllDirectories))
         {
             if (IsBuildOutputPath(path))

@@ -352,6 +352,7 @@ export type {
 } from './host-announcements.js';
 
 export {
+  JOB_HANDLER_KINDS,
   JOB_MISFIRE_POLICIES,
   JOB_TRIGGER_KINDS,
   JOBS_WELL_KNOWN_KEYS,
@@ -385,8 +386,12 @@ export type {
   HostJobDefinition,
   HostJobDefinitionPage,
   HostJobExecution,
+  HostJobExecutionListQuery,
   HostJobExecutionPage,
   HostJobGroup,
+  HttpJobArgs,
+  HttpJobSecretHeaderRef,
+  JobHandlerKind,
   HostJobSchedule,
   HostJobHealth,
   HostJobHealthBacklog,

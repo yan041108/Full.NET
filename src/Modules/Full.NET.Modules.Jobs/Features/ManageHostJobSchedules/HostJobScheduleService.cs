@@ -157,7 +157,7 @@ internal sealed class HostJobScheduleService(
         Guid actorUserId,
         CreateHostJobScheduleRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CreateCoreAsync(actorUserId, request, token),
             cancellationToken);
 
@@ -166,7 +166,7 @@ internal sealed class HostJobScheduleService(
         Guid scheduleId,
         ChangeHostJobScheduleStateRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => ChangeStateAsync(
                 actorUserId,
                 scheduleId,
@@ -180,7 +180,7 @@ internal sealed class HostJobScheduleService(
         Guid scheduleId,
         UpdateHostJobScheduleRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(
                 actorUserId,
                 scheduleId,
@@ -193,7 +193,7 @@ internal sealed class HostJobScheduleService(
         Guid scheduleId,
         ChangeHostJobScheduleStateRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => ChangeStateAsync(
                 actorUserId,
                 scheduleId,
@@ -210,7 +210,7 @@ internal sealed class HostJobScheduleService(
         Guid scheduleId,
         int version,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(scheduleId, version, token),
             cancellationToken);
 

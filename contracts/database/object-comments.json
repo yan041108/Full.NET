@@ -477,11 +477,14 @@
     "fn_jobs_definition": {
       "comment": "后台任务定义表",
       "columns": {
+        "AllowConcurrentExecutions": "Allow Concurrent Executions",
+        "ArgsJson": "Args(JSON)",
         "CreatedAtUtc": "创建时间(UTC)",
         "CreatedByUserId": "创建人用户标识",
         "Description": "描述",
         "DisplayName": "显示名称",
         "GroupName": "分组名称",
+        "HandlerKind": "Handler Kind",
         "Id": "逻辑主键",
         "IsEnabled": "是否启用",
         "JobKey": "任务键",
@@ -536,6 +539,17 @@
         "UpdatedAtUtc": "更新时间(UTC)",
         "UpdatedByUserId": "更新人用户标识",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_jobs_worker_instance": {
+      "comment": "后台任务worker instance表",
+      "columns": {
+        "HostProfile": "Host Profile",
+        "InstanceId": "Instance标识",
+        "LastHeartbeatAtUtc": "Last Heartbeat At(UTC)",
+        "StartedAtUtc": "开始时间(UTC)",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "WorkerVersion": "Worker Version"
       }
     },
     "fn_messaging_domain_audit": {

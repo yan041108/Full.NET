@@ -16,8 +16,13 @@ import {
   isUpdateHostJobDefinitionRequest,
   isUpdateHostJobScheduleRequest
 } from '../src/host-jobs';
+import { JOB_HANDLER_KINDS } from '../src/index';
 
 describe('host-jobs contracts', () => {
+  it('exports handler kinds from the package barrel', () => {
+    expect(JOB_HANDLER_KINDS).toEqual({ ping: 'ping', http: 'http' });
+  });
+
   // 中文注释：HostJobDefinition.groupName 对应 C# 端 JobDefinition.GroupName，默认 null 或 'System' 等分组字符串
   const definition = {
     id: '01912345-6789-7abc-8def-0123456789ab',

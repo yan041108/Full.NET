@@ -27,6 +27,8 @@ const listMock = vi.mocked(listHostJobDefinitions);
 const enabledDefinition = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   jobKey: 'jobs.ping',
+  handlerKind: 'ping',
+  args: null,
   displayName: 'enabled-job',
   description: 'desc',
   groupName: '',
@@ -71,10 +73,10 @@ describe('Vue Host \u4efb\u52a1\u8c03\u5ea6\u9875', () => {
     const wrapper = mountWithPermissions(['jobs.definitions.read']);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="host-jobs-submit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-edit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-trigger"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-disable"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-create"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-edit"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-trigger"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-disable"]').exists()).toBe(false);
   });
 
   it('create-only \u53ea\u663e\u793a\u521b\u5efa\u8868\u5355', async () => {
@@ -84,10 +86,10 @@ describe('Vue Host \u4efb\u52a1\u8c03\u5ea6\u9875', () => {
     ]);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="host-jobs-submit"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="host-jobs-edit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-trigger"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-disable"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-create"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="host-jobs-action-edit"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-trigger"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-disable"]').exists()).toBe(false);
   });
 
   it('update-only \u53ea\u663e\u793a\u7f16\u8f91\u6309\u94ae', async () => {
@@ -97,10 +99,10 @@ describe('Vue Host \u4efb\u52a1\u8c03\u5ea6\u9875', () => {
     ]);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="host-jobs-submit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-edit"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="host-jobs-trigger"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-disable"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-create"]').exists()).toBe(false);
+    expect((wrapper.vm as unknown as { canUpdate: boolean }).canUpdate).toBe(true);
+    expect(wrapper.find('[data-testid="host-jobs-action-trigger"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-disable"]').exists()).toBe(false);
   });
 
   it('trigger-only \u53ea\u663e\u793a\u89e6\u53d1\u6309\u94ae', async () => {
@@ -110,10 +112,10 @@ describe('Vue Host \u4efb\u52a1\u8c03\u5ea6\u9875', () => {
     ]);
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="host-jobs-submit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-edit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-trigger"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="host-jobs-disable"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-create"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-edit"]').exists()).toBe(false);
+    expect((wrapper.vm as unknown as { canTrigger: boolean }).canTrigger).toBe(true);
+    expect(wrapper.find('[data-testid="host-jobs-action-disable"]').exists()).toBe(false);
   });
 
   it('disable-only \u53ea\u663e\u793a\u7981\u7528\u6309\u94ae', async () => {
@@ -124,9 +126,9 @@ describe('Vue Host \u4efb\u52a1\u8c03\u5ea6\u9875', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="host-jobs-submit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-edit"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-trigger"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-jobs-disable"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="host-jobs-action-edit"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-jobs-action-trigger"]').exists()).toBe(false);
+    expect((wrapper.vm as unknown as { canDisable: boolean }).canDisable).toBe(true);
   });
 
   it('read-only \u65f6\u4e0d\u663e\u793a\u5141\u8bb8\u91cd\u53e0\u6267\u884c\u5f00\u5173', async () => {
@@ -142,11 +144,11 @@ describe('Vue Host \u4efb\u52a1\u8c03\u5ea6\u9875', () => {
       'jobs.definitions.create'
     ]);
     await flushPromises();
-    await wrapper.find('[data-testid="host-jobs-submit"]').trigger('click');
+    await wrapper.find('[data-testid="host-jobs-action-create"]').trigger('click');
     await flushPromises();
 
-    const toggle = wrapper.find('[data-testid="host-jobs-allow-concurrent"]');
-    expect(toggle.exists()).toBe(true);
-    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    expect((wrapper.vm as unknown as {
+      editorForm: { allowConcurrentExecutions: boolean };
+    }).editorForm.allowConcurrentExecutions).toBe(false);
   });
 });

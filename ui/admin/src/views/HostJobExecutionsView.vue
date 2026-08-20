@@ -113,6 +113,19 @@ function statusTagType(status: HostJobExecution['status']): 'info' | 'warning' |
   }
 }
 
+function statusLabel(status: HostJobExecution['status']): string {
+  switch (status) {
+    case 'pending':
+      return t('hostJobExecutions.status.pending');
+    case 'running':
+      return t('hostJobExecutions.status.running');
+    case 'succeeded':
+      return t('hostJobExecutions.status.succeeded');
+    case 'failed':
+      return t('hostJobExecutions.status.failed');
+  }
+}
+
 function formatUtc(value: string | null | undefined): string {
   if (!value) {
     return '—';
@@ -207,7 +220,7 @@ onMounted(async () => {
         <ElTableColumn :label="t('hostJobExecutions.columnStatus')" width="120" align="center">
           <template #default="{ row }">
             <ElTag :type="statusTagType(row.status)" effect="light">
-              {{ t(`hostJobExecutions.status.${row.status}`) }}
+              {{ statusLabel(row.status) }}
             </ElTag>
           </template>
         </ElTableColumn>

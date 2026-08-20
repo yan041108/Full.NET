@@ -147,6 +147,7 @@ Scope C 缩小 smoke 示例（Connect + 预迁移 MySQL 容量库；凭据从 Se
 dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
   -c Release -- kafka-capacity `
   --scope 'transaction_outbox_cdc' `
+  --host-parity-mode 'worker' `
   --settings '<protected-settings.json>' `
   --execute true `
   --approval-id '<change-or-ticket-id>' `

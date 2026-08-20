@@ -16,7 +16,8 @@ namespace Full.NET.Data.Dapper.Outbox;
 /// <remarks>
 /// <para><b>仅追加不变量（Append-Only Invariant）：</b>
 /// 该表仅允许 INSERT，不允许 UPDATE / DELETE。消息状态由下游 Kafka Consumer 在 Inbox 侧管理，
-/// Outbox 侧通过 CDC Binlog 位置天然保证 Exactly-Once 语义（与 LegacyPolling 的 Lease 机制不同）。</para>
+/// Outbox 侧由 CDC 以至少一次语义发布，并由消费端 Inbox 幂等门禁处理重复消息
+/// （与 LegacyPolling 的 Lease 机制不同）。</para>
 /// <para><b>扩展列：</b>相比传统表，多出 PartitionKey、CorrelationId、CausationId、TraceParent、Producer
 /// 等列，支持分布式追踪（W3C TraceContext）、因果链追溯与 Kafka 分区路由。</para>
 /// <para><b>无 Metadata 重载：</b>直接抛出 <see cref="NotSupportedException"/>。

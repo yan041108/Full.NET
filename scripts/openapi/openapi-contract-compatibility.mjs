@@ -274,7 +274,14 @@ function compareStableSettings(fileName, baseline, current, changes) {
       continue;
     }
 
-    if (!isDeepStrictEqual(baselineValue, current[fieldName])) {
+    if (
+      !isDeepStrictEqual(baselineValue, current[fieldName])
+      && !isAdditiveCoverageManifestChange(
+        fileName,
+        baselineValue,
+        current[fieldName]
+      )
+    ) {
       changes.push(
         `stable setting changed: ${fileName} ${fieldName} ` +
           `(baseline=${formatValue(baselineValue)}, ` +
@@ -282,6 +289,21 @@ function compareStableSettings(fileName, baseline, current, changes) {
       );
     }
   }
+}
+
+function isAdditiveCoverageManifestChange(fileName, baselineValue, currentValue) {
+  if (
+    fileName !== 'vue-client-coverage-v1.json'
+    || !Array.isArray(baselineValue)
+    || !Array.isArray(currentValue)
+  ) {
+    return false;
+  }
+
+  // 覆盖清单允许随新增 API 追加绑定，但既有绑定不得删除或静默改写。
+  return baselineValue.every((baselineEntry) =>
+    currentValue.some((currentEntry) =>
+      isDeepStrictEqual(baselineEntry, currentEntry)));
 }
 
 export function compareContractSets(baselineContracts, currentContracts) {

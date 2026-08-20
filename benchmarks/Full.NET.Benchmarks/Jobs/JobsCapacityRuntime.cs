@@ -1,16 +1,19 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.Modules.Jobs;
 using Full.NET.Modules.Jobs.Execution;
+using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Serialization.MessagePack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.FileProviders;
 
 namespace Full.NET.Benchmarks.Jobs;
 
@@ -155,11 +158,13 @@ public static class JobsCapacityRuntime
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IHostEnvironment>(new JobsCapacityHostEnvironment());
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(serviceProvider =>
             serviceProvider.GetRequiredService<CurrentTenantAccessor>());
         services.AddFullNetDapper(configuration, "Benchmark");
         services.AddFullNetMessagePack();
+        services.AddScoped<ISettingsSecretValueResolver, UnavailableSecretValueResolver>();
         new JobsModule().AddBackgroundServices(services, configuration);
         services.RemoveAll<IHostedService>();
         services.AddSingleton(probe);
@@ -259,4 +264,25 @@ public static class JobsCapacityRuntime
             currentTenant.Clear();
         }
     }
+}
+
+internal sealed class JobsCapacityHostEnvironment : IHostEnvironment
+{
+    public string EnvironmentName { get; set; } = Environments.Development;
+
+    public string ApplicationName { get; set; } = "Full.NET.Benchmarks";
+
+    public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+
+    public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+}
+
+internal sealed class UnavailableSecretValueResolver : ISettingsSecretValueResolver
+{
+    public Task<Result<string>> ResolveSecretValueAsync(
+        string configKey,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<Result<string>>(
+            new InvalidOperationException(
+                "Jobs capacity benchmark does not resolve HTTP secret values."));
 }

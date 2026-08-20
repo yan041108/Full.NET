@@ -25,19 +25,23 @@ const schedulesEndpointPath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobSchedules/Endpoint.cs'
 );
+const healthEndpointPath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobHealth/Endpoint.cs'
+);
 
 async function loadContract() {
   return JSON.parse(await readFile(contractPath, 'utf8'));
 }
 
 function isValidJobsPermission(permission) {
-  if (/^jobs\.definitions\.(read|create|update|disable|trigger)$/u.test(permission)) {
+  if (/^jobs\.definitions\.(read|create|update|disable|delete|trigger)$/u.test(permission)) {
     return true;
   }
-  if (permission === 'jobs.executions.read') {
+  if (/^jobs\.executions\.(read|clear)$/u.test(permission) || permission === 'jobs.health.read') {
     return true;
   }
-  return /^jobs\.schedules\.(read|create|update|pause|resume)$/u.test(permission);
+  return /^jobs\.schedules\.(read|create|update|delete|pause|resume)$/u.test(permission);
 }
 
 test('Host 任务 OpenAPI 夹具结构完整且路径唯一', async () => {
@@ -59,7 +63,11 @@ test('Host 任务 OpenAPI 夹具结构完整且路径唯一', async () => {
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
       }
-      assert.ok(contract.schemas[operation.responseSchema]);
+      if (operation.successStatus === 204) {
+        assert.equal(operation.responseSchema, undefined);
+      } else {
+        assert.ok(contract.schemas[operation.responseSchema]);
+      }
     }
   }
 });
@@ -70,19 +78,24 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   const definitionsEndpoint = await readFile(definitionsEndpointPath, 'utf8');
   const executionsEndpoint = await readFile(executionsEndpointPath, 'utf8');
   const schedulesEndpoint = await readFile(schedulesEndpointPath, 'utf8');
+  const healthEndpoint = await readFile(healthEndpointPath, 'utf8');
   const endpointSources =
-    `${definitionsEndpoint}\n${executionsEndpoint}\n${schedulesEndpoint}`;
+    `${definitionsEndpoint}\n${executionsEndpoint}\n${schedulesEndpoint}\n${healthEndpoint}`;
 
   for (const permission of [
     'jobs.definitions.read',
     'jobs.definitions.create',
     'jobs.definitions.update',
     'jobs.definitions.disable',
+    'jobs.definitions.delete',
     'jobs.definitions.trigger',
     'jobs.executions.read',
+    'jobs.executions.clear',
+    'jobs.health.read',
     'jobs.schedules.read',
     'jobs.schedules.create',
     'jobs.schedules.update',
+    'jobs.schedules.delete',
     'jobs.schedules.pause',
     'jobs.schedules.resume'
   ]) {
@@ -105,7 +118,15 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
       'POST /api/v1/jobs/host-definitions/{definitionId}/trigger',
       'MapPost("/{definitionId:guid}/trigger",'
     ],
+    [
+      'POST /api/v1/jobs/host-definitions/{definitionId}/delete',
+      'MapPost("/{definitionId:guid}/delete",'
+    ],
+    ['GET /api/v1/jobs/host-definitions/groups', 'MapGet("/groups",'],
     ['GET /api/v1/jobs/host-executions', 'MapGet("/",'],
+    ['GET /api/v1/jobs/host-executions/{executionId}', 'MapGet("/{executionId:guid}",'],
+    ['POST /api/v1/jobs/host-executions/clear', 'MapPost("/clear",'],
+    ['GET /api/v1/jobs/host-health', '"/api/v1/jobs/host-health"'],
     ['GET /api/v1/jobs/host-schedules', 'MapGet("/",'],
     ['GET /api/v1/jobs/host-schedules/definition-options', 'MapGet("/definition-options",'],
     ['GET /api/v1/jobs/host-schedules/cron-preview', 'MapGet("/cron-preview",'],
@@ -119,6 +140,10 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     [
       'POST /api/v1/jobs/host-schedules/{scheduleId}/resume',
       'MapStateChange(group, "resume", enable: true)'
+    ],
+    [
+      'POST /api/v1/jobs/host-schedules/{scheduleId}/delete',
+      'MapPost("/{scheduleId:guid}/delete",'
     ]
   ]);
 

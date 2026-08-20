@@ -12,6 +12,7 @@ const contractFiles = [
   'code-generation-runs-v1.json',
   'code-generation-templates-v1.json'
 ];
+const catalogContractFile = 'code-generation-catalog-v1.json';
 
 async function loadContract(fileName) {
   return JSON.parse(await readFile(path.join(contractsDirectory, fileName), 'utf8'));
@@ -63,4 +64,20 @@ test('代码生成 OpenAPI 冻结路径与端点源码保持一致', async () =>
   assert.match(templateEndpoint, /MapGroup\("\/api\/v1\/code-generation\/templates"\)/u);
   assert.match(templateEndpoint, /MapPut\("\/\{templateId:guid\}"/u);
   assert.match(templateEndpoint, /MapPost\("\/\{templateId:guid\}\/delete"/u);
+});
+
+test('代码生成目录 OpenAPI 夹具覆盖目录读取与字段同步端点', async () => {
+  const contract = await loadContract(catalogContractFile);
+  const endpoint = await readFile(path.join(
+    repositoryRoot,
+    'src/Modules/Full.NET.Modules.CodeGeneration/Features/BrowseHostCatalog/Endpoint.cs'
+  ), 'utf8');
+
+  for (const route of Object.keys(contract.paths)) {
+    assert.match(route, /^\/api\/v1\/code-generation\/catalog/u);
+  }
+  assert.match(endpoint, /MapGroup\("\/api\/v1\/code-generation\/catalog"\)/u);
+  assert.match(endpoint, /MapGet\("\/tables"/u);
+  assert.match(endpoint, /MapGet\("\/tables\/\{tableName\}\/columns"/u);
+  assert.match(endpoint, /MapPost\("\/column-sync"/u);
 });

@@ -43,4 +43,21 @@ public sealed class HttpJobArgsValidatorTests
 
         Assert.IsFalse(HttpJobArgsValidator.TryValidate(args, true, out _));
     }
+
+    [DataRow("Host")]
+    [DataRow("Content-Length")]
+    [DataRow("Transfer-Encoding")]
+    [TestMethod]
+    public void TryValidate_RejectsTransportControlledHeaders(string headerName)
+    {
+        var args = new HttpJobArgs(
+            "https://example.com/health",
+            "GET",
+            new Dictionary<string, string>
+            {
+                [headerName] = "attacker-controlled",
+            });
+
+        Assert.IsFalse(HttpJobArgsValidator.TryValidate(args, true, out _));
+    }
 }

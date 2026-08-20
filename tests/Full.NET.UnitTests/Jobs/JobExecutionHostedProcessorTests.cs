@@ -37,8 +37,17 @@ public sealed class JobExecutionHostedProcessorTests
             databaseOptions,
             Options.Create(new JobsWorkerOptions()),
             NullLogger<JobExecutionRunner>.Instance);
+        var options = new JobsWorkerOptions
+        {
+            BatchSize = 7,
+            PollMilliseconds = 250,
+        };
         var services = new ServiceCollection();
-        services.AddScoped(_ => currentTenant);
+        var currentTenantResolutionCount = 0;
+        services.AddScoped(_ => currentTenantResolutionCount++ == 0
+            ? currentTenant
+            : new CurrentTenantAccessor());
+        services.AddScoped<ICommandExecutor>(_ => new HeartbeatCommandExecutor());
         services.AddScoped(_ =>
             new JobsBacklogReader(queryExecutor, databaseOptions));
         services.AddScoped(_ =>
@@ -50,12 +59,12 @@ public sealed class JobExecutionHostedProcessorTests
                 clock,
                 new FixedIdGenerator(Guid.CreateVersion7())));
         services.AddScoped(_ => runner);
+        services.AddScoped(provider => new JobWorkerHeartbeatService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            clock,
+            databaseOptions,
+            Options.Create(options)));
         await using var provider = services.BuildServiceProvider();
-        var options = new JobsWorkerOptions
-        {
-            BatchSize = 7,
-            PollMilliseconds = 250,
-        };
         var processor = new JobExecutionHostedProcessor(
             provider.GetRequiredService<IServiceScopeFactory>(),
             clock,
@@ -154,7 +163,11 @@ public sealed class JobExecutionHostedProcessorTests
             Options.Create(options),
             NullLogger<JobExecutionRunner>.Instance);
         var services = new ServiceCollection();
-        services.AddScoped(_ => currentTenant);
+        var currentTenantResolutionCount = 0;
+        services.AddScoped(_ => currentTenantResolutionCount++ == 0
+            ? currentTenant
+            : new CurrentTenantAccessor());
+        services.AddScoped<ICommandExecutor>(_ => new HeartbeatCommandExecutor());
         services.AddScoped(_ =>
             new JobsBacklogReader(queryExecutor, databaseOptions));
         services.AddScoped(_ =>
@@ -166,6 +179,11 @@ public sealed class JobExecutionHostedProcessorTests
                 clock,
                 new FixedIdGenerator(Guid.CreateVersion7())));
         services.AddScoped(_ => runner);
+        services.AddScoped(provider => new JobWorkerHeartbeatService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            clock,
+            databaseOptions,
+            Options.Create(options)));
         await using var provider = services.BuildServiceProvider();
         var processor = new JobExecutionHostedProcessor(
             provider.GetRequiredService<IServiceScopeFactory>(),
@@ -257,6 +275,20 @@ public sealed class JobExecutionHostedProcessorTests
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(
                 $"Unexpected command statement '{statement.Name}'.");
+    }
+
+    private sealed class HeartbeatCommandExecutor : ICommandExecutor
+    {
+        public Task<int> ExecuteAsync(
+            SqlStatement statement,
+            object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            Assert.IsTrue(
+                statement == JobSql.UpsertWorkerHeartbeat,
+                $"Unexpected heartbeat statement '{statement.Name}'.");
+            return Task.FromResult(1);
+        }
     }
 
     private sealed class UnexpectedTransaction : ICommandTransaction

@@ -46,11 +46,15 @@ export function isCodeGenerationCatalogColumnListResponse(
 export function isCodeGenerationCatalogColumnSyncResponse(
   value: unknown
 ): value is CodeGenerationCatalogColumnSyncResponse {
-  return isCodeGenerationCatalogColumnListResponse(value)
-    && Array.isArray(value.addedColumnNames)
-    && value.addedColumnNames.every(isNonEmptyString)
-    && Array.isArray(value.removedColumnNames)
-    && value.removedColumnNames.every(isNonEmptyString);
+  if (!isCodeGenerationCatalogColumnListResponse(value)) {
+    return false;
+  }
+
+  const record = value as unknown as Record<string, unknown>;
+  return Array.isArray(record.addedColumnNames)
+    && record.addedColumnNames.every(isNonEmptyString)
+    && Array.isArray(record.removedColumnNames)
+    && record.removedColumnNames.every(isNonEmptyString);
 }
 
 function isNonEmptyString(value: unknown): value is string {

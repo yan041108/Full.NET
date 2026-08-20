@@ -53,6 +53,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/code-generation-catalog.ts"
+      ],
+      "openApiFixture": "contracts/openapi/code-generation-catalog-v1.json",
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "routePrefixes": [
+        "/api/v1/code-generation/catalog"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/settings-config-entries.ts"
       ],
       "openApiFixture": "contracts/openapi/settings-config-entries-v1.json",
@@ -211,6 +221,16 @@
       "apiModule": "ui/admin/src/api/host-job-schedules.ts",
       "routePrefixes": [
         "/api/v1/jobs/host-schedules"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-jobs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/jobs-host-definitions-v1.json",
+      "apiModule": "ui/admin/src/api/host-job-health.ts",
+      "routePrefixes": [
+        "/api/v1/jobs/host-health"
       ]
     },
     {
@@ -452,6 +472,7 @@
     { "apiModule": "ui/admin/src/api/code-generation-previews.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
     { "apiModule": "ui/admin/src/api/code-generation-runs.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
     { "apiModule": "ui/admin/src/api/code-generation-templates.ts", "consumers": ["ui/admin/src/views/CodeGenerationTemplatesView.vue", "ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
+    { "apiModule": "ui/admin/src/api/code-generation-catalog.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
     { "apiModule": "ui/admin/src/api/config-entries.ts", "consumers": ["ui/admin/src/views/ConfigEntriesView.vue"] },
     { "apiModule": "ui/admin/src/api/diagnostic-policy.ts", "consumers": ["ui/admin/src/views/DiagnosticPolicyView.vue"] },
     { "apiModule": "ui/admin/src/api/dict-types.ts", "consumers": ["ui/admin/src/views/DictTypesView.vue"] },
@@ -467,6 +488,7 @@
     { "apiModule": "ui/admin/src/api/host-announcements.ts", "consumers": ["ui/admin/src/views/HostAnnouncementsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-files.ts", "consumers": ["ui/admin/src/views/HostFilesView.vue"] },
     { "apiModule": "ui/admin/src/api/host-job-schedules.ts", "consumers": ["ui/admin/src/views/HostJobSchedulesView.vue"] },
+    { "apiModule": "ui/admin/src/api/host-job-health.ts", "consumers": ["ui/admin/src/views/HostJobHealthView.vue"] },
     { "apiModule": "ui/admin/src/api/host-jobs.ts", "consumers": ["ui/admin/src/views/HostJobsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-user-organization-reference.ts", "consumers": ["ui/admin/src/views/UsersView.vue", "ui/admin/src/views/RolesView.vue"] },
     { "apiModule": "ui/admin/src/api/inbox-messages.ts", "consumers": ["ui/admin/src/views/InboxMessagesView.vue"] },

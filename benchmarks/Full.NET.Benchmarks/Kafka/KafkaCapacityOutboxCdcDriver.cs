@@ -185,7 +185,7 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
             result => cdcTracker.OnKafkaMessage(result));
         var partitionSequences = new long[context.TopicIdentity.Partitions];
         var partitionLocks = Enumerable.Range(0, context.TopicIdentity.Partitions)
-            .Select(static _ => new object())
+            .Select(static _ => new SemaphoreSlim(1, 1))
             .ToArray();
         var before = WorkerResourceSnapshot.Capture();
         var stopwatch = Stopwatch.StartNew();
@@ -194,7 +194,7 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
             context.Duration,
             context.MaximumMessages,
             context.Sample.ProducerConcurrency,
-            (scheduledMessage, token) =>
+            async (scheduledMessage, token) =>
             {
                 token.ThrowIfCancellationRequested();
                 var sequence = scheduledMessage.GlobalSequence;
@@ -213,35 +213,34 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
                 }
 
                 tracker.OnEnqueued(sequence);
+                await partitionLocks[partition].WaitAsync(token).ConfigureAwait(false);
                 try
                 {
                     using var scope = serviceProvider.CreateScope();
-                    lock (partitionLocks[partition])
-                    {
-                        var partitionSequence = partitionSequences[partition]++;
-                        outboxProducer.WriteCommittedAsync(
-                                scope,
-                                context,
-                                sequence,
-                                partitionSequence,
-                                scheduledMessage.ScheduledTimestampMicroseconds,
-                                enqueued,
-                                outboxCommitLatency,
-                                token)
-                            .GetAwaiter()
-                            .GetResult();
-                        tracker.OnAcknowledged(sequence);
-                        cdcTracker.NoteOutboxCommitted(
+                    var partitionSequence = partitionSequences[partition]++;
+                    await outboxProducer.WriteCommittedAsync(
+                            scope,
+                            context,
                             sequence,
-                            Stopwatch.GetElapsedTime(0, Stopwatch.GetTimestamp()).Ticks / 10);
-                    }
+                            partitionSequence,
+                            scheduledMessage.ScheduledTimestampMicroseconds,
+                            enqueued,
+                            outboxCommitLatency,
+                            token)
+                        .ConfigureAwait(false);
+                    tracker.OnAcknowledged(sequence);
+                    cdcTracker.NoteOutboxCommitted(
+                        sequence,
+                        Stopwatch.GetElapsedTime(0, Stopwatch.GetTimestamp()).Ticks / 10);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     failureCodes.TryAdd("outbox_commit_failed", 0);
                 }
-
-                return ValueTask.CompletedTask;
+                finally
+                {
+                    partitionLocks[partition].Release();
+                }
             },
             cancellationToken);
 
@@ -252,6 +251,10 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
         }
 
         var scheduling = await schedulingTask.ConfigureAwait(false);
+        foreach (var partitionLock in partitionLocks)
+        {
+            partitionLock.Dispose();
+        }
         var drainStarted = Stopwatch.StartNew();
         while (drainStarted.Elapsed < context.DrainTimeout)
         {

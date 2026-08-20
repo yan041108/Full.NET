@@ -104,5 +104,9 @@ export async function syncHostMenuCatalog(): Promise<{
   ) {
     throw new Error('client.invalid_host_menu_sync_result');
   }
-  return value;
+  return {
+    created: value.created as number,
+    skipped: value.skipped as number,
+    reparented: value.reparented as number
+  };
 }

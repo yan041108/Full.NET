@@ -60,4 +60,34 @@ public sealed class HttpSsrfGuardTests
         Assert.IsFalse(allowed);
         Assert.IsNotNull(reason);
     }
+
+    [DataRow("http://0.0.0.0/health")]
+    [DataRow("http://[::]/health")]
+    [TestMethod]
+    public async Task ValidateAsync_BlocksUnspecifiedAddress_WhenPrivateNetworkDisabled(
+        string url)
+    {
+        var (allowed, reason) = await HttpSsrfGuard.ValidateAsync(
+            new Uri(url),
+            allowPrivateNetwork: false,
+            CancellationToken.None);
+
+        Assert.IsFalse(allowed);
+        Assert.IsNotNull(reason);
+    }
+
+    [DataRow("http://[::ffff:10.0.0.1]/health")]
+    [DataRow("http://[::ffff:192.168.1.1]/health")]
+    [TestMethod]
+    public async Task ValidateAsync_BlocksIpv4MappedPrivateAddress_WhenPrivateNetworkDisabled(
+        string url)
+    {
+        var (allowed, reason) = await HttpSsrfGuard.ValidateAsync(
+            new Uri(url),
+            allowPrivateNetwork: false,
+            CancellationToken.None);
+
+        Assert.IsFalse(allowed);
+        Assert.IsNotNull(reason);
+    }
 }

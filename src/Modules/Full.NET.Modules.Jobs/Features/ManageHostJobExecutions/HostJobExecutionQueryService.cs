@@ -91,7 +91,7 @@ internal sealed class HostJobExecutionQueryService(
     public Task<Result<bool>> ClearAsync(
         Guid jobDefinitionId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => ClearCoreAsync(jobDefinitionId, token),
             cancellationToken);
 

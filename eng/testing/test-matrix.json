@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 1457,
+      "minimum": 1469,
       "timeout": "10m"
     },
     "compatibility": {
@@ -234,6 +234,9 @@
       },
       "097": {
         "filter": "FullyQualifiedName~Migration097JobsWorkerHeartbeatRecoveryTests.MySql_|FullyQualifiedName~Migration097JobsWorkerHeartbeatRecoveryTests.SqlServer_"
+      },
+      "098": {
+        "filter": "FullyQualifiedName~Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests.MySql_|FullyQualifiedName~Migration098JobsDefinitionHandlerKindAndArgsRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -261,7 +264,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 310,
+        "minimum": 312,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -275,7 +278,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 616,
+        "minimum": 618,
         "timeout": "90m"
       }
     }

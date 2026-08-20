@@ -96,6 +96,7 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
             var exitCode = await KafkaCapacityRunner.RunCommandAsync([
                 "--settings", settings,
                 "--scope", KafkaCapacityScopeCodes.TransactionOutboxCdc,
+                "--host-parity-mode", "worker",
                 "--execute", "true",
                 "--approval-id", "integration-test",
                 "--reason", "scope-c-real-pipeline",

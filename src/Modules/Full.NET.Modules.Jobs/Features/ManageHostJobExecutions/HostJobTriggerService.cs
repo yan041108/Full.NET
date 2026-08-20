@@ -28,7 +28,7 @@ internal sealed class HostJobTriggerService(
         Guid definitionId,
         CancellationToken cancellationToken = default)
     {
-        var createResult = await transaction.ExecuteAsync(
+        var createResult = await transaction.ExecuteResultAsync(
                 token => CreatePendingExecutionAsync(definitionId, token),
                 cancellationToken)
             .ConfigureAwait(false);

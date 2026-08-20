@@ -416,6 +416,41 @@ test('修复历史契约的版本后缀元数据不被误报为破坏变化', as
   assert.match(result.stdout, /OpenAPI compatibility check passed/u);
 });
 
+test('Vue 覆盖清单允许追加 API 绑定但拒绝改写既有绑定', async () => {
+  const baseline = {
+    schemaVersion: 1,
+    entries: [{ apiModule: 'ui/admin/src/api/samples.ts' }],
+    consumerModules: [{
+      apiModule: 'ui/admin/src/api/samples.ts',
+      consumers: ['ui/admin/src/views/SamplesView.vue']
+    }]
+  };
+  const additive = clone(baseline);
+  additive.entries.push({ apiModule: 'ui/admin/src/api/new-samples.ts' });
+  additive.consumerModules.push({
+    apiModule: 'ui/admin/src/api/new-samples.ts',
+    consumers: ['ui/admin/src/views/NewSamplesView.vue']
+  });
+
+  const additiveResult = await compareDirectories(
+    { 'vue-client-coverage-v1.json': baseline },
+    { 'vue-client-coverage-v1.json': additive }
+  );
+  assert.equal(additiveResult.status, 0, additiveResult.stderr);
+
+  const rewritten = clone(additive);
+  rewritten.consumerModules[0].consumers = ['ui/admin/src/views/OtherView.vue'];
+  const rewrittenResult = await compareDirectories(
+    { 'vue-client-coverage-v1.json': baseline },
+    { 'vue-client-coverage-v1.json': rewritten }
+  );
+  assert.equal(rewrittenResult.status, 1);
+  assert.match(
+    rewrittenResult.stderr,
+    /stable setting changed: vue-client-coverage-v1\.json consumerModules/u
+  );
+});
+
 test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () => {
   const result = spawnSync(
     process.execPath,

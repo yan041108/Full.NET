@@ -329,8 +329,11 @@ async function openVersionHistory(item: HostDocumentItem): Promise<void> {
   }
 }
 
-function isCurrentVersion(item: HostDocumentItem, version: HostDocumentVersionResponse): boolean {
-  return item.currentVersion?.id === version.id;
+function isCurrentVersion(item: HostDocumentItem, version: unknown): boolean {
+  return typeof version === 'object'
+    && version !== null
+    && 'id' in version
+    && item.currentVersion?.id === version.id;
 }
 
 function findDeletedEntry(item: HostDocumentItem): DeletedDocumentEntry | undefined {

@@ -27,39 +27,101 @@ internal static class HttpSsrfGuard
             return (false, "URL user credentials are not allowed.");
         }
 
-        var host = uri.Host;
+        var (addresses, reason) = await ResolveAllowedAddressesAsync(
+                uri.Host,
+                allowPrivateNetwork,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return (addresses is not null, reason);
+    }
+
+    /// <summary>
+    /// 在与实际连接相同的一次解析结果上完成地址校验并连接，避免校验后再次 DNS 解析产生重绑定竞态。
+    /// </summary>
+    public static async ValueTask<Stream> ConnectAsync(
+        DnsEndPoint endpoint,
+        bool allowPrivateNetwork,
+        CancellationToken cancellationToken)
+    {
+        var (addresses, reason) = await ResolveAllowedAddressesAsync(
+                endpoint.Host,
+                allowPrivateNetwork,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (addresses is null)
+        {
+            throw new HttpRequestException(reason ?? "HTTP job URL is blocked.");
+        }
+
+        Exception? lastError = null;
+        foreach (var address in addresses)
+        {
+            var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = true,
+            };
+            try
+            {
+                await socket.ConnectAsync(
+                        new IPEndPoint(address, endpoint.Port),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch (OperationCanceledException)
+            {
+                socket.Dispose();
+                throw;
+            }
+            catch (SocketException exception)
+            {
+                socket.Dispose();
+                lastError = exception;
+            }
+        }
+
+        throw new HttpRequestException("HTTP job host could not be connected.", lastError);
+    }
+
+    private static async Task<(IPAddress[]? Addresses, string? Reason)> ResolveAllowedAddressesAsync(
+        string host,
+        bool allowPrivateNetwork,
+        CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(host))
         {
-            return (false, "URL host is required.");
+            return (null, "URL host is required.");
         }
 
         foreach (var suffix in BlockedHostSuffixes)
         {
             if (host.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
             {
-                return (false, "URL host suffix is blocked.");
+                return (null, "URL host suffix is blocked.");
             }
         }
 
+        IPAddress[] addresses;
         if (IPAddress.TryParse(host, out var literal))
         {
-            return EvaluateAddress(literal, allowPrivateNetwork);
+            addresses = [literal];
         }
-
-        IPAddress[] addresses;
-        try
+        else
         {
-            addresses = await Dns.GetHostAddressesAsync(host, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (SocketException)
-        {
-            return (false, "URL host could not be resolved.");
+            try
+            {
+                addresses = await Dns.GetHostAddressesAsync(host, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (SocketException)
+            {
+                return (null, "URL host could not be resolved.");
+            }
         }
 
         if (addresses.Length == 0)
         {
-            return (false, "URL host could not be resolved.");
+            return (null, "URL host could not be resolved.");
         }
 
         foreach (var address in addresses)
@@ -67,18 +129,25 @@ internal static class HttpSsrfGuard
             var (allowed, reason) = EvaluateAddress(address, allowPrivateNetwork);
             if (!allowed)
             {
-                return (false, reason);
+                return (null, reason);
             }
         }
 
-        return (true, null);
+        return (addresses, null);
     }
 
     private static (bool Allowed, string? Reason) EvaluateAddress(
         IPAddress address,
         bool allowPrivateNetwork)
     {
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
         if (IPAddress.IsLoopback(address)
+            || address.Equals(IPAddress.Any)
+            || address.Equals(IPAddress.IPv6Any)
             || IsLinkLocal(address)
             || IsMetadataAddress(address))
         {

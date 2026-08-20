@@ -24,6 +24,7 @@ const schedulesMock = vi.mocked(listHostJobSchedules);
 const definitionOption = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   jobKey: 'jobs.ping',
+  handlerKind: 'ping',
   displayName: 'enabled-job'
 };
 

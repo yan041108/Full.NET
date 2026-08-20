@@ -63,6 +63,28 @@
       ]
     },
     {
+      "path": "/api/v1/jobs/host-definitions/{definitionId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.definitions.delete",
+          "successStatus": 204,
+          "requestSchema": "DeleteHostJobDefinitionRequest"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-definitions/groups",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "jobs.definitions.read",
+          "successStatus": 200,
+          "responseSchema": "HostJobGroupResponseList"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/jobs/host-executions",
       "operations": [
         {
@@ -81,6 +103,16 @@
           "permission": "jobs.executions.read",
           "successStatus": 200,
           "responseSchema": "HostJobExecutionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-executions/clear",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.executions.clear",
+          "successStatus": 204
         }
       ]
     },
@@ -176,6 +208,17 @@
           "responseSchema": "HostJobScheduleResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/jobs/host-schedules/{scheduleId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.schedules.delete",
+          "successStatus": 204,
+          "requestSchema": "ChangeHostJobScheduleStateRequest"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -228,6 +271,22 @@
     "DisableHostJobDefinitionRequest": {
       "properties": [
         "version"
+      ]
+    },
+    "DeleteHostJobDefinitionRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "HostJobGroupResponseList": {
+      "properties": [
+        "items"
+      ],
+      "itemSchema": "HostJobGroupResponse"
+    },
+    "HostJobGroupResponse": {
+      "properties": [
+        "groupName"
       ]
     },
     "HostJobExecutionResponse": {

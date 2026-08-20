@@ -17,6 +17,7 @@ import type {
   HostJobSchedule,
   HostJobScheduleDefinitionOption
 } from '@fullnet/client-contracts';
+import type { MessageKey } from '@fullnet/admin-i18n';
 import {
   isFullNetProblemDetails,
   JOB_MISFIRE_POLICIES,
@@ -73,6 +74,13 @@ const cronPreviewDescription = ref<string>();
 const cronPreviewOccurrences = ref<string[]>([]);
 const cronPreviewLoading = ref(false);
 const cronMacroPresets = ['@hourly', '@daily', '@weekly', '@monthly', '@yearly'] as const;
+const cronDescriptionKeys = new Set<MessageKey>([
+  'jobs.cron.macro.hourly',
+  'jobs.cron.macro.daily',
+  'jobs.cron.macro.weekly',
+  'jobs.cron.macro.monthly',
+  'jobs.cron.macro.yearly'
+]);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -192,6 +200,12 @@ async function refreshCronPreview(): Promise<void> {
   } finally {
     cronPreviewLoading.value = false;
   }
+}
+
+function formatCronDescription(description: string): string {
+  return cronDescriptionKeys.has(description as MessageKey)
+    ? t(description as MessageKey)
+    : description;
 }
 
 async function create(): Promise<void> {
@@ -442,7 +456,7 @@ function toProblem(
             class="art-muted"
             translate="no"
           >
-            {{ t(cronPreviewDescription) }}
+            {{ formatCronDescription(cronPreviewDescription) }}
           </small>
           <small
             v-if="cronPreviewUtc || cronPreviewLoading"

@@ -167,9 +167,16 @@ public sealed class JobScheduleDispatcherTests
         public Task<T?> QuerySingleOrDefaultAsync<T>(
             SqlStatement statement,
             object? parameters = null,
-            CancellationToken cancellationToken = default) =>
+            CancellationToken cancellationToken = default)
+        {
+            if (statement == JobSql.HasActiveRunningForDefinition)
+            {
+                return Task.FromResult<T?>(default);
+            }
+
             throw new InvalidOperationException(
                 $"Unexpected query '{statement.Name}'.");
+        }
 
         public Task<IReadOnlyList<T>> QueryAsync<T>(
             SqlStatement statement,

@@ -24,13 +24,13 @@ namespace Full.NET.Modules.Jobs;
 /// 手动触发服务，并映射定义/计划/执行三类端点。
 /// AddServices 仅装配查询与管理；AddBackgroundServices（仅 Worker）额外装配 JobsWorkerOptions、
 /// JobExecutionHostedProcessor 轮询 BackgroundService（到期调度派发 + 待处理执行 + 积压采样可观测）。
-/// 依赖 Identity 模块提供授权目录。
+/// 依赖 Identity 模块提供授权目录，并通过 Settings Contract Port 解析敏感配置引用。
 /// </summary>
 public sealed class JobsModule : IFullNetModule
 {
     public string Name => "Jobs";
 
-    public IReadOnlyCollection<string> Dependencies => ["Identity"];
+    public IReadOnlyCollection<string> Dependencies => ["Identity", "Settings"];
 
     public void AddServices(
         IServiceCollection services,
@@ -97,10 +97,9 @@ public sealed class JobsModule : IFullNetModule
                 IValidateOptions<JobsHttpOptions>,
                 JobsHttpOptionsValidator>());
         services.AddHttpClient(HttpJobExecutor.HttpClientName)
-            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-            {
-                AllowAutoRedirect = false,
-            });
+            .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
+                JobsHttpMessageHandlerFactory.Create(
+                    serviceProvider.GetRequiredService<IOptions<JobsHttpOptions>>()));
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<

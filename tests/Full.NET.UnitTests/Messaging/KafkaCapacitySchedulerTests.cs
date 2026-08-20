@@ -80,6 +80,31 @@ public sealed class KafkaCapacitySchedulerTests
     }
 
     [TestMethod]
+    public async Task Explicit_fast_mode_overrides_worker_parity_environment_configuration()
+    {
+        var factory = new RecordingDriverFactory(KafkaCapacityScopeCodes.KafkaTransport);
+        var registry = new KafkaCapacityDriverRegistry([factory]);
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["KafkaCapacity__HostParityMode"] = "WorkerParity",
+        };
+
+        var exitCode = await KafkaCapacityRunner.RunCommandAsync(
+            [
+                "--host-parity-mode", "fast",
+            ],
+            registry,
+            environment.GetValueOrDefault,
+            CancellationToken.None);
+
+        Assert.AreEqual(KafkaCapacityExitCode.EnvironmentRejected, exitCode);
+        Assert.IsNotNull(factory.Configuration);
+        Assert.AreEqual(
+            KafkaCapacityHostParityMode.Fast,
+            factory.Configuration.HostParityMode);
+    }
+
+    [TestMethod]
     public void Default_registry_contains_scope_B_worker_driver()
     {
         var factory = KafkaCapacityDriverRegistry.CreateDefault()
@@ -923,12 +948,17 @@ public sealed class KafkaCapacitySchedulerTests
     {
         public string ScopeCode => scopeCode;
 
+        public KafkaCapacityConfiguration? Configuration { get; private set; }
+
         public KafkaCapacityDriverRuntime Create(
-            KafkaCapacityConfiguration configuration) =>
-            new(
+            KafkaCapacityConfiguration configuration)
+        {
+            Configuration = configuration;
+            return new(
                 new ScopeOverrideDriver(runtimeScopeCode ?? scopeCode),
                 StatisticsSource: null,
                 Preflight: preflight);
+        }
     }
 
     private sealed class RejectingPreflight : IKafkaCapacityDriverPreflight

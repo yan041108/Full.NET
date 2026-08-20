@@ -56,14 +56,11 @@ public sealed class FullNetModuleCatalogTests
     }
 
     [TestMethod]
-    public void Messaging_module_registration_is_idempotent_and_keeps_one_official_topic()
+    public void Identity_background_registration_is_idempotent_and_keeps_one_official_topic()
     {
         var services = CreateServices();
-        var module = new MessagingModule();
-        var configuration = CreateConfiguration();
-
-        module.AddServices(services, configuration);
-        module.AddServices(services, configuration);
+        IdentityModule.RegisterOrganizationUnitChangedTopic(services);
+        IdentityModule.RegisterOrganizationUnitChangedTopic(services);
 
         using var provider = services.BuildServiceProvider();
         var topics = provider.GetServices<IntegrationEventTopicDefinition>().ToArray();
@@ -91,13 +88,13 @@ public sealed class FullNetModuleCatalogTests
                 typeof(CodeGenerationModule),
                 typeof(FilesModule),
                 typeof(DocumentModule),
+                typeof(SettingsModule),
                 typeof(JobsModule),
                 typeof(MessagingModule),
                 typeof(NotificationsModule),
                 typeof(TenancyModule),
                 typeof(OrganizationModule),
                 typeof(SerialNumbersModule),
-                typeof(SettingsModule),
             },
             modules,
             string.Join(

@@ -2,6 +2,8 @@ using Full.NET.Modules.Jobs;
 using Full.NET.Modules.Jobs.Execution;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using NSubstitute;
 
 namespace Full.NET.UnitTests.Jobs;
 
@@ -178,6 +180,7 @@ public sealed class JobsWorkerOptionsTests
             .AddInMemoryCollection(configurationValues)
             .Build();
         var services = new ServiceCollection();
+        services.AddSingleton(Substitute.For<IHostEnvironment>());
         new JobsModule().AddBackgroundServices(services, configuration);
         return services.BuildServiceProvider();
     }

@@ -13,6 +13,10 @@ const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const statistics = ref<HostDocumentStatisticsResponse | null>(null);
 
+function formatTotalSize(): string {
+  return statistics.value?.summary.totalSizeInfo ?? '';
+}
+
 async function load() {
   loading.value = true;
   problem.value = undefined;
@@ -59,7 +63,11 @@ onMounted(load);
             <el-statistic :title="t('documentStatistics.totalVersions')" :value="statistics.summary.totalVersions" />
           </el-col>
           <el-col :xs="24" :sm="12" :md="8">
-            <el-statistic :title="t('documentStatistics.totalSize')" :value="statistics.summary.totalSizeInfo" />
+            <el-statistic
+              :title="t('documentStatistics.totalSize')"
+              :value="statistics.summary.totalSizeKb"
+              :formatter="formatTotalSize"
+            />
           </el-col>
           <el-col :xs="24" :sm="12" :md="8">
             <el-statistic :title="t('documentStatistics.shareCount')" :value="statistics.shareCount" />

@@ -2,7 +2,6 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
-    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Messaging.Kafka\Full.NET.Messaging.Kafka.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Organization\Full.NET.Modules.Organization.csproj" />

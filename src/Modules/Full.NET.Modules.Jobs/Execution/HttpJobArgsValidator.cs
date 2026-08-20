@@ -26,6 +26,18 @@ internal static partial class HttpJobArgsValidator
         "Api-Key",
     };
 
+    private static readonly HashSet<string> TransportControlledHeaderNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Connection",
+        "Content-Length",
+        "Host",
+        "Keep-Alive",
+        "TE",
+        "Trailer",
+        "Transfer-Encoding",
+        "Upgrade",
+    };
+
     private static readonly int[] DefaultSuccessStatusCodes = [200, 201, 202, 204];
 
     public static bool TryValidate(
@@ -73,6 +85,12 @@ internal static partial class HttpJobArgsValidator
                     return false;
                 }
 
+                if (TransportControlledHeaderNames.Contains(name))
+                {
+                    errorMessage = "HTTP job header is controlled by the transport.";
+                    return false;
+                }
+
                 if (value is null || value.Length > 1024)
                 {
                     errorMessage = "HTTP job header value is invalid.";
@@ -100,6 +118,12 @@ internal static partial class HttpJobArgsValidator
                 if (!IsValidHeaderToken(name))
                 {
                     errorMessage = "HTTP job secret header name is invalid.";
+                    return false;
+                }
+
+                if (TransportControlledHeaderNames.Contains(name))
+                {
+                    errorMessage = "HTTP job secret header is controlled by the transport.";
                     return false;
                 }
 

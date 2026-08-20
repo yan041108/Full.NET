@@ -23,6 +23,7 @@ public sealed class JobsAuthorizationContributorTests
                 HostJobPermissions.DefinitionsUpdate,
                 HostJobPermissions.ExecutionsClear,
                 HostJobPermissions.ExecutionsRead,
+                HostJobPermissions.HealthRead,
                 HostJobPermissions.SchedulesCreate,
                 HostJobPermissions.SchedulesDelete,
                 HostJobPermissions.SchedulesPause,

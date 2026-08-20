@@ -32,7 +32,7 @@ internal sealed class HostJobDefinitionManagementService(
         Guid actorUserId,
         CreateHostJobDefinitionRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CreateCoreAsync(actorUserId, request, token),
             cancellationToken);
 
@@ -41,7 +41,7 @@ internal sealed class HostJobDefinitionManagementService(
         Guid definitionId,
         UpdateHostJobDefinitionRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(actorUserId, definitionId, request, token),
             cancellationToken);
 
@@ -50,7 +50,7 @@ internal sealed class HostJobDefinitionManagementService(
         Guid definitionId,
         int version,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => DisableCoreAsync(actorUserId, definitionId, version, token),
             cancellationToken);
 
@@ -58,7 +58,7 @@ internal sealed class HostJobDefinitionManagementService(
         Guid definitionId,
         int version,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(definitionId, version, token),
             cancellationToken);
 

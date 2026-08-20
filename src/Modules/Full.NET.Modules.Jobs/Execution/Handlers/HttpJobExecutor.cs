@@ -30,7 +30,7 @@ internal sealed class HttpJobExecutor(
         CancellationToken cancellationToken)
     {
         var args = DeserializeArgs(context.ArgsJson);
-        if (!HttpJobArgsValidator.TryValidate(args, rejectSensitivePlainHeaders: false, out _))
+        if (!HttpJobArgsValidator.TryValidate(args, rejectSensitivePlainHeaders: true, out _))
         {
             throw new InvalidOperationException("HTTP job args are invalid.");
         }

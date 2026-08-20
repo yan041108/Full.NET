@@ -1086,6 +1086,34 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/095_MessagingStreamOwnershipConvergence.sql",
       "reason": "2026-08-09 复审登记：095 仅为解决同批次新增列的 SQL Server 编译可见性，将固定 RollbackState CHECK 与固定试点基线 INSERT 包装为常量动态 SQL；无外部输入，并由双库迁移升级恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/086_IdentityUserProfileEmergencyContactRelation.sql",
+      "reason": "086 是已发布迁移；UTF-8 规范化后静态扫描器可见其固定 PREPARE 语句。DDL 不接受外部输入，并由 086 MySQL 迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/096_JobsDefinitionAllowConcurrentExecutions.sql",
+      "reason": "096 使用固定存储过程与 INFORMATION_SCHEMA 幂等补充重叠执行列；对象名和 DDL 均为常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/097_JobsWorkerHeartbeat.sql",
+      "reason": "097 使用固定存储过程与 INFORMATION_SCHEMA 幂等创建 Worker 心跳表；对象名和 DDL 均为常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/098_JobsDefinitionHandlerKindAndArgs.sql",
+      "reason": "098 使用固定存储过程与 INFORMATION_SCHEMA 幂等补充执行器类型和参数列；对象名和 DDL 均为常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

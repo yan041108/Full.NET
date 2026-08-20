@@ -24,7 +24,7 @@ builder.Services.AddFullNetDapper(
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetDatabaseSchemaModeGuard();
 builder.Services.AddFullNetMessagePack();
-builder.Services.AddFullNetMessagingReplayForApi(builder.Configuration);
+builder.Services.AddFullNetKafkaReplayOperations(builder.Configuration);
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);

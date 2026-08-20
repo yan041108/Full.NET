@@ -17,7 +17,7 @@ BEGIN
             LastHeartbeatAtUtc datetime(6) NOT NULL COMMENT '最近心跳(UTC)',
             WorkerVersion varchar(64) NULL COMMENT 'Worker 版本',
             CONSTRAINT PK_fn_jobs_worker_instance PRIMARY KEY (InstanceId)
-        ) COMMENT='Jobs Worker 实例心跳表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+        ) COMMENT='后台任务 Worker 实例心跳表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
     END IF;
 END$$
 DELIMITER ;

@@ -101,11 +101,11 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         using var response = await _httpClient
             .PostAsJsonAsync("/connectors", payload, JsonOptions, cancellationToken)
             .ConfigureAwait(false);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
+            // Kafka Connect 可能在错误体中回显提交的连接器配置，其中包含数据库口令。
             throw new InvalidOperationException(
-                $"Connector registration failed ({(int)response.StatusCode}): {body}");
+                $"Connector registration failed with HTTP status {(int)response.StatusCode}.");
         }
     }
 
