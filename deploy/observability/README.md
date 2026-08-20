@@ -29,3 +29,24 @@ pnpm test:observability-deploy
 ```
 
 Capacity remains `Capacity-not-verified` until Task 14 dedicated hardware certification.
+
+## Messaging / CDC metric contracts
+
+Application meters use dotted names; Prometheus/OTLP typically replace `.` with `_` and append the unit suffix (for example `s` → `_seconds`).
+
+| Code instrument | Prometheus example | Notes |
+| --- | --- | --- |
+| `fullnet.outbox.backlog.oldest_age` | `fullnet_outbox_backlog_oldest_age_seconds` | Align alerts/dashboards to this name (not the legacy `fullnet_outbox_oldest_message_age_seconds`) |
+| `fullnet.jobs.backlog.oldest_age` | `fullnet_jobs_backlog_oldest_age_seconds` | Same alignment |
+| `fullnet.outbox.legacy.empty_poll.backoff` | `fullnet_outbox_legacy_empty_poll_backoff_seconds` | Legacy empty-poll backoff |
+| `fullnet.outbox.commit_to_capture` | `fullnet_outbox_commit_to_capture_seconds` | Shadow path or platform fill; tag `database_provider` only |
+| `fullnet.messaging.kafka.consumer.lag` | `fullnet_messaging_kafka_consumer_lag` | Messages behind high watermark |
+| `fullnet.messaging.kafka.lag_retention_ratio` | `fullnet_messaging_kafka_lag_retention_ratio` | Platform should set time-based ratio for retention alerts |
+| `fullnet.messaging.connector.lag` | `fullnet_messaging_connector_lag_seconds` | Placeholder until Connect exporter wired |
+| `fullnet.messaging.connector.offset.unrecoverable` | `fullnet_messaging_connector_offset_unrecoverable` | 0/1 gauge |
+| `fullnet.messaging.cdc.sqlserver.capture_job_running` | `fullnet_messaging_cdc_sqlserver_capture_job_running` | Platform fill via `UpdateCdcPlatformHealth` |
+| `fullnet.messaging.cdc.mysql.binlog_retention_hours` | `fullnet_messaging_cdc_mysql_binlog_retention_hours` | Platform fill; alert &lt; 24h |
+
+Label allow-list: `provider`, `database_provider`, `topic_code`, `consumer_code`, `message_type_code`, `result`, `reason_code`, `connector_code`. Forbidden: Secret, Payload, SQL, Tenant, User, MessageId, exception text.
+
+Cutover/rollback steps: [`docs/runbooks/cdc-kafka-cutover-rollback.md`](../../docs/runbooks/cdc-kafka-cutover-rollback.md). Verification: [`docs/verification/messaging-cdc-observability-20260820.md`](../../docs/verification/messaging-cdc-observability-20260820.md).

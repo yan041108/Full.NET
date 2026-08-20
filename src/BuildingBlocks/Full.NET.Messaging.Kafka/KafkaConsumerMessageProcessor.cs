@@ -194,11 +194,13 @@ internal sealed class KafkaConsumerMessageProcessor
                 "ownership_revoked",
                 "messaging.delivery.ownership_revoked");
             // 保持 Poll 心跳的同时延长未提交消息重试间隔，避免所有权切换期间形成热循环。
-            await Task.Delay(
-                    TimeSpan.FromMilliseconds(
-                        _options.OwnershipRevokedBackoffMilliseconds),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var ownershipWait = TimeSpan.FromMilliseconds(
+                _options.OwnershipRevokedBackoffMilliseconds);
+            KafkaMessagingTelemetry.RecordOwnershipWait(
+                ProviderCode,
+                plan.ConsumerName,
+                ownershipWait.TotalSeconds);
+            await Task.Delay(ownershipWait, cancellationToken).ConfigureAwait(false);
             return false;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

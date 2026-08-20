@@ -51,6 +51,10 @@ const requiredAlerts = [
   'FullNetDatabaseConnectionWait',
   'FullNetOutboxJobsBacklogAge',
   'FullNetMessagingKafkaConsumeFailures',
+  'FullNetMessagingSqlServerCdcCaptureJobStopped',
+  'FullNetMessagingMySqlBinlogRetentionLow',
+  'FullNetMessagingConnectorOffsetUnrecoverable',
+  'FullNetMessagingKafkaLagNearRetention',
   'FullNetEdgeGlobalRateRejected',
   'FullNetWafOrExternalLimiterDown',
   'FullNetHpaAtMaxReplicas',
@@ -68,6 +72,7 @@ test('observability deploy files exist and parse as text/JSON', async () => {
     'docs/runbooks/data-protection-key-recovery.md',
     'docs/runbooks/cache-redis-recovery.md',
     'docs/runbooks/audit-log-backpressure.md',
+    'docs/runbooks/cdc-kafka-cutover-rollback.md',
   ];
   for (const file of files) {
     assert.equal(await exists(file), true, `${file} missing`);
@@ -113,7 +118,14 @@ test('Prometheus rules cover required high-concurrency alerts', async () => {
     assert.match(text, new RegExp(`alert:\\s*${alert}`));
   }
   assert.match(text, /fullnet_messaging_kafka_consume_results_total/);
+  assert.match(text, /fullnet_outbox_backlog_oldest_age_seconds/);
+  assert.match(text, /fullnet_jobs_backlog_oldest_age_seconds/);
+  assert.match(text, /fullnet_messaging_cdc_sqlserver_capture_job_running/);
+  assert.match(text, /fullnet_messaging_cdc_mysql_binlog_retention_hours/);
+  assert.match(text, /fullnet_messaging_connector_offset_unrecoverable/);
+  assert.match(text, /fullnet_messaging_kafka_lag_retention_ratio/);
   assert.doesNotMatch(text, /message_id|tenant_id|MessageId|TenantId/);
+  assert.doesNotMatch(text, /fullnet_outbox_oldest_message_age_seconds/);
 });
 
 test('Runbooks cover SLO, DP keys, Redis split, audit fail-open/closed, Expand/Contract', async () => {
@@ -136,4 +148,11 @@ test('Runbooks cover SLO, DP keys, Redis split, audit fail-open/closed, Expand/C
   const audit = await read('docs/runbooks/audit-log-backpressure.md');
   assert.match(audit, /fail-open/);
   assert.match(audit, /B0|B1|B2/);
+
+  const cdc = await read('docs/runbooks/cdc-kafka-cutover-rollback.md');
+  assert.match(cdc, /DeliveryCutover/);
+  assert.match(cdc, /Capacity-not-verified/);
+  assert.match(cdc, /rollback/i);
+  assert.match(cdc, /DLQ|dead.?letter/i);
+  assert.match(cdc, /reconcile/i);
 });

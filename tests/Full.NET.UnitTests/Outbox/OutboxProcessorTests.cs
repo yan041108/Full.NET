@@ -621,6 +621,53 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
+    public void GetDelayAfterBatch_RecordsEmptyPollBackoffGauge()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            BatchSize = 10,
+            PollMilliseconds = 200,
+            MaximumIdlePollMilliseconds = 1_000,
+        };
+        var store = CreateStore();
+        using var provider = CreateProvider(store);
+        var processor = CreateProcessor(
+            provider,
+            new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
+            options);
+        var measurements = new List<(string Name, double Value)>();
+        using var listener = new System.Diagnostics.Metrics.MeterListener
+        {
+            InstrumentPublished = (instrument, currentListener) =>
+            {
+                if (instrument.Meter.Name == OutboxBacklogTelemetry.MeterName
+                    && instrument.Name == "fullnet.outbox.legacy.empty_poll.backoff")
+                {
+                    currentListener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<double>(
+            (instrument, measurement, _, _) =>
+                measurements.Add((instrument.Name, measurement)));
+        listener.Start();
+
+        processor.GetDelayAfterBatch(0);
+        processor.GetDelayAfterBatch(0);
+        processor.GetDelayAfterBatch(3);
+
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.legacy.empty_poll.backoff", 0.2d));
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.legacy.empty_poll.backoff", 0.4d));
+        CollectionAssert.Contains(
+            measurements,
+            ("fullnet.outbox.legacy.empty_poll.backoff", 0d));
+    }
+
+    [TestMethod]
     public async Task ProcessOnceAsync_ShadowOwnerRemainsOnLegacyHandlerPath()
     {
         var message = CreateMessage(attempts: 1);

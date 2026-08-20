@@ -69,3 +69,5 @@
 - 试点流生产切流后的端到端 lag 与重复消费审计
 
 Capability 状态见 [`capability-status.md`](../../roadmap/capability-status.md)。
+
+逐步切流 / 停止 / Fence / 排空 / 回退 / DLQ 重放 / 对账与停止条件见 [`cdc-kafka-cutover-rollback.md`](../runbooks/cdc-kafka-cutover-rollback.md)。可观测契约见 [`messaging-cdc-observability-20260820.md`](../verification/messaging-cdc-observability-20260820.md)。

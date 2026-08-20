@@ -266,15 +266,7 @@ public sealed class MessagingWorkerOptionsTests
     [TestMethod]
     public void KafkaMessagingTelemetry_uses_low_cardinality_tag_names_only()
     {
-        var allowedTags = new[]
-        {
-            "provider",
-            "topic_code",
-            "consumer_code",
-            "message_type_code",
-            "result",
-            "reason_code",
-        };
+        var allowedTags = KafkaMessagingTelemetry.AllowedTagKeys.ToArray();
         var observedTags = new List<string>();
 
         using var listener = new MeterListener();
@@ -292,6 +284,13 @@ public sealed class MessagingWorkerOptionsTests
                 observedTags.Add(tag.Key);
             }
         });
+        listener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+        {
+            foreach (var tag in tags)
+            {
+                observedTags.Add(tag.Key);
+            }
+        });
         listener.Start();
 
         KafkaMessagingTelemetry.RecordConsume(
@@ -301,6 +300,15 @@ public sealed class MessagingWorkerOptionsTests
             EventType,
             "success",
             "messaging.transient.timeout");
+        KafkaMessagingTelemetry.RecordConnectorError(
+            "debezium",
+            "fullnet.outbox.sqlserver",
+            "connector.task.failed");
+        KafkaMessagingTelemetry.UpdateConnectorHealth(
+            "debezium",
+            "fullnet.outbox.sqlserver",
+            lagSeconds: 1d,
+            offsetUnrecoverable: false);
 
         listener.RecordObservableInstruments();
 
@@ -308,6 +316,12 @@ public sealed class MessagingWorkerOptionsTests
         foreach (var tag in observedTags)
         {
             CollectionAssert.Contains(allowedTags, tag);
+            foreach (var fragment in KafkaMessagingTelemetry.ForbiddenTagKeyFragments)
+            {
+                Assert.IsFalse(
+                    tag.Contains(fragment, StringComparison.OrdinalIgnoreCase),
+                    $"Tag '{tag}' contains forbidden fragment '{fragment}'.");
+            }
         }
     }
 

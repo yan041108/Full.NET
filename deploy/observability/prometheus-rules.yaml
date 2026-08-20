@@ -87,7 +87,7 @@ groups:
           summary: Database connection pool wait elevated
 
       - alert: FullNetOutboxJobsBacklogAge
-        expr: max(fullnet_outbox_oldest_message_age_seconds) > 300 or max(fullnet_jobs_oldest_age_seconds) > 300
+        expr: max(fullnet_outbox_backlog_oldest_age_seconds) > 300 or max(fullnet_jobs_backlog_oldest_age_seconds) > 300
         for: 10m
         labels:
           severity: warning
@@ -101,6 +101,38 @@ groups:
           severity: warning
         annotations:
           summary: Kafka messaging consume failures detected (low-cardinality labels only)
+
+      - alert: FullNetMessagingSqlServerCdcCaptureJobStopped
+        expr: min(fullnet_messaging_cdc_sqlserver_capture_job_running) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: SQL Server CDC capture job appears stopped (fill via UpdateCdcPlatformHealth)
+
+      - alert: FullNetMessagingMySqlBinlogRetentionLow
+        expr: min(fullnet_messaging_cdc_mysql_binlog_retention_hours) < 24
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: MySQL binlog retention below 24h fail-closed threshold
+
+      - alert: FullNetMessagingConnectorOffsetUnrecoverable
+        expr: max(fullnet_messaging_connector_offset_unrecoverable) == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Debezium/Kafka Connect offset reported unrecoverable
+
+      - alert: FullNetMessagingKafkaLagNearRetention
+        expr: max(fullnet_messaging_kafka_lag_retention_ratio) > 0.8
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kafka consumer lag approaching topic retention window
 
       - alert: FullNetEdgeGlobalRateRejected
         expr: increase(edge_rate_limit_rejected_total{scope="global"}[5m]) > 0

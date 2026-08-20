@@ -105,6 +105,10 @@ internal sealed class ShadowEventComparisonProcessor : BackgroundService
             }
 
             var observed = ShadowEventFingerprint.FromEnvelope(envelope);
+            // 影子路径用 OccurredAtUtc→首次可见近似 commit-to-capture；正式 Connector 指标由平台填充。
+            OutboxBacklogTelemetry.RecordCommitToCapture(
+                Math.Max(0d, (DateTimeOffset.UtcNow - envelope.OccurredAtUtc).TotalSeconds),
+                "unknown");
             var duplicate = seenEventIds.Contains(observed.EventId);
             if (!duplicate)
             {

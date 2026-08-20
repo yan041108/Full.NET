@@ -136,12 +136,14 @@ internal sealed class OutboxProcessor(
         if (processedCount >= _options.BatchSize)
         {
             _consecutiveEmptyBatches = 0;
+            OutboxBacklogTelemetry.RecordEmptyPollBackoff(TimeSpan.Zero);
             return TimeSpan.Zero;
         }
 
         if (processedCount > 0)
         {
             _consecutiveEmptyBatches = 0;
+            OutboxBacklogTelemetry.RecordEmptyPollBackoff(TimeSpan.Zero);
             return TimeSpan.FromMilliseconds(_options.PollMilliseconds);
         }
 
@@ -150,7 +152,10 @@ internal sealed class OutboxProcessor(
         var delay = Math.Min(
             _options.MaximumIdlePollMilliseconds,
             _options.PollMilliseconds * Math.Pow(2d, exponent));
-        return TimeSpan.FromMilliseconds(delay);
+        var backoff = TimeSpan.FromMilliseconds(delay);
+        // 空轮询退避秒数进入低基数 Gauge，便于与积压年龄对照，不改变轮询语义。
+        OutboxBacklogTelemetry.RecordEmptyPollBackoff(backoff);
+        return backoff;
     }
 
     private async Task RecordBacklogAsync(
