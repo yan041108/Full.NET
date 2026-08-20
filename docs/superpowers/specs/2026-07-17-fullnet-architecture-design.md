@@ -5,12 +5,14 @@
 - 2026-07-22 巡检增补：[`../../verification/architecture-review-2026-07-22.md`](../../verification/architecture-review-2026-07-22.md)
 - 架构演进决策：[`ADR-0002：强化型模块化单体与按证据拆分`](../../architecture/adr/ADR-0002-modular-monolith-evolution.md)
 - 高并发生产决策：[`ADR-0005：高并发模块化单体多实例生产基线`](../../architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md)
+- 客户端生成决策：[`ADR-0007：OpenAPI 驱动客户端生成边界`](../../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md)
 - 高并发评估证据：[`2026-08-01 高并发模块化单体多实例改造评估`](../../verification/high-concurrency-modular-monolith-multi-instance-assessment-2026-08-01.md)
 - 当前能力：[`../../roadmap/capability-status.md`](../../roadmap/capability-status.md)
 - 日期：2026-07-17
 - 高并发多实例封板：2026-08-01
 - 模块数据关联与一致性标准修订：2026-08-07
 - 架构不足复核与演进门禁修订：2026-08-08
+- OpenAPI 驱动客户端生成标准修订：2026-08-21
 - 项目目录：`G:\wwwroot\github_fork\Full.NET`
 - 产品名称：Full.NET
 - 最终发布许可证：MIT
@@ -573,6 +575,8 @@ Version
 
 生成器可以创建实体、DTO、Command、Query、Handler、Validator、Endpoint、逐操作权限、参数化 SQL、分页 SQL、Vue 页面、TypeScript API 客户端和基础测试，并分阶段扩展 uni-app 与 Dart 客户端。既有 Layui 页面/JavaScript 产物只保留冻结回归，不接受新能力。生成的 SQL 自动包含适用的租户、软删除、审计和并发字段规则，并通过同一命名内核生成表、列、约束和稳定协议码。
 
+TypeScript API 客户端的最终权威不是数据库元数据或 CRUD 模板，而是 Endpoint 真实运行时产生的标准 OpenAPI。`FullNetSchema` 负责生成服务端纵向切片和稳定 OpenAPI 元数据；客户端统一从规范化 OpenAPI 快照生成低层模型、运行时守卫与 Operation，再由手写薄适配层向 Vue 暴露业务函数。禁止由数据库 Schema 和 OpenAPI 长期维护两套互不校验的路径、DTO、可空性与序列化规则。
+
 ### 12.3 防覆盖策略
 
 - `Scaffold`：首次创建，目标文件已存在时拒绝覆盖；
@@ -671,7 +675,11 @@ API 路径使用小写 kebab-case，HTTP JSON 使用 camelCase；权限、错误
 
 JSON 统一使用 System.Text.Json 的 Web 默认语义和 UTF-8 输出。每个模块维护自己的 `JsonSerializerContext`，由模块注册入口把生成的 `JsonTypeInfoResolver` 加入 Host；公开热路径 DTO 必须进入源生成上下文。运行时反射只允许用于动态插件或兼容层，不能成为核心 API 的默认路径。`JsonSerializerOptions` 由 Host 单例配置并复用，不得在每次请求中创建。大列表优先采用分页、异步流或 `Utf8JsonWriter`，避免构造巨大中间字符串。
 
-生产 Endpoint 的请求、成功响应、分页项和 ProblemDetails 类型必须由 Architecture 门禁从 Endpoint 元数据枚举并验证进入模块源生成上下文。Vue 主交付线必须优先消费 `packages/client-contracts` 的共享强类型契约；每个 Vue API 模块还必须在覆盖清单中关联对应 OpenAPI 路由/Schema 和共享契约入口，新增调用点缺少任一映射时失败关闭。只有出现真实外部 SDK、多个独立客户端或手写调用长期漂移证据时才引入完整生成式 SDK；不得把“没有生成 SDK”误报为后端序列化无门禁。
+生产 Endpoint 的请求、成功响应、分页项和 ProblemDetails 类型必须由 Architecture 门禁从 Endpoint 元数据枚举并验证进入模块源生成上下文。Vue 主交付线必须优先消费 `packages/client-contracts` 的共享强类型契约；每个 Vue API 模块还必须在覆盖清单中关联对应 OpenAPI 路由/Schema 和共享契约入口，新增调用点缺少任一映射时失败关闭。
+
+项目所有者于 2026-08-21 批准 OpenAPI 驱动客户端生成方向：每个进入生成范围的 Endpoint 必须声明全局唯一、稳定的 `operationId` 和一个稳定主 Tag，OpenAPI 必须完整表达请求、成功响应、ProblemDetails、鉴权、格式、`required`、`nullable`、enum、集合项、Blob/multipart 与 `204` 语义。仓库内规范化标准 OpenAPI 快照是生成输入；现有逐切片轻量夹具继续用于兼容检查，但不得冒充完整 OpenAPI。
+
+生成层只产生低层 TypeScript 模型、运行时守卫、参数编码与 Operation，不替换 `packages/client-contracts` 的 `createHttpClient`。Access Token、并发 Refresh、Cookie、语言协商、ProblemDetails、401 单次重试、Blob、`204` 和取消仍由 Full.NET 共享运行时统一处理。Vue 页面不得直接依赖第三方生成 Class 或模板内部类型，`ui/admin/src/api/*.ts` 保持稳定薄适配层。所有 JSON 响应先以 `unknown` 进入生成守卫，禁止用 `request<T>` 断言冒充运行时校验。完整取舍见 [`ADR-0007`](../../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md)。
 
 ## 15. 安全设计
 
@@ -810,7 +818,7 @@ Vue 主管理端放在 `ui/admin`，采用 Vue 3、TypeScript、Vite 和 Element
 
 H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 uni-app Vue 3 和官方 uni-ui 作为默认组件库；原版 uView 2 不进入默认依赖，也不允许两套全量 UI 组件库长期并存。原生 Android/iOS 和 Windows/macOS/Linux 桌面端放在 `clients/flutter`，以 Flutter 3.44 的 Material 3、Cupertino 和 Full.NET 设计令牌构建自适应组件层，不绑定第三方整套 UI 框架。Flutter 不再重复承担 H5，uni-app 默认不再重复输出原生 App。.NET MAUI 只在 C#/Windows 企业项目的真实需求命中决策门禁时建立模板，不与 Flutter 长期维护全功能对等实现。
 
-所有客户端通过同一 OpenAPI 契约、标准 HTTP 状态码和 ProblemDetails 与后端解耦，共享权限标识、租户语义和设计令牌，不共享具体 UI 实现。详细 UI 选型见 [`2026-07-18-client-ui-framework-design.md`](2026-07-18-client-ui-framework-design.md)；平台安全策略、测试矩阵和客户端阶段见 [`2026-07-17-multi-client-frontend-strategy-design.md`](2026-07-17-multi-client-frontend-strategy-design.md)。
+所有客户端通过同一 OpenAPI 契约、标准 HTTP 状态码和 ProblemDetails 与后端解耦，共享权限标识、租户语义和设计令牌，不共享具体 UI 实现。Vue 的生成客户端只位于 `packages/client-contracts` 的低层生成区，页面通过 `ui/admin/src/api` 薄适配层消费；第三方生成器的 Class、Configuration、Runtime 和命名不得成为页面公共 API。详细 UI 选型见 [`2026-07-18-client-ui-framework-design.md`](2026-07-18-client-ui-framework-design.md)；平台安全策略、测试矩阵和客户端阶段见 [`2026-07-17-multi-client-frontend-strategy-design.md`](2026-07-17-multi-client-frontend-strategy-design.md)。
 
 ## 20. 测试策略
 

@@ -73,6 +73,19 @@
 3. 新增或升级第三方依赖前必须通过许可证与资产来源审计，并同步 [`THIRD-PARTY-NOTICES`](../THIRD-PARTY-NOTICES)。
 4. 共享客户端包只能承载协议、运行时校验和无框架状态机，禁止反向依赖 Vue 组件或冻结的 Layui DOM 实现。
 
+### 8.1 OpenAPI 驱动客户端生成边界
+
+1. Full.NET 采用“标准 OpenAPI 契约 → 生成低层 TypeScript 模型、运行时守卫与 Operation → 手写薄业务适配层”的目标模式。OpenAPI 是客户端线协议的最终生成输入；数据库元数据、Vue 页面和 TypeScript 模板不得独立猜测 HTTP 路径、JSON 形状、可空性、状态码或参数序列化。
+2. 生成层只负责模型、运行时守卫、Path/Query/Header/Body 编码、Operation 调用描述和确定性导出。`createHttpClient` 继续唯一负责 Access Token、并发 Refresh、Cookie 凭据、`Accept-Language`、ProblemDetails、401 单次重试、Blob、`204 No Content` 与取消；生成器不得复制或替换该运行时。
+3. Vue 页面、Store 和 Composable 不得直接依赖第三方生成器的 `Configuration`、`BaseAPI`、生成 Class 或模板内部类型。`ui/admin/src/api/*.ts` 作为稳定薄适配层，只能调用生成 Operation、执行业务命名适配并暴露页面需要的函数；生成器升级不得迫使页面批量改名。
+4. 所有生成响应必须以 `unknown` 进入运行时守卫后才能作为业务 DTO 返回；禁止仅用 TypeScript 断言、泛型 `request<T>` 或反序列化转换冒充运行时验证。文件、流、multipart、`204` 和非 JSON 响应必须使用显式 Operation 类型，不得强行进入 JSON 守卫。
+5. 每个参与客户端生成的 Endpoint 必须具有全局唯一、稳定的 `operationId` 和一个稳定主 Tag；请求、成功响应、ProblemDetails、鉴权、格式、`required`、`nullable`、enum 及集合项 Schema 必须在运行时 OpenAPI 中完整表达。稳定命名见 [`naming-conventions.md`](naming-conventions.md) 第 8 节。
+6. 生成工具、模板和配置是可替换实现细节，必须固定版本、进入版本控制、使用仓库内规范化 OpenAPI 快照离线生成，并通过同输入重复生成零差异、TypeScript 构建、运行时守卫、共享 HTTP 语义和 Golden File 测试。禁止全局安装生成器、在 CI 直接读取开发环境 Swagger URL 或人工修改 `.generated.ts`。
+7. 现有 `contracts/openapi/*-v1.json` 轻量冻结夹具继续承担逐切片兼容门禁，但不冒充完整标准 OpenAPI，也不直接作为 SDK 生成输入。迁移期间手写契约与生成契约按精确清单共存；只有试点同时覆盖普通 JSON CRUD、Blob/multipart 和 `204`，且没有安全、错误或运行时校验退化后，才允许分模块迁移。
+8. `Full.NET.Data.CodeGeneration` 生成的 Vue 客户端不得继续以数据库 Schema 作为最终 HTTP 契约权威。CRUD 脚手架必须先产出具有稳定 OpenAPI 元数据的 Endpoint，再由同一标准客户端生成链路生成 TypeScript；禁止长期维护第二套路径、DTO 和序列化模板。
+
+验证：`pnpm test:openapi`、客户端生成零漂移门禁、`pnpm --filter @fullnet/client-contracts test`、`pnpm --filter @fullnet/admin test`、Vue 生产构建，以及试点涉及的真实 API/Blob/`204` 聚焦测试。详细决策见 [`ADR-0007`](../docs/architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md)。
+
 ## 9. 验证命令汇总
 
 ```powershell

@@ -113,10 +113,12 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 
 ### C6：Vue 代码生成与高级能力
 
-- 同一 `FullNetCrudSchema` 生成后端、双库 SQL、精确动作权限、TypeScript API、Vue 页面和基础测试；
+- 同一 `FullNetCrudSchema` 生成后端、双库 SQL、精确动作权限、生成就绪的 OpenAPI 元数据、Vue 页面和基础测试；TypeScript API 最终从运行时 OpenAPI 的规范化快照生成，不再由数据库 Schema 模板独立猜测；
 - CRUD 默认生成 `read/create/update/delete`，其他动作必须由 Schema 明确声明；
 - 不再新增 Layui 页面、JavaScript API 或路由生成能力；
 - Realtime、文件、导入导出、打印、表单设计器、大屏和 AI/Agent 工作台分别建立 Vue 适配切片。
+
+OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md) 和[专项实施计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md)执行。计划存在只表示方向已批准；在普通 JSON、Blob/multipart 与 `204` 三类试点完成并通过停止门禁前，现有 45 个 Vue API 模块保持当前实现状态，不批量重写。
 
 ### C7：.NET MAUI 决策门禁
 
@@ -170,5 +172,6 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 5. 为 Layui 制定独立退役计划，决定归档、只读发布、迁移说明和最终移除条件；
 6. 在 Vue 主线继续推进 Tiptap、ECharts 业务图表、可访问性和统一视觉体验；
 7. 按真实业务需求推进 uni-app，再启动 Flutter 首个纵向样例。
+8. 执行 [OpenAPI 驱动客户端生成计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md)：先建立生成就绪契约和三个试点，达到门禁后再按模块迁移，未达门禁则停止在试点并保留现有手写适配层。
 
 每个计划结束时只更新真实受影响的状态与验证记录，不以计划存在、历史 Layui 证据或局部构建替代 Vue 真实验收。

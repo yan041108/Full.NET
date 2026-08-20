@@ -187,6 +187,8 @@ Provider 物理类型固定如下：
 - 操作能表达为资源状态转换时不新增动词路由；确需动作时使用稳定小写 kebab-case；
 - C# DTO 属性使用 PascalCase，System.Text.Json 对外输出 camelCase；禁止同一 API 混用 snake_case；
 - Query 参数和 Header 遵循 HTTP/OpenAPI 约定，名称一旦发布按公共契约治理。
+- 参与客户端生成的 OpenAPI Operation 必须显式提供全局唯一的 lowerCamelCase `operationId`，格式为 `{module}{Verb}{Resource}[Qualifier]`，例如 `identityListHostUsers`、`identityCreateHostUser`、`identityResetHostUserPassword`；禁止从路径、Lambda 方法名或显示文本隐式推导，发布后按公共契约治理；
+- 每个 Operation 必须恰有一个稳定主 Tag，使用 PascalCase 的 `{Module}{Resource}`，例如 `IdentityHostUsers`、`FilesHostFiles`；Tag 只负责生成分组，不代替权限、模块边界或业务适配层命名。
 
 ### 8.2 权限、错误和消息
 
