@@ -84,7 +84,7 @@ public sealed class DatabaseBatchCliIntegrationTests
             var previewActions = output.ToString().Split(
                 Environment.NewLine,
                 StringSplitOptions.RemoveEmptyEntries);
-            Assert.HasCount(26, previewActions);
+            Assert.HasCount(28, previewActions);
             Assert.IsTrue(previewActions.All(line =>
                 line.StartsWith("Create ", StringComparison.Ordinal)));
             CollectionAssert.Contains(
@@ -122,7 +122,7 @@ public sealed class DatabaseBatchCliIntegrationTests
             var applyActions = applyOutput.ToString().Split(
                 Environment.NewLine,
                 StringSplitOptions.RemoveEmptyEntries);
-            Assert.HasCount(26, applyActions);
+            Assert.HasCount(28, applyActions);
             Assert.IsTrue(applyActions.All(line =>
                 line.StartsWith("Create ", StringComparison.Ordinal)));
             Assert.AreEqual(string.Empty, applyError.ToString());
@@ -133,9 +133,9 @@ public sealed class DatabaseBatchCliIntegrationTests
                         '/',
                         Path.DirectorySeparatorChar)),
                 new UTF8Encoding(false, true)));
-            Assert.HasCount(26, manifest.Artifacts);
+            Assert.HasCount(28, manifest.Artifacts);
             Assert.AreEqual(
-                27,
+                29,
                 Directory.GetFiles(
                     workspacePath,
                     "*",
@@ -160,7 +160,7 @@ public sealed class DatabaseBatchCliIntegrationTests
 
             Assert.AreEqual(0, repeatExitCode, repeatError.ToString());
             Assert.AreEqual(
-                26,
+                28,
                 repeatOutput.ToString().Split(
                     Environment.NewLine,
                     StringSplitOptions.RemoveEmptyEntries).Count(line =>

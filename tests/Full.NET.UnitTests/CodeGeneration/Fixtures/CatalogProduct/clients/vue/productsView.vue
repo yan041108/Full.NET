@@ -48,7 +48,7 @@ const {
   update,
   remove
 } = useProductPage({
-  request: (path, init) => http.request(path, init),
+  request: http,
   hasPermission: permission => session.can(permission),
   onProblem: (error, fallbackCode) => {
     problem.value = isFullNetProblemDetails(error)

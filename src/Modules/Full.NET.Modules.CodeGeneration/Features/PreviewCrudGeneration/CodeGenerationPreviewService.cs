@@ -80,6 +80,7 @@ internal sealed class CodeGenerationPreviewService(
             GeneratedArtifactKind.IntegrationTestTemplate =>
                 "integration_test_template",
             GeneratedArtifactKind.VueView => "vue_view",
+            GeneratedArtifactKind.OpenApiContract => "openapi_contract",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(kind),
                 kind,

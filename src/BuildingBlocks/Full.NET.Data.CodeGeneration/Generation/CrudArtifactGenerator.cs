@@ -66,6 +66,10 @@ public static class CrudArtifactGenerator
                 GeneratedArtifactKind.VueView,
                 CrudVueViewGenerator.Generate(schema)),
             new GeneratedArtifact(
+                $"contracts/openapi/{schema.ApiResourceName}.generated.openapi.json",
+                GeneratedArtifactKind.OpenApiContract,
+                CrudOpenApiContractGenerator.Generate(schema)),
+            new GeneratedArtifact(
                 $"backend/{schema.ClrTypeName}AuthorizationContributor.fragment.cs",
                 GeneratedArtifactKind.Backend,
                 CrudAuthorizationContributorFragmentGenerator.Generate(schema)),
@@ -263,7 +267,123 @@ public static class CrudArtifactGenerator
             """");
     }
 
-    private static string GenerateVueClient(FullNetCrudSchema schema)
+    private static string GenerateVueClient(FullNetCrudSchema schema) =>
+        GenerateOpenApiVueClient(schema);
+
+    private static string GenerateOpenApiVueClient(FullNetCrudSchema schema)
+    {
+        var entity = schema.ClrTypeName;
+        var resource = HttpSegmentToPascalCase(schema.ApiResourceName);
+        var operationPrefix = LowerFirst(HttpSegmentToPascalCase(schema.ModuleKey));
+        var apiFactoryName = HttpSegmentToPascalCase(schema.ApiResourceName);
+        var action = schema.UsesLegacyEntityCapabilities ? "Disable" : "Delete";
+        var actionMember = schema.UsesLegacyEntityCapabilities ? "disable" : "delete";
+        var operationImports = new List<string>
+        {
+            $"{operationPrefix}Create{entity}",
+            $"{operationPrefix}List{resource}",
+        };
+        var typeImports = new List<string>
+        {
+            $"Create{entity}Request",
+            "HttpClient",
+            $"{entity}Response",
+        };
+        if (schema.EntityCapabilities.CanUpdate)
+        {
+            operationImports.Add($"{operationPrefix}Update{entity}");
+            typeImports.Add($"Update{entity}Request");
+        }
+        if (schema.EntityCapabilities.CanDelete)
+        {
+            operationImports.Add($"{operationPrefix}{action}{entity}");
+            if (schema.HasVersion)
+            {
+                typeImports.Add($"{action}{entity}Request");
+            }
+        }
+
+        var imports = string.Join(",\n", operationImports
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .Select(value => $"  {value}")
+            .Concat(typeImports
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .Select(value => $"  type {value}")));
+        var exportedTypes = string.Join(",\n", typeImports
+            .Where(value => value != "HttpClient")
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .Select(value => $"  type {value}"));
+        var updateMember = schema.EntityCapabilities.CanUpdate
+            ? $$"""
+            update: (id: string, input: Update{{entity}}Request) =>
+              {{operationPrefix}}Update{{entity}}(
+                http,
+                { {{LowerFirst(entity)}}Id: id, body: input }
+              )
+            """
+            : string.Empty;
+        var actionInputType = schema.HasVersion
+            ? $", input: {action}{entity}Request"
+            : string.Empty;
+        var actionBody = schema.HasVersion ? ", body: input" : string.Empty;
+        var deleteMember = schema.EntityCapabilities.CanDelete
+            ? $$"""
+            {{actionMember}}: (id: string{{actionInputType}}) =>
+              {{operationPrefix}}{{action}}{{entity}}(
+                http,
+                { {{LowerFirst(entity)}}Id: id{{actionBody}} }
+              )
+            """
+            : string.Empty;
+        var additionalMembers = new[] { updateMember, deleteMember }
+            .Where(value => value.Length > 0)
+            .ToArray();
+        var renderedAdditionalMembers = additionalMembers.Length == 0
+            ? string.Empty
+            : ",\n" + IndentLines(string.Join(",\n", additionalMembers), 4);
+        var permissionMembers = schema.UsesLegacyEntityCapabilities
+            ? $$"""
+              read: '{{schema.ReadPermission}}',
+              write: '{{schema.WritePermission}}'
+            """
+            : $$"""
+              read: '{{schema.ReadPermission}}',
+              create: '{{schema.CreatePermission}}',
+              update: '{{schema.UpdatePermission}}',
+              disable: '{{schema.DisablePermission}}',
+              write: '{{schema.WritePermission}}'
+            """;
+
+        return Normalize(
+            $$"""
+            import {
+            {{imports}}
+            } from '@fullnet/client-contracts';
+
+            export {
+            {{exportedTypes}}
+            } from '@fullnet/client-contracts';
+
+            export type GeneratedRequest = HttpClient;
+
+            export const {{LowerFirst(entity)}}Permissions = {
+            {{permissionMembers}}
+            } as const;
+
+            export function create{{apiFactoryName}}Api(
+              http: GeneratedRequest
+            ) {
+              return {
+                list: (page = 1, pageSize = 20) =>
+                  {{operationPrefix}}List{{resource}}(http, { page, pageSize }),
+                create: (input: Create{{entity}}Request) =>
+                  {{operationPrefix}}Create{{entity}}(http, { body: input }){{renderedAdditionalMembers}}
+              };
+            }
+            """);
+    }
+
+    private static string GenerateLegacyVueClient(FullNetCrudSchema schema)
     {
         if (!schema.UsesLegacyEntityCapabilities)
         {

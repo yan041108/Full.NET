@@ -53,7 +53,8 @@ export type CodeGenerationArtifactKind =
   | 'layui_client'
   | 'report'
   | 'migration_template'
-  | 'integration_test_template';
+  | 'integration_test_template'
+  | 'openapi_contract';
 
 export type CodeGenerationColumnControlKind =
   | 'text'
@@ -249,7 +250,8 @@ const artifactKinds = new Set<CodeGenerationArtifactKind>([
   'layui_client',
   'report',
   'migration_template',
-  'integration_test_template'
+  'integration_test_template',
+  'openapi_contract'
 ]);
 const sha256Pattern = /^[0-9a-f]{64}$/;
 

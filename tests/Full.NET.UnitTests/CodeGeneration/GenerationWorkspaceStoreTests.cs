@@ -44,6 +44,31 @@ public sealed class GenerationWorkspaceStoreTests
     }
 
     [TestMethod]
+    public async Task Openapi_contract_round_trips_through_workspace_store()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        var artifact = new GeneratedArtifact(
+            "contracts/openapi/products.generated.openapi.json",
+            GeneratedArtifactKind.OpenApiContract,
+            "{\"openapi\":\"3.1.0\"}\n");
+        var snapshot = await GenerationWorkspaceStore.CaptureAsync(
+            workspace.RootPath,
+            [artifact]);
+        var plan = GenerationWritePlanner.Plan(
+            [artifact],
+            snapshot.ExistingFiles,
+            snapshot.PreviousManifest);
+
+        await GenerationWorkspaceStore.ApplyAsync(workspace.RootPath, plan);
+
+        Assert.AreEqual(artifact.Content, workspace.Read(artifact.RelativePath));
+        var manifest = GenerationManifest.Parse(workspace.Read(
+            GenerationWorkspaceStore.ManifestRelativePath));
+        Assert.IsTrue(manifest.TryGetSha256(artifact.RelativePath, out var sha256));
+        Assert.AreEqual(Hash(artifact.Content), sha256);
+    }
+
+    [TestMethod]
     public async Task Capture_rejects_missing_root_invalid_utf8_and_bom()
     {
         using var workspace = TemporaryWorkspace.Create();

@@ -134,7 +134,7 @@ internal static class CrudVueViewGenerator
             const {
               {{returned}}
             } = {{pageHook}}({
-              request: (path, init) => http.request(path, init),
+              request: http,
               hasPermission: permission => session.can(permission),
               onProblem: (error, fallbackCode) => {
                 problem.value = isFullNetProblemDetails(error)

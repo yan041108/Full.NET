@@ -34,6 +34,7 @@ public sealed class CrudArtifactGeneratorTests
                 "clients/vue/products-page.generated.ts",
                 "clients/vue/products.generated.ts",
                 "clients/vue/productsView.vue",
+                "contracts/openapi/products.generated.openapi.json",
                 "reports/products.generation.json",
                 "templates/migrations/MySql/CreateProduct.sql.template",
                 "templates/migrations/SqlServer/CreateProduct.sql.template",
@@ -191,6 +192,18 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(
             endpoint,
             "MapGeneratedProductFeature");
+        StringAssert.Contains(endpoint, ".WithTags(\"CatalogProducts\")");
+        foreach (var operationId in new[]
+        {
+            "catalogListProducts",
+            "catalogGetProduct",
+            "catalogCreateProduct",
+            "catalogUpdateProduct",
+            "catalogDisableProduct",
+        })
+        {
+            StringAssert.Contains(endpoint, $".WithName(\"{operationId}\")");
+        }
         StringAssert.Contains(
             endpoint,
             "[JsonSerializable(typeof(PagedResult<ProductResponse>))]");
@@ -336,23 +349,80 @@ public sealed class CrudArtifactGeneratorTests
         var vue = Artifact(artifacts, "clients/vue/products.generated.ts");
         var layui = Artifact(artifacts, "clients/layui/products.generated.js");
 
+        StringAssert.Contains(layui, "/api/v1/catalog/products");
         foreach (var content in new[] { vue, layui })
         {
-            StringAssert.Contains(content, "/api/v1/catalog/products");
             StringAssert.Contains(content, "catalog.products.read");
             StringAssert.Contains(content, "catalog.products.write");
         }
 
-        StringAssert.Contains(vue, "export interface ProductResponse");
+        Assert.IsFalse(vue.Contains("/api/v1/", StringComparison.Ordinal));
+        Assert.IsFalse(vue.Contains("request<ProductResponse>", StringComparison.Ordinal));
+        Assert.IsFalse(vue.Contains("export interface ProductResponse", StringComparison.Ordinal));
+        StringAssert.Contains(vue, "catalogListProducts");
+        StringAssert.Contains(vue, "catalogCreateProduct");
+        StringAssert.Contains(vue, "catalogUpdateProduct");
+        StringAssert.Contains(vue, "catalogDisableProduct");
+        StringAssert.Contains(vue, "type ProductResponse");
         StringAssert.Contains(vue, "export function createProductsApi");
-        StringAssert.Contains(vue, "description: string | null;");
-        StringAssert.Contains(vue, "version: string;");
         StringAssert.Contains(
             vue,
             "disable: (id: string, input: DisableProductRequest)");
         StringAssert.Contains(layui, "export function createProductsApi");
         StringAssert.Contains(layui, "disable(id, input)");
         StringAssert.Contains(layui, "jsonRequest('POST', input)");
+    }
+
+    [TestMethod]
+    public void Generate_emits_standard_openapi_contract_for_client_generation()
+    {
+        var artifacts = GenerateWithLayui(
+            FullNetCrudSchemaTests.CreateProductSchema());
+        var openApiArtifact = artifacts.Single(artifact =>
+            artifact.RelativePath == "contracts/openapi/products.generated.openapi.json");
+
+        Assert.AreEqual(GeneratedArtifactKind.OpenApiContract, openApiArtifact.Kind);
+        using var document = JsonDocument.Parse(openApiArtifact.Content);
+        var root = document.RootElement;
+        Assert.AreEqual("3.1.0", root.GetProperty("openapi").GetString());
+
+        var paths = root.GetProperty("paths");
+        var collectionPath = paths.GetProperty("/api/v1/catalog/products");
+        Assert.AreEqual(
+            "catalogListProducts",
+            collectionPath.GetProperty("get").GetProperty("operationId").GetString());
+        Assert.AreEqual(
+            "catalogCreateProduct",
+            collectionPath.GetProperty("post").GetProperty("operationId").GetString());
+        var itemPath = paths.GetProperty("/api/v1/catalog/products/{productId}");
+        Assert.AreEqual(
+            "catalogUpdateProduct",
+            itemPath.GetProperty("put").GetProperty("operationId").GetString());
+        Assert.AreEqual(
+            "catalogDisableProduct",
+            paths.GetProperty("/api/v1/catalog/products/{productId}/disable")
+                .GetProperty("post")
+                .GetProperty("operationId")
+                .GetString());
+        CollectionAssert.AreEqual(
+            new[] { "CatalogProducts" },
+            collectionPath.GetProperty("get").GetProperty("tags")
+                .EnumerateArray().Select(item => item.GetString()).ToArray());
+
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        foreach (var schemaName in new[]
+        {
+            "ProductResponse",
+            "CreateProductRequest",
+            "UpdateProductRequest",
+            "DisableProductRequest",
+            "PagedResultOfProductResponse",
+            "ProblemDetails",
+        })
+        {
+            Assert.IsTrue(schemas.TryGetProperty(schemaName, out _),
+                $"生成 OpenAPI 缺少 Schema：{schemaName}");
+        }
     }
 
     [TestMethod]
@@ -893,7 +963,6 @@ public sealed class CrudArtifactGeneratorTests
                         "createdAtUtc",
                         FullNetScalarType.DateTimeUtc),
                 ]));
-        var vue = Artifact(artifacts, "clients/vue/products.generated.ts");
         var contracts = Artifact(artifacts, "backend/ProductContracts.g.cs");
         var sqlServerMigration = Artifact(
             artifacts,
@@ -904,14 +973,26 @@ public sealed class CrudArtifactGeneratorTests
         using var report = JsonDocument.Parse(Artifact(
             artifacts,
             "reports/products.generation.json"));
+        using var openApi = JsonDocument.Parse(Artifact(
+            artifacts,
+            "contracts/openapi/products.generated.openapi.json"));
         var priceReport = report.RootElement
             .GetProperty("columns")
             .EnumerateArray()
             .Single(column =>
                 column.GetProperty("databaseName").GetString() == "Price");
 
-        StringAssert.Contains(vue, "price: string;");
-        StringAssert.Contains(vue, "version: string;");
+        var responseProperties = openApi.RootElement
+            .GetProperty("components")
+            .GetProperty("schemas")
+            .GetProperty("ProductResponse")
+            .GetProperty("properties");
+        Assert.AreEqual(
+            "string",
+            responseProperties.GetProperty("price").GetProperty("type").GetString());
+        Assert.AreEqual(
+            "string",
+            responseProperties.GetProperty("version").GetProperty("type").GetString());
         StringAssert.Contains(
             contracts,
             """JsonNumberHandling.WriteAsString)] decimal Price""");

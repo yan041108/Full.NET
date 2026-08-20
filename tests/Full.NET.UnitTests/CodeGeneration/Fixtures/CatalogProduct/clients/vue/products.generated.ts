@@ -1,41 +1,23 @@
-export interface ProductResponse {
-  id: string;
-  tenantId: string;
-  displayName: string;
-  description: string | null;
-  isActive: boolean;
-  version: string;
-  createdAtUtc: string;
-}
+import {
+  catalogCreateProduct,
+  catalogDisableProduct,
+  catalogListProducts,
+  catalogUpdateProduct,
+  type CreateProductRequest,
+  type DisableProductRequest,
+  type HttpClient,
+  type ProductResponse,
+  type UpdateProductRequest
+} from '@fullnet/client-contracts';
 
-export interface CreateProductRequest {
-  displayName: string;
-  description: string | null;
-  isActive: boolean;
-}
+export {
+  type CreateProductRequest,
+  type DisableProductRequest,
+  type ProductResponse,
+  type UpdateProductRequest
+} from '@fullnet/client-contracts';
 
-export interface UpdateProductRequest {
-  displayName: string;
-  description: string | null;
-  isActive: boolean;
-  version: string;
-}
-
-export interface DisableProductRequest {
-  version: string;
-}
-
-export interface GeneratedPage<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-}
-
-export type GeneratedRequest = <T>(
-  path: string,
-  init?: RequestInit
-) => Promise<T>;
+export type GeneratedRequest = HttpClient;
 
 export const productPermissions = {
   read: 'catalog.products.read',
@@ -43,33 +25,22 @@ export const productPermissions = {
 } as const;
 
 export function createProductsApi(
-  request: GeneratedRequest
+  http: GeneratedRequest
 ) {
-  const basePath = '/api/v1/catalog/products';
   return {
     list: (page = 1, pageSize = 20) =>
-      request<GeneratedPage<ProductResponse>>(
-        `${basePath}?page=${page}&pageSize=${pageSize}`
-      ),
+      catalogListProducts(http, { page, pageSize }),
     create: (input: CreateProductRequest) =>
-      request<ProductResponse>(basePath, jsonRequest('POST', input)),
+      catalogCreateProduct(http, { body: input }),
     update: (id: string, input: UpdateProductRequest) =>
-      request<ProductResponse>(
-        `${basePath}/${encodeURIComponent(id)}`,
-        jsonRequest('PUT', input)
+      catalogUpdateProduct(
+        http,
+        { productId: id, body: input }
       ),
     disable: (id: string, input: DisableProductRequest) =>
-      request<ProductResponse>(
-        `${basePath}/${encodeURIComponent(id)}/disable`,
-        jsonRequest('POST', input)
+      catalogDisableProduct(
+        http,
+        { productId: id, body: input }
       )
-  };
-}
-
-function jsonRequest(method: 'POST' | 'PUT', body: unknown): RequestInit {
-  return {
-    method,
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body)
   };
 }

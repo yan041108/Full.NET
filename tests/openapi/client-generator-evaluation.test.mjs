@@ -119,6 +119,46 @@ test('三个 Vue 试点 API 只保留生成 Operation 薄适配层', async () =>
   assert.match(combined, /settingsBatchDeleteHostConfigEntries\(/u);
 });
 
+test('CRUD Golden OpenAPI 通过就绪门禁并进入同一客户端生成入口', async () => {
+  const fixturePath = path.join(
+    repositoryRoot,
+    'tests',
+    'Full.NET.UnitTests',
+    'CodeGeneration',
+    'Fixtures',
+    'CatalogProduct',
+    'contracts',
+    'openapi',
+    'products.generated.openapi.json'
+  );
+  const document = JSON.parse(await readFile(fixturePath, 'utf8'));
+  const { validateClientGenerationReadiness } = await import(
+    '../../scripts/openapi/validate-client-generation-readiness.mjs'
+  );
+  const { generateFullNetClient } = await import(
+    '../../scripts/openapi/generate-fullnet-client.mjs'
+  );
+  assert.deepEqual(validateClientGenerationReadiness(document), []);
+
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'fullnet-crud-openapi-'));
+  try {
+    await generateFullNetClient({
+      inputPath: fixturePath,
+      outputDirectory: temporaryRoot
+    });
+    const files = await readGeneratedFiles(temporaryRoot);
+    assert.match(files['models.generated.ts'], /export interface ProductResponse/u);
+    assert.match(files['guards.generated.ts'], /export function readProductResponse/u);
+    assert.match(files['operations.generated.ts'], /export async function catalogListProducts/u);
+    assert.match(files['operations.generated.ts'], /export async function catalogCreateProduct/u);
+    assert.match(files['operations.generated.ts'], /export async function catalogUpdateProduct/u);
+    assert.match(files['operations.generated.ts'], /export async function catalogDisableProduct/u);
+    assert.doesNotMatch(files['operations.generated.ts'], /request<ProductResponse>/u);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 async function readGeneratedFiles(directory) {
   const entries = await Promise.all(expectedFileNames.map(async fileName => [
     fileName,

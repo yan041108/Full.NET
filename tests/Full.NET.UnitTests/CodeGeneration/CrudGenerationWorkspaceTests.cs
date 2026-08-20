@@ -17,7 +17,7 @@ public sealed class CrudGenerationWorkspaceTests
             FullNetCrudSchemaTests.CreateProductSchema());
 
         Assert.IsTrue(plan.CanApply);
-        Assert.AreEqual(13, plan.Actions.Count);
+        Assert.AreEqual(14, plan.Actions.Count);
         Assert.IsTrue(plan.Actions.All(
             action => action.Kind == GenerationWriteActionKind.Create));
         Assert.IsFalse(Directory.Exists(
@@ -40,7 +40,7 @@ public sealed class CrudGenerationWorkspaceTests
             [product, order]);
 
         Assert.IsTrue(plan.CanApply);
-        Assert.AreEqual(26, plan.Actions.Count);
+        Assert.AreEqual(28, plan.Actions.Count);
         Assert.IsTrue(plan.Actions.All(
             action => action.Kind == GenerationWriteActionKind.Create));
         Assert.IsTrue(plan.Actions.Any(
@@ -82,18 +82,18 @@ public sealed class CrudGenerationWorkspaceTests
             [product, order]);
 
         Assert.IsTrue(first.CanApply);
-        Assert.HasCount(26, first.Actions);
+        Assert.HasCount(28, first.Actions);
         Assert.IsTrue(first.Actions.All(
             action => action.Kind == GenerationWriteActionKind.Create));
         Assert.IsTrue(second.CanApply);
-        Assert.HasCount(26, second.Actions);
+        Assert.HasCount(28, second.Actions);
         Assert.IsTrue(second.Actions.All(
             action => action.Kind == GenerationWriteActionKind.Unchanged));
         var manifest = GenerationManifest.Parse(workspace.Read(
             GenerationWorkspaceStore.ManifestRelativePath));
-        Assert.HasCount(26, manifest.Artifacts);
+        Assert.HasCount(28, manifest.Artifacts);
         Assert.AreEqual(
-            27,
+            29,
             Directory.GetFiles(
                 workspace.RootPath,
                 "*",

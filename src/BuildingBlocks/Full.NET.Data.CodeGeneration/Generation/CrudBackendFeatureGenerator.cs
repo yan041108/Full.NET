@@ -392,7 +392,9 @@ internal static class CrudBackendFeatureGenerator
 
         var entity = LowerFirst(schema.ClrTypeName);
         var idParameter = $"{entity}Id";
-        var moduleTag = UpperFirst(schema.ModuleKey);
+        var moduleTag = PrimaryTag(schema);
+        var operationPrefix = OperationPrefix(schema);
+        var resourceName = HttpSegmentToPascalCase(schema.ApiResourceName);
         var apiPath = $"/api/v1/{schema.ModuleKey}/{schema.ApiResourceName}";
         var itemRoute = $"/{{{idParameter}:guid}}";
         var disableParameters = schema.HasVersion
@@ -459,6 +461,7 @@ internal static class CrudBackendFeatureGenerator
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
+                    .WithName("{{operationPrefix}}List{{resourceName}}")
                     .Produces<PagedResult<{{schema.ClrTypeName}}Response>>(
                         StatusCodes.Status200OK)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
@@ -477,6 +480,7 @@ internal static class CrudBackendFeatureGenerator
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
+                    .WithName("{{operationPrefix}}Get{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Read));
@@ -499,6 +503,7 @@ internal static class CrudBackendFeatureGenerator
                             $"{{apiPath}}/{result.Value!.Id:D}",
                             result.Value);
                     })
+                    .WithName("{{operationPrefix}}Create{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status201Created)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Write));
@@ -518,6 +523,7 @@ internal static class CrudBackendFeatureGenerator
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
+                    .WithName("{{operationPrefix}}Update{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Write));
@@ -531,6 +537,7 @@ internal static class CrudBackendFeatureGenerator
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
+                    .WithName("{{operationPrefix}}Disable{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Write));
@@ -1213,7 +1220,9 @@ internal static class CrudBackendFeatureGenerator
     {
         var entity = LowerFirst(schema.ClrTypeName);
         var idParameter = $"{entity}Id";
-        var moduleTag = UpperFirst(schema.ModuleKey);
+        var moduleTag = PrimaryTag(schema);
+        var operationPrefix = OperationPrefix(schema);
+        var resourceName = HttpSegmentToPascalCase(schema.ApiResourceName);
         var apiPath = $"/api/v1/{schema.ModuleKey}/{schema.ApiResourceName}";
         var itemRoute = $"/{{{idParameter}:guid}}";
         var updateEndpoint = schema.EntityCapabilities.CanUpdate
@@ -1424,17 +1433,20 @@ internal static class CrudBackendFeatureGenerator
                         .WithTags("{{moduleTag}}");
 
             {{IndentLines(listEndpointHandler, 8)}}
+                    .WithName("{{operationPrefix}}List{{resourceName}}")
                     .Produces<PagedResult<{{schema.ClrTypeName}}Response>>(
                         StatusCodes.Status200OK)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Read));
 
             {{IndentLines(getByIdEndpointHandler, 8)}}
+                    .WithName("{{operationPrefix}}Get{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Read));
 
             {{IndentLines(createEndpointHandler, 8)}}
+                    .WithName("{{operationPrefix}}Create{{schema.ClrTypeName}}")
                     .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status201Created)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Create));
@@ -1515,6 +1527,7 @@ internal static class CrudBackendFeatureGenerator
                     .ConfigureAwait(false);
                 return mapper.Map(result, httpContext);
             })
+            .WithName("{{OperationPrefix(schema)}}Update{{schema.ClrTypeName}}")
             .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
             .RequireAuthorization(FullNetPermissionPolicies.For(
                 {{schema.ClrTypeName}}Permissions.Update));
@@ -1553,6 +1566,7 @@ internal static class CrudBackendFeatureGenerator
                     .ConfigureAwait(false);
                 return mapper.Map(result, httpContext);
             })
+            .WithName("{{OperationPrefix(schema)}}Delete{{schema.ClrTypeName}}")
             .Produces<{{schema.ClrTypeName}}Response>(StatusCodes.Status200OK)
             .RequireAuthorization(FullNetPermissionPolicies.For(
                 {{schema.ClrTypeName}}Permissions.Disable));
@@ -1802,6 +1816,16 @@ internal static class CrudBackendFeatureGenerator
 
     private static string UpperFirst(string value) =>
         string.Concat(char.ToUpperInvariant(value[0]), value[1..]);
+
+    private static string HttpSegmentToPascalCase(string value) =>
+        string.Concat(value.Split('-', StringSplitOptions.None).Select(UpperFirst));
+
+    private static string OperationPrefix(FullNetCrudSchema schema) =>
+        LowerFirst(HttpSegmentToPascalCase(schema.ModuleKey));
+
+    private static string PrimaryTag(FullNetCrudSchema schema) =>
+        $"{HttpSegmentToPascalCase(schema.ModuleKey)}"
+        + HttpSegmentToPascalCase(schema.ApiResourceName);
 
     private static string LowerFirst(string value) =>
         string.Concat(char.ToLowerInvariant(value[0]), value[1..]);

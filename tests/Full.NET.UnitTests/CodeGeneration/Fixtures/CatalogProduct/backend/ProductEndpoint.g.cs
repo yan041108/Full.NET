@@ -22,7 +22,7 @@ internal static class ProductEndpoint
     internal static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/catalog/products")
-            .WithTags("Catalog");
+            .WithTags("CatalogProducts");
 
         group.MapGet("/", async (
             int? page,
@@ -39,6 +39,7 @@ internal static class ProductEndpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("catalogListProducts")
         .Produces<PagedResult<ProductResponse>>(
             StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
@@ -57,6 +58,7 @@ internal static class ProductEndpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("catalogGetProduct")
         .Produces<ProductResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Read));
@@ -79,6 +81,7 @@ internal static class ProductEndpoint
                 $"/api/v1/catalog/products/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("catalogCreateProduct")
         .Produces<ProductResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Write));
@@ -98,6 +101,7 @@ internal static class ProductEndpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("catalogUpdateProduct")
         .Produces<ProductResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Write));
@@ -116,6 +120,7 @@ internal static class ProductEndpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("catalogDisableProduct")
         .Produces<ProductResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             ProductPermissions.Write));

@@ -25,6 +25,9 @@ public enum GeneratedArtifactKind
 
     /// <summary>可落地的 Vue 3 SFC 页面，消费页面模型而不是再发明状态机。</summary>
     VueView = 7,
+
+    /// <summary>供统一客户端生成入口消费的标准 OpenAPI 契约。</summary>
+    OpenApiContract = 8,
 }
 
 /// <summary>

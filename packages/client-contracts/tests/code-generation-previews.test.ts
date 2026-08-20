@@ -47,6 +47,10 @@ describe('code-generation preview contracts', () => {
   it('accepts explicit schema inputs and stable artifact responses', () => {
     expect(isCodeGenerationPreviewRequest(request)).toBe(true);
     expect(isCodeGenerationPreviewResponse(response)).toBe(true);
+    expect(isCodeGenerationPreviewResponse({
+      ...response,
+      artifacts: [{ ...response.artifacts[0], kind: 'openapi_contract' }]
+    })).toBe(true);
   });
 
   it('accepts canonical entity capabilities and scene machine codes', () => {

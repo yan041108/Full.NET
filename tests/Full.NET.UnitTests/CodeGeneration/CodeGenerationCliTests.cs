@@ -74,7 +74,7 @@ public sealed class CodeGenerationCliTests
             applyOutput.ToString(),
             "Create backend/ProductContracts.g.cs");
         Assert.AreEqual(
-            13,
+            14,
             previewOutput
                 .ToString()
                 .Split(

@@ -220,6 +220,38 @@ public sealed class GenerationWritePlannerTests
     }
 
     [TestMethod]
+    public void Plan_openapi_contract_obeys_digest_ownership_rules()
+    {
+        const string path = "contracts/openapi/products.generated.openapi.json";
+        var artifact = new GeneratedArtifact(
+            path,
+            GeneratedArtifactKind.OpenApiContract,
+            "{\"openapi\":\"3.1.0\"}\n");
+        var manifest = GenerationManifest.Create(
+            [new(path, Hash("{\"openapi\":\"3.0.0\"}\n"))]);
+
+        var update = GenerationWritePlanner.Plan(
+            [artifact],
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [path] = "{\"openapi\":\"3.0.0\"}\n",
+            },
+            manifest);
+        Assert.IsTrue(update.CanApply);
+        Assert.AreEqual(GenerationWriteActionKind.Update, update.Actions.Single().Kind);
+
+        var conflict = GenerationWritePlanner.Plan(
+            [artifact],
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [path] = "{\"userEdit\":true}\n",
+            },
+            manifest);
+        Assert.IsFalse(conflict.CanApply);
+        Assert.AreEqual(GenerationWriteActionKind.Conflict, conflict.Actions.Single().Kind);
+    }
+
+    [TestMethod]
     public void Plan_modified_or_unowned_existing_file_reports_conflict()
     {
         var ownedPath = "backend/owned.g.cs";

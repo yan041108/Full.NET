@@ -127,9 +127,13 @@ public sealed class CodeGenerationPreviewServiceTests
                 .ToArray());
         Assert.IsTrue(result.Value.Artifacts.All(
             artifact => artifact.Sha256.Length == 64));
+        var vueClient = result.Value.Artifacts.Single(
+            artifact => artifact.Path == "clients/vue/products.generated.ts");
+        Assert.IsFalse(vueClient.Content.Contains("/api/v1/", StringComparison.Ordinal));
+        StringAssert.Contains(vueClient.Content, "catalogListProducts");
         StringAssert.Contains(
-            result.Value.Artifacts.Single(
-                artifact => artifact.Path == "clients/vue/products.generated.ts")
+            result.Value.Artifacts.Single(artifact =>
+                artifact.Path == "contracts/openapi/products.generated.openapi.json")
                 .Content,
             "/api/v1/catalog/products");
     }
