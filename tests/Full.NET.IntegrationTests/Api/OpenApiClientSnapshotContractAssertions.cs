@@ -63,8 +63,10 @@ internal static class OpenApiClientSnapshotContractAssertions
                 "contracts",
                 "openapi",
                 "fullnet-client-v1.openapi.json");
-            var expected = await File.ReadAllTextAsync(expectedPath, cancellationToken);
-            var actual = await File.ReadAllTextAsync(normalizedPath, cancellationToken);
+            var expected = (await File.ReadAllTextAsync(expectedPath, cancellationToken))
+                .ReplaceLineEndings("\n");
+            var actual = (await File.ReadAllTextAsync(normalizedPath, cancellationToken))
+                .ReplaceLineEndings("\n");
             Assert.AreEqual(
                 expected,
                 actual,
