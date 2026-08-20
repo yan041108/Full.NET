@@ -8,6 +8,8 @@ const defaultRepositoryRoot = path.resolve(
 );
 
 const manifestRelativePath = 'contracts/openapi/vue-client-coverage-v1.json';
+const clientGenerationManifestRelativePath = 'contracts/openapi/client-generation-manifest-v1.json';
+const clientOpenApiSnapshotRelativePath = 'contracts/openapi/fullnet-client-v1.openapi.json';
 const apiDirectoryRelativePath = 'ui/admin/src/api';
 const clientContractsIndexRelativePath = 'packages/client-contracts/src/index.ts';
 const allowedLocalInterfaceSuffix = /(Params|Options|Filters?|Query)$/u;
@@ -52,6 +54,33 @@ function fixtureHasRoutePrefix(fixture, routePrefix) {
 
 function apiSourceHasRoutePrefix(source, routePrefix) {
   return source.includes(routePrefix);
+}
+
+function collectOperationPaths(document) {
+  const operationPaths = new Map();
+  for (const [operationPath, pathItem] of Object.entries(document.paths ?? {})) {
+    for (const operation of Object.values(pathItem ?? {})) {
+      if (typeof operation?.operationId === 'string') {
+        operationPaths.set(operation.operationId, operationPath);
+      }
+    }
+  }
+  return operationPaths;
+}
+
+function generatedSourceHasRoutePrefix(
+  apiModule,
+  apiSource,
+  routePrefix,
+  generatedEntriesByModule,
+  generatedOperationPaths
+) {
+  const entries = generatedEntriesByModule.get(apiModule) ?? [];
+  return entries.some((entry) => {
+    const operationPath = generatedOperationPaths.get(entry.operationId);
+    return apiSource.includes(entry.operationId)
+      && (operationPath === routePrefix || operationPath?.startsWith(`${routePrefix}/`));
+  });
 }
 
 function collectForbiddenLocalInterfaces(source) {
@@ -108,6 +137,30 @@ export async function validateVueClientContractCoverage(repositoryRoot = default
   if (forbiddenExemptionPattern.test(JSON.stringify(manifest))) {
     violations.push('Manifest must not contain manual, legacy, or TODO exemptions');
   }
+
+  let clientGenerationManifest;
+  let clientOpenApiSnapshot;
+  try {
+    clientGenerationManifest = JSON.parse(await readFile(
+      path.join(root, clientGenerationManifestRelativePath),
+      'utf8'
+    ));
+    clientOpenApiSnapshot = JSON.parse(await readFile(
+      path.join(root, clientOpenApiSnapshotRelativePath),
+      'utf8'
+    ));
+  } catch (error) {
+    violations.push(`Unable to read generated client coverage inputs: ${error.message}`);
+    return violations;
+  }
+
+  const generatedEntriesByModule = new Map();
+  for (const generatedEntry of clientGenerationManifest.entries ?? []) {
+    const entries = generatedEntriesByModule.get(generatedEntry.apiModule) ?? [];
+    entries.push(generatedEntry);
+    generatedEntriesByModule.set(generatedEntry.apiModule, entries);
+  }
+  const generatedOperationPaths = collectOperationPaths(clientOpenApiSnapshot);
 
   const productionModules = await collectProductionApiModules(root);
   const manifestByModule = new Map(manifest.entries.map((entry) => [entry.apiModule, entry]));
@@ -181,8 +234,15 @@ export async function validateVueClientContractCoverage(repositoryRoot = default
     }
 
     for (const routePrefix of entry.routePrefixes) {
-      if (!apiSourceHasRoutePrefix(apiSource, routePrefix)) {
-        violations.push(`${entry.apiModule}: route prefix ${routePrefix} is not present in API module source`);
+      if (!apiSourceHasRoutePrefix(apiSource, routePrefix)
+        && !generatedSourceHasRoutePrefix(
+          entry.apiModule,
+          apiSource,
+          routePrefix,
+          generatedEntriesByModule,
+          generatedOperationPaths
+        )) {
+        violations.push(`${entry.apiModule}: route prefix ${routePrefix} is not covered by API source or generated operation binding`);
       }
       if (!fixtureHasRoutePrefix(fixture, routePrefix)) {
         violations.push(`${entry.apiModule}: route prefix ${routePrefix} is not present in ${entry.openApiFixture}`);

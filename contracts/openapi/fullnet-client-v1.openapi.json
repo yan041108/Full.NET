@@ -1928,6 +1928,14 @@
             "type": "string"
           },
           "valueKind": {
+            "enum": [
+              "string",
+              "boolean",
+              "integer",
+              "decimal",
+              "json",
+              "secret"
+            ],
             "type": "string"
           },
           "version": {
@@ -2003,6 +2011,14 @@
             "type": "string"
           },
           "valueKind": {
+            "enum": [
+              "string",
+              "boolean",
+              "integer",
+              "decimal",
+              "json",
+              "secret"
+            ],
             "type": "string"
           }
         },

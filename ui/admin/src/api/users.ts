@@ -1,31 +1,34 @@
 import {
-  isHostUser,
-  isHostUserPage,
-  isHostUserRoles,
+  identityBatchDisableHostUsers,
+  identityBatchEnableHostUsers,
+  identityCreateHostUser,
+  identityDisableHostUser,
+  identityEnableHostUser,
+  identityExportHostUsers,
+  identityGetHostUserRoles,
+  identityImportHostUsers,
+  identityListHostUsers,
+  identityReplaceHostUserRoles,
+  identityResetHostUserPassword,
+  identityUpdateHostUser,
   type HostUser,
   type HostUserPage,
   type HostUserProfileWrite,
+  type HostUserProfileWriteRequest,
   type HostUserRoles
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export async function listHostUsers(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<HostUserPage> {
-  const value = await request<unknown>(
-    `/api/v1/identity/users?page=${page}&pageSize=${pageSize}`
-  );
-  if (!isHostUserPage(value)) throw new Error('client.invalid_host_user_page');
-  return value;
+  return identityListHostUsers(http, { page, pageSize }, signal);
 }
 
-export async function exportHostUsers(): Promise<HostUser[]> {
-  const value = await request<unknown>('/api/v1/identity/users/export');
-  if (!Array.isArray(value) || !value.every(isHostUser)) {
-    throw new Error('client.invalid_host_user_export');
-  }
-  return value;
+export async function exportHostUsers(signal?: AbortSignal): Promise<HostUser[]> {
+  return identityExportHostUsers(http, {}, signal);
 }
 
 export async function importHostUsers(
@@ -34,53 +37,35 @@ export async function importHostUsers(
     displayName: string;
     password: string;
     accountType?: string | null;
-  }>
+  }>,
+  signal?: AbortSignal
 ): Promise<{ succeededCount: number }> {
-  const value = await request<unknown>('/api/v1/identity/users/import', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ rows })
-  });
-  if (
-    typeof value !== 'object'
-    || value === null
-    || typeof (value as { succeededCount?: unknown }).succeededCount !== 'number'
-  ) {
-    throw new Error('client.invalid_host_user_import');
-  }
-  return { succeededCount: (value as { succeededCount: number }).succeededCount };
+  const result = await identityImportHostUsers(http, { body: { rows } }, signal);
+  return { succeededCount: result.succeededCount };
 }
 
-export async function batchDisableHostUsers(userIds: string[]): Promise<{ succeededCount: number }> {
-  const value = await request<unknown>('/api/v1/identity/users/batch-disable', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ userIds })
-  });
-  if (
-    typeof value !== 'object'
-    || value === null
-    || typeof (value as { succeededCount?: unknown }).succeededCount !== 'number'
-  ) {
-    throw new Error('client.invalid_host_user_batch');
-  }
-  return { succeededCount: (value as { succeededCount: number }).succeededCount };
+export async function batchDisableHostUsers(
+  userIds: string[],
+  signal?: AbortSignal
+): Promise<{ succeededCount: number }> {
+  const result = await identityBatchDisableHostUsers(
+    http,
+    { body: { userIds } },
+    signal
+  );
+  return { succeededCount: result.succeededCount };
 }
 
-export async function batchEnableHostUsers(userIds: string[]): Promise<{ succeededCount: number }> {
-  const value = await request<unknown>('/api/v1/identity/users/batch-enable', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ userIds })
-  });
-  if (
-    typeof value !== 'object'
-    || value === null
-    || typeof (value as { succeededCount?: unknown }).succeededCount !== 'number'
-  ) {
-    throw new Error('client.invalid_host_user_batch');
-  }
-  return { succeededCount: (value as { succeededCount: number }).succeededCount };
+export async function batchEnableHostUsers(
+  userIds: string[],
+  signal?: AbortSignal
+): Promise<{ succeededCount: number }> {
+  const result = await identityBatchEnableHostUsers(
+    http,
+    { body: { userIds } },
+    signal
+  );
+  return { succeededCount: result.succeededCount };
 }
 
 export async function createHostUser(
@@ -88,39 +73,32 @@ export async function createHostUser(
   displayName: string,
   password: string,
   profile?: HostUserProfileWrite | null,
-  accountType?: string | null
+  accountType?: string | null,
+  signal?: AbortSignal
 ): Promise<HostUser> {
-  const value = await request<unknown>('/api/v1/identity/users', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
+  return identityCreateHostUser(http, {
+    body: {
       username,
       displayName,
       password,
       accountType: accountType ?? undefined,
-      profile: profile ?? undefined
-    })
-  });
-  if (!isHostUser(value)) throw new Error('client.invalid_host_user');
-  return value;
+      profile: normalizeHostUserProfile(profile)
+    }
+  }, signal);
 }
 
-export async function disableHostUser(id: string): Promise<HostUser> {
-  const value = await request<unknown>(
-    `/api/v1/identity/users/${encodeURIComponent(id)}/disable`,
-    { method: 'POST' }
-  );
-  if (!isHostUser(value)) throw new Error('client.invalid_host_user');
-  return value;
+export async function disableHostUser(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostUser> {
+  return identityDisableHostUser(http, { userId: id }, signal);
 }
 
-export async function enableHostUser(id: string): Promise<HostUser> {
-  const value = await request<unknown>(
-    `/api/v1/identity/users/${encodeURIComponent(id)}/enable`,
-    { method: 'POST' }
-  );
-  if (!isHostUser(value)) throw new Error('client.invalid_host_user');
-  return value;
+export async function enableHostUser(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostUser> {
+  return identityEnableHostUser(http, { userId: id }, signal);
 }
 
 export async function updateHostUser(
@@ -128,62 +106,83 @@ export async function updateHostUser(
   displayName: string,
   version: number,
   profile?: HostUserProfileWrite | null,
-  accountType?: string | null
+  accountType?: string | null,
+  signal?: AbortSignal
 ): Promise<HostUser> {
-  const value = await request<unknown>(
-    `/api/v1/identity/users/${encodeURIComponent(id)}`,
-    {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        displayName,
-        version,
-        accountType: accountType ?? undefined,
-        profile: profile ?? undefined
-      })
+  return identityUpdateHostUser(http, {
+    userId: id,
+    body: {
+      displayName,
+      version,
+      accountType: accountType ?? undefined,
+      profile: normalizeHostUserProfile(profile)
     }
-  );
-  if (!isHostUser(value)) throw new Error('client.invalid_host_user');
-  return value;
+  }, signal);
 }
 
 export async function resetHostUserPassword(
   id: string,
-  password: string
+  password: string,
+  signal?: AbortSignal
 ): Promise<HostUser> {
-  const value = await request<unknown>(
-    `/api/v1/identity/users/${encodeURIComponent(id)}/reset-password`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ password })
-    }
+  return identityResetHostUserPassword(
+    http,
+    { userId: id, body: { password } },
+    signal
   );
-  if (!isHostUser(value)) throw new Error('client.invalid_host_user');
-  return value;
 }
 
-export async function getHostUserRoles(id: string): Promise<HostUserRoles> {
-  const value = await request<unknown>(
-    `/api/v1/identity/users/${encodeURIComponent(id)}/roles`
-  );
-  if (!isHostUserRoles(value)) throw new Error('client.invalid_host_user_roles');
-  return value;
+export async function getHostUserRoles(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostUserRoles> {
+  return identityGetHostUserRoles(http, { userId: id }, signal);
 }
 
 export async function replaceHostUserRoles(
   id: string,
   roleIds: string[],
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostUserRoles> {
-  const value = await request<unknown>(
-    `/api/v1/identity/users/${encodeURIComponent(id)}/roles`,
-    {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ roleIds, version })
-    }
+  return identityReplaceHostUserRoles(
+    http,
+    { userId: id, body: { roleIds, version } },
+    signal
   );
-  if (!isHostUserRoles(value)) throw new Error('client.invalid_host_user_roles');
-  return value;
+}
+
+/** 将兼容层的局部档案输入补齐为 OpenAPI 请求模型；未声明字段保持 null 语义。 */
+function normalizeHostUserProfile(
+  profile?: HostUserProfileWrite | null
+): HostUserProfileWriteRequest | null | undefined {
+  if (profile === undefined || profile === null) {
+    return profile;
+  }
+
+  return {
+    address: profile.address ?? null,
+    birthDate: profile.birthDate ?? null,
+    educationLevel: profile.educationLevel ?? null,
+    email: profile.email ?? null,
+    emergencyContact: profile.emergencyContact ?? null,
+    emergencyContactAddress: profile.emergencyContactAddress ?? null,
+    emergencyContactPhone: profile.emergencyContactPhone ?? null,
+    emergencyContactRelation: profile.emergencyContactRelation ?? null,
+    employeeNumber: profile.employeeNumber ?? null,
+    ethnicity: profile.ethnicity ?? null,
+    fieldKeys: profile.fieldKeys ?? null,
+    gender: profile.gender ?? null,
+    graduatedSchool: profile.graduatedSchool ?? null,
+    idCardNumber: profile.idCardNumber ?? null,
+    idCardType: profile.idCardType ?? null,
+    joinDateUtc: profile.joinDateUtc ?? null,
+    nickname: profile.nickname ?? null,
+    officePhone: profile.officePhone ?? null,
+    phoneNumber: profile.phoneNumber ?? null,
+    politicalStatus: profile.politicalStatus ?? null,
+    remark: profile.remark ?? null,
+    sortOrder: profile.sortOrder ?? null,
+    version: profile.version ?? null
+  };
 }

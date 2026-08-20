@@ -1,42 +1,38 @@
 import {
-  isSettingsConfigEntry,
-  isSettingsConfigEntryPage,
+  settingsBatchDeleteHostConfigEntries,
+  settingsBatchUpdateHostConfigEntryValues,
+  settingsCreateHostConfigEntry,
+  settingsDeleteHostConfigEntry,
+  settingsDisableHostConfigEntry,
+  settingsListAllHostConfigEntries,
+  settingsListHostConfigEntries,
+  settingsListHostConfigEntryGroups,
+  settingsUpdateHostConfigEntry,
   type ConfigValueUpdate,
   type SettingsConfigEntry,
   type SettingsConfigEntryPage,
   type SettingsConfigValueKind
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export async function listSettingsConfigEntries(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<SettingsConfigEntryPage> {
-  const value = await request<unknown>(
-    `/api/v1/settings/config-entries?page=${page}&pageSize=${pageSize}`
-  );
-  if (!isSettingsConfigEntryPage(value)) {
-    throw new Error('client.invalid_settings_config_entry_page');
-  }
-  return value;
+  return settingsListHostConfigEntries(http, { page, pageSize }, signal);
 }
 
 // 全量配置项列表（不分页），对应 Admin.NET queryConfigList 全量场景。
-export async function listAllSettingsConfigEntries(): Promise<SettingsConfigEntry[]> {
-  const value = await request<unknown>('/api/v1/settings/config-entries/list');
-  if (!Array.isArray(value) || !value.every(isSettingsConfigEntry)) {
-    throw new Error('client.invalid_settings_config_entry_list');
-  }
-  return value;
+export async function listAllSettingsConfigEntries(
+  signal?: AbortSignal
+): Promise<SettingsConfigEntry[]> {
+  return settingsListAllHostConfigEntries(http, {}, signal);
 }
 
 // 查询已使用的配置分组去重列表，对应 Admin.NET 配置分组下拉。
-export async function listSettingsConfigGroups(): Promise<string[]> {
-  const value = await request<unknown>('/api/v1/settings/config-entries/groups');
-  if (!Array.isArray(value) || !value.every((item): item is string => typeof item === 'string')) {
-    throw new Error('client.invalid_settings_config_entry_groups');
-  }
-  return value;
+export async function listSettingsConfigGroups(signal?: AbortSignal): Promise<string[]> {
+  return settingsListHostConfigEntryGroups(http, {}, signal);
 }
 
 export async function createSettingsConfigEntry(
@@ -46,12 +42,11 @@ export async function createSettingsConfigEntry(
   valueKind: SettingsConfigValueKind,
   value: string,
   displayOrder: number,
-  groupName?: string | null
+  groupName?: string | null,
+  signal?: AbortSignal
 ): Promise<SettingsConfigEntry> {
-  const response = await request<unknown>('/api/v1/settings/config-entries', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
+  return settingsCreateHostConfigEntry(http, {
+    body: {
       configKey,
       displayName,
       description: description?.trim() ? description.trim() : null,
@@ -59,12 +54,8 @@ export async function createSettingsConfigEntry(
       valueKind,
       value,
       displayOrder
-    })
-  });
-  if (!isSettingsConfigEntry(response)) {
-    throw new Error('client.invalid_settings_config_entry');
-  }
-  return response;
+    }
+  }, signal);
 }
 
 export async function updateSettingsConfigEntry(
@@ -74,75 +65,58 @@ export async function updateSettingsConfigEntry(
   value: string,
   displayOrder: number,
   version: number,
-  groupName?: string | null
+  groupName?: string | null,
+  signal?: AbortSignal
 ): Promise<SettingsConfigEntry> {
-  const response = await request<unknown>(
-    `/api/v1/settings/config-entries/${encodeURIComponent(id)}`,
-    {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        displayName,
-        description,
-        groupName: groupName?.trim() ? groupName.trim() : null,
-        value,
-        displayOrder,
-        version
-      })
+  return settingsUpdateHostConfigEntry(http, {
+    configEntryId: id,
+    body: {
+      displayName,
+      description,
+      groupName: groupName?.trim() ? groupName.trim() : null,
+      value,
+      displayOrder,
+      version
     }
-  );
-  if (!isSettingsConfigEntry(response)) {
-    throw new Error('client.invalid_settings_config_entry');
-  }
-  return response;
+  }, signal);
 }
 
 export async function disableSettingsConfigEntry(
-  id: string
+  id: string,
+  signal?: AbortSignal
 ): Promise<SettingsConfigEntry> {
-  const response = await request<unknown>(
-    `/api/v1/settings/config-entries/${encodeURIComponent(id)}/disable`,
-    { method: 'POST' }
-  );
-  if (!isSettingsConfigEntry(response)) {
-    throw new Error('client.invalid_settings_config_entry');
-  }
-  return response;
+  return settingsDisableHostConfigEntry(http, { configEntryId: id }, signal);
 }
 
 // 硬删除已禁用的配置项，携带乐观锁版本用于并发控制。
 export async function deleteSettingsConfigEntry(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<void> {
-  await request<unknown>(
-    `/api/v1/settings/config-entries/${encodeURIComponent(id)}/delete`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+  await settingsDeleteHostConfigEntry(
+    http,
+    { configEntryId: id, body: { version } },
+    signal
   );
 }
 
 // 批量硬删除已禁用的配置项；仅删除 IsActive=0 的项，任一未禁用则整体拒绝。
 export async function batchDeleteSettingsConfigEntries(
-  ids: string[]
+  ids: string[],
+  signal?: AbortSignal
 ): Promise<void> {
-  await request<unknown>('/api/v1/settings/config-entries/batch-delete', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ids })
-  });
+  await settingsBatchDeleteHostConfigEntries(http, { body: { ids } }, signal);
 }
 
 // 批量更新配置项值，按 ConfigKey 定位并校验值类型后更新。
 export async function batchUpdateConfigValues(
-  updates: ConfigValueUpdate[]
+  updates: ConfigValueUpdate[],
+  signal?: AbortSignal
 ): Promise<void> {
-  await request<unknown>('/api/v1/settings/config-entries/batch-update-values', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ updates })
-  });
+  await settingsBatchUpdateHostConfigEntryValues(
+    http,
+    { body: { updates } },
+    signal
+  );
 }

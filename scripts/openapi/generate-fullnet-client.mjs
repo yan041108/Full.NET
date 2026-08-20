@@ -164,7 +164,7 @@ function renderOperations(operations, schemas) {
     : '';
   const blocks = operations.map(operation => [
     renderOperationParameters(operation),
-    renderOperation(operation)
+    renderOperation(operation, schemas)
   ].join('\n\n'));
   return generatedHeader('OpenAPI 低层 HttpClient Operation')
     + "import type { HttpClient } from '../http.js';\n"
@@ -203,7 +203,7 @@ function renderOperationParameters(operation) {
   return `export interface ${operationParametersName(operation)} {\n${fields.join('\n')}\n}`;
 }
 
-function renderOperation(operation) {
+function renderOperation(operation, schemas) {
   const returnType = operation.response.kind === 'blob'
     ? 'Blob'
     : operation.response.kind === 'void'
@@ -217,7 +217,7 @@ function renderOperation(operation) {
     `): Promise<${returnType}> {`
   ];
   lines.push(...renderPath(operation));
-  lines.push(...renderRequestInitialization(operation));
+  lines.push(...renderRequestInitialization(operation, schemas));
   if (operation.response.kind === 'blob') {
     lines.push('  return await http.requestBlob(path, init, signal);');
   } else if (operation.response.kind === 'void') {
@@ -252,7 +252,7 @@ function renderPath(operation) {
   return lines;
 }
 
-function renderRequestInitialization(operation) {
+function renderRequestInitialization(operation, schemas) {
   const method = operation.method.toUpperCase();
   if (operation.request.kind === 'multipart') {
     const lines = ['  const body = new FormData();'];
@@ -260,7 +260,7 @@ function renderRequestInitialization(operation) {
     for (const [name, schema] of Object.entries(operation.request.schema.properties ?? {})
       .sort(([left], [right]) => compareText(left, right))) {
       const access = `parameters.${typescriptProperty(name)}`;
-      const appendValue = schemaType(schema) === 'Blob' ? access : `String(${access})`;
+      const appendValue = isBinarySchema(schema, schemas) ? access : `String(${access})`;
       if (!required.has(name)) {
         lines.push(`  if (${access} !== undefined) {`);
         lines.push(`    body.append('${name}', ${appendValue});`);
@@ -413,7 +413,7 @@ function schemaType(schema) {
     return 'boolean';
   }
   if (type === 'array') {
-    return `ReadonlyArray<${schemaType(schema.items)}> ` .trim();
+    return `Array<${schemaType(schema.items)}>`;
   }
   if (type === 'object' || schema.properties || schema.additionalProperties) {
     return 'Readonly<Record<string, unknown>>';
@@ -505,6 +505,14 @@ function isObjectSchema(schema) {
 
 function isReference(schema) {
   return typeof schema?.$ref === 'string';
+}
+
+function isBinarySchema(schema, schemas) {
+  if (isReference(schema)) {
+    const referencedSchema = schemas[referenceName(schema)];
+    return referencedSchema !== undefined && isBinarySchema(referencedSchema, schemas);
+  }
+  return effectiveTypes(schema).includes('string') && schema.format === 'binary';
 }
 
 function referenceName(schema) {

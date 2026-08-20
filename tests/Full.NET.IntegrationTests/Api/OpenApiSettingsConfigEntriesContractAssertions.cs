@@ -24,6 +24,16 @@ internal static class OpenApiSettingsConfigEntriesContractAssertions
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
             .GetProperty("schemas");
+        AssertStringEnum(
+            schemas,
+            "ConfigEntryResponse",
+            "valueKind",
+            ["string", "boolean", "integer", "decimal", "json", "secret"]);
+        AssertStringEnum(
+            schemas,
+            "CreateConfigEntryRequest",
+            "valueKind",
+            ["string", "boolean", "integer", "decimal", "json", "secret"]);
 
         foreach (var contractPath in contractPaths.EnumerateArray())
         {
@@ -109,6 +119,24 @@ internal static class OpenApiSettingsConfigEntriesContractAssertions
         return responses.TryGetProperty("default", out _)
             || responses.TryGetProperty("2XX", out _)
             || responses.TryGetProperty("2xx", out _);
+    }
+
+    private static void AssertStringEnum(
+        JsonElement schemas,
+        string schemaName,
+        string propertyName,
+        string[] expectedValues)
+    {
+        var property = schemas
+            .GetProperty(schemaName)
+            .GetProperty("properties")
+            .GetProperty(propertyName);
+        Assert.IsTrue(
+            property.TryGetProperty("enum", out var enumValues),
+            $"OpenAPI schema {schemaName}.{propertyName} 缺少稳定机器码 enum。");
+        CollectionAssert.AreEqual(
+            expectedValues,
+            enumValues.EnumerateArray().Select(value => value.GetString()).ToArray());
     }
 
     private static void AssertSchemaProperties(

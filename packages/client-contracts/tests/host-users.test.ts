@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import {
+  readHostUserResponse,
+  readPagedResultOfHostUserResponse
+} from '../src/index';
 import { isHostUser, isHostUserPage, isHostUserRoles, isReplaceHostUserRolesRequest, isResetHostUserPasswordRequest, isUpdateHostUserRequest } from '../src/host-users';
 
 describe('Host 用户客户端契约', () => {
@@ -143,5 +147,31 @@ describe('Host 用户客户端契约', () => {
         emergencyContactRelation: 999 as unknown as string
       }
     })).toBe(false);
+  });
+
+  it('生成守卫拒绝缺失字段、错误 primitive 与数组坏项', () => {
+    const user = {
+      id: '01912345-6789-7abc-8def-0123456789ab',
+      username: 'operator',
+      displayName: '运维账号',
+      accountType: 'normal_user',
+      isActive: true,
+      createdAtUtc: '2026-07-21T00:00:00Z',
+      updatedAtUtc: null,
+      version: 1,
+      profile: null
+    };
+
+    expect(readHostUserResponse(user)).toEqual(user);
+    expect(() => readHostUserResponse({ ...user, displayName: undefined }))
+      .toThrow('client.invalid_host_user_response');
+    expect(() => readHostUserResponse({ ...user, version: 'one' }))
+      .toThrow('client.invalid_host_user_response');
+    expect(() => readPagedResultOfHostUserResponse({
+      items: [{ ...user, isActive: 'yes' }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    })).toThrow('client.invalid_paged_result_of_host_user_response');
   });
 });

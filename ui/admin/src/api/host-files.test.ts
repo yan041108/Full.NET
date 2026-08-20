@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request, requestBlob } from './http';
+import { http } from './http';
 import {
   deleteHostFile,
   downloadHostFileContent,
@@ -9,11 +9,13 @@ import {
 } from './host-files';
 
 vi.mock('./http', () => ({
-  request: vi.fn(),
-  requestBlob: vi.fn()
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
 }));
-const requestMock = vi.mocked(request);
-const requestBlobMock = vi.mocked(requestBlob);
+const requestMock = vi.mocked(http.request);
+const requestBlobMock = vi.mocked(http.requestBlob);
 
 const sampleFile = {
   id: '01912345-6789-7abc-8def-0123456789ab',
@@ -38,7 +40,9 @@ describe('Vue Host 文件 API', () => {
     const page = await listHostFiles();
     expect(page.items).toHaveLength(1);
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/files/host-files?page=1&pageSize=20'
+      '/api/v1/files/host-files?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -50,6 +54,7 @@ describe('Vue Host 文件 API', () => {
     const [, init] = requestMock.mock.calls[0] ?? [];
     expect(init?.method).toBe('POST');
     expect(init?.body).toBeInstanceOf(FormData);
+    expect((init?.body as FormData).get('file')).toBe(file);
   });
 
   it('删除文件', async () => {
@@ -57,7 +62,8 @@ describe('Vue Host 文件 API', () => {
     await deleteHostFile(sampleFile.id);
     expect(requestMock).toHaveBeenCalledWith(
       `/api/v1/files/host-files/${sampleFile.id}/delete`,
-      { method: 'POST' }
+      { method: 'POST' },
+      undefined
     );
   });
 
@@ -66,8 +72,23 @@ describe('Vue Host 文件 API', () => {
     requestBlobMock.mockResolvedValueOnce(blob);
     await expect(downloadHostFileContent(sampleFile.id)).resolves.toBe(blob);
     expect(requestBlobMock).toHaveBeenCalledWith(
-      `/api/v1/files/host-files/${sampleFile.id}/content`
+      `/api/v1/files/host-files/${sampleFile.id}/content`,
+      {
+        method: 'GET',
+        headers: { accept: 'application/octet-stream' }
+      },
+      undefined
     );
+  });
+
+  it('拒绝畸形成功响应并透传取消信号', async () => {
+    requestMock.mockResolvedValueOnce({ ...sampleFile, sizeBytes: '12' });
+    const file = new File(['hello'], 'parity.txt', { type: 'text/plain' });
+    const controller = new AbortController();
+
+    await expect(uploadHostFile(file, controller.signal))
+      .rejects.toThrow('client.invalid_host_file_response');
+    expect(requestMock.mock.calls[0]?.[2]).toBe(controller.signal);
   });
 
   it('打开 Blob 时创建并回收对象 URL', () => {

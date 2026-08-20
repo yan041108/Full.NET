@@ -1,53 +1,41 @@
 import {
-  isHostFile,
-  isHostFilePage,
+  filesDeleteHostFile,
+  filesDownloadHostFileContent,
+  filesListHostFiles,
+  filesUploadHostFile,
   type HostFile,
   type HostFilePage
 } from '@fullnet/client-contracts';
-import { request, requestBlob } from './http';
+import { http } from './http';
 
 export async function listHostFiles(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<HostFilePage> {
-  const value = await request<unknown>(
-    `/api/v1/files/host-files?page=${page}&pageSize=${pageSize}`
-  );
-  if (!isHostFilePage(value)) {
-    throw new Error('client.invalid_host_file_page');
-  }
-  return value;
+  return filesListHostFiles(http, { page, pageSize }, signal);
 }
 
-export async function uploadHostFile(file: File): Promise<HostFile> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const value = await request<unknown>('/api/v1/files/host-files', {
-    method: 'POST',
-    body: formData
-  });
-  if (!isHostFile(value)) {
-    throw new Error('client.invalid_host_file');
-  }
-  return value;
+export async function uploadHostFile(
+  file: File,
+  signal?: AbortSignal
+): Promise<HostFile> {
+  return filesUploadHostFile(http, { file }, signal);
 }
 
-export async function deleteHostFile(id: string): Promise<HostFile> {
-  const value = await request<unknown>(
-    `/api/v1/files/host-files/${encodeURIComponent(id)}/delete`,
-    { method: 'POST' }
-  );
-  if (!isHostFile(value)) {
-    throw new Error('client.invalid_host_file');
-  }
-  return value;
+export async function deleteHostFile(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostFile> {
+  return filesDeleteHostFile(http, { fileId: id }, signal);
 }
 
 /** 使用已认证客户端拉取文件内容，避免在 URL 中暴露令牌。 */
-export async function downloadHostFileContent(id: string): Promise<Blob> {
-  return requestBlob(
-    `/api/v1/files/host-files/${encodeURIComponent(id)}/content`
-  );
+export async function downloadHostFileContent(
+  id: string,
+  signal?: AbortSignal
+): Promise<Blob> {
+  return filesDownloadHostFileContent(http, { fileId: id }, signal);
 }
 
 /** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */

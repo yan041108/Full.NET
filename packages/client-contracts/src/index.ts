@@ -22,6 +22,8 @@ export type {
   RequestOptions
 } from './http.js';
 
+export * from './generated/index.generated.js';
+
 export {
   createSessionRefreshCoordinator
 } from './session-refresh-coordinator.js';

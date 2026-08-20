@@ -137,7 +137,7 @@ export async function filesUploadHostFile(
   const path = `/api/v1/files/host-files`;
   const body = new FormData();
   if (parameters.file !== undefined) {
-    body.append('file', String(parameters.file));
+    body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
   const value = await http.request<unknown>(path, init, signal);
@@ -239,7 +239,7 @@ export async function identityExportHostUsers(
   http: HttpClient,
   parameters: IdentityExportHostUsersParameters,
   signal?: AbortSignal
-): Promise<ReadonlyArray<HostUserResponse>> {
+): Promise<Array<HostUserResponse>> {
   const path = `/api/v1/identity/users/export`;
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
@@ -506,7 +506,7 @@ export async function settingsListAllHostConfigEntries(
   http: HttpClient,
   parameters: SettingsListAllHostConfigEntriesParameters,
   signal?: AbortSignal
-): Promise<ReadonlyArray<ConfigEntryResponse>> {
+): Promise<Array<ConfigEntryResponse>> {
   const path = `/api/v1/settings/config-entries/list`;
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
@@ -544,7 +544,7 @@ export async function settingsListHostConfigEntryGroups(
   http: HttpClient,
   parameters: SettingsListHostConfigEntryGroupsParameters,
   signal?: AbortSignal
-): Promise<ReadonlyArray<string>> {
+): Promise<Array<string>> {
   const path = `/api/v1/settings/config-entries/groups`;
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);

@@ -47,6 +47,14 @@ test('生成器只产生 Full.NET models、guards、operations 与公开入口',
     assert.match(files['operations.generated.ts'], /return readHostUserResponse\(value\)/u);
     assert.match(files['operations.generated.ts'], /http\.requestBlob\(/u);
     assert.match(files['operations.generated.ts'], /http\.request<void>\(/u);
+    assert.match(
+      files['operations.generated.ts'],
+      /body\.append\('file', parameters\.file\)/u
+    );
+    assert.doesNotMatch(
+      files['operations.generated.ts'],
+      /body\.append\('file', String\(parameters\.file\)\)/u
+    );
     assert.doesNotMatch(files['operations.generated.ts'], /requestBlob[\s\S]*readStream/u);
     assert.match(
       files['index.generated.ts'],
@@ -85,6 +93,30 @@ test('候选停止后只保留零外部依赖的仓库内生成实现', async ()
     access(path.join(repositoryRoot, 'openapitools.json')),
     error => error?.code === 'ENOENT'
   );
+});
+
+test('三个 Vue 试点 API 只保留生成 Operation 薄适配层', async () => {
+  const adapters = await Promise.all([
+    'users.ts',
+    'host-files.ts',
+    'config-entries.ts'
+  ].map(fileName => readFile(path.join(
+    repositoryRoot,
+    'ui',
+    'admin',
+    'src',
+    'api',
+    fileName
+  ), 'utf8')));
+  const combined = adapters.join('\n');
+
+  assert.doesNotMatch(combined, /\/api\/v1\//u);
+  assert.doesNotMatch(combined, /\brequest(?:Blob)?\s*(?:<|\()/u);
+  assert.match(combined, /identityListHostUsers\(http,/u);
+  assert.match(combined, /filesUploadHostFile\(http,/u);
+  assert.match(combined, /filesDownloadHostFileContent\(http,/u);
+  assert.match(combined, /settingsDeleteHostConfigEntry\(/u);
+  assert.match(combined, /settingsBatchDeleteHostConfigEntries\(/u);
 });
 
 async function readGeneratedFiles(directory) {

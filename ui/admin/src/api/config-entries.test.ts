@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
+  batchDeleteSettingsConfigEntries,
   createSettingsConfigEntry,
+  deleteSettingsConfigEntry,
   disableSettingsConfigEntry,
   listSettingsConfigEntries,
   updateSettingsConfigEntry
 } from './config-entries';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
 
 const sampleEntry = {
   id: '019bc2b1-2a40-7cc3-8992-a80de51bf298',
@@ -18,6 +25,7 @@ const sampleEntry = {
   groupName: null,
   valueKind: 'string' as const,
   value: 'Full.NET',
+  hasValue: true,
   displayOrder: 10,
   isActive: true,
   createdAtUtc: '2026-01-01T00:00:00+00:00',
@@ -38,7 +46,9 @@ describe('Vue Settings 系统配置 API', () => {
 
     await expect(listSettingsConfigEntries()).resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/settings/config-entries?page=1&pageSize=20'
+      '/api/v1/settings/config-entries?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -71,7 +81,8 @@ describe('Vue Settings 系统配置 API', () => {
           value: 'Full.NET',
           displayOrder: 10
         })
-      })
+      }),
+      undefined
     );
 
     await expect(disableSettingsConfigEntry(sampleEntry.id))
@@ -101,7 +112,26 @@ describe('Vue Settings 系统配置 API', () => {
           displayOrder: 10,
           version: 1
         })
-      })
+      }),
+      undefined
     );
+  });
+
+  it('拒绝未知枚举并让 204 Operation 返回 void', async () => {
+    requestMock
+      .mockResolvedValueOnce({
+        items: [{ ...sampleEntry, valueKind: 'xml' }],
+        page: 1,
+        pageSize: 20,
+        total: 1
+      })
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+
+    await expect(listSettingsConfigEntries())
+      .rejects.toThrow('client.invalid_paged_result_of_config_entry_response');
+    await expect(deleteSettingsConfigEntry(sampleEntry.id, 1)).resolves.toBeUndefined();
+    await expect(batchDeleteSettingsConfigEntries([sampleEntry.id]))
+      .resolves.toBeUndefined();
   });
 });

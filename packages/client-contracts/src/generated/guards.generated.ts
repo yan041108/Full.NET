@@ -96,7 +96,7 @@ export function readConfigEntryResponse(value: unknown): ConfigEntryResponse {
 }
 
 function isConfigEntryResponse(value: unknown): value is ConfigEntryResponse {
-  return isRecord(value) && (typeof value["configKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["hasValue"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+  return isRecord(value) && (typeof value["configKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["hasValue"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readConfigValueUpdate(value: unknown): ConfigValueUpdate {
@@ -118,7 +118,7 @@ export function readCreateConfigEntryRequest(value: unknown): CreateConfigEntryR
 }
 
 function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryRequest {
-  return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string');
+  return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
 }
 
 export function readCreateHostUserRequest(value: unknown): CreateHostUserRequest {
@@ -352,11 +352,11 @@ function isUpdateHostUserRequest(value: unknown): value is UpdateHostUserRequest
   return isRecord(value) && (value["accountType"] === undefined || ((value["accountType"] === null) || (typeof value["accountType"] === 'string'))) && (typeof value["displayName"] === 'string') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"])))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
-export function readIdentityExportHostUsersResponse(value: unknown): ReadonlyArray<HostUserResponse> {
+export function readIdentityExportHostUsersResponse(value: unknown): Array<HostUserResponse> {
   if (!(Array.isArray(value) && value.every(item5 => isHostUserResponse(item5)))) {
     throw new Error('client.invalid_identity_export_host_users_response');
   }
-  return value as ReadonlyArray<HostUserResponse>;
+  return value as Array<HostUserResponse>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {
@@ -366,18 +366,18 @@ export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unkn
   return value as boolean;
 }
 
-export function readSettingsListAllHostConfigEntriesResponse(value: unknown): ReadonlyArray<ConfigEntryResponse> {
+export function readSettingsListAllHostConfigEntriesResponse(value: unknown): Array<ConfigEntryResponse> {
   if (!(Array.isArray(value) && value.every(item5 => isConfigEntryResponse(item5)))) {
     throw new Error('client.invalid_settings_list_all_host_config_entries_response');
   }
-  return value as ReadonlyArray<ConfigEntryResponse>;
+  return value as Array<ConfigEntryResponse>;
 }
 
-export function readSettingsListHostConfigEntryGroupsResponse(value: unknown): ReadonlyArray<string> {
+export function readSettingsListHostConfigEntryGroupsResponse(value: unknown): Array<string> {
   if (!(Array.isArray(value) && value.every(item5 => typeof item5 === 'string'))) {
     throw new Error('client.invalid_settings_list_host_config_entry_groups_response');
   }
-  return value as ReadonlyArray<string>;
+  return value as Array<string>;
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

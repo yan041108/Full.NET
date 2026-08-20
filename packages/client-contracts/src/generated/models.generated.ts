@@ -2,11 +2,11 @@
 // 内容：OpenAPI 数据模型。
 
 export interface BatchDeleteConfigEntriesRequest {
-  readonly ids: ReadonlyArray<string>;
+  readonly ids: Array<string>;
 }
 
 export interface BatchHostUserIdsRequest {
-  readonly userIds: ReadonlyArray<string>;
+  readonly userIds: Array<string>;
 }
 
 export interface BatchHostUserStatusItem {
@@ -17,12 +17,12 @@ export interface BatchHostUserStatusItem {
 }
 
 export interface BatchHostUserStatusResponse {
-  readonly results: ReadonlyArray<BatchHostUserStatusItem>;
+  readonly results: Array<BatchHostUserStatusItem>;
   readonly succeededCount: number;
 }
 
 export interface BatchUpdateConfigValuesRequest {
-  readonly updates: ReadonlyArray<ConfigValueUpdate>;
+  readonly updates: Array<ConfigValueUpdate>;
 }
 
 export interface ConfigEntryResponse {
@@ -37,7 +37,7 @@ export interface ConfigEntryResponse {
   readonly isActive: boolean;
   readonly updatedAtUtc: null | string;
   readonly value: string;
-  readonly valueKind: string;
+  readonly valueKind: "string" | "boolean" | "integer" | "decimal" | "json" | "secret";
   readonly version: number;
 }
 
@@ -53,7 +53,7 @@ export interface CreateConfigEntryRequest {
   readonly displayOrder: number;
   readonly groupName: null | string;
   readonly value: string;
-  readonly valueKind: string;
+  readonly valueKind: "string" | "boolean" | "integer" | "decimal" | "json" | "secret";
 }
 
 export interface CreateHostUserRequest {
@@ -114,7 +114,7 @@ export interface HostUserProfileWriteRequest {
   readonly emergencyContactRelation: null | string;
   readonly employeeNumber: null | string;
   readonly ethnicity: null | string;
-  readonly fieldKeys: null | ReadonlyArray<string>;
+  readonly fieldKeys: null | Array<string>;
   readonly gender: null | string;
   readonly graduatedSchool: null | string;
   readonly idCardNumber: null | string;
@@ -130,7 +130,7 @@ export interface HostUserProfileWriteRequest {
 }
 
 export interface HostUserProjectedFieldsResponse {
-  readonly effectiveFieldKeys: ReadonlyArray<string>;
+  readonly effectiveFieldKeys: Array<string>;
   readonly failedLoginCount: null | number;
   readonly lockoutEndUtc: null | string;
   readonly preferredLocale: null | string;
@@ -150,7 +150,7 @@ export interface HostUserResponse {
 }
 
 export interface HostUserRolesResponse {
-  readonly roleIds: ReadonlyArray<string>;
+  readonly roleIds: Array<string>;
   readonly userId: string;
   readonly version: number;
 }
@@ -166,30 +166,30 @@ export interface ImportHostUserRowResult {
 }
 
 export interface ImportHostUsersRequest {
-  readonly rows: ReadonlyArray<CreateHostUserRequest>;
+  readonly rows: Array<CreateHostUserRequest>;
 }
 
 export interface ImportHostUsersResponse {
-  readonly results: ReadonlyArray<ImportHostUserRowResult>;
+  readonly results: Array<ImportHostUserRowResult>;
   readonly succeededCount: number;
 }
 
 export interface PagedResultOfConfigEntryResponse {
-  readonly items: ReadonlyArray<ConfigEntryResponse>;
+  readonly items: Array<ConfigEntryResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
 }
 
 export interface PagedResultOfHostFileResponse {
-  readonly items: ReadonlyArray<HostFileResponse>;
+  readonly items: Array<HostFileResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
 }
 
 export interface PagedResultOfHostUserResponse {
-  readonly items: ReadonlyArray<HostUserResponse>;
+  readonly items: Array<HostUserResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -204,7 +204,7 @@ export interface ProblemDetails {
 }
 
 export interface ReplaceHostUserRolesRequest {
-  readonly roleIds: ReadonlyArray<string>;
+  readonly roleIds: Array<string>;
   readonly version: number;
 }
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  readConfigEntryResponse,
+  readPagedResultOfConfigEntryResponse
+} from '../src/index';
+import {
   isBatchDeleteSettingsConfigEntriesRequest,
   isBatchUpdateConfigValuesRequest,
   isConfigValueUpdate,
@@ -96,5 +100,20 @@ describe('Settings 系统配置契约', () => {
     expect(isBatchUpdateConfigValuesRequest({
       updates: [{ configKey: 'AB', value: 'Admin' }]
     })).toBe(false);
+  });
+
+  it('生成守卫接受 nullable 边界并拒绝未知枚举与数组坏项', () => {
+    expect(readConfigEntryResponse({ ...configEntry, groupName: null }))
+      .toMatchObject({ groupName: null });
+    expect(() => readConfigEntryResponse({ ...configEntry, valueKind: 'xml' }))
+      .toThrow('client.invalid_config_entry_response');
+    expect(() => readConfigEntryResponse({ ...configEntry, hasValue: 'yes' }))
+      .toThrow('client.invalid_config_entry_response');
+    expect(() => readPagedResultOfConfigEntryResponse({
+      items: [{ ...configEntry, id: 'bad' }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    })).toThrow('client.invalid_paged_result_of_config_entry_response');
   });
 });

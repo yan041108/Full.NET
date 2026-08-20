@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+using Full.NET.Abstractions.OpenApi;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.OpenApi;
@@ -28,6 +30,7 @@ public static class FullNetOpenApiExtensions
         {
             options.AddDocumentTransformer(ApplyDocumentMetadataAsync);
             options.AddOperationTransformer(ApplyOperationSecurityAsync);
+            options.AddSchemaTransformer(ApplyStableStringEnumAsync);
         });
         return services;
     }
@@ -109,6 +112,26 @@ public static class FullNetOpenApiExtensions
                 StringComparison.Ordinal) == true))
         {
             operation.Security.Add(CreateSecurityRequirement("Signature", document));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static Task ApplyStableStringEnumAsync(
+        OpenApiSchema schema,
+        OpenApiSchemaTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        var enumAttribute = context.JsonPropertyInfo?
+            .AttributeProvider?
+            .GetCustomAttributes(typeof(FullNetOpenApiStringEnumAttribute), inherit: true)
+            .OfType<FullNetOpenApiStringEnumAttribute>()
+            .SingleOrDefault();
+        if (enumAttribute is not null)
+        {
+            schema.Enum = enumAttribute.Values
+                .Select(value => (JsonNode)JsonValue.Create(value)!)
+                .ToList();
         }
 
         return Task.CompletedTask;

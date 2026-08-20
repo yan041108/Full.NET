@@ -1,3 +1,5 @@
+using Full.NET.Abstractions.OpenApi;
+
 namespace Full.NET.Modules.Settings.Contracts;
 
 /// <summary>
@@ -54,6 +56,13 @@ public sealed record ConfigEntryResponse(
     string DisplayName,
     string? Description,
     string? GroupName,
+    [property: FullNetOpenApiStringEnum(
+        ConfigValueKinds.String,
+        ConfigValueKinds.Boolean,
+        ConfigValueKinds.Integer,
+        ConfigValueKinds.Decimal,
+        ConfigValueKinds.Json,
+        ConfigValueKinds.Secret)]
     string ValueKind,
     string Value,
     bool HasValue,
@@ -69,6 +78,13 @@ public sealed record CreateConfigEntryRequest(
     string DisplayName,
     string? Description,
     string? GroupName,
+    [property: FullNetOpenApiStringEnum(
+        ConfigValueKinds.String,
+        ConfigValueKinds.Boolean,
+        ConfigValueKinds.Integer,
+        ConfigValueKinds.Decimal,
+        ConfigValueKinds.Json,
+        ConfigValueKinds.Secret)]
     string ValueKind,
     string Value,
     int DisplayOrder);
