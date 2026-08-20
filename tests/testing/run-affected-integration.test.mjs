@@ -143,6 +143,28 @@ test('客户端生成试点 OpenAPI 断言精确选择三个所属模块', () =>
   ]);
 });
 
+test('客户端规范快照测试精确选择双库文档契约', () => {
+  const selection = classifyChangedPaths([
+    'tests/Full.NET.IntegrationTests/Api/OpenApiClientSnapshotContractAssertions.cs',
+    'tests/Full.NET.IntegrationTests/Api/OpenApiDocumentationApiMySqlTests.cs',
+    'tests/Full.NET.IntegrationTests/Api/OpenApiDocumentationApiSqlServerTests.cs'
+  ]);
+
+  assert.deepEqual(selection.targets, [{
+    kind: 'filter',
+    name: 'client-openapi-snapshot',
+    filter: 'FullyQualifiedName~OpenApiDocumentationApi'
+  }]);
+  assert.deepEqual(
+    targetsForPhase(selection.targets, 'inner'),
+    [{
+      kind: 'filter',
+      name: 'client-openapi-snapshot',
+      filter: '(FullyQualifiedName~OpenApiDocumentationApi)&FullyQualifiedName~MySql'
+    }]
+  );
+});
+
 test('普通单模块改动选择双库聚焦测试', () => {
   for (const moduleName of [
     'Auditing',

@@ -88,6 +88,7 @@ const immediateTargetNames = new Set([
   'Realtime',
   'Seeding',
   'Tenancy',
+  'client-openapi-snapshot',
   'integration-matrix',
   'integration-tooling',
   'migrations',
@@ -329,6 +330,18 @@ function classifyIntegrationPath(filePath, targets) {
       addModuleTarget(targets, moduleName);
     }
     return '客户端生成试点共享 OpenAPI 断言';
+  }
+
+  if (/^tests\/Full\.NET\.IntegrationTests\/Api\/OpenApi(?:ClientSnapshotContractAssertions|DocumentationApi(?:MySql|SqlServer)Tests)\.cs$/u
+    .test(filePath)) {
+    addTarget(
+      targets,
+      filterTarget(
+        'client-openapi-snapshot',
+        'FullyQualifiedName~OpenApiDocumentationApi'
+      )
+    );
+    return '客户端规范快照 OpenAPI 契约';
   }
 
   const moduleName = moduleFromIntegrationPath(filePath);

@@ -16,5 +16,8 @@ public sealed class OpenApiDocumentationApiMySqlTests
         using var client = factory.CreateClient();
 
         await OpenApiDocumentationAssertions.VerifyAsync(client);
+        await OpenApiClientSnapshotContractAssertions.VerifyAsync(
+            client,
+            DatabaseProvider.MySql);
     }
 }

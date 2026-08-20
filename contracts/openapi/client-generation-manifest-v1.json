@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "operationId": "identityListHostUsers",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityExportHostUsers",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityImportHostUsers",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityBatchDisableHostUsers",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityBatchEnableHostUsers",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityGetHostUser",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityCreateHostUser",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityUpdateHostUser",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityDisableHostUser",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityEnableHostUser",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityResetHostUserPassword",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityGetHostUserRoles",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityReplaceHostUserRoles",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "pilot"
+    },
+    {
+      "operationId": "filesListHostFiles",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "pilot"
+    },
+    {
+      "operationId": "filesGetHostFile",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "pilot"
+    },
+    {
+      "operationId": "filesUploadHostFile",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "pilot"
+    },
+    {
+      "operationId": "filesDownloadHostFileContent",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "pilot"
+    },
+    {
+      "operationId": "filesDeleteHostFile",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsListHostConfigEntries",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsGetHostConfigEntryByKey",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsGetHostConfigEntry",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsCreateHostConfigEntry",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsUpdateHostConfigEntry",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsDisableHostConfigEntry",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsDeleteHostConfigEntry",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsBatchDeleteHostConfigEntries",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsBatchUpdateHostConfigEntryValues",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsListAllHostConfigEntries",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    },
+    {
+      "operationId": "settingsListHostConfigEntryGroups",
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "generatedGroup": "settings-host-config-entries",
+      "status": "pilot"
+    }
+  ]
+}
