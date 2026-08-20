@@ -20,6 +20,11 @@ internal static class Endpoint
         group.MapGet("", async (
             int? page,
             int? pageSize,
+            string? name,
+            string? key,
+            bool? isEnabled,
+            string? sortBy,
+            string? sortDirection,
             HostSerialRuleService service,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -28,6 +33,11 @@ internal static class Endpoint
             var result = await service.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,
+                    name,
+                    key,
+                    isEnabled,
+                    sortBy,
+                    sortDirection,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);

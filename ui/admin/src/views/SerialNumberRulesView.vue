@@ -6,6 +6,7 @@ import {
   ElInput,
   ElMessage,
   ElOption,
+  ElPagination,
   ElSelect,
   ElTag
 } from 'element-plus';
@@ -23,12 +24,22 @@ import {
   enableSerialNumberRule,
   listSerialNumberRules,
   previewSerialNumber,
-  updateSerialNumberRule
+  updateSerialNumberRule,
+  type SerialNumberRuleSortBy,
+  type SerialNumberRuleSortDirection
 } from '../api/serial-number-rules';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const rules = ref<SerialNumberRuleResponse[]>([]);
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
+const filterName = ref('');
+const filterKey = ref('');
+const filterStatus = ref<'all' | 'enabled' | 'disabled'>('all');
+const sortBy = ref<SerialNumberRuleSortBy>('displayOrder');
+const sortDirection = ref<SerialNumberRuleSortDirection>('asc');
 const selectedRuleId = ref<string>();
 const ruleKey = ref('');
 const displayName = ref('');
@@ -42,7 +53,7 @@ const displayOrder = ref('10');
 const isEnabled = ref(true);
 const previewTenant = ref('acme');
 const previewSequence = ref('42');
-const previewAtUtc = ref('2026-07-30T00:00:00Z');
+const previewAtUtc = ref(new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'));
 const previewValue = ref('');
 const loading = ref(false);
 const changing = ref(false);
@@ -65,7 +76,53 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    rules.value = (await listSerialNumberRules()).items;
+    await loadRules();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'serialNumberRules.loadFailed');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function loadRules(): Promise<void> {
+  const isEnabledFilter =
+    filterStatus.value === 'all'
+      ? undefined
+      : filterStatus.value === 'enabled';
+  const result = await listSerialNumberRules({
+    page: page.value,
+    pageSize: pageSize.value,
+    name: filterName.value || undefined,
+    key: filterKey.value || undefined,
+    isEnabled: isEnabledFilter,
+    sortBy: sortBy.value,
+    sortDirection: sortDirection.value
+  });
+  rules.value = result.items;
+  page.value = result.page;
+  pageSize.value = result.pageSize;
+  total.value = result.total;
+}
+
+async function applyFilters(): Promise<void> {
+  page.value = 1;
+  loading.value = true;
+  problem.value = undefined;
+  try {
+    await loadRules();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'serialNumberRules.loadFailed');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function onPageChange(nextPage: number): Promise<void> {
+  page.value = nextPage;
+  loading.value = true;
+  problem.value = undefined;
+  try {
+    await loadRules();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'serialNumberRules.loadFailed');
   } finally {
@@ -109,9 +166,10 @@ async function createRule(): Promise<void> {
   problem.value = undefined;
   try {
     const saved = await createSerialNumberRule(buildCreateRequest());
-    rules.value = [saved, ...rules.value.filter(item => item.id !== saved.id)];
-    selectRule(saved);
     ElMessage.success(t('serialNumberRules.createSuccess'));
+    selectRule(saved);
+    page.value = 1;
+    await loadRules();
   } catch (error: unknown) {
     problem.value = toProblem(error);
   } finally {
@@ -128,12 +186,9 @@ async function saveRule(): Promise<void> {
   problem.value = undefined;
   try {
     const saved = await updateSerialNumberRule(selected.id, buildUpdateRequest(selected.version));
-    const index = rules.value.findIndex(item => item.id === saved.id);
-    if (index >= 0) {
-      rules.value.splice(index, 1, saved);
-    }
-    selectRule(saved);
     ElMessage.success(t('serialNumberRules.updateSuccess'));
+    selectRule(saved);
+    await loadRules();
   } catch (error: unknown) {
     problem.value = toProblem(error);
   } finally {
@@ -158,12 +213,9 @@ async function toggleEnabled(enable: boolean): Promise<void> {
     const saved = enable
       ? await enableSerialNumberRule(selected.id, { version: selected.version })
       : await disableSerialNumberRule(selected.id, { version: selected.version });
-    const index = rules.value.findIndex(item => item.id === saved.id);
-    if (index >= 0) {
-      rules.value.splice(index, 1, saved);
-    }
     selectRule(saved);
     ElMessage.success(t(enable ? 'serialNumberRules.enableSuccess' : 'serialNumberRules.disableSuccess'));
+    await loadRules();
   } catch (error: unknown) {
     problem.value = toProblem(error);
   } finally {
@@ -273,9 +325,13 @@ function toProblem(
             <ElOption :label="t('serialNumberRules.resetYear')" :value="3" />
           </ElSelect>
         </label>
+        <p class="art-muted" data-testid="serial-rule-reset-hint">{{ t('serialNumberRules.hintResetUtc') }}</p>
         <ElInput v-model="pattern" data-testid="serial-rule-pattern" maxlength="256" :placeholder="t('serialNumberRules.fieldPattern')" />
-        <ElInput v-model="minimumValue" data-testid="serial-rule-minimum" inputmode="numeric" />
-        <ElInput v-model="maximumValue" data-testid="serial-rule-maximum" inputmode="numeric" />
+        <p class="art-muted" data-testid="serial-rule-pattern-hint">{{ t('serialNumberRules.hintPattern') }}</p>
+        <ElInput v-model="minimumValue" data-testid="serial-rule-minimum" inputmode="numeric" :placeholder="t('serialNumberRules.fieldMinimum')" />
+        <ElInput v-model="maximumValue" data-testid="serial-rule-maximum" inputmode="numeric" :placeholder="t('serialNumberRules.fieldMaximum')" />
+        <p class="art-muted" data-testid="serial-rule-range-hint">{{ t('serialNumberRules.hintRange') }}</p>
+        <p class="art-muted" data-testid="serial-rule-sequence-hint">{{ t('serialNumberRules.hintSequence') }}</p>
         <ElInput v-model="displayOrder" data-testid="serial-rule-display-order" inputmode="numeric" />
         <div class="art-form-actions">
           <PermissionGate code="serial_numbers.rules.create">
@@ -300,6 +356,9 @@ function toProblem(
           </PermissionGate>
           <ElButton v-if="!selectedRule" plain :disabled="changing" @click="resetCreateForm">
             {{ t('serialNumberRules.reset') }}
+          </ElButton>
+          <ElButton v-if="selectedRule" plain :disabled="changing" data-testid="serial-rule-new" @click="resetCreateForm">
+            {{ t('serialNumberRules.newRule') }}
           </ElButton>
         </div>
       </div>
@@ -326,6 +385,48 @@ function toProblem(
       <template #header>
         <h2>{{ t('serialNumberRules.listTitle') }}</h2>
       </template>
+      <div class="art-form-grid serial-number-rules-filters">
+        <ElInput
+          v-model="filterName"
+          data-testid="serial-rule-filter-name"
+          clearable
+          :placeholder="t('serialNumberRules.filterName')"
+        />
+        <ElInput
+          v-model="filterKey"
+          data-testid="serial-rule-filter-key"
+          clearable
+          :placeholder="t('serialNumberRules.filterKey')"
+        />
+        <label>
+          <span>{{ t('serialNumberRules.filterStatus') }}</span>
+          <ElSelect v-model="filterStatus" data-testid="serial-rule-filter-status">
+            <ElOption :label="t('serialNumberRules.filterStatusAll')" value="all" />
+            <ElOption :label="t('serialNumberRules.statusEnabled')" value="enabled" />
+            <ElOption :label="t('serialNumberRules.statusDisabled')" value="disabled" />
+          </ElSelect>
+        </label>
+        <label>
+          <span>{{ t('serialNumberRules.sortBy') }}</span>
+          <ElSelect v-model="sortBy" data-testid="serial-rule-sort-by">
+            <ElOption :label="t('serialNumberRules.sortDisplayOrder')" value="displayOrder" />
+            <ElOption :label="t('serialNumberRules.sortRuleKey')" value="ruleKey" />
+            <ElOption :label="t('serialNumberRules.sortDisplayName')" value="displayName" />
+            <ElOption :label="t('serialNumberRules.sortCreatedAt')" value="createdAtUtc" />
+            <ElOption :label="t('serialNumberRules.sortStatus')" value="isEnabled" />
+          </ElSelect>
+        </label>
+        <label>
+          <span>{{ t('serialNumberRules.sortDirection') }}</span>
+          <ElSelect v-model="sortDirection" data-testid="serial-rule-sort-direction">
+            <ElOption :label="t('serialNumberRules.sortAsc')" value="asc" />
+            <ElOption :label="t('serialNumberRules.sortDesc')" value="desc" />
+          </ElSelect>
+        </label>
+        <ElButton data-testid="serial-rule-filter-apply" type="primary" :disabled="loading" @click="applyFilters">
+          {{ t('serialNumberRules.query') }}
+        </ElButton>
+      </div>
       <p v-if="!rules.length" class="art-empty-state">{{ t('serialNumberRules.emptyList') }}</p>
       <ul v-else class="art-list">
         <li v-for="item in rules" :key="item.id">
@@ -338,6 +439,17 @@ function toProblem(
           </button>
         </li>
       </ul>
+      <ElPagination
+        v-if="total > 0"
+        class="serial-number-rules-pagination"
+        background
+        layout="prev, pager, next, total"
+        :current-page="page"
+        :page-size="pageSize"
+        :total="total"
+        data-testid="serial-rule-pagination"
+        @current-change="onPageChange"
+      />
     </ElCard>
   </section>
 </template>

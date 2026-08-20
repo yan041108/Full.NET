@@ -14,12 +14,58 @@ import { request } from './http';
 
 const rulesPath = '/api/v1/serial-numbers/rules';
 
+export type SerialNumberRuleSortBy =
+  | 'displayOrder'
+  | 'ruleKey'
+  | 'displayName'
+  | 'createdAtUtc'
+  | 'isEnabled';
+
+export type SerialNumberRuleSortDirection = 'asc' | 'desc';
+
+export interface ListSerialNumberRulesParams {
+  page?: number;
+  pageSize?: number;
+  name?: string;
+  key?: string;
+  isEnabled?: boolean;
+  sortBy?: SerialNumberRuleSortBy;
+  sortDirection?: SerialNumberRuleSortDirection;
+}
+
+function buildListQuery(params: ListSerialNumberRulesParams): string {
+  const query = new URLSearchParams();
+  query.set('page', String(params.page ?? 1));
+  query.set('pageSize', String(params.pageSize ?? 20));
+  if (params.name?.trim()) {
+    query.set('name', params.name.trim());
+  }
+  if (params.key?.trim()) {
+    query.set('key', params.key.trim());
+  }
+  if (params.isEnabled !== undefined) {
+    query.set('isEnabled', String(params.isEnabled));
+  }
+  if (params.sortBy) {
+    query.set('sortBy', params.sortBy);
+  }
+  if (params.sortDirection) {
+    query.set('sortDirection', params.sortDirection);
+  }
+  return query.toString();
+}
+
 export async function listSerialNumberRules(
-  page = 1,
+  params: ListSerialNumberRulesParams | number = {},
   pageSize = 20
 ): Promise<SerialNumberRulePage> {
+  // 兼容旧调用 listSerialNumberRules(page, pageSize)，新调用传对象参数。
+  const normalized: ListSerialNumberRulesParams =
+    typeof params === 'number'
+      ? { page: params, pageSize }
+      : params;
   const value = await request<unknown>(
-    `${rulesPath}?page=${page}&pageSize=${pageSize}`
+    `${rulesPath}?${buildListQuery(normalized)}`
   );
   if (!isSerialNumberRulePage(value)) {
     throw new Error('client.invalid_serial_number_rule_page');

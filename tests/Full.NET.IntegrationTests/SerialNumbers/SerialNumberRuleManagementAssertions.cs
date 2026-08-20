@@ -129,6 +129,43 @@ internal static class SerialNumberRuleManagementAssertions
             Assert.IsTrue(page.Items.Any(item => item.Id == created.Id));
         }
 
+        // 名称/键/状态筛选与稳定排序必须在服务端生效，不能依赖客户端二次过滤。
+        using (var filtered = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       RulesPath
+                       + $"?page=1&pageSize=20&name={Uri.EscapeDataString("发票")}"
+                       + $"&key={Uri.EscapeDataString(created.RuleKey[..8])}"
+                       + "&isEnabled=true&sortBy=ruleKey&sortDirection=asc",
+                       token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, filtered.StatusCode);
+            var page = await filtered.Content.ReadFromJsonAsync<
+                PagedResult<SerialNumberRuleResponse>>(cancellationToken);
+            Assert.IsNotNull(page);
+            Assert.IsTrue(page.Items.Any(item => item.Id == created.Id));
+            Assert.IsTrue(page.Items.All(item =>
+                item.DisplayName.Contains("发票", StringComparison.Ordinal)
+                && item.IsEnabled));
+        }
+
+        using (var statusMiss = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       RulesPath
+                       + $"?page=1&pageSize=20&key={Uri.EscapeDataString(created.RuleKey)}"
+                       + "&isEnabled=false",
+                       token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, statusMiss.StatusCode);
+            var page = await statusMiss.Content.ReadFromJsonAsync<
+                PagedResult<SerialNumberRuleResponse>>(cancellationToken);
+            Assert.IsNotNull(page);
+            Assert.IsFalse(page.Items.Any(item => item.Id == created.Id));
+        }
+
         using (var preview = await client.SendAsync(
                    AuthorizedJson(
                        HttpMethod.Post,

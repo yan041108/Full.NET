@@ -4,33 +4,81 @@ namespace Full.NET.Modules.SerialNumbers.Persistence;
 
 internal static class SerialNumberSql
 {
-    public static readonly SqlStatement PageRulesSqlServer = new(
-        "serial_numbers.rule.page.sql_server",
-        """
-        SELECT COUNT(*) FROM fn_serialnumbers_rule;
-        SELECT Id, RuleKey, DisplayName, Description, Scope, ResetInterval,
-               Pattern, MinimumValue, MaximumValue, DisplayOrder, IsEnabled,
-               CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
-               Version
-        FROM fn_serialnumbers_rule
-        ORDER BY DisplayOrder, RuleKey
-        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
-        """,
-        SqlDataScope.HostOnly);
+    /// <summary>
+    /// 列表筛选条件：名称/键模糊匹配与启停状态；空参数表示不过滤。
+    /// </summary>
+    private const string RuleListWhereSqlServer = """
+        (@NameContains IS NULL OR DisplayName LIKE '%' + @NameContains + '%')
+          AND (@KeyContains IS NULL OR RuleKey LIKE '%' + @KeyContains + '%')
+          AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
+        """;
 
-    public static readonly SqlStatement PageRulesMySql = new(
-        "serial_numbers.rule.page.my_sql",
-        """
-        SELECT COUNT(*) FROM fn_serialnumbers_rule;
-        SELECT Id, RuleKey, DisplayName, Description, Scope, ResetInterval,
-               Pattern, MinimumValue, MaximumValue, DisplayOrder, IsEnabled,
-               CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
-               Version
-        FROM fn_serialnumbers_rule
-        ORDER BY DisplayOrder, RuleKey
-        LIMIT @PageSize OFFSET @Offset;
-        """,
-        SqlDataScope.HostOnly);
+    private const string RuleListWhereMySql = """
+        (@NameContains IS NULL OR DisplayName LIKE CONCAT('%', @NameContains, '%'))
+          AND (@KeyContains IS NULL OR RuleKey LIKE CONCAT('%', @KeyContains, '%'))
+          AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
+        """;
+
+    private const string RuleListProjection = """
+        Id, RuleKey, DisplayName, Description, Scope, ResetInterval,
+        Pattern, MinimumValue, MaximumValue, DisplayOrder, IsEnabled,
+        CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
+        Version
+        """;
+
+    /// <summary>
+    /// 按白名单排序列与方向组装分页 SQL；末尾固定 Id 保证跨页顺序稳定。
+    /// </summary>
+    public static SqlStatement CreatePageRulesSqlServer(string orderByClause) =>
+        new(
+            "serial_numbers.rule.page.sql_server",
+            $"""
+            SELECT COUNT(*) FROM fn_serialnumbers_rule
+            WHERE {RuleListWhereSqlServer};
+            SELECT {RuleListProjection}
+            FROM fn_serialnumbers_rule
+            WHERE {RuleListWhereSqlServer}
+            ORDER BY {orderByClause}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+            """,
+            SqlDataScope.HostOnly);
+
+    public static SqlStatement CreatePageRulesMySql(string orderByClause) =>
+        new(
+            "serial_numbers.rule.page.my_sql",
+            $"""
+            SELECT COUNT(*) FROM fn_serialnumbers_rule
+            WHERE {RuleListWhereMySql};
+            SELECT {RuleListProjection}
+            FROM fn_serialnumbers_rule
+            WHERE {RuleListWhereMySql}
+            ORDER BY {orderByClause}
+            LIMIT @PageSize OFFSET @Offset;
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>
+    /// 将 sortBy/sortDirection 解析为仅含白名单列的 ORDER BY 片段。
+    /// </summary>
+    public static string ResolveRuleListOrderBy(
+        string? sortBy,
+        string? sortDirection)
+    {
+        var ascending = !string.Equals(
+            sortDirection?.Trim(),
+            "desc",
+            StringComparison.OrdinalIgnoreCase);
+        var direction = ascending ? "ASC" : "DESC";
+        var column = (sortBy?.Trim() ?? string.Empty).ToLowerInvariant() switch
+        {
+            "rulekey" or "key" => "RuleKey",
+            "displayname" or "name" => "DisplayName",
+            "createdatutc" => "CreatedAtUtc",
+            "isenabled" or "status" => "IsEnabled",
+            _ => "DisplayOrder",
+        };
+        return $"{column} {direction}, Id ASC";
+    }
 
     public static readonly SqlStatement FindRuleById = new(
         "serial_numbers.rule.find_by_id",

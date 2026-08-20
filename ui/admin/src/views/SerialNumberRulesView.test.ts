@@ -84,13 +84,18 @@ describe('Vue 流水号规则页', () => {
     expect(wrapper.find('[data-testid="serial-rule-disable"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="serial-rule-preview"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="serial-rule-load"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="serial-rule-pattern-hint"]').exists()).toBe(false);
   });
 
-  it('create-only 只显示创建按钮', async () => {
+  it('create-only 只显示创建按钮与边界提示', async () => {
     const wrapper = mountWithPermissions(['serial_numbers.rules.read', 'serial_numbers.rules.create']);
     await flushPromises();
     expect(wrapper.find('[data-testid="serial-rule-create"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="serial-rule-save"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="serial-rule-pattern-hint"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="serial-rule-reset-hint"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="serial-rule-range-hint"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="serial-rule-sequence-hint"]').exists()).toBe(true);
   });
 
   it('update-only 在选中规则后只显示保存按钮', async () => {
@@ -115,6 +120,25 @@ describe('Vue 流水号规则页', () => {
     await flushPromises();
     expect(wrapper.find('[data-testid="serial-rule-preview"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="serial-rule-create"]').exists()).toBe(false);
+  });
+
+  it('查询时把名称/键/状态与稳定排序参数发给服务端', async () => {
+    const wrapper = mountWithPermissions(['serial_numbers.rules.read']);
+    await flushPromises();
+    await wrapper.get('[data-testid="serial-rule-filter-name"]').setValue('发票');
+    await wrapper.get('[data-testid="serial-rule-filter-key"]').setValue('invoice');
+    await wrapper.get('[data-testid="serial-rule-filter-apply"]').trigger('click');
+    await flushPromises();
+    expect(listMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 1,
+        pageSize: 20,
+        name: '发票',
+        key: 'invoice',
+        sortBy: 'displayOrder',
+        sortDirection: 'asc'
+      })
+    );
   });
 
   it('列表加载失败时向用户显示稳定错误码', async () => {

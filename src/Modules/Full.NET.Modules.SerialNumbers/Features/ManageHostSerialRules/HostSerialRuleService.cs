@@ -23,21 +23,38 @@ internal sealed class HostSerialRuleService(
     public async Task<Result<PagedResult<SerialNumberRuleResponse>>> ListAsync(
         int page,
         int pageSize,
+        string? name = null,
+        string? key = null,
+        bool? isEnabled = null,
+        string? sortBy = null,
+        string? sortDirection = null,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
+        var orderByClause = SerialNumberSql.ResolveRuleListOrderBy(
+            sortBy,
+            sortDirection);
         var statement = databaseOptions.Value.Provider switch
         {
-            DatabaseProvider.SqlServer => SerialNumberSql.PageRulesSqlServer,
-            DatabaseProvider.MySql => SerialNumberSql.PageRulesMySql,
+            DatabaseProvider.SqlServer =>
+                SerialNumberSql.CreatePageRulesSqlServer(orderByClause),
+            DatabaseProvider.MySql =>
+                SerialNumberSql.CreatePageRulesMySql(orderByClause),
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
         var result = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                new
+                {
+                    Offset = offset,
+                    PageSize = pageSize,
+                    NameContains = NormalizeContains(name),
+                    KeyContains = NormalizeContains(key),
+                    IsEnabled = isEnabled,
+                },
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -54,6 +71,12 @@ internal sealed class HostSerialRuleService(
                 page,
                 pageSize,
                 result.Total));
+    }
+
+    private static string? NormalizeContains(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 
     public async Task<Result<SerialNumberRuleResponse>> GetAsync(
