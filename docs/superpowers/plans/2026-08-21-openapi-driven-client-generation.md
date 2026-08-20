@@ -12,6 +12,13 @@
 
 **Baseline:** 计划编写基线为 `268f992448620261084166f35a5fb305e8fa9e8f`。执行者必须在每个 Task 开始时重新记录 `git rev-parse HEAD`；不得把本文基线当成任务快照或合并基线。
 
+## 执行状态（2026-08-21）
+
+- Task 1—6 已在 `codex/openapi-client-pilots` 完成并形成独立提交；第一阶段严格限制为 Identity Host Users、Files Host Files、Settings Host Config Entries 三类试点。
+- Task 7 已形成 [`openapi-client-generation-pilot-2026-08-21.md`](../../verification/openapi-client-generation-pilot-2026-08-21.md)，判定为 `Pilot-stopped`。
+- 三类试点保持 `pilot`，不得改为 `generated`；非试点模块保持手写实现，不创建或执行批量迁移计划。
+- 重新解除停止门禁前，必须修复并验证 Verification 中记录的 Vue Unit/Build 与依赖审计阻断项，然后完整重跑 ADR-0007 第 5 节门禁。
+
 ## Global Constraints
 
 - Vue 主管理端 `ui/admin` 是唯一后台产品交付线；`ui/admin-layui` 必须零修改。
