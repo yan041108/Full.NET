@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "implementation": "repository-node",
+  "input": "contracts/openapi/fullnet-client-v1.openapi.json",
+  "output": "packages/client-contracts/src/generated",
+  "candidate": {
+    "name": "OpenAPI Generator typescript-fetch",
+    "generatorVersion": "7.24.0",
+    "package": "@openapitools/openapi-generator-cli",
+    "packageVersion": "2.40.1",
+    "license": "Apache-2.0",
+    "status": "rejected",
+    "reasonCodes": [
+      "java-runtime-incompatible",
+      "external-jar-download-required"
+    ],
+    "observedRuntime": {
+      "javaVersion": "1.8.0_491",
+      "maximumClassFileVersion": 52,
+      "requiredClassFileVersion": 55
+    }
+  },
+  "selected": {
+    "script": "scripts/openapi/generate-fullnet-client.mjs",
+    "runtime": "node",
+    "dependencies": [],
+    "files": [
+      "guards.generated.ts",
+      "index.generated.ts",
+      "models.generated.ts",
+      "operations.generated.ts"
+    ]
+  }
+}

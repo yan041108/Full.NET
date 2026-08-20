@@ -43,6 +43,7 @@
     "test:openapi": "node --test tests/openapi/*.test.mjs",
     "test:openapi:client-generation": "node --test tests/openapi/client-generation-readiness.test.mjs",
     "openapi:client:snapshot": "node scripts/openapi/snapshot-client-openapi.mjs",
+    "openapi:client:generate": "node scripts/openapi/generate-fullnet-client.mjs",
     "test:openapi:breaking": "node scripts/openapi/check-openapi-breaking-changes.mjs",
     "test:workspace": "node tests/client-workspace.test.mjs",
     "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/admin-real-stack-e2e --filter=!@fullnet/uniapp-h5-e2e --filter=!@fullnet/admin-layui --if-present test",
