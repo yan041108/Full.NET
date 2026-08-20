@@ -89,6 +89,16 @@ function templateSchemaInput(view, clientKind) {
     : view.getByTestId('codegen-template-schema');
 }
 
+async function focusTemplateSchema(view, clientKind) {
+  if (clientKind === 'layui') {
+    return templateSchemaInput(view, clientKind);
+  }
+  await view.getByRole('tab', { name: '高级 JSON' }).click();
+  const input = templateSchemaInput(view, clientKind);
+  await expect(input).toBeVisible();
+  return input;
+}
+
 function templateSaveButton(view, clientKind) {
   return clientKind === 'layui'
     ? view.locator('[data-codegen-template-form] button[type="submit"]')
@@ -212,7 +222,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   ).toBeVisible();
   const explicitSchema = clientKind === 'layui'
     ? JSON.parse(await schemaInput(codeGenerationView(page, clientKind)).inputValue())
-    : JSON.parse(await templateSchemaInput(templateView, clientKind).inputValue());
+    : JSON.parse(await (await focusTemplateSchema(templateView, clientKind)).inputValue());
   delete explicitSchema.hasVersion;
   explicitSchema.dataScope = 'tenant.required';
   explicitSchema.entityCapabilities = {
@@ -227,13 +237,18 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   explicitSchema.relationships = [];
   const schemaTarget = clientKind === 'layui'
     ? schemaInput(codeGenerationView(page, clientKind))
-    : templateSchemaInput(templateView);
+    : await focusTemplateSchema(templateView, clientKind);
   await schemaTarget.fill(JSON.stringify(explicitSchema, null, 2));
   await templateNameInput(templateView, clientKind).fill(templateName);
   await templateSaveButton(templateView, clientKind).click();
-  await expect(
-    templateView.getByRole('button', { name: new RegExp(`^${templateName}`) })
-  ).toBeVisible();
+  if (clientKind === 'layui') {
+    await expect(
+      templateView.getByRole('button', { name: new RegExp(`^${templateName}`) })
+    ).toBeVisible();
+  } else {
+    await expect(templateView.getByTestId('codegen-template-table'))
+      .toContainText(templateName);
+  }
 
   const created = await templateByName(
     request,
@@ -249,12 +264,21 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     await openTemplateWorkspace(page, clientKind);
   }
   templateView = codeGenerationTemplatesView(page, clientKind);
-  const persistedButton = templateView.getByRole(
-    'button',
-    { name: new RegExp(`^${templateName}`) }
-  );
-  await expect(persistedButton).toBeVisible();
-  await persistedButton.click();
+  if (clientKind === 'layui') {
+    const persistedButton = templateView.getByRole(
+      'button',
+      { name: new RegExp(`^${templateName}`) }
+    );
+    await expect(persistedButton).toBeVisible();
+    await persistedButton.click();
+  } else {
+    await expect(templateView.getByTestId('codegen-template-table'))
+      .toContainText(templateName);
+    await templateView
+      .getByTestId('codegen-template-load')
+      .first()
+      .click();
+  }
 
   let previewView = codeGenerationView(page, clientKind);
   if (clientKind !== 'layui') {
@@ -304,15 +328,20 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     await openTemplateWorkspace(page, clientKind);
     templateView = codeGenerationTemplatesView(page, clientKind);
     await templateView
+      .locator('tr', { hasText: templateName })
       .getByTestId('codegen-template-load')
-      .filter({ hasText: templateName })
       .click();
   }
   await templateNameInput(templateView, clientKind).fill(updatedName);
   await templateUpdateButton(templateView, clientKind).click();
-  await expect(
-    templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
-  ).toBeVisible();
+  if (clientKind === 'layui') {
+    await expect(
+      templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
+    ).toBeVisible();
+  } else {
+    await expect(templateView.getByTestId('codegen-template-table'))
+      .toContainText(updatedName);
+  }
 
   if (clientKind !== 'layui') {
     await openPreviewWorkspace(page, clientKind);
@@ -393,14 +422,24 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     await openTemplateWorkspace(page, clientKind);
     templateView = codeGenerationTemplatesView(page, clientKind);
     await templateView
+      .locator('tr', { hasText: updatedName })
       .getByTestId('codegen-template-load')
-      .filter({ hasText: updatedName })
       .click();
   }
   await templateDeleteButton(templateView, clientKind).click();
-  await expect(
-    templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
-  ).toHaveCount(0);
+  if (clientKind === 'vue') {
+    const dialog = page.getByRole('dialog').last();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: '删除所选模板', exact: true }).click();
+  }
+  if (clientKind === 'layui') {
+    await expect(
+      templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
+    ).toHaveCount(0);
+  } else {
+    await expect(templateView.getByTestId('codegen-template-table'))
+      .not.toContainText(updatedName);
+  }
 
   const deletedResponse = await request.get(
     `${apiBaseUrl}/api/v1/code-generation/templates/${created.id}`,
@@ -432,12 +471,12 @@ test('Host 管理员可 Apply 组织归属模板并落盘写入授权 Feature', 
     JSON.parse(
       clientKind === 'layui'
         ? await schemaInput(codeGenerationView(page, clientKind)).inputValue()
-        : await templateSchemaInput(templateView).inputValue()
+        : await (await focusTemplateSchema(templateView, clientKind)).inputValue()
     )
   );
   const schemaTarget = clientKind === 'layui'
     ? schemaInput(codeGenerationView(page, clientKind))
-    : templateSchemaInput(templateView);
+    : await focusTemplateSchema(templateView, clientKind);
   await schemaTarget.fill(JSON.stringify(explicitSchema, null, 2));
   await templateNameInput(templateView, clientKind).fill(templateName);
   await templateSaveButton(templateView, clientKind).click();
@@ -565,4 +604,91 @@ test('受限 Host 账号不能读取模板 API 且双端导航保持裁剪', asy
       .getByRole('navigation', { name: '主导航' })
       .getByRole('link', { name: /代码生成/ })
   ).toHaveCount(0);
+});
+
+test('Vue 工作台支持筛选、复制、列元数据与预览深链', async ({
+  page,
+  request
+}, testInfo) => {
+  test.skip(
+    testInfo.project.metadata.clientKind !== 'vue',
+    '工作台 UX 对齐只验收 Vue 管理端'
+  );
+
+  const accessToken = await loginHostAdminAccessToken(request, 'vue');
+  const suffix = `ux-${Date.now()}`;
+  const templateName = `e2e-ux-${suffix}`;
+
+  await loginAsHostAdmin(page);
+  await openTemplateWorkspace(page, 'vue');
+  const templateView = codeGenerationTemplatesView(page, 'vue');
+
+  const schema = JSON.parse(
+    await (await focusTemplateSchema(templateView, 'vue')).inputValue()
+  );
+  delete schema.hasVersion;
+  schema.entityCapabilities = {
+    deleteMode: 'soft.delete',
+    hasCreatedAudit: true,
+    hasUpdatedAudit: true,
+    hasDeletedAudit: true,
+    hasVersion: true,
+    ownershipMode: 'none'
+  };
+  schema.scene = 'single';
+  schema.relationships = [];
+  if (!schema.columns.some(column => column.ui)) {
+    schema.columns = schema.columns.map(column => ({
+      ...column,
+      ui: {
+        controlKind: column.scalarType === 'Boolean' ? 'switch' : 'text',
+        showInList: true,
+        includeInCreate: true,
+        includeInUpdate: true,
+        required: !column.isNullable,
+        sortable: true,
+        queryable: true,
+        queryKind: 'equals',
+        unique: false,
+        includeInImportExport: true
+      }
+    }));
+  }
+  await (await focusTemplateSchema(templateView, 'vue'))
+    .fill(JSON.stringify(schema, null, 2));
+  await templateNameInput(templateView, 'vue').fill(templateName);
+  await templateSaveButton(templateView, 'vue').click();
+  await expect(templateView.getByTestId('codegen-template-table'))
+    .toContainText(templateName);
+
+  await templateView.getByTestId('codegen-template-filter-name').fill(templateName);
+  await templateView.getByTestId('codegen-template-filter-search').click();
+  await expect(templateView.getByTestId('codegen-template-table'))
+    .toContainText(templateName);
+
+  const row = templateView.locator('tr', { hasText: templateName });
+  await row.getByTestId('codegen-template-copy').click();
+  await expect(templateView.getByTestId('codegen-template-table'))
+    .toContainText(`${templateName} (copy)`);
+
+  await row.getByTestId('codegen-template-load').click();
+  await templateView.getByRole('tab', { name: '列配置' }).click();
+  await expect(templateView.getByTestId('codegen-column-sortable').first())
+    .toBeVisible();
+  await expect(templateView.getByTestId('codegen-column-query-kind').first())
+    .toBeVisible();
+  await expect(templateView.getByTestId('codegen-column-import-export').first())
+    .toBeVisible();
+
+  await row.getByTestId('codegen-template-preview-link').click();
+  const previewView = codeGenerationView(page, 'vue');
+  await expect(previewView).toBeVisible();
+  await expect(page).toHaveURL(/templateId=/);
+  await expect(previewView.getByTestId('codegen-schema')).toContainText(
+    schema.databaseTableName
+  );
+  await expect(previewView.getByTestId('codegen-integration-target')).toBeVisible();
+
+  const listed = await templateByName(request, 'vue', accessToken, templateName);
+  expect(listed).toBeTruthy();
 });

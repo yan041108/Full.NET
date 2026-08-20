@@ -71,4 +71,26 @@ public sealed class CodeGenerationTemplateSqlTests
             CodeGenerationTemplateSql.PageMySql.Text,
             "LIMIT @PageSize OFFSET @Offset");
     }
+
+    [TestMethod]
+    public void Page_statements_filter_by_optional_name_and_table_contains()
+    {
+        foreach (var statement in new[]
+                 {
+                     CodeGenerationTemplateSql.PageSqlServer,
+                     CodeGenerationTemplateSql.PageMySql,
+                 })
+        {
+            StringAssert.Contains(statement.Text, "@NameContains");
+            StringAssert.Contains(statement.Text, "@TableNameContains");
+            StringAssert.Contains(statement.Text, "databaseTableName");
+        }
+
+        StringAssert.Contains(
+            CodeGenerationTemplateSql.PageSqlServer.Text,
+            "JSON_VALUE(SchemaJson, '$.databaseTableName')");
+        StringAssert.Contains(
+            CodeGenerationTemplateSql.PageMySql.Text,
+            "JSON_EXTRACT(SchemaJson, '$.databaseTableName')");
+    }
 }

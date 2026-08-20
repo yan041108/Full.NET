@@ -22,6 +22,8 @@ internal static class Endpoint
         group.MapGet("", async (
             int? page,
             int? pageSize,
+            string? name,
+            string? tableName,
             CodeGenerationTemplateQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -30,6 +32,8 @@ internal static class Endpoint
             var result = await queries.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,
+                    name,
+                    tableName,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);

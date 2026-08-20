@@ -12,11 +12,26 @@ const templatesPath = '/api/v1/code-generation/templates';
 
 export async function listCodeGenerationTemplates(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  filters: {
+    name?: string;
+    tableName?: string;
+  } = {}
 ): Promise<CodeGenerationTemplatePage> {
-  const value = await request<unknown>(
-    `${templatesPath}?page=${page}&pageSize=${pageSize}`
-  );
+  const query = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize)
+  });
+  const name = filters.name?.trim();
+  const tableName = filters.tableName?.trim();
+  if (name) {
+    query.set('name', name);
+  }
+  if (tableName) {
+    query.set('tableName', tableName);
+  }
+
+  const value = await request<unknown>(`${templatesPath}?${query.toString()}`);
   if (!isCodeGenerationTemplatePage(value)) {
     throw new Error('client.invalid_code_generation_template_page');
   }

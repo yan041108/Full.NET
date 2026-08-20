@@ -764,6 +764,8 @@ export {
 } from './code-generation-runs.js';
 
 export type {
+  CodeGenerationClientRouteTarget,
+  CodeGenerationIntegrationTarget,
   CodeGenerationRunApplyRequest,
   CodeGenerationRunApplyResponse,
   CodeGenerationRunOperationKind,

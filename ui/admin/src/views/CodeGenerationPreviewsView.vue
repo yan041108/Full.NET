@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElInput, ElMessageBox, ElTag } from 'element-plus';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { ElButton, ElCard, ElInput, ElMessageBox, ElSwitch, ElTag } from 'element-plus';
 import {
   isCodeGenerationPreviewRequest,
   isFullNetProblemDetails,
   isPendingCodeGenerationRollbackApply,
   buildCodeGenerationRollbackApplyRunIds,
+  type CodeGenerationIntegrationTarget,
   type CodeGenerationPreviewArtifact,
   type CodeGenerationPreviewRequest,
   type CodeGenerationPreviewResponse,
@@ -15,6 +17,7 @@ import {
 } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   applyTrackedCodeGeneration,
   downloadCodeGenerationArtifacts,
@@ -23,10 +26,12 @@ import {
   previewTrackedCodeGeneration
 } from '../api/code-generation-runs';
 import {
+  getCodeGenerationTemplate,
   listCodeGenerationTemplates
 } from '../api/code-generation-templates';
 
 const session = useSessionStore();
+const route = useRoute();
 const { t } = useAdminI18n();
 const schemaText = ref(JSON.stringify({
   ownerKey: 'acme',
@@ -109,6 +114,21 @@ const reviewedPreview = ref<{
   templateVersion: number;
   artifactCount: number;
 }>();
+const integrationEnabled = ref(false);
+const integrationTarget = ref<CodeGenerationIntegrationTarget>({
+  moduleName: '',
+  moduleProjectPath: '',
+  moduleEntryPointPath: '',
+  compositionProjectPath: '',
+  compositionCatalogPath: '',
+  vueRouterPath: '',
+  authorizationContributorPath: '',
+  clientRoute: {
+    routePath: '',
+    vueRouteName: '',
+    vueComponentPath: ''
+  }
+});
 const canReadTemplates = computed(
   () => session.can('codegen.templates.read')
 );
@@ -125,9 +145,16 @@ const selectedArtifact = computed<CodeGenerationPreviewArtifact | undefined>(
 );
 
 onMounted(() => {
-  void loadTemplates();
+  void loadTemplates().then(() => loadTemplateFromQuery());
   void loadRuns();
 });
+
+watch(
+  () => route.query.templateId,
+  () => {
+    void loadTemplateFromQuery();
+  }
+);
 
 async function loadRuns(): Promise<void> {
   if (!canReadRuns.value || runLoading.value) {
@@ -167,6 +194,67 @@ function loadTemplate(template: CodeGenerationTemplateResponse): void {
   invalidateReviewedPreview();
   selectedTemplate.value = template;
   schemaText.value = JSON.stringify(template.schema, null, 2);
+}
+
+async function loadTemplateFromQuery(): Promise<void> {
+  if (!canReadTemplates.value) {
+    return;
+  }
+
+  const raw = route.query.templateId;
+  const templateId = Array.isArray(raw) ? raw[0] : raw;
+  if (!templateId || typeof templateId !== 'string') {
+    return;
+  }
+
+  const cached = templates.value.find(item => item.id === templateId);
+  if (cached) {
+    loadTemplate(cached);
+    return;
+  }
+
+  templateLoading.value = true;
+  problem.value = undefined;
+  try {
+    const template = await getCodeGenerationTemplate(templateId);
+    const index = templates.value.findIndex(item => item.id === template.id);
+    if (index < 0) {
+      templates.value = [template, ...templates.value];
+    } else {
+      templates.value.splice(index, 1, template);
+    }
+    loadTemplate(template);
+  } catch (error: unknown) {
+    problem.value = readProblem(error, 'client.codegen_template_list_failed');
+  } finally {
+    templateLoading.value = false;
+  }
+}
+
+function buildIntegrationTarget(): CodeGenerationIntegrationTarget | undefined {
+  if (!integrationEnabled.value) {
+    return undefined;
+  }
+
+  const target = integrationTarget.value;
+  const clientRoute = target.clientRoute;
+  return {
+    moduleName: target.moduleName.trim(),
+    moduleProjectPath: target.moduleProjectPath.trim(),
+    moduleEntryPointPath: target.moduleEntryPointPath.trim(),
+    compositionProjectPath: target.compositionProjectPath.trim(),
+    compositionCatalogPath: target.compositionCatalogPath.trim(),
+    vueRouterPath: target.vueRouterPath.trim(),
+    authorizationContributorPath:
+      target.authorizationContributorPath?.trim() || undefined,
+    clientRoute: clientRoute
+      ? {
+          routePath: clientRoute.routePath.trim(),
+          vueRouteName: clientRoute.vueRouteName.trim(),
+          vueComponentPath: clientRoute.vueComponentPath.trim()
+        }
+      : undefined
+  };
 }
 
 function readSchema(): CodeGenerationPreviewRequest | undefined {
@@ -268,7 +356,10 @@ async function applyReviewedPreview(): Promise<void> {
   applying.value = true;
   problem.value = undefined;
   try {
-    await applyTrackedCodeGeneration({ previewRunId: reviewed.runId });
+    await applyTrackedCodeGeneration({
+      previewRunId: reviewed.runId,
+      integrationTarget: buildIntegrationTarget()
+    });
     invalidateReviewedPreview();
     await loadRuns();
   } catch (error: unknown) {
@@ -456,35 +547,99 @@ function readProblem(
         />
         <div class="codegen-workbench__action">
           <span>{{ t('codeGeneration.explicitScopeHint') }}</span>
-          <ElButton
-            type="primary"
-            data-testid="codegen-preview"
-            :loading="loading"
-            :disabled="!canExecuteRuns"
-            @click="generatePreview"
-          >
-            {{ t('codeGeneration.preview') }}
-          </ElButton>
-          <ElButton
-            v-if="canApplyRuns"
-            type="danger"
-            plain
-            data-testid="codegen-apply"
-            :loading="applying"
-            :disabled="!reviewedPreview || applying"
-            @click="applyReviewedPreview"
-          >
-            {{ t('codeGeneration.apply') }}
-          </ElButton>
-          <ElButton
-            v-if="canDownloadRuns"
-            plain
-            data-testid="codegen-download"
-            :disabled="!reviewedPreview"
-            @click="downloadReviewedArtifacts"
-          >
-            {{ t('codeGeneration.download') }}
-          </ElButton>
+          <PermissionGate code="codegen.runs.execute">
+            <ElButton
+              type="primary"
+              data-testid="codegen-preview"
+              :loading="loading"
+              :disabled="!canExecuteRuns"
+              @click="generatePreview"
+            >
+              {{ t('codeGeneration.preview') }}
+            </ElButton>
+          </PermissionGate>
+          <PermissionGate code="codegen.runs.apply">
+            <ElButton
+              type="danger"
+              plain
+              data-testid="codegen-apply"
+              :loading="applying"
+              :disabled="!reviewedPreview || applying"
+              @click="applyReviewedPreview"
+            >
+              {{ t('codeGeneration.apply') }}
+            </ElButton>
+          </PermissionGate>
+          <PermissionGate code="codegen.runs.download">
+            <ElButton
+              plain
+              data-testid="codegen-download"
+              :disabled="!reviewedPreview"
+              @click="downloadReviewedArtifacts"
+            >
+              {{ t('codeGeneration.download') }}
+            </ElButton>
+          </PermissionGate>
+        </div>
+        <div
+          v-if="canApplyRuns"
+          class="codegen-workbench__integration"
+          data-testid="codegen-integration-target"
+        >
+          <label>
+            <ElSwitch
+              v-model="integrationEnabled"
+              data-testid="codegen-integration-enabled"
+            />
+            {{ t('codeGeneration.integrationTargetEnabled') }}
+          </label>
+          <div v-if="integrationEnabled" class="art-form-grid">
+            <h3>{{ t('codeGeneration.integrationTargetTitle') }}</h3>
+            <ElInput
+              v-model="integrationTarget.moduleName"
+              data-testid="codegen-integration-module-name"
+              :placeholder="t('codeGeneration.integrationModuleName')"
+            />
+            <ElInput
+              v-model="integrationTarget.moduleProjectPath"
+              :placeholder="t('codeGeneration.integrationModuleProjectPath')"
+            />
+            <ElInput
+              v-model="integrationTarget.moduleEntryPointPath"
+              :placeholder="t('codeGeneration.integrationModuleEntryPointPath')"
+            />
+            <ElInput
+              v-model="integrationTarget.compositionProjectPath"
+              :placeholder="t('codeGeneration.integrationCompositionProjectPath')"
+            />
+            <ElInput
+              v-model="integrationTarget.compositionCatalogPath"
+              :placeholder="t('codeGeneration.integrationCompositionCatalogPath')"
+            />
+            <ElInput
+              v-model="integrationTarget.vueRouterPath"
+              :placeholder="t('codeGeneration.integrationVueRouterPath')"
+            />
+            <ElInput
+              v-model="integrationTarget.authorizationContributorPath"
+              :placeholder="t('codeGeneration.integrationAuthorizationContributorPath')"
+            />
+            <ElInput
+              v-if="integrationTarget.clientRoute"
+              v-model="integrationTarget.clientRoute.routePath"
+              :placeholder="t('codeGeneration.integrationRoutePath')"
+            />
+            <ElInput
+              v-if="integrationTarget.clientRoute"
+              v-model="integrationTarget.clientRoute.vueRouteName"
+              :placeholder="t('codeGeneration.integrationVueRouteName')"
+            />
+            <ElInput
+              v-if="integrationTarget.clientRoute"
+              v-model="integrationTarget.clientRoute.vueComponentPath"
+              :placeholder="t('codeGeneration.integrationVueComponentPath')"
+            />
+          </div>
         </div>
       </ElCard>
 
@@ -578,19 +733,21 @@ function readProblem(
           <small translate="no">
             {{ run.requestedByUserId }} · {{ run.finishedAtUtc }}
           </small>
-          <ElButton
-            v-if="canRollbackRuns
-              && isPendingCodeGenerationRollbackApply(runs, run)"
-            type="warning"
-            plain
-            size="small"
-            data-testid="codegen-rollback"
-            :loading="rollingBackId === run.id"
-            :disabled="!!rollingBackId"
-            @click="rollbackApply(run)"
-          >
-            {{ t('codeGeneration.rollback') }}
-          </ElButton>
+          <PermissionGate code="codegen.runs.rollback">
+            <ElButton
+              v-if="canRollbackRuns
+                && isPendingCodeGenerationRollbackApply(runs, run)"
+              type="warning"
+              plain
+              size="small"
+              data-testid="codegen-rollback"
+              :loading="rollingBackId === run.id"
+              :disabled="!!rollingBackId"
+              @click="rollbackApply(run)"
+            >
+              {{ t('codeGeneration.rollback') }}
+            </ElButton>
+          </PermissionGate>
         </article>
       </div>
     </ElCard>
@@ -758,6 +915,23 @@ function readProblem(
   margin-top: 16px;
   color: var(--fullnet-color-ink-muted);
   font-size: 12px;
+}
+
+.codegen-workbench__integration {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--codegen-ink) 12%, transparent);
+}
+
+.codegen-workbench__integration label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--codegen-ink);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .codegen-workbench__count {

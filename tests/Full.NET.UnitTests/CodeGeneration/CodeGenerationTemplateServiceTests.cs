@@ -57,6 +57,56 @@ public sealed class CodeGenerationTemplateServiceTests
         Assert.AreEqual(
             100,
             ReadParameter<int>(executor.Parameters!, "PageSize"));
+        Assert.IsNull(ReadOptionalParameter(executor.Parameters!, "NameContains"));
+        Assert.IsNull(
+            ReadOptionalParameter(executor.Parameters!, "TableNameContains"));
+    }
+
+    [TestMethod]
+    public async Task List_passes_trimmed_name_and_table_filters()
+    {
+        var executor = new RecordingMultiResultQueryExecutor(
+            0,
+            CreateRecord());
+        var service = new CodeGenerationTemplateQueryService(
+            Substitute.For<IQueryExecutor>(),
+            executor,
+            new CodeGenerationSchemaNormalizer(),
+            Options.Create(new DatabaseOptions
+            {
+                Provider = DatabaseProvider.SqlServer,
+            }));
+
+        await service.ListAsync(1, 20, "  Product  ", "  acme_catalog  ");
+
+        Assert.AreEqual(
+            "Product",
+            ReadParameter<string>(executor.Parameters!, "NameContains"));
+        Assert.AreEqual(
+            "acme_catalog",
+            ReadParameter<string>(executor.Parameters!, "TableNameContains"));
+    }
+
+    [TestMethod]
+    public async Task List_treats_blank_filters_as_null()
+    {
+        var executor = new RecordingMultiResultQueryExecutor(
+            0,
+            CreateRecord());
+        var service = new CodeGenerationTemplateQueryService(
+            Substitute.For<IQueryExecutor>(),
+            executor,
+            new CodeGenerationSchemaNormalizer(),
+            Options.Create(new DatabaseOptions
+            {
+                Provider = DatabaseProvider.MySql,
+            }));
+
+        await service.ListAsync(1, 20, "   ", string.Empty);
+
+        Assert.IsNull(ReadOptionalParameter(executor.Parameters!, "NameContains"));
+        Assert.IsNull(
+            ReadOptionalParameter(executor.Parameters!, "TableNameContains"));
     }
 
     [TestMethod]
@@ -336,6 +386,9 @@ public sealed class CodeGenerationTemplateServiceTests
 
     private static T ReadParameter<T>(object parameters, string name) =>
         (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+
+    private static object? ReadOptionalParameter(object parameters, string name) =>
+        parameters.GetType().GetProperty(name)!.GetValue(parameters);
 
     private sealed class RecordingMultiResultQueryExecutor(
         long total,

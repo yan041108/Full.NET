@@ -117,11 +117,32 @@ internal sealed class CodeGenerationAuthorizationContributor
             "catalog",
             40),
         new AuthorizationActionDefinition(
+            "codegen.runs.execute",
+            "code-generation-previews",
+            CodeGenerationRunPermissions.Execute,
+            "执行受跟踪预览",
+            "execute",
+            10),
+        new AuthorizationActionDefinition(
+            "codegen.runs.apply",
+            "code-generation-previews",
+            CodeGenerationRunPermissions.Apply,
+            "应用已审查预览",
+            "apply",
+            20),
+        new AuthorizationActionDefinition(
+            "codegen.runs.rollback",
+            "code-generation-previews",
+            CodeGenerationRunPermissions.Rollback,
+            "回滚已成功 Apply",
+            "rollback",
+            30),
+        new AuthorizationActionDefinition(
             "codegen.runs.download",
             "code-generation-previews",
             CodeGenerationRunPermissions.Download,
             "下载生成产物",
             "download",
-            10),
+            40),
     ];
 }

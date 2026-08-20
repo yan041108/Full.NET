@@ -9,16 +9,34 @@ internal static class CodeGenerationTemplateSql
         CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId, Version
         """;
 
+    /// <summary>
+    /// 列表筛选：名称模糊与 Schema JSON 内 databaseTableName 模糊；空参数表示不过滤。
+    /// </summary>
+    private const string PageWhereSqlServer = """
+        IsDeleted = 0
+          AND (@NameContains IS NULL OR Name LIKE '%' + @NameContains + '%')
+          AND (@TableNameContains IS NULL
+               OR JSON_VALUE(SchemaJson, '$.databaseTableName') LIKE '%' + @TableNameContains + '%')
+        """;
+
+    private const string PageWhereMySql = """
+        IsDeleted = 0
+          AND (@NameContains IS NULL OR Name LIKE CONCAT('%', @NameContains, '%'))
+          AND (@TableNameContains IS NULL
+               OR JSON_UNQUOTE(JSON_EXTRACT(SchemaJson, '$.databaseTableName'))
+                  LIKE CONCAT('%', @TableNameContains, '%'))
+        """;
+
     public static readonly SqlStatement PageSqlServer = new(
         "codegen.template.page.sql_server",
         $$"""
         SELECT COUNT(1)
         FROM fn_codegeneration_template
-        WHERE IsDeleted = 0;
+        WHERE {{PageWhereSqlServer}};
 
         SELECT {{Projection}}
         FROM fn_codegeneration_template
-        WHERE IsDeleted = 0
+        WHERE {{PageWhereSqlServer}}
         ORDER BY UpdatedAtUtc DESC, CreatedAtUtc DESC, Id
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -29,11 +47,11 @@ internal static class CodeGenerationTemplateSql
         $$"""
         SELECT COUNT(1)
         FROM fn_codegeneration_template
-        WHERE IsDeleted = 0;
+        WHERE {{PageWhereMySql}};
 
         SELECT {{Projection}}
         FROM fn_codegeneration_template
-        WHERE IsDeleted = 0
+        WHERE {{PageWhereMySql}}
         ORDER BY UpdatedAtUtc DESC, CreatedAtUtc DESC, Id
         LIMIT @PageSize OFFSET @Offset
         """,

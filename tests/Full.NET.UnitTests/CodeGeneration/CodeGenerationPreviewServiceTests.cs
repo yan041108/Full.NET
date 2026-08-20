@@ -60,6 +60,20 @@ public sealed class CodeGenerationPreviewServiceTests
         Assert.AreEqual(
             CodeGenerationPreviewPermissions.Read,
             previewsNavigation.RequiredPermission);
+
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "codegen.templates.create",
+                "codegen.templates.update",
+                "codegen.templates.delete",
+                "codegen.catalog.read",
+                "codegen.runs.execute",
+                "codegen.runs.apply",
+                "codegen.runs.rollback",
+                "codegen.runs.download",
+            },
+            contributor.Actions.Select(action => action.Id).ToArray());
     }
 
     [TestMethod]

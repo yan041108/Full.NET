@@ -22,6 +22,8 @@ internal sealed class CodeGenerationTemplateQueryService(
         ListAsync(
             int page,
             int pageSize,
+            string? name = null,
+            string? tableName = null,
             CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
@@ -37,7 +39,13 @@ internal sealed class CodeGenerationTemplateQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                new
+                {
+                    Offset = offset,
+                    PageSize = pageSize,
+                    NameContains = NormalizeContains(name),
+                    TableNameContains = NormalizeContains(tableName),
+                },
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -104,6 +112,15 @@ internal sealed class CodeGenerationTemplateQueryService(
             record.UpdatedAtUtc,
             record.UpdatedByUserId,
             record.Version);
+    }
+
+    /// <summary>
+    /// 将空白筛选归一为 null，避免把空串当成 LIKE 全匹配条件。
+    /// </summary>
+    private static string? NormalizeContains(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 
     private static Result<CodeGenerationTemplateResponse> NotFound() =>
