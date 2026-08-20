@@ -6,6 +6,10 @@ using Full.NET.Modules.Jobs.Contracts;
 namespace Full.NET.Modules.Jobs.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(HttpJobArgs))]
+[JsonSerializable(typeof(HttpJobSecretHeaderRef))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
+[JsonSerializable(typeof(Dictionary<string, HttpJobSecretHeaderRef>))]
 [JsonSerializable(typeof(HostJobDefinitionResponse))]
 [JsonSerializable(typeof(PagedResult<HostJobDefinitionResponse>))]
 [JsonSerializable(typeof(CreateHostJobDefinitionRequest))]

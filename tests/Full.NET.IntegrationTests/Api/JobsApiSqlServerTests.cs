@@ -13,6 +13,7 @@ public sealed class JobsApiSqlServerTests
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?> { ["Jobs:Http:AllowPrivateNetwork"] = "true" },
             configureTestServices: services =>
             {
                 JobsBoundedConcurrencyAssertions.ConfigureServices(

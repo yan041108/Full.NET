@@ -87,17 +87,18 @@ public sealed class JobsCapacityDatabase : IAsyncDisposable
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO fn_jobs_definition
-                (Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+                (Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, IsEnabled,
                  CreatedAtUtc, UpdatedAtUtc, CreatedByUserId,
                  UpdatedByUserId, Version)
             VALUES
-                (@Id, NULL, @JobKey, @DisplayName, NULL, @IsEnabled,
+                (@Id, NULL, @JobKey, @HandlerKind, NULL, @DisplayName, NULL, @IsEnabled,
                  @CreatedAtUtc, NULL, @CreatedByUserId, NULL, 1)
             """,
             definitionIds.Select((id, index) => new
             {
                 Id = id,
                 JobKey = CreateJobKey(index, failingHandlerKeyCount),
+                HandlerKind = CreateJobKey(index, failingHandlerKeyCount),
                 DisplayName = $"Jobs capacity {index}",
                 IsEnabled = true,
                 CreatedAtUtc = ToDatabaseTimestamp(createdAtUtc),

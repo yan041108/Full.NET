@@ -485,6 +485,9 @@ internal sealed partial class HostConfigEntryManagementService(
                     errorMessage = "JSON configuration value is invalid.";
                     return false;
                 }
+            case ConfigValueKinds.Secret:
+                normalizedValue = value;
+                return true;
             default:
                 errorMessage = "Configuration value kind is unsupported.";
                 return false;

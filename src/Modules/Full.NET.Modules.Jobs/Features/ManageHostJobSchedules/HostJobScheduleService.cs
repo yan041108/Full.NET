@@ -93,6 +93,7 @@ internal sealed class HostJobScheduleService(
             records.Select(record => new HostJobScheduleDefinitionOptionResponse(
                 record.Id,
                 record.JobKey,
+                record.HandlerKind,
                 record.DisplayName))
                 .ToArray());
     }

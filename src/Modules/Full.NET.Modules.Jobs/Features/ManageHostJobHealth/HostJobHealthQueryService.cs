@@ -11,7 +11,7 @@ namespace Full.NET.Modules.Jobs.Features.ManageHostJobHealth;
 /// <summary>聚合 Handler 注册表、积压快照与 Worker 心跳，供管理端只读观测。</summary>
 internal sealed class HostJobHealthQueryService(
     IQueryExecutor queryExecutor,
-    JobHandlerRegistry handlerRegistry,
+    JobHandlerKindRegistry handlerKindRegistry,
     JobsBacklogReader backlogReader,
     IClock clock,
     IOptions<JobsWorkerOptions> workerOptions)
@@ -31,7 +31,7 @@ internal sealed class HostJobHealthQueryService(
             workerOptions.Value.PollMilliseconds * 2);
         return Result<HostJobHealthResponse>.Success(
             new HostJobHealthResponse(
-                handlerRegistry.RegisteredJobKeys,
+                handlerKindRegistry.RegisteredHandlerKinds,
                 new HostJobHealthBacklogSnapshot(
                     backlog.PendingCount,
                     backlog.OldestClaimableCreatedAtUtc,

@@ -81,6 +81,7 @@ internal static class SettingsConfigEntryManagementAssertions
         Assert.IsNotNull(created);
         Assert.AreEqual(configKey, created.ConfigKey);
         Assert.AreEqual("hello", created.Value);
+        Assert.IsTrue(created.HasValue);
 
         using var duplicateRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -113,6 +114,28 @@ internal static class SettingsConfigEntryManagementAssertions
             invalidValueRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.BadRequest, invalidValueResponse.StatusCode);
+
+        var secretKey = $"sec.{Guid.NewGuid():N}"[..20];
+        using var secretRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/settings/config-entries",
+            adminToken,
+            new CreateConfigEntryRequest(
+                secretKey,
+                "密钥配置",
+                null,
+                null,
+                ConfigValueKinds.Secret,
+                "top-secret-value",
+                1));
+        using var secretResponse = await client.SendAsync(secretRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, secretResponse.StatusCode);
+        var secretCreated = await secretResponse.Content.ReadFromJsonAsync<ConfigEntryResponse>(
+            cancellationToken);
+        Assert.IsNotNull(secretCreated);
+        Assert.AreEqual(ConfigValueKinds.Secret, secretCreated.ValueKind);
+        Assert.AreEqual(string.Empty, secretCreated.Value);
+        Assert.IsTrue(secretCreated.HasValue);
     }
 
     private static async Task VerifyUpdateWithOptimisticVersionAsync(

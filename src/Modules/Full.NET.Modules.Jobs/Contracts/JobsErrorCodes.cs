@@ -12,6 +12,11 @@ public static class JobsErrorCodes
 
     public const string DefinitionValidationFailed = "jobs.definition_validation_failed";
 
+    public const string HandlerKindRequired = "jobs.handler_kind_required";
+
+    public const string SensitiveHeaderInPlainHeaders =
+        "jobs.sensitive_header_in_plain_headers";
+
     public const string DefinitionDisabled = "jobs.definition_disabled";
 
     /// <summary>作业定义仍存在活跃计划或执行记录，禁止删除。</summary>
@@ -38,6 +43,8 @@ public static class JobsErrorCodes
         DefinitionConcurrencyConflict,
         DefinitionJobKeyExists,
         DefinitionValidationFailed,
+        HandlerKindRequired,
+        SensitiveHeaderInPlainHeaders,
         DefinitionDisabled,
         DefinitionHasActiveDependents,
         HandlerNotFound,

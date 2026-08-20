@@ -33,6 +33,9 @@ public static class ConfigValueKinds
     public const string Decimal = "decimal";
     public const string Json = "json";
 
+    /// <summary>敏感密钥；读 API 脱敏，跨模块明文仅经 <see cref="ISettingsSecretValueResolver"/> 解析。</summary>
+    public const string Secret = "secret";
+
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         String,
@@ -40,6 +43,7 @@ public static class ConfigValueKinds
         Integer,
         Decimal,
         Json,
+        Secret,
     ]);
 }
 
@@ -52,6 +56,7 @@ public sealed record ConfigEntryResponse(
     string? GroupName,
     string ValueKind,
     string Value,
+    bool HasValue,
     int DisplayOrder,
     bool IsActive,
     DateTimeOffset CreatedAtUtc,

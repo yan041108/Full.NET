@@ -71,6 +71,7 @@
         "description",
         "valueKind",
         "value",
+        "hasValue",
         "displayOrder",
         "isActive",
         "createdAtUtc",

@@ -20,7 +20,7 @@ namespace Full.NET.Modules.Jobs;
 
 /// <summary>
 /// Jobs 业务模块入口。注册 Host 任务定义（JobDefinition）、调度计划（JobSchedule，Cron/一次性）、
-/// 执行记录（JobExecution）的管理与只读查询服务、Cron 调度计算与分发器、任务处理器抽象（IJobHandler/JobHandlerRegistry）、
+/// 执行记录（JobExecution）的管理与只读查询服务、Cron 调度计算与分发器、按 HandlerKind 解析的内置执行器、
 /// 手动触发服务，并映射定义/计划/执行三类端点。
 /// AddServices 仅装配查询与管理；AddBackgroundServices（仅 Worker）额外装配 JobsWorkerOptions、
 /// JobExecutionHostedProcessor 轮询 BackgroundService（到期调度派发 + 待处理执行 + 积压采样可观测）。
@@ -36,7 +36,7 @@ public sealed class JobsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
-        RegisterExecutionCore(services);
+        RegisterExecutionCore(services, configuration);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             JobsAuthorizationContributor>());
@@ -68,7 +68,7 @@ public sealed class JobsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
-        RegisterExecutionCore(services);
+        RegisterExecutionCore(services, configuration);
         services.AddOptions<JobsWorkerOptions>()
             .Bind(configuration.GetSection(JobsWorkerOptions.SectionName))
             .ValidateOnStart();
@@ -84,18 +84,33 @@ public sealed class JobsModule : IFullNetModule
                 metrics.AddMeter(JobsTelemetry.MeterName));
     }
 
-    private static void RegisterExecutionCore(IServiceCollection services)
+    private static void RegisterExecutionCore(
+        IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddOptions<JobsWorkerOptions>();
+        services.AddOptions<JobsHttpOptions>()
+            .Bind(configuration.GetSection(JobsHttpOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<
+                IValidateOptions<JobsHttpOptions>,
+                JobsHttpOptionsValidator>());
+        services.AddHttpClient(HttpJobExecutor.HttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+            });
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<
             IJobsRetryJitterSource,
             SystemJobsRetryJitterSource>();
-        services.TryAddScoped<JobHandlerRegistry>();
+        services.TryAddScoped<JobHandlerKindRegistry>();
         services.TryAddScoped<JobsBacklogReader>();
         services.TryAddScoped<JobScheduleDispatcher>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IJobHandler, PingJobHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IJobHandlerExecutor, PingJobExecutor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IJobHandlerExecutor, HttpJobExecutor>());
         services.TryAddScoped<JobExecutionRunner>();
     }
 }

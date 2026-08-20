@@ -5,12 +5,14 @@ import {
   isHostJobExecution,
   isHostJobExecutionPage,
   isHostJobGroupList,
+  JOB_HANDLER_KINDS,
   type HostJobDefinition,
   type HostJobDefinitionPage,
   type HostJobExecution,
   type HostJobExecutionListQuery,
   type HostJobExecutionPage,
-  type HostJobGroup
+  type HostJobGroup,
+  type HttpJobArgs
 } from '@fullnet/client-contracts';
 
 export async function listHostJobDefinitions(
@@ -36,7 +38,9 @@ export async function listHostJobGroups(): Promise<HostJobGroup[]> {
 
 export async function createHostJobDefinition(
   jobKey: string,
+  handlerKind: string,
   displayName: string,
+  args?: HttpJobArgs | null,
   description?: string | null,
   groupName?: string | null,
   allowConcurrentExecutions = false
@@ -46,6 +50,8 @@ export async function createHostJobDefinition(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       jobKey,
+      handlerKind,
+      args: args ?? null,
       displayName,
       description: description ?? null,
       groupName: groupName ?? null,
@@ -62,6 +68,8 @@ export async function updateHostJobDefinition(
   id: string,
   displayName: string,
   description: string | null,
+  handlerKind: string,
+  args: HttpJobArgs | null,
   version: number,
   groupName?: string | null,
   allowConcurrentExecutions = false
@@ -74,6 +82,8 @@ export async function updateHostJobDefinition(
       body: JSON.stringify({
         displayName,
         description,
+        handlerKind,
+        args,
         groupName: groupName ?? null,
         allowConcurrentExecutions,
         version
@@ -179,3 +189,5 @@ export async function clearHostJobExecutions(
     { method: 'POST' }
   );
 }
+
+export { JOB_HANDLER_KINDS };

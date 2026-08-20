@@ -1,5 +1,6 @@
 using Full.NET.Benchmarks.Jobs;
 using Full.NET.Benchmarks.MixedLoad;
+using Full.NET.Modules.Jobs.Contracts;
 using Full.NET.Modules.Jobs.Execution;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -244,7 +245,15 @@ public sealed class JobsCapacityBenchmarkTests
 
         await Assert.ThrowsExactlyAsync<
             JobsCapacityExpectedFailureException>(
-            () => handler.ExecuteAsync(CancellationToken.None));
+            () => handler.ExecuteAsync(
+                new JobExecutionContext(
+                    Guid.CreateVersion7(),
+                    Guid.CreateVersion7(),
+                    handler.HandlerKind,
+                    handler.HandlerKind,
+                    null,
+                    JobTriggerKinds.Manual),
+                CancellationToken.None));
 
         var snapshot = probe.Snapshot();
         Assert.AreEqual(1L, snapshot.Invocations);
@@ -379,18 +388,25 @@ public sealed class JobsCapacityBenchmarkTests
             probe);
         await using var scope = services.CreateAsyncScope();
         var handlers = scope.ServiceProvider
-            .GetServices<IJobHandler>()
-            .Where(handler => handler.JobKey.StartsWith(
+            .GetServices<IJobHandlerExecutor>()
+            .Where(handler => handler.HandlerKind.StartsWith(
                 "jobs.benchmark.capacity.",
                 StringComparison.Ordinal))
-            .OrderBy(handler => handler.JobKey, StringComparer.Ordinal)
+            .OrderBy(handler => handler.HandlerKind, StringComparer.Ordinal)
             .ToArray();
 
         Assert.HasCount(options.HandlerKeyCount, handlers);
+        var context = new JobExecutionContext(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            handlers[0].HandlerKind,
+            handlers[0].HandlerKind,
+            null,
+            JobTriggerKinds.Manual);
         await Assert.ThrowsExactlyAsync<
             JobsCapacityExpectedFailureException>(
-            () => handlers[0].ExecuteAsync(CancellationToken.None));
-        await handlers[^1].ExecuteAsync(CancellationToken.None);
+            () => handlers[0].ExecuteAsync(context, CancellationToken.None));
+        await handlers[^1].ExecuteAsync(context, CancellationToken.None);
         Assert.HasCount(1, probe.Snapshot().ScopeIds);
     }
 

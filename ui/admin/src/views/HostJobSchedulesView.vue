@@ -407,7 +407,7 @@ function toProblem(
             <ElOption
               v-for="item in definitionOptions"
               :key="item.id"
-              :label="item.displayName"
+              :label="`${item.displayName} · ${item.jobKey} · ${item.handlerKind}`"
               :value="item.id"
             />
           </ElSelect>

@@ -64,6 +64,7 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddScoped<Features.ManageTenantDictItems.TenantDictItemManagementService>();
         services.TryAddScoped<Features.ManageHostConfigEntries.HostConfigEntryQueryService>();
         services.TryAddScoped<Features.ManageHostConfigEntries.HostConfigEntryManagementService>();
+        services.TryAddScoped<ISettingsSecretValueResolver, Features.ManageHostConfigEntries.SettingsSecretValueResolver>();
         services.TryAddScoped<Features.QueryHostEnumCatalogs.HostEnumCatalogQueryService>();
         services.TryAddScoped<
             Features.ManageMyGridPreferences.MyGridPreferenceService>();
@@ -101,5 +102,13 @@ public sealed class SettingsModule : IFullNetModule
         Features.QueryHostEnumCatalogs.Endpoint.Map(endpoints);
         Features.ManageMyGridPreferences.Endpoint.Map(endpoints);
         Features.ManageDiagnosticPolicy.Endpoint.Map(endpoints);
+    }
+
+    /// <summary>注册 Worker 解析 secret 配置项所需的最小 Settings Port。</summary>
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.TryAddScoped<ISettingsSecretValueResolver, Features.ManageHostConfigEntries.SettingsSecretValueResolver>();
     }
 }

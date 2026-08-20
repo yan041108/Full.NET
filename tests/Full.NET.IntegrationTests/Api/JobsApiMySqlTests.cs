@@ -13,6 +13,7 @@ public sealed class JobsApiMySqlTests
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            new Dictionary<string, string?> { ["Jobs:Http:AllowPrivateNetwork"] = "true" },
             configureTestServices: services =>
             {
                 JobsBoundedConcurrencyAssertions.ConfigureServices(

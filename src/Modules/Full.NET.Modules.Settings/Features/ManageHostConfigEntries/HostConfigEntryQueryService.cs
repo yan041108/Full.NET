@@ -108,20 +108,30 @@ internal sealed class HostConfigEntryQueryService(
         return Result<IReadOnlyList<string>>.Success(groups.ToArray());
     }
 
-    internal static ConfigEntryResponse Map(ConfigEntryRecord record) =>
-        new(
+    internal static ConfigEntryResponse Map(ConfigEntryRecord record)
+    {
+        var hasValue = !string.IsNullOrEmpty(record.Value);
+        var value = string.Equals(
+                record.ValueKind,
+                ConfigValueKinds.Secret,
+                StringComparison.Ordinal)
+            ? string.Empty
+            : record.Value;
+        return new(
             record.Id,
             record.ConfigKey,
             record.DisplayName,
             record.Description,
             record.GroupName,
             record.ValueKind,
-            record.Value,
+            value,
+            hasValue,
             record.DisplayOrder,
             record.IsActive,
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);
+    }
 
     private static Result<ConfigEntryResponse> NotFound() =>
         Result<ConfigEntryResponse>.Failure(new Error(

@@ -18,7 +18,7 @@ internal sealed class JobExecutionRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    JobHandlerRegistry handlerRegistry,
+    JobHandlerKindRegistry handlerKindRegistry,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
@@ -210,7 +210,7 @@ internal sealed class JobExecutionRunner(
                     definitionsById,
                     leaseId,
                     cancellationToken,
-                    services.GetRequiredService<JobHandlerRegistry>(),
+                    services.GetRequiredService<JobHandlerKindRegistry>(),
                     services.GetRequiredService<ICommandExecutor>(),
                     services.GetRequiredService<IClock>(),
                     _workerOptions,
@@ -263,7 +263,7 @@ internal sealed class JobExecutionRunner(
             definitionsById,
             leaseId,
             cancellationToken,
-            handlerRegistry,
+            handlerKindRegistry,
             commandExecutor,
             clock,
             _workerOptions,
@@ -275,7 +275,7 @@ internal sealed class JobExecutionRunner(
         IReadOnlyDictionary<Guid, JobDefinitionRecord> definitionsById,
         Guid leaseId,
         CancellationToken cancellationToken,
-        JobHandlerRegistry scopedHandlerRegistry,
+        JobHandlerKindRegistry scopedHandlerKindRegistry,
         ICommandExecutor scopedCommandExecutor,
         IClock scopedClock,
         JobsWorkerOptions scopedWorkerOptions,
@@ -285,10 +285,10 @@ internal sealed class JobExecutionRunner(
         if (!definitionsById.TryGetValue(
                 execution.JobDefinitionId,
                 out var definition)
-            || !scopedHandlerRegistry.TryGetHandler(
-                definition.JobKey,
-                out var handler)
-            || handler is null)
+            || !scopedHandlerKindRegistry.TryGetExecutor(
+                definition.HandlerKind,
+                out var executor)
+            || executor is null)
         {
             var failedRows = await MarkFailedAsync(
                     execution.Id,
@@ -313,7 +313,14 @@ internal sealed class JobExecutionRunner(
 
         try
         {
-            await handler.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            var context = new JobExecutionContext(
+                execution.Id,
+                definition.Id,
+                definition.JobKey,
+                definition.HandlerKind,
+                definition.ArgsJson,
+                execution.TriggerKind);
+            await executor.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
             var succeededRows = await MarkSucceededAsync(
                     execution.Id,
                     leaseId,

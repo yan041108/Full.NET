@@ -22,6 +22,8 @@ describe('host-jobs contracts', () => {
   const definition = {
     id: '01912345-6789-7abc-8def-0123456789ab',
     jobKey: 'jobs.ping',
+    handlerKind: 'ping',
+    args: null,
     displayName: '探针任务',
     description: '烟囱验证',
     groupName: 'System',
@@ -64,10 +66,12 @@ describe('host-jobs contracts', () => {
     })).toBe(true);
     expect(isCreateHostJobDefinitionRequest({
       jobKey: 'jobs.ping',
+      handlerKind: 'ping',
       displayName: '探针'
     })).toBe(true);
     expect(isUpdateHostJobDefinitionRequest({
       displayName: '探针',
+      handlerKind: 'ping',
       allowConcurrentExecutions: false,
       version: 1
     })).toBe(true);
@@ -130,12 +134,14 @@ describe('host-jobs contracts', () => {
     expect(isHostJobScheduleDefinitionOption({
       id: definition.id,
       jobKey: definition.jobKey,
+      handlerKind: definition.handlerKind,
       displayName: definition.displayName
     })).toBe(true);
     expect(isHostJobScheduleDefinitionOptionList([
       {
         id: definition.id,
         jobKey: definition.jobKey,
+        handlerKind: definition.handlerKind,
         displayName: definition.displayName
       }
     ])).toBe(true);

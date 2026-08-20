@@ -34,12 +34,14 @@ public sealed class JobExecutionRunnerTests
             {
                 Id = firstDefinitionId,
                 JobKey = "jobs.test-parallel-a",
+                HandlerKind = "jobs.test-parallel-a",
                 IsEnabled = true,
             },
             new JobDefinitionRecord
             {
                 Id = secondDefinitionId,
                 JobKey = "jobs.test-parallel-b",
+                HandlerKind = "jobs.test-parallel-b",
                 IsEnabled = true,
             },
         };
@@ -52,23 +54,23 @@ public sealed class JobExecutionRunnerTests
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ExecutionScopeIdentity>();
         services.AddScoped<ICommandExecutor, ScopedRecordingCommandExecutor>();
-        services.AddScoped<IJobHandler>(
+        services.AddScoped<IJobHandlerExecutor>(
             provider => new CoordinatedJobHandler(
                 definitions[0].JobKey,
                 provider.GetRequiredService<ExecutionScopeIdentity>(),
                 coordinator));
-        services.AddScoped<IJobHandler>(
+        services.AddScoped<IJobHandlerExecutor>(
             provider => new CoordinatedJobHandler(
                 definitions[1].JobKey,
                 provider.GetRequiredService<ExecutionScopeIdentity>(),
                 coordinator));
-        services.AddScoped<JobHandlerRegistry>();
+        services.AddScoped<JobHandlerKindRegistry>();
         await using var provider = services.BuildServiceProvider();
         var runner = new JobExecutionRunner(
             new MultipleJobsQueryExecutor(executions, definitions),
             new RecordingCommandExecutor(),
             new RecordingTransaction(),
-            new JobHandlerRegistry([]),
+            new JobHandlerKindRegistry([]),
             new FixedClock(
                 new DateTimeOffset(2026, 7, 29, 0, 0, 0, TimeSpan.Zero)),
             new FixedIdGenerator(Guid.CreateVersion7()),
@@ -123,6 +125,7 @@ public sealed class JobExecutionRunnerTests
         {
             Id = definitionId,
             JobKey = ImmediateJobHandler.Key,
+            HandlerKind = ImmediateJobHandler.Key,
             IsEnabled = true,
         };
         var queryExecutor = new BatchDefinitionRecordingQueryExecutor(
@@ -133,7 +136,7 @@ public sealed class JobExecutionRunnerTests
             queryExecutor,
             new RecordingCommandExecutor(),
             transaction,
-            new JobHandlerRegistry([new ImmediateJobHandler()]),
+            new JobHandlerKindRegistry([new ImmediateJobHandler()]),
             new FixedClock(
                 new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
             new FixedIdGenerator(Guid.CreateVersion7()),
@@ -209,6 +212,7 @@ public sealed class JobExecutionRunnerTests
             {
                 Id = definitionId,
                 JobKey = RenewalAwaitingJobHandler.Key,
+                HandlerKind = RenewalAwaitingJobHandler.Key,
                 IsEnabled = true,
             });
         var commandExecutor = new RenewalRecordingCommandExecutor();
@@ -216,7 +220,7 @@ public sealed class JobExecutionRunnerTests
             queryExecutor,
             commandExecutor,
             new RecordingTransaction(),
-            new JobHandlerRegistry(
+            new JobHandlerKindRegistry(
                 [new RenewalAwaitingJobHandler(commandExecutor.RenewalObserved)]),
             new SteppingClock(initialNow),
             new FixedIdGenerator(leaseId),
@@ -264,6 +268,7 @@ public sealed class JobExecutionRunnerTests
             {
                 Id = definitionId,
                 JobKey = CancellationAwaitingJobHandler.Key,
+                HandlerKind = CancellationAwaitingJobHandler.Key,
                 IsEnabled = true,
             });
         var commandExecutor = new LostLeaseCommandExecutor();
@@ -272,7 +277,7 @@ public sealed class JobExecutionRunnerTests
             queryExecutor,
             commandExecutor,
             new RecordingTransaction(),
-            new JobHandlerRegistry([handler]),
+            new JobHandlerKindRegistry([handler]),
             new FixedClock(
                 new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
             new FixedIdGenerator(leaseId),
@@ -320,6 +325,7 @@ public sealed class JobExecutionRunnerTests
             {
                 Id = definitionId,
                 JobKey = RenewalAwaitingJobHandler.Key,
+                HandlerKind = RenewalAwaitingJobHandler.Key,
                 IsEnabled = true,
             });
         var commandExecutor = new LostLeaseCommandExecutor();
@@ -327,7 +333,7 @@ public sealed class JobExecutionRunnerTests
             queryExecutor,
             commandExecutor,
             new RecordingTransaction(),
-            new JobHandlerRegistry(
+            new JobHandlerKindRegistry(
                 [new CompletionAfterCancellationJobHandler()]),
             new FixedClock(
                 new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
@@ -374,6 +380,7 @@ public sealed class JobExecutionRunnerTests
             {
                 Id = definitionId,
                 JobKey = CancellingJobHandler.Key,
+                HandlerKind = CancellingJobHandler.Key,
                 IsEnabled = true,
             });
         var commandExecutor = new RecordingCommandExecutor();
@@ -382,7 +389,7 @@ public sealed class JobExecutionRunnerTests
             queryExecutor,
             commandExecutor,
             new RecordingTransaction(),
-            new JobHandlerRegistry(
+            new JobHandlerKindRegistry(
                 [new CancellingJobHandler(cancellationTokenSource)]),
             new FixedClock(
                 new DateTimeOffset(2026, 7, 27, 0, 0, 0, TimeSpan.Zero)),
@@ -621,7 +628,7 @@ public sealed class JobExecutionRunnerTests
     }
 
     private static JobExecutionRunner CreateFailureRunner(
-        IJobHandler handler,
+        IJobHandlerExecutor handler,
         int attemptCount,
         int maxAttempts,
         int retryDelaySeconds,
@@ -643,12 +650,13 @@ public sealed class JobExecutionRunnerTests
                 new JobDefinitionRecord
                 {
                     Id = definitionId,
-                    JobKey = handler.JobKey,
+                    JobKey = handler.HandlerKind,
+                    HandlerKind = handler.HandlerKind,
                     IsEnabled = true,
                 }),
             commandExecutor,
             new RecordingTransaction(),
-            new JobHandlerRegistry([handler]),
+            new JobHandlerKindRegistry([handler]),
             new FixedClock(now),
             new FixedIdGenerator(Guid.CreateVersion7()),
             Options.Create(
@@ -677,48 +685,56 @@ public sealed class JobExecutionRunnerTests
     }
 
     private sealed class CancellingJobHandler(
-        CancellationTokenSource cancellationTokenSource) : IJobHandler
+        CancellationTokenSource cancellationTokenSource) : IJobHandlerExecutor
     {
         public const string Key = "jobs.test-cancellation";
 
-        public string JobKey => Key;
+        public string HandlerKind => Key;
 
-        public Task ExecuteAsync(CancellationToken cancellationToken)
+        public Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken)
         {
             cancellationTokenSource.Cancel();
             return Task.FromCanceled(cancellationToken);
         }
     }
 
-    private sealed class ImmediateJobHandler : IJobHandler
+    private sealed class ImmediateJobHandler : IJobHandlerExecutor
     {
         public const string Key = "jobs.test-immediate";
 
-        public string JobKey => Key;
+        public string HandlerKind => Key;
 
-        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+        public Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken) =>
             Task.CompletedTask;
     }
 
-    private sealed class RetryableFailureJobHandler : IJobHandler
+    private sealed class RetryableFailureJobHandler : IJobHandlerExecutor
     {
         public const string Key = "jobs.test-retryable-failure";
 
         public const string ErrorMessage = "retryable test failure";
 
-        public string JobKey => Key;
+        public string HandlerKind => Key;
 
-        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+        public Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken) =>
             throw new RetryableJobException(ErrorMessage);
     }
 
-    private sealed class TerminalFailureJobHandler : IJobHandler
+    private sealed class TerminalFailureJobHandler : IJobHandlerExecutor
     {
         public const string Key = "jobs.test-terminal-failure";
 
-        public string JobKey => Key;
+        public string HandlerKind => Key;
 
-        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+        public Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken) =>
             throw new InvalidOperationException("terminal test failure");
     }
 
@@ -733,13 +749,15 @@ public sealed class JobExecutionRunnerTests
     private sealed class CoordinatedJobHandler(
         string jobKey,
         ExecutionScopeIdentity scopeIdentity,
-        ParallelExecutionCoordinator coordinator) : IJobHandler
+        ParallelExecutionCoordinator coordinator) : IJobHandlerExecutor
     {
-        public string JobKey => jobKey;
+        public string HandlerKind => jobKey;
 
-        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+        public Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken) =>
             coordinator.ExecuteAsync(
-                JobKey,
+                context.JobKey,
                 scopeIdentity.Id,
                 cancellationToken);
     }
@@ -820,13 +838,15 @@ public sealed class JobExecutionRunnerTests
         }
     }
 
-    private sealed class RenewalAwaitingJobHandler(Task renewalObserved) : IJobHandler
+    private sealed class RenewalAwaitingJobHandler(Task renewalObserved) : IJobHandlerExecutor
     {
         public const string Key = "jobs.test-active-renewal";
 
-        public string JobKey => Key;
+        public string HandlerKind => Key;
 
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        public async Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken)
         {
             await renewalObserved
                 .WaitAsync(cancellationToken)
@@ -834,18 +854,20 @@ public sealed class JobExecutionRunnerTests
         }
     }
 
-    private sealed class CancellationAwaitingJobHandler : IJobHandler
+    private sealed class CancellationAwaitingJobHandler : IJobHandlerExecutor
     {
         private readonly TaskCompletionSource _cancellationObserved =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public const string Key = "jobs.test-lost-lease";
 
-        public string JobKey => Key;
+        public string HandlerKind => Key;
 
         public Task CancellationObserved => _cancellationObserved.Task;
 
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        public async Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken)
         {
             try
             {
@@ -861,11 +883,13 @@ public sealed class JobExecutionRunnerTests
         }
     }
 
-    private sealed class CompletionAfterCancellationJobHandler : IJobHandler
+    private sealed class CompletionAfterCancellationJobHandler : IJobHandlerExecutor
     {
-        public string JobKey => RenewalAwaitingJobHandler.Key;
+        public string HandlerKind => RenewalAwaitingJobHandler.Key;
 
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        public async Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken)
         {
             try
             {

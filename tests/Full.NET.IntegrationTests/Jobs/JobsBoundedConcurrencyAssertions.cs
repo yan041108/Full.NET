@@ -22,9 +22,9 @@ internal static class JobsBoundedConcurrencyAssertions
     {
         services.AddSingleton(probe);
         services.AddScoped<JobsExecutionScopeIdentity>();
-        services.AddScoped<IJobHandler, FirstBlockingJobHandler>();
-        services.AddScoped<IJobHandler, SecondBlockingJobHandler>();
-        services.AddScoped<IJobHandler, FailingJobHandler>();
+        services.AddScoped<IJobHandlerExecutor, FirstBlockingJobHandler>();
+        services.AddScoped<IJobHandlerExecutor, SecondBlockingJobHandler>();
+        services.AddScoped<IJobHandlerExecutor, FailingJobHandler>();
     }
 
     public static async Task VerifyAsync(
@@ -113,7 +113,7 @@ internal static class JobsBoundedConcurrencyAssertions
             services.GetRequiredService<IQueryExecutor>(),
             services.GetRequiredService<ICommandExecutor>(),
             services.GetRequiredService<ICommandTransaction>(),
-            services.GetRequiredService<JobHandlerRegistry>(),
+            services.GetRequiredService<JobHandlerKindRegistry>(),
             services.GetRequiredService<Full.NET.Abstractions.Time.IClock>(),
             services.GetRequiredService<Full.NET.Abstractions.Ids.IIdGenerator>(),
             services.GetRequiredService<IOptions<DatabaseOptions>>(),
@@ -159,11 +159,11 @@ internal static class JobsBoundedConcurrencyAssertions
                     "test.jobs.insert_bounded_concurrency_definition",
                     """
                     INSERT INTO fn_jobs_definition
-                        (Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+                        (Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, IsEnabled,
                          AllowConcurrentExecutions,
                          CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version)
                     VALUES
-                        (@Id, NULL, @JobKey, @DisplayName, NULL, @IsEnabled,
+                        (@Id, NULL, @JobKey, @HandlerKind, NULL, @DisplayName, NULL, @IsEnabled,
                          1,
                          @CreatedAtUtc, NULL, @CreatedByUserId, NULL, 1)
                     """,
@@ -172,6 +172,7 @@ internal static class JobsBoundedConcurrencyAssertions
                 {
                     definition.Id,
                     JobKey = definition.Key,
+                    HandlerKind = definition.Key,
                     DisplayName = definition.Key,
                     IsEnabled = true,
                     CreatedAtUtc = now,
@@ -392,37 +393,43 @@ internal sealed class JobsExecutionScopeIdentity
 
 internal sealed class FirstBlockingJobHandler(
     JobsExecutionScopeIdentity scopeIdentity,
-    JobsBoundedConcurrencyProbe probe) : IJobHandler
+    JobsBoundedConcurrencyProbe probe) : IJobHandlerExecutor
 {
     public const string Key = "jobs.test-bounded-concurrency-a";
 
-    public string JobKey => Key;
+    public string HandlerKind => Key;
 
-    public Task ExecuteAsync(CancellationToken cancellationToken) =>
+    public Task ExecuteAsync(
+        JobExecutionContext context,
+        CancellationToken cancellationToken) =>
         probe.ExecuteBlockingAsync(Key, scopeIdentity.Id, cancellationToken);
 }
 
 internal sealed class SecondBlockingJobHandler(
     JobsExecutionScopeIdentity scopeIdentity,
-    JobsBoundedConcurrencyProbe probe) : IJobHandler
+    JobsBoundedConcurrencyProbe probe) : IJobHandlerExecutor
 {
     public const string Key = "jobs.test-bounded-concurrency-b";
 
-    public string JobKey => Key;
+    public string HandlerKind => Key;
 
-    public Task ExecuteAsync(CancellationToken cancellationToken) =>
+    public Task ExecuteAsync(
+        JobExecutionContext context,
+        CancellationToken cancellationToken) =>
         probe.ExecuteBlockingAsync(Key, scopeIdentity.Id, cancellationToken);
 }
 
 internal sealed class FailingJobHandler(
     JobsExecutionScopeIdentity scopeIdentity,
-    JobsBoundedConcurrencyProbe probe) : IJobHandler
+    JobsBoundedConcurrencyProbe probe) : IJobHandlerExecutor
 {
     public const string Key = "jobs.test-bounded-concurrency-failure";
 
-    public string JobKey => Key;
+    public string HandlerKind => Key;
 
-    public Task ExecuteAsync(CancellationToken cancellationToken)
+    public Task ExecuteAsync(
+        JobExecutionContext context,
+        CancellationToken cancellationToken)
     {
         probe.RecordFailureScope(scopeIdentity.Id);
         throw new InvalidOperationException("Expected bounded concurrency failure.");

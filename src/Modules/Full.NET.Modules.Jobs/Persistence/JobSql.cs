@@ -18,7 +18,7 @@ internal static class JobSql
         new(
             "jobs.list_host_definitions.sql_server",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+            SELECT Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, GroupName, IsEnabled,
                    AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
@@ -32,7 +32,7 @@ internal static class JobSql
         new(
             "jobs.list_host_definitions.mysql",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+            SELECT Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, GroupName, IsEnabled,
                    AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
@@ -56,7 +56,7 @@ internal static class JobSql
         new(
             "jobs.find_host_definition_by_id",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+            SELECT Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, GroupName, IsEnabled,
                    AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
@@ -68,7 +68,7 @@ internal static class JobSql
         new(
             "jobs.find_host_definitions_by_ids",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+            SELECT Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, GroupName, IsEnabled,
                    AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
@@ -81,7 +81,7 @@ internal static class JobSql
         new(
             "jobs.find_host_definition_by_job_key",
             """
-            SELECT Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+            SELECT Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, GroupName, IsEnabled,
                    AllowConcurrentExecutions,
                    CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
             FROM fn_jobs_definition
@@ -94,11 +94,11 @@ internal static class JobSql
             "jobs.insert_host_definition",
             """
             INSERT INTO fn_jobs_definition
-                (Id, TenantId, JobKey, DisplayName, Description, GroupName, IsEnabled,
+                (Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, GroupName, IsEnabled,
                  AllowConcurrentExecutions,
                  CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version)
             VALUES
-                (@Id, NULL, @JobKey, @DisplayName, @Description, @GroupName, @IsEnabled,
+                (@Id, NULL, @JobKey, @HandlerKind, @ArgsJson, @DisplayName, @Description, @GroupName, @IsEnabled,
                  @AllowConcurrentExecutions,
                  @CreatedAtUtc, NULL, @CreatedByUserId, NULL, @Version)
             """,
@@ -112,6 +112,8 @@ internal static class JobSql
             SET DisplayName = @DisplayName,
                 Description = @Description,
                 GroupName = @GroupName,
+                HandlerKind = @HandlerKind,
+                ArgsJson = @ArgsJson,
                 AllowConcurrentExecutions = @AllowConcurrentExecutions,
                 UpdatedAtUtc = @UpdatedAtUtc,
                 UpdatedByUserId = @UpdatedByUserId,
@@ -323,7 +325,7 @@ internal static class JobSql
         new(
             "jobs.list_enabled_schedule_definition_options",
             """
-            SELECT Id, JobKey, DisplayName
+            SELECT Id, JobKey, HandlerKind, DisplayName
             FROM fn_jobs_definition
             WHERE TenantId IS NULL
               AND IsEnabled = 1

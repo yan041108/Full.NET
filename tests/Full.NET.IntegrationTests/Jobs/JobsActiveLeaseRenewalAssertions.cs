@@ -49,12 +49,12 @@ internal static class JobsActiveLeaseRenewalAssertions
         var handler = new BlockingJobHandler();
         var worker = CreateRunner(
             workerScope.ServiceProvider,
-            new JobHandlerRegistry([handler]),
+            new JobHandlerKindRegistry([handler]),
             (int)LeaseDuration.TotalSeconds,
             (int)RenewalInterval.TotalSeconds);
         var contender = CreateRunner(
             contenderScope.ServiceProvider,
-            new JobHandlerRegistry([]),
+            new JobHandlerKindRegistry([]),
             (int)LeaseDuration.TotalSeconds,
             (int)RenewalInterval.TotalSeconds);
         var workerTask = worker.ProcessPendingAsync(1, testToken);
@@ -125,7 +125,7 @@ internal static class JobsActiveLeaseRenewalAssertions
 
     private static JobExecutionRunner CreateRunner(
         IServiceProvider services,
-        JobHandlerRegistry registry,
+        JobHandlerKindRegistry registry,
         int leaseSeconds,
         int leaseRenewalSeconds) =>
         new(
@@ -164,10 +164,10 @@ internal static class JobsActiveLeaseRenewalAssertions
                     "test.jobs.insert_active_lease_definition",
                     """
                     INSERT INTO fn_jobs_definition
-                        (Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+                        (Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, IsEnabled,
                          CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version)
                     VALUES
-                        (@Id, NULL, @JobKey, @DisplayName, NULL, @IsEnabled,
+                        (@Id, NULL, @JobKey, @HandlerKind, NULL, @DisplayName, NULL, @IsEnabled,
                          @CreatedAtUtc, NULL, @CreatedByUserId, NULL, 1)
                     """,
                     SqlDataScope.HostOnly),
@@ -175,6 +175,7 @@ internal static class JobsActiveLeaseRenewalAssertions
                 {
                     Id = definitionId,
                     JobKey = BlockingJobHandler.Key,
+                    HandlerKind = BlockingJobHandler.Key,
                     DisplayName = "集成长任务主动续租",
                     IsEnabled = true,
                     CreatedAtUtc = now,
@@ -241,7 +242,7 @@ internal static class JobsActiveLeaseRenewalAssertions
         }
     }
 
-    private sealed class BlockingJobHandler : IJobHandler
+    private sealed class BlockingJobHandler : IJobHandlerExecutor
     {
         private readonly TaskCompletionSource _release =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -250,11 +251,13 @@ internal static class JobsActiveLeaseRenewalAssertions
 
         public const string Key = "jobs.test-active-lease-renewal";
 
-        public string JobKey => Key;
+        public string HandlerKind => Key;
 
         public Task Started => _started.Task;
 
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        public async Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken)
         {
             _started.TrySetResult();
             await _release.Task

@@ -57,6 +57,10 @@ internal sealed class HostJobDefinitionQueryService(
         new(
             record.Id,
             record.JobKey,
+            record.HandlerKind,
+            HostJobDefinitionArgsMapper.RedactForResponse(
+                record.HandlerKind,
+                record.ArgsJson),
             record.DisplayName,
             record.Description,
             record.GroupName,

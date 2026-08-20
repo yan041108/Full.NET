@@ -13,16 +13,14 @@ namespace Full.NET.Modules.Jobs.Features.ManageHostJobDefinitions;
 /// <summary>
 /// Host 任务定义创建、更新、禁用与硬删除管理服务。删除前置校验：必须已禁用、无启用计划、无未终结执行记录，
 /// 满足条件后先级联清理关联计划再删除定义本身；
-/// 创建/更新时校验 JobKey 匹配正则并在 JobHandlerRegistry 中注册了对应处理器；
-/// UI 层面：最后保护（至少保留一个 JobDefinition，不允许全部删除，删除端点前置校验由授权策略层实现）、
-/// 禁用/启用/立即执行按钮按定义状态与权限动态显隐。
+/// 创建/更新时校验 JobKey 格式与 HandlerKind/Args 契约，不再要求 JobKey 对应编译期 Handler。
 /// </summary>
 internal sealed class HostJobDefinitionManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostJobDefinitionQueryService queries,
-    JobHandlerRegistry handlerRegistry,
+    JobHandlerKindRegistry handlerKindRegistry,
     IClock clock,
     IIdGenerator idGenerator)
 {
@@ -56,11 +54,6 @@ internal sealed class HostJobDefinitionManagementService(
             token => DisableCoreAsync(actorUserId, definitionId, version, token),
             cancellationToken);
 
-    /// <summary>
-    /// 硬删除已禁用且无活跃依赖的作业定义，对应 Admin.NET DeleteJobDetail。
-    /// 删除前置校验：定义必须已禁用、无启用计划、无未终结执行记录。
-    /// 满足条件后在同一事务内清理关联计划并删除定义本身。
-    /// </summary>
     public Task<Result<bool>> DeleteAsync(
         Guid definitionId,
         int version,
@@ -74,11 +67,20 @@ internal sealed class HostJobDefinitionManagementService(
         CreateHostJobDefinitionRequest request,
         CancellationToken cancellationToken)
     {
+        var handlerKind = request.HandlerKind?.Trim() ?? string.Empty;
+        if (handlerKind.Length == 0)
+        {
+            return HandlerKindRequiredFailure();
+        }
+
         var validation = ValidateDefinition(
             request.JobKey,
+            handlerKind,
+            request.Args,
             request.DisplayName,
             request.Description,
-            request.GroupName);
+            request.GroupName,
+            rejectSensitivePlainHeaders: true);
         if (validation is not null)
         {
             return validation;
@@ -99,12 +101,17 @@ internal sealed class HostJobDefinitionManagementService(
 
         var now = clock.UtcNow;
         var definitionId = idGenerator.NewId();
+        var argsJson = HostJobDefinitionArgsMapper.SerializeForStorage(
+            handlerKind,
+            request.Args);
         await commandExecutor.ExecuteAsync(
                 JobSql.InsertDefinition,
                 new
                 {
                     Id = definitionId,
                     JobKey = request.JobKey.Trim(),
+                    HandlerKind = handlerKind,
+                    ArgsJson = argsJson,
                     DisplayName = request.DisplayName.Trim(),
                     Description = NormalizeDescription(request.Description),
                     GroupName = NormalizeGroupName(request.GroupName),
@@ -127,10 +134,25 @@ internal sealed class HostJobDefinitionManagementService(
         UpdateHostJobDefinitionRequest request,
         CancellationToken cancellationToken)
     {
+        var handlerKind = request.HandlerKind?.Trim() ?? string.Empty;
+        if (handlerKind.Length == 0)
+        {
+            return HandlerKindRequiredFailure();
+        }
+
         if (string.IsNullOrWhiteSpace(request.DisplayName)
             || request.DisplayName.Trim().Length > 200)
         {
             return ValidationFailure();
+        }
+
+        var validation = ValidateHandlerKindAndArgs(
+            handlerKind,
+            request.Args,
+            rejectSensitivePlainHeaders: true);
+        if (validation is not null)
+        {
+            return validation;
         }
 
         var groupName = NormalizeGroupName(request.GroupName);
@@ -140,6 +162,9 @@ internal sealed class HostJobDefinitionManagementService(
         }
 
         var now = clock.UtcNow;
+        var argsJson = HostJobDefinitionArgsMapper.SerializeForStorage(
+            handlerKind,
+            request.Args);
         var affected = await commandExecutor.ExecuteAsync(
                 JobSql.UpdateDefinition,
                 new
@@ -148,6 +173,8 @@ internal sealed class HostJobDefinitionManagementService(
                     DisplayName = request.DisplayName.Trim(),
                     Description = NormalizeDescription(request.Description),
                     GroupName = groupName,
+                    HandlerKind = handlerKind,
+                    ArgsJson = argsJson,
                     AllowConcurrentExecutions = request.AllowConcurrentExecutions,
                     UpdatedAtUtc = now,
                     UpdatedByUserId = actorUserId,
@@ -165,17 +192,11 @@ internal sealed class HostJobDefinitionManagementService(
             .ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// 硬删除作业定义核心逻辑：校验已禁用、无活跃计划、无未终结执行后，
-    /// 在同一事务内先删除关联计划再删除定义本身。
-    /// 执行记录无外键约束，删除定义后历史记录通过 INNER JOIN 自然过滤。
-    /// </summary>
     private async Task<Result<bool>> DeleteCoreAsync(
         Guid definitionId,
         int version,
         CancellationToken cancellationToken)
     {
-        // 活跃计划存在时拒绝删除，避免删除正在调度的作业定义。
         var activeSchedules = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 JobSql.CountActiveSchedulesByDefinition,
                 new { JobDefinitionId = definitionId },
@@ -189,7 +210,6 @@ internal sealed class HostJobDefinitionManagementService(
                 ErrorType.BusinessRule));
         }
 
-        // 未终结执行记录存在时拒绝删除，避免丢失正在运行的任务证据。
         var activeExecutions = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 JobSql.CountActiveExecutionsByDefinition,
                 new { JobDefinitionId = definitionId },
@@ -203,7 +223,6 @@ internal sealed class HostJobDefinitionManagementService(
                 ErrorType.BusinessRule));
         }
 
-        // 计划表对定义存在外键约束，必须先清理计划才能删除定义。
         await commandExecutor.ExecuteAsync(
                 JobSql.DeleteSchedulesByDefinition,
                 new { JobDefinitionId = definitionId },
@@ -217,7 +236,6 @@ internal sealed class HostJobDefinitionManagementService(
             .ConfigureAwait(false);
         if (affected == 0)
         {
-            // 删除 0 行表示定义不存在、未禁用或版本不匹配，统一回查区分。
             var existing = await queries.GetByIdAsync(definitionId, cancellationToken)
                 .ConfigureAwait(false);
             return existing.IsSuccess
@@ -265,16 +283,27 @@ internal sealed class HostJobDefinitionManagementService(
 
     private Result<HostJobDefinitionResponse>? ValidateDefinition(
         string jobKey,
+        string handlerKind,
+        HttpJobArgs? args,
         string displayName,
         string? description,
-        string? groupName)
+        string? groupName,
+        bool rejectSensitivePlainHeaders)
     {
         var normalizedKey = jobKey?.Trim() ?? string.Empty;
         var normalizedName = displayName?.Trim() ?? string.Empty;
-        if (!JobKeyPattern.IsMatch(normalizedKey)
-            || !handlerRegistry.TryGetHandler(normalizedKey, out _))
+        if (!JobKeyPattern.IsMatch(normalizedKey))
         {
             return ValidationFailure();
+        }
+
+        var handlerValidation = ValidateHandlerKindAndArgs(
+            handlerKind,
+            args,
+            rejectSensitivePlainHeaders);
+        if (handlerValidation is not null)
+        {
+            return handlerValidation;
         }
 
         if (normalizedName.Length is < 1 or > 200)
@@ -295,16 +324,49 @@ internal sealed class HostJobDefinitionManagementService(
         return null;
     }
 
+    private Result<HostJobDefinitionResponse>? ValidateHandlerKindAndArgs(
+        string handlerKind,
+        HttpJobArgs? args,
+        bool rejectSensitivePlainHeaders)
+    {
+        if (!JobHandlerKinds.All.Contains(handlerKind, StringComparer.Ordinal)
+            || !handlerKindRegistry.TryGetExecutor(handlerKind, out _))
+        {
+            return ValidationFailure();
+        }
+
+        if (string.Equals(handlerKind, JobHandlerKinds.Ping, StringComparison.Ordinal))
+        {
+            return args is not null ? ValidationFailure() : null;
+        }
+
+        if (!string.Equals(handlerKind, JobHandlerKinds.Http, StringComparison.Ordinal)
+            || args is null)
+        {
+            return ValidationFailure();
+        }
+
+        if (!HttpJobArgsValidator.TryValidate(
+                args,
+                rejectSensitivePlainHeaders,
+                out _))
+        {
+            return rejectSensitivePlainHeaders
+                && args.Headers is not null
+                && args.Headers.Keys.Any(HttpJobArgsValidator.IsSensitiveHeaderName)
+                ? SensitiveHeaderFailure()
+                : ValidationFailure();
+        }
+
+        return null;
+    }
+
     private static string? NormalizeDescription(string? description)
     {
         var normalized = description?.Trim();
         return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 
-    /// <summary>
-    /// 归一化作业分组名：去空白，空字符串视为未分组（null）。
-    /// 对应 Admin.NET SysJobDetail.GroupName，用于按组筛选与展示。
-    /// </summary>
     private static string? NormalizeGroupName(string? groupName)
     {
         var normalized = groupName?.Trim();
@@ -315,6 +377,18 @@ internal sealed class HostJobDefinitionManagementService(
         Result<HostJobDefinitionResponse>.Failure(new Error(
             JobsErrorCodes.DefinitionValidationFailed,
             "The job definition is invalid.",
+            ErrorType.Validation));
+
+    private static Result<HostJobDefinitionResponse> HandlerKindRequiredFailure() =>
+        Result<HostJobDefinitionResponse>.Failure(new Error(
+            JobsErrorCodes.HandlerKindRequired,
+            "The handler kind is required.",
+            ErrorType.Validation));
+
+    private static Result<HostJobDefinitionResponse> SensitiveHeaderFailure() =>
+        Result<HostJobDefinitionResponse>.Failure(new Error(
+            JobsErrorCodes.SensitiveHeaderInPlainHeaders,
+            "Sensitive headers must use secretHeaders.",
             ErrorType.Validation));
 
     private static Result<HostJobDefinitionResponse> ConcurrencyConflict() =>

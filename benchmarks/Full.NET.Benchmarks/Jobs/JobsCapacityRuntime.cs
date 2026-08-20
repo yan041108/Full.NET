@@ -22,11 +22,13 @@ public sealed class JobsCapacityHandler(
     TimeSpan delay,
     bool fails,
     Guid scopeId,
-    JobsCapacityProbe probe) : IJobHandler
+    JobsCapacityProbe probe) : IJobHandlerExecutor
 {
-    public string JobKey { get; } = jobKey;
+    public string HandlerKind { get; } = jobKey;
 
-    public async Task ExecuteAsync(CancellationToken cancellationToken)
+    public async Task ExecuteAsync(
+        JobExecutionContext context,
+        CancellationToken cancellationToken)
     {
         var started = Stopwatch.GetTimestamp();
         try
@@ -40,7 +42,7 @@ public sealed class JobsCapacityHandler(
             {
                 probe.RecordExpectedFailure();
                 throw new JobsCapacityExpectedFailureException(
-                    $"Jobs capacity expected failure for '{JobKey}'.");
+                    $"Jobs capacity expected failure for '{HandlerKind}'.");
             }
         }
         finally
@@ -170,7 +172,7 @@ public static class JobsCapacityRuntime
                 ? $"jobs.benchmark.capacity.failure.{handlerIndex}"
                 : "jobs.benchmark.capacity.success."
                     + $"{handlerIndex - options.FailingHandlerKeyCount}";
-            services.AddScoped<IJobHandler>(serviceProvider =>
+            services.AddScoped<IJobHandlerExecutor>(serviceProvider =>
                 new JobsCapacityHandler(
                     jobKey,
                     TimeSpan.FromMilliseconds(

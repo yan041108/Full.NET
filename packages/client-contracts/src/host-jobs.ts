@@ -1,6 +1,8 @@
 export interface HostJobDefinition {
   id: string;
   jobKey: string;
+  handlerKind: string;
+  args: HttpJobArgs | null;
   displayName: string;
   description: string | null;
   groupName: string | null;
@@ -52,6 +54,8 @@ export interface HostJobExecutionPage {
 
 export interface CreateHostJobDefinitionRequest {
   jobKey: string;
+  handlerKind: string;
+  args?: HttpJobArgs | null;
   displayName: string;
   description?: string | null;
   groupName?: string | null;
@@ -62,6 +66,8 @@ export interface UpdateHostJobDefinitionRequest {
   displayName: string;
   description?: string | null;
   groupName?: string | null;
+  handlerKind: string;
+  args?: HttpJobArgs | null;
   allowConcurrentExecutions: boolean;
   version: number;
 }
@@ -82,6 +88,27 @@ export interface HostJobGroup {
 export const JOBS_WELL_KNOWN_KEYS = {
   ping: 'jobs.ping'
 } as const;
+
+export const JOB_HANDLER_KINDS = {
+  ping: 'ping',
+  http: 'http'
+} as const;
+
+export type JobHandlerKind =
+  (typeof JOB_HANDLER_KINDS)[keyof typeof JOB_HANDLER_KINDS];
+
+export interface HttpJobSecretHeaderRef {
+  configKey: string;
+}
+
+export interface HttpJobArgs {
+  url: string;
+  method: string;
+  headers?: Record<string, string> | null;
+  secretHeaders?: Record<string, HttpJobSecretHeaderRef> | null;
+  timeoutSeconds?: number | null;
+  successStatusCodes?: number[] | null;
+}
 
 export const JOB_TRIGGER_KINDS = {
   cron: 'cron',
@@ -155,6 +182,7 @@ export interface ChangeHostJobScheduleStateRequest {
 export interface HostJobScheduleDefinitionOption {
   id: string;
   jobKey: string;
+  handlerKind: string;
   displayName: string;
 }
 
@@ -284,7 +312,31 @@ export function isHostJobScheduleDefinitionOption(
   return isRecord(value)
     && isGuid(value.id)
     && isNonEmptyString(value.jobKey)
+    && isNonEmptyString(value.handlerKind)
     && isNonEmptyString(value.displayName);
+}
+
+function isHttpJobArgs(value: unknown): value is HttpJobArgs {
+  return isRecord(value)
+    && isNonEmptyString(value.url)
+    && isNonEmptyString(value.method)
+    && (value.headers === undefined
+      || value.headers === null
+      || (isRecord(value.headers)
+        && Object.values(value.headers).every(item => typeof item === 'string')))
+    && (value.secretHeaders === undefined
+      || value.secretHeaders === null
+      || (isRecord(value.secretHeaders)
+        && Object.values(value.secretHeaders).every(
+          item => isRecord(item) && typeof item.configKey === 'string'
+        )))
+    && (value.timeoutSeconds === undefined
+      || value.timeoutSeconds === null
+      || typeof value.timeoutSeconds === 'number')
+    && (value.successStatusCodes === undefined
+      || value.successStatusCodes === null
+      || (Array.isArray(value.successStatusCodes)
+        && value.successStatusCodes.every(code => Number.isInteger(code))));
 }
 
 export function isHostJobScheduleDefinitionOptionList(
@@ -334,6 +386,8 @@ export function isHostJobDefinition(value: unknown): value is HostJobDefinition 
   return isRecord(value)
     && isGuid(value.id)
     && isNonEmptyString(value.jobKey)
+    && isNonEmptyString(value.handlerKind)
+    && (value.args === null || isHttpJobArgs(value.args))
     && isNonEmptyString(value.displayName)
     && (value.description === null || typeof value.description === 'string')
     && (value.groupName === null || typeof value.groupName === 'string')
@@ -390,6 +444,8 @@ export function isCreateHostJobDefinitionRequest(
 ): value is CreateHostJobDefinitionRequest {
   return isRecord(value)
     && isNonEmptyString(value.jobKey)
+    && isNonEmptyString(value.handlerKind)
+    && (value.args === undefined || value.args === null || isHttpJobArgs(value.args))
     && isNonEmptyString(value.displayName)
     && (value.description === undefined
       || value.description === null
@@ -406,6 +462,8 @@ export function isUpdateHostJobDefinitionRequest(
 ): value is UpdateHostJobDefinitionRequest {
   return isRecord(value)
     && isNonEmptyString(value.displayName)
+    && isNonEmptyString(value.handlerKind)
+    && (value.args === undefined || value.args === null || isHttpJobArgs(value.args))
     && (value.description === undefined
       || value.description === null
       || typeof value.description === 'string')

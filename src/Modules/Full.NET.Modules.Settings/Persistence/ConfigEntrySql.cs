@@ -138,6 +138,16 @@ internal static class ConfigEntrySql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>跨模块 Port 解析 secret 明文时使用的最小投影。</summary>
+    public static readonly SqlStatement FindSecretByKey = new(
+        "settings.config_entry.find_secret_by_key",
+        """
+        SELECT ValueKind, Value, IsActive
+        FROM fn_settings_config_entry
+        WHERE ConfigKey = @ConfigKey
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement Insert = new(
         "settings.config_entry.insert",
         """

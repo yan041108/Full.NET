@@ -3,7 +3,8 @@ export const SETTINGS_CONFIG_VALUE_KINDS = [
   'boolean',
   'integer',
   'decimal',
-  'json'
+  'json',
+  'secret'
 ] as const;
 
 export type SettingsConfigValueKind =
@@ -17,6 +18,7 @@ export interface SettingsConfigEntry {
   groupName: string | null;
   valueKind: SettingsConfigValueKind;
   value: string;
+  hasValue: boolean;
   displayOrder: number;
   isActive: boolean;
   createdAtUtc: string;
@@ -95,6 +97,7 @@ export function isSettingsConfigEntry(
     && (value.groupName === null || typeof value.groupName === 'string')
     && isSettingsConfigValueKind(value.valueKind)
     && typeof value.value === 'string'
+    && typeof value.hasValue === 'boolean'
     && Number.isInteger(value.displayOrder)
     && typeof value.isActive === 'boolean'
     && typeof value.createdAtUtc === 'string'

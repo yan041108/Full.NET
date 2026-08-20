@@ -47,6 +47,9 @@ public static class SettingsErrorCodes
     /// <summary>删除配置项时配置项仍处于启用状态，必须先禁用。</summary>
     public const string ConfigEntryNotDisabled = "settings.config_entry.not_disabled";
 
+    /// <summary>目标配置项不是 secret 类型或未启用。</summary>
+    public const string ConfigEntrySecretUnavailable = "settings.config_entry.secret_unavailable";
+
     /// <summary>目标枚举/常量目录不存在。</summary>
     public const string EnumCatalogNotFound = "settings.enum_catalog.not_found";
 
@@ -86,6 +89,7 @@ public static class SettingsErrorCodes
         ConfigEntryNotFound,
         ConfigEntryVersionConflict,
         ConfigEntryNotDisabled,
+        ConfigEntrySecretUnavailable,
         EnumCatalogNotFound,
         GridNotFound,
         GridColumnUnknown,

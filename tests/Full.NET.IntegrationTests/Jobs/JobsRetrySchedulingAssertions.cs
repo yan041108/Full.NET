@@ -17,7 +17,7 @@ namespace Full.NET.IntegrationTests.Jobs;
 internal static class JobsRetrySchedulingAssertions
 {
     public static void ConfigureServices(IServiceCollection services) =>
-        services.AddScoped<IJobHandler, RetryableFailureJobHandler>();
+        services.AddScoped<IJobHandlerExecutor, RetryableFailureJobHandler>();
 
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
@@ -160,7 +160,7 @@ internal static class JobsRetrySchedulingAssertions
             services.GetRequiredService<IQueryExecutor>(),
             services.GetRequiredService<ICommandExecutor>(),
             services.GetRequiredService<ICommandTransaction>(),
-            services.GetRequiredService<JobHandlerRegistry>(),
+            services.GetRequiredService<JobHandlerKindRegistry>(),
             clock,
             services.GetRequiredService<IIdGenerator>(),
             services.GetRequiredService<IOptions<DatabaseOptions>>(),
@@ -193,11 +193,11 @@ internal static class JobsRetrySchedulingAssertions
                 "test.jobs.insert_retry_definition",
                 """
                 INSERT INTO fn_jobs_definition
-                    (Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+                    (Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, IsEnabled,
                      CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId,
                      Version)
                 VALUES
-                    (@Id, NULL, @JobKey, @DisplayName, NULL, @IsEnabled,
+                    (@Id, NULL, @JobKey, @HandlerKind, NULL, @DisplayName, NULL, @IsEnabled,
                      @CreatedAtUtc, NULL, @CreatedByUserId, NULL, 1)
                 """,
                 SqlDataScope.HostOnly),
@@ -205,6 +205,7 @@ internal static class JobsRetrySchedulingAssertions
             {
                 Id = definitionId,
                 JobKey = RetryableFailureJobHandler.Key,
+                HandlerKind = RetryableFailureJobHandler.Key,
                 DisplayName = "集成测试可重试任务",
                 IsEnabled = true,
                 CreatedAtUtc = now,
@@ -256,13 +257,15 @@ internal static class JobsRetrySchedulingAssertions
         ?? throw new InvalidOperationException(
             "Retry execution state was not found.");
 
-    private sealed class RetryableFailureJobHandler : IJobHandler
+    private sealed class RetryableFailureJobHandler : IJobHandlerExecutor
     {
         public const string Key = "jobs.test-retry-scheduling";
 
-        public string JobKey => Key;
+        public string HandlerKind => Key;
 
-        public Task ExecuteAsync(CancellationToken cancellationToken) =>
+        public Task ExecuteAsync(
+            JobExecutionContext context,
+            CancellationToken cancellationToken) =>
             throw new RetryableJobException("transient integration failure");
     }
 

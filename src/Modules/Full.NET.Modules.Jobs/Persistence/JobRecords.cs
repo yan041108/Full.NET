@@ -1,3 +1,5 @@
+using Full.NET.Modules.Jobs.Contracts;
+
 namespace Full.NET.Modules.Jobs.Persistence;
 
 /// <summary>
@@ -12,6 +14,10 @@ internal sealed class JobDefinitionRecord
     public Guid? TenantId { get; set; }
 
     public string JobKey { get; set; } = string.Empty;
+
+    public string HandlerKind { get; set; } = JobHandlerKinds.Ping;
+
+    public string? ArgsJson { get; set; }
 
     public string DisplayName { get; set; } = string.Empty;
 
@@ -82,6 +88,8 @@ internal sealed class JobDefinitionOptionRecord
     public Guid Id { get; set; }
 
     public string JobKey { get; set; } = string.Empty;
+
+    public string HandlerKind { get; set; } = string.Empty;
 
     public string DisplayName { get; set; } = string.Empty;
 }

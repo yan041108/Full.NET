@@ -79,6 +79,7 @@ internal static class JobsHostDefinitionAssertions
             factory,
             definition.Id,
             cancellationToken);
+        await JobsHttpHandlerAssertions.VerifyAsync(factory, cancellationToken);
         await OpenApiJobsHostDefinitionsContractAssertions.VerifyAsync(client, cancellationToken);
         await JobsHealthReadonlyAssertions.VerifyAsync(factory, client, cancellationToken);
     }
@@ -113,6 +114,8 @@ internal static class JobsHostDefinitionAssertions
             adminToken,
             new CreateHostJobDefinitionRequest(
                 JobsWellKnownKeys.Ping,
+                JobHandlerKinds.Ping,
+                null,
                 displayName,
                 "集成测试任务",
                 null));
@@ -132,6 +135,8 @@ internal static class JobsHostDefinitionAssertions
             new UpdateHostJobDefinitionRequest(
                 "更新后名称",
                 "更新后描述",
+                null,
+                JobHandlerKinds.Ping,
                 null,
                 false,
                 created.Version));
@@ -176,16 +181,31 @@ internal static class JobsHostDefinitionAssertions
             adminToken,
             new CreateHostJobDefinitionRequest(
                 "jobs.invalid-key",
+                JobHandlerKinds.Ping,
+                null,
                 "无效键",
                 null,
                 null));
         using var invalidKeyResponse = await client.SendAsync(invalidKeyRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.BadRequest, invalidKeyResponse.StatusCode);
-        using var invalidKeyProblem = JsonDocument.Parse(
-            await invalidKeyResponse.Content.ReadAsStringAsync(cancellationToken));
+        // JobKey 不再绑定 Handler 白名单；格式合法的唯一键应创建成功。
+        Assert.AreEqual(HttpStatusCode.Created, invalidKeyResponse.StatusCode);
+
+        using var missingKindRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/jobs/host-definitions",
+            adminToken,
+            new
+            {
+                jobKey = $"ops.missing_kind.{Guid.NewGuid():N}"[..24],
+                displayName = "缺少 Kind",
+            });
+        using var missingKindResponse = await client.SendAsync(missingKindRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, missingKindResponse.StatusCode);
+        using var missingKindProblem = JsonDocument.Parse(
+            await missingKindResponse.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(
-            JobsErrorCodes.DefinitionValidationFailed,
-            invalidKeyProblem.RootElement.GetProperty("code").GetString());
+            JobsErrorCodes.HandlerKindRequired,
+            missingKindProblem.RootElement.GetProperty("code").GetString());
 
         return (updated, execution);
     }
@@ -213,14 +233,14 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Post,
             "/api/v1/jobs/host-definitions",
             cancellationToken,
-            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "拒绝", null, null));
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, JobHandlerKinds.Ping, null, "拒绝", null, null));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             readOnlyToken,
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             cancellationToken,
-            new UpdateHostJobDefinitionRequest("拒绝", null, null, false, definition.Version));
+            new UpdateHostJobDefinitionRequest("拒绝", null, null, JobHandlerKinds.Ping, null, false, definition.Version));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             readOnlyToken,
@@ -246,7 +266,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Post,
             "/api/v1/jobs/host-definitions",
             createOnlyToken,
-            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "重复键", null, null));
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, JobHandlerKinds.Ping, null, "重复键", null, null));
         using var createOnlyResponse = await client.SendAsync(createOnlyRequest, cancellationToken);
         Assert.AreNotEqual(HttpStatusCode.Forbidden, createOnlyResponse.StatusCode);
         await AssertJobDefinitionPermissionDeniedAsync(
@@ -255,7 +275,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             cancellationToken,
-            new UpdateHostJobDefinitionRequest("拒绝", null, null, false, definition.Version));
+            new UpdateHostJobDefinitionRequest("拒绝", null, null, JobHandlerKinds.Ping, null, false, definition.Version));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             createOnlyToken,
@@ -281,7 +301,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             updateOnlyToken,
-            new UpdateHostJobDefinitionRequest("边界更新", "正文", null, false, definition.Version));
+            new UpdateHostJobDefinitionRequest("边界更新", "正文", null, JobHandlerKinds.Ping, null, false, definition.Version));
         using var updateOnlyResponse = await client.SendAsync(updateOnlyRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, updateOnlyResponse.StatusCode);
         var updated = await updateOnlyResponse.Content.ReadFromJsonAsync<HostJobDefinitionResponse>(
@@ -293,7 +313,7 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Post,
             "/api/v1/jobs/host-definitions",
             cancellationToken,
-            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "拒绝", null, null));
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, JobHandlerKinds.Ping, null, "拒绝", null, null));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             updateOnlyToken,
@@ -328,14 +348,14 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Post,
             "/api/v1/jobs/host-definitions",
             cancellationToken,
-            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "拒绝", null, null));
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, JobHandlerKinds.Ping, null, "拒绝", null, null));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             triggerOnlyToken,
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             cancellationToken,
-            new UpdateHostJobDefinitionRequest("拒绝", null, null, false, updated.Version));
+            new UpdateHostJobDefinitionRequest("拒绝", null, null, JobHandlerKinds.Ping, null, false, updated.Version));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             triggerOnlyToken,
@@ -356,14 +376,14 @@ internal static class JobsHostDefinitionAssertions
             HttpMethod.Post,
             "/api/v1/jobs/host-definitions",
             cancellationToken,
-            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, "拒绝", null, null));
+            new CreateHostJobDefinitionRequest(JobsWellKnownKeys.Ping, JobHandlerKinds.Ping, null, "拒绝", null, null));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             disableOnlyToken,
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{definition.Id:D}",
             cancellationToken,
-            new UpdateHostJobDefinitionRequest("拒绝", null, null, false, updated.Version));
+            new UpdateHostJobDefinitionRequest("拒绝", null, null, JobHandlerKinds.Ping, null, false, updated.Version));
         await AssertJobDefinitionPermissionDeniedAsync(
             client,
             disableOnlyToken,
@@ -548,7 +568,7 @@ internal static class JobsHostDefinitionAssertions
         public DateTimeOffset? FinishedAtUtc { get; set; }
     }
 
-    private static async Task<string> LoginAsHostAdminAsync(
+    internal static async Task<string> LoginAsHostAdminAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -568,7 +588,7 @@ internal static class JobsHostDefinitionAssertions
         return token.AccessToken;
     }
 
-    private static HttpRequestMessage CreateBearerJsonRequest<TRequest>(
+    internal static HttpRequestMessage CreateBearerJsonRequest<TRequest>(
         HttpMethod method,
         string path,
         string accessToken,

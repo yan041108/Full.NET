@@ -28,7 +28,7 @@ internal static class JobsHealthReadonlyAssertions
         var health = await response.Content.ReadFromJsonAsync<HostJobHealthResponse>(
             cancellationToken);
         Assert.IsNotNull(health);
-        Assert.IsTrue(health.RegisteredHandlers.Contains(JobsWellKnownKeys.Ping));
+        Assert.IsTrue(health.RegisteredHandlers.Contains(JobHandlerKinds.Ping));
 
         var readOnlyToken = await factory.CreateHostAccessTokenAsync(
             [HostJobPermissions.DefinitionsRead],

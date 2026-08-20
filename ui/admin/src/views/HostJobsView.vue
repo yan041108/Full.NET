@@ -28,7 +28,8 @@ import type {
 } from '@fullnet/client-contracts';
 import {
   isFullNetProblemDetails,
-  JOBS_WELL_KNOWN_KEYS
+  JOB_HANDLER_KINDS,
+  type HttpJobArgs
 } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
@@ -93,16 +94,26 @@ const editorFormRef = ref<FormInstance>();
 // 导致 openEdit 中 item.jobKey（string）无法赋值
 const editorForm = reactive<{
   jobKey: string;
+  handlerKind: string;
   displayName: string;
   description: string;
   groupName: string;
   allowConcurrentExecutions: boolean;
+  httpUrl: string;
+  httpMethod: string;
+  httpHeaders: Array<{ name: string; value: string }>;
+  secretHeaders: Array<{ name: string; configKey: string }>;
 }>({
-  jobKey: JOBS_WELL_KNOWN_KEYS.ping,
+  jobKey: '',
+  handlerKind: JOB_HANDLER_KINDS.ping,
   displayName: '',
   description: '',
   groupName: '',
-  allowConcurrentExecutions: false
+  allowConcurrentExecutions: false,
+  httpUrl: '',
+  httpMethod: 'GET',
+  httpHeaders: [],
+  secretHeaders: []
 });
 const fieldErrors = reactive({
   displayName: '',
@@ -277,6 +288,68 @@ function clearFieldErrors(): void {
   fieldErrors.description = '';
 }
 
+function resetHttpFields(): void {
+  editorForm.httpUrl = '';
+  editorForm.httpMethod = 'GET';
+  editorForm.httpHeaders = [];
+  editorForm.secretHeaders = [];
+}
+
+function addHttpHeader(): void {
+  editorForm.httpHeaders.push({ name: '', value: '' });
+}
+
+function removeHttpHeader(index: number): void {
+  editorForm.httpHeaders.splice(index, 1);
+}
+
+function addSecretHeader(): void {
+  editorForm.secretHeaders.push({ name: '', configKey: '' });
+}
+
+function removeSecretHeader(index: number): void {
+  editorForm.secretHeaders.splice(index, 1);
+}
+
+function buildHttpArgs(): HttpJobArgs | null {
+  if (editorForm.handlerKind !== JOB_HANDLER_KINDS.http) {
+    return null;
+  }
+  const headers = Object.fromEntries(
+    editorForm.httpHeaders
+      .filter(row => row.name.trim() && row.value.trim())
+      .map(row => [row.name.trim(), row.value.trim()])
+  );
+  const secretHeaders = Object.fromEntries(
+    editorForm.secretHeaders
+      .filter(row => row.name.trim() && row.configKey.trim())
+      .map(row => [row.name.trim(), { configKey: row.configKey.trim().toLowerCase() }])
+  );
+  return {
+    url: editorForm.httpUrl.trim(),
+    method: editorForm.httpMethod,
+    headers: Object.keys(headers).length > 0 ? headers : null,
+    secretHeaders: Object.keys(secretHeaders).length > 0 ? secretHeaders : null
+  };
+}
+
+function loadHttpArgs(args: HttpJobArgs | null | undefined): void {
+  resetHttpFields();
+  if (!args) {
+    return;
+  }
+  editorForm.httpUrl = args.url ?? '';
+  editorForm.httpMethod = args.method ?? 'GET';
+  editorForm.httpHeaders = Object.entries(args.headers ?? {}).map(([name, value]) => ({
+    name,
+    value
+  }));
+  editorForm.secretHeaders = Object.entries(args.secretHeaders ?? {}).map(([name, ref]) => ({
+    name,
+    configKey: ref.configKey
+  }));
+}
+
 function validateDisplayName(): string {
   const name = editorForm.displayName.trim();
   if (!name) {
@@ -339,11 +412,13 @@ function resetSearch(): void {
 function openCreate(): void {
   editorMode.value = 'create';
   editingDefinition.value = null;
-  editorForm.jobKey = JOBS_WELL_KNOWN_KEYS.ping;
+  editorForm.jobKey = '';
+  editorForm.handlerKind = JOB_HANDLER_KINDS.ping;
   editorForm.displayName = '';
   editorForm.description = '';
   editorForm.groupName = '';
   editorForm.allowConcurrentExecutions = false;
+  resetHttpFields();
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -356,10 +431,12 @@ function openEdit(item: HostJobDefinition): void {
   editorMode.value = 'edit';
   editingDefinition.value = item;
   editorForm.jobKey = item.jobKey;
+  editorForm.handlerKind = item.handlerKind;
   editorForm.displayName = item.displayName;
   editorForm.description = item.description ?? '';
   editorForm.groupName = item.groupName ?? '';
   editorForm.allowConcurrentExecutions = item.allowConcurrentExecutions;
+  loadHttpArgs(item.args);
   clearFieldErrors();
   editorOpen.value = true;
 }
@@ -387,8 +464,10 @@ async function create(): Promise<void> {
   problem.value = undefined;
   try {
     await createHostJobDefinition(
-      editorForm.jobKey,
+      editorForm.jobKey.trim(),
+      editorForm.handlerKind,
       editorForm.displayName,
+      buildHttpArgs(),
       editorForm.description.trim() || undefined,
       editorForm.groupName.trim() || null,
       editorForm.allowConcurrentExecutions
@@ -419,6 +498,8 @@ async function saveEdit(): Promise<void> {
       item.id,
       editorForm.displayName.trim(),
       editorForm.description.trim() || null,
+      editorForm.handlerKind,
+      buildHttpArgs(),
       item.version,
       editorForm.groupName.trim() || null,
       editorForm.allowConcurrentExecutions
@@ -670,6 +751,17 @@ function toProblem(
               </template>
             </el-table-column>
 
+            <el-table-column
+              :label="t('hostJobs.columnHandlerKind')"
+              width="100"
+              align="center"
+              header-align="center"
+            >
+              <template #default="{ row }">
+                <el-tag size="small" effect="plain" translate="no">{{ row.handlerKind }}</el-tag>
+              </template>
+            </el-table-column>
+
             <!-- 显示名称 -->
             <el-table-column
               :label="t('hostJobs.columnDisplayName')"
@@ -835,23 +927,93 @@ function toProblem(
         label-width="120px"
         class="host-jobs-editor-form"
       >
-        <!-- 任务键（创建时可选） -->
+        <!-- 任务键（创建时可输入） -->
         <el-form-item
           v-if="editorMode === 'create'"
           :label="t('hostJobs.fieldJobKey')"
         >
-          <el-select v-model="editorForm.jobKey" :disabled="changing" style="width: 100%">
-            <el-option
-              v-for="key in Object.values(JOBS_WELL_KNOWN_KEYS)"
-              :key="key"
-              :label="key"
-              :value="key"
-            />
-          </el-select>
+          <el-input
+            v-model="editorForm.jobKey"
+            :placeholder="t('hostJobs.fieldJobKeyPlaceholder')"
+            :disabled="changing"
+          />
         </el-form-item>
         <el-form-item v-else :label="t('hostJobs.fieldJobKey')">
           <el-input v-model="editorForm.jobKey" disabled />
         </el-form-item>
+
+        <el-form-item :label="t('hostJobs.fieldHandlerKind')">
+          <el-select v-model="editorForm.handlerKind" :disabled="changing" style="width: 100%">
+            <el-option :label="t('hostJobs.handlerKindPing')" :value="JOB_HANDLER_KINDS.ping" />
+            <el-option :label="t('hostJobs.handlerKindHttp')" :value="JOB_HANDLER_KINDS.http" />
+          </el-select>
+        </el-form-item>
+
+        <template v-if="editorForm.handlerKind === JOB_HANDLER_KINDS.http">
+          <el-form-item :label="t('hostJobs.fieldHttpUrl')" required>
+            <el-input v-model="editorForm.httpUrl" :disabled="changing" />
+          </el-form-item>
+          <el-form-item :label="t('hostJobs.fieldHttpMethod')" required>
+            <el-select v-model="editorForm.httpMethod" :disabled="changing" style="width: 100%">
+              <el-option v-for="method in ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']" :key="method" :label="method" :value="method" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item :label="t('hostJobs.fieldHttpHeaders')">
+            <div class="host-jobs-header-editor">
+              <div
+                v-for="(row, index) in editorForm.httpHeaders"
+                :key="`http-header-${index}`"
+                class="host-jobs-header-row"
+              >
+                <el-input
+                  v-model="row.name"
+                  :placeholder="t('hostJobs.fieldHeaderName')"
+                  :disabled="changing"
+                />
+                <el-input
+                  v-model="row.value"
+                  :placeholder="t('hostJobs.fieldHeaderValue')"
+                  :disabled="changing"
+                />
+                <el-button :disabled="changing" @click="removeHttpHeader(index)">
+                  {{ t('hostJobs.removeHeader') }}
+                </el-button>
+              </div>
+              <el-button type="primary" plain :disabled="changing" @click="addHttpHeader">
+                {{ t('hostJobs.addHeader') }}
+              </el-button>
+            </div>
+          </el-form-item>
+
+          <el-form-item :label="t('hostJobs.fieldSecretHeaders')">
+            <p class="host-jobs-field-hint">{{ t('hostJobs.fieldSecretHeadersHint') }}</p>
+            <div class="host-jobs-header-editor">
+              <div
+                v-for="(row, index) in editorForm.secretHeaders"
+                :key="`secret-header-${index}`"
+                class="host-jobs-header-row"
+              >
+                <el-input
+                  v-model="row.name"
+                  :placeholder="t('hostJobs.fieldHeaderName')"
+                  :disabled="changing"
+                />
+                <el-input
+                  v-model="row.configKey"
+                  :placeholder="t('hostJobs.fieldSecretConfigKey')"
+                  :disabled="changing"
+                />
+                <el-button :disabled="changing" @click="removeSecretHeader(index)">
+                  {{ t('hostJobs.removeHeader') }}
+                </el-button>
+              </div>
+              <el-button type="primary" plain :disabled="changing" @click="addSecretHeader">
+                {{ t('hostJobs.addSecretHeader') }}
+              </el-button>
+            </div>
+          </el-form-item>
+        </template>
 
         <!-- 显示名称 -->
         <el-form-item
@@ -1042,6 +1204,27 @@ function toProblem(
 <style scoped>
 .host-jobs-editor-form {
   padding-top: 8px;
+}
+
+.host-jobs-header-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.host-jobs-header-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.host-jobs-field-hint {
+  margin: 0 0 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .host-jobs-error-message {

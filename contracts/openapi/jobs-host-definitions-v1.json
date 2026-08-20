@@ -183,6 +183,8 @@
       "properties": [
         "id",
         "jobKey",
+        "handlerKind",
+        "args",
         "displayName",
         "description",
         "groupName",
@@ -204,6 +206,8 @@
     "CreateHostJobDefinitionRequest": {
       "properties": [
         "jobKey",
+        "handlerKind",
+        "args",
         "displayName",
         "description",
         "groupName",
@@ -215,6 +219,8 @@
         "displayName",
         "description",
         "groupName",
+        "handlerKind",
+        "args",
         "allowConcurrentExecutions",
         "version"
       ]
@@ -305,6 +311,7 @@
       "properties": [
         "id",
         "jobKey",
+        "handlerKind",
         "displayName"
       ]
     },
