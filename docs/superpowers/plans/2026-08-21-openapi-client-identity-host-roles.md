@@ -16,8 +16,9 @@
 
 - 计划已创建。
 - Task 1（operationId / 主 Tag / ProblemDetails 元数据）已完成。
-- Task 2（标准快照 + manifest `pilot` + 生成物同步）已完成；`roles.ts` 仍为手写适配，待 Task 3 收缩。
-- Task 3–4 尚未开始；其余 Identity Vue API 见文末队列，禁止并入本 slice。
+- Task 2（标准快照 + manifest `pilot` + 生成物同步）已完成。
+- Task 3（`roles.ts` 薄适配）已完成；清单仍为 `pilot`，待 Task 4 Verification 后升 `generated`。
+- Task 4 尚未开始；其余 Identity Vue API 见文末队列，禁止并入本 slice。
 
 ## Global Constraints
 
@@ -129,11 +130,11 @@
 
 **Steps:**
 
-- [ ] **Step 1:** 为畸形 JSON 守卫写/扩 RED（缺失 required、错误类型、数组 item）。
-- [ ] **Step 2:** `pnpm openapi:client:generate`；`--check` 零漂移。
-- [ ] **Step 3:** `roles.ts` 改为调用生成 Operation（模式对齐 `users.ts`），保留导出签名。
-- [ ] **Step 4:** `pnpm --filter @fullnet/client-contracts test`；`pnpm --filter @fullnet/admin exec vitest run src/api/roles.test.ts`
-- [ ] **Step 5:** 提交 `feat: generate Identity Host Roles client operations`
+- [x] **Step 1:** 为畸形 JSON 守卫写/扩 RED（缺失 required、错误类型、数组 item）。
+- [x] **Step 2:** `pnpm openapi:client:generate`；`--check` 零漂移。
+- [x] **Step 3:** `roles.ts` 改为调用生成 Operation（模式对齐 `users.ts`），保留导出签名。
+- [x] **Step 4:** `pnpm --filter @fullnet/client-contracts test`；`pnpm --filter @fullnet/admin exec vitest run src/api/roles.test.ts`
+- [x] **Step 5:** 提交 `feat: generate Identity Host Roles client operations`
 
 ---
 
