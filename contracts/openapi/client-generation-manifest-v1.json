@@ -1,5 +1,10 @@
 {
   "schemaVersion": 1,
+  "publicOperationIds": [
+    "identityLogin",
+    "identityRefreshSession",
+    "identityLogout"
+  ],
   "entries": [
     {
       "operationId": "identityListHostUsers",
@@ -300,6 +305,30 @@
       "apiModule": "ui/admin/src/api/superAdministrators.ts",
       "generatedGroup": "identity-super-administrators",
       "status": "generated"
+    },
+    {
+      "operationId": "identityLogin",
+      "apiModule": "packages/client-contracts/src/identity-session.ts",
+      "generatedGroup": "identity-auth-session",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityRefreshSession",
+      "apiModule": "packages/client-contracts/src/identity-session.ts",
+      "generatedGroup": "identity-auth-session",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityLogout",
+      "apiModule": "packages/client-contracts/src/identity-session.ts",
+      "generatedGroup": "identity-auth-session",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityUpdatePreferredLocale",
+      "apiModule": "packages/client-contracts/src/identity-session.ts",
+      "generatedGroup": "identity-auth-session",
+      "status": "pilot"
     },
     {
       "operationId": "filesListHostFiles",

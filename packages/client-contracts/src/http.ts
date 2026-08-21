@@ -7,6 +7,8 @@ export interface AuthenticationBridge {
 
 export interface RequestOptions {
   retryUnauthorized?: boolean;
+  /** 追加请求头；同名头不覆盖 init 或已合并值。 */
+  headers?: HeadersInit;
 }
 
 export interface HttpClient {
@@ -47,7 +49,7 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
     signal?: AbortSignal,
     options: RequestOptions = {}
   ): Promise<T> {
-    const response = await send(path, init, signal);
+    const response = await send(path, init, signal, options);
     const authenticationBridge = authentication;
     const shouldRetry = options.retryUnauthorized !== false
       && response.status === 401
@@ -57,7 +59,10 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
         refreshInFlight = undefined;
       });
       if (await refreshInFlight) {
-        return await request<T>(path, init, signal, { retryUnauthorized: false });
+        return await request<T>(path, init, signal, {
+          ...options,
+          retryUnauthorized: false
+        });
       }
     }
 
@@ -78,7 +83,7 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
     signal?: AbortSignal,
     options: RequestOptions = {}
   ): Promise<Blob> {
-    const response = await send(path, init, signal);
+    const response = await send(path, init, signal, options);
     const authenticationBridge = authentication;
     const shouldRetry = options.retryUnauthorized !== false
       && response.status === 401
@@ -88,7 +93,10 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
         refreshInFlight = undefined;
       });
       if (await refreshInFlight) {
-        return await requestBlob(path, init, signal, { retryUnauthorized: false });
+        return await requestBlob(path, init, signal, {
+          ...options,
+          retryUnauthorized: false
+        });
       }
     }
 
@@ -102,9 +110,18 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
   async function send(
     path: string,
     init: RequestInit,
-    signal?: AbortSignal
+    signal: AbortSignal | undefined,
+    options: RequestOptions = {}
   ): Promise<Response> {
     const headers = new Headers(init.headers);
+    if (options.headers !== undefined) {
+      // 只补充缺失头，避免覆盖 Operation 已声明的 content-type / accept。
+      new Headers(options.headers).forEach((value, key) => {
+        if (!headers.has(key)) {
+          headers.set(key, value);
+        }
+      });
+    }
     if (!headers.has('accept')) {
       headers.set('accept', 'application/json');
     }

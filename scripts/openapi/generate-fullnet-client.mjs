@@ -48,7 +48,17 @@ export async function generateFullNetClient({
   check = false
 } = {}) {
   const document = JSON.parse(await readFile(inputPath, 'utf8'));
-  const violations = validateClientGenerationReadiness(document);
+  const manifest = JSON.parse(await readFile(path.join(
+    repositoryRoot,
+    'contracts',
+    'openapi',
+    'client-generation-manifest-v1.json'
+  ), 'utf8'));
+  const violations = validateClientGenerationReadiness(document, {
+    publicOperationIds: Array.isArray(manifest.publicOperationIds)
+      ? manifest.publicOperationIds
+      : []
+  });
   if (violations.length > 0) {
     throw new Error(`客户端 OpenAPI 未通过生成就绪门禁：\n${violations.join('\n')}`);
   }
@@ -167,14 +177,15 @@ function renderOperations(operations, schemas) {
     renderOperation(operation, schemas)
   ].join('\n\n'));
   return generatedHeader('OpenAPI 低层 HttpClient Operation')
-    + "import type { HttpClient } from '../http.js';\n"
+    + "import type { HttpClient, RequestOptions } from '../http.js';\n"
     + modelImports
     + guardImports
     + '\n'
     + 'export type GeneratedJsonOperation<T> = (\n'
     + '  http: HttpClient,\n'
     + '  parameters: Readonly<Record<string, unknown>>,\n'
-    + '  signal?: AbortSignal\n'
+    + '  signal?: AbortSignal,\n'
+    + '  options?: RequestOptions\n'
     + ') => Promise<T>;\n\n'
     + blocks.join('\n\n')
     + '\n';
@@ -213,17 +224,18 @@ function renderOperation(operation, schemas) {
     `export async function ${operation.operationId}(`,
     '  http: HttpClient,',
     `  parameters: ${operationParametersName(operation)},`,
-    '  signal?: AbortSignal',
+    '  signal?: AbortSignal,',
+    '  options?: RequestOptions',
     `): Promise<${returnType}> {`
   ];
   lines.push(...renderPath(operation));
   lines.push(...renderRequestInitialization(operation, schemas));
   if (operation.response.kind === 'blob') {
-    lines.push('  return await http.requestBlob(path, init, signal);');
+    lines.push('  return await http.requestBlob(path, init, signal, options);');
   } else if (operation.response.kind === 'void') {
-    lines.push('  await http.request<void>(path, init, signal);');
+    lines.push('  await http.request<void>(path, init, signal, options);');
   } else {
-    lines.push('  const value = await http.request<unknown>(path, init, signal);');
+    lines.push('  const value = await http.request<unknown>(path, init, signal, options);');
     lines.push(`  return ${responseReaderName(operation)}(value);`);
   }
   lines.push('}');

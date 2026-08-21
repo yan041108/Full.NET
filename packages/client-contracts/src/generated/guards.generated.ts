@@ -45,6 +45,8 @@ import type {
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
+  LocalePreferenceResponse,
+  LoginRequest,
   ModuleCatalogEntryResponse,
   PagedResultOfConfigEntryResponse,
   PagedResultOfHostApiKeyResponse,
@@ -63,12 +65,14 @@ import type {
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
+  TokenResponse,
   TotpEnrollmentStatusResponse,
   UpdateConfigEntryRequest,
   UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
-  UpdateHostUserRequest
+  UpdateHostUserRequest,
+  UpdateLocaleRequest
 } from './models.generated.js';
 
 export function readAuthorizationTreeActionResponse(value: unknown): AuthorizationTreeActionResponse {
@@ -544,6 +548,28 @@ function isImportHostUsersResponse(value: unknown): value is ImportHostUsersResp
   return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isImportHostUserRowResult(item16))) && (typeof value["succeededCount"] === 'number' && Number.isInteger(value["succeededCount"]));
 }
 
+export function readLocalePreferenceResponse(value: unknown): LocalePreferenceResponse {
+  if (!(isLocalePreferenceResponse(value))) {
+    throw new Error('client.invalid_locale_preference_response');
+  }
+  return value;
+}
+
+function isLocalePreferenceResponse(value: unknown): value is LocalePreferenceResponse {
+  return isRecord(value) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"]));
+}
+
+export function readLoginRequest(value: unknown): LoginRequest {
+  if (!(isLoginRequest(value))) {
+    throw new Error('client.invalid_login_request');
+  }
+  return value;
+}
+
+function isLoginRequest(value: unknown): value is LoginRequest {
+  return isRecord(value) && (typeof value["password"] === 'string') && (typeof value["username"] === 'string');
+}
+
 export function readModuleCatalogEntryResponse(value: unknown): ModuleCatalogEntryResponse {
   if (!(isModuleCatalogEntryResponse(value))) {
     throw new Error('client.invalid_module_catalog_entry_response');
@@ -742,6 +768,17 @@ function isSuperAdministratorResponse(value: unknown): value is SuperAdministrat
   return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["isActive"] === 'boolean') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
+export function readTokenResponse(value: unknown): TokenResponse {
+  if (!(isTokenResponse(value))) {
+    throw new Error('client.invalid_token_response');
+  }
+  return value;
+}
+
+function isTokenResponse(value: unknown): value is TokenResponse {
+  return isRecord(value) && (typeof value["accessToken"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["tokenType"] === 'string');
+}
+
 export function readTotpEnrollmentStatusResponse(value: unknown): TotpEnrollmentStatusResponse {
   if (!(isTotpEnrollmentStatusResponse(value))) {
     throw new Error('client.invalid_totp_enrollment_status_response');
@@ -806,6 +843,17 @@ export function readUpdateHostUserRequest(value: unknown): UpdateHostUserRequest
 
 function isUpdateHostUserRequest(value: unknown): value is UpdateHostUserRequest {
   return isRecord(value) && (value["accountType"] === undefined || ((value["accountType"] === null) || (typeof value["accountType"] === 'string'))) && (typeof value["displayName"] === 'string') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"])))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateLocaleRequest(value: unknown): UpdateLocaleRequest {
+  if (!(isUpdateLocaleRequest(value))) {
+    throw new Error('client.invalid_update_locale_request');
+  }
+  return value;
+}
+
+function isUpdateLocaleRequest(value: unknown): value is UpdateLocaleRequest {
+  return isRecord(value) && (typeof value["locale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"]));
 }
 
 export function readIdentityExportHostUsersResponse(value: unknown): Array<HostUserResponse> {

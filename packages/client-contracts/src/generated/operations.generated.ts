@@ -1,7 +1,7 @@
 // 此文件由 OpenAPI 快照确定性生成，禁止手工修改。
 // 内容：OpenAPI 低层 HttpClient Operation。
 
-import type { HttpClient } from '../http.js';
+import type { HttpClient, RequestOptions } from '../http.js';
 import type {
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
@@ -46,6 +46,8 @@ import type {
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
+  LocalePreferenceResponse,
+  LoginRequest,
   ModuleCatalogEntryResponse,
   PagedResultOfConfigEntryResponse,
   PagedResultOfHostApiKeyResponse,
@@ -64,12 +66,14 @@ import type {
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
+  TokenResponse,
   TotpEnrollmentStatusResponse,
   UpdateConfigEntryRequest,
   UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
-  UpdateHostUserRequest
+  UpdateHostUserRequest,
+  UpdateLocaleRequest
 } from './models.generated.js';
 import {
   readBatchHostUserStatusResponse,
@@ -96,6 +100,7 @@ import {
   readIdentityListSuperAdministratorAuditsResponse,
   readIdentityListSuperAdministratorsResponse,
   readImportHostUsersResponse,
+  readLocalePreferenceResponse,
   readModuleCatalogEntryResponse,
   readPagedResultOfConfigEntryResponse,
   readPagedResultOfHostApiKeyResponse,
@@ -108,13 +113,15 @@ import {
   readSettingsListAllHostConfigEntriesResponse,
   readSettingsListHostConfigEntryGroupsResponse,
   readSuperAdministratorChangeResponse,
+  readTokenResponse,
   readTotpEnrollmentStatusResponse
 } from './guards.generated.js';
 
 export type GeneratedJsonOperation<T> = (
   http: HttpClient,
   parameters: Readonly<Record<string, unknown>>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ) => Promise<T>;
 
 export interface FilesDeleteHostFileParameters {
@@ -124,11 +131,12 @@ export interface FilesDeleteHostFileParameters {
 export async function filesDeleteHostFile(
   http: HttpClient,
   parameters: FilesDeleteHostFileParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostFileResponse> {
   const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/delete`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -139,14 +147,15 @@ export interface FilesDownloadHostFileContentParameters {
 export async function filesDownloadHostFileContent(
   http: HttpClient,
   parameters: FilesDownloadHostFileContentParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Blob> {
   const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/content`;
   const init: RequestInit = {
     method: 'GET',
     headers: { accept: 'application/octet-stream' }
   };
-  return await http.requestBlob(path, init, signal);
+  return await http.requestBlob(path, init, signal, options);
 }
 
 export interface FilesGetHostFileParameters {
@@ -156,11 +165,12 @@ export interface FilesGetHostFileParameters {
 export async function filesGetHostFile(
   http: HttpClient,
   parameters: FilesGetHostFileParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostFileResponse> {
   const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -172,7 +182,8 @@ export interface FilesListHostFilesParameters {
 export async function filesListHostFiles(
   http: HttpClient,
   parameters: FilesListHostFilesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<PagedResultOfHostFileResponse> {
   const query = new URLSearchParams();
   if (parameters.page !== undefined) {
@@ -183,7 +194,7 @@ export async function filesListHostFiles(
   }
   const path = query.size === 0 ? `/api/v1/files/host-files` : `/api/v1/files/host-files?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostFileResponse(value);
 }
 
@@ -194,7 +205,8 @@ export interface FilesUploadHostFileParameters {
 export async function filesUploadHostFile(
   http: HttpClient,
   parameters: FilesUploadHostFileParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostFileResponse> {
   const path = `/api/v1/files/host-files`;
   const body = new FormData();
@@ -202,7 +214,7 @@ export async function filesUploadHostFile(
     body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -213,7 +225,8 @@ export interface IdentityBatchDisableHostUsersParameters {
 export async function identityBatchDisableHostUsers(
   http: HttpClient,
   parameters: IdentityBatchDisableHostUsersParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<BatchHostUserStatusResponse> {
   const path = `/api/v1/identity/users/batch-disable`;
   const init: RequestInit = {
@@ -221,7 +234,7 @@ export async function identityBatchDisableHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readBatchHostUserStatusResponse(value);
 }
 
@@ -232,7 +245,8 @@ export interface IdentityBatchEnableHostUsersParameters {
 export async function identityBatchEnableHostUsers(
   http: HttpClient,
   parameters: IdentityBatchEnableHostUsersParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<BatchHostUserStatusResponse> {
   const path = `/api/v1/identity/users/batch-enable`;
   const init: RequestInit = {
@@ -240,7 +254,7 @@ export async function identityBatchEnableHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readBatchHostUserStatusResponse(value);
 }
 
@@ -251,11 +265,12 @@ export interface IdentityBeginTotpEnrollmentParameters {
 export async function identityBeginTotpEnrollment(
   http: HttpClient,
   parameters: IdentityBeginTotpEnrollmentParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<BeginTotpEnrollmentResponse> {
   const path = `/api/v1/identity/me/mfa/totp/begin`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readBeginTotpEnrollmentResponse(value);
 }
 
@@ -266,7 +281,8 @@ export interface IdentityConfirmTotpEnrollmentParameters {
 export async function identityConfirmTotpEnrollment(
   http: HttpClient,
   parameters: IdentityConfirmTotpEnrollmentParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<TotpEnrollmentStatusResponse> {
   const path = `/api/v1/identity/me/mfa/totp/confirm`;
   const init: RequestInit = {
@@ -274,7 +290,7 @@ export async function identityConfirmTotpEnrollment(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readTotpEnrollmentStatusResponse(value);
 }
 
@@ -285,7 +301,8 @@ export interface IdentityCreateHostApiKeyParameters {
 export async function identityCreateHostApiKey(
   http: HttpClient,
   parameters: IdentityCreateHostApiKeyParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<CreateHostApiKeyResponse> {
   const path = `/api/v1/identity/api-keys`;
   const init: RequestInit = {
@@ -293,7 +310,7 @@ export async function identityCreateHostApiKey(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readCreateHostApiKeyResponse(value);
 }
 
@@ -304,7 +321,8 @@ export interface IdentityCreateHostMenuParameters {
 export async function identityCreateHostMenu(
   http: HttpClient,
   parameters: IdentityCreateHostMenuParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus`;
   const init: RequestInit = {
@@ -312,7 +330,7 @@ export async function identityCreateHostMenu(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -323,7 +341,8 @@ export interface IdentityCreateHostRoleParameters {
 export async function identityCreateHostRole(
   http: HttpClient,
   parameters: IdentityCreateHostRoleParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles`;
   const init: RequestInit = {
@@ -331,7 +350,7 @@ export async function identityCreateHostRole(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -342,7 +361,8 @@ export interface IdentityCreateHostUserParameters {
 export async function identityCreateHostUser(
   http: HttpClient,
   parameters: IdentityCreateHostUserParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users`;
   const init: RequestInit = {
@@ -350,7 +370,7 @@ export async function identityCreateHostUser(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -361,11 +381,12 @@ export interface IdentityDisableHostApiKeyParameters {
 export async function identityDisableHostApiKey(
   http: HttpClient,
   parameters: IdentityDisableHostApiKeyParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostApiKeyResponse> {
   const path = `/api/v1/identity/api-keys/${encodeURIComponent(String(parameters.apiKeyId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostApiKeyResponse(value);
 }
 
@@ -376,11 +397,12 @@ export interface IdentityDisableHostMenuParameters {
 export async function identityDisableHostMenu(
   http: HttpClient,
   parameters: IdentityDisableHostMenuParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -391,11 +413,12 @@ export interface IdentityDisableHostRoleParameters {
 export async function identityDisableHostRole(
   http: HttpClient,
   parameters: IdentityDisableHostRoleParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -406,11 +429,12 @@ export interface IdentityDisableHostUserParameters {
 export async function identityDisableHostUser(
   http: HttpClient,
   parameters: IdentityDisableHostUserParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -421,11 +445,12 @@ export interface IdentityEnableHostMenuParameters {
 export async function identityEnableHostMenu(
   http: HttpClient,
   parameters: IdentityEnableHostMenuParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}/enable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -436,11 +461,12 @@ export interface IdentityEnableHostUserParameters {
 export async function identityEnableHostUser(
   http: HttpClient,
   parameters: IdentityEnableHostUserParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/enable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -451,11 +477,12 @@ export interface IdentityExportHostUsersParameters {
 export async function identityExportHostUsers(
   http: HttpClient,
   parameters: IdentityExportHostUsersParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<HostUserResponse>> {
   const path = `/api/v1/identity/users/export`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readIdentityExportHostUsersResponse(value);
 }
 
@@ -466,11 +493,12 @@ export interface IdentityGetAuthorizationTreeParameters {
 export async function identityGetAuthorizationTree(
   http: HttpClient,
   parameters: IdentityGetAuthorizationTreeParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<AuthorizationTreeModuleResponse>> {
   const path = `/api/v1/identity/authorization-tree`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readIdentityGetAuthorizationTreeResponse(value);
 }
 
@@ -481,11 +509,12 @@ export interface IdentityGetCurrentUserParameters {
 export async function identityGetCurrentUser(
   http: HttpClient,
   parameters: IdentityGetCurrentUserParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<CurrentUserResponse> {
   const path = `/api/v1/me`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readCurrentUserResponse(value);
 }
 
@@ -496,11 +525,12 @@ export interface IdentityGetHostMenuParameters {
 export async function identityGetHostMenu(
   http: HttpClient,
   parameters: IdentityGetHostMenuParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -511,11 +541,12 @@ export interface IdentityGetHostModuleParameters {
 export async function identityGetHostModule(
   http: HttpClient,
   parameters: IdentityGetHostModuleParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<ModuleCatalogEntryResponse> {
   const path = `/api/v1/identity/modules/${encodeURIComponent(String(parameters.moduleKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readModuleCatalogEntryResponse(value);
 }
 
@@ -526,11 +557,12 @@ export interface IdentityGetHostRoleParameters {
 export async function identityGetHostRole(
   http: HttpClient,
   parameters: IdentityGetHostRoleParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -541,11 +573,12 @@ export interface IdentityGetHostRoleDataScopeParameters {
 export async function identityGetHostRoleDataScope(
   http: HttpClient,
   parameters: IdentityGetHostRoleDataScopeParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleDataScopeResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/data-scope`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleDataScopeResponse(value);
 }
 
@@ -557,13 +590,14 @@ export interface IdentityGetHostRoleFieldGrantsParameters {
 export async function identityGetHostRoleFieldGrants(
   http: HttpClient,
   parameters: IdentityGetHostRoleFieldGrantsParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleFieldGrantsResponse> {
   const query = new URLSearchParams();
   query.set('resourceKey', String(parameters.resourceKey));
   const path = query.size === 0 ? `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants` : `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleFieldGrantsResponse(value);
 }
 
@@ -574,11 +608,12 @@ export interface IdentityGetHostUserParameters {
 export async function identityGetHostUser(
   http: HttpClient,
   parameters: IdentityGetHostUserParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -589,11 +624,12 @@ export interface IdentityGetHostUserRolesParameters {
 export async function identityGetHostUserRoles(
   http: HttpClient,
   parameters: IdentityGetHostUserRolesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostUserRolesResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/roles`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostUserRolesResponse(value);
 }
 
@@ -604,11 +640,12 @@ export interface IdentityGetTotpEnrollmentStatusParameters {
 export async function identityGetTotpEnrollmentStatus(
   http: HttpClient,
   parameters: IdentityGetTotpEnrollmentStatusParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<TotpEnrollmentStatusResponse> {
   const path = `/api/v1/identity/me/mfa/totp`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readTotpEnrollmentStatusResponse(value);
 }
 
@@ -619,7 +656,8 @@ export interface IdentityGrantSuperAdministratorParameters {
 export async function identityGrantSuperAdministrator(
   http: HttpClient,
   parameters: IdentityGrantSuperAdministratorParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<SuperAdministratorChangeResponse> {
   const path = `/api/v1/identity/super-administrators/grant`;
   const init: RequestInit = {
@@ -627,7 +665,7 @@ export async function identityGrantSuperAdministrator(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readSuperAdministratorChangeResponse(value);
 }
 
@@ -638,7 +676,8 @@ export interface IdentityImportHostUsersParameters {
 export async function identityImportHostUsers(
   http: HttpClient,
   parameters: IdentityImportHostUsersParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<ImportHostUsersResponse> {
   const path = `/api/v1/identity/users/import`;
   const init: RequestInit = {
@@ -646,7 +685,7 @@ export async function identityImportHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readImportHostUsersResponse(value);
 }
 
@@ -657,11 +696,12 @@ export interface IdentityListAllHostMenusParameters {
 export async function identityListAllHostMenus(
   http: HttpClient,
   parameters: IdentityListAllHostMenusParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<HostMenuResponse>> {
   const path = `/api/v1/identity/menus/all`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readIdentityListAllHostMenusResponse(value);
 }
 
@@ -672,11 +712,12 @@ export interface IdentityListFieldProjectionCatalogParameters {
 export async function identityListFieldProjectionCatalog(
   http: HttpClient,
   parameters: IdentityListFieldProjectionCatalogParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<FieldProjectionResourceDefinition>> {
   const path = `/api/v1/identity/field-projections/catalog`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readIdentityListFieldProjectionCatalogResponse(value);
 }
 
@@ -690,7 +731,8 @@ export interface IdentityListHostApiKeysParameters {
 export async function identityListHostApiKeys(
   http: HttpClient,
   parameters: IdentityListHostApiKeysParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<PagedResultOfHostApiKeyResponse> {
   const query = new URLSearchParams();
   if (parameters.page !== undefined) {
@@ -707,7 +749,7 @@ export async function identityListHostApiKeys(
   }
   const path = query.size === 0 ? `/api/v1/identity/api-keys` : `/api/v1/identity/api-keys?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostApiKeyResponse(value);
 }
 
@@ -718,11 +760,12 @@ export interface IdentityListHostMenuPermissionOptionsParameters {
 export async function identityListHostMenuPermissionOptions(
   http: HttpClient,
   parameters: IdentityListHostMenuPermissionOptionsParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<HostMenuPermissionOptionResponse>> {
   const path = `/api/v1/identity/menus/permission-options`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readIdentityListHostMenuPermissionOptionsResponse(value);
 }
 
@@ -734,7 +777,8 @@ export interface IdentityListHostMenusParameters {
 export async function identityListHostMenus(
   http: HttpClient,
   parameters: IdentityListHostMenusParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<PagedResultOfHostMenuResponse> {
   const query = new URLSearchParams();
   if (parameters.page !== undefined) {
@@ -745,7 +789,7 @@ export async function identityListHostMenus(
   }
   const path = query.size === 0 ? `/api/v1/identity/menus` : `/api/v1/identity/menus?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostMenuResponse(value);
 }
 
@@ -756,11 +800,12 @@ export interface IdentityListHostModulesParameters {
 export async function identityListHostModules(
   http: HttpClient,
   parameters: IdentityListHostModulesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<ModuleCatalogEntryResponse>> {
   const path = `/api/v1/identity/modules`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readIdentityListHostModulesResponse(value);
 }
 
@@ -773,7 +818,8 @@ export interface IdentityListHostOnlineSessionsParameters {
 export async function identityListHostOnlineSessions(
   http: HttpClient,
   parameters: IdentityListHostOnlineSessionsParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<PagedResultOfHostOnlineSessionResponse> {
   const query = new URLSearchParams();
   if (parameters.page !== undefined) {
@@ -787,7 +833,7 @@ export async function identityListHostOnlineSessions(
   }
   const path = query.size === 0 ? `/api/v1/identity/online-sessions` : `/api/v1/identity/online-sessions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostOnlineSessionResponse(value);
 }
 
@@ -799,7 +845,8 @@ export interface IdentityListHostRolesParameters {
 export async function identityListHostRoles(
   http: HttpClient,
   parameters: IdentityListHostRolesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<PagedResultOfHostRoleResponse> {
   const query = new URLSearchParams();
   if (parameters.page !== undefined) {
@@ -810,7 +857,7 @@ export async function identityListHostRoles(
   }
   const path = query.size === 0 ? `/api/v1/identity/roles` : `/api/v1/identity/roles?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostRoleResponse(value);
 }
 
@@ -822,7 +869,8 @@ export interface IdentityListHostUsersParameters {
 export async function identityListHostUsers(
   http: HttpClient,
   parameters: IdentityListHostUsersParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<PagedResultOfHostUserResponse> {
   const query = new URLSearchParams();
   if (parameters.page !== undefined) {
@@ -833,7 +881,7 @@ export async function identityListHostUsers(
   }
   const path = query.size === 0 ? `/api/v1/identity/users` : `/api/v1/identity/users?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostUserResponse(value);
 }
 
@@ -844,7 +892,8 @@ export interface IdentityListSuperAdministratorAuditsParameters {
 export async function identityListSuperAdministratorAudits(
   http: HttpClient,
   parameters: IdentityListSuperAdministratorAuditsParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<SuperAdministratorAuditResponse>> {
   const query = new URLSearchParams();
   if (parameters.limit !== undefined) {
@@ -852,7 +901,7 @@ export async function identityListSuperAdministratorAudits(
   }
   const path = query.size === 0 ? `/api/v1/identity/super-administrators/audits` : `/api/v1/identity/super-administrators/audits?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readIdentityListSuperAdministratorAuditsResponse(value);
 }
 
@@ -863,12 +912,64 @@ export interface IdentityListSuperAdministratorsParameters {
 export async function identityListSuperAdministrators(
   http: HttpClient,
   parameters: IdentityListSuperAdministratorsParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<SuperAdministratorResponse>> {
   const path = `/api/v1/identity/super-administrators`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readIdentityListSuperAdministratorsResponse(value);
+}
+
+export interface IdentityLoginParameters {
+  readonly body: LoginRequest;
+}
+
+export async function identityLogin(
+  http: HttpClient,
+  parameters: IdentityLoginParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TokenResponse> {
+  const path = `/api/v1/auth/login`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal, options);
+  return readTokenResponse(value);
+}
+
+export interface IdentityLogoutParameters {
+
+}
+
+export async function identityLogout(
+  http: HttpClient,
+  parameters: IdentityLogoutParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/auth/logout`;
+  const init: RequestInit = { method: 'POST' };
+  await http.request<void>(path, init, signal, options);
+}
+
+export interface IdentityRefreshSessionParameters {
+
+}
+
+export async function identityRefreshSession(
+  http: HttpClient,
+  parameters: IdentityRefreshSessionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TokenResponse> {
+  const path = `/api/v1/auth/refresh`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal, options);
+  return readTokenResponse(value);
 }
 
 export interface IdentityReplaceHostRoleFieldGrantsParameters {
@@ -879,7 +980,8 @@ export interface IdentityReplaceHostRoleFieldGrantsParameters {
 export async function identityReplaceHostRoleFieldGrants(
   http: HttpClient,
   parameters: IdentityReplaceHostRoleFieldGrantsParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleFieldGrantsResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants`;
   const init: RequestInit = {
@@ -887,7 +989,7 @@ export async function identityReplaceHostRoleFieldGrants(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleFieldGrantsResponse(value);
 }
 
@@ -899,7 +1001,8 @@ export interface IdentityReplaceHostRolePermissionsParameters {
 export async function identityReplaceHostRolePermissions(
   http: HttpClient,
   parameters: IdentityReplaceHostRolePermissionsParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/permissions`;
   const init: RequestInit = {
@@ -907,7 +1010,7 @@ export async function identityReplaceHostRolePermissions(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -919,7 +1022,8 @@ export interface IdentityReplaceHostUserRolesParameters {
 export async function identityReplaceHostUserRoles(
   http: HttpClient,
   parameters: IdentityReplaceHostUserRolesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostUserRolesResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/roles`;
   const init: RequestInit = {
@@ -927,7 +1031,7 @@ export async function identityReplaceHostUserRoles(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostUserRolesResponse(value);
 }
 
@@ -939,7 +1043,8 @@ export interface IdentityResetHostUserPasswordParameters {
 export async function identityResetHostUserPassword(
   http: HttpClient,
   parameters: IdentityResetHostUserPasswordParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/reset-password`;
   const init: RequestInit = {
@@ -947,7 +1052,7 @@ export async function identityResetHostUserPassword(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -958,11 +1063,12 @@ export interface IdentityRevokeHostOnlineSessionParameters {
 export async function identityRevokeHostOnlineSession(
   http: HttpClient,
   parameters: IdentityRevokeHostOnlineSessionParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostOnlineSessionResponse> {
   const path = `/api/v1/identity/online-sessions/${encodeURIComponent(String(parameters.sessionId))}/revoke`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostOnlineSessionResponse(value);
 }
 
@@ -974,7 +1080,8 @@ export interface IdentityRevokeSuperAdministratorParameters {
 export async function identityRevokeSuperAdministrator(
   http: HttpClient,
   parameters: IdentityRevokeSuperAdministratorParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<SuperAdministratorChangeResponse> {
   const path = `/api/v1/identity/super-administrators/${encodeURIComponent(String(parameters.targetUserId))}/revoke`;
   const init: RequestInit = {
@@ -982,7 +1089,7 @@ export async function identityRevokeSuperAdministrator(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readSuperAdministratorChangeResponse(value);
 }
 
@@ -993,11 +1100,12 @@ export interface IdentityRotateHostApiKeyParameters {
 export async function identityRotateHostApiKey(
   http: HttpClient,
   parameters: IdentityRotateHostApiKeyParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<CreateHostApiKeyResponse> {
   const path = `/api/v1/identity/api-keys/${encodeURIComponent(String(parameters.apiKeyId))}/rotate`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readCreateHostApiKeyResponse(value);
 }
 
@@ -1008,11 +1116,12 @@ export interface IdentitySyncHostMenuCatalogParameters {
 export async function identitySyncHostMenuCatalog(
   http: HttpClient,
   parameters: IdentitySyncHostMenuCatalogParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostNavigationCatalogSyncResponse> {
   const path = `/api/v1/identity/menus/sync-catalog`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostNavigationCatalogSyncResponse(value);
 }
 
@@ -1024,7 +1133,8 @@ export interface IdentityUpdateHostMenuParameters {
 export async function identityUpdateHostMenu(
   http: HttpClient,
   parameters: IdentityUpdateHostMenuParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}`;
   const init: RequestInit = {
@@ -1032,7 +1142,7 @@ export async function identityUpdateHostMenu(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -1044,7 +1154,8 @@ export interface IdentityUpdateHostRoleParameters {
 export async function identityUpdateHostRole(
   http: HttpClient,
   parameters: IdentityUpdateHostRoleParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}`;
   const init: RequestInit = {
@@ -1052,7 +1163,7 @@ export async function identityUpdateHostRole(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -1064,7 +1175,8 @@ export interface IdentityUpdateHostRoleDataScopeParameters {
 export async function identityUpdateHostRoleDataScope(
   http: HttpClient,
   parameters: IdentityUpdateHostRoleDataScopeParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostRoleDataScopeResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/data-scope`;
   const init: RequestInit = {
@@ -1072,7 +1184,7 @@ export async function identityUpdateHostRoleDataScope(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostRoleDataScopeResponse(value);
 }
 
@@ -1084,7 +1196,8 @@ export interface IdentityUpdateHostUserParameters {
 export async function identityUpdateHostUser(
   http: HttpClient,
   parameters: IdentityUpdateHostUserParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}`;
   const init: RequestInit = {
@@ -1092,8 +1205,28 @@ export async function identityUpdateHostUser(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
+}
+
+export interface IdentityUpdatePreferredLocaleParameters {
+  readonly body: UpdateLocaleRequest;
+}
+
+export async function identityUpdatePreferredLocale(
+  http: HttpClient,
+  parameters: IdentityUpdatePreferredLocaleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<LocalePreferenceResponse> {
+  const path = `/api/v1/me/locale`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal, options);
+  return readLocalePreferenceResponse(value);
 }
 
 export interface SettingsBatchDeleteHostConfigEntriesParameters {
@@ -1103,7 +1236,8 @@ export interface SettingsBatchDeleteHostConfigEntriesParameters {
 export async function settingsBatchDeleteHostConfigEntries(
   http: HttpClient,
   parameters: SettingsBatchDeleteHostConfigEntriesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<void> {
   const path = `/api/v1/settings/config-entries/batch-delete`;
   const init: RequestInit = {
@@ -1111,7 +1245,7 @@ export async function settingsBatchDeleteHostConfigEntries(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  await http.request<void>(path, init, signal);
+  await http.request<void>(path, init, signal, options);
 }
 
 export interface SettingsBatchUpdateHostConfigEntryValuesParameters {
@@ -1121,7 +1255,8 @@ export interface SettingsBatchUpdateHostConfigEntryValuesParameters {
 export async function settingsBatchUpdateHostConfigEntryValues(
   http: HttpClient,
   parameters: SettingsBatchUpdateHostConfigEntryValuesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<boolean> {
   const path = `/api/v1/settings/config-entries/batch-update-values`;
   const init: RequestInit = {
@@ -1129,7 +1264,7 @@ export async function settingsBatchUpdateHostConfigEntryValues(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readSettingsBatchUpdateHostConfigEntryValuesResponse(value);
 }
 
@@ -1140,7 +1275,8 @@ export interface SettingsCreateHostConfigEntryParameters {
 export async function settingsCreateHostConfigEntry(
   http: HttpClient,
   parameters: SettingsCreateHostConfigEntryParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries`;
   const init: RequestInit = {
@@ -1148,7 +1284,7 @@ export async function settingsCreateHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -1160,7 +1296,8 @@ export interface SettingsDeleteHostConfigEntryParameters {
 export async function settingsDeleteHostConfigEntry(
   http: HttpClient,
   parameters: SettingsDeleteHostConfigEntryParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<void> {
   const path = `/api/v1/settings/config-entries/${encodeURIComponent(String(parameters.configEntryId))}/delete`;
   const init: RequestInit = {
@@ -1168,7 +1305,7 @@ export async function settingsDeleteHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  await http.request<void>(path, init, signal);
+  await http.request<void>(path, init, signal, options);
 }
 
 export interface SettingsDisableHostConfigEntryParameters {
@@ -1178,11 +1315,12 @@ export interface SettingsDisableHostConfigEntryParameters {
 export async function settingsDisableHostConfigEntry(
   http: HttpClient,
   parameters: SettingsDisableHostConfigEntryParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/${encodeURIComponent(String(parameters.configEntryId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -1193,11 +1331,12 @@ export interface SettingsGetHostConfigEntryParameters {
 export async function settingsGetHostConfigEntry(
   http: HttpClient,
   parameters: SettingsGetHostConfigEntryParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/${encodeURIComponent(String(parameters.configEntryId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -1208,11 +1347,12 @@ export interface SettingsGetHostConfigEntryByKeyParameters {
 export async function settingsGetHostConfigEntryByKey(
   http: HttpClient,
   parameters: SettingsGetHostConfigEntryByKeyParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/by-key/${encodeURIComponent(String(parameters.configKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -1223,11 +1363,12 @@ export interface SettingsListAllHostConfigEntriesParameters {
 export async function settingsListAllHostConfigEntries(
   http: HttpClient,
   parameters: SettingsListAllHostConfigEntriesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<ConfigEntryResponse>> {
   const path = `/api/v1/settings/config-entries/list`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readSettingsListAllHostConfigEntriesResponse(value);
 }
 
@@ -1239,7 +1380,8 @@ export interface SettingsListHostConfigEntriesParameters {
 export async function settingsListHostConfigEntries(
   http: HttpClient,
   parameters: SettingsListHostConfigEntriesParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<PagedResultOfConfigEntryResponse> {
   const query = new URLSearchParams();
   if (parameters.page !== undefined) {
@@ -1250,7 +1392,7 @@ export async function settingsListHostConfigEntries(
   }
   const path = query.size === 0 ? `/api/v1/settings/config-entries` : `/api/v1/settings/config-entries?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfConfigEntryResponse(value);
 }
 
@@ -1261,11 +1403,12 @@ export interface SettingsListHostConfigEntryGroupsParameters {
 export async function settingsListHostConfigEntryGroups(
   http: HttpClient,
   parameters: SettingsListHostConfigEntryGroupsParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<Array<string>> {
   const path = `/api/v1/settings/config-entries/groups`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readSettingsListHostConfigEntryGroupsResponse(value);
 }
 
@@ -1277,7 +1420,8 @@ export interface SettingsUpdateHostConfigEntryParameters {
 export async function settingsUpdateHostConfigEntry(
   http: HttpClient,
   parameters: SettingsUpdateHostConfigEntryParameters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: RequestOptions
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/${encodeURIComponent(String(parameters.configEntryId))}`;
   const init: RequestInit = {
@@ -1285,6 +1429,6 @@ export async function settingsUpdateHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal);
+  const value = await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }

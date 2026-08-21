@@ -377,6 +377,16 @@ export interface ImportHostUsersResponse {
   readonly succeededCount: number;
 }
 
+export interface LocalePreferenceResponse {
+  readonly preferredLocale: string;
+  readonly profileVersion: number;
+}
+
+export interface LoginRequest {
+  readonly password: string;
+  readonly username: string;
+}
+
 export interface ModuleCatalogEntryResponse {
   readonly dependencies: Array<string>;
   readonly displayName: string;
@@ -493,6 +503,12 @@ export interface SuperAdministratorResponse {
   readonly username: string;
 }
 
+export interface TokenResponse {
+  readonly accessToken: string;
+  readonly expiresAtUtc: string;
+  readonly tokenType: string;
+}
+
 export interface TotpEnrollmentStatusResponse {
   readonly isEnabled: boolean;
   readonly isEnrolled: boolean;
@@ -544,4 +560,9 @@ export interface UpdateHostUserRequest {
   readonly displayName: string;
   readonly profile?: null | HostUserProfileWriteRequest;
   readonly version: number;
+}
+
+export interface UpdateLocaleRequest {
+  readonly locale: string;
+  readonly profileVersion: number;
 }

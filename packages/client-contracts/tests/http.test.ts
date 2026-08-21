@@ -61,4 +61,29 @@ describe('headless HTTP 客户端', () => {
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
+
+  it('RequestOptions.headers 只补充缺失头且不覆盖 init', async () => {
+    const http = createHttpClient();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await http.request('/api/v1/auth/refresh', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' }
+    }, undefined, {
+      retryUnauthorized: false,
+      headers: {
+        'X-CSRF-Token': 'csrf-token',
+        'content-type': 'text/plain'
+      }
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = new Headers(init.headers);
+    expect(headers.get('content-type')).toBe('application/json');
+    expect(headers.get('X-CSRF-Token')).toBe('csrf-token');
+  });
 });

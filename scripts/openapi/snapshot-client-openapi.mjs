@@ -72,7 +72,7 @@ async function main(currentOptions) {
       operationIds
     ));
     await assertSnapshotMatches(serialized);
-    assertReadiness(snapshot);
+    assertReadiness(snapshot, manifest);
     process.stdout.write('客户端 OpenAPI 离线快照与 manifest 校验通过。\n');
     return;
   }
@@ -104,7 +104,7 @@ async function main(currentOptions) {
       exportRuntimeDocument(provider, rawPath);
       const rawDocument = await readJson(rawPath);
       const normalized = normalizeClientOpenApi(rawDocument, operationIds);
-      assertReadiness(normalized);
+      assertReadiness(normalized, manifest);
       snapshots.push({
         provider,
         serialized: serializeClientOpenApi(normalized)
@@ -142,6 +142,13 @@ async function readManifest() {
   if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.entries)
     || manifest.entries.length === 0) {
     throw new Error('客户端生成 manifest 结构无效。');
+  }
+
+  if (manifest.publicOperationIds !== undefined) {
+    if (!Array.isArray(manifest.publicOperationIds)
+      || manifest.publicOperationIds.some(id => !isNonEmptyString(id))) {
+      throw new Error('客户端生成 manifest publicOperationIds 结构无效。');
+    }
   }
 
   const operationIds = new Set();
@@ -183,8 +190,12 @@ function exportRuntimeDocument(provider, outputPath) {
   });
 }
 
-function assertReadiness(document) {
-  const violations = validateClientGenerationReadiness(document);
+function assertReadiness(document, manifest) {
+  const violations = validateClientGenerationReadiness(document, {
+    publicOperationIds: Array.isArray(manifest.publicOperationIds)
+      ? manifest.publicOperationIds
+      : []
+  });
   if (violations.length > 0) {
     throw new Error(`客户端 OpenAPI 未通过生成就绪门禁：\n${violations.join('\n')}`);
   }
