@@ -233,13 +233,13 @@
       "operationId": "identityListHostOnlineSessions",
       "apiModule": "ui/admin/src/api/online-sessions.ts",
       "generatedGroup": "identity-host-online-sessions",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityRevokeHostOnlineSession",
       "apiModule": "ui/admin/src/api/online-sessions.ts",
       "generatedGroup": "identity-host-online-sessions",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesListHostFiles",
