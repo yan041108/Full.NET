@@ -14,8 +14,11 @@ internal static class Endpoint
                 "/api/v1/identity/authorization-tree",
                 (AuthorizationTreeProjector projector) =>
                     Results.Ok(projector.ProjectHostTree()))
-            .WithTags("Identity")
-            .RequireFullNetPermission(IdentityRoleManagementPermissions.Read)
-            .Produces<AuthorizationTreeModuleResponse[]>(StatusCodes.Status200OK);
+            .WithTags("IdentityHostRoles")
+            .WithName("identityGetAuthorizationTree")
+            .Produces<AuthorizationTreeModuleResponse[]>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .RequireFullNetPermission(IdentityRoleManagementPermissions.Read);
     }
 }

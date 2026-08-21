@@ -93,6 +93,11 @@ test('Host 角色 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(contractsSource, /identity\.role_field_grants\.replace/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/roles"\)/u);
+  assert.match(endpointSource, /WithTags\("IdentityHostRoles"\)/u);
+  assert.match(endpointSource, /WithName\("identityListHostRoles"\)/u);
+  assert.match(endpointSource, /WithName\("identityGetAuthorizationTree"\)/u);
+  assert.match(endpointSource, /WithName\("identityListFieldProjectionCatalog"\)/u);
+  assert.match(endpointSource, /WithName\("identityReplaceHostRoleFieldGrants"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/identity/authorization-tree', new Map([

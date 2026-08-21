@@ -18,17 +18,18 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Full.NET.ArchitectureTests;
 
 /// <summary>
-/// 锁定客户端生成试点的 Operation 身份，并阻止显式 Endpoint 名称发生冲突。
+/// 锁定客户端生成已批准资源组的 Operation 身份，并阻止显式 Endpoint 名称发生冲突。
 /// </summary>
 [TestClass]
 public sealed partial class OpenApiOperationIdentityRulesTests
 {
-    private const string IdentityTag = "IdentityHostUsers";
+    private const string IdentityHostUsersTag = "IdentityHostUsers";
+    private const string IdentityHostRolesTag = "IdentityHostRoles";
     private const string FilesTag = "FilesHostFiles";
     private const string SettingsTag = "SettingsHostConfigEntries";
 
     [TestMethod]
-    public void Pilot_operations_have_unique_lower_camel_names_and_one_primary_tag()
+    public void Approved_client_generation_operations_have_unique_lower_camel_names_and_one_primary_tag()
     {
         using var app = BuildApiApplication();
         var endpoints = ((IEndpointRouteBuilder)app).DataSources
@@ -47,7 +48,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         foreach (var expected in ExpectedOperations)
         {
             var key = $"{expected.Method} {expected.Route}";
-            Assert.IsTrue(endpointsByKey.TryGetValue(key, out var endpoint), $"缺少试点 Endpoint：{key}");
+            Assert.IsTrue(endpointsByKey.TryGetValue(key, out var endpoint), $"缺少批准 Endpoint：{key}");
             Assert.AreEqual(
                 expected.OperationId,
                 endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName,
@@ -60,7 +61,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
             CollectionAssert.AreEqual(
                 new[] { expected.PrimaryTag },
                 tags,
-                $"{key} 必须恰有一个试点主 Tag。");
+                $"{key} 必须恰有一个批准主 Tag。");
         }
 
         var explicitNames = endpoints
@@ -132,21 +133,33 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     [GeneratedRegex("\\{([^}:]+):[^}]+\\}", RegexOptions.CultureInvariant)]
     private static partial Regex RouteConstraintPattern();
 
-    private static readonly PilotOperation[] ExpectedOperations =
+    private static readonly ApprovedClientGenerationOperation[] ExpectedOperations =
     [
-        new("GET", "/api/v1/identity/users", "identityListHostUsers", IdentityTag),
-        new("GET", "/api/v1/identity/users/export", "identityExportHostUsers", IdentityTag),
-        new("POST", "/api/v1/identity/users/import", "identityImportHostUsers", IdentityTag),
-        new("POST", "/api/v1/identity/users/batch-disable", "identityBatchDisableHostUsers", IdentityTag),
-        new("POST", "/api/v1/identity/users/batch-enable", "identityBatchEnableHostUsers", IdentityTag),
-        new("GET", "/api/v1/identity/users/{userId}", "identityGetHostUser", IdentityTag),
-        new("POST", "/api/v1/identity/users", "identityCreateHostUser", IdentityTag),
-        new("PUT", "/api/v1/identity/users/{userId}", "identityUpdateHostUser", IdentityTag),
-        new("POST", "/api/v1/identity/users/{userId}/disable", "identityDisableHostUser", IdentityTag),
-        new("POST", "/api/v1/identity/users/{userId}/enable", "identityEnableHostUser", IdentityTag),
-        new("POST", "/api/v1/identity/users/{userId}/reset-password", "identityResetHostUserPassword", IdentityTag),
-        new("GET", "/api/v1/identity/users/{userId}/roles", "identityGetHostUserRoles", IdentityTag),
-        new("PUT", "/api/v1/identity/users/{userId}/roles", "identityReplaceHostUserRoles", IdentityTag),
+        new("GET", "/api/v1/identity/users", "identityListHostUsers", IdentityHostUsersTag),
+        new("GET", "/api/v1/identity/users/export", "identityExportHostUsers", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users/import", "identityImportHostUsers", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users/batch-disable", "identityBatchDisableHostUsers", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users/batch-enable", "identityBatchEnableHostUsers", IdentityHostUsersTag),
+        new("GET", "/api/v1/identity/users/{userId}", "identityGetHostUser", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users", "identityCreateHostUser", IdentityHostUsersTag),
+        new("PUT", "/api/v1/identity/users/{userId}", "identityUpdateHostUser", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users/{userId}/disable", "identityDisableHostUser", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users/{userId}/enable", "identityEnableHostUser", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users/{userId}/reset-password", "identityResetHostUserPassword", IdentityHostUsersTag),
+        new("GET", "/api/v1/identity/users/{userId}/roles", "identityGetHostUserRoles", IdentityHostUsersTag),
+        new("PUT", "/api/v1/identity/users/{userId}/roles", "identityReplaceHostUserRoles", IdentityHostUsersTag),
+        new("GET", "/api/v1/identity/authorization-tree", "identityGetAuthorizationTree", IdentityHostRolesTag),
+        new("GET", "/api/v1/identity/field-projections/catalog", "identityListFieldProjectionCatalog", IdentityHostRolesTag),
+        new("GET", "/api/v1/identity/roles", "identityListHostRoles", IdentityHostRolesTag),
+        new("POST", "/api/v1/identity/roles", "identityCreateHostRole", IdentityHostRolesTag),
+        new("GET", "/api/v1/identity/roles/{roleId}", "identityGetHostRole", IdentityHostRolesTag),
+        new("PUT", "/api/v1/identity/roles/{roleId}", "identityUpdateHostRole", IdentityHostRolesTag),
+        new("PUT", "/api/v1/identity/roles/{roleId}/permissions", "identityReplaceHostRolePermissions", IdentityHostRolesTag),
+        new("POST", "/api/v1/identity/roles/{roleId}/disable", "identityDisableHostRole", IdentityHostRolesTag),
+        new("GET", "/api/v1/identity/roles/{roleId}/data-scope", "identityGetHostRoleDataScope", IdentityHostRolesTag),
+        new("PUT", "/api/v1/identity/roles/{roleId}/data-scope", "identityUpdateHostRoleDataScope", IdentityHostRolesTag),
+        new("GET", "/api/v1/identity/roles/{roleId}/field-grants", "identityGetHostRoleFieldGrants", IdentityHostRolesTag),
+        new("PUT", "/api/v1/identity/roles/{roleId}/field-grants", "identityReplaceHostRoleFieldGrants", IdentityHostRolesTag),
         new("GET", "/api/v1/files/host-files", "filesListHostFiles", FilesTag),
         new("GET", "/api/v1/files/host-files/{fileId}", "filesGetHostFile", FilesTag),
         new("POST", "/api/v1/files/host-files", "filesUploadHostFile", FilesTag),
@@ -165,7 +178,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/settings/config-entries/groups", "settingsListHostConfigEntryGroups", SettingsTag),
     ];
 
-    private sealed record PilotOperation(
+    private sealed record ApprovedClientGenerationOperation(
         string Method,
         string Route,
         string OperationId,

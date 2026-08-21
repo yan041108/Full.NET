@@ -14,8 +14,9 @@
 
 ## 执行状态（2026-08-21）
 
-- 计划已创建，**尚未开始实现**。
-- 本文件只覆盖 **Host Roles 资源组**；其余 Identity Vue API 见文末队列，禁止并入本 slice。
+- 计划已创建。
+- Task 1（operationId / 主 Tag / ProblemDetails 元数据）已完成。
+- Task 2–4 尚未开始；其余 Identity Vue API 见文末队列，禁止并入本 slice。
 
 ## Global Constraints
 
@@ -88,10 +89,10 @@
 
 **Steps:**
 
-- [ ] **Step 1:** 为上表每个 Endpoint 增加 `.WithName(...)`；组 Tag 从 `"Identity"` 改为 `"IdentityHostRoles"`。
-- [ ] **Step 2:** 确认 `.Produces` / ProblemDetails / 请求体 Schema 满足客户端生成就绪门禁（参考 Host Users）。
-- [ ] **Step 3:** RED→GREEN：聚焦 Identity Roles / OpenAPI readiness 相关测试。
-- [ ] **Step 4:** `pnpm test:integration:affected -- --snapshot openapi-client-identity-host-roles-metadata-20260821 --phase inner`
+- [x] **Step 1:** 为上表每个 Endpoint 增加 `.WithName(...)`；组 Tag 从 `"Identity"` 改为 `"IdentityHostRoles"`。
+- [x] **Step 2:** 确认 `.Produces` / ProblemDetails / 请求体 Schema 满足客户端生成就绪门禁（参考 Host Users）。
+- [x] **Step 3:** RED→GREEN：聚焦 Identity Roles / OpenAPI readiness 相关测试。
+- [x] **Step 4:** `pnpm test:integration:affected -- --snapshot openapi-client-identity-host-roles-metadata-20260821 --phase inner`
 - [ ] **Step 5:** 提交 `feat: stabilize Identity Host Roles OpenAPI identities`
 
 ---

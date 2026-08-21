@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/roles")
-            .WithTags("Identity");
+            .WithTags("IdentityHostRoles");
 
         group.MapGet("/", async (
             int? page,
@@ -30,7 +30,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityListHostRoles")
         .Produces<PagedResult<HostRoleResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Read);
 
         group.MapGet("/{roleId:guid}", async (
@@ -44,7 +47,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityGetHostRole")
         .Produces<HostRoleResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Read);
 
         group.MapPost("/", async (
@@ -65,7 +71,10 @@ internal static class Endpoint
                 $"/api/v1/identity/roles/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("identityCreateHostRole")
         .Produces<HostRoleResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Create);
 
         group.MapPut("/{roleId:guid}", async (
@@ -80,7 +89,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityUpdateHostRole")
         .Produces<HostRoleResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Update);
 
         group.MapPut("/{roleId:guid}/permissions", async (
@@ -98,7 +110,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityReplaceHostRolePermissions")
         .Produces<HostRoleResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.AssignPermissions);
 
         group.MapPost("/{roleId:guid}/disable", async (
@@ -112,7 +127,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityDisableHostRole")
         .Produces<HostRoleResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Disable);
 
         group.MapGet("/{roleId:guid}/data-scope", async (
@@ -126,7 +144,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityGetHostRoleDataScope")
         .Produces<HostRoleDataScopeResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Read);
 
         group.MapPut("/{roleId:guid}/data-scope", async (
@@ -141,7 +162,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityUpdateHostRoleDataScope")
         .Produces<HostRoleDataScopeResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.AssignDataScope);
     }
 }

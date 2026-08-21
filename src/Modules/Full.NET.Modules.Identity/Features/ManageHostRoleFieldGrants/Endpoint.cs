@@ -14,14 +14,17 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var catalog = endpoints.MapGroup("/api/v1/identity/field-projections")
-            .WithTags("Identity");
+            .WithTags("IdentityHostRoles");
         catalog.MapGet("/catalog", (HostRoleFieldGrantService service) =>
                 Results.Ok(service.GetCatalog()))
+            .WithName("identityListFieldProjectionCatalog")
             .Produces<IReadOnlyCollection<FieldProjectionResourceDefinition>>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireFullNetPermission(IdentityRoleFieldGrantPermissions.Read);
 
         var roles = endpoints.MapGroup("/api/v1/identity/roles")
-            .WithTags("Identity");
+            .WithTags("IdentityHostRoles");
         roles.MapGet("/{roleId:guid}/field-grants", async (
             Guid roleId,
             string resourceKey,
@@ -34,7 +37,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityGetHostRoleFieldGrants")
         .Produces<HostRoleFieldGrantsResponse>()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleFieldGrantPermissions.Read);
 
         roles.MapPut("/{roleId:guid}/field-grants", async (
@@ -58,7 +64,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityReplaceHostRoleFieldGrants")
         .Produces<HostRoleFieldGrantsResponse>()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleFieldGrantPermissions.Replace);
     }
 

@@ -19,6 +19,7 @@ internal static class OpenApiHostRolesContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertApprovedOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -69,6 +70,23 @@ internal static class OpenApiHostRolesContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertApprovedOperations(JsonElement document)
+    {
+        const string tag = "IdentityHostRoles";
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/authorization-tree", HttpMethod.Get, "identityGetAuthorizationTree", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/field-projections/catalog", HttpMethod.Get, "identityListFieldProjectionCatalog", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles", HttpMethod.Get, "identityListHostRoles", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles", HttpMethod.Post, "identityCreateHostRole", tag, 201, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles/{roleId}", HttpMethod.Get, "identityGetHostRole", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles/{roleId}", HttpMethod.Put, "identityUpdateHostRole", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles/{roleId}/permissions", HttpMethod.Put, "identityReplaceHostRolePermissions", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles/{roleId}/disable", HttpMethod.Post, "identityDisableHostRole", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles/{roleId}/data-scope", HttpMethod.Get, "identityGetHostRoleDataScope", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles/{roleId}/data-scope", HttpMethod.Put, "identityUpdateHostRoleDataScope", tag, 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles/{roleId}/field-grants", HttpMethod.Get, "identityGetHostRoleFieldGrants", tag, 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/identity/roles/{roleId}/field-grants", HttpMethod.Put, "identityReplaceHostRoleFieldGrants", tag, 200, "application/json", "application/json");
     }
 
     private static void AssertSchemaProperties(
