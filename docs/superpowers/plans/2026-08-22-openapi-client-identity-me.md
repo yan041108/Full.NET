@@ -14,6 +14,7 @@
 
 - `Slice-passed`：见 [`openapi-client-identity-me-2026-08-22.md`](../../verification/openapi-client-identity-me-2026-08-22.md)。
 - 允许创建下一个 Identity remaining 计划（默认 `totpEnrollment.ts`）；禁止并行迁移其他资源组。
+- TOTP Enrollment 计划已创建：[`2026-08-22-openapi-client-identity-totp-enrollment.md`](./2026-08-22-openapi-client-identity-totp-enrollment.md)。
 
 ## Global Constraints
 
