@@ -7,6 +7,9 @@
   },
   "tags": [
     {
+      "name": "IdentityMe"
+    },
+    {
       "name": "IdentityHostRoles"
     },
     {
@@ -2936,6 +2939,44 @@
         ]
       }
     },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "identityGetCurrentUser",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityMe"
+        ]
+      }
+    },
     "/api/v1/settings/config-entries": {
       "get": {
         "operationId": "settingsListHostConfigEntries",
@@ -4123,6 +4164,71 @@
           "username",
           "displayName",
           "password"
+        ],
+        "type": "object"
+      },
+      "CurrentUserResponse": {
+        "properties": {
+          "actorScope": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isSuperAdministrator": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "preferredLocale": {
+            "type": "string"
+          },
+          "profileVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "scope": {
+            "type": "string"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "tenantId",
+          "actorScope",
+          "scope",
+          "isSuperAdministrator",
+          "permissions",
+          "sessionId",
+          "preferredLocale",
+          "profileVersion"
         ],
         "type": "object"
       },

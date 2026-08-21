@@ -19,6 +19,7 @@ import type {
   CreateHostMenuRequest,
   CreateHostRoleRequest,
   CreateHostUserRequest,
+  CurrentUserResponse,
   DeleteConfigEntryRequest,
   FieldProjectionDefaultVisibility,
   FieldProjectionFieldDefinition,
@@ -66,6 +67,7 @@ import {
   readBatchHostUserStatusResponse,
   readConfigEntryResponse,
   readCreateHostApiKeyResponse,
+  readCurrentUserResponse,
   readHostApiKeyResponse,
   readHostFileResponse,
   readHostMenuResponse,
@@ -423,6 +425,21 @@ export async function identityGetAuthorizationTree(
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
   return readIdentityGetAuthorizationTreeResponse(value);
+}
+
+export interface IdentityGetCurrentUserParameters {
+
+}
+
+export async function identityGetCurrentUser(
+  http: HttpClient,
+  parameters: IdentityGetCurrentUserParameters,
+  signal?: AbortSignal
+): Promise<CurrentUserResponse> {
+  const path = `/api/v1/me`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readCurrentUserResponse(value);
 }
 
 export interface IdentityGetHostMenuParameters {

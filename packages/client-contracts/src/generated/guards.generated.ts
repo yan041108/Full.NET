@@ -18,6 +18,7 @@ import type {
   CreateHostMenuRequest,
   CreateHostRoleRequest,
   CreateHostUserRequest,
+  CurrentUserResponse,
   DeleteConfigEntryRequest,
   FieldProjectionDefaultVisibility,
   FieldProjectionFieldDefinition,
@@ -236,6 +237,17 @@ export function readCreateHostUserRequest(value: unknown): CreateHostUserRequest
 
 function isCreateHostUserRequest(value: unknown): value is CreateHostUserRequest {
   return isRecord(value) && (value["accountType"] === undefined || ((value["accountType"] === null) || (typeof value["accountType"] === 'string'))) && (typeof value["displayName"] === 'string') && (typeof value["password"] === 'string') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"])))) && (typeof value["username"] === 'string');
+}
+
+export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
+  if (!(isCurrentUserResponse(value))) {
+    throw new Error('client.invalid_current_user_response');
+  }
+  return value;
+}
+
+function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
+  return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
 }
 
 export function readDeleteConfigEntryRequest(value: unknown): DeleteConfigEntryRequest {

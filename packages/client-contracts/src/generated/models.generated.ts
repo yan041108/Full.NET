@@ -124,6 +124,20 @@ export interface CreateHostUserRequest {
   readonly username: string;
 }
 
+export interface CurrentUserResponse {
+  readonly actorScope: string;
+  readonly displayName: string;
+  readonly id: string;
+  readonly isSuperAdministrator: boolean;
+  readonly permissions: Array<string>;
+  readonly preferredLocale: string;
+  readonly profileVersion: number;
+  readonly scope: string;
+  readonly sessionId: string;
+  readonly tenantId: null | string;
+  readonly username: string;
+}
+
 export interface DeleteConfigEntryRequest {
   readonly version: number;
 }
