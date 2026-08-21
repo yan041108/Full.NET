@@ -107,7 +107,7 @@ public sealed class IdentityModule : IFullNetModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/v1/auth").WithTags("Identity");
+        var group = endpoints.MapGroup("/api/v1/auth").WithTags("IdentityAuthSession");
         Features.Login.Endpoint.Map(group);
         Features.RefreshSession.Endpoint.Map(group);
         Features.Logout.Endpoint.Map(group);

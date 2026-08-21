@@ -32,6 +32,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityMeTag = "IdentityMe";
     private const string IdentityTotpEnrollmentTag = "IdentityTotpEnrollment";
     private const string IdentitySuperAdministratorsTag = "IdentitySuperAdministrators";
+    private const string IdentityAuthSessionTag = "IdentityAuthSession";
     private const string FilesTag = "FilesHostFiles";
     private const string SettingsTag = "SettingsHostConfigEntries";
 
@@ -192,6 +193,10 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/identity/super-administrators/audits", "identityListSuperAdministratorAudits", IdentitySuperAdministratorsTag),
         new("POST", "/api/v1/identity/super-administrators/grant", "identityGrantSuperAdministrator", IdentitySuperAdministratorsTag),
         new("POST", "/api/v1/identity/super-administrators/{targetUserId}/revoke", "identityRevokeSuperAdministrator", IdentitySuperAdministratorsTag),
+        new("POST", "/api/v1/auth/login", "identityLogin", IdentityAuthSessionTag),
+        new("POST", "/api/v1/auth/refresh", "identityRefreshSession", IdentityAuthSessionTag),
+        new("POST", "/api/v1/auth/logout", "identityLogout", IdentityAuthSessionTag),
+        new("PUT", "/api/v1/me/locale", "identityUpdatePreferredLocale", IdentityAuthSessionTag),
         new("GET", "/api/v1/files/host-files", "filesListHostFiles", FilesTag),
         new("GET", "/api/v1/files/host-files/{fileId}", "filesGetHostFile", FilesTag),
         new("POST", "/api/v1/files/host-files", "filesUploadHostFile", FilesTag),

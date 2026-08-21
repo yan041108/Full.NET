@@ -68,6 +68,11 @@ internal static class Endpoint
                 ? Results.NoContent()
                 : mapper.Map(result, httpContext);
         })
+        .WithName("identityLogout")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
         .AllowAnonymous()
         .RequireRateLimiting(IdentityModule.SessionMutationRateLimitPolicy);
     }

@@ -80,6 +80,11 @@ internal static class Endpoint
                 result.Value.CsrfToken);
             return Results.Ok(result.Value.Token);
         })
+        .WithName("identityRefreshSession")
+        .Produces<TokenResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
         .AllowAnonymous()
         .RequireRateLimiting(IdentityModule.SessionMutationRateLimitPolicy);
     }

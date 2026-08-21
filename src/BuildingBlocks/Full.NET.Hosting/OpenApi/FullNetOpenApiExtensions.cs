@@ -91,6 +91,9 @@ public static class FullNetOpenApiExtensions
         var endpointMetadata = context.Description.ActionDescriptor.EndpointMetadata;
         if (endpointMetadata.OfType<IAllowAnonymous>().Any())
         {
+            // 显式空 security：OpenAPI 就绪门禁只接受白名单公开 Operation，
+            // 省略 security 会被误判为受保护却未声明方案。
+            operation.Security = [];
             return Task.CompletedTask;
         }
 

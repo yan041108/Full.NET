@@ -1,0 +1,66 @@
+{
+  "id": "identity-auth-session-v1",
+  "version": 1,
+  "description": "登录、刷新、登出与偏好语言 HTTP 契约冻结夹具；与 Login/RefreshSession/Logout/UpdateLocale Endpoint 及 Token/Locale 契约对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/auth/login",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "anonymous",
+          "successStatus": 200,
+          "requestSchema": "LoginRequest",
+          "responseSchema": "TokenResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auth/refresh",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "anonymous",
+          "successStatus": 200,
+          "responseSchema": "TokenResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auth/logout",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "anonymous",
+          "successStatus": 204
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/me/locale",
+      "operations": [
+        {
+          "method": "PUT",
+          "permission": "authenticated",
+          "successStatus": 200,
+          "requestSchema": "UpdateLocaleRequest",
+          "responseSchema": "LocalePreferenceResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "LoginRequest": {
+      "properties": ["username", "password"]
+    },
+    "TokenResponse": {
+      "properties": ["accessToken", "tokenType", "expiresAtUtc"]
+    },
+    "UpdateLocaleRequest": {
+      "properties": ["locale", "profileVersion"]
+    },
+    "LocalePreferenceResponse": {
+      "properties": ["preferredLocale", "profileVersion"]
+    }
+  }
+}
