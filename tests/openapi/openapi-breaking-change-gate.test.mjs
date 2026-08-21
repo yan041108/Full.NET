@@ -451,6 +451,59 @@ test('Vue 覆盖清单允许追加 API 绑定但拒绝改写既有绑定', async
   );
 });
 
+test('客户端生成清单允许 pilot 晋升为 generated，禁止降级或改写绑定', async () => {
+  const baseline = {
+    schemaVersion: 1,
+    entries: [
+      {
+        operationId: 'identityListHostUsers',
+        apiModule: 'ui/admin/src/api/users.ts',
+        generatedGroup: 'identity-host-users',
+        status: 'pilot'
+      }
+    ]
+  };
+
+  const promoted = clone(baseline);
+  promoted.entries[0].status = 'generated';
+  promoted.entries.push({
+    operationId: 'filesListHostFiles',
+    apiModule: 'ui/admin/src/api/host-files.ts',
+    generatedGroup: 'files-host-files',
+    status: 'pilot'
+  });
+
+  const promotedResult = await compareDirectories(
+    { 'client-generation-manifest-v1.json': baseline },
+    { 'client-generation-manifest-v1.json': promoted }
+  );
+  assert.equal(promotedResult.status, 0, promotedResult.stderr);
+
+  const demoted = clone(promoted);
+  demoted.entries[0].status = 'pilot';
+  const demotedResult = await compareDirectories(
+    { 'client-generation-manifest-v1.json': promoted },
+    { 'client-generation-manifest-v1.json': demoted }
+  );
+  assert.equal(demotedResult.status, 1);
+  assert.match(
+    demotedResult.stderr,
+    /stable setting changed: client-generation-manifest-v1\.json entries/u
+  );
+
+  const rewritten = clone(promoted);
+  rewritten.entries[0].apiModule = 'ui/admin/src/api/other.ts';
+  const rewrittenResult = await compareDirectories(
+    { 'client-generation-manifest-v1.json': promoted },
+    { 'client-generation-manifest-v1.json': rewritten }
+  );
+  assert.equal(rewrittenResult.status, 1);
+  assert.match(
+    rewrittenResult.stderr,
+    /stable setting changed: client-generation-manifest-v1\.json entries/u
+  );
+});
+
 test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () => {
   const result = spawnSync(
     process.execPath,

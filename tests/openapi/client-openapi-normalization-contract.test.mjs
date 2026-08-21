@@ -214,7 +214,7 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
       'settings-host-config-entries'
     ]
   );
-  assert.equal(manifest.entries.every(entry => entry.status === 'pilot'), true);
+  assert.equal(manifest.entries.every(entry => entry.status === 'generated'), true);
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
     29

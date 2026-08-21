@@ -5,175 +5,175 @@
       "operationId": "identityListHostUsers",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityExportHostUsers",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityImportHostUsers",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityBatchDisableHostUsers",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityBatchEnableHostUsers",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityGetHostUser",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityCreateHostUser",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityUpdateHostUser",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityDisableHostUser",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityEnableHostUser",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityResetHostUserPassword",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityGetHostUserRoles",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityReplaceHostUserRoles",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesListHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesGetHostFile",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesUploadHostFile",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesDownloadHostFileContent",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesDeleteHostFile",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsListHostConfigEntries",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsGetHostConfigEntryByKey",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsGetHostConfigEntry",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsCreateHostConfigEntry",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsUpdateHostConfigEntry",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsDisableHostConfigEntry",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsDeleteHostConfigEntry",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsBatchDeleteHostConfigEntries",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsBatchUpdateHostConfigEntryValues",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsListAllHostConfigEntries",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "settingsListHostConfigEntryGroups",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
-      "status": "pilot"
+      "status": "generated"
     }
   ]
 }

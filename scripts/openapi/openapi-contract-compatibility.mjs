@@ -281,6 +281,11 @@ function compareStableSettings(fileName, baseline, current, changes) {
         baselineValue,
         current[fieldName]
       )
+      && !isAllowedClientGenerationManifestChange(
+        fileName,
+        baselineValue,
+        current[fieldName]
+      )
     ) {
       changes.push(
         `stable setting changed: ${fileName} ${fieldName} ` +
@@ -304,6 +309,46 @@ function isAdditiveCoverageManifestChange(fileName, baselineValue, currentValue)
   return baselineValue.every((baselineEntry) =>
     currentValue.some((currentEntry) =>
       isDeepStrictEqual(baselineEntry, currentEntry)));
+}
+
+function isAllowedClientGenerationManifestChange(fileName, baselineValue, currentValue) {
+  if (
+    fileName !== 'client-generation-manifest-v1.json'
+    || !Array.isArray(baselineValue)
+    || !Array.isArray(currentValue)
+  ) {
+    return false;
+  }
+
+  // 允许追加条目，以及既有条目仅做 pilot→generated 晋升；禁止删除、改写绑定或降级。
+  return baselineValue.every((baselineEntry) =>
+    currentValue.some((currentEntry) =>
+      isClientGenerationManifestEntryCompatible(baselineEntry, currentEntry)));
+}
+
+function isClientGenerationManifestEntryCompatible(baselineEntry, currentEntry) {
+  if (
+    !isDeepStrictEqual(
+      {
+        operationId: baselineEntry?.operationId,
+        apiModule: baselineEntry?.apiModule,
+        generatedGroup: baselineEntry?.generatedGroup
+      },
+      {
+        operationId: currentEntry?.operationId,
+        apiModule: currentEntry?.apiModule,
+        generatedGroup: currentEntry?.generatedGroup
+      }
+    )
+  ) {
+    return false;
+  }
+
+  if (isDeepStrictEqual(baselineEntry?.status, currentEntry?.status)) {
+    return true;
+  }
+
+  return baselineEntry?.status === 'pilot' && currentEntry?.status === 'generated';
 }
 
 export function compareContractSets(baselineContracts, currentContracts) {

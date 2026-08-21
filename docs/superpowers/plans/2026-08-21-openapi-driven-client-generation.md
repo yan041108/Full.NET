@@ -15,9 +15,9 @@
 ## 执行状态（2026-08-21）
 
 - Task 1—6 已在 `codex/openapi-client-pilots` 完成并形成独立提交；第一阶段严格限制为 Identity Host Users、Files Host Files、Settings Host Config Entries 三类试点。
-- Task 7 已形成 [`openapi-client-generation-pilot-2026-08-21.md`](../../verification/openapi-client-generation-pilot-2026-08-21.md)，判定为 `Pilot-stopped`。
-- 三类试点保持 `pilot`，不得改为 `generated`；非试点模块保持手写实现，不创建或执行批量迁移计划。
-- 重新解除停止门禁前，必须修复并验证 Verification 中记录的 Vue Unit/Build 与依赖审计阻断项，然后完整重跑 ADR-0007 第 5 节门禁。
+- Task 7 首轮曾判定 `Pilot-stopped`；解除窗口在 `main` @ `37a5379d`（快照 `openapi-client-pilot-unblock-20260821`）修复 Vue Unit/Build 与 `nanoid` High advisory 后完整重跑门禁，判定更新为 `Pilot-passed`，见 [`openapi-client-generation-pilot-2026-08-21.md`](../../verification/openapi-client-generation-pilot-2026-08-21.md)。
+- 三类试点共 29 个 Operation 已从 `pilot` 提升为 `generated`；非试点模块继续保持手写实现。
+- 允许依据真实生成产物新建单模块迁移计划；禁止并行批量迁移，禁止修改 `ui/admin-layui`。
 
 ## Global Constraints
 
