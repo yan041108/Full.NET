@@ -281,25 +281,25 @@
       "operationId": "identityListSuperAdministrators",
       "apiModule": "ui/admin/src/api/superAdministrators.ts",
       "generatedGroup": "identity-super-administrators",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityListSuperAdministratorAudits",
       "apiModule": "ui/admin/src/api/superAdministrators.ts",
       "generatedGroup": "identity-super-administrators",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityGrantSuperAdministrator",
       "apiModule": "ui/admin/src/api/superAdministrators.ts",
       "generatedGroup": "identity-super-administrators",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityRevokeSuperAdministrator",
       "apiModule": "ui/admin/src/api/superAdministrators.ts",
       "generatedGroup": "identity-super-administrators",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesListHostFiles",

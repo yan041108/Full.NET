@@ -12,7 +12,8 @@
 
 ## 执行状态（2026-08-22）
 
-- 计划已创建；实现进行中。
+- `Slice-passed`：见 [`openapi-client-identity-super-administrators-2026-08-22.md`](../../verification/openapi-client-identity-super-administrators-2026-08-22.md)。
+- Identity remaining `src/api` 队列已完成；下一默认可执行项为独立计划 auth/session；禁止并行迁移其他资源组。
 
 ## Global Constraints
 
