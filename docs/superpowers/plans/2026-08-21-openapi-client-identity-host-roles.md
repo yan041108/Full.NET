@@ -93,7 +93,7 @@
 - [x] **Step 2:** 确认 `.Produces` / ProblemDetails / 请求体 Schema 满足客户端生成就绪门禁（参考 Host Users）。
 - [x] **Step 3:** RED→GREEN：聚焦 Identity Roles / OpenAPI readiness 相关测试。
 - [x] **Step 4:** `pnpm test:integration:affected -- --snapshot openapi-client-identity-host-roles-metadata-20260821 --phase inner`
-- [ ] **Step 5:** 提交 `feat: stabilize Identity Host Roles OpenAPI identities`
+- [x] **Step 5:** 提交 `feat: stabilize Identity Host Roles OpenAPI identities`
 
 ---
 
