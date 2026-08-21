@@ -18,8 +18,6 @@
 - `identity-host-menus` 共 9 个 Operation 已由 `pilot` 提升为 `generated`。
 - 允许创建下一个 Identity remaining 计划（默认 API Keys）；禁止并行迁移其他资源组。
 
-- [x] 提交 `docs: verify Identity Host Menus OpenAPI client slice`
-
 ## Global Constraints
 
 - 每个 slice 只迁移一个 `generatedGroup`；本计划唯一目标组为 `identity-host-menus`。
