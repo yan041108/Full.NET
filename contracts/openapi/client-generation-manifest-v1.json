@@ -257,7 +257,7 @@
       "operationId": "identityGetCurrentUser",
       "apiModule": "ui/admin/src/api/me.ts",
       "generatedGroup": "identity-me",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesListHostFiles",
