@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
@@ -14,7 +15,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/api-keys")
-            .WithTags("Identity");
+            .WithTags("IdentityHostApiKeys");
 
         group.MapGet("/", async (
             int? page,
@@ -35,6 +36,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityListHostApiKeys")
+        .Produces<PagedResult<HostApiKeyResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Read);
 
         group.MapPost("/", async (
@@ -60,6 +65,10 @@ internal static class Endpoint
                 $"/api/v1/identity/api-keys/{result.Value!.Key.Id:D}",
                 result.Value);
         })
+        .WithName("identityCreateHostApiKey")
+        .Produces<CreateHostApiKeyResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Create);
 
         group.MapPost("/{apiKeyId:guid}/disable", async (
@@ -73,6 +82,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityDisableHostApiKey")
+        .Produces<HostApiKeyResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Disable);
 
         group.MapPost("/{apiKeyId:guid}/rotate", async (
@@ -91,6 +104,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityRotateHostApiKey")
+        .Produces<CreateHostApiKeyResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityApiKeyManagementPermissions.Rotate);
     }
 

@@ -16,6 +16,7 @@
           "method": "POST",
           "permission": "identity.api_keys.create",
           "successStatus": 201,
+          "requestSchema": "CreateHostApiKeyRequest",
           "responseSchema": "CreateHostApiKeyResponse"
         }
       ]
@@ -44,6 +45,14 @@
     }
   ],
   "schemas": {
+    "CreateHostApiKeyRequest": {
+      "properties": [
+        "userId",
+        "displayName",
+        "permissions",
+        "expiresAtUtc"
+      ]
+    },
     "HostApiKeyResponse": {
       "properties": [
         "id",

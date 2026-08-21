@@ -35,6 +35,9 @@ test('Host API Key OpenAPI 夹具结构完整且路径唯一', async () => {
       seen.add(key);
       assert.match(operation.permission, /^identity\.api_keys\.(read|create|disable|rotate)$/u);
       assert.ok(contract.schemas[operation.responseSchema]);
+      if (operation.requestSchema) {
+        assert.ok(contract.schemas[operation.requestSchema]);
+      }
     }
   }
 });

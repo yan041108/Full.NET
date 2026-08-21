@@ -26,6 +26,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityHostUsersTag = "IdentityHostUsers";
     private const string IdentityHostRolesTag = "IdentityHostRoles";
     private const string IdentityHostMenusTag = "IdentityHostMenus";
+    private const string IdentityHostApiKeysTag = "IdentityHostApiKeys";
     private const string FilesTag = "FilesHostFiles";
     private const string SettingsTag = "SettingsHostConfigEntries";
 
@@ -170,6 +171,10 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("PUT", "/api/v1/identity/menus/{menuId}", "identityUpdateHostMenu", IdentityHostMenusTag),
         new("POST", "/api/v1/identity/menus/{menuId}/disable", "identityDisableHostMenu", IdentityHostMenusTag),
         new("POST", "/api/v1/identity/menus/{menuId}/enable", "identityEnableHostMenu", IdentityHostMenusTag),
+        new("GET", "/api/v1/identity/api-keys", "identityListHostApiKeys", IdentityHostApiKeysTag),
+        new("POST", "/api/v1/identity/api-keys", "identityCreateHostApiKey", IdentityHostApiKeysTag),
+        new("POST", "/api/v1/identity/api-keys/{apiKeyId}/disable", "identityDisableHostApiKey", IdentityHostApiKeysTag),
+        new("POST", "/api/v1/identity/api-keys/{apiKeyId}/rotate", "identityRotateHostApiKey", IdentityHostApiKeysTag),
         new("GET", "/api/v1/files/host-files", "filesListHostFiles", FilesTag),
         new("GET", "/api/v1/files/host-files/{fileId}", "filesGetHostFile", FilesTag),
         new("POST", "/api/v1/files/host-files", "filesUploadHostFile", FilesTag),
