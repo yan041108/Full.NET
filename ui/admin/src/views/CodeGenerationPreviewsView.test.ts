@@ -18,6 +18,19 @@ const permissionState = vi.hoisted(() => ({
   grants: new Set<string>()
 }));
 
+const routeState = vi.hoisted(() => ({
+  query: {} as Record<string, string | string[] | undefined>
+}));
+
+vi.mock('vue-router', () => ({
+  useRoute: () => ({
+    query: routeState.query
+  }),
+  useRouter: () => ({
+    push: vi.fn()
+  })
+}));
+
 vi.mock('../auth/session', () => ({
   useSessionStore: () => ({
     can: (permission: string) => permissionState.grants.has(permission)
@@ -27,12 +40,14 @@ vi.mock('../auth/session', () => ({
 vi.mock('../api/code-generation-runs', () => ({
   applyTrackedCodeGeneration: vi.fn(),
   downloadCodeGenerationArtifacts: vi.fn(),
+  executeTrackedCodeGenerationRollback: vi.fn(),
   listCodeGenerationRuns: vi.fn(),
   previewTrackedCodeGeneration: vi.fn()
 }));
 vi.mock('../api/code-generation-templates', () => ({
   createCodeGenerationTemplate: vi.fn(),
   deleteCodeGenerationTemplate: vi.fn(),
+  getCodeGenerationTemplate: vi.fn(),
   listCodeGenerationTemplates: vi.fn(),
   updateCodeGenerationTemplate: vi.fn()
 }));
@@ -80,6 +95,7 @@ const template = {
 
 describe('Vue 代码生成预览页', () => {
   beforeEach(() => {
+    routeState.query = {};
     permissionState.grants = new Set([
       'codegen.previews.read',
       'codegen.templates.read',

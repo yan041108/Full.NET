@@ -18,8 +18,10 @@ import {
 import {
   isCodeGenerationPreviewRequest,
   isFullNetProblemDetails,
+  type CodeGenerationEntityCapabilitiesRequest,
   type CodeGenerationPreviewRequest,
   type CodeGenerationRelationshipRequest,
+  type CodeGenerationScene,
   type CodeGenerationTemplateResponse,
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
@@ -37,6 +39,24 @@ import {
   listCodeGenerationTemplates,
   updateCodeGenerationTemplate
 } from '../api/code-generation-templates';
+
+/** 工作台只编辑显式能力 Schema，排除遗留 hasVersion 分支。 */
+type ModernPreviewRequest = CodeGenerationPreviewRequest & {
+  entityCapabilities: CodeGenerationEntityCapabilitiesRequest;
+  scene: CodeGenerationScene;
+  relationships: CodeGenerationRelationshipRequest[];
+};
+
+function isModernPreviewRequest(
+  value: CodeGenerationPreviewRequest
+): value is ModernPreviewRequest {
+  return 'entityCapabilities' in value
+    && value.entityCapabilities !== undefined
+    && 'scene' in value
+    && value.scene !== undefined
+    && 'relationships' in value
+    && Array.isArray(value.relationships);
+}
 
 const session = useSessionStore();
 const router = useRouter();
@@ -206,32 +226,40 @@ const showForm = computed(() => {
   return canCreate.value;
 });
 const showRelationships = computed(
-  () => 'scene' in schema.value && schema.value.scene !== 'single'
+  () => isModernPreviewRequest(schema.value) && schema.value.scene !== 'single'
 );
 const capabilities = computed({
-  get: () => ('entityCapabilities' in schema.value
+  get: () => (isModernPreviewRequest(schema.value)
     ? schema.value.entityCapabilities
     : undefined),
-  set: (value) => {
-    if (!value || !('entityCapabilities' in schema.value)) {
+  set: (value: CodeGenerationEntityCapabilitiesRequest | undefined) => {
+    if (!value || !isModernPreviewRequest(schema.value)) {
       return;
     }
+    const current = schema.value;
     schema.value = {
-      ...schema.value,
-      entityCapabilities: value
+      ...current,
+      entityCapabilities: value,
+      scene: current.scene,
+      relationships: current.relationships
     };
   }
 });
 const relationships = computed({
-  get: () => ('relationships' in schema.value
-    ? schema.value.relationships
-    : []),
+  get: (): CodeGenerationRelationshipRequest[] => (
+    isModernPreviewRequest(schema.value)
+      ? schema.value.relationships
+      : []
+  ),
   set: (value: CodeGenerationRelationshipRequest[]) => {
-    if (!('relationships' in schema.value)) {
+    if (!isModernPreviewRequest(schema.value)) {
       return;
     }
+    const current = schema.value;
     schema.value = {
-      ...schema.value,
+      ...current,
+      entityCapabilities: current.entityCapabilities,
+      scene: current.scene,
       relationships: value
     };
   }
@@ -496,17 +524,18 @@ async function removeTemplate(): Promise<void> {
 }
 
 function addRelationship(): void {
-  if (!('relationships' in schema.value)) {
+  if (!isModernPreviewRequest(schema.value)) {
     return;
   }
-  const scope = schema.value.dataScope;
+  const current = schema.value;
+  const scope = current.dataScope;
   relationships.value = [
     ...relationships.value,
     {
-      principalEntityKey: schema.value.entityKey,
+      principalEntityKey: current.entityKey,
       principalColumnName: 'Id',
       principalDataScope: scope,
-      dependentEntityKey: schema.value.entityKey,
+      dependentEntityKey: current.entityKey,
       dependentColumnName: 'ParentId',
       dependentDataScope: scope,
       cascadeDelete: false

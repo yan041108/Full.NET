@@ -29,6 +29,11 @@ const schedule = {
   nextExecutionAtUtc: '2026-08-03T09:00:00Z',
   lastExecutionAtUtc: null,
   completedAtUtc: null,
+  numberOfRuns: 0,
+  numberOfErrors: 0,
+  startTime: null,
+  endTime: null,
+  args: null,
   createdAtUtc: '2026-07-26T00:00:00Z',
   updatedAtUtc: null,
   version: 1
@@ -69,6 +74,7 @@ describe('host-job-schedules api', () => {
         {
           id: schedule.jobDefinitionId,
           jobKey: 'jobs.ping',
+          handlerKind: 'jobs.handlers.ping',
           displayName: 'Ping'
         }
       ])

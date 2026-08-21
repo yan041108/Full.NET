@@ -11,6 +11,15 @@ import {
   updateCodeGenerationTemplate
 } from '../api/code-generation-templates';
 
+vi.mock('vue-router', () => ({
+  useRoute: () => ({
+    query: {}
+  }),
+  useRouter: () => ({
+    push: vi.fn()
+  })
+}));
+
 vi.mock('../api/code-generation-templates', () => ({
   createCodeGenerationTemplate: vi.fn(),
   deleteCodeGenerationTemplate: vi.fn(),

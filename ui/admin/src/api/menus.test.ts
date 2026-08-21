@@ -25,7 +25,15 @@ const sampleMenu = {
   isActive: true,
   createdAtUtc: '2026-07-21T00:00:00Z',
   updatedAtUtc: null,
-  version: 1
+  version: 1,
+  menuType: 'menu',
+  redirect: null,
+  linkUrl: null,
+  isHidden: false,
+  isKeepAlive: true,
+  isAffix: false,
+  isEmbedded: false,
+  remark: null
 };
 
 describe('Vue Host 菜单 API', () => {
