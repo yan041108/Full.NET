@@ -214,6 +214,17 @@ export interface HostNavigationCatalogSyncResponse {
   readonly skipped: number;
 }
 
+export interface HostOnlineSessionResponse {
+  readonly activeTenantId: null | string;
+  readonly clientId: string;
+  readonly createdAtUtc: string;
+  readonly displayName: string;
+  readonly expiresAtUtc: string;
+  readonly id: string;
+  readonly userId: string;
+  readonly username: string;
+}
+
 export interface HostRoleDataScopeResponse {
   readonly dataScopeKind: string;
   readonly roleId: string;
@@ -360,6 +371,13 @@ export interface PagedResultOfHostFileResponse {
 
 export interface PagedResultOfHostMenuResponse {
   readonly items: Array<HostMenuResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfHostOnlineSessionResponse {
+  readonly items: Array<HostOnlineSessionResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;

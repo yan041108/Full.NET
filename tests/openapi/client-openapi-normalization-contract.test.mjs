@@ -204,26 +204,35 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 54);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 54);
+  assert.equal(manifest.entries.length, 56);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 56);
   assert.deepEqual(
     [...new Set(manifest.entries.map(entry => entry.generatedGroup))].sort(),
     [
       'files-host-files',
       'identity-host-api-keys',
       'identity-host-menus',
+      'identity-host-online-sessions',
       'identity-host-roles',
       'identity-host-users',
       'settings-host-config-entries'
     ]
   );
   assert.equal(
-    manifest.entries.every(entry => entry.status === 'generated'),
+    manifest.entries
+      .filter(entry => entry.generatedGroup === 'identity-host-online-sessions')
+      .every(entry => entry.status === 'pilot'),
+    true
+  );
+  assert.equal(
+    manifest.entries
+      .filter(entry => entry.generatedGroup !== 'identity-host-online-sessions')
+      .every(entry => entry.status === 'generated'),
     true
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    54
+    56
   );
   assert.equal(
     packageJson.scripts['openapi:client:snapshot'],

@@ -29,6 +29,7 @@ import type {
   HostMenuPermissionOptionResponse,
   HostMenuResponse,
   HostNavigationCatalogSyncResponse,
+  HostOnlineSessionResponse,
   HostRoleDataScopeResponse,
   HostRoleFieldGrantsResponse,
   HostRoleResponse,
@@ -45,6 +46,7 @@ import type {
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostFileResponse,
   PagedResultOfHostMenuResponse,
+  PagedResultOfHostOnlineSessionResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   ProblemDetails,
@@ -67,6 +69,7 @@ import {
   readHostFileResponse,
   readHostMenuResponse,
   readHostNavigationCatalogSyncResponse,
+  readHostOnlineSessionResponse,
   readHostRoleDataScopeResponse,
   readHostRoleFieldGrantsResponse,
   readHostRoleResponse,
@@ -82,6 +85,7 @@ import {
   readPagedResultOfHostApiKeyResponse,
   readPagedResultOfHostFileResponse,
   readPagedResultOfHostMenuResponse,
+  readPagedResultOfHostOnlineSessionResponse,
   readPagedResultOfHostRoleResponse,
   readPagedResultOfHostUserResponse,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
@@ -629,6 +633,33 @@ export async function identityListHostMenus(
   return readPagedResultOfHostMenuResponse(value);
 }
 
+export interface IdentityListHostOnlineSessionsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly usernameContains?: string;
+}
+
+export async function identityListHostOnlineSessions(
+  http: HttpClient,
+  parameters: IdentityListHostOnlineSessionsParameters,
+  signal?: AbortSignal
+): Promise<PagedResultOfHostOnlineSessionResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.usernameContains !== undefined) {
+    query.set('usernameContains', String(parameters.usernameContains));
+  }
+  const path = query.size === 0 ? `/api/v1/identity/online-sessions` : `/api/v1/identity/online-sessions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readPagedResultOfHostOnlineSessionResponse(value);
+}
+
 export interface IdentityListHostRolesParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -753,6 +784,21 @@ export async function identityResetHostUserPassword(
   };
   const value = await http.request<unknown>(path, init, signal);
   return readHostUserResponse(value);
+}
+
+export interface IdentityRevokeHostOnlineSessionParameters {
+  readonly sessionId: string;
+}
+
+export async function identityRevokeHostOnlineSession(
+  http: HttpClient,
+  parameters: IdentityRevokeHostOnlineSessionParameters,
+  signal?: AbortSignal
+): Promise<HostOnlineSessionResponse> {
+  const path = `/api/v1/identity/online-sessions/${encodeURIComponent(String(parameters.sessionId))}/revoke`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostOnlineSessionResponse(value);
 }
 
 export interface IdentityRotateHostApiKeyParameters {

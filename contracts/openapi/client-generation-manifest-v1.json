@@ -230,6 +230,18 @@
       "status": "generated"
     },
     {
+      "operationId": "identityListHostOnlineSessions",
+      "apiModule": "ui/admin/src/api/online-sessions.ts",
+      "generatedGroup": "identity-host-online-sessions",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityRevokeHostOnlineSession",
+      "apiModule": "ui/admin/src/api/online-sessions.ts",
+      "generatedGroup": "identity-host-online-sessions",
+      "status": "pilot"
+    },
+    {
       "operationId": "filesListHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",

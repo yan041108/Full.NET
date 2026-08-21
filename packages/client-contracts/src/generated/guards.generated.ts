@@ -28,6 +28,7 @@ import type {
   HostMenuPermissionOptionResponse,
   HostMenuResponse,
   HostNavigationCatalogSyncResponse,
+  HostOnlineSessionResponse,
   HostRoleDataScopeResponse,
   HostRoleFieldGrantsResponse,
   HostRoleResponse,
@@ -44,6 +45,7 @@ import type {
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostFileResponse,
   PagedResultOfHostMenuResponse,
+  PagedResultOfHostOnlineSessionResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   ProblemDetails,
@@ -345,6 +347,17 @@ function isHostNavigationCatalogSyncResponse(value: unknown): value is HostNavig
   return isRecord(value) && (typeof value["created"] === 'number' && Number.isInteger(value["created"])) && (typeof value["reparented"] === 'number' && Number.isInteger(value["reparented"])) && (typeof value["skipped"] === 'number' && Number.isInteger(value["skipped"]));
 }
 
+export function readHostOnlineSessionResponse(value: unknown): HostOnlineSessionResponse {
+  if (!(isHostOnlineSessionResponse(value))) {
+    throw new Error('client.invalid_host_online_session_response');
+  }
+  return value;
+}
+
+function isHostOnlineSessionResponse(value: unknown): value is HostOnlineSessionResponse {
+  return isRecord(value) && ((value["activeTenantId"] === null) || (typeof value["activeTenantId"] === 'string' && guidPattern.test(value["activeTenantId"]))) && (typeof value["clientId"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
+}
+
 export function readHostRoleDataScopeResponse(value: unknown): HostRoleDataScopeResponse {
   if (!(isHostRoleDataScopeResponse(value))) {
     throw new Error('client.invalid_host_role_data_scope_response');
@@ -519,6 +532,17 @@ export function readPagedResultOfHostMenuResponse(value: unknown): PagedResultOf
 
 function isPagedResultOfHostMenuResponse(value: unknown): value is PagedResultOfHostMenuResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostMenuResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostOnlineSessionResponse(value: unknown): PagedResultOfHostOnlineSessionResponse {
+  if (!(isPagedResultOfHostOnlineSessionResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_online_session_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostOnlineSessionResponse(value: unknown): value is PagedResultOfHostOnlineSessionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostOnlineSessionResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfHostRoleResponse(value: unknown): PagedResultOfHostRoleResponse {
