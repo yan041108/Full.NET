@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
@@ -12,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/online-sessions")
-            .WithTags("Identity");
+            .WithTags("IdentityHostOnlineSessions");
 
         group.MapGet("/", async (
             int? page,
@@ -31,6 +32,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityListHostOnlineSessions")
+        .Produces<PagedResult<HostOnlineSessionResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentitySessionManagementPermissions.Read);
 
         group.MapPost("/{sessionId:guid}/revoke", async (
@@ -44,6 +49,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityRevokeHostOnlineSession")
+        .Produces<HostOnlineSessionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentitySessionManagementPermissions.Revoke);
     }
 }
