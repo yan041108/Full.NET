@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import { listHostOnlineSessions, revokeHostOnlineSession } from './online-sessions';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
 
 const sampleSession = {
   id: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
@@ -29,7 +34,9 @@ describe('Vue Host 在线会话 API', () => {
 
     await expect(listHostOnlineSessions()).resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/identity/online-sessions?page=1&pageSize=20'
+      '/api/v1/identity/online-sessions?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -40,7 +47,8 @@ describe('Vue Host 在线会话 API', () => {
 
     expect(requestMock).toHaveBeenCalledWith(
       `/api/v1/identity/online-sessions/${sampleSession.id}/revoke`,
-      expect.objectContaining({ method: 'POST' })
+      { method: 'POST' },
+      undefined
     );
   });
 });
