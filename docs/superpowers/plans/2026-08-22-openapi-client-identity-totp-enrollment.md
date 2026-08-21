@@ -14,6 +14,7 @@
 
 - `Slice-passed`：见 [`openapi-client-identity-totp-enrollment-2026-08-22.md`](../../verification/openapi-client-identity-totp-enrollment-2026-08-22.md)。
 - 允许创建下一个 Identity remaining 计划（默认 `superAdministrators.ts`）；禁止并行迁移其他资源组。
+- Super Administrators 计划已创建：[`2026-08-22-openapi-client-identity-super-administrators.md`](./2026-08-22-openapi-client-identity-super-administrators.md)。
 
 ## Global Constraints
 
