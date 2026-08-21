@@ -41,6 +41,7 @@ import type {
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
+  ModuleCatalogEntryResponse,
   PagedResultOfConfigEntryResponse,
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostFileResponse,
@@ -490,6 +491,17 @@ function isImportHostUsersResponse(value: unknown): value is ImportHostUsersResp
   return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isImportHostUserRowResult(item16))) && (typeof value["succeededCount"] === 'number' && Number.isInteger(value["succeededCount"]));
 }
 
+export function readModuleCatalogEntryResponse(value: unknown): ModuleCatalogEntryResponse {
+  if (!(isModuleCatalogEntryResponse(value))) {
+    throw new Error('client.invalid_module_catalog_entry_response');
+  }
+  return value;
+}
+
+function isModuleCatalogEntryResponse(value: unknown): value is ModuleCatalogEntryResponse {
+  return isRecord(value) && (Array.isArray(value["dependencies"]) && value["dependencies"].every(item21 => typeof item21 === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["healthCapability"] === 'string') && (Array.isArray(value["hostProfiles"]) && value["hostProfiles"].every(item21 => typeof item21 === 'string')) && (typeof value["moduleKey"] === 'string') && (typeof value["sourceClassification"] === 'string') && (typeof value["version"] === 'string');
+}
+
 export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResultOfConfigEntryResponse {
   if (!(isPagedResultOfConfigEntryResponse(value))) {
     throw new Error('client.invalid_paged_result_of_config_entry_response');
@@ -721,6 +733,13 @@ export function readIdentityListHostMenuPermissionOptionsResponse(value: unknown
     throw new Error('client.invalid_identity_list_host_menu_permission_options_response');
   }
   return value as Array<HostMenuPermissionOptionResponse>;
+}
+
+export function readIdentityListHostModulesResponse(value: unknown): Array<ModuleCatalogEntryResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isModuleCatalogEntryResponse(item5)))) {
+    throw new Error('client.invalid_identity_list_host_modules_response');
+  }
+  return value as Array<ModuleCatalogEntryResponse>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {

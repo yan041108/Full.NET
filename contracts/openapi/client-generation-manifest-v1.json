@@ -242,6 +242,18 @@
       "status": "generated"
     },
     {
+      "operationId": "identityListHostModules",
+      "apiModule": "ui/admin/src/api/module-catalog.ts",
+      "generatedGroup": "identity-host-modules",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityGetHostModule",
+      "apiModule": "ui/admin/src/api/module-catalog.ts",
+      "generatedGroup": "identity-host-modules",
+      "status": "pilot"
+    },
+    {
       "operationId": "filesListHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",

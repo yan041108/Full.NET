@@ -42,6 +42,7 @@ import type {
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
+  ModuleCatalogEntryResponse,
   PagedResultOfConfigEntryResponse,
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostFileResponse,
@@ -80,7 +81,9 @@ import {
   readIdentityListAllHostMenusResponse,
   readIdentityListFieldProjectionCatalogResponse,
   readIdentityListHostMenuPermissionOptionsResponse,
+  readIdentityListHostModulesResponse,
   readImportHostUsersResponse,
+  readModuleCatalogEntryResponse,
   readPagedResultOfConfigEntryResponse,
   readPagedResultOfHostApiKeyResponse,
   readPagedResultOfHostFileResponse,
@@ -437,6 +440,21 @@ export async function identityGetHostMenu(
   return readHostMenuResponse(value);
 }
 
+export interface IdentityGetHostModuleParameters {
+  readonly moduleKey: string;
+}
+
+export async function identityGetHostModule(
+  http: HttpClient,
+  parameters: IdentityGetHostModuleParameters,
+  signal?: AbortSignal
+): Promise<ModuleCatalogEntryResponse> {
+  const path = `/api/v1/identity/modules/${encodeURIComponent(String(parameters.moduleKey))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readModuleCatalogEntryResponse(value);
+}
+
 export interface IdentityGetHostRoleParameters {
   readonly roleId: string;
 }
@@ -631,6 +649,21 @@ export async function identityListHostMenus(
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
   return readPagedResultOfHostMenuResponse(value);
+}
+
+export interface IdentityListHostModulesParameters {
+
+}
+
+export async function identityListHostModules(
+  http: HttpClient,
+  parameters: IdentityListHostModulesParameters,
+  signal?: AbortSignal
+): Promise<Array<ModuleCatalogEntryResponse>> {
+  const path = `/api/v1/identity/modules`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readIdentityListHostModulesResponse(value);
 }
 
 export interface IdentityListHostOnlineSessionsParameters {

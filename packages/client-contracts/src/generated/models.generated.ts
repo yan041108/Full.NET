@@ -348,6 +348,16 @@ export interface ImportHostUsersResponse {
   readonly succeededCount: number;
 }
 
+export interface ModuleCatalogEntryResponse {
+  readonly dependencies: Array<string>;
+  readonly displayName: string;
+  readonly healthCapability: string;
+  readonly hostProfiles: Array<string>;
+  readonly moduleKey: string;
+  readonly sourceClassification: string;
+  readonly version: string;
+}
+
 export interface PagedResultOfConfigEntryResponse {
   readonly items: Array<ConfigEntryResponse>;
   readonly page: number;
