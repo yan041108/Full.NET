@@ -11,7 +11,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/modules")
-            .WithTags("Identity");
+            .WithTags("IdentityHostModules");
 
         group.MapGet("/", async (
             HostModuleCatalogQueryService queries,
@@ -23,7 +23,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityListHostModules")
         .Produces<IReadOnlyList<ModuleCatalogEntryResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(ModuleCatalogPermissions.Read));
 
         group.MapGet("/{moduleKey}", async (
@@ -37,7 +40,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityGetHostModule")
         .Produces<ModuleCatalogEntryResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(ModuleCatalogPermissions.Read));
     }

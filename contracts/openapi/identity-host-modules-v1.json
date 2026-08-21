@@ -10,7 +10,7 @@
           "method": "GET",
           "permission": "identity.modules.read",
           "successStatus": 200,
-          "responseSchema": "ModuleCatalogEntryResponse"
+          "responseSchema": "ModuleCatalogEntryResponseArray"
         }
       ]
     },
@@ -31,6 +31,17 @@
   ],
   "schemas": {
     "ModuleCatalogEntryResponse": {
+      "properties": [
+        "moduleKey",
+        "displayName",
+        "version",
+        "dependencies",
+        "hostProfiles",
+        "sourceClassification",
+        "healthCapability"
+      ]
+    },
+    "ModuleCatalogEntryResponseArray": {
       "properties": [
         "moduleKey",
         "displayName",

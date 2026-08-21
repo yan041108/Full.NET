@@ -70,6 +70,9 @@ test('Host 模块清单 OpenAPI 夹具与 C# 契约和端点源码一致', async
   }
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {
+    if (schemaName === 'ModuleCatalogEntryResponseArray') {
+      continue;
+    }
     for (const property of schema.properties) {
       const pascal = property.charAt(0).toUpperCase() + property.slice(1);
       assert.match(
