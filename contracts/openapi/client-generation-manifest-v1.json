@@ -155,55 +155,55 @@
       "operationId": "identityListHostMenus",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityListAllHostMenus",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityListHostMenuPermissionOptions",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identitySyncHostMenuCatalog",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityGetHostMenu",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityCreateHostMenu",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityUpdateHostMenu",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityDisableHostMenu",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityEnableHostMenu",
       "apiModule": "ui/admin/src/api/menus.ts",
       "generatedGroup": "identity-host-menus",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesListHostFiles",

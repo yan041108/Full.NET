@@ -1,0 +1,68 @@
+# OpenAPI 客户端迁移：Identity Host Menus 切片验证（2026-08-21）
+
+- 决策：`Slice-passed`
+- 资源组：`identity-host-menus`（`ui/admin/src/api/menus.ts`）
+- 计划：[`2026-08-21-openapi-client-identity-host-menus.md`](../superpowers/plans/2026-08-21-openapi-client-identity-host-menus.md)
+- 比较基线：`de0d15d0`（Task 1 代码变更前）
+- 完成提交基线：`135bae0d`（Task 3 薄适配）
+- 适用决策：[`ADR-0007`](../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md)
+
+## 结论
+
+Identity remaining 第 2 slice（Host Menus）已通过完整门禁。9 个 Operation 具备稳定 `operationId` 与主 Tag `IdentityHostMenus`，标准快照与生成物零漂移，`menus.ts` 已收缩为薄适配层；轻量夹具已补齐既有 `POST .../sync-catalog`。清单条目由 `pilot` 提升为 `generated`（现共 50 条）。允许按队列新建下一个单模块计划（默认 `api-keys.ts`）；禁止并行迁移其他资源组，禁止修改 `ui/admin-layui`。
+
+## 范围与提交
+
+| 提交 | 内容 |
+| --- | --- |
+| `de0d15d0` | 建立 Identity Host Menus 迁移计划 |
+| `c53f1935` | 稳定 Menus 的 operationId、主 Tag、ProblemDetails，并补齐 `sync-catalog` 夹具 |
+| `c9696560` | 冻结标准快照、登记 9 条 pilot、同步生成物 |
+| `135bae0d` | 将 `menus.ts` 收缩为生成 Operation 薄适配层 |
+| （本 Verification） | 9 条清单升为 `generated` 并记录 `Slice-passed` |
+
+| operationId | Vue 导出 |
+| --- | --- |
+| `identityListHostMenus` | `listHostMenus` |
+| `identityListAllHostMenus` | `listHostMenusAll` |
+| `identityListHostMenuPermissionOptions` | `listHostMenuPermissionOptions` |
+| `identitySyncHostMenuCatalog` | `syncHostMenuCatalog` |
+| `identityGetHostMenu` | （无页面导出） |
+| `identityCreateHostMenu` | `createHostMenu` |
+| `identityUpdateHostMenu` | `updateHostMenu` |
+| `identityDisableHostMenu` | `disableHostMenu` |
+| `identityEnableHostMenu` | `enableHostMenu` |
+
+## 验证环境
+
+Windows NT 10.0.19045.0、Node.js 24.12.0、pnpm 10.26.0、.NET SDK 10.0.400。
+
+## 新鲜验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm openapi:client:generate -- --check` | 退出码 0，零漂移 |
+| `pnpm test:openapi` | 109/109，通过 |
+| `pnpm --filter @fullnet/client-contracts test` | 137/137，通过 |
+| `pnpm --filter @fullnet/client-contracts build` | 退出码 0 |
+| `pnpm --filter @fullnet/admin exec vitest run src/api/menus.test.ts` | 2/2，通过 |
+| `pnpm --filter @fullnet/admin test` | 125 文件 / 455 项，全部通过 |
+| `pnpm --filter @fullnet/admin build` | 退出码 0 |
+| `pnpm audit:clients` | 退出码 0 |
+| `pnpm test:naming` | 30/30，通过 |
+| `pnpm test:governance` | 38/38，通过 |
+| `dotnet build Full.NET.slnx -c Release` | 退出码 0，0 warning、0 error |
+| `pnpm test:integration:affected -- --base de0d15d0 --phase slice` | Identity 30/30，SQL Server/MySQL 双 Provider，通过 |
+
+说明：Task 4 的 verify snapshot 在 Task 3 已提交后创建，相对该 snapshot 无可验证代码 diff（仅计划状态脏）；切片 Integration 改用计划比较基线 `de0d15d0`（Task 1 前）执行。受影响选择器本轮仅命中 Identity（无 smoke 目标）。
+
+## 边界与未验证项
+
+- 页面导出签名未改；`menuType` 与权限选项 `kind` 仍经手写守卫收窄，因 OpenAPI 当前将部分枚举导出为 `string`。
+- 未迁移 API Keys、会话、TOTP、Super Administrators、`me`、`module-catalog` 或 auth/session。
+- 未修改 `ui/admin-layui`。
+- 完整生成式 SDK / 全部 Vue API 迁移仍未完成，不因此把能力矩阵升格为“全量 Build-verified SDK”。
+
+## 规则与 Skill 复盘
+
+本轮风险由 ADR-0007、OpenAPI 兼容门禁与既有测试覆盖；未发现新的规则冲突或稳定 Skill 缺口，不新增规则/Skill 候选。

@@ -14,9 +14,11 @@
 
 ## 执行状态（2026-08-21）
 
-- 计划已创建；Task 1–2 已完成。
-- Task 3 已完成（`menus.ts` 薄适配；client-contracts 137、menus vitest 2、generate `--check` 零漂移）。
-- Task 4 尚未开始。
+- Task 1–4 已完成；Verification 判定 `Slice-passed`，见 [`openapi-client-identity-host-menus-2026-08-21.md`](../../verification/openapi-client-identity-host-menus-2026-08-21.md)。
+- `identity-host-menus` 共 9 个 Operation 已由 `pilot` 提升为 `generated`。
+- 允许创建下一个 Identity remaining 计划（默认 API Keys）；禁止并行迁移其他资源组。
+
+- [x] 提交 `docs: verify Identity Host Menus OpenAPI client slice`
 
 ## Global Constraints
 
@@ -105,7 +107,7 @@
 - Modify: `ui/admin/src/api/menus.ts`、`menus.test.ts`
 - 模式对齐 `users.ts` / `roles.ts`（mock `http`、合法 UUID）
 
-- [ ] 提交 `feat: generate Identity Host Menus client operations`
+- [x] 提交 `feat: generate Identity Host Menus client operations`
 
 ---
 
@@ -118,7 +120,7 @@
 - Create: `docs/verification/openapi-client-identity-host-menus-2026-08-21.md`
 - 通过后 9 条 `pilot` → `generated`
 
-- [ ] 提交 `docs: verify Identity Host Menus OpenAPI client slice`
+- [x] 提交 `docs: verify Identity Host Menus OpenAPI client slice`
 
 ## 停止条件
 
