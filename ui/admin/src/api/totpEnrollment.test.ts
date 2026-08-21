@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
   beginTotpEnrollment,
   confirmTotpEnrollment,
   getTotpEnrollmentStatus
 } from './totpEnrollment';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
 
 describe('Vue TOTP enrollment API', () => {
   beforeEach(() => requestMock.mockReset());
@@ -33,12 +38,28 @@ describe('Vue TOTP enrollment API', () => {
       isEnabled: true
     });
     expect(requestMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/identity/me/mfa/totp',
+      { method: 'GET' },
+      undefined
+    );
+    expect(requestMock).toHaveBeenNthCalledWith(
       3,
       '/api/v1/identity/me/mfa/totp/confirm',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ totpCode: '123456' })
-      })
+      }),
+      undefined
     );
+  });
+
+  it('拒绝空 sharedSecretBase32', async () => {
+    requestMock.mockResolvedValueOnce({
+      sharedSecretBase32: '',
+      otpAuthUri: 'otpauth://totp/Full.NET:admin?secret='
+    });
+
+    await expect(beginTotpEnrollment()).rejects.toThrow('client.invalid_totp_begin');
   });
 });
