@@ -260,6 +260,24 @@
       "status": "generated"
     },
     {
+      "operationId": "identityGetTotpEnrollmentStatus",
+      "apiModule": "ui/admin/src/api/totpEnrollment.ts",
+      "generatedGroup": "identity-totp-enrollment",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityBeginTotpEnrollment",
+      "apiModule": "ui/admin/src/api/totpEnrollment.ts",
+      "generatedGroup": "identity-totp-enrollment",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityConfirmTotpEnrollment",
+      "apiModule": "ui/admin/src/api/totpEnrollment.ts",
+      "generatedGroup": "identity-totp-enrollment",
+      "status": "pilot"
+    },
+    {
       "operationId": "filesListHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",

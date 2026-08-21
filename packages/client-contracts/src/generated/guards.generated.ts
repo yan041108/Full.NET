@@ -10,8 +10,10 @@ import type {
   BatchHostUserStatusItem,
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
+  BeginTotpEnrollmentResponse,
   ConfigEntryResponse,
   ConfigValueUpdate,
+  ConfirmTotpEnrollmentRequest,
   CreateConfigEntryRequest,
   CreateHostApiKeyRequest,
   CreateHostApiKeyResponse,
@@ -56,6 +58,7 @@ import type {
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   Stream,
+  TotpEnrollmentStatusResponse,
   UpdateConfigEntryRequest,
   UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
@@ -151,6 +154,17 @@ function isBatchUpdateConfigValuesRequest(value: unknown): value is BatchUpdateC
   return isRecord(value) && (Array.isArray(value["updates"]) && value["updates"].every(item16 => isConfigValueUpdate(item16)));
 }
 
+export function readBeginTotpEnrollmentResponse(value: unknown): BeginTotpEnrollmentResponse {
+  if (!(isBeginTotpEnrollmentResponse(value))) {
+    throw new Error('client.invalid_begin_totp_enrollment_response');
+  }
+  return value;
+}
+
+function isBeginTotpEnrollmentResponse(value: unknown): value is BeginTotpEnrollmentResponse {
+  return isRecord(value) && (typeof value["otpAuthUri"] === 'string') && (typeof value["sharedSecretBase32"] === 'string');
+}
+
 export function readConfigEntryResponse(value: unknown): ConfigEntryResponse {
   if (!(isConfigEntryResponse(value))) {
     throw new Error('client.invalid_config_entry_response');
@@ -171,6 +185,17 @@ export function readConfigValueUpdate(value: unknown): ConfigValueUpdate {
 
 function isConfigValueUpdate(value: unknown): value is ConfigValueUpdate {
   return isRecord(value) && (typeof value["configKey"] === 'string') && (typeof value["value"] === 'string');
+}
+
+export function readConfirmTotpEnrollmentRequest(value: unknown): ConfirmTotpEnrollmentRequest {
+  if (!(isConfirmTotpEnrollmentRequest(value))) {
+    throw new Error('client.invalid_confirm_totp_enrollment_request');
+  }
+  return value;
+}
+
+function isConfirmTotpEnrollmentRequest(value: unknown): value is ConfirmTotpEnrollmentRequest {
+  return isRecord(value) && (typeof value["totpCode"] === 'string');
 }
 
 export function readCreateConfigEntryRequest(value: unknown): CreateConfigEntryRequest {
@@ -655,6 +680,17 @@ export function readStream(value: unknown): Stream {
 
 function isStream(value: unknown): value is Stream {
   return value instanceof Blob;
+}
+
+export function readTotpEnrollmentStatusResponse(value: unknown): TotpEnrollmentStatusResponse {
+  if (!(isTotpEnrollmentStatusResponse(value))) {
+    throw new Error('client.invalid_totp_enrollment_status_response');
+  }
+  return value;
+}
+
+function isTotpEnrollmentStatusResponse(value: unknown): value is TotpEnrollmentStatusResponse {
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isEnrolled"] === 'boolean');
 }
 
 export function readUpdateConfigEntryRequest(value: unknown): UpdateConfigEntryRequest {

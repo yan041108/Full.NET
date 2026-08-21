@@ -48,6 +48,11 @@ export interface BatchUpdateConfigValuesRequest {
   readonly updates: Array<ConfigValueUpdate>;
 }
 
+export interface BeginTotpEnrollmentResponse {
+  readonly otpAuthUri: string;
+  readonly sharedSecretBase32: string;
+}
+
 export interface ConfigEntryResponse {
   readonly configKey: string;
   readonly createdAtUtc: string;
@@ -67,6 +72,10 @@ export interface ConfigEntryResponse {
 export interface ConfigValueUpdate {
   readonly configKey: string;
   readonly value: string;
+}
+
+export interface ConfirmTotpEnrollmentRequest {
+  readonly totpCode: string;
 }
 
 export interface CreateConfigEntryRequest {
@@ -450,6 +459,11 @@ export interface ResetHostUserPasswordRequest {
 }
 
 export type Stream = Blob;
+
+export interface TotpEnrollmentStatusResponse {
+  readonly isEnabled: boolean;
+  readonly isEnrolled: boolean;
+}
 
 export interface UpdateConfigEntryRequest {
   readonly description: null | string;

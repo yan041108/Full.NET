@@ -11,8 +11,10 @@ import type {
   BatchHostUserStatusItem,
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
+  BeginTotpEnrollmentResponse,
   ConfigEntryResponse,
   ConfigValueUpdate,
+  ConfirmTotpEnrollmentRequest,
   CreateConfigEntryRequest,
   CreateHostApiKeyRequest,
   CreateHostApiKeyResponse,
@@ -57,6 +59,7 @@ import type {
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   Stream,
+  TotpEnrollmentStatusResponse,
   UpdateConfigEntryRequest,
   UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
@@ -65,6 +68,7 @@ import type {
 } from './models.generated.js';
 import {
   readBatchHostUserStatusResponse,
+  readBeginTotpEnrollmentResponse,
   readConfigEntryResponse,
   readCreateHostApiKeyResponse,
   readCurrentUserResponse,
@@ -95,7 +99,8 @@ import {
   readPagedResultOfHostUserResponse,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
   readSettingsListAllHostConfigEntriesResponse,
-  readSettingsListHostConfigEntryGroupsResponse
+  readSettingsListHostConfigEntryGroupsResponse,
+  readTotpEnrollmentStatusResponse
 } from './guards.generated.js';
 
 export type GeneratedJsonOperation<T> = (
@@ -229,6 +234,40 @@ export async function identityBatchEnableHostUsers(
   };
   const value = await http.request<unknown>(path, init, signal);
   return readBatchHostUserStatusResponse(value);
+}
+
+export interface IdentityBeginTotpEnrollmentParameters {
+
+}
+
+export async function identityBeginTotpEnrollment(
+  http: HttpClient,
+  parameters: IdentityBeginTotpEnrollmentParameters,
+  signal?: AbortSignal
+): Promise<BeginTotpEnrollmentResponse> {
+  const path = `/api/v1/identity/me/mfa/totp/begin`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readBeginTotpEnrollmentResponse(value);
+}
+
+export interface IdentityConfirmTotpEnrollmentParameters {
+  readonly body: ConfirmTotpEnrollmentRequest;
+}
+
+export async function identityConfirmTotpEnrollment(
+  http: HttpClient,
+  parameters: IdentityConfirmTotpEnrollmentParameters,
+  signal?: AbortSignal
+): Promise<TotpEnrollmentStatusResponse> {
+  const path = `/api/v1/identity/me/mfa/totp/confirm`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readTotpEnrollmentStatusResponse(value);
 }
 
 export interface IdentityCreateHostApiKeyParameters {
@@ -548,6 +587,21 @@ export async function identityGetHostUserRoles(
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
   return readHostUserRolesResponse(value);
+}
+
+export interface IdentityGetTotpEnrollmentStatusParameters {
+
+}
+
+export async function identityGetTotpEnrollmentStatus(
+  http: HttpClient,
+  parameters: IdentityGetTotpEnrollmentStatusParameters,
+  signal?: AbortSignal
+): Promise<TotpEnrollmentStatusResponse> {
+  const path = `/api/v1/identity/me/mfa/totp`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readTotpEnrollmentStatusResponse(value);
 }
 
 export interface IdentityImportHostUsersParameters {

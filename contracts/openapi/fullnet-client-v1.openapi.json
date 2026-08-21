@@ -13,6 +13,9 @@
       "name": "IdentityHostRoles"
     },
     {
+      "name": "IdentityTotpEnrollment"
+    },
+    {
       "name": "IdentityHostUsers"
     },
     {
@@ -709,6 +712,140 @@
         ],
         "tags": [
           "IdentityHostRoles"
+        ]
+      }
+    },
+    "/api/v1/identity/me/mfa/totp": {
+      "get": {
+        "operationId": "identityGetTotpEnrollmentStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpEnrollmentStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityTotpEnrollment"
+        ]
+      }
+    },
+    "/api/v1/identity/me/mfa/totp/begin": {
+      "post": {
+        "operationId": "identityBeginTotpEnrollment",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BeginTotpEnrollmentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityTotpEnrollment"
+        ]
+      }
+    },
+    "/api/v1/identity/me/mfa/totp/confirm": {
+      "post": {
+        "operationId": "identityConfirmTotpEnrollment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmTotpEnrollmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpEnrollmentStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityTotpEnrollment"
         ]
       }
     },
@@ -3824,6 +3961,21 @@
         ],
         "type": "object"
       },
+      "BeginTotpEnrollmentResponse": {
+        "properties": {
+          "otpAuthUri": {
+            "type": "string"
+          },
+          "sharedSecretBase32": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sharedSecretBase32",
+          "otpAuthUri"
+        ],
+        "type": "object"
+      },
       "ConfigEntryResponse": {
         "properties": {
           "configKey": {
@@ -3925,6 +4077,17 @@
         "required": [
           "configKey",
           "value"
+        ],
+        "type": "object"
+      },
+      "ConfirmTotpEnrollmentRequest": {
+        "properties": {
+          "totpCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "totpCode"
         ],
         "type": "object"
       },
@@ -5814,6 +5977,21 @@
       "Stream": {
         "format": "binary",
         "type": "string"
+      },
+      "TotpEnrollmentStatusResponse": {
+        "properties": {
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "isEnrolled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "isEnrolled",
+          "isEnabled"
+        ],
+        "type": "object"
       },
       "UpdateConfigEntryRequest": {
         "properties": {
