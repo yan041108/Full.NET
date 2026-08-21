@@ -80,6 +80,78 @@
       "status": "generated"
     },
     {
+      "operationId": "identityGetAuthorizationTree",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityListFieldProjectionCatalog",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityListHostRoles",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityCreateHostRole",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityGetHostRole",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityUpdateHostRole",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityReplaceHostRolePermissions",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityDisableHostRole",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityGetHostRoleDataScope",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityUpdateHostRoleDataScope",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityGetHostRoleFieldGrants",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityReplaceHostRoleFieldGrants",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "pilot"
+    },
+    {
       "operationId": "filesListHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",

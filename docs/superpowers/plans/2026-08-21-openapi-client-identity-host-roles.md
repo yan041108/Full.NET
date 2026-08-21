@@ -16,7 +16,8 @@
 
 - 计划已创建。
 - Task 1（operationId / 主 Tag / ProblemDetails 元数据）已完成。
-- Task 2–4 尚未开始；其余 Identity Vue API 见文末队列，禁止并入本 slice。
+- Task 2（标准快照 + manifest `pilot` + 生成物同步）已完成；`roles.ts` 仍为手写适配，待 Task 3 收缩。
+- Task 3–4 尚未开始；其余 Identity Vue API 见文末队列，禁止并入本 slice。
 
 ## Global Constraints
 
@@ -108,11 +109,11 @@
 
 **Steps:**
 
-- [ ] **Step 1:** 按仓库既有流程导出并规范化标准快照（SQL Server/MySQL 导出一致）。
-- [ ] **Step 2:** 确认快照含上表全部 `operationId`，且不夹带其他未批准资源组。
-- [ ] **Step 3:** 清单追加 `identity-host-roles` → `ui/admin/src/api/roles.ts`。
-- [ ] **Step 4:** `pnpm openapi:client:snapshot -- --check`（或项目现行等价命令）、`pnpm test:openapi`
-- [ ] **Step 5:** 提交 `feat: freeze Identity Host Roles client OpenAPI snapshot`
+- [x] **Step 1:** 按仓库既有流程导出并规范化标准快照（SQL Server/MySQL 导出一致）。
+- [x] **Step 2:** 确认快照含上表全部 `operationId`，且不夹带其他未批准资源组。
+- [x] **Step 3:** 清单追加 `identity-host-roles` → `ui/admin/src/api/roles.ts`。
+- [x] **Step 4:** `pnpm openapi:client:snapshot -- --check`（或项目现行等价命令）、`pnpm test:openapi`
+- [x] **Step 5:** 提交 `feat: freeze Identity Host Roles client OpenAPI snapshot`
 
 ---
 

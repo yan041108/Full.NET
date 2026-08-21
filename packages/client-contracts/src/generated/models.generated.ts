@@ -1,6 +1,29 @@
 // 此文件由 OpenAPI 快照确定性生成，禁止手工修改。
 // 内容：OpenAPI 数据模型。
 
+export interface AuthorizationTreeActionResponse {
+  readonly id: string;
+  readonly name: string;
+  readonly order: number;
+  readonly permissionCode: string;
+}
+
+export interface AuthorizationTreeModuleResponse {
+  readonly id: string;
+  readonly order: number;
+  readonly pages: Array<AuthorizationTreePageResponse>;
+  readonly title: string;
+}
+
+export interface AuthorizationTreePageResponse {
+  readonly actions: Array<AuthorizationTreeActionResponse>;
+  readonly children: Array<AuthorizationTreePageResponse>;
+  readonly id: string;
+  readonly order: number;
+  readonly permissionCode: string;
+  readonly title: string;
+}
+
 export interface BatchDeleteConfigEntriesRequest {
   readonly ids: Array<string>;
 }
@@ -56,6 +79,11 @@ export interface CreateConfigEntryRequest {
   readonly valueKind: "string" | "boolean" | "integer" | "decimal" | "json" | "secret";
 }
 
+export interface CreateHostRoleRequest {
+  readonly code: string;
+  readonly name: string;
+}
+
 export interface CreateHostUserRequest {
   readonly accountType?: null | string;
   readonly displayName: string;
@@ -68,6 +96,24 @@ export interface DeleteConfigEntryRequest {
   readonly version: number;
 }
 
+export type FieldProjectionDefaultVisibility = number;
+
+export interface FieldProjectionFieldDefinition {
+  readonly assignable: boolean;
+  readonly defaultVisibility: FieldProjectionDefaultVisibility;
+  readonly displayName: string;
+  readonly fieldKey: string;
+  readonly sensitivity: FieldProjectionSensitivity;
+}
+
+export interface FieldProjectionResourceDefinition {
+  readonly displayName: string;
+  readonly fields: Array<FieldProjectionFieldDefinition>;
+  readonly resourceKey: string;
+}
+
+export type FieldProjectionSensitivity = number;
+
 export interface HostFileResponse {
   readonly contentHash: null | string;
   readonly contentType: string;
@@ -76,6 +122,33 @@ export interface HostFileResponse {
   readonly id: string;
   readonly originalFileName: string;
   readonly sizeBytes: number;
+}
+
+export interface HostRoleDataScopeResponse {
+  readonly dataScopeKind: string;
+  readonly roleId: string;
+  readonly unitIds: Array<string>;
+  readonly version: number;
+}
+
+export interface HostRoleFieldGrantsResponse {
+  readonly fieldKeys: Array<string>;
+  readonly resourceKey: string;
+  readonly roleId: string;
+  readonly version: number;
+}
+
+export interface HostRoleResponse {
+  readonly code: string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly isActive: boolean;
+  readonly isSuperAdministrator: boolean;
+  readonly isSystem: boolean;
+  readonly name: string;
+  readonly permissionCodes: Array<string>;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface HostUserProfileResponse {
@@ -188,6 +261,13 @@ export interface PagedResultOfHostFileResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfHostRoleResponse {
+  readonly items: Array<HostRoleResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfHostUserResponse {
   readonly items: Array<HostUserResponse>;
   readonly page: number;
@@ -201,6 +281,17 @@ export interface ProblemDetails {
   readonly status?: null | number;
   readonly title?: null | string;
   readonly type?: null | string;
+}
+
+export interface ReplaceHostRoleFieldGrantsRequest {
+  readonly fieldKeys: Array<string>;
+  readonly resourceKey: string;
+  readonly version: number;
+}
+
+export interface ReplaceHostRolePermissionsRequest {
+  readonly permissionCodes: Array<string>;
+  readonly version: number;
 }
 
 export interface ReplaceHostUserRolesRequest {
@@ -220,6 +311,18 @@ export interface UpdateConfigEntryRequest {
   readonly displayOrder: number;
   readonly groupName: null | string;
   readonly value: string;
+  readonly version: number;
+}
+
+export interface UpdateHostRoleDataScopeRequest {
+  readonly dataScopeKind: string;
+  readonly tenantId?: null | string;
+  readonly unitIds: null | Array<string>;
+  readonly version: number;
+}
+
+export interface UpdateHostRoleRequest {
+  readonly name: string;
   readonly version: number;
 }
 

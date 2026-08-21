@@ -3,6 +3,9 @@
 
 import type { HttpClient } from '../http.js';
 import type {
+  AuthorizationTreeActionResponse,
+  AuthorizationTreeModuleResponse,
+  AuthorizationTreePageResponse,
   BatchDeleteConfigEntriesRequest,
   BatchHostUserIdsRequest,
   BatchHostUserStatusItem,
@@ -11,9 +14,17 @@ import type {
   ConfigEntryResponse,
   ConfigValueUpdate,
   CreateConfigEntryRequest,
+  CreateHostRoleRequest,
   CreateHostUserRequest,
   DeleteConfigEntryRequest,
+  FieldProjectionDefaultVisibility,
+  FieldProjectionFieldDefinition,
+  FieldProjectionResourceDefinition,
+  FieldProjectionSensitivity,
   HostFileResponse,
+  HostRoleDataScopeResponse,
+  HostRoleFieldGrantsResponse,
+  HostRoleResponse,
   HostUserProfileResponse,
   HostUserProfileWriteRequest,
   HostUserProjectedFieldsResponse,
@@ -25,24 +36,35 @@ import type {
   ImportHostUsersResponse,
   PagedResultOfConfigEntryResponse,
   PagedResultOfHostFileResponse,
+  PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   ProblemDetails,
+  ReplaceHostRoleFieldGrantsRequest,
+  ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   Stream,
   UpdateConfigEntryRequest,
+  UpdateHostRoleDataScopeRequest,
+  UpdateHostRoleRequest,
   UpdateHostUserRequest
 } from './models.generated.js';
 import {
   readBatchHostUserStatusResponse,
   readConfigEntryResponse,
   readHostFileResponse,
+  readHostRoleDataScopeResponse,
+  readHostRoleFieldGrantsResponse,
+  readHostRoleResponse,
   readHostUserResponse,
   readHostUserRolesResponse,
   readIdentityExportHostUsersResponse,
+  readIdentityGetAuthorizationTreeResponse,
+  readIdentityListFieldProjectionCatalogResponse,
   readImportHostUsersResponse,
   readPagedResultOfConfigEntryResponse,
   readPagedResultOfHostFileResponse,
+  readPagedResultOfHostRoleResponse,
   readPagedResultOfHostUserResponse,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
   readSettingsListAllHostConfigEntriesResponse,
@@ -182,6 +204,25 @@ export async function identityBatchEnableHostUsers(
   return readBatchHostUserStatusResponse(value);
 }
 
+export interface IdentityCreateHostRoleParameters {
+  readonly body: CreateHostRoleRequest;
+}
+
+export async function identityCreateHostRole(
+  http: HttpClient,
+  parameters: IdentityCreateHostRoleParameters,
+  signal?: AbortSignal
+): Promise<HostRoleResponse> {
+  const path = `/api/v1/identity/roles`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleResponse(value);
+}
+
 export interface IdentityCreateHostUserParameters {
   readonly body: CreateHostUserRequest;
 }
@@ -199,6 +240,21 @@ export async function identityCreateHostUser(
   };
   const value = await http.request<unknown>(path, init, signal);
   return readHostUserResponse(value);
+}
+
+export interface IdentityDisableHostRoleParameters {
+  readonly roleId: string;
+}
+
+export async function identityDisableHostRole(
+  http: HttpClient,
+  parameters: IdentityDisableHostRoleParameters,
+  signal?: AbortSignal
+): Promise<HostRoleResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/disable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleResponse(value);
 }
 
 export interface IdentityDisableHostUserParameters {
@@ -244,6 +300,69 @@ export async function identityExportHostUsers(
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
   return readIdentityExportHostUsersResponse(value);
+}
+
+export interface IdentityGetAuthorizationTreeParameters {
+
+}
+
+export async function identityGetAuthorizationTree(
+  http: HttpClient,
+  parameters: IdentityGetAuthorizationTreeParameters,
+  signal?: AbortSignal
+): Promise<Array<AuthorizationTreeModuleResponse>> {
+  const path = `/api/v1/identity/authorization-tree`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readIdentityGetAuthorizationTreeResponse(value);
+}
+
+export interface IdentityGetHostRoleParameters {
+  readonly roleId: string;
+}
+
+export async function identityGetHostRole(
+  http: HttpClient,
+  parameters: IdentityGetHostRoleParameters,
+  signal?: AbortSignal
+): Promise<HostRoleResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleResponse(value);
+}
+
+export interface IdentityGetHostRoleDataScopeParameters {
+  readonly roleId: string;
+}
+
+export async function identityGetHostRoleDataScope(
+  http: HttpClient,
+  parameters: IdentityGetHostRoleDataScopeParameters,
+  signal?: AbortSignal
+): Promise<HostRoleDataScopeResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/data-scope`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleDataScopeResponse(value);
+}
+
+export interface IdentityGetHostRoleFieldGrantsParameters {
+  readonly roleId: string;
+  readonly resourceKey: string;
+}
+
+export async function identityGetHostRoleFieldGrants(
+  http: HttpClient,
+  parameters: IdentityGetHostRoleFieldGrantsParameters,
+  signal?: AbortSignal
+): Promise<HostRoleFieldGrantsResponse> {
+  const query = new URLSearchParams();
+  query.set('resourceKey', String(parameters.resourceKey));
+  const path = query.size === 0 ? `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants` : `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleFieldGrantsResponse(value);
 }
 
 export interface IdentityGetHostUserParameters {
@@ -295,6 +414,44 @@ export async function identityImportHostUsers(
   return readImportHostUsersResponse(value);
 }
 
+export interface IdentityListFieldProjectionCatalogParameters {
+
+}
+
+export async function identityListFieldProjectionCatalog(
+  http: HttpClient,
+  parameters: IdentityListFieldProjectionCatalogParameters,
+  signal?: AbortSignal
+): Promise<Array<FieldProjectionResourceDefinition>> {
+  const path = `/api/v1/identity/field-projections/catalog`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readIdentityListFieldProjectionCatalogResponse(value);
+}
+
+export interface IdentityListHostRolesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function identityListHostRoles(
+  http: HttpClient,
+  parameters: IdentityListHostRolesParameters,
+  signal?: AbortSignal
+): Promise<PagedResultOfHostRoleResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/identity/roles` : `/api/v1/identity/roles?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readPagedResultOfHostRoleResponse(value);
+}
+
 export interface IdentityListHostUsersParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -316,6 +473,46 @@ export async function identityListHostUsers(
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
   return readPagedResultOfHostUserResponse(value);
+}
+
+export interface IdentityReplaceHostRoleFieldGrantsParameters {
+  readonly roleId: string;
+  readonly body: ReplaceHostRoleFieldGrantsRequest;
+}
+
+export async function identityReplaceHostRoleFieldGrants(
+  http: HttpClient,
+  parameters: IdentityReplaceHostRoleFieldGrantsParameters,
+  signal?: AbortSignal
+): Promise<HostRoleFieldGrantsResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleFieldGrantsResponse(value);
+}
+
+export interface IdentityReplaceHostRolePermissionsParameters {
+  readonly roleId: string;
+  readonly body: ReplaceHostRolePermissionsRequest;
+}
+
+export async function identityReplaceHostRolePermissions(
+  http: HttpClient,
+  parameters: IdentityReplaceHostRolePermissionsParameters,
+  signal?: AbortSignal
+): Promise<HostRoleResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/permissions`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleResponse(value);
 }
 
 export interface IdentityReplaceHostUserRolesParameters {
@@ -356,6 +553,46 @@ export async function identityResetHostUserPassword(
   };
   const value = await http.request<unknown>(path, init, signal);
   return readHostUserResponse(value);
+}
+
+export interface IdentityUpdateHostRoleParameters {
+  readonly roleId: string;
+  readonly body: UpdateHostRoleRequest;
+}
+
+export async function identityUpdateHostRole(
+  http: HttpClient,
+  parameters: IdentityUpdateHostRoleParameters,
+  signal?: AbortSignal
+): Promise<HostRoleResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleResponse(value);
+}
+
+export interface IdentityUpdateHostRoleDataScopeParameters {
+  readonly roleId: string;
+  readonly body: UpdateHostRoleDataScopeRequest;
+}
+
+export async function identityUpdateHostRoleDataScope(
+  http: HttpClient,
+  parameters: IdentityUpdateHostRoleDataScopeParameters,
+  signal?: AbortSignal
+): Promise<HostRoleDataScopeResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/data-scope`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostRoleDataScopeResponse(value);
 }
 
 export interface IdentityUpdateHostUserParameters {

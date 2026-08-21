@@ -286,6 +286,12 @@ function compareStableSettings(fileName, baseline, current, changes) {
         baselineValue,
         current[fieldName]
       )
+      && !isAllowedClientOpenApiSnapshotChange(
+        fileName,
+        fieldName,
+        baselineValue,
+        current[fieldName]
+      )
     ) {
       changes.push(
         `stable setting changed: ${fileName} ${fieldName} ` +
@@ -349,6 +355,92 @@ function isClientGenerationManifestEntryCompatible(baselineEntry, currentEntry) 
   }
 
   return baselineEntry?.status === 'pilot' && currentEntry?.status === 'generated';
+}
+
+function isAllowedClientOpenApiSnapshotChange(fileName, fieldName, baselineValue, currentValue) {
+  if (fileName !== 'fullnet-client-v1.openapi.json') {
+    return false;
+  }
+
+  // 标准客户端快照允许按清单扩容：追加 path/method、schema、tag；既有 Operation/Schema 不得改写或删除。
+  if (fieldName === 'paths') {
+    return isAdditiveOpenApiPaths(baselineValue, currentValue);
+  }
+
+  if (fieldName === 'tags') {
+    return isAdditiveOpenApiTags(baselineValue, currentValue);
+  }
+
+  if (fieldName === 'components') {
+    return isAdditiveOpenApiComponents(baselineValue, currentValue);
+  }
+
+  return false;
+}
+
+function isAdditiveOpenApiPaths(baselinePaths, currentPaths) {
+  if (
+    !isPlainObject(baselinePaths)
+    || !isPlainObject(currentPaths)
+  ) {
+    return false;
+  }
+
+  for (const [pathKey, baselinePathItem] of Object.entries(baselinePaths)) {
+    const currentPathItem = currentPaths[pathKey];
+    if (!isPlainObject(baselinePathItem) || !isPlainObject(currentPathItem)) {
+      return false;
+    }
+
+    for (const [method, baselineOperation] of Object.entries(baselinePathItem)) {
+      if (!isDeepStrictEqual(baselineOperation, currentPathItem[method])) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function isAdditiveOpenApiTags(baselineTags, currentTags) {
+  if (!Array.isArray(baselineTags) || !Array.isArray(currentTags)) {
+    return false;
+  }
+
+  return baselineTags.every((baselineTag) =>
+    currentTags.some((currentTag) => isDeepStrictEqual(baselineTag, currentTag)));
+}
+
+function isAdditiveOpenApiComponents(baselineComponents, currentComponents) {
+  if (!isPlainObject(baselineComponents) || !isPlainObject(currentComponents)) {
+    return false;
+  }
+
+  for (const [sectionName, baselineSection] of Object.entries(baselineComponents)) {
+    const currentSection = currentComponents[sectionName];
+    if (sectionName === 'schemas') {
+      if (!isPlainObject(baselineSection) || !isPlainObject(currentSection)) {
+        return false;
+      }
+
+      for (const [schemaName, baselineSchema] of Object.entries(baselineSection)) {
+        if (!isDeepStrictEqual(baselineSchema, currentSection[schemaName])) {
+          return false;
+        }
+      }
+      continue;
+    }
+
+    if (!isDeepStrictEqual(baselineSection, currentSection)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 export function compareContractSets(baselineContracts, currentContracts) {

@@ -504,6 +504,63 @@ test('客户端生成清单允许 pilot 晋升为 generated，禁止降级或改
   );
 });
 
+test('标准客户端 OpenAPI 快照允许追加 path/schema/tag，禁止改写既有 Operation', async () => {
+  const baseline = {
+    openapi: '3.1.0',
+    info: { title: 'Full.NET client', version: '1.0.0' },
+    tags: [{ name: 'IdentityHostUsers' }],
+    paths: {
+      '/api/v1/identity/users': {
+        get: {
+          operationId: 'identityListHostUsers',
+          tags: ['IdentityHostUsers'],
+          responses: { '200': { description: 'OK' } }
+        }
+      }
+    },
+    components: {
+      schemas: {
+        HostUserResponse: { type: 'object', properties: { id: { type: 'string' } } }
+      },
+      securitySchemes: {
+        Bearer: { type: 'http', scheme: 'bearer' }
+      }
+    }
+  };
+
+  const additive = clone(baseline);
+  additive.tags.push({ name: 'IdentityHostRoles' });
+  additive.paths['/api/v1/identity/roles'] = {
+    get: {
+      operationId: 'identityListHostRoles',
+      tags: ['IdentityHostRoles'],
+      responses: { '200': { description: 'OK' } }
+    }
+  };
+  additive.components.schemas.HostRoleResponse = {
+    type: 'object',
+    properties: { id: { type: 'string' } }
+  };
+
+  const additiveResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': additive }
+  );
+  assert.equal(additiveResult.status, 0, additiveResult.stderr);
+
+  const rewritten = clone(additive);
+  rewritten.paths['/api/v1/identity/users'].get.operationId = 'identityListHostUsersChanged';
+  const rewrittenResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': additive },
+    { 'fullnet-client-v1.openapi.json': rewritten }
+  );
+  assert.equal(rewrittenResult.status, 1);
+  assert.match(
+    rewrittenResult.stderr,
+    /stable setting changed: fullnet-client-v1\.openapi\.json paths/u
+  );
+});
+
 test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () => {
   const result = spawnSync(
     process.execPath,

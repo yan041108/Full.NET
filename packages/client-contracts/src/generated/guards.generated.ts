@@ -2,6 +2,9 @@
 // 内容：OpenAPI 运行时响应守卫。
 
 import type {
+  AuthorizationTreeActionResponse,
+  AuthorizationTreeModuleResponse,
+  AuthorizationTreePageResponse,
   BatchDeleteConfigEntriesRequest,
   BatchHostUserIdsRequest,
   BatchHostUserStatusItem,
@@ -10,9 +13,17 @@ import type {
   ConfigEntryResponse,
   ConfigValueUpdate,
   CreateConfigEntryRequest,
+  CreateHostRoleRequest,
   CreateHostUserRequest,
   DeleteConfigEntryRequest,
+  FieldProjectionDefaultVisibility,
+  FieldProjectionFieldDefinition,
+  FieldProjectionResourceDefinition,
+  FieldProjectionSensitivity,
   HostFileResponse,
+  HostRoleDataScopeResponse,
+  HostRoleFieldGrantsResponse,
+  HostRoleResponse,
   HostUserProfileResponse,
   HostUserProfileWriteRequest,
   HostUserProjectedFieldsResponse,
@@ -24,14 +35,52 @@ import type {
   ImportHostUsersResponse,
   PagedResultOfConfigEntryResponse,
   PagedResultOfHostFileResponse,
+  PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   ProblemDetails,
+  ReplaceHostRoleFieldGrantsRequest,
+  ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   Stream,
   UpdateConfigEntryRequest,
+  UpdateHostRoleDataScopeRequest,
+  UpdateHostRoleRequest,
   UpdateHostUserRequest
 } from './models.generated.js';
+
+export function readAuthorizationTreeActionResponse(value: unknown): AuthorizationTreeActionResponse {
+  if (!(isAuthorizationTreeActionResponse(value))) {
+    throw new Error('client.invalid_authorization_tree_action_response');
+  }
+  return value;
+}
+
+function isAuthorizationTreeActionResponse(value: unknown): value is AuthorizationTreeActionResponse {
+  return isRecord(value) && (typeof value["id"] === 'string') && (typeof value["name"] === 'string') && (typeof value["order"] === 'number' && Number.isInteger(value["order"])) && (typeof value["permissionCode"] === 'string');
+}
+
+export function readAuthorizationTreeModuleResponse(value: unknown): AuthorizationTreeModuleResponse {
+  if (!(isAuthorizationTreeModuleResponse(value))) {
+    throw new Error('client.invalid_authorization_tree_module_response');
+  }
+  return value;
+}
+
+function isAuthorizationTreeModuleResponse(value: unknown): value is AuthorizationTreeModuleResponse {
+  return isRecord(value) && (typeof value["id"] === 'string') && (typeof value["order"] === 'number' && Number.isInteger(value["order"])) && (Array.isArray(value["pages"]) && value["pages"].every(item14 => isAuthorizationTreePageResponse(item14))) && (typeof value["title"] === 'string');
+}
+
+export function readAuthorizationTreePageResponse(value: unknown): AuthorizationTreePageResponse {
+  if (!(isAuthorizationTreePageResponse(value))) {
+    throw new Error('client.invalid_authorization_tree_page_response');
+  }
+  return value;
+}
+
+function isAuthorizationTreePageResponse(value: unknown): value is AuthorizationTreePageResponse {
+  return isRecord(value) && (Array.isArray(value["actions"]) && value["actions"].every(item16 => isAuthorizationTreeActionResponse(item16))) && (Array.isArray(value["children"]) && value["children"].every(item17 => isAuthorizationTreePageResponse(item17))) && (typeof value["id"] === 'string') && (typeof value["order"] === 'number' && Number.isInteger(value["order"])) && (typeof value["permissionCode"] === 'string') && (typeof value["title"] === 'string');
+}
 
 export function readBatchDeleteConfigEntriesRequest(value: unknown): BatchDeleteConfigEntriesRequest {
   if (!(isBatchDeleteConfigEntriesRequest(value))) {
@@ -121,6 +170,17 @@ function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryR
   return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
 }
 
+export function readCreateHostRoleRequest(value: unknown): CreateHostRoleRequest {
+  if (!(isCreateHostRoleRequest(value))) {
+    throw new Error('client.invalid_create_host_role_request');
+  }
+  return value;
+}
+
+function isCreateHostRoleRequest(value: unknown): value is CreateHostRoleRequest {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["name"] === 'string');
+}
+
 export function readCreateHostUserRequest(value: unknown): CreateHostUserRequest {
   if (!(isCreateHostUserRequest(value))) {
     throw new Error('client.invalid_create_host_user_request');
@@ -143,6 +203,50 @@ function isDeleteConfigEntryRequest(value: unknown): value is DeleteConfigEntryR
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readFieldProjectionDefaultVisibility(value: unknown): FieldProjectionDefaultVisibility {
+  if (!(isFieldProjectionDefaultVisibility(value))) {
+    throw new Error('client.invalid_field_projection_default_visibility');
+  }
+  return value;
+}
+
+function isFieldProjectionDefaultVisibility(value: unknown): value is FieldProjectionDefaultVisibility {
+  return typeof value === 'number' && Number.isInteger(value);
+}
+
+export function readFieldProjectionFieldDefinition(value: unknown): FieldProjectionFieldDefinition {
+  if (!(isFieldProjectionFieldDefinition(value))) {
+    throw new Error('client.invalid_field_projection_field_definition');
+  }
+  return value;
+}
+
+function isFieldProjectionFieldDefinition(value: unknown): value is FieldProjectionFieldDefinition {
+  return isRecord(value) && (typeof value["assignable"] === 'boolean') && (isFieldProjectionDefaultVisibility(value["defaultVisibility"])) && (typeof value["displayName"] === 'string') && (typeof value["fieldKey"] === 'string') && (isFieldProjectionSensitivity(value["sensitivity"]));
+}
+
+export function readFieldProjectionResourceDefinition(value: unknown): FieldProjectionResourceDefinition {
+  if (!(isFieldProjectionResourceDefinition(value))) {
+    throw new Error('client.invalid_field_projection_resource_definition');
+  }
+  return value;
+}
+
+function isFieldProjectionResourceDefinition(value: unknown): value is FieldProjectionResourceDefinition {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (Array.isArray(value["fields"]) && value["fields"].every(item15 => isFieldProjectionFieldDefinition(item15))) && (typeof value["resourceKey"] === 'string');
+}
+
+export function readFieldProjectionSensitivity(value: unknown): FieldProjectionSensitivity {
+  if (!(isFieldProjectionSensitivity(value))) {
+    throw new Error('client.invalid_field_projection_sensitivity');
+  }
+  return value;
+}
+
+function isFieldProjectionSensitivity(value: unknown): value is FieldProjectionSensitivity {
+  return typeof value === 'number' && Number.isInteger(value);
+}
+
 export function readHostFileResponse(value: unknown): HostFileResponse {
   if (!(isHostFileResponse(value))) {
     throw new Error('client.invalid_host_file_response');
@@ -152,6 +256,39 @@ export function readHostFileResponse(value: unknown): HostFileResponse {
 
 function isHostFileResponse(value: unknown): value is HostFileResponse {
   return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"]));
+}
+
+export function readHostRoleDataScopeResponse(value: unknown): HostRoleDataScopeResponse {
+  if (!(isHostRoleDataScopeResponse(value))) {
+    throw new Error('client.invalid_host_role_data_scope_response');
+  }
+  return value;
+}
+
+function isHostRoleDataScopeResponse(value: unknown): value is HostRoleDataScopeResponse {
+  return isRecord(value) && (typeof value["dataScopeKind"] === 'string') && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (Array.isArray(value["unitIds"]) && value["unitIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostRoleFieldGrantsResponse(value: unknown): HostRoleFieldGrantsResponse {
+  if (!(isHostRoleFieldGrantsResponse(value))) {
+    throw new Error('client.invalid_host_role_field_grants_response');
+  }
+  return value;
+}
+
+function isHostRoleFieldGrantsResponse(value: unknown): value is HostRoleFieldGrantsResponse {
+  return isRecord(value) && (Array.isArray(value["fieldKeys"]) && value["fieldKeys"].every(item18 => typeof item18 === 'string')) && (typeof value["resourceKey"] === 'string') && (typeof value["roleId"] === 'string' && guidPattern.test(value["roleId"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostRoleResponse(value: unknown): HostRoleResponse {
+  if (!(isHostRoleResponse(value))) {
+    throw new Error('client.invalid_host_role_response');
+  }
+  return value;
+}
+
+function isHostRoleResponse(value: unknown): value is HostRoleResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["isSystem"] === 'boolean') && (typeof value["name"] === 'string') && (Array.isArray(value["permissionCodes"]) && value["permissionCodes"].every(item24 => typeof item24 === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readHostUserProfileResponse(value: unknown): HostUserProfileResponse {
@@ -275,6 +412,17 @@ function isPagedResultOfHostFileResponse(value: unknown): value is PagedResultOf
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostFileResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfHostRoleResponse(value: unknown): PagedResultOfHostRoleResponse {
+  if (!(isPagedResultOfHostRoleResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_role_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostRoleResponse(value: unknown): value is PagedResultOfHostRoleResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostRoleResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readPagedResultOfHostUserResponse(value: unknown): PagedResultOfHostUserResponse {
   if (!(isPagedResultOfHostUserResponse(value))) {
     throw new Error('client.invalid_paged_result_of_host_user_response');
@@ -295,6 +443,28 @@ export function readProblemDetails(value: unknown): ProblemDetails {
 
 function isProblemDetails(value: unknown): value is ProblemDetails {
   return isRecord(value) && (value["detail"] === undefined || ((value["detail"] === null) || (typeof value["detail"] === 'string'))) && (value["instance"] === undefined || ((value["instance"] === null) || (typeof value["instance"] === 'string'))) && (value["status"] === undefined || ((value["status"] === null) || (typeof value["status"] === 'number' && Number.isInteger(value["status"])))) && (value["title"] === undefined || ((value["title"] === null) || (typeof value["title"] === 'string'))) && (value["type"] === undefined || ((value["type"] === null) || (typeof value["type"] === 'string')));
+}
+
+export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
+  if (!(isReplaceHostRoleFieldGrantsRequest(value))) {
+    throw new Error('client.invalid_replace_host_role_field_grants_request');
+  }
+  return value;
+}
+
+function isReplaceHostRoleFieldGrantsRequest(value: unknown): value is ReplaceHostRoleFieldGrantsRequest {
+  return isRecord(value) && (Array.isArray(value["fieldKeys"]) && value["fieldKeys"].every(item18 => typeof item18 === 'string')) && (typeof value["resourceKey"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readReplaceHostRolePermissionsRequest(value: unknown): ReplaceHostRolePermissionsRequest {
+  if (!(isReplaceHostRolePermissionsRequest(value))) {
+    throw new Error('client.invalid_replace_host_role_permissions_request');
+  }
+  return value;
+}
+
+function isReplaceHostRolePermissionsRequest(value: unknown): value is ReplaceHostRolePermissionsRequest {
+  return isRecord(value) && (Array.isArray(value["permissionCodes"]) && value["permissionCodes"].every(item24 => typeof item24 === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readReplaceHostUserRolesRequest(value: unknown): ReplaceHostUserRolesRequest {
@@ -341,6 +511,28 @@ function isUpdateConfigEntryRequest(value: unknown): value is UpdateConfigEntryR
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readUpdateHostRoleDataScopeRequest(value: unknown): UpdateHostRoleDataScopeRequest {
+  if (!(isUpdateHostRoleDataScopeRequest(value))) {
+    throw new Error('client.invalid_update_host_role_data_scope_request');
+  }
+  return value;
+}
+
+function isUpdateHostRoleDataScopeRequest(value: unknown): value is UpdateHostRoleDataScopeRequest {
+  return isRecord(value) && (typeof value["dataScopeKind"] === 'string') && (value["tenantId"] === undefined || ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])))) && ((value["unitIds"] === null) || (Array.isArray(value["unitIds"]) && value["unitIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16)))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostRoleRequest(value: unknown): UpdateHostRoleRequest {
+  if (!(isUpdateHostRoleRequest(value))) {
+    throw new Error('client.invalid_update_host_role_request');
+  }
+  return value;
+}
+
+function isUpdateHostRoleRequest(value: unknown): value is UpdateHostRoleRequest {
+  return isRecord(value) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readUpdateHostUserRequest(value: unknown): UpdateHostUserRequest {
   if (!(isUpdateHostUserRequest(value))) {
     throw new Error('client.invalid_update_host_user_request');
@@ -357,6 +549,20 @@ export function readIdentityExportHostUsersResponse(value: unknown): Array<HostU
     throw new Error('client.invalid_identity_export_host_users_response');
   }
   return value as Array<HostUserResponse>;
+}
+
+export function readIdentityGetAuthorizationTreeResponse(value: unknown): Array<AuthorizationTreeModuleResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isAuthorizationTreeModuleResponse(item5)))) {
+    throw new Error('client.invalid_identity_get_authorization_tree_response');
+  }
+  return value as Array<AuthorizationTreeModuleResponse>;
+}
+
+export function readIdentityListFieldProjectionCatalogResponse(value: unknown): Array<FieldProjectionResourceDefinition> {
+  if (!(Array.isArray(value) && value.every(item5 => isFieldProjectionResourceDefinition(item5)))) {
+    throw new Error('client.invalid_identity_list_field_projection_catalog_response');
+  }
+  return value as Array<FieldProjectionResourceDefinition>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {
