@@ -13,6 +13,8 @@ import type {
   ConfigEntryResponse,
   ConfigValueUpdate,
   CreateConfigEntryRequest,
+  CreateHostApiKeyRequest,
+  CreateHostApiKeyResponse,
   CreateHostMenuRequest,
   CreateHostRoleRequest,
   CreateHostUserRequest,
@@ -21,6 +23,7 @@ import type {
   FieldProjectionFieldDefinition,
   FieldProjectionResourceDefinition,
   FieldProjectionSensitivity,
+  HostApiKeyResponse,
   HostFileResponse,
   HostMenuPermissionOptionResponse,
   HostMenuResponse,
@@ -38,6 +41,7 @@ import type {
   ImportHostUsersRequest,
   ImportHostUsersResponse,
   PagedResultOfConfigEntryResponse,
+  PagedResultOfHostApiKeyResponse,
   PagedResultOfHostFileResponse,
   PagedResultOfHostMenuResponse,
   PagedResultOfHostRoleResponse,
@@ -176,6 +180,28 @@ function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryR
   return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
 }
 
+export function readCreateHostApiKeyRequest(value: unknown): CreateHostApiKeyRequest {
+  if (!(isCreateHostApiKeyRequest(value))) {
+    throw new Error('client.invalid_create_host_api_key_request');
+  }
+  return value;
+}
+
+function isCreateHostApiKeyRequest(value: unknown): value is CreateHostApiKeyRequest {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && ((value["expiresAtUtc"] === null) || (typeof value["expiresAtUtc"] === 'string')) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+}
+
+export function readCreateHostApiKeyResponse(value: unknown): CreateHostApiKeyResponse {
+  if (!(isCreateHostApiKeyResponse(value))) {
+    throw new Error('client.invalid_create_host_api_key_response');
+  }
+  return value;
+}
+
+function isCreateHostApiKeyResponse(value: unknown): value is CreateHostApiKeyResponse {
+  return isRecord(value) && (isHostApiKeyResponse(value["key"])) && (typeof value["secret"] === 'string');
+}
+
 export function readCreateHostMenuRequest(value: unknown): CreateHostMenuRequest {
   if (!(isCreateHostMenuRequest(value))) {
     throw new Error('client.invalid_create_host_menu_request');
@@ -262,6 +288,17 @@ export function readFieldProjectionSensitivity(value: unknown): FieldProjectionS
 
 function isFieldProjectionSensitivity(value: unknown): value is FieldProjectionSensitivity {
   return typeof value === 'number' && Number.isInteger(value);
+}
+
+export function readHostApiKeyResponse(value: unknown): HostApiKeyResponse {
+  if (!(isHostApiKeyResponse(value))) {
+    throw new Error('client.invalid_host_api_key_response');
+  }
+  return value;
+}
+
+function isHostApiKeyResponse(value: unknown): value is HostApiKeyResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && ((value["expiresAtUtc"] === null) || (typeof value["expiresAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["keyPrefix"] === 'string') && ((value["lastUsedAtUtc"] === null) || (typeof value["lastUsedAtUtc"] === 'string')) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
 export function readHostFileResponse(value: unknown): HostFileResponse {
@@ -449,6 +486,17 @@ export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResul
 
 function isPagedResultOfConfigEntryResponse(value: unknown): value is PagedResultOfConfigEntryResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isConfigEntryResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostApiKeyResponse(value: unknown): PagedResultOfHostApiKeyResponse {
+  if (!(isPagedResultOfHostApiKeyResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_api_key_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostApiKeyResponse(value: unknown): value is PagedResultOfHostApiKeyResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostApiKeyResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfHostFileResponse(value: unknown): PagedResultOfHostFileResponse {

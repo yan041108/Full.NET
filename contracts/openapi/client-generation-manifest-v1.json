@@ -206,6 +206,30 @@
       "status": "generated"
     },
     {
+      "operationId": "identityListHostApiKeys",
+      "apiModule": "ui/admin/src/api/api-keys.ts",
+      "generatedGroup": "identity-host-api-keys",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityCreateHostApiKey",
+      "apiModule": "ui/admin/src/api/api-keys.ts",
+      "generatedGroup": "identity-host-api-keys",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityDisableHostApiKey",
+      "apiModule": "ui/admin/src/api/api-keys.ts",
+      "generatedGroup": "identity-host-api-keys",
+      "status": "pilot"
+    },
+    {
+      "operationId": "identityRotateHostApiKey",
+      "apiModule": "ui/admin/src/api/api-keys.ts",
+      "generatedGroup": "identity-host-api-keys",
+      "status": "pilot"
+    },
+    {
       "operationId": "filesListHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",

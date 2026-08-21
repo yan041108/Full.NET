@@ -14,6 +14,8 @@ import type {
   ConfigEntryResponse,
   ConfigValueUpdate,
   CreateConfigEntryRequest,
+  CreateHostApiKeyRequest,
+  CreateHostApiKeyResponse,
   CreateHostMenuRequest,
   CreateHostRoleRequest,
   CreateHostUserRequest,
@@ -22,6 +24,7 @@ import type {
   FieldProjectionFieldDefinition,
   FieldProjectionResourceDefinition,
   FieldProjectionSensitivity,
+  HostApiKeyResponse,
   HostFileResponse,
   HostMenuPermissionOptionResponse,
   HostMenuResponse,
@@ -39,6 +42,7 @@ import type {
   ImportHostUsersRequest,
   ImportHostUsersResponse,
   PagedResultOfConfigEntryResponse,
+  PagedResultOfHostApiKeyResponse,
   PagedResultOfHostFileResponse,
   PagedResultOfHostMenuResponse,
   PagedResultOfHostRoleResponse,
@@ -58,6 +62,8 @@ import type {
 import {
   readBatchHostUserStatusResponse,
   readConfigEntryResponse,
+  readCreateHostApiKeyResponse,
+  readHostApiKeyResponse,
   readHostFileResponse,
   readHostMenuResponse,
   readHostNavigationCatalogSyncResponse,
@@ -73,6 +79,7 @@ import {
   readIdentityListHostMenuPermissionOptionsResponse,
   readImportHostUsersResponse,
   readPagedResultOfConfigEntryResponse,
+  readPagedResultOfHostApiKeyResponse,
   readPagedResultOfHostFileResponse,
   readPagedResultOfHostMenuResponse,
   readPagedResultOfHostRoleResponse,
@@ -215,6 +222,25 @@ export async function identityBatchEnableHostUsers(
   return readBatchHostUserStatusResponse(value);
 }
 
+export interface IdentityCreateHostApiKeyParameters {
+  readonly body: CreateHostApiKeyRequest;
+}
+
+export async function identityCreateHostApiKey(
+  http: HttpClient,
+  parameters: IdentityCreateHostApiKeyParameters,
+  signal?: AbortSignal
+): Promise<CreateHostApiKeyResponse> {
+  const path = `/api/v1/identity/api-keys`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readCreateHostApiKeyResponse(value);
+}
+
 export interface IdentityCreateHostMenuParameters {
   readonly body: CreateHostMenuRequest;
 }
@@ -270,6 +296,21 @@ export async function identityCreateHostUser(
   };
   const value = await http.request<unknown>(path, init, signal);
   return readHostUserResponse(value);
+}
+
+export interface IdentityDisableHostApiKeyParameters {
+  readonly apiKeyId: string;
+}
+
+export async function identityDisableHostApiKey(
+  http: HttpClient,
+  parameters: IdentityDisableHostApiKeyParameters,
+  signal?: AbortSignal
+): Promise<HostApiKeyResponse> {
+  const path = `/api/v1/identity/api-keys/${encodeURIComponent(String(parameters.apiKeyId))}/disable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostApiKeyResponse(value);
 }
 
 export interface IdentityDisableHostMenuParameters {
@@ -519,6 +560,37 @@ export async function identityListFieldProjectionCatalog(
   return readIdentityListFieldProjectionCatalogResponse(value);
 }
 
+export interface IdentityListHostApiKeysParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly userId?: string;
+  readonly displayNameContains?: string;
+}
+
+export async function identityListHostApiKeys(
+  http: HttpClient,
+  parameters: IdentityListHostApiKeysParameters,
+  signal?: AbortSignal
+): Promise<PagedResultOfHostApiKeyResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.userId !== undefined) {
+    query.set('userId', String(parameters.userId));
+  }
+  if (parameters.displayNameContains !== undefined) {
+    query.set('displayNameContains', String(parameters.displayNameContains));
+  }
+  const path = query.size === 0 ? `/api/v1/identity/api-keys` : `/api/v1/identity/api-keys?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readPagedResultOfHostApiKeyResponse(value);
+}
+
 export interface IdentityListHostMenuPermissionOptionsParameters {
 
 }
@@ -681,6 +753,21 @@ export async function identityResetHostUserPassword(
   };
   const value = await http.request<unknown>(path, init, signal);
   return readHostUserResponse(value);
+}
+
+export interface IdentityRotateHostApiKeyParameters {
+  readonly apiKeyId: string;
+}
+
+export async function identityRotateHostApiKey(
+  http: HttpClient,
+  parameters: IdentityRotateHostApiKeyParameters,
+  signal?: AbortSignal
+): Promise<CreateHostApiKeyResponse> {
+  const path = `/api/v1/identity/api-keys/${encodeURIComponent(String(parameters.apiKeyId))}/rotate`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readCreateHostApiKeyResponse(value);
 }
 
 export interface IdentitySyncHostMenuCatalogParameters {

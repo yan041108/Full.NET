@@ -79,6 +79,18 @@ export interface CreateConfigEntryRequest {
   readonly valueKind: "string" | "boolean" | "integer" | "decimal" | "json" | "secret";
 }
 
+export interface CreateHostApiKeyRequest {
+  readonly displayName: string;
+  readonly expiresAtUtc: null | string;
+  readonly permissions: Array<string>;
+  readonly userId: string;
+}
+
+export interface CreateHostApiKeyResponse {
+  readonly key: HostApiKeyResponse;
+  readonly secret: string;
+}
+
 export interface CreateHostMenuRequest {
   readonly caption: string;
   readonly componentKey: string;
@@ -133,6 +145,19 @@ export interface FieldProjectionResourceDefinition {
 }
 
 export type FieldProjectionSensitivity = number;
+
+export interface HostApiKeyResponse {
+  readonly createdAtUtc: string;
+  readonly displayName: string;
+  readonly expiresAtUtc: null | string;
+  readonly id: string;
+  readonly isActive: boolean;
+  readonly keyPrefix: string;
+  readonly lastUsedAtUtc: null | string;
+  readonly permissions: Array<string>;
+  readonly userId: string;
+  readonly username: string;
+}
 
 export interface HostFileResponse {
   readonly contentHash: null | string;
@@ -314,6 +339,13 @@ export interface ImportHostUsersResponse {
 
 export interface PagedResultOfConfigEntryResponse {
   readonly items: Array<ConfigEntryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfHostApiKeyResponse {
+  readonly items: Array<HostApiKeyResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
