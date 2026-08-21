@@ -209,25 +209,25 @@
       "operationId": "identityListHostApiKeys",
       "apiModule": "ui/admin/src/api/api-keys.ts",
       "generatedGroup": "identity-host-api-keys",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityCreateHostApiKey",
       "apiModule": "ui/admin/src/api/api-keys.ts",
       "generatedGroup": "identity-host-api-keys",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityDisableHostApiKey",
       "apiModule": "ui/admin/src/api/api-keys.ts",
       "generatedGroup": "identity-host-api-keys",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityRotateHostApiKey",
       "apiModule": "ui/admin/src/api/api-keys.ts",
       "generatedGroup": "identity-host-api-keys",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesListHostFiles",

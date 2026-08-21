@@ -14,11 +14,11 @@
 
 ## 执行状态（2026-08-22）
 
-- 计划已创建；Task 1 已完成（WithName / IdentityHostApiKeys / Produces；inner Identity 15/15）。
-- Task 2–4 尚未开始。
+- Task 1–4 已完成；Verification 判定 `Slice-passed`，见 [`openapi-client-identity-host-api-keys-2026-08-22.md`](../../verification/openapi-client-identity-host-api-keys-2026-08-22.md)。
+- `identity-host-api-keys` 共 4 个 Operation 已由 `pilot` 提升为 `generated`。
+- 允许创建下一个 Identity remaining 计划（默认 online-sessions）；禁止并行迁移其他资源组。
 
-- [x] Step 1–4：WithName / Tag / Produces / ProblemDetails → Architecture + OpenAPI 夹具 → `pnpm test:inner -- --snapshot openapi-client-identity-host-api-keys-metadata-20260822`
-- [x] Step 5：提交 `feat: stabilize Identity Host API Keys OpenAPI identities`
+## Global Constraints
 
 - 每个 slice 只迁移一个 `generatedGroup`：`identity-host-api-keys`。
 - `ui/admin-layui/**` 零修改。
@@ -80,7 +80,7 @@
 
 - 追加 4 条 `pilot`；更新规范化测试计数（50→54）；`pnpm openapi:client:snapshot -- --update`；`pnpm openapi:client:generate`；`pnpm test:openapi`
 
-- [ ] 提交 `feat: freeze Identity Host API Keys client OpenAPI snapshot`
+- [x] 提交 `feat: freeze Identity Host API Keys client OpenAPI snapshot`
 
 ---
 
@@ -90,7 +90,7 @@
 
 - 模式对齐 `menus.ts`（`http` mock、手写守卫保留对一次性 `secret` 与页面类型）
 
-- [ ] 提交 `feat: generate Identity Host API Keys client operations`
+- [x] 提交 `feat: generate Identity Host API Keys client operations`
 
 ---
 
@@ -103,7 +103,7 @@
 - Create: `docs/verification/openapi-client-identity-host-api-keys-2026-08-22.md`
 - 4 条 `pilot` → `generated`
 
-- [ ] 提交 `docs: verify Identity Host API Keys OpenAPI client slice`
+- [x] 提交 `docs: verify Identity Host API Keys OpenAPI client slice`
 
 ## 停止条件
 
