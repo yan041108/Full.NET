@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/menus")
-            .WithTags("Identity");
+            .WithTags("IdentityHostMenus");
 
         group.MapGet("/", async (
             int? page,
@@ -30,7 +30,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityListHostMenus")
         .Produces<PagedResult<HostMenuResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
         group.MapGet("/all", async (
@@ -43,7 +46,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityListAllHostMenus")
         .Produces<IReadOnlyList<HostMenuResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
         group.MapGet("/permission-options", (
@@ -51,7 +57,10 @@ internal static class Endpoint
         {
             return Results.Ok(queries.List());
         })
+        .WithName("identityListHostMenuPermissionOptions")
         .Produces<IReadOnlyList<HostMenuPermissionOptionResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
         group.MapPost("/sync-catalog", async (
@@ -63,7 +72,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return Results.Ok(new HostNavigationCatalogSyncResponse(created, skipped, reparented));
         })
+        .WithName("identitySyncHostMenuCatalog")
         .Produces<HostNavigationCatalogSyncResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Update);
 
         group.MapGet("/{menuId:guid}", async (
@@ -77,7 +89,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityGetHostMenu")
         .Produces<HostMenuResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Read);
 
         group.MapPost("/", async (
@@ -98,7 +113,10 @@ internal static class Endpoint
                 $"/api/v1/identity/menus/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("identityCreateHostMenu")
         .Produces<HostMenuResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Create);
 
         group.MapPut("/{menuId:guid}", async (
@@ -113,7 +131,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityUpdateHostMenu")
         .Produces<HostMenuResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Update);
 
         group.MapPost("/{menuId:guid}/disable", async (
@@ -127,7 +148,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityDisableHostMenu")
         .Produces<HostMenuResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Disable);
 
         group.MapPost("/{menuId:guid}/enable", async (
@@ -141,7 +165,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityEnableHostMenu")
         .Produces<HostMenuResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityMenuManagementPermissions.Update);
     }
 }

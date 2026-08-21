@@ -25,6 +25,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
 {
     private const string IdentityHostUsersTag = "IdentityHostUsers";
     private const string IdentityHostRolesTag = "IdentityHostRoles";
+    private const string IdentityHostMenusTag = "IdentityHostMenus";
     private const string FilesTag = "FilesHostFiles";
     private const string SettingsTag = "SettingsHostConfigEntries";
 
@@ -160,6 +161,15 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("PUT", "/api/v1/identity/roles/{roleId}/data-scope", "identityUpdateHostRoleDataScope", IdentityHostRolesTag),
         new("GET", "/api/v1/identity/roles/{roleId}/field-grants", "identityGetHostRoleFieldGrants", IdentityHostRolesTag),
         new("PUT", "/api/v1/identity/roles/{roleId}/field-grants", "identityReplaceHostRoleFieldGrants", IdentityHostRolesTag),
+        new("GET", "/api/v1/identity/menus", "identityListHostMenus", IdentityHostMenusTag),
+        new("GET", "/api/v1/identity/menus/all", "identityListAllHostMenus", IdentityHostMenusTag),
+        new("GET", "/api/v1/identity/menus/permission-options", "identityListHostMenuPermissionOptions", IdentityHostMenusTag),
+        new("POST", "/api/v1/identity/menus/sync-catalog", "identitySyncHostMenuCatalog", IdentityHostMenusTag),
+        new("GET", "/api/v1/identity/menus/{menuId}", "identityGetHostMenu", IdentityHostMenusTag),
+        new("POST", "/api/v1/identity/menus", "identityCreateHostMenu", IdentityHostMenusTag),
+        new("PUT", "/api/v1/identity/menus/{menuId}", "identityUpdateHostMenu", IdentityHostMenusTag),
+        new("POST", "/api/v1/identity/menus/{menuId}/disable", "identityDisableHostMenu", IdentityHostMenusTag),
+        new("POST", "/api/v1/identity/menus/{menuId}/enable", "identityEnableHostMenu", IdentityHostMenusTag),
         new("GET", "/api/v1/files/host-files", "filesListHostFiles", FilesTag),
         new("GET", "/api/v1/files/host-files/{fileId}", "filesGetHostFile", FilesTag),
         new("POST", "/api/v1/files/host-files", "filesUploadHostFile", FilesTag),

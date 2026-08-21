@@ -62,6 +62,17 @@
       ]
     },
     {
+      "path": "/api/v1/identity/menus/sync-catalog",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.menus.update",
+          "successStatus": 200,
+          "responseSchema": "HostNavigationCatalogSyncResponse"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/identity/menus/{menuId}/disable",
       "operations": [
         {
@@ -201,6 +212,13 @@
         "displayNameKey",
         "actionId",
         "actionKey"
+      ]
+    },
+    "HostNavigationCatalogSyncResponse": {
+      "properties": [
+        "created",
+        "skipped",
+        "reparented"
       ]
     }
   }

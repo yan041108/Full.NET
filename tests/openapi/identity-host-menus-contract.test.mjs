@@ -70,6 +70,9 @@ test('Host 菜单 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ['/api/v1/identity/menus/permission-options', new Map([
       ['GET', 'MapGet("/permission-options",']
     ])],
+    ['/api/v1/identity/menus/sync-catalog', new Map([
+      ['POST', 'MapPost("/sync-catalog",']
+    ])],
     ['/api/v1/identity/menus/all', new Map([
       ['GET', 'MapGet("/all",']
     ])],
@@ -84,6 +87,8 @@ test('Host 菜单 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
       ['POST', 'MapPost("/{menuId:guid}/enable",']
     ])]
   ]);
+
+  assert.match(contractsSource, /record HostNavigationCatalogSyncResponse/u);
 
   for (const entry of contract.paths) {
     const routes = relativeRoutes.get(entry.path);
