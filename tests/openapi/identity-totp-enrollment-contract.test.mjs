@@ -15,6 +15,10 @@ test('TOTP 登记 OpenAPI 夹具与 C# 契约和端点一致', async () => {
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
   assert.equal(contract.id, 'identity-totp-enrollment-v1');
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/me\/mfa\/totp"\)/u);
+  assert.match(endpointSource, /WithName\("identityGetTotpEnrollmentStatus"\)/u);
+  assert.match(endpointSource, /WithName\("identityBeginTotpEnrollment"\)/u);
+  assert.match(endpointSource, /WithName\("identityConfirmTotpEnrollment"\)/u);
+  assert.match(endpointSource, /WithTags\("IdentityTotpEnrollment"\)/u);
   assert.match(contractsSource, /record TotpEnrollmentStatusResponse/u);
   assert.ok(contract.paths.some((entry) => entry.path.endsWith('/confirm')));
 });

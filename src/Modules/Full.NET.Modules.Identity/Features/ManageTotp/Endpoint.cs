@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/me/mfa/totp")
-            .WithTags("Identity")
+            .WithTags("IdentityTotpEnrollment")
             .RequireAuthorization();
 
         group.MapGet("/", async (
@@ -26,7 +26,10 @@ internal static class Endpoint
             var result = await service.GetStatusAsync(principal, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
-        });
+        })
+        .WithName("identityGetTotpEnrollmentStatus")
+        .Produces<TotpEnrollmentStatusResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/begin", async (
             ClaimsPrincipal principal,
@@ -38,7 +41,10 @@ internal static class Endpoint
             var result = await service.BeginAsync(principal, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
-        });
+        })
+        .WithName("identityBeginTotpEnrollment")
+        .Produces<BeginTotpEnrollmentResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/confirm", async (
             ConfirmTotpEnrollmentRequest request,
@@ -54,6 +60,10 @@ internal static class Endpoint
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
-        });
+        })
+        .WithName("identityConfirmTotpEnrollment")
+        .Produces<TotpEnrollmentStatusResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status400BadRequest);
     }
 }
