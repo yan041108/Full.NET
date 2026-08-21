@@ -222,15 +222,7 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
     ]
   );
   assert.equal(
-    manifest.entries
-      .filter(entry => entry.generatedGroup === 'identity-totp-enrollment')
-      .every(entry => entry.status === 'pilot'),
-    true
-  );
-  assert.equal(
-    manifest.entries
-      .filter(entry => entry.generatedGroup !== 'identity-totp-enrollment')
-      .every(entry => entry.status === 'generated'),
+    manifest.entries.every(entry => entry.status === 'generated'),
     true
   );
   assert.equal(

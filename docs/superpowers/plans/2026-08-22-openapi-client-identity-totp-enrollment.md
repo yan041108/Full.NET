@@ -12,7 +12,8 @@
 
 ## 执行状态（2026-08-22）
 
-- 计划已创建；实现进行中。
+- `Slice-passed`：见 [`openapi-client-identity-totp-enrollment-2026-08-22.md`](../../verification/openapi-client-identity-totp-enrollment-2026-08-22.md)。
+- 允许创建下一个 Identity remaining 计划（默认 `superAdministrators.ts`）；禁止并行迁移其他资源组。
 
 ## Global Constraints
 
