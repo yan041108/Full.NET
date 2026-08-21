@@ -14,9 +14,9 @@
 
 ## 执行状态（2026-08-21）
 
-- 计划已创建；Task 1 已完成（`WithName` / `IdentityHostMenus` / 夹具补齐 `sync-catalog`）。
-- Task 2 已完成（9 条 `pilot`、双库规范快照、生成物同步；`pnpm test:openapi` 109/109）。
-- Task 3–4 尚未开始。
+- 计划已创建；Task 1–2 已完成。
+- Task 3 已完成（`menus.ts` 薄适配；client-contracts 137、menus vitest 2、generate `--check` 零漂移）。
+- Task 4 尚未开始。
 
 ## Global Constraints
 
@@ -94,7 +94,7 @@
 - Modify: 规范化契约测试计数/分组
 - 同步 `pnpm openapi:client:generate` 避免 `--check` 漂移
 
-- [ ] 提交 `feat: freeze Identity Host Menus client OpenAPI snapshot`
+- [x] 提交 `feat: freeze Identity Host Menus client OpenAPI snapshot`
 
 ---
 

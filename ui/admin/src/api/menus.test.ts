@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
   createHostMenu,
   disableHostMenu,
@@ -7,11 +7,18 @@ import {
   updateHostMenu
 } from './menus';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
+
+const menuId = '01912345-6789-7abc-8def-0123456789ab';
 
 const sampleMenu = {
-  id: 'menu-id',
+  id: menuId,
   parentId: null,
   routeName: 'custom-overview',
   path: '/',
@@ -48,7 +55,11 @@ describe('Vue Host 菜单 API', () => {
     });
 
     await expect(listHostMenus()).resolves.toMatchObject({ total: 1 });
-    expect(requestMock).toHaveBeenCalledWith('/api/v1/identity/menus?page=1&pageSize=20');
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/identity/menus?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
+    );
   });
 
   it('通过 JSON 正文创建、更新并禁用菜单', async () => {
@@ -68,7 +79,7 @@ describe('Vue Host 菜单 API', () => {
       displayOrder: 12,
       requiredPermission: 'platform.dashboard.read'
     });
-    await updateHostMenu('menu-id', {
+    await updateHostMenu(menuId, {
       parentId: null,
       path: '/',
       componentKey: 'overview',
@@ -79,22 +90,25 @@ describe('Vue Host 菜单 API', () => {
       requiredPermission: 'platform.dashboard.read',
       version: 1
     });
-    await disableHostMenu('menu-id');
+    await disableHostMenu(menuId);
 
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
       '/api/v1/identity/menus',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({ method: 'POST' }),
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       2,
-      '/api/v1/identity/menus/menu-id',
-      expect.objectContaining({ method: 'PUT' })
+      `/api/v1/identity/menus/${menuId}`,
+      expect.objectContaining({ method: 'PUT' }),
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       3,
-      '/api/v1/identity/menus/menu-id/disable',
-      expect.objectContaining({ method: 'POST' })
+      `/api/v1/identity/menus/${menuId}/disable`,
+      expect.objectContaining({ method: 'POST' }),
+      undefined
     );
   });
 });
