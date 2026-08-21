@@ -18,6 +18,7 @@
 - Task 7 首轮曾判定 `Pilot-stopped`；解除窗口在 `main` @ `37a5379d`（快照 `openapi-client-pilot-unblock-20260821`）修复 Vue Unit/Build 与 `nanoid` High advisory 后完整重跑门禁，判定更新为 `Pilot-passed`，见 [`openapi-client-generation-pilot-2026-08-21.md`](../../verification/openapi-client-generation-pilot-2026-08-21.md)。
 - 三类试点共 29 个 Operation 已从 `pilot` 提升为 `generated`；非试点模块继续保持手写实现。
 - 允许依据真实生成产物新建单模块迁移计划；禁止并行批量迁移，禁止修改 `ui/admin-layui`。
+- Identity remaining 第 1 slice 计划已建立：[`2026-08-21-openapi-client-identity-host-roles.md`](./2026-08-21-openapi-client-identity-host-roles.md)（`identity-host-roles` / `roles.ts`）；尚未开始实现。
 
 ## Global Constraints
 

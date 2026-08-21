@@ -172,6 +172,6 @@ OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-opena
 5. 为 Layui 制定独立退役计划，决定归档、只读发布、迁移说明和最终移除条件；
 6. 在 Vue 主线继续推进 Tiptap、ECharts 业务图表、可访问性和统一视觉体验；
 7. 按真实业务需求推进 uni-app，再启动 Flutter 首个纵向样例。
-8. 继续 [OpenAPI 驱动客户端生成计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md) 的单模块迁移：三类试点已 `Pilot-passed`；后续每个 slice 只迁移一个模块并重复门禁，其余手写适配层保留至迁完。
+8. 继续 [OpenAPI 驱动客户端生成计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md) 的单模块迁移：三类试点已 `Pilot-passed`；下一可执行项为 [Identity Host Roles](../superpowers/plans/2026-08-21-openapi-client-identity-host-roles.md)，其后按 Identity remaining 队列串行推进，禁止并行批量改写。
 
 每个计划结束时只更新真实受影响的状态与验证记录，不以计划存在、历史 Layui 证据或局部构建替代 Vue 真实验收。
