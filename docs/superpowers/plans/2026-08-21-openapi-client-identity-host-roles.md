@@ -18,6 +18,7 @@
 - Task 1–4 已完成；Verification 判定 `Slice-passed`，见 [`openapi-client-identity-host-roles-2026-08-21.md`](../../verification/openapi-client-identity-host-roles-2026-08-21.md)。
 - `identity-host-roles` 共 12 个 Operation 已由 `pilot` 提升为 `generated`。
 - 允许创建下一个 Identity remaining 计划（默认 Menus）；禁止并行迁移其他资源组。
+- Menus 计划已创建：[`2026-08-21-openapi-client-identity-host-menus.md`](./2026-08-21-openapi-client-identity-host-menus.md)。
 
 ## Global Constraints
 
