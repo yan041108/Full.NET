@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
   createHostApiKey,
   disableHostApiKey,
@@ -7,8 +7,13 @@ import {
   rotateHostApiKey
 } from './api-keys';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
 
 const sampleApiKey = {
   id: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
@@ -37,7 +42,9 @@ describe('Vue Host API Key API', () => {
     await expect(listHostApiKeys(2, 10, sampleApiKey.userId, '部署'))
       .resolves.toMatchObject({ total: 11 });
     expect(requestMock).toHaveBeenCalledWith(
-      `/api/v1/identity/api-keys?page=2&pageSize=10&userId=${sampleApiKey.userId}&displayNameContains=%E9%83%A8%E7%BD%B2`
+      `/api/v1/identity/api-keys?page=2&pageSize=10&userId=${sampleApiKey.userId}&displayNameContains=%E9%83%A8%E7%BD%B2`,
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -63,7 +70,8 @@ describe('Vue Host API Key API', () => {
           permissions: sampleApiKey.permissions,
           expiresAtUtc: null
         })
-      })
+      }),
+      undefined
     );
   });
 
@@ -74,7 +82,8 @@ describe('Vue Host API Key API', () => {
 
     expect(requestMock).toHaveBeenCalledWith(
       `/api/v1/identity/api-keys/${sampleApiKey.id}/disable`,
-      { method: 'POST' }
+      { method: 'POST' },
+      undefined
     );
   });
 
@@ -88,7 +97,8 @@ describe('Vue Host API Key API', () => {
       .resolves.toMatchObject({ secret: 'fn_live_rotated' });
     expect(requestMock).toHaveBeenCalledWith(
       `/api/v1/identity/api-keys/${sampleApiKey.id}/rotate`,
-      { method: 'POST' }
+      { method: 'POST' },
+      undefined
     );
   });
 
