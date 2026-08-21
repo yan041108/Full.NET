@@ -3,13 +3,34 @@
   "paths": {
     "/api/v1/me": {
       "get": {
-        "operationId": "getCurrentUser",
+        "operationId": "identityGetCurrentUser",
         "responses": {
           "200": {
-            "description": "Current authenticated user profile"
+            "description": "Current authenticated user profile",
+            "responseSchema": "CurrentUserResponse"
+          },
+          "401": {
+            "description": "Current session is no longer active"
           }
         }
       }
+    }
+  },
+  "schemas": {
+    "CurrentUserResponse": {
+      "properties": [
+        "id",
+        "username",
+        "displayName",
+        "tenantId",
+        "actorScope",
+        "scope",
+        "isSuperAdministrator",
+        "permissions",
+        "sessionId",
+        "preferredLocale",
+        "profileVersion"
+      ]
     }
   }
 }

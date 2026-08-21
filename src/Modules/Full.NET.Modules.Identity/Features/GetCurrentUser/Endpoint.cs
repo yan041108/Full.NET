@@ -76,7 +76,10 @@ internal static class Endpoint
                 profile.ProfileVersion);
             return mapper.Map(Result<CurrentUserResponse>.Success(response), httpContext);
         })
-        .WithTags("Identity")
+        .WithName("identityGetCurrentUser")
+        .WithTags("IdentityMe")
+        .Produces<CurrentUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
         .RequireAuthorization();
     }
 

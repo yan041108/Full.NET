@@ -29,6 +29,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityHostApiKeysTag = "IdentityHostApiKeys";
     private const string IdentityHostOnlineSessionsTag = "IdentityHostOnlineSessions";
     private const string IdentityHostModulesTag = "IdentityHostModules";
+    private const string IdentityMeTag = "IdentityMe";
     private const string FilesTag = "FilesHostFiles";
     private const string SettingsTag = "SettingsHostConfigEntries";
 
@@ -181,6 +182,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/identity/online-sessions/{sessionId}/revoke", "identityRevokeHostOnlineSession", IdentityHostOnlineSessionsTag),
         new("GET", "/api/v1/identity/modules", "identityListHostModules", IdentityHostModulesTag),
         new("GET", "/api/v1/identity/modules/{moduleKey}", "identityGetHostModule", IdentityHostModulesTag),
+        new("GET", "/api/v1/me", "identityGetCurrentUser", IdentityMeTag),
         new("GET", "/api/v1/files/host-files", "filesListHostFiles", FilesTag),
         new("GET", "/api/v1/files/host-files/{fileId}", "filesGetHostFile", FilesTag),
         new("POST", "/api/v1/files/host-files", "filesUploadHostFile", FilesTag),
