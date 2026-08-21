@@ -15,10 +15,9 @@
 ## 执行状态（2026-08-21）
 
 - 计划已创建。
-- Task 1（operationId / 主 Tag / ProblemDetails 元数据）已完成。
-- Task 2（标准快照 + manifest `pilot` + 生成物同步）已完成。
-- Task 3（`roles.ts` 薄适配）已完成；清单仍为 `pilot`，待 Task 4 Verification 后升 `generated`。
-- Task 4 尚未开始；其余 Identity Vue API 见文末队列，禁止并入本 slice。
+- Task 1–4 已完成；Verification 判定 `Slice-passed`，见 [`openapi-client-identity-host-roles-2026-08-21.md`](../../verification/openapi-client-identity-host-roles-2026-08-21.md)。
+- `identity-host-roles` 共 12 个 Operation 已由 `pilot` 提升为 `generated`。
+- 允许创建下一个 Identity remaining 计划（默认 Menus）；禁止并行迁移其他资源组。
 
 ## Global Constraints
 
@@ -166,15 +165,17 @@ git diff --check
 pnpm test:integration:affected -- --snapshot openapi-client-identity-host-roles-verify-20260821 --phase slice
 ```
 
-**Decision:**
+**Decision（已完成）：**
 
 - 全部通过 → Verification 写 `Slice-passed`；本 slice 清单改 `generated`；允许创建**下一个** Identity remaining 计划（默认 Menus）。
 - 任一项失败 → `Slice-stopped`；清单保持 `pilot`；禁止开始 Menus 或其他资源组。
 
+本轮结果：`Slice-passed`（smoke 8 + Identity 30 双库；其余门禁见 Verification）。
+
 **提交建议：**
 
 1. `fix: ...`（若门禁发现缺陷）
-2. `docs: verify Identity Host Roles OpenAPI client slice`（含清单晋升）
+2. `docs: verify Identity Host Roles OpenAPI client slice`（含清单晋升） — 本轮执行
 
 ---
 
