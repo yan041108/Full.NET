@@ -13,6 +13,7 @@ import type {
   ConfigEntryResponse,
   ConfigValueUpdate,
   CreateConfigEntryRequest,
+  CreateHostMenuRequest,
   CreateHostRoleRequest,
   CreateHostUserRequest,
   DeleteConfigEntryRequest,
@@ -21,6 +22,9 @@ import type {
   FieldProjectionResourceDefinition,
   FieldProjectionSensitivity,
   HostFileResponse,
+  HostMenuPermissionOptionResponse,
+  HostMenuResponse,
+  HostNavigationCatalogSyncResponse,
   HostRoleDataScopeResponse,
   HostRoleFieldGrantsResponse,
   HostRoleResponse,
@@ -35,6 +39,7 @@ import type {
   ImportHostUsersResponse,
   PagedResultOfConfigEntryResponse,
   PagedResultOfHostFileResponse,
+  PagedResultOfHostMenuResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   ProblemDetails,
@@ -44,6 +49,7 @@ import type {
   ResetHostUserPasswordRequest,
   Stream,
   UpdateConfigEntryRequest,
+  UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
   UpdateHostUserRequest
@@ -170,6 +176,17 @@ function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryR
   return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
 }
 
+export function readCreateHostMenuRequest(value: unknown): CreateHostMenuRequest {
+  if (!(isCreateHostMenuRequest(value))) {
+    throw new Error('client.invalid_create_host_menu_request');
+  }
+  return value;
+}
+
+function isCreateHostMenuRequest(value: unknown): value is CreateHostMenuRequest {
+  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (value["isAffix"] === undefined || (typeof value["isAffix"] === 'boolean')) && (value["isEmbedded"] === undefined || (typeof value["isEmbedded"] === 'boolean')) && (value["isHidden"] === undefined || (typeof value["isHidden"] === 'boolean')) && (value["isKeepAlive"] === undefined || (typeof value["isKeepAlive"] === 'boolean')) && (value["linkUrl"] === undefined || ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string'))) && (value["menuType"] === undefined || (typeof value["menuType"] === 'string')) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["path"] === 'string') && (value["redirect"] === undefined || ((value["redirect"] === null) || (typeof value["redirect"] === 'string'))) && (value["remark"] === undefined || ((value["remark"] === null) || (typeof value["remark"] === 'string'))) && (typeof value["requiredPermission"] === 'string') && (typeof value["routeName"] === 'string') && (typeof value["title"] === 'string');
+}
+
 export function readCreateHostRoleRequest(value: unknown): CreateHostRoleRequest {
   if (!(isCreateHostRoleRequest(value))) {
     throw new Error('client.invalid_create_host_role_request');
@@ -256,6 +273,39 @@ export function readHostFileResponse(value: unknown): HostFileResponse {
 
 function isHostFileResponse(value: unknown): value is HostFileResponse {
   return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"]));
+}
+
+export function readHostMenuPermissionOptionResponse(value: unknown): HostMenuPermissionOptionResponse {
+  if (!(isHostMenuPermissionOptionResponse(value))) {
+    throw new Error('client.invalid_host_menu_permission_option_response');
+  }
+  return value;
+}
+
+function isHostMenuPermissionOptionResponse(value: unknown): value is HostMenuPermissionOptionResponse {
+  return isRecord(value) && (value["actionId"] === undefined || ((value["actionId"] === null) || (typeof value["actionId"] === 'string'))) && (value["actionKey"] === undefined || ((value["actionKey"] === null) || (typeof value["actionKey"] === 'string'))) && (typeof value["code"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["displayNameKey"] === 'string') && (typeof value["kind"] === 'string') && (typeof value["moduleKey"] === 'string') && (typeof value["moduleTitle"] === 'string') && (typeof value["pageId"] === 'string') && (typeof value["pageTitle"] === 'string');
+}
+
+export function readHostMenuResponse(value: unknown): HostMenuResponse {
+  if (!(isHostMenuResponse(value))) {
+    throw new Error('client.invalid_host_menu_response');
+  }
+  return value;
+}
+
+function isHostMenuResponse(value: unknown): value is HostMenuResponse {
+  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isAffix"] === 'boolean') && (typeof value["isEmbedded"] === 'boolean') && (typeof value["isHidden"] === 'boolean') && (typeof value["isKeepAlive"] === 'boolean') && (typeof value["isSystem"] === 'boolean') && ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string')) && (typeof value["menuType"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["path"] === 'string') && ((value["redirect"] === null) || (typeof value["redirect"] === 'string')) && ((value["remark"] === null) || (typeof value["remark"] === 'string')) && (typeof value["requiredPermission"] === 'string') && (typeof value["routeName"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostNavigationCatalogSyncResponse(value: unknown): HostNavigationCatalogSyncResponse {
+  if (!(isHostNavigationCatalogSyncResponse(value))) {
+    throw new Error('client.invalid_host_navigation_catalog_sync_response');
+  }
+  return value;
+}
+
+function isHostNavigationCatalogSyncResponse(value: unknown): value is HostNavigationCatalogSyncResponse {
+  return isRecord(value) && (typeof value["created"] === 'number' && Number.isInteger(value["created"])) && (typeof value["reparented"] === 'number' && Number.isInteger(value["reparented"])) && (typeof value["skipped"] === 'number' && Number.isInteger(value["skipped"]));
 }
 
 export function readHostRoleDataScopeResponse(value: unknown): HostRoleDataScopeResponse {
@@ -412,6 +462,17 @@ function isPagedResultOfHostFileResponse(value: unknown): value is PagedResultOf
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostFileResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfHostMenuResponse(value: unknown): PagedResultOfHostMenuResponse {
+  if (!(isPagedResultOfHostMenuResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_menu_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostMenuResponse(value: unknown): value is PagedResultOfHostMenuResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostMenuResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readPagedResultOfHostRoleResponse(value: unknown): PagedResultOfHostRoleResponse {
   if (!(isPagedResultOfHostRoleResponse(value))) {
     throw new Error('client.invalid_paged_result_of_host_role_response');
@@ -511,6 +572,17 @@ function isUpdateConfigEntryRequest(value: unknown): value is UpdateConfigEntryR
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readUpdateHostMenuRequest(value: unknown): UpdateHostMenuRequest {
+  if (!(isUpdateHostMenuRequest(value))) {
+    throw new Error('client.invalid_update_host_menu_request');
+  }
+  return value;
+}
+
+function isUpdateHostMenuRequest(value: unknown): value is UpdateHostMenuRequest {
+  return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (value["isAffix"] === undefined || (typeof value["isAffix"] === 'boolean')) && (value["isEmbedded"] === undefined || (typeof value["isEmbedded"] === 'boolean')) && (value["isHidden"] === undefined || (typeof value["isHidden"] === 'boolean')) && (value["isKeepAlive"] === undefined || (typeof value["isKeepAlive"] === 'boolean')) && (value["linkUrl"] === undefined || ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string'))) && (value["menuType"] === undefined || (typeof value["menuType"] === 'string')) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["path"] === 'string') && (value["redirect"] === undefined || ((value["redirect"] === null) || (typeof value["redirect"] === 'string'))) && (value["remark"] === undefined || ((value["remark"] === null) || (typeof value["remark"] === 'string'))) && (typeof value["requiredPermission"] === 'string') && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readUpdateHostRoleDataScopeRequest(value: unknown): UpdateHostRoleDataScopeRequest {
   if (!(isUpdateHostRoleDataScopeRequest(value))) {
     throw new Error('client.invalid_update_host_role_data_scope_request');
@@ -558,11 +630,25 @@ export function readIdentityGetAuthorizationTreeResponse(value: unknown): Array<
   return value as Array<AuthorizationTreeModuleResponse>;
 }
 
+export function readIdentityListAllHostMenusResponse(value: unknown): Array<HostMenuResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostMenuResponse(item5)))) {
+    throw new Error('client.invalid_identity_list_all_host_menus_response');
+  }
+  return value as Array<HostMenuResponse>;
+}
+
 export function readIdentityListFieldProjectionCatalogResponse(value: unknown): Array<FieldProjectionResourceDefinition> {
   if (!(Array.isArray(value) && value.every(item5 => isFieldProjectionResourceDefinition(item5)))) {
     throw new Error('client.invalid_identity_list_field_projection_catalog_response');
   }
   return value as Array<FieldProjectionResourceDefinition>;
+}
+
+export function readIdentityListHostMenuPermissionOptionsResponse(value: unknown): Array<HostMenuPermissionOptionResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostMenuPermissionOptionResponse(item5)))) {
+    throw new Error('client.invalid_identity_list_host_menu_permission_options_response');
+  }
+  return value as Array<HostMenuPermissionOptionResponse>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {

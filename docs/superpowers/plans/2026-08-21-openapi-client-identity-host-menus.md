@@ -14,8 +14,9 @@
 
 ## 执行状态（2026-08-21）
 
-- 计划已创建；Task 1 已完成（`WithName` / `IdentityHostMenus` / 夹具补齐 `sync-catalog`；inner Identity 15/15；Architecture + OpenAPI 夹具绿）。
-- Task 2–4 尚未开始。
+- 计划已创建；Task 1 已完成（`WithName` / `IdentityHostMenus` / 夹具补齐 `sync-catalog`）。
+- Task 2 已完成（9 条 `pilot`、双库规范快照、生成物同步；`pnpm test:openapi` 109/109）。
+- Task 3–4 尚未开始。
 
 ## Global Constraints
 

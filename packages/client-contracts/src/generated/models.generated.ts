@@ -79,6 +79,26 @@ export interface CreateConfigEntryRequest {
   readonly valueKind: "string" | "boolean" | "integer" | "decimal" | "json" | "secret";
 }
 
+export interface CreateHostMenuRequest {
+  readonly caption: string;
+  readonly componentKey: string;
+  readonly displayOrder: number;
+  readonly icon: string;
+  readonly isAffix?: boolean;
+  readonly isEmbedded?: boolean;
+  readonly isHidden?: boolean;
+  readonly isKeepAlive?: boolean;
+  readonly linkUrl?: null | string;
+  readonly menuType?: string;
+  readonly parentId: null | string;
+  readonly path: string;
+  readonly redirect?: null | string;
+  readonly remark?: null | string;
+  readonly requiredPermission: string;
+  readonly routeName: string;
+  readonly title: string;
+}
+
 export interface CreateHostRoleRequest {
   readonly code: string;
   readonly name: string;
@@ -122,6 +142,51 @@ export interface HostFileResponse {
   readonly id: string;
   readonly originalFileName: string;
   readonly sizeBytes: number;
+}
+
+export interface HostMenuPermissionOptionResponse {
+  readonly actionId?: null | string;
+  readonly actionKey?: null | string;
+  readonly code: string;
+  readonly displayName: string;
+  readonly displayNameKey: string;
+  readonly kind: string;
+  readonly moduleKey: string;
+  readonly moduleTitle: string;
+  readonly pageId: string;
+  readonly pageTitle: string;
+}
+
+export interface HostMenuResponse {
+  readonly caption: string;
+  readonly componentKey: string;
+  readonly createdAtUtc: string;
+  readonly displayOrder: number;
+  readonly icon: string;
+  readonly id: string;
+  readonly isActive: boolean;
+  readonly isAffix: boolean;
+  readonly isEmbedded: boolean;
+  readonly isHidden: boolean;
+  readonly isKeepAlive: boolean;
+  readonly isSystem: boolean;
+  readonly linkUrl: null | string;
+  readonly menuType: string;
+  readonly parentId: null | string;
+  readonly path: string;
+  readonly redirect: null | string;
+  readonly remark: null | string;
+  readonly requiredPermission: string;
+  readonly routeName: string;
+  readonly title: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface HostNavigationCatalogSyncResponse {
+  readonly created: number;
+  readonly reparented: number;
+  readonly skipped: number;
 }
 
 export interface HostRoleDataScopeResponse {
@@ -261,6 +326,13 @@ export interface PagedResultOfHostFileResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfHostMenuResponse {
+  readonly items: Array<HostMenuResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfHostRoleResponse {
   readonly items: Array<HostRoleResponse>;
   readonly page: number;
@@ -311,6 +383,26 @@ export interface UpdateConfigEntryRequest {
   readonly displayOrder: number;
   readonly groupName: null | string;
   readonly value: string;
+  readonly version: number;
+}
+
+export interface UpdateHostMenuRequest {
+  readonly caption: string;
+  readonly componentKey: string;
+  readonly displayOrder: number;
+  readonly icon: string;
+  readonly isAffix?: boolean;
+  readonly isEmbedded?: boolean;
+  readonly isHidden?: boolean;
+  readonly isKeepAlive?: boolean;
+  readonly linkUrl?: null | string;
+  readonly menuType?: string;
+  readonly parentId: null | string;
+  readonly path: string;
+  readonly redirect?: null | string;
+  readonly remark?: null | string;
+  readonly requiredPermission: string;
+  readonly title: string;
   readonly version: number;
 }
 

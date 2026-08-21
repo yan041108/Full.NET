@@ -13,6 +13,9 @@
       "name": "IdentityHostUsers"
     },
     {
+      "name": "IdentityHostMenus"
+    },
+    {
       "name": "FilesHostFiles"
     },
     {
@@ -431,6 +434,530 @@
         ],
         "tags": [
           "IdentityHostRoles"
+        ]
+      }
+    },
+    "/api/v1/identity/menus": {
+      "get": {
+        "operationId": "identityListHostMenus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfHostMenuResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
+        ]
+      },
+      "post": {
+        "operationId": "identityCreateHostMenu",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHostMenuRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostMenuResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
+        ]
+      }
+    },
+    "/api/v1/identity/menus/{menuId}": {
+      "get": {
+        "operationId": "identityGetHostMenu",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "menuId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostMenuResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
+        ]
+      },
+      "put": {
+        "operationId": "identityUpdateHostMenu",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "menuId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHostMenuRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostMenuResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
+        ]
+      }
+    },
+    "/api/v1/identity/menus/{menuId}/disable": {
+      "post": {
+        "operationId": "identityDisableHostMenu",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "menuId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostMenuResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
+        ]
+      }
+    },
+    "/api/v1/identity/menus/{menuId}/enable": {
+      "post": {
+        "operationId": "identityEnableHostMenu",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "menuId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostMenuResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
+        ]
+      }
+    },
+    "/api/v1/identity/menus/all": {
+      "get": {
+        "operationId": "identityListAllHostMenus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HostMenuResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
+        ]
+      }
+    },
+    "/api/v1/identity/menus/permission-options": {
+      "get": {
+        "operationId": "identityListHostMenuPermissionOptions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HostMenuPermissionOptionResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
+        ]
+      }
+    },
+    "/api/v1/identity/menus/sync-catalog": {
+      "post": {
+        "operationId": "identitySyncHostMenuCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostNavigationCatalogSyncResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostMenus"
         ]
       }
     },
@@ -2883,6 +3410,95 @@
         ],
         "type": "object"
       },
+      "CreateHostMenuRequest": {
+        "properties": {
+          "caption": {
+            "type": "string"
+          },
+          "componentKey": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "icon": {
+            "type": "string"
+          },
+          "isAffix": {
+            "default": false,
+            "type": "boolean"
+          },
+          "isEmbedded": {
+            "default": false,
+            "type": "boolean"
+          },
+          "isHidden": {
+            "default": false,
+            "type": "boolean"
+          },
+          "isKeepAlive": {
+            "default": false,
+            "type": "boolean"
+          },
+          "linkUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "menuType": {
+            "default": "menu",
+            "type": "string"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "redirect": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "remark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requiredPermission": {
+            "type": "string"
+          },
+          "routeName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "parentId",
+          "routeName",
+          "path",
+          "componentKey",
+          "title",
+          "caption",
+          "icon",
+          "displayOrder",
+          "requiredPermission"
+        ],
+        "type": "object"
+      },
       "CreateHostRoleRequest": {
         "properties": {
           "code": {
@@ -3047,6 +3663,219 @@
           "contentHash",
           "createdAtUtc",
           "createdByUserId"
+        ],
+        "type": "object"
+      },
+      "HostMenuPermissionOptionResponse": {
+        "properties": {
+          "actionId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actionKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "displayNameKey": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "moduleKey": {
+            "type": "string"
+          },
+          "moduleTitle": {
+            "type": "string"
+          },
+          "pageId": {
+            "type": "string"
+          },
+          "pageTitle": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "moduleKey",
+          "moduleTitle",
+          "pageId",
+          "pageTitle",
+          "kind",
+          "displayName",
+          "displayNameKey"
+        ],
+        "type": "object"
+      },
+      "HostMenuResponse": {
+        "properties": {
+          "caption": {
+            "type": "string"
+          },
+          "componentKey": {
+            "type": "string"
+          },
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "displayOrder": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "icon": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isAffix": {
+            "type": "boolean"
+          },
+          "isEmbedded": {
+            "type": "boolean"
+          },
+          "isHidden": {
+            "type": "boolean"
+          },
+          "isKeepAlive": {
+            "type": "boolean"
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "linkUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "menuType": {
+            "type": "string"
+          },
+          "parentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "redirect": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "remark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requiredPermission": {
+            "type": "string"
+          },
+          "routeName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "routeName",
+          "path",
+          "componentKey",
+          "title",
+          "caption",
+          "icon",
+          "displayOrder",
+          "requiredPermission",
+          "isSystem",
+          "isActive",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "version",
+          "menuType",
+          "redirect",
+          "linkUrl",
+          "isHidden",
+          "isKeepAlive",
+          "isAffix",
+          "isEmbedded",
+          "remark"
+        ],
+        "type": "object"
+      },
+      "HostNavigationCatalogSyncResponse": {
+        "properties": {
+          "created": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "reparented": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "skipped": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "created",
+          "skipped",
+          "reparented"
         ],
         "type": "object"
       },
@@ -3822,6 +4651,47 @@
         ],
         "type": "object"
       },
+      "PagedResultOfHostMenuResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HostMenuResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
       "PagedResultOfHostRoleResponse": {
         "properties": {
           "items": {
@@ -4074,6 +4944,100 @@
           "groupName",
           "value",
           "displayOrder",
+          "version"
+        ],
+        "type": "object"
+      },
+      "UpdateHostMenuRequest": {
+        "properties": {
+          "caption": {
+            "type": "string"
+          },
+          "componentKey": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "icon": {
+            "type": "string"
+          },
+          "isAffix": {
+            "default": false,
+            "type": "boolean"
+          },
+          "isEmbedded": {
+            "default": false,
+            "type": "boolean"
+          },
+          "isHidden": {
+            "default": false,
+            "type": "boolean"
+          },
+          "isKeepAlive": {
+            "default": false,
+            "type": "boolean"
+          },
+          "linkUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "menuType": {
+            "default": "menu",
+            "type": "string"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "redirect": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "remark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requiredPermission": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "parentId",
+          "path",
+          "componentKey",
+          "title",
+          "caption",
+          "icon",
+          "displayOrder",
+          "requiredPermission",
           "version"
         ],
         "type": "object"

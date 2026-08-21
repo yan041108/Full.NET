@@ -14,6 +14,7 @@ import type {
   ConfigEntryResponse,
   ConfigValueUpdate,
   CreateConfigEntryRequest,
+  CreateHostMenuRequest,
   CreateHostRoleRequest,
   CreateHostUserRequest,
   DeleteConfigEntryRequest,
@@ -22,6 +23,9 @@ import type {
   FieldProjectionResourceDefinition,
   FieldProjectionSensitivity,
   HostFileResponse,
+  HostMenuPermissionOptionResponse,
+  HostMenuResponse,
+  HostNavigationCatalogSyncResponse,
   HostRoleDataScopeResponse,
   HostRoleFieldGrantsResponse,
   HostRoleResponse,
@@ -36,6 +40,7 @@ import type {
   ImportHostUsersResponse,
   PagedResultOfConfigEntryResponse,
   PagedResultOfHostFileResponse,
+  PagedResultOfHostMenuResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   ProblemDetails,
@@ -45,6 +50,7 @@ import type {
   ResetHostUserPasswordRequest,
   Stream,
   UpdateConfigEntryRequest,
+  UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
   UpdateHostUserRequest
@@ -53,6 +59,8 @@ import {
   readBatchHostUserStatusResponse,
   readConfigEntryResponse,
   readHostFileResponse,
+  readHostMenuResponse,
+  readHostNavigationCatalogSyncResponse,
   readHostRoleDataScopeResponse,
   readHostRoleFieldGrantsResponse,
   readHostRoleResponse,
@@ -60,10 +68,13 @@ import {
   readHostUserRolesResponse,
   readIdentityExportHostUsersResponse,
   readIdentityGetAuthorizationTreeResponse,
+  readIdentityListAllHostMenusResponse,
   readIdentityListFieldProjectionCatalogResponse,
+  readIdentityListHostMenuPermissionOptionsResponse,
   readImportHostUsersResponse,
   readPagedResultOfConfigEntryResponse,
   readPagedResultOfHostFileResponse,
+  readPagedResultOfHostMenuResponse,
   readPagedResultOfHostRoleResponse,
   readPagedResultOfHostUserResponse,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
@@ -204,6 +215,25 @@ export async function identityBatchEnableHostUsers(
   return readBatchHostUserStatusResponse(value);
 }
 
+export interface IdentityCreateHostMenuParameters {
+  readonly body: CreateHostMenuRequest;
+}
+
+export async function identityCreateHostMenu(
+  http: HttpClient,
+  parameters: IdentityCreateHostMenuParameters,
+  signal?: AbortSignal
+): Promise<HostMenuResponse> {
+  const path = `/api/v1/identity/menus`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostMenuResponse(value);
+}
+
 export interface IdentityCreateHostRoleParameters {
   readonly body: CreateHostRoleRequest;
 }
@@ -242,6 +272,21 @@ export async function identityCreateHostUser(
   return readHostUserResponse(value);
 }
 
+export interface IdentityDisableHostMenuParameters {
+  readonly menuId: string;
+}
+
+export async function identityDisableHostMenu(
+  http: HttpClient,
+  parameters: IdentityDisableHostMenuParameters,
+  signal?: AbortSignal
+): Promise<HostMenuResponse> {
+  const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}/disable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostMenuResponse(value);
+}
+
 export interface IdentityDisableHostRoleParameters {
   readonly roleId: string;
 }
@@ -270,6 +315,21 @@ export async function identityDisableHostUser(
   const init: RequestInit = { method: 'POST' };
   const value = await http.request<unknown>(path, init, signal);
   return readHostUserResponse(value);
+}
+
+export interface IdentityEnableHostMenuParameters {
+  readonly menuId: string;
+}
+
+export async function identityEnableHostMenu(
+  http: HttpClient,
+  parameters: IdentityEnableHostMenuParameters,
+  signal?: AbortSignal
+): Promise<HostMenuResponse> {
+  const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}/enable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostMenuResponse(value);
 }
 
 export interface IdentityEnableHostUserParameters {
@@ -315,6 +375,21 @@ export async function identityGetAuthorizationTree(
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
   return readIdentityGetAuthorizationTreeResponse(value);
+}
+
+export interface IdentityGetHostMenuParameters {
+  readonly menuId: string;
+}
+
+export async function identityGetHostMenu(
+  http: HttpClient,
+  parameters: IdentityGetHostMenuParameters,
+  signal?: AbortSignal
+): Promise<HostMenuResponse> {
+  const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostMenuResponse(value);
 }
 
 export interface IdentityGetHostRoleParameters {
@@ -414,6 +489,21 @@ export async function identityImportHostUsers(
   return readImportHostUsersResponse(value);
 }
 
+export interface IdentityListAllHostMenusParameters {
+
+}
+
+export async function identityListAllHostMenus(
+  http: HttpClient,
+  parameters: IdentityListAllHostMenusParameters,
+  signal?: AbortSignal
+): Promise<Array<HostMenuResponse>> {
+  const path = `/api/v1/identity/menus/all`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readIdentityListAllHostMenusResponse(value);
+}
+
 export interface IdentityListFieldProjectionCatalogParameters {
 
 }
@@ -427,6 +517,44 @@ export async function identityListFieldProjectionCatalog(
   const init: RequestInit = { method: 'GET' };
   const value = await http.request<unknown>(path, init, signal);
   return readIdentityListFieldProjectionCatalogResponse(value);
+}
+
+export interface IdentityListHostMenuPermissionOptionsParameters {
+
+}
+
+export async function identityListHostMenuPermissionOptions(
+  http: HttpClient,
+  parameters: IdentityListHostMenuPermissionOptionsParameters,
+  signal?: AbortSignal
+): Promise<Array<HostMenuPermissionOptionResponse>> {
+  const path = `/api/v1/identity/menus/permission-options`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readIdentityListHostMenuPermissionOptionsResponse(value);
+}
+
+export interface IdentityListHostMenusParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function identityListHostMenus(
+  http: HttpClient,
+  parameters: IdentityListHostMenusParameters,
+  signal?: AbortSignal
+): Promise<PagedResultOfHostMenuResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/identity/menus` : `/api/v1/identity/menus?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readPagedResultOfHostMenuResponse(value);
 }
 
 export interface IdentityListHostRolesParameters {
@@ -553,6 +681,41 @@ export async function identityResetHostUserPassword(
   };
   const value = await http.request<unknown>(path, init, signal);
   return readHostUserResponse(value);
+}
+
+export interface IdentitySyncHostMenuCatalogParameters {
+
+}
+
+export async function identitySyncHostMenuCatalog(
+  http: HttpClient,
+  parameters: IdentitySyncHostMenuCatalogParameters,
+  signal?: AbortSignal
+): Promise<HostNavigationCatalogSyncResponse> {
+  const path = `/api/v1/identity/menus/sync-catalog`;
+  const init: RequestInit = { method: 'POST' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostNavigationCatalogSyncResponse(value);
+}
+
+export interface IdentityUpdateHostMenuParameters {
+  readonly menuId: string;
+  readonly body: UpdateHostMenuRequest;
+}
+
+export async function identityUpdateHostMenu(
+  http: HttpClient,
+  parameters: IdentityUpdateHostMenuParameters,
+  signal?: AbortSignal
+): Promise<HostMenuResponse> {
+  const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readHostMenuResponse(value);
 }
 
 export interface IdentityUpdateHostRoleParameters {
