@@ -231,11 +231,19 @@ function renderOperation(operation, schemas) {
   lines.push(...renderPath(operation));
   lines.push(...renderRequestInitialization(operation, schemas));
   if (operation.response.kind === 'blob') {
-    lines.push('  return await http.requestBlob(path, init, signal, options);');
+    lines.push('  return options === undefined');
+    lines.push('    ? await http.requestBlob(path, init, signal)');
+    lines.push('    : await http.requestBlob(path, init, signal, options);');
   } else if (operation.response.kind === 'void') {
-    lines.push('  await http.request<void>(path, init, signal, options);');
+    lines.push('  if (options === undefined) {');
+    lines.push('    await http.request<void>(path, init, signal);');
+    lines.push('  } else {');
+    lines.push('    await http.request<void>(path, init, signal, options);');
+    lines.push('  }');
   } else {
-    lines.push('  const value = await http.request<unknown>(path, init, signal, options);');
+    lines.push('  const value = options === undefined');
+    lines.push('    ? await http.request<unknown>(path, init, signal)');
+    lines.push('    : await http.request<unknown>(path, init, signal, options);');
     lines.push(`  return ${responseReaderName(operation)}(value);`);
   }
   lines.push('}');

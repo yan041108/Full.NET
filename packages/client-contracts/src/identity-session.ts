@@ -17,6 +17,13 @@ import {
   type TenantContextSummary
 } from './tenancy.js';
 import { isFullNetProblemDetails } from './problem-details.js';
+import {
+  identityGetCurrentUser,
+  identityLogin,
+  identityLogout,
+  identityRefreshSession,
+  identityUpdatePreferredLocale
+} from './generated/operations.generated.js';
 
 export type SessionState = 'initializing' | 'authenticated' | 'anonymous';
 
@@ -97,11 +104,13 @@ export function createIdentitySession(
 
   async function login(username: string, password: string): Promise<void> {
     const operationGeneration = ++sessionGeneration;
-    const value = await http.request<unknown>('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    }, undefined, { retryUnauthorized: false });
+    const value = await identityLogin(
+      http,
+      { body: { username, password } },
+      undefined,
+      { retryUnauthorized: false }
+    );
+    // 生成守卫不强制 Bearer / 非空 expires；会话层继续用更严的手写契约。
     if (!isTokenResponse(value)) {
       throw new TypeError('登录响应不符合 TokenResponse 契约。');
     }
@@ -177,10 +186,15 @@ export function createIdentitySession(
   ): Promise<boolean> {
     const execute = async (): Promise<boolean> => {
       try {
-        const value = await http.request<unknown>('/api/v1/auth/refresh', {
-          method: 'POST',
-          headers: readCsrfHeaders()
-        }, undefined, { retryUnauthorized: false });
+        const value = await identityRefreshSession(
+          http,
+          {},
+          undefined,
+          {
+            retryUnauthorized: false,
+            headers: readCsrfHeaders()
+          }
+        );
         if (operationGeneration !== sessionGeneration) {
           return false;
         }
@@ -264,11 +278,10 @@ export function createIdentitySession(
     savingLocale = true;
     notify();
     try {
-      const value = await http.request<unknown>('/api/v1/me/locale', {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ locale, profileVersion })
+      const value = await identityUpdatePreferredLocale(http, {
+        body: { locale, profileVersion }
       });
+      // 生成守卫只校验 string/number；会话层要求 SupportedLocale 与正整数版本。
       if (!isLocalePreferenceResponse(value)) {
         throw new TypeError('语言偏好响应不符合契约。');
       }
@@ -332,10 +345,15 @@ export function createIdentitySession(
     clearLocal();
     sessionRefreshCoordinator?.notifySessionCleared();
     try {
-      await http.request<void>('/api/v1/auth/logout', {
-        method: 'POST',
-        headers
-      }, undefined, { retryUnauthorized: false });
+      await identityLogout(
+        http,
+        {},
+        undefined,
+        {
+          retryUnauthorized: false,
+          headers
+        }
+      );
     } catch {
       // 本地清理不依赖网络成功，服务端仍由会话过期与重用检测兜底。
     }
@@ -344,7 +362,8 @@ export function createIdentitySession(
   async function loadAuthenticatedSnapshot(
     operationGeneration: number
   ): Promise<boolean> {
-    const userValue = await http.request<unknown>('/api/v1/me');
+    const userValue = await identityGetCurrentUser(http, {});
+    // 生成守卫不校验 SupportedLocale 与 profileVersion>0；会话快照仍要求手写契约。
     if (!isCurrentUserResponse(userValue)) {
       throw new TypeError('当前用户响应不符合契约。');
     }

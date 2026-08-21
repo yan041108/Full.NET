@@ -20,10 +20,10 @@ describe('Vue 登录页', () => {
         expiresAtUtc: '2026-07-17T04:00:00Z'
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        id: 'user-id', username: 'admin', displayName: '系统管理员',
+        id: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f60', username: 'admin', displayName: '系统管理员',
         tenantId: null, actorScope: 'host', scope: 'host',
         isSuperAdministrator: true,
-        permissions: ['platform.dashboard.read'], sessionId: 'session-id',
+        permissions: ['platform.dashboard.read'], sessionId: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f61',
         preferredLocale: 'zh-CN', profileVersion: 1
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify([{

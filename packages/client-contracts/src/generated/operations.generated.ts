@@ -136,7 +136,9 @@ export async function filesDeleteHostFile(
 ): Promise<HostFileResponse> {
   const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/delete`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -155,7 +157,9 @@ export async function filesDownloadHostFileContent(
     method: 'GET',
     headers: { accept: 'application/octet-stream' }
   };
-  return await http.requestBlob(path, init, signal, options);
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
 }
 
 export interface FilesGetHostFileParameters {
@@ -170,7 +174,9 @@ export async function filesGetHostFile(
 ): Promise<HostFileResponse> {
   const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -194,7 +200,9 @@ export async function filesListHostFiles(
   }
   const path = query.size === 0 ? `/api/v1/files/host-files` : `/api/v1/files/host-files?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostFileResponse(value);
 }
 
@@ -214,7 +222,9 @@ export async function filesUploadHostFile(
     body.append('file', parameters.file);
   }
   const init: RequestInit = { method: 'POST', body };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostFileResponse(value);
 }
 
@@ -234,7 +244,9 @@ export async function identityBatchDisableHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readBatchHostUserStatusResponse(value);
 }
 
@@ -254,7 +266,9 @@ export async function identityBatchEnableHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readBatchHostUserStatusResponse(value);
 }
 
@@ -270,7 +284,9 @@ export async function identityBeginTotpEnrollment(
 ): Promise<BeginTotpEnrollmentResponse> {
   const path = `/api/v1/identity/me/mfa/totp/begin`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readBeginTotpEnrollmentResponse(value);
 }
 
@@ -290,7 +306,9 @@ export async function identityConfirmTotpEnrollment(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readTotpEnrollmentStatusResponse(value);
 }
 
@@ -310,7 +328,9 @@ export async function identityCreateHostApiKey(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readCreateHostApiKeyResponse(value);
 }
 
@@ -330,7 +350,9 @@ export async function identityCreateHostMenu(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -350,7 +372,9 @@ export async function identityCreateHostRole(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -370,7 +394,9 @@ export async function identityCreateHostUser(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -386,7 +412,9 @@ export async function identityDisableHostApiKey(
 ): Promise<HostApiKeyResponse> {
   const path = `/api/v1/identity/api-keys/${encodeURIComponent(String(parameters.apiKeyId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostApiKeyResponse(value);
 }
 
@@ -402,7 +430,9 @@ export async function identityDisableHostMenu(
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -418,7 +448,9 @@ export async function identityDisableHostRole(
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -434,7 +466,9 @@ export async function identityDisableHostUser(
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -450,7 +484,9 @@ export async function identityEnableHostMenu(
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}/enable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -466,7 +502,9 @@ export async function identityEnableHostUser(
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/enable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -482,7 +520,9 @@ export async function identityExportHostUsers(
 ): Promise<Array<HostUserResponse>> {
   const path = `/api/v1/identity/users/export`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readIdentityExportHostUsersResponse(value);
 }
 
@@ -498,7 +538,9 @@ export async function identityGetAuthorizationTree(
 ): Promise<Array<AuthorizationTreeModuleResponse>> {
   const path = `/api/v1/identity/authorization-tree`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readIdentityGetAuthorizationTreeResponse(value);
 }
 
@@ -514,7 +556,9 @@ export async function identityGetCurrentUser(
 ): Promise<CurrentUserResponse> {
   const path = `/api/v1/me`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readCurrentUserResponse(value);
 }
 
@@ -530,7 +574,9 @@ export async function identityGetHostMenu(
 ): Promise<HostMenuResponse> {
   const path = `/api/v1/identity/menus/${encodeURIComponent(String(parameters.menuId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -546,7 +592,9 @@ export async function identityGetHostModule(
 ): Promise<ModuleCatalogEntryResponse> {
   const path = `/api/v1/identity/modules/${encodeURIComponent(String(parameters.moduleKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readModuleCatalogEntryResponse(value);
 }
 
@@ -562,7 +610,9 @@ export async function identityGetHostRole(
 ): Promise<HostRoleResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -578,7 +628,9 @@ export async function identityGetHostRoleDataScope(
 ): Promise<HostRoleDataScopeResponse> {
   const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/data-scope`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleDataScopeResponse(value);
 }
 
@@ -597,7 +649,9 @@ export async function identityGetHostRoleFieldGrants(
   query.set('resourceKey', String(parameters.resourceKey));
   const path = query.size === 0 ? `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants` : `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/field-grants?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleFieldGrantsResponse(value);
 }
 
@@ -613,7 +667,9 @@ export async function identityGetHostUser(
 ): Promise<HostUserResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -629,7 +685,9 @@ export async function identityGetHostUserRoles(
 ): Promise<HostUserRolesResponse> {
   const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/roles`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostUserRolesResponse(value);
 }
 
@@ -645,7 +703,9 @@ export async function identityGetTotpEnrollmentStatus(
 ): Promise<TotpEnrollmentStatusResponse> {
   const path = `/api/v1/identity/me/mfa/totp`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readTotpEnrollmentStatusResponse(value);
 }
 
@@ -665,7 +725,9 @@ export async function identityGrantSuperAdministrator(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readSuperAdministratorChangeResponse(value);
 }
 
@@ -685,7 +747,9 @@ export async function identityImportHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readImportHostUsersResponse(value);
 }
 
@@ -701,7 +765,9 @@ export async function identityListAllHostMenus(
 ): Promise<Array<HostMenuResponse>> {
   const path = `/api/v1/identity/menus/all`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readIdentityListAllHostMenusResponse(value);
 }
 
@@ -717,7 +783,9 @@ export async function identityListFieldProjectionCatalog(
 ): Promise<Array<FieldProjectionResourceDefinition>> {
   const path = `/api/v1/identity/field-projections/catalog`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readIdentityListFieldProjectionCatalogResponse(value);
 }
 
@@ -749,7 +817,9 @@ export async function identityListHostApiKeys(
   }
   const path = query.size === 0 ? `/api/v1/identity/api-keys` : `/api/v1/identity/api-keys?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostApiKeyResponse(value);
 }
 
@@ -765,7 +835,9 @@ export async function identityListHostMenuPermissionOptions(
 ): Promise<Array<HostMenuPermissionOptionResponse>> {
   const path = `/api/v1/identity/menus/permission-options`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readIdentityListHostMenuPermissionOptionsResponse(value);
 }
 
@@ -789,7 +861,9 @@ export async function identityListHostMenus(
   }
   const path = query.size === 0 ? `/api/v1/identity/menus` : `/api/v1/identity/menus?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostMenuResponse(value);
 }
 
@@ -805,7 +879,9 @@ export async function identityListHostModules(
 ): Promise<Array<ModuleCatalogEntryResponse>> {
   const path = `/api/v1/identity/modules`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readIdentityListHostModulesResponse(value);
 }
 
@@ -833,7 +909,9 @@ export async function identityListHostOnlineSessions(
   }
   const path = query.size === 0 ? `/api/v1/identity/online-sessions` : `/api/v1/identity/online-sessions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostOnlineSessionResponse(value);
 }
 
@@ -857,7 +935,9 @@ export async function identityListHostRoles(
   }
   const path = query.size === 0 ? `/api/v1/identity/roles` : `/api/v1/identity/roles?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostRoleResponse(value);
 }
 
@@ -881,7 +961,9 @@ export async function identityListHostUsers(
   }
   const path = query.size === 0 ? `/api/v1/identity/users` : `/api/v1/identity/users?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostUserResponse(value);
 }
 
@@ -901,7 +983,9 @@ export async function identityListSuperAdministratorAudits(
   }
   const path = query.size === 0 ? `/api/v1/identity/super-administrators/audits` : `/api/v1/identity/super-administrators/audits?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readIdentityListSuperAdministratorAuditsResponse(value);
 }
 
@@ -917,7 +1001,9 @@ export async function identityListSuperAdministrators(
 ): Promise<Array<SuperAdministratorResponse>> {
   const path = `/api/v1/identity/super-administrators`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readIdentityListSuperAdministratorsResponse(value);
 }
 
@@ -937,7 +1023,9 @@ export async function identityLogin(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readTokenResponse(value);
 }
 
@@ -953,7 +1041,11 @@ export async function identityLogout(
 ): Promise<void> {
   const path = `/api/v1/auth/logout`;
   const init: RequestInit = { method: 'POST' };
-  await http.request<void>(path, init, signal, options);
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
 }
 
 export interface IdentityRefreshSessionParameters {
@@ -968,7 +1060,9 @@ export async function identityRefreshSession(
 ): Promise<TokenResponse> {
   const path = `/api/v1/auth/refresh`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readTokenResponse(value);
 }
 
@@ -989,7 +1083,9 @@ export async function identityReplaceHostRoleFieldGrants(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleFieldGrantsResponse(value);
 }
 
@@ -1010,7 +1106,9 @@ export async function identityReplaceHostRolePermissions(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -1031,7 +1129,9 @@ export async function identityReplaceHostUserRoles(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostUserRolesResponse(value);
 }
 
@@ -1052,7 +1152,9 @@ export async function identityResetHostUserPassword(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -1068,7 +1170,9 @@ export async function identityRevokeHostOnlineSession(
 ): Promise<HostOnlineSessionResponse> {
   const path = `/api/v1/identity/online-sessions/${encodeURIComponent(String(parameters.sessionId))}/revoke`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostOnlineSessionResponse(value);
 }
 
@@ -1089,7 +1193,9 @@ export async function identityRevokeSuperAdministrator(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readSuperAdministratorChangeResponse(value);
 }
 
@@ -1105,7 +1211,9 @@ export async function identityRotateHostApiKey(
 ): Promise<CreateHostApiKeyResponse> {
   const path = `/api/v1/identity/api-keys/${encodeURIComponent(String(parameters.apiKeyId))}/rotate`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readCreateHostApiKeyResponse(value);
 }
 
@@ -1121,7 +1229,9 @@ export async function identitySyncHostMenuCatalog(
 ): Promise<HostNavigationCatalogSyncResponse> {
   const path = `/api/v1/identity/menus/sync-catalog`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostNavigationCatalogSyncResponse(value);
 }
 
@@ -1142,7 +1252,9 @@ export async function identityUpdateHostMenu(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
 }
 
@@ -1163,7 +1275,9 @@ export async function identityUpdateHostRole(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleResponse(value);
 }
 
@@ -1184,7 +1298,9 @@ export async function identityUpdateHostRoleDataScope(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostRoleDataScopeResponse(value);
 }
 
@@ -1205,7 +1321,9 @@ export async function identityUpdateHostUser(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
 }
 
@@ -1225,7 +1343,9 @@ export async function identityUpdatePreferredLocale(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readLocalePreferenceResponse(value);
 }
 
@@ -1245,7 +1365,11 @@ export async function settingsBatchDeleteHostConfigEntries(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  await http.request<void>(path, init, signal, options);
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
 }
 
 export interface SettingsBatchUpdateHostConfigEntryValuesParameters {
@@ -1264,7 +1388,9 @@ export async function settingsBatchUpdateHostConfigEntryValues(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readSettingsBatchUpdateHostConfigEntryValuesResponse(value);
 }
 
@@ -1284,7 +1410,9 @@ export async function settingsCreateHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -1305,7 +1433,11 @@ export async function settingsDeleteHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  await http.request<void>(path, init, signal, options);
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
 }
 
 export interface SettingsDisableHostConfigEntryParameters {
@@ -1320,7 +1452,9 @@ export async function settingsDisableHostConfigEntry(
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/${encodeURIComponent(String(parameters.configEntryId))}/disable`;
   const init: RequestInit = { method: 'POST' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -1336,7 +1470,9 @@ export async function settingsGetHostConfigEntry(
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/${encodeURIComponent(String(parameters.configEntryId))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -1352,7 +1488,9 @@ export async function settingsGetHostConfigEntryByKey(
 ): Promise<ConfigEntryResponse> {
   const path = `/api/v1/settings/config-entries/by-key/${encodeURIComponent(String(parameters.configKey))}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }
 
@@ -1368,7 +1506,9 @@ export async function settingsListAllHostConfigEntries(
 ): Promise<Array<ConfigEntryResponse>> {
   const path = `/api/v1/settings/config-entries/list`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readSettingsListAllHostConfigEntriesResponse(value);
 }
 
@@ -1392,7 +1532,9 @@ export async function settingsListHostConfigEntries(
   }
   const path = query.size === 0 ? `/api/v1/settings/config-entries` : `/api/v1/settings/config-entries?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfConfigEntryResponse(value);
 }
 
@@ -1408,7 +1550,9 @@ export async function settingsListHostConfigEntryGroups(
 ): Promise<Array<string>> {
   const path = `/api/v1/settings/config-entries/groups`;
   const init: RequestInit = { method: 'GET' };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readSettingsListHostConfigEntryGroupsResponse(value);
 }
 
@@ -1429,6 +1573,8 @@ export async function settingsUpdateHostConfigEntry(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
-  const value = await http.request<unknown>(path, init, signal, options);
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
 }

@@ -92,7 +92,7 @@ function currentUser(
   profileVersion = 1
 ) {
   return {
-    id: 'user-id',
+    id: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f60',
     username: 'admin',
     displayName: '系统管理员',
     tenantId: tenantIdValue,
@@ -100,7 +100,7 @@ function currentUser(
     scope: 'host',
     isSuperAdministrator: true,
     permissions: ['tenancy.tenants.switch', 'tenancy.tenants.read'],
-    sessionId: 'session-id',
+    sessionId: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f61',
     preferredLocale,
     profileVersion
   };
