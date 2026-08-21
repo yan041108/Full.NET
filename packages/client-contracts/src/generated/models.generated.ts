@@ -169,6 +169,12 @@ export interface FieldProjectionResourceDefinition {
 
 export type FieldProjectionSensitivity = number;
 
+export interface GrantSuperAdministratorRequest {
+  readonly currentPassword: string;
+  readonly totpCode?: null | string;
+  readonly username: string;
+}
+
 export interface HostApiKeyResponse {
   readonly createdAtUtc: string;
   readonly displayName: string;
@@ -458,7 +464,34 @@ export interface ResetHostUserPasswordRequest {
   readonly password: string;
 }
 
+export interface RevokeSuperAdministratorRequest {
+  readonly currentPassword: string;
+  readonly totpCode?: null | string;
+}
+
 export type Stream = Blob;
+
+export interface SuperAdministratorAuditResponse {
+  readonly actorUserId: null | string;
+  readonly eventType: string;
+  readonly id: string;
+  readonly occurredAtUtc: string;
+  readonly resultCode: string;
+  readonly succeeded: boolean;
+  readonly targetUserId: string;
+}
+
+export interface SuperAdministratorChangeResponse {
+  readonly changed: boolean;
+  readonly targetUserId: string;
+}
+
+export interface SuperAdministratorResponse {
+  readonly displayName: string;
+  readonly isActive: boolean;
+  readonly userId: string;
+  readonly username: string;
+}
 
 export interface TotpEnrollmentStatusResponse {
   readonly isEnabled: boolean;

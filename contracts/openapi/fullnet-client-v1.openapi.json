@@ -13,6 +13,9 @@
       "name": "IdentityHostRoles"
     },
     {
+      "name": "IdentitySuperAdministrators"
+    },
+    {
       "name": "IdentityTotpEnrollment"
     },
     {
@@ -2276,6 +2279,269 @@
         ]
       }
     },
+    "/api/v1/identity/super-administrators": {
+      "get": {
+        "operationId": "identityListSuperAdministrators",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SuperAdministratorResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentitySuperAdministrators"
+        ]
+      }
+    },
+    "/api/v1/identity/super-administrators/{targetUserId}/revoke": {
+      "post": {
+        "operationId": "identityRevokeSuperAdministrator",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "targetUserId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeSuperAdministratorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuperAdministratorChangeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentitySuperAdministrators"
+        ]
+      }
+    },
+    "/api/v1/identity/super-administrators/audits": {
+      "get": {
+        "operationId": "identityListSuperAdministratorAudits",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SuperAdministratorAuditResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentitySuperAdministrators"
+        ]
+      }
+    },
+    "/api/v1/identity/super-administrators/grant": {
+      "post": {
+        "operationId": "identityGrantSuperAdministrator",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantSuperAdministratorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuperAdministratorChangeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentitySuperAdministrators"
+        ]
+      }
+    },
     "/api/v1/identity/users": {
       "get": {
         "operationId": "identityListHostUsers",
@@ -4466,6 +4732,27 @@
       "FieldProjectionSensitivity": {
         "type": "integer"
       },
+      "GrantSuperAdministratorRequest": {
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "totpCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "currentPassword"
+        ],
+        "type": "object"
+      },
       "HostApiKeyResponse": {
         "properties": {
           "createdAtUtc": {
@@ -5974,9 +6261,108 @@
         ],
         "type": "object"
       },
+      "RevokeSuperAdministratorRequest": {
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "totpCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "currentPassword"
+        ],
+        "type": "object"
+      },
       "Stream": {
         "format": "binary",
         "type": "string"
+      },
+      "SuperAdministratorAuditResponse": {
+        "properties": {
+          "actorUserId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "occurredAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "resultCode": {
+            "type": "string"
+          },
+          "succeeded": {
+            "type": "boolean"
+          },
+          "targetUserId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "targetUserId",
+          "actorUserId",
+          "eventType",
+          "resultCode",
+          "succeeded",
+          "occurredAtUtc"
+        ],
+        "type": "object"
+      },
+      "SuperAdministratorChangeResponse": {
+        "properties": {
+          "changed": {
+            "type": "boolean"
+          },
+          "targetUserId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetUserId",
+          "changed"
+        ],
+        "type": "object"
+      },
+      "SuperAdministratorResponse": {
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "userId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "username",
+          "displayName",
+          "isActive"
+        ],
+        "type": "object"
       },
       "TotpEnrollmentStatusResponse": {
         "properties": {

@@ -26,6 +26,7 @@ import type {
   FieldProjectionFieldDefinition,
   FieldProjectionResourceDefinition,
   FieldProjectionSensitivity,
+  GrantSuperAdministratorRequest,
   HostApiKeyResponse,
   HostFileResponse,
   HostMenuPermissionOptionResponse,
@@ -57,7 +58,11 @@ import type {
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
+  RevokeSuperAdministratorRequest,
   Stream,
+  SuperAdministratorAuditResponse,
+  SuperAdministratorChangeResponse,
+  SuperAdministratorResponse,
   TotpEnrollmentStatusResponse,
   UpdateConfigEntryRequest,
   UpdateHostMenuRequest,
@@ -328,6 +333,17 @@ export function readFieldProjectionSensitivity(value: unknown): FieldProjectionS
 
 function isFieldProjectionSensitivity(value: unknown): value is FieldProjectionSensitivity {
   return typeof value === 'number' && Number.isInteger(value);
+}
+
+export function readGrantSuperAdministratorRequest(value: unknown): GrantSuperAdministratorRequest {
+  if (!(isGrantSuperAdministratorRequest(value))) {
+    throw new Error('client.invalid_grant_super_administrator_request');
+  }
+  return value;
+}
+
+function isGrantSuperAdministratorRequest(value: unknown): value is GrantSuperAdministratorRequest {
+  return isRecord(value) && (typeof value["currentPassword"] === 'string') && (value["totpCode"] === undefined || ((value["totpCode"] === null) || (typeof value["totpCode"] === 'string'))) && (typeof value["username"] === 'string');
 }
 
 export function readHostApiKeyResponse(value: unknown): HostApiKeyResponse {
@@ -671,6 +687,17 @@ function isResetHostUserPasswordRequest(value: unknown): value is ResetHostUserP
   return isRecord(value) && (typeof value["password"] === 'string');
 }
 
+export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
+  if (!(isRevokeSuperAdministratorRequest(value))) {
+    throw new Error('client.invalid_revoke_super_administrator_request');
+  }
+  return value;
+}
+
+function isRevokeSuperAdministratorRequest(value: unknown): value is RevokeSuperAdministratorRequest {
+  return isRecord(value) && (typeof value["currentPassword"] === 'string') && (value["totpCode"] === undefined || ((value["totpCode"] === null) || (typeof value["totpCode"] === 'string')));
+}
+
 export function readStream(value: unknown): Stream {
   if (!(isStream(value))) {
     throw new Error('client.invalid_stream');
@@ -680,6 +707,39 @@ export function readStream(value: unknown): Stream {
 
 function isStream(value: unknown): value is Stream {
   return value instanceof Blob;
+}
+
+export function readSuperAdministratorAuditResponse(value: unknown): SuperAdministratorAuditResponse {
+  if (!(isSuperAdministratorAuditResponse(value))) {
+    throw new Error('client.invalid_super_administrator_audit_response');
+  }
+  return value;
+}
+
+function isSuperAdministratorAuditResponse(value: unknown): value is SuperAdministratorAuditResponse {
+  return isRecord(value) && ((value["actorUserId"] === null) || (typeof value["actorUserId"] === 'string' && guidPattern.test(value["actorUserId"]))) && (typeof value["eventType"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && (typeof value["resultCode"] === 'string') && (typeof value["succeeded"] === 'boolean') && (typeof value["targetUserId"] === 'string' && guidPattern.test(value["targetUserId"]));
+}
+
+export function readSuperAdministratorChangeResponse(value: unknown): SuperAdministratorChangeResponse {
+  if (!(isSuperAdministratorChangeResponse(value))) {
+    throw new Error('client.invalid_super_administrator_change_response');
+  }
+  return value;
+}
+
+function isSuperAdministratorChangeResponse(value: unknown): value is SuperAdministratorChangeResponse {
+  return isRecord(value) && (typeof value["changed"] === 'boolean') && (typeof value["targetUserId"] === 'string' && guidPattern.test(value["targetUserId"]));
+}
+
+export function readSuperAdministratorResponse(value: unknown): SuperAdministratorResponse {
+  if (!(isSuperAdministratorResponse(value))) {
+    throw new Error('client.invalid_super_administrator_response');
+  }
+  return value;
+}
+
+function isSuperAdministratorResponse(value: unknown): value is SuperAdministratorResponse {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["isActive"] === 'boolean') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
 export function readTotpEnrollmentStatusResponse(value: unknown): TotpEnrollmentStatusResponse {
@@ -788,6 +848,20 @@ export function readIdentityListHostModulesResponse(value: unknown): Array<Modul
     throw new Error('client.invalid_identity_list_host_modules_response');
   }
   return value as Array<ModuleCatalogEntryResponse>;
+}
+
+export function readIdentityListSuperAdministratorAuditsResponse(value: unknown): Array<SuperAdministratorAuditResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isSuperAdministratorAuditResponse(item5)))) {
+    throw new Error('client.invalid_identity_list_super_administrator_audits_response');
+  }
+  return value as Array<SuperAdministratorAuditResponse>;
+}
+
+export function readIdentityListSuperAdministratorsResponse(value: unknown): Array<SuperAdministratorResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isSuperAdministratorResponse(item5)))) {
+    throw new Error('client.invalid_identity_list_super_administrators_response');
+  }
+  return value as Array<SuperAdministratorResponse>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {

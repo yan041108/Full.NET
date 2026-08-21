@@ -27,6 +27,7 @@ import type {
   FieldProjectionFieldDefinition,
   FieldProjectionResourceDefinition,
   FieldProjectionSensitivity,
+  GrantSuperAdministratorRequest,
   HostApiKeyResponse,
   HostFileResponse,
   HostMenuPermissionOptionResponse,
@@ -58,7 +59,11 @@ import type {
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
+  RevokeSuperAdministratorRequest,
   Stream,
+  SuperAdministratorAuditResponse,
+  SuperAdministratorChangeResponse,
+  SuperAdministratorResponse,
   TotpEnrollmentStatusResponse,
   UpdateConfigEntryRequest,
   UpdateHostMenuRequest,
@@ -88,6 +93,8 @@ import {
   readIdentityListFieldProjectionCatalogResponse,
   readIdentityListHostMenuPermissionOptionsResponse,
   readIdentityListHostModulesResponse,
+  readIdentityListSuperAdministratorAuditsResponse,
+  readIdentityListSuperAdministratorsResponse,
   readImportHostUsersResponse,
   readModuleCatalogEntryResponse,
   readPagedResultOfConfigEntryResponse,
@@ -100,6 +107,7 @@ import {
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
   readSettingsListAllHostConfigEntriesResponse,
   readSettingsListHostConfigEntryGroupsResponse,
+  readSuperAdministratorChangeResponse,
   readTotpEnrollmentStatusResponse
 } from './guards.generated.js';
 
@@ -604,6 +612,25 @@ export async function identityGetTotpEnrollmentStatus(
   return readTotpEnrollmentStatusResponse(value);
 }
 
+export interface IdentityGrantSuperAdministratorParameters {
+  readonly body: GrantSuperAdministratorRequest;
+}
+
+export async function identityGrantSuperAdministrator(
+  http: HttpClient,
+  parameters: IdentityGrantSuperAdministratorParameters,
+  signal?: AbortSignal
+): Promise<SuperAdministratorChangeResponse> {
+  const path = `/api/v1/identity/super-administrators/grant`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readSuperAdministratorChangeResponse(value);
+}
+
 export interface IdentityImportHostUsersParameters {
   readonly body: ImportHostUsersRequest;
 }
@@ -810,6 +837,40 @@ export async function identityListHostUsers(
   return readPagedResultOfHostUserResponse(value);
 }
 
+export interface IdentityListSuperAdministratorAuditsParameters {
+  readonly limit?: number;
+}
+
+export async function identityListSuperAdministratorAudits(
+  http: HttpClient,
+  parameters: IdentityListSuperAdministratorAuditsParameters,
+  signal?: AbortSignal
+): Promise<Array<SuperAdministratorAuditResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.limit !== undefined) {
+    query.set('limit', String(parameters.limit));
+  }
+  const path = query.size === 0 ? `/api/v1/identity/super-administrators/audits` : `/api/v1/identity/super-administrators/audits?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readIdentityListSuperAdministratorAuditsResponse(value);
+}
+
+export interface IdentityListSuperAdministratorsParameters {
+
+}
+
+export async function identityListSuperAdministrators(
+  http: HttpClient,
+  parameters: IdentityListSuperAdministratorsParameters,
+  signal?: AbortSignal
+): Promise<Array<SuperAdministratorResponse>> {
+  const path = `/api/v1/identity/super-administrators`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await http.request<unknown>(path, init, signal);
+  return readIdentityListSuperAdministratorsResponse(value);
+}
+
 export interface IdentityReplaceHostRoleFieldGrantsParameters {
   readonly roleId: string;
   readonly body: ReplaceHostRoleFieldGrantsRequest;
@@ -903,6 +964,26 @@ export async function identityRevokeHostOnlineSession(
   const init: RequestInit = { method: 'POST' };
   const value = await http.request<unknown>(path, init, signal);
   return readHostOnlineSessionResponse(value);
+}
+
+export interface IdentityRevokeSuperAdministratorParameters {
+  readonly targetUserId: string;
+  readonly body: RevokeSuperAdministratorRequest;
+}
+
+export async function identityRevokeSuperAdministrator(
+  http: HttpClient,
+  parameters: IdentityRevokeSuperAdministratorParameters,
+  signal?: AbortSignal
+): Promise<SuperAdministratorChangeResponse> {
+  const path = `/api/v1/identity/super-administrators/${encodeURIComponent(String(parameters.targetUserId))}/revoke`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await http.request<unknown>(path, init, signal);
+  return readSuperAdministratorChangeResponse(value);
 }
 
 export interface IdentityRotateHostApiKeyParameters {
