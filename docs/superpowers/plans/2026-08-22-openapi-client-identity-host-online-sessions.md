@@ -15,6 +15,7 @@
 - Task 1–4 已完成；Verification 判定 `Slice-passed`，见 [`openapi-client-identity-host-online-sessions-2026-08-22.md`](../../verification/openapi-client-identity-host-online-sessions-2026-08-22.md)。
 - `identity-host-online-sessions` 共 2 个 Operation 已由 `pilot` 提升为 `generated`。
 - 允许创建下一个 Identity remaining 计划（默认 module-catalog）；禁止并行迁移其他资源组。
+- Module Catalog 计划已创建：[`2026-08-22-openapi-client-identity-host-modules.md`](./2026-08-22-openapi-client-identity-host-modules.md)。
 
 ## Global Constraints
 
