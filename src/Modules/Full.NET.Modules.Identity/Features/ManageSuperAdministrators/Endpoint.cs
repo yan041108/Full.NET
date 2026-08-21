@@ -14,13 +14,17 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/super-administrators")
-            .WithTags("Identity");
+            .WithTags("IdentitySuperAdministrators");
 
         group.MapGet("/", async (
             SuperAdministratorQueryService queries,
             CancellationToken cancellationToken) =>
             Results.Ok(await queries.ListAsync(cancellationToken)
                 .ConfigureAwait(false)))
+            .WithName("identityListSuperAdministrators")
+            .Produces<IReadOnlyList<SuperAdministratorResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireFullNetPermission(
                 IdentityAuthorizationContributor.SuperAdministratorsRead);
 
@@ -32,6 +36,10 @@ internal static class Endpoint
                     limit ?? 50,
                     cancellationToken)
                 .ConfigureAwait(false)))
+            .WithName("identityListSuperAdministratorAudits")
+            .Produces<IReadOnlyList<SuperAdministratorAuditResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireFullNetPermission(
                 IdentityAuthorizationContributor.SuperAdministratorsRead);
 
@@ -58,6 +66,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityGrantSuperAdministrator")
+        .Produces<SuperAdministratorChangeResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(
             IdentityAuthorizationContributor.SuperAdministratorsGrant)
         .RequireRateLimiting("identity-super-administrator-write");
@@ -85,6 +98,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("identityRevokeSuperAdministrator")
+        .Produces<SuperAdministratorChangeResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(
             IdentityAuthorizationContributor.SuperAdministratorsRevoke)
         .RequireRateLimiting("identity-super-administrator-write");

@@ -15,6 +15,12 @@ test('超级管理员 OpenAPI 夹具与 C# 契约和端点一致', async () => {
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
   assert.equal(contract.id, 'identity-super-administrators-v1');
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/super-administrators"\)/u);
+  assert.match(endpointSource, /WithName\("identityListSuperAdministrators"\)/u);
+  assert.match(endpointSource, /WithName\("identityListSuperAdministratorAudits"\)/u);
+  assert.match(endpointSource, /WithName\("identityGrantSuperAdministrator"\)/u);
+  assert.match(endpointSource, /WithName\("identityRevokeSuperAdministrator"\)/u);
+  assert.match(endpointSource, /WithTags\("IdentitySuperAdministrators"\)/u);
+  assert.match(endpointSource, /RequireRateLimiting\("identity-super-administrator-write"\)/u);
   assert.match(contractsSource, /record SuperAdministratorResponse/u);
   assert.ok(contract.paths.some((entry) => entry.path.endsWith('/grant')));
 });
