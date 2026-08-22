@@ -310,25 +310,25 @@
       "operationId": "identityLogin",
       "apiModule": "packages/client-contracts/src/identity-session.ts",
       "generatedGroup": "identity-auth-session",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityRefreshSession",
       "apiModule": "packages/client-contracts/src/identity-session.ts",
       "generatedGroup": "identity-auth-session",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityLogout",
       "apiModule": "packages/client-contracts/src/identity-session.ts",
       "generatedGroup": "identity-auth-session",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "identityUpdatePreferredLocale",
       "apiModule": "packages/client-contracts/src/identity-session.ts",
       "generatedGroup": "identity-auth-session",
-      "status": "pilot"
+      "status": "generated"
     },
     {
       "operationId": "filesListHostFiles",

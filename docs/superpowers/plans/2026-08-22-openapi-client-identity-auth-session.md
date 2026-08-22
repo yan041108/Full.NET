@@ -8,6 +8,8 @@
 
 **Tech Stack:** ASP.NET Core Minimal APIs + OpenAPI, TypeScript OpenAPI codegen, Vitest, Vue Pinia session store.
 
+**Status:** `Slice-passed` — 见 [`../verification/openapi-client-identity-auth-session-2026-08-22.md`](../verification/openapi-client-identity-auth-session-2026-08-22.md)。
+
 ---
 
 ### Task 1: Endpoint metadata + AllowAnonymous security[]
