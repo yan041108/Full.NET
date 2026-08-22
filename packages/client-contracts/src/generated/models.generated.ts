@@ -1,6 +1,11 @@
 // 此文件由 OpenAPI 快照确定性生成，禁止手工修改。
 // 内容：OpenAPI 数据模型。
 
+export interface AssignHostTenantPackageRequest {
+  readonly tenantPackageId: null | string;
+  readonly version: number;
+}
+
 export interface AuthorizationTreeActionResponse {
   readonly id: string;
   readonly name: string;
@@ -446,12 +451,26 @@ export interface PagedResultOfHostUserResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfTenantSummary {
+  readonly items: Array<TenantSummary>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface ProblemDetails {
   readonly detail?: null | string;
   readonly instance?: null | string;
   readonly status?: null | number;
   readonly title?: null | string;
   readonly type?: null | string;
+}
+
+export interface ProvisionTenantRequest {
+  readonly domain: string;
+  readonly identifier: string;
+  readonly name: string;
+  readonly tenantPackageId?: null | string;
 }
 
 export interface ReplaceHostRoleFieldGrantsRequest {
@@ -503,6 +522,19 @@ export interface SuperAdministratorResponse {
   readonly username: string;
 }
 
+export interface TenantSummary {
+  readonly defaultLocale?: string;
+  readonly domain: string;
+  readonly id: string;
+  readonly identifier: string;
+  readonly isActive: boolean;
+  readonly name: string;
+  readonly tenantPackageCode?: null | string;
+  readonly tenantPackageId?: null | string;
+  readonly tenantPackageName?: null | string;
+  readonly version: number;
+}
+
 export interface TokenResponse {
   readonly accessToken: string;
   readonly expiresAtUtc: string;
@@ -551,6 +583,11 @@ export interface UpdateHostRoleDataScopeRequest {
 }
 
 export interface UpdateHostRoleRequest {
+  readonly name: string;
+  readonly version: number;
+}
+
+export interface UpdateHostTenantRequest {
   readonly name: string;
   readonly version: number;
 }

@@ -2,6 +2,7 @@
 // 内容：OpenAPI 运行时响应守卫。
 
 import type {
+  AssignHostTenantPackageRequest,
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
   AuthorizationTreePageResponse,
@@ -55,7 +56,9 @@ import type {
   PagedResultOfHostOnlineSessionResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
+  PagedResultOfTenantSummary,
   ProblemDetails,
+  ProvisionTenantRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
@@ -65,15 +68,28 @@ import type {
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
+  TenantSummary,
   TokenResponse,
   TotpEnrollmentStatusResponse,
   UpdateConfigEntryRequest,
   UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
+  UpdateHostTenantRequest,
   UpdateHostUserRequest,
   UpdateLocaleRequest
 } from './models.generated.js';
+
+export function readAssignHostTenantPackageRequest(value: unknown): AssignHostTenantPackageRequest {
+  if (!(isAssignHostTenantPackageRequest(value))) {
+    throw new Error('client.invalid_assign_host_tenant_package_request');
+  }
+  return value;
+}
+
+function isAssignHostTenantPackageRequest(value: unknown): value is AssignHostTenantPackageRequest {
+  return isRecord(value) && ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
 
 export function readAuthorizationTreeActionResponse(value: unknown): AuthorizationTreeActionResponse {
   if (!(isAuthorizationTreeActionResponse(value))) {
@@ -658,6 +674,17 @@ function isPagedResultOfHostUserResponse(value: unknown): value is PagedResultOf
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostUserResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfTenantSummary(value: unknown): PagedResultOfTenantSummary {
+  if (!(isPagedResultOfTenantSummary(value))) {
+    throw new Error('client.invalid_paged_result_of_tenant_summary');
+  }
+  return value;
+}
+
+function isPagedResultOfTenantSummary(value: unknown): value is PagedResultOfTenantSummary {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantSummary(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readProblemDetails(value: unknown): ProblemDetails {
   if (!(isProblemDetails(value))) {
     throw new Error('client.invalid_problem_details');
@@ -667,6 +694,17 @@ export function readProblemDetails(value: unknown): ProblemDetails {
 
 function isProblemDetails(value: unknown): value is ProblemDetails {
   return isRecord(value) && (value["detail"] === undefined || ((value["detail"] === null) || (typeof value["detail"] === 'string'))) && (value["instance"] === undefined || ((value["instance"] === null) || (typeof value["instance"] === 'string'))) && (value["status"] === undefined || ((value["status"] === null) || (typeof value["status"] === 'number' && Number.isInteger(value["status"])))) && (value["title"] === undefined || ((value["title"] === null) || (typeof value["title"] === 'string'))) && (value["type"] === undefined || ((value["type"] === null) || (typeof value["type"] === 'string')));
+}
+
+export function readProvisionTenantRequest(value: unknown): ProvisionTenantRequest {
+  if (!(isProvisionTenantRequest(value))) {
+    throw new Error('client.invalid_provision_tenant_request');
+  }
+  return value;
+}
+
+function isProvisionTenantRequest(value: unknown): value is ProvisionTenantRequest {
+  return isRecord(value) && (typeof value["domain"] === 'string') && (typeof value["identifier"] === 'string') && (typeof value["name"] === 'string') && (value["tenantPackageId"] === undefined || ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"]))));
 }
 
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
@@ -768,6 +806,17 @@ function isSuperAdministratorResponse(value: unknown): value is SuperAdministrat
   return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["isActive"] === 'boolean') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
+export function readTenantSummary(value: unknown): TenantSummary {
+  if (!(isTenantSummary(value))) {
+    throw new Error('client.invalid_tenant_summary');
+  }
+  return value;
+}
+
+function isTenantSummary(value: unknown): value is TenantSummary {
+  return isRecord(value) && (value["defaultLocale"] === undefined || (typeof value["defaultLocale"] === 'string')) && (typeof value["domain"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["identifier"] === 'string') && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && (value["tenantPackageCode"] === undefined || ((value["tenantPackageCode"] === null) || (typeof value["tenantPackageCode"] === 'string'))) && (value["tenantPackageId"] === undefined || ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"])))) && (value["tenantPackageName"] === undefined || ((value["tenantPackageName"] === null) || (typeof value["tenantPackageName"] === 'string'))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readTokenResponse(value: unknown): TokenResponse {
   if (!(isTokenResponse(value))) {
     throw new Error('client.invalid_token_response');
@@ -831,6 +880,17 @@ export function readUpdateHostRoleRequest(value: unknown): UpdateHostRoleRequest
 }
 
 function isUpdateHostRoleRequest(value: unknown): value is UpdateHostRoleRequest {
+  return isRecord(value) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostTenantRequest(value: unknown): UpdateHostTenantRequest {
+  if (!(isUpdateHostTenantRequest(value))) {
+    throw new Error('client.invalid_update_host_tenant_request');
+  }
+  return value;
+}
+
+function isUpdateHostTenantRequest(value: unknown): value is UpdateHostTenantRequest {
   return isRecord(value) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 

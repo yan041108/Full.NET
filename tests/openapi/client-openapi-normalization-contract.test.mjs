@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 70);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 70);
+  assert.equal(manifest.entries.length, 76);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 76);
   assert.deepEqual(
     [...new Set(manifest.entries.map(entry => entry.generatedGroup))].sort(),
     [
@@ -220,16 +220,25 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
       'identity-me',
       'identity-super-administrators',
       'identity-totp-enrollment',
-      'settings-host-config-entries'
+      'settings-host-config-entries',
+      'tenancy-host-tenants'
     ]
   );
   assert.equal(
-    manifest.entries.every(entry => entry.status === 'generated'),
+    manifest.entries
+      .filter(entry => entry.generatedGroup === 'tenancy-host-tenants')
+      .every(entry => entry.status === 'pilot'),
+    true
+  );
+  assert.equal(
+    manifest.entries
+      .filter(entry => entry.generatedGroup !== 'tenancy-host-tenants')
+      .every(entry => entry.status === 'generated'),
     true
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    70
+    76
   );
   assert.equal(
     packageJson.scripts['openapi:client:snapshot'],

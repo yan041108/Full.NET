@@ -331,6 +331,42 @@
       "status": "generated"
     },
     {
+      "operationId": "tenancyListHostTenants",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "pilot"
+    },
+    {
+      "operationId": "tenancyGetHostTenant",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "pilot"
+    },
+    {
+      "operationId": "tenancyCreateHostTenant",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "pilot"
+    },
+    {
+      "operationId": "tenancyUpdateHostTenant",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "pilot"
+    },
+    {
+      "operationId": "tenancyDisableHostTenant",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "pilot"
+    },
+    {
+      "operationId": "tenancyAssignHostTenantPackage",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "pilot"
+    },
+    {
       "operationId": "filesListHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",

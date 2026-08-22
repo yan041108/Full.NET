@@ -3,6 +3,7 @@
 
 import type { HttpClient, RequestOptions } from '../http.js';
 import type {
+  AssignHostTenantPackageRequest,
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
   AuthorizationTreePageResponse,
@@ -56,7 +57,9 @@ import type {
   PagedResultOfHostOnlineSessionResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
+  PagedResultOfTenantSummary,
   ProblemDetails,
+  ProvisionTenantRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
@@ -66,12 +69,14 @@ import type {
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
+  TenantSummary,
   TokenResponse,
   TotpEnrollmentStatusResponse,
   UpdateConfigEntryRequest,
   UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
+  UpdateHostTenantRequest,
   UpdateHostUserRequest,
   UpdateLocaleRequest
 } from './models.generated.js';
@@ -109,10 +114,12 @@ import {
   readPagedResultOfHostOnlineSessionResponse,
   readPagedResultOfHostRoleResponse,
   readPagedResultOfHostUserResponse,
+  readPagedResultOfTenantSummary,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
   readSettingsListAllHostConfigEntriesResponse,
   readSettingsListHostConfigEntryGroupsResponse,
   readSuperAdministratorChangeResponse,
+  readTenantSummary,
   readTokenResponse,
   readTotpEnrollmentStatusResponse
 } from './guards.generated.js';
@@ -1577,4 +1584,134 @@ export async function settingsUpdateHostConfigEntry(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readConfigEntryResponse(value);
+}
+
+export interface TenancyAssignHostTenantPackageParameters {
+  readonly tenantId: string;
+  readonly body: AssignHostTenantPackageRequest;
+}
+
+export async function tenancyAssignHostTenantPackage(
+  http: HttpClient,
+  parameters: TenancyAssignHostTenantPackageParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/package`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
+}
+
+export interface TenancyCreateHostTenantParameters {
+  readonly body: ProvisionTenantRequest;
+}
+
+export async function tenancyCreateHostTenant(
+  http: HttpClient,
+  parameters: TenancyCreateHostTenantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
+}
+
+export interface TenancyDisableHostTenantParameters {
+  readonly tenantId: string;
+}
+
+export async function tenancyDisableHostTenant(
+  http: HttpClient,
+  parameters: TenancyDisableHostTenantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/disable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
+}
+
+export interface TenancyGetHostTenantParameters {
+  readonly tenantId: string;
+}
+
+export async function tenancyGetHostTenant(
+  http: HttpClient,
+  parameters: TenancyGetHostTenantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
+}
+
+export interface TenancyListHostTenantsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function tenancyListHostTenants(
+  http: HttpClient,
+  parameters: TenancyListHostTenantsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfTenantSummary> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/tenancy/tenants` : `/api/v1/tenancy/tenants?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfTenantSummary(value);
+}
+
+export interface TenancyUpdateHostTenantParameters {
+  readonly tenantId: string;
+  readonly body: UpdateHostTenantRequest;
+}
+
+export async function tenancyUpdateHostTenant(
+  http: HttpClient,
+  parameters: TenancyUpdateHostTenantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
 }
