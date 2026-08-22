@@ -8,6 +8,8 @@
 
 **Tech Stack:** ASP.NET Core Minimal APIs + OpenAPI, TypeScript OpenAPI codegen, Vitest, Vue admin.
 
+**Status:** `Slice-passed` — 见 [`../verification/openapi-client-tenancy-host-tenants-2026-08-22.md`](../verification/openapi-client-tenancy-host-tenants-2026-08-22.md)。
+
 ---
 
 ### Task 1: Endpoint metadata + Architecture
