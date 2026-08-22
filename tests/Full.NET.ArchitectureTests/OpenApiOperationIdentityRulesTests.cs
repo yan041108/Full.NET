@@ -33,6 +33,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityTotpEnrollmentTag = "IdentityTotpEnrollment";
     private const string IdentitySuperAdministratorsTag = "IdentitySuperAdministrators";
     private const string IdentityAuthSessionTag = "IdentityAuthSession";
+    private const string TenancyHostTenantsTag = "TenancyHostTenants";
     private const string FilesTag = "FilesHostFiles";
     private const string SettingsTag = "SettingsHostConfigEntries";
 
@@ -197,6 +198,12 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/auth/refresh", "identityRefreshSession", IdentityAuthSessionTag),
         new("POST", "/api/v1/auth/logout", "identityLogout", IdentityAuthSessionTag),
         new("PUT", "/api/v1/me/locale", "identityUpdatePreferredLocale", IdentityAuthSessionTag),
+        new("GET", "/api/v1/tenancy/tenants", "tenancyListHostTenants", TenancyHostTenantsTag),
+        new("GET", "/api/v1/tenancy/tenants/{tenantId}", "tenancyGetHostTenant", TenancyHostTenantsTag),
+        new("POST", "/api/v1/tenancy/tenants", "tenancyCreateHostTenant", TenancyHostTenantsTag),
+        new("PUT", "/api/v1/tenancy/tenants/{tenantId}", "tenancyUpdateHostTenant", TenancyHostTenantsTag),
+        new("POST", "/api/v1/tenancy/tenants/{tenantId}/disable", "tenancyDisableHostTenant", TenancyHostTenantsTag),
+        new("POST", "/api/v1/tenancy/tenants/{tenantId}/package", "tenancyAssignHostTenantPackage", TenancyHostTenantsTag),
         new("GET", "/api/v1/files/host-files", "filesListHostFiles", FilesTag),
         new("GET", "/api/v1/files/host-files/{fileId}", "filesGetHostFile", FilesTag),
         new("POST", "/api/v1/files/host-files", "filesUploadHostFile", FilesTag),

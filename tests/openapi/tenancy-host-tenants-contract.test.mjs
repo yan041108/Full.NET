@@ -70,6 +70,13 @@ test('Host 租户 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(tenantSummarySource, /record TenantSummary/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/tenancy\/tenants"\)/u);
+  assert.match(endpointSource, /WithTags\("TenancyHostTenants"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyListHostTenants"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyGetHostTenant"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyCreateHostTenant"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyUpdateHostTenant"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyDisableHostTenant"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyAssignHostTenantPackage"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/tenancy/tenants', new Map([
