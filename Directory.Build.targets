@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    FullNetAotAnalysis 在 targets 阶段求值，此时 SDK 已解析 TargetFrameworkIdentifier；
+    仅对 .NETCoreApp net8.0+ 启用 AOT/Trim 分析器，排除 netstandard 源码生成器。
+  -->
+  <PropertyGroup Condition="'$(FullNetAotAnalysis)' == 'true' and '$(TargetFrameworkIdentifier)' == '.NETCoreApp' and $([MSBuild]::VersionGreaterThanOrEquals($([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')), 8.0))">
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+</Project>

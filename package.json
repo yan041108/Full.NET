@@ -20,6 +20,7 @@
     "test:dotnet:unit": "node scripts/testing/run-dotnet-test-suite.mjs unit",
     "test:dotnet:compatibility": "node scripts/testing/run-dotnet-test-suite.mjs compatibility",
     "test:dotnet:architecture": "node scripts/testing/run-dotnet-test-suite.mjs architecture",
+    "test:aot:analyzers": "node scripts/testing/run-api-aot-analyzers.mjs",
     "test:integration:smoke": "node scripts/testing/run-integration-shard.mjs smoke",
     "test:integration:api:sqlserver": "node scripts/testing/run-integration-shard.mjs api-sqlserver",
     "test:integration:api:mysql": "node scripts/testing/run-integration-shard.mjs api-mysql",
