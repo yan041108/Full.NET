@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Messaging.Auditing;
 using Full.NET.Modules.Messaging.Contracts;
+using Full.NET.Modules.Messaging.Serialization;
 
 namespace Full.NET.Modules.Messaging.Features.ReplayKafkaRange;
 
@@ -15,8 +16,6 @@ internal sealed class KafkaRangeReplayOperationsService(
     ICommandTransaction transaction,
     ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     public async Task<Result<KafkaRangeReplayResponse>> ReplayAsync(
         KafkaRangeReplayRequest request,
         CancellationToken cancellationToken)
@@ -67,8 +66,7 @@ internal sealed class KafkaRangeReplayOperationsService(
         await WriteAuditAsync(
                 operationId,
                 MessagingDomainAuditOutcomes.Requested,
-                new
-                {
+                new KafkaRangeReplayRequestedAuditDiff(
                     request.TopicCode,
                     request.Partitions,
                     request.FromTimestampUtc,
@@ -77,8 +75,7 @@ internal sealed class KafkaRangeReplayOperationsService(
                     request.ToOffset,
                     request.ReplayConsumerName,
                     request.MaxMessages,
-                    reason = replayRequest.Reason,
-                },
+                    replayRequest.Reason),
                 executionCancellation.Token)
             .ConfigureAwait(false);
         KafkaReplayResult replay;
@@ -93,12 +90,10 @@ internal sealed class KafkaRangeReplayOperationsService(
             await WriteTerminalAuditAsync(
                     operationId,
                     MessagingDomainAuditOutcomes.Failure,
-                    new
-                    {
+                    new KafkaRangeReplayCancelledAuditDiff(
                         request.TopicCode,
                         request.ReplayConsumerName,
-                        reasonCode = "cancelled_or_timed_out",
-                    })
+                        ReasonCode: "cancelled_or_timed_out"))
                 .ConfigureAwait(false);
             throw;
         }
@@ -107,13 +102,11 @@ internal sealed class KafkaRangeReplayOperationsService(
             await WriteTerminalAuditAsync(
                     operationId,
                     MessagingDomainAuditOutcomes.Failure,
-                    new
-                    {
+                    new KafkaRangeReplayFailedAuditDiff(
                         request.TopicCode,
                         request.ReplayConsumerName,
-                        reasonCode = "execution_failed",
-                        exceptionType = exception.GetType().Name,
-                    })
+                        ReasonCode: "execution_failed",
+                        exception.GetType().Name))
                 .ConfigureAwait(false);
             throw;
         }
@@ -122,16 +115,14 @@ internal sealed class KafkaRangeReplayOperationsService(
         await WriteTerminalAuditAsync(
                 operationId,
                 MessagingDomainAuditOutcomes.Success,
-                new
-                {
+                new KafkaRangeReplaySuccessAuditDiff(
                     request.TopicCode,
                     request.ReplayConsumerName,
                     replay.ScannedMessages,
                     replay.ProcessedMessages,
                     replay.AlreadyProcessedMessages,
                     replay.RejectedMessages,
-                    replay.LimitReached,
-                })
+                    replay.LimitReached))
             .ConfigureAwait(false);
 
         return Result<KafkaRangeReplayResponse>.Success(new KafkaRangeReplayResponse(
@@ -142,10 +133,11 @@ internal sealed class KafkaRangeReplayOperationsService(
             replay.LimitReached));
     }
 
-    private async Task WriteTerminalAuditAsync(
+    private async Task WriteTerminalAuditAsync<T>(
         Guid operationId,
         string outcome,
-        object summary)
+        T summary)
+        where T : notnull
     {
         using var auditCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await WriteAuditAsync(
@@ -156,11 +148,12 @@ internal sealed class KafkaRangeReplayOperationsService(
             .ConfigureAwait(false);
     }
 
-    private Task<bool> WriteAuditAsync(
+    private Task<bool> WriteAuditAsync<T>(
         Guid operationId,
         string outcome,
-        object summary,
-        CancellationToken cancellationToken) =>
+        T summary,
+        CancellationToken cancellationToken)
+        where T : notnull =>
         transaction.ExecuteAsync(
             async token =>
             {
@@ -172,9 +165,33 @@ internal sealed class KafkaRangeReplayOperationsService(
                         outcome,
                         ActorUserId: null,
                         ActorDisplayName: null,
-                        DiffSummaryJson: JsonSerializer.Serialize(summary, JsonOptions)),
+                        DiffSummaryJson: SerializeKafkaRangeReplaySummary(summary)),
                     token).ConfigureAwait(false);
                 return true;
             },
             cancellationToken);
+
+    private static string SerializeKafkaRangeReplaySummary<T>(T summary)
+        where T : notnull =>
+        summary switch
+        {
+            KafkaRangeReplayRequestedAuditDiff requested =>
+                JsonSerializer.Serialize(
+                    requested,
+                    MessagingJsonSerializerContext.Default.KafkaRangeReplayRequestedAuditDiff),
+            KafkaRangeReplayCancelledAuditDiff cancelled =>
+                JsonSerializer.Serialize(
+                    cancelled,
+                    MessagingJsonSerializerContext.Default.KafkaRangeReplayCancelledAuditDiff),
+            KafkaRangeReplayFailedAuditDiff failed =>
+                JsonSerializer.Serialize(
+                    failed,
+                    MessagingJsonSerializerContext.Default.KafkaRangeReplayFailedAuditDiff),
+            KafkaRangeReplaySuccessAuditDiff success =>
+                JsonSerializer.Serialize(
+                    success,
+                    MessagingJsonSerializerContext.Default.KafkaRangeReplaySuccessAuditDiff),
+            _ => throw new InvalidOperationException(
+                "Unsupported Kafka range replay audit summary type."),
+        };
 }

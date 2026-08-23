@@ -3,6 +3,7 @@ using System.Text.Json;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Serialization;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Security;
@@ -93,7 +94,9 @@ internal sealed class ApiKeyAuthenticationService(
 
         try
         {
-            return JsonSerializer.Deserialize<string[]>(permissionsJson)
+            return JsonSerializer.Deserialize(
+                    permissionsJson,
+                    IdentityJsonSerializerContext.Default.StringArray)
                 ?.Where(permission => !string.IsNullOrWhiteSpace(permission))
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(permission => permission, StringComparer.Ordinal)
@@ -112,5 +115,6 @@ internal sealed class ApiKeyAuthenticationService(
                 .Where(permission => !string.IsNullOrWhiteSpace(permission))
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(permission => permission, StringComparer.Ordinal)
-                .ToArray());
+                .ToArray(),
+            IdentityJsonSerializerContext.Default.StringArray);
 }

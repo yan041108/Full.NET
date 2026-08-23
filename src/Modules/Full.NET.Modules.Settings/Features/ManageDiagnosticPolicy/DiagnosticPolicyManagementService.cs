@@ -9,6 +9,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Modules.Settings.Persistence;
+using Full.NET.Modules.Settings.Serialization;
 
 namespace Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 
@@ -124,7 +125,9 @@ internal sealed class DiagnosticPolicyManagementService(
                         // 诊断策略占用独立 ConfigKey，不进入配置分组目录。
                         GroupName = (string?)null,
                         ValueKind = ConfigValueKinds.Json,
-                        Value = JsonSerializer.Serialize(document, JsonOptions),
+                        Value = JsonSerializer.Serialize(
+                            document,
+                            SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument),
                         DisplayOrder = 0,
                         IsActive = true,
                         CreatedAtUtc = now,
@@ -152,7 +155,9 @@ internal sealed class DiagnosticPolicyManagementService(
                         DisplayName = existing.DisplayName,
                         Description = existing.Description,
                         GroupName = existing.GroupName,
-                        Value = JsonSerializer.Serialize(document, JsonOptions),
+                        Value = JsonSerializer.Serialize(
+                            document,
+                            SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument),
                         DisplayOrder = existing.DisplayOrder,
                         UpdatedAtUtc = now,
                         Version = existing.Version,
@@ -175,8 +180,10 @@ internal sealed class DiagnosticPolicyManagementService(
                     ActorUserId: null,
                     ActorDisplayName: null,
                     DiffSummaryJson: JsonSerializer.Serialize(
-                        new { version = nextVersion, pressure = pressure.ToString() },
-                        JsonOptions)),
+                        new DiagnosticPolicyUpdateAuditDiff(
+                            nextVersion,
+                            pressure.ToString()),
+                        SettingsJsonSerializerContext.Default.DiagnosticPolicyUpdateAuditDiff)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -218,7 +225,9 @@ internal sealed class DiagnosticPolicyManagementService(
                     DisplayName = existing.DisplayName,
                     Description = existing.Description,
                     GroupName = existing.GroupName,
-                    Value = JsonSerializer.Serialize(empty, JsonOptions),
+                    Value = JsonSerializer.Serialize(
+                        empty,
+                        SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument),
                     DisplayOrder = existing.DisplayOrder,
                     UpdatedAtUtc = now,
                     Version = existing.Version,
@@ -354,7 +363,9 @@ internal sealed class DiagnosticPolicyManagementService(
     {
         try
         {
-            var document = JsonSerializer.Deserialize<DiagnosticPolicyDocument>(json, JsonOptions);
+            var document = JsonSerializer.Deserialize(
+                json,
+                SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument);
             return document?.Version ?? 0;
         }
         catch (JsonException)

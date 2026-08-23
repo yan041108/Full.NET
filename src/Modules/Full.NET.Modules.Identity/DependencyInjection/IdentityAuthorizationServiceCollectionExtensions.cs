@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.DataScope;
@@ -57,6 +58,7 @@ internal static class IdentityAuthorizationServiceCollectionExtensions
 
     private static void ReplaceAuthorizationServiceIfNeeded<
         TService,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
         TImplementation>(IServiceCollection services)
         where TService : class
         where TImplementation : class, TService

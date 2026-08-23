@@ -5,6 +5,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Messaging;
+using Full.NET.Modules.Messaging.Serialization;
 using Full.NET.Modules.Messaging.Auditing;
 using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.Messaging.Persistence;
@@ -122,13 +123,11 @@ internal sealed class DeadLetterReplayService(
                     ActorUserId: null,
                     ActorDisplayName: null,
                     DiffSummaryJson: JsonSerializer.Serialize(
-                        new
-                        {
-                            consumerName = request.ConsumerName,
-                            messageId = request.MessageId,
-                            outcome,
-                        },
-                        JsonOptions)),
+                        new DeadLetterReplayAuditDiff(
+                            request.ConsumerName,
+                            request.MessageId,
+                            outcome),
+                        MessagingJsonSerializerContext.Default.DeadLetterReplayAuditDiff)),
                 cancellationToken)
             .ConfigureAwait(false);
 

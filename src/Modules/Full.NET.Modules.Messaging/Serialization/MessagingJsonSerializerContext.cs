@@ -2,11 +2,19 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Messaging.Abstractions;
+using Full.NET.Modules.Messaging.Auditing;
 using Full.NET.Modules.Messaging.Contracts;
 
 namespace Full.NET.Modules.Messaging.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(DeadLetterReplayAuditDiff))]
+[JsonSerializable(typeof(DeliveryCutoverAuditDiff))]
+[JsonSerializable(typeof(DeliveryRollbackAuditDiff))]
+[JsonSerializable(typeof(KafkaRangeReplayCancelledAuditDiff))]
+[JsonSerializable(typeof(KafkaRangeReplayFailedAuditDiff))]
+[JsonSerializable(typeof(KafkaRangeReplayRequestedAuditDiff))]
+[JsonSerializable(typeof(KafkaRangeReplaySuccessAuditDiff))]
 [JsonSerializable(typeof(ChangeDeliveryOwnerRequest))]
 [JsonSerializable(typeof(DeadLetterReplayResponse))]
 [JsonSerializable(typeof(DeadLetterResponse))]

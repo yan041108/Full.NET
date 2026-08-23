@@ -9,6 +9,7 @@ using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Messaging.Auditing;
 using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.Messaging.Persistence;
+using Full.NET.Modules.Messaging.Serialization;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner;
@@ -170,18 +171,16 @@ internal sealed class DeliveryCutoverService(
                     ActorUserId: null,
                     ActorDisplayName: null,
                     DiffSummaryJson: JsonSerializer.Serialize(
-                        new
-                        {
-                            eventType = request.EventType,
-                            schemaVersion = request.SchemaVersion,
-                            currentOwner = currentOwner.ToString(),
-                            targetOwner = request.TargetOwner.ToString(),
+                        new DeliveryCutoverAuditDiff(
+                            request.EventType,
+                            request.SchemaVersion,
+                            currentOwner.ToString(),
+                            request.TargetOwner.ToString(),
                             cutoffEventId,
                             cutoffOccurredAtUtc,
-                            reason = request.Reason,
-                            ownershipPersisted = true,
-                        },
-                        JsonOptions)),
+                            request.Reason,
+                            OwnershipPersisted: true),
+                        MessagingJsonSerializerContext.Default.DeliveryCutoverAuditDiff)),
                 cancellationToken)
             .ConfigureAwait(false);
 

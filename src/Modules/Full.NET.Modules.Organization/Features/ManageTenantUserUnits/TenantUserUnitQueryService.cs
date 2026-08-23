@@ -43,7 +43,11 @@ internal sealed class TenantUserUnitQueryService(
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 countStatement,
                 TenantScopedSqlComposer.MergeParameters(
-                    new { UserId = userId, UnitId = unitId },
+                    new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["UserId"] = userId,
+                        ["UnitId"] = unitId,
+                    },
                     filter),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -61,12 +65,12 @@ internal sealed class TenantUserUnitQueryService(
         var rows = await queryExecutor.QueryAsync<OrganizationUserUnitListRow>(
                 listStatement,
                 TenantScopedSqlComposer.MergeParameters(
-                    new
+                    new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        UserId = userId,
-                        UnitId = unitId,
-                        Offset = offset,
-                        PageSize = pageSize,
+                        ["UserId"] = userId,
+                        ["UnitId"] = unitId,
+                        ["Offset"] = offset,
+                        ["PageSize"] = pageSize,
                     },
                     filter),
                 cancellationToken)

@@ -1,5 +1,4 @@
 import { HubConnectionBuilder } from '@microsoft/signalr';
-import { MessagePackHubProtocol } from '@microsoft/signalr-protocol-msgpack';
 import type { IdentitySessionSnapshot } from './identity-session.js';
 
 export const NOTIFICATIONS_REALTIME_CODES = {
@@ -26,13 +25,10 @@ export interface NotificationsHubConnection {
   onclose(handler: (error?: Error) => void): void;
 }
 
-export type NotificationsHubProtocol = 'json' | 'messagepack';
-
 export interface NotificationsHubConnectionOptions {
   hubPath: string;
   accessTokenFactory: () => string | undefined;
   reconnectDelays: readonly number[];
-  hubProtocol?: NotificationsHubProtocol;
 }
 
 export interface NotificationsRealtimeSession {
@@ -254,10 +250,6 @@ function createSignalRConnection(
       accessTokenFactory: async () => options.accessTokenFactory() ?? ''
     })
     .withAutomaticReconnect([...options.reconnectDelays]);
-
-  if (options.hubProtocol === 'messagepack') {
-    builder.withHubProtocol(new MessagePackHubProtocol());
-  }
 
   return builder.build();
 }

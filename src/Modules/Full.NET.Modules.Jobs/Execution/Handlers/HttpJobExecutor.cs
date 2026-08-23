@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Jobs.Contracts;
+using Full.NET.Modules.Jobs.Serialization;
 using Full.NET.Modules.Settings.Contracts;
 using Microsoft.Extensions.Options;
 
@@ -114,7 +115,9 @@ internal sealed class HttpJobExecutor(
             throw new InvalidOperationException("HTTP job args are required.");
         }
 
-        return JsonSerializer.Deserialize<HttpJobArgs>(argsJson, SerializerOptions)
+        return JsonSerializer.Deserialize(
+                argsJson,
+                JobsJsonSerializerContext.Default.HttpJobArgs)
             ?? throw new InvalidOperationException("HTTP job args are invalid.");
     }
 

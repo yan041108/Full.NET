@@ -6,6 +6,7 @@ using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Settings.Persistence;
+using Full.NET.Modules.Settings.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -149,7 +150,9 @@ internal sealed class DiagnosticPolicyStore(
                 return null;
             }
 
-            return JsonSerializer.Deserialize<DiagnosticPolicyDocument>(row.Value, JsonOptions);
+            return JsonSerializer.Deserialize(
+                row.Value,
+                SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument);
         }
         finally
         {

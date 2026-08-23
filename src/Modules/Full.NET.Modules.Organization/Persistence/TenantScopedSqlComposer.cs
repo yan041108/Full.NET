@@ -28,21 +28,25 @@ internal static class TenantScopedSqlComposer
         };
     }
 
-    internal static object? MergeParameters(object? queryParameters, DataScopeSqlFilter? filter)
+    internal static IReadOnlyDictionary<string, object?>? MergeParameters(
+        IReadOnlyDictionary<string, object?>? queryParameters,
+        DataScopeSqlFilter? filter)
     {
-        if (filter?.Parameters is null)
+        if (queryParameters is null && filter?.Parameters is null)
         {
             return queryParameters;
         }
 
-        if (queryParameters is null)
+        var merged = new Dictionary<string, object?>(StringComparer.Ordinal);
+        if (queryParameters is not null)
         {
-            return filter.Parameters;
+            foreach (var pair in queryParameters)
+            {
+                merged[pair.Key] = pair.Value;
+            }
         }
 
-        var merged = new Dictionary<string, object?>(StringComparer.Ordinal);
-        CopyProperties(queryParameters, merged);
-        CopyProperties(filter.Parameters, merged);
+        MergeFilterParameters(filter, merged);
         return merged;
     }
 
@@ -59,28 +63,36 @@ internal static class TenantScopedSqlComposer
         return sql.Insert(insertAt, $" AND ({condition})");
     }
 
-    private static void CopyProperties(
-        object source,
-        IDictionary<string, object?> target)
+    private static void MergeFilterParameters(
+        DataScopeSqlFilter? filter,
+        Dictionary<string, object?> merged)
     {
-        if (source is IEnumerable<KeyValuePair<string, object?>> pairs)
+        if (filter?.Parameters is null)
         {
-            foreach (var pair in pairs)
+            return;
+        }
+
+        if (filter.Parameters is IReadOnlyDictionary<string, object?> readOnlyDictionary)
+        {
+            foreach (var pair in readOnlyDictionary)
             {
-                target[pair.Key] = pair.Value;
+                merged[pair.Key] = pair.Value;
             }
 
             return;
         }
 
-        foreach (var property in source.GetType().GetProperties())
+        if (filter.Parameters is IEnumerable<KeyValuePair<string, object?>> pairs)
         {
-            if (!property.CanRead || property.GetIndexParameters().Length != 0)
+            foreach (var pair in pairs)
             {
-                continue;
+                merged[pair.Key] = pair.Value;
             }
 
-            target[property.Name] = property.GetValue(source);
+            return;
         }
+
+        throw new InvalidOperationException(
+            "Data scope parameters must be dictionary-based for AOT-safe merging.");
     }
 }

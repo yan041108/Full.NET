@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Full.NET.Modules.Messaging.Serialization;
 using Full.NET.Abstractions.Auditing;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
@@ -239,20 +240,18 @@ internal sealed class DeliveryRollbackService(
                     ActorUserId: null,
                     ActorDisplayName: null,
                     DiffSummaryJson: JsonSerializer.Serialize(
-                        new
-                        {
-                            eventType = request.EventType,
-                            schemaVersion = request.SchemaVersion,
-                            currentOwner = currentOwner.ToString(),
-                            targetOwner = request.TargetOwner.ToString(),
-                            rollbackGeneration = preparation.RollbackGeneration,
-                            producerFencePosition = readiness.ProducerFencePositionJson,
+                        new DeliveryRollbackAuditDiff(
+                            request.EventType,
+                            request.SchemaVersion,
+                            currentOwner.ToString(),
+                            request.TargetOwner.ToString(),
+                            preparation.RollbackGeneration,
+                            readiness.ProducerFencePositionJson,
                             rollbackBoundaryEventId,
                             rollbackOccurredAtUtc,
-                            reason = request.Reason,
-                            ownershipPersisted = true,
-                        },
-                        JsonOptions)),
+                            request.Reason,
+                            OwnershipPersisted: true),
+                        MessagingJsonSerializerContext.Default.DeliveryRollbackAuditDiff)),
                 cancellationToken)
             .ConfigureAwait(false);
 

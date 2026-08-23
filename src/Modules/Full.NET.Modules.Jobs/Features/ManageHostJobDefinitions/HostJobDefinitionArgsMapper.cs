@@ -1,17 +1,12 @@
 using System.Text.Json;
 using Full.NET.Modules.Jobs.Contracts;
+using Full.NET.Modules.Jobs.Serialization;
 
 namespace Full.NET.Modules.Jobs.Features.ManageHostJobDefinitions;
 
 /// <summary>任务定义 Args 序列化与 API 脱敏映射。</summary>
 internal static class HostJobDefinitionArgsMapper
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-    };
-
     public static string? SerializeForStorage(string handlerKind, HttpJobArgs? args)
     {
         if (string.Equals(handlerKind, JobHandlerKinds.Ping, StringComparison.Ordinal))
@@ -21,7 +16,9 @@ internal static class HostJobDefinitionArgsMapper
 
         return args is null
             ? null
-            : JsonSerializer.Serialize(args, SerializerOptions);
+            : JsonSerializer.Serialize(
+                args,
+                JobsJsonSerializerContext.Default.HttpJobArgs);
     }
 
     public static HttpJobArgs? DeserializeFromStorage(string handlerKind, string? argsJson)
@@ -32,7 +29,9 @@ internal static class HostJobDefinitionArgsMapper
             return null;
         }
 
-        return JsonSerializer.Deserialize<HttpJobArgs>(argsJson, SerializerOptions);
+        return JsonSerializer.Deserialize(
+            argsJson,
+            JobsJsonSerializerContext.Default.HttpJobArgs);
     }
 
     /// <summary>读 API 脱敏：secretHeaders 仅回显 configKey。</summary>

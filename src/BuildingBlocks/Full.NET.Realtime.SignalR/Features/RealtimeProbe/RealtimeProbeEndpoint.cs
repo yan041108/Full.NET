@@ -1,11 +1,9 @@
 using Full.NET.Realtime;
-using Full.NET.Realtime.SignalR.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Realtime.SignalR.Features.RealtimeProbe;
@@ -19,32 +17,33 @@ internal static class RealtimeProbeEndpoint
         IEndpointRouteBuilder endpoints,
         IWebHostEnvironment environment)
     {
-        if (!environment.IsEnvironment("Testing"))
+        if (!string.Equals(
+                environment.EnvironmentName,
+                "Testing",
+                StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
-#if !FULLNET_AOT_ANALYSIS
         endpoints.MapPost(
                 "/api/v1/realtime/probes/self",
                 HandleProbeAsync)
             .WithTags("Realtime")
             .RequireAuthorization();
-#endif
     }
 
-#if !FULLNET_AOT_ANALYSIS
-    private static async Task<Results<UnauthorizedHttpResult, Ok<RealtimeProbeResponse>>>
-        HandleProbeAsync(
-            HttpContext httpContext,
-            IRealtimePublisher publisher,
-            IOptions<RealtimeOptions> realtimeOptions,
-            CancellationToken cancellationToken)
+    private static async Task HandleProbeAsync(HttpContext httpContext)
     {
         if (!TryResolveUserId(httpContext, out var userId))
         {
-            return TypedResults.Unauthorized();
+            await Results.Unauthorized().ExecuteAsync(httpContext);
+            return;
         }
+
+        var publisher = httpContext.RequestServices.GetRequiredService<IRealtimePublisher>();
+        var realtimeOptions = httpContext.RequestServices
+            .GetRequiredService<IOptions<RealtimeOptions>>()
+            .Value;
 
         await publisher.PublishToUserAsync(
                 userId,
@@ -52,12 +51,13 @@ internal static class RealtimeProbeEndpoint
                     RealtimeMessageCodes.ProbeSelf,
                     new Dictionary<string, object?>
                     {
-                        ["hubPath"] = realtimeOptions.Value.HubPath,
+                        ["hubPath"] = realtimeOptions.HubPath,
                     }),
-                cancellationToken)
+                httpContext.RequestAborted)
             .ConfigureAwait(false);
-        return TypedResults.Ok(
-            new RealtimeProbeResponse(RealtimeMessageCodes.ProbeSelf));
+
+        await Results.Ok(new RealtimeProbeResponse(RealtimeMessageCodes.ProbeSelf))
+            .ExecuteAsync(httpContext);
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)
@@ -66,5 +66,4 @@ internal static class RealtimeProbeEndpoint
         var subject = httpContext.User.FindFirst("sub")?.Value;
         return Guid.TryParse(subject, out userId);
     }
-#endif
 }

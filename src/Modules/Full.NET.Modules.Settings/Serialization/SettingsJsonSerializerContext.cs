@@ -1,11 +1,16 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
+using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Settings.Contracts;
+using Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 
 namespace Full.NET.Modules.Settings.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(DiagnosticPolicyDocument))]
+[JsonSerializable(typeof(DiagnosticPolicyRule))]
+[JsonSerializable(typeof(DiagnosticPolicyUpdateAuditDiff))]
 [JsonSerializable(typeof(DictTypeResponse))]
 [JsonSerializable(typeof(PagedResult<DictTypeResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<DictTypeResponse>))]

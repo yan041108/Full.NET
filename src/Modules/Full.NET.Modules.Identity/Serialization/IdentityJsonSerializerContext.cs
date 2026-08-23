@@ -61,6 +61,7 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(HostNavigationCatalogSyncResponse))]
 [JsonSerializable(typeof(HostOnlineSessionResponse))]
 [JsonSerializable(typeof(PagedResult<HostOnlineSessionResponse>))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(CreateHostApiKeyRequest))]
 [JsonSerializable(typeof(CreateHostApiKeyResponse))]
 [JsonSerializable(typeof(HostApiKeyResponse))]

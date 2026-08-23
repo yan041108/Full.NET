@@ -50,7 +50,11 @@ internal sealed class TenantUnitQueryService(
         };
         var listStatement = TenantScopedSqlComposer.ApplyDataScopeFilter(baseStatement, filter);
         var queryParameters = TenantScopedSqlComposer.MergeParameters(
-            new { Offset = offset, PageSize = pageSize },
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["Offset"] = offset,
+                ["PageSize"] = pageSize,
+            },
             filter);
         var rows = await queryExecutor.QueryAsync<OrganizationUnitListRow>(
                 listStatement,
@@ -82,7 +86,12 @@ internal sealed class TenantUnitQueryService(
             filter);
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 statement,
-                TenantScopedSqlComposer.MergeParameters(new { UnitId = unitId }, filter),
+                TenantScopedSqlComposer.MergeParameters(
+                    new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["UnitId"] = unitId,
+                    },
+                    filter),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
