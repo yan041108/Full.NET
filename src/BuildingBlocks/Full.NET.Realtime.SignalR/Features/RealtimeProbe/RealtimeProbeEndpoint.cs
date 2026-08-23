@@ -51,7 +51,9 @@ internal static class RealtimeProbeEndpoint
                     RealtimeMessageCodes.ProbeSelf,
                     new Dictionary<string, object?>
                     {
+                        ["probeId"] = Guid.CreateVersion7(),
                         ["hubPath"] = realtimeOptions.HubPath,
+                        ["sequence"] = 1L,
                     }),
                 httpContext.RequestAborted)
             .ConfigureAwait(false);
