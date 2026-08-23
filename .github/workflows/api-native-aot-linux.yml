@@ -59,6 +59,12 @@ jobs:
       - name: Verify Native AOT analyzers
         run: pnpm test:aot:analyzers
 
+      - name: Build Native AOT publish SDK image
+        run: docker build -t fullnet-native-aot-publish-sdk:10.0 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker
+
+      - name: Restore Host.Api for linux-x64
+        run: dotnet restore src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj -r linux-x64 -p:FullNetPublishMode=NativeAot
+
       - name: Publish linux-x64 Native AOT artifact
         run: pnpm test:aot:publish:linux
 

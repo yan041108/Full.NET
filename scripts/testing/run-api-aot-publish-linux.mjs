@@ -25,9 +25,10 @@ const projectPath = resolveRepositoryPath(contract.projectRelativePath);
 const executablePath = path.join(outputDir, contract.executableName);
 
 function run(command, args, options = {}) {
+  const stdio = options.stdio ?? ['ignore', 'pipe', 'pipe'];
   const result = spawnSync(command, args, {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: stdio[1] === 'pipe' || stdio[2] === 'pipe' ? 'utf8' : undefined,
+    stdio,
     ...options,
   });
   return result;
@@ -42,22 +43,93 @@ function shellQuote(value) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+function ensureDockerSdkImage() {
+  const inspect = run('docker', [
+    'image',
+    'inspect',
+    contract.sdkImage,
+    '--format',
+    '{{.Id}}',
+  ]);
+  if (inspect.status === 0 && inspect.stdout.trim().length > 0) {
+    return;
+  }
+
+  console.log(`Pulling ${contract.sdkImage}...`);
+  const pull = run('docker', ['pull', contract.sdkImage]);
+  if (pull.stdout) {
+    process.stdout.write(pull.stdout);
+  }
+  if (pull.stderr) {
+    process.stderr.write(pull.stderr);
+  }
+  if (pull.status !== 0) {
+    console.error(`无法拉取 ${contract.sdkImage}；请检查 Docker 网络/代理后重试。`);
+    process.exit(pull.status ?? 1);
+  }
+}
+
 function buildPublishShellCommand() {
   const propertyArgs = Object.entries(contract.publishMsBuildProperties)
     .map(([key, value]) => `-p:${key}=${value}`)
     .join(' ');
 
+  const project = shellQuote(
+    `/src/${contract.projectRelativePath.replace(/\\/g, '/')}`
+  );
+  const output = shellQuote(
+    `/src/${contract.outputRelativeDir.replace(/\\/g, '/')}`
+  );
+  const configuration = contract.publishMsBuildProperties.Configuration;
+
+  // 必须用分号串联；空格拼接会让 head/dotnet publish 参数被 shell 误解析。
   return [
     'set -euo pipefail',
-    'dotnet --info | head -n 20',
-    `dotnet publish ${shellQuote(`/src/${contract.projectRelativePath.replace(/\\/g, '/')}`)}`,
-    `-c ${contract.publishMsBuildProperties.Configuration}`,
-    `-r ${contract.runtimeIdentifier}`,
-    '--self-contained true',
-    propertyArgs,
-    `-o ${shellQuote(`/src/${contract.outputRelativeDir.replace(/\\/g, '/')}`)}`,
-    '--nologo',
-  ].join(' ');
+    'echo "SDK version: $(dotnet --version)"',
+    `dotnet publish ${project} -c ${configuration} -r ${contract.runtimeIdentifier} --self-contained true ${propertyArgs} -o ${output} --nologo --no-restore`,
+  ].join('; ');
+}
+
+function nugetPackagesVolumeMount() {
+  const packagesRoot =
+    process.env.NUGET_PACKAGES
+    || path.join(
+      process.env.USERPROFILE || process.env.HOME || '',
+      '.nuget',
+      'packages'
+    );
+  if (!existsSync(packagesRoot)) {
+    return null;
+  }
+
+  const mountPath = packagesRoot.replace(/\\/g, '/');
+  if (process.platform === 'win32' && /^[a-zA-Z]:/.test(mountPath)) {
+    return `/${mountPath[0].toLowerCase()}${mountPath.slice(2)}:/root/.nuget/packages`;
+  }
+
+  return `${mountPath}:/root/.nuget/packages`;
+}
+
+function preRestoreOnHost() {
+  console.log('Restoring Host.Api on host (linux-x64) for NuGet cache warm-up...');
+  const propertyArgs = Object.entries(contract.publishMsBuildProperties).flatMap(
+    ([key, value]) => ['-p', `${key}=${value}`]
+  );
+  const result = run(
+    'dotnet',
+    [
+      'restore',
+      projectPath,
+      '-r',
+      contract.runtimeIdentifier,
+      ...propertyArgs,
+      '--nologo',
+    ],
+    { cwd: contract.repositoryRoot, stdio: 'inherit' }
+  );
+  if (result.status !== 0) {
+    console.error('Host 本机 restore 失败；容器内将继续尝试 restore。');
+  }
 }
 
 function publishOnLinuxHost() {
@@ -85,38 +157,72 @@ function publishOnLinuxHost() {
   );
 }
 
-function publishViaDocker() {
-  const repoMount = contract.repositoryRoot.replace(/\\/g, '/');
-  if (process.platform === 'win32' && /^[a-zA-Z]:/.test(repoMount)) {
-    const drive = repoMount[0].toLowerCase();
-    const tail = repoMount.slice(2);
-    const dockerRepo = `/${drive}${tail}`;
-    return run('docker', [
-      'run',
-      '--rm',
-      '-v',
-      `${dockerRepo}:/src`,
-      '-w',
-      '/src',
-      contract.sdkImage,
-      'bash',
-      '-lc',
-      buildPublishShellCommand(),
-    ]);
+function ensureDockerPublishImage() {
+  const publishImage = contract.publishSdkImage;
+  const inspect = run('docker', [
+    'image',
+    'inspect',
+    publishImage,
+    '--format',
+    '{{.Id}}',
+  ]);
+  if (inspect.status === 0 && inspect.stdout.trim().length > 0) {
+    return publishImage;
   }
 
-  return run('docker', [
+  ensureDockerSdkImage();
+  const dockerfile = resolveRepositoryPath(
+    'eng/docker/Dockerfile.api-native-aot-linux-sdk'
+  );
+  const contextDir = path.dirname(dockerfile);
+  console.log(
+    `Building ${publishImage} with Native AOT linker prerequisites...`
+  );
+  const build = run(
+    'docker',
+    ['build', '-t', publishImage, '-f', dockerfile, contextDir],
+    { stdio: 'inherit' }
+  );
+  if (build.status !== 0) {
+    console.error(`无法构建 ${publishImage}。`);
+    process.exit(build.status ?? 1);
+  }
+
+  return publishImage;
+}
+
+function publishViaDocker() {
+  preRestoreOnHost();
+  const publishImage = ensureDockerPublishImage();
+  const repoMount = contract.repositoryRoot.replace(/\\/g, '/');
+  const volumeMounts = [
+    process.platform === 'win32' && /^[a-zA-Z]:/.test(repoMount)
+      ? `/${repoMount[0].toLowerCase()}${repoMount.slice(2)}:/src`
+      : `${repoMount}:/src`,
+  ];
+  const nugetMount = nugetPackagesVolumeMount();
+  if (nugetMount) {
+    volumeMounts.push(nugetMount);
+  }
+
+  const dockerArgs = [
     'run',
     '--rm',
-    '-v',
-    `${repoMount}:/src`,
+    ...volumeMounts.flatMap((mount) => ['-v', mount]),
     '-w',
     '/src',
-    contract.sdkImage,
+    publishImage,
     'bash',
     '-lc',
     buildPublishShellCommand(),
-  ]);
+  ];
+
+  const result = run('docker', dockerArgs, { stdio: 'inherit' });
+  return {
+    status: result.status,
+    stdout: '',
+    stderr: '',
+  };
 }
 
 function ensureOutputDirectory() {
@@ -156,7 +262,8 @@ function writeManifest(executableStat, publishDurationMs, publishMode) {
     generatedAtUtc: new Date().toISOString(),
     runtimeIdentifier: contract.runtimeIdentifier,
     publishMode,
-    sdkImage: publishMode === 'docker' ? contract.sdkImage : null,
+    sdkImage: publishMode === 'docker' ? contract.publishSdkImage : null,
+    baseSdkImage: contract.sdkImage,
     sdkImageLabel: contract.sdkImageLabel,
     outputRelativeDir: contract.outputRelativeDir,
     executableRelativePath: path
@@ -190,7 +297,7 @@ function main() {
   } else if (dockerAvailable()) {
     publishMode = 'docker';
     console.log(
-      `Publishing Native AOT via ${contract.sdkImage} (repository mounted at /src)...`
+      `Publishing Native AOT via ${contract.publishSdkImage} (repository mounted at /src)...`
     );
     result = publishViaDocker();
   } else {

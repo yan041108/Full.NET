@@ -18,7 +18,8 @@ export const apiNativeAotPublishContract = {
   executableName: 'Full.NET.Host.Api',
   runtimeIdentifier: 'linux-x64',
   sdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0',
-  sdkImageLabel: 'mcr.microsoft.com/dotnet/sdk:10.0 (Debian-based official SDK)',
+  publishSdkImage: 'fullnet-native-aot-publish-sdk:10.0',
+  sdkImageLabel: 'fullnet-native-aot-publish-sdk:10.0 (Debian SDK 10.0 + clang/zlib for Native AOT)',
   minimumExecutableBytes: 8_000_000,
   publishMsBuildProperties: {
     Configuration: 'Release',

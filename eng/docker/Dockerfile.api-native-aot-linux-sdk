@@ -1,0 +1,7 @@
+# Host.Api linux-x64 Native AOT publish 专用 SDK 镜像（含 clang/zlib 链接依赖）。
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        clang \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
