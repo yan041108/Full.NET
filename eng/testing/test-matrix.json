@@ -22,15 +22,27 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 115,
+      "minimum": 119,
       "timeout": "10m",
       "selections": {
         "api-native-aot": {
           "filter": "FullyQualifiedName~NativeAot",
-          "minimum": 18
+          "minimum": 22
         }
       }
     }
+  },
+  "nativeAotPublish": {
+    "runtimeIdentifier": "linux-x64",
+    "executableRelativePath": "artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api",
+    "manifestRelativePath": "artifacts/native-aot/linux-x64/publish-manifest.json",
+    "minimumExecutableBytes": 8000000,
+    "sdkImage": "mcr.microsoft.com/dotnet/sdk:10.0"
+  },
+  "nativeAotIntegration": {
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot",
+    "minimum": 5,
+    "timeout": "45m"
   },
   "integration": {
     "assembly": "tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll",
