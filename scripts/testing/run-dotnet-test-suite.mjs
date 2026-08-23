@@ -18,25 +18,77 @@ export function loadTestMatrix() {
   return JSON.parse(readFileSync(matrixPath, 'utf8'));
 }
 
-export function argumentsForSuite(suiteName) {
+export function parseSuiteOptions(options) {
+  const parsed = {
+    noBuild: false,
+    filter: null,
+    minimumExpectedTests: null
+  };
+
+  for (let index = 0; index < options.length; index += 1) {
+    const option = options[index];
+    if (option === '--no-build') {
+      parsed.noBuild = true;
+      continue;
+    }
+
+    if (option === '--filter') {
+      const value = options[index + 1];
+      if (!value) {
+        throw new Error('--filter 需要参数。');
+      }
+      parsed.filter = value;
+      index += 1;
+      continue;
+    }
+
+    if (option === '--minimum-expected-tests') {
+      const value = options[index + 1];
+      if (!value) {
+        throw new Error('--minimum-expected-tests 需要参数。');
+      }
+      parsed.minimumExpectedTests = value;
+      index += 1;
+      continue;
+    }
+
+    throw new Error(
+      `测试套件只支持 --no-build、--filter 与 --minimum-expected-tests，收到：${option}`
+    );
+  }
+
+  return parsed;
+}
+
+export function argumentsForSuite(suiteName, suiteOptions = {}) {
   const suite = loadTestMatrix().dotnetSuites[suiteName];
   if (!suite) {
     throw new Error(`未知测试套件“${suiteName}”。`);
   }
 
-  return [
+  const args = [
     suite.assembly,
     '--no-ansi',
     '--progress',
     'off',
-    '--minimum-expected-tests',
-    String(suite.minimum),
     '--timeout',
     suite.timeout
   ];
+
+  if (suiteOptions.filter) {
+    args.push('--filter', suiteOptions.filter);
+  }
+
+  const minimumExpectedTests = suiteOptions.minimumExpectedTests
+    ?? (suiteOptions.filter ? null : suite.minimum);
+  if (minimumExpectedTests !== null) {
+    args.push('--minimum-expected-tests', String(minimumExpectedTests));
+  }
+
+  return args;
 }
 
-export function commandsForSuite(suiteName, { noBuild = false } = {}) {
+export function commandsForSuite(suiteName, suiteOptions = {}) {
   const matrix = loadTestMatrix();
   const suite = matrix.dotnetSuites[suiteName];
   if (!suite) {
@@ -44,7 +96,7 @@ export function commandsForSuite(suiteName, { noBuild = false } = {}) {
   }
 
   const commands = [];
-  if (!noBuild) {
+  if (!suiteOptions.noBuild) {
     commands.push({
       command: 'dotnet',
       args: [
@@ -58,7 +110,7 @@ export function commandsForSuite(suiteName, { noBuild = false } = {}) {
   }
   commands.push({
     command: 'dotnet',
-    args: argumentsForSuite(suiteName)
+    args: argumentsForSuite(suiteName, suiteOptions)
   });
   return commands;
 }
@@ -87,12 +139,8 @@ function runProcess(command, args) {
 
 async function run(args) {
   const suiteName = args[0] ?? '';
-  const options = args.slice(1);
-  if (options.some(option => option !== '--no-build')) {
-    throw new Error('测试套件只支持 --no-build 参数。');
-  }
-  const noBuild = options.includes('--no-build');
-  for (const entry of commandsForSuite(suiteName, { noBuild })) {
+  const suiteOptions = parseSuiteOptions(args.slice(1));
+  for (const entry of commandsForSuite(suiteName, suiteOptions)) {
     await runProcess(entry.command, entry.args);
   }
 }

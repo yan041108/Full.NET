@@ -1,7 +1,7 @@
 # Host.Api Native AOT 实施计划（Phase 1）
 
-> 日期：2026-08-23  
-> 分支：`cursor/api-native-aot-phase1`  
+> 日期：2026-08-23
+> 分支：`cursor/api-native-aot-phase1`
 > 范围：Task 1–4（`Aot-analysis-clean`）；不执行 Task 5–8（`Aot-published`）
 
 ## 目标
@@ -42,7 +42,7 @@
 
 ```powershell
 pnpm test:aot:analyzers
-pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot
+pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot --minimum-expected-tests 18
 pnpm test:dotnet:unit -- --filter "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime"
 pnpm --filter @fullnet/client-contracts test
 pnpm test:governance

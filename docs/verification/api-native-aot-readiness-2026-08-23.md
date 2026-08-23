@@ -1,6 +1,6 @@
 # Host.Api Native AOT 就绪评估（2026-08-23）
 
-> 评估范围：`Full.NET.Host.Api` net10.0 完整引用闭包。  
+> 评估范围：`Full.NET.Host.Api` net10.0 完整引用闭包。
 > 关联 ADR：[`ADR-0008-api-native-aot-runtime-boundary.md`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md)
 
 ## 1. 基线（Phase 1 启动前）
@@ -35,7 +35,7 @@ Task 1–4 完成后，在 **BuildingBlocks + Hosts 限定闭包** 下曾达到�
 
 1. `Directory.Build.targets` 使用跨平台路径归一化，不再依赖 `\BuildingBlocks\` 等 Windows 条件；
 2. `FullNetAotAnalysis` 与 `FullNetPublishMode=NativeAot` 共享同一 AOT 编译条件（CBG、RDG、Trim/AOT 分析器）；
-3. Realtime 在 AOT 条件下不定义 `FULLNET_SIGNALR_MESSAGEPACK`，且条件排除 MessagePack 包；
+3. Realtime 在 AOT 条件下不定义 `FULLNET_SIGNALR_MESSAGEPACK`，且通过 `#if` 排除 MessagePack 注册路径（包引用保留以稳定 JIT 还原图）；
 4. 模块 JSON/审计/参数合并与 Identity DI 注解补齐源生成或 AOT 安全实现；
 5. 新增 MSBuild Architecture Tests 验证上述条件。
 
@@ -54,7 +54,7 @@ Task 1–4 完成后，在 **BuildingBlocks + Hosts 限定闭包** 下曾达到�
 
 ```powershell
 pnpm test:aot:analyzers          # 0 errors
-pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot
+pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot --minimum-expected-tests 18
 dotnet build Full.NET.slnx -c Release
 ```
 

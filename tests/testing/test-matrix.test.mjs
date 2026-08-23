@@ -5,7 +5,8 @@ import test from 'node:test';
 import {
   argumentsForSuite,
   commandsForSuite,
-  loadTestMatrix
+  loadTestMatrix,
+  parseSuiteOptions
 } from '../../scripts/testing/run-dotnet-test-suite.mjs';
 import {
   mainIntegrationPartitionsJson
@@ -84,6 +85,40 @@ test('快速套件默认先构建新鲜程序集，CI 可在统一构建后显�
   assert.equal(commands.length, 2);
   assert.equal(noBuildCommands.length, 1);
   assert.deepEqual(noBuildCommands[0].args, argumentsForSuite('unit'));
+});
+
+test('快速套件支持 --filter 与可选最低发现数', () => {
+  const args = argumentsForSuite('architecture', {
+    filter: 'FullyQualifiedName~NativeAot',
+    minimumExpectedTests: 18
+  });
+
+  assert.ok(args.includes('--filter'));
+  assert.ok(args.includes('FullyQualifiedName~NativeAot'));
+  assert.deepEqual(
+    args.slice(
+      args.indexOf('--minimum-expected-tests'),
+      args.indexOf('--minimum-expected-tests') + 2
+    ),
+    ['--minimum-expected-tests', '18']
+  );
+  assert.equal(
+    argumentsForSuite('architecture', {
+      filter: 'FullyQualifiedName~NativeAot'
+    }).includes('--minimum-expected-tests'),
+    false
+  );
+  assert.deepEqual(parseSuiteOptions([
+    '--no-build',
+    '--filter',
+    'FullyQualifiedName~NativeAot',
+    '--minimum-expected-tests',
+    '18'
+  ]), {
+    noBuild: true,
+    filter: 'FullyQualifiedName~NativeAot',
+    minimumExpectedTests: '18'
+  });
 });
 
 test('CI 分片 JSON 直接来自测试矩阵', () => {

@@ -4,7 +4,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\Full.NET.Realtime.Abstractions\Full.NET.Realtime.Abstractions.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(FullNetIsAotCompile)' != 'true'">
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" />
   </ItemGroup>
   <ItemGroup>

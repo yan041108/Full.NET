@@ -3,7 +3,7 @@
 - 状态：已批准
 - 决策日期：2026-08-23
 - 适用范围：`Full.NET.Host.Api` 及其 net10.0 完整项目引用闭包（Composition、BuildingBlocks、Modules）；不覆盖 Worker、Migrator、AppHost、CLI 与 netstandard2.0 源码生成器
-- 关联文档：[`2026-08-23-api-native-aot.md`](../superpowers/plans/2026-08-23-api-native-aot.md)、[`api-native-aot-readiness-2026-08-23.md`](../verification/api-native-aot-readiness-2026-08-23.md)
+- 关联文档：[`2026-08-23-api-native-aot.md`](../../superpowers/plans/2026-08-23-api-native-aot.md)、[`api-native-aot-readiness-2026-08-23.md`](../../verification/api-native-aot-readiness-2026-08-23.md)
 
 ## 1. 上下文
 
@@ -19,7 +19,7 @@ Native AOT 与 Trim 分析会暴露反射式配置绑定、匿名 Minimal API �
 4. **生成器**：API 可达项目在 AOT 编译条件下启用 `EnableAotAnalyzer`、`EnableTrimAnalyzer`、`EnableConfigurationBindingGenerator` 与 `EnableRequestDelegateGenerator`。
 5. **配置绑定**：禁止回退到 `ConfigurationBinder.Bind` 或实例 `.Bind(section)`；使用 `BindConfiguration`、显式读取或源生成 `Get<T>()`。
 6. **JSON**：HTTP、审计、CDC、CodeGeneration 与模块持久化 JSON 必须使用 `JsonSerializerContext`/`JsonTypeInfo`；禁止以 `#if FULLNET_AOT_ANALYSIS` 隐藏 NativeAot 仍会编译的路径。
-7. **SignalR**：NativeAot 与分析构建仅启用 JSON Hub 协议与源生成元数据；不得定义 `FULLNET_SIGNALR_MESSAGEPACK`，不得引用 `AddMessagePackProtocol` 或 MessagePack NuGet 包。
+7. **SignalR**：NativeAot 与分析构建仅启用 JSON Hub 协议与源生成元数据；不得定义 `FULLNET_SIGNALR_MESSAGEPACK`，不得编译 `AddMessagePackProtocol` 注册路径；MessagePack NuGet 可保留在还原图以稳定 JIT 门禁顺序，但 AOT 编译闭包不得生成 MessagePack 协议注册 IL。
 8. **客户端**：`@fullnet/client-contracts` 在 Phase 1 保持 JSON SignalR 连接；MessagePack 客户端依赖待服务端 JIT 路径与公开选项稳定后再引入。
 9. **完成定义分两级**：
    - `Aot-analysis-clean`：完整 API 闭包在 `FullNetAotAnalysis=true` 与 NativeAot 编译条件下 AOT/Trim 分析零未处理告警；
@@ -52,7 +52,7 @@ Native AOT 与 Trim 分析会暴露反射式配置绑定、匿名 Minimal API �
 ## 5. 验证
 
 - `pnpm test:aot:analyzers`：Host.Api 完整闭包 AOT/Trim Rebuild；
-- `pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot`：发布边界、静态绑定与 MSBuild 编译条件；
+- `pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot --minimum-expected-tests 18`：发布边界、静态绑定与 MSBuild 编译条件；
 - 聚焦 Unit（CodeGeneration / Realtime）与 `@fullnet/client-contracts` 回归；
 - Release 构建与 governance/naming 门禁保持通过。
 
