@@ -91,7 +91,7 @@ public static class ServiceCollectionExtensions
             .GetSection(nameof(DatabaseOptions.MySqlGuidStorageMode))
             .Value is not null;
         services.AddOptions<DatabaseOptions>()
-            .Bind(databaseSection)
+            .BindConfiguration(DatabaseOptions.SectionName)
             .PostConfigure(options =>
             {
                 if (string.IsNullOrWhiteSpace(options.ConnectionString))
@@ -142,7 +142,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMultiResultQueryExecutor>(provider =>
             provider.GetRequiredService<DapperSqlExecutor>());
         services.AddOptions<MessagingOutboxOptions>()
-            .Bind(configuration.GetSection(MessagingOutboxOptions.SectionName));
+            .BindConfiguration(MessagingOutboxOptions.SectionName);
         services.AddScoped<DapperOutboxWriter>();
         services.AddScoped<DapperAppendOnlyOutboxWriter>();
         services.AddScoped<IEventStreamOwnershipGate, DapperEventStreamOwnershipGate>();

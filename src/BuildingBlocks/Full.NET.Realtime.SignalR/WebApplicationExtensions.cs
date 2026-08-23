@@ -20,7 +20,7 @@ public static class WebApplicationExtensions
         }
 
         app.MapHub<FullNetNotificationHub>(options.HubPath);
-        RealtimeProbeEndpoint.Map(app, app.Environment, options.HubPath);
+        RealtimeProbeEndpoint.Map(app, app.Environment);
         return app;
     }
 }

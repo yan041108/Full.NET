@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Full.NET.Realtime.SignalR.Health;
+using Full.NET.Realtime.SignalR.Serialization;
 using OpenTelemetry.Metrics;
 
 namespace Full.NET.Realtime.SignalR;
@@ -60,8 +62,10 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
 
-        var options = new RealtimeOptions();
-        configuration.GetSection(RealtimeOptions.SectionName).Bind(options);
+        var options = configuration
+                .GetSection(RealtimeOptions.SectionName)
+                .Get<RealtimeOptions>()
+            ?? new RealtimeOptions();
         options.RedisBackplaneConnectionString = ResolveRedisBackplaneConnectionString(
             configuration,
             options,
@@ -79,9 +83,20 @@ public static class ServiceCollectionExtensions
             return false;
         }
 
-        var signalRBuilder = services
-            .AddSignalR()
-            .AddMessagePackProtocol();
+        var signalRBuilder = services.AddSignalR();
+#if FULLNET_SIGNALR_MESSAGEPACK
+        signalRBuilder.AddMessagePackProtocol();
+#endif
+        signalRBuilder.AddJsonProtocol(jsonOptions =>
+        {
+            jsonOptions.PayloadSerializerOptions.PropertyNamingPolicy =
+                JsonNamingPolicy.CamelCase;
+            jsonOptions.PayloadSerializerOptions.DictionaryKeyPolicy =
+                JsonNamingPolicy.CamelCase;
+            jsonOptions.PayloadSerializerOptions.TypeInfoResolverChain.Insert(
+                0,
+                RealtimeJsonSerializerContext.Default);
+        });
         services
             .AddOpenTelemetry()
             .WithMetrics(metrics => metrics.AddMeter(

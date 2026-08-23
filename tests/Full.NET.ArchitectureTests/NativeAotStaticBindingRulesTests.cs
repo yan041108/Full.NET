@@ -11,6 +11,7 @@ public sealed class NativeAotStaticBindingRulesTests
         "src/BuildingBlocks/Full.NET.Hosting",
         "src/BuildingBlocks/Full.NET.Caching.Fusion",
         "src/BuildingBlocks/Full.NET.Messaging.Abstractions",
+        "src/BuildingBlocks/Full.NET.Realtime.SignalR",
     ];
 
     private static readonly string[] ForbiddenBindingPatterns =
@@ -46,7 +47,7 @@ public sealed class NativeAotStaticBindingRulesTests
         Assert.HasCount(
             0,
             offenders,
-            "Hosting/Caching/Messaging 必须使用 BindConfiguration 或源生成 Get<T>，"
+            "Hosting/Caching/Messaging/Realtime 必须使用 BindConfiguration 或源生成 Get<T>，"
                 + $"禁止动态 Bind：{string.Join(", ", offenders)}");
     }
 
@@ -69,5 +70,44 @@ public sealed class NativeAotStaticBindingRulesTests
         Assert.IsFalse(
             source.Contains("JsonSerializer.Serialize<T>", StringComparison.Ordinal),
             "CDC 位点序列化必须显式传入 JsonTypeInfo。");
+    }
+
+    [TestMethod]
+    public void FullNetNotificationHub_DoesNotUseTypedClientProxy()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var path = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Realtime.SignalR",
+            "FullNetNotificationHub.cs");
+        var source = File.ReadAllText(path);
+
+        Assert.IsFalse(
+            source.Contains("Hub<IFullNetNotificationClient>", StringComparison.Ordinal),
+            "Native AOT 路径禁止 Hub<T> 动态代理。");
+        StringAssert.Contains(source, ": Hub");
+    }
+
+    [TestMethod]
+    public void RealtimeSignalR_UsesSourceGeneratedJsonContext()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var extensionsPath = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Realtime.SignalR",
+            "ServiceCollectionExtensions.cs");
+        var extensionsSource = File.ReadAllText(extensionsPath);
+
+        StringAssert.Contains(
+            extensionsSource,
+            "RealtimeJsonSerializerContext.Default");
+        Assert.IsFalse(
+            extensionsSource.Contains("AddMessagePackProtocol();", StringComparison.Ordinal)
+                && !extensionsSource.Contains("#if FULLNET_SIGNALR_MESSAGEPACK", StringComparison.Ordinal),
+            "MessagePack 协议必须受 FULLNET_SIGNALR_MESSAGEPACK 条件编译保护。");
     }
 }

@@ -25,11 +25,11 @@ public static class ServiceCollectionExtensions
 
         services
             .AddOptions<KafkaMessagingOptions>()
-            .Bind(configuration.GetSection(KafkaMessagingOptions.SectionName))
+            .BindConfiguration(KafkaMessagingOptions.SectionName)
             .ValidateOnStart();
         services
             .AddOptions<KafkaConnectRollbackOptions>()
-            .Bind(configuration.GetSection(KafkaConnectRollbackOptions.SectionName));
+            .BindConfiguration(KafkaConnectRollbackOptions.SectionName);
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<KafkaMessagingOptions>, KafkaMessagingOptionsValidator>());
 
@@ -55,8 +55,10 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IKafkaConnectAdminClient>(
             serviceProvider => serviceProvider.GetRequiredService<KafkaConnectAdminClient>());
 
-        var rollbackOptions = new KafkaConnectRollbackOptions();
-        configuration.GetSection(KafkaConnectRollbackOptions.SectionName).Bind(rollbackOptions);
+        var rollbackOptions = configuration
+                .GetSection(KafkaConnectRollbackOptions.SectionName)
+                .Get<KafkaConnectRollbackOptions>()
+            ?? new KafkaConnectRollbackOptions();
         if (rollbackOptions.Enabled)
         {
             services.RemoveAll<IEventDeliveryRollbackReadinessReader>();
@@ -83,8 +85,10 @@ public static class ServiceCollectionExtensions
                 failureStatus: null,
                 tags: ["ready"]));
 
-        var options = new KafkaMessagingOptions();
-        configuration.GetSection(KafkaMessagingOptions.SectionName).Bind(options);
+        var options = configuration
+                .GetSection(KafkaMessagingOptions.SectionName)
+                .Get<KafkaMessagingOptions>()
+            ?? new KafkaMessagingOptions();
         var validation = KafkaMessagingOptionsValidation.Validate(options, environmentName);
         if (validation.Failed)
         {
@@ -112,9 +116,9 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
         services.AddOptions<KafkaMessagingOptions>()
-            .Bind(configuration.GetSection(KafkaMessagingOptions.SectionName));
+            .BindConfiguration(KafkaMessagingOptions.SectionName);
         services.AddOptions<KafkaReplayOperationsOptions>()
-            .Bind(configuration.GetSection(KafkaReplayOperationsOptions.SectionName))
+            .BindConfiguration(KafkaReplayOperationsOptions.SectionName)
             .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<KafkaReplayOperationsOptions>,

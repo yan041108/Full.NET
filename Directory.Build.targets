@@ -1,14 +1,19 @@
 <Project>
   <!--
     FullNetAotAnalysis 在 targets 阶段求值，此时 SDK 已解析 TargetFrameworkIdentifier；
-    仅对 .NETCoreApp net8.0+ 启用 AOT/Trim 分析器，排除 netstandard 源码生成器。
+    Phase 1 仅对 BuildingBlocks 与 Hosts 启用分析器，Modules 最小 API 留待后续阶段。
   -->
-  <PropertyGroup Condition="'$(FullNetAotAnalysis)' == 'true' and '$(TargetFrameworkIdentifier)' == '.NETCoreApp' and $([MSBuild]::VersionGreaterThanOrEquals($([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')), 8.0))">
+  <PropertyGroup Condition="'$(FullNetAotAnalysis)' == 'true' and '$(TargetFrameworkIdentifier)' == '.NETCoreApp' and $([MSBuild]::VersionGreaterThanOrEquals($([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')), 8.0)) and ($([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\BuildingBlocks\')) or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\Hosts\')))">
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <DefineConstants>$(DefineConstants);FULLNET_AOT_ANALYSIS</DefineConstants>
   </PropertyGroup>
   <!-- 配置绑定源生成器仅作用于 BuildingBlocks，避免 Modules 最小 API MapGet 被连带放大。 -->
   <PropertyGroup Condition="'$(FullNetAotAnalysis)' == 'true' and '$(TargetFrameworkIdentifier)' == '.NETCoreApp' and $([MSBuild]::VersionGreaterThanOrEquals($([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')), 8.0)) and $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\BuildingBlocks\'))">
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+  </PropertyGroup>
+  <!-- 非 AOT 分析/发布路径保留 MessagePack 协议；Native AOT 与静态分析仅启用 JSON。 -->
+  <PropertyGroup Condition="'$(FullNetAotAnalysis)' != 'true' and '$(PublishAot)' != 'true' and '$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+    <DefineConstants>$(DefineConstants);FULLNET_SIGNALR_MESSAGEPACK</DefineConstants>
   </PropertyGroup>
 </Project>

@@ -9,7 +9,7 @@ namespace Full.NET.Realtime.SignalR;
 /// Host/租户管理端通知 Hub：只负责连接、鉴权与分组，不承载业务规则。
 /// </summary>
 [Authorize]
-public sealed class FullNetNotificationHub : Hub<IFullNetNotificationClient>
+public sealed class FullNetNotificationHub : Hub
 {
     private static readonly object ActiveConnectionMarker = new();
 

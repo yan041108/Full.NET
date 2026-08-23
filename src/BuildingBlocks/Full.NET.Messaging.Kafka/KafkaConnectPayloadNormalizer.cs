@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Full.NET.Messaging.Kafka.Serialization;
 
 namespace Full.NET.Messaging.Kafka;
 
@@ -25,7 +26,9 @@ internal static class KafkaConnectPayloadNormalizer
         payload = ReadOnlyMemory<byte>.Empty;
         try
         {
-            var element = JsonSerializer.Deserialize<JsonElement>(value);
+            var element = JsonSerializer.Deserialize(
+                value,
+                KafkaMessagingJsonSerializerContext.Default.JsonElement);
             if (element.ValueKind == JsonValueKind.String)
             {
                 payload = element.GetBytesFromBase64();

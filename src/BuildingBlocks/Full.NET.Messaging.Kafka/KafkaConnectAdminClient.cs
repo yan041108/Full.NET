@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Messaging.Abstractions;
+using Full.NET.Messaging.Kafka.Serialization;
 
 namespace Full.NET.Messaging.Kafka;
 
@@ -38,8 +39,6 @@ internal sealed record RollbackFenceState(
 /// </summary>
 public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
 
@@ -99,7 +98,11 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         ArgumentNullException.ThrowIfNull(config);
         var payload = new ConnectorRegistration(connectorName, config);
         using var response = await _httpClient
-            .PostAsJsonAsync("/connectors", payload, JsonOptions, cancellationToken)
+            .PostAsJsonAsync(
+                "/connectors",
+                payload,
+                KafkaMessagingJsonSerializerContext.Default.ConnectorRegistration,
+                cancellationToken)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
@@ -203,8 +206,8 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
             return null;
         }
 
-        var payload = await response.Content.ReadFromJsonAsync<ConnectorOffsetsResponse>(
-                JsonOptions,
+        var payload = await response.Content.ReadFromJsonAsync(
+                KafkaMessagingJsonSerializerContext.Default.ConnectorOffsetsResponse,
                 cancellationToken)
             .ConfigureAwait(false);
         if (payload?.Offsets is not { Count: > 0 })
@@ -324,17 +327,17 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         return hasTasks ? ConnectorHealth.Running : ConnectorHealth.Pending;
     }
 
-    private sealed record ConnectorRegistration(
+    internal sealed record ConnectorRegistration(
         string Name,
         IReadOnlyDictionary<string, string> Config);
 
-    private sealed class ConnectorOffsetsResponse
+    internal sealed class ConnectorOffsetsResponse
     {
         [JsonPropertyName("offsets")]
         public List<ConnectorOffsetEntry> Offsets { get; init; } = [];
     }
 
-    private sealed class ConnectorOffsetEntry
+    internal sealed class ConnectorOffsetEntry
     {
         [JsonPropertyName("offset")]
         public Dictionary<string, JsonElement>? Offset { get; init; }
