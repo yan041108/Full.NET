@@ -90,6 +90,8 @@ public static class ServiceCollectionExtensions
         var hasExplicitMySqlGuidStorageMode = databaseSection
             .GetSection(nameof(DatabaseOptions.MySqlGuidStorageMode))
             .Value is not null;
+        // BindConfiguration 从 DI 解析配置；固定注册调用方传入实例，保持独立 ServiceCollection 与宿主行为一致。
+        services.AddSingleton(configuration);
         services.AddOptions<DatabaseOptions>()
             .BindConfiguration(DatabaseOptions.SectionName)
             .PostConfigure(options =>

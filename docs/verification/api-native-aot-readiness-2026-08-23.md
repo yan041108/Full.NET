@@ -54,7 +54,7 @@ Task 1–4 完成后，在 **BuildingBlocks + Hosts 限定闭包** 下曾达到�
 
 ```powershell
 pnpm test:aot:analyzers          # 0 errors
-pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot --minimum-expected-tests 18
+pnpm test:dotnet:architecture -- --selection api-native-aot
 dotnet build Full.NET.slnx -c Release
 ```
 

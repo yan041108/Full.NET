@@ -1,7 +1,9 @@
 using System.Diagnostics.Metrics;
+using System.Text.Json;
 using Full.NET.Realtime;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Realtime.SignalR.Health;
+using Full.NET.Realtime.SignalR.Serialization;
 using Microsoft.AspNetCore.SignalR;
 using NSubstitute;
 
@@ -11,6 +13,28 @@ namespace Full.NET.UnitTests.Realtime;
 [DoNotParallelize]
 public sealed class SignalRRealtimePublisherTests
 {
+    [TestMethod]
+    public void Realtime_json_context_serializes_supported_payload_values()
+    {
+        var messageId = Guid.CreateVersion7();
+        var message = new RealtimeMessage(
+            RealtimeMessageCodes.InboxMessageReceived,
+            new Dictionary<string, object?>
+            {
+                ["messageId"] = messageId,
+                ["title"] = "Worker repair",
+                ["unreadCount"] = 1L,
+            });
+
+        var json = JsonSerializer.Serialize(
+            message,
+            RealtimeJsonSerializerContext.Default.RealtimeMessage);
+
+        StringAssert.Contains(json, messageId.ToString());
+        StringAssert.Contains(json, "Worker repair");
+        StringAssert.Contains(json, "\"unreadCount\":1");
+    }
+
     [TestMethod]
     public async Task Publish_to_user_passes_cancellation_to_signalr()
     {

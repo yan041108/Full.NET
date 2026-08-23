@@ -21,6 +21,7 @@ export function loadTestMatrix() {
 export function parseSuiteOptions(options) {
   const parsed = {
     noBuild: false,
+    selection: null,
     filter: null,
     minimumExpectedTests: null
   };
@@ -42,19 +43,44 @@ export function parseSuiteOptions(options) {
       continue;
     }
 
+    if (option === '--selection') {
+      const value = options[index + 1];
+      if (!value) {
+        throw new Error('--selection 需要参数。');
+      }
+      parsed.selection = value;
+      index += 1;
+      continue;
+    }
+
     if (option === '--minimum-expected-tests') {
       const value = options[index + 1];
       if (!value) {
         throw new Error('--minimum-expected-tests 需要参数。');
       }
-      parsed.minimumExpectedTests = value;
+      const minimumExpectedTests = Number(value);
+      if (!Number.isInteger(minimumExpectedTests) || minimumExpectedTests <= 0) {
+        throw new Error('--minimum-expected-tests 必须是正整数。');
+      }
+      parsed.minimumExpectedTests = minimumExpectedTests;
       index += 1;
       continue;
     }
 
     throw new Error(
-      `测试套件只支持 --no-build、--filter 与 --minimum-expected-tests，收到：${option}`
+      `测试套件只支持 --no-build、--selection、--filter 与 --minimum-expected-tests，收到：${option}`
     );
+  }
+
+  if (parsed.selection
+      && (parsed.filter || parsed.minimumExpectedTests !== null)) {
+    throw new Error('--selection 不能与 --filter 或 --minimum-expected-tests 同时使用。');
+  }
+  if (parsed.filter && parsed.minimumExpectedTests === null) {
+    throw new Error('--filter 必须同时提供 --minimum-expected-tests。');
+  }
+  if (!parsed.filter && parsed.minimumExpectedTests !== null) {
+    throw new Error('--minimum-expected-tests 必须与 --filter 同时使用。');
   }
 
   return parsed;
@@ -66,6 +92,28 @@ export function argumentsForSuite(suiteName, suiteOptions = {}) {
     throw new Error(`未知测试套件“${suiteName}”。`);
   }
 
+  if (suiteOptions.selection
+      && (suiteOptions.filter || suiteOptions.minimumExpectedTests != null)) {
+    throw new Error('--selection 不能与原始聚焦参数同时使用。');
+  }
+
+  const selection = suiteOptions.selection
+    ? suite.selections?.[suiteOptions.selection]
+    : null;
+  if (suiteOptions.selection && !selection) {
+    throw new Error(
+      `测试套件“${suiteName}”收到未知聚焦集“${suiteOptions.selection}”。`
+    );
+  }
+
+  const filter = selection?.filter ?? suiteOptions.filter;
+  const minimumExpectedTests = selection?.minimum
+    ?? suiteOptions.minimumExpectedTests
+    ?? suite.minimum;
+  if (filter && !Number.isInteger(minimumExpectedTests)) {
+    throw new Error('聚焦测试必须提供正整数最低发现数。');
+  }
+
   const args = [
     suite.assembly,
     '--no-ansi',
@@ -75,15 +123,11 @@ export function argumentsForSuite(suiteName, suiteOptions = {}) {
     suite.timeout
   ];
 
-  if (suiteOptions.filter) {
-    args.push('--filter', suiteOptions.filter);
+  if (filter) {
+    args.push('--filter', filter);
   }
 
-  const minimumExpectedTests = suiteOptions.minimumExpectedTests
-    ?? (suiteOptions.filter ? null : suite.minimum);
-  if (minimumExpectedTests !== null) {
-    args.push('--minimum-expected-tests', String(minimumExpectedTests));
-  }
+  args.push('--minimum-expected-tests', String(minimumExpectedTests));
 
   return args;
 }

@@ -47,7 +47,7 @@
 ```powershell
 pnpm test:task:start -- my-feature-20260816
 dotnet build Full.NET.slnx -c Release
-pnpm test:dotnet:unit -- --no-build --filter FullyQualifiedName~YourArea
+pnpm test:dotnet:unit -- --no-build --filter FullyQualifiedName~YourArea --minimum-expected-tests $expectedCount
 pnpm test:inner -- --snapshot my-feature-20260816 --plan
 pnpm test:inner -- --snapshot my-feature-20260816
 ```

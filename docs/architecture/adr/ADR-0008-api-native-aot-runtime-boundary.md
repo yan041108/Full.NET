@@ -52,7 +52,7 @@ Native AOT 与 Trim 分析会暴露反射式配置绑定、匿名 Minimal API �
 ## 5. 验证
 
 - `pnpm test:aot:analyzers`：Host.Api 完整闭包 AOT/Trim Rebuild；
-- `pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot --minimum-expected-tests 18`：发布边界、静态绑定与 MSBuild 编译条件；
+- `pnpm test:dotnet:architecture -- --selection api-native-aot`：发布边界、静态绑定与 MSBuild 编译条件；
 - 聚焦 Unit（CodeGeneration / Realtime）与 `@fullnet/client-contracts` 回归；
 - Release 构建与 governance/naming 门禁保持通过。
 

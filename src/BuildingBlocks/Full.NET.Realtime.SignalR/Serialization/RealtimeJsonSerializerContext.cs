@@ -10,5 +10,9 @@ namespace Full.NET.Realtime.SignalR.Serialization;
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(RealtimeMessage))]
 [JsonSerializable(typeof(RealtimeProbeResponse))]
+[JsonSerializable(typeof(IReadOnlyDictionary<string, object?>))]
 [JsonSerializable(typeof(Dictionary<string, object?>))]
+[JsonSerializable(typeof(Guid))]
+[JsonSerializable(typeof(long))]
+[JsonSerializable(typeof(string))]
 internal partial class RealtimeJsonSerializerContext : JsonSerializerContext;

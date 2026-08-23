@@ -177,6 +177,19 @@ test('测试门槛只有一个机器事实源且 CI 使用稳定命令', async (
   );
 
   for (const file of [
+    'docs/architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md',
+    'docs/superpowers/plans/2026-08-23-api-native-aot.md',
+    'docs/verification/api-native-aot-readiness-2026-08-23.md'
+  ]) {
+    const text = await read(file);
+    assert.doesNotMatch(
+      text,
+      /--minimum-expected-tests\s+\d+/,
+      `${file} 不得复制机器清单中的聚焦测试门槛`
+    );
+  }
+
+  for (const file of [
     'README.md',
     'docs/development/getting-started.md',
     'rules/development-quality.md',

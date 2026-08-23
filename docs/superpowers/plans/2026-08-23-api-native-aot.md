@@ -42,8 +42,8 @@
 
 ```powershell
 pnpm test:aot:analyzers
-pnpm test:dotnet:architecture -- --filter FullyQualifiedName~NativeAot --minimum-expected-tests 18
-pnpm test:dotnet:unit -- --filter "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime"
+pnpm test:dotnet:architecture -- --selection api-native-aot
+pnpm test:dotnet:unit -- --selection code-generation-realtime
 pnpm --filter @fullnet/client-contracts test
 pnpm test:governance
 pnpm test:naming

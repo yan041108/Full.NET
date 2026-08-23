@@ -29,7 +29,25 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
   for (const suite of Object.values(matrix.dotnetSuites)) {
     assert.ok(Number.isInteger(suite.minimum) && suite.minimum > 0);
     assert.match(suite.project, /\.csproj$/);
+    for (const selection of Object.values(suite.selections ?? {})) {
+      assert.ok(Number.isInteger(selection.minimum) && selection.minimum > 0);
+      assert.ok(selection.filter.length > 0);
+    }
   }
+  assert.deepEqual(
+    matrix.dotnetSuites.unit.selections['code-generation-realtime'],
+    {
+      filter: 'FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime',
+      minimum: 371
+    }
+  );
+  assert.deepEqual(
+    matrix.dotnetSuites.architecture.selections['api-native-aot'],
+    {
+      filter: 'FullyQualifiedName~NativeAot',
+      minimum: 18
+    }
+  );
   assert.ok(matrix.integration.shards.full.minimum > 0);
   assert.ok(matrix.integration.mainPartitions.length > 1);
   assert.deepEqual(
@@ -87,10 +105,9 @@ test('快速套件默认先构建新鲜程序集，CI 可在统一构建后显�
   assert.deepEqual(noBuildCommands[0].args, argumentsForSuite('unit'));
 });
 
-test('快速套件支持 --filter 与可选最低发现数', () => {
+test('快速套件从测试矩阵解析命名聚焦集', () => {
   const args = argumentsForSuite('architecture', {
-    filter: 'FullyQualifiedName~NativeAot',
-    minimumExpectedTests: 18
+    selection: 'api-native-aot'
   });
 
   assert.ok(args.includes('--filter'));
@@ -102,23 +119,45 @@ test('快速套件支持 --filter 与可选最低发现数', () => {
     ),
     ['--minimum-expected-tests', '18']
   );
-  assert.equal(
-    argumentsForSuite('architecture', {
-      filter: 'FullyQualifiedName~NativeAot'
-    }).includes('--minimum-expected-tests'),
-    false
-  );
   assert.deepEqual(parseSuiteOptions([
     '--no-build',
-    '--filter',
-    'FullyQualifiedName~NativeAot',
-    '--minimum-expected-tests',
-    '18'
+    '--selection',
+    'api-native-aot'
   ]), {
     noBuild: true,
-    filter: 'FullyQualifiedName~NativeAot',
-    minimumExpectedTests: '18'
+    selection: 'api-native-aot',
+    filter: null,
+    minimumExpectedTests: null
   });
+  assert.throws(
+    () => argumentsForSuite('architecture', { selection: 'unknown' }),
+    /未知聚焦集/
+  );
+});
+
+test('原始聚焦过滤必须携带正整数最低发现数且不能覆盖命名聚焦集', () => {
+  assert.throws(
+    () => parseSuiteOptions(['--filter', 'FullyQualifiedName~NativeAot']),
+    /必须同时提供 --minimum-expected-tests/
+  );
+  assert.throws(
+    () => parseSuiteOptions([
+      '--filter',
+      'FullyQualifiedName~NativeAot',
+      '--minimum-expected-tests',
+      '0'
+    ]),
+    /正整数/
+  );
+  assert.throws(
+    () => parseSuiteOptions([
+      '--selection',
+      'api-native-aot',
+      '--minimum-expected-tests',
+      '1'
+    ]),
+    /不能与/
+  );
 });
 
 test('CI 分片 JSON 直接来自测试矩阵', () => {
