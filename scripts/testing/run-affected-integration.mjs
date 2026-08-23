@@ -17,6 +17,9 @@ const testMatrix = loadTestMatrix();
 const assembly = testMatrix.integration.assembly;
 const migrationSelections = testMatrix.integration.migrationSelections ?? {};
 const smokeFilter = testMatrix.integration.shards.smoke.filter;
+const nativeAotIntegrationFilter =
+  testMatrix.nativeAotIntegration?.filter
+  ?? 'FullyQualifiedName~Full.NET.IntegrationTests.NativeAot';
 const identityFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Api.IdentityApi'
   + '|FullyQualifiedName~Full.NET.IntegrationTests.Identity.TotpStrongReauthTests';
@@ -88,6 +91,7 @@ const immediateTargetNames = new Set([
   'Realtime',
   'Seeding',
   'Tenancy',
+  'native-aot',
   'client-openapi-snapshot',
   'integration-matrix',
   'integration-tooling',
@@ -322,6 +326,14 @@ function classifyIntegrationPath(filePath, targets) {
   ) {
     addTarget(targets, { kind: 'shard', name: 'smoke' });
     return 'Integration 共享夹具';
+  }
+
+  if (filePath.startsWith('tests/Full.NET.IntegrationTests/NativeAot/')) {
+    addTarget(
+      targets,
+      filterTarget('native-aot', nativeAotIntegrationFilter)
+    );
+    return 'Native AOT 外部进程 Integration';
   }
 
   if (filePath ===
