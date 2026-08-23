@@ -2,6 +2,12 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Organization.Persistence;
 
+/// <summary>
+/// 租户职级序列的参数化 SQL 集合，按 <c>TenantRequired</c> 作用域绑定当前租户。
+/// </summary>
+/// <remarks>
+/// 职级为租户内独立目录实体，不引用机构单元；写入前由管理服务校验租户内 Code 唯一性与乐观并发版本号。
+/// </remarks>
 internal static class PositionLevelSql
 {
     public static readonly SqlStatement FindById = new(

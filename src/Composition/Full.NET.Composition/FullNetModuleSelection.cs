@@ -8,6 +8,10 @@ namespace Full.NET.Composition;
 /// </summary>
 public static class FullNetModuleSelection
 {
+    /// <summary>
+    /// 官方模块稳定键全集，与 <see cref="FullNetModuleCatalog"/> 编译闭包一一对应；
+    /// 启用集校验只接受其中的名称，禁止运行时登记未声明模块。
+    /// </summary>
     public static readonly IReadOnlyList<string> OfficialModuleNames =
     [
         "Identity",
@@ -24,6 +28,10 @@ public static class FullNetModuleSelection
         "SerialNumbers",
     ];
 
+    /// <summary>
+    /// Minimal 预设模块键：Identity + Tenancy + Settings + Organization。
+    /// </summary>
+    /// <remarks>仅提供租户与组织底座，供最小化部署或测试裁剪使用。</remarks>
     public static readonly IReadOnlyList<string> MinimalPresetModuleNames =
     [
         "Identity",
@@ -32,6 +40,9 @@ public static class FullNetModuleSelection
         "Organization",
     ];
 
+    /// <summary>
+    /// Platform 预设模块键：Minimal 基础上追加 Auditing、Notifications、Jobs、Messaging 平台能力。
+    /// </summary>
     public static readonly IReadOnlyList<string> PlatformPresetModuleNames =
     [
         "Identity",
@@ -44,6 +55,9 @@ public static class FullNetModuleSelection
         "Messaging",
     ];
 
+    /// <summary>
+    /// Content 预设模块键：Platform 基础上追加 Files、Document 内容管理能力。
+    /// </summary>
     public static readonly IReadOnlyList<string> ContentPresetModuleNames =
     [
         "Identity",
@@ -58,6 +72,12 @@ public static class FullNetModuleSelection
         "Document",
     ];
 
+    /// <summary>
+    /// 读取 <c>FullNet:Modules</c> 配置解析出启用模块稳定键集合，并校验名称合法、无重复且包含 Identity。
+    /// </summary>
+    /// <param name="configuration">宿主配置根，必须包含 <c>FullNet:Modules</c> 节。</param>
+    /// <returns>启用模块名称集合，使用 <see cref="StringComparer.Ordinal"/> 比较以保持稳定匹配。</returns>
+    /// <exception cref="InvalidOperationException">启用集为空、含空名、含未知模块名或缺少 Identity。</exception>
     public static IReadOnlySet<string> ResolveEnabledNames(IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
@@ -102,6 +122,11 @@ public static class FullNetModuleSelection
         return enabledNames.ToHashSet(StringComparer.Ordinal);
     }
 
+    /// <summary>
+    /// 按启用名称集合从全量模块列表筛出待注册子集；不在此处校验依赖。
+    /// </summary>
+    /// <param name="allModules">由组合根构造的全量官方模块实例列表。</param>
+    /// <param name="enabledNames">已校验通过的启用模块名称集合。</param>
     public static IReadOnlyList<IFullNetModule> FilterModules(
         IReadOnlyList<IFullNetModule> allModules,
         IReadOnlySet<string> enabledNames) =>
@@ -148,6 +173,12 @@ public static class FullNetModuleSelection
         }
     }
 
+    /// <summary>
+    /// 组合解析与过滤：先解析启用名称，再筛选模块实例，最后校验依赖 DAG 在启用集内闭合。
+    /// </summary>
+    /// <param name="configuration">宿主配置根。</param>
+    /// <param name="allModules">由组合根构造的全量官方模块实例列表。</param>
+    /// <exception cref="InvalidOperationException">启用集非法或某模块依赖未在启用集中。</exception>
     public static IReadOnlyList<IFullNetModule> ResolveEnabledModules(
         IConfiguration configuration,
         IReadOnlyList<IFullNetModule> allModules)

@@ -4,6 +4,7 @@ using Full.NET.Modules.Files.Features.ManageHostFiles;
 
 namespace Full.NET.Modules.Files.Features.HostFileReferences;
 
+/// <summary>把跨模块上传请求委托给 <see cref="ManageHostFiles.HostFileManagementService"/>，对外暴露 <see cref="IHostFileUploadWriter"/> 契约。</summary>
 internal sealed class HostFileUploadWriter(HostFileManagementService fileManagementService)
     : IHostFileUploadWriter
 {

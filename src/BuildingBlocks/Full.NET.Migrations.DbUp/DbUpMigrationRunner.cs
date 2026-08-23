@@ -8,6 +8,20 @@ using MySqlConnector;
 
 namespace Full.NET.Migrations.DbUp;
 
+/// <summary>
+/// DbUp 实现的数据库迁移器：按当前 Provider 加载嵌入资源脚本、注入 Contract 维护证据并记账已执行版本。
+/// </summary>
+/// <remarks>
+/// <para>脚本按 <c>Migrations.SqlServer</c> 与 <c>Migrations.MySql</c> 子目录成对存放，
+/// 本类通过 <see cref="MigrationAssembly"/> 获取承载脚本的程序集并按 Provider 片段过滤；
+/// 任一脚本失败立即抛出异常并停止后续脚本，已记账的脚本不会被回滚或重复执行。</para>
+/// <para>UUID Binary Contract 与 Pre-V1 Naming Contract 的维护证据以 SQL 变量形式注入，
+/// 默认全部关闭；只有显式提供 <see cref="UuidBinaryContractOptions"/> /
+/// <see cref="PreV1NamingContractOptions"/> 维护证据时，破坏性 DDL 才能在脚本内通过门禁。
+/// API 与 Worker 不得继承这些豁免，也不得引用迁移器或调用本类。</para>
+/// <para>MySQL 迁移完成后会校验 <c>fn_uuid_contract_state.SchemaMode</c> 与配置的
+/// <c>MySqlGuidStorageMode</c> 是否一致，避免应用层与数据库 Contract 状态漂移。</para>
+/// </remarks>
 public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
 {
     private readonly IOptions<DatabaseOptions> _databaseOptions;
@@ -15,6 +29,11 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
     private readonly UuidBinaryContractOptions _contractOptions;
     private readonly PreV1NamingContractOptions _namingContractOptions;
 
+    /// <summary>
+    /// 初始化迁移器并使用默认关闭的 Contract 维护证据；适用于不需要执行破坏性 Contract 迁移的常规升级。
+    /// </summary>
+    /// <param name="databaseOptions">数据库连接、Provider 与命令超时等配置。</param>
+    /// <param name="loggerFactory">用于桥接 DbUp 日志到 .NET 日志管道的工厂。</param>
     public DbUpMigrationRunner(
         IOptions<DatabaseOptions> databaseOptions,
         ILoggerFactory loggerFactory)
@@ -26,6 +45,12 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
     {
     }
 
+    /// <summary>
+    /// 初始化迁移器并提供 UUID Binary Contract 维护证据；用于需要执行 009 Contract 切换的维护窗口。
+    /// </summary>
+    /// <param name="databaseOptions">数据库连接、Provider 与命令超时等配置。</param>
+    /// <param name="loggerFactory">用于桥接 DbUp 日志到 .NET 日志管道的工厂。</param>
+    /// <param name="contractOptions">UUID Binary Contract 维护证据；默认全部关闭。</param>
     public DbUpMigrationRunner(
         IOptions<DatabaseOptions> databaseOptions,
         ILoggerFactory loggerFactory,
@@ -38,6 +63,13 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
     {
     }
 
+    /// <summary>
+    /// 初始化迁移器并同时提供 UUID Binary 与 Pre-V1 Naming 两种 Contract 维护证据，覆盖全部破坏性迁移门禁。
+    /// </summary>
+    /// <param name="databaseOptions">数据库连接、Provider 与命令超时等配置。</param>
+    /// <param name="loggerFactory">用于桥接 DbUp 日志到 .NET 日志管道的工厂。</param>
+    /// <param name="contractOptions">UUID Binary Contract 维护证据。</param>
+    /// <param name="namingContractOptions">Pre-V1 Naming Contract 维护证据。</param>
     public DbUpMigrationRunner(
         IOptions<DatabaseOptions> databaseOptions,
         ILoggerFactory loggerFactory,
@@ -50,6 +82,12 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
         _namingContractOptions = namingContractOptions.Value;
     }
 
+    /// <summary>
+    /// 按当前 Provider 执行未记账迁移脚本，注入 Contract 维护证据并按需验证 MySQL Schema 模式。
+    /// </summary>
+    /// <param name="cancellationToken">用于取消迁移的令牌；DbUp 内部按脚本粒度检查取消，已记账脚本不会回滚。</param>
+    /// <returns>包含成功标志与本次执行脚本数的迁移结果。</returns>
+    /// <exception cref="InvalidOperationException">迁移失败、Contract 证据格式无效或 MySQL Schema 模式与应用配置不一致时抛出。</exception>
     public async Task<MigrationResult> MigrateAsync(
         CancellationToken cancellationToken = default)
     {

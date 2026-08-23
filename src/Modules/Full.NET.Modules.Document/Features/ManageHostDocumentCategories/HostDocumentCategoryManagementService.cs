@@ -8,6 +8,12 @@ using Full.NET.Modules.Document.Persistence;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentCategories;
 
+/// <summary>
+/// Host 文档分类目录管理服务。分类支持父子层级（ParentId 自引用）与软删除，
+/// 通过乐观并发 Version 字段防止跨客户端覆盖；删除前必须校验无活动子分类与无文档引用，
+/// 存在引用时返回 InUse 错误而非级联删除，以保证层级与引用完整性。
+/// 同步写入 Code/Icon/Color/Description 四列，与 Tag 表统一字段顺序以便 UI 复用。
+/// </summary>
 internal sealed class HostDocumentCategoryManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

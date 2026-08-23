@@ -6,10 +6,23 @@ namespace Full.NET.Realtime.SignalR;
 /// <summary>
 /// 通过 SignalR 组播实现 <see cref="IRealtimePublisher"/>，隔离 Hub 上下文。
 /// </summary>
+/// <remarks>
+/// <para>本类只依赖 <see cref="IHubContext{THub}"/>，禁止业务模块直接引用 Hub 类型或连接 API；
+/// 多实例部署时通过 Redis Backplane 跨实例分发，发送结果只反映 SignalR 服务端投递状态，
+/// 不代表客户端已接收或处理。</para>
+/// <para>调用方传入的 <see cref="CancellationToken"/> 会透传到 SignalR 发送边界；
+/// 超时与底层异常按原异常抛出，是否重试由调用方决定，本实现不进行任何重试或补偿。</para>
+/// </remarks>
 internal sealed class SignalRRealtimePublisher(
     IHubContext<FullNetNotificationHub> hubContext)
     : IRealtimePublisher
 {
+    /// <summary>
+    /// 向指定用户对应的私有组推送消息，组名由 <see cref="RealtimeGroups.User"/> 规范化得到。
+    /// </summary>
+    /// <param name="userId">目标用户标识。</param>
+    /// <param name="message">包含稳定机器码与可选结构化数据的消息。</param>
+    /// <param name="cancellationToken">用于取消 SignalR 发送任务的令牌。</param>
     public Task PublishToUserAsync(
         Guid userId,
         RealtimeMessage message,
@@ -20,6 +33,12 @@ internal sealed class SignalRRealtimePublisher(
             message,
             cancellationToken);
 
+    /// <summary>
+    /// 向已规范化并通过授权的命名组推送消息。
+    /// </summary>
+    /// <param name="groupName">目标组名，须由 <see cref="RealtimeGroups"/> 生成或经授权校验。</param>
+    /// <param name="message">包含稳定机器码与可选结构化数据的消息。</param>
+    /// <param name="cancellationToken">用于取消 SignalR 发送任务的令牌。</param>
     public Task PublishToGroupAsync(
         string groupName,
         RealtimeMessage message,

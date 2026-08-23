@@ -9,6 +9,19 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Seeding.Dapper;
 
+/// <summary>
+/// Dapper 实现的 Seed 编排器：展开 Profile 继承链、按依赖图排序 Contributor、获取执行租约并写入幂等审计。
+/// </summary>
+/// <remarks>
+/// <para>本编排器按 <see cref="SeedProfileNames.EffectiveLayers"/> 展开目标 Profile 的确定性继承层，
+/// 通过 <see cref="SeedContributorGraph"/> 拓扑排序 Contributor 后逐个执行；
+/// Production 环境直接拒绝除 <see cref="SeedProfile.Baseline"/> 之外的 Profile，避免开发/演示数据进入生产。</para>
+/// <para>同一数据库同一时刻只允许一个 Seed Run 在执行，由 <see cref="ISeedExecutionLeaseProvider"/> 串行化；
+/// 任一 Contributor 抛出受控异常时立即停止后续执行，并在审计表中标记当前项与整次 Run 的稳定错误码，
+/// 不进行自动重试或回滚，由调用方依据审计结果决定处置。</para>
+/// <para>每次执行产生新的 <see cref="SeedContext.RunId"/>，审计记录承载关联标识（优先取当前 Activity TraceId），
+/// 日志与审计均禁止包含 Secret、连接串或异常堆栈。</para>
+/// </remarks>
 internal sealed class SeedOrchestrator(
     IEnumerable<IDataSeedContributor> contributors,
     ISeedExecutionLeaseProvider leaseProvider,
@@ -23,6 +36,11 @@ internal sealed class SeedOrchestrator(
         contributors.ToArray();
     private readonly SeedOptions _options = options.Value;
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// 实现按继承链展开 Profile、获取租约后委托 <see cref="ExecuteAsync"/>；并发请求由租约串行化，
+    /// 重复请求返回 <see cref="SeedErrorCodes"/> 中定义的租约占用错误而非并行执行。
+    /// </remarks>
     public async Task<Result<SeedRunResult>> RunAsync(
         SeedProfile profile,
         CancellationToken cancellationToken = default)

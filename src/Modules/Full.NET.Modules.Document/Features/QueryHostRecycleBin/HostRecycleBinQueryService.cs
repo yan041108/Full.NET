@@ -7,6 +7,10 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Features.QueryHostRecycleBin;
 
+/// <summary>
+/// Host 文档回收站只读查询服务。只列出 IsDeleted = 1 的软删除行，按 DeletedAtUtc 倒序分页，
+/// 投影复用活动列表的明细投影以保证响应结构一致；本服务不复活或物理删除任何记录。
+/// </summary>
 internal sealed class HostRecycleBinQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IQueryExecutor queryExecutor,

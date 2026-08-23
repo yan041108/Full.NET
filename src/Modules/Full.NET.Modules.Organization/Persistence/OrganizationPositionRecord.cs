@@ -1,5 +1,7 @@
 namespace Full.NET.Modules.Organization.Persistence;
 
+/// <summary>映射 <c>fn_organization_position</c> 行，可选关联机构单元与职级用于展示。</summary>
+/// <remarks>职位实体归属于当前租户；<c>UnitId</c> 与 <c>PositionLevelId</c> 为可空展示字段，缺失时不影响职位主体存在性。</remarks>
 internal sealed record OrganizationPositionRecord(
     Guid Id,
     Guid TenantId,

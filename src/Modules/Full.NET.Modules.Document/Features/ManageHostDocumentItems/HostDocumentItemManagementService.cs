@@ -10,6 +10,11 @@ using Full.NET.Modules.Files.Contracts;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 
+/// <summary>
+/// Host 文档项与版本的管理服务。所有写操作必须在单一事务内完成，
+/// 并通过乐观并发 Version 字段防止跨客户端覆盖；新增版本时必须先 Claim Files 模块的文件引用，
+/// 写入失败回滚事务会同步释放引用，禁止在事务外做文件保留期回收以避免孤儿文件。
+/// </summary>
 internal sealed class HostDocumentItemManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

@@ -6,6 +6,11 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Features.QueryHostDocumentStatistics;
 
+/// <summary>
+/// Host 文档统计只读查询服务。聚合活动文档数、按类型分组与分享计数三类指标，
+/// 全部基于 SQL 端聚合以避免内存层搬运大结果集；统计口径仅覆盖 IsDeleted = 0 的活动行，
+/// 与回收站分离，防止软删除行被误计入活跃指标。
+/// </summary>
 internal sealed class HostDocumentStatisticsQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)

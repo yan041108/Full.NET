@@ -8,6 +8,11 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 
+/// <summary>
+/// Host 文档项与版本只读查询服务。列表与详情投影均 LEFT JOIN 当前版本行，
+/// 缺失版本时由 Mapper 防御性转换 NULL；下载内容请求通过 Files 模块的 <see cref="IHostFileContentReader"/>
+/// 间接读取，本服务不直连文件存储，以保持模块边界与 Files 模块对存储后端的统一治理。
+/// </summary>
 internal sealed class HostDocumentItemQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IQueryExecutor queryExecutor,

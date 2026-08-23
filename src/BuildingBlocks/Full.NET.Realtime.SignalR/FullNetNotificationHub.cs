@@ -52,6 +52,11 @@ public sealed class FullNetNotificationHub : Hub
         }
     }
 
+    /// <summary>
+    /// 连接断开时释放连接级生命周期标记并记录时长/失败指标。
+    /// </summary>
+    /// <param name="exception">连接异常终止时由 SignalR 传递的异常；为 <c>null</c> 表示正常关闭。</param>
+    /// <returns>表示异步清理完成的任务。</returns>
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         try

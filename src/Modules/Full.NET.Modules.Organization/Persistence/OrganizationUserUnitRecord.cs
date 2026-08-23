@@ -1,5 +1,7 @@
 namespace Full.NET.Modules.Organization.Persistence;
 
+/// <summary>映射 <c>fn_organization_user_unit</c> 行，表示用户在机构单元的隶属关系。</summary>
+/// <remarks>主部门唯一性由管理服务在同一事务内清零旧主标记维护；<c>IsActive=0</c> 时 <c>IsPrimary</c> 必须同步清零。</remarks>
 internal sealed class OrganizationUserUnitRecord
 {
     public Guid Id { get; set; }

@@ -2,6 +2,13 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Organization.Persistence;
 
+/// <summary>
+/// 租户职位目录的参数化 SQL 集合，按 <c>TenantRequired</c> 作用域绑定当前租户。
+/// </summary>
+/// <remarks>
+/// 职位查询通过 <c>LEFT JOIN</c> 关联本模块拥有的 <c>fn_organization_unit</c> 与 <c>fn_organization_position_level</c>，
+/// 仅用于补全展示字段，不构成跨模块读；职级缺失时仍可返回职位主体。
+/// </remarks>
 internal static class PositionSql
 {
     public static readonly SqlStatement FindById = new(

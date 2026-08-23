@@ -1,5 +1,7 @@
 namespace Full.NET.Modules.Organization.Persistence;
 
+/// <summary>映射 <c>fn_organization_unit</c> 行，承载租户机构单元父子层级与软禁用状态。</summary>
+/// <remarks>父子环不变量由管理服务在写入前完成检测，不在 SQL 层强制；<c>ParentId</c> 为 <c>null</c> 表示租户根节点。</remarks>
 internal sealed record OrganizationUnitRecord(
     Guid Id,
     Guid TenantId,

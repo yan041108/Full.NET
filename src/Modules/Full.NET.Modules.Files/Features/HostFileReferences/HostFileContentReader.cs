@@ -5,6 +5,8 @@ using Full.NET.Modules.Files.Storage;
 
 namespace Full.NET.Modules.Files.Features.HostFileReferences;
 
+/// <summary>按 fileId 解析 Host 文件元数据后从对应 <see cref="IFileStorageProvider"/> 打开只读内容流。</summary>
+/// <remarks>仅允许打开 <c>ready</c> 且未软删除的文件；调用方负责释放返回的 <see cref="Stream"/>。</remarks>
 internal sealed class HostFileContentReader(
     HostFileQueryService fileQueries,
     FileStorageProviderRegistry storageProviders) : IHostFileContentReader

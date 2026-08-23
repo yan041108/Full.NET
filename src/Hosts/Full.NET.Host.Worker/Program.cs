@@ -211,3 +211,15 @@ static Task WriteErrorAsync(string code) =>
         JsonSerializer.Serialize(
             new { code },
             new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+
+/// <summary>
+/// Full.NET Worker 宿主入口；只承载后台任务，无 HTTP 管道。
+/// </summary>
+/// <remarks>
+/// 装配顺序：ServiceDefaults → Dapper/Caching/MessagePack/Realtime Publisher →
+/// <see cref="FullNetHostProfile.Worker"/> 模块后台能力（仅 <c>AddBackgroundServices</c>）→ 后台服务与 Kafka 消费。
+/// <para>后台服务按 <c>MessagingWorkerMode</c> 选择注册：<c>OutboxProcessor</c>、<c>OutboxRetentionProcessor</c>、
+/// <c>ShadowEventComparisonProcessor</c> 与 Kafka 消费者；<c>CdcKafka</c> 作为过时别名规范化为 <c>HybridKafka</c>。</para>
+/// <para>支持一次性 Outbox 版本退役扫描命令；非退役模式下才注册后台服务并 <c>RunAsync</c>。</para>
+/// </remarks>
+public partial class Program;

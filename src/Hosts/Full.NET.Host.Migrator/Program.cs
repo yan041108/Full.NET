@@ -100,3 +100,14 @@ catch (Exception exception)
     Console.Error.WriteLine(MigratorErrorCodes.ExecutionFailed);
     return 1;
 }
+
+/// <summary>
+/// Full.NET Migrator 宿主入口；一次性进程，无 HTTP 管道。
+/// </summary>
+/// <remarks>
+/// 装配顺序：ServiceDefaults → Dapper/Caching/MessagePack → Migrations/Seeding →
+/// <see cref="FullNetHostProfile.Migrator"/> 模块迁移能力（仅 <c>AddMigrationServices</c>）→ <c>MigratorWorkflow</c>。
+/// <para>工作流顺序：迁移 Profile 最小闭包装配 → DbUp 执行迁移脚本 → 迁移成功后才按 CLI 运行可选 Seed Profile →
+/// 输出执行脚本数与 Seed 摘要审计；失败以稳定错误码退出。</para>
+/// </remarks>
+public partial class Program;

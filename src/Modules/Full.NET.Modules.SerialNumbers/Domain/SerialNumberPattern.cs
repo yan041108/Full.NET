@@ -7,6 +7,11 @@ namespace Full.NET.Modules.SerialNumbers.Domain;
 
 /// <summary>
 /// 解析并格式化受限流水号 Pattern，确保预览与真实分配共享同一组确定性规则。
+/// Pattern 语法由 {token} 占位符与字面量交替组成：支持 utc:yyyy/utc:yy/utc:MM/utc:dd/utc:HH/utc:mm/utc:ss
+/// 七种 UTC 时间段、{tenant} 仅在 Tenant 作用域可用、{sequence:N} 表示 N 位十进制序号宽度（1-18）。
+/// 不变量：每个 Pattern 必须包含且仅包含一个 sequence 段；MaximumPatternLength/MaximumOutputLength
+/// 双重限制防止正则回溯与超长输出；MaximumSequenceWidth 限制保证 long.MaxValue 容量内可承载。
+/// Pattern 一经解析不可变，Format 阶段对 sequenceValue 越界抛 ArgumentOutOfRangeException 以 fail-fast。
 /// </summary>
 internal sealed class SerialNumberPattern
 {
@@ -25,8 +30,13 @@ internal sealed class SerialNumberPattern
         SequenceWidth = sequenceWidth;
     }
 
+    /// <summary>序号位宽，由 Pattern 中唯一的 {sequence:N} 段决定。</summary>
     public int SequenceWidth { get; }
 
+    /// <summary>
+    /// 当前 Pattern 可生成的最大序号值 = 10^SequenceWidth - 1；
+    /// 分配时若计数器达到此值，Allocate* 语句不再自增，上层返回 SequenceExhausted。
+    /// </summary>
     public long MaximumSequenceValue
     {
         get
@@ -41,6 +51,10 @@ internal sealed class SerialNumberPattern
         }
     }
 
+    /// <summary>
+    /// 解析 Pattern 字符串；返回失败表示 Pattern 为空、超长、未包含 sequence 段、
+    /// 包含重复 sequence 段、未闭合的 token 或输出去重。scope 决定 {tenant} 段是否允许。
+    /// </summary>
     public static Result<SerialNumberPattern> Parse(
         string? pattern,
         SerialNumberRuleScope scope)
@@ -129,6 +143,11 @@ internal sealed class SerialNumberPattern
                 new SerialNumberPattern(segments, sequenceWidth));
     }
 
+    /// <summary>
+    /// 按解析后的段顺序拼装最终流水号；sequenceValue 超出 [0, MaximumSequenceValue] 抛
+    /// ArgumentOutOfRangeException，{tenant} 段存在时 tenantIdentifier 不可为空且不超长。
+    /// 所有时间字段基于 UTC，禁止使用本地时间以避免跨时区客户端生成不一致流水号。
+    /// </summary>
     public string Format(
         DateTimeOffset now,
         string? tenantIdentifier,

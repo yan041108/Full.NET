@@ -2,6 +2,14 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Files.Persistence;
 
+/// <summary>
+/// Host 作用域文件元数据的参数化 SQL 集合，全部声明 <c>SqlDataScope.HostOnly</c>。
+/// </summary>
+/// <remarks>
+/// 不变量：所有语句以 <c>TenantId IS NULL</c> 行条件表达 Host 作用域边界，软删除 <see cref="SoftDelete"/> 在 SQL 层拒绝存在未释放 Claim 的文件；
+/// 存储状态机 <c>pending -> publishing -> ready</c> 由 <see cref="ClaimPublication"/>、<see cref="MarkReady"/> 与 <see cref="ReconcileReady"/> 推进，
+/// 用于隔离数据库提交不确定性与对象存储发布的最终一致性；清理与对账使用 keyset 游标分页避免深度分页退化。
+/// </remarks>
 internal static class HostFileSql
 {
     public static readonly SqlStatement CountActiveHostFiles = new(

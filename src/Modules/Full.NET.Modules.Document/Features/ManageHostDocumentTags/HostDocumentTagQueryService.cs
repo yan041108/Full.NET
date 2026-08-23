@@ -5,6 +5,10 @@ using Full.NET.Modules.Document.Persistence;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentTags;
 
+/// <summary>
+/// Host 文档标签只读查询服务。按名称排序返回活动标签，UseCount 直接读自目录表的反规范化列，
+/// 不在本服务内联统计，以保证列表性能；不暴露已删除标签。
+/// </summary>
 internal sealed class HostDocumentTagQueryService(IQueryExecutor queryExecutor)
 {
     public async Task<Result<IReadOnlyList<HostDocumentTagResponse>>> ListAsync(

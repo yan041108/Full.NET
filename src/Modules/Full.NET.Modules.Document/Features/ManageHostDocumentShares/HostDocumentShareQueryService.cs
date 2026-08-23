@@ -6,6 +6,10 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentShares;
 
+/// <summary>
+/// Host 文档分享只读查询服务。投影绝不包含 PasswordHash 明文或哈希，
+/// 所有响应字段均与 <see cref="HostDocumentShareResponse"/> 显式映射，避免序列化泄露敏感列。
+/// </summary>
 internal sealed class HostDocumentShareQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IQueryExecutor queryExecutor,

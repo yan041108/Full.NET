@@ -15,8 +15,26 @@ namespace Full.NET.Realtime.SignalR;
 /// <summary>
 /// 注册 SignalR Hub、MessagePack 协议与 <see cref="IRealtimePublisher"/> 实现。
 /// </summary>
+/// <remarks>
+/// <para>该扩展是 API Host 启用实时推送的统一入口，禁止业务模块自行注册 Hub；
+/// 当 <c>Realtime:Enabled=false</c> 或缺省 Redis Backplane 时，回退为 <see cref="NullRealtimePublisher"/>，
+/// 业务代码无须感知发布器是否存在。</para>
+/// <para>生产与 Staging 环境强制 Realtime Redis 与 Cache Redis 连接串不同；开发环境可通过
+/// <c>Realtime:AllowSharedRedisInDevelopment=true</c> 显式允许共用，避免误带入生产故障域耦合。</para>
+/// </remarks>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// 为 API Host 注册 SignalR Hub Endpoint 与 <see cref="IRealtimePublisher"/> 实现。
+    /// </summary>
+    /// <param name="services">服务集合，扩展方法基于此追加 Hub、Backplane、健康检查与遥测注册。</param>
+    /// <param name="configuration">应用配置根，用于读取 <c>Realtime</c> 段、连接串与 Cache 段以做隔离校验。</param>
+    /// <param name="environmentName">当前环境名（Production/Staging/Development 等），决定 Redis 隔离策略。</param>
+    /// <returns>传入的服务集合，便于链式注册。</returns>
+    /// <remarks>
+    /// 启用 Hub 时会同步注册 JwtBearer 后置配置以支持 SignalR 鉴权令牌规范化；
+    /// 未启用 Realtime 时仅注册 <see cref="NullRealtimePublisher"/>，且不注册 Hub Endpoint。
+    /// </remarks>
     public static IServiceCollection AddFullNetRealtimeSignalR(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -39,6 +57,14 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// 注册不承载 Hub Endpoint 的实时发布能力，供 Worker 通过同一 Redis Backplane 修复推送。
     /// </summary>
+    /// <param name="services">服务集合，扩展方法基于此追加发布器、Backplane 与健康检查注册。</param>
+    /// <param name="configuration">应用配置根，用于读取 <c>Realtime</c> 段与连接串。</param>
+    /// <param name="environmentName">当前环境名；非生产环境可按配置回退到 <c>ConnectionStrings:redis</c>。</param>
+    /// <returns>传入的服务集合，便于链式注册。</returns>
+    /// <remarks>
+    /// Worker 等不承载 Hub Endpoint 的宿主调用本方法时必须显式提供 Backplane 连接串，
+    /// 否则会被 <c>Validate</c> 拒绝；该路径不注册 JwtBearer 后置配置。
+    /// </remarks>
     public static IServiceCollection AddFullNetRealtimePublisher(
         this IServiceCollection services,
         IConfiguration configuration,

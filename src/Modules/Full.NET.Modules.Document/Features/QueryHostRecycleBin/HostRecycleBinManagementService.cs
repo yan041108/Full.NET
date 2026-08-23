@@ -9,6 +9,11 @@ using Full.NET.Modules.Document.Persistence;
 
 namespace Full.NET.Modules.Document.Features.QueryHostRecycleBin;
 
+/// <summary>
+/// Host 文档回收站管理服务。Restore 通过乐观并发 Version 自增实现软删除行的复活，
+/// Purge 执行物理删除并联动 Files 模块文件引用清理事后对账；二者均在单一事务内完成，
+/// Purge 前必须确认无引用残留以避免产生孤儿文件。
+/// </summary>
 internal sealed class HostRecycleBinManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

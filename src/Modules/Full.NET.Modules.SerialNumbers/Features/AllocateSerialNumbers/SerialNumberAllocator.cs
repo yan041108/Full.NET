@@ -13,6 +13,14 @@ namespace Full.NET.Modules.SerialNumbers.Features.AllocateSerialNumbers;
 
 /// <summary>
 /// 在数据库事务内原子推进计数器并持久化幂等结果，不以缓存锁承担正确性。
+/// 并发安全边界：
+/// 1) 计数器推进由 SerialNumberSql.Allocate* 在数据库事务内串行化——
+///    SQL Server 用 sp_getapplock 命名锁，MySQL 用 ON DUPLICATE KEY UPDATE 的原子语义；
+/// 2) 幂等性由 (RuleId, TenantId, IdempotencyKey) 联合唯一键保证，
+///    重复请求触发 UniqueConstraint 后由 FindReplayAfterConflictAsync 查询并回放既有结果；
+/// 3) 命名锁 Resource 由 CreateLockResource 拼装为 Full.NET.SerialNumbers:{RuleId}:{TenantId|host}:{ResetBucket}，
+///    保证不同规则、不同租户、不同重置周期互不阻塞；
+/// 4) SequenceExhausted 由 Allocate* 语句的 OUTPUT 为空表示，禁止在应用层做 MaxValue 预检——会引入 TOCTOU。
 /// </summary>
 internal sealed class SerialNumberAllocator(
     IQueryExecutor queryExecutor,
@@ -23,6 +31,11 @@ internal sealed class SerialNumberAllocator(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions) : ISerialNumberAllocator
 {
+    /// <summary>
+    /// 分配一个流水号。同一 (ruleKey, idempotencyKey) 重复请求返回首次分配的 SerialNumber，
+    /// 不重复扣减计数器；Scope=Host 可在无租户上下文调用，Scope=Tenant 必须有受信任租户上下文，
+    /// 否则返回 TenantContextRequired。
+    /// </summary>
     public async Task<Result<SerialNumberAllocation>> AllocateAsync(
         string ruleKey,
         string idempotencyKey,

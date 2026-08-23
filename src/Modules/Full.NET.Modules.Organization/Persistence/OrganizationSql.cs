@@ -2,6 +2,15 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Organization.Persistence;
 
+/// <summary>
+/// 租户机构单元与用户-机构、用户-职位隶属关系的参数化 SQL 集合。
+/// </summary>
+/// <remarks>
+/// 不变量：所有租户作用域语句均声明 <c>SqlDataScope.TenantRequired</c> 与 <c>SqlTenantBinding.CurrentTenantId</c>，
+/// 由范围守卫注入受信任的当前租户参数；投影回填与跨租户探测语句改用 <c>SqlDataScope.Global</c> 并在 SQL 行条件中显式过滤 <c>TenantId</c>。
+/// 父子层级不变量不在 SQL 层强制，由 <see cref="Features.ManageTenantUnits.TenantUnitManagementService"/> 在写入库前完成环检测。
+/// 用户主部门/主职位唯一性由 <see cref="ClearPrimaryUserUnits"/> 与 <see cref="ClearPrimaryUserPositions"/> 在同一事务内清零旧主标记来维护。
+/// </remarks>
 internal static class OrganizationSql
 {
     public static readonly SqlStatement FindUnitById = new(

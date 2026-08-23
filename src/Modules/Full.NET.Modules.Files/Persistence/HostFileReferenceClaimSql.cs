@@ -2,6 +2,15 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Files.Persistence;
 
+/// <summary>
+/// 跨模块文件引用 Claim 状态机的参数化 SQL 集合，全部声明 <c>SqlDataScope.HostOnly</c>。
+/// </summary>
+/// <remarks>
+/// 状态机：<c>pending -> active -> released</c>。<see cref="InsertPending"/> 以子查询校验目标文件处于 <c>ready</c> 且未软删除后才插入 Claim；
+/// <see cref="ConfirmPending"/> 与 <see cref="ReleaseOpen"/> 按 <c>IdempotencyKey</c> 推进状态，保证幂等；
+/// <see cref="CountOpenByFileId"/> 为软删除守卫提供引用计数，未释放的 Claim 阻止 Blob 回收。
+/// 陈旧 <c>pending</c> Claim 由对账 Runner 按配置阈值晋升或回收，避免上传中断后引用永久阻塞清理。
+/// </remarks>
 internal static class HostFileReferenceClaimSql
 {
     public static readonly SqlStatement FindByIdempotencyKey = new(

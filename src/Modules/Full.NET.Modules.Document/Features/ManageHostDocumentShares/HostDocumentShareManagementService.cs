@@ -10,6 +10,16 @@ using System.Security.Cryptography;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentShares;
 
+/// <summary>
+/// Host 文档分享的管理与匿名访问服务。承担以下安全边界：
+/// 1) ShareCode 由 <see cref="RandomNumberGenerator"/>.GetString 从 62 字符表生成 12 位，
+///    熵约 71.4 位，禁止使用可预测的 <c>System.Random</c>；
+/// 2) 口令以 PBKDF2 不可逆哈希存储，投影与响应中永不包含明文或哈希；
+/// 3) 匿名访问计数必须由 <see cref="DocumentShareSql.TryConsumeAccess"/> 在单条 UPDATE 内原子完成，
+///    禁止在内存层做 MaxAccessCount 预检后再 UPDATE——会引入 TOCTOU 漏洞；
+/// 4) 所有失败路径（不存在/口令错误/过期/禁用/超上限）统一返回 HostShareAccessDenied，
+///    避免通过耗时或错误码侧信道泄露分享存在性。
+/// </summary>
 internal sealed class HostDocumentShareManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -19,6 +29,7 @@ internal sealed class HostDocumentShareManagementService(
     IIdGenerator idGenerator,
     IDocumentSharePasswordHasher passwordHasher)
 {
+    /// <summary>ShareCode 字符表：大写字母+小写字母+数字共 62 个字符，保证 URL 安全且无歧义。</summary>
     private const string ShareCodeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
     public Task<Result<HostDocumentShareResponse>> CreateAsync(
@@ -267,6 +278,10 @@ internal sealed class HostDocumentShareManagementService(
         return await queries.GetByIdAsync(shareId, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 生成分享码：使用密码学安全随机源从 62 字符表取 12 位，
+    /// 熵约 71.4 位；禁止替换为 <c>System.Random</c> 或缩减长度。
+    /// </summary>
     private static string GenerateShareCode()
     {
         // 分享码属于匿名访问凭据，必须由密码学安全随机源生成，不能使用可预测的 Random。

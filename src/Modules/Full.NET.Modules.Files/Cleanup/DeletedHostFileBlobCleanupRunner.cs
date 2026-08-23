@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Cleanup;
 
+/// <summary>单次 Blob 回收批次计数结果，包含扫描、清理、Blob 失败与并发完成统计。</summary>
 internal sealed record DeletedHostFileBlobCleanupResult(
     int Scanned,
     int Purged,
@@ -16,6 +17,12 @@ internal sealed record DeletedHostFileBlobCleanupResult(
         new(0, 0, 0, 0, 0);
 }
 
+/// <summary>后台清理已软删除且无未释放 Claim 的 Host 文件 Blob 与元数据行。</summary>
+/// <remarks>
+/// 安全边界：清理只针对 <c>DeletedAtUtc IS NOT NULL</c> 的行，软删除前置守卫已在 <see cref="Persistence.HostFileSql.SoftDelete"/> 拒绝存在未释放 Claim 的文件；
+/// Blob 删除失败不阻断元数据清理循环，失败计入 <see cref="DeletedHostFileBlobCleanupResult.BlobFailures"/> 供运维追踪；
+/// 使用 keyset 游标分页与受控批大小，避免长事务与无界扫描；可由配置 <c>Enabled</c> 关闭。
+/// </remarks>
 internal sealed class DeletedHostFileBlobCleanupRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

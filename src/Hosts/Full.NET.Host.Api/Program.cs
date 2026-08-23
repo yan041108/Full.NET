@@ -59,4 +59,17 @@ app.MapFullNetRealtime();
 app.MapFullNetModules();
 app.Run();
 
+/// <summary>
+/// Full.NET API 宿主入口；按固定顺序完成装配与启动，模块装配只能经组合根完成。
+/// </summary>
+/// <remarks>
+/// 启动顺序：
+/// <list type="number">
+/// <item><c>AddFullNetServiceDefaults</c>：基础观测与 ServiceDefaults；</item>
+/// <item>BuildingBlocks：DataProtection、Forwarding、OpenApi、RateLimiter、Dapper、MessagePack、Kafka、Caching、SignalR；</item>
+/// <item><c>AddFullNetApplicationModules</c> 以 <see cref="FullNetHostProfile.Api"/> 装配模块并物化只读目录；</item>
+/// <item>四阶段中间件管道：BeforeAuthentication → Authentication → BeforeAuthorization → Authorization → BeforeEndpoints；</item>
+/// <item>Endpoints：OpenApi/Scalar、Health、Realtime Hub 与模块 Endpoint。</item>
+/// </list>
+/// </remarks>
 public partial class Program;

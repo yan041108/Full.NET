@@ -8,6 +8,11 @@ using Full.NET.Modules.Document.Persistence;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentPermissions;
 
+/// <summary>
+/// Host 文档细粒度权限管理服务。整文档权限重写采用"先全删再批量插"的原子语义，
+/// 必须在单一事务内完成；权限记录无 Version 字段，禁止在内存层做 diff 后部分更新，
+/// 否则会引入权限残留或权限真空窗口。每条记录的 Id 由外部生成 UUID v7。
+/// </summary>
 internal sealed class HostDocumentPermissionManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

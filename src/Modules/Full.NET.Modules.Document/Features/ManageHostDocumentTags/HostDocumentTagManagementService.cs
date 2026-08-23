@@ -8,6 +8,11 @@ using Full.NET.Modules.Document.Persistence;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentTags;
 
+/// <summary>
+/// Host 文档标签目录管理服务。标签为扁平结构（无父子层级），通过乐观并发 Version 字段防止覆盖；
+/// 删除前必须校验无标签引用（CountAssignments），存在引用时返回 InUse 错误。
+/// 同步写入 Code/Icon/Color/Description 四列，UseCount 由后端按引用计数维护，禁止由前端直接写入。
+/// </summary>
 internal sealed class HostDocumentTagManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,

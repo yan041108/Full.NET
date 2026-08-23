@@ -5,6 +5,9 @@ namespace Full.NET.Composition;
 /// </summary>
 public sealed class FullNetModuleSelectionOptions
 {
+    /// <summary>
+    /// 运行时模块裁剪配置节的稳定路径 <c>FullNet:Modules</c>。
+    /// </summary>
     public const string SectionName = "FullNet:Modules";
 
     /// <summary>
@@ -18,8 +21,14 @@ public sealed class FullNetModuleSelectionOptions
     /// </summary>
     public string[]? Enabled { get; init; }
 
+    /// <summary>
+    /// 预设模块集合稳定名称；<see cref="Full"/> 为默认，其余预设按底座能力逐级叠加。
+    /// </summary>
     public static class Presets
     {
+        /// <summary>
+        /// 默认预设：注册全部官方模块，与 <see cref="FullNetModuleCatalog"/> 编译闭包一致。
+        /// </summary>
         public const string Full = "Full";
 
         /// <summary>

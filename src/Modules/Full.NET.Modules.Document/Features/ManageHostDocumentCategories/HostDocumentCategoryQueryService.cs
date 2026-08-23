@@ -5,6 +5,10 @@ using Full.NET.Modules.Document.Persistence;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentCategories;
 
+/// <summary>
+/// Host 文档分类只读查询服务。按层级返回活动分类，前端在内存内构建树形结构；
+/// 本服务不递归查询子分类以避免 SQL 递归的跨库差异，也不暴露已删除分类。
+/// </summary>
 internal sealed class HostDocumentCategoryQueryService(IQueryExecutor queryExecutor)
 {
     public async Task<Result<IReadOnlyList<HostDocumentCategoryResponse>>> ListAsync(

@@ -5,6 +5,19 @@ namespace Full.NET.Seeding.Abstractions;
 /// <summary>
 /// 标识生产安全基线以及允许叠加的环境种子数据集合。
 /// </summary>
+/// <remarks>
+/// <para>Full.NET 种子数据采用“Baseline + 环境 Overlay”的确定性继承链：</para>
+/// <list type="bullet">
+/// <item><c>Baseline</c> 是所有继承链的根，承载生产必需且可安全重复协调的数据，
+/// Production 环境只允许执行 Baseline。</item>
+/// <item><c>Development</c> 与 <c>Demo</c> 是开发/演示环境在 Baseline 之上叠加的 Overlay，
+/// 编排器必须先执行 Baseline 层再执行该 Overlay 层，二者互不叠加。</item>
+/// <item><c>Test</c> 是自动化测试环境的 Overlay，对应 Contributor 只允许存在于测试/Sample 测试程序集，
+/// 不得进入发布物；具体场景数据由隔离 Test Factory 创建，不写入 Test Profile 自身。</item>
+/// </list>
+/// <para>继承关系由 <see cref="SeedProfileNames.EffectiveLayers"/> 封闭表达，禁止运行时组合未声明的 Profile 集合，
+/// 也禁止把开发/演示数据改名后放入 Baseline 绕过生产门禁。Overlay 层的 Contributor 不得删除数据、重置密码或覆盖用户修改。</para>
+/// </remarks>
 public enum SeedProfile
 {
     /// <summary>生产运行所必需且可安全重复协调的基础数据。</summary>

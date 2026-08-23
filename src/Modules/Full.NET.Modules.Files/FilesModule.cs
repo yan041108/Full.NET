@@ -19,6 +19,14 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files;
 
+/// <summary>
+/// Files 业务模块入口：提供 Host 作用域文件上传、下载、引用声明（Claim）与已删除 Blob 回收能力。
+/// </summary>
+/// <remarks>
+/// 安全边界：Host 文件元数据均以 <c>TenantId IS NULL</c> 表达 Host 作用域，SQL 声明 <c>SqlDataScope.HostOnly</c>；
+/// 跨模块引用通过 <c>fn_files_file_reference_claim</c> 状态机声明，未释放的引用阻止软删除，回收仅清理无引用的已删除 Blob。
+/// 后台清理与对账由 <c>AddBackgroundServices</c> 单独注册到 Worker 角色，API 宿主不隐式启动回收循环。
+/// </remarks>
 public sealed class FilesModule : IFullNetModule
 {
     public string Name => "Files";

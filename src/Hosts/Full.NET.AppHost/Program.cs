@@ -64,3 +64,13 @@ builder
     .WaitForCompletion(migrator);
 
 builder.Build().Run();
+
+/// <summary>
+/// Full.NET 本地开发 Aspire 编排入口；按依赖顺序启动资源与项目。
+/// </summary>
+/// <remarks>
+/// 编排拓扑：先就绪 <c>redis</c> 与数据库（<c>sql</c>/<c>mysql</c> 由 <c>UseMySql</c> 切换），
+/// <c>migrator</c> <c>WaitFor(database)</c>，<c>api</c> 与 <c>worker</c> 均 <c>WaitForCompletion(migrator)</c>，
+/// 确保迁移与 Seed 完成后才启动业务进程。本地共用一个 Redis，生产 Cache/Realtime 隔离由显式连接串门禁强制。
+/// </remarks>
+public partial class Program;
