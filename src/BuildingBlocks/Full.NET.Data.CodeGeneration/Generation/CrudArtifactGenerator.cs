@@ -577,26 +577,7 @@ public static class CrudArtifactGenerator
                 ? "disable"
                 : null,
             ["scene"] = FullNetCrudWireValues.ToWireValue(schema.Scene),
-            ["migrationTemplateGenerated"] =
-                schema.DataScope != FullNetCrudDataScope.Unspecified,
-            ["integrationTestTemplateGenerated"] =
-                schema.DataScope != FullNetCrudDataScope.Unspecified,
         };
-        if (!schema.UsesLegacyEntityCapabilities)
-        {
-            report["entityCapabilities"] = new JsonObject
-            {
-                ["deleteMode"] = FullNetCrudWireValues.ToWireValue(
-                    schema.EntityCapabilities.DeleteMode),
-                ["hasCreatedAudit"] = schema.EntityCapabilities.HasCreatedAudit,
-                ["hasUpdatedAudit"] = schema.EntityCapabilities.HasUpdatedAudit,
-                ["hasDeletedAudit"] = schema.EntityCapabilities.HasDeletedAudit,
-                ["hasVersion"] = schema.EntityCapabilities.HasVersion,
-                ["ownershipMode"] = FullNetCrudWireValues.ToWireValue(
-                    schema.EntityCapabilities.OwnershipMode),
-            };
-        }
-
         var relationships = new JsonArray(
             schema.Relationships
                 .Select(relationship => (JsonNode)new JsonObject
@@ -620,33 +601,43 @@ public static class CrudArtifactGenerator
                 })
                 .ToArray());
         report["relationships"] = relationships;
+        if (schema.UsesLegacyEntityCapabilities)
+        {
+            report["entityCapabilities"] = null;
+        }
+        else
+        {
+            report["entityCapabilities"] = new JsonObject
+            {
+                ["deleteMode"] = FullNetCrudWireValues.ToWireValue(
+                    schema.EntityCapabilities.DeleteMode),
+                ["hasCreatedAudit"] = schema.EntityCapabilities.HasCreatedAudit,
+                ["hasUpdatedAudit"] = schema.EntityCapabilities.HasUpdatedAudit,
+                ["hasDeletedAudit"] = schema.EntityCapabilities.HasDeletedAudit,
+                ["hasVersion"] = schema.EntityCapabilities.HasVersion,
+                ["ownershipMode"] = FullNetCrudWireValues.ToWireValue(
+                    schema.EntityCapabilities.OwnershipMode),
+            };
+        }
+
+        report["migrationTemplateGenerated"] =
+            schema.DataScope != FullNetCrudDataScope.Unspecified;
+        report["integrationTestTemplateGenerated"] =
+            schema.DataScope != FullNetCrudDataScope.Unspecified;
 
         var columns = new JsonArray(
             schema.Columns
-                .Select(column =>
+                .Select(column => (JsonNode)new JsonObject
                 {
-                    var columnObject = new JsonObject
-                    {
-                        ["databaseName"] = column.DatabaseName,
-                        ["clrPropertyName"] = column.ClrPropertyName,
-                        ["jsonPropertyName"] = column.JsonPropertyName,
-                        ["scalarType"] = FullNetCrudWireValues.ToWireValue(
-                            column.ScalarType),
-                        ["isNullable"] = column.IsNullable,
-                    };
-                    if (column.MaxLength is not null)
-                    {
-                        columnObject["maxLength"] = column.MaxLength.Value;
-                    }
-                    if (column.NumericPrecision is not null)
-                    {
-                        columnObject["numericPrecision"] = column.NumericPrecision.Value;
-                    }
-                    if (column.NumericScale is not null)
-                    {
-                        columnObject["numericScale"] = column.NumericScale.Value;
-                    }
-                    return (JsonNode)columnObject;
+                    ["databaseName"] = column.DatabaseName,
+                    ["clrPropertyName"] = column.ClrPropertyName,
+                    ["jsonPropertyName"] = column.JsonPropertyName,
+                    ["scalarType"] = FullNetCrudWireValues.ToWireValue(
+                        column.ScalarType),
+                    ["isNullable"] = column.IsNullable,
+                    ["maxLength"] = column.MaxLength,
+                    ["numericPrecision"] = column.NumericPrecision,
+                    ["numericScale"] = column.NumericScale,
                 })
                 .ToArray());
         report["columns"] = columns;
