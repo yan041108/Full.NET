@@ -537,6 +537,10 @@ export function verifyFocusedDiscovery(tests, { phase = 'slice' } = {}) {
   }
 }
 
+function shouldRunNativeAotIntegrationTarget() {
+  return process.platform === 'linux';
+}
+
 export function targetsForPhase(
   targets,
   phase,
@@ -552,14 +556,17 @@ export function targetsForPhase(
   if (phase === 'inner') {
     return targets
       .filter(target =>
-        immediateTargetNames.has(target.name)
-        || target.name.startsWith('migration-')
-      )
+        (immediateTargetNames.has(target.name)
+          || target.name.startsWith('migration-'))
+        && (target.name !== 'native-aot' || shouldRunNativeAotIntegrationTarget()))
       .map(narrowToInnerProvider);
   }
 
   const selected = new Map();
   for (const target of targets) {
+    if (target.name === 'native-aot' && !shouldRunNativeAotIntegrationTarget()) {
+      continue;
+    }
     if (
       !includeHeavy
       && target.kind === 'shard'
