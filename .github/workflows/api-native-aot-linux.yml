@@ -1,0 +1,90 @@
+name: api-native-aot-linux
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'scripts/testing/**'
+      - 'eng/testing/test-matrix.json'
+      - 'Directory.Build.*'
+      - 'global.json'
+      - '.github/workflows/api-native-aot-linux.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'scripts/testing/**'
+      - 'eng/testing/test-matrix.json'
+      - 'Directory.Build.*'
+      - 'global.json'
+      - '.github/workflows/api-native-aot-linux.yml'
+  workflow_dispatch:
+
+jobs:
+  linux-native-aot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install workspace tooling
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/packages.lock.json', '**/Directory.Packages.props', 'global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore solution
+        run: dotnet restore Full.NET.slnx
+
+      - name: Verify Native AOT analyzers
+        run: pnpm test:aot:analyzers
+
+      - name: Publish linux-x64 Native AOT artifact
+        run: pnpm test:aot:publish:linux
+
+      - name: Verify Native AOT architecture gates
+        run: pnpm test:dotnet:architecture -- --selection api-native-aot
+
+      - name: Build integration tests
+        run: dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --no-restore
+
+      - name: Run Native AOT external-process E2E
+        run: pnpm test:aot:native:e2e
+
+      - name: Upload publish manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-native-aot-linux-manifest
+          path: |
+            artifacts/native-aot/linux-x64/publish-manifest.json
+            artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api
+
+      - name: Upload Native AOT test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-native-aot-linux-logs
+          path: |
+            artifacts/**/*.trx
+            TestResults/**

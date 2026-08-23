@@ -58,7 +58,7 @@
 | 全栈本地化 | Build-verified | 使用规范 BCP 47 标签和稳定机器码；新增模块按跨端验证更新状态。 |
 | Baseline + Overlay 种子体系 | Build-verified | Production 只允许 Baseline，API/Worker 禁止启动播种，Contributor 必须幂等并通过双库验证。 |
 | SignalR 实时通知 | Build-verified | 路径、鉴权、Backplane、连接指标和失败关闭已完成持续硬化；Host.Api Native AOT Phase 1 在分析/NativeAot 条件下仅 JSON Hub 协议，见 [`ADR-0008`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 与 [`api-native-aot-readiness-2026-08-23.md`](../verification/api-native-aot-readiness-2026-08-23.md)。 |
-| Host.Api Native AOT（分析闭包） | Build-verified | Phase 1 达成 `Aot-analysis-clean`：`FullNetAotAnalysis` 覆盖完整 net10.0 API 闭包且零 IL2026/IL3050；Linux 原生 publish 与 Provider 闭包仍 `Capacity-not-verified`。 |
+| Host.Api Native AOT（分析闭包） | Build-verified | Phase 1 达成 `Aot-analysis-clean`：`FullNetAotAnalysis` 覆盖完整 net10.0 API 闭包且零 IL2026/IL3050。Phase 2 已落地 `pnpm test:aot:publish:linux` 与外部进程 E2E 夹具；`Aot-published` 待 Linux CI publish + 双库/SignalR 原生证据，见 [`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md)。 |
 | gRPC 服务契约 | Planned | 只有明确的进程间高吞吐或流式需求才进入实现。 |
 | AI 能力 | Planned | 必须先确定数据边界、审计、模型供应、成本与降级策略。 |
 | Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。 |
