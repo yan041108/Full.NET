@@ -40,11 +40,9 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(environment);
 
-        var cacheOptions = new CacheOptions();
-        configuration.GetSection(CacheOptions.SectionName).Bind(cacheOptions);
-        var allowSharedRedis = configuration.GetValue(
-            $"{RealtimeSectionName}:AllowSharedRedisInDevelopment",
-            defaultValue: false);
+        var cacheOptions = configuration.GetSection(CacheOptions.SectionName).Get<CacheOptions>()
+            ?? new CacheOptions();
+        var allowSharedRedis = ReadAllowSharedRedisInDevelopment(configuration);
         cacheOptions.RedisConnectionString = ResolveRedisConnectionString(
             configuration,
             cacheOptions,
@@ -207,6 +205,12 @@ public static class ServiceCollectionExtensions
             environment,
             Environments.Staging,
             StringComparison.OrdinalIgnoreCase);
+
+    private static bool ReadAllowSharedRedisInDevelopment(IConfiguration configuration) =>
+        bool.TryParse(
+            configuration[$"{RealtimeSectionName}:AllowSharedRedisInDevelopment"],
+            out var allowSharedRedis)
+        && allowSharedRedis;
 
     private static void Validate(CacheOptions options)
     {

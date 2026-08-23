@@ -28,8 +28,13 @@ public static class FullNetRateLimitExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        services.TryAddSingleton(configuration);
+
         services.AddOptions<RateLimitingOptions>()
-            .Bind(configuration.GetSection(RateLimitingOptions.SectionName))
+            .BindConfiguration(RateLimitingOptions.SectionName)
             .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<RateLimitingOptions>,

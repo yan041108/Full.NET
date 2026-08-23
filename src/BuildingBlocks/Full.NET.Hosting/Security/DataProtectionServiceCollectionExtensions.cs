@@ -22,16 +22,21 @@ public static class DataProtectionServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(environment);
 
+        // BindConfiguration 在解析 IOptions 时需要 IConfiguration 已注册到 DI。
+        services.TryAddSingleton(configuration);
+
         services.AddOptions<DataProtectionOptions>()
-            .Bind(configuration.GetSection(DataProtectionOptions.SectionName))
+            .BindConfiguration(DataProtectionOptions.SectionName)
             .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<DataProtectionOptions>,
             DataProtectionOptionsValidator>());
 
         // ValidateOnStart 在构建宿主时触发；此处先读取一次以在注册阶段 fail-fast。
-        var options = new DataProtectionOptions();
-        configuration.GetSection(DataProtectionOptions.SectionName).Bind(options);
+        var options = configuration
+                .GetSection(DataProtectionOptions.SectionName)
+                .Get<DataProtectionOptions>()
+            ?? new DataProtectionOptions();
         var validation = new DataProtectionOptionsValidator(environment)
             .Validate(name: null, options);
         if (validation.Failed)

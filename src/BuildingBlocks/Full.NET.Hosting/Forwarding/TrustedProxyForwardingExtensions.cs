@@ -15,8 +15,13 @@ public static class TrustedProxyForwardingExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        services.TryAddSingleton(configuration);
+
         services.AddOptions<TrustedProxyOptions>()
-            .Bind(configuration.GetSection(TrustedProxyOptions.SectionName))
+            .BindConfiguration(TrustedProxyOptions.SectionName)
             .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<TrustedProxyOptions>,

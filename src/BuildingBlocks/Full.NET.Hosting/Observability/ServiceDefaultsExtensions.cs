@@ -35,8 +35,10 @@ public static class ServiceDefaultsExtensions
     public static IHostApplicationBuilder AddFullNetServiceDefaults(
         this IHostApplicationBuilder builder)
     {
-        var loggingOptions = new LoggingOptions();
-        builder.Configuration.GetSection(LoggingOptions.SectionName).Bind(loggingOptions);
+        var loggingOptions = builder.Configuration
+                .GetSection(LoggingOptions.SectionName)
+                .Get<LoggingOptions>()
+            ?? new LoggingOptions();
         if (loggingOptions.AsyncBufferSize <= 0)
         {
             throw new OptionsValidationException(
@@ -132,7 +134,7 @@ public static class ServiceDefaultsExtensions
         }
 
         builder.Services.AddOptions<HttpOperationLogOptions>()
-            .Bind(builder.Configuration.GetSection(HttpOperationLogOptions.SectionName))
+            .BindConfiguration(HttpOperationLogOptions.SectionName)
             .ValidateOnStart();
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<HttpOperationLogOptions>,

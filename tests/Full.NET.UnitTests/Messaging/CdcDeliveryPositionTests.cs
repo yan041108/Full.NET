@@ -92,4 +92,16 @@ public sealed class CdcDeliveryPositionTests
         Assert.AreEqual("mysql-bin.000010", parsed.Binlog!.File);
         Assert.AreEqual(42, parsed.Binlog.Position);
     }
+
+    [TestMethod]
+    public void Position_json_parses_historical_sqlserver_fixture()
+    {
+        const string fixture =
+            """{"provider":"sqlserver","lastEventId":"0194b2f0-7c4a-7000-8000-000000000001","lsn":{"commitLsn":"00000027:00000123:0001"}}""";
+
+        Assert.IsTrue(CdcDeliveryPosition.TryParse(fixture, out var parsed));
+        Assert.IsNotNull(parsed);
+        Assert.AreEqual(CdcDeliveryPosition.SqlServerProvider, parsed!.Provider);
+        Assert.AreEqual("00000027:00000123:0001", parsed.Lsn!.CommitLsn);
+    }
 }

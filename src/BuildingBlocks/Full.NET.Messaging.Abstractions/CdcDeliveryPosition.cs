@@ -12,12 +12,6 @@ public sealed class CdcDeliveryPosition
     public const string MySqlProvider = "mysql";
     public const string SqlServerProvider = "sqlserver";
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
-
     public string Provider { get; init; } = string.Empty;
 
     public Guid? LastEventId { get; init; }
@@ -55,7 +49,8 @@ public sealed class CdcDeliveryPosition
             Lsn = SqlServerCdcLsnCoordinates.FromBytes(lsnBytes),
         };
 
-    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
+    public string ToJson() =>
+        JsonSerializer.Serialize(this, MessagingJsonSerializerContext.Default.CdcDeliveryPosition);
 
     public static bool TryParse(string? json, out CdcDeliveryPosition? position)
     {
@@ -67,7 +62,9 @@ public sealed class CdcDeliveryPosition
 
         try
         {
-            position = JsonSerializer.Deserialize<CdcDeliveryPosition>(json, JsonOptions);
+            position = JsonSerializer.Deserialize(
+                json,
+                MessagingJsonSerializerContext.Default.CdcDeliveryPosition);
             return position is not null && position.IsValid();
         }
         catch (JsonException)
