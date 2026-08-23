@@ -98,9 +98,6 @@ importers:
       '@microsoft/signalr':
         specifier: 10.0.0
         version: 10.0.0
-      '@microsoft/signalr-protocol-msgpack':
-        specifier: 10.0.0
-        version: 10.0.0
     devDependencies:
       typescript:
         specifier: 7.0.2
@@ -1506,15 +1503,8 @@ packages:
   '@kwsites/file-exists@1.1.1':
     resolution: {integrity: sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==}
 
-  '@microsoft/signalr-protocol-msgpack@10.0.0':
-    resolution: {integrity: sha512-N4h4BD+y9kw/iszpDaDaIRJpxaRSA5uBtveM6HUIwmwkeJIPOoMrPNvmj77UrjZHAsbVwa/acLiWnPDfffO3yQ==}
-
   '@microsoft/signalr@10.0.0':
     resolution: {integrity: sha512-0BRqz/uCx3JdrOqiqgFhih/+hfTERaUfCZXFB52uMaZJrKaPRzHzMuqVsJC/V3pt7NozcNXGspjKiQEK+X7P2w==}
-
-  '@msgpack/msgpack@2.8.0':
-    resolution: {integrity: sha512-h9u4u/jiIRKbq25PM+zymTyW6bhTzELvOoUd+AvYriWOAKpLGnIamaET3pnHYoI5iYphAHBI4ayx0MehR+VVPQ==}
-    engines: {node: '>= 10'}
 
   '@napi-rs/wasm-runtime@1.1.6':
     resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
@@ -6558,15 +6548,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@microsoft/signalr-protocol-msgpack@10.0.0':
-    dependencies:
-      '@microsoft/signalr': 10.0.0
-      '@msgpack/msgpack': 2.8.0
-    transitivePeerDependencies:
-      - bufferutil
-      - encoding
-      - utf-8-validate
-
   '@microsoft/signalr@10.0.0':
     dependencies:
       abort-controller: 3.0.0
@@ -6578,8 +6559,6 @@ snapshots:
       - bufferutil
       - encoding
       - utf-8-validate
-
-  '@msgpack/msgpack@2.8.0': {}
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
     dependencies:
