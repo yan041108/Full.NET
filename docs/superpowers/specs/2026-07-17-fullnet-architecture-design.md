@@ -301,7 +301,7 @@ Api、Worker、Migrator 和 Test 使用显式 Host Profile 声明完整模块或
 | 同进程模块 | Contract Service、Command/Query | 无 | 不制造网络边界和序列化开销 |
 | 跨进程同步服务 | gRPC | Protobuf | 复用 Channel，统一 Deadline、取消、认证和追踪 |
 | 内部可靠异步事件 | Outbox + EventBus Provider | MessagePack；跨语言时可选 Protobuf | 二进制原样存储，消费者幂等，契约显式版本化 |
-| 浏览器实时通信 | SignalR | MessagePack 优先，JSON 兼容 | 不是内部 EventBus，不承载业务事务 |
+| 浏览器实时通信 | SignalR | MessagePack 优先，JSON 兼容 | 不是内部 EventBus，不承载业务事务；Host.Api Native AOT 发布与分析构建仅 JSON，见 [`ADR-0008`](../../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) |
 | 文件和超大二进制 | HTTP 流或对象存储引用 | 原始二进制 | 不放入单个 gRPC/SignalR/Outbox 大消息 |
 | MCP、AG-UI 等开放 AI 协议 | 协议规定的 HTTP、SSE、JSON-RPC | 按协议标准 | 这是互操作边界，不受“内部业务消息不用 JSON”限制 |
 

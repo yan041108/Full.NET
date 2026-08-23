@@ -107,7 +107,8 @@ Handler 保留以下业务规则：
 - 不引入 FastEndpoints 或 MediatR 作为验证实现的间接依赖；
 - 无 Validator 的消息只产生一次空集合枚举和管道委托调用；
 - Validator 串行执行，避免带 Scoped 依赖的 Validator 并发访问同一数据库会话；
-- 新行为必须有单元测试，真实租户链路必须继续通过 SQL Server/MySQL 集成测试。
+- 新行为必须有单元测试，真实租户链路必须继续通过 SQL Server/MySQL 集成测试；
+- Host.Api Native AOT Phase 1 以 [`ADR-0008`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 为边界：`FullNetAotAnalysis` 与 `FullNetPublishMode=NativeAot` 共享编译条件，完整 API 闭包分析零告警为 `Aot-analysis-clean`；Linux 原生 publish 属于后续 Phase。
 
 ## 8. 验收标准
 
